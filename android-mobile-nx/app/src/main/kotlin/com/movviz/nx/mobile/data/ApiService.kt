@@ -21,8 +21,10 @@ interface MovvizApiService {
     @POST("api/auth/login")
     suspend fun login(@Body body: LoginRequest): Response<LoginResponse>
 
-    @POST("api/auth/plex/tv-pin")
-    suspend fun createPlexTvPin(): Response<PlexPinDto>
+    /** Même PIN OAuth fort que la connexion Plex du desktop. Le flux TV
+     * court est réservé aux grands écrans sans navigateur. */
+    @POST("api/auth/plex/pin")
+    suspend fun createPlexPin(): Response<PlexPinDto>
 
     @POST("api/auth/plex/poll")
     suspend fun pollPlexPin(@Body body: PlexPollRequest): Response<PlexPollDto>

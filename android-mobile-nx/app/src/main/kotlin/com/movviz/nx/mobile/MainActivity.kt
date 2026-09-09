@@ -43,6 +43,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.input.key.Key
@@ -69,7 +70,7 @@ import androidx.navigation.navDeepLink
 import com.movviz.nx.mobile.ui.discover.RowDetailScreen
 import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.home.MainScreen
-import com.movviz.nx.mobile.ui.home.NxTopNav
+import com.movviz.nx.mobile.ui.home.NavRail
 import com.movviz.nx.mobile.ui.login.LoginScreen
 import com.movviz.nx.mobile.ui.person.PersonScreen
 import com.movviz.nx.mobile.ui.profile.ProfilePickerScreen
@@ -82,6 +83,8 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconFilm
 import com.movviz.nx.mobile.ui.theme.MovvizIconTvScreen
 import com.movviz.nx.mobile.ui.theme.MovvizIconDotCircle
 import com.movviz.nx.mobile.ui.theme.MovvizIconStar
+import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
+import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
 import com.movviz.nx.mobile.ui.title.TitleDetailScreen
 import com.movviz.nx.mobile.ui.update.AutoUpdateOverlay
 import com.movviz.nx.mobile.ui.wizard.WizardScreen
@@ -110,7 +113,7 @@ private const val ROUTE_LOGIN_ADD = "login?add=true"
  *  titre, fiche acteur. Absente sur wizard/login/profils (avant qu'il y
  *  ait quoi que ce soit à naviguer). */
 private fun routeShowsNavRail(route: String?): Boolean =
-    route != null && (route.startsWith("home") || route.startsWith("detail/") || route.startsWith("person/") || route.startsWith("row/"))
+    route != null && (route.startsWith("home") || route.startsWith("downloads") || route.startsWith("detail/") || route.startsWith("person/") || route.startsWith("row/"))
 
 fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = null): String {
     val base = "detail/$type/$tmdbId"
@@ -301,21 +304,32 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     }
 
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
-    // NX: la navigation est une surcouche haute. Le contenu garde la pleine
-    // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
+    // En largeur tablette/pliable, la navigation devient un rail fixe : les
+    // panneaux restent côte à côte et aucun contenu ne passe sous la barre.
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (routeShowsNavRail(currentRoute) && !compactPortrait) {
-                NxTopNav(
+                NavRail(
                     selected = tab,
-                    hasScrolled = headerHasScrolled,
                     onSelect = { newTab ->
-                        if (currentRoute?.startsWith("home") != true) {
-                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                        if (newTab == HomeTab.DOWNLOADS) {
+                            tab = HomeTab.DOWNLOADS
+                            navController.navigate(ROUTE_DOWNLOADS) {
+                                // Destination racine : ouvrir la file depuis
+                                // une fiche ne doit pas conserver cette fiche
+                                // sous elle, sinon Retour afficherait un
+                                // écran détail avec « Accueil » actif.
+                                popUpTo(ROUTE_HOME)
+                                launchSingleTop = true
+                            }
+                        } else {
+                            if (currentRoute?.startsWith("home") != true) {
+                                navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                            }
+                            tab = newTab
+                            searchOpen = false
+                            headerHasScrolled = false
                         }
-                        tab = newTab
-                        searchOpen = false
-                        headerHasScrolled = false
                     },
                     searchOpen = searchOpen,
                     searchQuery = searchQuery,
@@ -345,26 +359,35 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         searchOpen = false
                         headerHasScrolled = false
                     },
-                    onOpenSettings = {
-                        if (currentRoute?.startsWith("home") != true) {
-                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
-                        }
-                        tab = HomeTab.SETTINGS
-                        searchOpen = false
-                        headerHasScrolled = false
-                    },
                     onSwitchProfile = {
                         navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
                     },
-                    onOpenDownloads = { navController.navigate(ROUTE_DOWNLOADS) },
                     updateAvailableTag = viewModel.availableUpdateTag.collectAsState().value,
                     onUpdateClick = { viewModel.requestUpdateInstall() },
                     contentFocusRequester = contentFocusRequester,
                     navRailFocusRequester = navRailFocusRequester,
-                    modifier = Modifier.align(Alignment.TopCenter).zIndex(10f),
+                    modifier = Modifier.align(Alignment.TopStart).zIndex(10f),
                 )
             }
-            Box(modifier = Modifier.fillMaxSize()) {
+            // Le NavHost reçoit une hauteur réellement réduite quand le dock
+            // portrait est visible. Ce n'est pas un padding décoratif posé
+            // sur chaque écran : toutes les listes / grilles `fillMaxSize()`
+            // calculent ainsi leur dernier élément AU-DESSUS de la navigation
+            // fixe, sans modifier les compositions tablette et pliable.
+            val portraitDockVisible = compactPortrait &&
+                (currentRoute?.startsWith(ROUTE_HOME) == true || currentRoute?.startsWith(ROUTE_DOWNLOADS) == true)
+            // navigationBarsPadding() agrandit le dock de l'inset système :
+            // réserver seulement 82dp laisserait encore la dernière carte
+            // sous la zone de gestes sur les appareils edge-to-edge.
+            val portraitDockInset = 82.dp + WindowInsets.navigationBars
+                .asPaddingValues()
+                .calculateBottomPadding()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = if (!compactPortrait && routeShowsNavRail(currentRoute)) 76.dp else 0.dp)
+                    .padding(bottom = if (portraitDockVisible) portraitDockInset else 0.dp),
+            ) {
         NavHost(navController = navController, startDestination = resolvedStart) {
 composable(ROUTE_WIZARD) {
             WizardScreen(
@@ -456,38 +479,50 @@ composable(ROUTE_PROFILES) {
             )
         }
         composable(ROUTE_HOME) {
-            MainScreen(
-                viewModel = viewModel,
-                onOpenTitle = { type, tmdbId ->
-                    navController.navigate(detailRoute(type, tmdbId))
-                },
-                onOpenEpisode = { tmdbId, season, episode ->
-                    navController.navigate(detailRoute("series", tmdbId, season, episode))
-                },
-                onSeeAllRow = { mediaType, key, label ->
-                    navController.navigate(rowDetailRoute("row", mediaType, key, label))
-                },
-                onOpenGenre = { mediaType, genreId, label ->
-                    navController.navigate(rowDetailRoute("genre", mediaType, genreId, label))
-                },
-                onLoggedOut = {
-                    navController.navigate(ROUTE_LOGIN) {
-                        popUpTo(ROUTE_HOME) { inclusive = true }
+            val expandedLayout = LocalConfiguration.current.screenWidthDp >= 900
+            val openTitle: (String, Int) -> Unit = { type, tmdbId -> navController.navigate(detailRoute(type, tmdbId)) }
+            val mainContent: @Composable () -> Unit = {
+                MainScreen(
+                    viewModel = viewModel,
+                    onOpenTitle = openTitle,
+                    onOpenEpisode = { tmdbId, season, episode -> navController.navigate(detailRoute("series", tmdbId, season, episode)) },
+                    onSeeAllRow = { mediaType, key, label -> navController.navigate(rowDetailRoute("row", mediaType, key, label)) },
+                    onOpenGenre = { mediaType, genreId, label -> navController.navigate(rowDetailRoute("genre", mediaType, genreId, label)) },
+                    onLoggedOut = { navController.navigate(ROUTE_LOGIN) { popUpTo(ROUTE_HOME) { inclusive = true } } },
+                    tab = tab,
+                    searchOpen = searchOpen,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    contentFocusRequester = contentFocusRequester,
+                    navRailFocusRequester = navRailFocusRequester,
+                    onHomeScrollChanged = { headerHasScrolled = it },
+                )
+            }
+            // Première composition pliable de référence : rail (hors NavHost)
+            // + univers d'accueil + file de téléchargement. Les deux slots
+            // réutilisent les écrans complets et leurs sources de données.
+            if (expandedLayout && tab == HomeTab.HOME && !searchOpen) {
+                Row(Modifier.fillMaxSize()) {
+                    Box(Modifier.weight(1.65f)) { mainContent() }
+                    Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = .12f)))
+                    Box(Modifier.weight(.85f)) {
+                        com.movviz.nx.mobile.ui.downloads.DownloadsScreen(
+                            viewModel = viewModel,
+                            onBack = {},
+                            onOpenTitle = openTitle,
+                            embedded = true,
+                        )
                     }
-                },
-                tab = tab,
-                searchOpen = searchOpen,
-                searchQuery = searchQuery,
-                onSearchQueryChange = { searchQuery = it },
-                contentFocusRequester = contentFocusRequester,
-                navRailFocusRequester = navRailFocusRequester,
-                onHomeScrollChanged = { headerHasScrolled = it },
-            )
+                }
+            } else mainContent()
         }
         composable(ROUTE_DOWNLOADS) {
             com.movviz.nx.mobile.ui.downloads.DownloadsScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    tab = HomeTab.HOME
+                    navController.popBackStack()
+                },
                 onOpenTitle = { type, tmdbId -> navController.navigate(detailRoute(type, tmdbId)) },
             )
         }
@@ -602,16 +637,26 @@ composable(ROUTE_PROFILES) {
         }
             }
         }
-        // Le téléphone ne réutilise pas une barre TV réduite : sur portrait,
-        // l'accès principal est une capsule basse tactile. En paysage, cette
-        // branche n'existe pas et NxTopNav reste intacte.
-        if (compactPortrait && currentRoute?.startsWith("home") == true) {
+        // Le téléphone a son propre shell NX : une barre basse pleine largeur
+        // et stable, comme la référence Android. Ce n'est volontairement pas
+        // une capsule flottante TV réduite. Accueil, téléchargements et
+        // réglages gardent donc le même repère tactile en portrait.
+        if (compactPortrait && (currentRoute?.startsWith("home") == true || currentRoute?.startsWith(ROUTE_DOWNLOADS) == true)) {
             PortraitBottomNav(
                 selected = tab,
-                onSelect = { newTab -> tab = newTab; searchOpen = false; headerHasScrolled = false },
-                profileLabel = viewModel.activeProfile.collectAsState().value?.name ?: "Mon profil",
-                updateTag = viewModel.availableUpdateTag.collectAsState().value,
-                onUpdateClick = { viewModel.requestUpdateInstall() },
+                downloadsActive = currentRoute?.startsWith(ROUTE_DOWNLOADS) == true,
+                onSelect = { newTab ->
+                    if (currentRoute?.startsWith("home") != true) {
+                        navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                    }
+                    tab = newTab
+                    searchOpen = false
+                    headerHasScrolled = false
+                },
+                onOpenDownloads = {
+                    searchOpen = false
+                    navController.navigate(ROUTE_DOWNLOADS) { launchSingleTop = true }
+                },
                 modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
             )
         }
@@ -622,138 +667,81 @@ composable(ROUTE_PROFILES) {
 @Composable
 private fun PortraitBottomNav(
     selected: HomeTab,
+    downloadsActive: Boolean,
     onSelect: (HomeTab) -> Unit,
-    profileLabel: String,
-    updateTag: String?,
-    onUpdateClick: () -> Unit,
+    onOpenDownloads: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    data class Item(val tab: HomeTab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
-    val items = listOf(
-        Item(HomeTab.HOME, "Accueil", MovvizIconHome),
-        Item(HomeTab.DISCOVER, "Découverte", MovvizIconStar),
-        Item(HomeTab.SERIES, "Séries", MovvizIconTvScreen),
-        Item(HomeTab.MOVIES, "Films", MovvizIconFilm),
-        Item(HomeTab.PROFILE, profileLabel, MovvizIconDotCircle),
+    /** Les cinq destinations sont celles de l'app Android NX. Les trois
+     * contextes Découverte / Films / Séries vivent à l'intérieur de la
+     * destination Découvrir ; on ne fusionne pas les deux navigations. */
+    data class Item(
+        val label: String,
+        val icon: androidx.compose.ui.graphics.vector.ImageVector,
+        val active: () -> Boolean,
+        val action: () -> Unit,
     )
-    // Le dock est volontairement plus petit que le contenu et ne touche
-    // jamais la zone des gestes. Une barre pleine largeur ou trop basse fait
-    // immédiatement "web app" et masque les cartes de la dernière rangée.
-    Column(
+    val items = listOf(
+        Item("Accueil", MovvizIconHome, { !downloadsActive && selected == HomeTab.HOME }) { onSelect(HomeTab.HOME) },
+        Item("Découvrir", MovvizIconStar, { !downloadsActive && selected == HomeTab.DISCOVER }) { onSelect(HomeTab.DISCOVER) },
+        // La bibliothèque actuelle est le hub catalogue : il conserve son
+        // implémentation existante, sans inventer un sixième écran vide.
+        Item("Bibliothèque", MovvizIconFilm, { !downloadsActive && selected == HomeTab.LIBRARY }) { onSelect(HomeTab.LIBRARY) },
+        Item("Téléchargements", MovvizIconDownload, { downloadsActive }) { onOpenDownloads() },
+        Item("Réglages", MovvizIconSettings, { !downloadsActive && selected == HomeTab.SETTINGS }) { onSelect(HomeTab.SETTINGS) },
+    )
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            // La référence réserve une vraie zone de respiration au dock,
+            // y compris avant la zone gestuelle : 82dp visibles, puis
+            // l'inset système. À 68dp, les libellés devenaient trop petits
+            // et l'ensemble prenait l'apparence d'une toolbar compacte.
+            .height(82.dp)
+            .background(Brush.verticalGradient(listOf(Color(0xF7121D40), Color(0xFC070B18))))
+            .border(1.dp, Color(0xFF31456F).copy(alpha = .52f))
+            .padding(horizontal = 4.dp, vertical = 7.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (updateTag != null) {
+        items.forEach { item ->
+            val active = item.active()
             Surface(
-                onClick = onUpdateClick,
-                modifier = Modifier.height(38.dp).tvPointerClick(onUpdateClick),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
+                onClick = item.action,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .tvPointerClick(item.action),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
                 colors = ClickableSurfaceDefaults.colors(
-                    containerColor = Color(0xFF3D276E),
-                    focusedContainerColor = Color(0xFF5A3AA0),
-                    contentColor = Color.White,
+                    // L'actif NX n'est pas une grosse tuile : c'est une
+                    // icône/label magenta posés sur une lueur basse légère.
+                    // On conserve la surface transparente pour laisser la
+                    // barre respirer comme l'esquisse Android.
+                    containerColor = Color.Transparent,
+                    focusedContainerColor = Color(0xFF6C35C8).copy(alpha = .22f),
+                    contentColor = if (active) Color(0xFFE77CFF) else Color(0xFFB6BED5),
                     focusedContentColor = Color.White,
                 ),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("↓", fontSize = 21.sp, color = Color(0xFFD9B7FF))
-                    Text(
-                        "Mise à jour ${updateTag.removePrefix("v")}",
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        color = Color.White,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-        }
-        // Les cellules restent strictement égales. Ainsi l'icône ne se
-        // déplace jamais quand le libellé actif apparaît : seul ce dernier
-        // anime dans sa propre ligne, juste au-dessus du dock.
-        Column(
-            modifier = Modifier.wrapContentWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                modifier = Modifier.height(26.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                items.forEach { item ->
-                    val active = selected == item.tab
-                    Box(
-                        modifier = Modifier.width(48.dp).height(26.dp),
-                        contentAlignment = Alignment.TopCenter,
-                    ) {
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = active,
-                            enter = fadeIn(tween(120)) + expandHorizontally(tween(180)),
-                            exit = fadeOut(tween(90)) + shrinkHorizontally(tween(140)),
-                        ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (active) {
                             Box(
                                 modifier = Modifier
-                                    .wrapContentWidth(unbounded = true)
-                                    .height(24.dp)
-                                    .background(Color(0xFF45454D), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 10.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    item.label,
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 10.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(
-                modifier = Modifier
-                    .wrapContentWidth()
-                    .shadow(14.dp, RoundedCornerShape(30.dp), clip = false)
-                    .background(Color(0xF51D1D20), RoundedCornerShape(30.dp))
-                    .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(30.dp))
-                    .padding(horizontal = 6.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                items.forEach { item ->
-                    val active = selected == item.tab
-                    Surface(
-                        onClick = { onSelect(item.tab) },
-                        modifier = Modifier
-                            .width(48.dp)
-                            .height(50.dp)
-                            .tvPointerClick { onSelect(item.tab) },
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(25.dp)),
-                        colors = ClickableSurfaceDefaults.colors(
-                            containerColor = if (active) Color(0xFF45454D) else Color.Transparent,
-                            focusedContainerColor = Color(0xFF5D5D68),
-                            contentColor = Color.White,
-                            focusedContentColor = Color.White,
-                        ),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                item.icon,
-                                item.label,
-                                modifier = Modifier.size(21.dp),
-                                tint = if (active) Color.White else Color(0xFFC3C3CB),
+                                    .size(42.dp)
+                                    .background(Brush.radialGradient(listOf(Color(0xFFB13DFF).copy(alpha = .42f), Color.Transparent)), RoundedCornerShape(21.dp)),
                             )
                         }
+                        Icon(item.icon, item.label, modifier = Modifier.size(22.dp), tint = if (active) Color(0xFFE77CFF) else Color(0xFFB6BED5))
                     }
+                    Spacer(Modifier.height(5.dp))
+                    Text(item.label, fontSize = 10.sp, fontWeight = if (active) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

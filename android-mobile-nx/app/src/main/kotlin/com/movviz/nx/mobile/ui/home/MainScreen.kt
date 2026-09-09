@@ -101,12 +101,19 @@ fun MainScreen(
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 onScrollChanged = onHomeScrollChanged,
             )
-            // État résiduel d'une ancienne navigation : on retombe sur le
-            // hub Films plutôt que de présenter un onglet invisible.
-            tab == HomeTab.DISCOVER -> MediaHubScreen(
-                viewModel = viewModel, type = HomeTab.MOVIES,
+            // Découvrir est l'espace éditorial indépendant : sans type fixé,
+            // DiscoverScreen conserve ses contextes de catalogue au lieu de
+            // devenir un alias visuel du hub Films.
+            tab == HomeTab.DISCOVER -> DiscoverHubScreen(
+                viewModel = viewModel,
                 onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                onScrollChanged = onHomeScrollChanged,
+            )
+            tab == HomeTab.LIBRARY -> LibraryHubScreen(
+                viewModel = viewModel,
+                onOpenTitle = onOpenTitle,
+                entryFocusRequester = contentFocusRequester,
                 onScrollChanged = onHomeScrollChanged,
             )
             tab == HomeTab.PROFILE -> ProfileScreen(

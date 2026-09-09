@@ -118,6 +118,11 @@ fun ProfilePickerScreen(
             modifier = Modifier.fillMaxSize().padding(top = if (compactPortrait) 28.dp else 46.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Text(
+                "ÉTAPE 3 / 5 · CHOISIR UN PROFIL",
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizAmber, letterSpacing = 2.sp),
+            )
+            Spacer(Modifier.height(10.dp))
             Box(contentAlignment = Alignment.Center) {
                 AnimatedLogo(size = 38.dp)
             }

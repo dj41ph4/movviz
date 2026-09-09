@@ -180,6 +180,11 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // /Séries plutôt que de la reléguer à un écran caché.
     private val _queue = MutableStateFlow<List<QueueItemDto>>(emptyList())
     val queue: StateFlow<List<QueueItemDto>> = _queue.asStateFlow()
+    // Même source moteur que la file active, mais séparée afin que l'écran
+    // Téléchargements puisse afficher son historique réel sans polluer les
+    // rangées actives de l'accueil.
+    private val _completedQueue = MutableStateFlow<List<QueueItemDto>>(emptyList())
+    val completedQueue: StateFlow<List<QueueItemDto>> = _completedQueue.asStateFlow()
 
     // Découverte — titres TMDb tendance pas encore ajoutés à la bibliothèque,
     // pour la rangée "Découverte" de l'accueil. Chargés séparément
@@ -661,6 +666,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _heroLogos.value = emptyMap()
         _continueWatching.value = emptyList()
         _queue.value = emptyList()
+        _completedQueue.value = emptyList()
         _trendingMovies.value = emptyList()
         _trendingSeries.value = emptyList()
         _movieRows.value = emptyList()
@@ -1151,9 +1157,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 // dizaines d'entrées déjà terminées (confirmé en direct sur
                 // la vraie file de prod) au lieu des seuls téléchargements
                 // réellement actifs.
-            is ApiResult.Success -> _queue.value = q.data.filter {
-                    it.status != "completed" && it.status != "seeding"
-                }
+            is ApiResult.Success -> {
+                _queue.value = q.data.filter { it.status != "completed" && it.status != "seeding" }
+                _completedQueue.value = q.data.filter { it.status == "completed" || it.status == "seeding" }
+            }
             ApiResult.Unauthorized -> _sessionExpired.value = true
             is ApiResult.Failure -> Unit
         }

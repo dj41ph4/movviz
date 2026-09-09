@@ -1,13 +1,11 @@
 package com.movviz.nx.mobile.ui.login
 
 import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -21,7 +19,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -51,13 +48,8 @@ import com.movviz.nx.mobile.ui.theme.MovvizAmber
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlay
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
-import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizWordmark
 import com.movviz.nx.mobile.ui.wizard.GradientButton
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.MultiFormatWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -71,17 +63,12 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var plexBusy by remember { mutableStateOf(false) }
-    var plexCode by remember { mutableStateOf<String?>(null) }
-    var plexAuthUrl by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val usernameFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
     val loginButtonFocus = remember { FocusRequester() }
-    // Cible de retour du focus quand l'overlay de code Plex se ferme
-    // ("Annuler") — sans ça, le focus reste orphelin après la disparition
-    // du noeud qui le portait et le premier appui D-pad tombe dans le vide.
     val plexLoginFocus = remember { FocusRequester() }
 
     // Focus initial explicite — un seul essai non protégé ici plantait le
@@ -120,7 +107,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
             MovvizWordmark(fontSize = 25.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                text = if (addMode) "Ajouter un utilisateur au foyer" else "Bienvenue sur Movviz",
+                text = if (addMode) "Ajouter un utilisateur au foyer" else "ÉTAPE 2 / 5 · CONNECTEZ-VOUS",
                 style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
             )
             Spacer(Modifier.height(26.dp))
@@ -189,29 +176,41 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                         try {
                             when (val pin = viewModel.createPlexPin()) {
                                 is ApiResult.Success -> {
-                                    // Android TV n'a pas toujours de navigateur
-                                    // disponible. Le code Plex est présent dans
-                                    // le fragment de l'URL renvoyée par le
-                                    // backend : on l'affiche donc directement
-                                    // avec plex.tv/link, utilisable depuis un
-                                    // téléphone ou un ordinateur.
-                                    plexAuthUrl = pin.data.authUrl
-                                    // The backend requests Plex's TV flow
-                                    // (without strong=true), which returns the
-                                    // short four-character link code.
-                                    plexCode = pin.data.code.ifBlank { extractPlexCode(pin.data.authUrl) }
+                                    // Même parcours OAuth que le desktop :
+                                    // l'URL app.plex.tv est ouverte tout de
+                                    // suite, puis ce client récupère la session
+                                    // via le polling du PIN. L'ancien chemin
+                                    // utilisait /tv-pin (code TV) et ne lançait
+                                    // jamais l'autorisation sur mobile.
+                                    val oauthOpened = runCatching {
+                                        require(pin.data.authUrl.startsWith("https://"))
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW, Uri.parse(pin.data.authUrl)),
+                                        )
+                                    }.isSuccess
+                                    if (!oauthOpened) {
+                                        error = "Impossible d’ouvrir Plex. Réessayez ou ouvrez le lien Plex."
+                                        return@launch
+                                    }
                                     val deadline = System.currentTimeMillis() + 120_000L
                                     while (System.currentTimeMillis() < deadline) {
                                         delay(2_000L)
                                         when (val poll = viewModel.pollPlexPin(pin.data.id)) {
-                                            is ApiResult.Success -> if (poll.data.done) {
-                                                if (poll.data.user != null) {
-                                                    plexCode = null
-                                                    onLoggedIn()
+                                            is ApiResult.Success -> {
+                                                poll.data.error?.let {
+                                                    error = if (it == "no_plex_access") {
+                                                        "Ce compte Plex n’a pas accès à ce serveur Movviz"
+                                                    } else "Connexion Plex impossible"
                                                     return@launch
-                                                } else {
-                                                    error = "Plex a validé le code, mais Movviz n’a pas reçu le compte"
-                                                    return@launch
+                                                }
+                                                if (poll.data.done) {
+                                                    if (poll.data.user != null) {
+                                                        onLoggedIn()
+                                                        return@launch
+                                                    } else {
+                                                        error = "Plex a validé l’autorisation, mais Movviz n’a pas reçu le compte"
+                                                        return@launch
+                                                    }
                                                 }
                                             }
                                             ApiResult.Unauthorized -> {
@@ -278,108 +277,8 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 Text("Changer de serveur", fontSize = 11.sp, color = MovvizInkDim, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
             }
         }
-        if (plexCode != null) {
-            PlexCodeOverlay(
-                code = plexCode!!,
-                onOpenLink = {
-                    runCatching {
-                        val link = plexCode?.let { "https://plex.tv/link/?pin=${Uri.encode(it)}" } ?: "https://plex.tv/link"
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
-                    }
-                },
-                onOpenOauth = {
-                    // URL fournie par le backend pour ce PIN : l'autorisation
-                    // Plex passe dans le navigateur puis le polling existant
-                    // récupère la session, exactement comme desktop.
-                    plexAuthUrl?.let { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }
-                },
-                onClose = { plexCode = null; plexAuthUrl = null; runCatching { plexLoginFocus.requestFocus() } },
-            )
-        }
     }
 }
-
-private fun extractPlexCode(authUrl: String): String? {
-    val fragment = Uri.parse(authUrl).fragment ?: return null
-    val query = fragment.substringAfter('?', fragment)
-    return Uri.parse("https://plex.local/?$query").getQueryParameter("code")
-}
-
-@Composable
-private fun PlexCodeOverlay(code: String, onOpenLink: () -> Unit, onOpenOauth: () -> Unit, onClose: () -> Unit) {
-    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .78f)), contentAlignment = Alignment.Center) {
-        // Focus D-pad initial : l'overlay est un simple Box posé PAR-DESSUS
-        // la carte de login (pas un Dialog ni un Popup) — sans demande
-        // explicite, le focus reste sur la carte derrière le voile et le
-        // D-pad ne rejoint jamais les boutons de l'overlay (même constat
-        // que le Popup de NavRail). On vise l'action primaire "Ouvrir
-        // Plex", en retentant sur quelques frames le temps que le noeud
-        // s'attache.
-        val openPlexFocus = remember { FocusRequester() }
-        LaunchedEffect(Unit) {
-            repeat(10) { attempt ->
-                // requestFocus() renvoie Unit en Compose 1.7 et lève
-                // IllegalStateException si le noeud n'est pas encore
-                // attaché : on retente tant que la demande échoue.
-                val granted = runCatching { openPlexFocus.requestFocus() }.isSuccess
-                if (granted) return@LaunchedEffect
-                if (attempt < 9) withFrameNanos { }
-            }
-        }
-        val linkUrl = "https://plex.tv/link/?pin=${Uri.encode(code)}"
-        val qr = remember(linkUrl) { createQrBitmap(linkUrl, 360) }
-        Column(
-            Modifier
-                .then(if (compactPortrait) Modifier.fillMaxWidth().padding(20.dp) else Modifier.width(700.dp))
-                .widthIn(max = 700.dp)
-                .verticalScroll(rememberScrollState())
-                .background(Color(0xFF101225), RoundedCornerShape(22.dp))
-                .padding(if (compactPortrait) 20.dp else 30.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("Connexion Plex", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(Modifier.height(12.dp))
-            Text("Scanne le QR code ou ouvre plex.tv/link", fontSize = 14.sp, color = MovvizInkSoft)
-            Spacer(Modifier.height(18.dp))
-            val codeLayout: @Composable () -> Unit = {
-                qr?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "QR code Plex", modifier = Modifier.size(if (compactPortrait) 144.dp else 180.dp)) }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Code TV", fontSize = 14.sp, color = MovvizInkDim)
-                    Spacer(Modifier.height(6.dp))
-                    Text(code.chunked(1).joinToString(" "), fontSize = 42.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 5.sp)
-                    Text("plex.tv/link", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizAmber)
-                }
-            }
-            if (compactPortrait) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) { codeLayout() }
-            else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(34.dp)) { codeLayout() }
-            Spacer(Modifier.height(8.dp))
-            Text("La TV attend automatiquement la validation…", fontSize = 13.sp, color = MovvizInkDim)
-            Spacer(Modifier.height(22.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(onClick = onOpenLink, modifier = Modifier.focusRequester(openPlexFocus), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) }
-                Surface(onClick = onClose, colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
-            }
-            // Le QR est pratique sur une TV ; un téléphone peut autoriser
-            // son propre compte Plex directement dans le navigateur.
-            Spacer(Modifier.height(10.dp))
-            Surface(onClick = onOpenOauth, colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Connexion OAuth Plex", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
-        }
-    }
-}
-
-private fun createQrBitmap(content: String, size: Int): Bitmap? = runCatching {
-    val hints = mapOf<EncodeHintType, Any>(
-        EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-        EncodeHintType.MARGIN to 1,
-    )
-    val matrix = MultiFormatWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
-    Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also { bitmap ->
-        for (x in 0 until size) for (y in 0 until size) {
-            bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-        }
-    }
-}.getOrNull()
 
 @Composable
 private fun FieldLabel(text: String) {

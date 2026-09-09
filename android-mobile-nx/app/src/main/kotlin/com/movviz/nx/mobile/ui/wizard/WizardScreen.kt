@@ -23,6 +23,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -50,7 +51,8 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
-    var url by remember { mutableStateOf("http://192.168.1.") }
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    var url by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -76,10 +78,10 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .width(520.dp)
+                .then(if (compactPortrait) Modifier.fillMaxWidth().padding(horizontal = 20.dp) else Modifier.width(520.dp))
                 .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-                .padding(40.dp),
+                .padding(if (compactPortrait) 26.dp else 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             AnimatedLogo(size = 56.dp)
@@ -87,12 +89,12 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
             MovvizWordmark()
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "MEDIA CORE",
+                text = "ÉTAPE 1 / 5 · VOTRE SERVEUR",
                 style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim, letterSpacing = 3.sp),
             )
             Spacer(Modifier.height(20.dp))
             Text(
-                text = "À quelle adresse se trouve ton serveur ?",
+                text = "Où se trouve votre serveur ?",
                 style = TextStyle(fontSize = 15.sp, color = MovvizInkDim),
             )
             Spacer(Modifier.height(28.dp))
@@ -100,7 +102,7 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
             TvTextField(
                 value = url,
                 onValueChange = { url = it; error = null },
-                placeholder = "http://192.168.1.42:9810",
+                placeholder = "https://votre-serveur.fr",
                 nextFocus = connectButtonFocus,
                 focusRequester = urlFieldFocus,
             )
@@ -116,7 +118,7 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
             Spacer(Modifier.height(20.dp))
 
             GradientButton(
-                text = if (testing) "Connexion..." else "Se connecter",
+                text = if (testing) "Connexion..." else "Continuer",
                 enabled = !testing,
                 focusRequester = connectButtonFocus,
                 onClick = {

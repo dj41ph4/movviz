@@ -104,6 +104,24 @@ fun SettingsScreen(
         )
         Spacer(modifier = Modifier.height(if (compactPortrait) 20.dp else 28.dp))
 
+        if (BuildConfig.AUTO_UPDATE) {
+            SettingsSection(title = "Mises à jour") {
+                Text("Movviz NX ${BuildConfig.VERSION_NAME}", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+                Spacer(modifier = Modifier.height(5.dp))
+                Text("Votre application reste à jour automatiquement.", style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+                Spacer(modifier = Modifier.height(14.dp))
+                AutoUpdateToggle(viewModel)
+                Spacer(modifier = Modifier.height(12.dp))
+                SettingsButton(text = "Rechercher une mise à jour") { viewModel.requestUpdateCheck() }
+                val updateCheckStatus by viewModel.updateCheckStatus.collectAsState()
+                updateCheckStatus?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizOk))
+                }
+            }
+            Spacer(modifier = Modifier.height(28.dp))
+        }
+
         SettingsSection(title = "Compte") {
             InfoRow(label = "Utilisateur", value = currentUser?.username ?: "—")
             Spacer(modifier = Modifier.height(10.dp))
@@ -157,17 +175,6 @@ fun SettingsScreen(
             InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
             Spacer(modifier = Modifier.height(10.dp))
             InfoRow(label = "Application", value = "Movviz NX")
-            if (BuildConfig.AUTO_UPDATE) {
-                Spacer(modifier = Modifier.height(14.dp))
-                AutoUpdateToggle(viewModel)
-                Spacer(modifier = Modifier.height(14.dp))
-                SettingsButton(text = "Vérifier les mises à jour") { viewModel.requestUpdateCheck() }
-                val updateCheckStatus by viewModel.updateCheckStatus.collectAsState()
-                updateCheckStatus?.let {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))

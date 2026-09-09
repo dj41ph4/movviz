@@ -675,10 +675,22 @@ fun HomeScreen(
  * représente des étapes réelles du bootstrap, jamais un minuteur décoratif. */
 @Composable
 private fun MovvizBootScreen(progress: Int, message: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = Modifier
+            .widthIn(min = 300.dp, max = 460.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF111633), Color(0xFF090B1B), MovvizBrand.copy(alpha = .17f)),
+                ),
+            )
+            .border(1.dp, Color.White.copy(alpha = .14f), RoundedCornerShape(28.dp))
+            .padding(horizontal = 30.dp, vertical = 34.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         AnimatedLogo(size = 82.dp)
         Spacer(Modifier.height(20.dp))
-        Text("Préparation de ton cinéma", style = MaterialTheme.typography.titleMedium, color = Color.White)
+        Text("ÉTAPE 4 / 5 · PRÉPARATION DE VOTRE ESPACE", style = MaterialTheme.typography.titleMedium, color = Color.White)
         Spacer(Modifier.height(18.dp))
         Box(
             modifier = Modifier.width(320.dp).height(8.dp)
@@ -686,11 +698,13 @@ private fun MovvizBootScreen(progress: Int, message: String) {
         ) {
             Box(
                 modifier = Modifier.fillMaxHeight().fillMaxWidth((progress.coerceIn(0, 100) / 100f))
-                    .background(MovvizBrand),
+                .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(8.dp)),
             )
         }
         Spacer(Modifier.height(12.dp))
         Text("$progress %  ·  $message", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .7f))
+        Spacer(Modifier.height(7.dp))
+        Text("Vos données restent synchronisées avec Movviz", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .52f))
     }
 }
 

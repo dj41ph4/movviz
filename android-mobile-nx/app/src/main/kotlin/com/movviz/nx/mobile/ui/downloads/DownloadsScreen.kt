@@ -35,13 +35,19 @@ import kotlin.math.roundToInt
 /** File serveur NX : même donnée partagée que la rangée accueil, sous forme
  * de page dédiée afin de suivre tous les téléchargements en cours. */
 @Composable
-fun DownloadsScreen(viewModel: AppViewModel, onBack: () -> Unit, onOpenTitle: (String, Int) -> Unit) {
-    BackHandler(onBack = onBack)
+fun DownloadsScreen(
+    viewModel: AppViewModel,
+    onBack: () -> Unit,
+    onOpenTitle: (String, Int) -> Unit,
+    embedded: Boolean = false,
+) {
+    if (!embedded) BackHandler(onBack = onBack)
     val queue by viewModel.queue.collectAsState()
+    val completedQueue by viewModel.completedQueue.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadQueue() }
     TvLazyColumn(
         modifier = Modifier.fillMaxSize().background(Color(0xFF09090C)).padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 76.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(top = if (embedded) 26.dp else 76.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
@@ -51,8 +57,22 @@ fun DownloadsScreen(viewModel: AppViewModel, onBack: () -> Unit, onOpenTitle: (S
             }
         }
         item { Text("En cours · ${queue.size}", color = MovvizInkDim, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)) }
-        if (queue.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(vertical = 46.dp), contentAlignment = Alignment.Center) { Text("Aucun téléchargement en cours", color = MovvizInkDim, fontSize = 16.sp) } }
+        if (queue.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(vertical = 30.dp), contentAlignment = Alignment.Center) { Text("Aucun téléchargement en cours", color = MovvizInkDim, fontSize = 16.sp) } }
         items(queue, key = { it.id }) { item -> DownloadRow(item) { item.media.tmdbId?.let { onOpenTitle(item.media.type, it) } } }
+        item {
+            Text(
+                "Terminés · ${completedQueue.size}",
+                color = MovvizInkDim,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 22.dp, bottom = 6.dp),
+            )
+        }
+        if (completedQueue.isEmpty()) item {
+            Text("Aucun téléchargement terminé", color = MovvizInkDim, fontSize = 14.sp, modifier = Modifier.padding(bottom = 22.dp))
+        }
+        items(completedQueue, key = { "completed-${it.id}" }) { item ->
+            DownloadRow(item) { item.media.tmdbId?.let { onOpenTitle(item.media.type, it) } }
+        }
     }
 }
 

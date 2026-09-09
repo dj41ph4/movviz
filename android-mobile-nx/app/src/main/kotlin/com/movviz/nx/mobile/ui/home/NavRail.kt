@@ -82,6 +82,8 @@ enum class HomeTab(val label: String) {
     DISCOVER("Découverte"),
     MOVIES("Films"),
     SERIES("Séries"),
+    LIBRARY("Bibliothèque"),
+    DOWNLOADS("Téléchargements"),
     PROFILE("Mon profil"),
     SETTINGS("Paramètres"),
 }
@@ -93,6 +95,8 @@ private fun HomeTab.icon(): ImageVector = when (this) {
     HomeTab.DISCOVER -> MovvizIconStar
     HomeTab.MOVIES -> MovvizIconFilm
     HomeTab.SERIES -> MovvizIconTvScreen
+    HomeTab.LIBRARY -> MovvizIconFilm
+    HomeTab.DOWNLOADS -> MovvizIconDownload
     HomeTab.PROFILE -> MovvizIconDotCircle
     HomeTab.SETTINGS -> MovvizIconHome // jamais rendu comme TopNavItem (voir plus bas) — engrenage dédié.
 }

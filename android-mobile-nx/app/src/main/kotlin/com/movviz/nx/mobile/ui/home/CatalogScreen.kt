@@ -71,6 +71,10 @@ fun CatalogScreen(
     entryFocusRequester: FocusRequester? = null,
     mode: MediaHubMode = MediaHubMode.LIBRARY,
     onModeChange: (MediaHubMode) -> Unit = {},
+    /** Un conteneur bibliothèque peut injecter son sélecteur Films/Séries
+     * avant la grille. On évite ainsi une seconde page bibliothèque ou une
+     * fausse redirection vers Films. */
+    headerContent: (@Composable () -> Unit)? = null,
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
@@ -125,11 +129,15 @@ fun CatalogScreen(
         end = if (compactPortrait) 16.dp else 52.dp,
         bottom = if (compactPortrait) 24.dp else 30.dp,
     )) {
-        MediaHubToggleRow(
-            mode = mode,
-            onModeChange = onModeChange,
-            firstFocusRequester = entryFocusRequester,
-        )
+        if (headerContent != null) {
+            headerContent()
+        } else {
+            MediaHubToggleRow(
+                mode = mode,
+                onModeChange = onModeChange,
+                firstFocusRequester = entryFocusRequester,
+            )
+        }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
         Text(
             text = "${type.label} · ${sorted.size}",

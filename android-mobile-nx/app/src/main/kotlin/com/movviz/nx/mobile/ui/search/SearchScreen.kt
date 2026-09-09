@@ -57,6 +57,10 @@ import kotlinx.coroutines.delay
 // d'image plus grande que le rendu, la moitié du poids réseau/mémoire).
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
 
+private enum class SearchTypeFilter(val label: String, val apiType: String?) {
+    ALL("Tout", null), MOVIES("Films", "movie"), SERIES("Séries", "series"),
+}
+
 /** Recherche TV inspirée du flux Netflix : résultats pendant la saisie,
  * suggestions sous le champ, cartes larges et aperçu du titre ciblé. */
 @Composable
@@ -84,6 +88,7 @@ fun SearchScreen(
     val firstResultFocusRequester = remember { FocusRequester() }
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
+    var typeFilter by remember { mutableStateOf(SearchTypeFilter.ALL) }
 
     // Le clic sur l'icône de loupe change seulement l'état de navigation ;
     // il ne déplace pas automatiquement le focus Compose. Sans cette reprise
@@ -108,7 +113,10 @@ fun SearchScreen(
     // Prise UNE fois par changement de résultats : l'ancien code appelait
     // results.take(8) à chaque itération de la boucle (sous-liste recréée à
     // chaque passage) + une fois pour lastIndex.
-    val suggestions = remember(results) { results.take(8) }
+    val filteredResults = remember(results, typeFilter) {
+        typeFilter.apiType?.let { type -> results.filter { it.type == type } } ?: results
+    }
+    val suggestions = remember(filteredResults) { filteredResults.take(8) }
     var fieldFocused by remember { mutableStateOf(false) }
     // top = 96dp : même marge que Paramètres pour dégager la barre de nav
     // flottante sans bande de fond opaque ajoutée au-dessus (voir MainScreen).
@@ -125,11 +133,15 @@ fun SearchScreen(
                     { viewModel.search(query) },
                     Modifier.width(430.dp),
                     resultFocusRequester,
-                    if (results.isNotEmpty()) firstResultFocusRequester else null,
+                    if (filteredResults.isNotEmpty()) firstResultFocusRequester else null,
                 )
             }
         }
         Spacer(Modifier.height(18.dp))
+        if (query.isNotBlank()) {
+            SearchTypeFilters(typeFilter) { typeFilter = it }
+            Spacer(Modifier.height(14.dp))
+        }
         if (query.isNotBlank() && suggestions.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 13.sp)
@@ -156,15 +168,15 @@ fun SearchScreen(
                 text = "Recherchez un film ou une série",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
             )
-            results.isEmpty() -> SearchFocusMessage(
-                text = "Aucun résultat pour « $query »",
+            filteredResults.isEmpty() -> SearchFocusMessage(
+                text = if (results.isEmpty()) "Aucun résultat pour « $query »" else "Aucun ${typeFilter.label.lowercase()} pour « $query »",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
             )
             else -> TvLazyVerticalGrid(columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
-                itemsIndexed(results, key = { _, result -> "${result.type}-${result.tmdbId}" }, contentType = { _, _ -> "search-result" }) { index, result ->
+                itemsIndexed(filteredResults, key = { _, result -> "${result.type}-${result.tmdbId}" }, contentType = { _, _ -> "search-result" }) { index, result ->
                     SearchResultCard(
                         result,
                         result.tmdbId == focusedTmdbId && result.type == focusedType,
@@ -178,6 +190,28 @@ fun SearchScreen(
                         focusRequester = if (index == 0) firstResultFocusRequester else null,
                     ) { onOpenTitle(result.type, result.tmdbId) }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchTypeFilters(selected: SearchTypeFilter, onSelect: (SearchTypeFilter) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SearchTypeFilter.entries.forEach { filter ->
+            val active = filter == selected
+            Surface(
+                onClick = { onSelect(filter) },
+                modifier = Modifier.tvPointerClick { onSelect(filter) },
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = if (active) MaterialTheme.colorScheme.primary else MovvizSurface,
+                    focusedContainerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = if (active) Color.White else MovvizInk,
+                    focusedContentColor = Color.White,
+                ),
+            ) {
+                Text(filter.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp))
             }
         }
     }

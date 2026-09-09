@@ -37,7 +37,7 @@ class MovvizRepository(private val baseUrl: String) {
     }
 
     suspend fun createPlexPin(): ApiResult<PlexPinDto> =
-        safeCall { api.createPlexTvPin() }
+        safeCall { api.createPlexPin() }
 
     suspend fun pollPlexPin(id: Long): ApiResult<PlexPollDto> =
         safeCall { api.pollPlexPin(PlexPollRequest(id)) }

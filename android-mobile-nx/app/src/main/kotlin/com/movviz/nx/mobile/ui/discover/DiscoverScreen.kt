@@ -74,12 +74,19 @@ fun DiscoverScreen(
     fixedType: HomeTab? = null,
     mode: MediaHubMode = MediaHubMode.SUGGESTIONS,
     onModeChange: (MediaHubMode) -> Unit = {},
+    /** Injecté par le shell NX pour ses trois contextes Découverte / Films /
+     * Séries. L'écran garde ses rangées et ses vraies données ; seul le
+     * sélecteur de contexte appartient au shell. */
+    contextHeader: (@Composable () -> Unit)? = null,
     // Même contrat que l'accueil : le parent rend la surcouche NX opaque dès
     // que le contenu défile derrière elle, puis transparente au sommet.
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
     var selectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
     LaunchedEffect(fixedType) { fixedType?.let { selectedType = it } }
+    // Le contexte « Découverte » du shell NX doit réellement mélanger les
+    // deux univers. Sans cette branche, il héritait simplement de Films.
+    val mixedDiscovery = fixedType == null && contextHeader != null
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -91,7 +98,16 @@ fun DiscoverScreen(
     val heroLogos by viewModel.heroLogos.collectAsState()
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
-    val editorialRows = if (selectedType == HomeTab.MOVIES) movieRows else seriesRows
+    // Une même clé de rangée peut exister côté films et séries. On les fusionne
+    // pour éviter des clés LazyColumn dupliquées et obtenir une découverte
+    // réellement mixte, pas deux copies de la même rangée.
+    val editorialRows = if (mixedDiscovery) {
+        (movieRows + seriesRows)
+            .groupBy { it.key }
+            .map { (key, grouped) ->
+                grouped.first().copy(results = grouped.flatMap { it.results }.distinctBy { "${it.type}-${it.tmdbId}" })
+            }
+    } else if (selectedType == HomeTab.MOVIES) movieRows else seriesRows
     val watchProviderTiles by viewModel.watchProviderTiles.collectAsState()
     val companyTiles by viewModel.companyTiles.collectAsState()
     LaunchedEffect(Unit) {
@@ -100,22 +116,25 @@ fun DiscoverScreen(
         viewModel.loadDashboardHero()
         viewModel.loadDiscoverLogos()
     }
-    val wantedType = if (selectedType == HomeTab.MOVIES) "movie" else "series"
+    val wantedType = if (mixedDiscovery) "mixed" else if (selectedType == HomeTab.MOVIES) "movie" else "series"
     LaunchedEffect(wantedType) {
-        viewModel.loadGenres(wantedType)
+        if (!mixedDiscovery) viewModel.loadGenres(wantedType)
     }
-    val genres = if (selectedType == HomeTab.MOVIES) movieGenres else seriesGenres
+    val genres = if (mixedDiscovery) emptyList() else if (selectedType == HomeTab.MOVIES) movieGenres else seriesGenres
 
-    val cards = remember(movies, series, selectedType) {
-        if (selectedType == HomeTab.MOVIES) {
+    val cards = remember(movies, series, selectedType, mixedDiscovery) {
+        if (mixedDiscovery) {
+            movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status) } +
+                series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
+        } else if (selectedType == HomeTab.MOVIES) {
             movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForDiscover(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
         } else {
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
     }
-    val recommendationIds = if (selectedType == HomeTab.MOVIES) movieLibraryRecommendations else seriesLibraryRecommendations
-    val availableCards = remember(cards, selectedType) {
-        if (selectedType == HomeTab.MOVIES) cards.filter { it.status == "available" } else cards
+    val recommendationIds = if (mixedDiscovery) movieLibraryRecommendations + seriesLibraryRecommendations else if (selectedType == HomeTab.MOVIES) movieLibraryRecommendations else seriesLibraryRecommendations
+    val availableCards = remember(cards, selectedType, mixedDiscovery) {
+        if (!mixedDiscovery && selectedType == HomeTab.MOVIES) cards.filter { it.status == "available" } else cards
     }
     val localRecommendations = remember(availableCards, recommendationIds) {
         val byTmdbId = availableCards.associateBy { it.tmdbId }
@@ -144,13 +163,13 @@ fun DiscoverScreen(
             }
         }
     }
-    val editorial = remember(editorialRows, wantedType) {
+    val editorial = remember(editorialRows, wantedType, mixedDiscovery) {
         editorialRows.filterNot { it.key == "kids" }.mapNotNull { row ->
-            val rowCards = row.results.filter { it.type == wantedType }.map {
+            val rowCards = row.results.filter { mixedDiscovery || it.type == wantedType }.map {
                 TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId,
                     isMovie = it.type == "movie", year = it.year, rating = it.rating)
             }
-            if (rowCards.isEmpty()) null else DiscoverRow(row.key, row.meta, rowCards, seeAll = true)
+            if (rowCards.isEmpty()) null else DiscoverRow(row.key, row.meta, rowCards, seeAll = !mixedDiscovery)
         }
     }
     val rows = remember(editorial, librarySuggestionRows, cards) {
@@ -160,8 +179,8 @@ fun DiscoverScreen(
             if (cards.isNotEmpty()) add(DiscoverRow("library", null, cards, seeAll = false))
         }
     }
-    val heroItems = remember(dashboardHero, cards) {
-        dashboardHero.filter { it.detail.type == wantedType }.map { slide ->
+    val heroItems = remember(dashboardHero, cards, wantedType, mixedDiscovery) {
+        dashboardHero.filter { mixedDiscovery || it.detail.type == wantedType }.map { slide ->
             val d = slide.detail
             TvTitleCard(
                 id = "discover-hero-${d.type}-${d.tmdbId}", title = d.title,
@@ -190,9 +209,11 @@ fun DiscoverScreen(
         }
     }
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
-    LaunchedEffect(heroItems) {
-        if (heroItems.isNotEmpty()) {
-            viewModel.loadHeroLogos(wantedType, heroItems.map { it.tmdbId })
+    LaunchedEffect(heroItems, mixedDiscovery) {
+        if (heroItems.isNotEmpty() && !mixedDiscovery) viewModel.loadHeroLogos(wantedType, heroItems.map { it.tmdbId })
+        if (heroItems.isNotEmpty() && mixedDiscovery) {
+            heroItems.filter { it.isMovie }.takeIf { it.isNotEmpty() }?.let { viewModel.loadHeroLogos("movie", it.map { card -> card.tmdbId }) }
+            heroItems.filterNot { it.isMovie }.takeIf { it.isNotEmpty() }?.let { viewModel.loadHeroLogos("series", it.map { card -> card.tmdbId }) }
         }
     }
     LaunchedEffect(heroItems) {
@@ -204,15 +225,10 @@ fun DiscoverScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        if (rows.isEmpty()) Text(
-            "Aucun titre pour le moment",
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .padding(start = 64.dp, top = 96.dp)
-                .focusRequester(emptyStateFocus)
-                .focusable(),
-        )
-        else LazyColumn(Modifier.fillMaxSize(), state = listState) {
+        // Même vide, Découvrir conserve ses contextes : l'utilisateur doit
+        // pouvoir basculer vers Films ou Séries au lieu d'être bloqué sur un
+        // message sans navigation.
+        LazyColumn(Modifier.fillMaxSize(), state = listState) {
             item(contentType = "topAnchor") {
                 Box(
                     modifier = Modifier
@@ -223,7 +239,9 @@ fun DiscoverScreen(
                 )
             }
             item(contentType = "type-toggle") {
-                if (fixedType != null) {
+                if (contextHeader != null) {
+                    contextHeader()
+                } else if (fixedType != null) {
                     MediaHubToggleRow(
                         mode = mode,
                         onModeChange = onModeChange,
@@ -236,14 +254,24 @@ fun DiscoverScreen(
                     TypeToggleRow(selected = selectedType, onSelect = { selectedType = it })
                 }
             }
+            if (rows.isEmpty()) item(contentType = "empty") {
+                Text(
+                    "Aucun titre pour le moment",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier
+                        .padding(start = 16.dp, top = 28.dp)
+                        .focusRequester(emptyStateFocus)
+                        .focusable(),
+                )
+            }
             if (activeHero != null) item {
                 HeroCarousel(
                     items = heroItems,
                     currentIndex = heroIndex,
-                    logoPath = heroLogos["$wantedType-${activeHero.tmdbId}"],
+                    logoPath = heroLogos["${if (activeHero.isMovie) "movie" else "series"}-${activeHero.tmdbId}"],
                     onSelectIndex = { heroIndex = it },
                     ctaFocusRequester = heroFocus,
-                    onOpen = { card -> onOpenTitle(wantedType, card.tmdbId) },
+                    onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                 )
             }
             if (genres.isNotEmpty()) {
@@ -254,9 +282,11 @@ fun DiscoverScreen(
                     )
                 }
             }
-            val firstRowKey = rows.first().key
-            items(rows, key = { "${selectedType.name}-${it.key}" }, contentType = { "discover-row" }) { row ->
-                val label = if (row.key == "library") selectedType.label else discoverRowLabel(row.key, row.meta)
+            val firstRowKey = rows.firstOrNull()?.key
+            items(rows, key = { "${wantedType}-${it.key}" }, contentType = { "discover-row" }) { row ->
+                val label = if (row.key == "library") {
+                    if (mixedDiscovery) "Dans votre bibliothèque" else selectedType.label
+                } else discoverRowLabel(row.key, row.meta)
                 TitleRow(
                     heading = label,
                     items = row.cards,
