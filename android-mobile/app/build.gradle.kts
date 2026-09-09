@@ -10,6 +10,16 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Source unique de vérité : package.json (version desktop). Les 4 APK
+// suivent automatiquement la version desktop, sans valeur figée à maintenir
+// dans chaque module. La CI garde la priorité via -PmovvizVersionCode /
+// -PmovvizVersionName dérivés du tag Git (voir android-*-build.yml).
+val desktopPackageJson = groovy.json.JsonSlurper().parse(rootProject.file("../package.json")) as Map<*, *>
+val desktopVersionName: String = (project.findProperty("movvizVersionName") as String?)
+    ?: desktopPackageJson["version"] as String
+val desktopVersionCode: Int = (project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()
+    ?: desktopVersionName.split(".").let { parts -> parts[0].toInt() * 100000 + parts[1].toInt() * 1000 + parts[2].toInt() }
+
 android {
     namespace = "com.movviz.mobile"
     compileSdk = 35
@@ -19,10 +29,9 @@ android {
         minSdk = 24
         targetSdk = 35
         // Même source de vérité que les deux canaux TV : la CI remplace ces
-        // valeurs par le tag, et le repli local reste installable par-dessus
-        // une release précédente.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124098
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.98"
+        // valeurs par le tag, et le repli local lit package.json (desktop).
+        versionCode = desktopVersionCode
+        versionName = desktopVersionName
         // Same fix as android-tv/app/build.gradle.kts — derived from the Git
         // tag by CI instead of a frozen value, so BuildConfig.VERSION_NAME
         // (shown in "About") tracks the actual published release.

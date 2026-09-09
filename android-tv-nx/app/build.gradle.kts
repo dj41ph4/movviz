@@ -8,6 +8,16 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Source unique de vérité : package.json (version desktop). Les 4 APK
+// suivent automatiquement la version desktop, sans valeur figée à maintenir
+// dans chaque module. La CI garde la priorité via -PmovvizVersionCode /
+// -PmovvizVersionName dérivés du tag Git (voir android-*-build.yml).
+val desktopPackageJson = groovy.json.JsonSlurper().parse(rootProject.file("../package.json")) as Map<*, *>
+val desktopVersionName: String = (project.findProperty("movvizVersionName") as String?)
+    ?: desktopPackageJson["version"] as String
+val desktopVersionCode: Int = (project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()
+    ?: desktopVersionName.split(".").let { parts -> parts[0].toInt() * 100000 + parts[1].toInt() * 1000 + parts[2].toInt() }
+
 android {
     namespace = "com.movviz.tv"
     compileSdk = 35
@@ -26,9 +36,10 @@ android {
         // publié, donc checkForUpdate() se croyait perpétuellement en retard
         // et proposait/installait une "mise à jour" à chaque lancement, même
         // juste après l'avoir déjà installée — boucle infinie constatée.
-        // Repli ci-dessous : build local (Android Studio) sans CI.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124098
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.98"
+        // Repli local (Android Studio sans CI) : version lue dans package.json
+        // (version desktop) — les 4 APK suivent toujours le desktop.
+        versionCode = desktopVersionCode
+        versionName = desktopVersionName
         // Canal NX retail distinct : même clé de signature que TV classique,
         // mais asset GitHub et applicationId propres, donc jamais d'écrasement.
         buildConfigField("boolean", "AUTO_UPDATE", "true")

@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.24.99 — September 2026
+
+### NX Mobile
+
+- Refonte de l'onboarding premier démarrage selon la maquette : serveur, compte (+ Plex), profils, synchronisation, accueil. Les lancements suivants démarrent sur « Qui regarde ? », et l'ajout d'un profil passe par l'écran de connexion avant de revenir aux profils.
+- Bottom nav portrait alignée sur la maquette : Découverte / Films / Séries / Ma liste / Profil, avec « Recommandé pour vous » et « Plateformes de streaming ».
+- Version unique : les 4 APK lisent désormais `package.json` (version desktop) au lieu d'une valeur figée — plus de désynchronisation possible.
+
+### Build
+
+- Alignement Gradle : Gradle 8.13, AGP 8.13.2, Kotlin 2.2.21, Compose BOM 2025.08.01, Media3 1.7.1, Navigation 2.9.3 sur les 4 modules Android + CI.
+
 ## v1.24.98 — September 2026
 
 ### Corrections
