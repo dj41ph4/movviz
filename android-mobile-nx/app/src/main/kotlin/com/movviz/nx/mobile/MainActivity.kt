@@ -72,6 +72,7 @@ import androidx.navigation.navDeepLink
 import com.movviz.nx.mobile.ui.discover.RowDetailScreen
 import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.home.MainScreen
+import com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape
 import com.movviz.nx.mobile.ui.home.NxTopNav
 import com.movviz.nx.mobile.ui.home.PortraitTopHeader
 import com.movviz.nx.mobile.ui.login.LoginScreen
@@ -387,8 +388,10 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     onUpdateClick = { viewModel.requestUpdateInstall() },
                 )
             }
+        // En déplié sur l'accueil, le rail tactile remplace la barre TV haute.
+        val unfoldedHome = rememberUnfoldedLandscape() && currentRoute?.startsWith("home") == true
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            if (routeShowsNavRail(currentRoute) && !compactPortrait) {
+            if (routeShowsNavRail(currentRoute) && !compactPortrait && !unfoldedHome) {
                 NxTopNav(
                     selected = tab,
                     hasScrolled = headerHasScrolled,
@@ -568,6 +571,9 @@ composable(ROUTE_PROFILES) {
                 navRailFocusRequester = navRailFocusRequester,
                 onHomeScrollChanged = { headerHasScrolled = it },
                 onSwitchProfile = { navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) } },
+                onOpenSearch = { searchOpen = true },
+                updateTag = viewModel.availableUpdateTag.collectAsState().value,
+                onUpdateClick = { viewModel.requestUpdateInstall() },
             )
         }
         composable(ROUTE_DOWNLOADS) {
@@ -782,7 +788,7 @@ private fun PortraitBottomNav(
                     Spacer(Modifier.height(3.dp))
                     Text(
                         item.label,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = if (active) Color.White else Color(0xFFC3C3CB),

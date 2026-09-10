@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.113 — September 2026
+
+### NX Mobile
+
+- Profil façon esquisse 08 : photo cerclée mauve électrique, nom + rôle réel (Compte admin / Compte utilisateur), engrenage Paramètres, stats 2×2 (Films vus / Séries vues / Dans ma liste / Notes données), menu Mon activité / Mes recommandations / Paramètres / Changer de profil / Se déconnecter aux destinations réelles.
+- Mode déplié (paysage ≥ 700dp) : rail tactile gauche persistant + panneau latéral En cours / Terminés sur l'accueil, mêmes contours électriques. Portrait et TV inchangés.
+- Barre basse : libellés en 9.sp, « Téléchargements » n'est plus tronqué.
+
 ## v1.24.112 — September 2026
 
 ### NX Mobile

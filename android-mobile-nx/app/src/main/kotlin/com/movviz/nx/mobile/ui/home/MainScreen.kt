@@ -1,10 +1,14 @@
 package com.movviz.nx.mobile.ui.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -67,6 +71,99 @@ fun MainScreen(
     // section 14) — seule action de MainScreen qui sort de HomeTab (ouvre le
     // sélecteur de profils, une route distincte gérée par MainActivity).
     onSwitchProfile: () -> Unit = {},
+    // Mode déplié : loupe du rail tactile (SearchScreen reste rendu par le
+    // `when` ci-dessous via searchOpen) + pastille MAJ du rail.
+    onOpenSearch: () -> Unit = {},
+    updateTag: String? = null,
+    onUpdateClick: () -> Unit = {},
+) {
+    // Mode déplié / paysage large (maquette MOVVIZ NX déplié) : rail tactile
+    // persistant + panneau latéral sur l'accueil. Les autres branches gardent
+    // leurs écrans existants tels quels dans la colonne centrale.
+    if (rememberUnfoldedLandscape()) {
+        val activeProfile by viewModel.activeProfile.collectAsState()
+        Row(modifier = Modifier.fillMaxSize()) {
+            SlimRail(
+                selected = tab,
+                onSelectTab = { newTab -> onSelectTab(newTab) },
+                onOpenSearch = onOpenSearch,
+                activeProfile = activeProfile,
+                onAvatarClick = { onSelectTab(HomeTab.PROFILE) },
+                updateTag = updateTag,
+                onUpdateClick = onUpdateClick,
+                modifier = Modifier.width(UnfoldedRailWidth),
+            )
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                MainContent(
+                    viewModel = viewModel,
+                    onOpenTitle = onOpenTitle,
+                    onOpenEpisode = onOpenEpisode,
+                    onSeeAllRow = onSeeAllRow,
+                    onOpenGenre = onOpenGenre,
+                    onLoggedOut = onLoggedOut,
+                    tab = tab,
+                    onSelectTab = onSelectTab,
+                    searchOpen = searchOpen,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = onSearchQueryChange,
+                    onSearchCancel = onSearchCancel,
+                    contentFocusRequester = contentFocusRequester,
+                    navRailFocusRequester = navRailFocusRequester,
+                    onHomeScrollChanged = onHomeScrollChanged,
+                    onSwitchProfile = onSwitchProfile,
+                )
+            }
+            if (tab == HomeTab.HOME && !searchOpen) {
+                UnfoldedRightPanel(
+                    viewModel = viewModel,
+                    onOpenTitle = onOpenTitle,
+                    onOpenDownloadsTab = { onSelectTab(HomeTab.DOWNLOADS) },
+                    modifier = Modifier.width(UnfoldedPanelWidth),
+                )
+            }
+        }
+        return
+    }
+    MainContent(
+        viewModel = viewModel,
+        onOpenTitle = onOpenTitle,
+        onOpenEpisode = onOpenEpisode,
+        onSeeAllRow = onSeeAllRow,
+        onOpenGenre = onOpenGenre,
+        onLoggedOut = onLoggedOut,
+        tab = tab,
+        onSelectTab = onSelectTab,
+        searchOpen = searchOpen,
+        searchQuery = searchQuery,
+        onSearchQueryChange = onSearchQueryChange,
+        onSearchCancel = onSearchCancel,
+        contentFocusRequester = contentFocusRequester,
+        navRailFocusRequester = navRailFocusRequester,
+        onHomeScrollChanged = onHomeScrollChanged,
+        onSwitchProfile = onSwitchProfile,
+    )
+}
+
+/** Contenu de l'onglet courant, sans châssis : appelé tel quel en portrait/
+ *  TV, ou dans la colonne centrale du mode déplié. */
+@Composable
+private fun MainContent(
+    viewModel: AppViewModel,
+    onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit,
+    onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit,
+    onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit,
+    onLoggedOut: () -> Unit,
+    tab: HomeTab,
+    onSelectTab: (HomeTab) -> Unit,
+    searchOpen: Boolean,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onSearchCancel: () -> Unit,
+    contentFocusRequester: FocusRequester,
+    navRailFocusRequester: FocusRequester?,
+    onHomeScrollChanged: (Boolean) -> Unit,
+    onSwitchProfile: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     Box(
@@ -156,9 +253,9 @@ fun MainScreen(
                 onOpenTitle = onOpenTitle,
                 onOpenEpisode = onOpenEpisode,
                 onScrollChanged = onHomeScrollChanged,
-                onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
-                onOpenDownloads = { onSelectTab(HomeTab.DOWNLOADS) },
+                onSelectTab = onSelectTab,
                 onSwitchProfile = onSwitchProfile,
+                onLoggedOut = onLoggedOut,
             )
             tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
         }

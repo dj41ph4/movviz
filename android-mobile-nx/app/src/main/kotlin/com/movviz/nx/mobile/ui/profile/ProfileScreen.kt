@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +27,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
@@ -34,13 +36,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.data.ProfileMediaCardDto
 import com.movviz.nx.mobile.data.ProfileMediaResponseDto
 import com.movviz.nx.mobile.data.TvProfile
+import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.theme.MovvizBackground
+import com.movviz.nx.mobile.ui.theme.MovvizElectricBorder
+import com.movviz.nx.mobile.ui.theme.MovvizIconBack
+import com.movviz.nx.mobile.ui.theme.MovvizIconReplay
+import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
+import com.movviz.nx.mobile.ui.theme.MovvizIconStar
+import com.movviz.nx.mobile.ui.theme.MovvizIconSwap
 
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
@@ -55,18 +65,19 @@ fun ProfileScreen(
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit,
     onScrollChanged: (Boolean) -> Unit = {},
-    // Liste de réglages en bas du dashboard (esquisse mobile section 14) —
-    // Compte/Langue/À propos redirigent vers l'écran Paramètres existant
-    // (pas dupliqué ici), Téléchargements vers son propre onglet. Confiden-
-    // tialité/Notifications/Aide sont omis : aucun contenu réel ne les
-    // alimente aujourd'hui (voir SettingsScreen, qui ne les a pas non plus).
-    onOpenSettings: () -> Unit = {},
-    onOpenDownloads: () -> Unit = {},
+    // Menu esquisse 08 : Mon activité / Mes recommandations / Paramètres /
+    // Changer de profil / Se déconnecter — chaque ligne mène à un écran ou
+    // une action réels (onglets Bibliothèque/Découverte/Paramètres, sélecteur
+    // de profils, déconnexion). onSelectTab navigue entre onglets, onLoggedOut
+    // ramène au login après viewModel.logout().
+    onSelectTab: (HomeTab) -> Unit = {},
     onSwitchProfile: () -> Unit = {},
+    onLoggedOut: () -> Unit = {},
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val data by viewModel.profileMedia.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadProfileMedia() }
     LaunchedEffect(data?.continueWatching) {
@@ -102,7 +113,14 @@ fun ProfileScreen(
             item { ProfileLoadingDashboard() }
             return@LazyColumn
         }
-        item { ProfileDashboardHeader(profileData, activeProfile) }
+        item {
+            ProfileDashboardHeader(
+                data = profileData,
+                profile = activeProfile,
+                isAdmin = currentUser?.role == "admin",
+                onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
+            )
+        }
         if (profileData.continueWatching.isEmpty() && profileData.watchHistory.isEmpty() && profileData.ratings.isEmpty() && profileData.watchlist.isEmpty()) item {
             Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 16.sp)
         }
@@ -117,53 +135,42 @@ fun ProfileScreen(
 
         item {
             ProfileSettingsList(
-                userPrefs = viewModel.userPrefs.collectAsState().value,
-                onOpenSettings = onOpenSettings,
-                onOpenDownloads = onOpenDownloads,
+                onActivity = { onSelectTab(HomeTab.LIBRARY) },
+                onRecommendations = { onSelectTab(HomeTab.DISCOVER) },
+                onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
                 onSwitchProfile = onSwitchProfile,
+                onLogout = { viewModel.logout(); onLoggedOut() },
             )
         }
     }
 }
 
-/** Liste de réglages type esquisse mobile section 14 — chaque ligne mène à
- *  un écran/action réels (Compte/Langue/À propos → Paramètres existant,
- *  Téléchargements → son onglet, Changer de profil → sélecteur de profils).
- *  Apparence reste une ligne d'info statique honnête : l'app n'a qu'un seul
- *  thème (sombre), donc pas de sélecteur factice. */
+/** Menu esquisse 08 — Mon activité / Mes recommandations / Paramètres /
+ *  Changer de profil / Se déconnecter, icône + chevron, destinations réelles
+ *  (voir ProfileScreen). */
 @Composable
 private fun ProfileSettingsList(
-    userPrefs: com.movviz.nx.mobile.data.UserPrefsDto?,
+    onActivity: () -> Unit,
+    onRecommendations: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenDownloads: () -> Unit,
     onSwitchProfile: () -> Unit,
+    onLogout: () -> Unit,
 ) {
-    val languageLabel = when (userPrefs?.preferredAudioLanguage) {
-        "fr", null, "auto" -> "Français"
-        "en" -> "Anglais"
-        "es" -> "Espagnol"
-        "de" -> "Allemand"
-        "it" -> "Italien"
-        "nl" -> "Néerlandais"
-        else -> userPrefs.preferredAudioLanguage
-    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
             .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
     ) {
-        ProfileSettingsRow(label = "Compte", value = null, onClick = onOpenSettings)
+        ProfileSettingsRow(icon = MovvizIconReplay, label = "Mon activité", onClick = onActivity)
         ProfileSettingsDivider()
-        ProfileSettingsRow(label = "Apparence", value = "Thème sombre", onClick = null)
+        ProfileSettingsRow(icon = MovvizIconStar, label = "Mes recommandations", onClick = onRecommendations)
         ProfileSettingsDivider()
-        ProfileSettingsRow(label = "Langue", value = languageLabel, onClick = onOpenSettings)
+        ProfileSettingsRow(icon = MovvizIconSettings, label = "Paramètres", onClick = onOpenSettings)
         ProfileSettingsDivider()
-        ProfileSettingsRow(label = "Téléchargements", value = null, onClick = onOpenDownloads)
+        ProfileSettingsRow(icon = MovvizIconSwap, label = "Changer de profil", onClick = onSwitchProfile)
         ProfileSettingsDivider()
-        ProfileSettingsRow(label = "À propos", value = com.movviz.nx.mobile.BuildConfig.VERSION_NAME, onClick = onOpenSettings)
-        ProfileSettingsDivider()
-        ProfileSettingsRow(label = "Changer de profil", value = null, onClick = onSwitchProfile)
+        ProfileSettingsRow(icon = MovvizIconBack, label = "Se déconnecter", onClick = onLogout, danger = true)
     }
 }
 
@@ -173,7 +180,14 @@ private fun ProfileSettingsDivider() {
 }
 
 @Composable
-private fun ProfileSettingsRow(label: String, value: String?, onClick: (() -> Unit)?) {
+private fun ProfileSettingsRow(
+    icon: ImageVector,
+    label: String,
+    onClick: (() -> Unit)?,
+    danger: Boolean = false,
+) {
+    val contentColor = if (danger) Color(0xFFE87C7C) else Color.White
+    val hintColor = if (danger) Color(0xFFE87C7C).copy(alpha = 0.75f) else Color(0xFFA7A7A7)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -181,15 +195,19 @@ private fun ProfileSettingsRow(label: String, value: String?, onClick: (() -> Un
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        if (value != null) {
-            Text(value, color = Color(0xFFA7A7A7), fontSize = 13.sp, modifier = Modifier.padding(end = 8.dp))
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = hintColor,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(14.dp))
+        Text(label, color = contentColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         if (onClick != null) {
             androidx.tv.material3.Icon(
                 com.movviz.nx.mobile.ui.theme.MovvizIconChevronRight,
                 contentDescription = null,
-                tint = Color(0xFFA7A7A7),
+                tint = hintColor,
                 modifier = Modifier.size(16.dp),
             )
         }
@@ -200,35 +218,93 @@ private fun ProfileSettingsRow(label: String, value: String?, onClick: (() -> Un
     Column {
         Text("Mon espace", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         Text("Chargement de votre activité…", color = Color(0xFFA7A7A7), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
-            repeat(3) { ProfileMetric("…", 0, loading = true) }
-        }
-    }
-}
-
-@Composable private fun ProfileDashboardHeader(data: ProfileMediaResponseDto, profile: TvProfile?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        profile?.let { ProfileAvatar(it, Modifier.size(88.dp), cornerRadius = 44.dp) }
-        Column(modifier = Modifier.padding(start = if (profile != null) 18.dp else 0.dp)) {
-            Text(
-                if (profile?.name.isNullOrBlank()) "Mon espace" else "${profile?.name} · mon espace",
-                color = Color.White,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Text("Vos reprises, votre historique et vos listes.", color = Color(0xFFA7A7A7), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 18.dp)) {
-                ProfileMetric("EN COURS", data.continueWatching.size)
-                ProfileMetric("VUS", data.watchHistory.size)
-                ProfileMetric("NOTES", data.ratings.size)
-                ProfileMetric("LISTES", data.watchlist.size)
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ProfileMetric("…", 0, Modifier.weight(1f), loading = true)
+                ProfileMetric("…", 0, Modifier.weight(1f), loading = true)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ProfileMetric("…", 0, Modifier.weight(1f), loading = true)
+                ProfileMetric("…", 0, Modifier.weight(1f), loading = true)
             }
         }
     }
 }
 
-@Composable private fun ProfileMetric(label: String, value: Int, loading: Boolean = false) {
-    Column(Modifier.width(142.dp).background(Color(0xFF1B1B20), RoundedCornerShape(10.dp)).padding(horizontal = 17.dp, vertical = 13.dp)) {
+/** En-tête esquisse 08 : photo cerclée mauve électrique + nom + rôle réel
+ *  du compte (admin/utilisateur, jamais "Premium") + engrenage Paramètres,
+ *  puis stats 2×2 (Films vus / Séries vues / Dans ma liste / Notes données).
+ *  La grille 2×2 remplace la rangée 4×142.dp qui débordait de l'écran. */
+@Composable private fun ProfileDashboardHeader(
+    data: ProfileMediaResponseDto,
+    profile: TvProfile?,
+    isAdmin: Boolean,
+    onOpenSettings: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (profile != null) {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .border(2.dp, MovvizElectricBorder, CircleShape)
+                    .padding(3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                ProfileAvatar(profile, Modifier.size(82.dp), cornerRadius = 41.dp)
+            }
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = if (profile != null) 14.dp else 0.dp),
+        ) {
+            Text(
+                text = profile?.name?.takeIf { it.isNotBlank() } ?: "Mon espace",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = if (isAdmin) "Compte admin" else "Compte utilisateur",
+                color = Color(0xFFA7A7A7),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.size(44.dp).clickable(onClick = onOpenSettings),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = MovvizIconSettings,
+                contentDescription = "Paramètres",
+                tint = Color(0xFFA7A7A7),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+    val filmsSeen = data.watchHistory.count { it.type == "movie" }
+    val seriesSeen = data.watchHistory.count { it.type == "series" }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 18.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ProfileMetric("Films vus", filmsSeen, Modifier.weight(1f))
+            ProfileMetric("Séries vues", seriesSeen, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ProfileMetric("Dans ma liste", data.watchlist.size, Modifier.weight(1f))
+            ProfileMetric("Notes données", data.ratings.size, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable private fun ProfileMetric(label: String, value: Int, modifier: Modifier = Modifier, loading: Boolean = false) {
+    Column(
+        modifier
+            .background(Color(0xFF1B1B20), RoundedCornerShape(10.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 17.dp, vertical = 13.dp),
+    ) {
         Text(if (loading) "—" else value.toString(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(label, color = Color(0xFFA7A7A7), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
     }
