@@ -12,10 +12,11 @@ import androidx.compose.ui.graphics.Color
 // ────────────────────────────────────────────────────────────────
 
 // Brand — accent ET signature de fond (dégradés CTA, indicateurs actifs).
-// Valeur alignée sur --color-brand du thème sombre web (#7c3aed).
-val MovvizBrand = Color(0xFF7C3AED)
-val MovvizBrand2 = Color(0xFFC04BFF)
-val MovvizBrandGlow = Color(0xFFA06BFF)
+// Déclinaison NX Mobile seule en mauve électrique (le web et les 3 autres
+// modules gardent #7c3aed) : violet plus saturé/lumineux avec pointe bleue.
+val MovvizBrand = Color(0xFF8B2FFF)
+val MovvizBrand2 = Color(0xFFBC3FFF)
+val MovvizBrandGlow = Color(0xFFA66BFF)
 
 // Surfaces — bleu-nuit/violet profond, jamais un noir neutre. Mêmes valeurs
 // que --color-void/--color-abyss/--color-surface/--color-surface-2 côté web.

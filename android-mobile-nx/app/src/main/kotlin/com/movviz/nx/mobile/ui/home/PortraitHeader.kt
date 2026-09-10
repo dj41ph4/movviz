@@ -2,6 +2,7 @@ package com.movviz.nx.mobile.ui.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,7 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.data.TvProfile
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizSurface
@@ -127,10 +129,12 @@ fun PortraitTopHeader(
             )
         } else if (showSearchRow) {
             Spacer(Modifier.height(12.dp))
-            Surface(
-                onClick = onSearchClick,
-                modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick(onSearchClick),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
+        Surface(
+            onClick = onSearchClick,
+            modifier = Modifier.fillMaxWidth().height(46.dp)
+                .border(1.dp, MovvizBrand.copy(alpha = .22f), RoundedCornerShape(23.dp))
+                .tvPointerClick(onSearchClick),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = MovvizSurface,
                     focusedContainerColor = MovvizSurfaceStrong,

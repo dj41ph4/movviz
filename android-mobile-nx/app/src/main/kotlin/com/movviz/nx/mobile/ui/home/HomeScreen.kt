@@ -1645,12 +1645,21 @@ internal fun TitleRow(
      * actif à la fois sur Android TV. */
     onPreviewStateChanged: (cardId: String, active: Boolean) -> Unit = { _, _ -> },
 ) {
-    // État de focus partagé par toutes les cartes de la rangée — il vit ici
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
-    // État de focus partagé par toutes les cartes de la rangée — il vit ici
-    // (pas dans PosterCard) pour survivre à la destruction des items par la
+    // Largeur portrait calculée pour afficher exactement 3 cartes plein cadre
+    // comme l'esquisse 01 (avant : 118.dp fixe → 2.5 visibles sur 360dp).
+    // Viewport - paddings (16+16) - spacings (2×10) divisé par 3, borné pour
+    // les petits (320dp) et grands (430dp+) écrans.
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val portraitCardWidth = if (compactPortrait) {
+        (((configuration.screenWidthDp - 32 - 20) / 3).dp).coerceIn(92.dp, 120.dp)
+    } else {
+        132.dp
+    }
+    // État de focus partagé par toutes les cartes — il vit ici (pas dans
+    // PosterCard) pour survivre à la destruction des items par la
     // LazyRow, et n'est lu QUE par les deux enfants dédiés (précharge des
     // images + call-out Netflix) : la rangée elle-même et ses cartes ne
     // recomposent JAMAIS pendant un scroll latéral, seul le bandeau bouge.
@@ -1715,10 +1724,10 @@ internal fun TitleRow(
                     // Netflix : une affiche reste compacte au repos puis la
                     // carte active devient le seul aperçu 16:9 de sa rangée.
                     // Les autres éléments conservent leur gabarit portrait.
-                    // Sur téléphone, une affiche un peu plus large garde les
-                    // visages et les titres lisibles. En paysage le gabarit
-                    // TV de 132dp est rigoureusement conservé.
-                    width = if (compactPortrait) 118.dp else 132.dp,
+                    // Esquisse 01 : 3 cartes plein cadre en portrait — largeur
+                    // calculée au-dessus (viewport-32-20)/3. En paysage le
+                    // gabarit TV de 132dp est rigoureusement conservé.
+                    width = portraitCardWidth,
                     aspectRatio = 2f / 3f,
                     preferPosterArt = true,
                     // Le slot LazyRow ne bouge jamais. La mini-fiche est une
@@ -1739,7 +1748,7 @@ internal fun TitleRow(
                 )
             }
             if (onSeeAll != null) {
-                item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll) }
+                item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll, width = portraitCardWidth) }
             }
         }
         // Les affiches suivantes sont peu coûteuses ; les backdrops 1280×720
@@ -1798,9 +1807,19 @@ private fun RowHeading(text: String) {
  * portrait des cartes secondaires. Elle ouvre RowDetailScreen, sans rompre
  * la continuité horizontale par une grosse tuile d'action. */
 @Composable
-private fun SeeAllTile(onClick: () -> Unit) {
+private fun SeeAllTile(onClick: () -> Unit, width: androidx.compose.ui.unit.Dp? = null) {
     var focused by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.width(154.dp)) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    // Même gabarit que les cartes de la rangée en portrait (3 plein cadre),
+    // 154.dp historique en paysage/TV.
+    val tileWidth = width ?: if (compactPortrait) {
+        ((((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 20) / 3).dp)).coerceIn(92.dp, 120.dp)
+    } else {
+        154.dp
+    }
+    Column(modifier = Modifier.width(tileWidth)) {
         Surface(
             onClick = onClick,
             modifier = Modifier

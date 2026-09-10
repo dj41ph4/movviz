@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.110 — September 2026
+
+### NX Mobile
+
+- Accueil portrait : 3 cartes plein cadre par rangée comme l'esquisse 01 (largeur calculée `(viewport-32-20)/3`, bornée 92–120dp, tuile « Voir plus » alignée) au lieu de 2,5 avec la 3e coupée.
+- Mauve électrique NX Mobile uniquement : Brand `#7C3AED` → `#8B2FFF`, Brand2 `#C04BFF` → `#BC3FFF`, Glow `#A06BFF` → `#A66BFF`. Web et 3 autres modules inchangés.
+- Barre de recherche portrait : filet électrique fin `1.dp à 22%` comme le liseré du dock et la pill de l'esquisse 01.
+
 ## v1.24.109 — September 2026
 
 ### Android TV NX
