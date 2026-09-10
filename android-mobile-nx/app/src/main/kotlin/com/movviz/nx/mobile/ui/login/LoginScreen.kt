@@ -96,6 +96,11 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // Le halo multicolore du logo déborde au-dessus de sa propre
+                // boîte (voir AnimatedLogo.kt) — sans cette marge, le viewport
+                // du scroll (qui clippe à sa position 0) tronquait le haut du
+                // halo puisque le logo était le tout premier élément.
+                Spacer(Modifier.height(14.dp))
                 OnboardingHeader()
                 Spacer(Modifier.height(16.dp))
                 if (addMode) {

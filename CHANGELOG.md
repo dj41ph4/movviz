@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.105 — September 2026
+
+### NX Mobile
+
+- Corrige le logo tronqué en haut de l'écran « Ajouter un profil » (connexion) : le halo multicolore du mark débordait au-dessus de sa boîte et se faisait couper par le viewport du scroll, faute de marge au-dessus du tout premier élément.
+
 ## v1.24.104 — September 2026
 
 ### NX Mobile
