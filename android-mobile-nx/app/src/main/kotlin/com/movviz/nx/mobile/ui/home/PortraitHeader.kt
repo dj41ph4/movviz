@@ -61,10 +61,14 @@ fun PortraitTopHeader(
     onSearchClick: () -> Unit,
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
-    // Variante Téléchargements/Profil : titre d'écran à la place du champ de
-    // recherche (aucun champ recherche sous ces deux écrans, voir l'esquisse
-    // section 3). `title = null` conserve le comportement historique.
+    // Variante Téléchargements : titre d'écran à la place du champ de
+    // recherche (voir l'esquisse section 3). `title = null` conserve le
+    // comportement historique.
     title: String? = null,
+    // Variante Profil : ni champ recherche ni titre — juste mark + avatar
+    // (esquisse section 3 : "pas de champ de recherche" sous Profil, le
+    // contenu porte lui-même son propre "Mon profil").
+    showSearchRow: Boolean = true,
 ) {
     Column(
         modifier = modifier
@@ -121,7 +125,7 @@ fun PortraitTopHeader(
                 text = title,
                 style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White),
             )
-        } else {
+        } else if (showSearchRow) {
             Spacer(Modifier.height(12.dp))
             Surface(
                 onClick = onSearchClick,

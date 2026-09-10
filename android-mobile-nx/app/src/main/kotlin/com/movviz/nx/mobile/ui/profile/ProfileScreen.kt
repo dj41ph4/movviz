@@ -2,6 +2,7 @@ package com.movviz.nx.mobile.ui.profile
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,6 +55,14 @@ fun ProfileScreen(
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit,
     onScrollChanged: (Boolean) -> Unit = {},
+    // Liste de réglages en bas du dashboard (esquisse mobile section 14) —
+    // Compte/Langue/À propos redirigent vers l'écran Paramètres existant
+    // (pas dupliqué ici), Téléchargements vers son propre onglet. Confiden-
+    // tialité/Notifications/Aide sont omis : aucun contenu réel ne les
+    // alimente aujourd'hui (voir SettingsScreen, qui ne les a pas non plus).
+    onOpenSettings: () -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
+    onSwitchProfile: () -> Unit = {},
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val data by viewModel.profileMedia.collectAsState()
@@ -83,7 +92,10 @@ fun ProfileScreen(
         // C'est du padding de contenu, pas une marge fixe : une fois la page
         // défilée, une rangée remonte naturellement sous la barre opaque au
         // lieu de laisser un grand trou noir permanent.
-        contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 156.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
+        // bottom 156dp en portrait (pas 24dp) : la barre basse flottante
+        // masquait la dernière ligne de réglages ("Changer de profil"),
+        // repéré en testant la nouvelle liste de réglages sur émulateur.
+        contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 156.dp, bottom = if (compactPortrait) 156.dp else 40.dp),
         verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 22.dp else 30.dp),
     ) {
         if (profileData == null) {
@@ -102,6 +114,85 @@ fun ProfileScreen(
         profileRail("Mes évaluations", profileData.ratings, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
         if (profileData.ratings.isNotEmpty()) entryAssigned = true
         profileRail("Ma Watchlist", profileData.watchlist, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
+
+        item {
+            ProfileSettingsList(
+                userPrefs = viewModel.userPrefs.collectAsState().value,
+                onOpenSettings = onOpenSettings,
+                onOpenDownloads = onOpenDownloads,
+                onSwitchProfile = onSwitchProfile,
+            )
+        }
+    }
+}
+
+/** Liste de réglages type esquisse mobile section 14 — chaque ligne mène à
+ *  un écran/action réels (Compte/Langue/À propos → Paramètres existant,
+ *  Téléchargements → son onglet, Changer de profil → sélecteur de profils).
+ *  Apparence reste une ligne d'info statique honnête : l'app n'a qu'un seul
+ *  thème (sombre), donc pas de sélecteur factice. */
+@Composable
+private fun ProfileSettingsList(
+    userPrefs: com.movviz.nx.mobile.data.UserPrefsDto?,
+    onOpenSettings: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onSwitchProfile: () -> Unit,
+) {
+    val languageLabel = when (userPrefs?.preferredAudioLanguage) {
+        "fr", null, "auto" -> "Français"
+        "en" -> "Anglais"
+        "es" -> "Espagnol"
+        "de" -> "Allemand"
+        "it" -> "Italien"
+        "nl" -> "Néerlandais"
+        else -> userPrefs.preferredAudioLanguage
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+    ) {
+        ProfileSettingsRow(label = "Compte", value = null, onClick = onOpenSettings)
+        ProfileSettingsDivider()
+        ProfileSettingsRow(label = "Apparence", value = "Thème sombre", onClick = null)
+        ProfileSettingsDivider()
+        ProfileSettingsRow(label = "Langue", value = languageLabel, onClick = onOpenSettings)
+        ProfileSettingsDivider()
+        ProfileSettingsRow(label = "Téléchargements", value = null, onClick = onOpenDownloads)
+        ProfileSettingsDivider()
+        ProfileSettingsRow(label = "À propos", value = com.movviz.nx.mobile.BuildConfig.VERSION_NAME, onClick = onOpenSettings)
+        ProfileSettingsDivider()
+        ProfileSettingsRow(label = "Changer de profil", value = null, onClick = onSwitchProfile)
+    }
+}
+
+@Composable
+private fun ProfileSettingsDivider() {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.06f)))
+}
+
+@Composable
+private fun ProfileSettingsRow(label: String, value: String?, onClick: (() -> Unit)?) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        if (value != null) {
+            Text(value, color = Color(0xFFA7A7A7), fontSize = 13.sp, modifier = Modifier.padding(end = 8.dp))
+        }
+        if (onClick != null) {
+            androidx.tv.material3.Icon(
+                com.movviz.nx.mobile.ui.theme.MovvizIconChevronRight,
+                contentDescription = null,
+                tint = Color(0xFFA7A7A7),
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 

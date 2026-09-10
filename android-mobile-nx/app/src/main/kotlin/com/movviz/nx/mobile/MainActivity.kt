@@ -343,15 +343,15 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // En-tête portrait persistant (mark + wordmark + avatar) — esquisse
     // mobile fournie 2026-09. Il ne remplace jamais NxTopNav (barre TV,
     // jamais affichée en portrait téléphone : voir la condition
-    // !compactPortrait ci-dessous), et couvre désormais les 4 onglets de la
-    // barre basse (Accueil/Découverte/Bibliothèque/Téléchargements) : Profil
-    // garde son propre en-tête (accessible via l'avatar, jamais un onglet de
-    // la barre basse). Masqué pendant la recherche plein écran, qui porte sa
-    // propre barre persistante (voir SearchScreen).
+    // !compactPortrait ci-dessous), et couvre désormais les 5 onglets de la
+    // barre basse + Profil (Accueil/Découverte/Bibliothèque/Téléchargements
+    // affichent recherche ou titre ; Profil n'a ni l'un ni l'autre — voir
+    // showSearchRow ci-dessous). Masqué pendant la recherche plein écran,
+    // qui porte sa propre barre persistante (voir SearchScreen).
     val showPortraitHeader = compactPortrait &&
         currentRoute?.startsWith("home") == true &&
         !searchOpen &&
-        tab in setOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.LIBRARY, HomeTab.DOWNLOADS)
+        tab in setOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.LIBRARY, HomeTab.DOWNLOADS, HomeTab.PROFILE)
     // Téléchargements affiche son titre à la place du champ recherche
     // (esquisse section 3 : pas de champ recherche sous cet écran).
     val portraitHeaderTitle = if (tab == HomeTab.DOWNLOADS) "Téléchargements" else null
@@ -367,8 +367,15 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     // dans la barre basse pendant la recherche, qui s'affiche
                     // simplement par-dessus (et se referme dessus).
                     onSearchClick = { searchOpen = true },
-                    onAvatarClick = { navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) } },
+                    // Sur Profil, retapper l'avatar ouvre le sélecteur de
+                    // profils (changer de compte) — ailleurs, ouvre l'onglet
+                    // Profil lui-même (esquisse section 8).
+                    onAvatarClick = {
+                        if (tab == HomeTab.PROFILE) navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
+                        else tab = HomeTab.PROFILE
+                    },
                     title = portraitHeaderTitle,
+                    showSearchRow = tab != HomeTab.PROFILE,
                 )
             }
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -551,6 +558,7 @@ composable(ROUTE_PROFILES) {
                 contentFocusRequester = contentFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
                 onHomeScrollChanged = { headerHasScrolled = it },
+                onSwitchProfile = { navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) } },
             )
         }
         composable(ROUTE_DOWNLOADS) {

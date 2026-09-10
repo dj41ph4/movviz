@@ -451,6 +451,17 @@ val MovvizIconChevronLeft: ImageVector by lazy {
     }
 }
 
+/** Chevron droit — affordance de ligne de réglages (Profil). */
+val MovvizIconChevronRight: ImageVector by lazy {
+    movvizIcon("MovvizIconChevronRight") {
+        stroke(width = 2.2f) {
+            moveTo(9f, 5.5f)
+            lineTo(15.5f, 12f)
+            lineTo(9f, 18.5f)
+        }
+    }
+}
+
 /** Cœur — favori/bookmark alternatif quand un contexte l'exige explicitement. */
 val MovvizIconHeart: ImageVector by lazy {
     movvizIcon("MovvizIconHeart") {

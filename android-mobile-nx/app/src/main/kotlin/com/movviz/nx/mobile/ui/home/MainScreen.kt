@@ -63,6 +63,10 @@ fun MainScreen(
     // plus rien ne se trouve au-dessus dans le contenu.
     navRailFocusRequester: FocusRequester? = null,
     onHomeScrollChanged: (Boolean) -> Unit = {},
+    // "Changer de profil" dans la liste de réglages Profil (esquisse mobile
+    // section 14) — seule action de MainScreen qui sort de HomeTab (ouvre le
+    // sélecteur de profils, une route distincte gérée par MainActivity).
+    onSwitchProfile: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     Box(
@@ -152,6 +156,9 @@ fun MainScreen(
                 onOpenTitle = onOpenTitle,
                 onOpenEpisode = onOpenEpisode,
                 onScrollChanged = onHomeScrollChanged,
+                onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
+                onOpenDownloads = { onSelectTab(HomeTab.DOWNLOADS) },
+                onSwitchProfile = onSwitchProfile,
             )
             tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
         }
