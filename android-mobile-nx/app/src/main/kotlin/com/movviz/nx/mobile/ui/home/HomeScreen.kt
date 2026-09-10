@@ -1313,7 +1313,12 @@ private const val AMBIENT_TRAILER_DELAY_MS = 850L
  * une fois lancé, le fade-in est doux (400ms) au lieu du snap binaire
  * d'avant. */
 @Composable
-private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: Modifier = Modifier) {
+private fun AmbientTrailer(
+    trailerKeys: List<String>,
+    title: String,
+    modifier: Modifier = Modifier,
+    onPlayingChange: (Boolean) -> Unit = {},
+) {
     val key = trailerKeys.firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{6,}")) } ?: return
     val appContext = LocalContext.current.applicationContext
     val activityManager = remember(appContext) { appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager }
@@ -1334,8 +1339,8 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val bridge = remember(key) {
         AmbientTrailerBridge(
-            onPlaying = { mainHandler.post { playing = true } },
-            onError = { mainHandler.post { ready = false } },
+            onPlaying = { mainHandler.post { playing = true; onPlayingChange(true) } },
+            onError = { mainHandler.post { ready = false; onPlayingChange(false) } },
         )
     }
 
@@ -1422,14 +1427,51 @@ fun AmbientPreview(
     title: String,
     modifier: Modifier = Modifier,
 ) {
+    // Bug confirmé (retour utilisateur + repro live) : Apple/Netflix/Disney+/
+    // Prime Video/IMDb (directSources) matchent par SIMILARITÉ DE TITRE, pas
+    // par tmdbId — un identifiant fiable existe pourtant déjà côté TMDb
+    // (trailerKeys). Sur "Demon Slayer : Kimetsu no Yaiba La Forteresse
+    // Infinie", Prime Video avait accroché une bande-annonce prise de vue
+    // réelle (tour de guet, homme en armure) totalement étrangère au film —
+    // vérifié : les 2 vraies bandes-annonces TMDb de ce titre sont bien en
+    // 2D animée. Le web (TrailerHeader.tsx) ne fait JAMAIS confiance à
+    // directSources pour l'aperçu ambiant, exactement pour cette raison
+    // ("must never select an ambient preview").
+    //
+    // Mais couper directSources net a cassé la lecture : sur cet émulateur
+    // (et potentiellement certains appareils réels), l'iframe YouTube
+    // n'atteint jamais l'état PLAYING (réseau/WebView), laissant l'aperçu
+    // figé sur le backdrop — repro confirmée en direct. TMDb (trailerKeys)
+    // reste donc tenté EN PREMIER (fiable côté identité), mais un délai
+    // ("le temps de laisser sa chance à YouTube") bascule sur directSources
+    // si aucune vidéo TMDb n'a réellement démarré — mieux vaut une bande-
+    // annonce occasionnellement mal identifiée qu'aucune vidéo du tout.
     var directFailed by remember(directSources) { mutableStateOf(false) }
+    var youtubePlaying by remember(trailerKeys) { mutableStateOf(false) }
+    var youtubeGaveUp by remember(trailerKeys) { mutableStateOf(trailerKeys.isEmpty()) }
+    LaunchedEffect(trailerKeys) {
+        if (trailerKeys.isEmpty()) return@LaunchedEffect
+        delay(AMBIENT_DIRECT_FALLBACK_TIMEOUT_MS)
+        if (!youtubePlaying) youtubeGaveUp = true
+    }
     val direct = directSources.firstOrNull { it.url.startsWith("https://") || it.url.startsWith("http://") }
-    if (direct != null && !directFailed) {
+    if (youtubeGaveUp && direct != null && !directFailed) {
         DirectAmbientTrailer(source = direct, modifier = modifier, onError = { directFailed = true })
-    } else {
-        AmbientTrailer(trailerKeys = trailerKeys, title = title, modifier = modifier)
+    } else if (!youtubeGaveUp) {
+        AmbientTrailer(
+            trailerKeys = trailerKeys,
+            title = title,
+            modifier = modifier,
+            onPlayingChange = { youtubePlaying = it },
+        )
     }
 }
+
+// Budget total laissé à l'iframe YouTube (delay interne AMBIENT_TRAILER_
+// DELAY_MS + chargement de l'API + démarrage réel de la vidéo) avant de
+// basculer sur une source directe si elle en a une. Généreux mais borné :
+// jamais un aperçu figé indéfiniment faute de réseau/WebView fonctionnel.
+private const val AMBIENT_DIRECT_FALLBACK_TIMEOUT_MS = 4500L
 
 @Composable
 private fun DirectAmbientTrailer(

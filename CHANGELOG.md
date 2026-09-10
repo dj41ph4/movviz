@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.107 — September 2026
+
+### NX Mobile
+
+- Corrige des aperçus vidéo montrant occasionnellement un film totalement différent (ex. Demon Slayer affichant une bande-annonce prise de vue réelle sans rapport) : l'aperçu ambiant privilégiait à tort les sources « enrichies » (Apple/Netflix/Disney+/Prime Video/IMDb), qui matchent par similarité de titre et peuvent confondre un homonyme, au lieu des vidéos TMDb rattachées directement au bon identifiant. Le TMDb (identité fiable) est maintenant tenté en premier ; les sources enrichies ne reprennent la main que si cette vidéo ne démarre réellement pas après quelques secondes, pour ne jamais laisser l'aperçu figé faute de lecture.
+
 ## v1.24.106 — September 2026
 
 ### NX Mobile
