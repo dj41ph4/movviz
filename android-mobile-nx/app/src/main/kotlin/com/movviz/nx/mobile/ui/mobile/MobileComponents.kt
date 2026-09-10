@@ -3,6 +3,7 @@ package com.movviz.nx.mobile.ui.mobile
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -265,14 +266,20 @@ private fun MovvizPlatformTile(
     tile: com.movviz.nx.mobile.data.LogoTileDto,
     onClick: () -> Unit,
 ) {
+    // Pas de fond blanc derrière le logo (retiré en v1.24.104 sur retour
+    // explicite utilisateur) : contrairement aux logos "Studios" (wordmarks
+    // transparents nécessitant un fond clair), les logos des plateformes de
+    // streaming exposés par TMDb pour les watch providers sont déjà des
+    // icônes carrées en couleur avec leur propre fond intégré (rouge
+    // Netflix, bleu Prime Video…) — un fond blanc supplémentaire ne fait
+    // qu'ajouter un cadre inutile autour de l'icône.
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = Modifier
             .size(60.dp)
             .clip(shape)
-            .background(Color.White.copy(alpha = 0.97f))
-            .tvPointerClick(onClick)
-            .padding(10.dp),
+            .border(1.5.dp, Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+            .tvPointerClick(onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (tile.logoPath != null) {
@@ -292,11 +299,18 @@ private fun MovvizPlatformTile(
 
 @Composable
 private fun PlatformTileFallback(name: String) {
-    Text(
-        text = name.take(2).uppercase(),
-        color = Color(0xFF1A1A1A),
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Bold,
-        maxLines = 1,
-    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White.copy(alpha = 0.06f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = name.take(2).uppercase(),
+            color = MovvizInk,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+    }
 }

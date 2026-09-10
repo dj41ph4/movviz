@@ -1807,6 +1807,12 @@ internal fun PosterCard(
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
     val backdropUrl = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
     val expanded = focused && expandToLandscapeOnFocus
+    // Liseré mauve permanent sur les affiches en portrait (demandé en
+    // direct par l'utilisateur en pointant la maquette) — jamais en
+    // paysage/TV, qui gardent leur halo de focus D-pad blanc inchangé.
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
     // L'affiche portrait est une image éditoriale fixe, pas un backdrop à
     // zoomer. L'ancienne interpolation largeur+ratio étirait son contenu
     // durant ~220 ms, ce qui donnait un effet "cheap" très visible. La
@@ -1840,6 +1846,10 @@ internal fun PosterCard(
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = MovvizCardShape),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+                border = if (compactPortrait) Border(
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
+                    shape = MovvizCardShape,
+                ) else Border.None,
                 focusedBorder = Border(
                     border = androidx.compose.foundation.BorderStroke(2.5.dp, Color.White.copy(alpha = 0.85f)),
                     shape = MovvizCardShape,

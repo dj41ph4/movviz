@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.104 — September 2026
+
+### NX Mobile
+
+- Icônes plateformes de l'accueil : retire le fond blanc derrière chaque logo (les icônes TMDb sont déjà des icônes carrées en couleur, le fond blanc était superflu).
+- Liseré dégradé mauve permanent (conforme à la maquette) autour des icônes de plateformes et des affiches films/séries en portrait — la bordure de focus TV blanche reste inchangée en paysage/TV.
+
 ## v1.24.103 — September 2026
 
 ### NX Mobile
