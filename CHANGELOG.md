@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.106 — September 2026
+
+### NX Mobile
+
+- Fiche média portrait : hero (backdrop/aperçu vidéo) agrandi (300dp → 460dp) et dégradé assombrissant repoussé vers le dernier tiers au lieu de dès la moitié — l'image/vidéo restait visible trop peu de temps avant d'être maquillée par le fond, rendant la fiche peu immersive.
+
 ## v1.24.105 — September 2026
 
 ### NX Mobile

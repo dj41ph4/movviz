@@ -487,11 +487,11 @@ fun TitleDetailScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (compactPortrait) 300.dp else 640.dp)
+                    .height(if (compactPortrait) 460.dp else 640.dp)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         } else {
-            Box(modifier = Modifier.fillMaxWidth().height(if (compactPortrait) 300.dp else 560.dp).background(MaterialTheme.colorScheme.surface))
+            Box(modifier = Modifier.fillMaxWidth().height(if (compactPortrait) 460.dp else 560.dp).background(MaterialTheme.colorScheme.surface))
         }
 
         // L'aperçu est placé AU-DESSUS de l'image mais SOUS les dégradés : le
@@ -506,28 +506,43 @@ fun TitleDetailScreen(
                 title = preview?.title ?: detail?.title.orEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (compactPortrait) 300.dp else 640.dp)
+                    .height(if (compactPortrait) 460.dp else 640.dp)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         }
 
         // Même double dégradé que le web (vertical pour la lisibilité du bas,
         // horizontal pour ancrer le texte à gauche) — juste transposé à des
-        // Brush Compose au lieu de classes Tailwind.
+        // Brush Compose au lieu de classes Tailwind. En portrait, le fond
+        // s'assombrit désormais surtout dans le dernier tiers (retour
+        // utilisateur : le hero précédent, plus court et assombri dès la
+        // moitié, "coupait" l'image trop tôt et paraissait peu immersif).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (compactPortrait) 300.dp else 560.dp)
+                .height(if (compactPortrait) 460.dp else 560.dp)
                 .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.75f), MaterialTheme.colorScheme.background),
-                    ),
+                    if (compactPortrait) {
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.55f),
+                                MaterialTheme.colorScheme.background,
+                            ),
+                            startY = 0f,
+                        )
+                    } else {
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.75f), MaterialTheme.colorScheme.background),
+                        )
+                    },
                 ),
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (compactPortrait) 300.dp else 560.dp)
+                .height(if (compactPortrait) 460.dp else 560.dp)
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.55f), Color.Transparent),
@@ -571,7 +586,7 @@ fun TitleDetailScreen(
                 Text(
                     text = "Chargement…",
                     style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.padding(start = if (compactPortrait) 16.dp else 56.dp, top = if (compactPortrait) 170.dp else 320.dp),
+                    modifier = Modifier.padding(start = if (compactPortrait) 16.dp else 56.dp, top = if (compactPortrait) 300.dp else 320.dp),
                 )
             } else {
                 Column(
@@ -650,7 +665,7 @@ fun TitleDetailScreen(
             // La barre supérieure flotte au-dessus du backdrop : une zone
             // sûre explicite empêche logo, titre et première ligne de passer
             // sous elle, en 1080p comme en 4K.
-            contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 112.dp),
+            contentPadding = PaddingValues(top = if (compactPortrait) 300.dp else 112.dp),
         ) {
             item {
             // Première cible D-pad = la zone VISUELLE du logo/titre, jamais
