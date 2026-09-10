@@ -4,9 +4,21 @@ import { getVerifiedOnDeck, resolvePlexServerAuth } from "./watchWrite";
 import { isEarlierEpisode } from "./onDeckPolicy";
 import { getMovieByPlexRatingKey, findEpisodeByPlexLocator } from "@/lib/library/store";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
+import { completionBoundaryMs } from "@/lib/playback/progressPolicy";
 import { getMovie, getSeason, getSeries } from "@/lib/metadata/tmdb";
 import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
 import type { User } from "@/lib/auth/types";
+
+/** Vrai si offsetMs est déjà assez proche de la fin de durationMs pour
+ *  compter comme « terminé » — même règle pour toute source de progression
+ *  (Movviz local ou Plex on-deck), jamais deux seuils différents. Sans repère
+ *  « générique » par item (coûterait un appel Plex par entrée de la liste),
+ *  retombe sur le même seuil de repli que le lecteur lui-même : 5 min pour
+ *  un film, 2 min pour un épisode, 10 % pour un média court. */
+function isNearEnd(offsetMs: number, durationMs: number, type: "movie" | "episode"): boolean {
+  const { boundaryMs } = completionBoundaryMs(durationMs, [], type);
+  return boundaryMs != null && offsetMs >= boundaryMs;
+}
 
 export interface OnDeckEntry {
   type: "movie" | "episode";
@@ -66,12 +78,14 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     if (!p.resumeOffsetMs || !p.durationMs) continue;
     const movie = getMovieByPlexRatingKey(p.ratingKey);
     if (movie) {
+      if (isNearEnd(p.resumeOffsetMs, p.durationMs, "movie")) continue;
       const key = movie.plexRatingKey ?? p.ratingKey;
       items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: movie.id, technical: technical(movie.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
       continue;
     }
     const found = findEpisodeByPlexLocator(p.ratingKey);
     if (!found) continue;
+    if (isNearEnd(p.resumeOffsetMs, p.durationMs, "episode")) continue;
     const key = found.episode.plexRatingKey ?? p.ratingKey;
     items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`, seriesId: found.series.id, technical: technical(found.episode.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
   }
@@ -104,7 +118,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const first = firstBySeries.get(c.tmdbId); if (!first || isEarlierEpisode(c, first)) firstBySeries.set(c.tmdbId, c);
   }
   for (const d of onDeck) {
-    if (!d.duration || (d.type === "movie" && d.viewOffset <= 0)) continue;
+    if (!d.duration || (d.type === "movie" && d.viewOffset <= 0) || isNearEnd(d.viewOffset, d.duration, d.type)) continue;
     const percent = Math.min(100, Math.round(d.viewOffset / d.duration * 100));
     if (d.type === "movie") {
       const movie = getMovieByPlexRatingKey(d.ratingKey);

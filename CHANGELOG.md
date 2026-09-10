@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.108 — September 2026
+
+### Continuer à regarder
+
+- Un épisode ou un film terminé (y compris pendant le générique) ne reste plus affiché dans « Continuer à regarder »/« Reprendre » — sur desktop, Android TV et Android mobile à la fois, puisque les 3 s'appuient sur le même point serveur (`listOnDeckEntries`). Même règle de seuil « proche de la fin » (5 min restantes pour un film, 2 min pour un épisode, 10 % pour un média court — celle déjà utilisée par le lecteur pour marquer un visionnage comme terminé) appliquée uniformément à la progression suivie par Movviz ET à l'on-deck brut de Plex, pas seulement l'une des deux sources. Effectif immédiatement sur les titres déjà « coincés », sans purge manuelle.
+
 ## v1.24.107 — September 2026
 
 ### NX Mobile
