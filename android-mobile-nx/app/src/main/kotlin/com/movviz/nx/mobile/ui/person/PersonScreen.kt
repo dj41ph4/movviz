@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.runtime.CompositionLocalProvider
@@ -33,6 +34,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
+import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 
 private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w342"
 
@@ -92,6 +94,7 @@ fun PersonScreen(
         LocalBringIntoViewSpec provides object : BringIntoViewSpec {},
     ) {
     TvLazyColumn(
+        state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)

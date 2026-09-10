@@ -428,3 +428,87 @@ val MovvizIconSettings: ImageVector by lazy {
         }
     }
 }
+
+/** Flèche retour — bouton flottant sur le hero de la fiche média portrait. */
+val MovvizIconBack: ImageVector by lazy {
+    movvizIcon("MovvizIconBack") {
+        stroke(width = 2.2f) {
+            moveTo(15f, 5f)
+            lineTo(8f, 12f)
+            lineTo(15f, 19f)
+        }
+    }
+}
+
+/** Chevron gauche — navigation "Voir tout"/retour de section. */
+val MovvizIconChevronLeft: ImageVector by lazy {
+    movvizIcon("MovvizIconChevronLeft") {
+        stroke(width = 2.2f) {
+            moveTo(15f, 5.5f)
+            lineTo(8.5f, 12f)
+            lineTo(15f, 18.5f)
+        }
+    }
+}
+
+/** Cœur — favori/bookmark alternatif quand un contexte l'exige explicitement. */
+val MovvizIconHeart: ImageVector by lazy {
+    movvizIcon("MovvizIconHeart") {
+        fillPath {
+            moveTo(12f, 20.2f)
+            curveTo(11.7f, 20.2f, 11.4f, 20.1f, 11.2f, 19.9f)
+            curveTo(6.6f, 16.1f, 3.6f, 13.4f, 3.6f, 9.9f)
+            curveTo(3.6f, 7.1f, 5.7f, 5f, 8.3f, 5f)
+            curveTo(9.8f, 5f, 11.1f, 5.7f, 12f, 6.8f)
+            curveTo(12.9f, 5.7f, 14.2f, 5f, 15.7f, 5f)
+            curveTo(18.3f, 5f, 20.4f, 7.1f, 20.4f, 9.9f)
+            curveTo(20.4f, 13.4f, 17.4f, 16.1f, 12.8f, 19.9f)
+            curveTo(12.6f, 20.1f, 12.3f, 20.2f, 12f, 20.2f)
+            close()
+        }
+    }
+}
+
+/** Signet — bibliothèque / ajouter-retirer de la watchlist. Contour vide vs
+ *  rempli distingue "pas dans la liste" de "dans la liste" au même tracé. */
+val MovvizIconBookmark: ImageVector by lazy {
+    movvizIcon("MovvizIconBookmark") {
+        stroke(width = 2.1f) {
+            moveTo(6.5f, 4.5f)
+            lineTo(17.5f, 4.5f)
+            lineTo(17.5f, 20.2f)
+            lineTo(12f, 16.4f)
+            lineTo(6.5f, 20.2f)
+            close()
+        }
+    }
+}
+
+val MovvizIconBookmarkFilled: ImageVector by lazy {
+    movvizIcon("MovvizIconBookmarkFilled") {
+        fillPath {
+            moveTo(6.5f, 4.5f)
+            lineTo(17.5f, 4.5f)
+            lineTo(17.5f, 20.2f)
+            lineTo(12f, 16.4f)
+            lineTo(6.5f, 20.2f)
+            close()
+        }
+    }
+}
+
+/** Boussole — onglet Découverte de la barre basse portrait. */
+val MovvizIconCompass: ImageVector by lazy {
+    movvizIcon("MovvizIconCompass") {
+        stroke(width = 2.05f) {
+            moveTo(12f, 3.5f)
+            arcToRelative(8.5f, 8.5f, 0f, true, true, -0.01f, 0f)
+            close()
+            moveTo(15.3f, 8.7f)
+            lineTo(13.1f, 13.1f)
+            lineTo(8.7f, 15.3f)
+            lineTo(10.9f, 10.9f)
+            close()
+        }
+    }
+}

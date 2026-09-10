@@ -1,36 +1,62 @@
 package com.movviz.nx.mobile.ui.home
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import coil.compose.rememberAsyncImagePainter
 import com.movviz.nx.mobile.AppViewModel
-import com.movviz.nx.mobile.ui.theme.MovvizBrand2
-import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
+import com.movviz.nx.mobile.data.CollectionDto
+import com.movviz.nx.mobile.data.SagaSummaryDto
+import com.movviz.nx.mobile.ui.mobile.MovvizEmptyState
+import com.movviz.nx.mobile.ui.mobile.MovvizSegmentedControl
+import com.movviz.nx.mobile.ui.mobile.rememberCompactPortrait
+import com.movviz.nx.mobile.ui.profile.profileRail
+import com.movviz.nx.mobile.ui.theme.MovvizInk
+import com.movviz.nx.mobile.ui.theme.MovvizInkDim
+import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 
+private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
+
 /**
- * Vrai point d'entrée Bibliothèque NX. Il n'est ni un alias de Films ni une
- * copie du catalogue : une même grille réutilisée expose l'inventaire Films
- * et Séries avec un sélecteur explicite, comme le rôle « Bibliothèque » de la
- * navigation Android de référence.
+ * Vrai point d'entrée Bibliothèque (esquisse mobile section 11) : Watchlist/
+ * Historique/Collections — pas un alias du catalogue Films/Séries
+ * (CatalogScreen, toujours accessible depuis Découverte). Watchlist et
+ * Historique viennent de `profileMedia` (déjà chargé pour l'onglet Profil,
+ * mêmes cartes/mêmes données réelles). Collections combine les collections
+ * utilisateur et les sagas TMDb possédées — aucune liste fictive : un état
+ * vide honnête tant qu'aucune des deux n'a de contenu.
  */
 @Composable
 fun LibraryHubScreen(
@@ -39,52 +65,142 @@ fun LibraryHubScreen(
     entryFocusRequester: FocusRequester,
     onScrollChanged: (Boolean) -> Unit,
 ) {
-    var mediaType by rememberSaveable { mutableStateOf(HomeTab.MOVIES) }
-    CatalogScreen(
-        viewModel = viewModel,
-        type = mediaType,
-        onOpenTitle = onOpenTitle,
-        entryFocusRequester = entryFocusRequester,
-        activeHubTab = mediaType,
-        onSelectHubTab = { mediaType = it },
-        onScrollChanged = onScrollChanged,
-    )
+    var tabIndex by remember { mutableIntStateOf(0) }
+    val profileData by viewModel.profileMedia.collectAsState()
+    val collections by viewModel.collections.collectAsState()
+    val sagas by viewModel.sagas.collectAsState()
+    LaunchedEffect(Unit) {
+        if (viewModel.profileMedia.value == null) viewModel.loadProfileMedia()
+        viewModel.loadCollections()
+    }
+    val compactPortrait = rememberCompactPortrait()
+    val listState = rememberLazyListState()
+    val hasScrolled by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 10 }
+    }
+    LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize()
+            .padding(horizontal = if (compactPortrait) 16.dp else 56.dp),
+        contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 156.dp, bottom = if (compactPortrait) 156.dp else 48.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 22.dp else 30.dp),
+    ) {
+        item {
+            MovvizSegmentedControl(
+                options = listOf("Watchlist", "Historique", "Collections"),
+                selectedIndex = tabIndex,
+                onSelect = { tabIndex = it },
+            )
+        }
+        when (tabIndex) {
+            0 -> {
+                val watchlist = profileData?.watchlist.orEmpty()
+                if (watchlist.isEmpty()) {
+                    item { MovvizEmptyState("Votre watchlist est vide.", "Ajoutez des films ou séries pour les retrouver ici.") }
+                } else {
+                    profileRail(
+                        title = "Ma watchlist (${watchlist.size})",
+                        cards = watchlist,
+                        entryFocusRequester = entryFocusRequester,
+                        onOpenTitle = onOpenTitle,
+                        onOpenEpisode = { tmdbId, _, _ -> onOpenTitle("series", tmdbId) },
+                    )
+                }
+            }
+            1 -> {
+                val history = profileData?.watchHistory.orEmpty()
+                if (history.isEmpty()) {
+                    item { MovvizEmptyState("Aucun historique pour le moment.", "Vos films et épisodes vus apparaîtront ici.") }
+                } else {
+                    profileRail(
+                        title = "Historique récent (${history.size})",
+                        cards = history,
+                        entryFocusRequester = entryFocusRequester,
+                        onOpenTitle = onOpenTitle,
+                        onOpenEpisode = { tmdbId, _, _ -> onOpenTitle("series", tmdbId) },
+                    )
+                }
+            }
+            else -> {
+                if (collections.isEmpty() && sagas.isEmpty()) {
+                    item { MovvizEmptyState("Aucune collection pour le moment.", "Créez une collection ou complétez une saga de votre bibliothèque.") }
+                } else {
+                    if (collections.isNotEmpty()) {
+                        item {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text("Mes collections", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 14.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    items(collections, key = { it.id }) { collection -> CollectionTile(collection) }
+                                }
+                            }
+                        }
+                    }
+                    if (sagas.isNotEmpty()) {
+                        item {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text("Sagas de votre bibliothèque", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 14.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    items(sagas, key = { it.collectionId }) { saga -> SagaTile(saga) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val libraryTileShape = RoundedCornerShape(10.dp)
+
+@Composable
+private fun CollectionTile(collection: CollectionDto) {
+    Column(Modifier.width(150.dp)) {
+        Box(
+            Modifier.width(150.dp).height(150.dp).clip(libraryTileShape),
+        ) {
+            val path = collection.posterPath ?: collection.backdropPath
+            if (path != null) {
+                Image(
+                    painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$path"),
+                    contentDescription = collection.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(Modifier.fillMaxSize().background(MovvizSurfaceStrong))
+            }
+        }
+        Text(
+            collection.name,
+            color = MovvizInk,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Text("${collection.items.size} titres", color = MovvizInkDim, fontSize = 11.sp)
+    }
 }
 
 @Composable
-private fun LibraryTypeTabs(
-    selected: HomeTab,
-    onSelect: (HomeTab) -> Unit,
-    firstFocusRequester: FocusRequester,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(HomeTab.MOVIES, HomeTab.SERIES).forEachIndexed { index, type ->
-            val active = selected == type
-            var focused by androidx.compose.runtime.remember { mutableStateOf(false) }
-            val shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
-            Surface(
-                onClick = { onSelect(type) },
-                modifier = Modifier
-                    .let { if (index == 0) it.focusRequester(firstFocusRequester) else it }
-                    .onFocusChanged { focused = it.isFocused }
-                    .tvPointerClick { onSelect(type) },
-                shape = ClickableSurfaceDefaults.shape(shape),
-                colors = ClickableSurfaceDefaults.colors(
-                    containerColor = if (active) MovvizBrand2.copy(alpha = .88f) else Color.White.copy(alpha = .07f),
-                    focusedContainerColor = if (active) MovvizBrand2 else Color.White.copy(alpha = .16f),
-                    contentColor = if (active) Color.White else MovvizInkSoft,
-                    focusedContentColor = Color.White,
-                ),
-                border = ClickableSurfaceDefaults.border(
-                    focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .8f)), shape = shape),
-                ),
-            ) {
-                Text(
-                    text = type.label,
-                    style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
+private fun SagaTile(saga: SagaSummaryDto) {
+    Column(Modifier.width(150.dp)) {
+        Box(Modifier.width(150.dp).height(220.dp).clip(libraryTileShape)) {
+            if (saga.posterPath != null) {
+                Image(
+                    painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE${saga.posterPath}"),
+                    contentDescription = saga.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
+            } else {
+                Box(Modifier.fillMaxSize().background(MovvizSurfaceStrong))
             }
         }
+        Text(saga.name, color = MovvizInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
+        Text("${saga.ownedCount}/${saga.totalCount} possédés", color = MovvizInkDim, fontSize = 11.sp)
     }
 }

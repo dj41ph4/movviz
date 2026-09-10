@@ -135,6 +135,17 @@ fun MainScreen(
                 entryFocusRequester = contentFocusRequester,
                 onScrollChanged = onHomeScrollChanged,
             )
+            // Téléchargements (4e onglet de la barre basse portrait, esquisse
+            // mobile section 4) : rendu comme un onglet à part entière plutôt
+            // que via la route de navigation dédiée (ROUTE_DOWNLOADS, encore
+            // utilisée par la NavRail TV) pour partager le même header/
+            // bottom-nav que les 3 autres onglets portrait.
+            tab == HomeTab.DOWNLOADS -> com.movviz.nx.mobile.ui.downloads.DownloadsScreen(
+                viewModel = viewModel,
+                onBack = {},
+                onOpenTitle = onOpenTitle,
+                embedded = true,
+            )
             tab == HomeTab.PROFILE -> ProfileScreen(
                 viewModel = viewModel,
                 entryFocusRequester = contentFocusRequester,

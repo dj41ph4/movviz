@@ -191,11 +191,35 @@ fun DiscoverScreen(
             if (rowCards.isEmpty()) null else DiscoverRow(row.key, row.meta, rowCards, seeAll = !mixedDiscovery)
         }
     }
+    // Ordre imposé par l'esquisse mobile section 9 : Tendances/Nouveautés
+    // (éditorial serveur) avant Recommandé pour vous/mieux notés (suggestions
+    // locales), catalogue complet toujours en dernier.
     val rows = remember(editorial, librarySuggestionRows, cards) {
         buildList {
-            addAll(librarySuggestionRows)
             addAll(editorial)
+            addAll(librarySuggestionRows)
             if (cards.isNotEmpty()) add(DiscoverRow("library", null, cards, seeAll = false))
+        }
+    }
+    // "Reprendre un film"/"Reprendre une série" (esquisse section 9) — filtre
+    // client de la même source que l'accueil (continueWatching), pas de
+    // nouvel appel réseau.
+    val continueWatching by viewModel.continueWatching.collectAsState()
+    val resumeCards = remember(continueWatching, wantedType) {
+        continueWatching.filter { it.type == wantedType }.map { resume ->
+            TvTitleCard(
+                id = "discover-resume-${resume.type}-${resume.tmdbId}",
+                title = resume.title ?: "—",
+                posterPath = resume.posterPath,
+                backdropPath = null,
+                tmdbId = resume.tmdbId,
+                isMovie = resume.type == "movie",
+                rating = resume.rating,
+                progressPercent = resume.progressPercent,
+                isResumeCard = true,
+                resumeSeasonNumber = resume.seasonNumber,
+                resumeEpisodeNumber = resume.episodeNumber,
+            )
         }
     }
     val heroItems = remember(dashboardHero, cards, wantedType, mixedDiscovery) {
@@ -257,53 +281,11 @@ fun DiscoverScreen(
                         .focusable(),
                 )
             }
-            if (fixedType != null && compactPortrait) {
-                item(contentType = "hub-pills") {
-                    MediaHubSegmentedPills(
-                        active = activeHubTab,
-                        onSelect = onSelectHubTab,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                }
-                item(contentType = "filter-row") {
-                    val genreLabels = remember(genres) { genres.map { it.name } }
-                    val providerLabels = remember(watchProviderTiles) { watchProviderTiles.map { it.name } }
-                    val moodLabels = remember(genres) {
-                        MOOD_TILES.mapNotNull { mood -> genres.firstOrNull { g -> mood.names.any { it.equals(g.name, ignoreCase = true) } }?.let { mood.label } }
-                    }
-                    FilterChipRow(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
-                        if (genreLabels.isNotEmpty()) {
-                            FilterDropdownChip(
-                                label = "Genres",
-                                options = genreLabels,
-                                onSelectOption = { name -> genres.firstOrNull { it.name == name }?.let { onOpenGenre(wantedType, it.id.toString(), it.name) } },
-                            )
-                        }
-                        if (moodLabels.isNotEmpty()) {
-                            FilterDropdownChip(
-                                label = "Humeur",
-                                options = moodLabels,
-                                onSelectOption = { label ->
-                                    val mood = MOOD_TILES.firstOrNull { it.label == label }
-                                    val match = mood?.let { m -> genres.firstOrNull { g -> m.names.any { it.equals(g.name, ignoreCase = true) } } }
-                                    if (mood != null && match != null) onOpenGenre(wantedType, match.id.toString(), match.name)
-                                },
-                            )
-                        }
-                        if (providerLabels.isNotEmpty()) {
-                            FilterDropdownChip(
-                                label = "Plateformes",
-                                options = providerLabels,
-                                onSelectOption = { name ->
-                                    watchProviderTiles.firstOrNull { it.name == name }?.let { tile ->
-                                        onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous")
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+            // L'ancien double filtre "hub-pills"/"Genres·Humeur·Plateformes"
+            // (portrait) est retiré ici : redondant avec `contextHeader`
+            // (Films|Séries plein-largeur, injecté par DiscoverHubScreen) et
+            // absent de l'esquisse mobile section 9, qui ne prévoit qu'un
+            // sélecteur de genres en chips (DiscoverGenrePickerRow, plus bas).
             item(contentType = "type-toggle") {
                 if (contextHeader != null) {
                     contextHeader()
@@ -344,6 +326,22 @@ fun DiscoverScreen(
                     onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                 )
             }
+            if (resumeCards.isNotEmpty()) {
+                item(contentType = "resume-row") {
+                    TitleRow(
+                        heading = if (wantedType == "movie") "Reprendre un film" else "Reprendre une série",
+                        items = resumeCards,
+                        onClick = { card ->
+                            val season = card.resumeSeasonNumber
+                            val episode = card.resumeEpisodeNumber
+                            if (!card.isMovie && season != null && episode != null) onOpenTitle("series", card.tmdbId)
+                            else onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
+                        },
+                        firstItemFocusRequester = if (activeHero == null) heroFocus else null,
+                        titleLogoPaths = heroLogos,
+                    )
+                }
+            }
             if (genres.isNotEmpty()) {
                 item(contentType = "genre-picker") {
                     DiscoverGenrePickerRow(
@@ -361,7 +359,7 @@ fun DiscoverScreen(
                     heading = label,
                     items = row.cards,
                     onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                    firstItemFocusRequester = if (activeHero == null && row.key == firstRowKey) heroFocus else null,
+                    firstItemFocusRequester = if (activeHero == null && resumeCards.isEmpty() && row.key == firstRowKey) heroFocus else null,
                     onSeeAll = if (row.seeAll) { { onSeeAllRow(wantedType, row.key, label) } } else null,
                     titleLogoPaths = heroLogos,
                     onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -375,26 +373,25 @@ fun DiscoverScreen(
                     )
                 }
             }
-            // Rangées logo "Plateformes"/"Studios" en tout bas — même contenu
-            // et même ordre que LogoRow sur le Discover desktop, indépendant
-            // du toggle Films/Séries (voir loadDiscoverLogos()). Seule la
-            // tuile Plateforme est cliquable : elle ouvre le même "Voir tout"
-            // que la rangée "Suggestion {plateforme} pour vous" (providerSuggested),
-            // donc un classement selon le profil de l'utilisateur, pas
-            // l'ordre TMDb brut — les studios n'ont pas d'équivalent
-            // personnalisé côté serveur, leur tuile reste donc décorative.
-            if (watchProviderTiles.isNotEmpty()) {
-                item(contentType = "logo-row") {
-                    DiscoverLogoRow(
-                        title = "Plateformes de streaming",
-                        tiles = watchProviderTiles,
-                        onSelect = { tile -> onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
-                    )
+            // Rangées "Plateformes de streaming"/"Studios" : retirées du
+            // shell NX Découverte (`contextHeader != null`, esquisse mobile
+            // section 9 — le rail Plateformes vit désormais à l'Accueil) mais
+            // conservées pour le hub Films/Séries TV/paysage
+            // (`contextHeader == null`, MediaHubScreen), inchangé.
+            if (contextHeader == null) {
+                if (watchProviderTiles.isNotEmpty()) {
+                    item(contentType = "logo-row") {
+                        DiscoverLogoRow(
+                            title = "Plateformes de streaming",
+                            tiles = watchProviderTiles,
+                            onSelect = { tile -> onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
+                        )
+                    }
                 }
-            }
-            if (companyTiles.isNotEmpty()) {
-                item(contentType = "logo-row") {
-                    DiscoverLogoRow(title = "Studios", tiles = companyTiles, onSelect = null)
+                if (companyTiles.isNotEmpty()) {
+                    item(contentType = "logo-row") {
+                        DiscoverLogoRow(title = "Studios", tiles = companyTiles, onSelect = null)
+                    }
                 }
             }
         }
@@ -540,8 +537,10 @@ private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: S
  *  déjà en `private const val` localement (convention existante du module). */
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 
+// internal (pas private) : réutilisé par HomeScreen.kt pour le rail
+// "Plateformes" de l'accueil portrait (esquisse mobile section 8).
 @Composable
-private fun DiscoverLogoRow(
+internal fun DiscoverLogoRow(
     title: String,
     tiles: List<com.movviz.nx.mobile.data.LogoTileDto>,
     onSelect: ((com.movviz.nx.mobile.data.LogoTileDto) -> Unit)?,

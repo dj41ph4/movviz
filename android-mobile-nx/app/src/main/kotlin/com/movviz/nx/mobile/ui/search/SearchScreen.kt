@@ -5,8 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -40,6 +43,7 @@ import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
 import androidx.tv.foundation.lazy.grid.itemsIndexed
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
@@ -60,7 +64,9 @@ import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
 import com.movviz.nx.mobile.ui.theme.RatingBadge
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
+import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // w342, PAS w500 : les cartes de résultats font 154dp de large (~310px
 // physiques en 1080p) — w342 couvre avec marge pour les TV 4K sans
@@ -199,7 +205,7 @@ fun SearchScreen(
                 text = if (results.isEmpty()) "Aucun résultat pour « $query »" else "Aucun ${typeFilter.label.lowercase()} pour « $query »",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
             )
-            else -> TvLazyVerticalGrid(columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
+            else -> TvLazyVerticalGrid(state = rememberTvLazyGridState().withTvPrefetchDisabled(), columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
@@ -311,22 +317,19 @@ private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus
 }
 
 // ────────────────────────────────────────────────────────────────
-// Recherche portrait — esquisse mobile 2026-09 ("Recherche optimisée" /
-// "Résultats + filtres") : barre persistante + "Annuler", pilules de type
-// (Tous/Films/Séries — Acteurs/Collections omis, /api/search ne renvoie que
-// des films et séries, voir SearchResultDto), puis Suggestions (résultats
-// en cours de frappe), Tendances du moment (viewModel.trendingMovies/
-// trendingSeries, déjà chargées) et Résultats en liste. Pas de section
-// "Recherches récentes" : AUCUNE persistance locale de l'historique de
-// recherche n'existe côté client (aucun DataStore, aucun StateFlow) — en
-// ajouter une inventerait une fonctionnalité, donc la section est omise
-// plutôt que simulée (voir le rapport de fin de tâche).
+// Recherche portrait — esquisse mobile section 12 : barre persistante +
+// "Annuler", pilules Tous/Films/Séries/Acteurs (Acteurs = mode dédié réel de
+// /api/metadata/search?type=person, pas une simulation), Recherches
+// récentes (historique de session, pas encore persisté disque — voir plan),
+// Suggestions en cours de frappe, Tendances du moment, puis Résultats (N) +
+// Filtres.
 // ────────────────────────────────────────────────────────────────
 
 private enum class PortraitSearchTypeFilter(val label: String, val apiType: String?) {
     ALL("Tous", null),
     MOVIE("Films", "movie"),
     SERIES("Séries", "series"),
+    ACTOR("Acteurs", "person"),
 }
 
 @Composable
@@ -338,28 +341,37 @@ private fun PortraitSearchScreen(
     onCancel: () -> Unit,
 ) {
     val results by viewModel.searchResults.collectAsState()
+    val personResults by viewModel.personSearchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val trendingSeries by viewModel.trendingSeries.collectAsState()
     var typeFilter by remember { mutableStateOf(PortraitSearchTypeFilter.ALL) }
+    var recentSearches by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(listOf<String>()) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    fun commitSearch(term: String) {
+        if (term.isBlank()) return
+        recentSearches = (listOf(term) + recentSearches.filterNot { it.equals(term, ignoreCase = true) }).take(8)
+    }
 
     LaunchedEffect(Unit) { viewModel.loadDiscovery() }
-    LaunchedEffect(query) {
+    LaunchedEffect(query, typeFilter) {
         if (query.isBlank()) return@LaunchedEffect
         delay(350)
-        viewModel.search(query)
+        if (typeFilter == PortraitSearchTypeFilter.ACTOR) viewModel.searchPeople(query) else viewModel.search(query)
     }
 
     val filteredResults = remember(results, typeFilter) {
         val type = typeFilter.apiType
-        if (type == null) results else results.filter { it.type == type }
+        if (type == null || typeFilter == PortraitSearchTypeFilter.ACTOR) results else results.filter { it.type == type }
     }
     val suggestions = remember(filteredResults) { filteredResults.take(6) }
     val trending = remember(trendingMovies, trendingSeries, typeFilter) {
         when (typeFilter) {
             PortraitSearchTypeFilter.MOVIE -> trendingMovies
             PortraitSearchTypeFilter.SERIES -> trendingSeries
-            PortraitSearchTypeFilter.ALL -> (trendingMovies.take(3) + trendingSeries.take(3))
+            else -> (trendingMovies.take(3) + trendingSeries.take(3))
         }.take(5)
     }
 
@@ -388,7 +400,7 @@ private fun PortraitSearchScreen(
                             textStyle = TextStyle(fontSize = 14.sp, color = Color.White),
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { viewModel.search(query) }),
+                            keyboardActions = KeyboardActions(onSearch = { commitSearch(query); viewModel.search(query) }),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -426,16 +438,27 @@ private fun PortraitSearchScreen(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
         ) {
             if (query.isBlank()) {
+                if (recentSearches.isNotEmpty()) {
+                    item { SearchSectionHeading("Recherches récentes") }
+                    item {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                            items(recentSearches, key = { it }) { term ->
+                                SearchTypePill(label = term, active = false, onClick = { onQueryChange(term) })
+                            }
+                        }
+                    }
+                }
                 if (trending.isNotEmpty()) {
                     item { SearchSectionHeading("Tendances du moment") }
                     itemsIndexed(trending, key = { _, r -> "trend-${r.type}-${r.tmdbId}" }) { index, item ->
                         TrendingResultRow(index = index + 1, result = item, onClick = { onOpenTitle(item.type, item.tmdbId) })
                     }
-                } else {
+                } else if (recentSearches.isEmpty()) {
                     item {
                         Text(
                             "Recherchez un film, une série, un acteur",
@@ -444,6 +467,19 @@ private fun PortraitSearchScreen(
                             modifier = Modifier.padding(top = 32.dp),
                         )
                     }
+                }
+            } else if (typeFilter == PortraitSearchTypeFilter.ACTOR) {
+                item {
+                    Text(
+                        text = if (personResults.isEmpty()) "Aucun acteur pour « $query »" else "${personResults.size} résultat${if (personResults.size > 1) "s" else ""} pour « $query »",
+                        color = MovvizInkSoft,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                items(personResults, key = { "person-${it.tmdbId}" }) { person ->
+                    SuggestionRow(title = person.name, onClick = { commitSearch(query) })
                 }
             } else {
                 if (suggestions.isNotEmpty()) {
@@ -454,20 +490,32 @@ private fun PortraitSearchScreen(
                     item { Spacer(Modifier.height(10.dp)) }
                 }
                 item {
-                    Text(
-                        text = when {
-                            searching -> "Recherche…"
-                            filteredResults.isEmpty() -> "Aucun résultat pour « $query »"
-                            else -> "${filteredResults.size} résultat${if (filteredResults.size > 1) "s" else ""} pour « $query »"
-                        },
-                        color = MovvizInkSoft,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        Text(
+                            text = when {
+                                searching -> "Recherche…"
+                                filteredResults.isEmpty() -> "Aucun résultat pour « $query »"
+                                else -> "Résultats (${filteredResults.size})"
+                            },
+                            color = MovvizInkSoft,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            "Filtres",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.tvPointerClick {
+                                commitSearch(query)
+                                scope.launch { listState.animateScrollToItem(0) }
+                            },
+                        )
+                    }
                 }
                 items(filteredResults, key = { "res-${it.type}-${it.tmdbId}" }) { result ->
-                    SearchResultListRow(result = result, onClick = { onOpenTitle(result.type, result.tmdbId) })
+                    SearchResultListRow(result = result, onClick = { commitSearch(query); onOpenTitle(result.type, result.tmdbId) })
                 }
             }
         }

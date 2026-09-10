@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.24.100 — September 2026
+
+### NX Mobile
+
+- Refonte complète du portrait smartphone selon la maquette UX fournie : barre basse réduite à Accueil/Découverte/Bibliothèque/Téléchargements (icônes seules), Profil et Recherche désormais accessibles via l'avatar et le champ de recherche d'en-tête plutôt que des onglets dédiés.
+- Accueil : rail « Plateformes », rangées « Reprendre vos films »/« Reprendre vos séries » distinctes, plus de bandeau héro en portrait (non prévu par la maquette).
+- Découverte : sélecteur Films/Séries plein-largeur en dégradé de marque, rangée « Reprendre un film/une série ».
+- Bibliothèque : devient un vrai point d'entrée Watchlist/Historique/Collections (au lieu d'un alias du catalogue Films/Séries), watchlist et historique réels, collections utilisateur + sagas TMDb possédées.
+- Téléchargements : onglets « En cours »/« Terminés » avec compteurs réels, temps restant et vitesse affichés, plus de bouton Actualiser.
+- Fiche média : bouton retour et bascule watchlist flottants sur le bandeau, watchlist réellement bidirectionnelle (ajout/retrait serveur).
+- Recherche : chip « Acteurs » (recherche personne réelle), recherches récentes de session, section Résultats avec accès aux filtres.
+- Mise à jour dynamique de la barre basse conservée (5e icône, apparaît/disparaît selon la disponibilité).
+
 ## v1.24.99 — September 2026
 
 ### NX Mobile

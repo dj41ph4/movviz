@@ -320,6 +320,23 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun profileMedia(): ApiResult<ProfileMediaResponseDto> =
         safeCall { api.profileMedia() }
 
+    /** Ajout/retrait watchlist — bidirectionnel, jamais une simple lecture
+     *  (voir WatchlistAddRequest). */
+    suspend fun addToWatchlist(type: String, tmdbId: Int, title: String, year: Int?, posterPath: String?, rating: Double): ApiResult<Unit> =
+        safeCall { api.addWatchlistItem(WatchlistAddRequest(type, tmdbId, title, year, posterPath, rating)) }.map { }
+
+    suspend fun removeFromWatchlist(type: String, tmdbId: Int): ApiResult<Unit> =
+        safeCall { api.removeWatchlistItem(type, tmdbId) }
+
+    suspend fun collections(): ApiResult<List<CollectionDto>> =
+        safeCall { api.collections() }.map { it.collections }
+
+    suspend fun collectionSagas(offset: Int = 0, limit: Int = 40): ApiResult<SagasResponseDto> =
+        safeCall { api.collectionSagas(offset, limit) }
+
+    suspend fun searchPeople(query: String, page: Int = 1): ApiResult<List<PersonSearchResultDto>> =
+        safeCall { api.searchPeople(query, page = page) }.map { it.results }
+
     /** Identité du compte connecté — écran Paramètres, section Compte. Même
      *  route que hasValidSession() mais on garde cette fois l'utilisateur
      *  plutôt que de le jeter, car AppViewModel ne le charge sinon qu'au

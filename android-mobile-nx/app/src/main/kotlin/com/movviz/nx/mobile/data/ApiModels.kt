@@ -922,3 +922,75 @@ data class ProfileMediaResponseDto(
     val ratings: List<ProfileMediaCardDto> = emptyList(),
     val watchlist: List<ProfileMediaCardDto> = emptyList(),
 )
+
+// Miroir de POST /api/watchlist (src/app/api/watchlist/route.ts) — seuls les
+// champs réellement exploités côté carte sont envoyés, le serveur applique
+// ses propres valeurs par défaut pour le reste.
+@JsonClass(generateAdapter = true)
+data class WatchlistAddRequest(
+    val type: String,
+    val tmdbId: Int,
+    val title: String,
+    val year: Int? = null,
+    val posterPath: String? = null,
+    val rating: Double = 0.0,
+)
+
+// Miroir de Collection (src/lib/collections/types.ts) — onglet Collections
+// de la Bibliothèque portrait.
+@JsonClass(generateAdapter = true)
+data class CollectionItemDto(
+    val libraryRef: String,
+    val addedAt: Long = 0L,
+    val addedBy: String = "",
+)
+
+@JsonClass(generateAdapter = true)
+data class CollectionDto(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val items: List<CollectionItemDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class CollectionsResponseDto(
+    val collections: List<CollectionDto> = emptyList(),
+)
+
+// Miroir de SagaSummary (src/app/api/collections/sagas/route.ts) — sagas
+// TMDb calculées depuis les films possédés, même onglet Collections.
+@JsonClass(generateAdapter = true)
+data class SagaSummaryDto(
+    val collectionId: Int,
+    val name: String,
+    val posterPath: String? = null,
+    val ownedCount: Int = 0,
+    val totalCount: Int = 0,
+)
+
+@JsonClass(generateAdapter = true)
+data class SagasResponseDto(
+    val sagas: List<SagaSummaryDto> = emptyList(),
+    val total: Int = 0,
+    val hasMore: Boolean = false,
+)
+
+// Miroir de MetaPersonSearchResult (src/lib/metadata/types.ts) — onglet
+// Acteurs de la recherche portrait, GET /api/metadata/search?type=person.
+@JsonClass(generateAdapter = true)
+data class PersonSearchResultDto(
+    val tmdbId: Int,
+    val name: String,
+    val profilePath: String? = null,
+    val knownForDepartment: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PersonSearchResponseDto(
+    val results: List<PersonSearchResultDto> = emptyList(),
+    val page: Int = 1,
+    val totalPages: Int = 0,
+)

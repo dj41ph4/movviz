@@ -105,6 +105,7 @@ import com.movviz.nx.mobile.ui.theme.statusTone
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
 import com.movviz.nx.mobile.ui.theme.tvCardFocusHalo
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
+import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.delay
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -118,6 +119,20 @@ private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 // écran TV 1080p qui n'en montre que 1920px — le gaspillage réseau/mémoire
 // était visible sur Chromecast 4K. Netflix/Apple TV servent du 1080p max.
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
+
+/** "Bonsoir, {prénom}" — jamais de prénom en dur (esquisse section 18 : pas
+ *  de données de démonstration). Replié sur "Bonsoir" seul si le profil actif
+ *  n'a pas encore été chargé. */
+private fun greetingFor(profileName: String?): String {
+    val hour = java.time.LocalTime.now().hour
+    val salutation = when {
+        hour < 5 -> "Bonne nuit"
+        hour < 18 -> "Bonjour"
+        else -> "Bonsoir"
+    }
+    return if (profileName.isNullOrBlank()) salutation else "$salutation, $profileName"
+}
+
 private const val HERO_ROTATE_MS = 8_000L
 private const val HERO_COUNT = 5
 
@@ -215,6 +230,12 @@ fun HomeScreen(
     val streamedDashboardLayout by viewModel.dashboardLayout.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
     val homeUiState by viewModel.homeUiState.collectAsState()
+    // Rail "Plateformes" en tête de l'accueil portrait (esquisse mobile
+    // section 8) — même source que le rail homonyme de Découverte
+    // (DiscoverScreen.kt), déclenchée ici aussi si pas déjà chargée.
+    val watchProviderTiles by viewModel.watchProviderTiles.collectAsState()
+    val activeHomeProfile by viewModel.activeProfile.collectAsState()
+    LaunchedEffect(Unit) { if (watchProviderTiles.isEmpty()) viewModel.loadDiscoverLogos() }
     // Un snapshot P0/P1 est publié en une seule transition. Cela évite les
     // recompositions et déplacements de focus produits par dix StateFlow
     // successifs. Sans snapshot (compatibilité serveur ancien), les flows
@@ -475,7 +496,7 @@ fun HomeScreen(
     val showHero = heroItems.isNotEmpty()
     val contentFocus = entryFocusRequester ?: remember { FocusRequester() }
     val topAnchor = remember { FocusRequester() }
-    val listState = rememberTvLazyListState()
+    val listState = rememberTvLazyListState().withTvPrefetchDisabled()
     val hasScrolled by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12
@@ -520,7 +541,35 @@ fun HomeScreen(
                         },
                 )
             }
-            if (showHero) {
+            // Accueil portrait (esquisse mobile section 8) : pas de hero
+            // plein écran — l'écran ouvre sur un message d'accueil puis les
+            // plateformes configurées, immédiatement suivis des rangées de
+            // reprise. Le hero reste la porte d'entrée TV/paysage, inchangée.
+            if (compactPortrait) {
+                item(contentType = "greeting") {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(
+                            text = greetingFor(activeHomeProfile?.name),
+                            style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                        )
+                        Text(
+                            text = "Prêt pour une nouvelle histoire ?",
+                            color = MovvizInkDim,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                }
+                if (watchProviderTiles.isNotEmpty()) {
+                    item(contentType = "platforms") {
+                        com.movviz.nx.mobile.ui.discover.DiscoverLogoRow(
+                            title = "Plateformes",
+                            tiles = watchProviderTiles,
+                            onSelect = null,
+                        )
+                    }
+                }
+            } else if (showHero) {
                 item(contentType = "hero") {
                     HeroCarousel(
                         items = heroItems,
@@ -536,7 +585,48 @@ fun HomeScreen(
 
             visibleSections.forEach { sectionId ->
                 when (sectionId) {
-                    "continueWatching" -> item(contentType = "row") {
+                    "continueWatching" -> if (compactPortrait) {
+                        // Esquisse mobile : "Reprendre vos films"/"Reprendre
+                        // vos séries" scindés plutôt qu'une seule rangée
+                        // mixte "Continuer à regarder" (conservée telle
+                        // quelle en paysage/TV, ci-dessous).
+                        // Pas de remember() ici : ce bloc s'exécute dans le
+                        // DSL LazyListScope.forEach, hors contexte composable
+                        // (remember exige une composition active).
+                        val resumeMovies = continueCards.filter { it.isMovie }
+                        val resumeSeries = continueCards.filterNot { it.isMovie }
+                        if (resumeMovies.isNotEmpty()) {
+                            item(contentType = "row") {
+                                TitleRow(
+                                    heading = "Reprendre vos films", items = resumeMovies,
+                                    onClick = { card -> onOpenTitle("movie", card.tmdbId) },
+                                    firstItemFocusRequester = if (firstVisibleSection == sectionId) contentFocus else null,
+                                    titleLogoPaths = heroLogos,
+                                    onFocusedCard = { viewModel.requestHeroLogo("movie", it.tmdbId) },
+                                    previewLoader = { viewModel.loadTvPreview("movie", it.tmdbId) },
+                                    onPreviewStateChanged = onCardPreviewStateChanged,
+                                )
+                            }
+                        }
+                        if (resumeSeries.isNotEmpty()) {
+                            item(contentType = "row") {
+                                TitleRow(
+                                    heading = "Reprendre vos séries", items = resumeSeries,
+                                    onClick = { card ->
+                                        val season = card.resumeSeasonNumber
+                                        val episode = card.resumeEpisodeNumber
+                                        if (season != null && episode != null) onOpenEpisode(card.tmdbId, season, episode)
+                                        else onOpenTitle("series", card.tmdbId)
+                                    },
+                                    firstItemFocusRequester = if (resumeMovies.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                                    titleLogoPaths = heroLogos,
+                                    onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
+                                    previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
+                                    onPreviewStateChanged = onCardPreviewStateChanged,
+                                )
+                            }
+                        }
+                    } else item(contentType = "row") {
                         TitleRow(
                             heading = "Continuer à regarder", items = continueCards,
                             onClick = { card ->
@@ -1538,6 +1628,7 @@ internal fun TitleRow(
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading(heading)
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(
                 start = if (compactPortrait) 16.dp else 52.dp,
@@ -2003,6 +2094,7 @@ private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: Stri
             modifier = Modifier.padding(start = 64.dp, bottom = 16.dp),
         )
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(horizontal = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),

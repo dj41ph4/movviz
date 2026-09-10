@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.zIndex
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -82,6 +84,7 @@ import com.movviz.nx.mobile.ui.theme.statusTone
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
 import com.movviz.nx.mobile.ui.theme.tvCardFocusHalo
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
+import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.delay
@@ -139,6 +142,10 @@ fun TitleDetailScreen(
     // Cible D-pad « flèche bas depuis la barre » : la fiche emploie sa zone
     // visuelle logo/titre comme première cible, même sans CTA générique.
     entryFocusRequester: FocusRequester? = null,
+    // Bouton retour flottant sur le hero, portrait uniquement (esquisse
+    // mobile section 7) — TV/paysage gardent leur propre navigation (NavRail
+    // + retour système), inchangée.
+    onBack: () -> Unit = {},
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val detail by viewModel.detail.collectAsState()
@@ -417,7 +424,7 @@ fun TitleDetailScreen(
     // Toujours repartir au début réel de la fiche à son ouverture. Sans ce
     // reset, le focus initial sur un CTA pouvait conserver un offset LazyRow
     // précédent et masquer logo/titre sous la navigation.
-    val lazyListState = rememberTvLazyListState()
+    val lazyListState = rememberTvLazyListState().withTvPrefetchDisabled()
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
     LaunchedEffect(detail) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
@@ -460,6 +467,10 @@ fun TitleDetailScreen(
     // muet reste derrière le texte et les actions. Sans cet appel, les fiches
     // ne pouvaient afficher qu'un backdrop statique, même lorsqu'un aperçu
     // existait côté Movviz.
+    // Nécessaire pour connaître l'état watchlist du bouton flottant portrait
+    // dès l'ouverture d'une fiche, sans dépendre d'un passage préalable par
+    // Bibliothèque/Profil.
+    LaunchedEffect(Unit) { if (viewModel.profileMedia.value == null) viewModel.loadProfileMedia() }
     var ambientPreview by remember(type, tmdbId) { mutableStateOf<com.movviz.nx.mobile.data.TvPreviewDto?>(null) }
     LaunchedEffect(detail?.tmdbId, type) {
         if (detail == null) return@LaunchedEffect
@@ -523,6 +534,37 @@ fun TitleDetailScreen(
                     ),
                 ),
         )
+
+        // Retour + watchlist flottants sur le hero (esquisse mobile section
+        // 7) — jamais de barre haute classique sur la fiche média portrait.
+        // zIndex obligatoire : le TvLazyColumn de contenu plus bas dans ce
+        // même Box est fillMaxSize() et, ajouté après, passerait AU-DESSUS
+        // de ces boutons dans le hit-testing malgré son contenu visuel qui
+        // commence sous le hero (les taps atterrissaient sur la liste vide,
+        // pas sur les boutons — reproduit et corrigé en test émulateur).
+        if (compactPortrait) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .zIndex(10f),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                FloatingHeroButton(icon = com.movviz.nx.mobile.ui.theme.MovvizIconBack, contentDescription = "Retour", onClick = onBack)
+                val d = detail
+                if (d != null) {
+                    val profileMediaState by viewModel.profileMedia.collectAsState()
+                    val inWatchlist = profileMediaState?.watchlist?.any { it.tmdbId == d.tmdbId && it.type == d.type } == true
+                    FloatingHeroButton(
+                        icon = if (inWatchlist) com.movviz.nx.mobile.ui.theme.MovvizIconBookmarkFilled else com.movviz.nx.mobile.ui.theme.MovvizIconBookmark,
+                        contentDescription = if (inWatchlist) "Retirer de la watchlist" else "Ajouter à la watchlist",
+                        onClick = { viewModel.toggleWatchlist(d.type, d.tmdbId, d.title, d.year, d.posterPath, d.rating) },
+                        tint = if (inWatchlist) MovvizBrand2 else Color.White,
+                    )
+                }
+            }
+        }
 
         if (detail == null) {
             if (detailError == null) {
@@ -774,21 +816,26 @@ fun TitleDetailScreen(
             // Plex/Netflix : jamais un simple bouton "Lire" sur une série).
             if (type == "movie") {
                 Column {
-                    Row {
+                    // CTA principal factorisé : rendu identique quelle que
+                    // soit la largeur, seul `fillWidth` change (pleine
+                    // largeur + dégradé en portrait, esquisse mobile section
+                    // 7 — pilule ajustée à son texte sur TV/paysage, comme
+                    // avant).
+                    val primaryCta: @Composable (Boolean) -> Unit = { fillWidth ->
                         val plexKey = plexRatingKey
                         if (plexKey != null) {
                             val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
-                            PrimaryPill(text = ctaText, brush = null, solidWhite = true, icon = MovvizIconPlay) {
+                            PrimaryPill(
+                                text = ctaText,
+                                brush = if (fillWidth) Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)) else null,
+                                solidWhite = !fillWidth,
+                                icon = MovvizIconPlay,
+                                fillWidth = fillWidth,
+                            ) {
                                 onPlay(d.title, listOf(QueueItem(plexKey, null, -1, -1, localMovieId)), 0, d.posterPath)
                             }
-                            if (movieResume != null) {
-                                Spacer(modifier = Modifier.width(12.dp))
-                                PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay) {
-                                    onPlayFromStart(d.title, listOf(QueueItem(plexKey, null, -1, -1, localMovieId)), 0, d.posterPath)
-                                }
-                            }
                         } else if (!libraryResolved) {
-                            PrimaryPill(text = "Vérification du fichier…", brush = null, solidWhite = false, enabled = false, onClick = {})
+                            PrimaryPill(text = "Vérification du fichier…", brush = null, solidWhite = false, enabled = false, fillWidth = fillWidth, onClick = {})
                         } else if (!inLibrary) {
                             PrimaryPill(
                                 text = if (addingToLibrary) "Ajout…" else "Ajouter à la bibliothèque",
@@ -796,6 +843,7 @@ fun TitleDetailScreen(
                                 solidWhite = false,
                                 enabled = !addingToLibrary,
                                 icon = if (addingToLibrary) null else MovvizIconPlus,
+                                fillWidth = fillWidth,
                             ) {
                                 scope.launch {
                                     when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
@@ -820,7 +868,35 @@ fun TitleDetailScreen(
                             val movieStatus = remember(type, tmdbId, movies) {
                                 if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId }?.status else null
                             }
-                            PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, solidWhite = false, enabled = false) {}
+                            PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, solidWhite = false, enabled = false, fillWidth = fillWidth) {}
+                        }
+                    }
+                    if (compactPortrait) {
+                        primaryCta(true)
+                        if (movieResume != null && plexRatingKey != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay, fillWidth = true) {
+                                onPlayFromStart(d.title, listOf(QueueItem(plexRatingKey!!, null, -1, -1, localMovieId)), 0, d.posterPath)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        PrimaryPill(
+                            text = if (movieWatched) "Marquer non vu" else "Marquer vu",
+                            brush = null,
+                            solidWhite = false,
+                            icon = MovvizIconCheck,
+                            fillWidth = true,
+                        ) {
+                            viewModel.toggleMovieWatched(tmdbId, d.title, !movieWatched)
+                        }
+                    } else {
+                    Row {
+                        primaryCta(false)
+                        if (plexRatingKey != null && movieResume != null) {
+                            Spacer(modifier = Modifier.width(12.dp))
+                            PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay) {
+                                onPlayFromStart(d.title, listOf(QueueItem(plexRatingKey!!, null, -1, -1, localMovieId)), 0, d.posterPath)
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         PrimaryPill(
@@ -831,6 +907,7 @@ fun TitleDetailScreen(
                         ) {
                             viewModel.toggleMovieWatched(tmdbId, d.title, !movieWatched)
                         }
+                    }
                     }
                     // Fine barre de progression sous le CTA de reprise — même
                     // esprit que le hero de l'accueil (progressPercent sur
@@ -1044,6 +1121,7 @@ private fun CastRow(cast: List<com.movviz.nx.mobile.data.MetaCastMemberDto>, onO
             modifier = Modifier.padding(start = edge, bottom = 12.dp),
         )
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = edge),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -1127,7 +1205,7 @@ private fun SeasonSelector(
     Column(modifier = Modifier.padding(bottom = 20.dp)) {
         Text(text = "Saisons", style = TextStyle(fontSize = 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(12.dp))
-        TvLazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
                 val selected = season.seasonNumber == selectedSeasonNumber
                 var focused by remember { mutableStateOf(false) }
@@ -1207,6 +1285,7 @@ private fun SeasonPageOverlay(
         }
     }
     TvLazyColumn(
+        state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0F)),
         contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 156.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
@@ -1608,6 +1687,33 @@ private fun MetaSep() {
     Text(text = "  •  ", style = TextStyle(fontSize = 14.sp, color = MovvizInkDim))
 }
 
+/** Bouton circulaire flottant sur le hero portrait (retour/watchlist) —
+ *  fond glass sombre, jamais transparent pur (illisible sur un backdrop
+ *  clair). */
+@Composable
+private fun FloatingHeroButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    tint: Color = Color.White,
+) {
+    androidx.tv.material3.Surface(
+        onClick = onClick,
+        modifier = Modifier.size(40.dp).tvPointerClick(onClick),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = Color.Black.copy(alpha = 0.35f),
+            focusedContainerColor = Color.Black.copy(alpha = 0.5f),
+            contentColor = tint,
+            focusedContentColor = tint,
+        ),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            androidx.tv.material3.Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(19.dp))
+        }
+    }
+}
+
 /** Bouton d'action principal — Surface focusable (obligatoire pour le D-pad),
  *  fond dégradé simulé via Modifier.background + containerColor transparent
  *  quand un Brush est fourni, sinon blanc plein (même distinction que
@@ -1620,6 +1726,10 @@ private fun PrimaryPill(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     focusRequester: FocusRequester? = null,
+    // Esquisse mobile section 7 : le CTA principal ("Lire maintenant") est
+    // pleine largeur en portrait, pas une pilule qui s'ajuste à son texte
+    // comme sur TV/paysage — jamais utilisé hors compactPortrait.
+    fillWidth: Boolean = false,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -1628,6 +1738,7 @@ private fun PrimaryPill(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
+            .let { if (fillWidth) it.fillMaxWidth() else it }
             .let { if (brush != null) it.background(brush, shape) else it }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .tvFocusLift(focused && enabled, shape = shape, maxScale = 1.06f, maxElevation = 16.dp)
@@ -1655,8 +1766,10 @@ private fun PrimaryPill(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
+            horizontalArrangement = if (fillWidth) Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .let { if (fillWidth) it.fillMaxWidth() else it }
+                .padding(horizontal = 22.dp, vertical = 14.dp),
         ) {
             if (icon != null) {
                 // Sans tint explicite : Icon hérite de LocalContentColor de la

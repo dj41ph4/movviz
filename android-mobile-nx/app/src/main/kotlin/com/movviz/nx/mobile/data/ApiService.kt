@@ -238,6 +238,31 @@ interface MovvizApiService {
     @GET("api/profile/media")
     suspend fun profileMedia(): Response<ProfileMediaResponseDto>
 
+    // Watchlist réelle (src/app/api/watchlist/route.ts,
+    // src/app/api/watchlist/[type]/[id]/route.ts) — bidirectionnelle, pas un
+    // simple miroir de lecture : la fiche titre/Bibliothèque écrivent ici.
+    @POST("api/watchlist")
+    suspend fun addWatchlistItem(@Body body: WatchlistAddRequest): Response<Map<String, Any?>>
+
+    @DELETE("api/watchlist/{type}/{id}")
+    suspend fun removeWatchlistItem(@Path("type") type: String, @Path("id") tmdbId: Int): Response<Unit>
+
+    // Collections utilisateur + sagas TMDb calculées depuis la bibliothèque
+    // possédée (src/app/api/collections/route.ts,
+    // src/app/api/collections/sagas/route.ts) — onglet Collections de la
+    // Bibliothèque portrait.
+    @GET("api/collections")
+    suspend fun collections(): Response<CollectionsResponseDto>
+
+    @GET("api/collections/sagas")
+    suspend fun collectionSagas(@Query("offset") offset: Int = 0, @Query("limit") limit: Int = 40): Response<SagasResponseDto>
+
+    // Recherche personne (acteur/actrice) — mode dédié du même endpoint que
+    // la recherche films/séries (src/app/api/metadata/search/route.ts,
+    // ?type=person). Onglet Acteurs de la recherche portrait.
+    @GET("api/metadata/search")
+    suspend fun searchPeople(@Query("q") query: String, @Query("type") type: String = "person", @Query("page") page: Int = 1): Response<PersonSearchResponseDto>
+
     // Préférences de compte persistées côté serveur (voir
     // src/app/api/settings/preferences/route.ts) — écran Paramètres, section
     // Lecture (langue audio par défaut). Même route que le desktop, PATCH

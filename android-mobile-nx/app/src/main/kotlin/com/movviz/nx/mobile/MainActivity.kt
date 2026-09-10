@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
@@ -185,6 +187,11 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // visible et fonctionnelle même sur la fiche titre/acteur, qui vivent en
     // dehors de MainScreen sur la pile de navigation (demandé explicitement
     // après le premier jet qui la masquait sur la fiche, façon Netflix).
+    // Accueil est désormais le premier onglet de la capsule basse portrait
+    // (esquisse mobile 2026-09 : Accueil/Découverte/Bibliothèque/
+    // Téléchargements), donc démarrer sur HOME est correct dans les deux
+    // orientations — plus besoin du repli vers Découverte qu'imposait
+    // l'ancienne barre sans entrée Accueil.
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -333,18 +340,21 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     }
 
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
-    // En-tête portrait persistant (mark + wordmark + avatar + barre de
-    // recherche toujours visible) — esquisse mobile fournie 2026-09. Il ne
-    // remplace jamais NxTopNav (barre TV, jamais affichée en portrait
-    // téléphone : voir la condition !compactPortrait ci-dessous), et reste
-    // cantonné aux 4 onglets couverts par la charte (Accueil/Découverte/
-    // Films/Séries) : Profil/Paramètres gardent leur propre en-tête, non
-    // repris ici faute d'esquisse les couvrant. Masqué pendant la recherche
-    // plein écran, qui porte sa propre barre persistante (voir SearchScreen).
+    // En-tête portrait persistant (mark + wordmark + avatar) — esquisse
+    // mobile fournie 2026-09. Il ne remplace jamais NxTopNav (barre TV,
+    // jamais affichée en portrait téléphone : voir la condition
+    // !compactPortrait ci-dessous), et couvre désormais les 4 onglets de la
+    // barre basse (Accueil/Découverte/Bibliothèque/Téléchargements) : Profil
+    // garde son propre en-tête (accessible via l'avatar, jamais un onglet de
+    // la barre basse). Masqué pendant la recherche plein écran, qui porte sa
+    // propre barre persistante (voir SearchScreen).
     val showPortraitHeader = compactPortrait &&
         currentRoute?.startsWith("home") == true &&
         !searchOpen &&
-        tab in setOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.MY_LIST)
+        tab in setOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.LIBRARY, HomeTab.DOWNLOADS)
+    // Téléchargements affiche son titre à la place du champ recherche
+    // (esquisse section 3 : pas de champ recherche sous cet écran).
+    val portraitHeaderTitle = if (tab == HomeTab.DOWNLOADS) "Téléchargements" else null
     val portraitActiveProfile by viewModel.activeProfile.collectAsState()
     // NX: la navigation est une surcouche haute. Le contenu garde la pleine
     // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
@@ -353,8 +363,12 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             if (showPortraitHeader) {
                 PortraitTopHeader(
                     activeProfile = portraitActiveProfile,
-                    onSearchClick = { searchOpen = true; tab = HomeTab.HOME },
+                    // Ne touche pas `tab` : l'onglet sous-jacent reste actif
+                    // dans la barre basse pendant la recherche, qui s'affiche
+                    // simplement par-dessus (et se referme dessus).
+                    onSearchClick = { searchOpen = true },
                     onAvatarClick = { navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) } },
+                    title = portraitHeaderTitle,
                 )
             }
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -602,6 +616,7 @@ composable(ROUTE_PROFILES) {
                     navController.navigate(personRoute(personId))
                 },
                 entryFocusRequester = contentFocusRequester,
+                onBack = { navController.popBackStack() },
             )
             }
         }
@@ -665,7 +680,6 @@ composable(ROUTE_PROFILES) {
             PortraitBottomNav(
                 selected = tab,
                 onSelect = { newTab -> tab = newTab; searchOpen = false; headerHasScrolled = false },
-                profileLabel = viewModel.activeProfile.collectAsState().value?.name ?: "Mon profil",
                 updateTag = viewModel.availableUpdateTag.collectAsState().value,
                 onUpdateClick = { viewModel.requestUpdateInstall() },
                 modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
@@ -675,170 +689,92 @@ composable(ROUTE_PROFILES) {
     }
 }
 
+/**
+ * Barre basse portrait — exactement Accueil/Découverte/Bibliothèque/
+ * Téléchargements (esquisse mobile section 4/15) : plus de Films/Séries/Ma
+ * liste/Profil ici (Films/Séries vivent désormais comme sous-mode de
+ * Découverte, Profil est accessible via l'avatar d'en-tête, Recherche via le
+ * champ de recherche). Icône + libellé TOUJOURS visibles pour les 4 onglets
+ * (nav bar classique, contrairement à l'ancien design "seul l'actif anime"),
+ * plus un 5e item "Mise à jour" qui apparaît/disparaît dynamiquement quand
+ * `updateTag` devient non-null, sans déformer les 4 autres cellules (poids
+ * égal, largeur totale qui s'étend).
+ */
 @Composable
 private fun PortraitBottomNav(
     selected: HomeTab,
     onSelect: (HomeTab) -> Unit,
-    profileLabel: String,
     updateTag: String?,
     onUpdateClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     data class Item(val tab: HomeTab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
-    // Ordre maquette mobile : Découverte / Films / Séries / Ma liste / Profil.
     val items = listOf(
-        Item(HomeTab.DISCOVER, "Découverte", MovvizIconStar),
-        Item(HomeTab.MOVIES, "Films", MovvizIconFilm),
-        Item(HomeTab.SERIES, "Séries", MovvizIconTvScreen),
-        Item(HomeTab.MY_LIST, "Ma liste", MovvizIconCheck),
-        Item(HomeTab.PROFILE, profileLabel, MovvizIconDotCircle),
+        Item(HomeTab.HOME, "Accueil", MovvizIconHome),
+        Item(HomeTab.DISCOVER, "Découverte", com.movviz.nx.mobile.ui.theme.MovvizIconCompass),
+        Item(HomeTab.LIBRARY, "Bibliothèque", com.movviz.nx.mobile.ui.theme.MovvizIconBookmark),
+        Item(HomeTab.DOWNLOADS, "Téléchargements", MovvizIconDownload),
     )
-    // Le dock est volontairement plus petit que le contenu et ne touche
-    // jamais la zone des gestes. Une barre pleine largeur ou trop basse fait
-    // immédiatement "web app" et masque les cartes de la dernière rangée.
-    // L'indicateur de mise à jour vit désormais DANS la même rangée que les
-    // onglets (icône seule + pastille), au lieu d'une capsule avec son texte
-    // "Mise à jour X.Y.Z" empilée au-dessus dans sa propre ligne : cette
-    // ligne ajoutait ~48dp de hauteur et repoussait toute la barre bien
-    // au-dessus de sa position basse normale (constaté sur la capture
-    // portrait). Le libellé de version reste accessible via
-    // contentDescription (lecteur d'écran / appui long), plus jamais rendu
-    // dans la mise en page.
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            .shadow(14.dp, RoundedCornerShape(24.dp), clip = false)
+            // Dock teinté violet-nuit (MovvizSurfaceStrong), pas un gris
+            // neutre : cohérent avec le fond général de l'app et la charte
+            // mobile (esquisse fournie 2026-09).
+            .background(MovvizSurfaceStrong.copy(alpha = .96f), RoundedCornerShape(24.dp))
+            .border(1.dp, MovvizBrand.copy(alpha = .22f), RoundedCornerShape(24.dp))
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // Les cellules restent strictement égales. Ainsi l'icône ne se
-        // déplace jamais quand le libellé actif apparaît : seul ce dernier
-        // anime dans sa propre ligne, juste au-dessus du dock.
-        Column(
-            modifier = Modifier.wrapContentWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(
-                modifier = Modifier.height(22.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                items.forEach { item ->
-                    val active = selected == item.tab
-                    Box(
-                        modifier = Modifier.width(50.dp).height(22.dp),
-                        contentAlignment = Alignment.TopCenter,
-                    ) {
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = active,
-                            enter = fadeIn(tween(120)) + expandHorizontally(tween(180)),
-                            exit = fadeOut(tween(90)) + shrinkHorizontally(tween(140)),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .wrapContentWidth(unbounded = true)
-                                    .height(20.dp)
-                                    // Indicateur actif aligné sur le dégradé de
-                                    // marque (rose/violet) plutôt qu'un gris
-                                    // neutre — cohérence avec .brand-gradient
-                                    // côté web (MovvizBrand → MovvizBrand2).
-                                    .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(10.dp))
-                                    .padding(horizontal = 10.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    item.label,
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 10.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(
+        items.forEach { item ->
+            val active = selected == item.tab
+            Box(
                 modifier = Modifier
-                    .wrapContentWidth()
-                    .shadow(14.dp, RoundedCornerShape(30.dp), clip = false)
-                    // Dock teinté violet-nuit (MovvizSurfaceStrong), pas un
-                    // gris neutre : cohérent avec le fond général de l'app
-                    // et la charte mobile (esquisse fournie 2026-09), qui
-                    // montre une pilule sombre mais jamais neutre.
-                    .background(MovvizSurfaceStrong.copy(alpha = .96f), RoundedCornerShape(30.dp))
-                    .border(1.dp, MovvizBrand.copy(alpha = .22f), RoundedCornerShape(30.dp))
-                    .padding(horizontal = 6.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    .weight(1f)
+                    .height(44.dp)
+                    .tvPointerClick { onSelect(item.tab) },
+                contentAlignment = Alignment.Center,
             ) {
-                items.forEach { item ->
-                    val active = selected == item.tab
-                    Surface(
-                        onClick = { onSelect(item.tab) },
-                        modifier = Modifier
-                            .width(50.dp)
-                            .height(48.dp)
-                            .tvPointerClick { onSelect(item.tab) },
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
-                        colors = ClickableSurfaceDefaults.colors(
-                            containerColor = Color.Transparent,
-                            focusedContainerColor = Color.White.copy(alpha = .10f),
-                            contentColor = Color.White,
-                            focusedContentColor = Color.White,
-                        ),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .then(
-                                    if (active) {
-                                        Modifier.background(
-                                            Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .85f), MovvizBrand2.copy(alpha = .85f))),
-                                            RoundedCornerShape(24.dp),
-                                        )
-                                    } else {
-                                        Modifier
-                                    },
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                item.icon,
-                                item.label,
-                                modifier = Modifier.size(21.dp),
-                                tint = if (active) Color.White else Color(0xFFC3C3CB),
-                            )
-                        }
-                    }
-                }
-                if (updateTag != null) {
-                    // Fin séparateur discret : distingue visuellement
-                    // l'indicateur de mise à jour des onglets de navigation
-                    // sans ajouter de hauteur (voir commentaire au-dessus).
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 1.dp)
-                            .width(1.dp)
-                            .height(26.dp)
-                            .background(Color.White.copy(alpha = .12f)),
-                    )
-                    UpdateIndicator(tag = updateTag, onClick = onUpdateClick)
-                }
+                Icon(
+                    item.icon,
+                    item.label,
+                    modifier = Modifier.size(24.dp),
+                    tint = if (active) MovvizBrand2 else Color(0xFFC3C3CB),
+                )
+            }
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = updateTag != null,
+            enter = fadeIn(tween(220)) + expandHorizontally(tween(260)),
+            exit = fadeOut(tween(140)) + shrinkHorizontally(tween(200)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .tvPointerClick(onUpdateClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = MovvizIconDownload,
+                    contentDescription = "Mise à jour ${updateTag?.removePrefix("v")} disponible",
+                    modifier = Modifier.size(24.dp),
+                    tint = MovvizBrand2,
+                )
+                UpdatePulseDot(modifier = Modifier.align(Alignment.TopEnd).offset(x = (-6).dp, y = 4.dp))
             }
         }
     }
 }
 
-/** Pastille de mise à jour disponible — icône seule, fond glass (dégradé de
- *  marque à faible opacité) plutôt qu'un aplat violet plein jugé "trop
- *  opaque" en direct. Le libellé "Mise à jour X.Y.Z" n'est plus dessiné :
- *  il vit uniquement dans le contentDescription (lecteur d'écran / appui
- *  long, comme un tooltip natif Android). */
+/** Petit halo pulsant — attire l'œil sur la mise à jour disponible sans
+ *  texte de version dans la mise en page (accessible via contentDescription). */
 @Composable
-private fun UpdateIndicator(tag: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun UpdatePulseDot(modifier: Modifier = Modifier) {
     val pulse = rememberInfiniteTransition(label = "portraitUpdatePulse")
     val dotAlpha by pulse.animateFloat(
         initialValue = 0.45f,
@@ -846,35 +782,11 @@ private fun UpdateIndicator(tag: String, onClick: () -> Unit, modifier: Modifier
         animationSpec = infiniteRepeatable(tween(760), RepeatMode.Reverse),
         label = "portraitUpdateDotAlpha",
     )
-    Surface(
-        onClick = onClick,
+    Box(
         modifier = modifier
-            .size(48.dp)
-            .tvPointerClick(onClick),
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = MovvizBrand.copy(alpha = 0.20f),
-            focusedContainerColor = MovvizBrand.copy(alpha = 0.34f),
-            contentColor = Color.White,
-            focusedContentColor = Color.White,
-        ),
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Icon(
-                imageVector = MovvizIconDownload,
-                contentDescription = "Mise à jour ${tag.removePrefix("v")} disponible",
-                tint = Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 6.dp)
-                    .size(7.dp)
-                    .background(MovvizBrand2.copy(alpha = dotAlpha), CircleShape),
-            )
-        }
-    }
+            .size(7.dp)
+            .background(MovvizBrand2.copy(alpha = dotAlpha), CircleShape),
+    )
 }
 
 /** Conteneur des écrans HORS MainScreen (fiche titre, fiche acteur) avec la

@@ -61,6 +61,10 @@ fun PortraitTopHeader(
     onSearchClick: () -> Unit,
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // Variante Téléchargements/Profil : titre d'écran à la place du champ de
+    // recherche (aucun champ recherche sous ces deux écrans, voir l'esquisse
+    // section 3). `title = null` conserve le comportement historique.
+    title: String? = null,
 ) {
     Column(
         modifier = modifier
@@ -111,36 +115,44 @@ fun PortraitTopHeader(
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Surface(
-            onClick = onSearchClick,
-            modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick(onSearchClick),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = MovvizSurface,
-                focusedContainerColor = MovvizSurfaceStrong,
-                contentColor = Color.White,
-                focusedContentColor = Color.White,
-            ),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        if (title != null) {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = title,
+                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White),
+            )
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                onClick = onSearchClick,
+                modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick(onSearchClick),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = MovvizSurface,
+                    focusedContainerColor = MovvizSurfaceStrong,
+                    contentColor = Color.White,
+                    focusedContentColor = Color.White,
+                ),
             ) {
-                Icon(
-                    imageVector = MovvizIconSearch,
-                    contentDescription = null,
-                    tint = MovvizInkSoft,
-                    modifier = Modifier.size(17.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = "Rechercher un film, une série, un acteur…",
-                    color = MovvizInkSoft,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                ) {
+                    Icon(
+                        imageVector = MovvizIconSearch,
+                        contentDescription = null,
+                        tint = MovvizInkSoft,
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "Rechercher un film, une série, un acteur…",
+                        color = MovvizInkSoft,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

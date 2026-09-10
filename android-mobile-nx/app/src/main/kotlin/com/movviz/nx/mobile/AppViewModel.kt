@@ -323,6 +323,67 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
     }
 
+    /** Watchlist bidirectionnelle (fiche média, esquisse mobile section 7) —
+     *  optimiste sur `profileMedia` pour que le bouton bascule sans attendre
+     *  un aller-retour réseau ; ré-appelé si le serveur refuse. */
+    fun toggleWatchlist(type: String, tmdbId: Int, title: String, year: Int?, posterPath: String?, rating: Double) {
+        val current = _profileMedia.value ?: com.movviz.nx.mobile.data.ProfileMediaResponseDto()
+        val inWatchlist = current.watchlist.any { it.tmdbId == tmdbId && it.type == type }
+        _profileMedia.value = if (inWatchlist) {
+            current.copy(watchlist = current.watchlist.filterNot { it.tmdbId == tmdbId && it.type == type })
+        } else {
+            current.copy(watchlist = current.watchlist + com.movviz.nx.mobile.data.ProfileMediaCardDto(tmdbId = tmdbId, type = type, title = title, posterPath = posterPath))
+        }
+        viewModelScope.launch {
+            val result = if (inWatchlist) repository?.removeFromWatchlist(type, tmdbId) else repository?.addToWatchlist(type, tmdbId, title, year, posterPath, rating)
+            if (result !is ApiResult.Success) _profileMedia.value = current // repli si le serveur refuse
+        }
+    }
+
+    fun isInWatchlist(type: String, tmdbId: Int): Boolean =
+        _profileMedia.value?.watchlist?.any { it.tmdbId == tmdbId && it.type == type } == true
+
+    private val _collections = MutableStateFlow<List<com.movviz.nx.mobile.data.CollectionDto>>(emptyList())
+    val collections: StateFlow<List<com.movviz.nx.mobile.data.CollectionDto>> = _collections.asStateFlow()
+
+    private val _sagas = MutableStateFlow<List<com.movviz.nx.mobile.data.SagaSummaryDto>>(emptyList())
+    val sagas: StateFlow<List<com.movviz.nx.mobile.data.SagaSummaryDto>> = _sagas.asStateFlow()
+
+    /** Onglet Collections de la Bibliothèque portrait — collections
+     *  utilisateur + sagas TMDb possédées, deux sources réelles distinctes. */
+    fun loadCollections() {
+        viewModelScope.launch {
+            when (val result = repository?.collections()) {
+                is ApiResult.Success -> _collections.value = result.data
+                else -> Unit
+            }
+        }
+        viewModelScope.launch {
+            when (val result = repository?.collectionSagas()) {
+                is ApiResult.Success -> _sagas.value = result.data.sagas
+                else -> Unit
+            }
+        }
+    }
+
+    private val _personSearchResults = MutableStateFlow<List<com.movviz.nx.mobile.data.PersonSearchResultDto>>(emptyList())
+    val personSearchResults: StateFlow<List<com.movviz.nx.mobile.data.PersonSearchResultDto>> = _personSearchResults.asStateFlow()
+
+    /** Chip "Acteurs" de la recherche portrait — mode dédié de
+     *  /api/metadata/search, pas une donnée simulée. */
+    fun searchPeople(query: String) {
+        if (query.isBlank()) {
+            _personSearchResults.value = emptyList()
+            return
+        }
+        viewModelScope.launch {
+            when (val result = repository?.searchPeople(query)) {
+                is ApiResult.Success -> _personSearchResults.value = result.data
+                else -> _personSearchResults.value = emptyList()
+            }
+        }
+    }
+
     fun consumeSessionExpired() {
         _sessionExpired.value = false
     }

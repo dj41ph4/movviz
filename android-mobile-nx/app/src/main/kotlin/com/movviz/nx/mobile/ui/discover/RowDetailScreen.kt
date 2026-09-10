@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.itemsIndexed
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.movviz.nx.mobile.AppViewModel
@@ -39,6 +40,7 @@ import com.movviz.nx.mobile.ui.home.PosterCard
 import com.movviz.nx.mobile.ui.home.TvTitleCard
 import com.movviz.nx.mobile.ui.theme.AnimatedLogo
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
+import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.launch
 
 /**
@@ -157,6 +159,7 @@ fun RowDetailScreen(
                 Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
             }
             else -> TvLazyVerticalGrid(
+                state = rememberTvLazyGridState().withTvPrefetchDisabled(),
                 columns = TvGridCells.FixedSize(154.dp),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),

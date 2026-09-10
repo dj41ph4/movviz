@@ -2,6 +2,7 @@ package com.movviz.nx.mobile.ui.profile
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -142,7 +143,9 @@ fun ProfileScreen(
     }
 }
 
-private fun LazyListScope.profileRail(
+// internal (pas private) : réutilisé par LibraryHubScreen.kt pour les rails
+// Watchlist/Historique de la Bibliothèque portrait (même carte, même style).
+internal fun LazyListScope.profileRail(
     title: String,
     cards: List<ProfileMediaCardDto>,
     entryFocusRequester: FocusRequester?,
@@ -150,11 +153,23 @@ private fun LazyListScope.profileRail(
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit,
     isResumeRail: Boolean = false,
     heroLogos: Map<String, String> = emptyMap(),
+    onSeeAll: (() -> Unit)? = null,
 ) {
     if (cards.isEmpty()) return
     item {
         Column(Modifier.fillMaxWidth()) {
-            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 14.dp)) {
+                Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                if (onSeeAll != null) {
+                    Text(
+                        "Tout voir",
+                        color = Color(0xFFA7A7A7),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 8.dp).clickable(onClick = onSeeAll),
+                    )
+                }
+            }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 itemsIndexed(cards, key = { _, card -> "${card.type}-${card.tmdbId}-${card.seasonNumber}-${card.episodeNumber}" }) { index, card ->
                     ProfilePosterCard(
