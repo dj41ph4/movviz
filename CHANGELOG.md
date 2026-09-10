@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.103 — September 2026
+
+### NX Mobile
+
+- Rail « Plateformes » de l'accueil : icônes carrées uniformes (comme demandé) au lieu des puces arrondies à largeur variable héritées de Découverte/TV.
+
 ## v1.24.102 — September 2026
 
 ### NX Mobile

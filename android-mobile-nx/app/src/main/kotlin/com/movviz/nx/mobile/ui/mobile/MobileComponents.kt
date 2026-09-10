@@ -3,6 +3,8 @@ package com.movviz.nx.mobile.ui.mobile
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -234,4 +236,67 @@ fun MovvizProgressBar(
                 .background(brush),
         )
     }
+}
+
+/** Rail "Plateformes" de l'accueil portrait (esquisse mobile section 8 :
+ *  "sous forme de logos carrés") — icônes carrées uniformes, pas les puces
+ *  arrondies à largeur variable de DiscoverLogoRow (réservées à Découverte/
+ *  TV, esquisse Accueil différente : "logos carrés" explicitement demandé
+ *  dans le brief, corrigé après un premier essai qui réutilisait la puce TV
+ *  à tort). */
+@Composable
+fun MovvizPlatformRow(
+    tiles: List<com.movviz.nx.mobile.data.LogoTileDto>,
+    onSelect: (com.movviz.nx.mobile.data.LogoTileDto) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        tiles.forEach { tile -> MovvizPlatformTile(tile = tile, onClick = { onSelect(tile) }) }
+    }
+}
+
+@Composable
+private fun MovvizPlatformTile(
+    tile: com.movviz.nx.mobile.data.LogoTileDto,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = Modifier
+            .size(60.dp)
+            .clip(shape)
+            .background(Color.White.copy(alpha = 0.97f))
+            .tvPointerClick(onClick)
+            .padding(10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (tile.logoPath != null) {
+            coil.compose.SubcomposeAsyncImage(
+                model = "https://image.tmdb.org/t/p/w200${tile.logoPath}",
+                contentDescription = tile.name,
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+                loading = { PlatformTileFallback(tile.name) },
+                error = { PlatformTileFallback(tile.name) },
+            )
+        } else {
+            PlatformTileFallback(tile.name)
+        }
+    }
+}
+
+@Composable
+private fun PlatformTileFallback(name: String) {
+    Text(
+        text = name.take(2).uppercase(),
+        color = Color(0xFF1A1A1A),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+    )
 }

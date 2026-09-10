@@ -562,18 +562,22 @@ fun HomeScreen(
                 }
                 if (watchProviderTiles.isNotEmpty()) {
                     item(contentType = "platforms") {
-                        com.movviz.nx.mobile.ui.discover.DiscoverLogoRow(
-                            title = "Plateformes",
-                            tiles = watchProviderTiles,
-                            // Même action que le rail homonyme de Découverte
-                            // (DiscoverScreen.kt) : ouvre la suggestion
-                            // personnalisée pour cette plateforme. Aucun type
-                            // fixe sur l'accueil (rails mixtes) — "movie" par
-                            // défaut, comme le reste du rail Plateformes de
-                            // l'app n'a jamais eu de variante "mixed" côté
-                            // serveur (route-page attend movie|series).
-                            onSelect = { tile -> onSeeAllRow("movie", "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
-                        )
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                text = "Plateformes",
+                                style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                            // Icônes carrées (esquisse mobile section 8), pas les
+                            // puces arrondies à largeur variable de Découverte/TV
+                            // — même action : ouvre la suggestion personnalisée
+                            // pour cette plateforme. Aucun type fixe sur
+                            // l'accueil (rails mixtes) — "movie" par défaut.
+                            com.movviz.nx.mobile.ui.mobile.MovvizPlatformRow(
+                                tiles = watchProviderTiles,
+                                onSelect = { tile -> onSeeAllRow("movie", "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
+                            )
+                        }
                     }
                 }
             } else if (showHero) {
