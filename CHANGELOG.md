@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.111 — September 2026
+
+### NX Mobile
+
+- Bordure électrique nuancée (bleu `#3D7BFF` → violet `#8B2FFF` → magenta `#BC3FFF`) sur tuiles Plateformes, cartes films/séries et recherche — fini l'aplat plat.
+- Plateformes : 4 icônes plein cadre ajustées au viewport (fini la 5e coupée), swipe conservé pour la suite.
+- Rangées films/séries : ajustement exact 3 cartes plein cadre sur tous les écrans larges (plafond 120dp supprimé, il laissait dépasser un bout de 4e).
+
 ## v1.24.110 — September 2026
 
 ### NX Mobile

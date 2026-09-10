@@ -132,7 +132,7 @@ fun PortraitTopHeader(
         Surface(
             onClick = onSearchClick,
             modifier = Modifier.fillMaxWidth().height(46.dp)
-                .border(1.dp, MovvizBrand.copy(alpha = .22f), RoundedCornerShape(23.dp))
+                .border(1.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder, RoundedCornerShape(23.dp))
                 .tvPointerClick(onSearchClick),
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
                 colors = ClickableSurfaceDefaults.colors(

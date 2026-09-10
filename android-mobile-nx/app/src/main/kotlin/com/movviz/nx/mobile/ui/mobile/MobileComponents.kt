@@ -251,13 +251,19 @@ fun MovvizPlatformRow(
     onSelect: (com.movviz.nx.mobile.data.LogoTileDto) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 4 icônes plein cadre exactement (esquisse 01) : tuiles ajustées au
+    // viewport (largeur - paddings 16+16 - 3 spacings) / 4, donc plus grosses
+    // que les 60.dp fixes (plus de 5e icône coupée). Le swipe horizontal
+    // reste actif pour les plateformes suivantes.
+    val screenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    val tileSize = (((screenWidth - 32 - 42) / 4).dp).coerceAtLeast(60.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        tiles.forEach { tile -> MovvizPlatformTile(tile = tile, onClick = { onSelect(tile) }) }
+        tiles.forEach { tile -> MovvizPlatformTile(tile = tile, onClick = { onSelect(tile) }, size = tileSize) }
     }
 }
 
@@ -265,6 +271,7 @@ fun MovvizPlatformRow(
 private fun MovvizPlatformTile(
     tile: com.movviz.nx.mobile.data.LogoTileDto,
     onClick: () -> Unit,
+    size: androidx.compose.ui.unit.Dp = 60.dp,
 ) {
     // Pas de fond blanc derrière le logo (retiré en v1.24.104 sur retour
     // explicite utilisateur) : contrairement aux logos "Studios" (wordmarks
@@ -276,9 +283,9 @@ private fun MovvizPlatformTile(
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = Modifier
-            .size(60.dp)
+            .size(size)
             .clip(shape)
-            .border(1.5.dp, Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+            .border(1.5.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder, shape)
             .tvPointerClick(onClick),
         contentAlignment = Alignment.Center,
     ) {

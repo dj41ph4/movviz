@@ -18,6 +18,16 @@ val MovvizBrand = Color(0xFF8B2FFF)
 val MovvizBrand2 = Color(0xFFBC3FFF)
 val MovvizBrandGlow = Color(0xFFA66BFF)
 
+// Bordure électrique nuancée (ref visuel : halo bleu → violet → magenta sur
+// fond nuit, pas un aplat). Brush partagé par les contours visibles
+// (tuiles plateformes, cartes posters, recherche) — même coût qu'un
+// linearGradient 2 stops, mais avec la profondeur du néon.
+val MovvizElectricBlue = Color(0xFF3D7BFF)
+val MovvizElectricBorder: androidx.compose.ui.graphics.Brush
+    get() = androidx.compose.ui.graphics.Brush.linearGradient(
+        listOf(MovvizElectricBlue, MovvizBrand, MovvizBrand2),
+    )
+
 // Surfaces — bleu-nuit/violet profond, jamais un noir neutre. Mêmes valeurs
 // que --color-void/--color-abyss/--color-surface/--color-surface-2 côté web.
 val MovvizBackground = Color(0xFF0B1026)

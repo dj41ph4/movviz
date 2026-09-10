@@ -1654,7 +1654,11 @@ internal fun TitleRow(
     // les petits (320dp) et grands (430dp+) écrans.
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val portraitCardWidth = if (compactPortrait) {
-        (((configuration.screenWidthDp - 32 - 20) / 3).dp).coerceIn(92.dp, 120.dp)
+        // Ajustement exact au viewport : 3 cartes + 2 spacings + paddings =
+        // largeur écran, la 4e reste hors champ (pas de plafond max — un
+        // coerceIn(.., 120.dp) laissait dépasser un bout de 4e carte sur les
+        // écrans larges, constaté sur capture).
+        (((configuration.screenWidthDp - 32 - 20) / 3).dp).coerceAtLeast(88.dp)
     } else {
         132.dp
     }
@@ -1815,7 +1819,7 @@ private fun SeeAllTile(onClick: () -> Unit, width: androidx.compose.ui.unit.Dp? 
     // Même gabarit que les cartes de la rangée en portrait (3 plein cadre),
     // 154.dp historique en paysage/TV.
     val tileWidth = width ?: if (compactPortrait) {
-        ((((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 20) / 3).dp)).coerceIn(92.dp, 120.dp)
+        ((((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 20) / 3).dp)).coerceAtLeast(88.dp)
     } else {
         154.dp
     }
@@ -1908,7 +1912,7 @@ internal fun PosterCard(
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 border = if (compactPortrait) Border(
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder),
                     shape = MovvizCardShape,
                 ) else Border.None,
                 focusedBorder = Border(
