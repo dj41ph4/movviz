@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.112 — September 2026
+
+### NX Mobile
+
+- Barre basse esquisse 01 : 4 onglets juste (Accueil/Découverte/Bibliothèque/Téléchargements) avec icône + libellé toujours visibles, actif en pastille dégradé.
+- Pastille mise à jour déplacée dans l'en-tête à gauche de l'avatar (visible uniquement si dispo), anneau mauve électrique avec halo qui respire + hitbox 44dp.
+- Immersif type jeu vidéo sur l'accueil portrait : boutons système Android masqués, retour temporaire au swipe de bord.
+
 ## v1.24.111 — September 2026
 
 ### NX Mobile

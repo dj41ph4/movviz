@@ -1,5 +1,10 @@
 package com.movviz.nx.mobile.ui.home
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +41,9 @@ import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.data.TvProfile
-import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
+import com.movviz.nx.mobile.ui.theme.MovvizElectricBorder
+import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
 import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizSurface
@@ -71,6 +79,11 @@ fun PortraitTopHeader(
     // (esquisse section 3 : "pas de champ de recherche" sous Profil, le
     // contenu porte lui-même son propre "Mon profil").
     showSearchRow: Boolean = true,
+    // Mise à jour disponible : pastille flèche-bas à GAUCHE de l'avatar,
+    // rendue uniquement quand updateTag est non-null (jamais de trou de
+    // layout sinon). Clignotement mauve électrique premium via le halo.
+    updateTag: String? = null,
+    onUpdateClick: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -92,6 +105,10 @@ fun PortraitTopHeader(
                 style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White),
             )
             Spacer(Modifier.weight(1f))
+            if (updateTag != null) {
+                PortraitUpdateButton(tag = updateTag, onClick = onUpdateClick)
+                Spacer(Modifier.width(10.dp))
+            }
             Surface(
                 onClick = onAvatarClick,
                 modifier = Modifier.size(36.dp).tvPointerClick(onAvatarClick),
@@ -162,6 +179,57 @@ fun PortraitTopHeader(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Pastille mise à jour du header portrait — flèche-bas dans un anneau
+ *  mauve électrique, à gauche de l'avatar, visible uniquement quand une mise
+ *  à jour existe. Le halo respire (alpha 0.35↔1 en boucle) : signal premium,
+ *  jamais agressif. Hitbox 44dp (règle tactile projet). */
+@Composable
+private fun PortraitUpdateButton(
+    tag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pulse = rememberInfiniteTransition(label = "headerUpdatePulse")
+    val glowAlpha by pulse.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "headerUpdateGlow",
+    )
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(44.dp).tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(CircleShape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MovvizSurfaceStrong,
+            focusedContainerColor = MovvizSurfaceStrong,
+            contentColor = Color.White,
+            focusedContentColor = Color.White,
+        ),
+    ) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.fillMaxSize()
+                .border(1.5.dp, MovvizElectricBorder, CircleShape)
+                .background(MovvizBrand2.copy(alpha = 0.10f + 0.12f * glowAlpha), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = MovvizIconDownload,
+                contentDescription = "Mise à jour ${tag.removePrefix("v")} disponible",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp),
+            )
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 7.dp, end = 7.dp)
+                    .size(7.dp)
+                    .background(MovvizBrand2.copy(alpha = glowAlpha), CircleShape),
+            )
         }
     }
 }

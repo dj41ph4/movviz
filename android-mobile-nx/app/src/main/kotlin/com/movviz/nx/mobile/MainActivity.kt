@@ -16,30 +16,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -343,10 +332,10 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // En-tête portrait persistant (mark + wordmark + avatar) — esquisse
     // mobile fournie 2026-09. Il ne remplace jamais NxTopNav (barre TV,
     // jamais affichée en portrait téléphone : voir la condition
-    // !compactPortrait ci-dessous), et couvre désormais les 5 onglets de la
-    // barre basse + Profil (Accueil/Découverte/Bibliothèque/Téléchargements
-    // affichent recherche ou titre ; Profil n'a ni l'un ni l'autre — voir
-    // showSearchRow ci-dessous). Masqué pendant la recherche plein écran,
+    // !compactPortrait ci-dessous), et couvre les onglets de la barre basse
+    // + Profil (Accueil/Découverte/Bibliothèque/Téléchargements affichent
+    // recherche ou titre ; Profil n'a ni l'un ni l'autre — voir showSearchRow
+    // ci-dessous). Masqué pendant la recherche plein écran,
     // qui porte sa propre barre persistante (voir SearchScreen).
     val showPortraitHeader = compactPortrait &&
         currentRoute?.startsWith("home") == true &&
@@ -356,6 +345,24 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // (esquisse section 3 : pas de champ recherche sous cet écran).
     val portraitHeaderTitle = if (tab == HomeTab.DOWNLOADS) "Téléchargements" else null
     val portraitActiveProfile by viewModel.activeProfile.collectAsState()
+    // Immersif type jeu vidéo sur l'accueil portrait : les boutons système
+    // Android sont masqués (réapparition temporaire au swipe de bord, geste
+    // transient) pour laisser toute la place à la barre Movviz. Scopé à
+    // l'accueil portrait uniquement — login/wizard/profils et TV/paysage
+    // gardent les barres système normales.
+    val immersivePortrait = compactPortrait && currentRoute?.startsWith("home") == true
+    LaunchedEffect(immersivePortrait) {
+        val window = activity.window
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, !immersivePortrait)
+        val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+        if (immersivePortrait) {
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+    }
     // NX: la navigation est une surcouche haute. Le contenu garde la pleine
     // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
     Box(modifier = Modifier.fillMaxSize()) {
@@ -376,6 +383,8 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     },
                     title = portraitHeaderTitle,
                     showSearchRow = tab != HomeTab.PROFILE,
+                    updateTag = viewModel.availableUpdateTag.collectAsState().value,
+                    onUpdateClick = { viewModel.requestUpdateInstall() },
                 )
             }
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -690,8 +699,6 @@ composable(ROUTE_PROFILES) {
             PortraitBottomNav(
                 selected = tab,
                 onSelect = { newTab -> tab = newTab; searchOpen = false; headerHasScrolled = false },
-                updateTag = viewModel.availableUpdateTag.collectAsState().value,
-                onUpdateClick = { viewModel.requestUpdateInstall() },
                 modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
             )
         }
@@ -701,21 +708,15 @@ composable(ROUTE_PROFILES) {
 
 /**
  * Barre basse portrait — exactement Accueil/Découverte/Bibliothèque/
- * Téléchargements (esquisse mobile section 4/15) : plus de Films/Séries/Ma
- * liste/Profil ici (Films/Séries vivent désormais comme sous-mode de
- * Découverte, Profil est accessible via l'avatar d'en-tête, Recherche via le
- * champ de recherche). Icône + libellé TOUJOURS visibles pour les 4 onglets
- * (nav bar classique, contrairement à l'ancien design "seul l'actif anime"),
- * plus un 5e item "Mise à jour" qui apparaît/disparaît dynamiquement quand
- * `updateTag` devient non-null, sans déformer les 4 autres cellules (poids
- * égal, largeur totale qui s'étend).
+ * Téléchargements (esquisse mobile section 4/15, esquisse 01) : icône +
+ * libellé TOUJOURS visibles pour les 4 onglets (nav bar classique). La
+ * pastille mise à jour ne vit plus ici : elle est dans l'en-tête, à gauche
+ * de l'avatar (voir PortraitUpdateButton).
  */
 @Composable
 private fun PortraitBottomNav(
     selected: HomeTab,
     onSelect: (HomeTab) -> Unit,
-    updateTag: String?,
-    onUpdateClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     data class Item(val tab: HomeTab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
@@ -736,67 +737,60 @@ private fun PortraitBottomNav(
             // mobile (esquisse fournie 2026-09).
             .background(MovvizSurfaceStrong.copy(alpha = .96f), RoundedCornerShape(24.dp))
             .border(1.dp, MovvizBrand.copy(alpha = .22f), RoundedCornerShape(24.dp))
-            .padding(horizontal = 6.dp, vertical = 8.dp),
+            .padding(horizontal = 6.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         items.forEach { item ->
             val active = selected == item.tab
-            Box(
+            Surface(
+                onClick = { onSelect(item.tab) },
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
+                    .height(58.dp)
                     .tvPointerClick { onSelect(item.tab) },
-                contentAlignment = Alignment.Center,
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent,
+                    focusedContainerColor = Color.White.copy(alpha = .10f),
+                    contentColor = Color.White,
+                    focusedContentColor = Color.White,
+                ),
             ) {
-                Icon(
-                    item.icon,
-                    item.label,
-                    modifier = Modifier.size(24.dp),
-                    tint = if (active) MovvizBrand2 else Color(0xFFC3C3CB),
-                )
-            }
-        }
-        androidx.compose.animation.AnimatedVisibility(
-            visible = updateTag != null,
-            enter = fadeIn(tween(220)) + expandHorizontally(tween(260)),
-            exit = fadeOut(tween(140)) + shrinkHorizontally(tween(200)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .tvPointerClick(onUpdateClick),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = MovvizIconDownload,
-                    contentDescription = "Mise à jour ${updateTag?.removePrefix("v")} disponible",
-                    modifier = Modifier.size(24.dp),
-                    tint = MovvizBrand2,
-                )
-                UpdatePulseDot(modifier = Modifier.align(Alignment.TopEnd).offset(x = (-6).dp, y = 4.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (active) {
+                                Modifier.background(
+                                    Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .85f), MovvizBrand2.copy(alpha = .85f))),
+                                    RoundedCornerShape(16.dp),
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        item.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = if (active) Color.White else Color(0xFFC3C3CB),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        item.label,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (active) Color.White else Color(0xFFC3C3CB),
+                    )
+                }
             }
         }
     }
-}
-
-/** Petit halo pulsant — attire l'œil sur la mise à jour disponible sans
- *  texte de version dans la mise en page (accessible via contentDescription). */
-@Composable
-private fun UpdatePulseDot(modifier: Modifier = Modifier) {
-    val pulse = rememberInfiniteTransition(label = "portraitUpdatePulse")
-    val dotAlpha by pulse.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(760), RepeatMode.Reverse),
-        label = "portraitUpdateDotAlpha",
-    )
-    Box(
-        modifier = modifier
-            .size(7.dp)
-            .background(MovvizBrand2.copy(alpha = dotAlpha), CircleShape),
-    )
 }
 
 /** Conteneur des écrans HORS MainScreen (fiche titre, fiche acteur) avec la
