@@ -214,6 +214,10 @@ fun CatalogScreen(
                 verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 14.dp else 18.dp),
                 modifier = Modifier.fillMaxSize(),
                 state = gridState,
+                // Sans ce padding bas, les dernières affiches passaient sous
+                // la barre basse flottante portrait (même correctif que
+                // DiscoverScreen/DownloadsScreen).
+                contentPadding = PaddingValues(bottom = if (compactPortrait) 156.dp else 0.dp),
             ) {
                 itemsIndexed(sorted, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
                     PosterCard(

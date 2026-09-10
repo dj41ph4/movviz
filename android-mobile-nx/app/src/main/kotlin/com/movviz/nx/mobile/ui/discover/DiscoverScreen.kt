@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -271,7 +273,15 @@ fun DiscoverScreen(
         // Même vide, Découvrir conserve ses contextes : l'utilisateur doit
         // pouvoir basculer vers Films ou Séries au lieu d'être bloqué sur un
         // message sans navigation.
-        LazyColumn(Modifier.fillMaxSize(), state = listState) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            state = listState,
+            // Sans ce padding bas, le dernier rail passait sous la barre
+            // basse flottante portrait (signalé en direct : contenu caché
+            // derrière le menu du bas) — même valeur que les autres écrans
+            // portrait (Accueil/Bibliothèque).
+            contentPadding = PaddingValues(bottom = if (compactPortrait) 156.dp else 0.dp),
+        ) {
             item(contentType = "topAnchor") {
                 Box(
                     modifier = Modifier
@@ -349,6 +359,15 @@ fun DiscoverScreen(
                         onSelect = { genreId, label -> onOpenGenre(wantedType, genreId, label) },
                     )
                 }
+                // "Par humeur" remonté en haut, juste sous les genres —
+                // signalé en direct comme devant être en haut de page, pas
+                // tout en bas après le catalogue complet.
+                item(contentType = "mood-row") {
+                    DiscoverMoodRow(
+                        genres = genres,
+                        onSelect = { genreId, label -> onOpenGenre(wantedType, genreId, label) },
+                    )
+                }
             }
             val firstRowKey = rows.firstOrNull()?.key
             items(rows, key = { "${wantedType}-${it.key}" }, contentType = { "discover-row" }) { row ->
@@ -364,14 +383,6 @@ fun DiscoverScreen(
                     titleLogoPaths = heroLogos,
                     onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                 )
-            }
-            if (genres.isNotEmpty()) {
-                item(contentType = "mood-row") {
-                    DiscoverMoodRow(
-                        genres = genres,
-                        onSelect = { genreId, label -> onOpenGenre(wantedType, genreId, label) },
-                    )
-                }
             }
             // Rangées "Plateformes de streaming"/"Studios" : retirées du
             // shell NX Découverte (`contextHeader != null`, esquisse mobile
@@ -586,10 +597,12 @@ private fun DiscoverLogoTile(tile: com.movviz.nx.mobile.data.LogoTileDto, onClic
     ) {
         Box(
             modifier = Modifier
-                // Une largeur fixe évite les ronds vides pendant le premier
-                // chargement Coil et donne une rangée de logos comparable à
-                // celle du desktop, pas une série de placeholders.
-                .width(136.dp)
+                // Largeur au contenu (min 90dp pour éviter un rond vide
+                // pendant le chargement Coil) plutôt qu'une largeur fixe
+                // uniforme — l'esquisse mobile montre des puces dont la
+                // largeur suit le logo (Netflix plus étroit que Prime Video),
+                // pas une rangée de cartes toutes identiques.
+                .defaultMinSize(minWidth = 90.dp)
                 .height(56.dp)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
@@ -603,10 +616,10 @@ private fun DiscoverLogoTile(tile: com.movviz.nx.mobile.data.LogoTileDto, onClic
                 // transparents qui s'accommoderaient du noir.
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .wrapContentWidth()
                         .height(40.dp)
                         .background(Color.White.copy(alpha = 0.95f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     // SubcomposeAsyncImage plutôt que rememberAsyncImagePainter
@@ -618,11 +631,14 @@ private fun DiscoverLogoTile(tile: com.movviz.nx.mobile.data.LogoTileDto, onClic
                     // pendant que l'image charge. SubcomposeAsyncImage gère
                     // loading/success/error nativement, sans dépendre de
                     // l'observation externe d'un State.
+                    // Hauteur seule contrainte (28dp) : la largeur suit le
+                    // ratio naturel du logo au lieu d'être écrasée dans un
+                    // carré 40x40 uniforme.
                     coil.compose.SubcomposeAsyncImage(
                         model = "$TMDB_LOGO_BASE${tile.logoPath}",
                         contentDescription = tile.name,
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.height(28.dp),
                         loading = { DiscoverLogoTileFallback(tile.name, dark = true) },
                         error = { DiscoverLogoTileFallback(tile.name, dark = true) },
                     )

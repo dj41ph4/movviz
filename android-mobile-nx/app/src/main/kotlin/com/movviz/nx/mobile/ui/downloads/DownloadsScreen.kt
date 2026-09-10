@@ -71,7 +71,9 @@ fun DownloadsScreen(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier.fillMaxSize().background(MovvizSurface.copy(alpha = if (compactPortrait) 0f else 1f))
             .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = if (embedded) 16.dp else 76.dp, bottom = 28.dp),
+        // bottom 156dp en portrait embarqué (barre basse flottante, sinon
+        // "Terminés" — souvent long — passait dessous, signalé en direct).
+        contentPadding = PaddingValues(top = if (embedded) 16.dp else 76.dp, bottom = if (compactPortrait) 156.dp else 28.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (!embedded) {

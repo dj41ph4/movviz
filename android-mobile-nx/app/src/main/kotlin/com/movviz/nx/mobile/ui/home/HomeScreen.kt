@@ -565,7 +565,14 @@ fun HomeScreen(
                         com.movviz.nx.mobile.ui.discover.DiscoverLogoRow(
                             title = "Plateformes",
                             tiles = watchProviderTiles,
-                            onSelect = null,
+                            // Même action que le rail homonyme de Découverte
+                            // (DiscoverScreen.kt) : ouvre la suggestion
+                            // personnalisée pour cette plateforme. Aucun type
+                            // fixe sur l'accueil (rails mixtes) — "movie" par
+                            // défaut, comme le reste du rail Plateformes de
+                            // l'app n'a jamais eu de variante "mixed" côté
+                            // serveur (route-page attend movie|series).
+                            onSelect = { tile -> onSeeAllRow("movie", "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
                         )
                     }
                 }

@@ -1,5 +1,6 @@
 package com.movviz.nx.mobile.ui.discover
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -21,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,7 +43,9 @@ import com.movviz.nx.mobile.data.SearchResultDto
 import com.movviz.nx.mobile.ui.home.PosterCard
 import com.movviz.nx.mobile.ui.home.TvTitleCard
 import com.movviz.nx.mobile.ui.theme.AnimatedLogo
+import com.movviz.nx.mobile.ui.theme.MovvizIconBack
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
+import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.launch
 
@@ -77,7 +83,17 @@ fun RowDetailScreen(
     // Même rôle que sur les autres écrans hors MainScreen (fiche titre/
     // acteur) : cible de la flèche bas depuis la NavRail.
     entryFocusRequester: FocusRequester? = null,
+    // Bouton retour portrait — cet écran vivait jusqu'ici seulement sous
+    // NxTopNav (paysage/TV, jamais affichée en portrait) : en portrait, ni
+    // l'en-tête ni la barre basse ne sont visibles sur les routes hors
+    // "home", donc sans ce bouton la grille "Voir tout"/genre/plateforme
+    // n'avait aucune navigation du tout (signalé en direct : page cassée
+    // après un tap sur une tuile Plateformes/Humeur).
+    onBack: () -> Unit = {},
 ) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
     val baseUrl by viewModel.serverUrl.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
     val repository = remember(baseUrl) { baseUrl?.let { MovvizRepository(it) } }
@@ -143,12 +159,78 @@ fun RowDetailScreen(
         if (repository != null) loadPage(1)
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(start = 52.dp, top = 64.dp, end = 52.dp, bottom = 30.dp)) {
-        Text(
-            text = resolvedLabel,
-            style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
-        )
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+    Column(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(
+            start = if (compactPortrait) 16.dp else 52.dp,
+            top = if (compactPortrait) 0.dp else 64.dp,
+            end = if (compactPortrait) 16.dp else 52.dp,
+            bottom = if (compactPortrait) 24.dp else 30.dp,
+        ),
+    ) {
+        if (compactPortrait) {
+            // Même en-tête standard que le reste de l'app (mark + wordmark +
+            // avatar) plutôt qu'un simple retour isolé — signalé en direct :
+            // cette page se sentait détachée du reste sans lui.
+            val activeProfile by viewModel.activeProfile.collectAsState()
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(top = 10.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(com.movviz.nx.mobile.R.drawable.movviz_mark),
+                    contentDescription = "Movviz",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.size(24.dp),
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Movviz",
+                    style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White),
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                androidx.tv.material3.Surface(
+                    onClick = {},
+                    modifier = Modifier.size(30.dp),
+                    shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+                    colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, contentColor = Color.White),
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(activeProfile?.name?.take(2)?.uppercase() ?: "MO", color = Color.White, fontSize = 10.sp)
+                    }
+                }
+            }
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.tv.material3.Surface(
+                    onClick = onBack,
+                    modifier = Modifier.size(36.dp).tvPointerClick(onBack),
+                    shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+                    colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                        containerColor = Color.White.copy(alpha = 0.08f),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        androidx.tv.material3.Icon(MovvizIconBack, "Retour", modifier = Modifier.size(16.dp))
+                    }
+                }
+                androidx.compose.foundation.layout.Spacer(Modifier.width(14.dp))
+                Text(
+                    text = resolvedLabel,
+                    style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
+        } else {
+            Text(
+                text = resolvedLabel,
+                style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+            )
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+        }
         when {
             loading && cards.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 AnimatedLogo(size = 56.dp)
@@ -158,19 +240,30 @@ fun RowDetailScreen(
             ) {
                 Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
             }
-            else -> TvLazyVerticalGrid(
-                state = rememberTvLazyGridState().withTvPrefetchDisabled(),
-                columns = TvGridCells.FixedSize(154.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
+            else -> {
+                // 4 colonnes fixes en portrait (signalé en direct : les
+                // cartes 154dp à 2 par ligne étaient énormes, pas au niveau
+                // du reste de l'app) — largeur calculée pour tenir pile,
+                // mêmes marges que le catalogue (CatalogScreen.kt).
+                val portraitSpacing = 10.dp
+                val portraitEdge = 16.dp
+                val portraitCardWidth = if (compactPortrait) {
+                    val screenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+                    (screenWidth - portraitEdge * 2 - portraitSpacing * 3) / 4
+                } else 154.dp
+                TvLazyVerticalGrid(
+                    state = rememberTvLazyGridState().withTvPrefetchDisabled(),
+                    columns = if (compactPortrait) TvGridCells.Fixed(4) else TvGridCells.FixedSize(154.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(if (compactPortrait) portraitSpacing else 16.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(if (compactPortrait) 14.dp else 20.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                 itemsIndexed(cards, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
                     PosterCard(
                         card = card,
                         onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         focusRequester = if (index == 0) entryFocusRequester else null,
-                        width = 154.dp,
+                        width = portraitCardWidth,
                         // Même principe portrait sans logo / logo posé au
                         // focus que le catalogue — voir CatalogScreen.kt.
                         aspectRatio = 2f / 3f,
@@ -191,6 +284,7 @@ fun RowDetailScreen(
                     item(contentType = "load-more") {
                         LoadMoreSentinel { scope.launch { loadPage(page + 1) } }
                     }
+                }
                 }
             }
         }

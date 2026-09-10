@@ -34,6 +34,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
+import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 
 private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w342"
@@ -49,7 +50,14 @@ fun PersonScreen(
     personId: Int,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     entryFocusRequester: FocusRequester? = null,
+    // Bouton retour portrait — même correctif que RowDetailScreen.kt : cet
+    // écran vit hors "home" (ni en-tête ni barre basse en portrait), donc
+    // sans lui la fiche acteur était sans aucune navigation.
+    onBack: () -> Unit = {},
 ) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
     val person by viewModel.person.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
 
@@ -93,27 +101,50 @@ fun PersonScreen(
     CompositionLocalProvider(
         LocalBringIntoViewSpec provides object : BringIntoViewSpec {},
     ) {
+    val sideEdge = if (compactPortrait) 16.dp else 48.dp
     TvLazyColumn(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = 96.dp, bottom = 40.dp),
+            .padding(top = if (compactPortrait) 0.dp else 96.dp, bottom = 40.dp),
     ) {
+        if (compactPortrait) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = sideEdge, top = 10.dp, bottom = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    androidx.tv.material3.Surface(
+                        onClick = onBack,
+                        modifier = Modifier.size(36.dp).tvPointerClick(onBack),
+                        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape),
+                        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                            containerColor = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.08f),
+                            contentColor = androidx.compose.ui.graphics.Color.White,
+                        ),
+                    ) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            androidx.tv.material3.Icon(com.movviz.nx.mobile.ui.theme.MovvizIconBack, "Retour", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
         item {
             val p = person
             if (p == null) {
                 Text(
                     text = "Chargement…",
                     style = TextStyle(fontSize = 15.sp, color = MovvizInkDim),
-                    modifier = Modifier.padding(start = 48.dp),
+                    modifier = Modifier.padding(start = sideEdge),
                 )
             } else {
-                Row(modifier = Modifier.padding(start = 48.dp, end = 48.dp, bottom = 32.dp)) {
-                    val photoUrl = p.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
+                val photoUrl = p.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
+                val photo = @Composable {
                     Box(
                         modifier = Modifier
-                            .size(140.dp)
+                            .size(if (compactPortrait) 110.dp else 140.dp)
                             .clip(CircleShape)
                             .background(MovvizSurfaceStrong),
                     ) {
@@ -126,21 +157,33 @@ fun PersonScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(28.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                }
+                val texts = @Composable {
+                    Text(
+                        text = p.name,
+                        style = TextStyle(fontSize = if (compactPortrait) 22.sp else 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                    )
+                    if (p.biography.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = p.name,
-                            style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                            text = p.biography,
+                            style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 20.sp),
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        if (p.biography.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = p.biography,
-                                style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 20.sp),
-                                maxLines = 6,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                    }
+                }
+                if (compactPortrait) {
+                    Column(modifier = Modifier.padding(start = sideEdge, end = sideEdge, bottom = 32.dp)) {
+                        photo()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        texts()
+                    }
+                } else {
+                    Row(modifier = Modifier.padding(start = sideEdge, end = sideEdge, bottom = 32.dp)) {
+                        photo()
+                        Spacer(modifier = Modifier.width(28.dp))
+                        Column(modifier = Modifier.weight(1f)) { texts() }
                     }
                 }
             }

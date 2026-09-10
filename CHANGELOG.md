@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.24.101 — September 2026
+
+### NX Mobile
+
+- Corrige les tuiles « Plateformes » de l'accueil : inertes (aucune action au tap) et toutes de largeur uniforme au lieu d'épouser leur logo, comme sur l'esquisse.
+- Remonte « Selon votre humeur » en haut de Découverte, juste sous les genres, au lieu de tout en bas.
+- Refond l'écran « Voir tout » (Plateformes/genres/humeur/rangées éditoriales) en portrait : il n'avait ni en-tête ni bouton retour (page bloquée après un tap), grille à 2 cartes surdimensionnées par ligne — remplacée par l'en-tête standard (mark + avatar) et une grille à 4 colonnes cohérente avec le reste de l'app. Même correctif pour la fiche acteur (Distribution).
+- Corrige le contenu masqué sous la barre basse flottante en bas de page sur Découverte, Bibliothèque, Téléchargements et Recherche.
+
 ## v1.24.100 — September 2026
 
 ### NX Mobile

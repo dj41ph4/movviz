@@ -440,7 +440,10 @@ private fun PortraitSearchScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+            // bottom 156dp : la barre basse flottante reste visible pendant
+            // la recherche (elle garde l'onglet actif en dessous), donc les
+            // derniers résultats passaient dessous sans ce padding.
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 156.dp),
         ) {
             if (query.isBlank()) {
                 if (recentSearches.isNotEmpty()) {

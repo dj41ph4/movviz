@@ -642,6 +642,7 @@ composable(ROUTE_PROFILES) {
                         navController.navigate(detailRoute(newType, newTmdbId))
                     },
                     entryFocusRequester = contentFocusRequester,
+                    onBack = { navController.popBackStack() },
                 )
             }
         }
@@ -674,6 +675,7 @@ composable(ROUTE_PROFILES) {
                         navController.navigate(detailRoute(newType, newTmdbId))
                     },
                     entryFocusRequester = contentFocusRequester,
+                    onBack = { navController.popBackStack() },
                 )
             }
         }
