@@ -68,6 +68,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.foundation.lazy.list.itemsIndexed
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -113,6 +114,7 @@ import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.tv.material3.Icon
 import kotlinx.coroutines.delay
@@ -2081,7 +2083,7 @@ private fun TrackDialog(
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MovvizInk),
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                TvLazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                TvLazyColumn(state = rememberTvLazyListState().withTvPrefetchDisabled(), modifier = Modifier.heightIn(max = 320.dp)) {
                     if (includeOffOption) {
                         item {
                             TrackRow(

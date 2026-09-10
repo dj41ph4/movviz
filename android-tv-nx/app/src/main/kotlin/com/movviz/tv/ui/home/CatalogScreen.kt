@@ -48,6 +48,7 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 
 private enum class CatalogSort(val label: String) {
     NAME("Nom"),
@@ -106,7 +107,7 @@ fun CatalogScreen(
     }
 
     val topAnchor = remember { FocusRequester() }
-    val gridState = rememberTvLazyGridState()
+    val gridState = rememberTvLazyGridState().withTvPrefetchDisabled()
     val hasScrolled by remember {
         derivedStateOf {
             gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 12

@@ -81,6 +81,7 @@ import com.movviz.tv.ui.theme.statusTone
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvCardFocusHalo
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.delay
@@ -414,7 +415,7 @@ fun TitleDetailScreen(
     // Toujours repartir au début réel de la fiche à son ouverture. Sans ce
     // reset, le focus initial sur un CTA pouvait conserver un offset LazyRow
     // précédent et masquer logo/titre sous la navigation.
-    val lazyListState = rememberTvLazyListState()
+    val lazyListState = rememberTvLazyListState().withTvPrefetchDisabled()
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
     LaunchedEffect(detail) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
@@ -1035,6 +1036,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
             modifier = Modifier.padding(start = 48.dp, bottom = 12.dp),
         )
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -1118,7 +1120,7 @@ private fun SeasonSelector(
     Column(modifier = Modifier.padding(bottom = 20.dp)) {
         Text(text = "Saisons", style = TextStyle(fontSize = 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(12.dp))
-        TvLazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
                 val selected = season.seasonNumber == selectedSeasonNumber
                 var focused by remember { mutableStateOf(false) }
@@ -1198,6 +1200,7 @@ private fun SeasonPageOverlay(
         }
     }
     TvLazyColumn(
+        state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0F)),
         contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 156.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),

@@ -34,6 +34,7 @@ import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
 import androidx.tv.foundation.lazy.grid.itemsIndexed
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -49,6 +50,7 @@ import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.delay
 
 // w342, PAS w500 : les cartes de résultats font 154dp de large (~310px
@@ -160,7 +162,7 @@ fun SearchScreen(
                 text = "Aucun résultat pour « $query »",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
             )
-            else -> TvLazyVerticalGrid(columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
+            else -> TvLazyVerticalGrid(state = rememberTvLazyGridState().withTvPrefetchDisabled(), columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.

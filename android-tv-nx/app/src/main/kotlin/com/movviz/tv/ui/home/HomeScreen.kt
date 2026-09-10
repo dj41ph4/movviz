@@ -104,6 +104,7 @@ import com.movviz.tv.ui.theme.statusTone
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvCardFocusHalo
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.delay
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -471,7 +472,7 @@ fun HomeScreen(
     val showHero = heroItems.isNotEmpty()
     val contentFocus = entryFocusRequester ?: remember { FocusRequester() }
     val topAnchor = remember { FocusRequester() }
-    val listState = rememberTvLazyListState()
+    val listState = rememberTvLazyListState().withTvPrefetchDisabled()
     val hasScrolled by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12
@@ -1436,6 +1437,7 @@ internal fun TitleRow(
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading(heading)
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1888,6 +1890,7 @@ private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: Stri
             modifier = Modifier.padding(start = 64.dp, bottom = 16.dp),
         )
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(horizontal = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),

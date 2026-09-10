@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -26,6 +27,7 @@ import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import kotlin.math.roundToInt
 
 /** Vue complète de la file, complément dynamique des états visibles en fiche. */
@@ -33,7 +35,7 @@ import kotlin.math.roundToInt
     BackHandler(onBack = onBack)
     val queue by viewModel.queue.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadQueue() }
-    TvLazyColumn(Modifier.fillMaxSize().background(Color(0xFF09090C)).padding(horizontal = 56.dp), contentPadding = PaddingValues(top = 112.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    TvLazyColumn(Modifier.fillMaxSize().background(Color(0xFF09090C)).padding(horizontal = 56.dp), state = rememberTvLazyListState().withTvPrefetchDisabled(), contentPadding = PaddingValues(top = 112.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text("Téléchargements", style = TextStyle(fontSize = 32.sp, fontWeight = FontWeight.Black, color = MovvizInk), modifier = Modifier.weight(1f)); Surface(onClick = { viewModel.loadQueue() }, shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)), colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF292930), focusedContainerColor = Color(0xFF41414B), contentColor = Color.White, focusedContentColor = Color.White)) { Text("Actualiser", modifier = Modifier.padding(horizontal = 20.dp, vertical = 13.dp)) } } }
         item { Text("En cours · ${queue.size}", color = MovvizInkDim, fontSize = 16.sp) }
         if (queue.isEmpty()) item { Box(Modifier.fillMaxWidth().padding(vertical = 80.dp), contentAlignment = Alignment.Center) { Text("Aucun téléchargement en cours", color = MovvizInkDim, fontSize = 18.sp) } }

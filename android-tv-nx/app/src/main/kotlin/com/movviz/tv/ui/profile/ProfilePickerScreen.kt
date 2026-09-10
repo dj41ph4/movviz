@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.Text
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.ui.theme.AnimatedLogo
@@ -39,6 +40,7 @@ import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizWordmark
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.delay
 
 /**
@@ -148,6 +150,7 @@ fun ProfilePickerScreen(
             Spacer(Modifier.height(38.dp))
 
             TvLazyRow(
+                state = rememberTvLazyListState().withTvPrefetchDisabled(),
                 modifier = Modifier.widthIn(max = 1040.dp),
                 contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(26.dp),

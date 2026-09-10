@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.109 — September 2026
+
+### Android TV NX
+
+- Corrige un plantage systématique en descendant dans les rangées de l'accueil (et de plusieurs autres écrans : fiche titre, recherche, catalogue, téléchargements, fiche acteur, sélecteur de profil, lecteur) : `NoSuchMethodError` sur `LazyLayoutPrefetchState.schedulePrefetch`, incompatibilité binaire entre `androidx.tv:tv-foundation` et la version de `compose.foundation` résolue par le projet. Même bug déjà corrigé côté NX Mobile (préchargement désactivé par réflexion, aucun comportement visible affecté) — jamais porté sur NX TV jusqu'ici. Appliqué aux 14 `TvLazyRow`/`TvLazyColumn`/`TvLazyVerticalGrid` du module.
+
 ## v1.24.108 — September 2026
 
 ### Continuer à regarder
