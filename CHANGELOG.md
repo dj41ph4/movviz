@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.102 — September 2026
+
+### NX Mobile
+
+- Restaure la bascule Suggestions/Bibliothèque dans Découverte > Films/Séries (portrait) — disparue par erreur avec l'ancien sélecteur 3 voies, elle donnait accès au catalogue complet possédé (2439 films chez l'utilisateur), sans elle le catalogue était injoignable en un tap direct.
+
 ## v1.24.101 — September 2026
 
 ### NX Mobile

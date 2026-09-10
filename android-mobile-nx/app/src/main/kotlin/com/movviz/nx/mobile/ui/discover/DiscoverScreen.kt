@@ -297,20 +297,24 @@ fun DiscoverScreen(
             // absent de l'esquisse mobile section 9, qui ne prévoit qu'un
             // sélecteur de genres en chips (DiscoverGenrePickerRow, plus bas).
             item(contentType = "type-toggle") {
-                if (contextHeader != null) {
-                    contextHeader()
-                } else if (fixedType != null) {
+                if (contextHeader != null) contextHeader()
+                if (fixedType != null) {
+                    // Bascule Suggestions/Bibliothèque — reste affichée même
+                    // avec un contextHeader (shell NX Découverte) : c'est le
+                    // seul chemin vers le catalogue complet possédé, disparu
+                    // par erreur quand le contextHeader a remplacé l'ancien
+                    // sélecteur 3 voies portrait.
                     MediaHubToggleRow(
                         mode = mode,
                         onModeChange = onModeChange,
-                        firstFocusRequester = hubFocus,
+                        firstFocusRequester = if (contextHeader == null) hubFocus else null,
                         modifier = Modifier.padding(
                             start = if (compactPortrait) 16.dp else 56.dp,
-                            top = if (compactPortrait) 8.dp else 78.dp,
+                            top = if (compactPortrait && contextHeader == null) 8.dp else if (contextHeader != null) 0.dp else 78.dp,
                             bottom = 20.dp,
                         ),
                     )
-                } else {
+                } else if (contextHeader == null) {
                     // Ancien point d'entrée, maintenu proprement : le
                     // sélecteur commence sous la barre flottante.
                     TypeToggleRow(selected = selectedType, onSelect = { selectedType = it })

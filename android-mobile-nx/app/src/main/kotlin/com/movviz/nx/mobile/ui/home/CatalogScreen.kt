@@ -89,6 +89,11 @@ fun CatalogScreen(
     // secondaire à la barre basse, portrait uniquement. Voir MainScreen.
     activeHubTab: HomeTab = type,
     onSelectHubTab: (HomeTab) -> Unit = {},
+    // Injecté par le shell NX Découverte (mode Bibliothèque) : même contrôle
+    // Films/Séries plein-largeur que le mode Suggestions, remplace l'ancien
+    // MediaHubSegmentedPills/FilterChipRow portrait quand fourni — voir
+    // DiscoverHubScreen.kt.
+    contextHeader: (@Composable () -> Unit)? = null,
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val movies by viewModel.movies.collectAsState()
@@ -150,8 +155,12 @@ fun CatalogScreen(
         bottom = if (compactPortrait) 24.dp else 30.dp,
     )) {
         if (compactPortrait) {
-            MediaHubSegmentedPills(active = activeHubTab, onSelect = onSelectHubTab)
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+            if (contextHeader != null) {
+                contextHeader()
+            } else {
+                MediaHubSegmentedPills(active = activeHubTab, onSelect = onSelectHubTab)
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+            }
             val genreLabels = remember(genres) { genres.map { it.name } }
             FilterChipRow(modifier = Modifier.padding(bottom = 4.dp)) {
                 if (genreLabels.isNotEmpty()) {
