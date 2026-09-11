@@ -1159,7 +1159,7 @@ internal fun HeroCarousel(
                 Text(
                     text = current.overview,
                     style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, lineHeight = 19.sp),
-                    maxLines = if (compactPortrait) 1 else 2,
+                    maxLines = if (compactPortrait || rememberUnfoldedLandscape()) 1 else 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 580.dp),
                 )
@@ -1698,8 +1698,11 @@ internal fun TitleRow(
         androidx.compose.foundation.layout.BoxWithConstraints(
             modifier = Modifier.fillMaxWidth(),
         ) {
+            // -4.dp de marge de sécurité : les arrondis Dp→px cumulaient
+            // jusqu'à ~6px de 4e carte visible au bord droit (mesuré sur
+            // émulateur). 4dp de fond en fin de rangée sont invisibles.
             val fitWidth = if (narrowRow) {
-                ((maxWidth - 32.dp - 20.dp) / 3).coerceAtLeast(88.dp)
+                ((maxWidth - 32.dp - 20.dp - 4.dp) / 3).coerceAtLeast(88.dp)
             } else {
                 132.dp
             }

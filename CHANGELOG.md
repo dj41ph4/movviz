@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.115 — September 2026
+
+### NX Mobile
+
+- Zéro bout de 4e carte : marge de sécurité 4dp dans l'ajustement exact (arrondis Dp→px mesurés sur émulateur).
+- Hero déplié : synopsis 1 ligne pour laisser Lire / Plus d'infos visibles sur paysage bas.
+
 ## v1.24.114 — September 2026
 
 ### NX Mobile
