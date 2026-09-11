@@ -69,7 +69,7 @@ fun DownloadsScreen(
 
     TvLazyColumn(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
-        modifier = Modifier.fillMaxSize().background(MovvizSurface.copy(alpha = if (compactPortrait) 0f else 1f))
+        modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizPage.copy(alpha = if (compactPortrait) 0f else 1f))
             .padding(horizontal = 16.dp),
         // bottom 156dp en portrait embarqué (barre basse flottante, sinon
         // "Terminés" — souvent long — passait dessous, signalé en direct).

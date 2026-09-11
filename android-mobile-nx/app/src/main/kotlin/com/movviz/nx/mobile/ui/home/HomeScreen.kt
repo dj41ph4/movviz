@@ -789,7 +789,7 @@ private fun MovvizBootScreen(progress: Int, message: String, profileName: String
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .clip(RoundedCornerShape(26.dp))
-            .background(Color(0xFF101330).copy(alpha = 0.94f))
+            .background(MovvizSurfaceStrong.copy(alpha = 0.94f))
             .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(26.dp))
             .padding(horizontal = 24.dp, vertical = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -45,13 +45,13 @@ val OnboardingCardShape = RoundedCornerShape(26.dp)
 val OnboardingFieldShape = RoundedCornerShape(14.dp)
 val OnboardingCtaShape = RoundedCornerShape(14.dp)
 
-/** Fond premier démarrage : bleu-nuit profond + deux halos violets (haut-gauche, bas-droit). */
+/** Fond premier démarrage : page unique + deux halos violets (haut-gauche, bas-droit). */
 @Composable
 fun OnboardingBackground(content: @Composable BoxScope.() -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF070A1C)),
+            .background(com.movviz.nx.mobile.ui.theme.MovvizPage),
     ) {
         Box(
             modifier = Modifier
@@ -128,7 +128,7 @@ fun OnboardingCard(content: @Composable ColumnScope.() -> Unit) {
             .padding(horizontal = 20.dp)
             .widthIn(max = 460.dp)
             .clip(OnboardingCardShape)
-            .background(Color(0xFF101330).copy(alpha = 0.92f))
+            .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong.copy(alpha = 0.92f))
             .border(1.dp, Color.White.copy(alpha = 0.09f), OnboardingCardShape)
             .padding(horizontal = 22.dp, vertical = 26.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

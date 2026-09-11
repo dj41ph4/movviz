@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -38,7 +37,6 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
 import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.data.TvProfile
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
@@ -92,7 +90,7 @@ fun PortraitTopHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MovvizSurface.copy(alpha = 0.55f))
+            .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
             .statusBarsPadding()
             .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 12.dp),
     ) {
@@ -124,12 +122,13 @@ fun PortraitTopHeader(
                     focusedContentColor = Color.White,
                 ),
             ) {
-                if (activeProfile?.avatar?.startsWith("http") == true) {
-                    AsyncImage(
-                        model = activeProfile.avatar,
+                if (activeProfile != null) {
+                    com.movviz.nx.mobile.ui.profile.AvatarImage(
+                        profile = activeProfile,
+                        modifier = Modifier.fillMaxSize(),
+                        shape = CircleShape,
+                        initialsFontSize = 12.sp,
                         contentDescription = "Changer de profil : ${displayName ?: "..."}",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().clip(CircleShape),
                     )
                 } else {
                     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

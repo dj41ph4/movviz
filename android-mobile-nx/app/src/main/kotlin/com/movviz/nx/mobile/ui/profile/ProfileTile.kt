@@ -180,18 +180,60 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     }
 }
 
+/** URL d'avatar exploitable par Coil : absolue telle quelle, relative
+ *  résolue contre le serveur du profil (Plex/serveur proxifié), null sinon.
+ *  Les schémas exotiques (plex://…) ne sont pas chargeables. */
+fun resolveAvatarUrl(avatar: String?, serverUrl: String?): String? {
+    if (avatar.isNullOrBlank()) return null
+    if (avatar.startsWith("http")) return avatar
+    val base = serverUrl?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() } ?: return null
+    if (avatar.startsWith("/")) return base + avatar
+    return null
+}
+
+/** Photo de profil unique de l'app (picker, fiche profil, en-têtes, rails) :
+ *  image session-authentifiée via le client partagé, repli initiales en cas
+ *  d'URL absente OU d'échec réseau (401 avatar Plex expiré → initiales,
+ *  jamais un rond vide). */
 @Composable
-fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 10.dp) {
-    val shape = RoundedCornerShape(cornerRadius)
-    val url = profile.avatar
-    if (!url.isNullOrBlank() && url.startsWith("http")) {
-        AsyncImage(model = url, contentDescription = profile.name, modifier = modifier.clip(shape))
+fun AvatarImage(
+    profile: TvProfile,
+    modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(10.dp),
+    initialsFontSize: androidx.compose.ui.unit.TextUnit = 34.sp,
+    contentDescription: String? = null,
+) {
+    val url = resolveAvatarUrl(profile.avatar, profile.serverUrl)
+    var failed by remember(url) { mutableStateOf(false) }
+    if (url != null && !failed) {
+        AsyncImage(
+            model = url,
+            contentDescription = contentDescription ?: profile.name,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            onError = { failed = true },
+            modifier = modifier.clip(shape),
+        )
     } else {
         Box(
             modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
             contentAlignment = Alignment.Center,
         ) {
-            Text(profile.name.take(2).uppercase(), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
+            Text(
+                profile.name.take(2).uppercase(),
+                color = Color.White,
+                fontSize = initialsFontSize,
+                fontWeight = FontWeight.Black,
+            )
         }
     }
+}
+
+@Composable
+fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 10.dp) {
+    AvatarImage(
+        profile = profile,
+        modifier = modifier,
+        shape = RoundedCornerShape(cornerRadius),
+        initialsFontSize = 34.sp,
+    )
 }

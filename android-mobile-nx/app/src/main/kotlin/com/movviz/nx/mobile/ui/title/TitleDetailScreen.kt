@@ -1310,7 +1310,7 @@ private fun SeasonPageOverlay(
     }
     TvLazyColumn(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
-        modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0F)),
+        modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizPage),
         contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 156.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {

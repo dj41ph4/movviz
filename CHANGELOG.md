@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.119 — September 2026
+
+### NX Mobile
+
+- Photo Plex récupérée partout : Coil partage le client HTTP session-authentifié, URLs relatives résolues contre le serveur, repli initiales en cas d'échec (badge, rail, picker, fiche, barre TV).
+- Fond de page unique (#0F142F, ton du bandeau logo) sur tous les écrans portrait/paysage, barres système et démarrage — fini les fonds noirs.
+
 ## v1.24.118 — September 2026
 
 ### NX Mobile

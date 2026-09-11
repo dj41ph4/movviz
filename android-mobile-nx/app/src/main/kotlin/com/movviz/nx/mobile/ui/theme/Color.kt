@@ -36,6 +36,12 @@ val MovvizSurface = Color(0xFF131836)
 val MovvizSurfaceStrong = Color(0xFF1A1F3D)
 val MovvizLine = Color(0xFF1E2440)
 
+// Fond de page unique NX Mobile (portrait + paysage, tous les écrans sans
+// exception) : le ton exact du bandeau logo/avatar (MovvizSurface à 55 % sur
+// MovvizBackground). Plus aucun noir ni à-plat différent qui casserait
+// l'immersion entre les pages.
+val MovvizPage = Color(0xFF0F142F)
+
 // Text hierarchy — white for titles, progressively dimmer for secondary.
 val MovvizInk = Color(0xFFFFFFFF)
 val MovvizInkSoft = Color(0xFFB3B3B3)

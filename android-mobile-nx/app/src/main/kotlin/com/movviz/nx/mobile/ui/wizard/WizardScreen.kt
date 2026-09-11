@@ -112,7 +112,7 @@ fun ServerUrlField(
         modifier = Modifier
             .fillMaxWidth()
             .clip(OnboardingFieldShape)
-            .background(Color.Black.copy(alpha = 0.45f), OnboardingFieldShape)
+            .background(com.movviz.nx.mobile.ui.theme.MovvizSurface, OnboardingFieldShape)
             .border(
                 width = if (focused) 2.dp else 1.dp,
                 color = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f),

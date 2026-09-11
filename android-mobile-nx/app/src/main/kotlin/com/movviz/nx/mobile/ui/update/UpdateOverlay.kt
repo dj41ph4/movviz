@@ -52,7 +52,7 @@ import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.BuildConfig
 import com.movviz.nx.mobile.data.UpdateInfo
 import com.movviz.nx.mobile.data.UpdateManager
-import com.movviz.nx.mobile.ui.theme.MovvizBackground
+import com.movviz.nx.mobile.ui.theme.MovvizPage
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
@@ -282,7 +282,7 @@ fun UpdateOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MovvizBackground)
+            .background(MovvizPage)
             .focusRequester(rootFocusRequester)
             .focusable(),
         contentAlignment = Alignment.Center,

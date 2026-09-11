@@ -25,6 +25,11 @@ class MovvizNxMobileApplication : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        // Client HTTP PARTAGÉ avec l'API (même CookieJar persistant) : les
+        // avatars Plex/serveur protégés par la session (401 sans cookie)
+        // chargent comme les posters publics — avant, Coil utilisait son
+        // propre client anonyme et les photos de profil restaient vides.
+        .okHttpClient(ApiClient.httpClient())
         // RGB_565 (2 octets/pixel) au lieu du ARGB_8888 par défaut (4
         // octets/pixel) : les posters/backdrops TMDb sont des JPEG opaques,
         // aucun canal alpha à perdre — moitié moins de mémoire pour un cache

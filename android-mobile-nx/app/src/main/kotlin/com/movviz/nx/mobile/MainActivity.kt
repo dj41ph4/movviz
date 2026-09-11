@@ -148,6 +148,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Barres système teintées page (#0F142F = MovvizPage) : jamais de
+        // bandeau noir sous le contenu, y compris hors immersif (login…).
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.parseColor("#0F142F")
         pendingDeepLink = intent
         setContent {
             MovvizTvTheme {
@@ -308,7 +312,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     val resolvedStart = startDestination
     if (resolvedStart == null) {
         Box(
-            modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizBackground),
+            modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizPage),
             contentAlignment = Alignment.Center,
         ) {
             // Entrée pro et sobre : fondu + léger scale-in du lockup officiel

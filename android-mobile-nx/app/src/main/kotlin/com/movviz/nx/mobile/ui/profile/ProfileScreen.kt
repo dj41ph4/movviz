@@ -44,7 +44,6 @@ import com.movviz.nx.mobile.data.ProfileMediaCardDto
 import com.movviz.nx.mobile.data.ProfileMediaResponseDto
 import com.movviz.nx.mobile.data.TvProfile
 import com.movviz.nx.mobile.ui.home.HomeTab
-import com.movviz.nx.mobile.ui.theme.MovvizBackground
 import com.movviz.nx.mobile.ui.theme.MovvizElectricBorder
 import com.movviz.nx.mobile.ui.theme.MovvizIconBack
 import com.movviz.nx.mobile.ui.theme.MovvizIconReplay
@@ -101,7 +100,7 @@ fun ProfileScreen(
     val narrow = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize().background(MovvizBackground)
+        modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizPage)
             .padding(start = if (narrow) 16.dp else 56.dp, end = if (narrow) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 48.dp),
         // C'est du padding de contenu, pas une marge fixe : une fois la page
         // défilée, une rangée remonte naturellement sous la barre opaque au
@@ -304,7 +303,7 @@ private fun ProfileSettingsRow(
 @Composable private fun ProfileMetric(label: String, value: Int, modifier: Modifier = Modifier, loading: Boolean = false) {
     Column(
         modifier
-            .background(Color(0xFF1B1B20), RoundedCornerShape(10.dp))
+            .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(10.dp))
             .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
             .padding(horizontal = 17.dp, vertical = 13.dp),
     ) {
@@ -373,7 +372,7 @@ internal fun LazyListScope.profileRail(
     Card(
         onClick = onClick, modifier = modifier.width(184.dp).height(276.dp),
         shape = CardDefaults.shape(shape = profileCardShape),
-        colors = CardDefaults.colors(containerColor = Color(0xFF202026), focusedContainerColor = Color(0xFF302A3A), contentColor = Color.White, focusedContentColor = Color.White),
+        colors = CardDefaults.colors(containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, focusedContainerColor = Color(0xFF302A3A), contentColor = Color.White, focusedContentColor = Color.White),
     ) {
         Box(Modifier.fillMaxSize().clip(profileCardShape)) {
             // Une carte verticale doit toujours privilégier l'affiche. Une

@@ -54,7 +54,6 @@ import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
-import coil.compose.AsyncImage
 
 /** Navigation NX: très peu de chrome, sans réserver une colonne au contenu. */
 @Composable
@@ -181,11 +180,11 @@ fun NxTopNav(
                     .tvPointerClick { onSelect(tab) },
                 shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
                 colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-                    containerColor = if (active) Color(0xFF2A2B31) else Color.Transparent,
+                    containerColor = if (active) com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong else Color.Transparent,
                     // Page active = capsule sombre persistante. Focus sur
                     // un autre onglet = simple contour clair : deux pages
                     // ne peuvent plus sembler actives simultanément.
-                    focusedContainerColor = if (active) Color(0xFF3A3B42) else Color.Transparent,
+                    focusedContainerColor = if (active) Color.White.copy(alpha = 0.10f) else Color.Transparent,
                     contentColor = Color.White,
                     focusedContentColor = Color.White,
                 ),
@@ -204,8 +203,8 @@ fun NxTopNav(
             modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onSearchToggle),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-                containerColor = Color.Black.copy(alpha = 0.42f),
-                focusedContainerColor = Color(0xFF3A3B42),
+                containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong,
+                focusedContainerColor = Color.White.copy(alpha = 0.10f),
                 contentColor = Color.White,
                 focusedContentColor = Color.White,
             ),
@@ -217,8 +216,8 @@ fun NxTopNav(
             modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onOpenSettings),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-                containerColor = Color.Black.copy(alpha = 0.42f),
-                focusedContainerColor = Color(0xFF3A3B42),
+                containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong,
+                focusedContainerColor = Color.White.copy(alpha = 0.10f),
                 contentColor = Color.White,
                 focusedContentColor = Color.White,
             ),
@@ -256,21 +255,22 @@ fun NxTopNav(
             modifier = Modifier.height(42.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onSwitchProfile),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-                containerColor = Color.Black.copy(alpha = 0.42f),
-                focusedContainerColor = Color(0xFF3A3B42),
+                containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong,
+                focusedContainerColor = Color.White.copy(alpha = 0.10f),
                 contentColor = Color.White,
                 focusedContentColor = Color.White,
             ),
         ) {
-            if (activeProfile?.avatar?.startsWith("http") == true) {
-                AsyncImage(
-                    model = activeProfile.avatar,
+            if (activeProfile != null) {
+                com.movviz.nx.mobile.ui.profile.AvatarImage(
+                    profile = activeProfile,
+                    modifier = Modifier.fillMaxSize(),
+                    shape = CircleShape,
+                    initialsFontSize = 13.sp,
                     contentDescription = "Changer de profil : ${activeProfile.name}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().clip(CircleShape),
                 )
             } else {
-                Text(activeProfile?.name?.take(2)?.uppercase() ?: "MO", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+                Text("MO", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
             }
         }
     }
@@ -291,7 +291,7 @@ private fun CompactNxTopNav(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     Row(
-        modifier = modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.9f))
+        modifier = modifier.fillMaxWidth().background(com.movviz.nx.mobile.ui.theme.MovvizPage.copy(alpha = 0.92f))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -301,7 +301,7 @@ private fun CompactNxTopNav(
             val active = selected == tab
             Surface(onClick = { onSelect(tab) }, modifier = Modifier.height(40.dp).tvPointerClick { onSelect(tab) },
                 shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
-                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = if (active) Color(0xFF383941) else Color.Transparent, focusedContainerColor = Color(0xFF4A4B53), contentColor = Color.White, focusedContentColor = Color.White)) {
+                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = if (active) com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong else Color.Transparent, focusedContainerColor = Color.White.copy(alpha = 0.10f), contentColor = Color.White, focusedContentColor = Color.White)) {
                 Text(tab.label, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 9.dp, vertical = 10.dp))
             }
         }
@@ -311,12 +311,12 @@ private fun CompactNxTopNav(
             Icon(MovvizIconSearch, "Recherche", Modifier.padding(11.dp), Color.White)
         }
         Surface(onClick = { menuOpen = true }, modifier = Modifier.width(44.dp).height(44.dp).tvPointerClick { menuOpen = true },
-            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0xFF2A2B31), focusedContainerColor = Color(0xFF4A4B53), contentColor = Color.White, focusedContentColor = Color.White)) {
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, focusedContainerColor = Color.White.copy(alpha = 0.10f), contentColor = Color.White, focusedContentColor = Color.White)) {
             Text("•••", fontSize = 16.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp))
         }
     }
     if (menuOpen) Popup(alignment = Alignment.TopEnd, properties = PopupProperties(focusable = true), onDismissRequest = { menuOpen = false }) {
-        androidx.compose.foundation.layout.Column(Modifier.padding(top = 60.dp, end = 12.dp).width(210.dp).background(Color(0xFF1B1B20), RoundedCornerShape(14.dp)).padding(8.dp)) {
+        androidx.compose.foundation.layout.Column(Modifier.padding(top = 60.dp, end = 12.dp).width(210.dp).background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(14.dp)).padding(8.dp)) {
             @Composable fun item(label: String, action: () -> Unit) { Surface(onClick = { menuOpen = false; action() }, modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick { menuOpen = false; action() }, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0xFF454650), contentColor = Color.White, focusedContentColor = Color.White)) { Text(label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) } }
             item("Mon profil", onOpenProfile)
             item("Téléchargements", onOpenDownloads)

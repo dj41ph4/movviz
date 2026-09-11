@@ -43,7 +43,6 @@ import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.data.QueueItemDto
 import com.movviz.nx.mobile.data.TvProfile
-import com.movviz.nx.mobile.ui.theme.MovvizBackground
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizElectricBorder
@@ -138,7 +137,7 @@ fun SlimRail(
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .background(MovvizBackground)
+            .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp)
             .verticalScroll(rememberScrollState()),
     ) {
@@ -259,21 +258,20 @@ fun SlimRail(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (activeProfile?.avatar?.startsWith("http") == true) {
-                AsyncImage(
-                    model = activeProfile.avatar,
-                    contentDescription = "Mon profil : ${activeProfile.name}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(36.dp).clip(CircleShape)
-                        .border(1.5.dp, MovvizElectricBorder, CircleShape),
-                )
-            } else {
-                Box(
-                    modifier = Modifier.size(36.dp).clip(CircleShape)
-                        .border(1.5.dp, MovvizElectricBorder, CircleShape)
-                        .background(MovvizSurface),
-                    contentAlignment = Alignment.Center,
-                ) {
+            Box(
+                modifier = Modifier.size(36.dp).clip(CircleShape)
+                    .border(1.5.dp, MovvizElectricBorder, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (activeProfile != null) {
+                    com.movviz.nx.mobile.ui.profile.AvatarImage(
+                        profile = activeProfile,
+                        modifier = Modifier.fillMaxSize(),
+                        shape = CircleShape,
+                        initialsFontSize = 12.sp,
+                        contentDescription = "Mon profil : ${railDisplayName ?: "..."}",
+                    )
+                } else {
                     Text(
                         railDisplayName?.take(2)?.uppercase() ?: "MO",
                         color = Color.White,
@@ -290,14 +288,6 @@ fun SlimRail(
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "MOVVIZ NX — Le cinéma vous suit.",
-            style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.55f)),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 4.dp),
-        )
     }
 }
 
@@ -359,7 +349,7 @@ fun UnfoldedRightPanel(
     LazyColumn(
         modifier = modifier
             .fillMaxHeight()
-            .background(MovvizSurface.copy(alpha = 0.55f))
+            .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
             .border(width = 1.dp, color = Color.White.copy(alpha = 0.07f))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

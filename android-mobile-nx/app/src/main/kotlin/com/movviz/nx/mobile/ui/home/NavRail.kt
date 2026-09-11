@@ -64,7 +64,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import com.movviz.nx.mobile.data.TvProfile
-import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -430,9 +429,17 @@ private fun ProfileMenuButton(
                 ),
             ),
         ) {
-            if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize())
-            else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-                Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            if (active != null) {
+                com.movviz.nx.mobile.ui.profile.AvatarImage(
+                    profile = active,
+                    modifier = Modifier.fillMaxSize(),
+                    shape = avatarShape,
+                    initialsFontSize = 13.sp,
+                )
+            } else {
+                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                    Text("?", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
         if (open) {
@@ -473,7 +480,7 @@ private fun ProfileMenuButton(
                 Surface(
                     modifier = Modifier.width(320.dp),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                    colors = SurfaceDefaults.colors(containerColor = Color(0xFF141414)),
+                    colors = SurfaceDefaults.colors(containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong),
                     border = Border(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
@@ -483,8 +490,16 @@ private fun ProfileMenuButton(
                         // En-tête : profil actif (avatar + nom).
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
                             Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-                                if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize())
-                                else Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                if (active != null) {
+                                    com.movviz.nx.mobile.ui.profile.AvatarImage(
+                                        profile = active,
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                        initialsFontSize = 11.sp,
+                                    )
+                                } else {
+                                    Text("?", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                             Spacer(Modifier.width(12.dp))
                             Column {
@@ -567,10 +582,12 @@ private fun MenuItem(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             if (avatar != null) {
-                Box(Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-                    if (avatar.avatar?.startsWith("http") == true) AsyncImage(model = avatar.avatar, contentDescription = avatar.name, modifier = Modifier.fillMaxSize())
-                    else Text(avatar.name.take(2).uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
+                com.movviz.nx.mobile.ui.profile.AvatarImage(
+                    profile = avatar,
+                    modifier = Modifier.size(28.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    initialsFontSize = 10.sp,
+                )
                 Spacer(Modifier.width(10.dp))
             } else if (leadingIcon != null) {
                 // Icône vectorielle (MovvizIcons) — les glyphes Unicode ◉ ⇄
