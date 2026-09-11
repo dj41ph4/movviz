@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.126 — September 2026
+
+### Android mobile NX
+
+- Mode paysage : la recherche quitte la barre latérale et devient une action globale flottante en haut à droite du contenu central.
+
 ## v1.24.125 — September 2026
 
 ### Android mobile NX

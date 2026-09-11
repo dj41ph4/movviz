@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.Key
@@ -118,6 +119,12 @@ fun MainScreen(
                     onHomeScrollChanged = onHomeScrollChanged,
                     onSwitchProfile = onSwitchProfile,
                 )
+                if (!searchOpen) {
+                    UnfoldedSearchButton(
+                        onClick = onOpenSearch,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                    )
+                }
             }
             if (tab == HomeTab.HOME && !searchOpen && showPanel) {
                 UnfoldedRightPanel(

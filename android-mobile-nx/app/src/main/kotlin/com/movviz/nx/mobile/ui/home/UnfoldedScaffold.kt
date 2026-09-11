@@ -208,17 +208,6 @@ fun SlimRail(
             }
             Spacer(Modifier.height(2.dp))
         }
-        Box(
-            modifier = Modifier.size(44.dp).clickable(onClick = onOpenSearch),
-            contentAlignment = Alignment.Center,
-        ) {
-            androidx.tv.material3.Icon(
-                imageVector = MovvizIconSearch,
-                contentDescription = "Rechercher",
-                tint = UnfoldedInactive,
-                modifier = Modifier.size(20.dp),
-            )
-        }
         Spacer(Modifier.weight(1f))
         if (updateTag != null) {
             Row(
@@ -293,6 +282,29 @@ fun SlimRail(
                 modifier = Modifier.weight(1f),
             )
         }
+    }
+}
+
+/** Recherche globale placée dans le contenu — jamais parmi les entrées du
+ * rail. Elle reste à portée du pouce, mais ne vole ni la hiérarchie ni la
+ * largeur de navigation de la maquette dépliée. */
+@Composable
+internal fun UnfoldedSearchButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(MovvizSurface)
+            .border(1.5.dp, MovvizElectricBorder, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.tv.material3.Icon(
+            imageVector = MovvizIconSearch,
+            contentDescription = "Rechercher",
+            tint = Color.White,
+            modifier = Modifier.size(19.dp),
+        )
     }
 }
 
