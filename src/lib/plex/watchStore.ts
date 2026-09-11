@@ -17,12 +17,54 @@ export interface RecentWatch {
   at: number; // epoch ms
 }
 
+export interface WatchedEpisode {
+  tmdbId: number; // series
+  season: number;
+  episode: number;
+  /** Event timestamp (jamais la date d'import/sync — §36). Null = legacy. */
+  at?: number | null;
+}
+
 export interface WatchStatus {
   userId: string;
   movies: number[]; // tmdbIds this user has watched
-  episodes: { tmdbId: number; season: number; episode: number }[]; // tmdbId = series
+  episodes: WatchedEpisode[];
+  /** Last positive event timestamp for each movie. Kept separately because
+   * the backwards-compatible public movie shape is still a number[]. */
+  movieWatchedAt?: Record<string, number>;
   recent?: RecentWatch[]; // last watched entries with timestamp ("quoi + quand")
   updatedAt: number;
+}
+
+export interface PlexWatchedMovie {
+  tmdbId: number;
+  title: string;
+  watchedAt: number;
+}
+
+export interface PlexWatchedEpisode {
+  tmdbId: number;
+  season: number;
+  episode: number;
+  title: string;
+  watchedAt: number;
+}
+
+/** Miroir progressStore depuis le point d'écriture UNIQUE (tous les writers
+ *  passent par setWatched* : toggle, playback, import, IA). Import dynamique
+ *  : progressStore importe déjà watchStore (cycle statique interdit). */
+function mirrorProgress(
+  userId: string,
+  tmdbId: number,
+  type: "movie" | "series",
+  watched: boolean,
+  season?: number,
+  episode?: number,
+  watchedAt?: number,
+): void {
+  import("@/lib/playback/progressStore")
+    .then((m) => m.syncProgressWatched(userId, { tmdbId, type, season, episode }, watched, watchedAt))
+    .catch(() => {});
 }
 
 const MAX_RECENT = 30;
@@ -41,6 +83,10 @@ function upsertRecent(status: WatchStatus, entry: RecentWatch) {
   recent.push(entry);
   recent.sort((a, b) => b.at - a.at);
   status.recent = recent.slice(0, MAX_RECENT);
+}
+
+function episodeKey(entry: { tmdbId: number; season: number; episode: number }) {
+  return `${entry.tmdbId}.${entry.season}.${entry.episode}`;
 }
 
 /** Record one "watched" event (Plex history or direct Movviz playback),
@@ -62,20 +108,29 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
   const list = read();
   const status = findOrCreate(list, userId);
   const at = watchedAt ?? Date.now();
+  const applied: number[] = [];
   if (watched) {
     for (const tmdbId of tmdbIds) {
+      const key = String(tmdbId);
       if (!status.movies.includes(tmdbId)) status.movies.push(tmdbId);
-      upsertRecent(status, { tmdbId, type: "movie", title, at });
+      status.movieWatchedAt ??= {};
+      const effectiveAt = Math.max(status.movieWatchedAt[key] ?? 0, at);
+      status.movieWatchedAt[key] = effectiveAt;
+      upsertRecent(status, { tmdbId, type: "movie", title, at: effectiveAt });
+      applied.push(tmdbId);
     }
   } else {
-    const remove = new Set(tmdbIds);
-    status.movies = status.movies.filter((m) => !remove.has(m));
+    for (const tmdbId of tmdbIds) {
+      status.movies = status.movies.filter((movie) => movie !== tmdbId);
+      applied.push(tmdbId);
+    }
     // Unwatched changes current state only; past viewing history remains in
     // the append-only context ledger and must never be erased here.
   }
   status.updatedAt = Date.now();
   if (write(list)) {
-    for (const tmdbId of tmdbIds) {
+    for (const tmdbId of applied) {
+      mirrorProgress(userId, tmdbId, "movie", watched, undefined, undefined, at);
       syncWatchedMovieState({ userId, tmdbId, title, watched, at });
       // Immediate ledger row (not just the eventual lazy mirror in
       // bootstrap.ts's refreshLegacyUserContext, which can lag up to its
@@ -111,26 +166,38 @@ export function setWatchedEpisodes(
 ) {
   const list = read();
   const status = findOrCreate(list, userId);
-  const key = (e: { tmdbId: number; season: number; episode: number }) => `${e.tmdbId}.${e.season}.${e.episode}`;
+  const key = episodeKey;
   const now = Date.now();
+  const applied: typeof entries = [];
   if (watched) {
     const ordered = [...entries].sort((a, b) => (a.watchedAt ?? now) - (b.watchedAt ?? now));
-    const existing = new Set(status.episodes.map(key));
+    const existing = new Map(status.episodes.map((e) => [key(e), e]));
     for (const e of ordered) {
-      if (!existing.has(key(e))) {
-        status.episodes.push({ tmdbId: e.tmdbId, season: e.season, episode: e.episode });
-        existing.add(key(e));
+      const at = e.watchedAt ?? now;
+      const prev = existing.get(key(e));
+      if (!prev) {
+        status.episodes.push({ tmdbId: e.tmdbId, season: e.season, episode: e.episode, at });
+        existing.set(key(e), status.episodes[status.episodes.length - 1]);
+      } else if (prev.at == null || at > prev.at) {
+        // Conflit local : l'événement le plus récent gagne (§35-36).
+        prev.at = at;
       }
-      upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at: e.watchedAt ?? now });
+      const effectiveAt = Math.max(prev?.at ?? 0, at);
+      if (prev) prev.at = effectiveAt;
+      upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at: effectiveAt });
+      applied.push(e);
     }
   } else {
-    const remove = new Set(entries.map(key));
-    status.episodes = status.episodes.filter((e) => !remove.has(key(e)));
+    for (const entry of entries) {
+      status.episodes = status.episodes.filter((episode) => key(episode) !== key(entry));
+      applied.push(entry);
+    }
   }
   status.updatedAt = now;
   if (write(list)) {
-    for (const e of entries) {
+    for (const e of applied) {
       const at = e.watchedAt ?? now;
+      mirrorProgress(userId, e.tmdbId, "series", watched, e.season, e.episode, at);
       syncWatchedEpisodeState({ userId, tmdbId: e.tmdbId, season: e.season, episode: e.episode, title, watched, at });
       recordUserContextEvent({
         userId,
@@ -171,10 +238,57 @@ export function getWatchStatus(userId: string): WatchStatus | null {
   return read().find((w) => w.userId === userId) ?? null;
 }
 
-export function saveWatchStatus(status: WatchStatus) {
+/**
+ * Plex -> Movviz half of the single watched-state bridge.  Plex only exposes
+ * an append-only history. A real Plex view is always stronger than an
+ * absent/non-watched local state; public `movies` / `episodes` stay stable
+ * for web, mobile and TV while positive event dates retain their order.
+ */
+export function mergePlexWatchedState(
+  userId: string,
+  movies: PlexWatchedMovie[],
+  episodes: PlexWatchedEpisode[],
+): WatchStatus {
   const list = read();
-  const i = list.findIndex((w) => w.userId === status.userId);
-  if (i >= 0) list[i] = status;
-  else list.push(status);
+  const status = findOrCreate(list, userId);
+  const movieSet = new Set(status.movies);
+  const existingEpisodes = new Map(status.episodes.map((entry) => [episodeKey(entry), entry]));
+  const addedMovies: PlexWatchedMovie[] = [];
+  const addedEpisodes: PlexWatchedEpisode[] = [];
+
+  for (const movie of movies) {
+    const key = String(movie.tmdbId);
+    if (!movieSet.has(movie.tmdbId)) {
+      status.movies.push(movie.tmdbId);
+      movieSet.add(movie.tmdbId);
+      addedMovies.push(movie);
+    }
+    status.movieWatchedAt ??= {};
+    const effectiveAt = Math.max(status.movieWatchedAt[key] ?? 0, movie.watchedAt);
+    status.movieWatchedAt[key] = effectiveAt;
+    upsertRecent(status, { tmdbId: movie.tmdbId, type: "movie", title: movie.title, at: effectiveAt });
+  }
+
+  for (const entry of episodes) {
+    const key = episodeKey(entry);
+    const existing = existingEpisodes.get(key);
+    if (!existing) {
+      const next: WatchedEpisode = { tmdbId: entry.tmdbId, season: entry.season, episode: entry.episode, at: entry.watchedAt };
+      status.episodes.push(next);
+      existingEpisodes.set(key, next);
+      addedEpisodes.push(entry);
+    } else if (existing.at == null || entry.watchedAt > existing.at) {
+      existing.at = entry.watchedAt;
+    }
+    upsertRecent(status, { tmdbId: entry.tmdbId, type: "series", title: entry.title, at: Math.max(existing?.at ?? 0, entry.watchedAt) });
+  }
+
+  status.updatedAt = Date.now();
   write(list);
+  // Plex imports are already entered in the append-only history ledger by
+  // watchSync. This only aligns stale local resume records with the same
+  // canonical watched state, without manufacturing duplicate history rows.
+  for (const movie of addedMovies) mirrorProgress(userId, movie.tmdbId, "movie", true, undefined, undefined, movie.watchedAt);
+  for (const entry of addedEpisodes) mirrorProgress(userId, entry.tmdbId, "series", true, entry.season, entry.episode, entry.watchedAt);
+  return status;
 }

@@ -1215,11 +1215,13 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         title: String,
         episodes: List<com.movviz.tv.data.WatchToggleEpisodeDto>,
         watched: Boolean,
+        scope: String? = null,
+        season: Int? = null,
     ) {
         if (episodes.isEmpty()) return
         val repo = repository ?: return
         viewModelScope.launch {
-            if (repo.toggleWatch(tmdbId, "series", watched, title, episodes) is ApiResult.Success) loadWatchStatus()
+            if (repo.toggleWatch(tmdbId, "series", watched, title, episodes, scope, season) is ApiResult.Success) loadWatchStatus()
         }
     }
 

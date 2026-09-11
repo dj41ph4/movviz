@@ -30,6 +30,8 @@ export interface ResolvedAiItem {
    *  recommendMedia's own documentary/off-topic filter (see there); never
    *  displayed. */
   genreIds?: number[];
+  voteCount?: number;
+  popularity?: number;
 }
 
 /** Small bounded-concurrency helper (TMDb free tier — AGENTS.md: limit concurrency). */
@@ -169,6 +171,8 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
     rating: pick.rating,
     inLibrary,
     genreIds: pick.genreIds,
+    voteCount: pick.voteCount,
+    popularity: pick.popularity,
   };
 }
 

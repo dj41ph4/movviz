@@ -143,11 +143,12 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const key = found?.episode.plexRatingKey ?? d.ratingKey;
     items.push({ type: "episode", tmdbId, title: found?.series.title ?? meta!.title, posterPath: found?.series.posterPath ?? meta!.posterPath, year: found?.series.year ?? meta!.year, rating: found?.series.rating ?? meta!.rating, progressPercent: percent, offsetMs: d.viewOffset, seasonNumber: season, episodeNumber: episode, episodeTitle: found?.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: found ? `${found.series.id}:s${season}e${episode}` : undefined, seriesId: found?.series.id, technical: technical(found?.episode.file ?? null), lastPlayedAt: d.lastViewedAt ?? d.updatedAt ?? 0 });
   }
-  // Exactly one current action per logical media. The most recently updated
-  // peer wins — position size never decides a conflict.
+  // Exactly one current action per logical media — and a single active
+  // resume per series (§23-24, §58 : E03+E04 ne coexistent jamais, le plus
+  // récent gagne, l'historique des deux reste). Position size never decides.
   const newest = new Map<string, OnDeckEntry>();
   for (const item of items) {
-    const identity = item.type === "movie" ? `movie:${item.tmdbId}` : `episode:${item.tmdbId}:${item.seasonNumber}:${item.episodeNumber}`;
+    const identity = item.type === "movie" ? `movie:${item.tmdbId}` : `series:${item.tmdbId}`;
     const current = newest.get(identity);
     if (!current || item.lastPlayedAt > current.lastPlayedAt) newest.set(identity, item);
   }

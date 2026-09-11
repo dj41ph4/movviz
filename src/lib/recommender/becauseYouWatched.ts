@@ -1,13 +1,15 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getAllRatings } from "@/lib/ai/tasteProfile";
 import { loadMovies, loadSeries } from "@/lib/library/store";
-import { getMovie, getSeries, getMovieRecommendations, getTvRecommendations } from "@/lib/metadata/tmdb";
+import { getMovie, getSeries, getMovieRecommendations, getTvRecommendations, getDetail } from "@/lib/metadata/tmdb";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, getOrAnalyzeMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
 import { loadAiConfig } from "@/lib/ai/store";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import type { MetaSearchResult } from "@/lib/metadata/types";
+import { audienceSignal } from "@/lib/recommender/audienceSignal";
+import { getFavoriteKeywords, matchKeywordAffinity } from "@/lib/userContext/taste";
 
 /**
  * "Because you watched/liked X" — a Discover row anchored on the single
@@ -137,6 +139,13 @@ async function rankCandidates(
   if (filtered.length === 0) return filtered;
 
   const tasteVector = buildTasteVector(userId);
+  const favoriteKeywords = await getFavoriteKeywords(userId);
+  const keywordDetails = new Map<number, string[]>();
+  const detailCandidates = [...filtered].sort((a, b) => audienceSignal(b) - audienceSignal(a)).slice(0, 30);
+  await mapWithConcurrency(detailCandidates, 5, async (item) => {
+    const detail = await getDetail(type, item.tmdbId).catch(() => null);
+    if (detail) keywordDetails.set(item.tmdbId, detail.keywords);
+  });
   const scored = filtered.map((item) => {
     let taste = 0;
     if (tasteVector) {
@@ -145,9 +154,11 @@ async function rankCandidates(
         taste = (moodSimilarity(tasteVector.liked, mood) - moodSimilarity(tasteVector.disliked, mood)) * tasteVector.confidence;
       }
     }
+    const keywordAffinity = matchKeywordAffinity(keywordDetails.get(item.tmdbId) ?? [], favoriteKeywords);
     const score =
-      (Math.min(item.rating ?? 0, 10) / 10) * 0.5
-      + (Math.min(Math.max((item.year ?? 2000) - 2000, 0), 30) / 30) * 0.2
+      (Math.min(item.rating ?? 0, 10) / 10) * 0.15
+      + audienceSignal(item) * 0.3
+      + keywordAffinity * 0.25
       + Math.max(0, taste) * 0.3;
     return { item, score };
   });

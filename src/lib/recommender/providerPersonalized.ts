@@ -1,4 +1,4 @@
-import { discoverByFilters, getGenres } from "@/lib/metadata/tmdb";
+import { discoverByFilters, getDetail, getGenres } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
@@ -6,11 +6,12 @@ import { getCachedMoodProfile, getOrAnalyzeMoodProfile, moodSimilarity } from "@
 import { loadAiConfig } from "@/lib/ai/store";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import { getFeedback } from "@/lib/ai/tasteProfile";
-import { getComputedGenreTraits, matchGenreAffinity } from "@/lib/userContext/taste";
+import { getComputedGenreTraits, getFavoriteKeywords, matchGenreAffinity, matchKeywordAffinity } from "@/lib/userContext/taste";
 import { STREAMING_PLATFORMS } from "@/lib/metadata/curated";
 import { getCache } from "@/lib/cache/registry";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import type { MetaSearchResult } from "@/lib/metadata/types";
+import { audienceSignal } from "@/lib/recommender/audienceSignal";
 
 /**
  * Two distinct rows per provider — never a per-provider engine, the provider
@@ -46,7 +47,6 @@ export const PERSONALIZED_DISCOVER_PROVIDERS = PERSONALIZED_PROVIDER_IDS
   .map((id) => STREAMING_PLATFORMS.find((p) => p.id === id))
   .filter((p): p is { id: number; name: string } => !!p);
 
-const GENRE_AFFINITY_PROMOTE_THRESHOLD = 0.95;
 const ROW_SIZE = 20;
 // A provider's TMDb catalog is mostly titles nobody has ever analyzed before
 // (obscure regional content, one-off specials — unlike getRecommendations()'s
@@ -245,12 +245,7 @@ function timeout(ms: number): Promise<"timeout"> {
 }
 
 function sortScored<T extends { affinity: number; composite: number }>(scored: T[]): T[] {
-  return scored.sort((a, b) => {
-    const aPromoted = a.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
-    const bPromoted = b.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
-    if (aPromoted !== bPromoted) return aPromoted ? -1 : 1;
-    return b.composite - a.composite;
-  });
+  return scored.sort((a, b) => b.composite - a.composite);
 }
 
 async function rankForUser(
@@ -265,6 +260,12 @@ async function rankForUser(
   const tasteVector = buildTasteVector(userId);
   const genreTraits = new Map(getComputedGenreTraits(userId, 10).map((t) => [t.key, t] as const));
   const genreNameById = genreTraits.size ? new Map((await getGenres(type)).map((g) => [g.id, g.name] as const)) : new Map<number, string>();
+  const favoriteKeywords = await getFavoriteKeywords(userId);
+  const keywordDetails = new Map<number, string[]>();
+  await mapWithConcurrency(filtered.slice(0, 40), 5, async (item) => {
+    const detail = await getDetail(type, item.tmdbId).catch(() => null);
+    if (detail) keywordDetails.set(item.tmdbId, detail.keywords);
+  });
 
   const scored = filtered.map((item) => {
     let taste = 0;
@@ -278,10 +279,13 @@ async function rankForUser(
       ? (item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)
       : [];
     const affinity = genreNames.length ? matchGenreAffinity(genreNames, genreTraits) : 0;
+    const keywordAffinity = matchKeywordAffinity(keywordDetails.get(item.tmdbId) ?? [], favoriteKeywords);
     const composite =
-      (Math.min(item.rating ?? 0, 10) / 10) * 0.40
-      + Math.max(0, taste) * 0.35
-      + Math.min(affinity, 1) * 0.25;
+      Math.max(0, taste) * 0.25
+      + Math.min(affinity, 1) * 0.22
+      + keywordAffinity * 0.18
+      + audienceSignal(item) * 0.25
+      + (Math.min(item.rating ?? 0, 10) / 10) * 0.15;
     return { item, affinity, composite };
   });
 

@@ -11,7 +11,7 @@ export interface EvidenceTasteTrait {
   confidence: number;
   evidenceCount: number;
   strength: number;
-  source: "computed_genre" | "computed_person" | "context_insight" | "explicit_fact";
+  source: "computed_genre" | "computed_person" | "computed_keyword" | "context_insight" | "explicit_fact";
 }
 
 /** Best matching computed-genre trait's strength×confidence for a set of
@@ -329,6 +329,59 @@ export async function getFavoritePeople(userId: string, limit = 3): Promise<Favo
   return (await computeFavoritePeople(userId)).slice(0, limit);
 }
 
+const keywordTasteCache = new Map<string, { values: Map<string, number>; expiresAt: number }>();
+
+/** Theme-level taste learned from real watches and explicit reactions. This
+ * is deliberately finer than genres: TMDb keywords describe topics,
+ * settings, narrative devices and sub-genres. */
+export async function getFavoriteKeywords(userId: string): Promise<Map<string, number>> {
+  const cached = keywordTasteCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.values;
+  const knowledge = getUnifiedUserKnowledge(userId);
+  const sentiments = new Map<string, PersonTarget>();
+  for (const r of knowledge.ratings) {
+    if (r.rating === 3) continue;
+    sentiments.set(`${r.type}:${r.tmdbId}`, { tmdbId: r.tmdbId, type: r.type, sentiment: r.rating >= 4 });
+  }
+  for (const f of knowledge.feedback) sentiments.set(`${f.type}:${f.tmdbId}`, { tmdbId: f.tmdbId, type: f.type, sentiment: f.liked });
+  const watch = getWatchStatus(userId);
+  for (const tmdbId of watch?.movies ?? []) if (!sentiments.has(`movie:${tmdbId}`)) sentiments.set(`movie:${tmdbId}`, { tmdbId, type: "movie", sentiment: null });
+  for (const tmdbId of new Set((watch?.episodes ?? []).map((e) => e.tmdbId))) if (!sentiments.has(`series:${tmdbId}`)) sentiments.set(`series:${tmdbId}`, { tmdbId, type: "series", sentiment: null });
+
+  const scores = new Map<string, number>();
+  await mapWithConcurrency([...sentiments.values()].slice(0, 70), 4, async (target) => {
+    const detail = await getDetail(target.type, target.tmdbId).catch(() => null);
+    if (!detail) return;
+    const weight = target.sentiment === true ? 2 : target.sentiment === false ? -2.5 : 0.5;
+    for (const raw of detail.keywords) {
+      const keyword = raw.trim().toLocaleLowerCase("fr");
+      if (keyword) scores.set(keyword, (scores.get(keyword) ?? 0) + weight);
+    }
+  });
+  const positive = new Map([...scores].filter(([, score]) => score >= 1.5).sort((a, b) => b[1] - a[1]).slice(0, 80));
+  keywordTasteCache.set(userId, { values: positive, expiresAt: Date.now() + PERSON_CACHE_TTL_MS });
+  return positive;
+}
+
+export function matchKeywordAffinity(keywords: string[], preferences: Map<string, number>): number {
+  if (!keywords.length || !preferences.size) return 0;
+  const matches = keywords.map((k) => preferences.get(k.trim().toLocaleLowerCase("fr")) ?? 0).filter((v) => v > 0);
+  if (!matches.length) return 0;
+  return Math.min(1, matches.sort((a, b) => b - a).slice(0, 5).reduce((sum, value) => sum + value, 0) / 12);
+}
+
+export async function getComputedKeywordTraits(userId: string, limit = 8): Promise<EvidenceTasteTrait[]> {
+  const keywords = await getFavoriteKeywords(userId);
+  return [...keywords.entries()].slice(0, limit).map(([keyword, evidence]) => ({
+    key: `keyword:${keyword}`,
+    label: `affinité récurrente avec le thème « ${keyword} »`,
+    confidence: Math.min(0.94, 0.5 + evidence * 0.045),
+    evidenceCount: Math.max(2, Math.round(evidence)),
+    strength: Math.min(1, evidence / 8),
+    source: "computed_keyword" as const,
+  }));
+}
+
 export async function getComputedPersonTraits(userId: string, limit = 5): Promise<EvidenceTasteTrait[]> {
   const favorites = await computeFavoritePeople(userId);
   return favorites.slice(0, limit).map((f) => {
@@ -388,6 +441,7 @@ export async function getBanterTraits(userId: string, limit = 5): Promise<Eviden
 
   traits.push(...getComputedGenreTraits(userId, 6));
   traits.push(...(await getComputedPersonTraits(userId, 4)));
+  traits.push(...(await getComputedKeywordTraits(userId, 8)));
 
   const seen = new Set<string>();
   return traits

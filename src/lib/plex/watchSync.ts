@@ -1,6 +1,6 @@
 import { loadPlexConfig } from "./store";
 import { getAccountHistory, batchTmdbIds, getLocalAccounts, getPlexAccount, getPlexHomeUsers } from "./client";
-import { saveWatchStatus, getWatchStatus, type RecentWatch } from "./watchStore";
+import { getWatchStatus, mergePlexWatchedState } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
@@ -116,40 +116,28 @@ export async function syncUserWatchStatus(user: User) {
       batchTmdbIds(cfg, cfg.adminToken, showRatingKeys),
     ]);
 
-    const movies = [
-      ...new Set(
-        movieRatingKeys
-          .map((k) => movieInfo.get(k)?.tmdbId)
-          .filter((id): id is number => id != null)
-      ),
-    ];
+    const movieStates = new Map<number, { tmdbId: number; title: string; watchedAt: number }>();
+    for (const entry of history.filter((item) => item.type === "movie")) {
+      const tmdbId = movieInfo.get(entry.ratingKey)?.tmdbId;
+      const watchedAt = Number(entry.viewedAt ?? 0);
+      if (tmdbId == null || !Number.isFinite(watchedAt) || watchedAt <= 0) continue;
+      const prior = movieStates.get(tmdbId);
+      if (!prior || watchedAt > prior.watchedAt) movieStates.set(tmdbId, { tmdbId, title: entry.title ?? "", watchedAt });
+    }
+    const movies = [...movieStates.keys()];
 
-    const episodeMap = new Map<string, { tmdbId: number; season: number; episode: number }>();
+    const episodeMap = new Map<string, { tmdbId: number; season: number; episode: number; title: string; watchedAt: number }>();
     for (const e of episodeEntries) {
       const tmdbId = showInfo.get(e.grandparentRatingKey!)?.tmdbId;
-      if (tmdbId == null || e.season == null || e.episode == null) continue;
-      episodeMap.set(`${tmdbId}.${e.season}.${e.episode}`, { tmdbId, season: e.season, episode: e.episode });
+      const watchedAt = Number(e.viewedAt ?? 0);
+      if (tmdbId == null || e.season == null || e.episode == null || !Number.isFinite(watchedAt) || watchedAt <= 0) continue;
+      const key = `${tmdbId}.${e.season}.${e.episode}`;
+      const prior = episodeMap.get(key);
+      if (!prior || watchedAt > prior.watchedAt) {
+        episodeMap.set(key, { tmdbId, season: e.season, episode: e.episode, title: e.grandparentTitle ?? e.title ?? "", watchedAt });
+      }
     }
     const episodes = [...episodeMap.values()];
-
-    // "Quoi + quand" : recent keeps the last watched entries with their real
-    // timestamps from Plex history (newest first), merged with any direct
-    // Movviz playback entries so nothing previously recorded is lost.
-    const plexRecent: RecentWatch[] = history
-      .map((h): RecentWatch | null => {
-        if (h.type === "movie") {
-          const tmdbId = movieInfo.get(h.ratingKey)?.tmdbId;
-          if (tmdbId == null || !h.viewedAt) return null;
-          return { tmdbId, type: "movie", title: h.title ?? "", at: h.viewedAt };
-        }
-        if (h.type === "episode" && h.grandparentRatingKey) {
-          const tmdbId = showInfo.get(h.grandparentRatingKey)?.tmdbId;
-          if (tmdbId == null || !h.viewedAt) return null;
-          return { tmdbId, type: "series", title: h.grandparentTitle ?? "", at: h.viewedAt };
-        }
-        return null;
-      })
-      .filter((r): r is RecentWatch => r != null);
 
     // The timeline is append-only and timestamped at its real Plex event
     // time. This is what lets a Plex view from yesterday sit correctly
@@ -167,23 +155,12 @@ export async function syncUserWatchStatus(user: User) {
       }
     }
 
-    const previous = getWatchStatus(user.id);
-    const merged = new Map<string, RecentWatch>();
-    for (const r of [...(previous?.recent ?? []), ...plexRecent]) {
-      const key = `${r.tmdbId}.${r.type}`;
-      const prior = merged.get(key);
-      if (!prior || r.at > prior.at) merged.set(key, r);
-    }
-    const recent = [...merged.values()].sort((a, b) => b.at - a.at).slice(0, 30);
-
-    // Plex is an optional peer, never a replacement for Movviz. Its history
-    // has no reliable "unwatched" tombstone, so importing it must only add
-    // known views and must never erase a newer local view.
-    const mergedMovies = [...new Set([...(previous?.movies ?? []), ...movies])];
-    const episodeKey = (e: { tmdbId: number; season: number; episode: number }) => `${e.tmdbId}.${e.season}.${e.episode}`;
-    const mergedEpisodes = [...new Map([...(previous?.episodes ?? []), ...episodes].map((e) => [episodeKey(e), e])).values()];
-    saveWatchStatus({ userId: user.id, movies: mergedMovies, episodes: mergedEpisodes, recent, updatedAt: Date.now() });
-    // saveWatchStatus() only writes the legacy JSON store; it never touches
+    const mergedStatus = mergePlexWatchedState(user.id, [...movieStates.values()], episodes);
+    const recent = mergedStatus.recent ?? [];
+    // mergePlexWatchedState() deliberately does not emit timeline rows: Plex
+    // history above is the authoritative append-only record. Refresh the
+    // derived context after its canonical state has been reconciled.
+    // It never touches
     // the unified Context Engine (unlike setWatchedMovies/setWatchedEpisodes).
     // Force an immediate mirror so the AI's SQL-backed context reflects a
     // real-time Plex sync right away instead of waiting up to 5 minutes for

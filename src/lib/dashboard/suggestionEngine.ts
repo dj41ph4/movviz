@@ -289,16 +289,17 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
   const ownedRefs: HeroCandidateRef[] = [];
 
   if (mix.includeUnowned) {
-    // Pool 1 — priorité 1 (confirmé par l'utilisateur) : suggestions personnalisées.
-    // Mélangées (seed du jour) — sans ça, le même sous-ensemble en tête de
-    // liste de recommandations restait épinglé indéfiniment.
-    const recs = seededShuffle(await getRecommendations(userId, "movie").catch(() => []), seed);
+    // Pool 1 — priorité 1 : suggestions personnalisées. Their ranked order
+    // is meaningful (taste + audience traction), so it must be preserved.
+    // getRecommendations is already ranked by taste + audience traction.
+    // Shuffling it hid hot same-day releases below weaker candidates.
+    const recs = await getRecommendations(userId, "movie").catch(() => []);
     for (const r of recs) unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "personalized", libraryStatus: null, daysUntilRelease: null });
 
     // Pool 6 — découverte TMDb (plus un simple repli — une vraie source de contenu non possédé).
     const owned = new Set(movies.map((m) => m.tmdbId));
     const trend = await trending("movie", 1, []).catch(() => ({ results: [] }));
-    for (const r of seededShuffle(trend.results, seed + 1)) {
+    for (const r of trend.results) {
       if (owned.has(r.tmdbId)) continue;
       unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "discovery", libraryStatus: null, daysUntilRelease: null });
     }

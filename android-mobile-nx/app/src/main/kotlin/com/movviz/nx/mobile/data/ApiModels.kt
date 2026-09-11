@@ -885,6 +885,8 @@ data class WatchToggleRequestDto(
     val watched: Boolean,
     val title: String,
     val episodes: List<WatchToggleEpisodeDto> = emptyList(),
+    val scope: String? = null,
+    val season: Int? = null,
 )
 
 // Miroir (partiel) de UserPrefs (src/lib/userPrefs/store.ts) — la TV n'a

@@ -1024,7 +1024,7 @@ fun TitleDetailScreen(
                     solidWhite = false,
                     icon = MovvizIconCheck,
                 ) {
-                    viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched)
+                    viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched, scope = "series")
                 }
             }
 
@@ -1116,7 +1116,7 @@ fun TitleDetailScreen(
                 onBack = { openSeasonNumber = null },
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, openSeason.seasonNumber) },
                 onToggleEpisodesWatched = { episodes, watched ->
-                    viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched)
+                    viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = "season", season = openSeason.seasonNumber)
                 },
                 onOpenEpisode = { episode, metadataEpisode ->
                     selectedEpisode = EpisodeSelection(openSeason, episode, metadataEpisode)

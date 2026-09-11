@@ -214,6 +214,7 @@ function mapPaged(
         genreIds: r.genre_ids ?? [],
         originalLanguage: r.original_language ?? null,
         voteCount: r.vote_count ?? 0,
+        popularity: r.popularity ?? 0,
         originalTitle: r.original_title ?? r.original_name ?? undefined,
       })),
     page: data.page ?? 1,

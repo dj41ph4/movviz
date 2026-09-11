@@ -77,6 +77,9 @@ export interface MetaSearchResult {
    *  significance, never rating alone: a handful of votes can produce a
    *  misleadingly high average (see resolveAiItemOnce's tie-break). */
   voteCount?: number;
+  /** TMDb audience traction. Kept separate from rating: it measures how
+   *  much attention a title is receiving, including very recent releases. */
+  popularity?: number;
   /** TMDb's own (non-localized) title — same optionality/provenance as
    *  genreIds. Confirmed live: "The Death of Stalin" resolved to an
    *  obscure 2025 homonym (1 vote) instead of the real 2017 film, because a

@@ -8,6 +8,7 @@ import type { ResolvedAiItem } from "@/lib/ai/actions";
 import type { AiMoodCategories } from "@/lib/ai/types";
 import { getExplicitTitlePreferences } from "@/lib/userContext/preferences";
 import { getComputedGenreTraits, matchGenreAffinity } from "@/lib/userContext/taste";
+import { audienceSignal } from "@/lib/recommender/audienceSignal";
 
 /**
  * Recommendation Score (AI.MD §2.D/§2.E) — separates candidate GENERATION
@@ -192,6 +193,7 @@ export function scoreCandidates(
 
     let score = 0;
     score += Math.max(0, c.rating) * 2; // Quality — up to ~20
+    score += audienceSignal(c) * 18; // Public traction/confidence — up to 18
     if (!c.inLibrary) score += 8; // Novelty — favors real discoveries over what's already owned
     if (explicitPreference) score += explicitPreference.affinity * 20 * explicitPreference.confidence;
 

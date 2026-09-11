@@ -174,14 +174,26 @@ function SeasonRow({
     knownEpisodes.length > 0 &&
     knownEpisodes.every((k) => watchedEpisodes?.has(`${k.season}.${k.episode}`));
 
-  const toggleWatched = async (episodes: { season: number; episode: number }[], watched: boolean, key: string) => {
+  const toggleWatched = async (
+    episodes: { season: number; episode: number }[],
+    watched: boolean,
+    key: string,
+    scope?: { type: "season"; season: number },
+  ) => {
     if (tmdbId == null) return;
     setTogglingWatched(key);
     try {
       await fetch("/api/watch/toggle", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tmdbId, type: "series", watched, title: seriesTitle ?? "", episodes }),
+        body: JSON.stringify({
+          tmdbId,
+          type: "series",
+          watched,
+          title: seriesTitle ?? "",
+          episodes,
+          ...(scope ? { scope: scope.type, season: scope.season } : {}),
+        }),
       });
       onWatchedChanged?.();
     } finally {
@@ -228,7 +240,7 @@ function SeasonRow({
           )}
           {knownEpisodes.length > 0 && (
             <button
-              onClick={(e) => { e.stopPropagation(); toggleWatched(knownEpisodes, !seasonAllWatched, `s${season.seasonNumber}`); }}
+              onClick={(e) => { e.stopPropagation(); toggleWatched(knownEpisodes, !seasonAllWatched, `s${season.seasonNumber}`, { type: "season", season: season.seasonNumber }); }}
               title={seasonAllWatched ? t("watch.markUnwatched") : t("watch.markWatched")}
               className={cn(
                 "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong transition-colors",

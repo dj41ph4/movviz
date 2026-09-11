@@ -310,6 +310,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               type,
               watched: !allSeriesWatched,
               title: detail?.title ?? "",
+              scope: "series",
               episodes: seriesEpisodes,
             };
       await fetch("/api/watch/toggle", {

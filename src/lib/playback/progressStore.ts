@@ -101,6 +101,73 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
 }
 
 export function getPlaybackProgress(userId: string, ratingKey: string, mediaId?: string): PlaybackProgress | null { return get(userId, ratingKey, mediaId); }
+
+/** Miroir du point d'écriture UNIQUE watchStore (setWatched*) : le flag
+ *  `watched` local ne décide JAMAIS seul (lecture via watchStore), mais il
+ *  doit rester cohérent — sinon un "marquer non vu" manuel laisse un
+ *  watched=true périmé qui bloque toute reprise fraîche. Miroir pur : ni
+ *  ledger ni pendingAction ici (déjà émis par l'écrivain d'origine).
+ *  Une seule reprise active par série (§23-24) : les frères sont purgés. */
+export function syncProgressWatched(
+  userId: string,
+  ref: { tmdbId?: number; type: "movie" | "series"; season?: number; episode?: number },
+  watched: boolean,
+  watchedAt?: number,
+): void {
+  const bucket = store().byUser[userId];
+  if (!bucket) return;
+  let changed = false;
+  for (const p of Object.values(bucket)) {
+    if (ref.tmdbId != null && p.tmdbId !== ref.tmdbId) continue;
+    if (p.mediaType === "movie" && ref.type !== "movie") continue;
+    if (p.mediaType === "episode" && ref.type !== "series") continue;
+    if (ref.season != null && p.seasonNumber !== ref.season) continue;
+    if (ref.episode != null && p.episodeNumber !== ref.episode) continue;
+    if (watched) {
+      if (!p.watched || p.resumeOffsetMs != null || p.eligibleForResume || (watchedAt != null && watchedAt > (p.watchedAt ?? 0))) {
+        p.watched = true;
+        p.watchedAt = Math.max(p.watchedAt ?? 0, watchedAt ?? Date.now());
+        p.resumeOffsetMs = null;
+        p.eligibleForResume = false;
+        p.updatedAt = Date.now();
+        p.revision++;
+        changed = true;
+      }
+    } else if (p.watched || p.resumeOffsetMs != null || p.eligibleForResume) {
+      // Non vu = on recommence à zéro : ni flag périmé ni reprise fossile.
+      p.watched = false;
+      p.watchedAt = null;
+      p.resumeOffsetMs = null;
+      p.eligibleForResume = false;
+      p.actualPlayedMs = 0;
+      p.updatedAt = Date.now();
+      p.revision++;
+      changed = true;
+    }
+  }
+  if (changed) persist();
+}
+
+/** Une seule reprise active par série et par profil (§23-24, §58) : quand un
+ *  épisode devient la reprise courante, les autres épisodes de la même série
+ *  perdent la leur (leur historique reste, §53). */
+function clearSiblingEpisodeResumes(userId: string, tmdbId: number, keepSeason: number, keepEpisode: number): boolean {
+  const bucket = store().byUser[userId];
+  if (!bucket) return false;
+  let changed = false;
+  for (const p of Object.values(bucket)) {
+    if (p.mediaType !== "episode" || p.tmdbId !== tmdbId) continue;
+    if (p.seasonNumber === keepSeason && p.episodeNumber === keepEpisode) continue;
+    if (p.resumeOffsetMs != null || p.eligibleForResume) {
+      p.resumeOffsetMs = null;
+      p.eligibleForResume = false;
+      p.updatedAt = Date.now();
+      p.revision++;
+      changed = true;
+    }
+  }
+  return changed;
+}
 export function listPlaybackProgress(userId: string): PlaybackProgress[] { return Object.values(store().byUser[userId] ?? {}).filter((p) => !p.watched && p.eligibleForResume && (p.resumeOffsetMs ?? 0) > 0); }
 export function listAllPlaybackProgress(userId: string): PlaybackProgress[] { return Object.values(store().byUser[userId] ?? {}); }
 
@@ -179,8 +246,16 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
   const plausible = isPlausiblePlaybackAdvance(session.lastPositionMs, input.positionMs, elapsed, input.playbackRate ?? 1);
   if (input.isPlaying && !session.seekPending && plausible) session.actualPlayedMs += Math.min(elapsed, 30_000);
   session.seekPending = false; session.lastSequence = input.sequence; session.lastHeartbeatAt = now; session.lastPositionMs = Math.max(0, input.positionMs); session.lastIsPlaying = input.isPlaying;
-  const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
-  if (!p.watched && p.actualPlayedMs >= MIN_REAL_PLAYBACK_MS) { p.eligibleForResume = true; if (p.lastPositionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) p.resumeOffsetMs = p.lastPositionMs; }
+   const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
+   if (!p.watched && p.actualPlayedMs >= MIN_REAL_PLAYBACK_MS) {
+      p.eligibleForResume = true;
+      if (p.lastPositionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) {
+        p.resumeOffsetMs = p.lastPositionMs;
+        if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) {
+          clearSiblingEpisodeResumes(p.userId, p.tmdbId, p.seasonNumber, p.episodeNumber);
+        }
+      }
+   }
   if (!p.watched && canComplete(p.actualPlayedMs, p.lastPositionMs, p.completionBoundaryMs)) markPlaybackWatched(p, p.boundarySource);
   persist();
   syncPlaybackContext(p);
@@ -225,6 +300,9 @@ export function stopPlayback(sessionId: string, positionMs?: number): PlaybackPr
       completedHere = true;
     } else if (p.eligibleForResume && position < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) {
       p.resumeOffsetMs = position;
+      if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) {
+        clearSiblingEpisodeResumes(p.userId, p.tmdbId, p.seasonNumber, p.episodeNumber);
+      }
     }
   }
   if (!completedHere) { p.updatedAt = Date.now(); p.revision++; }

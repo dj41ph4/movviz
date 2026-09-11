@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.24.122 — September 2026
+
+### Visionnage unifié
+
+- Source unique de statut vu/non vu sur desktop, Mobile NX et TV NX, avec agrégation réelle épisode, saison et série.
+- Synchronisation Plex bidirectionnelle conservant les dates réelles ; un visionnage confirmé reste prioritaire sur une simple absence de statut.
+- Reprise nettoyée dès qu'un titre est vu ou remis à zéro, avec une seule reprise active par série.
+
+### Suggestions et IA
+
+- Classement personnalisé fondé sur les goûts et la traction publique : popularité, volume de votes et qualité du match passent avant les contenus obscurs équivalents.
+- Les nouveautés très suivies d'un fournisseur peuvent remonter immédiatement lorsqu'elles correspondent aux goûts, sans attendre d'accumuler des milliers de votes.
+- Profil enrichi par les thèmes et mots-clés TMDb, en complément des genres, ambiances, acteurs, réalisateurs, franchises, notes et comportements réels ; le même contexte alimente les suggestions et l'IA Movviz.
+
 ## v1.24.121 — September 2026
 
 ### Android
