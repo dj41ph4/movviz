@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.118 — September 2026
+
+### NX Mobile
+
+- Hero déplié compact : logo réduit, synopsis sur la fiche uniquement — Lire / Plus d'infos toujours visibles (mesuré écrasés à 12px sur émulateur).
+
 ## v1.24.117 — September 2026
 
 ### NX Mobile

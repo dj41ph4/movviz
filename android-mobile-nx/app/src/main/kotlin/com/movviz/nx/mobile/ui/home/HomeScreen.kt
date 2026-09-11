@@ -956,6 +956,10 @@ internal fun HeroCarousel(
     // lieu de donner l'impression d'une affiche géante à faire défiler.
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val compactPortrait = configuration.screenWidthDp < 600 && configuration.screenHeightDp > configuration.screenWidthDp
+    // Hero compact en déplié : logo réduit, pas de synopsis, CTA toujours
+    // visibles dans un hero de ~213dp (mesuré : la pile complète fait ~262dp
+    // et écrasait les boutons à 12px sur émulateur).
+    val unfoldedHero = rememberUnfoldedLandscape()
     // Le hero paysage reste strictement inchangé. En portrait, la même
     // vedette ne doit pas consommer tout le premier écran ni recadrer le
     // visage du film derrière une colonne de texte : une hauteur bornée
@@ -1059,9 +1063,9 @@ internal fun HeroCarousel(
                 // bottom = dépassement du hero sous le pli (40dp) + marge
                 // visuelle : le CTA reste ENTièrement au-dessus de l'écran.
                 .padding(
-                    start = if (compactPortrait) 20.dp else 52.dp,
-                    end = if (compactPortrait) 20.dp else 40.dp,
-                    bottom = if (compactPortrait) 24.dp else 46.dp,
+                    start = if (compactPortrait) 20.dp else if (unfoldedHero) 16.dp else 52.dp,
+                    end = if (compactPortrait) 20.dp else if (unfoldedHero) 16.dp else 40.dp,
+                    bottom = if (compactPortrait) 24.dp else if (unfoldedHero) 20.dp else 46.dp,
                 )
                 .widthIn(max = if (compactPortrait) (configuration.screenWidthDp - 40).dp else 620.dp),
         ) {
@@ -1091,8 +1095,8 @@ internal fun HeroCarousel(
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,
                     modifier = Modifier
-                        .width(if (compactPortrait) 260.dp else 440.dp)
-                        .height(if (compactPortrait) 58.dp else 82.dp),
+                        .width(if (compactPortrait) 260.dp else if (unfoldedHero) 300.dp else 440.dp)
+                        .height(if (compactPortrait) 58.dp else if (unfoldedHero) 56.dp else 82.dp),
                 )
             } else if (showTitleFallback) {
                 Text(
@@ -1104,7 +1108,7 @@ internal fun HeroCarousel(
             } else {
                 // Réserve la place du logo pendant son chargement : aucun
                 // titre texte ne clignote avant de laisser sa place au logo.
-                Spacer(modifier = Modifier.height(if (compactPortrait) 64.dp else 90.dp).widthIn(max = if (compactPortrait) 260.dp else 460.dp))
+                Spacer(modifier = Modifier.height(if (compactPortrait) 64.dp else if (unfoldedHero) 56.dp else 90.dp).widthIn(max = if (compactPortrait) 260.dp else 460.dp))
             }
             // Badge statut bibliothèque (même pastille que la fiche titre)
             current.status?.let { st ->
@@ -1154,12 +1158,14 @@ internal fun HeroCarousel(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (current.overview.isNotBlank()) {
+            // Pas de synopsis en déplié : la pile badge + logo + méta + CTA
+            // remplit déjà le hero compact, le synopsis vit sur la fiche.
+            if (current.overview.isNotBlank() && !unfoldedHero) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = current.overview,
                     style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, lineHeight = 19.sp),
-                    maxLines = if (compactPortrait || rememberUnfoldedLandscape()) 1 else 2,
+                    maxLines = if (compactPortrait) 1 else 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 580.dp),
                 )
