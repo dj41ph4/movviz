@@ -24,7 +24,7 @@
 <br><br>
 
 <img src="https://img.shields.io/badge/Licence-GPL--3.0-3da639?style=flat-square&labelColor=1a1a2e" alt="Licence"/>
-<img src="https://img.shields.io/badge/version-1.24.126-a855f7?style=flat-square&labelColor=1a1a2e" alt="Version 1.24.126"/>
+<img src="https://img.shields.io/badge/version-1.24.127-a855f7?style=flat-square&labelColor=1a1a2e" alt="Version 1.24.127"/>
 <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&labelColor=1a1a2e" alt="Next.js"/>
 <img src="https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&labelColor=1a1a2e" alt="TypeScript"/>
 <img src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=flat-square&logo=tailwindcss&labelColor=1a1a2e" alt="Tailwind CSS"/>

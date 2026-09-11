@@ -285,26 +285,49 @@ fun SlimRail(
     }
 }
 
-/** Recherche globale placée dans le contenu — jamais parmi les entrées du
- * rail. Elle reste à portée du pouce, mais ne vole ni la hiérarchie ni la
- * largeur de navigation de la maquette dépliée. */
+/** Barre de recherche persistante du châssis déplié. Identique à celle du
+ * portrait, mais opaque et dessinée APRÈS le contenu : hero et listes
+ * défilent dessous sans jamais la recouvrir. */
 @Composable
-internal fun UnfoldedSearchButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun UnfoldedPersistentSearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(MovvizSurface)
-            .border(1.5.dp, MovvizElectricBorder, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+            .fillMaxWidth()
+            .height(70.dp)
+            .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
+            .padding(horizontal = 12.dp, vertical = 12.dp)
     ) {
-        androidx.tv.material3.Icon(
-            imageVector = MovvizIconSearch,
-            contentDescription = "Rechercher",
-            tint = Color.White,
-            modifier = Modifier.size(19.dp),
-        )
+        androidx.tv.material3.Surface(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize()
+                .border(1.dp, MovvizElectricBorder, RoundedCornerShape(23.dp)),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = MovvizSurface,
+                focusedContainerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong,
+                contentColor = Color.White,
+                focusedContentColor = Color.White,
+            ),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            ) {
+                androidx.tv.material3.Icon(
+                    imageVector = MovvizIconSearch,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(17.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Rechercher un film, une série, un acteur…",
+                    style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.72f)),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 

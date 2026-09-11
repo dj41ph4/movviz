@@ -120,9 +120,9 @@ fun MainScreen(
                     onSwitchProfile = onSwitchProfile,
                 )
                 if (!searchOpen) {
-                    UnfoldedSearchButton(
+                    UnfoldedPersistentSearchBar(
                         onClick = onOpenSearch,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                        modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }
             }

@@ -358,10 +358,15 @@ export async function buildProviderSuggestedRow(
 
   const excluded = excludedTmdbIds(type, userId);
   const newestIds = new Set(pool.newestIds);
-  const ranked = await rankForUser(userId, type, pool.results.filter((item) => !newestIds.has(item.tmdbId)), excluded);
-  if (ranked.length === 0) return null;
+  const nonNewest = pool.results.filter((item) => !newestIds.has(item.tmdbId));
+  // A small or recently refreshed provider catalogue can consist entirely of
+  // recent titles. Never turn a valid Netflix/Prime catalogue into an empty
+  // page merely because the separate "Nouveautés" row owns those IDs.
+  const ranked = await rankForUser(userId, type, nonNewest, excluded);
+  const visible = ranked.length > 0 ? ranked : await rankForUser(userId, type, pool.results, excluded);
+  if (visible.length === 0) return null;
 
-  return { key: `providerSuggested:${providerId}`, results: ranked.slice(0, ROW_SIZE), meta: { providerId, providerName } };
+  return { key: `providerSuggested:${providerId}`, results: visible.slice(0, ROW_SIZE), meta: { providerId, providerName } };
 }
 
 /** One "new" + one "suggested" row per V1 provider (plan §28, extended per
@@ -404,9 +409,14 @@ export async function getProviderSuggestedPage(
   const excluded = excludedTmdbIds(type, userId);
   const newestIds = new Set(pool.newestIds);
   const candidates = pool.results.filter((item) => !newestIds.has(item.tmdbId));
-  const ranked = sort === "rating"
+  let ranked = sort === "rating"
     ? filterSuggestable(candidates.filter((item) => !excluded.has(item.tmdbId))).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.popularity ?? 0) - (a.popularity ?? 0))
     : await rankForUser(userId, type, candidates, excluded);
+  if (ranked.length === 0) {
+    ranked = sort === "rating"
+      ? filterSuggestable(pool.results.filter((item) => !excluded.has(item.tmdbId))).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.popularity ?? 0) - (a.popularity ?? 0))
+      : await rankForUser(userId, type, pool.results, excluded);
+  }
 
   const exhausted = pool.popularExhausted && pool.dateExhausted;
   const totalPages = exhausted ? Math.max(1, Math.ceil(ranked.length / ROW_SIZE)) : page + 1;

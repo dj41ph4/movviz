@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,10 @@ import com.movviz.nx.mobile.ui.home.TvTitleCard
 import com.movviz.nx.mobile.ui.theme.AnimatedLogo
 import com.movviz.nx.mobile.ui.theme.MovvizIconBack
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
+import com.movviz.nx.mobile.ui.theme.MovvizElectricBorder
+import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.launch
@@ -250,14 +255,28 @@ fun RowDetailScreen(
                 ).forEach { (value, title) ->
                     androidx.tv.material3.Surface(
                         onClick = { providerSort = value },
-                        modifier = Modifier.height(40.dp).tvPointerClick { providerSort = value },
+                        // Trois segments strictement égaux : le texte est
+                        // réellement centré dans la rangée, pas seulement
+                        // dans une pilule dont la largeur varie avec son mot.
+                        modifier = Modifier.weight(1f).height(40.dp).tvPointerClick { providerSort = value },
                         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(20.dp)),
                         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-                            containerColor = if (providerSort == value) com.movviz.nx.mobile.ui.theme.MovvizBrand else Color.White.copy(alpha = 0.08f),
+                            containerColor = if (providerSort == value) Color.Transparent else MovvizSurfaceStrong,
                             contentColor = Color.White,
                         ),
+                        border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+                            border = androidx.tv.material3.Border(
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, MovvizElectricBorder),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                            ),
+                        ),
                     ) {
-                        Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.fillMaxSize()
+                                .then(if (providerSort == value) Modifier.background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) else Modifier)
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Text(title, fontSize = if (compactPortrait) 11.sp else 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }

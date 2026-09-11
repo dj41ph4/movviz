@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.127 — September 2026
+
+### Android mobile NX
+
+- La barre de recherche du portrait est désormais persistante et opaque au-dessus de la colonne centrale en paysage ; le hero et les listes défilent dessous.
+- Tri Netflix, Prime Video et plateformes : boutons NX premium (contours électriques, surfaces bleu-nuit et sélection en dégradé violet).
+- Les catalogues de plateformes ne deviennent plus vides lorsqu’un bassin valide ne contient que des nouveautés : repli sur ces titres au lieu d’afficher une page sans résultat.
+
 ## v1.24.126 — September 2026
 
 ### Android mobile NX
