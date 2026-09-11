@@ -63,10 +63,16 @@ export interface User {
  *  Les clients (desktop/mobile/TV) utilisent TOUJOURS ceci, jamais
  *  plexAvatar directement. */
 export function effectiveAvatar(
-  u: Pick<User, "customAvatar" | "plexAvatar"> | null | undefined,
+  u: Pick<User, "customAvatar" | "plexAvatar" | "avatarUpdatedAt"> | null | undefined,
 ): string | null {
   if (!u) return null;
-  return u.customAvatar ?? u.plexAvatar ?? null;
+  if (u.customAvatar) return u.customAvatar;
+  if (!u.plexAvatar) return null;
+  // Plex commonly replaces the bytes behind the same thumb URL. Versioning
+  // the public value forces browser/Coil caches (notably TV NX) to reload it.
+  if (!u.avatarUpdatedAt || u.plexAvatar.includes("movvizAvatarVersion=")) return u.plexAvatar;
+  const separator = u.plexAvatar.includes("?") ? "&" : "?";
+  return `${u.plexAvatar}${separator}movvizAvatarVersion=${u.avatarUpdatedAt}`;
 }
 
 /** Never send passwordHash or plexToken to the browser — but UI needs to know whether one exists. */
@@ -74,5 +80,5 @@ export type PublicUser = Omit<User, "passwordHash" | "plexToken" | "plexServerTo
 
 export function toPublicUser(u: User): PublicUser {
   const { passwordHash: _passwordHash, plexToken, plexServerToken: _plexServerToken, ...rest } = u;
-  return { ...rest, hasPlexToken: !!plexToken };
+  return { ...rest, plexAvatar: u.customAvatar ? u.plexAvatar : effectiveAvatar(u), hasPlexToken: !!plexToken };
 }

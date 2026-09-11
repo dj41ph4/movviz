@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { User } from "@/lib/auth/types";
 import { plexAvatarFingerprint, plexAvatarRefreshPatch } from "@/lib/plex/avatarSync";
+import { effectiveAvatar } from "@/lib/auth/types";
 
 const user = (patch: Partial<User> = {}): User => ({
   id: "usr_test", username: "test", passwordHash: null, role: "user", status: "approved",
@@ -28,4 +29,9 @@ test("a later observed Plex change wins and exposes Plex through effectiveAvatar
   assert.equal(patch?.customAvatar, null);
   assert.equal(patch?.avatarSource, "plex");
   assert.equal(patch?.avatarUpdatedAt, 200);
+});
+
+test("effectiveAvatar cache-busts a changed Plex URL for TV/browser image caches", () => {
+  assert.equal(effectiveAvatar(user({ customAvatar: null, avatarUpdatedAt: 200 })), "https://plex/old?movvizAvatarVersion=200");
+  assert.equal(effectiveAvatar(user({ customAvatar: null, plexAvatar: "https://plex/old?x=1", avatarUpdatedAt: 200 })), "https://plex/old?x=1&movvizAvatarVersion=200");
 });

@@ -3,6 +3,7 @@ import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import type { User } from "@/lib/auth/types";
 import { effectiveAvatar } from "@/lib/auth/types";
+import { getUserById } from "@/lib/auth/store";
 
 /**
  * Profils de foyer Android TV — « qui est-ce ? » façon Netflix, encrés dans
@@ -39,7 +40,10 @@ const TV_PROFILES_FILE = path.join(CONFIG_DIR, "tv-profiles.json");
 
 export function listTvProfiles(): TvProfile[] {
   const profiles = readJsonCached<TvProfile[]>(TV_PROFILES_FILE, []);
-  return [...profiles].sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+  return profiles.map((profile) => {
+    const user = getUserById(profile.id);
+    return user ? { ...profile, name: user.username, avatar: effectiveAvatar(user) } : profile;
+  }).sort((a, b) => b.lastUsedAt - a.lastUsedAt);
 }
 
 /** Upsert d'un compte dans le foyer TV — appelé par l'ADMIN uniquement

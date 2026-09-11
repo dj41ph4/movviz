@@ -10,7 +10,7 @@
 
 ### Profils
 
-- Synchronisation d’avatar Movviz ↔ Plex en dernier changement gagnant, avec empreinte anti-boucle et repli sûr : un échec Plex ne bloque jamais l’upload Movviz.
+- Synchronisation d’avatar Movviz ↔ Plex en dernier changement gagnant, avec empreinte anti-boucle, invalidation du cache TV NX et repli sûr : un échec Plex ne bloque jamais l’upload Movviz.
 
 ## v1.24.122 — September 2026
 
