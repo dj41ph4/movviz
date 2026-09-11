@@ -73,6 +73,9 @@ test("Configured priority determines the fallback provider order", async () => {
     return new Response(JSON.stringify({ choices: [{ message: { content: "mistral fallback" } }] }), { status: 200 });
   }) as typeof fetch;
   const cfg = config("big-pickle", ["opencode", "mistral", "gemini", "openrouter"]);
+  // Simulate a legacy/stale redundant field: the ordered list must remain
+  // the sole source of truth and OpenCode must still be attempted first.
+  cfg.primary = "mistral";
   cfg.fallback = true;
   cfg.providers.mistral.keys = [{ id: "m", key: "mistral-test-key" }];
   try {

@@ -14,7 +14,7 @@ function deepMerge(base: AiConfig, patch: unknown): AiConfig {
     .filter((id, index, all): id is AiConfig["primary"] => AI_PROVIDER_ORDER.includes(id as AiConfig["primary"]) && all.indexOf(id) === index);
   return {
     enabled: p.enabled ?? base.enabled,
-    primary: (p.primary as AiConfig["primary"]) ?? base.primary,
+    primary: priority[0],
     priority,
     fallback: p.fallback ?? base.fallback,
     webSearchEnabled: p.webSearchEnabled ?? base.webSearchEnabled,

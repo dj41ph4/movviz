@@ -83,6 +83,10 @@ fun MainScreen(
     if (rememberUnfoldedLandscape()) {
         val activeProfile by viewModel.activeProfile.collectAsState()
         val unfoldedUsername by viewModel.currentUser.collectAsState()
+        androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val railWidth = unfoldedRailWidth(maxWidth.value)
+        val panelWidth = unfoldedPanelWidth(maxWidth.value)
+        val showPanel = maxWidth - railWidth - panelWidth >= 360.dp
         Row(modifier = Modifier.fillMaxSize()) {
             SlimRail(
                 selected = tab,
@@ -93,7 +97,7 @@ fun MainScreen(
                 updateTag = updateTag,
                 onUpdateClick = onUpdateClick,
                 fallbackName = unfoldedUsername?.username,
-                modifier = Modifier.width(UnfoldedRailWidth),
+                modifier = Modifier.width(railWidth),
             )
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 MainContent(
@@ -115,14 +119,15 @@ fun MainScreen(
                     onSwitchProfile = onSwitchProfile,
                 )
             }
-            if (tab == HomeTab.HOME && !searchOpen && rememberUnfoldedWithPanel()) {
+            if (tab == HomeTab.HOME && !searchOpen && showPanel) {
                 UnfoldedRightPanel(
                     viewModel = viewModel,
                     onOpenTitle = onOpenTitle,
                     onOpenDownloadsTab = { onSelectTab(HomeTab.DOWNLOADS) },
-                    modifier = Modifier.width(UnfoldedPanelWidth),
+                    modifier = Modifier.width(panelWidth),
                 )
             }
+        }
         }
         return
     }

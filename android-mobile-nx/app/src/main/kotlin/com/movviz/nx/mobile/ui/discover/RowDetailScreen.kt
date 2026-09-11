@@ -251,7 +251,7 @@ fun RowDetailScreen(
                     androidx.tv.material3.Surface(
                         onClick = { providerSort = value },
                         modifier = Modifier.height(40.dp).tvPointerClick { providerSort = value },
-                        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.foundation.shape.RoundedCornerShape(20.dp)),
+                        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(20.dp)),
                         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                             containerColor = if (providerSort == value) com.movviz.nx.mobile.ui.theme.MovvizBrand else Color.White.copy(alpha = 0.08f),
                             contentColor = Color.White,

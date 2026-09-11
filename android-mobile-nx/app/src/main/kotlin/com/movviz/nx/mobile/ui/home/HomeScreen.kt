@@ -960,6 +960,7 @@ internal fun HeroCarousel(
     // visibles dans un hero de ~213dp (mesuré : la pile complète fait ~262dp
     // et écrasait les boutons à 12px sur émulateur).
     val unfoldedHero = rememberUnfoldedLandscape()
+    val mobileStyle = compactPortrait || unfoldedHero
     // Le hero paysage reste strictement inchangé. En portrait, la même
     // vedette ne doit pas consommer tout le premier écran ni recadrer le
     // visage du film derrière une colonne de texte : une hauteur bornée
@@ -978,10 +979,18 @@ internal fun HeroCarousel(
     // visuel plein-écran bord à bord (esquisse mobile 2026-09, les 5 écrans
     // montrent tous une carte hero distincte, jamais un backdrop plein cadre).
     // Le paysage/TV garde le hero plein-écran existant, inchangé.
-    val heroShape = if (compactPortrait) RoundedCornerShape(20.dp) else androidx.compose.ui.graphics.RectangleShape
+    val heroShape = when {
+        compactPortrait -> RoundedCornerShape(20.dp)
+        unfoldedHero -> RoundedCornerShape(20.dp)
+        else -> androidx.compose.ui.graphics.RectangleShape
+    }
     Box(
         modifier = Modifier.fillMaxWidth()
-            .then(if (compactPortrait) Modifier.padding(horizontal = 16.dp) else Modifier)
+            .then(when {
+                compactPortrait -> Modifier.padding(horizontal = 16.dp)
+                unfoldedHero -> Modifier.padding(horizontal = 12.dp)
+                else -> Modifier
+            })
             .height(heroHeight.dp)
             .clip(heroShape)
             .clipToBounds(),
@@ -1184,20 +1193,20 @@ internal fun HeroCarousel(
                         .tvFocusLift(focused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
                     colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (compactPortrait) Color.Transparent else Color.White,
-                        focusedContainerColor = if (compactPortrait) Color.Transparent else Color.White,
-                        contentColor = if (compactPortrait) Color.White else Color.Black,
-                        focusedContentColor = if (compactPortrait) Color.White else Color.Black,
+                        containerColor = if (mobileStyle) Color.Transparent else Color.White,
+                        focusedContainerColor = if (mobileStyle) Color.Transparent else Color.White,
+                        contentColor = if (mobileStyle) Color.White else Color.Black,
+                        focusedContentColor = if (mobileStyle) Color.White else Color.Black,
                     ),
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
                     ),
                 ) {
                     Box(
                         modifier = Modifier.then(
-                            if (compactPortrait) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(24.dp))
+                            if (mobileStyle) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(24.dp))
                             else Modifier,
                         ),
                     ) {
@@ -1210,13 +1219,13 @@ internal fun HeroCarousel(
                             Icon(
                                 imageVector = MovvizIconPlay,
                                 contentDescription = null,
-                                tint = if (compactPortrait) Color.White else Color.Black,
+                                tint = if (mobileStyle) Color.White else Color.Black,
                                 modifier = Modifier.size(15.dp),
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (compactPortrait) "Voir" else "Lire",
-                                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (compactPortrait) Color.White else Color.Black),
+                                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (mobileStyle) Color.White else Color.Black),
                             )
                         }
                     }
@@ -1233,10 +1242,10 @@ internal fun HeroCarousel(
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
-                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp), maxScale = 1.04f, maxElevation = 16.dp)
+                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = Color.White.copy(alpha = 0.15f),
                         focusedContainerColor = Color.White.copy(alpha = 0.26f),
@@ -1244,8 +1253,8 @@ internal fun HeroCarousel(
                         focusedContentColor = Color.White,
                     ),
                     border = ClickableSurfaceDefaults.border(
-                        border = if (compactPortrait) Border(border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f)), shape = RoundedCornerShape(24.dp)) else Border.None,
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
+                        border = if (mobileStyle) Border(border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f)), shape = RoundedCornerShape(24.dp)) else Border.None,
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
                     ),
                 ) {
                     Row(
@@ -1930,7 +1939,7 @@ internal fun PosterCard(
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = MovvizCardShape),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
-                border = if (compactPortrait) Border(
+                border = if (compactPortrait || rememberUnfoldedLandscape()) Border(
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder),
                     shape = MovvizCardShape,
                 ) else Border.None,

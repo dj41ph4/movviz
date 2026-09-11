@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.24.125 — September 2026
+
+### Android mobile NX
+
+- Paysage et mode déplié : menu plus étroit avec logo conservé en haut, largeur adaptative du panneau de téléchargements et espace central préservé (minimum 360 dp avec trois colonnes).
+- Carte de mise en avant arrondie et espacée en paysage, sans changement du portrait ni de TV NX.
+- Charte portrait étendue au paysage : contours électriques bleu-violet-magenta des cartes et boutons de lecture en dégradé mauve.
+- Photo du profil actif rafraîchie depuis le compte connecté même lorsqu’un profil local existe déjà ; le cache du sélecteur conserve aussi la photo personnalisée Movviz.
+- Correction de la référence Compose du sélecteur de tri des catalogues.
+
+### Intelligence artificielle
+
+- La liste de priorité IA est désormais l’unique source de vérité : une ancienne valeur `primary` ne peut plus passer devant le fournisseur placé en n° 1.
+
 ## v1.24.124 — September 2026
 
 ### Android NX

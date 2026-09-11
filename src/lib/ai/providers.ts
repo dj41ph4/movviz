@@ -256,10 +256,10 @@ export async function callAiCandidates(config: AiConfig, system: string, message
  * can surface which free-tier quota is being used).
  */
 export async function callAi(config: AiConfig, system: string, messages: AiChatMessage[]): Promise<{ text: string; provider: AiProviderId }> {
-  const configured = Array.isArray(config.priority) ? config.priority : [];
-  const order = [config.primary, ...configured, ...AI_PROVIDER_ORDER]
+  const configured = Array.isArray(config.priority) && config.priority.length ? config.priority : [config.primary];
+  const order = [...configured, ...AI_PROVIDER_ORDER]
     .filter((provider, index, all): provider is AiProviderId => AI_PROVIDER_ORDER.includes(provider) && all.indexOf(provider) === index);
-  const chain = config.fallback ? order : [config.primary];
+  const chain = config.fallback ? order : [order[0]];
 
   let lastError: AiCallError | null = null;
   for (const providerId of chain) {

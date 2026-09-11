@@ -101,8 +101,13 @@ fun rememberUnfoldedWithPanel(): Boolean {
 fun rememberNarrowContent(): Boolean =
     com.movviz.nx.mobile.ui.mobile.rememberCompactPortrait() || rememberUnfoldedLandscape()
 
-internal val UnfoldedRailWidth = 184.dp
-internal val UnfoldedPanelWidth = 280.dp
+// Esquisse dépliée : rail ~13 %, téléchargements ~28 %. Les minimums
+// conservent les libellés lisibles ; le centre garde au moins 360 dp.
+internal fun unfoldedRailWidth(availableWidth: Float) =
+    (availableWidth * 0.133f).coerceIn(144f, 168f).dp
+
+internal fun unfoldedPanelWidth(availableWidth: Float) =
+    (availableWidth * 0.284f).coerceIn(224f, 320f).dp
 private val UnfoldedInactive = Color(0xFFC3C3CB)
 private const val TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w200"
 
@@ -138,7 +143,7 @@ fun SlimRail(
         modifier = modifier
             .fillMaxHeight()
             .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
-            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp)
+            .padding(start = 6.dp, end = 6.dp, top = 10.dp, bottom = 8.dp)
             .verticalScroll(rememberScrollState()),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -160,17 +165,6 @@ fun SlimRail(
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
-            Box(
-                modifier = Modifier.size(44.dp).clickable(onClick = onOpenSearch),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.tv.material3.Icon(
-                    imageVector = MovvizIconSearch,
-                    contentDescription = "Rechercher",
-                    tint = UnfoldedInactive,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
         }
         Spacer(Modifier.height(12.dp))
         items.forEach { item ->
@@ -191,7 +185,7 @@ fun SlimRail(
                         },
                     )
                     .clickable(onClick = { onSelectTab(item.tab) })
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 androidx.tv.material3.Icon(
@@ -200,11 +194,11 @@ fun SlimRail(
                     tint = if (active) Color.White else UnfoldedInactive,
                     modifier = Modifier.size(20.dp),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
                     text = item.label,
                     style = TextStyle(
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                         color = if (active) Color.White else UnfoldedInactive,
                     ),
@@ -213,6 +207,17 @@ fun SlimRail(
                 )
             }
             Spacer(Modifier.height(2.dp))
+        }
+        Box(
+            modifier = Modifier.size(44.dp).clickable(onClick = onOpenSearch),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.tv.material3.Icon(
+                imageVector = MovvizIconSearch,
+                contentDescription = "Rechercher",
+                tint = UnfoldedInactive,
+                modifier = Modifier.size(20.dp),
+            )
         }
         Spacer(Modifier.weight(1f))
         if (updateTag != null) {
@@ -310,7 +315,9 @@ fun UnfoldedRouteScaffold(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Row(modifier = modifier.fillMaxSize()) {
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    val railWidth = unfoldedRailWidth(maxWidth.value)
+    Row(modifier = Modifier.fillMaxSize()) {
         SlimRail(
             selected = selected,
             onSelectTab = onSelectTab,
@@ -320,11 +327,12 @@ fun UnfoldedRouteScaffold(
             updateTag = updateTag,
             onUpdateClick = onUpdateClick,
             fallbackName = fallbackName,
-            modifier = Modifier.width(UnfoldedRailWidth),
+            modifier = Modifier.width(railWidth),
         )
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             content()
         }
+    }
     }
 }
 
@@ -446,8 +454,8 @@ private fun UnfoldedQueueRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+            .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(12.dp))
+            .border(1.5.dp, MovvizElectricBorder, RoundedCornerShape(12.dp))
             .let { if (clickable) it.clickable(onClick = onClick) else it }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,

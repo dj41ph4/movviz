@@ -646,7 +646,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         // Le profil actif doit toujours être visible (nom dans le menu de la
         // pastille, tuile en tête de l'écran profil) — même quand l'app
         // redémarre sur une session persistée sans passer par un login.
-        if (user != null && _activeProfile.value == null) {
+        if (user != null && (_activeProfile.value == null || _activeProfile.value?.id == user.id)) {
             _activeProfile.value = TvProfile(
                 id = user.id,
                 serverUrl = url,
@@ -726,8 +726,8 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     suspend fun loadProfilesFromServer(): List<TvProfile> {
         val url = _serverUrl.value ?: return emptyList()
         val me = _currentUser.value
-        if (me != null && profilePrefs.listProfiles(url).none { it.id == me.id }) {
-            profilePrefs.saveProfile(url, me.id, me.username, me.plexAvatar)
+        if (me != null) {
+            profilePrefs.saveProfile(url, me.id, me.username, me.effectiveAvatar())
         }
         val profiles = profilePrefs.listProfiles(url)
         _profiles.value = profiles
