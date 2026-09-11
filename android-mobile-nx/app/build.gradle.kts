@@ -2,7 +2,7 @@ import java.util.Properties
 
 // NX Mobile est le port direct de NX TV.  Il reste signé avec la même clé
 // retail, mais possède son package et son asset de mise à jour propres.
-val releasePropsFile = rootProject.file("../android-tv/keystore.properties")
+val releasePropsFile = rootProject.file("keystore.properties")
 
 plugins {
     alias(libs.plugins.android.application)

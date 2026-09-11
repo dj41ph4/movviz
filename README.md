@@ -17,7 +17,7 @@
 <a href="https://github.com/dj41ph4/movviz/releases/latest">
   <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black&labelColor=1a1a2e" alt="Linux"/>
 </a>
-<a href="android-tv/">
+<a href="android-tv-nx/">
   <img src="https://img.shields.io/badge/Android_TV-3DDC84?style=for-the-badge&logo=androidtv&logoColor=white&labelColor=1a1a2e" alt="Android TV"/>
 </a>
 
@@ -112,15 +112,15 @@ amd64 · arm64
 
 ### Android TV
 
-**`Movviz-Android-TV.apk`** — sur la page des releases
+**`Movviz-NX-Android-TV-client.apk`** — sur la page des releases
 
-<a href="android-tv/">
+<a href="android-tv-nx/">
   <img src="https://img.shields.io/badge/Voir_le_client-3DDC84?style=for-the-badge&logo=androidtv&logoColor=white&labelColor=1a1a2e" alt="Client Android TV"/>
 </a>
 
 <br>
 
-Manette/télécommande native · Mise à jour automatique
+Client NX unique · Manette/télécommande native · Mise à jour automatique
 
 </td>
 </tr>

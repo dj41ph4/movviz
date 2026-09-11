@@ -1,10 +1,10 @@
-name: Build Android TV APK
+name: Build Movviz NX Android TV APK
 
 on:
   push:
     tags: ["v*"]
   pull_request:
-    paths: ["android-tv/**"]
+    paths: ["android-tv-nx/**", ".github/workflows/android-tv-build.yml"]
   workflow_dispatch:
 
 permissions:
@@ -36,11 +36,6 @@ jobs:
         with:
           packages: "platforms;android-35 build-tools;35.0.0"
 
-      # Le wrapper Gradle (gradlew/gradlew.bat + le jar) n'est pas versionné —
-      # voir android-tv/README.md, il se génère normalement en ouvrant le
-      # dossier dans Android Studio une première fois. Ici, on utilise
-      # directement le binaire Gradle fourni par setup-gradle plutôt que
-      # d'exiger ce wrapper, ce qui évite d'avoir à le committer.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -56,7 +51,7 @@ jobs:
           set -euo pipefail
           key_dir="$RUNNER_TEMP/movviz-signing"
           mkdir -p "$key_dir"
-          keystore="$key_dir/movviz-tv-release.jks"
+          keystore="$key_dir/movviz-nx-tv-release.jks"
           : "${ANDROID_KEYSTORE_B64:?MOVVIZ_ANDROID_KEYSTORE_B64 est requis pour une release}"
           : "${ANDROID_KEYSTORE_PASSWORD:?MOVVIZ_ANDROID_KEYSTORE_PASSWORD est requis pour une release}"
           : "${ANDROID_KEY_ALIAS:?MOVVIZ_ANDROID_KEY_ALIAS est requis pour une release}"
@@ -68,10 +63,7 @@ jobs:
           expected_cert="4e8d66761eb1cdc228c96478617910ebf5e1bba01adb000aedfa50f8e1af90ec"
           actual_cert="$(keytool -list -v -keystore "$keystore" -storepass "$store_password" -alias "$key_alias" | awk '/SHA256:/{gsub(":", "", $2); print tolower($2); exit}')"
           test "$actual_cert" = "$expected_cert" || { echo "::error::La clé CI ne correspond pas à la clé retail Movviz"; exit 1; }
-          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$keystore" "$store_password" "$key_alias" "$key_password" > android-tv/keystore.properties
-          # NX est un canal TV séparé, mais doit être signé par la même clé
-          # retail pour pouvoir se mettre à jour par-dessus lui-même.
-          cp android-tv/keystore.properties android-tv-nx/keystore.properties
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$keystore" "$store_password" "$key_alias" "$key_password" > android-tv-nx/keystore.properties
 
       # Sans ceci, versionName/versionCode restaient figés à leur valeur par
       # défaut dans build.gradle.kts quel que soit le tag publié — l'app
@@ -95,23 +87,6 @@ jobs:
             echo "code=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build APK
-        working-directory: android-tv
-        # Canal unique depuis le retrait de la variante retail : l'APK livré
-        # embarque l'auto-update (BuildConfig.AUTO_UPDATE=true) — l'application
-        # se met à jour elle-même via GitHub au lancement.
-        run: |
-          gradle assembleRelease --no-daemon \
-            ${{ steps.ver.outputs.name != '' && format('-PmovvizVersionName={0} -PmovvizVersionCode={1}', steps.ver.outputs.name, steps.ver.outputs.code) || '' }}
-
-      # Renommé explicitement "client" — contrairement à l'installeur Windows
-      # (qui contient le serveur complet), cet APK est un client TV qui se
-      # connecte à un serveur Movviz déjà existant. Éviter toute ambiguïté
-      # dans la liste des assets d'une Release, à côté du .exe.
-      - name: Rename APK as client build
-        run: |
-          cp android-tv/app/build/outputs/apk/release/app-release.apk android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
-
       - name: Build NX retail APK
         working-directory: android-tv-nx
         run: |
@@ -125,7 +100,7 @@ jobs:
       # La Release est le canal réellement consommé par l'auto-update. Elle
       # doit être alimentée avant l'archive Actions : un incident temporaire
       # du stockage d'artefacts ne doit jamais empêcher la livraison TV.
-      - name: Publish TV APKs to the release
+      - name: Publish Movviz NX TV APK to the release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,16 +116,8 @@ jobs:
           done
           gh release view "$TAG" >/dev/null
           gh release upload "$TAG" \
-            android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk \
             android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk \
             --clobber
-
-      - name: Upload APK artifact
-        continue-on-error: true
-        uses: actions/upload-artifact@v6
-        with:
-          name: Movviz-Android-TV-client
-          path: android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
 
       - name: Upload NX APK artifact
         continue-on-error: true

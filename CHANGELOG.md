@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.121 — September 2026
+
+### Android
+
+- Retrait des clients Android historiques Mobile et TV : seuls Movviz NX Mobile et Movviz NX TV restent compilés et publiés. Les routes API existantes restent inchangées.
+
 ## v1.24.120 — September 2026
 
 ### Profils
