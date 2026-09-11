@@ -159,11 +159,13 @@ fun RowDetailScreen(
         if (repository != null) loadPage(1)
     }
 
+    // Déplié : rail tactile, pas de barre TV haute — marges compactes.
+    val narrowRowDetail = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(
-            start = if (compactPortrait) 16.dp else 52.dp,
-            top = if (compactPortrait) 0.dp else 64.dp,
-            end = if (compactPortrait) 16.dp else 52.dp,
+            start = if (narrowRowDetail) 16.dp else 52.dp,
+            top = if (narrowRowDetail) 0.dp else 64.dp,
+            end = if (narrowRowDetail) 16.dp else 52.dp,
             bottom = if (compactPortrait) 24.dp else 30.dp,
         ),
     ) {
@@ -244,7 +246,8 @@ fun RowDetailScreen(
                 // 4 colonnes fixes en portrait (signalé en direct : les
                 // cartes 154dp à 2 par ligne étaient énormes, pas au niveau
                 // du reste de l'app) — largeur calculée pour tenir pile,
-                // mêmes marges que le catalogue (CatalogScreen.kt).
+                // mêmes marges que le catalogue (CatalogScreen.kt). En
+                // déplié, 3 colonnes remplissent la colonne centrale.
                 val portraitSpacing = 10.dp
                 val portraitEdge = 16.dp
                 val portraitCardWidth = if (compactPortrait) {
@@ -253,9 +256,9 @@ fun RowDetailScreen(
                 } else 154.dp
                 TvLazyVerticalGrid(
                     state = rememberTvLazyGridState().withTvPrefetchDisabled(),
-                    columns = if (compactPortrait) TvGridCells.Fixed(4) else TvGridCells.FixedSize(154.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(if (compactPortrait) portraitSpacing else 16.dp),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(if (compactPortrait) 14.dp else 20.dp),
+                    columns = if (compactPortrait) TvGridCells.Fixed(4) else if (narrowRowDetail) TvGridCells.Fixed(3) else TvGridCells.FixedSize(154.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(if (narrowRowDetail) portraitSpacing else 16.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(if (narrowRowDetail) 14.dp else 20.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                 itemsIndexed(cards, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->

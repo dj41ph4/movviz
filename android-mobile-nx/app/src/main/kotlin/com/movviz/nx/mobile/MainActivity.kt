@@ -72,6 +72,7 @@ import androidx.navigation.navDeepLink
 import com.movviz.nx.mobile.ui.discover.RowDetailScreen
 import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.home.MainScreen
+import com.movviz.nx.mobile.ui.home.UnfoldedRouteScaffold
 import com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape
 import com.movviz.nx.mobile.ui.home.NxTopNav
 import com.movviz.nx.mobile.ui.home.PortraitTopHeader
@@ -346,13 +347,53 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // (esquisse section 3 : pas de champ recherche sous cet écran).
     val portraitHeaderTitle = if (tab == HomeTab.DOWNLOADS) "Téléchargements" else null
     val portraitActiveProfile by viewModel.activeProfile.collectAsState()
-    // Immersif type jeu vidéo sur l'accueil (portrait + déplié/paysage) :
-    // les boutons système Android sont masqués (réapparition temporaire au
-    // swipe de bord, geste transient) pour laisser toute la place à Movviz.
-    // Scopé à l'accueil uniquement — login/wizard/profils et TV gardent les
-    // barres système normales.
-    val immersivePortrait = (compactPortrait || rememberUnfoldedLandscape()) &&
-        currentRoute?.startsWith("home") == true
+    val railUpdateTag by viewModel.availableUpdateTag.collectAsState()
+    val railUsername = viewModel.currentUser.collectAsState().value?.username
+    // Routes avec rail tactile en déplié : onglets + fiche titre/acteur +
+    // grille "Tout voir" (même châssis partout, pas de barre TV haute).
+    val unfoldedRailRoute = rememberUnfoldedLandscape() && (
+        currentRoute?.startsWith("home") == true ||
+            currentRoute?.startsWith("detail/") == true ||
+            currentRoute?.startsWith("person/") == true ||
+            currentRoute?.startsWith("row/") == true
+        )
+    // Retour à l'accueil depuis le rail (fiches/grilles vivent hors
+    // MainScreen, sur la pile de navigation).
+    val goHomeTab: (HomeTab) -> Unit = { newTab ->
+        tab = newTab
+        searchOpen = false
+        headerHasScrolled = false
+        if (currentRoute?.startsWith("home") != true) {
+            if (!navController.popBackStack(ROUTE_HOME, false)) {
+                navController.navigate(ROUTE_HOME)
+            }
+        }
+    }
+    // Châssis rail des fiches/grilles en déplié (même rail que les onglets).
+    @Composable
+    fun RailFrame(content: @Composable () -> Unit) {
+        if (unfoldedRailRoute) {
+            UnfoldedRouteScaffold(
+                selected = tab,
+                onSelectTab = goHomeTab,
+                onOpenSearch = { goHomeTab(HomeTab.HOME); searchOpen = true },
+                activeProfile = portraitActiveProfile,
+                onAvatarClick = { goHomeTab(HomeTab.PROFILE) },
+                updateTag = railUpdateTag,
+                onUpdateClick = { viewModel.requestUpdateInstall() },
+                fallbackName = railUsername,
+            ) {
+                content()
+            }
+        } else {
+            content()
+        }
+    }
+    // Immersif type jeu vidéo (portrait + déplié/paysage, accueil comme
+    // fiches) : boutons système masqués, retour temporaire au swipe de bord.
+    // Login/wizard/profils et TV gardent les barres système normales.
+    val immersivePortrait = (compactPortrait && currentRoute?.startsWith("home") == true) ||
+        unfoldedRailRoute
     LaunchedEffect(immersivePortrait) {
         val window = activity.window
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, !immersivePortrait)
@@ -395,11 +436,10 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     fallbackName = viewModel.currentUser.collectAsState().value?.username,
                 )
             }
-        // En déplié, le rail tactile remplace la barre TV haute sur tous les
-        // onglets (recherche/profil/MAJ y sont aussi présents).
-        val unfoldedHome = rememberUnfoldedLandscape() && currentRoute?.startsWith("home") == true
+        // En déplié, le rail tactile remplace la barre TV haute partout où
+        // il est affiché (onglets + fiches/grilles, voir unfoldedRailRoute).
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            if (routeShowsNavRail(currentRoute) && !compactPortrait && !unfoldedHome) {
+            if (routeShowsNavRail(currentRoute) && !compactPortrait && !unfoldedRailRoute) {
                 NxTopNav(
                     selected = tab,
                     hasScrolled = headerHasScrolled,
@@ -618,6 +658,7 @@ composable(ROUTE_PROFILES) {
             // ceci, la fiche (hors MainScreen) n'avait AUCUN chemin vers la
             // barre : le focus restait piégé dans le contenu.
             DetailUpToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+                RailFrame {
                 TitleDetailScreen(
                 viewModel = viewModel,
                 type = type,
@@ -648,7 +689,8 @@ composable(ROUTE_PROFILES) {
                 },
                 entryFocusRequester = contentFocusRequester,
                 onBack = { navController.popBackStack() },
-            )
+                )
+                }
             }
         }
         composable(
@@ -658,6 +700,7 @@ composable(ROUTE_PROFILES) {
             val personId = backStackEntry.arguments?.getInt("id") ?: 0
             // Même symétrie HAUT que la fiche titre (voir DetailUpToNavHandler).
             DetailUpToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+                RailFrame {
                 PersonScreen(
                     viewModel = viewModel,
                     personId = personId,
@@ -667,6 +710,7 @@ composable(ROUTE_PROFILES) {
                     entryFocusRequester = contentFocusRequester,
                     onBack = { navController.popBackStack() },
                 )
+                }
             }
         }
         composable(
@@ -688,6 +732,7 @@ composable(ROUTE_PROFILES) {
             val label = android.net.Uri.decode(backStackEntry.arguments?.getString("label") ?: "")
             // Même symétrie HAUT que la fiche titre/acteur (voir DetailUpToNavHandler).
             DetailUpToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+                RailFrame {
                 RowDetailScreen(
                     viewModel = viewModel,
                     mode = mode,
@@ -700,6 +745,7 @@ composable(ROUTE_PROFILES) {
                     entryFocusRequester = contentFocusRequester,
                     onBack = { navController.popBackStack() },
                 )
+                }
             }
         }
         }

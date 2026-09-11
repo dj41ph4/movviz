@@ -304,6 +304,40 @@ fun SlimRail(
 /** Panneau latéral droit de l'accueil déplié : file "En cours" + file
  *  "Terminés" (mêmes données que l'écran Téléchargements, modèle
  *  condensé). Tap → fiche titre quand elle est connue. */
+/** Châssis déplié pour les routes hors onglets (fiche titre/acteur, grille
+ *  "Tout voir") : même rail tactile que l'accueil + contenu pleine largeur.
+ *  Évite l'incohérence barre-TV-haute sur ces écrans en Fold/paysage. */
+@Composable
+fun UnfoldedRouteScaffold(
+    selected: HomeTab,
+    onSelectTab: (HomeTab) -> Unit,
+    onOpenSearch: () -> Unit,
+    activeProfile: TvProfile?,
+    onAvatarClick: () -> Unit,
+    updateTag: String?,
+    onUpdateClick: () -> Unit,
+    fallbackName: String?,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Row(modifier = modifier.fillMaxSize()) {
+        SlimRail(
+            selected = selected,
+            onSelectTab = onSelectTab,
+            onOpenSearch = onOpenSearch,
+            activeProfile = activeProfile,
+            onAvatarClick = onAvatarClick,
+            updateTag = updateTag,
+            onUpdateClick = onUpdateClick,
+            fallbackName = fallbackName,
+            modifier = Modifier.width(UnfoldedRailWidth),
+        )
+        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            content()
+        }
+    }
+}
+
 @Composable
 fun UnfoldedRightPanel(
     viewModel: AppViewModel,

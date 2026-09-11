@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.117 — September 2026
+
+### NX Mobile
+
+- Paysage premium partout : rail tactile aussi sur fiche titre/acteur et « Tout voir », immersif étendu, hero fiche réduit, marges compactes (Découverte, Catalogue, Biblio, Profil, Paramètres, Fiche, Acteur, Grille), grille « Tout voir » 3 colonnes, recherche tactile.
+
 ## v1.24.116 — September 2026
 
 ### NX Mobile

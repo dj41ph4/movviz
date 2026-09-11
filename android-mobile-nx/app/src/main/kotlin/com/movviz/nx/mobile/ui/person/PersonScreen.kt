@@ -101,13 +101,15 @@ fun PersonScreen(
     CompositionLocalProvider(
         LocalBringIntoViewSpec provides object : BringIntoViewSpec {},
     ) {
-    val sideEdge = if (compactPortrait) 16.dp else 48.dp
+    // Déplié : rail tactile, pas de barre TV haute — marges compactes.
+    val narrow = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
+    val sideEdge = if (narrow) 16.dp else 48.dp
     TvLazyColumn(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = if (compactPortrait) 0.dp else 96.dp, bottom = 40.dp),
+            .padding(top = if (narrow) 0.dp else 96.dp, bottom = 40.dp),
     ) {
         if (compactPortrait) {
             item {

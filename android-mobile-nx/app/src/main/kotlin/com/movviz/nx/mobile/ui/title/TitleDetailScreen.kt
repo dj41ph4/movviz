@@ -148,6 +148,11 @@ fun TitleDetailScreen(
     onBack: () -> Unit = {},
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    // Déplié : rail tactile + pas de barre TV haute — mêmes métriques
+    // compactes que le portrait (hero réduit, marges 16dp, boutons retour
+    // flottants car le rail ne revient pas en arrière).
+    val unfoldedDetail = com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
+    val narrowDetail = compactPortrait || unfoldedDetail
     val detail by viewModel.detail.collectAsState()
     val detailError by viewModel.detailError.collectAsState()
     // Même artwork de titre que TitleContent sur desktop : le logo officiel
@@ -479,6 +484,10 @@ fun TitleDetailScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // Hero réduit en déplié (paysage parfois bas) : contenu + CTA restent
+        // visibles sans scroller, comme la maquette fiche dépliée.
+        val heroHeight = if (compactPortrait) 460.dp else if (unfoldedDetail) 340.dp else 560.dp
+        val heroMediaHeight = if (compactPortrait) 460.dp else if (unfoldedDetail) 340.dp else 640.dp
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
             Image(
@@ -487,11 +496,11 @@ fun TitleDetailScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (compactPortrait) 460.dp else 640.dp)
+                    .height(heroMediaHeight)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         } else {
-            Box(modifier = Modifier.fillMaxWidth().height(if (compactPortrait) 460.dp else 560.dp).background(MaterialTheme.colorScheme.surface))
+            Box(modifier = Modifier.fillMaxWidth().height(heroHeight).background(MaterialTheme.colorScheme.surface))
         }
 
         // L'aperçu est placé AU-DESSUS de l'image mais SOUS les dégradés : le
@@ -506,7 +515,7 @@ fun TitleDetailScreen(
                 title = preview?.title ?: detail?.title.orEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (compactPortrait) 460.dp else 640.dp)
+                    .height(heroMediaHeight)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         }
@@ -520,7 +529,7 @@ fun TitleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (compactPortrait) 460.dp else 560.dp)
+                .height(heroHeight)
                 .background(
                     if (compactPortrait) {
                         Brush.verticalGradient(
@@ -557,7 +566,7 @@ fun TitleDetailScreen(
         // de ces boutons dans le hit-testing malgré son contenu visuel qui
         // commence sous le hero (les taps atterrissaient sur la liste vide,
         // pas sur les boutons — reproduit et corrigé en test émulateur).
-        if (compactPortrait) {
+        if (narrowDetail) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -586,7 +595,7 @@ fun TitleDetailScreen(
                 Text(
                     text = "Chargement…",
                     style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.padding(start = if (compactPortrait) 16.dp else 56.dp, top = if (compactPortrait) 300.dp else 320.dp),
+                    modifier = Modifier.padding(start = if (narrowDetail) 16.dp else 56.dp, top = if (compactPortrait) 300.dp else if (unfoldedDetail) 16.dp else 320.dp),
                 )
             } else {
                 Column(
@@ -660,12 +669,12 @@ fun TitleDetailScreen(
         TvLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = if (compactPortrait) 16.dp else 56.dp, end = if (compactPortrait) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
+                .padding(start = if (narrowDetail) 16.dp else 56.dp, end = if (narrowDetail) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
             state = lazyListState,
             // La barre supérieure flotte au-dessus du backdrop : une zone
             // sûre explicite empêche logo, titre et première ligne de passer
-            // sous elle, en 1080p comme en 4K.
-            contentPadding = PaddingValues(top = if (compactPortrait) 300.dp else 112.dp),
+            // sous elle, en 1080p comme en 4K. En déplié, pas de barre : 16dp.
+            contentPadding = PaddingValues(top = if (compactPortrait) 300.dp else if (unfoldedDetail) 16.dp else 112.dp),
         ) {
             item {
             // Première cible D-pad = la zone VISUELLE du logo/titre, jamais
