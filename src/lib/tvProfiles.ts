@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import type { User } from "@/lib/auth/types";
+import { effectiveAvatar } from "@/lib/auth/types";
 
 /**
  * Profils de foyer Android TV — « qui est-ce ? » façon Netflix, encrés dans
@@ -51,7 +52,7 @@ export function upsertTvProfile(user: User): TvProfile {
   const profile: TvProfile = {
     id: user.id,
     name: user.username,
-    avatar: user.plexAvatar,
+    avatar: effectiveAvatar(user),
     addedAt: existing?.addedAt ?? Date.now(),
     lastUsedAt: Date.now(),
   };

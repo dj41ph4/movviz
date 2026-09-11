@@ -1,5 +1,7 @@
 package com.movviz.nx.mobile.data
 
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 /** Résultat uniforme des appels réseau — évite de faire fuiter les
@@ -374,6 +376,18 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun logoutServer() {
         runCatching { api.logout() }
     }
+
+    /** Upload de la photo de profil perso (multipart `file`, validé côté
+     *  serveur : JPEG/PNG/WebP/GIF ≤ 2 Mo). Retourne l'URL publique. */
+    suspend fun uploadAvatar(bytes: ByteArray, mime: String, filename: String): ApiResult<String?> =
+        safeCall {
+            val mediaType = mime.toMediaTypeOrNull()
+            val body = bytes.toRequestBody(mediaType)
+            api.uploadAvatar(okhttp3.MultipartBody.Part.createFormData("file", filename, body))
+        }.map { it["avatar"] }
+
+    suspend fun deleteAvatar(): ApiResult<Unit> =
+        safeCall { api.deleteAvatar() }.map { }
 
     // ── IA — identique au desktop, hermétique par userId (même session) ──
     suspend fun aiSession(): ApiResult<AiSessionResponseDto> = safeCall { api.aiSession() }

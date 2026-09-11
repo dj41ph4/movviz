@@ -574,7 +574,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val user = (result as? ApiResult.Success)?.data
         _currentUser.value = user
         if (user != null) {
-            profilePrefs.saveProfile(url, user.id, user.username, user.plexAvatar)
+            profilePrefs.saveProfile(url, user.id, user.username, user.effectiveAvatar())
             ApiClient.sessionSnapshot(url)?.let { profilePrefs.saveSession(url, user.id, it) }
         }
         // Le profil actif doit toujours être visible (nom dans le menu de la
@@ -585,7 +585,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 id = user.id,
                 serverUrl = url,
                 name = user.username,
-                avatar = user.plexAvatar,
+                avatar = user.effectiveAvatar(),
                 cookieSnapshot = ApiClient.sessionSnapshot(url),
             )
         }
@@ -623,7 +623,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val url = _serverUrl.value ?: return emptyList()
         val me = _currentUser.value
         if (me != null && profilePrefs.listProfiles(url).none { it.id == me.id }) {
-            profilePrefs.saveProfile(url, me.id, me.username, me.plexAvatar)
+            profilePrefs.saveProfile(url, me.id, me.username, me.effectiveAvatar())
         }
         val profiles = profilePrefs.listProfiles(url)
         _profiles.value = profiles
@@ -716,7 +716,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                         _currentUser.value = user
                         val refreshed = profile.copy(
                             cookieSnapshot = ApiClient.sessionSnapshot(url),
-                            avatar = user.plexAvatar ?: profile.avatar,
+                            avatar = user.effectiveAvatar() ?: profile.avatar,
                             name = user.username,
                         )
                         refreshed.cookieSnapshot?.let { profilePrefs.saveSession(url, user.id, it) }
@@ -757,12 +757,12 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val url = _serverUrl.value ?: return
         val cookie = ApiClient.sessionSnapshot(url)
         if (!cookie.isNullOrBlank()) profilePrefs.saveSession(url, user.id, cookie)
-        profilePrefs.saveProfile(url, user.id, user.username, user.plexAvatar)
+        profilePrefs.saveProfile(url, user.id, user.username, user.effectiveAvatar())
         _activeProfile.value = TvProfile(
             id = user.id,
             serverUrl = url,
             name = user.username,
-            avatar = user.plexAvatar,
+            avatar = user.effectiveAvatar(),
             cookieSnapshot = cookie,
         )
     }

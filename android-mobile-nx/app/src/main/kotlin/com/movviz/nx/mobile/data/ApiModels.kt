@@ -288,7 +288,12 @@ data class MovvizUserDto(
     // this field, so tolerate its absence instead of crashing Moshi parsing.
     @Json(name = "status") val accountStatus: String? = null,
     val plexAvatar: String? = null,
-)
+    // Photo perso (serveur ≥ 1.24.120, tolérée absente comme accountStatus).
+    val customAvatar: String? = null,
+) {
+    /** Photo effective : choix Movviz d'abord, Plex ensuite. */
+    fun effectiveAvatar(): String? = customAvatar ?: plexAvatar
+}
 
 @JsonClass(generateAdapter = true)
 data class LibraryMoviesResponse(

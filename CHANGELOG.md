@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.120 — September 2026
+
+### Profils
+
+- Photo de profil personnalisée par utilisateur (Réglages → Profil sur desktop, photo tappable sur la fiche mobile) : JPEG/PNG/WebP/GIF ≤ 2 Mo, visible desktop + mobile + TV, prioritaire sur la photo Plex (inchangée).
+- Note : réplication vers Plex impossible via API publique (aucun endpoint documenté — seule l'app officielle sait le faire) ; la photo Movviz vit côté Movviz, hook prêt dans `src/lib/avatars.ts`.
+
 ## v1.24.119 — September 2026
 
 ### NX Mobile

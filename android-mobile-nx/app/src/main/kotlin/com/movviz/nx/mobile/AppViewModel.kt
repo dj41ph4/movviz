@@ -640,7 +640,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val user = (result as? ApiResult.Success)?.data
         _currentUser.value = user
         if (user != null) {
-            profilePrefs.saveProfile(url, user.id, user.username, user.plexAvatar)
+            profilePrefs.saveProfile(url, user.id, user.username, user.effectiveAvatar())
             ApiClient.sessionSnapshot(url)?.let { profilePrefs.saveSession(url, user.id, it) }
         }
         // Le profil actif doit toujours être visible (nom dans le menu de la
@@ -651,11 +651,49 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 id = user.id,
                 serverUrl = url,
                 name = user.username,
-                avatar = user.plexAvatar,
+                avatar = user.effectiveAvatar(),
                 cookieSnapshot = ApiClient.sessionSnapshot(url),
             )
         }
         return user
+    }
+
+    /** Après un changement de photo (upload/suppression) : recharge /me et
+     *  propage l'avatar effectif au profil actif + cache local, pour un
+     *  rafraîchissement immédiat partout (badge, rail, fiche). */
+    fun refreshAvatar() {
+        viewModelScope.launch {
+            val url = _serverUrl.value ?: return@launch
+            val result = MovvizRepository(url).me()
+            val user = (result as? ApiResult.Success)?.data ?: return@launch
+            _currentUser.value = user
+            profilePrefs.saveProfile(url, user.id, user.username, user.effectiveAvatar())
+            _activeProfile.value = _activeProfile.value?.copy(avatar = user.effectiveAvatar())
+        }
+    }
+
+    /** Envoi de la photo de profil perso (soi-même) — true si acceptée,
+     *  refreshAvatar() suit pour répercuter l'URL partout. */
+    suspend fun uploadAvatar(bytes: ByteArray, mime: String, filename: String): Boolean {
+        val repo = repository ?: return false
+        val ok = repo.uploadAvatar(bytes, mime, filename) is ApiResult.Success
+        if (ok) refreshAvatarSync()
+        return ok
+    }
+
+    suspend fun deleteAvatar(): Boolean {
+        val repo = repository ?: return false
+        val ok = repo.deleteAvatar() is ApiResult.Success
+        if (ok) refreshAvatarSync()
+        return ok
+    }
+
+    private suspend fun refreshAvatarSync() {
+        val url = _serverUrl.value ?: return
+        val user = (MovvizRepository(url).me() as? ApiResult.Success)?.data ?: return
+        _currentUser.value = user
+        profilePrefs.saveProfile(url, user.id, user.username, user.effectiveAvatar())
+        _activeProfile.value = _activeProfile.value?.copy(avatar = user.effectiveAvatar())
     }
 
     suspend fun forgetServer() {
@@ -783,7 +821,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                         _currentUser.value = user
                         val refreshed = profile.copy(
                             cookieSnapshot = ApiClient.sessionSnapshot(url),
-                            avatar = user.plexAvatar ?: profile.avatar,
+                            avatar = user.effectiveAvatar() ?: profile.avatar,
                             name = user.username,
                         )
                         refreshed.cookieSnapshot?.let { profilePrefs.saveSession(url, user.id, it) }
@@ -824,12 +862,12 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val url = _serverUrl.value ?: return
         val cookie = ApiClient.sessionSnapshot(url)
         if (!cookie.isNullOrBlank()) profilePrefs.saveSession(url, user.id, cookie)
-        profilePrefs.saveProfile(url, user.id, user.username, user.plexAvatar)
+        profilePrefs.saveProfile(url, user.id, user.username, user.effectiveAvatar())
         _activeProfile.value = TvProfile(
             id = user.id,
             serverUrl = url,
             name = user.username,
-            avatar = user.plexAvatar,
+            avatar = user.effectiveAvatar(),
             cookieSnapshot = cookie,
         )
     }

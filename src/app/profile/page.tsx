@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
+import { effectiveAvatar } from "@/lib/auth/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -101,6 +102,41 @@ export default function ProfilePage() {
   const [continents, setContinents] = useState<string[] | null>(null);
   const [savingDiscover, setSavingDiscover] = useState(false);
   const [discoverMessage, setDiscoverMessage] = useState<string | null>(null);
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+
+  const uploadPhoto = async (file: File) => {
+    setUploadingPhoto(true);
+    setPhotoMessage(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/profile/avatar", { method: "POST", body: form });
+      if (res.ok) {
+        setPhotoMessage(t("profile.photoSaved"));
+        mutateGlobal("/api/auth/me");
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setPhotoMessage(d.error === "too_big" ? t("profile.photoTooBig") : t("profile.photoBadType"));
+      }
+    } finally {
+      setUploadingPhoto(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const removePhoto = async () => {
+    setUploadingPhoto(true);
+    try {
+      await fetch("/api/profile/avatar", { method: "DELETE" });
+      setPhotoMessage(t("profile.photoSaved"));
+      mutateGlobal("/api/auth/me");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   // Cached by SWR: instant paint on revisit, background revalidation.
   const { data: tokensData, mutate: mutateTokens } = useSWR<{ tokens: TokenRecord[] }>("/api/profile/tokens");
@@ -215,6 +251,50 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-[800px]">
       {titlePanel}
       <PageHeader eyebrow={user.username} title={t("profile.title")} description={t("profile.description")} />
+
+      <div className="mb-6 rounded-2xl glass p-5">
+        <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.photo")}</h3>
+        <p className="mb-4 text-xs text-ink-dim">{t("profile.photoHint")}</p>
+        <div className="flex items-center gap-4">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full brand-gradient text-xl font-black text-white">
+            {effectiveAvatar(user) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={effectiveAvatar(user)!} alt="" className="h-full w-full object-cover" />
+            ) : (
+              user.username.slice(0, 2).toUpperCase()
+            )}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadPhoto(f);
+              }}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="flex h-10 items-center rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.changePhoto")}
+            </button>
+            {user.customAvatar && (
+              <button
+                onClick={removePhoto}
+                disabled={uploadingPhoto}
+                className="flex h-10 items-center rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft disabled:opacity-50"
+              >
+                {t("profile.removePhoto")}
+              </button>
+            )}
+          </div>
+        </div>
+        {photoMessage && <p className="mt-2 text-xs text-ink-dim">{photoMessage}</p>}
+      </div>
 
       <div className="mb-6 rounded-2xl glass p-5">
         <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.appearance")}</h3>

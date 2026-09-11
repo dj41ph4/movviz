@@ -11,6 +11,7 @@ import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { toast } from "@/components/ui/Toast";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { effectiveAvatar } from "@/lib/auth/types";
 import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
@@ -151,8 +152,13 @@ export function Sidebar({ version }: { version: string }) {
           href="/profile"
           className="group flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-white/5"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full brand-gradient text-xs font-black text-white">
-            {user.username.slice(0, 2).toUpperCase()}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full brand-gradient text-xs font-black text-white">
+            {effectiveAvatar(user) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={effectiveAvatar(user)!} alt="" className="h-full w-full object-cover" />
+            ) : (
+              user.username.slice(0, 2).toUpperCase()
+            )}
           </span>
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-semibold text-ink">{user.username}</div>

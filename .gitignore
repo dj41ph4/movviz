@@ -75,3 +75,9 @@ engine/src/.movviz-data/
 .tmp-*.xml
 .qa-dpad-evidence/
 .codex-remote-attachments/
+fold6-*.png
+mobile-*.png
+mobile-nx-*.png
+portrait-*.png
+portrait-*.xml
+post-login.png

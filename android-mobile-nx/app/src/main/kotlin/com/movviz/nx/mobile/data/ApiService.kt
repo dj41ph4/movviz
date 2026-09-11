@@ -4,7 +4,9 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -281,6 +283,15 @@ interface MovvizApiService {
     // après une "déconnexion" purement locale.
     @POST("api/auth/logout")
     suspend fun logout(): Response<Map<String, Any?>>
+
+    // Photo de profil perso (voir src/app/api/profile/avatar/route.ts) —
+    // multipart `file` (JPEG/PNG/WebP/GIF ≤ 2 Mo). Répond { avatar }.
+    @Multipart
+    @POST("api/profile/avatar")
+    suspend fun uploadAvatar(@Part file: okhttp3.MultipartBody.Part): Response<Map<String, String?>>
+
+    @DELETE("api/profile/avatar")
+    suspend fun deleteAvatar(): Response<Map<String, Any?>>
 
     // IA — même conversation que le desktop, hermétique par profil (userId)
     @GET("api/ai/session")

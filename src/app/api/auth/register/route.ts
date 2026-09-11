@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       plexToken: null,
       plexManagedUserId: null,
       plexAvatar: null,
+      customAvatar: null,
     createdAt: Date.now(),
   };
   addUser(user);

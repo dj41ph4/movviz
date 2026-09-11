@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -19,7 +21,9 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +50,7 @@ import com.movviz.nx.mobile.data.TvProfile
 import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.theme.MovvizElectricBorder
 import com.movviz.nx.mobile.ui.theme.MovvizIconBack
+import com.movviz.nx.mobile.ui.theme.MovvizIconPlus
 import com.movviz.nx.mobile.ui.theme.MovvizIconReplay
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
 import com.movviz.nx.mobile.ui.theme.MovvizIconStar
@@ -98,6 +103,34 @@ fun ProfileScreen(
     // Déplié : pas de barre TV haute ni de barre basse en surcouche — mêmes
     // marges compactes que le portrait, sans le trou 156dp du haut.
     val narrow = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
+    // Changement de photo (galerie) — upload vers /api/profile/avatar puis
+    // refreshAvatar() : badge, rail et fiche suivent via les flows.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val photoScope = rememberCoroutineScope()
+    var uploadingPhoto by remember { mutableStateOf(false) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        photoScope.launch {
+            uploadingPhoto = true
+            try {
+                val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: return@launch
+                if (bytes.size > 2 * 1024 * 1024) {
+                    android.widget.Toast.makeText(context, "Image trop lourde (2 Mo max)", android.widget.Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                val ok = viewModel.uploadAvatar(bytes, mime, "avatar")
+                android.widget.Toast.makeText(
+                    context,
+                    if (ok) "Photo mise à jour" else "Échec de l'envoi",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            } finally {
+                uploadingPhoto = false
+            }
+        }
+    }
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizPage)
@@ -121,6 +154,7 @@ fun ProfileScreen(
                 profile = activeProfile,
                 isAdmin = currentUser?.role == "admin",
                 onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
+                onChangePhoto = if (uploadingPhoto) null else ({ photoPicker.launch("image/*") }),
             )
         }
         if (profileData.continueWatching.isEmpty() && profileData.watchHistory.isEmpty() && profileData.ratings.isEmpty() && profileData.watchlist.isEmpty()) item {
@@ -233,25 +267,59 @@ private fun ProfileSettingsRow(
     }
 }
 
-/** En-tête esquisse 08 : photo cerclée mauve électrique + nom + rôle réel
- *  du compte (admin/utilisateur, jamais "Premium") + engrenage Paramètres,
- *  puis stats 2×2 (Films vus / Séries vues / Dans ma liste / Notes données).
- *  La grille 2×2 remplace la rangée 4×142.dp qui débordait de l'écran. */
+/** En-tête esquisse 08 : photo cerclée mauve électrique (tappable → galerie
+ *  pour la changer) + nom + rôle réel du compte (admin/utilisateur, jamais
+ *  "Premium") + engrenage Paramètres, puis stats 2×2 (Films vus / Séries
+ *  vues / Dans ma liste / Notes données). La grille 2×2 remplace la rangée
+ *  4×142.dp qui débordait de l'écran. */
 @Composable private fun ProfileDashboardHeader(
     data: ProfileMediaResponseDto,
     profile: TvProfile?,
     isAdmin: Boolean,
     onOpenSettings: () -> Unit,
+    onChangePhoto: (() -> Unit)? = null,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (profile != null) {
             androidx.compose.foundation.layout.Box(
-                modifier = Modifier
-                    .border(2.dp, MovvizElectricBorder, CircleShape)
-                    .padding(3.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                ProfileAvatar(profile, Modifier.size(82.dp), cornerRadius = 41.dp)
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .border(2.dp, MovvizElectricBorder, CircleShape)
+                        .padding(3.dp)
+                        .then(if (onChangePhoto != null) Modifier.clickable(onClick = onChangePhoto) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ProfileAvatar(profile, Modifier.size(82.dp), cornerRadius = 41.dp)
+                }
+                // Pastille "+" : la photo est modifiable (galerie → upload).
+                if (onChangePhoto != null) {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        com.movviz.nx.mobile.ui.theme.MovvizBrand,
+                                        com.movviz.nx.mobile.ui.theme.MovvizBrand2,
+                                    ),
+                                ),
+                                CircleShape,
+                            )
+                            .clickable(onClick = onChangePhoto),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = MovvizIconPlus,
+                            contentDescription = "Changer la photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+                }
             }
         }
         Column(

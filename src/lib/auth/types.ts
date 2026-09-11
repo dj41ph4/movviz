@@ -47,7 +47,21 @@ export interface User {
   /** Managed user id within Plex Home — exchanged for a scoped PMS token, never sent as an impersonation header. */
   plexManagedUserId: string | null;
   plexAvatar: string | null;
+  /** Photo choisie par l'utilisateur dans Movviz (Réglages → Profil) —
+   *  prioritaire sur plexAvatar partout. null = pas de photo perso.
+   *  Stockée en fichier (voir @/lib/avatars), jamais en JSON. */
+  customAvatar: string | null;
   createdAt: number;
+}
+
+/** Photo effective d'un compte : choix Movviz d'abord, Plex ensuite.
+ *  Les clients (desktop/mobile/TV) utilisent TOUJOURS ceci, jamais
+ *  plexAvatar directement. */
+export function effectiveAvatar(
+  u: Pick<User, "customAvatar" | "plexAvatar"> | null | undefined,
+): string | null {
+  if (!u) return null;
+  return u.customAvatar ?? u.plexAvatar ?? null;
 }
 
 /** Never send passwordHash or plexToken to the browser — but UI needs to know whether one exists. */

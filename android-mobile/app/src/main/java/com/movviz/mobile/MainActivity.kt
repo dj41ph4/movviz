@@ -227,7 +227,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
             _currentUser.value = me
             val cookie = ApiClient.sessionSnapshot(base)
             if (!cookie.isNullOrBlank()) profilePrefs.saveSession(base, me.id, cookie)
-            profilePrefs.saveProfile(base, me.id, me.username, me.plexAvatar)
+            profilePrefs.saveProfile(base, me.id, me.username, me.effectiveAvatar())
         }
         loadProfilesInternal(base)
         _state.value = MobileState.Picker(base)
@@ -237,8 +237,8 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
         val list = profilePrefs.listProfiles(base)
         val me = _currentUser.value
         val withMe = if (me != null && list.none { it.id == me.id }) {
-            profilePrefs.saveProfile(base, me.id, me.username, me.plexAvatar)
-            list + TvProfile(id = me.id, serverUrl = base, name = me.username, avatar = me.plexAvatar, cookieSnapshot = ApiClient.sessionSnapshot(base))
+            profilePrefs.saveProfile(base, me.id, me.username, me.effectiveAvatar())
+            list + TvProfile(id = me.id, serverUrl = base, name = me.username, avatar = me.effectiveAvatar(), cookieSnapshot = ApiClient.sessionSnapshot(base))
         } else list
         _profiles.value = withMe
     }
@@ -318,7 +318,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
                         _currentUser.value = u
                         val cookie = ApiClient.sessionSnapshot(base)
                         if (!cookie.isNullOrBlank()) profilePrefs.saveSession(base, u.id, cookie)
-                        profilePrefs.saveProfile(base, u.id, u.username, u.plexAvatar)
+                        profilePrefs.saveProfile(base, u.id, u.username, u.effectiveAvatar())
                         _state.value = MobileState.Ready(base, u.username)
                         refresh(r); loadAiSession()
                     }
@@ -342,7 +342,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
             val baseNorm = base.ifBlank { cachedBaseUrl ?: runBlocking { prefs.serverUrl.first() } ?: "" }.trim().trimEnd('/')
             if (baseNorm.isNotBlank() && cachedBaseUrl == null) cachedBaseUrl = baseNorm
             if (baseNorm.isNotBlank() && !cookie.isNullOrBlank()) profilePrefs.saveSession(baseNorm, result.data.id, cookie)
-            if (baseNorm.isNotBlank()) profilePrefs.saveProfile(baseNorm, result.data.id, result.data.username, result.data.plexAvatar)
+            if (baseNorm.isNotBlank()) profilePrefs.saveProfile(baseNorm, result.data.id, result.data.username, result.data.effectiveAvatar())
             _state.value = MobileState.Ready(baseNorm, result.data.username); refresh(r); loadAiSession()
         }; is ApiResult.Failure -> _error.value = "Identifiant ou mot de passe incorrect."; ApiResult.Unauthorized -> _error.value = "Connexion refusée par le serveur." }; _busy.value = false }
     }
