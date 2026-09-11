@@ -74,6 +74,9 @@ fun LibraryHubScreen(
         viewModel.loadCollections()
     }
     val compactPortrait = rememberCompactPortrait()
+    // Déplié : la barre TV haute n'existe plus et la colonne est étroite —
+    // mêmes marges compactes que le portrait (pas de trou 156dp en haut).
+    val narrow = compactPortrait || rememberUnfoldedLandscape()
     val listState = rememberLazyListState()
     val hasScrolled by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 10 }
@@ -83,9 +86,9 @@ fun LibraryHubScreen(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize()
-            .padding(horizontal = if (compactPortrait) 16.dp else 56.dp),
-        contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 156.dp, bottom = if (compactPortrait) 156.dp else 48.dp),
-        verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 22.dp else 30.dp),
+            .padding(horizontal = if (narrow) 16.dp else 56.dp),
+        contentPadding = PaddingValues(top = if (narrow) 16.dp else 156.dp, bottom = if (compactPortrait) 156.dp else 48.dp),
+        verticalArrangement = Arrangement.spacedBy(if (narrow) 22.dp else 30.dp),
     ) {
         item {
             MovvizSegmentedControl(

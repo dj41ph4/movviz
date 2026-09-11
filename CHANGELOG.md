@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.24.114 — September 2026
+
+### NX Mobile
+
+- Anti-« MO » : nom d'utilisateur en repli partout (salutation, avatar header, rail déplié) quand aucun profil n'est actif ; l'avatar mène au sélecteur dans ce cas.
+- Rangées 3 plein cadre exact (arithmétique Dp flottante sur viewport réel) : fini le bout de 4e carte ; légendes aussi en déplié.
+- Déplié : immersif (hors TV réelle), rail slim sans scroll, recherche tactile, jaquettes du panneau via la bibliothèque, marges compactes sur Découverte/Biblio/Catalogue/Profil/Paramètres, hero compact.
+- Barre basse : « Téléchargements » en entier (poids 1.3) ; pastille MAJ aussi dans le rail déplié.
+
 ## v1.24.113 — September 2026
 
 ### NX Mobile

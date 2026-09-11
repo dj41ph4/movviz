@@ -96,18 +96,21 @@ fun ProfileScreen(
     // opaque dès que les rangées passent derrière elle : texte lisible sans
     // sacrifier l'arrivée visuelle de la page profil.
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
+    // Déplié : pas de barre TV haute ni de barre basse en surcouche — mêmes
+    // marges compactes que le portrait, sans le trou 156dp du haut.
+    val narrow = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize().background(MovvizBackground)
-            .padding(start = if (compactPortrait) 16.dp else 56.dp, end = if (compactPortrait) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 48.dp),
+            .padding(start = if (narrow) 16.dp else 56.dp, end = if (narrow) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 48.dp),
         // C'est du padding de contenu, pas une marge fixe : une fois la page
         // défilée, une rangée remonte naturellement sous la barre opaque au
         // lieu de laisser un grand trou noir permanent.
         // bottom 156dp en portrait (pas 24dp) : la barre basse flottante
         // masquait la dernière ligne de réglages ("Changer de profil"),
         // repéré en testant la nouvelle liste de réglages sur émulateur.
-        contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 156.dp, bottom = if (compactPortrait) 156.dp else 40.dp),
-        verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 22.dp else 30.dp),
+        contentPadding = PaddingValues(top = if (narrow) 16.dp else 156.dp, bottom = if (compactPortrait) 156.dp else 40.dp),
+        verticalArrangement = Arrangement.spacedBy(if (narrow) 22.dp else 30.dp),
     ) {
         if (profileData == null) {
             item { ProfileLoadingDashboard() }

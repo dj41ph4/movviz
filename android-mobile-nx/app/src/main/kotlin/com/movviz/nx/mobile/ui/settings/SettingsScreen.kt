@@ -72,6 +72,9 @@ fun SettingsScreen(
     val currentUser by viewModel.currentUser.collectAsState()
     val userPrefs by viewModel.userPrefs.collectAsState()
     var headerFocused by remember { mutableStateOf(false) }
+    // Déplié : pas de barre TV haute en surcouche — marges compactes, sans le
+    // trou 96dp du haut.
+    val narrow = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
 
     // Chargés à l'entrée sur l'écran plutôt qu'au niveau de MainScreen — ni
     // l'identité du compte ni les préférences de lecture ne sont utiles
@@ -90,7 +93,7 @@ fun SettingsScreen(
             // top = 96dp : dégage la barre de nav flottante (68dp + marge)
             // sans qu'un padding posé plus haut, au niveau de MainScreen,
             // n'ajoute une bande de fond opaque au-dessus de tout le monde.
-            .padding(start = if (compactPortrait) 16.dp else 48.dp, top = if (compactPortrait) 76.dp else 96.dp, end = if (compactPortrait) 16.dp else 48.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
+            .padding(start = if (narrow) 16.dp else 48.dp, top = if (narrow) 16.dp else 96.dp, end = if (narrow) 16.dp else 48.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
     ) {
         Text(
             text = "Paramètres",

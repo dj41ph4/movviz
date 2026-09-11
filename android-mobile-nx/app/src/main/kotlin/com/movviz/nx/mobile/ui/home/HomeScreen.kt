@@ -235,6 +235,9 @@ fun HomeScreen(
     // (DiscoverScreen.kt), déclenchée ici aussi si pas déjà chargée.
     val watchProviderTiles by viewModel.watchProviderTiles.collectAsState()
     val activeHomeProfile by viewModel.activeProfile.collectAsState()
+    // Repli salutation/avatar quand aucun profil n'est actif (même logique
+    // que l'en-tête) : le nom d'utilisateur plutôt qu'un "Bonne nuit" nu.
+    val homeUsername by viewModel.currentUser.collectAsState()
     LaunchedEffect(Unit) { if (watchProviderTiles.isEmpty()) viewModel.loadDiscoverLogos() }
     // Un snapshot P0/P1 est publié en une seule transition. Cela évite les
     // recompositions et déplacements de focus produits par dix StateFlow
@@ -549,7 +552,7 @@ fun HomeScreen(
                 item(contentType = "greeting") {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Text(
-                            text = greetingFor(activeHomeProfile?.name),
+                            text = greetingFor(activeHomeProfile?.name ?: homeUsername?.username),
                             style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
                         )
                         Text(
@@ -960,6 +963,10 @@ internal fun HeroCarousel(
     // dans le viewport.
     val heroHeight = if (compactPortrait) {
         (configuration.screenHeightDp * 0.45f).coerceIn(300f, 420f)
+    } else if (rememberUnfoldedLandscape()) {
+        // Déplié (Fold ouvert comme smartphone pivoté, parfois bas ~360dp) :
+        // hero compact qui laisse greeting + amorce de rangée visibles.
+        (configuration.screenHeightDp * 0.52f).coerceIn(200f, 320f)
     } else {
         (configuration.screenHeightDp * 0.62f).coerceIn(390f, 600f)
     }
@@ -1648,20 +1655,11 @@ internal fun TitleRow(
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
-    // Largeur portrait calculée pour afficher exactement 3 cartes plein cadre
-    // comme l'esquisse 01 (avant : 118.dp fixe → 2.5 visibles sur 360dp).
-    // Viewport - paddings (16+16) - spacings (2×10) divisé par 3, borné pour
-    // les petits (320dp) et grands (430dp+) écrans.
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val portraitCardWidth = if (compactPortrait) {
-        // Ajustement exact au viewport : 3 cartes + 2 spacings + paddings =
-        // largeur écran, la 4e reste hors champ (pas de plafond max — un
-        // coerceIn(.., 120.dp) laissait dépasser un bout de 4e carte sur les
-        // écrans larges, constaté sur capture).
-        (((configuration.screenWidthDp - 32 - 20) / 3).dp).coerceAtLeast(88.dp)
-    } else {
-        132.dp
-    }
+    // En déplié, la rangée vit dans la colonne centrale (plus étroite que
+    // l'écran) : même gabarit compact 3-cartes que le portrait, paddings
+    // resserrés. TV/paysage large garde le gabarit 132.dp historique.
+    val unfoldedNarrow = rememberUnfoldedLandscape()
+    val narrowRow = compactPortrait || unfoldedNarrow
     // État de focus partagé par toutes les cartes — il vit ici (pas dans
     // PosterCard) pour survivre à la destruction des items par la
     // LazyRow, et n'est lu QUE par les deux enfants dédiés (précharge des
@@ -1693,15 +1691,27 @@ internal fun TitleRow(
     }
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading(heading)
-        TvLazyRow(
-            state = rememberTvLazyListState().withTvPrefetchDisabled(),
-            modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(
-                start = if (compactPortrait) 16.dp else 52.dp,
-                end = if (compactPortrait) 16.dp else 52.dp,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(if (compactPortrait) 10.dp else 12.dp),
+        // Ajustement exact au viewport RÉEL (BoxWithConstraints, arithmétique
+        // Dp flottante) : 3 cartes + 2 spacings + paddings = largeur dispo, la
+        // 4e reste hors champ. L'ancien calcul sur screenWidthDp en division
+        // entière arrondissait vers le bas (jusqu'à 2dp de 4e carte visible).
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
         ) {
+            val fitWidth = if (narrowRow) {
+                ((maxWidth - 32.dp - 20.dp) / 3).coerceAtLeast(88.dp)
+            } else {
+                132.dp
+            }
+            TvLazyRow(
+                state = rememberTvLazyListState().withTvPrefetchDisabled(),
+                modifier = Modifier.focusRestorer(),
+                contentPadding = PaddingValues(
+                    start = if (narrowRow) 16.dp else 52.dp,
+                    end = if (narrowRow) 16.dp else 52.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(if (narrowRow) 10.dp else 12.dp),
+            ) {
             tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { index, _ -> if (index == 0) "featured" else "poster" }) { index, card ->
                 val preview = previewsByCardId[card.id]
                 val renderedCard = if (preview == null) card else card.copy(
@@ -1728,10 +1738,10 @@ internal fun TitleRow(
                     // Netflix : une affiche reste compacte au repos puis la
                     // carte active devient le seul aperçu 16:9 de sa rangée.
                     // Les autres éléments conservent leur gabarit portrait.
-                    // Esquisse 01 : 3 cartes plein cadre en portrait — largeur
-                    // calculée au-dessus (viewport-32-20)/3. En paysage le
-                    // gabarit TV de 132dp est rigoureusement conservé.
-                    width = portraitCardWidth,
+                    // Esquisse 01 : 3 cartes plein cadre — largeur exacte
+                    // (viewport-32-20)/3 via BoxWithConstraints. En TV/
+                    // paysage large le gabarit 132.dp est conservé.
+                    width = fitWidth,
                     aspectRatio = 2f / 3f,
                     preferPosterArt = true,
                     // Le slot LazyRow ne bouge jamais. La mini-fiche est une
@@ -1742,17 +1752,17 @@ internal fun TitleRow(
                     // En 16:9, cela donne 352×198dp, un vrai passage au
                     // paysage plutôt qu'une carte qui rétrécit au focus.
                     expandedWidth = 352.dp,
-                    // Sur téléphone aucune affiche n'est anonyme : le titre
-                    // reste hors image, donc lisible même sur un poster clair
-                    // ou très sombre. La présentation paysage sans légende
-                    // demeure identique.
-                    showCaption = compactPortrait,
+                    // En étroit (portrait + déplié) aucune affiche n'est anonyme :
+                    // le titre reste hors image, comme la maquette dépliée qui
+                    // légende chaque carte. TV/paysage large sans légende.
+                    showCaption = narrowRow,
                     showTechnicalBadges = false,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                 )
             }
             if (onSeeAll != null) {
-                item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll, width = portraitCardWidth) }
+                item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll, width = fitWidth) }
+            }
             }
         }
         // Les affiches suivantes sont peu coûteuses ; les backdrops 1280×720
@@ -1799,11 +1809,12 @@ private fun RowHeading(text: String) {
         val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
             it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
         }
+        val narrow = compactPortrait || rememberUnfoldedLandscape()
         Text(
             text = text,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = if (compactPortrait) 16.dp else 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = if (narrow) 16.dp else 52.dp, bottom = 12.dp),
         )
 }
 
@@ -1816,10 +1827,10 @@ private fun SeeAllTile(onClick: () -> Unit, width: androidx.compose.ui.unit.Dp? 
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
-    // Même gabarit que les cartes de la rangée en portrait (3 plein cadre),
-    // 154.dp historique en paysage/TV.
-    val tileWidth = width ?: if (compactPortrait) {
-        ((((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 20) / 3).dp)).coerceAtLeast(88.dp)
+    // Même gabarit que les cartes de la rangée en étroit (3 plein cadre,
+    // arithmétique Dp exacte), 154.dp historique en TV/paysage large.
+    val tileWidth = width ?: if (compactPortrait || rememberUnfoldedLandscape()) {
+        ((((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 20) / 3f).dp)).coerceAtLeast(88.dp)
     } else {
         154.dp
     }

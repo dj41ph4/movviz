@@ -256,7 +256,7 @@ fun MovvizPlatformRow(
     // que les 60.dp fixes (plus de 5e icône coupée). Le swipe horizontal
     // reste actif pour les plateformes suivantes.
     val screenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
-    val tileSize = (((screenWidth - 32 - 42) / 4).dp).coerceAtLeast(60.dp)
+    val tileSize = (((screenWidth - 32 - 42) / 4f).dp).coerceAtLeast(60.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()

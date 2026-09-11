@@ -84,7 +84,11 @@ fun PortraitTopHeader(
     // layout sinon). Clignotement mauve électrique premium via le halo.
     updateTag: String? = null,
     onUpdateClick: () -> Unit = {},
+    // Repli quand aucun profil n'est actif (session sans profil choisi) :
+    // initiales + nom d'utilisateur au lieu du "MO" anonyme.
+    fallbackName: String? = null,
 ) {
+    val displayName = activeProfile?.name?.takeIf { it.isNotBlank() } ?: fallbackName
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -123,14 +127,14 @@ fun PortraitTopHeader(
                 if (activeProfile?.avatar?.startsWith("http") == true) {
                     AsyncImage(
                         model = activeProfile.avatar,
-                        contentDescription = "Changer de profil : ${activeProfile.name}",
+                        contentDescription = "Changer de profil : ${displayName ?: "..."}",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().clip(CircleShape),
                     )
                 } else {
                     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            activeProfile?.name?.take(2)?.uppercase() ?: "MO",
+                            displayName?.take(2)?.uppercase() ?: "MO",
                             color = Color.White,
                             fontSize = 12.sp,
                         )

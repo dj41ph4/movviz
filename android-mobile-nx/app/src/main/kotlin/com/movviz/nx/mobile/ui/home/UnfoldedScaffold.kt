@@ -69,14 +69,38 @@ import com.movviz.nx.mobile.ui.theme.MovvizSurface
  */
 
 /** Seuil déplié : paysage avec au moins 700dp de large (Fold ouvert,
- *  tablette paysage, téléphone pivoté). En dessous, portrait compact ou
- *  interface TV existante. */
+ *  tablette paysage, téléphone pivoté — les deux doivent fonctionner).
+ *  TV réelle exclue (UiMode TV) : elle garde son interface 10-foot.
+ *  En dessous du seuil, portrait compact ou interface existante. */
 @Composable
 fun rememberUnfoldedLandscape(): Boolean {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    return configuration.screenWidthDp >= 700 &&
-        configuration.screenWidthDp > configuration.screenHeightDp
+    if (configuration.screenWidthDp < 700 ||
+        configuration.screenWidthDp <= configuration.screenHeightDp
+    ) {
+        return false
+    }
+    val uiMode = (androidx.compose.ui.platform.LocalContext.current.getSystemService(
+        android.content.Context.UI_MODE_SERVICE,
+    ) as? android.app.UiModeManager)?.currentModeType
+    return uiMode != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
 }
+
+/** Panneau latéral seulement si la colonne centrale garde ≥ 320dp
+ *  (paysage smartphone étroit : rail + contenu, sans panneau). */
+@Composable
+fun rememberUnfoldedWithPanel(): Boolean {
+    if (!rememberUnfoldedLandscape()) return false
+    return androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 784
+}
+
+/** Contenu étroit tactile : portrait compact OU colonne centrale dépliée.
+ *  Partout où le code distinguait `compactPortrait` vs "TV grand écran"
+ *  pour les marges/tailles, le déplié doit prendre la branche compacte
+ *  (la barre TV haute n'y existe plus, la colonne est étroite). */
+@Composable
+fun rememberNarrowContent(): Boolean =
+    com.movviz.nx.mobile.ui.mobile.rememberCompactPortrait() || rememberUnfoldedLandscape()
 
 internal val UnfoldedRailWidth = 184.dp
 internal val UnfoldedPanelWidth = 280.dp
@@ -97,8 +121,11 @@ fun SlimRail(
     onAvatarClick: () -> Unit,
     updateTag: String?,
     onUpdateClick: () -> Unit,
+    // Même repli username que l'en-tête portrait (jamais "MO" anonyme).
+    fallbackName: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val railDisplayName = activeProfile?.name?.takeIf { it.isNotBlank() } ?: fallbackName
     val items = listOf(
         RailItem(HomeTab.HOME, "Accueil", MovvizIconHome),
         RailItem(HomeTab.DISCOVER, "Découvrir", MovvizIconCompass),
@@ -106,11 +133,13 @@ fun SlimRail(
         RailItem(HomeTab.DOWNLOADS, "Téléchargements", MovvizIconDownload),
         RailItem(HomeTab.SETTINGS, "Réglages", MovvizIconSettings),
     )
+    // Menu compact qui tient sans scroll sur les hauteurs paysage (~390dp+) :
+    // items 44dp, labels 12sp lisibles en entier ("Téléchargements" compris).
     Column(
         modifier = modifier
             .fillMaxHeight()
             .background(MovvizBackground)
-            .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 12.dp)
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp)
             .verticalScroll(rememberScrollState()),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -118,15 +147,20 @@ fun SlimRail(
                 painter = painterResource(R.drawable.movviz_mark),
                 contentDescription = "Movviz",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(26.dp),
+                modifier = Modifier.size(24.dp),
             )
             Spacer(Modifier.width(8.dp))
             Text(
                 text = "MOVVIZ NX",
-                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Color.White),
+                style = TextStyle(
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White.copy(alpha = 0.90f),
+                    letterSpacing = 1.0.sp,
+                ),
                 maxLines = 1,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.weight(1f))
             Box(
                 modifier = Modifier.size(44.dp).clickable(onClick = onOpenSearch),
                 contentAlignment = Alignment.Center,
@@ -139,39 +173,39 @@ fun SlimRail(
                 )
             }
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(12.dp))
         items.forEach { item ->
             val active = selected == item.tab
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .then(
                         if (active) {
                             Modifier.background(
                                 Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .85f), MovvizBrand2.copy(alpha = .85f))),
-                                RoundedCornerShape(14.dp),
+                                RoundedCornerShape(12.dp),
                             )
                         } else {
                             Modifier
                         },
                     )
                     .clickable(onClick = { onSelectTab(item.tab) })
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 androidx.tv.material3.Icon(
                     imageVector = item.icon,
                     contentDescription = null,
                     tint = if (active) Color.White else UnfoldedInactive,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = item.label,
                     style = TextStyle(
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                         color = if (active) Color.White else UnfoldedInactive,
                     ),
@@ -179,7 +213,7 @@ fun SlimRail(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
         }
         Spacer(Modifier.weight(1f))
         if (updateTag != null) {
@@ -187,22 +221,30 @@ fun SlimRail(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, MovvizElectricBorder, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, MovvizElectricBorder, RoundedCornerShape(12.dp))
                     .clickable(onClick = onUpdateClick)
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                androidx.tv.material3.Icon(
-                    imageVector = MovvizIconDownload,
-                    contentDescription = "Mise à jour ${updateTag.removePrefix("v")} disponible",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(12.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    androidx.tv.material3.Icon(
+                        imageVector = MovvizIconDownload,
+                        contentDescription = "Mise à jour ${updateTag.removePrefix("v")} disponible",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(7.dp)
+                            .background(MovvizBrand2, CircleShape),
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
                 Text(
                     text = "Mise à jour",
-                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White),
                     maxLines = 1,
                 )
             }
@@ -211,8 +253,8 @@ fun SlimRail(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onAvatarClick)
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -233,7 +275,7 @@ fun SlimRail(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        activeProfile?.name?.take(2)?.uppercase() ?: "MO",
+                        railDisplayName?.take(2)?.uppercase() ?: "MO",
                         color = Color.White,
                         fontSize = 12.sp,
                     )
@@ -241,18 +283,19 @@ fun SlimRail(
             }
             Spacer(Modifier.width(10.dp))
             Text(
-                text = activeProfile?.name ?: "Mon profil",
+                text = railDisplayName ?: "Mon profil",
                 style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = UnfoldedInactive),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             text = "MOVVIZ NX — Le cinéma vous suit.",
-            style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f)),
-            maxLines = 2,
+            style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.55f)),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 4.dp),
         )
     }
@@ -270,12 +313,22 @@ fun UnfoldedRightPanel(
 ) {
     val queue by viewModel.queue.collectAsState()
     val completedQueue by viewModel.completedQueue.collectAsState()
+    // Repli jaquettes : les items terminés n'ont pas toujours leur poster —
+    // on le retrouve via la bibliothèque (tmdbId), même source que l'accueil.
+    val movies by viewModel.movies.collectAsState()
+    val series by viewModel.series.collectAsState()
+    val posterFor: (QueueItemDto) -> String? = { item ->
+        item.media.posterPath
+            ?: movies.firstOrNull { it.tmdbId == item.media.tmdbId }?.posterPath
+            ?: series.firstOrNull { it.tmdbId == item.media.tmdbId }?.posterPath
+    }
     LazyColumn(
         modifier = modifier
             .fillMaxHeight()
             .background(MovvizSurface.copy(alpha = 0.55f))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+            .border(width = 1.dp, color = Color.White.copy(alpha = 0.07f))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
             UnfoldedPanelSection(
@@ -284,14 +337,15 @@ fun UnfoldedRightPanel(
             ) {
                 if (queue.isEmpty()) {
                     Text(
-                        "Aucun téléchargement — vos grabs apparaîtront ici.",
-                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f)),
+                        "Aucun téléchargement pour l'instant.",
+                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.68f)),
                     )
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         queue.take(5).forEach { item ->
                             UnfoldedQueueRow(
                                 item = item,
+                                posterPath = posterFor(item),
                                 completed = false,
                                 onClick = {
                                     item.media.tmdbId?.let { onOpenTitle(item.media.type, it) }
@@ -310,13 +364,14 @@ fun UnfoldedRightPanel(
                 if (completedQueue.isEmpty()) {
                     Text(
                         "Rien de terminé pour l'instant.",
-                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f)),
+                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.68f)),
                     )
                 } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         completedQueue.take(4).forEach { item ->
                             UnfoldedQueueRow(
                                 item = item,
+                                posterPath = posterFor(item),
                                 completed = true,
                                 onClick = {
                                     item.media.tmdbId?.let { onOpenTitle(item.media.type, it) }
@@ -337,7 +392,7 @@ private fun UnfoldedPanelSection(
     content: @Composable () -> Unit,
 ) {
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
             Text(
                 text = title,
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
@@ -356,29 +411,34 @@ private fun UnfoldedPanelSection(
 }
 
 @Composable
-private fun UnfoldedQueueRow(item: QueueItemDto, completed: Boolean, onClick: () -> Unit) {
+private fun UnfoldedQueueRow(
+    item: QueueItemDto,
+    posterPath: String?,
+    completed: Boolean,
+    onClick: () -> Unit,
+) {
     val clickable = item.media.tmdbId != null
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
             .let { if (clickable) it.clickable(onClick = onClick) else it }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val thumbUrl = item.media.posterPath?.let { "$TMDB_THUMB_BASE$it" }
+        val thumbUrl = posterPath?.let { "$TMDB_THUMB_BASE$it" }
         if (thumbUrl != null) {
             AsyncImage(
                 model = thumbUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(width = 44.dp, height = 66.dp).clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier.size(width = 48.dp, height = 72.dp).clip(RoundedCornerShape(10.dp)),
             )
         } else {
             Box(
-                modifier = Modifier.size(width = 44.dp, height = 66.dp).clip(RoundedCornerShape(8.dp))
+                modifier = Modifier.size(width = 48.dp, height = 72.dp).clip(RoundedCornerShape(10.dp))
                     .background(MovvizSurface),
             )
         }
@@ -398,24 +458,24 @@ private fun UnfoldedQueueRow(item: QueueItemDto, completed: Boolean, onClick: ()
             Text(
                 text = if (completed) "${episodeSuffix}Terminé"
                 else "$episodeSuffix${(item.download.progress * 100).toInt()} %",
-                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.55f)),
+                style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.68f)),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = 4.dp),
             )
             if (!completed) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
                         .background(Color.White.copy(alpha = 0.14f)),
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(item.download.progress.toFloat().coerceIn(0f, 1f))
-                            .height(4.dp)
+                            .height(6.dp)
                             .background(
                                 Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                                RoundedCornerShape(2.dp),
+                                RoundedCornerShape(3.dp),
                             ),
                     )
                 }
@@ -436,10 +496,21 @@ private fun UnfoldedQueueRow(item: QueueItemDto, completed: Boolean, onClick: ()
                 )
             }
         } else {
-            Text(
-                text = "${(item.download.progress * 100).toInt()} %",
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizBrand2),
-            )
+            // Le % vit déjà dans le sous-titre + la barre : pastille
+            // électrique compacte à la place du doublon.
+            Box(
+                modifier = Modifier.size(28.dp).clip(CircleShape)
+                    .border(1.dp, MovvizElectricBorder, CircleShape)
+                    .background(MovvizBrand2.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.tv.material3.Icon(
+                    imageVector = MovvizIconDownload,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
         }
     }
 }

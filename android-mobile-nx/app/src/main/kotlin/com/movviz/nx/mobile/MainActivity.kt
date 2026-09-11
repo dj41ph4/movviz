@@ -346,12 +346,13 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // (esquisse section 3 : pas de champ recherche sous cet écran).
     val portraitHeaderTitle = if (tab == HomeTab.DOWNLOADS) "Téléchargements" else null
     val portraitActiveProfile by viewModel.activeProfile.collectAsState()
-    // Immersif type jeu vidéo sur l'accueil portrait : les boutons système
-    // Android sont masqués (réapparition temporaire au swipe de bord, geste
-    // transient) pour laisser toute la place à la barre Movviz. Scopé à
-    // l'accueil portrait uniquement — login/wizard/profils et TV/paysage
-    // gardent les barres système normales.
-    val immersivePortrait = compactPortrait && currentRoute?.startsWith("home") == true
+    // Immersif type jeu vidéo sur l'accueil (portrait + déplié/paysage) :
+    // les boutons système Android sont masqués (réapparition temporaire au
+    // swipe de bord, geste transient) pour laisser toute la place à Movviz.
+    // Scopé à l'accueil uniquement — login/wizard/profils et TV gardent les
+    // barres système normales.
+    val immersivePortrait = (compactPortrait || rememberUnfoldedLandscape()) &&
+        currentRoute?.startsWith("home") == true
     LaunchedEffect(immersivePortrait) {
         val window = activity.window
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, !immersivePortrait)
@@ -377,18 +378,25 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     onSearchClick = { searchOpen = true },
                     // Sur Profil, retapper l'avatar ouvre le sélecteur de
                     // profils (changer de compte) — ailleurs, ouvre l'onglet
-                    // Profil lui-même (esquisse section 8).
+                    // Profil lui-même (esquisse section 8). Sans profil actif
+                    // (session sans choix), l'avatar mène au sélecteur pour
+                    // garantir une porte de sortie (jamais d'impasse "MO").
                     onAvatarClick = {
-                        if (tab == HomeTab.PROFILE) navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
-                        else tab = HomeTab.PROFILE
+                        if (tab == HomeTab.PROFILE || portraitActiveProfile == null) {
+                            navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
+                        } else {
+                            tab = HomeTab.PROFILE
+                        }
                     },
                     title = portraitHeaderTitle,
                     showSearchRow = tab != HomeTab.PROFILE,
                     updateTag = viewModel.availableUpdateTag.collectAsState().value,
                     onUpdateClick = { viewModel.requestUpdateInstall() },
+                    fallbackName = viewModel.currentUser.collectAsState().value?.username,
                 )
             }
-        // En déplié sur l'accueil, le rail tactile remplace la barre TV haute.
+        // En déplié, le rail tactile remplace la barre TV haute sur tous les
+        // onglets (recherche/profil/MAJ y sont aussi présents).
         val unfoldedHome = rememberUnfoldedLandscape() && currentRoute?.startsWith("home") == true
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             if (routeShowsNavRail(currentRoute) && !compactPortrait && !unfoldedHome) {
@@ -725,12 +733,14 @@ private fun PortraitBottomNav(
     onSelect: (HomeTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    data class Item(val tab: HomeTab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+    // "Téléchargements" (15 lettres) reçoit plus de poids : à poids égal il
+    // tronquait en "Téléchargeme…" dès 360dp (constaté sur capture).
+    data class Item(val tab: HomeTab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val weight: Float = 1f)
     val items = listOf(
         Item(HomeTab.HOME, "Accueil", MovvizIconHome),
         Item(HomeTab.DISCOVER, "Découverte", com.movviz.nx.mobile.ui.theme.MovvizIconCompass),
         Item(HomeTab.LIBRARY, "Bibliothèque", com.movviz.nx.mobile.ui.theme.MovvizIconBookmark),
-        Item(HomeTab.DOWNLOADS, "Téléchargements", MovvizIconDownload),
+        Item(HomeTab.DOWNLOADS, "Téléchargements", MovvizIconDownload, weight = 1.3f),
     )
     Row(
         modifier = modifier
@@ -752,8 +762,8 @@ private fun PortraitBottomNav(
             Surface(
                 onClick = { onSelect(item.tab) },
                 modifier = Modifier
-                    .weight(1f)
-                    .height(58.dp)
+                    .weight(item.weight)
+                    .height(60.dp)
                     .tvPointerClick { onSelect(item.tab) },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
                 colors = ClickableSurfaceDefaults.colors(
@@ -782,13 +792,13 @@ private fun PortraitBottomNav(
                     Icon(
                         item.icon,
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                         tint = if (active) Color.White else Color(0xFFC3C3CB),
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(
                         item.label,
-                        fontSize = 9.sp,
+                        fontSize = 10.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = if (active) Color.White else Color(0xFFC3C3CB),

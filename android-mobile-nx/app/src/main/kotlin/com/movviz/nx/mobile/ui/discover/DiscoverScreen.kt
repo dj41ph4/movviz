@@ -56,6 +56,7 @@ import com.movviz.nx.mobile.ui.home.FilterDropdownChip
 import com.movviz.nx.mobile.ui.home.MediaHubToggleRow
 import com.movviz.nx.mobile.ui.home.TitleRow
 import com.movviz.nx.mobile.ui.home.TvTitleCard
+import com.movviz.nx.mobile.ui.home.rememberNarrowContent
 import androidx.compose.ui.graphics.Brush
 import com.movviz.nx.mobile.ui.theme.MovvizAmber
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
@@ -310,7 +311,7 @@ fun DiscoverScreen(
                         firstFocusRequester = if (contextHeader == null) hubFocus else null,
                         modifier = Modifier.padding(
                             start = if (compactPortrait) 16.dp else 56.dp,
-                            top = if (compactPortrait && contextHeader == null) 8.dp else if (contextHeader != null) 0.dp else 78.dp,
+                            top = if (rememberNarrowContent() && contextHeader == null) 8.dp else if (contextHeader != null) 0.dp else 78.dp,
                             bottom = 20.dp,
                         ),
                     )
@@ -525,7 +526,8 @@ private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: S
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
-    val edge = if (compactPortrait) 16.dp else 52.dp
+    // Déplié : colonne étroite sans barre TV — mêmes marges que le portrait.
+    val edge = if (compactPortrait || rememberNarrowContent()) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = "Genres",
@@ -563,7 +565,8 @@ internal fun DiscoverLogoRow(
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
-    val edge = if (compactPortrait) 16.dp else 52.dp
+    // Déplié : colonne étroite sans barre TV — mêmes marges que le portrait.
+    val edge = if (compactPortrait || rememberNarrowContent()) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = title,
@@ -702,7 +705,8 @@ private fun DiscoverMoodRow(genres: List<GenreDto>, onSelect: (genreId: String, 
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
-    val edge = if (compactPortrait) 16.dp else 52.dp
+    // Déplié : colonne étroite sans barre TV — mêmes marges que le portrait.
+    val edge = if (compactPortrait || rememberNarrowContent()) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = "Selon votre humeur",

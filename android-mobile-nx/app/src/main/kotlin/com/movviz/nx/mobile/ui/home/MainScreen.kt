@@ -82,6 +82,7 @@ fun MainScreen(
     // leurs écrans existants tels quels dans la colonne centrale.
     if (rememberUnfoldedLandscape()) {
         val activeProfile by viewModel.activeProfile.collectAsState()
+        val unfoldedUsername by viewModel.currentUser.collectAsState()
         Row(modifier = Modifier.fillMaxSize()) {
             SlimRail(
                 selected = tab,
@@ -91,6 +92,7 @@ fun MainScreen(
                 onAvatarClick = { onSelectTab(HomeTab.PROFILE) },
                 updateTag = updateTag,
                 onUpdateClick = onUpdateClick,
+                fallbackName = unfoldedUsername?.username,
                 modifier = Modifier.width(UnfoldedRailWidth),
             )
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
@@ -113,7 +115,7 @@ fun MainScreen(
                     onSwitchProfile = onSwitchProfile,
                 )
             }
-            if (tab == HomeTab.HOME && !searchOpen) {
+            if (tab == HomeTab.HOME && !searchOpen && rememberUnfoldedWithPanel()) {
                 UnfoldedRightPanel(
                     viewModel = viewModel,
                     onOpenTitle = onOpenTitle,

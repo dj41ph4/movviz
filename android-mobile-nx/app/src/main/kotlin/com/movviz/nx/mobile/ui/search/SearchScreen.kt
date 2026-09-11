@@ -97,7 +97,11 @@ fun SearchScreen(
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
-    if (compactPortrait) {
+    // En déplié, la colonne centrale est étroite : le layout TV horizontal
+    // (titre 30sp + champ 430dp côte à côte, backdrops larges) y est écrasé
+    // (constaté sur capture Fold). L'écran tactile portrait empilé y est
+    // lisible tel quel — même code, aucun fork.
+    if (compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()) {
         PortraitSearchScreen(
             viewModel = viewModel,
             onOpenTitle = onOpenTitle,
