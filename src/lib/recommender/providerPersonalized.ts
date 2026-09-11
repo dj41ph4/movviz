@@ -93,6 +93,13 @@ function poolCache() {
   return getCache("providerSuggestedPool:v2", POOL_CACHE_TTL);
 }
 
+/** Never cache an empty first load. `discoverByFilters` deliberately
+ * degrades upstream TMDb failures to an empty page; treating that as an
+ * exhausted catalog poisoned Netflix/Prime/Disney rows for the whole TTL. */
+export function providerPoolIsCacheable(state: Pick<PoolState, "results">): boolean {
+  return state.results.length > 0;
+}
+
 export function providerNameFor(providerId: number): string | null {
   return STREAMING_PLATFORMS.find((p) => p.id === providerId)?.name ?? null;
 }
@@ -225,7 +232,16 @@ async function ensurePool(
     }
   }
 
-  poolCache().set(cacheKey, state);
+  if (providerPoolIsCacheable(state)) {
+    poolCache().set(cacheKey, state);
+  } else {
+    // Restore a retryable state for the next request. An actually empty
+    // provider page is cheap to recheck; a 45-minute false empty is not.
+    state.popularPage = 0;
+    state.datePage = 0;
+    state.popularExhausted = false;
+    state.dateExhausted = false;
+  }
   return state;
 }
 
@@ -377,15 +393,20 @@ export async function getProviderSuggestedPage(
   type: "movie" | "series",
   providerId: number,
   page: number,
-  originCountries?: string[]
+  originCountries?: string[],
+  sort: "personalized" | "rating" | "date" = "personalized"
 ): Promise<{ results: MetaSearchResult[]; page: number; totalPages: number; meta: { providerId: number; providerName: string } } | null> {
   const providerName = providerNameFor(providerId);
   if (!providerName) return null;
+  if (sort === "date") return getProviderNewPage(userId, type, providerId, page, originCountries);
 
   const pool = await ensurePool(type, providerId, originCountries, page * ROW_SIZE);
   const excluded = excludedTmdbIds(type, userId);
   const newestIds = new Set(pool.newestIds);
-  const ranked = await rankForUser(userId, type, pool.results.filter((item) => !newestIds.has(item.tmdbId)), excluded);
+  const candidates = pool.results.filter((item) => !newestIds.has(item.tmdbId));
+  const ranked = sort === "rating"
+    ? filterSuggestable(candidates.filter((item) => !excluded.has(item.tmdbId))).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (b.popularity ?? 0) - (a.popularity ?? 0))
+    : await rankForUser(userId, type, candidates, excluded);
 
   const exhausted = pool.popularExhausted && pool.dateExhausted;
   const totalPages = exhausted ? Math.max(1, Math.ceil(ranked.length / ROW_SIZE)) : page + 1;

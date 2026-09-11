@@ -203,11 +203,12 @@ interface MovvizApiService {
     // donc le ':' de "becauseYouWatched:123456" est déjà pourcenté-encodé
     // dans la requête réelle sans rien faire de spécial ici.
     @GET("api/metadata/row-page")
-    suspend fun rowPage(
-        @Query("type") type: String,
-        @Query("key") key: String,
-        @Query("page") page: Int,
-    ): Response<RowPageResponseDto>
+      suspend fun rowPage(
+          @Query("type") type: String,
+          @Query("key") key: String,
+          @Query("page") page: Int,
+          @Query("sort") sort: String? = null,
+      ): Response<RowPageResponseDto>
 
     // Liste des genres TMDb réels pour le sélecteur Genres du Discover TV —
     // même route que le dropdown desktop (discover/page.tsx). Les deux

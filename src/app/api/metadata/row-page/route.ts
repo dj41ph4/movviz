@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
   const type = req.nextUrl.searchParams.get("type") === "series" ? "series" : "movie";
   const key = req.nextUrl.searchParams.get("key") ?? "";
   const page = Math.max(1, Number(req.nextUrl.searchParams.get("page")) || 1);
+  const requestedSort = req.nextUrl.searchParams.get("sort");
+  const providerSort = requestedSort === "rating" || requestedSort === "date" ? requestedSort : "personalized";
   const user = requireUser(req);
   const originCountries = countriesForContinents(user?.discoverContinents ?? []);
 
@@ -57,7 +59,7 @@ export async function GET(req: NextRequest) {
   if (key.startsWith("providerSuggested:")) {
     const providerId = Number(key.slice("providerSuggested:".length));
     if (!Number.isFinite(providerId)) return NextResponse.json({ error: "invalid provider" }, { status: 400 });
-    const paged = await getProviderSuggestedPage(user?.id ?? "", type, providerId, page, originCountries);
+    const paged = await getProviderSuggestedPage(user?.id ?? "", type, providerId, page, originCountries, providerSort);
     if (!paged) return NextResponse.json({ error: "unknown row" }, { status: 400 });
     return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
   }

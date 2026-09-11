@@ -578,7 +578,7 @@ fun HomeScreen(
                             // l'accueil (rails mixtes) — "movie" par défaut.
                             com.movviz.nx.mobile.ui.mobile.MovvizPlatformRow(
                                 tiles = watchProviderTiles,
-                                onSelect = { tile -> onSeeAllRow("movie", "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
+                                onSelect = { tile -> onSeeAllRow("movie", "providerSuggested:${tile.id}", "Sélection ${tile.name} pour vous") },
                             )
                         }
                     }
@@ -1404,7 +1404,7 @@ private fun homeEditorialLabel(
 ): String {
     val meta = movieRows.firstOrNull { it.key == key }?.meta
         ?: seriesRows.firstOrNull { it.key == key }?.meta
-    if (key.startsWith("providerSuggested:") && meta?.providerName != null) return "Suggestion ${meta.providerName} pour vous"
+    if (key.startsWith("providerSuggested:") && meta?.providerName != null) return "Sélection ${meta.providerName} pour vous"
     if (key.startsWith("providerNew:") && meta?.providerName != null) return "Nouveautés ${meta.providerName} pour vous"
     if (key.startsWith("becauseYouWatched:") && meta?.anchorTitle != null) {
         return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"

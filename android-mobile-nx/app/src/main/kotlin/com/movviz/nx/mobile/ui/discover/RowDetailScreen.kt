@@ -110,6 +110,8 @@ fun RowDetailScreen(
     // par la rangée n'a aujourd'hui pas d'entrée possible côté TV, mais ça
     // garde ce composable correct si une future deep-link en ajoutait une.
     var resolvedLabel by remember(mode, mediaType, rowKey) { mutableStateOf(label) }
+    val isProviderPage = mode == "row" && rowKey.startsWith("providerSuggested:")
+    var providerSort by remember(mode, mediaType, rowKey) { mutableStateOf("personalized") }
 
     suspend fun loadPage(target: Int) {
         val repo = repository ?: return
@@ -123,7 +125,7 @@ fun RowDetailScreen(
                     }
                 }
             } else {
-                repo.rowPage(mediaType, rowKey, target).let { r ->
+                repo.rowPage(mediaType, rowKey, target, if (isProviderPage) providerSort else null).let { r ->
                     when (r) {
                         is ApiResult.Success -> PageResult(r.data.results, r.data.page, r.data.totalPages, r.data.meta)
                         else -> null
@@ -144,7 +146,7 @@ fun RowDetailScreen(
                         rowKey.startsWith("providerNew:") && m.providerName != null ->
                             "Nouveautés ${m.providerName} pour vous"
                         rowKey.startsWith("providerSuggested:") && m.providerName != null ->
-                            "Suggestion ${m.providerName} pour vous"
+                            "Sélection ${m.providerName} pour vous"
                         else -> resolvedLabel
                     }
                 }
@@ -155,7 +157,10 @@ fun RowDetailScreen(
         }
     }
 
-    LaunchedEffect(mode, mediaType, rowKey, baseUrl) {
+    LaunchedEffect(mode, mediaType, rowKey, baseUrl, providerSort) {
+        cards = emptyList()
+        page = 0
+        totalPages = 1
         if (repository != null) loadPage(1)
     }
 
@@ -232,6 +237,32 @@ fun RowDetailScreen(
                 style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
             )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+        }
+        if (isProviderPage) {
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(
+                    "personalized" to "Sélection pour vous",
+                    "rating" to "Mieux notés",
+                    "date" to "Plus récents",
+                ).forEach { (value, title) ->
+                    androidx.tv.material3.Surface(
+                        onClick = { providerSort = value },
+                        modifier = Modifier.height(40.dp).tvPointerClick { providerSort = value },
+                        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.foundation.shape.RoundedCornerShape(20.dp)),
+                        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                            containerColor = if (providerSort == value) com.movviz.nx.mobile.ui.theme.MovvizBrand else Color.White.copy(alpha = 0.08f),
+                            contentColor = Color.White,
+                        ),
+                    ) {
+                        Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                            Text(title, fontSize = if (compactPortrait) 11.sp else 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
         }
         when {
             loading && cards.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

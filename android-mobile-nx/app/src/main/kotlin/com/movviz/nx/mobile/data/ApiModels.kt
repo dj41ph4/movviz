@@ -928,6 +928,13 @@ data class ProfileMediaResponseDto(
     val watchHistory: List<ProfileMediaCardDto> = emptyList(),
     val ratings: List<ProfileMediaCardDto> = emptyList(),
     val watchlist: List<ProfileMediaCardDto> = emptyList(),
+    val counts: ProfileMediaCountsDto = ProfileMediaCountsDto(),
+)
+
+@JsonClass(generateAdapter = true)
+data class ProfileMediaCountsDto(
+    val watchedMovies: Int = 0,
+    val watchedSeries: Int = 0,
 )
 
 // Miroir de POST /api/watchlist (src/app/api/watchlist/route.ts) — seuls les

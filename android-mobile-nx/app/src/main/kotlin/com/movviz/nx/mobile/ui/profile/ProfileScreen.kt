@@ -354,8 +354,8 @@ private fun ProfileSettingsRow(
             )
         }
     }
-    val filmsSeen = data.watchHistory.count { it.type == "movie" }
-    val seriesSeen = data.watchHistory.count { it.type == "series" }
+    val filmsSeen = data.counts.watchedMovies
+    val seriesSeen = data.counts.watchedSeries
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 18.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ProfileMetric("Films vus", filmsSeen, Modifier.weight(1f))

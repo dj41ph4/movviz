@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.24.124 — September 2026
+
+### Android NX
+
+- Les catalogues Netflix, Prime Video et Disney+ ne restent plus vides après une panne TMDb temporaire : une réponse initiale vide n’empoisonne plus le cache pendant 45 minutes.
+- Les pages de plateforme proposent désormais « Sélection pour vous » par défaut, « Mieux notés » et « Plus récents ».
+- Actualisation immédiate des avatars sur TV NX même lorsque Plex remplace l’image sans changer son URL.
+- Les compteurs « Films vus » et « Séries vues » affichent désormais les totaux Plex/Movviz agrégés au lieu de compter uniquement les 20 cartes récentes visibles.
+
 ## v1.24.123 — September 2026
 
 ### Intelligence artificielle

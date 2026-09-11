@@ -151,8 +151,8 @@ class MovvizRepository(private val baseUrl: String) {
         safeCall { api.metadataRecommendations(type) }.map { it.results }
 
     /** "Voir tout" d'une rangée éditoriale — voir RowPageResponseDto. */
-    suspend fun rowPage(type: String, key: String, page: Int): ApiResult<RowPageResponseDto> =
-        safeCall { api.rowPage(type, key, page) }
+    suspend fun rowPage(type: String, key: String, page: Int, sort: String? = null): ApiResult<RowPageResponseDto> =
+        safeCall { api.rowPage(type, key, page, sort) }
 
     /** Genres TMDb réels pour un type — le sélecteur Genres y ajoute les deux
      *  entrées synthétiques (Anime/Romance ado) côté client. */
