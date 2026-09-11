@@ -5,17 +5,18 @@ import { mutate } from "swr";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
-import { Bot, Check, Loader2, Plus, X, Trash2 } from "lucide-react";
-import type { AiProviderId } from "@/lib/ai/types";
+import { ArrowDown, ArrowUp, Bot, Loader2, Plus, X, Trash2 } from "lucide-react";
+import { AI_PROVIDER_ORDER, OPENCODE_ZEN_FREE_MODELS, type AiProviderId } from "@/lib/ai/types";
 import { AiDebugLogPanel } from "@/components/settings/AiDebugLogPanel";
 
-const PROVIDERS: AiProviderId[] = ["mistral", "openrouter", "gemini"];
+const PROVIDERS = AI_PROVIDER_ORDER;
 
 /** Where to grab a free key for each provider — plain URLs, no translation needed. */
 const PROVIDER_KEY_URL: Record<AiProviderId, string> = {
   mistral: "https://console.mistral.ai/api-keys",
   openrouter: "https://openrouter.ai/keys",
   gemini: "https://aistudio.google.com/apikey",
+  opencode: "https://opencode.ai/auth",
 };
 
 interface KeyRow {
@@ -34,6 +35,7 @@ interface ProviderDraft {
 interface ConfigDraft {
   enabled: boolean;
   primary: AiProviderId;
+  priority: AiProviderId[];
   fallback: boolean;
   webSearchEnabled: boolean;
   providers: Record<AiProviderId, ProviderDraft>;
@@ -85,7 +87,8 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
               keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
             };
           }
-          setDraft({ enabled: !!d.enabled, primary: d.primary ?? "mistral", fallback: d.fallback ?? true, webSearchEnabled: !!d.webSearchEnabled, providers });
+          const priority = Array.isArray(d.priority) ? d.priority.filter((id: AiProviderId) => PROVIDERS.includes(id)) : [...PROVIDERS];
+          setDraft({ enabled: !!d.enabled, primary: priority[0] ?? d.primary ?? "mistral", priority, fallback: d.fallback ?? true, webSearchEnabled: !!d.webSearchEnabled, providers });
         }
       } catch { /* leave unloaded */ }
       setLoaded(true);
@@ -107,6 +110,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
       const body = {
         enabled: draft.enabled,
         primary: draft.primary,
+        priority: draft.priority,
         fallback: draft.fallback,
         webSearchEnabled: draft.webSearchEnabled,
         providers: Object.fromEntries(
@@ -133,7 +137,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
           };
         }
-        setDraft({ enabled: d.enabled, primary: d.primary, fallback: d.fallback, webSearchEnabled: !!d.webSearchEnabled, providers });
+        setDraft({ enabled: d.enabled, primary: d.primary, priority: d.priority ?? draft.priority, fallback: d.fallback, webSearchEnabled: !!d.webSearchEnabled, providers });
         setTestResult(null);
         toast("success", t("ai.settings.saved"));
         // The floating chat button reads its own "enabled" via SWR on
@@ -189,6 +193,14 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
     setDraft({ ...draft, providers: { ...draft.providers, [provider]: { ...draft.providers[provider], model } } });
   };
 
+  const moveProvider = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= draft.priority.length) return;
+    const priority = [...draft.priority];
+    [priority[index], priority[target]] = [priority[target], priority[index]];
+    setDraft({ ...draft, priority, primary: priority[0] });
+  };
+
   const hasAnyKey = PROVIDERS.some((id) => draft.providers[id].keys.length > 0);
 
   return (
@@ -228,26 +240,18 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         />
 
         <div>
-          <p className="mb-2 text-sm font-bold text-ink">{t("ai.settings.primary")}</p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {PROVIDERS.map((id) => (
-              <button
-                key={id}
-                onClick={() => setDraft({ ...draft, primary: id })}
-                className={cn(
-                  "rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-colors",
-                  draft.primary === id ? "border-brand/40 bg-brand/12 text-brand-glow" : "border-white/8 bg-black/20 text-ink-soft hover:text-ink"
-                )}
-              >
-                <span className="flex items-center gap-1.5">
-                  {t(`ai.provider.${id}`)}
-                  {draft.primary === id ? <Check className="h-3.5 w-3.5" /> : null}
-                </span>
-                <span className="mt-0.5 block text-xs font-normal text-ink-dim">{t(`ai.provider.${id}Hint`)}</span>
-              </button>
+          <p className="mb-2 text-sm font-bold text-ink">{t("ai.settings.priority")}</p>
+          <div className="space-y-2">
+            {draft.priority.map((id, index) => (
+              <div key={id} className={cn("flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2", index === 0 ? "border-brand/40 bg-brand/12" : "border-white/8 bg-black/20")}>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/8 text-xs font-black text-brand-glow">{index + 1}</span>
+                <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{t(`ai.provider.${id}`)}{index === 0 ? <span className="ml-2 text-xs font-normal text-brand-glow">{t("ai.settings.primaryBadge")}</span> : null}</span>
+                <button type="button" onClick={() => moveProvider(index, -1)} disabled={index === 0} title={t("ai.settings.moveUp")} className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-white/8 disabled:opacity-25"><ArrowUp className="h-4 w-4" /></button>
+                <button type="button" onClick={() => moveProvider(index, 1)} disabled={index === draft.priority.length - 1} title={t("ai.settings.moveDown")} className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-white/8 disabled:opacity-25"><ArrowDown className="h-4 w-4" /></button>
+              </div>
             ))}
           </div>
-          <p className="mt-1.5 text-xs text-ink-dim">{t("ai.settings.primaryHint")}</p>
+          <p className="mt-1.5 text-xs text-ink-dim">{t("ai.settings.priorityHint")}</p>
         </div>
 
         <Switch
@@ -301,12 +305,26 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-dim">
                       {t("ai.settings.model")}
                     </label>
-                    <input
-                      value={p.model}
-                      onChange={(e) => setModel(id, e.target.value)}
-                      placeholder={id === "openrouter" ? "provider/model (ex: deepseek/deepseek-chat)" : ""}
-                      className="w-full rounded-xl glass-strong px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-dim"
-                    />
+                    {id === "opencode" ? (
+                      <select
+                        value={p.model}
+                        onChange={(e) => setModel(id, e.target.value)}
+                        className="h-11 w-full rounded-xl glass-strong px-3 text-sm text-ink outline-none"
+                      >
+                        {OPENCODE_ZEN_FREE_MODELS.map((model) => (
+                          <option key={model.id} value={model.id} className="bg-surface text-ink">
+                            {model.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={p.model}
+                        onChange={(e) => setModel(id, e.target.value)}
+                        placeholder={id === "openrouter" ? "provider/model (ex: deepseek/deepseek-chat)" : ""}
+                        className="w-full rounded-xl glass-strong px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-dim"
+                      />
+                    )}
                   </div>
 
                   <div>

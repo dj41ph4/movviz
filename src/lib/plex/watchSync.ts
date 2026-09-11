@@ -5,6 +5,7 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import type { User } from "@/lib/auth/types";
+import { refreshPlexAvatar } from "./avatarSync";
 
 /**
  * Read this user's own watch state directly from Plex.
@@ -37,6 +38,8 @@ import type { User } from "@/lib/auth/types";
 export async function syncUserWatchStatus(user: User) {
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return;
+  // Avatar refresh is independent: failure never blocks watch-state sync.
+  refreshPlexAvatar(user).catch(() => {});
 
   // Bug fix (confirmed live — "chaque profil doit être indépendant"):
   // `plexManagedUserId` is set by the admin's "assign a Plex Home profile"

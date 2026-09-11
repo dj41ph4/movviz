@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { updateUser } from "@/lib/auth/store";
 import { saveAvatar, deleteAvatar, AVATAR_MAX_BYTES } from "@/lib/avatars";
+import { tryPushAvatarToPlex } from "@/lib/plex/avatarSync";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,14 @@ export async function POST(req: NextRequest) {
     const status = saved.error === "bad_type" ? 415 : 400;
     return NextResponse.json({ error: saved.error }, { status });
   }
-  updateUser(user.id, { customAvatar: saved.url });
+  const now = Date.now();
+  updateUser(user.id, {
+    customAvatar: saved.url,
+    avatarUpdatedAt: now,
+    avatarSource: "movviz",
+  });
+  // Local success never waits for, or depends on, Plex.
+  tryPushAvatarToPlex(user.id).catch(() => {});
   return NextResponse.json({ avatar: saved.url });
 }
 
@@ -39,6 +47,10 @@ export async function DELETE(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   deleteAvatar(user.id);
-  updateUser(user.id, { customAvatar: null });
+  updateUser(user.id, {
+    customAvatar: null,
+    avatarUpdatedAt: Date.now(),
+    avatarSource: "plex",
+  });
   return NextResponse.json({ ok: true });
 }

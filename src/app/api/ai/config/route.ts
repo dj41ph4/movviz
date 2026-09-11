@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { jsonCacheReadFailed } from "@/lib/fsJsonCache";
 import { AI_CONFIG_FILE, loadAiConfig, saveAiConfig } from "@/lib/ai/store";
-import { AI_PROVIDER_ORDER, type AiConfig, type AiProviderId, type AiProviderKey } from "@/lib/ai/types";
+import { AI_PROVIDER_ORDER, DEFAULT_OPENCODE_ZEN_MODEL, isOpenCodeZenFreeModel, type AiConfig, type AiProviderId, type AiProviderKey } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,7 @@ function redactConfig(config: AiConfig) {
   return {
     enabled: config.enabled,
     primary: config.primary,
+    priority: config.priority,
     fallback: config.fallback,
     webSearchEnabled: config.webSearchEnabled,
     providers: Object.fromEntries(
@@ -47,14 +48,21 @@ export async function PUT(req: NextRequest) {
   }
   const current = loadAiConfig();
   const incomingPrimary = String(body.primary ?? current.primary);
-  const primary = (AI_PROVIDER_ORDER.includes(incomingPrimary as AiProviderId) ? incomingPrimary : current.primary) as AiProviderId;
+  const requestedPriority = Array.isArray(body.priority) ? body.priority : current.priority;
+  const priority = [...requestedPriority, ...AI_PROVIDER_ORDER]
+    .filter((id, index, all): id is AiProviderId => typeof id === "string" && AI_PROVIDER_ORDER.includes(id as AiProviderId) && all.indexOf(id) === index);
+  const primary = priority[0] ?? (AI_PROVIDER_ORDER.includes(incomingPrimary as AiProviderId) ? incomingPrimary : current.primary) as AiProviderId;
 
   const providers = { ...current.providers } as AiConfig["providers"];
   for (const id of AI_PROVIDER_ORDER) {
     const inc = body.providers?.[id];
     if (!inc || typeof inc !== "object") continue;
+    const requestedModel = typeof inc.model === "string" ? inc.model.trim() : "";
+    const model = id === "opencode"
+      ? (isOpenCodeZenFreeModel(requestedModel) ? requestedModel : (isOpenCodeZenFreeModel(current.providers[id].model) ? current.providers[id].model : DEFAULT_OPENCODE_ZEN_MODEL))
+      : (requestedModel || current.providers[id].model);
     providers[id] = {
-      model: typeof inc.model === "string" && inc.model.trim() ? inc.model.trim() : current.providers[id].model,
+      model,
       keys: mergeKeys(current.providers[id].keys, Array.isArray(inc.keys) ? inc.keys : []),
     };
   }
@@ -62,6 +70,7 @@ export async function PUT(req: NextRequest) {
   const next = saveAiConfig({
     enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled,
     primary,
+    priority,
     fallback: typeof body.fallback === "boolean" ? body.fallback : current.fallback,
     webSearchEnabled: typeof body.webSearchEnabled === "boolean" ? body.webSearchEnabled : current.webSearchEnabled,
     providers,

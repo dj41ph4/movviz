@@ -1,4 +1,22 @@
-export type AiProviderId = "mistral" | "openrouter" | "gemini";
+export type AiProviderId = "mistral" | "openrouter" | "gemini" | "opencode";
+
+/** OpenCode Zen models explicitly listed as Free in the official Zen pricing
+ * table. Keep this allow-list intentional: the settings must never silently
+ * switch an administrator to a paid Zen model. */
+export const OPENCODE_ZEN_FREE_MODELS = [
+  { id: "big-pickle", label: "Big Pickle" },
+  { id: "mimo-v2.5-free", label: "MiMo V2.5 Free" },
+  { id: "ling-3.0-flash-fin-free", label: "Ling 3.0 Flash Fin Free" },
+  { id: "nemotron-3-ultra-free", label: "Nemotron 3 Ultra Free" },
+  { id: "nemotron-3.5-lightning-free", label: "Nemotron 3.5 Lightning Free" },
+  { id: "muse-spark-1.3-contributor-free", label: "Muse Spark 1.3 Contributor Free" },
+] as const;
+
+export const DEFAULT_OPENCODE_ZEN_MODEL = OPENCODE_ZEN_FREE_MODELS[0].id;
+
+export function isOpenCodeZenFreeModel(model: string): boolean {
+  return OPENCODE_ZEN_FREE_MODELS.some((entry) => entry.id === model);
+}
 
 export interface AiProviderKey {
   id: string;
@@ -14,6 +32,8 @@ export interface AiConfig {
   enabled: boolean;
   /** First provider tried on every request. */
   primary: AiProviderId;
+  /** Complete, user-defined provider order. The first entry is `primary`. */
+  priority: AiProviderId[];
   /** When true (and enabled), a provider that fails (quota/error) falls back to the next one in order. */
   fallback: boolean;
   providers: Record<AiProviderId, AiProviderConfig>;
@@ -27,16 +47,18 @@ export interface AiConfig {
   webSearchEnabled: boolean;
 }
 
-export const AI_PROVIDER_ORDER: AiProviderId[] = ["mistral", "openrouter", "gemini"];
+export const AI_PROVIDER_ORDER: AiProviderId[] = ["mistral", "openrouter", "gemini", "opencode"];
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
   enabled: false,
   primary: "mistral",
+  priority: [...AI_PROVIDER_ORDER],
   fallback: true,
   providers: {
     mistral: { model: "mistral-small-latest", keys: [] },
     openrouter: { model: "deepseek/deepseek-chat", keys: [] },
     gemini: { model: "gemini-2.5-flash-lite", keys: [] },
+    opencode: { model: DEFAULT_OPENCODE_ZEN_MODEL, keys: [] },
   },
   webSearchEnabled: false,
 };

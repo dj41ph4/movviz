@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { DEFAULT_AI_CONFIG, type AiChatSession, type AiConfig } from "./types";
+import { AI_PROVIDER_ORDER, DEFAULT_AI_CONFIG, type AiChatSession, type AiConfig } from "./types";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 export const AI_CONFIG_FILE = path.join(CONFIG_DIR, "ai.json");
@@ -9,15 +9,20 @@ const SESSIONS_FILE = path.join(CONFIG_DIR, "ai-sessions.json");
 
 function deepMerge(base: AiConfig, patch: unknown): AiConfig {
   const p = (patch ?? {}) as Partial<AiConfig>;
+  const requestedPriority = Array.isArray(p.priority) ? p.priority : [p.primary ?? base.primary];
+  const priority = [...requestedPriority, ...AI_PROVIDER_ORDER]
+    .filter((id, index, all): id is AiConfig["primary"] => AI_PROVIDER_ORDER.includes(id as AiConfig["primary"]) && all.indexOf(id) === index);
   return {
     enabled: p.enabled ?? base.enabled,
     primary: (p.primary as AiConfig["primary"]) ?? base.primary,
+    priority,
     fallback: p.fallback ?? base.fallback,
     webSearchEnabled: p.webSearchEnabled ?? base.webSearchEnabled,
     providers: {
       mistral: { model: p.providers?.mistral?.model ?? base.providers.mistral.model, keys: p.providers?.mistral?.keys ?? base.providers.mistral.keys },
       openrouter: { model: p.providers?.openrouter?.model ?? base.providers.openrouter.model, keys: p.providers?.openrouter?.keys ?? base.providers.openrouter.keys },
       gemini: { model: p.providers?.gemini?.model ?? base.providers.gemini.model, keys: p.providers?.gemini?.keys ?? base.providers.gemini.keys },
+      opencode: { model: p.providers?.opencode?.model ?? base.providers.opencode.model, keys: p.providers?.opencode?.keys ?? base.providers.opencode.keys },
     },
   };
 }

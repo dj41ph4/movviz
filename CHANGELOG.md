@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.24.123 — September 2026
+
+### Intelligence artificielle
+
+- Ajout d’OpenCode Zen aux fournisseurs IA, avec clé API, test de connexion et prise en charge des protocoles Chat Completions et Responses.
+- Sélection volontairement limitée aux six modèles officiellement gratuits de Zen : aucun modèle payant ne peut être enregistré.
+- Ordre de priorité des fournisseurs entièrement configurable ; le moteur respecte le classement choisi pour le fournisseur principal et chaque fallback.
+
+### Profils
+
+- Synchronisation d’avatar Movviz ↔ Plex en dernier changement gagnant, avec empreinte anti-boucle et repli sûr : un échec Plex ne bloque jamais l’upload Movviz.
+
 ## v1.24.122 — September 2026
 
 ### Visionnage unifié

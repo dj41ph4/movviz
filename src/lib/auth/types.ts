@@ -51,6 +51,11 @@ export interface User {
    *  prioritaire sur plexAvatar partout. null = pas de photo perso.
    *  Stockée en fichier (voir @/lib/avatars), jamais en JSON. */
   customAvatar: string | null;
+  /** Last avatar decision observed by Movviz (safe migration: absent on old users). */
+  avatarUpdatedAt?: number;
+  avatarSource?: "movviz" | "plex";
+  /** SHA-256 of the last Plex avatar bytes confirmed after a refresh/push. */
+  plexAvatarFingerprint?: string;
   createdAt: number;
 }
 

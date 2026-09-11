@@ -9,13 +9,8 @@ import path from "node:path";
  * via effectiveAvatar(). Le champ User.customAvatar contient l'URL publique
  * versionnée (`/api/avatars/{id}?v={mtime}`) pour invalider les caches client.
  *
- * Réplication vers Plex : AUCUN endpoint public/documenté ne permet
- * aujourd'hui de pousser une photo vers plex.tv (vérifié : ni python-plexapi
- * ni la doc communautaire n'en exposent — seule l'app officielle Plex sait
- * le faire via une API privée). Donc PAS de push : plexAvatar reste intact
- * et la photo Movviz vit sa vie côté Movviz. Si Plex documente un jour un
- * endpoint, c'est ici — dans tryPushAvatarToPlex() — qu'il s'implémentera,
- * avec le plexToken de l'utilisateur.
+ * La réplication Plex best-effort est isolée dans plex/avatarSync.ts : elle
+ * ne participe jamais au succès de saveAvatar().
  */
 
 const CONFIG_DIR =
@@ -110,20 +105,4 @@ export function deleteAvatar(userId: string): void {
       fs.rmSync(file, { force: true });
     } catch { /* absent — rien à purger */ }
   }
-}
-
-/**
- * Réplication vers Plex — NON IMPLÉMENTÉ volontairement : aucun endpoint
- * public/documenté ne permet de pousser une photo vers plex.tv (ni
- * python-plexapi ni la doc communautaire n'en exposent ; seule l'app
- * officielle utilise une API privée sujette à casser). Le plexToken de
- * l'utilisateur serait de toute façon requis — les comptes locaux/invités
- * n'en ont pas. Quand Plex documentera un endpoint, l'implémenter ici avec
- * (plexToken, bytes) et l'appeler après saveAvatar().
- */
-export function tryPushAvatarToPlex(
-  _plexToken: string | null,
-  _bytes: Uint8Array,
-): { pushed: false; reason: "no_public_endpoint" } {
-  return { pushed: false, reason: "no_public_endpoint" };
 }

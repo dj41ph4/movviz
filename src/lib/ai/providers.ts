@@ -1,5 +1,5 @@
 import type { AiChatMessage, AiConfig, AiProviderId } from "./types";
-import { AI_PROVIDER_ORDER } from "./types";
+import { AI_PROVIDER_ORDER, DEFAULT_OPENCODE_ZEN_MODEL, isOpenCodeZenFreeModel } from "./types";
 
 /**
  * Multi-provider LLM client with two independent fallback layers:
@@ -82,6 +82,13 @@ async function callWithKey(providerId: AiProviderId, url: string, headers: Recor
   if (providerId === "gemini") {
     const cands = (json as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates ?? [];
     text = cands.map((c) => (c.content?.parts ?? []).map((p) => p.text ?? "").join("")).join("");
+  } else if (providerId === "opencode" && url.endsWith("/responses")) {
+    const response = json as { output_text?: string; output?: { content?: { type?: string; text?: string }[] }[] };
+    text = response.output_text ?? (response.output ?? [])
+      .flatMap((item) => item.content ?? [])
+      .filter((part) => part.type === "output_text")
+      .map((part) => part.text ?? "")
+      .join("");
   } else {
     const choices = (json as { choices?: { message?: { content?: string } }[] })?.choices ?? [];
     text = choices.map((c) => c.message?.content ?? "").join("");
@@ -92,7 +99,11 @@ async function callWithKey(providerId: AiProviderId, url: string, headers: Recor
 /** Tries every key of one provider in order; throws the last failure when all are exhausted. */
 async function callProvider(config: AiConfig, providerId: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
   const provider = config.providers[providerId];
-  const model = provider.model.trim() || (providerId === "mistral" ? "mistral-small-latest" : providerId === "openrouter" ? "deepseek/deepseek-chat" : "gemini-2.5-flash-lite");
+  const configuredModel = provider.model.trim();
+  const model = providerId === "mistral" ? (configuredModel || "mistral-small-latest")
+    : providerId === "openrouter" ? (configuredModel || "deepseek/deepseek-chat")
+      : providerId === "gemini" ? (configuredModel || "gemini-2.5-flash-lite")
+        : (isOpenCodeZenFreeModel(configuredModel) ? configuredModel : DEFAULT_OPENCODE_ZEN_MODEL);
   const keys = provider.keys.filter((k) => k.key.trim().length > 0);
   if (keys.length === 0) throw new AiCallError(providerId, "Aucune clé API configurée pour ce fournisseur", false);
 
@@ -107,6 +118,15 @@ async function callProvider(config: AiConfig, providerId: AiProviderId, system: 
           contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
           generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
         });
+      }
+      if (providerId === "opencode") {
+        const responsesProtocol = model === "muse-spark-1.3-contributor-free";
+        const url = `https://opencode.ai/zen/v1/${responsesProtocol ? "responses" : "chat/completions"}`;
+        const headers = { "content-type": "application/json", authorization: `Bearer ${key}` };
+        const body = responsesProtocol
+          ? { model, instructions: system, input: toOpenAiMessages(messages), max_output_tokens: MAX_RESPONSE_TOKENS }
+          : { model, messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)], temperature: 0.2, max_tokens: MAX_RESPONSE_TOKENS };
+        return await callWithKey(providerId, url, headers, body);
       }
       const url = providerId === "mistral"
         ? "https://api.mistral.ai/v1/chat/completions"
@@ -231,12 +251,14 @@ export async function callAiCandidates(config: AiConfig, system: string, message
 
 /**
  * Calls the configured chain: primary provider first, then the others in
- * order (Mistral → OpenRouter → Gemini) when fallback is enabled. Returns
+ * in the administrator's configured priority order when fallback is enabled. Returns
  * the assistant text plus the provider that actually answered (so the UI
  * can surface which free-tier quota is being used).
  */
 export async function callAi(config: AiConfig, system: string, messages: AiChatMessage[]): Promise<{ text: string; provider: AiProviderId }> {
-  const order: AiProviderId[] = [config.primary, ...AI_PROVIDER_ORDER.filter((p) => p !== config.primary)];
+  const configured = Array.isArray(config.priority) ? config.priority : [];
+  const order = [config.primary, ...configured, ...AI_PROVIDER_ORDER]
+    .filter((provider, index, all): provider is AiProviderId => AI_PROVIDER_ORDER.includes(provider) && all.indexOf(provider) === index);
   const chain = config.fallback ? order : [config.primary];
 
   let lastError: AiCallError | null = null;
