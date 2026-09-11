@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.116 — September 2026
+
+### NX Mobile
+
+- Vrai zéro-dépassement : le spacing entre 3e et 4e carte (et 4e/5e plateforme) compte dans l'ajustement — mesuré au pixel via bounds (Horimiya en [1053,1080]).
+
 ## v1.24.115 — September 2026
 
 ### NX Mobile

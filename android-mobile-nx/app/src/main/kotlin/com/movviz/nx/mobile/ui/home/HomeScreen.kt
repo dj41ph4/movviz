@@ -1692,17 +1692,16 @@ internal fun TitleRow(
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading(heading)
         // Ajustement exact au viewport RÉEL (BoxWithConstraints, arithmétique
-        // Dp flottante) : 3 cartes + 2 spacings + paddings = largeur dispo, la
-        // 4e reste hors champ. L'ancien calcul sur screenWidthDp en division
-        // entière arrondissait vers le bas (jusqu'à 2dp de 4e carte visible).
+        // Dp flottante) : la 4e carte doit COMMENCER hors champ. L'arrangement
+        // pose un spacing entre CHAQUE paire (y compris c3→c4) : il faut donc
+        // compter 3 spacings, pas 2 — 16 + 3×(W+10) ≥ maxWidth, soit
+        // W = (maxWidth-43)/3 (mesuré au px sur émulateur : Horimiya en
+        // [1053,1080] avec l'ancien calcul). Le swipe révèle la suite.
         androidx.compose.foundation.layout.BoxWithConstraints(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            // -4.dp de marge de sécurité : les arrondis Dp→px cumulaient
-            // jusqu'à ~6px de 4e carte visible au bord droit (mesuré sur
-            // émulateur). 4dp de fond en fin de rangée sont invisibles.
             val fitWidth = if (narrowRow) {
-                ((maxWidth - 32.dp - 20.dp - 4.dp) / 3).coerceAtLeast(88.dp)
+                ((maxWidth - 43.dp) / 3).coerceAtLeast(88.dp)
             } else {
                 132.dp
             }
@@ -1831,9 +1830,9 @@ private fun SeeAllTile(onClick: () -> Unit, width: androidx.compose.ui.unit.Dp? 
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
     }
     // Même gabarit que les cartes de la rangée en étroit (3 plein cadre,
-    // arithmétique Dp exacte), 154.dp historique en TV/paysage large.
+    // 3 spacings comptés, voir TitleRow), 154.dp historique en TV/paysage.
     val tileWidth = width ?: if (compactPortrait || rememberUnfoldedLandscape()) {
-        ((((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 20) / 3f).dp)).coerceAtLeast(88.dp)
+        ((((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 43) / 3f).dp)).coerceAtLeast(88.dp)
     } else {
         154.dp
     }

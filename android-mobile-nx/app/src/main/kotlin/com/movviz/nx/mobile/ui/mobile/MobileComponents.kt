@@ -251,12 +251,12 @@ fun MovvizPlatformRow(
     onSelect: (com.movviz.nx.mobile.data.LogoTileDto) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 4 icônes plein cadre exactement (esquisse 01) : tuiles ajustées au
-    // viewport (largeur - paddings 16+16 - 3 spacings) / 4, donc plus grosses
-    // que les 60.dp fixes (plus de 5e icône coupée). Le swipe horizontal
-    // reste actif pour les plateformes suivantes.
+    // 4 icônes plein cadre exactement (esquisse 01) : la 5e doit COMMENCER
+    // hors champ — 32 + 4×(W+14) ≥ viewport, soit W = (viewport-84)/4
+    // (même leçon que TitleRow : le spacing c4→c5 compte). Le swipe
+    // horizontal reste actif pour les plateformes suivantes.
     val screenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
-    val tileSize = (((screenWidth - 32 - 42) / 4f).dp).coerceAtLeast(60.dp)
+    val tileSize = (((screenWidth - 84) / 4f).dp).coerceAtLeast(60.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
