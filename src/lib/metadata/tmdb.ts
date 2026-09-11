@@ -505,7 +505,8 @@ async function fetchFilteredRow(
   matches: (r: MetaSearchResult) => boolean,
   target: number,
   originCountries?: string[],
-  rowPage = 1
+  rowPage = 1,
+  extra?: Omit<DiscoverFilters, "genre">
 ): Promise<PagedResults> {
   const results: MetaSearchResult[] = [];
   // "See all" pagination: since filtering shrinks an unpredictable number of
@@ -517,7 +518,7 @@ async function fetchFilteredRow(
   let page = startPage;
   let hitLastPage = false;
   while (results.length < target && page < startPage + 3) {
-    const batch = await discoverByFilters(type, { genre: preFilterGenre, sort: "popularity.desc", originCountries }, page);
+    const batch = await discoverByFilters(type, { genre: preFilterGenre, ...extra, originCountries: extra?.originCountries ?? originCountries }, page);
     for (const r of batch.results) if (matches(r)) results.push(r);
     if (page >= batch.totalPages) { hitLastPage = true; break; }
     page++;
@@ -525,13 +526,13 @@ async function fetchFilteredRow(
   return { results: results.slice(0, target), page: rowPage, totalPages: hitLastPage ? rowPage : rowPage + 1 };
 }
 
-export async function getAnimeRow(type: "movie" | "series", target = 20, originCountries?: string[], rowPage = 1): Promise<PagedResults> {
-  return fetchFilteredRow(type, String(16 /* Animation */), (r) => matchesAnimeByIds(r.genreIds ?? [], r.originalLanguage), target, originCountries, rowPage);
+export async function getAnimeRow(type: "movie" | "series", target = 20, originCountries?: string[], rowPage = 1, extra?: Omit<DiscoverFilters, "genre">): Promise<PagedResults> {
+  return fetchFilteredRow(type, String(16 /* Animation */), (r) => matchesAnimeByIds(r.genreIds ?? [], r.originalLanguage), target, originCountries, rowPage, extra ? { sort: extra.sort ?? "popularity.desc", ...extra } : { sort: "popularity.desc" });
 }
 
-export async function getTeenRow(type: "movie" | "series", target = 20, originCountries?: string[], rowPage = 1): Promise<PagedResults> {
+export async function getTeenRow(type: "movie" | "series", target = 20, originCountries?: string[], rowPage = 1, extra?: Omit<DiscoverFilters, "genre">): Promise<PagedResults> {
   const preFilter = type === "movie" ? "10749" /* Romance */ : "18" /* Drama */;
-  return fetchFilteredRow(type, preFilter, (r) => matchesTeenByIds(type, r.genreIds ?? []), target, originCountries, rowPage);
+  return fetchFilteredRow(type, preFilter, (r) => matchesTeenByIds(type, r.genreIds ?? []), target, originCountries, rowPage, extra ? { sort: extra.sort ?? "popularity.desc", ...extra } : { sort: "popularity.desc" });
 }
 
 export async function getMovie(tmdbId: number): Promise<MetaMovie | null> {

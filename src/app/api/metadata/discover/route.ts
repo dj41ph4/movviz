@@ -15,11 +15,23 @@ export async function GET(req: NextRequest) {
   // Anime/Teen are synthetic genre ids (genreTaxonomy.ts) — no real TMDb
   // with_genres value exists for either, so they route to the same
   // filtered-fetch helpers the home rows use instead of discoverByFilters.
-  if (genre === ANIME_GENRE_ID) {
-    return NextResponse.json(await getAnimeRow(type, PER_PAGE, undefined, page));
-  }
-  if (genre === TEEN_GENRE_ID) {
-    return NextResponse.json(await getTeenRow(type, PER_PAGE, undefined, page));
+  // Aligné sur les autres genres : tous les filtres (sort/year/company/
+  // watchProvider/durée) sont transmis pour que Tendances (popularity),
+  // Top (vote_average) et Nouveautés (date) trient réellement le pool
+  // filtré, pas un hardcodé popularity.desc.
+  if (genre === ANIME_GENRE_ID || genre === TEEN_GENRE_ID) {
+    const extra = {
+      sort: searchParams.get("sort") ?? undefined,
+      year: searchParams.get("year") ?? undefined,
+      company: searchParams.get("company") ?? undefined,
+      watchProvider: searchParams.get("watchProvider") ?? undefined,
+      maxRuntime: searchParams.get("maxRuntime") ? Number(searchParams.get("maxRuntime")) || undefined : undefined,
+      minRuntime: searchParams.get("minRuntime") ? Number(searchParams.get("minRuntime")) || undefined : undefined,
+    };
+    if (genre === ANIME_GENRE_ID) {
+      return NextResponse.json(await getAnimeRow(type, PER_PAGE, undefined, page, extra));
+    }
+    return NextResponse.json(await getTeenRow(type, PER_PAGE, undefined, page, extra));
   }
 
   const paged = await discoverByFilters(

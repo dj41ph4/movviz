@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.128 — September 2026
+
+### Découverte
+
+- **Tendance / Top / Nouveautés alignés pour les genres synthétiques** : `Animes` et `Romance ado` (Teen) respectent désormais le tri choisi — `Tendances` (`popularity.desc`), `Top` (`vote_average.desc` + `vote_count.gte 200`) et `Nouveautés` (`primary_release_date.desc`/`first_air_date.desc` + cap à aujourd'hui) — et l'année, au lieu d'un `popularity.desc` hardcodé. Les autres filtres (plateforme, studio, durée) sont aussi transmis.
+
 ## v1.24.127 — September 2026
 
 ### Android mobile NX
