@@ -1351,11 +1351,11 @@ export const it: Dictionary = {
     tabPerformance: "Prestazioni",
     tabLogs: "Registri",
     interfaceData: {
-      title: "Modalità di caricamento dell’interfaccia",
-      hint: "Scegli come Movviz trasferisce i dati dell’interfaccia. Questa impostazione non modifica la riproduzione video, FFmpeg o Plex.",
-      global: "Preferenza amministratore globale — applicata a tutti gli utenti.",
+      title: "Caricamento ottimizzato dell’interfaccia",
+      hint: "Movviz trasferisce i dati dell’interfaccia in modalità ottimizzata. Questa impostazione non modifica la riproduzione video, FFmpeg o Plex.",
+      global: "La modalità ottimizzata è attiva per tutti gli utenti.",
       optimized: {
-        title: "Ottimizzata (consigliata)",
+        title: "Ottimizzata",
         description: "Carica solo i dati utili, conserva i risultati in modo intelligente e aggiorna solo ciò che cambia. Ideale da remoto.",
       },
       compatibility: {

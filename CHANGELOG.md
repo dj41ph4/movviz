@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.139 — September 2026
+
+### Interface
+
+- Le chargement optimisé est désormais le seul comportement de l’interface, actif par défaut même pour les anciennes configurations. Le choix Compatibilité a disparu des Réglages.
+
 ## v1.24.138 — September 2026
 
 ### Fiabilité de Découverte

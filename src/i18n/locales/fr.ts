@@ -1349,11 +1349,11 @@ export const fr = {
     tabPerformance: "Vitesse et capacité du serveur",
     tabLogs: "Journaux techniques",
     interfaceData: {
-      title: "Mode de chargement de l’interface",
-      hint: "Choisis comment Movviz transmet les données de l’interface. Ce réglage ne modifie ni la lecture vidéo, ni FFmpeg, ni Plex.",
-      global: "Préférence administrateur globale — appliquée à tous les utilisateurs.",
+      title: "Chargement optimisé de l’interface",
+      hint: "Movviz transmet les données de l’interface en mode optimisé. Ce réglage ne modifie ni la lecture vidéo, ni FFmpeg, ni Plex.",
+      global: "Mode optimisé actif pour tous les utilisateurs.",
       optimized: {
-        title: "Optimisé (recommandé)",
+        title: "Optimisé",
         description: "Charge uniquement les données utiles, conserve intelligemment les résultats et actualise seulement ce qui change. Idéal pour une connexion distante.",
       },
       compatibility: {

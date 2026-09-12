@@ -1369,11 +1369,11 @@ export const de: Dictionary = {
     tabPerformance: "Leistung",
     tabLogs: "Protokolle",
     interfaceData: {
-      title: "Lademodus der Benutzeroberfläche",
-      hint: "Legt fest, wie Movviz Oberflächendaten überträgt. Videowiedergabe, FFmpeg und Plex werden dadurch nicht verändert.",
-      global: "Globale Administratoreinstellung — gilt für alle Benutzer.",
+      title: "Optimiertes Laden der Benutzeroberfläche",
+      hint: "Movviz überträgt Oberflächendaten im optimierten Modus. Videowiedergabe, FFmpeg und Plex werden dadurch nicht verändert.",
+      global: "Der optimierte Modus ist für alle Benutzer aktiv.",
       optimized: {
-        title: "Optimiert (empfohlen)",
+        title: "Optimiert",
         description: "Lädt nur benötigte Daten, speichert Ergebnisse intelligent und aktualisiert nur Änderungen. Ideal für entfernte Verbindungen.",
       },
       compatibility: {

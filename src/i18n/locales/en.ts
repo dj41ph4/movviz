@@ -1352,11 +1352,11 @@ export const en: Dictionary = {
     tabPerformance: "Performance",
     tabLogs: "Logs",
     interfaceData: {
-      title: "Interface loading mode",
-      hint: "Choose how Movviz transfers interface data. This setting does not change video playback, FFmpeg, or Plex.",
-      global: "Global administrator preference — applies to every user.",
+      title: "Optimized interface loading",
+      hint: "Movviz transfers interface data in optimized mode. This does not change video playback, FFmpeg, or Plex.",
+      global: "Optimized mode is active for every user.",
       optimized: {
-        title: "Optimized (recommended)",
+        title: "Optimized",
         description: "Loads only useful data, keeps results intelligently, and refreshes only what changed. Best for remote connections.",
       },
       compatibility: {
