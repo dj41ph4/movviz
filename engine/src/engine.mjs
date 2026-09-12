@@ -10,6 +10,7 @@ import {
   TORRENT_CACHE_DIR,
   WEB_CALLBACK_URL,
   ENGINE_TOKEN,
+  TORRENT_PORT_OVERRIDES,
   resolveClientType,
 } from "./config.mjs";
 import { loadState, scheduleSave, writeState, ensureDir } from "./store.mjs";
@@ -34,7 +35,16 @@ export class MovvizEngine {
 
   configs() {
     const saved = this.state.instances ?? {};
-    return DEFAULT_INSTANCES.map((d) => ({ ...d, ...(saved[d.id] ?? {}) }));
+    return DEFAULT_INSTANCES.map((d) => {
+      const configuredPort = TORRENT_PORT_OVERRIDES[d.id];
+      return {
+        ...d,
+        ...(saved[d.id] ?? {}),
+        // An environment override is intentional deployment configuration,
+        // so it must take priority over the port persisted by an older run.
+        ...(configuredPort === null ? {} : { torrentPort: configuredPort }),
+      };
+    });
   }
 
   async start() {

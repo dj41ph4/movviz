@@ -137,10 +137,30 @@ export function resolveClientType(state) {
  * nothing can ever be port-forwarded on the router/NAS firewall — downloads
  * then only ever get outbound connections, which is dramatically slower and
  * looks like random stalls/timeouts on anything that isn't heavily seeded.
- * Each instance gets its own fixed port (offset by index) since they're
- * separate WebTorrent clients in the same process and can't share one.
+ * Each instance gets its own fixed port since they're separate WebTorrent
+ * clients in the same process and can't share one. The legacy base variable
+ * keeps its movies + 1 behavior; Docker may set the series port explicitly
+ * so its host mappings and the listener always agree.
  */
-export const TORRENT_PORT_BASE = num(process.env.MOVVIZ_TORRENT_PORT, 51413);
+const validPort = (value) => {
+  const port = Number(value);
+  return Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : null;
+};
+
+// The movies port needs room for the default series port immediately after it.
+const configuredMoviesPort = validPort(process.env.MOVVIZ_TORRENT_PORT);
+const configuredSeriesPort = validPort(process.env.MOVVIZ_TORRENT_PORT_SERIES);
+export const TORRENT_PORT_BASE = configuredMoviesPort !== null && configuredMoviesPort < 65535
+  ? configuredMoviesPort
+  : 55000;
+export const TORRENT_PORT_SERIES = configuredSeriesPort ?? TORRENT_PORT_BASE + 1;
+
+/** Explicit environment ports override persisted engine-state values. This is
+ * essential after a NAS admin changes Docker mappings to avoid a collision. */
+export const TORRENT_PORT_OVERRIDES = {
+  movies: configuredMoviesPort !== null && configuredMoviesPort < 65535 ? configuredMoviesPort : null,
+  series: configuredSeriesPort ?? (configuredMoviesPort !== null && configuredMoviesPort < 65535 ? configuredMoviesPort + 1 : null),
+};
 
 /** Where the web app lives, so the engine can report import completion. */
 export const WEB_CALLBACK_URL =
@@ -189,6 +209,6 @@ export const DEFAULT_INSTANCES = [
     pex: true,
     maxPeers: 55,
     uploadSlots: 0,
-    torrentPort: TORRENT_PORT_BASE + 1,
+    torrentPort: TORRENT_PORT_SERIES,
   },
 ];

@@ -12,16 +12,21 @@ services:
       - "9820:9820" # BitTorrent download engine
       - "9830:9830" # Cloudflare resolver
       # BitTorrent peer ports — one per download instance (movies, series).
+      # Change the two variables together in a .env file to avoid a conflict
+      # with another client, e.g. 55000 and 55001.
       # These must ALSO be forwarded on your router/NAS firewall to the host,
       # or every download only ever gets outbound peer connections, which is
       # much slower and prone to stalls/timeouts on less-seeded releases.
-      - "51413-51414:51413-51414/tcp"
-      - "51413-51414:51413-51414/udp"
+      - "${MOVVIZ_TORRENT_PORT:-55000}:${MOVVIZ_TORRENT_PORT:-55000}/tcp"
+      - "${MOVVIZ_TORRENT_PORT:-55000}:${MOVVIZ_TORRENT_PORT:-55000}/udp"
+      - "${MOVVIZ_TORRENT_PORT_SERIES:-55001}:${MOVVIZ_TORRENT_PORT_SERIES:-55001}/tcp"
+      - "${MOVVIZ_TORRENT_PORT_SERIES:-55001}:${MOVVIZ_TORRENT_PORT_SERIES:-55001}/udp"
     environment:
       MOVVIZ_WEB_PORT: "9810"
       MOVVIZ_ENGINE_PORT: "9820"
       MOVVIZ_RESOLVER_PORT: "9830"
-      MOVVIZ_TORRENT_PORT: "51413"
+      MOVVIZ_TORRENT_PORT: "${MOVVIZ_TORRENT_PORT:-55000}"
+      MOVVIZ_TORRENT_PORT_SERIES: "${MOVVIZ_TORRENT_PORT_SERIES:-55001}"
       # Match these to the host user that owns your NAS shares (id / gid).
       PUID: "1000"
       PGID: "1000"

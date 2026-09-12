@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.132 — September 2026
+
+### Docker
+
+- Les ports BitTorrent des films et séries utilisent désormais `55000` et `55001` par défaut, et sont configurables indépendamment par variables Docker. Ces variables remplacent aussi les ports précédemment enregistrés par le moteur, évitant tout conflit persistant avec un autre client torrent. UPnP ouvre et retire automatiquement les mappings TCP et UDP correspondants lorsque le routeur le permet.
+
 ## v1.24.131 — September 2026
 
 ### Docker

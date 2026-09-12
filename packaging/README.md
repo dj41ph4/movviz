@@ -83,6 +83,24 @@ partage média du NAS. Les données applicatives persistent dans le volume
 | Interface + API | `9810` | `MOVVIZ_WEB_PORT` |
 | Moteur (téléchargement) | `9820` | `MOVVIZ_ENGINE_PORT` |
 | Résolveur Cloudflare | `9830` | `MOVVIZ_RESOLVER_PORT` |
+| Pairs BitTorrent — films | `55000` | `MOVVIZ_TORRENT_PORT` |
+| Pairs BitTorrent — séries | `55001` | `MOVVIZ_TORRENT_PORT_SERIES` |
+
+### Éviter un conflit de ports BitTorrent
+
+Choisissez deux ports libres différents pour Movviz, puis créez un fichier
+`.env` à côté de `docker-compose.yml` :
+
+```dotenv
+MOVVIZ_TORRENT_PORT=55000
+MOVVIZ_TORRENT_PORT_SERIES=55001
+```
+
+Docker publie ces mêmes ports pour le moteur, même si les anciennes valeurs
+sont déjà enregistrées dans l'état de Movviz. Redémarrez ensuite la stack et
+redirigez les deux ports TCP et UDP dans le routeur ou pare-feu du NAS. Si le
+routeur prend en charge UPnP, Movviz demande aussi automatiquement ces quatre
+mappings au démarrage et les retire à l'arrêt.
 
 ## Stockage — où vont les fichiers
 

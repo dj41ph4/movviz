@@ -74,10 +74,10 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["docker-entrypoint.sh"]
 
 # 9810 = web UI, 9820 = download engine, 9830 = Cloudflare resolver.
-# 51413-51414 = BitTorrent peer ports (movies/series instances) —
+# 55000-55001 = default BitTorrent peer ports (movies/series instances) —
 # forward these on your router/NAS firewall too, or downloads stay stuck on
 # outbound-only connections and end up much slower.
-EXPOSE 9810 9820 9830 51413-51414/tcp 51413-51414/udp
+EXPOSE 9810 9820 9830 55000-55001/tcp 55000-55001/udp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- http://127.0.0.1:9810/api/healthz || exit 1
 
