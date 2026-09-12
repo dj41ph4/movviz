@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.24.136 — September 2026
+
+### Découverte et suggestions
+
+- Un clic sur « Mauvaise recommandation » retire immédiatement le titre de toutes les rangées concernées, décale les cartes restantes puis charge un remplaçant. Le rejet reste durable après actualisation ou redémarrage.
+- Gestion → Exclusions affiche toutes les recommandations rejetées et permet de les réautoriser individuellement.
+
+## v1.24.135 — September 2026
+
+### Découverte
+
+- La rangée Anime reste mondiale, même lorsqu'un filtre de continent est sélectionné. Les films et séries animés japonais ne disparaissent donc pas de Découvrir.
+
 ## v1.24.134 — September 2026
 
 ### Découverte

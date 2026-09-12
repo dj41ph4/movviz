@@ -15,6 +15,7 @@ import {
   Trash2,
   ClipboardList,
   Ban,
+  CircleOff,
   type LucideIcon,
 } from "lucide-react";
 
@@ -54,5 +55,6 @@ export const GESTION_NAV: NavItem[] = [
   { href: "/trash", labelKey: "nav.trash", hintKey: "nav.trashHint", icon: Trash2 },
   { href: "/issues", labelKey: "nav.issues", hintKey: "nav.issuesHint", icon: AlertTriangle },
   { href: "/blocked-torrents", labelKey: "nav.blockedTorrents", hintKey: "nav.blockedTorrentsHint", icon: Ban, adminOnly: true },
+  { href: "/exclusions", labelKey: "nav.exclusions", hintKey: "nav.exclusionsHint", icon: CircleOff },
   { href: "/users", labelKey: "nav.users", hintKey: "nav.usersHint", icon: Users, adminOnly: true, liveBadge: "pendingUsers" },
 ];

@@ -48,6 +48,8 @@ export const it: Dictionary = {
     management: "Gestione",
     blockedTorrents: "Torrent bloccati",
     blockedTorrentsHint: "Release vietate al download",
+    exclusions: "Esclusioni",
+    exclusionsHint: "Consigli che hai rifiutato",
   },
 
   blockedTorrents: {
@@ -61,6 +63,15 @@ export const it: Dictionary = {
     confirmUnblock: "Sbloccare questa release? Potrà essere selezionata di nuovo.",
     unknownIndexer: "Indexer sconosciuto",
     blockedBy: "Bloccato da {user} · {date}",
+  },
+
+  exclusions: {
+    title: "Esclusioni dai consigli",
+    description: "I titoli rifiutati non compaiono più nei tuoi consigli. Puoi ripristinarli in qualsiasi momento.",
+    empty: "Nessun consiglio escluso",
+    emptyHint: "Usa « Consiglio non adatto » su un suggerimento per nasconderlo in modo permanente.",
+    restore: "Ripristina",
+    excludedAt: "Escluso il {date}",
   },
 
   downloads: {

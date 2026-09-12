@@ -86,7 +86,9 @@ export async function GET(req: NextRequest) {
       }
       case "renewed": return browseCategory("series", "on_the_air", page, originCountries);
       case "acclaimed": return discoverByFilters(type, { sort: "vote_average.desc", originCountries }, page);
-      case "anime": return getAnimeRow(type, PER_PAGE, originCountries, page);
+      // Keep pagination consistent with the home Anime row: it is global and
+      // intentionally not constrained by the continent preference.
+      case "anime": return getAnimeRow(type, PER_PAGE, undefined, page);
       case "teen": return getTeenRow(type, PER_PAGE, originCountries, page);
       case "shortFormat": return type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, page) : null;
       case "genreAction":

@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { recordFeedback, removeFeedback } from "@/lib/ai/tasteProfile";
+import { getFeedback, recordFeedback, removeFeedback } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
 
 export const dynamic = "force-dynamic";
+
+/** Lists the current user's rejected recommendations so they can review and
+ * restore them. Deliberately exposes only dislikes: likes remain part of the
+ * taste profile and are not exclusions. */
+export async function GET(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const exclusions = getFeedback(user.id)
+    .filter((entry) => !entry.liked)
+    .sort((a, b) => b.at - a.at);
+  return NextResponse.json({ exclusions });
+}
 
 /** Records a 👍/👎 on a recommendation card — the raw signal the taste
  *  engine builds on (AI.MD §2.G). Strictly scoped to the requesting user;

@@ -88,7 +88,9 @@ async function buildEditorialExtras(
 ): Promise<{ key: string; results: MetaSearchResult[] }[]> {
   const [acclaimed, animeRow, teenRow, shortFormat, ...genreResults] = await Promise.all([
     discoverByFilters(type, { sort: "vote_average.desc", originCountries }, 1),
-    getAnimeRow(type, 20, originCountries),
+    // Anime remains a global discovery row: filtering by production-country
+    // would hide Japanese titles when a user selects another continent.
+    getAnimeRow(type, 20),
     getTeenRow(type, 20, originCountries),
     type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, 1) : Promise.resolve({ results: [], page: 1, totalPages: 1 }),
     ...GENRE_ROWS.map((g) => {

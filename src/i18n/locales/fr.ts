@@ -46,6 +46,8 @@ export const fr = {
     management: "Gestion",
     blockedTorrents: "Torrents bloqués",
     blockedTorrentsHint: "Releases interdites au téléchargement",
+    exclusions: "Exclusions",
+    exclusionsHint: "Recommandations que tu as rejetées",
   },
 
   blockedTorrents: {
@@ -59,6 +61,15 @@ export const fr = {
     confirmUnblock: "Débloquer cette release ? Elle pourra à nouveau être sélectionnée.",
     unknownIndexer: "Indexeur inconnu",
     blockedBy: "Bloqué par {user} · {date}",
+  },
+
+  exclusions: {
+    title: "Exclusions de recommandations",
+    description: "Les titres rejetés ne sont plus proposés dans tes suggestions. Tu peux les réautoriser à tout moment.",
+    empty: "Aucune recommandation exclue",
+    emptyHint: "Utilise « Mauvaise recommandation » sur une suggestion pour la masquer durablement.",
+    restore: "Réautoriser",
+    excludedAt: "Exclue le {date}",
   },
 
   downloads: {

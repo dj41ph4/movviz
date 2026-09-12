@@ -48,6 +48,8 @@ export const nl: Dictionary = {
     management: "Beheer",
     blockedTorrents: "Geblokkeerde torrents",
     blockedTorrentsHint: "Releases die niet gedownload mogen worden",
+    exclusions: "Uitsluitingen",
+    exclusionsHint: "Aanbevelingen die je hebt afgewezen",
   },
 
   blockedTorrents: {
@@ -61,6 +63,15 @@ export const nl: Dictionary = {
     confirmUnblock: "Deze release deblokkeren? Hij kan weer geselecteerd worden.",
     unknownIndexer: "Onbekende indexer",
     blockedBy: "Geblokkeerd door {user} · {date}",
+  },
+
+  exclusions: {
+    title: "Uitgesloten aanbevelingen",
+    description: "Afgewezen titels verschijnen niet meer in je aanbevelingen. Je kunt ze op elk moment herstellen.",
+    empty: "Geen uitgesloten aanbevelingen",
+    emptyHint: "Gebruik ‘Slechte aanbeveling’ bij een suggestie om die blijvend te verbergen.",
+    restore: "Herstellen",
+    excludedAt: "Uitgesloten op {date}",
   },
 
   downloads: {

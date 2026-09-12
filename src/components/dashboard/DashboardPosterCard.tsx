@@ -329,13 +329,38 @@ export function DashboardPosterCard({
       });
       if (!response.ok) throw new Error("feedback_failed");
       setDismissed(true);
+      const recommendationKey = `/api/metadata/recommendations?type=${type}`;
+      // Remove the title from SWR's shared cache before asking the server for
+      // a replacement. This prevents an old in-flight response from briefly
+      // mounting the same card again after the user has rejected it.
+      await mutate<{ results: { tmdbId: number }[] }>(
+        recommendationKey,
+        (current) => current
+          ? { ...current, results: current.results.filter((item) => item.tmdbId !== tmdbId) }
+          : current,
+        { revalidate: false }
+      );
+      const rowsKey = `/api/metadata/rows?type=${type}`;
+      await mutate<{ rows: { results: { tmdbId: number }[] }[] }>(
+        rowsKey,
+        (current) => current
+          ? {
+              ...current,
+              rows: current.rows
+                .map((row) => ({ ...row, results: row.results.filter((item) => item.tmdbId !== tmdbId) }))
+                .filter((row) => row.results.length > 0),
+            }
+          : current,
+        { revalidate: false }
+      );
       // Recalcule la rangée "Suggestions pour vous" côté serveur (l'engine
       // exclut désormais ce tmdbId, voir recommender/engine.ts) plutôt que
       // de laisser un simple trou : un autre titre glisse dynamiquement à sa
       // place, comme si le retrait avait toujours été prévu. Sans revalidation,
       // le titre disparaissait juste de CETTE carte (state local `dismissed`)
       // et ne revenait jamais remplacé tant que le cache SWR n'expirait pas.
-      mutate(`/api/metadata/recommendations?type=${type}`);
+      await mutate(recommendationKey);
+      await mutate(rowsKey);
     } catch {
       toast("error", t("title.ratingError"));
     } finally {
