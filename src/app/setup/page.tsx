@@ -7,6 +7,7 @@ import { mutate } from "swr";
 import { useT, useI18n } from "@/i18n/provider";
 import { LOCALES, LOCALE_META } from "@/i18n/config";
 import { FlagIcon } from "@/components/ui/FlagIcon";
+import { Toggle } from "@/components/ui/Toggle";
 import { cn } from "@/lib/utils";
 import { IndexerManager } from "@/components/settings/IndexerManager";
 import { DownloadClients } from "@/components/settings/DownloadClients";
@@ -193,6 +194,7 @@ function SetupWizardPageInner() {
           )}
           {step === "indexers" && (
             <StepShell title={t("setup.indexersTitle")} hint={t("setup.indexersHint")}>
+              <AutoSearchMissingSetupOption />
               <IndexerManager />
             </StepShell>
           )}
@@ -258,6 +260,54 @@ function StepShell({ title, hint, children }: { title: string; hint: string; chi
       <h2 className="mb-1 text-lg font-black text-ink">{title}</h2>
       <p className="mb-5 text-sm text-ink-dim">{hint}</p>
       {children}
+    </div>
+  );
+}
+
+/** Première installation : ce choix est appliqué avant la fin du wizard,
+ * donc avant que les tâches planifiées puissent rechercher des manquants. */
+function AutoSearchMissingSetupOption() {
+  const t = useT();
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/automation", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (typeof data?.autoSearchMissingEnabled === "boolean") setEnabled(data.autoSearchMissingEnabled);
+      });
+  }, []);
+
+  const toggle = async () => {
+    if (enabled === null || saving) return;
+    const previous = enabled;
+    const next = !previous;
+    setEnabled(next);
+    setSaving(true);
+    try {
+      const response = await fetch("/api/settings/automation", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ autoSearchMissingEnabled: next }),
+      });
+      if (!response.ok) setEnabled(previous);
+    } catch {
+      setEnabled(previous);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 rounded-2xl glass p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-ink">{t("setup.autoSearchMissingTitle")}</h3>
+          <p className="mt-0.5 max-w-xl text-xs text-ink-dim">{t("setup.autoSearchMissingHint")}</p>
+        </div>
+        <Toggle on={enabled === true} disabled={enabled === null || saving} onChange={toggle} />
+      </div>
     </div>
   );
 }

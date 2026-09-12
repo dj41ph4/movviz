@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.130 — September 2026
+
+### Installation
+
+- L'assistant de première installation propose désormais, avant la configuration des indexeurs, de désactiver la recherche et le téléchargement automatiques des contenus suivis mais manquants.
+
 ## v1.24.129 — September 2026
 
 ### Android mobile NX

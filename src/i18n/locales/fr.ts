@@ -381,6 +381,8 @@ export const fr = {
     indexersHint: "Ajoute au moins un indexeur pour que Movviz puisse chercher des releases automatiquement.",
     downloadsTitle: "Téléchargement",
     downloadsHint: "Vérifie les dossiers de téléchargement et de destination pour tes films et séries.",
+    autoSearchMissingTitle: "Recherche automatique des manquants",
+    autoSearchMissingHint: "Activée par défaut : Movviz recherchera et téléchargera automatiquement les films et épisodes suivis qui manquent. Désactive-la pour ne lancer ces recherches que manuellement.",
     plexTitle: "Connecter Plex",
     plexHint: "Optionnel — synchronise ta bibliothèque Plex et connecte les comptes de ta famille.",
     doneTitle: "Tout est prêt !",

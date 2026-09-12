@@ -383,6 +383,8 @@ export const nl: Dictionary = {
     indexersHint: "Voeg minstens één indexer toe zodat Movviz automatisch naar releases kan zoeken.",
     downloadsTitle: "Downloads",
     downloadsHint: "Controleer de download- en bestemmingsmappen voor je films en series.",
+    autoSearchMissingTitle: "Automatisch zoeken naar ontbrekende inhoud",
+    autoSearchMissingHint: "Standaard ingeschakeld: Movviz zoekt automatisch naar ontbrekende gevolgde films en afleveringen en downloadt ze. Schakel dit uit om deze zoekopdrachten alleen handmatig uit te voeren.",
     plexTitle: "Plex koppelen",
     plexHint: "Optioneel — synchroniseer je Plex-bibliotheek en koppel de accounts van je gezin.",
     doneTitle: "Helemaal klaar!",

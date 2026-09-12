@@ -383,6 +383,8 @@ export const it: Dictionary = {
     indexersHint: "Aggiungi almeno un indexer perché Movviz possa cercare automaticamente le release.",
     downloadsTitle: "Download",
     downloadsHint: "Controlla le cartelle di download e di destinazione per i tuoi film e serie.",
+    autoSearchMissingTitle: "Ricerca automatica dei contenuti mancanti",
+    autoSearchMissingHint: "Attiva per impostazione predefinita: Movviz cercherà e scaricherà automaticamente film ed episodi monitorati mancanti. Disattivala per eseguire queste ricerche solo manualmente.",
     plexTitle: "Collega Plex",
     plexHint: "Facoltativo — sincronizza la tua libreria Plex e collega gli account della tua famiglia.",
     doneTitle: "Tutto pronto!",
