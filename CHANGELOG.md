@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.137 — September 2026
+
+### Interface desktop
+
+- Les tuiles et boutons secondaires reprennent les contours électriques de la charte NX mobile : silhouette violet/cyan plus lisible, halo discret et focus renforcé, sans modifier la structure des pages.
+
 ## v1.24.136 — September 2026
 
 ### Découverte et suggestions

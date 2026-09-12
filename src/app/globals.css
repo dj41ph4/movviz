@@ -509,14 +509,64 @@ body {
   background: color-mix(in oklab, var(--color-surface) 62%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid color-mix(in oklab, #fff 8%, transparent);
+  /* Charte NX : les surfaces ne se fondent jamais dans le fond. Le contour
+     électrique reste discret au repos, mais donne aux tuiles et boutons
+     secondaires une silhouette nette, comme sur l'application mobile. */
+  border: 1px solid color-mix(in oklab, var(--color-brand-glow) 28%, #fff 10%);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 10%, transparent),
+    0 10px 28px -24px color-mix(in oklab, var(--color-cyan) 70%, transparent);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
 .glass-strong {
   background: color-mix(in oklab, var(--color-surface-2) 80%, transparent);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
-  border: 1px solid color-mix(in oklab, #fff 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-brand-glow) 38%, #fff 13%);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 13%, transparent),
+    0 12px 30px -24px color-mix(in oklab, var(--color-brand-2) 75%, transparent);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.glass:hover,
+.glass:focus-within {
+  border-color: color-mix(in oklab, var(--color-cyan) 34%, var(--color-brand-2) 38%);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 16%, transparent),
+    0 12px 32px -22px color-mix(in oklab, var(--color-brand) 68%, transparent);
+}
+
+.glass-strong:hover,
+.glass-strong:focus-within {
+  border-color: color-mix(in oklab, var(--color-cyan) 38%, var(--color-brand-2) 46%);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, #fff 18%, transparent),
+    0 14px 34px -22px color-mix(in oklab, var(--color-brand-2) 76%, transparent);
+}
+
+/* The electric treatment is for the dark NX environment. In light mode,
+   contrast and text legibility take precedence over the glow: retain a
+   crisp, neutral edge and only tint it when an interactive surface is
+   hovered or contains keyboard focus. These declarations deliberately come
+   after the shared utilities so they cannot be overridden by them. */
+:root[data-theme="light"] .glass {
+  border-color: color-mix(in oklab, #1e1b4b 14%, transparent);
+  box-shadow: 0 1px 2px rgba(30, 27, 75, 0.05), 0 4px 12px rgba(30, 27, 75, 0.04);
+}
+
+:root[data-theme="light"] .glass-strong {
+  border-color: color-mix(in oklab, #1e1b4b 17%, transparent);
+  box-shadow: 0 1px 3px rgba(30, 27, 75, 0.06), 0 8px 24px rgba(30, 27, 75, 0.06);
+}
+
+:root[data-theme="light"] .glass:hover,
+:root[data-theme="light"] .glass:focus-within {
+  border-color: color-mix(in oklab, var(--color-brand) 48%, #1e1b4b 18%);
+  box-shadow: 0 2px 8px rgba(91, 33, 182, 0.12), 0 8px 20px rgba(91, 33, 182, 0.08);
+}
+
+:root[data-theme="light"] .glass-strong:hover,
+:root[data-theme="light"] .glass-strong:focus-within {
+  border-color: color-mix(in oklab, var(--color-brand) 56%, #1e1b4b 20%);
+  box-shadow: 0 3px 10px rgba(91, 33, 182, 0.14), 0 10px 24px rgba(91, 33, 182, 0.09);
 }
 
 .text-gradient {
