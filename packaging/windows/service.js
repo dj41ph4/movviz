@@ -28,6 +28,8 @@ try {
 
 const WEB_PORT = process.env.MOVVIZ_WEB_PORT || "9810";
 const ENGINE_PORT = process.env.MOVVIZ_ENGINE_PORT || "9820";
+const TORRENT_PORT = process.env.MOVVIZ_TORRENT_PORT || "55000";
+const TORRENT_PORT_SERIES = process.env.MOVVIZ_TORRENT_PORT_SERIES || "55001";
 
 const svc = new Service({
   name: "Movviz",
@@ -41,6 +43,8 @@ const svc = new Service({
     { name: "NODE_ENV", value: "production" },
     { name: "MOVVIZ_WEB_PORT", value: WEB_PORT },
     { name: "MOVVIZ_ENGINE_PORT", value: ENGINE_PORT },
+    { name: "MOVVIZ_TORRENT_PORT", value: TORRENT_PORT },
+    { name: "MOVVIZ_TORRENT_PORT_SERIES", value: TORRENT_PORT_SERIES },
     { name: "PORT", value: WEB_PORT },
     { name: "HOSTNAME", value: "0.0.0.0" },
     // App config & state; media root (torrents + library). Change the media

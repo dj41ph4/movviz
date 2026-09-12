@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.133 — September 2026
+
+### Installation
+
+- Windows et Linux utilisent aussi les ports BitTorrent configurables `55000`/`55001` par défaut. Les deux variables sont transmises au service Windows, et une surcharge systemd persistante est documentée pour Linux.
+
 ## v1.24.132 — September 2026
 
 ### Docker

@@ -29,6 +29,8 @@ http://ADRESSE_IP_DU_SERVEUR:9810
 | Service | `movviz.service` |
 | Interface et API | port TCP `9810` |
 | Moteur local | port TCP `9820` |
+| Pairs BitTorrent — films | ports TCP/UDP `55000` |
+| Pairs BitTorrent — séries | ports TCP/UDP `55001` |
 | Compte système | `movviz:movviz` |
 
 Vous ne devez créer **aucun utilisateur Linux manuellement**. L'installateur
@@ -43,7 +45,7 @@ l'interface web. Ils sont indépendants du compte système Linux.
 - Linux x64 avec `systemd` ;
 - Node.js 22 ou plus récent dans `/usr/bin/node` ;
 - accès administrateur via `sudo` ;
-- ports `9810` et `9820` libres.
+- ports `9810`, `9820`, `55000` et `55001` libres.
 
 Vérification rapide :
 
@@ -83,6 +85,34 @@ sudo firewall-cmd --reload
 
 Le port `9820` est réservé au moteur local et ne doit normalement pas être
 exposé sur Internet.
+
+### Changer les ports BitTorrent
+
+Les ports `55000` (films) et `55001` (séries) sont utilisés par défaut. Pour
+éviter un conflit avec un autre client, créez un override systemd qui persiste
+aux mises à jour :
+
+```bash
+sudo systemctl edit movviz
+```
+
+Ajoutez ensuite :
+
+```ini
+[Service]
+Environment=MOVVIZ_TORRENT_PORT=56000
+Environment=MOVVIZ_TORRENT_PORT_SERIES=56001
+```
+
+Puis appliquez le changement :
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart movviz
+```
+
+UPnP demande automatiquement les mappings TCP et UDP de ces deux ports si le
+routeur le prend en charge ; sinon, redirigez-les manuellement dans le routeur.
 
 ## Utiliser un disque ou un NAS
 

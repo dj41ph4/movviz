@@ -12,6 +12,8 @@ WorkingDirectory=/opt/movviz/.next/standalone
 Environment=NODE_ENV=production
 Environment=MOVVIZ_WEB_PORT=9810
 Environment=MOVVIZ_ENGINE_PORT=9820
+Environment=MOVVIZ_TORRENT_PORT=55000
+Environment=MOVVIZ_TORRENT_PORT_SERIES=55001
 Environment=PORT=9810
 Environment=HOSTNAME=0.0.0.0
 # App config & state.

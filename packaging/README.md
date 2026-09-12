@@ -102,6 +102,9 @@ redirigez les deux ports TCP et UDP dans le routeur ou pare-feu du NAS. Si le
 routeur prend en charge UPnP, Movviz demande aussi automatiquement ces quatre
 mappings au démarrage et les retire à l'arrêt.
 
+Sous Windows, passez ces deux variables avant `npm run service:install` ; sous
+Linux, utilisez l'override systemd documenté dans `linux/README-LINUX.md`.
+
 ## Stockage — où vont les fichiers
 
 Movviz sépare deux racines, résolues **automatiquement selon la plateforme** et
