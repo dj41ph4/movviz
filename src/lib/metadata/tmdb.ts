@@ -82,6 +82,32 @@ export function tmdbImageUrl(path: string | null, size: "w342" | "w500" | "origi
 const gRefresh = globalThis as typeof globalThis & { __movvizTmdbRefreshing?: Set<string> };
 const refreshing: Set<string> = (gRefresh.__movvizTmdbRefreshing ??= new Set());
 
+// All routes are bundled independently by Next.js, so per-call-site
+// `mapWithConcurrency(..., 5)` limits do not add up to a safe global limit:
+// dashboard movie rows, series rows and provider rows could collectively
+// open hundreds of TMDb sockets. Keep one process-wide queue instead.
+const TMDB_MAX_CONCURRENT_REQUESTS = 6;
+type TmdbQueueState = { active: number; waiters: Array<() => void> };
+const gTmdbQueue = globalThis as typeof globalThis & {
+  __movvizTmdbQueue?: TmdbQueueState;
+  __movvizTmdbInFlight?: Map<string, Promise<unknown>>;
+};
+const tmdbQueue: TmdbQueueState = (gTmdbQueue.__movvizTmdbQueue ??= { active: 0, waiters: [] });
+const tmdbInFlight: Map<string, Promise<unknown>> = (gTmdbQueue.__movvizTmdbInFlight ??= new Map());
+
+async function withTmdbRequestSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (tmdbQueue.active >= TMDB_MAX_CONCURRENT_REQUESTS) {
+    await new Promise<void>((resolve) => tmdbQueue.waiters.push(resolve));
+  }
+  tmdbQueue.active++;
+  try {
+    return await fn();
+  } finally {
+    tmdbQueue.active--;
+    tmdbQueue.waiters.shift()?.();
+  }
+}
+
 const TMDb_FETCH_MAX_ATTEMPTS = 3;
 const TMDb_FETCH_RETRY_DELAYS_MS = [300, 800];
 // Confirmed live (2026-08-24): this fetch had NO timeout at all — a TMDb
@@ -98,7 +124,7 @@ async function fetchAndCache<T>(url: string): Promise<T | null> {
   const logUrl = url.replace(/\?api_key=[^&]+/, "?api_key=***");
   for (let attempt = 1; attempt <= TMDb_FETCH_MAX_ATTEMPTS; attempt++) {
     try {
-      const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(TMDb_FETCH_TIMEOUT_MS) });
+      const res = await withTmdbRequestSlot(() => fetch(url, { cache: "no-store", signal: AbortSignal.timeout(TMDb_FETCH_TIMEOUT_MS) }));
       if (!res.ok) {
         // 429/5xx = TMDb surchargé ou en panne — transitoire, on réessaie.
         // Les 4xx (404…) sont définitifs : un film absent ne se matérialise
@@ -153,7 +179,14 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, lan
     return cached.value;
   }
 
-  return fetchAndCache<T>(cacheKey);
+  // A cold dashboard can request the same metadata through several rows at
+  // once. Share the pending promise rather than creating duplicate upstream
+  // sockets (the stale-cache path above already has its own refresh guard).
+  const pending = tmdbInFlight.get(cacheKey) as Promise<T | null> | undefined;
+  if (pending) return pending;
+  const request = fetchAndCache<T>(cacheKey).finally(() => tmdbInFlight.delete(cacheKey));
+  tmdbInFlight.set(cacheKey, request);
+  return request;
 }
 
 function yearOf(date: string | undefined | null): number | null {

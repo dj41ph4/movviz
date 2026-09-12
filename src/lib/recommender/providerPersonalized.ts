@@ -278,7 +278,10 @@ async function rankForUser(
   const genreNameById = genreTraits.size ? new Map((await getGenres(type)).map((g) => [g.id, g.name] as const)) : new Map<number, string>();
   const favoriteKeywords = await getFavoriteKeywords(userId);
   const keywordDetails = new Map<number, string[]>();
-  await mapWithConcurrency(filtered.slice(0, 40), 5, async (item) => {
+  // The global TMDb queue protects all callers, but this local cap avoids a
+  // single provider row monopolising it while the dashboard's other rows are
+  // loading.
+  await mapWithConcurrency(filtered.slice(0, 16), 4, async (item) => {
     const detail = await getDetail(type, item.tmdbId).catch(() => null);
     if (detail) keywordDetails.set(item.tmdbId, detail.keywords);
   });

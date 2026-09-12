@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.138 — September 2026
+
+### Fiabilité de Découverte
+
+- Toutes les requêtes TMDb partagent désormais une file globale de six connexions maximum, y compris entre les rangées chargées en parallèle.
+- Les requêtes TMDb identiques en cours sont mutualisées et les recommandations n'analysent plus de détails que nécessaire, évitant les rafales de timeouts qui vidaient Découverte.
+
 ## v1.24.137 — September 2026
 
 ### Interface desktop

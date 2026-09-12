@@ -145,10 +145,13 @@ export async function getRecommendations(
     : new Map<number, string>();
   const favoriteKeywords = await getFavoriteKeywords(userId);
   const keywordDetails = new Map<number, string[]>();
+  // Only the titles that can realistically reach the visible rail need a
+  // detail request for keyword scoring. Going fifty deep multiplied every
+  // dashboard refresh into dozens of extra TMDb connections.
   const detailCandidates = [...entries]
     .sort((a, b) => audienceSignal(b.item) - audienceSignal(a.item) || b.count - a.count)
-    .slice(0, 50);
-  await mapWithConcurrency(detailCandidates, 5, async ({ item }) => {
+    .slice(0, 20);
+  await mapWithConcurrency(detailCandidates, 4, async ({ item }) => {
     const detail = await getDetail(type, item.tmdbId).catch(() => null);
     if (detail) keywordDetails.set(item.tmdbId, detail.keywords);
   });
