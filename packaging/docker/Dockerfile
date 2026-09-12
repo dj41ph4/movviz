@@ -27,6 +27,7 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     MOVVIZ_WEB_PORT=9810 \
     MOVVIZ_ENGINE_PORT=9820 \
+    MOVVIZ_RESOLVER_PORT=9830 \
     PORT=9810 \
     HOSTNAME=0.0.0.0 \
     MOVVIZ_CONFIG_DIR=/config \
@@ -72,10 +73,11 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # movviz (remapped to PUID/PGID) via su-exec before actually running node.
 ENTRYPOINT ["docker-entrypoint.sh"]
 
-# 9810 = web UI. 51413-51414 = BitTorrent peer ports (movies/series instances) —
+# 9810 = web UI, 9820 = download engine, 9830 = Cloudflare resolver.
+# 51413-51414 = BitTorrent peer ports (movies/series instances) —
 # forward these on your router/NAS firewall too, or downloads stay stuck on
 # outbound-only connections and end up much slower.
-EXPOSE 9810 51413-51414/tcp 51413-51414/udp
+EXPOSE 9810 9820 9830 51413-51414/tcp 51413-51414/udp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- http://127.0.0.1:9810/api/healthz || exit 1
 

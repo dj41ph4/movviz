@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     ports:
       - "9810:9810" # web interface + API
+      - "9820:9820" # BitTorrent download engine
+      - "9830:9830" # Cloudflare resolver
       # BitTorrent peer ports — one per download instance (movies, series).
       # These must ALSO be forwarded on your router/NAS firewall to the host,
       # or every download only ever gets outbound peer connections, which is
@@ -18,6 +20,7 @@ services:
     environment:
       MOVVIZ_WEB_PORT: "9810"
       MOVVIZ_ENGINE_PORT: "9820"
+      MOVVIZ_RESOLVER_PORT: "9830"
       MOVVIZ_TORRENT_PORT: "51413"
       # Match these to the host user that owns your NAS shares (id / gid).
       PUID: "1000"

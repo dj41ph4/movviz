@@ -82,6 +82,7 @@ partage média du NAS. Les données applicatives persistent dans le volume
 | --- | --- | --- |
 | Interface + API | `9810` | `MOVVIZ_WEB_PORT` |
 | Moteur (téléchargement) | `9820` | `MOVVIZ_ENGINE_PORT` |
+| Résolveur Cloudflare | `9830` | `MOVVIZ_RESOLVER_PORT` |
 
 ## Stockage — où vont les fichiers
 

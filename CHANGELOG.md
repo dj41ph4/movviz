@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.131 — September 2026
+
+### Docker
+
+- Le manifeste Docker expose maintenant explicitement les trois services Movviz : interface/API (`9810`), moteur de téléchargement (`9820`) et résolveur Cloudflare (`9830`), en plus des ports BitTorrent.
+
 ## v1.24.130 — September 2026
 
 ### Installation
