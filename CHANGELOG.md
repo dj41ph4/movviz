@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.140 — September 2026
+
+### Android
+
+- Les administrateurs peuvent désormais créer un compte utilisateur depuis les réglages Android, avec les mêmes règles de validation et d’autorisation que l’interface web.
+
 ## v1.24.139 — September 2026
 
 ### Interface
