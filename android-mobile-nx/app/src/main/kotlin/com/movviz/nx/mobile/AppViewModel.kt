@@ -1406,6 +1406,14 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         }
     }
 
+    /** La vérification UI est un confort ; l'autorisation réelle reste le
+     * requireAdmin du serveur. Cette méthode ne conserve jamais le mot de passe. */
+    suspend fun createUser(username: String, password: String): ApiResult<MovvizUserDto> {
+        if (_currentUser.value?.role != "admin") return ApiResult.Failure("Accès administrateur requis")
+        val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
+        return repo.createUser(username.trim(), password)
+    }
+
     /** Charge les préférences de compte (langue audio par défaut) — écran
      *  Paramètres, section Lecture. Best-effort comme le reste des lectures
      *  de préférences : un échec laisse le sélecteur sur "Auto" plutôt que

@@ -2,6 +2,7 @@ package com.movviz.nx.mobile.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
@@ -15,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -25,6 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -42,6 +46,8 @@ import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizOk
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
+import com.movviz.nx.mobile.data.ApiResult
+import kotlinx.coroutines.launch
 
 /** Langue → libellé affiché — mêmes 7 valeurs que PREFERRED_AUDIO_LANGUAGES
  *  côté serveur (src/lib/userPrefs/languages.ts), traduites une fois ici
@@ -72,6 +78,12 @@ fun SettingsScreen(
     val currentUser by viewModel.currentUser.collectAsState()
     val userPrefs by viewModel.userPrefs.collectAsState()
     var headerFocused by remember { mutableStateOf(false) }
+    var creatingUser by remember { mutableStateOf(false) }
+    var newUsername by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var createMessage by remember { mutableStateOf<String?>(null) }
+    var createBusy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     // Déplié : pas de barre TV haute en surcouche — marges compactes, sans le
     // trou 96dp du haut.
     val narrow = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
@@ -138,6 +150,45 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(10.dp))
             InfoRow(label = "Serveur", value = serverUrl ?: "—")
+            if (currentUser?.role == "admin") {
+                Spacer(modifier = Modifier.height(18.dp))
+                SettingsButton(text = if (creatingUser) "Annuler la création" else "Créer un utilisateur") {
+                    creatingUser = !creatingUser
+                    createMessage = null
+                }
+                if (creatingUser) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("Le nouveau compte sera un utilisateur standard.", style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+                    Spacer(modifier = Modifier.height(10.dp))
+                    SettingsTextField(value = newUsername, onValueChange = { newUsername = it; createMessage = null }, placeholder = "Nom d’utilisateur")
+                    Spacer(modifier = Modifier.height(10.dp))
+                    SettingsTextField(value = newPassword, onValueChange = { newPassword = it; createMessage = null }, placeholder = "Mot de passe (8 caractères minimum)", password = true)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SettingsButton(text = if (createBusy) "Création…" else "Créer le compte") {
+                        if (createBusy || newUsername.trim().length < 3 || newPassword.length < 8) {
+                            createMessage = "Nom : 3 caractères minimum. Mot de passe : 8 minimum."
+                            return@SettingsButton
+                        }
+                        createBusy = true
+                        scope.launch {
+                            when (val result = viewModel.createUser(newUsername, newPassword)) {
+                                is ApiResult.Success -> {
+                                    createMessage = "Compte ${result.data.username} créé."
+                                    newUsername = ""
+                                    newPassword = ""
+                                }
+                                is ApiResult.Failure -> createMessage = result.message
+                                ApiResult.Unauthorized -> createMessage = "Accès administrateur requis."
+                            }
+                            createBusy = false
+                        }
+                    }
+                    createMessage?.let { message ->
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(message, style = TextStyle(fontSize = 12.sp, color = if (message.startsWith("Compte")) MovvizOk else MovvizDown))
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -298,6 +349,31 @@ private fun RolePill(role: String?) {
             .border(1.dp, color.copy(alpha = 0.28f), RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 3.dp),
     )
+}
+
+@Composable
+private fun SettingsTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, password: Boolean = false) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.06f), shape)
+            .border(if (focused) 2.dp else 1.dp, if (focused) MovvizBrand else Color.White.copy(alpha = 0.12f), shape)
+            .onFocusChanged { focused = it.isFocused }
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        if (value.isEmpty()) Text(placeholder, style = TextStyle(fontSize = 14.sp, color = MovvizInkDim))
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+            textStyle = TextStyle(fontSize = 14.sp, color = MovvizInk),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 /** Chip de sélection focusable — même lift que les cartes posters

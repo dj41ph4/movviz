@@ -342,6 +342,14 @@ data class UsersResponse(
     val users: List<MovvizUserDto> = emptyList(),
 )
 
+/** Corps minimal de POST /api/users. Le serveur impose toujours le rôle
+ * utilisateur : l'APK ne peut donc jamais élever un compte en administrateur. */
+@JsonClass(generateAdapter = true)
+data class CreateUserRequest(
+    val username: String,
+    val password: String,
+)
+
 @JsonClass(generateAdapter = true)
 data class SystemInfoDto(
     val platform: String? = null,

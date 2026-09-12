@@ -365,6 +365,11 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun users(): ApiResult<List<MovvizUserDto>> =
         safeCall { api.users() }.map { it.users }
 
+    /** Création locale réservée au serveur à la session admin (POST /api/users).
+     * Le mot de passe reste dans ce corps HTTPS et n'est jamais persisté par l'APK. */
+    suspend fun createUser(username: String, password: String): ApiResult<MovvizUserDto> =
+        safeCall { api.createUser(CreateUserRequest(username, password)) }
+
     suspend fun preferences(): ApiResult<UserPrefsDto> =
         safeCall { api.preferences() }.map { it.prefs }
 

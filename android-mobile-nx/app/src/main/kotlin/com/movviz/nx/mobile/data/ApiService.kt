@@ -53,6 +53,9 @@ interface MovvizApiService {
     @GET("api/users")
     suspend fun users(): Response<UsersResponse>
 
+    @POST("api/users")
+    suspend fun createUser(@Body body: CreateUserRequest): Response<MovvizUserDto>
+
     @GET("api/library/movies")
     suspend fun libraryMovies(@Query("tmdbId") tmdbId: Int? = null): Response<LibraryMoviesResponse>
 
