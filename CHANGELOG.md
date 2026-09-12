@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.129 — September 2026
+
+### Android mobile NX
+
+- La recherche persistante en paysage réserve maintenant sa hauteur, plus 3 dp, dans chaque page de la colonne centrale : aucun hero, titre ou premier élément de liste n'est masqué à l'ouverture ou lors d'un changement d'onglet.
+
 ## v1.24.128 — September 2026
 
 ### Découverte
