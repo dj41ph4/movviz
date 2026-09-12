@@ -78,6 +78,7 @@ export function DashboardRows({
   recentEpisodes,
   minYear,
   onRowsReady,
+  excludeContinueWatching = false,
 }: {
   sections: DashboardLayout["sections"];
   movies: DashboardLibraryMovie[];
@@ -85,11 +86,16 @@ export function DashboardRows({
   recentEpisodes: DashboardRecentEpisode[];
   minYear?: number | null;
   onRowsReady?: () => void;
+  /** The NX home has a dedicated resume rail beside the hero. */
+  excludeContinueWatching?: boolean;
 }) {
   const t = useT();
   const { locale } = useI18n();
   const router = useRouter();
-  const visible = useMemo(() => new Set(sections.filter((s) => s.visible).map((s) => s.id)), [sections]);
+  const visible = useMemo(
+    () => new Set(sections.filter((s) => s.visible && !(excludeContinueWatching && s.id === "continueWatching")).map((s) => s.id)),
+    [sections, excludeContinueWatching]
+  );
   const afterMinYear = useMemo(
     () => (minYear ? (r: { year?: number | null }) => (r.year ?? 0) >= minYear : () => true),
     [minYear]

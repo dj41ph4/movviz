@@ -21,7 +21,7 @@ import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Film, Tv, Download, Pause, Play, PauseCircle, PlayCircle, RotateCw, Search, Ban, Check,
   Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge, Wand2,
-  CheckCircle2, Share2,
+  CheckCircle2, Share2, ChevronDown,
 } from "lucide-react";
 
 /** Builds the libraryRef the manual-search grab needs from a queue item's
@@ -419,7 +419,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   if (!data) return <div className="flex items-center justify-center gap-2 py-16 text-ink-dim"><Download className="h-5 w-5 animate-pulse" /> {t("common.loading")}</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="nx-download-queue space-y-6">
       {/* Filter bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-1 overflow-x-auto rounded-xl glass p-0.5">
@@ -522,6 +522,9 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="space-y-3">
+        <div className="nx-download-table-head hidden lg:grid" aria-hidden="true">
+          <span>Contenu</span><span>Progression</span><span>Vitesse</span><span>Sources</span><span>Statut</span><span>Actions</span>
+        </div>
         {(() => {
           let lastSection: string | null = null;
           const rows: React.ReactNode[] = [];
@@ -671,7 +674,35 @@ const QueueItemRow = memo(function QueueItemRow({
   );
 
   return (
-    <div className="rounded-2xl glass overflow-hidden">
+    <>
+    <div className="nx-download-desktop-row hidden lg:grid" onClick={() => onToggleExpand(item.id)}>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
+          {item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+        </span>
+        <div className="min-w-0"><p className="truncate text-xs font-bold text-ink">{item.media.title}</p><p className="truncate text-[10px] text-ink-dim">{item.release.quality} · {item.release.indexer}</p></div>
+      </div>
+      <div className="min-w-0 self-center">
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full brand-gradient" style={{ width: `${Math.round(displayProgress * 100)}%` }} /></div>
+        <p className="mt-1 text-[10px] text-ink-dim">{Math.round(displayProgress * 100)}% · {formatBytes(displayProgress * item.release.size)} / {formatBytes(item.release.size)}</p>
+      </div>
+      <div className="self-center text-xs font-semibold text-cyan">{item.download.downloadSpeed > 0 ? `↓${formatSpeed(item.download.downloadSpeed)}` : "—"}</div>
+      <div className="self-center text-[11px] text-ink-soft">{item.release.seeders}↑ · {item.release.leechers}↓</div>
+      <span className={cn("w-fit self-center rounded-full border px-2 py-1 text-[10px] font-bold", item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" : item.status === "stalled" ? "border-down/30 bg-down/12 text-down" : "border-white/15 bg-white/5 text-ink-soft")}>{item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}</span>
+      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        {(item.status === "downloading" || item.status === "paused" || item.status === "queued") && <button type="button" onClick={() => onAction(item.id, item.status === "downloading" ? "pause" : "resume")} disabled={actionLoading !== null} className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan/25 text-ink hover:bg-cyan/10 disabled:opacity-40" title={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")}>{item.status === "downloading" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}</button>}
+        <button type="button" onClick={() => onToggleExpand(item.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-ink-soft hover:bg-white/8" title={t("common.details")}><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} /></button>
+      </div>
+    </div>
+    {isExpanded && (
+      <div className="nx-download-desktop-details hidden lg:flex">
+        <span>{item.release.releaseTitle}</span>
+        <span>{formatDateTime(item.addedAt, locale)}</span>
+        {item.download.eta > 0 && <span>{t("downloads.eta")}: {formatEta(Math.round(item.download.eta / 60))}</span>}
+        <span>↑{formatSpeed(item.download.uploadSpeed)} · Ratio {item.download.ratio.toFixed(2)}</span>
+      </div>
+    )}
+    <div className="nx-download-row rounded-2xl glass overflow-hidden lg:hidden">
       <div
         className="p-4 cursor-pointer hover:bg-white/5"
         onClick={() => onToggleExpand(item.id)}
@@ -1010,5 +1041,6 @@ const QueueItemRow = memo(function QueueItemRow({
         </div>
       )}
     </div>
+    </>
   );
 }, areItemEqual);

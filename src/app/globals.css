@@ -589,6 +589,102 @@ body {
     0 8px 40px -8px color-mix(in oklab, var(--color-brand) 60%, transparent);
 }
 
+/* -------------------------------------------------------------------------
+   NX desktop shell.  The mobile visual language remains intentionally
+   separate; these denser surfaces start only once the permanent sidebar is
+   present.  A sharp edge and a quiet blue/violet line replace the broad
+   glass blur so data-heavy screens retain their hierarchy. */
+@media (min-width: 1024px) {
+  .nx-desktop-shell {
+    background:
+      radial-gradient(900px 520px at 68% -12%, rgba(42, 60, 190, 0.17), transparent 68%),
+      linear-gradient(145deg, #060b1d 0%, #090f27 52%, #050817 100%);
+  }
+
+  .nx-desktop-shell .glass,
+  .nx-desktop-shell .glass-strong {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-color: color-mix(in oklab, var(--color-cyan) 22%, var(--color-brand) 38%);
+    border-radius: 12px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 26px -24px rgba(34,226,255,0.8);
+  }
+
+  .nx-desktop-shell .glass:hover,
+  .nx-desktop-shell .glass:focus-within,
+  .nx-desktop-shell .glass-strong:hover,
+  .nx-desktop-shell .glass-strong:focus-within {
+    border-color: color-mix(in oklab, var(--color-cyan) 42%, var(--color-magenta) 42%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 10px 28px -22px rgba(168,85,247,0.85);
+  }
+
+  .nx-desktop-shell main > div {
+    max-width: 1600px;
+    margin-inline: auto;
+  }
+
+  .nx-desktop-shell .group\/row > div:first-child h2 {
+    letter-spacing: -0.02em;
+  }
+
+  .nx-desktop-shell .group\/row > div:nth-child(2) {
+    padding-bottom: 0.35rem;
+  }
+
+  .nx-desktop-shell .nx-library-link {
+    box-shadow: 0 0 0 1px rgba(52,226,255,0.07), 0 8px 20px -18px rgba(52,226,255,0.9);
+  }
+
+  .nx-desktop-shell .nx-library-link:hover,
+  .nx-desktop-shell .nx-library-link:focus-visible {
+    box-shadow: 0 0 0 1px rgba(192,75,255,0.5), 0 8px 24px -16px rgba(192,75,255,0.9);
+  }
+
+  .nx-desktop-shell .nx-home-hero-grid > :first-child .group\/hero,
+  .nx-desktop-shell .nx-home-hero-grid > :first-child > * {
+    margin-bottom: 0;
+  }
+
+  .nx-desktop-shell .nx-home-hero-grid .nx-continue-panel {
+    align-self: stretch;
+  }
+
+  /* Downloads follow the NX control-room composition: the live graph lives
+     in the right rail, while the main column stays a dense operational list. */
+  .nx-desktop-shell .nx-download-queue > .grid.grid-cols-2 {
+    display: none;
+  }
+
+  .nx-desktop-shell .nx-download-row {
+    border-radius: 10px;
+    border-color: color-mix(in oklab, var(--color-cyan) 16%, var(--color-brand) 30%);
+  }
+
+  .nx-desktop-shell .nx-download-row > div:first-child {
+    padding: 0.8rem 1rem;
+  }
+
+  .nx-desktop-shell .nx-download-row:hover {
+    border-color: color-mix(in oklab, var(--color-cyan) 34%, var(--color-brand-2) 40%);
+  }
+
+  /* Titles and media tiles use the compact editorial rhythm of the desktop
+     reference, without changing the touch-friendly mobile geometry. */
+  .nx-desktop-shell .nx-page-header,
+  .nx-desktop-shell [data-nx-page-header] {
+    margin-bottom: 1.4rem;
+  }
+
+  .nx-desktop-shell .group\/row .relative .aspect-video {
+    border-radius: 10px;
+    border-color: color-mix(in oklab, var(--color-cyan) 18%, var(--color-brand) 28%);
+  }
+
+  .nx-desktop-shell .group\/row .relative .aspect-video:hover {
+    border-color: color-mix(in oklab, var(--color-cyan) 36%, var(--color-magenta) 38%);
+  }
+}
+
 .ring-focus:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-void), 0 0 0 4px var(--color-brand);
@@ -788,4 +884,132 @@ body {
 @keyframes shimmerGpu {
   from { transform: translateX(-50%); }
   to { transform: translateX(0%); }
+}
+
+/* NX desktop compositions.  These are intentionally scoped to the desktop
+   application shell: phone and tablet keep their larger touch-first layout. */
+@media (min-width: 1024px) {
+  .nx-desktop-shell .nx-discover-page {
+    max-width: 1600px;
+  }
+
+  .nx-desktop-shell .nx-discover-page > [data-nx-page-header] {
+    margin-bottom: .4rem;
+  }
+
+  .nx-desktop-shell .nx-discover-desktop-bar {
+    align-items: center;
+    gap: .75rem;
+    min-height: 50px;
+    padding: .4rem .55rem;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 28%, transparent);
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(7,20,47,.96), rgba(16,18,52,.9));
+  }
+
+  .nx-desktop-shell .nx-discover-page > div.flex.flex-wrap.items-center.gap-2 {
+    margin-top: -.45rem;
+    padding: .55rem .7rem;
+    border-radius: 10px;
+    background: rgba(7, 15, 37, .66);
+  }
+
+  .nx-desktop-shell .nx-home-hero-grid {
+    align-items: stretch;
+  }
+
+  .nx-desktop-shell .nx-home-hero-grid .nx-continue-panel {
+    min-height: 390px;
+    padding: 1rem;
+  }
+
+  .nx-desktop-shell .nx-continue-panel > div > a {
+    min-height: 92px;
+  }
+
+  .nx-desktop-shell .nx-download-queue > .flex:first-child {
+    padding: .65rem;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 24%, transparent);
+    border-radius: 12px;
+    background: rgba(7, 20, 47, .78);
+  }
+
+  .nx-desktop-shell .nx-download-row {
+    border-radius: 10px;
+    border-color: color-mix(in oklab, var(--color-cyan) 20%, transparent);
+  }
+
+  .nx-desktop-shell .nx-download-row > div:first-child {
+    padding: .75rem 1rem;
+  }
+
+  .nx-desktop-shell .nx-library-grid > div:first-child {
+    border-color: color-mix(in oklab, var(--color-cyan) 27%, transparent);
+    border-radius: 12px;
+    background: linear-gradient(120deg, rgba(9,20,48,.94), rgba(20,25,67,.78));
+  }
+
+  .nx-desktop-shell .nx-library-grid {
+    display: grid;
+    grid-template-columns: 156px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .nx-desktop-shell .nx-library-genres {
+    position: sticky;
+    top: 1rem;
+    padding: .85rem .55rem;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 25%, transparent);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(9,20,48,.95), rgba(13,18,52,.82));
+  }
+
+  .nx-desktop-shell .nx-download-table-head {
+    grid-template-columns: minmax(230px, 2fr) minmax(130px, 1fr) 100px 90px 100px 116px;
+    gap: .75rem;
+    padding: .1rem 1rem .35rem;
+    color: color-mix(in oklab, var(--color-ink) 58%, transparent);
+    font-size: .65rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .nx-desktop-shell .nx-download-desktop-row {
+    grid-template-columns: minmax(230px, 2fr) minmax(130px, 1fr) 100px 90px 100px 116px;
+    gap: .75rem;
+    align-items: stretch;
+    min-height: 68px;
+    padding: .55rem 1rem;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 20%, var(--color-brand) 28%);
+    border-radius: 10px;
+    background: rgba(10, 20, 48, .76);
+    cursor: pointer;
+    transition: border-color .16s ease, background .16s ease;
+  }
+
+  .nx-desktop-shell .nx-download-desktop-row:hover {
+    border-color: color-mix(in oklab, var(--color-cyan) 42%, var(--color-magenta) 32%);
+    background: rgba(16, 28, 65, .88);
+  }
+
+  .nx-desktop-shell .nx-download-desktop-details {
+    flex-wrap: wrap;
+    gap: .75rem 1.25rem;
+    margin-top: -.55rem;
+    padding: .45rem 1rem .65rem 4.3rem;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 14%, transparent);
+    border-top: 0;
+    border-radius: 0 0 10px 10px;
+    background: rgba(4, 12, 31, .7);
+    color: color-mix(in oklab, var(--color-ink) 70%, transparent);
+    font-size: .68rem;
+  }
+
+  .nx-desktop-shell .nx-download-row > div:first-child > div:first-child {
+    display: grid;
+    grid-template-columns: 2.7rem minmax(0, 1fr);
+    align-items: start;
+  }
 }

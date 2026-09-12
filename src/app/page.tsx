@@ -9,6 +9,7 @@ import { DownloadQueue } from "@/components/media/DownloadQueue";
 import { UpdateAvailableBanner } from "@/components/system/UpdateAvailableBanner";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
+import { DashboardContinuePanel } from "@/components/dashboard/DashboardContinuePanel";
 import { DashboardRows } from "@/components/dashboard/DashboardRows";
 import { DashboardSplash } from "@/components/dashboard/DashboardSplash";
 import { setSplashActive } from "@/lib/dashboard/splashCoordinator";
@@ -52,6 +53,17 @@ const WIDGET_ACCENTS: Record<DashboardWidgetId, "brand" | "cyan" | "magenta" | "
 
 const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)]";
 
+// The NX desktop home has one deliberate editorial composition.  Historical
+// user widget layouts remain on disk for backwards compatibility, but no
+// longer alter what is shown here.
+const FIXED_NX_DASHBOARD_LAYOUT: DashboardLayout = {
+  ...DEFAULT_DASHBOARD_LAYOUT,
+  mode: "cinema",
+  showStats: true,
+  showDownloads: false,
+  widgets: [...DASHBOARD_WIDGET_IDS],
+};
+
 export default function DashboardPage() {
   const t = useT();
   const { optimized, ready: interfaceModeReady } = useInterfaceDataMode();
@@ -64,8 +76,7 @@ export default function DashboardPage() {
   const { data: seriesData, error: seriesError } = useSWR<{ series: LibrarySeries[] }>(
     interfaceModeReady && !optimized ? "/api/library/series" : null
   );
-  const { data: layoutData, mutate: mutateLayout } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
-  const layout = layoutData?.layout ?? DEFAULT_DASHBOARD_LAYOUT;
+  const layout = FIXED_NX_DASHBOARD_LAYOUT;
   const { data: torrentsData, error: torrentsError } = useSWR<{ torrents: EngineTorrent[] }>(
     interfaceModeReady && (!optimized || layout.mode === "compact") ? "/api/engine/torrents" : null
   );
@@ -170,9 +181,7 @@ export default function DashboardPage() {
     episodesAvailable: t("dashboard.stats.episodesAvailable"),
   };
 
-  const [editMode, setEditMode] = useState(false);
-  const [order, setOrder] = useState<DashboardWidgetId[]>([...DASHBOARD_WIDGET_IDS]);
-  const [addOpen, setAddOpen] = useState(false);
+  const order = FIXED_NX_DASHBOARD_LAYOUT.widgets;
   const [showSplash, setShowSplash] = useState(false);
   const [splashProgress, setSplashProgress] = useState(14);
   // Bug fix: WhatsNewModal (mounted in AppShell, no shared parent state with
@@ -186,10 +195,6 @@ export default function DashboardPage() {
   const [rowsReady, setRowsReady] = useState(false);
   const [imagesReady, setImagesReady] = useState(false);
   const handleRowsReady = useCallback(() => setRowsReady(true), []);
-
-  useEffect(() => {
-    if (layoutData?.layout) setOrder(layoutData.layout.widgets);
-  }, [layoutData]);
 
   // Splash cold-start uniquement en optimisé (compatibilité va disparaître) : plein centre Movviz haute qualité, jamais à chaque clic/SWR
   useEffect(() => {
@@ -275,28 +280,6 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [loading, showSplash, optimized]);
 
-  const persist = (widgets: DashboardWidgetId[]) => {
-    setOrder(widgets);
-    // Always POST the full layout (not just `widgets`) — sanitizeDashboardLayout
-    // treats a payload without `version: 2` as a legacy pre-migration file and
-    // resets mode/hero/sections to defaults, which would otherwise silently
-    // flip the user back to "classic" on every widget drag.
-    const next = { ...(layoutData?.layout ?? DEFAULT_DASHBOARD_LAYOUT), widgets };
-    mutateLayout({ layout: next }, false);
-    fetch("/api/dashboard/layout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(next),
-    });
-  };
-
-  const removeWidget = (id: DashboardWidgetId) => persist(order.filter((w) => w !== id));
-  const addWidget = (id: DashboardWidgetId) => {
-    persist([...order, id]);
-    setAddOpen(false);
-  };
-
-  const hidden = DASHBOARD_WIDGET_IDS.filter((id) => !order.includes(id));
   // Classic reuses cinema's whole layout (compact stat pills, carousel rows)
   // minus the hero — only "compact" keeps the older flat stat-grid + simple
   // recently-added grid.
@@ -313,49 +296,13 @@ export default function DashboardPage() {
       <DashboardSplash show={showSplash} progress={splashProgress} />
       <div className="mx-auto max-w-[1500px] space-y-8">
       {layout.mode === "cinema" && (
-        <CardErrorBoundary>
-          <DashboardHero settings={layout.hero} />
-        </CardErrorBoundary>
+        <div className="nx-home-hero-grid grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <CardErrorBoundary>
+            <DashboardHero settings={layout.hero} />
+          </CardErrorBoundary>
+          <DashboardContinuePanel />
+        </div>
       )}
-
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {editMode && (
-          <div className="relative">
-            <button
-              onClick={() => setAddOpen((v) => !v)}
-              disabled={hidden.length === 0}
-              className="flex items-center gap-1.5 rounded-xl glass px-3.5 py-2 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40 transition-transform hover:scale-105"
-            >
-              <Plus className="h-4 w-4" /> {t("dashboard.addWidget")}
-            </button>
-            {addOpen && hidden.length > 0 && (
-              <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl glass-strong p-2 shadow-2xl">
-                {hidden.map((id) => (
-                  <button
-                    key={id}
-                    onClick={() => addWidget(id)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-ink-soft hover:bg-white/5 hover:text-ink"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> {widgetLabels[id]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {layout.showStats && (
-          <button
-            onClick={() => { setEditMode((v) => !v); setAddOpen(false); }}
-            title={editMode ? t("dashboard.done") : t("dashboard.edit")}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
-              editMode ? "brand-gradient text-white" : "glass text-ink-dim hover:text-ink"
-            )}
-          >
-            {editMode ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-          </button>
-        )}
-      </div>
 
       {layout.showStats && (
         loading ? (
@@ -384,27 +331,6 @@ export default function DashboardPage() {
             </div>
             <p className="mt-1 text-sm text-ink-dim">{t("dashboard.errorHint")}</p>
           </div>
-        ) : order.length === 0 ? (
-          <p className="rounded-2xl glass p-5 text-sm text-ink-dim">{t("dashboard.noWidgets")}</p>
-        ) : editMode ? (
-          <Reorder.Group as="div" axis="y" values={order} onReorder={persist} className="flex flex-wrap gap-4">
-            {order.map((id) => (
-              <Reorder.Item
-                key={id}
-                value={id}
-                className={cn(TILE_CLASS, "relative cursor-grab active:cursor-grabbing")}
-              >
-                <StatTile label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
-                <button
-                  onClick={() => removeWidget(id)}
-                  aria-label={t("dashboard.removeWidget")}
-                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down/12 text-down shadow-lg backdrop-blur transition-transform hover:scale-110"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </Reorder.Item>
-            ))}
-          </Reorder.Group>
         ) : richMode ? (
           <div className="flex flex-wrap gap-2">
             {order.map((id) => (
@@ -435,7 +361,7 @@ export default function DashboardPage() {
 
       {richMode ? (
         !loading && !hasError && movies.length + series.length > 0 && (
-          <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} onRowsReady={handleRowsReady} />
+          <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} onRowsReady={handleRowsReady} excludeContinueWatching />
         )
       ) : (
         <div className="mt-8">

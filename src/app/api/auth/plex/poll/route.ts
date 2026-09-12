@@ -4,6 +4,7 @@ import { setSessionCookie } from "@/lib/auth/session";
 import { toPublicUser, type User } from "@/lib/auth/types";
 import { loadPlexConfig, savePlexConfig } from "@/lib/plex/store";
 import { checkPin, getPlexAccount, getPlexFriends } from "@/lib/plex/client";
+import { syncPlexUserMedia } from "@/lib/plex/userMediaSync";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,10 @@ export async function POST(req: NextRequest) {
       role: isFirstUser ? "admin" : "user",
       status: "approved",
       autoApproveRequests: isFirstUser,
-      autoRequestFromWatchlist: false,
+      // A Plex-authenticated account owns the token needed to read its
+      // Discover watchlist. Enable that personal sync from the outset; an
+      // imported friend without a token remains disabled until this flow.
+      autoRequestFromWatchlist: true,
       discoverContinents: [],
       requestLimitMovies: null,
       requestLimitSeries: null,
@@ -69,7 +73,22 @@ export async function POST(req: NextRequest) {
     // Refresh the stored token so watchlist sync keeps working after Plex rotates it.
     // The old PMS token was derived from this account token; discard it so
     // the next personal Plex request exchanges a fresh, correctly scoped one.
-    user = updateUser(user.id, { plexToken: token, plexServerToken: null }) ?? user;
+    user = updateUser(user.id, {
+      plexToken: token,
+      plexServerToken: null,
+      // A friend imported from the Plex server has no token initially. The
+      // first successful login from web, mobile, or TV makes its own list
+      // available, so enable the sync by default. Respect an explicit opt-out
+      // for accounts that already had a personal token.
+      autoRequestFromWatchlist: user.plexToken ? user.autoRequestFromWatchlist : true,
+    }) ?? user;
+  }
+
+  // Do not make a user wait for the scheduler after authenticating on a
+  // phone or TV. The token stays server-side: this route only returns the
+  // public user shape, while the import uses it internally.
+  if (user.plexToken && user.autoRequestFromWatchlist !== false) {
+    await syncPlexUserMedia(user).catch(() => {});
   }
 
   const { token: sessionToken, expiresAt } = createSession(user.id);

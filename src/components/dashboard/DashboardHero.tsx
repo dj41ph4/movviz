@@ -141,9 +141,9 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       onIndexChange={setIndex}
       intervalMs={settings.slideshowSpeedSec * 1000}
       paused={manuallyPaused}
-      className="-mx-4 mb-8 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl"
+      className="-mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-xl lg:border lg:border-cyan/30"
     >
-      <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px]">
+      <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:h-[390px] lg:min-h-[390px]">
         <TrailerHeader
           backdropPath={heroBackdropPath}
           size={heroBackdropSize}
@@ -164,7 +164,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:p-10">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:p-10 lg:gap-2 lg:p-6">
           <span className="w-fit rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur">
             {statusLabel}
           </span>

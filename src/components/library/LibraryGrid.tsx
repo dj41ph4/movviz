@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X } from "lucide-react";
+import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X, Check } from "lucide-react";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
 export const RENDER_BATCH_INITIAL = 200;
@@ -382,7 +382,19 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     movie.activeInfoHash ? torrents.find((t) => t.infoHash === movie.activeInfoHash) : null;
 
   return (
-    <div>
+    <div className="nx-library-grid">
+      <aside className="nx-library-genres hidden lg:block">
+        <p className="mb-3 text-xs font-black uppercase tracking-[.12em] text-ink-dim">{t("discover.genres")}</p>
+        <div className="space-y-1">
+          {[{ id: "", label: t("common.all") }, { id: ANIME_GENRE_ID, label: t("discover.genreAnime") }, { id: TEEN_GENRE_ID, label: t("discover.genreTeen") }, ...allGenres.map((label) => ({ id: label, label }))].map((genreItem) => (
+            <button key={genreItem.id || "all"} type="button" onClick={() => setGenreFilter(genreItem.id)} className={cn("flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors", genreFilter === genreItem.id ? "brand-gradient text-white" : "text-ink-soft hover:bg-white/8 hover:text-ink")}>
+              {genreItem.label}
+              {genreFilter === genreItem.id && <Check className="h-3.5 w-3.5" />}
+            </button>
+          ))}
+        </div>
+      </aside>
+      <div className="nx-library-main min-w-0">
       <div className="mb-4 space-y-2.5 rounded-2xl glass p-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-ink">
@@ -522,7 +534,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
           </div>
         )}
 
-        <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
+        <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3 lg:hidden">
           {[
             { id: ANIME_GENRE_ID, label: t("discover.genreAnime") },
             { id: TEEN_GENRE_ID, label: t("discover.genreTeen") },
@@ -571,7 +583,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       )}
 
-        <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+        <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-6">
           {visibleItems.map((entry, i) => {
             const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[`series:${entry.series.tmdbId}`];
             return entry.kind === "movie" ? (
@@ -640,6 +652,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
       )}
 
       <SearchAndReplacePanel open={searchAndReplaceOpen} onClose={() => setSearchAndReplaceOpen(false)} />
+      </div>
     </div>
   );
 }

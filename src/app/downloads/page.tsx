@@ -9,6 +9,7 @@ import { QueueTab } from "@/components/activity/v2/QueueTab";
 import { HistoryTab } from "@/components/activity/v2/HistoryTab";
 import { WantedTab } from "@/components/activity/v2/WantedTab";
 import { UnlinkedTab } from "@/components/activity/v2/UnlinkedTab";
+import { DownloadLiveStats } from "@/components/media/DownloadLiveStats";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Download, History, ListChecks, AlertCircle, Link2 } from "lucide-react";
 
@@ -47,7 +48,7 @@ function DownloadsPageInner() {
   };
 
   return (
-    <div className="mx-auto max-w-[1500px]">
+    <div className="mx-auto max-w-[1600px]">
       <PageHeader
         eyebrow={t("activity.eyebrow")}
         title={t("activity.title")}
@@ -71,7 +72,10 @@ function DownloadsPageInner() {
       </div>
 
       <div className="space-y-8">
-        <div className={cn(tab !== "queue" && "hidden")}><QueueTab active={tab === "queue"} /></div>
+        <div className={cn("gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_280px]", tab !== "queue" && "hidden")}>
+          <QueueTab active={tab === "queue"} />
+          <div className="mt-6 lg:mt-0"><DownloadLiveStats /></div>
+        </div>
         <div className={cn(tab !== "history" && "hidden")}><HistoryTab /></div>
         <div className={cn(tab !== "wanted" && "hidden")}><WantedTab active={tab === "wanted"} /></div>
         <div className={cn(tab !== "failures" && "hidden")}><HistoryTab failuresOnly={true} /></div>

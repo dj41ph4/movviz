@@ -50,12 +50,12 @@ export function Topbar() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex h-16 items-center gap-2 px-4 transition-colors duration-300 sm:gap-4 sm:px-6",
-        scrolled ? "bg-void/60 backdrop-blur-xl" : "bg-transparent"
+        "sticky top-0 z-30 flex h-15 items-center gap-2 border-b border-transparent px-4 transition-colors duration-300 sm:gap-4 sm:px-6",
+        scrolled ? "border-brand/15 bg-[#070d22]/88 backdrop-blur-xl" : "bg-transparent"
       )}
     >
       {/* THE search box — always here, every screen size. */}
-      <div className="group flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-white/8 bg-surface/50 px-3 transition-colors focus-within:border-brand/40 sm:max-w-md">
+      <div className="group flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-cyan/20 bg-[#0d1738]/82 px-3 transition-colors focus-within:border-brand/70 sm:max-w-md">
         <Search className="h-4 w-4 shrink-0 text-ink-dim transition-colors group-focus-within:text-brand-glow" />
         <input
           value={navSearch.value}

@@ -101,6 +101,10 @@ function DiscoverPageInner() {
   const pathname = usePathname();
   const [q, setQ] = useState(() => searchParams.get("q") ?? "");
   const [mediaType, setMediaType] = useState<"movie" | "series">(() => (searchParams.get("type") as "series" | null) ?? "movie");
+  // "Pour vous" is a real mixed editorial feed, not a movie tab wearing a
+  // different label.  The selected movie/series type remains available for
+  // filters and the dedicated tabs without duplicating their state.
+  const [forYou, setForYou] = useState(true);
   const [genre, setGenre] = useState(() => searchParams.get("genre") ?? "");
   const [year, setYear] = useState(() => searchParams.get("year") ?? "");
   const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]>(() => (searchParams.get("sort") as (typeof SORT_OPTIONS)[number] | null) ?? "popularity.desc");
@@ -262,6 +266,7 @@ function DiscoverPageInner() {
   const watchedSet = new Set(watchStatusData?.movies ?? []);
 
   const clearFilters = () => {
+    setForYou(true);
     setQ("");
     setGenre("");
     setYear("");
@@ -312,6 +317,7 @@ function DiscoverPageInner() {
   // uses the same TMDb id for movies and series, so it stays active across
   // the tab switch instead of being silently dropped.
   const switchMediaType = (mt: "movie" | "series") => {
+    setForYou(false);
     setQ("");
     setGenre("");
     setYear("");
@@ -332,6 +338,15 @@ function DiscoverPageInner() {
     configured && !isBrowsing ? `/api/metadata/rows?type=${mediaType}` : null
   );
   const rows = rowsData?.rows ?? [];
+  const otherMediaType = mediaType === "movie" ? "series" : "movie";
+  const { data: otherRowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
+    configured && forYou && !isBrowsing ? `/api/metadata/rows?type=${otherMediaType}` : null
+  );
+  const editorialRows = useMemo(() => {
+    if (!forYou) return rows;
+    const otherByKey = new Map((otherRowsData?.rows ?? []).map((row) => [row.key, row]));
+    return rows.map((row) => ({ ...row, results: [...row.results, ...(otherByKey.get(row.key)?.results ?? [])] }));
+  }, [rows, otherRowsData, forYou]);
 
   // C411 front-page lists (populaire / uploads récents / sorties du jour) —
   // only present when the C411 indexer has lists enabled with site credentials.
@@ -525,12 +540,12 @@ function DiscoverPageInner() {
 
   const homeRows = useMemo(
     () => [
-      ...rows.map((row) => ({ ...row, results: row.results.filter(afterMinYear) })),
+      ...editorialRows.map((row) => ({ ...row, results: row.results.filter(afterMinYear) })),
       ...c411Rows
-        .map((row) => ({ ...row, results: row.results.filter((item) => item.type === mediaType).filter(afterMinYear) }))
+        .map((row) => ({ ...row, results: row.results.filter((item) => forYou || item.type === mediaType).filter(afterMinYear) }))
         .filter((row) => row.results.length > 0),
     ],
-    [rows, c411Rows, mediaType, minYear]
+    [editorialRows, c411Rows, mediaType, forYou, minYear]
   );
   const catalogHero = homeRows.find((row) => row.key === "recommendedTop")?.results[0] ?? homeRows[0]?.results[0] ?? null;
   const homeArtworkRefs = useMemo(
@@ -569,14 +584,14 @@ function DiscoverPageInner() {
         : null;
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-8">
+    <div className="nx-discover-page mx-auto max-w-[1500px] space-y-8">
       <PageHeader
         eyebrow={t("discover.eyebrow")}
         title={mediaType === "movie" ? t("common.movies") : t("common.series")}
         description={t("discover.description")}
       >
         {configured && (
-          <div ref={filterRowRef} className="flex flex-wrap items-center gap-1.5">
+          <div ref={filterRowRef} className="flex flex-wrap items-center gap-1.5 lg:hidden">
             {(["movie", "series"] as const).map((mt) => (
               <button
                 key={mt}
@@ -756,23 +771,59 @@ function DiscoverPageInner() {
         )}
       </PageHeader>
 
+      {configured && (
+        <div className="nx-discover-desktop-bar hidden lg:flex">
+          <div className="flex items-center gap-1 rounded-xl border border-cyan/25 bg-[#07142f]/90 p-1">
+            {(["all", "movie", "series"] as const).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => kind === "all" ? clearFilters() : switchMediaType(kind)}
+                className={cn("rounded-lg px-4 py-2 text-xs font-bold transition-colors", (kind === "all" ? forYou : !forYou && mediaType === kind) ? "brand-gradient text-white" : "text-ink-soft hover:bg-white/8 hover:text-ink")}
+              >
+                {kind === "all" ? "Pour vous" : kind === "movie" ? t("common.movies") : t("common.series")}
+              </button>
+            ))}
+          </div>
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            {watchProviderTiles.slice(0, 8).map((tile) => (
+              <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} className={cn("flex h-9 w-12 shrink-0 items-center justify-center rounded-lg border transition-colors", String(tile.id) === watchProvider?.id ? "border-magenta bg-magenta/15" : "border-white/10 bg-[#0d1939] hover:border-cyan/45")}>
+                {tile.logoPath ? <TmdbImage path={tile.logoPath} size="w92" alt={tile.name} className="max-h-5 max-w-8 object-contain" /> : <span className="text-[9px] font-bold text-ink-soft">{tile.name.slice(0, 7)}</span>}
+              </button>
+            ))}
+          </div>
+          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("discover.trending")} className="h-9 max-w-32 rounded-lg border border-white/10 bg-[#0d1939] px-2 text-xs font-bold text-ink outline-none">
+            <option value="popularity.desc">{t("discover.trending")}</option>
+            <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
+            <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
+          </select>
+          <select value={genre} onChange={(e) => setGenre(e.target.value)} aria-label={t("discover.genres")} className="h-9 max-w-32 rounded-lg border border-white/10 bg-[#0d1939] px-2 text-xs font-bold text-ink outline-none">
+            <option value="">{t("discover.genres")}</option>
+            {genres.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+          <button type="button" onClick={clearFilters} className="rounded-xl border border-cyan/30 px-4 py-2 text-xs font-bold text-ink-soft hover:bg-cyan/10 hover:text-ink">{t("common.reset")}</button>
+        </div>
+      )}
+
       {configured === false && (
         <TmdbSetup onSaved={() => mutateConfigured()} />
       )}
 
       {configured && (
         <>
-          {!isBrowsing && catalogHero && <CatalogHero result={catalogHero} />}
-          {genreHero && <CatalogHero result={genreHero} label={selectedGenreName ?? undefined} />}
+          {!isBrowsing && catalogHero && <div className="lg:hidden"><CatalogHero result={catalogHero} /></div>}
+          {genreHero && <div className="lg:hidden"><CatalogHero result={genreHero} label={selectedGenreName ?? undefined} /></div>}
 
-          {!isBrowsing && <AiPickOfTheDay />}
+          {!isBrowsing && <div className="lg:hidden"><AiPickOfTheDay /></div>}
 
           {!isBrowsing && watchProviderTiles.length > 0 && (
+            <div className="lg:hidden">
             <PlatformsSection tiles={watchProviderTiles} onClick={handleWatchProviderClick} />
+            </div>
           )}
 
           {!isBrowsing && (
-            <div className="space-y-3">
+            <div className="space-y-3 lg:hidden">
               <h2 className="text-lg font-bold text-ink">{t("discover.moodTitle")}</h2>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
                 {moodResolved.map((mood) => {
@@ -811,7 +862,7 @@ function DiscoverPageInner() {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:hidden">
             <input
               value={year}
               onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}

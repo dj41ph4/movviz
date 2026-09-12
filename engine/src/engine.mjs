@@ -29,6 +29,13 @@ export class MovvizEngine {
   constructor() {
     this.instances = new Map();
     this.state = loadState() ?? {};
+    // A bounded, real speed trace for the desktop download monitor.  It is
+    // sampled by the engine itself (not by browser polling), so every client
+    // sees the same graph and a busy browser cannot manufacture samples.
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    this._statsHistory = Array.isArray(this.state.statsHistory)
+      ? this.state.statsHistory.filter((sample) => sample && sample.at >= cutoff).slice(-360)
+      : [];
     this.started = false;
     this._clientType = resolveClientType(this.state);
   }
@@ -71,7 +78,9 @@ export class MovvizEngine {
     await this.resumeTorrents();
     this.ticker = setInterval(() => {
       for (const inst of this.instances.values()) inst.tick();
+      this._recordStats();
     }, 5000);
+    this._recordStats();
     this.started = true;
     console.log(
       `[engine] started with ${this.instances.size} instance(s) [client: ${this._clientType}]: ` +
@@ -297,7 +306,7 @@ export class MovvizEngine {
 
   stats() {
     const torrents = this.listTorrents();
-    return {
+    const snapshot = {
       torrents: torrents.length,
       downloading: torrents.filter((t) => t.state === "downloading").length,
       seeding: torrents.filter((t) => t.state === "seeding").length,
@@ -306,6 +315,21 @@ export class MovvizEngine {
       uploadSpeed: torrents.reduce((a, t) => a + t.uploadSpeed, 0),
       clientType: this._clientType,
     };
+    return { ...snapshot, history: this._statsHistory };
+  }
+
+  _recordStats() {
+    const torrents = this.listTorrents();
+    const sample = {
+      at: Date.now(),
+      downloadSpeed: torrents.reduce((total, torrent) => total + torrent.downloadSpeed, 0),
+      uploadSpeed: torrents.reduce((total, torrent) => total + torrent.uploadSpeed, 0),
+      active: torrents.filter((torrent) => torrent.state === "downloading").length,
+    };
+    const last = this._statsHistory[this._statsHistory.length - 1];
+    if (last && sample.at - last.at < 4500) return;
+    this._statsHistory.push(sample);
+    if (this._statsHistory.length > 360) this._statsHistory.splice(0, this._statsHistory.length - 360);
   }
 
   // ---- Persistence -------------------------------------------------------
@@ -319,7 +343,7 @@ export class MovvizEngine {
         torrents.push({ ...rec, instanceId: inst.cfg.id });
       }
     }
-    this.state = { ...this.state, instances, torrents, savedAt: Date.now() };
+    this.state = { ...this.state, instances, torrents, statsHistory: this._statsHistory, savedAt: Date.now() };
     scheduleSave(this.state);
   }
 

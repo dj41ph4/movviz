@@ -129,6 +129,10 @@ function GeneralTab({
   const t = useT();
   const movieUnlimited = user.requestLimitMovies == null;
   const seriesUnlimited = user.requestLimitSeries == null;
+  // Older Plex-authenticated accounts predate this preference. They already
+  // have a personal token, so treat a missing field as enabled rather than
+  // presenting a misleading off state in Settings.
+  const watchlistSyncEnabled = user.autoRequestFromWatchlist !== false;
 
   return (
     <div className="space-y-6">
@@ -177,8 +181,8 @@ function GeneralTab({
               </p>
             </div>
             <Toggle
-              on={user.autoRequestFromWatchlist}
-              onChange={() => user.hasPlexToken && onPatch({ autoRequestFromWatchlist: !user.autoRequestFromWatchlist })}
+              on={watchlistSyncEnabled}
+              onChange={() => user.hasPlexToken && onPatch({ autoRequestFromWatchlist: !watchlistSyncEnabled })}
             />
           </div>
         )}

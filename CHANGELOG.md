@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.24.141 — September 2026
+
+### Interface NX desktop
+
+- Refonte des pages Accueil, Découverte, Bibliothèque et Téléchargements : composition desktop dense, rails de contenus, filtres plateformes, colonne Genres et tableau de suivi en temps réel.
+- Les pages Films et Séries privilégient désormais les suggestions, avec un accès explicite à leur bibliothèque respective.
+- Le tableau de bord conserve une composition fixe, avec un rail dédié à la reprise de lecture et sans doublon de cette rangée.
+
+### Plex et téléchargements
+
+- Une connexion Plex personnelle depuis mobile ou TV récupère immédiatement la liste de suivi de l’utilisateur et active sa synchronisation privée.
+- Le moteur conserve un historique réel des débits pour les statistiques de téléchargement live.
+
 ## v1.24.140 — September 2026
 
 ### Android

@@ -145,7 +145,10 @@ export const TASKS: ScheduledTask[] = [
       // historical task id is retained for scheduler compatibility; the
       // bidirectional user-media adapter owns synchronization here.
       if (!loadPlexConfig().watchlistSyncEnabled) return;
-      for (const user of loadUsers().filter((candidate) => candidate.plexToken)) {
+      // `undefined` means a pre-setting account and deliberately migrates to
+      // enabled: those users already supplied a personal Plex token. Only an
+      // explicit false pauses their personal watchlist synchronisation.
+      for (const user of loadUsers().filter((candidate) => candidate.plexToken && candidate.autoRequestFromWatchlist !== false)) {
         await syncPlexUserMedia(user);
       }
     },

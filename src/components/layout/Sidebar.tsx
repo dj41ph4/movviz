@@ -106,9 +106,9 @@ export function Sidebar({ version }: { version: string }) {
   }, [updateInfo?.updateAvailable, autoUpdate.enabled]);
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col gap-2 border-r border-white/5 bg-abyss/60 px-4 py-6 backdrop-blur-xl lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col gap-2 border-r border-brand/25 bg-[#070d22]/92 px-3 py-5 shadow-[10px_0_38px_-28px_rgba(34,226,255,0.75)] backdrop-blur-xl lg:flex">
       {/* Brand */}
-      <Link href="/" className="group mb-6 flex items-center gap-2.5 px-2">
+      <Link href="/" className="group mb-5 flex items-center gap-2.5 px-2">
         <AnimatedLogo size="sm" />
         <span className="text-lg font-black tracking-tight text-ink">Movviz</span>
       </Link>
@@ -282,7 +282,7 @@ function NavRow({ item, pathname, searchParams, liveCount, pulseBadge }: { item:
     <Link
       href={item.href}
       className={cn(
-        "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-semibold transition-colors ring-focus",
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ring-focus",
         active ? "text-white" : "text-ink-soft hover:text-ink"
       )}
     >
@@ -295,7 +295,7 @@ function NavRow({ item, pathname, searchParams, liveCount, pulseBadge }: { item:
       )}
       <Icon
         className={cn(
-          "h-[18px] w-[18px] transition-colors",
+          "h-4 w-4 transition-colors",
           active ? "text-white" : "text-ink-dim group-hover:text-ink-soft"
         )}
       />
@@ -347,7 +347,7 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
     <div>
       <div
         className={cn(
-          "group relative flex items-center rounded-xl ring-focus",
+          "group relative flex items-center rounded-lg ring-focus",
           onGestion ? "text-white" : "text-ink-soft hover:text-ink"
         )}
       >
@@ -360,7 +360,7 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
         )}
         <button
           onClick={() => setOpen((o) => !o)}
-          className="flex flex-1 items-center gap-3 px-3 py-2.5 text-base font-semibold ring-focus"
+          className="flex flex-1 items-center gap-3 px-3 py-2 text-sm font-semibold ring-focus"
         >
           <ClipboardList
             className={cn(

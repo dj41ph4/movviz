@@ -22,7 +22,7 @@ export interface User {
   status: UserStatus;
   /** When true, this user's requests skip admin approval entirely. */
   autoApproveRequests: boolean;
-  /** When true, titles added to this user's real Plex watchlist are auto-requested. */
+  /** When true, this user's personal Plex watchlist is imported and kept in sync. */
   autoRequestFromWatchlist: boolean;
   /** Continent ids (see @/lib/metadata/continents) this user cares about in Discover — empty means unfiltered. */
   discoverContinents: string[];
