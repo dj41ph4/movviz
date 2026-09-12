@@ -111,6 +111,11 @@ internal fun unfoldedPanelWidth(availableWidth: Float) =
 private val UnfoldedInactive = Color(0xFFC3C3CB)
 private const val TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w200"
 
+// La barre est superposée au contenu central. Cet inset lui réserve sa hauteur
+// exacte, plus 3dp de respiration, sur toutes les pages qui l'affichent.
+internal val UnfoldedPersistentSearchBarHeight = 70.dp
+internal val UnfoldedPersistentSearchContentInset = UnfoldedPersistentSearchBarHeight + 3.dp
+
 private data class RailItem(val tab: HomeTab, val label: String, val icon: ImageVector)
 
 /** Rail tactile gauche — Accueil/Découvrir/Bibliothèque/Téléchargements/
@@ -293,7 +298,7 @@ internal fun UnfoldedPersistentSearchBar(onClick: () -> Unit, modifier: Modifier
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(70.dp)
+            .height(UnfoldedPersistentSearchBarHeight)
             .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
             .padding(horizontal = 12.dp, vertical = 12.dp)
     ) {

@@ -101,24 +101,35 @@ fun MainScreen(
                 modifier = Modifier.width(railWidth),
             )
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                MainContent(
-                    viewModel = viewModel,
-                    onOpenTitle = onOpenTitle,
-                    onOpenEpisode = onOpenEpisode,
-                    onSeeAllRow = onSeeAllRow,
-                    onOpenGenre = onOpenGenre,
-                    onLoggedOut = onLoggedOut,
-                    tab = tab,
-                    onSelectTab = onSelectTab,
-                    searchOpen = searchOpen,
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = onSearchQueryChange,
-                    onSearchCancel = onSearchCancel,
-                    contentFocusRequester = contentFocusRequester,
-                    navRailFocusRequester = navRailFocusRequester,
-                    onHomeScrollChanged = onHomeScrollChanged,
-                    onSwitchProfile = onSwitchProfile,
-                )
+                // La recherche persistante est un overlay. Réserver sa hauteur
+                // + 3dp systématiquement dans chaque écran
+                // central évite que le premier contenu soit caché au chargement
+                // ou après un changement d'onglet. La page Recherche n'a pas
+                // cette barre overlay : elle rend son champ dans son propre flux.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (!searchOpen) Modifier.padding(top = UnfoldedPersistentSearchContentInset) else Modifier),
+                ) {
+                    MainContent(
+                        viewModel = viewModel,
+                        onOpenTitle = onOpenTitle,
+                        onOpenEpisode = onOpenEpisode,
+                        onSeeAllRow = onSeeAllRow,
+                        onOpenGenre = onOpenGenre,
+                        onLoggedOut = onLoggedOut,
+                        tab = tab,
+                        onSelectTab = onSelectTab,
+                        searchOpen = searchOpen,
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = onSearchQueryChange,
+                        onSearchCancel = onSearchCancel,
+                        contentFocusRequester = contentFocusRequester,
+                        navRailFocusRequester = navRailFocusRequester,
+                        onHomeScrollChanged = onHomeScrollChanged,
+                        onSwitchProfile = onSwitchProfile,
+                    )
+                }
                 if (!searchOpen) {
                     UnfoldedPersistentSearchBar(
                         onClick = onOpenSearch,
