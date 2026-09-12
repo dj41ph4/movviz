@@ -1619,7 +1619,7 @@ function DiscoverCard({
         {providerTile?.logoPath && (
           <div
             title={providerTile.name}
-            className="pointer-events-none absolute bottom-2 right-2 z-20 flex h-7 w-7 items-center justify-center rounded-md bg-white/95 p-1 shadow-lg sm:h-8 sm:w-8"
+            className="pointer-events-none absolute bottom-2 right-2 z-20 flex h-7 w-7 items-center justify-center rounded-md p-1 sm:h-8 sm:w-8"
           >
             <TmdbImage path={providerTile.logoPath} size="w92" alt={providerTile.name} className="h-full w-full object-contain" />
           </div>

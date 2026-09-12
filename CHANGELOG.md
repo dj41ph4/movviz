@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.24.134 — September 2026
+
+### Découverte
+
+- Les continents couvrent maintenant tous les pays et territoires ISO reconnus par TMDb : cocher ou décocher un continent applique bien l'ensemble correspondant au filtre d'origine.
+- Les logos des plateformes sur les cartes (Netflix, Disney+, Prime Video, etc.) sont affichés sans fond ni encadrement blanc.
+
+### Docker
+
+- Les images AMD64 et ARM64 sont publiées avec des manifests Docker V2 plutôt que des manifests OCI, afin que Synology Container Manager puisse lire le tag `latest` et télécharger les mises à jour.
+
 ## v1.24.133 — September 2026
 
 ### Installation

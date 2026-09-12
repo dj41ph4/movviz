@@ -59,7 +59,10 @@ jobs:
           context: .
           file: packaging/docker/Dockerfile
           platforms: ${{ matrix.platform }}
-          push: true
+          # Container Manager on older Synology DSM releases cannot inspect
+          # OCI-only image manifests. Publish Docker schema v2 media types so
+          # its registry UI can read `latest` and pull updates normally.
+          outputs: type=registry,oci-mediatypes=false
           # Le NAS AMD64 doit récupérer latest dès que son propre build est
           # terminé, sans attendre le build ARM ni le manifeste final.
           tags: |
@@ -80,13 +83,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Création des manifests multi-architecture
+      - name: Création des manifests multi-architecture compatibles DSM
         env:
           IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/movviz
           SHA: ${{ github.sha }}
         run: |
-          docker buildx imagetools create \
-            --tag "$IMAGE:latest" \
-            --tag "$IMAGE:sha-${SHA}" \
+          # `imagetools create` publishes an OCI image index by default.
+          # Synology Container Manager's registry UI fails to inspect that
+          # media type on several DSM versions. `docker manifest` produces
+          # the Docker V2 manifest-list format while retaining AMD64 + ARM64.
+          docker manifest create "$IMAGE:latest" \
             "$IMAGE:latest-amd64" \
             "$IMAGE:latest-arm64"
+          docker manifest push "$IMAGE:latest"
+          docker manifest create "$IMAGE:sha-${SHA}" \
+            "$IMAGE:latest-amd64" \
+            "$IMAGE:latest-arm64"
+          docker manifest push "$IMAGE:sha-${SHA}"
