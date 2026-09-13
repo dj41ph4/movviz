@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.151 — September 2026
+
+### Android smartphone — Mon espace
+
+- La barre basse portrait renomme l'onglet « Bibliothèque » en « Mon espace », plus juste pour un hub qui rassemble la watchlist, l'historique récent et les collections.
+- Les trois onglets (Watchlist, Historique, Collections) s'affichent en grille de 3 colonnes au lieu du défilement horizontal.
+- Tout le contenu est cliquable : les cartes ouvrent la fiche du titre, les collections se naviguent et les sagas répondent au tap.
+
 ## v1.24.150 — September 2026
 
 ### Tableau de bord NX
