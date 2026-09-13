@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.156 — September 2026
+
+### IA : offres gratuites réellement sélectionnables
+
+- Les catalogues OpenCode Zen et OpenRouter sont relus dynamiquement et filtrés pour ne proposer que les modèles gratuits.
+- Gemini est limité aux modèles gratuits officiellement documentés et réellement accessibles par la clé configurée ; Mistral est explicitement limité au quota inclus du plan gratuit.
+- Le verrou est appliqué dans l'interface, à la sauvegarde et à l'appel réel : une ancienne configuration ne peut plus sélectionner silencieusement un modèle facturable.
+
 ## v1.24.155 — September 2026
 
 ### IA : le bouton Tester affiche l'erreur brute du provider
