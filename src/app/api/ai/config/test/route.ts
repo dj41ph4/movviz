@@ -35,6 +35,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, provider: used, latency: Date.now() - t0, reply: text.slice(0, 200) });
   } catch (e) {
     const err = e as { message?: string; quota?: boolean };
-    return NextResponse.json({ ok: false, provider, latency: Date.now() - t0, detail: err.quota ? "quota" : (err.message ?? "error") }, { status: 502 });
+    // Le message brut du provider est toujours renvoyé tel quel (tronqué,
+    // jamais de secret dedans — les erreurs API n'incluent pas la clé) :
+    // afficher seulement "quota"/"échec" masquait la vraie cause (clé
+    // invalide, billing manquant, modèle inconnu...), voir le panneau.
+    return NextResponse.json({ ok: false, provider, latency: Date.now() - t0, detail: err.quota ? "quota" : "error", message: String(err.message ?? "").slice(0, 300) }, { status: 502 });
   }
 }

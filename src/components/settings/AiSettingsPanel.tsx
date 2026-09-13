@@ -67,7 +67,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
   const [draft, setDraft] = useState<ConfigDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<AiProviderId | null>(null);
-  const [testResult, setTestResult] = useState<{ provider: AiProviderId; ok: boolean; detail?: string; latency?: number } | null>(null);
+  const [testResult, setTestResult] = useState<{ provider: AiProviderId; ok: boolean; detail?: string; latency?: number; message?: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -162,7 +162,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         body: JSON.stringify({ provider }),
       });
       const d = await r.json().catch(() => null);
-      setTestResult({ provider, ok: !!d?.ok, detail: d?.detail, latency: d?.latency });
+      setTestResult({ provider, ok: !!d?.ok, detail: d?.detail, latency: d?.latency, message: typeof d?.message === "string" && d.message ? d.message : undefined });
     } catch {
       setTestResult({ provider, ok: false, detail: "network" });
     } finally {
@@ -375,9 +375,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                         ? t("ai.settings.testOk", { latency: String(result.latency ?? 0) })
                         : result.detail === "no_keys"
                           ? t("ai.settings.testNoKeys")
-                          : result.detail === "quota"
-                            ? t("ai.settings.testQuota")
-                            : t("ai.settings.testFail")}
+                          : <>{result.detail === "quota" ? t("ai.settings.testQuota") : t("ai.settings.testFail")}{result.message ? <span className="font-mono opacity-80"> — {result.message}</span> : null}</>}
                     </p>
                   ) : null}
                 </div>

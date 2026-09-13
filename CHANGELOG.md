@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.155 — September 2026
+
+### IA : le bouton Tester affiche l'erreur brute du provider
+
+- Le test ne renvoyait que « quota » ou « échec », ce qui masquait la vraie cause (clé invalide, facturation manquante, modèle inconnu, rate-limit réel). Le message exact du provider s'affiche désormais à la suite dans le panneau.
+
 ## v1.24.154 — September 2026
 
 ### IA : le bouton Tester testait le mauvais provider
