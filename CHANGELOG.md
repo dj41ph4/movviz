@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.163 — September 2026
+
+### Accueil : visuels et bande-annonce du hero alignés aux fiches
+
+- Le hero privilégie les backdrops éditoriaux paysage sans titre intégré, afin que le logo Movviz reste seul au-dessus de l'image.
+- Le lecteur du hero utilise désormais exactement le profil iframe des fiches film et série.
+
 ## v1.24.162 — September 2026
 
 ### Accueil : hero disponible même sous surcharge TMDb

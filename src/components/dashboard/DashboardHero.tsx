@@ -18,6 +18,7 @@ import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
 
@@ -67,6 +68,16 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   }, [anchored, slides.length]);
 
   const active = slides[Math.min(index, slides.length - 1)];
+  // Keep the hero on the same editorial-artwork contract as the fiche: a
+  // real 16:9, language-neutral scene is preferred. Localized key art is
+  // intentionally rejected here because TitleMark adds the official logo on
+  // top and a title baked into the backdrop would be duplicated.
+  const heroArtwork = useTitleArtworkBatch(
+    active ? [{ tmdbId: active.detail.tmdbId, type: active.detail.type }] : [],
+    locale,
+  );
+  const activeArtwork = active ? heroArtwork[`${active.detail.type}:${active.detail.tmdbId}`] : undefined;
+  const editorialBackdropPath = activeArtwork && !activeArtwork.titleEmbedded ? activeArtwork.backdropPath : null;
   // Defensive, not decorative: a slide missing `score` or `detail.genres`
   // (stale cached payload from before a schema change, or a real API gap
   // for some edge-case title) used to throw here — since this runs inside
@@ -117,7 +128,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   const { path: heroBackdropPath, size: heroBackdropSize } =
     isMobile && active?.detail.posterPath
       ? { path: active.detail.posterPath, size: "w780" as const }
-      : { path: active?.detail.backdropPath ?? null, size: "w1280" as const };
+      : { path: editorialBackdropPath ?? active?.detail.backdropPath ?? null, size: "w1280" as const };
   // Only needed for play()'s backdropUrl (Tier 3, no fallback — see
   // useTmdbImageUrl's doc comment); TrailerHeader below resolves its own
   // CDN-vs-local (with fallback) directly from heroBackdropPath/Size.
@@ -183,7 +194,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             enhancedSources={enhancedTrailerSources}
             title={active.detail.title}
             trigger="immediate"
-            youtubeProfile="hero"
+            youtubeProfile="detail"
             enabled={trailerEnabled}
             className="absolute inset-0 h-full w-full"
           />
