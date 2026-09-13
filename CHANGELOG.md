@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.147 — September 2026
+
+### Découverte NX
+
+- Les rails utilisent désormais la largeur réelle des tuiles, sans espaces vides ni boutons d’ajout détachés entre les contenus.
+
 ## v1.24.146 — September 2026
 
 ### Découverte NX

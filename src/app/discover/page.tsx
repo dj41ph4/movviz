@@ -1432,7 +1432,7 @@ function PosterRow({
   return (
     <SharedPosterRow title={title} onSeeAll={onSeeAll}>
       {results.map((r, i) => (
-        <div key={`${r.type}:${r.tmdbId}`} className="w-[300px] shrink-0 lg:w-[320px] xl:w-[340px] 2xl:w-[360px]">
+        <div key={`${r.type}:${r.tmdbId}`} className="w-[220px] shrink-0">
           <DiscoverCard
             index={i}
             result={r}
@@ -1655,7 +1655,7 @@ function DiscoverCard({
       : undefined;
 
   return (
-    <motion.article className="w-full" {...cascadeAnim}>
+    <motion.article className="group/discover w-full" {...cascadeAnim}>
       <div className="relative">
         <DashboardPosterCard
           layout="fill"
@@ -1677,7 +1677,7 @@ function DiscoverCard({
           disabled={adding || !!status}
           title={status ? t("discover.added") : t("discover.addToLibrary")}
           className={cn(
-            "absolute right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 disabled:cursor-default disabled:opacity-100",
+            "absolute right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-[opacity,transform] hover:scale-105 disabled:cursor-default disabled:opacity-100 lg:opacity-0 lg:group-hover/discover:opacity-100 lg:focus-visible:opacity-100",
             // The status pill (cardBadge, e.g. "Dans 7 jours") already sits
             // top-right inside DashboardPosterCard — stack this button below
             // it instead of overlapping when both are present.
