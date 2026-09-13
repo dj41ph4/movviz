@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.24.164 — September 2026
+
+### Accueil : les réglages du tableau de bord reprennent effet
+
+- Les réglages du hero (vidéo, vitesse du diaporama, année minimale, contenu suggéré) et l'affichage des lignes sont de nouveau pris en compte sur l'accueil — ils n'avaient plus aucun effet depuis la refonte de l'accueil.
+- La bande-annonce du hero est désormais activée par défaut pour tous les comptes, y compris ceux qui l'avaient déjà (sans le savoir) sur "désactivé".
+- Le menu déroulant "Année minimale des carrousels" est enfin lisible (fond sombre au lieu du blanc par défaut du navigateur).
+
+### Accueil et Découverte : cartes plus grandes et vraiment adaptatives
+
+- La barre latérale est élargie d'environ 15 %.
+- Les cartes de films/séries de l'accueil et de Découverte sont agrandies d'environ 25 % et rétrécissent désormais réellement avec la fenêtre (comme les tuiles Plateformes), au lieu de rester figées à une taille fixe.
+
 ## v1.24.163 — September 2026
 
 ### Accueil : visuels et bande-annonce du hero alignés aux fiches

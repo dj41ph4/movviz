@@ -65,7 +65,10 @@ export interface DashboardLayout {
 const DEFAULT_HERO_SETTINGS: DashboardHeroSettings = {
   enabled: true,
   slideshowSpeedSec: 10,
-  trailerAutoplay: false,
+  // v1.24.164: the hero's ambient trailer is now reliable (see
+  // HERO_TRAILER_AUTOPLAY_MIGRATION in store.ts for the one-time forced
+  // migration of already-saved layouts to this same value).
+  trailerAutoplay: true,
   includeOwned: true,
   includeUnowned: true,
   minYear: null,

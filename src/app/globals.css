@@ -458,11 +458,13 @@ body {
 
   .nx-desktop-shell .group\/row { gap: .55rem; }
   .nx-desktop-shell .group\/row > .relative > .flex { gap: .75rem; }
-  /* The compact width belongs only to horizontal rails.  Browse grids use
-     DashboardPosterCard's `layout="fill"`; constraining those cards left a
-     blank strip where the status action appeared detached from its tile. */
-  .nx-desktop-shell .group\/row .nx-row-card { width: 220px; }
-  .nx-desktop-shell .group\/row .nx-row-card--poster { width: 145px; }
+  /* Card width now comes entirely from DashboardPosterCard's own fluid
+     Tailwind classes (calc(fraction - gap), same technique as the
+     Plateformes tiles' grid-cols) so rail cards shrink continuously with
+     the viewport instead of staying pinned to a fixed px — these two rules
+     used to override that with a hard 220px/145px regardless of screen
+     width. Browse grids (DashboardPosterCard's `layout="fill"`) were
+     already unaffected since `.nx-row-card` alone never matches them. */
   .nx-desktop-shell .nx-row-card .aspect-video { border-radius: 10px; }
 
   .nx-desktop-shell .nx-library-link {

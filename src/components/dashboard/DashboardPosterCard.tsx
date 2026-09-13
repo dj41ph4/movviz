@@ -499,7 +499,23 @@ export function DashboardPosterCard({
       onMouseEnter={(event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
       onClick={closeOnClick}
-      className={cn("nx-row-card group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : posterVariant ? "nx-row-card--poster block w-[132px] sm:w-[145px]" : layout === "fill" ? "block w-full" : "block w-[240px] sm:w-[250px] lg:w-[260px] xl:w-[270px] 2xl:w-[280px]", hovered && "opacity-0 sm:opacity-35")}
+      className={cn(
+        "nx-row-card group shrink-0 transition-opacity duration-200",
+        showRank
+          ? "flex w-[238px] items-end sm:w-[275px]"
+          : posterVariant
+            // Fluid width (same calc(fraction - gap) technique as the
+            // Plateformes tiles' grid-cols) instead of a fixed px-per-
+            // breakpoint value — confirmed live: fixed widths meant these
+            // cards stayed the exact same size as the window narrowed
+            // (just fewer of them fit), while every other tile on the
+            // dashboard visibly shrinks with the container.
+            ? "nx-row-card--poster block w-[calc(33.333%-0.667rem)] sm:w-[calc(25%-0.75rem)] lg:w-[calc(20%-0.8rem)] xl:w-[calc(16.667%-0.833rem)] 2xl:w-[calc(14.286%-0.857rem)]"
+            : layout === "fill"
+              ? "block w-full"
+              : "block w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]",
+        hovered && "opacity-0 sm:opacity-35",
+      )}
     >
       {showRank && (
         <span
@@ -510,8 +526,8 @@ export function DashboardPosterCard({
           {rank}
         </span>
       )}
-      <div className={cn("shrink-0", showRank ? "w-[150px] sm:w-[170px]" : "w-full")}>
-        <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[150px] sm:w-[170px]" : posterVariant ? "aspect-[2/3] w-full" : "aspect-video w-full")}>
+      <div className={cn("shrink-0", showRank ? "w-[188px] sm:w-[213px]" : "w-full")}>
+        <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[188px] sm:w-[213px]" : posterVariant ? "aspect-[2/3] w-full" : "aspect-video w-full")}>
           {showRank ? (
             poster ? (
               <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="h-full w-full object-cover" />

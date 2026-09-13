@@ -185,10 +185,11 @@ export function DashboardExperiencePanel() {
                     saveHero({ minYear: v === 0 ? null : v });
                   }}
                   className="w-full rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-brand/50 sm:w-56"
+                  style={{ colorScheme: "dark", backgroundColor: "#0a0a12", color: "#f5f5f7" }}
                 >
-                  <option value={0}>{t("settings.dashboardExperience.minYearAll")}</option>
+                  <option value={0} style={{ backgroundColor: "#0a0a12", color: "#f5f5f7" }}>{t("settings.dashboardExperience.minYearAll")}</option>
                   {[1950, 1960, 1970, 1980, 1990, 2000, 2005, 2010, 2015, 2020, 2022, 2024].map((y) => (
-                    <option key={y} value={y}>
+                    <option key={y} value={y} style={{ backgroundColor: "#0a0a12", color: "#f5f5f7" }}>
                       {y}
                     </option>
                   ))}

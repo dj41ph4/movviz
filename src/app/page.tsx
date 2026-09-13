@@ -54,9 +54,13 @@ const WIDGET_ACCENTS: Record<DashboardWidgetId, "brand" | "cyan" | "magenta" | "
 
 const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)]";
 
-// The NX desktop home has one deliberate editorial composition.  Historical
-// user widget layouts remain on disk for backwards compatibility, but no
-// longer alter what is shown here.
+// The NX desktop home has one deliberate editorial composition: mode,
+// widget order and stats/downloads visibility no longer come from the
+// user's saved layout. Everything the user can still actually tune from
+// Réglages → Tableau de bord (hero video/speed/content-mix, row visibility,
+// the YouTube-search fallback) must keep coming from their saved layout —
+// see mergeNxDashboardLayout below — or that whole settings panel becomes a
+// no-op.
 const FIXED_NX_DASHBOARD_LAYOUT: DashboardLayout = {
   ...DEFAULT_DASHBOARD_LAYOUT,
   mode: "cinema",
@@ -64,6 +68,17 @@ const FIXED_NX_DASHBOARD_LAYOUT: DashboardLayout = {
   showDownloads: false,
   widgets: [...DASHBOARD_WIDGET_IDS],
 };
+
+function mergeNxDashboardLayout(saved: DashboardLayout | undefined): DashboardLayout {
+  if (!saved) return FIXED_NX_DASHBOARD_LAYOUT;
+  return {
+    ...FIXED_NX_DASHBOARD_LAYOUT,
+    hero: saved.hero,
+    sections: saved.sections,
+    showTasks: saved.showTasks,
+    youtubeTrailerSearch: saved.youtubeTrailerSearch,
+  };
+}
 
 export default function DashboardPage() {
   const t = useT();
@@ -77,7 +92,8 @@ export default function DashboardPage() {
   const { data: seriesData, error: seriesError } = useSWR<{ series: LibrarySeries[] }>(
     interfaceModeReady && !optimized ? "/api/library/series" : null
   );
-  const layout = FIXED_NX_DASHBOARD_LAYOUT;
+  const { data: layoutData } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
+  const layout = mergeNxDashboardLayout(layoutData?.layout);
   const { data: torrentsData, error: torrentsError } = useSWR<{ torrents: EngineTorrent[] }>(
     interfaceModeReady && (!optimized || layout.mode === "compact") ? "/api/engine/torrents" : null
   );
