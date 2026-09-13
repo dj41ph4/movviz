@@ -183,7 +183,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // dehors de MainScreen sur la pile de navigation (demandé explicitement
     // après le premier jet qui la masquait sur la fiche, façon Netflix).
     // Accueil est désormais le premier onglet de la capsule basse portrait
-    // (esquisse mobile 2026-09 : Accueil/Découverte/Bibliothèque/
+    // (esquisse mobile 2026-09 : Accueil/Découverte/Mon espace/
     // Téléchargements), donc démarrer sur HOME est correct dans les deux
     // orientations — plus besoin du repli vers Découverte qu'imposait
     // l'ancienne barre sans entrée Accueil.
@@ -339,7 +339,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // mobile fournie 2026-09. Il ne remplace jamais NxTopNav (barre TV,
     // jamais affichée en portrait téléphone : voir la condition
     // !compactPortrait ci-dessous), et couvre les onglets de la barre basse
-    // + Profil (Accueil/Découverte/Bibliothèque/Téléchargements affichent
+    // + Profil (Accueil/Découverte/Mon espace/Téléchargements affichent
     // recherche ou titre ; Profil n'a ni l'un ni l'autre — voir showSearchRow
     // ci-dessous). Masqué pendant la recherche plein écran,
     // qui porte sa propre barre persistante (voir SearchScreen).
@@ -771,7 +771,7 @@ composable(ROUTE_PROFILES) {
 }
 
 /**
- * Barre basse portrait — exactement Accueil/Découverte/Bibliothèque/
+ * Barre basse portrait — exactement Accueil/Découverte/Mon espace/
  * Téléchargements (esquisse mobile section 4/15, esquisse 01) : icône +
  * libellé TOUJOURS visibles pour les 4 onglets (nav bar classique). La
  * pastille mise à jour ne vit plus ici : elle est dans l'en-tête, à gauche
@@ -789,7 +789,7 @@ private fun PortraitBottomNav(
     val items = listOf(
         Item(HomeTab.HOME, "Accueil", MovvizIconHome),
         Item(HomeTab.DISCOVER, "Découverte", com.movviz.nx.mobile.ui.theme.MovvizIconCompass),
-        Item(HomeTab.LIBRARY, "Bibliothèque", com.movviz.nx.mobile.ui.theme.MovvizIconBookmark),
+        Item(HomeTab.LIBRARY, "Mon espace", com.movviz.nx.mobile.ui.theme.MovvizIconBookmark),
         Item(HomeTab.DOWNLOADS, "Téléchargements", MovvizIconDownload, weight = 1.3f),
     )
     Row(

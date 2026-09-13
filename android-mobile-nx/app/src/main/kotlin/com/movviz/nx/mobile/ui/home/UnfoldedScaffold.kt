@@ -118,7 +118,7 @@ internal val UnfoldedPersistentSearchContentInset = UnfoldedPersistentSearchBarH
 
 private data class RailItem(val tab: HomeTab, val label: String, val icon: ImageVector)
 
-/** Rail tactile gauche — Accueil/Découvrir/Bibliothèque/Téléchargements/
+/** Rail tactile gauche — Accueil/Découvrir/Mon espace/Téléchargements/
  *  Réglages + recherche + avatar, comme la colonne de la maquette. Tactile
  *  d'abord (clickable simple), pas de chorégraphie D-pad TV. */
 @Composable
@@ -138,7 +138,7 @@ fun SlimRail(
     val items = listOf(
         RailItem(HomeTab.HOME, "Accueil", MovvizIconHome),
         RailItem(HomeTab.DISCOVER, "Découvrir", MovvizIconCompass),
-        RailItem(HomeTab.LIBRARY, "Bibliothèque", MovvizIconBookmark),
+        RailItem(HomeTab.LIBRARY, "Mon espace", MovvizIconBookmark),
         RailItem(HomeTab.DOWNLOADS, "Téléchargements", MovvizIconDownload),
         RailItem(HomeTab.SETTINGS, "Réglages", MovvizIconSettings),
     )

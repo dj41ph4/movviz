@@ -83,7 +83,7 @@ enum class HomeTab(val label: String) {
     MOVIES("Films"),
     SERIES("Séries"),
     MY_LIST("Ma liste"),
-    LIBRARY("Bibliothèque"),
+    LIBRARY("Mon espace"),
     DOWNLOADS("Téléchargements"),
     PROFILE("Mon profil"),
     SETTINGS("Paramètres"),

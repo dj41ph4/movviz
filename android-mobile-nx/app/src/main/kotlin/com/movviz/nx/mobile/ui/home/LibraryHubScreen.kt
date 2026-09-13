@@ -2,19 +2,22 @@ package com.movviz.nx.mobile.ui.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -37,11 +41,11 @@ import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.data.CollectionDto
+import com.movviz.nx.mobile.data.ProfileMediaCardDto
 import com.movviz.nx.mobile.data.SagaSummaryDto
 import com.movviz.nx.mobile.ui.mobile.MovvizEmptyState
 import com.movviz.nx.mobile.ui.mobile.MovvizSegmentedControl
 import com.movviz.nx.mobile.ui.mobile.rememberCompactPortrait
-import com.movviz.nx.mobile.ui.profile.profileRail
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
@@ -50,7 +54,7 @@ import com.movviz.nx.mobile.ui.theme.tvPointerClick
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
 
 /**
- * Vrai point d'entrée Bibliothèque (esquisse mobile section 11) : Watchlist/
+ * Vrai point d'entrée Mon espace (esquisse mobile section 11) : Watchlist/
  * Historique/Collections — pas un alias du catalogue Films/Séries
  * (CatalogScreen, toujours accessible depuis Découverte). Watchlist et
  * Historique viennent de `profileMedia` (déjà chargé pour l'onglet Profil,
@@ -66,9 +70,12 @@ fun LibraryHubScreen(
     onScrollChanged: (Boolean) -> Unit,
 ) {
     var tabIndex by remember { mutableIntStateOf(0) }
+    var selectedCollectionId by remember { mutableStateOf<String?>(null) }
     val profileData by viewModel.profileMedia.collectAsState()
     val collections by viewModel.collections.collectAsState()
     val sagas by viewModel.sagas.collectAsState()
+    val movies by viewModel.movies.collectAsState()
+    val series by viewModel.series.collectAsState()
     LaunchedEffect(Unit) {
         if (viewModel.profileMedia.value == null) viewModel.loadProfileMedia()
         viewModel.loadCollections()
@@ -77,20 +84,22 @@ fun LibraryHubScreen(
     // Déplié : la barre TV haute n'existe plus et la colonne est étroite —
     // mêmes marges compactes que le portrait (pas de trou 156dp en haut).
     val narrow = compactPortrait || rememberUnfoldedLandscape()
-    val listState = rememberLazyListState()
+    val listState = rememberLazyGridState()
     val hasScrolled by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 10 }
     }
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
 
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
         state = listState,
         modifier = Modifier.fillMaxSize()
             .padding(horizontal = if (narrow) 16.dp else 56.dp),
         contentPadding = PaddingValues(top = if (narrow) 16.dp else 156.dp, bottom = if (compactPortrait) 156.dp else 48.dp),
-        verticalArrangement = Arrangement.spacedBy(if (narrow) 22.dp else 30.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             MovvizSegmentedControl(
                 options = listOf("Watchlist", "Historique", "Collections"),
                 selectedIndex = tabIndex,
@@ -101,54 +110,60 @@ fun LibraryHubScreen(
             0 -> {
                 val watchlist = profileData?.watchlist.orEmpty()
                 if (watchlist.isEmpty()) {
-                    item { MovvizEmptyState("Votre watchlist est vide.", "Ajoutez des films ou séries pour les retrouver ici.") }
+                    item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Votre watchlist est vide.", "Ajoutez des films ou séries pour les retrouver ici.") }
                 } else {
-                    profileRail(
-                        title = "Ma watchlist (${watchlist.size})",
-                        cards = watchlist,
-                        entryFocusRequester = entryFocusRequester,
-                        onOpenTitle = onOpenTitle,
-                        onOpenEpisode = { tmdbId, _, _ -> onOpenTitle("series", tmdbId) },
-                    )
+                    item(span = { GridItemSpan(maxLineSpan) }) { LibraryGridHeading("Ma watchlist (${watchlist.size})") }
+                    items(watchlist, key = { "watchlist-${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }) { card ->
+                        LibraryMediaGridCard(card, Modifier.then(if (card == watchlist.first()) Modifier.focusRequester(entryFocusRequester) else Modifier)) {
+                            onOpenTitle(if (card.type == "series") "series" else card.type, card.tmdbId)
+                        }
+                    }
                 }
             }
             1 -> {
                 val history = profileData?.watchHistory.orEmpty()
                 if (history.isEmpty()) {
-                    item { MovvizEmptyState("Aucun historique pour le moment.", "Vos films et épisodes vus apparaîtront ici.") }
+                    item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Aucun historique pour le moment.", "Vos films et épisodes vus apparaîtront ici.") }
                 } else {
-                    profileRail(
-                        title = "Historique récent (${history.size})",
-                        cards = history,
-                        entryFocusRequester = entryFocusRequester,
-                        onOpenTitle = onOpenTitle,
-                        onOpenEpisode = { tmdbId, _, _ -> onOpenTitle("series", tmdbId) },
-                    )
+                    item(span = { GridItemSpan(maxLineSpan) }) { LibraryGridHeading("Historique récent (${history.size})") }
+                    items(history, key = { "history-${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }) { card ->
+                        LibraryMediaGridCard(card) { onOpenTitle(if (card.type == "series") "series" else card.type, card.tmdbId) }
+                    }
                 }
             }
             else -> {
+                val selectedCollection = collections.firstOrNull { it.id == selectedCollectionId }
+                val selectedCards = selectedCollection?.items?.mapNotNull { item ->
+                    movies.firstOrNull { it.id == item.libraryRef }?.let { movie ->
+                        ProfileMediaCardDto(tmdbId = movie.tmdbId, type = "movie", title = movie.title, posterPath = movie.posterPath)
+                    } ?: series.firstOrNull { it.id == item.libraryRef }?.let { show ->
+                        ProfileMediaCardDto(tmdbId = show.tmdbId, type = "series", title = show.title, posterPath = show.posterPath)
+                    }
+                }.orEmpty()
                 if (collections.isEmpty() && sagas.isEmpty()) {
-                    item { MovvizEmptyState("Aucune collection pour le moment.", "Créez une collection ou complétez une saga de votre bibliothèque.") }
-                } else {
-                    if (collections.isNotEmpty()) {
-                        item {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text("Mes collections", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 14.dp))
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                                    items(collections, key = { it.id }) { collection -> CollectionTile(collection) }
-                                }
-                            }
+                    item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Aucune collection pour le moment.", "Créez une collection ou complétez une saga de votre bibliothèque.") }
+                } else if (selectedCollection != null) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = "‹ ${selectedCollection.name}", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { selectedCollectionId = null }.tvPointerClick { selectedCollectionId = null }.padding(top = 2.dp, bottom = 2.dp),
+                        )
+                    }
+                    if (selectedCards.isEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Cette collection est vide.", "Ses titres apparaîtront ici dès qu'ils seront disponibles sur cet appareil.") }
+                    } else {
+                        items(selectedCards, key = { "collection-${selectedCollection.id}-${it.type}-${it.tmdbId}" }) { card ->
+                            LibraryMediaGridCard(card) { onOpenTitle(card.type, card.tmdbId) }
                         }
                     }
+                } else {
+                    if (collections.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { LibraryGridHeading("Mes collections") }
+                        items(collections, key = { it.id }) { collection -> CollectionTile(collection) { selectedCollectionId = collection.id } }
+                    }
                     if (sagas.isNotEmpty()) {
-                        item {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text("Sagas de votre bibliothèque", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 14.dp))
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                                    items(sagas, key = { it.collectionId }) { saga -> SagaTile(saga) }
-                                }
-                            }
-                        }
+                        item(span = { GridItemSpan(maxLineSpan) }) { LibraryGridHeading("Sagas de votre bibliothèque") }
+                        items(sagas, key = { it.collectionId }) { saga -> SagaTile(saga) {} }
                     }
                 }
             }
@@ -156,13 +171,33 @@ fun LibraryHubScreen(
     }
 }
 
+@Composable
+private fun LibraryGridHeading(title: String) {
+    Text(title, color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp, bottom = 2.dp))
+}
+
+@Composable
+private fun LibraryMediaGridCard(card: ProfileMediaCardDto, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(modifier = modifier.fillMaxWidth().clickable(onClick = onClick).tvPointerClick(onClick)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(libraryTileShape).background(MovvizSurfaceStrong)) {
+            val path = card.posterPath ?: card.stillPath
+            if (path != null) Image(
+                painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$path"), contentDescription = card.title,
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Text(card.title, color = MovvizInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
+        card.progress?.let { Text("${(it.ratio * 100).toInt()} % repris", color = MovvizInkDim, fontSize = 10.sp) }
+    }
+}
+
 private val libraryTileShape = RoundedCornerShape(10.dp)
 
 @Composable
-private fun CollectionTile(collection: CollectionDto) {
-    Column(Modifier.width(150.dp)) {
+private fun CollectionTile(collection: CollectionDto, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).tvPointerClick(onClick)) {
         Box(
-            Modifier.width(150.dp).height(150.dp).clip(libraryTileShape),
+            Modifier.fillMaxWidth().aspectRatio(1f).clip(libraryTileShape),
         ) {
             val path = collection.posterPath ?: collection.backdropPath
             if (path != null) {
@@ -189,9 +224,9 @@ private fun CollectionTile(collection: CollectionDto) {
 }
 
 @Composable
-private fun SagaTile(saga: SagaSummaryDto) {
-    Column(Modifier.width(150.dp)) {
-        Box(Modifier.width(150.dp).height(220.dp).clip(libraryTileShape)) {
+private fun SagaTile(saga: SagaSummaryDto, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).tvPointerClick(onClick)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(libraryTileShape)) {
             if (saga.posterPath != null) {
                 Image(
                     painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE${saga.posterPath}"),
