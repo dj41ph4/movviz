@@ -897,9 +897,9 @@ body {
 
   .nx-desktop-shell .nx-provider-tile {
     display: grid;
-    width: 96px;
-    height: 54px;
-    flex: 0 0 auto;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 54px;
     place-items: center;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,.12);

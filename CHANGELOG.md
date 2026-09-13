@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.157 — September 2026
+
+### Accueil : plateformes à largeur dynamique
+
+- Les huit logos de plateformes remplissent désormais la largeur du contenu jusqu'à l'alignement « Tout voir ».
+- La grille se réduit proprement de 8 à 3 colonnes selon la largeur de l'écran, sans défilement horizontal ni petites tuiles fixes.
+
 ## v1.24.156 — September 2026
 
 ### IA : offres gratuites réellement sélectionnables
