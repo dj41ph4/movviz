@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.159 — September 2026
+
+### Accueil : plafond ultrawide ajusté
+
+- Le canevas desktop fluide et centré est désormais plafonné à 2000 px au lieu de 2200 px.
+
 ## v1.24.158 — September 2026
 
 ### Accueil et découverte : largeur fluide et OCS rétabli
