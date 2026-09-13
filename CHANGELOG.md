@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.153 — September 2026
+
+### Logos plateformes : fin des fonds blancs
+
+- Disney+ et Apple TV+ utilisent leurs variantes blanches (mêmes tracés, arc bleu Disney+ conservé) : toutes les tuiles restent sombres, plus aucun fond blanc.
+- OCS s'affiche direct sur tuile sombre, sans fond blanc.
+
 ## v1.24.152 — September 2026
 
 ### Logos plateformes locaux
