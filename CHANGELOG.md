@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.160 — September 2026
+
+### Accueil : bandes-annonces du hero fiabilisées
+
+- Le hero adopte le même profil iframe que les fiches film et série.
+- Une iframe YouTube chargée se révèle désormais après un court délai si YouTube ne transmet pas ses messages internes de lecture, au lieu de laisser le fond statique indéfiniment.
+
 ## v1.24.159 — September 2026
 
 ### Accueil : plafond ultrawide ajusté

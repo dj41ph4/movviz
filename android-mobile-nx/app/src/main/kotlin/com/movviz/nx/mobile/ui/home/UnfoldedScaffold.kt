@@ -55,6 +55,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
 import com.movviz.nx.mobile.ui.theme.MovvizOk
 import com.movviz.nx.mobile.ui.theme.MovvizSurface
+import com.movviz.nx.mobile.ui.theme.tvPointerClick
 
 /**
  * Mode déplié / paysage large (maquette "MOVVIZ NX / MODE DÉPLIÉ") :
@@ -304,8 +305,13 @@ internal fun UnfoldedPersistentSearchBar(onClick: () -> Unit, modifier: Modifier
     ) {
         androidx.tv.material3.Surface(
             onClick = onClick,
-            modifier = Modifier.fillMaxSize()
-                .border(1.dp, MovvizElectricBorder, RoundedCornerShape(23.dp)),
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, MovvizElectricBorder, RoundedCornerShape(23.dp))
+                // androidx.tv Surface handles DPAD_CENTER but not touch taps.
+                // Landscape NX runs on a phone too, so it needs the same
+                // pointer path as the portrait persistent search bar.
+                .tvPointerClick(onClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                 containerColor = MovvizSurface,

@@ -8,6 +8,12 @@ const HANDSHAKE_TIMEOUT_MS = 3000;
 const PLAYBACK_TIMEOUT_MS = 5000;
 const LISTEN_RETRY_MS = 200;
 const ADVANCE_SEC = 0.03;
+// YouTube's widget postMessage payload is undocumented and has changed more
+// than once. A successfully loaded muted iframe is still allowed to reveal
+// after this grace period when that private handshake never arrives: autoplay
+// is already requested in the embed URL, so keeping the static cover forever
+// is worse than trusting the browser's native iframe playback.
+const LOADED_IFRAME_REVEAL_MS = 2200;
 // All ambient YouTube previews deliberately keep a genuine 1920x1080 iframe
 // layout viewport. CSS only scales the already-laid-out iframe into the
 // visible Movviz surface, so YouTube continues to see a desktop-sized player.
@@ -132,6 +138,8 @@ export function YouTubeVirtualPlayer({
     let playbackTimeout: ReturnType<typeof setTimeout> | null = null;
     let revealTimer: ReturnType<typeof setTimeout> | null = null;
     let postPlayChromeTimer: ReturnType<typeof setTimeout> | null = null;
+    let loadedIframeRevealTimer: ReturnType<typeof setTimeout> | null = null;
+    let softRevealed = false;
     const bridgeId = Math.floor(Math.random() * 1_000_000_000) + 1;
     const capabilities = new Set<string>();
 
@@ -142,12 +150,14 @@ export function YouTubeVirtualPlayer({
       if (playbackTimeout) clearTimeout(playbackTimeout);
       if (revealTimer) clearTimeout(revealTimer);
       if (postPlayChromeTimer) clearTimeout(postPlayChromeTimer);
+      if (loadedIframeRevealTimer) clearTimeout(loadedIframeRevealTimer);
       listeningTimer = null;
       loadTimeout = null;
       handshakeTimeout = null;
       playbackTimeout = null;
       revealTimer = null;
       postPlayChromeTimer = null;
+      loadedIframeRevealTimer = null;
     };
 
     const post = (payload: Record<string, unknown>) => {
@@ -176,6 +186,14 @@ export function YouTubeVirtualPlayer({
 
     const fallbackToStablePlayer = (reason: string) => {
       if (cancelled || fallingBack) return;
+      // The raw iframe itself loaded and has already been given enough time
+      // to honour muted autoplay.  Do not re-hide it merely because YouTube
+      // stopped publishing its private widget handshake; that was the path
+      // that made a healthy trailer appear permanently static.
+      if (softRevealed && (reason === "handshake timeout" || reason === "no advancing playback")) {
+        console.debug(`[Movviz][YouTubeBridge] ${trailerKey}: retaining loaded iframe (${reason})`);
+        return;
+      }
       fallingBack = true;
       console.debug(`[Movviz][YouTubeBridge] ${trailerKey}: fallback (${reason})`);
       clearTimers();
@@ -209,6 +227,8 @@ export function YouTubeVirtualPlayer({
       }
 
       ready = true;
+      if (loadedIframeRevealTimer) clearTimeout(loadedIframeRevealTimer);
+      loadedIframeRevealTimer = null;
       if (listeningTimer) clearInterval(listeningTimer);
       listeningTimer = null;
       if (handshakeTimeout) clearTimeout(handshakeTimeout);
@@ -294,6 +314,18 @@ export function YouTubeVirtualPlayer({
     const sendListening = () => post({ event: "listening" });
     const onLoad = () => {
       if (cancelled || fallingBack) return;
+      // Do not make visibility depend exclusively on YouTube's undocumented
+      // postMessage contract.  The iframe's load event is public/browser
+      // level evidence; after a short muted-autoplay grace period it is safe
+      // to uncover it even when YouTube omits `initialDelivery`.
+      loadedIframeRevealTimer = setTimeout(() => {
+        loadedIframeRevealTimer = null;
+        if (cancelled || fallingBack || ready || revealed) return;
+        softRevealed = true;
+        revealed = true;
+        console.debug(`[Movviz][YouTubeBridge] ${trailerKey}: revealing loaded iframe without widget handshake`);
+        onPlayingChange(true);
+      }, LOADED_IFRAME_REVEAL_MS);
       sendListening();
       listeningTimer = setInterval(() => {
         if (!ready) sendListening();
