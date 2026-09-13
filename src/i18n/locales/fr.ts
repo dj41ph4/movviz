@@ -1444,6 +1444,8 @@ export const fr = {
     completedPath: "Dossier des complétés",
     maxActive: "Téléchargements simultanés",
     speedLimit: "Limite de débit",
+    quickDownloadSettings: "Paramètres rapides",
+    manageDownloadClients: "Gérer les clients de téléchargement",
     seedRatio: "Ratio de seed",
     autoStart: "Démarrage auto au boot",
     instanceMovies: "Instance Films",

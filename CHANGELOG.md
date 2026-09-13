@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.143 — September 2026
+
+### Téléchargements
+
+- Le panneau de réglages rapides affiche des intitulés traduits, un lien explicite vers les clients de téléchargement et des interrupteurs accessibles sans réduire leur lisibilité.
+
 ## v1.24.142 — September 2026
 
 ### Fidélité NX desktop

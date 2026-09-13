@@ -1446,6 +1446,8 @@ export const nl: Dictionary = {
     completedPath: "Map voor voltooide items",
     maxActive: "Max. actieve downloads",
     speedLimit: "Snelheidslimiet",
+    quickDownloadSettings: "Snelle instellingen",
+    manageDownloadClients: "Downloadclients beheren",
     seedRatio: "Seedratio",
     autoStart: "Automatisch starten bij opstarten",
     instanceMovies: "Instantie films",

@@ -1445,6 +1445,8 @@ export const it: Dictionary = {
     completedPath: "Cartella dei completati",
     maxActive: "Download attivi massimi",
     speedLimit: "Limite di velocità",
+    quickDownloadSettings: "Impostazioni rapide",
+    manageDownloadClients: "Gestisci client di download",
     seedRatio: "Rapporto di seed",
     autoStart: "Avvio automatico al boot",
     instanceMovies: "Istanza film",

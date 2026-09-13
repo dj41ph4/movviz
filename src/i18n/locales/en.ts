@@ -1446,6 +1446,8 @@ export const en: Dictionary = {
     completedPath: "Completed folder",
     maxActive: "Max active downloads",
     speedLimit: "Speed limit",
+    quickDownloadSettings: "Quick settings",
+    manageDownloadClients: "Manage download clients",
     seedRatio: "Seed ratio",
     autoStart: "Auto-start at boot",
     instanceMovies: "Movies instance",
