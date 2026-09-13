@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.154 — September 2026
+
+### IA : le bouton Tester testait le mauvais provider
+
+- La route de test construisait sa chaîne depuis le primary stocké au lieu du provider cliqué : « Tester » sur opencode testait en réalité mistral, avec un OK affiché sous la mauvaise carte. Corrigé avec une chaîne réduite au provider demandé.
+
 ## v1.24.153 — September 2026
 
 ### Logos plateformes : fin des fonds blancs

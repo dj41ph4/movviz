@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
     ? (requested as AiProviderId)
     : stored.primary;
 
-  const testConfig: AiConfig = { ...stored, primary: provider, fallback: false };
+  // callAi() construit sa chaîne depuis `priority` (pas `primary`) : sans
+  // priority explicite, c'est le primary STOCKÉ qui était testé quel que
+  // soit le bouton cliqué (constaté : "Tester" sur opencode testait mistral).
+  const testConfig: AiConfig = { ...stored, primary: provider, priority: [provider], fallback: false };
   if (testConfig.providers[provider].keys.filter((k) => k.key.trim()).length === 0) {
     return NextResponse.json({ ok: false, detail: "no_keys" }, { status: 400 });
   }
