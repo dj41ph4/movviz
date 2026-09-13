@@ -17,6 +17,7 @@ import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
 
@@ -132,6 +133,19 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   );
   const trailerEnabled = settings.trailerAutoplay;
 
+  // The YouTube embed is an enhancement, never a dependency of the hero.
+  // A browser/iframe commit error must fall back to the artwork only; letting
+  // it escape to the dashboard-wide CardErrorBoundary used to erase the
+  // entire hero (including its actions and carousel controls).
+  const trailerFallback = (
+    <div className="absolute inset-0 bg-surface">
+      {backdropUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={backdropUrl} alt="" className="h-full w-full object-cover" />
+      )}
+    </div>
+  );
+
   if (!settings.enabled || slides.length === 0 || !active) return null;
 
   const statusLabel =
@@ -155,17 +169,19 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       className="-mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
     >
       <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:aspect-[18/9] lg:h-auto lg:min-h-0">
-        <TrailerHeader
-          backdropPath={heroBackdropPath}
-          size={heroBackdropSize}
-          trailerKeys={active.detail.ambientVideoKeys}
-          enhancedSources={enhancedTrailerSources}
-          title={active.detail.title}
-          trigger="immediate"
-          youtubeProfile="detail"
-          enabled={trailerEnabled}
-          className="absolute inset-0 h-full w-full"
-        />
+        <ErrorBoundary key={`${active.detail.type}:${active.detail.tmdbId}`} fallback={trailerFallback}>
+          <TrailerHeader
+            backdropPath={heroBackdropPath}
+            size={heroBackdropSize}
+            trailerKeys={active.detail.ambientVideoKeys}
+            enhancedSources={enhancedTrailerSources}
+            title={active.detail.title}
+            trigger="immediate"
+            youtubeProfile="hero"
+            enabled={trailerEnabled}
+            className="absolute inset-0 h-full w-full"
+          />
+        </ErrorBoundary>
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
 

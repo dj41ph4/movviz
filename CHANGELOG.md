@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.161 — September 2026
+
+### Accueil : repli sûr du hero
+
+- La bande-annonce reste une surcouche du backdrop du hero : sans vidéo ou lors d'une erreur de l'iframe YouTube, l'image habituelle reste visible avec tous les contrôles du hero.
+- Une erreur isolée du lecteur ne peut plus faire disparaître l'ensemble du hero.
+
 ## v1.24.160 — September 2026
 
 ### Accueil : bandes-annonces du hero fiabilisées
