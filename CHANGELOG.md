@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.146 — September 2026
+
+### Découverte NX
+
+- La barre desktop Découverte reprend la composition de l’esquisse : onglets compacts, plateformes séparées, bouton Filtres et tri lisible, sans halo ni encadré global.
+
 ## v1.24.145 — September 2026
 
 ### Fidélité NX desktop

@@ -2037,6 +2037,7 @@ export const it: Dictionary = {
 
   filters: {
     title: "Filtri avanzati",
+    shortTitle: "Filtri",
     quality: "Qualità",
     codec: "Codec",
     source: "Sorgente",

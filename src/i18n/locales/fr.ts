@@ -2036,6 +2036,7 @@ export const fr = {
 
   filters: {
     title: "Filtres avancés",
+    shortTitle: "Filtres",
     quality: "Qualité",
     codec: "Codec",
     source: "Source",

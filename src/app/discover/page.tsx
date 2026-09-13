@@ -26,7 +26,7 @@ import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
-  Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark,
+  Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark, SlidersHorizontal,
 } from "lucide-react";
 
 /**
@@ -137,7 +137,7 @@ function DiscoverPageInner() {
   // Plateformes partagent une seule pile de menus déroulants — un unique
   // state + un unique listener de clic extérieur plutôt que 4 copies du
   // même boilerplate.
-  const [openMenu, setOpenMenu] = useState<null | "genre" | "mood" | "duration" | "platform">(null);
+  const [openMenu, setOpenMenu] = useState<null | "genre" | "mood" | "duration" | "platform" | "desktopFilters">(null);
   const filterRowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!openMenu) return;
@@ -773,7 +773,7 @@ function DiscoverPageInner() {
 
       {configured && (
         <div className="nx-discover-desktop-bar hidden lg:flex">
-          <div className="flex items-center gap-1 rounded-lg border border-cyan/25 bg-[#07142f]/90 p-1">
+          <div className="nx-discover-mode-tabs flex items-center gap-1">
             {(["all", "movie", "series"] as const).map((kind) => (
               <button
                 key={kind}
@@ -785,23 +785,43 @@ function DiscoverPageInner() {
               </button>
             ))}
           </div>
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <div className="nx-discover-provider-tabs flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             {watchProviderTiles.slice(0, 8).map((tile) => (
-              <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} className={cn("flex h-9 w-12 shrink-0 items-center justify-center rounded-lg border transition-colors", String(tile.id) === watchProvider?.id ? "border-magenta bg-magenta/15" : "border-white/10 bg-[#0d1939] hover:border-cyan/45")}>
-                {tile.logoPath ? <TmdbImage path={tile.logoPath} size="w92" alt={tile.name} className="max-h-5 max-w-8 object-contain" /> : <span className="text-[9px] font-bold text-ink-soft">{tile.name.slice(0, 7)}</span>}
+              <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} className={cn("nx-discover-provider-tab", String(tile.id) === watchProvider?.id && "nx-discover-provider-tab-active")}>
+                {tile.logoPath ? <TmdbImage path={tile.logoPath} size="w92" alt={tile.name} className="h-6 w-8 object-contain" /> : <span className="text-[9px] font-bold text-ink-soft">{tile.name.slice(0, 7)}</span>}
               </button>
             ))}
           </div>
-          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("discover.trending")} className="h-9 max-w-32 rounded-lg border border-white/10 bg-[#0d1939] px-2 text-xs font-bold text-ink outline-none">
-            <option value="popularity.desc">{t("discover.trending")}</option>
-            <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
-            <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
-          </select>
-          <select value={genre} onChange={(e) => setGenre(e.target.value)} aria-label={t("discover.genres")} className="h-9 max-w-32 rounded-lg border border-white/10 bg-[#0d1939] px-2 text-xs font-bold text-ink outline-none">
-            <option value="">{t("discover.genres")}</option>
-            {genres.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-          <button type="button" onClick={clearFilters} className="rounded-lg border border-cyan/30 px-4 py-2 text-xs font-bold text-ink-soft hover:bg-cyan/10 hover:text-ink">{t("common.reset")}</button>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setOpenMenu((menu) => menu === "desktopFilters" ? null : "desktopFilters")}
+              className="nx-discover-filter-button"
+              aria-expanded={openMenu === "desktopFilters"}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" /> {t("filters.shortTitle")}
+            </button>
+            {openMenu === "desktopFilters" && (
+              <div className="nx-discover-filter-menu absolute right-0 top-full z-30 mt-2 w-60 p-3">
+                <label className="block text-[11px] font-bold text-ink-dim">{t("discover.genres")}</label>
+                <select value={genre} onChange={(e) => setGenre(e.target.value)} className="mt-1.5 h-9 w-full rounded-md border border-white/10 bg-[#0d1939] px-2 text-xs font-semibold text-ink outline-none">
+                  <option value="">{t("common.all")}</option>
+                  {genres.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+                <label className="mt-3 block text-[11px] font-bold text-ink-dim">{t("filters.year")}</label>
+                <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" className="mt-1.5 h-9 w-full rounded-md border border-white/10 bg-[#0d1939] px-2 text-xs font-semibold text-ink outline-none" />
+                <button type="button" onClick={() => { clearFilters(); setOpenMenu(null); }} className="mt-3 text-xs font-bold text-brand-glow hover:text-ink">{t("common.reset")}</button>
+              </div>
+            )}
+          </div>
+          <label className="nx-discover-sort shrink-0">
+            <span>{t("common.sortBy")}</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("discover.trending")}>
+              <option value="popularity.desc">{t("discover.trending")}</option>
+              <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
+              <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
+            </select>
+          </label>
         </div>
       )}
 

@@ -2055,6 +2055,7 @@ export const de: Dictionary = {
 
   filters: {
     title: "Erweiterte Filter",
+    shortTitle: "Filter",
     quality: "Qualität",
     codec: "Codec",
     source: "Quelle",

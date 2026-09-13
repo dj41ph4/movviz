@@ -2038,6 +2038,7 @@ export const nl: Dictionary = {
 
   filters: {
     title: "Geavanceerde filters",
+    shortTitle: "Filters",
     quality: "Kwaliteit",
     codec: "Codec",
     source: "Bron",
