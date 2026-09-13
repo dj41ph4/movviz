@@ -115,6 +115,7 @@ export function DashboardPosterCard({
   episodeBadge,
   inLibrary = false,
   layout = "row",
+  variant = "landscape",
   reserveBottomRight = false,
   playback,
   technical,
@@ -174,6 +175,9 @@ export function DashboardPosterCard({
   /** `row` owns its editorial carousel width; `fill` lets a catalogue grid
    *  decide the column width while keeping the exact same visual card. */
   layout?: "row" | "fill";
+  /** Desktop dashboard recommendations use a real cinema poster treatment;
+   * other editorial rails retain their landscape artwork. */
+  variant?: "landscape" | "poster";
   /** Keeps the title mark clear of an action supplied by the parent card. */
   reserveBottomRight?: boolean;
   /** Present only for a concrete locally available movie or episode. */
@@ -481,6 +485,7 @@ export function DashboardPosterCard({
   useEffect(() => () => clearTimers(), []);
 
   if (dismissed) return null;
+  const posterVariant = variant === "poster";
 
   return (
     <>
@@ -490,7 +495,7 @@ export function DashboardPosterCard({
       onMouseEnter={(event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
       onClick={closeOnClick}
-      className={cn("nx-row-card group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[240px] sm:w-[250px] lg:w-[260px] xl:w-[270px] 2xl:w-[280px]", hovered && "opacity-0 sm:opacity-35")}
+      className={cn("nx-row-card group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : posterVariant ? "nx-row-card--poster block w-[132px] sm:w-[145px]" : layout === "fill" ? "block w-full" : "block w-[240px] sm:w-[250px] lg:w-[260px] xl:w-[270px] 2xl:w-[280px]", hovered && "opacity-0 sm:opacity-35")}
     >
       {showRank && (
         <span
@@ -502,7 +507,7 @@ export function DashboardPosterCard({
         </span>
       )}
       <div className={cn("shrink-0", showRank ? "w-[150px] sm:w-[170px]" : "w-full")}>
-        <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[150px] sm:w-[170px]" : "aspect-video w-full")}>
+        <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[150px] sm:w-[170px]" : posterVariant ? "aspect-[2/3] w-full" : "aspect-video w-full")}>
           {showRank ? (
             poster ? (
               <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="h-full w-full object-cover" />
@@ -512,6 +517,8 @@ export function DashboardPosterCard({
                 <span className="line-clamp-3 text-sm font-semibold text-ink/90">{title}</span>
               </div>
             )
+          ) : posterVariant && poster ? (
+            <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="h-full w-full object-cover" />
           ) : backdrop ? (
             <>
               <TmdbImage path={backdropPath ?? null} size="w780" alt={title} loading="lazy" className="h-full w-full object-cover" />
@@ -533,7 +540,7 @@ export function DashboardPosterCard({
             </div>
           )}
 
-          {!showRank && (
+          {!showRank && !posterVariant && (
             <div
               className={cn(
                 "pointer-events-none absolute bottom-3 left-3 z-10 flex min-h-8 items-end",
@@ -569,8 +576,8 @@ export function DashboardPosterCard({
             </div>
           )}
         </div>
-        {showRank && <p className="mt-1.5 truncate text-center text-sm font-semibold text-ink">{title}</p>}
-        {showRank && subtitle && <p className="truncate text-center text-xs text-ink-dim">{subtitle}</p>}
+        {(showRank || posterVariant) && <p className="mt-1.5 truncate text-center text-sm font-semibold text-ink">{title}</p>}
+        {(showRank || posterVariant) && subtitle && <p className="truncate text-center text-xs text-ink-dim">{subtitle}</p>}
       </div>
     </Link>
     {hovered && popover && typeof document !== "undefined" && createPortal(

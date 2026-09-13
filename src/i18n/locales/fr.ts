@@ -419,6 +419,7 @@ export const fr = {
     },
     continueWatching: "Reprendre",
     continueWatchingSub: "Reprenez où vous en étiez",
+    minutesRemaining: "{count} min restantes",
     removeFromResume: "Retirer de la liste Reprendre",
     recentlyAdded: "Ajouts récents",
     recentEpisodes: "Épisodes récemment ajoutés",

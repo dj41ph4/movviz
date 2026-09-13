@@ -421,6 +421,7 @@ export const de: Dictionary = {
     },
     continueWatching: "Weiterschauen",
     continueWatchingSub: "Dort weitermachen, wo du aufgehört hast",
+    minutesRemaining: "{count} Min. verbleibend",
     removeFromResume: "Aus „Weiterschauen“ entfernen",
     recentlyAdded: "Kürzlich hinzugefügt",
     recentEpisodes: "Kürzlich hinzugefügte Folgen",

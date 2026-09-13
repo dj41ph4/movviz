@@ -296,9 +296,9 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardSplash show={showSplash} progress={splashProgress} />
-      <div className="mx-auto max-w-[1500px] space-y-8">
+      <div className="nx-dashboard-content mx-auto max-w-[1500px] space-y-8">
       {layout.mode === "cinema" && (
-        <div className="nx-home-hero-grid grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="nx-home-hero-grid grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
           <CardErrorBoundary>
             <DashboardHero settings={layout.hero} />
           </CardErrorBoundary>
@@ -309,10 +309,10 @@ export default function DashboardPage() {
       {layout.mode === "cinema" && (providerData?.tiles?.length ?? 0) > 0 && (
         <section className="nx-home-providers" aria-label={t("discover.watchProviders")}>
           <h2 className="text-sm font-black tracking-tight text-ink">{t("discover.watchProviders")}</h2>
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-2 flex gap-2.5 overflow-x-auto pb-1">
             {providerData!.tiles.slice(0, 8).map((provider) => (
               <Link key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className="nx-provider-tile" title={provider.name}>
-                {provider.logoPath ? <TmdbImage path={provider.logoPath} size="w92" alt={provider.name} className="max-h-8 max-w-[72px] object-contain" /> : <span>{provider.name}</span>}
+                {provider.logoPath ? <TmdbImage path={provider.logoPath} size="w92" alt={provider.name} className="max-h-9 max-w-[82px] object-contain" /> : <span>{provider.name}</span>}
               </Link>
             ))}
           </div>

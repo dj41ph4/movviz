@@ -614,7 +614,7 @@ body {
   }
 
   .nx-desktop-shell .nx-topbar > div:first-child {
-    max-width: 352px;
+    max-width: clamp(380px, 30vw, 650px);
     height: 36px;
     border-color: rgba(83, 119, 235, .42);
     background: rgba(12, 27, 66, .86);
@@ -643,8 +643,9 @@ body {
   }
 
   .nx-desktop-shell main > div {
-    max-width: 1600px;
-    margin-inline: auto;
+    max-width: min(1840px, calc(100vw - 250px));
+    margin-left: clamp(1.5rem, 2vw, 2rem);
+    margin-right: auto;
   }
 
   .nx-desktop-shell .group\/row > div:first-child h2 {
@@ -661,6 +662,7 @@ body {
      DashboardPosterCard's `layout="fill"`; constraining those cards left a
      blank strip where the status action appeared detached from its tile. */
   .nx-desktop-shell .group\/row .nx-row-card { width: 220px; }
+  .nx-desktop-shell .group\/row .nx-row-card--poster { width: 145px; }
   .nx-desktop-shell .nx-row-card .aspect-video { border-radius: 10px; }
 
   .nx-desktop-shell .nx-library-link {

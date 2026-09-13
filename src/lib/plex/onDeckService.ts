@@ -23,7 +23,7 @@ function isNearEnd(offsetMs: number, durationMs: number, type: "movie" | "episod
 export interface OnDeckEntry {
   type: "movie" | "episode";
   tmdbId: number; title: string; posterPath: string | null; year: number | null; rating: number;
-  progressPercent: number; offsetMs: number; seasonNumber?: number; episodeNumber?: number;
+  progressPercent: number; offsetMs: number; durationMs?: number; seasonNumber?: number; episodeNumber?: number;
   episodeTitle?: string; plexRatingKey: string | null; plexUrl: string | null; movvizId?: string;
   /** Vignette 16:9 de l'épisode. Elle reste distincte de l'affiche de la
    * série : les clients NX l'emploient uniquement pour une reprise épisode. */
@@ -80,14 +80,14 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     if (movie) {
       if (isNearEnd(p.resumeOffsetMs, p.durationMs, "movie")) continue;
       const key = movie.plexRatingKey ?? p.ratingKey;
-      items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: movie.id, technical: technical(movie.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
+      items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, durationMs: p.durationMs, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: movie.id, technical: technical(movie.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
       continue;
     }
     const found = findEpisodeByPlexLocator(p.ratingKey);
     if (!found) continue;
     if (isNearEnd(p.resumeOffsetMs, p.durationMs, "episode")) continue;
     const key = found.episode.plexRatingKey ?? p.ratingKey;
-    items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`, seriesId: found.series.id, technical: technical(found.episode.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
+    items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, durationMs: p.durationMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`, seriesId: found.series.id, technical: technical(found.episode.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
   }
   if (!cfg.hostname) return (await attachEpisodeStills(items)).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
 
@@ -127,7 +127,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
       const meta = movie ? null : await resolveMovieMeta(tmdbId);
       if (!movie && !meta) continue;
       const key = movie?.plexRatingKey ?? d.ratingKey;
-      items.push({ type: "movie", tmdbId, title: movie?.title ?? meta!.title, posterPath: movie?.posterPath ?? meta!.posterPath, year: movie?.year ?? meta!.year, rating: movie?.rating ?? meta!.rating, progressPercent: percent, offsetMs: d.viewOffset, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: movie?.id, technical: technical(movie?.file ?? null), lastPlayedAt: d.lastViewedAt ?? d.updatedAt ?? 0 });
+      items.push({ type: "movie", tmdbId, title: movie?.title ?? meta!.title, posterPath: movie?.posterPath ?? meta!.posterPath, year: movie?.year ?? meta!.year, rating: movie?.rating ?? meta!.rating, progressPercent: percent, offsetMs: d.viewOffset, durationMs: d.duration, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: movie?.id, technical: technical(movie?.file ?? null), lastPlayedAt: d.lastViewedAt ?? d.updatedAt ?? 0 });
       continue;
     }
     const found = findEpisodeByPlexLocator(d.ratingKey, d.grandparentRatingKey, d.seasonNumber, d.episodeNumber);
@@ -141,7 +141,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const meta = found ? null : await resolveSeriesMeta(tmdbId);
     if (!found && !meta) continue;
     const key = found?.episode.plexRatingKey ?? d.ratingKey;
-    items.push({ type: "episode", tmdbId, title: found?.series.title ?? meta!.title, posterPath: found?.series.posterPath ?? meta!.posterPath, year: found?.series.year ?? meta!.year, rating: found?.series.rating ?? meta!.rating, progressPercent: percent, offsetMs: d.viewOffset, seasonNumber: season, episodeNumber: episode, episodeTitle: found?.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: found ? `${found.series.id}:s${season}e${episode}` : undefined, seriesId: found?.series.id, technical: technical(found?.episode.file ?? null), lastPlayedAt: d.lastViewedAt ?? d.updatedAt ?? 0 });
+    items.push({ type: "episode", tmdbId, title: found?.series.title ?? meta!.title, posterPath: found?.series.posterPath ?? meta!.posterPath, year: found?.series.year ?? meta!.year, rating: found?.series.rating ?? meta!.rating, progressPercent: percent, offsetMs: d.viewOffset, durationMs: d.duration, seasonNumber: season, episodeNumber: episode, episodeTitle: found?.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: found ? `${found.series.id}:s${season}e${episode}` : undefined, seriesId: found?.series.id, technical: technical(found?.episode.file ?? null), lastPlayedAt: d.lastViewedAt ?? d.updatedAt ?? 0 });
   }
   // Exactly one current action per logical media — and a single active
   // resume per series (§23-24, §58 : E03+E04 ne coexistent jamais, le plus

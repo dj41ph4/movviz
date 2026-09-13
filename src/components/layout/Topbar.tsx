@@ -55,7 +55,7 @@ export function Topbar() {
       )}
     >
       {/* THE search box — always here, every screen size. */}
-      <div className="group flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-cyan/20 bg-[#0d1738]/82 px-3 transition-colors focus-within:border-brand/70 sm:max-w-md">
+      <div className="group flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-cyan/20 bg-[#0d1738]/82 px-3 transition-colors focus-within:border-brand/70 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]">
         <Search className="h-4 w-4 shrink-0 text-ink-dim transition-colors group-focus-within:text-brand-glow" />
         <input
           value={navSearch.value}

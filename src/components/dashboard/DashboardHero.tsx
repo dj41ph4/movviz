@@ -154,7 +154,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       paused={manuallyPaused}
       className="-mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
     >
-      <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:h-[390px] lg:min-h-[390px]">
+      <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:h-[350px] lg:min-h-[350px]">
         <TrailerHeader
           backdropPath={heroBackdropPath}
           size={heroBackdropSize}

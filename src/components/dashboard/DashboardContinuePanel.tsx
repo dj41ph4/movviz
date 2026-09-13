@@ -21,7 +21,7 @@ export function DashboardContinuePanel() {
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
-            <Link key={`${item.type}:${item.plexRatingKey}`} href={`/title/${item.type === "movie" ? "movie" : "series"}/${item.tmdbId}`} className="group block rounded-lg bg-white/[0.05] p-2 transition-colors hover:bg-white/[0.09]">
+            <Link key={`${item.type}:${item.plexRatingKey}`} href={`/title/${item.type === "movie" ? "movie" : "series"}/${item.tmdbId}`} className="group block rounded-lg border border-white/[0.07] bg-white/[0.05] p-2.5 transition-colors hover:border-brand/30 hover:bg-white/[0.09]">
               <div className="flex gap-2.5">
                 <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-surface">
                   <TmdbImage path={item.posterPath} size="w342" alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -30,6 +30,7 @@ export function DashboardContinuePanel() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold text-ink">{item.title}</p>
                   {item.type === "episode" && <p className="mt-0.5 truncate text-[11px] text-ink-dim">S{item.seasonNumber} · E{item.episodeNumber}</p>}
+                  {item.durationMs && item.durationMs > item.offsetMs && <p className="mt-0.5 text-[11px] text-ink-soft">{t("dashboard.minutesRemaining", { count: Math.ceil((item.durationMs - item.offsetMs) / 60_000) })}</p>}
                   <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full brand-gradient" style={{ width: `${Math.round(item.progressPercent ?? 0)}%` }} /></div>
                 </div>
               </div>

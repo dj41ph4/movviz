@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.149 — September 2026
+
+### Tableau de bord NX
+
+- Rééquilibre la composition ultra-large : contenu ancré vers la sidebar, largeur utile élargie, hero plus compact et colonne Reprendre enrichie.
+- Transforme les suggestions principales en affiches verticales et donne plus de présence aux plateformes et à la recherche.
+- Affiche le temps réellement restant dans Reprendre à partir de la durée et de la position Plex.
+
 ## v1.24.148 — September 2026
 
 ### Découverte NX

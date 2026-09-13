@@ -421,6 +421,7 @@ export const nl: Dictionary = {
     },
     continueWatching: "Verdergaan met kijken",
     continueWatchingSub: "Ga verder waar je gebleven was",
+    minutesRemaining: "{count} min resterend",
     removeFromResume: "Verwijderen uit Verdergaan",
     recentlyAdded: "Onlangs toegevoegd",
     recentEpisodes: "Recent toegevoegde afleveringen",

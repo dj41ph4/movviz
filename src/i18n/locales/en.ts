@@ -421,6 +421,7 @@ export const en: Dictionary = {
     },
     continueWatching: "Continue watching",
     continueWatchingSub: "Pick up where you left off",
+    minutesRemaining: "{count} min remaining",
     removeFromResume: "Remove from Continue Watching",
     recentlyAdded: "Recently added",
     recentEpisodes: "Recently added episodes",
