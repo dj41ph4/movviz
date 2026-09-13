@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PosterRow } from "@/components/media/PosterRow";
 import { DashboardPosterCard, type DashboardCardPlayback, type DashboardCardTechnical } from "./DashboardPosterCard";
@@ -113,6 +113,19 @@ export function DashboardRows({
   const { data: seriesRecData } = useSWR<{ results: MetaSearchResult[] }>(
     visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=series" : null
   );
+  // A 👎 is a durable exclusion, not merely a local animation on one card.
+  // Dashboard shelves such as "Moins de 40 minutes" are assembled directly
+  // from the library, so they must consume this same server-side record as
+  // the recommendation endpoints; otherwise their cards return on refresh.
+  const { data: feedbackData } = useSWR<{ exclusions: { tmdbId: number; type: "movie" | "series" }[] }>("/api/ai/feedback");
+  const excludedTitleKeys = useMemo(
+    () => new Set((feedbackData?.exclusions ?? []).map((entry) => `${entry.type}:${entry.tmdbId}`)),
+    [feedbackData]
+  );
+  const isNotExcluded = useCallback(
+    (type: "movie" | "series", tmdbId: number) => !excludedTitleKeys.has(`${type}:${tmdbId}`),
+    [excludedTitleKeys]
+  );
   // Reflects Plex's own "on deck" state, which Movviz's own player also
   // reports into (see /api/stream/[ratingKey]/progress) — one row, one
   // source of truth, rather than a separate localStorage-only list that
@@ -155,27 +168,27 @@ export function DashboardRows({
     if (hasMovieRows && hasSeriesRows) onRowsReady();
   }, [rowsData, seriesRowsData, visible, onRowsReady]);
 
-  const movieTrending = (rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear);
-  const seriesTrending = (seriesRowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear);
+  const movieTrending = (rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("movie", item.tmdbId));
+  const seriesTrending = (seriesRowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("series", item.tmdbId));
   const trending = interleave(movieTrending, seriesTrending).slice(0, 10);
   const recommended = interleave(
-    (recData?.results ?? []).filter(afterMinYear),
-    (seriesRecData?.results ?? []).filter(afterMinYear)
+    (recData?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("movie", item.tmdbId)),
+    (seriesRecData?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("series", item.tmdbId))
   );
 
   const recentlyAdded = useMemo(
     () => {
       const availableMovies: EditorialLibraryItem[] = movies
-        .filter((m) => m.status === "available" && afterMinYear(m))
+        .filter((m) => m.status === "available" && afterMinYear(m) && isNotExcluded("movie", m.tmdbId))
         .map((item) => ({ type: "movie", item }));
       const availableSeries: EditorialLibraryItem[] = series
-        .filter((s) => s.hasAvailableEpisode && afterMinYear(s))
+        .filter((s) => s.hasAvailableEpisode && afterMinYear(s) && isNotExcluded("series", s.tmdbId))
         .map((item) => ({ type: "series", item }));
       return [...availableMovies, ...availableSeries]
         .sort((a, b) => b.item.addedAt - a.item.addedAt)
         .slice(0, 20);
     },
-    [movies, series, afterMinYear]
+    [movies, series, afterMinYear, isNotExcluded]
   );
 
   // Netflix's "short on time" idea, grounded in Movviz data rather than an
@@ -184,21 +197,21 @@ export function DashboardRows({
   // episode duration is part of their persisted library model.
   const shortSessions = useMemo(
     () => movies
-      .filter((movie) => movie.status === "available" && movie.runtime !== null && movie.runtime <= 40 && afterMinYear(movie))
+      .filter((movie) => movie.status === "available" && movie.runtime !== null && movie.runtime <= 40 && afterMinYear(movie) && isNotExcluded("movie", movie.tmdbId))
       .sort((a, b) => b.addedAt - a.addedAt)
       .slice(0, 20),
-    [movies, afterMinYear]
+    [movies, afterMinYear, isNotExcluded]
   );
 
   const upcoming = useMemo(
     () =>
       movies
-        .filter((m) => m.status === "upcoming" && afterMinYear(m))
+        .filter((m) => m.status === "upcoming" && afterMinYear(m) && isNotExcluded("movie", m.tmdbId))
         .map((m) => ({ m, days: daysUntil(m.vfReleaseDate ?? m.releaseDate) }))
         .filter((x): x is { m: DashboardLibraryMovie; days: number } => x.days !== null)
         .sort((a, b) => a.days - b.days)
         .slice(0, 20),
-    [movies, afterMinYear]
+    [movies, afterMinYear, isNotExcluded]
   );
 
   const upgrades = useMemo(() => {

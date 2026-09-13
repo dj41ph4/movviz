@@ -333,6 +333,10 @@ export function DashboardPosterCard({
       });
       if (!response.ok) throw new Error("feedback_failed");
       setDismissed(true);
+      // DashboardRows subscribes to this durable exclusion list for shelves
+      // assembled from the library (not only remote recommendation feeds).
+      // Revalidate it immediately so the next card shifts into this slot.
+      await mutate("/api/ai/feedback");
       const recommendationKey = `/api/metadata/recommendations?type=${type}`;
       // Remove the title from SWR's shared cache before asking the server for
       // a replacement. This prevents an old in-flight response from briefly

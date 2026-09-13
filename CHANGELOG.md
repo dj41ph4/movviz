@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.24.158 — September 2026
+
+### Accueil et découverte : largeur fluide et OCS rétabli
+
+- L'accueil utilise désormais toute la largeur utile sur desktop, puis reste centré avec un plafond de 2200 px sur ultrawide. Les cartes conservent leur taille et affichent donc plus de contenus, tandis que les tuiles de plateformes gagnent en espace.
+- Le hero passe en pleine largeur au ratio 18:9 ; « Reprendre » redevient une rangée éditoriale au-dessus des suggestions adaptées.
+- Les exclusions par pouce vers le bas sont relues par les rangées locales : un titre écarté de « Moins de 40 minutes » ne revient plus après rechargement.
+- OCS conserve son logo et son nom, mais interroge désormais le catalogue TMDb actuel Ciné+ OCS (id 685) au lieu de l'ancien id 56 vide.
+
 ## v1.24.157 — September 2026
 
 ### Accueil : plateformes à largeur dynamique

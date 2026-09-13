@@ -40,7 +40,10 @@ export const STREAMING_PLATFORMS = [
   { id: 350, name: "Apple TV" },
   { id: 192, name: "YouTube" },
   { id: 283, name: "Crunchyroll" },
-  { id: 56, name: "OCS" },
+  // OCS' historic TMDb entry (56) no longer has a French catalogue.  Its
+  // current catalogue is published as the Ciné+ OCS Amazon Channel (685).
+  // Keep the familiar OCS label in Movviz; only the provider filter id changes.
+  { id: 685, name: "OCS" },
 ];
 
 /** Cycled background gradients for genre tiles — brand palette, no external images needed. */

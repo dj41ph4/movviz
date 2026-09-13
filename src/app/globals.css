@@ -428,9 +428,24 @@ body {
   }
 
   .nx-desktop-shell main > div {
-    max-width: min(1840px, calc(100vw - 250px));
-    margin-left: clamp(1.5rem, 2vw, 2rem);
+    /* Wide desktop stays editorial rather than full-bleed: allow a real
+       ultrawide canvas, while retaining the sidebar gutter and a generous
+       right breathing space. */
+    max-width: min(2200px, calc(100vw - 250px));
+    /* Fill ordinary desktop widths; once the editorial ceiling is reached,
+       centre the entire canvas in the space remaining after the sidebar. */
+    margin-left: auto;
     margin-right: auto;
+  }
+
+  /* AppShell adds an animation wrapper between <main> and each page.  The
+     dashboard used `mx-auto` inside that wrapper, producing a second
+     centering constraint and wide empty bands on ordinary desktop widths.
+     Fill the responsive page wrapper until its 2200px editorial ceiling. */
+  .nx-desktop-shell .nx-dashboard-content {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .nx-desktop-shell .group\/row > div:first-child h2 {

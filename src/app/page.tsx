@@ -9,7 +9,6 @@ import { DownloadQueue } from "@/components/media/DownloadQueue";
 import { UpdateAvailableBanner } from "@/components/system/UpdateAvailableBanner";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
-import { DashboardContinuePanel } from "@/components/dashboard/DashboardContinuePanel";
 import { DashboardRows } from "@/components/dashboard/DashboardRows";
 import { DashboardSplash } from "@/components/dashboard/DashboardSplash";
 import { TmdbImage } from "@/components/media/TmdbImage";
@@ -297,13 +296,12 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardSplash show={showSplash} progress={splashProgress} />
-      <div className="nx-dashboard-content mx-auto max-w-[1500px] space-y-8">
+      <div className="nx-dashboard-content w-full max-w-[2200px] space-y-8">
       {layout.mode === "cinema" && (
-        <div className="nx-home-hero-grid grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
+        <div className="nx-home-hero-grid">
           <CardErrorBoundary>
             <DashboardHero settings={layout.hero} />
           </CardErrorBoundary>
-          <DashboardContinuePanel />
         </div>
       )}
 
@@ -393,7 +391,7 @@ export default function DashboardPage() {
 
       {richMode ? (
         !loading && !hasError && movies.length + series.length > 0 && (
-          <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} onRowsReady={handleRowsReady} excludeContinueWatching />
+          <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} onRowsReady={handleRowsReady} />
         )
       ) : (
         <div className="mt-8">

@@ -15,7 +15,7 @@ export const PROVIDER_SVG: Record<number, string> = {
   350: "/providers/apple-tv-plus-white.svg",
   192: "/providers/youtube.svg",
   283: "/providers/crunchyroll.svg",
-  56: "/providers/ocs.svg",
+  685: "/providers/ocs.svg",
 };
 
 /**
