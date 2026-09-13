@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.148 — September 2026
+
+### Découverte NX
+
+- Corrige la grille Nouveautés et Tendance : chaque tuile utilise toute sa cellule et son statut reste superposé au visuel.
+- Le panneau Filtres reste ouvert pendant le choix d'un genre sur desktop.
+
 ## v1.24.147 — September 2026
 
 ### Découverte NX

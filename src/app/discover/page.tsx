@@ -139,10 +139,12 @@ function DiscoverPageInner() {
   // même boilerplate.
   const [openMenu, setOpenMenu] = useState<null | "genre" | "mood" | "duration" | "platform" | "desktopFilters">(null);
   const filterRowRef = useRef<HTMLDivElement>(null);
+  const desktopFilterRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!openMenu) return;
     const onClick = (e: MouseEvent) => {
-      if (filterRowRef.current && !filterRowRef.current.contains(e.target as Node)) setOpenMenu(null);
+      const target = e.target as Node;
+      if (!filterRowRef.current?.contains(target) && !desktopFilterRef.current?.contains(target)) setOpenMenu(null);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpenMenu(null); };
     document.addEventListener("mousedown", onClick);
@@ -772,7 +774,7 @@ function DiscoverPageInner() {
       </PageHeader>
 
       {configured && (
-        <div className="nx-discover-desktop-bar hidden lg:flex">
+        <div ref={desktopFilterRef} className="nx-discover-desktop-bar hidden lg:flex">
           <div className="nx-discover-mode-tabs flex items-center gap-1">
             {(["all", "movie", "series"] as const).map((kind) => (
               <button
