@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.142 — September 2026
+
+### Fidélité NX desktop
+
+- La barre Accueil affiche désormais les plateformes réelles sous le hero ; Lecture est prioritaire et Ma liste est actionnable.
+- La bibliothèque reçoit sa toolbar NX avec filtres réels (4K, HDR, ma liste, récent et tri) et des rails plus compacts.
+- Le rail Téléchargements expose l’attente, l’espace libre et des réglages rapides réellement reliés au moteur.
+
 ## v1.24.141 — September 2026
 
 ### Interface NX desktop

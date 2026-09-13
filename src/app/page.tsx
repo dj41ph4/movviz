@@ -12,6 +12,7 @@ import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { DashboardContinuePanel } from "@/components/dashboard/DashboardContinuePanel";
 import { DashboardRows } from "@/components/dashboard/DashboardRows";
 import { DashboardSplash } from "@/components/dashboard/DashboardSplash";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import { setSplashActive } from "@/lib/dashboard/splashCoordinator";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
@@ -81,6 +82,7 @@ export default function DashboardPage() {
     interfaceModeReady && (!optimized || layout.mode === "compact") ? "/api/engine/torrents" : null
   );
   const { titlePanel } = useTitlePanel();
+  const { data: providerData } = useSWR<{ tiles: { id: number; name: string; logoPath: string | null }[] }>("/api/metadata/logos?kind=watchProvider");
 
   const movies: DashboardLibraryMovie[] = optimized ? optimizedData?.movies ?? [] : moviesData?.movies ?? [];
   const series: DashboardLibrarySeries[] = optimized
@@ -302,6 +304,19 @@ export default function DashboardPage() {
           </CardErrorBoundary>
           <DashboardContinuePanel />
         </div>
+      )}
+
+      {layout.mode === "cinema" && (providerData?.tiles?.length ?? 0) > 0 && (
+        <section className="nx-home-providers" aria-label={t("discover.watchProviders")}>
+          <h2 className="text-sm font-black tracking-tight text-ink">{t("discover.watchProviders")}</h2>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {providerData!.tiles.slice(0, 8).map((provider) => (
+              <Link key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className="nx-provider-tile" title={provider.name}>
+                {provider.logoPath ? <TmdbImage path={provider.logoPath} size="w92" alt={provider.name} className="max-h-8 max-w-[72px] object-contain" /> : <span>{provider.name}</span>}
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {layout.showStats && (

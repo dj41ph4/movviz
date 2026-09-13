@@ -631,6 +631,11 @@ body {
     padding-bottom: 0.35rem;
   }
 
+  .nx-desktop-shell .group\/row { gap: .55rem; }
+  .nx-desktop-shell .group\/row > .relative > .flex { gap: .75rem; }
+  .nx-desktop-shell .nx-row-card { width: 220px; }
+  .nx-desktop-shell .nx-row-card .aspect-video { border-radius: 10px; }
+
   .nx-desktop-shell .nx-library-link {
     box-shadow: 0 0 0 1px rgba(52,226,255,0.07), 0 8px 20px -18px rgba(52,226,255,0.9);
   }
@@ -648,6 +653,47 @@ body {
   .nx-desktop-shell .nx-home-hero-grid .nx-continue-panel {
     align-self: stretch;
   }
+
+  .nx-desktop-shell .nx-home-hero-grid .nx-hero-play { order: -2; }
+  .nx-desktop-shell .nx-home-hero-grid .nx-hero-watchlist { order: -1; }
+  .nx-desktop-shell .nx-home-hero-grid .nx-hero-more { order: 1; }
+
+  .nx-desktop-shell .nx-library-main > div:first-child,
+  .nx-desktop-shell .nx-download-queue > .flex:first-child,
+  .nx-desktop-shell .nx-discover-desktop-bar {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 14px 32px -28px rgba(34,226,255,.86);
+  }
+
+  .nx-desktop-shell .nx-library-toolbar {
+    min-height: 46px;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .7rem;
+    padding: .35rem .5rem;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 24%, transparent);
+    border-radius: 12px;
+    background: rgba(7, 20, 47, .78);
+  }
+
+  .nx-desktop-shell .nx-library-tool,
+  .nx-desktop-shell .nx-library-sort {
+    display: inline-flex;
+    min-height: 30px;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 7px;
+    padding: .35rem .55rem;
+    color: var(--color-ink-soft);
+    font-size: .68rem;
+    font-weight: 800;
+    white-space: nowrap;
+    transition: background .16s ease, color .16s ease;
+  }
+
+  .nx-desktop-shell .nx-library-tool:hover,
+  .nx-desktop-shell .nx-library-sort:hover { background: rgba(255,255,255,.08); color: var(--color-ink); }
+  .nx-desktop-shell .nx-library-tool-active,
+  .nx-desktop-shell .nx-library-sort-active { background: linear-gradient(110deg, var(--color-brand), var(--color-magenta)); color: white; }
 
   /* Downloads follow the NX control-room composition: the live graph lives
      in the right rail, while the main column stays a dense operational list. */
@@ -894,7 +940,7 @@ body {
   }
 
   .nx-desktop-shell .nx-discover-page > [data-nx-page-header] {
-    margin-bottom: .4rem;
+    display: none;
   }
 
   .nx-desktop-shell .nx-discover-desktop-bar {
@@ -921,6 +967,35 @@ body {
   .nx-desktop-shell .nx-home-hero-grid .nx-continue-panel {
     min-height: 390px;
     padding: 1rem;
+  }
+
+  .nx-desktop-shell .nx-home-providers {
+    padding: .65rem .8rem;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 22%, transparent);
+    border-radius: 12px;
+    background: linear-gradient(100deg, rgba(7,20,47,.82), rgba(13,18,52,.56));
+  }
+
+  .nx-desktop-shell .nx-provider-tile {
+    display: grid;
+    width: 76px;
+    height: 46px;
+    flex: 0 0 auto;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklab, var(--color-cyan) 25%, transparent);
+    border-radius: 9px;
+    background: rgba(3, 11, 28, .72);
+    color: var(--color-ink-soft);
+    font-size: .65rem;
+    font-weight: 800;
+    transition: border-color .16s ease, background .16s ease;
+  }
+
+  .nx-desktop-shell .nx-provider-tile:hover,
+  .nx-desktop-shell .nx-provider-tile:focus-visible {
+    border-color: color-mix(in oklab, var(--color-magenta) 55%, var(--color-cyan) 35%);
+    background: rgba(26, 22, 74, .86);
   }
 
   .nx-desktop-shell .nx-continue-panel > div > a {

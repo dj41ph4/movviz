@@ -309,6 +309,7 @@ export class MovvizEngine {
     const snapshot = {
       torrents: torrents.length,
       downloading: torrents.filter((t) => t.state === "downloading").length,
+      queued: torrents.filter((t) => t.state === "queued").length,
       seeding: torrents.filter((t) => t.state === "seeding").length,
       completed: torrents.filter((t) => t.state === "completed").length,
       downloadSpeed: torrents.reduce((a, t) => a + t.downloadSpeed, 0),

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X, Check } from "lucide-react";
+import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X, Check, Clapperboard, Sparkles, Heart, Grid2X2, ListFilter } from "lucide-react";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
 export const RENDER_BATCH_INITIAL = 200;
@@ -93,6 +93,10 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     () => (SORTS.find((s) => s.id === searchParams.get("sort"))?.id ?? "title") as (typeof SORTS)[number]["id"]
   );
   const [genreFilter, setGenreFilter] = useState(() => searchParams.get("genre") ?? "");
+  const [technicalFilter, setTechnicalFilter] = useState<"all" | "4k" | "hdr" | "watched">(() => {
+    const value = searchParams.get("technical");
+    return value === "4k" || value === "hdr" || value === "watched" ? value : "all";
+  });
   const [rescanning, setRescanning] = useState(false);
   const [issues, setIssues] = useState<RescanIssue[] | null>(null);
   const [searchAndReplaceOpen, setSearchAndReplaceOpen] = useState(false);
@@ -115,11 +119,12 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     if (filter !== "all") p.set("filter", filter); else p.delete("filter");
     if (sort !== "title") p.set("sort", sort); else p.delete("sort");
     if (genreFilter) p.set("genre", genreFilter); else p.delete("genre");
+    if (technicalFilter !== "all") p.set("technical", technicalFilter); else p.delete("technical");
     const qs = p.toString();
     if (qs !== searchParams.toString()) {
       router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
     }
-  }, [filter, sort, genreFilter, searchParams, router, pathname]);
+  }, [filter, sort, genreFilter, technicalFilter, searchParams, router, pathname]);
 
   // Poll the job queue for any admin visit to this page (not just while
   // *this* component instance triggered a run) so a "search all missing"
@@ -203,6 +208,8 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   // Shared SWR key with the series detail page — fetched once per session.
   const { data: watchData } = useSWR<{ movies: number[] }>("/api/watch-status");
   const watchedMovies = useMemo(() => new Set<number>(watchData?.movies ?? []), [watchData]);
+  const { data: watchlistData } = useSWR<{ items: { tmdbId: number; type: "movie" | "series" }[] }>("/api/watchlist");
+  const watchlistKeys = useMemo(() => new Set((watchlistData?.items ?? []).map((item) => `${item.type}:${item.tmdbId}`)), [watchlistData]);
 
   const movieMatchesGenre = (m: LibraryMovie) => {
     if (!genreFilter) return true;
@@ -210,9 +217,13 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     if (genreFilter === TEEN_GENRE_ID) return matchesTeenByNames("movie", m.genres);
     return m.genres.includes(genreFilter);
   };
+  const movieMatchesTechnical = (m: LibraryMovie) => technicalFilter === "all"
+    || (technicalFilter === "watched" && watchlistKeys.has(`movie:${m.tmdbId}`))
+    || (technicalFilter === "4k" && /2160|4k/i.test(m.file?.resolution ?? ""))
+    || (technicalFilter === "hdr" && !!m.file?.hdr);
   const movieItems = useMemo(
-    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && movieMatchesGenre(m))),
-    [movies, filter, type, genreFilter]
+    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && movieMatchesGenre(m) && movieMatchesTechnical(m))),
+    [movies, filter, type, genreFilter, technicalFilter, watchlistKeys]
   );
   const seriesStatus = (s: LibrarySeries): LibraryStatus => {
     const monitored = s.seasons.flatMap((se) => se.episodes).filter((e) => e.monitored);
@@ -229,9 +240,15 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     if (genreFilter === TEEN_GENRE_ID) return matchesTeenByNames("series", s.genres);
     return s.genres.includes(genreFilter);
   };
+  const seriesMatchesTechnical = (s: LibrarySeries) => {
+    if (technicalFilter === "all") return true;
+    const episodes = s.seasons.flatMap((season) => season.episodes);
+    if (technicalFilter === "watched") return watchlistKeys.has(`series:${s.tmdbId}`);
+    return episodes.some((episode) => technicalFilter === "4k" ? /2160|4k/i.test(episode.file?.resolution ?? "") : !!episode.file?.hdr);
+  };
   const seriesItems = useMemo(
-    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && seriesMatchesGenre(s))),
-    [series, filter, type, genreFilter]
+    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && seriesMatchesGenre(s) && seriesMatchesTechnical(s))),
+    [series, filter, type, genreFilter, technicalFilter, watchlistKeys]
   );
 
   // When "Tout" mixes movies and series, they must be sorted TOGETHER — every
@@ -395,6 +412,20 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       </aside>
       <div className="nx-library-main min-w-0">
+      <div className="nx-library-toolbar hidden lg:flex">
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+          {TYPES.map((item) => <Link key={item.id} href={item.href} className={cn("nx-library-tool", (item.id === fixedType || (item.id === "all" && fixedType === "all")) && "nx-library-tool-active")}>{item.id === "movie" ? <Film className="h-3.5 w-3.5" /> : item.id === "series" ? <Clapperboard className="h-3.5 w-3.5" /> : <Grid2X2 className="h-3.5 w-3.5" />}{t(item.key)}</Link>)}
+          <Link href="/library?tab=collection" className="nx-library-tool"><Grid2X2 className="h-3.5 w-3.5" />{t("nav.collections")}</Link>
+          <button type="button" onClick={() => setTechnicalFilter((value) => value === "4k" ? "all" : "4k")} className={cn("nx-library-tool", technicalFilter === "4k" && "nx-library-tool-active")}>4K</button>
+          <button type="button" onClick={() => setTechnicalFilter((value) => value === "hdr" ? "all" : "hdr")} className={cn("nx-library-tool", technicalFilter === "hdr" && "nx-library-tool-active")}>HDR</button>
+          <button type="button" onClick={() => setSort("recent")} className={cn("nx-library-tool", sort === "recent" && "nx-library-tool-active")}><Sparkles className="h-3.5 w-3.5" />{t("library.sortRecent")}</button>
+          <button type="button" onClick={() => setTechnicalFilter((value) => value === "watched" ? "all" : "watched")} className={cn("nx-library-tool", technicalFilter === "watched" && "nx-library-tool-active")}><Heart className="h-3.5 w-3.5" />{t("watchlist.added")}</button>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <span className="nx-library-tool text-ink-dim"><ListFilter className="h-3.5 w-3.5" />{t("library.sortTitle")}</span>
+          {SORTS.map((item) => <button key={item.id} type="button" onClick={() => setSort(item.id)} className={cn("nx-library-sort", sort === item.id && "nx-library-sort-active")}>{t(item.key)}</button>)}
+        </div>
+      </div>
       <div className="mb-4 space-y-2.5 rounded-2xl glass p-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-ink">

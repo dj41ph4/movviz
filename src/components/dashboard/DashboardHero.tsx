@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Info, Play, Pause, Plus, Loader2, Check } from "lucide-react";
+import { Info, Play, Pause, Plus, Loader2, Check, Heart } from "lucide-react";
 import { HeroSlideshow } from "./HeroSlideshow";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TitleMark } from "@/components/media/TitleMark";
@@ -69,6 +69,8 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play } = usePlayer();
   const { label: playLabel } = usePlayLabel(active?.plexRatingKey);
+  const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{ items: { tmdbId: number; type: string }[] }>("/api/watchlist");
+  const onWatchlist = (watchlistData?.items ?? []).some((item) => item.tmdbId === active?.detail.tmdbId && item.type === active?.detail.type);
 
   const addActiveToLibrary = async () => {
     if (!active) return;
@@ -80,6 +82,15 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
     } finally {
       setAdding(false);
     }
+  };
+  const toggleWatchlist = async () => {
+    if (!active) return;
+    const wasOnWatchlist = onWatchlist;
+    await mutateWatchlist((current) => current ? { items: wasOnWatchlist ? current.items.filter((item) => !(item.tmdbId === active.detail.tmdbId && item.type === active.detail.type)) : [...current.items, { tmdbId: active.detail.tmdbId, type: active.detail.type }] } : current, { revalidate: false });
+    try {
+      if (wasOnWatchlist) await fetch(`/api/watchlist/${active.detail.type}/${active.detail.tmdbId}`, { method: "DELETE" });
+      else await fetch("/api/watchlist", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: active.detail.type, tmdbId: active.detail.tmdbId, title: active.detail.title, year: active.detail.year, posterPath: active.detail.posterPath, rating: active.detail.rating }) });
+    } finally { await mutateWatchlist(); }
   };
 
   // A landscape backdrop, cropped down to a narrow portrait phone screen,
@@ -189,9 +200,12 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           <p className="line-clamp-2 max-w-xl text-sm text-white/70 sm:line-clamp-3">{active.detail.overview}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={toggleWatchlist} className={cn("nx-hero-watchlist flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105", onWatchlist ? "border border-brand-glow/50 bg-brand/25" : "bg-white/15")}>
+              <Heart className={cn("h-4 w-4", onWatchlist && "fill-current")} /> {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+            </button>
             <Link
               href={`/title/${active.detail.type}/${active.detail.tmdbId}`}
-              className="flex items-center gap-1.5 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
+              className="nx-hero-more flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
             >
               <Info className="h-4 w-4" /> {t("dashboard.hero.moreInfo")}
             </Link>
@@ -210,7 +224,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                     originRect: e.currentTarget.getBoundingClientRect(),
                     backdropUrl,
                   })}
-                  className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
+                  className="nx-hero-play flex items-center gap-1.5 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
                 >
                   <Play className="h-4 w-4" /> {playLabel}
                 </button>
@@ -220,7 +234,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => openPlexLink(e, active.plexUrl!)}
-                  className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
+                  className="nx-hero-play flex items-center gap-1.5 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
                 >
                   <Play className="h-4 w-4" /> {t("library.watchOnPlex")}
                 </a>

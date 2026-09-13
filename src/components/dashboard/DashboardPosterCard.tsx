@@ -490,7 +490,7 @@ export function DashboardPosterCard({
       onMouseEnter={(event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
       onClick={closeOnClick}
-      className={cn("group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[240px] sm:w-[250px] lg:w-[260px] xl:w-[270px] 2xl:w-[280px]", hovered && "opacity-0 sm:opacity-35")}
+      className={cn("nx-row-card group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[240px] sm:w-[250px] lg:w-[260px] xl:w-[270px] 2xl:w-[280px]", hovered && "opacity-0 sm:opacity-35")}
     >
       {showRank && (
         <span
