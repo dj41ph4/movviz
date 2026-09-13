@@ -64,6 +64,52 @@ test("Muse Contributor Free uses Zen Responses and extracts output text", async 
   }
 });
 
+test("A first 429 is retried once on the same key instead of failing over", async () => {
+  const originalFetch = globalThis.fetch;
+  const attempted: string[] = [];
+  let calls = 0;
+  globalThis.fetch = (async (input) => {
+    attempted.push(String(input));
+    calls++;
+    if (calls === 1) {
+      return new Response(JSON.stringify({ error: { message: "Rate limit exceeded. Please try again later." } }), {
+        status: 429,
+        headers: { "retry-after": "0" },
+      });
+    }
+    return new Response(JSON.stringify({ output: [{ content: [{ type: "output_text", text: "zen retry ok" }] }] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const result = await callAi(config("muse-spark-1.3-contributor-free"), "system", [{ role: "user", content: "bonjour" }]);
+    assert.equal(result.text, "zen retry ok");
+    assert.equal(result.provider, "opencode");
+    assert.equal(attempted.length, 2);
+    assert.ok(attempted.every((url) => url.endsWith("/responses")));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("A non-rate-limit error never retries the same key", async () => {
+  const originalFetch = globalThis.fetch;
+  const attempted: string[] = [];
+  globalThis.fetch = (async (input) => {
+    attempted.push(String(input));
+    if (String(input).includes("opencode.ai")) return new Response(JSON.stringify({ error: { message: "boom" } }), { status: 500 });
+    return new Response(JSON.stringify({ choices: [{ message: { content: "mistral fallback" } }] }), { status: 200 });
+  }) as typeof fetch;
+  const cfg = config("big-pickle", ["opencode", "mistral", "gemini", "openrouter"]);
+  cfg.fallback = true;
+  cfg.providers.mistral.keys = [{ id: "m", key: "mistral-test-key" }];
+  try {
+    const result = await callAi(cfg, "system", [{ role: "user", content: "bonjour" }]);
+    assert.equal(result.provider, "mistral");
+    assert.equal(attempted.filter((url) => url.includes("opencode.ai")).length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Configured priority determines the fallback provider order", async () => {
   const originalFetch = globalThis.fetch;
   const attempted: string[] = [];

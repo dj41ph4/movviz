@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { jsonCacheReadFailed } from "@/lib/fsJsonCache";
 import { AI_CONFIG_FILE, loadAiConfig, saveAiConfig } from "@/lib/ai/store";
-import { AI_PROVIDER_ORDER, DEFAULT_OPENCODE_ZEN_MODEL, isOpenCodeZenFreeModel, type AiConfig, type AiProviderId, type AiProviderKey } from "@/lib/ai/types";
+import { AI_PROVIDER_ORDER, type AiConfig, type AiProviderId, type AiProviderKey } from "@/lib/ai/types";
+import { FREE_MODEL_FALLBACKS, isAllowedFreeModel } from "@/lib/ai/freeModels";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +59,10 @@ export async function PUT(req: NextRequest) {
     const inc = body.providers?.[id];
     if (!inc || typeof inc !== "object") continue;
     const requestedModel = typeof inc.model === "string" ? inc.model.trim() : "";
-    const model = id === "opencode"
-      ? (isOpenCodeZenFreeModel(requestedModel) ? requestedModel : (isOpenCodeZenFreeModel(current.providers[id].model) ? current.providers[id].model : DEFAULT_OPENCODE_ZEN_MODEL))
-      : (requestedModel || current.providers[id].model);
+    const currentModel = current.providers[id].model;
+    const model = isAllowedFreeModel(id, requestedModel)
+      ? requestedModel
+      : (isAllowedFreeModel(id, currentModel) ? currentModel : FREE_MODEL_FALLBACKS[id][0].id);
     providers[id] = {
       model,
       keys: mergeKeys(current.providers[id].keys, Array.isArray(inc.keys) ? inc.keys : []),

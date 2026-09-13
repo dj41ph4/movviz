@@ -32,6 +32,9 @@ data class LibraryMovieDto(
     val vfReleaseDate: String? = null,
     val runtime: Int? = null,
     val addedAt: Long = 0L,
+    // Identifiant de saga TMDb : présent dans le snapshot compact afin que
+    // l'onglet Mon espace puisse ouvrir les films possédés d'une saga.
+    val tmdbCollectionId: Int? = null,
     val customBackdropPath: String? = null,
     val customLogoPath: String? = null,
     // Absent de /api/interface/dashboard : le snapshot d'accueil n'a pas

@@ -1,5 +1,6 @@
 import type { AiChatMessage, AiConfig, AiProviderId } from "./types";
 import { AI_PROVIDER_ORDER, DEFAULT_OPENCODE_ZEN_MODEL, isOpenCodeZenFreeModel } from "./types";
+import { FREE_MODEL_FALLBACKS, isAllowedFreeModel } from "./freeModels";
 
 /**
  * Multi-provider LLM client with two independent fallback layers:
@@ -31,12 +32,37 @@ const QUOTA_RE = /quota|rate limit|resource exhausted|insufficient_quota|429|too
 export class AiCallError extends Error {
   readonly provider: AiProviderId;
   readonly quota: boolean;
-  constructor(provider: AiProviderId, message: string, quota: boolean) {
+  readonly status?: number;
+  /** Seconds the provider asked us to wait (Retry-After header), if any. */
+  readonly retryAfterSec?: number;
+  constructor(provider: AiProviderId, message: string, quota: boolean, status?: number, retryAfterSec?: number) {
     super(message);
     this.name = "AiCallError";
     this.provider = provider;
     this.quota = quota;
+    this.status = status;
+    this.retryAfterSec = retryAfterSec;
   }
+}
+
+/** A 429/rate-limit is usually transient (shared free-tier quota, burst) —
+ *  worth ONE retry after a pause, unlike a 403/auth failure which will never
+ *  succeed on retry. Kept deliberately narrow: anything else falls through
+ *  to the next key/provider immediately, no added latency. */
+function isRateLimited(err: AiCallError): boolean {
+  if (err.status === 429) return true;
+  return /rate limit|too many requests|resource exhausted/i.test(err.message);
+}
+
+/** Respects the provider's Retry-After (capped), else a short fixed pause. */
+export function rateLimitDelayMs(err: AiCallError): number {
+  const asked = typeof err.retryAfterSec === "number" && Number.isFinite(err.retryAfterSec) ? err.retryAfterSec : NaN;
+  if (!Number.isNaN(asked)) return Math.min(Math.max(asked, 0), 30) * 1000;
+  return 6000;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface RawResponse {
@@ -63,10 +89,20 @@ async function jsonFetch(providerId: AiProviderId, url: string, headers: Record<
     } catch { return null; }
   })();
   if (!res.ok) {
-    if (res.status === 429 || res.status === 403 || (errorMessage && QUOTA_RE.test(errorMessage))) {
-      throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status}`, true);
+    // Capture Retry-After for 429s (seconds, or HTTP date) so callers can
+    // honor the pause the provider asked for instead of guessing.
+    let retryAfterSec: number | undefined;
+    if (res.status === 429) {
+      const header = res.headers?.get("retry-after");
+      if (header) {
+        const secs = Number(header);
+        retryAfterSec = Number.isFinite(secs) ? secs : Math.max(0, (Date.parse(header) - Date.now()) / 1000);
+      }
     }
-    throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status} (${res.statusText})`, false);
+    if (res.status === 429 || res.status === 403 || (errorMessage && QUOTA_RE.test(errorMessage))) {
+      throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status}`, true, res.status, retryAfterSec);
+    }
+    throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status} (${res.statusText})`, false, res.status);
   }
   return json ?? raw;
 }
@@ -100,50 +136,63 @@ async function callWithKey(providerId: AiProviderId, url: string, headers: Recor
 async function callProvider(config: AiConfig, providerId: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
   const provider = config.providers[providerId];
   const configuredModel = provider.model.trim();
-  const model = providerId === "mistral" ? (configuredModel || "mistral-small-latest")
-    : providerId === "openrouter" ? (configuredModel || "deepseek/deepseek-chat")
-      : providerId === "gemini" ? (configuredModel || "gemini-2.5-flash-lite")
-        : (isOpenCodeZenFreeModel(configuredModel) ? configuredModel : DEFAULT_OPENCODE_ZEN_MODEL);
+  // Configuration files predate the strict free-only selector. Enforce the
+  // same restriction at the actual call boundary so an old file or forged
+  // request cannot quietly spend credits.
+  const model = providerId === "opencode"
+    ? (isOpenCodeZenFreeModel(configuredModel) ? configuredModel : DEFAULT_OPENCODE_ZEN_MODEL)
+    : (isAllowedFreeModel(providerId, configuredModel) ? configuredModel : FREE_MODEL_FALLBACKS[providerId][0].id);
   const keys = provider.keys.filter((k) => k.key.trim().length > 0);
   if (keys.length === 0) throw new AiCallError(providerId, "Aucune clé API configurée pour ce fournisseur", false);
 
   let lastError: AiCallError | null = null;
   for (const entry of keys) {
     const key = entry.key.trim();
-    try {
-      if (providerId === "gemini") {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-        return await callWithKey(providerId, url, { "content-type": "application/json" }, {
-          systemInstruction: { parts: [{ text: system }] },
-          contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
+    // One transparent retry on rate-limit: a first 429 on a shared free-tier
+    // quota often clears within seconds — no reason to burn the next key or
+    // fall over to the next provider for a transient signal. Anything else
+    // (auth, model error, second 429) moves on immediately.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        if (providerId === "gemini") {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+          return await callWithKey(providerId, url, { "content-type": "application/json" }, {
+            systemInstruction: { parts: [{ text: system }] },
+            contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+            generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
+          });
+        }
+        if (providerId === "opencode") {
+          const responsesProtocol = model === "muse-spark-1.3-contributor-free";
+          const url = `https://opencode.ai/zen/v1/${responsesProtocol ? "responses" : "chat/completions"}`;
+          const headers = { "content-type": "application/json", authorization: `Bearer ${key}` };
+          const body = responsesProtocol
+            ? { model, instructions: system, input: toOpenAiMessages(messages), max_output_tokens: MAX_RESPONSE_TOKENS }
+            : { model, messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)], temperature: 0.2, max_tokens: MAX_RESPONSE_TOKENS };
+          return await callWithKey(providerId, url, headers, body);
+        }
+        const url = providerId === "mistral"
+          ? "https://api.mistral.ai/v1/chat/completions"
+          : "https://openrouter.ai/api/v1/chat/completions";
+        const headers: Record<string, string> = {
+          "content-type": "application/json",
+          authorization: `Bearer ${key}`,
+          ...(providerId === "openrouter" ? { "X-Title": "Movviz" } : {}),
+        };
+        return await callWithKey(providerId, url, headers, {
+          model,
+          messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
+          temperature: 0.2,
+          max_tokens: MAX_RESPONSE_TOKENS,
         });
+      } catch (e) {
+        lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);
+        if (attempt === 0 && isRateLimited(lastError)) {
+          await sleep(rateLimitDelayMs(lastError));
+          continue;
+        }
+        break;
       }
-      if (providerId === "opencode") {
-        const responsesProtocol = model === "muse-spark-1.3-contributor-free";
-        const url = `https://opencode.ai/zen/v1/${responsesProtocol ? "responses" : "chat/completions"}`;
-        const headers = { "content-type": "application/json", authorization: `Bearer ${key}` };
-        const body = responsesProtocol
-          ? { model, instructions: system, input: toOpenAiMessages(messages), max_output_tokens: MAX_RESPONSE_TOKENS }
-          : { model, messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)], temperature: 0.2, max_tokens: MAX_RESPONSE_TOKENS };
-        return await callWithKey(providerId, url, headers, body);
-      }
-      const url = providerId === "mistral"
-        ? "https://api.mistral.ai/v1/chat/completions"
-        : "https://openrouter.ai/api/v1/chat/completions";
-      const headers: Record<string, string> = {
-        "content-type": "application/json",
-        authorization: `Bearer ${key}`,
-        ...(providerId === "openrouter" ? { "X-Title": "Movviz" } : {}),
-      };
-      return await callWithKey(providerId, url, headers, {
-        model,
-        messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
-        temperature: 0.2,
-        max_tokens: MAX_RESPONSE_TOKENS,
-      });
-    } catch (e) {
-      lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);
     }
   }
   throw lastError ?? new AiCallError(providerId, "Échec inconnu", false);

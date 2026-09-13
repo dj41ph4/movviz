@@ -71,6 +71,7 @@ fun LibraryHubScreen(
 ) {
     var tabIndex by remember { mutableIntStateOf(0) }
     var selectedCollectionId by remember { mutableStateOf<String?>(null) }
+    var selectedSagaId by remember { mutableStateOf<Int?>(null) }
     val profileData by viewModel.profileMedia.collectAsState()
     val collections by viewModel.collections.collectAsState()
     val sagas by viewModel.sagas.collectAsState()
@@ -133,11 +134,17 @@ fun LibraryHubScreen(
             }
             else -> {
                 val selectedCollection = collections.firstOrNull { it.id == selectedCollectionId }
+                val selectedSaga = sagas.firstOrNull { it.collectionId == selectedSagaId }
                 val selectedCards = selectedCollection?.items?.mapNotNull { item ->
                     movies.firstOrNull { it.id == item.libraryRef }?.let { movie ->
                         ProfileMediaCardDto(tmdbId = movie.tmdbId, type = "movie", title = movie.title, posterPath = movie.posterPath)
                     } ?: series.firstOrNull { it.id == item.libraryRef }?.let { show ->
                         ProfileMediaCardDto(tmdbId = show.tmdbId, type = "series", title = show.title, posterPath = show.posterPath)
+                    }
+                }.orEmpty()
+                val selectedSagaCards = selectedSaga?.let { saga ->
+                    movies.filter { it.tmdbCollectionId == saga.collectionId }.map { movie ->
+                        ProfileMediaCardDto(tmdbId = movie.tmdbId, type = "movie", title = movie.title, posterPath = movie.posterPath)
                     }
                 }.orEmpty()
                 if (collections.isEmpty() && sagas.isEmpty()) {
@@ -156,6 +163,20 @@ fun LibraryHubScreen(
                             LibraryMediaGridCard(card) { onOpenTitle(card.type, card.tmdbId) }
                         }
                     }
+                } else if (selectedSaga != null) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = "‹ ${selectedSaga.name}", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { selectedSagaId = null }.tvPointerClick { selectedSagaId = null }.padding(top = 2.dp, bottom = 2.dp),
+                        )
+                    }
+                    if (selectedSagaCards.isEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Aucun film de cette saga n'est disponible.", "Les films possédés de la saga apparaîtront ici.") }
+                    } else {
+                        items(selectedSagaCards, key = { "saga-${selectedSaga.collectionId}-${it.tmdbId}" }) { card ->
+                            LibraryMediaGridCard(card) { onOpenTitle("movie", card.tmdbId) }
+                        }
+                    }
                 } else {
                     if (collections.isNotEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) { LibraryGridHeading("Mes collections") }
@@ -163,7 +184,7 @@ fun LibraryHubScreen(
                     }
                     if (sagas.isNotEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) { LibraryGridHeading("Sagas de votre bibliothèque") }
-                        items(sagas, key = { it.collectionId }) { saga -> SagaTile(saga) {} }
+                        items(sagas, key = { it.collectionId }) { saga -> SagaTile(saga) { selectedSagaId = saga.collectionId } }
                     }
                 }
             }

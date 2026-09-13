@@ -26,6 +26,9 @@ export interface DashboardLibraryMovie {
   file: DashboardFileTechnical | null;
   activeInfoHash: string | null;
   addedAt: number;
+  /** TMDb saga membership, used by the Android Collections hub to open the
+   * owned movies belonging to a selected saga. */
+  tmdbCollectionId?: number | null;
   plexRatingKey: string | null;
   plexUrl?: string | null;
 }

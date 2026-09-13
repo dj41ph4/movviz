@@ -116,6 +116,7 @@ export async function GET(req: NextRequest) {
         file: technical(movie.file),
         activeInfoHash: movie.activeInfoHash,
         addedAt: movie.addedAt,
+        tmdbCollectionId: movie.tmdbCollectionId ?? null,
         plexRatingKey: movie.plexRatingKey,
         plexUrl: movie.plexRatingKey && cfg.machineIdentifier
           ? buildPlexWebUrl(cfg.machineIdentifier, movie.plexRatingKey)

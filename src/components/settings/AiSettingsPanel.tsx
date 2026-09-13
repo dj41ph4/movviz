@@ -6,7 +6,8 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 import { ArrowDown, ArrowUp, Bot, Loader2, Plus, X, Trash2 } from "lucide-react";
-import { AI_PROVIDER_ORDER, OPENCODE_ZEN_FREE_MODELS, type AiProviderId } from "@/lib/ai/types";
+import { AI_PROVIDER_ORDER, type AiProviderId } from "@/lib/ai/types";
+import { FREE_MODEL_FALLBACKS } from "@/lib/ai/freeModels";
 import { AiDebugLogPanel } from "@/components/settings/AiDebugLogPanel";
 
 const PROVIDERS = AI_PROVIDER_ORDER;
@@ -68,6 +69,9 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<AiProviderId | null>(null);
   const [testResult, setTestResult] = useState<{ provider: AiProviderId; ok: boolean; detail?: string; latency?: number; message?: string } | null>(null);
+  const [freeModels, setFreeModels] = useState<Record<AiProviderId, { id: string; label: string }[]>>(() =>
+    Object.fromEntries(PROVIDERS.map((provider) => [provider, [...FREE_MODEL_FALLBACKS[provider]]])) as Record<AiProviderId, { id: string; label: string }[]>
+  );
 
   useEffect(() => {
     (async () => {
@@ -92,6 +96,26 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         }
       } catch { /* leave unloaded */ }
       setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await fetch("/api/ai/free-models", { cache: "no-store" });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.providers || typeof payload.providers !== "object") return;
+        const next = {} as Record<AiProviderId, { id: string; label: string }[]>;
+        for (const provider of PROVIDERS) {
+          const models = payload.providers[provider];
+          next[provider] = Array.isArray(models)
+            ? models.filter((model: unknown): model is { id: string; label: string } => !!model && typeof (model as { id?: unknown }).id === "string" && typeof (model as { label?: unknown }).label === "string")
+            : [...FREE_MODEL_FALLBACKS[provider]];
+        }
+        setFreeModels(next);
+      } catch {
+        // The safe built-in free fallback remains visible.
+      }
     })();
   }, []);
 
@@ -305,13 +329,23 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-dim">
                       {t("ai.settings.model")}
                     </label>
-                    {id === "opencode" ? (
+                    {id === "mistral" ? (
                       <select
                         value={p.model}
                         onChange={(e) => setModel(id, e.target.value)}
                         className="h-11 w-full rounded-xl glass-strong px-3 text-sm text-ink outline-none"
                       >
-                        {OPENCODE_ZEN_FREE_MODELS.map((model) => (
+                        {freeModels[id].map((model) => (
+                          <option key={model.id} value={model.id} className="bg-surface text-ink">{model.label}</option>
+                        ))}
+                      </select>
+                    ) : id === "opencode" || id === "openrouter" || id === "gemini" ? (
+                      <select
+                        value={p.model}
+                        onChange={(e) => setModel(id, e.target.value)}
+                        className="h-11 w-full rounded-xl glass-strong px-3 text-sm text-ink outline-none"
+                      >
+                        {freeModels[id].map((model) => (
                           <option key={model.id} value={model.id} className="bg-surface text-ink">
                             {model.label}
                           </option>

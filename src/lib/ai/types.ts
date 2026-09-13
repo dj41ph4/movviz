@@ -1,8 +1,10 @@
 export type AiProviderId = "mistral" | "openrouter" | "gemini" | "opencode";
 
-/** OpenCode Zen models explicitly listed as Free in the official Zen pricing
- * table. Keep this allow-list intentional: the settings must never silently
- * switch an administrator to a paid Zen model. */
+/**
+ * Fallback only, used while the live Zen catalogue cannot be reached.  The
+ * settings UI obtains the exhaustive list from /zen/v1/models; never turn
+ * this small recovery list into the source of truth again.
+ */
 export const OPENCODE_ZEN_FREE_MODELS = [
   { id: "big-pickle", label: "Big Pickle" },
   { id: "mimo-v2.5-free", label: "MiMo V2.5 Free" },
@@ -56,7 +58,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   fallback: true,
   providers: {
     mistral: { model: "mistral-small-latest", keys: [] },
-    openrouter: { model: "deepseek/deepseek-chat", keys: [] },
+    openrouter: { model: "openrouter/free", keys: [] },
     gemini: { model: "gemini-2.5-flash-lite", keys: [] },
     opencode: { model: DEFAULT_OPENCODE_ZEN_MODEL, keys: [] },
   },
