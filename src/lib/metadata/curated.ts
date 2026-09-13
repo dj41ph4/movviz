@@ -34,13 +34,13 @@ export const MOVIE_STUDIOS = [
  */
 export const STREAMING_PLATFORMS = [
   { id: 8, name: "Netflix" },
-  { id: 119, name: "Amazon Prime Video" },
-  { id: 350, name: "Apple TV" },
   { id: 337, name: "Disney Plus" },
-  { id: 283, name: "Crunchyroll" },
-  { id: 381, name: "Canal+" },
+  { id: 119, name: "Amazon Prime Video" },
+  { id: 1899, name: "HBO Max" },
+  { id: 350, name: "Apple TV" },
   { id: 192, name: "YouTube" },
-  { id: 11, name: "MUBI" },
+  { id: 283, name: "Crunchyroll" },
+  { id: 56, name: "OCS" },
 ];
 
 /** Cycled background gradients for genre tiles — brand palette, no external images needed. */

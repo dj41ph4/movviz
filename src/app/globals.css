@@ -1099,13 +1099,13 @@ body {
 
   .nx-desktop-shell .nx-provider-tile {
     display: grid;
-    width: 82px;
-    height: 48px;
+    width: 96px;
+    height: 54px;
     flex: 0 0 auto;
     place-items: center;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,.12);
-    border-radius: 7px;
+    border-radius: 6px;
     background: rgba(1, 5, 17, .72);
     color: var(--color-ink-soft);
     font-size: .65rem;

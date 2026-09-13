@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.150 — September 2026
+
+### Tableau de bord NX
+
+- Fixe la rangée Plateformes : Netflix, Disney+, Prime Video, HBO Max, Apple TV, YouTube, Crunchyroll et OCS.
+- Agrandit les tuiles rectangulaires de plateformes et retire Canal+ de cette composition.
+
 ## v1.24.149 — September 2026
 
 ### Tableau de bord NX

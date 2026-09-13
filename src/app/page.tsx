@@ -312,7 +312,7 @@ export default function DashboardPage() {
           <div className="mt-2 flex gap-2.5 overflow-x-auto pb-1">
             {providerData!.tiles.slice(0, 8).map((provider) => (
               <Link key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className="nx-provider-tile" title={provider.name}>
-                {provider.logoPath ? <TmdbImage path={provider.logoPath} size="w92" alt={provider.name} className="max-h-9 max-w-[82px] object-contain" /> : <span>{provider.name}</span>}
+                {provider.logoPath ? <TmdbImage path={provider.logoPath} size="w154" alt={provider.name} className="max-h-10 max-w-[88px] object-contain" /> : <span>{provider.name}</span>}
               </Link>
             ))}
           </div>
