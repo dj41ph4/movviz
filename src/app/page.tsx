@@ -319,8 +319,13 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {/* The NX desktop reference reserves operational counters for the
+          Downloads control room.  Keep this useful overview on touch layouts,
+          but let the desktop dashboard move directly from hero/platforms to
+          its editorial rails. */}
       {layout.showStats && (
-        loading ? (
+        <div className="lg:hidden">
+        {loading ? (
           <div className={cn("flex flex-wrap", richMode ? "gap-2" : "gap-4")}>
             {[...Array(8)].map((_, i) => (
               <div
@@ -360,7 +365,8 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        )
+        )}
+        </div>
       )}
 
       {/*

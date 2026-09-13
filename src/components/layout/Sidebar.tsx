@@ -106,15 +106,15 @@ export function Sidebar({ version }: { version: string }) {
   }, [updateInfo?.updateAvailable, autoUpdate.enabled]);
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col gap-2 border-r border-brand/25 bg-[#070d22]/92 px-3 py-5 shadow-[10px_0_38px_-28px_rgba(34,226,255,0.75)] backdrop-blur-xl lg:flex">
+    <aside className="nx-sidebar sticky top-0 hidden h-screen w-[204px] shrink-0 flex-col gap-1 border-r border-[#3156ac]/60 bg-[#070d22]/96 px-2.5 py-4 shadow-[8px_0_30px_-26px_rgba(89,77,255,0.9)] backdrop-blur-xl lg:flex">
       {/* Brand */}
-      <Link href="/" className="group mb-5 flex items-center gap-2.5 px-2">
+      <Link href="/" className="group mb-4 flex items-center gap-2.5 px-2">
         <AnimatedLogo size="sm" />
         <span className="text-lg font-black tracking-tight text-ink">Movviz</span>
       </Link>
 
       {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-1">
+      <nav className="flex flex-1 flex-col gap-0.5">
         {items.filter((item) => item.href !== "/settings").map((item) => (
           <NavRow
             key={item.href}
@@ -150,7 +150,7 @@ export function Sidebar({ version }: { version: string }) {
       {user && (
         <Link
           href="/profile"
-          className="group flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-white/5"
+          className="group flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-white/5"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full brand-gradient text-xs font-black text-white">
             {effectiveAvatar(user) ? (
@@ -282,20 +282,20 @@ function NavRow({ item, pathname, searchParams, liveCount, pulseBadge }: { item:
     <Link
       href={item.href}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ring-focus",
+        "group relative flex h-9 items-center gap-2.5 rounded-[8px] px-2.5 text-[13px] font-semibold transition-colors ring-focus",
         active ? "text-white" : "text-ink-soft hover:text-ink"
       )}
     >
       {active && (
         <motion.span
           layoutId="nav-active"
-          className="absolute inset-0 -z-10 rounded-xl brand-gradient"
+          className="absolute inset-0 -z-10 rounded-[8px] border border-[#8b6dff]/70 bg-[linear-gradient(100deg,rgba(123,76,255,.96),rgba(94,62,231,.92))] shadow-[0_0_18px_-8px_rgba(133,99,255,.95)]"
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}
       <Icon
         className={cn(
-          "h-4 w-4 transition-colors",
+          "h-[17px] w-[17px] transition-colors",
           active ? "text-white" : "text-ink-dim group-hover:text-ink-soft"
         )}
       />
@@ -347,24 +347,24 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
     <div>
       <div
         className={cn(
-          "group relative flex items-center rounded-lg ring-focus",
+          "group relative flex h-9 items-center rounded-[8px] ring-focus",
           onGestion ? "text-white" : "text-ink-soft hover:text-ink"
         )}
       >
         {onGestion && (
           <motion.span
             layoutId="nav-active"
-            className="absolute inset-0 -z-10 rounded-xl brand-gradient"
+            className="absolute inset-0 -z-10 rounded-[8px] border border-[#8b6dff]/70 bg-[linear-gradient(100deg,rgba(123,76,255,.96),rgba(94,62,231,.92))] shadow-[0_0_18px_-8px_rgba(133,99,255,.95)]"
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
           />
         )}
         <button
           onClick={() => setOpen((o) => !o)}
-          className="flex flex-1 items-center gap-3 px-3 py-2 text-sm font-semibold ring-focus"
+          className="flex h-full flex-1 items-center gap-2.5 px-2.5 text-[13px] font-semibold ring-focus"
         >
           <ClipboardList
             className={cn(
-              "h-[18px] w-[18px] transition-colors",
+              "h-[17px] w-[17px] transition-colors",
               onGestion ? "text-white" : "text-ink-dim group-hover:text-ink-soft"
             )}
           />

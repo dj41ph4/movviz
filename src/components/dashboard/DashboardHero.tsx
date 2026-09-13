@@ -152,7 +152,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       onIndexChange={setIndex}
       intervalMs={settings.slideshowSpeedSec * 1000}
       paused={manuallyPaused}
-      className="-mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-xl lg:border lg:border-cyan/30"
+      className="-mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
     >
       <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:h-[390px] lg:min-h-[390px]">
         <TrailerHeader
@@ -200,12 +200,12 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           <p className="line-clamp-2 max-w-xl text-sm text-white/70 sm:line-clamp-3">{active.detail.overview}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={toggleWatchlist} className={cn("nx-hero-watchlist flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105", onWatchlist ? "border border-brand-glow/50 bg-brand/25" : "bg-white/15")}>
+            <button type="button" onClick={toggleWatchlist} className={cn("nx-hero-watchlist flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105", onWatchlist ? "border border-brand-glow/50 bg-brand/25" : "bg-white/15")}>
               <Heart className={cn("h-4 w-4", onWatchlist && "fill-current")} /> {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
             </button>
             <Link
               href={`/title/${active.detail.type}/${active.detail.tmdbId}`}
-              className="nx-hero-more flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
+              className="nx-hero-more flex items-center gap-1.5 rounded-lg bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
             >
               <Info className="h-4 w-4" /> {t("dashboard.hero.moreInfo")}
             </Link>
@@ -224,7 +224,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                     originRect: e.currentTarget.getBoundingClientRect(),
                     backdropUrl,
                   })}
-                  className="nx-hero-play flex items-center gap-1.5 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
+                  className="nx-hero-play flex items-center gap-1.5 rounded-lg brand-gradient px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
                 >
                   <Play className="h-4 w-4" /> {playLabel}
                 </button>
@@ -234,7 +234,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => openPlexLink(e, active.plexUrl!)}
-                  className="nx-hero-play flex items-center gap-1.5 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
+                  className="nx-hero-play flex items-center gap-1.5 rounded-lg brand-gradient px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
                 >
                   <Play className="h-4 w-4" /> {t("library.watchOnPlex")}
                 </a>

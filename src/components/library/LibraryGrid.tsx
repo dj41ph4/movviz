@@ -532,7 +532,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
               ))}
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-1 rounded-xl glass-strong p-1">
+          <div className="flex flex-wrap items-center gap-1 rounded-lg glass-strong p-1">
             {SORTS.map((s) => (
               <button
                 key={s.id}

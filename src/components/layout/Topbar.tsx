@@ -50,7 +50,7 @@ export function Topbar() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex h-15 items-center gap-2 border-b border-transparent px-4 transition-colors duration-300 sm:gap-4 sm:px-6",
+        "nx-topbar sticky top-0 z-30 flex h-15 items-center gap-2 border-b border-transparent px-4 transition-colors duration-300 sm:gap-4 sm:px-6 lg:h-14",
         scrolled ? "border-brand/15 bg-[#070d22]/88 backdrop-blur-xl" : "bg-transparent"
       )}
     >

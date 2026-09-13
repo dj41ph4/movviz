@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.144 — September 2026
+
+### Fidélité NX desktop
+
+- La coque desktop est densifiée : sidebar compacte, état actif bordé, topbar et recherche resserrées.
+- Accueil, Découverte, Bibliothèque et Téléchargements adoptent des contrôles plus nets et la hiérarchie éditoriale de la charte NX, sans modifier l’interface mobile.
+
 ## v1.24.143 — September 2026
 
 ### Téléchargements

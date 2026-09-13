@@ -97,7 +97,7 @@ function QuickToggle({ label, checked, onChange }: { label: string; checked: boo
   return <div className="flex min-h-11 items-center justify-between gap-3">
     <span className="text-ink-soft">{label}</span>
     <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-brand">
-      <span className={`relative h-5 w-9 rounded-full transition-colors ${checked ? "brand-gradient" : "bg-white/15"}`}><span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} /></span>
+      <span className={`relative block h-5 w-9 rounded-full transition-colors ${checked ? "brand-gradient" : "bg-white/15"}`}><span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} /></span>
     </button>
   </div>;
 }

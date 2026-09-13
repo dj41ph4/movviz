@@ -773,7 +773,7 @@ function DiscoverPageInner() {
 
       {configured && (
         <div className="nx-discover-desktop-bar hidden lg:flex">
-          <div className="flex items-center gap-1 rounded-xl border border-cyan/25 bg-[#07142f]/90 p-1">
+          <div className="flex items-center gap-1 rounded-lg border border-cyan/25 bg-[#07142f]/90 p-1">
             {(["all", "movie", "series"] as const).map((kind) => (
               <button
                 key={kind}
@@ -801,7 +801,7 @@ function DiscoverPageInner() {
             <option value="">{t("discover.genres")}</option>
             {genres.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
-          <button type="button" onClick={clearFilters} className="rounded-xl border border-cyan/30 px-4 py-2 text-xs font-bold text-ink-soft hover:bg-cyan/10 hover:text-ink">{t("common.reset")}</button>
+          <button type="button" onClick={clearFilters} className="rounded-lg border border-cyan/30 px-4 py-2 text-xs font-bold text-ink-soft hover:bg-cyan/10 hover:text-ink">{t("common.reset")}</button>
         </div>
       )}
 

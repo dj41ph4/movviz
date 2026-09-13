@@ -595,6 +595,26 @@ body {
    present.  A sharp edge and a quiet blue/violet line replace the broad
    glass blur so data-heavy screens retain their hierarchy. */
 @media (min-width: 1024px) {
+  /* The sketch's shell is compact and structured: a narrow navigation rail,
+     short controls, and crisp indigo edges.  These selectors are deliberately
+     limited to desktop so mobile keeps its touch-first hierarchy. */
+  .nx-desktop-shell .nx-sidebar {
+    background: linear-gradient(180deg, rgba(10, 19, 53, .985), rgba(5, 10, 29, .985));
+  }
+
+  .nx-desktop-shell .nx-topbar {
+    min-height: 56px;
+    background: linear-gradient(90deg, rgba(9, 18, 48, .94), rgba(10, 17, 43, .76));
+  }
+
+  .nx-desktop-shell .nx-topbar > div:first-child {
+    max-width: 352px;
+    height: 36px;
+    border-color: rgba(83, 119, 235, .42);
+    background: rgba(12, 27, 66, .86);
+    border-radius: 8px;
+  }
+
   .nx-desktop-shell {
     background:
       radial-gradient(900px 520px at 68% -12%, rgba(42, 60, 190, 0.17), transparent 68%),
@@ -712,6 +732,16 @@ body {
 
   .nx-desktop-shell .nx-download-row:hover {
     border-color: color-mix(in oklab, var(--color-cyan) 34%, var(--color-brand-2) 40%);
+  }
+
+  .nx-desktop-shell .nx-download-live-stats > aside {
+    gap: .75rem;
+  }
+
+  .nx-desktop-shell .nx-download-live-stats section {
+    border-radius: 8px;
+    border-color: color-mix(in oklab, var(--color-cyan) 20%, var(--color-brand) 26%);
+    background: linear-gradient(145deg, rgba(12, 25, 61, .88), rgba(9, 17, 43, .9));
   }
 
   /* Titles and media tiles use the compact editorial rhythm of the desktop
@@ -943,14 +973,26 @@ body {
     display: none;
   }
 
+  /* Desktop reference starts directly with the operational controls.  The
+     page heading remains intact on phone/tablet, where orientation needs it. */
+  .nx-desktop-shell .nx-library-page > [data-nx-page-header],
+  .nx-desktop-shell .nx-downloads-page > [data-nx-page-header] {
+    display: none;
+  }
+
   .nx-desktop-shell .nx-discover-desktop-bar {
     align-items: center;
     gap: .75rem;
-    min-height: 50px;
-    padding: .4rem .55rem;
+    min-height: 46px;
+    padding: .32rem .45rem;
     border: 1px solid color-mix(in oklab, var(--color-cyan) 28%, transparent);
-    border-radius: 12px;
+    border-radius: 8px;
     background: linear-gradient(90deg, rgba(7,20,47,.96), rgba(16,18,52,.9));
+  }
+
+  .nx-desktop-shell .nx-discover-desktop-bar button,
+  .nx-desktop-shell .nx-discover-desktop-bar select {
+    border-radius: 7px;
   }
 
   .nx-desktop-shell .nx-discover-page > div.flex.flex-wrap.items-center.gap-2 {
