@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.145 — September 2026
+
+### Fidélité NX desktop
+
+- Suppression des halos, des ombres lumineuses et des cadres décoratifs qui ne figurent pas dans l’esquisse NX.
+- La reprise, les plateformes et les actions de la topbar retrouvent une composition sombre, compacte et lisible.
+
 ## v1.24.144 — September 2026
 
 ### Fidélité NX desktop

@@ -233,7 +233,7 @@ export function ActivityMonitor() {
         onClick={() => setOpen((o) => !o)}
         aria-label={t("plexActivity.title")}
         className={cn(
-          "relative flex h-11 w-11 items-center justify-center rounded-xl glass transition-colors hover:text-brand-glow",
+          "relative flex h-11 w-11 items-center justify-center rounded-full glass transition-colors hover:text-brand-glow",
           playingCount > 0 && "text-ok"
         )}
       >

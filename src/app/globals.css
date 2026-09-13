@@ -595,16 +595,22 @@ body {
    present.  A sharp edge and a quiet blue/violet line replace the broad
    glass blur so data-heavy screens retain their hierarchy. */
 @media (min-width: 1024px) {
+  /* The NX desktop reference uses a quiet navy surface, not moving aurora
+     lights.  Keep the ambient treatment for touch layouts only. */
+  .aurora-blob,
+  .aurora-grid {
+    display: none;
+  }
+
   /* The sketch's shell is compact and structured: a narrow navigation rail,
      short controls, and crisp indigo edges.  These selectors are deliberately
      limited to desktop so mobile keeps its touch-first hierarchy. */
   .nx-desktop-shell .nx-sidebar {
-    background: linear-gradient(180deg, rgba(10, 19, 53, .985), rgba(5, 10, 29, .985));
+    background: #080d20;
   }
 
   .nx-desktop-shell .nx-topbar {
     min-height: 56px;
-    background: linear-gradient(90deg, rgba(9, 18, 48, .94), rgba(10, 17, 43, .76));
   }
 
   .nx-desktop-shell .nx-topbar > div:first-child {
@@ -616,26 +622,24 @@ body {
   }
 
   .nx-desktop-shell {
-    background:
-      radial-gradient(900px 520px at 68% -12%, rgba(42, 60, 190, 0.17), transparent 68%),
-      linear-gradient(145deg, #060b1d 0%, #090f27 52%, #050817 100%);
+    background: linear-gradient(145deg, #060b1d 0%, #090f27 52%, #050817 100%);
   }
 
   .nx-desktop-shell .glass,
   .nx-desktop-shell .glass-strong {
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border-color: color-mix(in oklab, var(--color-cyan) 22%, var(--color-brand) 38%);
-    border-radius: 12px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 26px -24px rgba(34,226,255,0.8);
+    border-color: rgba(112, 143, 218, .22);
+    border-radius: 8px;
+    box-shadow: none;
   }
 
   .nx-desktop-shell .glass:hover,
   .nx-desktop-shell .glass:focus-within,
   .nx-desktop-shell .glass-strong:hover,
   .nx-desktop-shell .glass-strong:focus-within {
-    border-color: color-mix(in oklab, var(--color-cyan) 42%, var(--color-magenta) 42%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 10px 28px -22px rgba(168,85,247,0.85);
+    border-color: rgba(154, 109, 255, .55);
+    box-shadow: none;
   }
 
   .nx-desktop-shell main > div {
@@ -1007,27 +1011,26 @@ body {
   }
 
   .nx-desktop-shell .nx-home-hero-grid .nx-continue-panel {
-    min-height: 390px;
-    padding: 1rem;
+    min-height: 0;
+    padding: 0;
   }
 
   .nx-desktop-shell .nx-home-providers {
-    padding: .65rem .8rem;
-    border: 1px solid color-mix(in oklab, var(--color-cyan) 22%, transparent);
-    border-radius: 12px;
-    background: linear-gradient(100deg, rgba(7,20,47,.82), rgba(13,18,52,.56));
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
   .nx-desktop-shell .nx-provider-tile {
     display: grid;
-    width: 76px;
-    height: 46px;
+    width: 82px;
+    height: 48px;
     flex: 0 0 auto;
     place-items: center;
     overflow: hidden;
-    border: 1px solid color-mix(in oklab, var(--color-cyan) 25%, transparent);
-    border-radius: 9px;
-    background: rgba(3, 11, 28, .72);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 7px;
+    background: rgba(1, 5, 17, .72);
     color: var(--color-ink-soft);
     font-size: .65rem;
     font-weight: 800;
@@ -1036,12 +1039,12 @@ body {
 
   .nx-desktop-shell .nx-provider-tile:hover,
   .nx-desktop-shell .nx-provider-tile:focus-visible {
-    border-color: color-mix(in oklab, var(--color-magenta) 55%, var(--color-cyan) 35%);
+    border-color: rgba(192,75,255,.58);
     background: rgba(26, 22, 74, .86);
   }
 
   .nx-desktop-shell .nx-continue-panel > div > a {
-    min-height: 92px;
+    min-height: 76px;
   }
 
   .nx-desktop-shell .nx-download-queue > .flex:first-child {

@@ -36,7 +36,7 @@ export function ThemeSwitcher() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={t(current.labelKey)}
-        className="flex h-11 w-11 items-center justify-center rounded-xl glass text-ink-soft transition-colors hover:border-brand/30 hover:text-ink"
+        className="flex h-11 w-11 items-center justify-center rounded-full glass text-ink-soft transition-colors hover:border-brand/30 hover:text-ink"
       >
         <CurrentIcon className="h-4 w-4" />
       </button>

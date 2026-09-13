@@ -106,7 +106,7 @@ export function Sidebar({ version }: { version: string }) {
   }, [updateInfo?.updateAvailable, autoUpdate.enabled]);
 
   return (
-    <aside className="nx-sidebar sticky top-0 hidden h-screen w-[204px] shrink-0 flex-col gap-1 border-r border-[#3156ac]/60 bg-[#070d22]/96 px-2.5 py-4 shadow-[8px_0_30px_-26px_rgba(89,77,255,0.9)] backdrop-blur-xl lg:flex">
+    <aside className="nx-sidebar sticky top-0 hidden h-screen w-[204px] shrink-0 flex-col gap-1 border-r border-white/10 bg-[#080d20] px-2.5 py-4 lg:flex">
       {/* Brand */}
       <Link href="/" className="group mb-4 flex items-center gap-2.5 px-2">
         <AnimatedLogo size="sm" />
