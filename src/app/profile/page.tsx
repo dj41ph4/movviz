@@ -7,15 +7,13 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { relativeTime } from "@/lib/utils";
-import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv, Sun, Moon, MonitorSmartphone } from "lucide-react";
+import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv } from "lucide-react";
 import { ContinentPicker } from "@/components/discover/ContinentPicker";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { mutate as mutateGlobal } from "swr";
 import Link from "next/link";
 import type { WatchlistItem } from "@/lib/watchlist/types";
-import { useTheme } from "@/lib/theme/useTheme";
 import { cn } from "@/lib/utils";
-import type { ThemeMode } from "@/lib/theme/theme";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
@@ -76,17 +74,10 @@ function MediaRail({ title, items }: { title: string; items: ProfileMediaCard[] 
   );
 }
 
-const THEME_OPTIONS: { id: ThemeMode; icon: typeof Sun; labelKey: string }[] = [
-  { id: "light", icon: Sun, labelKey: "profile.themeLight" },
-  { id: "dark", icon: Moon, labelKey: "profile.themeDark" },
-  { id: "auto", icon: MonitorSmartphone, labelKey: "profile.themeAuto" },
-];
-
 export default function ProfilePage() {
   const t = useT();
   const { locale } = useI18n();
   const user = useCurrentUser();
-  const { mode: themeMode, setThemeMode } = useTheme();
   const { adminEnabled: betaPlayerAvailable, userEnabled: betaPlayerOn, setUserEnabled: setBetaPlayerOn, loaded: betaPlayerLoaded } = useBetaPlayer();
   const { titlePanel } = useTitlePanel();
   const [currentPassword, setCurrentPassword] = useState("");
@@ -294,30 +285,6 @@ export default function ProfilePage() {
           </div>
         </div>
         {photoMessage && <p className="mt-2 text-xs text-ink-dim">{photoMessage}</p>}
-      </div>
-
-      <div className="mb-6 rounded-2xl glass p-5">
-        <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.appearance")}</h3>
-        <p className="mb-4 text-xs text-ink-dim">{t("profile.appearanceHint")}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {THEME_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const active = themeMode === opt.id;
-            return (
-              <button
-                key={opt.id}
-                onClick={() => setThemeMode(opt.id)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors ring-focus",
-                  active ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {t(opt.labelKey)}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <AiContextPanel />

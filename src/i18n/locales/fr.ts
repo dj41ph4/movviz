@@ -345,8 +345,6 @@ export const fr = {
     accountHint: "Crée le compte qui gérera Movviz — obligatoire, c'est ce qui te connecte à l'application. Les comptes créés ensuite (inscription ou Plex) devront être approuvés par toi.",
     languageTitle: "Langue",
     languageHint: "Choisis la langue de l'interface — modifiable à tout moment depuis le sélecteur en haut de l'écran.",
-    appearanceTitle: "Apparence",
-    appearanceHint: "Clair, sombre ou automatique selon les préférences de ton appareil — modifiable à tout moment depuis ton profil.",
     hardwareTitle: "Matériel principal",
     hardwareHint: "Sur quoi regardes-tu principalement ? Ça donne un point de départ raisonnable au système de score déjà en place (Réglages → Qualité) — rien n'est figé, tout reste modifiable ensuite.",
     hardwareTv: "Télévision récente",
@@ -862,11 +860,6 @@ export const fr = {
   profile: {
     title: "Profil",
     description: "Gère ton compte et tes accès.",
-    appearance: "Apparence",
-    appearanceHint: "Choisis l'apparence de Movviz sur cet appareil.",
-    themeLight: "Clair",
-    themeDark: "Sombre",
-    themeAuto: "Automatique",
     aiContext: {
       title: "Ce que Movviz AI sait de toi",
       empty: "Rien pour l'instant — discute un peu avec l'assistant ou vote sur ses recommandations pour qu'il commence à te connaître.",

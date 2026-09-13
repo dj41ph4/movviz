@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.24.152 — September 2026
+
+### Logos plateformes locaux
+
+- La rangée Plateformes de l'accueil et de Découverte (onglets + grille) utilise des SVG locaux (Netflix, Disney+, Prime Video, HBO Max, Apple TV+, YouTube, Crunchyroll, OCS récupéré depuis Wikimedia) au lieu des logos TMDb distants, avec fond clair pour les logos sombres.
+
+### Barre de recherche façon mobile
+
+- La barre de recherche reprend exactement le rendu Android mobile : pill 46px, bordure électrique bleu → violet → magenta, fond #131836, icône + placeholder 13px #B3B3B3.
+
+### Fin du mode clair
+
+- Suppression complète du mode clair : sombre imposé partout, sans choix possible — retrait du switcher de la topbar, de l'étape Apparence du wizard, de la section Apparence du profil, de tout le CSS light et de la préférence serveur.
+
 ## v1.24.151 — September 2026
 
 ### Android smartphone — Mon espace

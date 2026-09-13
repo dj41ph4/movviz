@@ -347,8 +347,6 @@ export const it: Dictionary = {
     accountHint: "Crea l'account che gestirà Movviz — obbligatorio, è ciò che ti collega all'app. Gli account creati in seguito (registrazione o Plex) dovranno essere approvati da te.",
     languageTitle: "Lingua",
     languageHint: "Scegli la lingua dell'interfaccia — modificabile in qualsiasi momento dal selettore in alto sullo schermo.",
-    appearanceTitle: "Aspetto",
-    appearanceHint: "Chiaro, scuro o automatico in base alle preferenze del tuo dispositivo — modificabile in qualsiasi momento dal tuo profilo.",
     hardwareTitle: "Dispositivo principale",
     hardwareHint: "Su cosa guardi principalmente? Questo fornisce un punto di partenza sensato al sistema di punteggio già esistente (Impostazioni → Qualità) — nulla è fisso, tutto resta modificabile in seguito.",
     hardwareTv: "TV recente",
@@ -864,11 +862,6 @@ export const it: Dictionary = {
   profile: {
     title: "Profilo",
     description: "Gestisci il tuo account e l'accesso.",
-    appearance: "Aspetto",
-    appearanceHint: "Scegli l'aspetto di Movviz su questo dispositivo.",
-    themeLight: "Chiaro",
-    themeDark: "Scuro",
-    themeAuto: "Automatico",
     aiContext: {
       title: "Cosa sa Movviz AI di te",
       empty: "Ancora niente — parla con l'assistente o vota le sue raccomandazioni per iniziare.",

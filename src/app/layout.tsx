@@ -8,7 +8,6 @@ import { ServiceWorkerRegistration } from "@/components/layout/ServiceWorkerRegi
 import { UserActivityPing } from "@/components/layout/UserActivityPing";
 import { PerfReporter } from "@/components/system/PerfReporter";
 import { getAppVersion } from "@/lib/updates/version";
-import { THEME_INIT_SCRIPT } from "@/lib/theme/theme";
 import { REDUCE_MOTION_INIT_SCRIPT } from "@/lib/gpu/reduceMotionInit";
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { resolveSession } from "@/lib/auth/store";
@@ -35,10 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#05060b" },
-    { media: "(prefers-color-scheme: light)", color: "#f5f6fb" },
-  ],
+  themeColor: "#05060b",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -64,7 +60,7 @@ export default async function RootLayout({
     // Pré-rendu statique au build (pas de cookies) — sans conséquence.
   }
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="fr" data-theme="dark" suppressHydrationWarning>
       {/* React ne monte le <img> du splash/sidebar qu'après l'hydratation JS —
           trop tard pour qu'il "apparaisse en premier". Ce preload démarre le
           téléchargement dès le HTML initial, en parallèle du JS, pour que le
@@ -72,13 +68,6 @@ export default async function RootLayout({
       <link rel="preload" as="image" href="/brand/movviz-lockup.png" fetchPriority="high" />
       <link rel="preload" as="image" href="/brand/movviz-mark.png" fetchPriority="high" />
       <body className="cinema-grain antialiased">
-        {/* next/script's beforeInteractive strategy injects this before hydration
-            (avoiding a flash of the wrong theme) via Next's own script-injection
-            path — a raw <script> tag here got reconciled by React on every
-            client-side navigation, which correctly (but harmlessly) warned
-            "scripts inside React components are never executed when rendering
-            on the client" each time. */}
-        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Script id="reduce-motion-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: REDUCE_MOTION_INIT_SCRIPT }} />
         <ScrollRestoration />
         <ServiceWorkerRegistration />

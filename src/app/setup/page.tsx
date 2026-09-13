@@ -14,26 +14,23 @@ import { DownloadClients } from "@/components/settings/DownloadClients";
 import { PlexSettings } from "@/components/settings/PlexSettings";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
-import { useTheme } from "@/lib/theme/useTheme";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { resetSwrCache } from "@/lib/swrCacheReset";
-import type { ThemeMode } from "@/lib/theme/theme";
 import type { WizardTrackedField } from "@/lib/setup/wizardProvenance";
 import {
   Clapperboard, Languages, KeyRound, Tv, Magnet, HardDrive, Play, PartyPopper, ShieldCheck,
-  Check, Loader2, ArrowRight, ExternalLink, ChevronRight, Sun, Moon, MonitorSmartphone,
+  Check, Loader2, ArrowRight, ExternalLink, ChevronRight, MonitorSmartphone,
   Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot, UserPlus,
 } from "lucide-react";
 import { DASHBOARD_MODES, DEFAULT_DASHBOARD_LAYOUT, type DashboardLayout } from "@/lib/dashboard/types";
 import { DEVICE_TYPES, type DeviceType } from "@/lib/setup/deviceTypes";
 
-const STEPS = ["account", "language", "appearance", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "plex", "done"] as const;
+const STEPS = ["account", "language", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "plex", "done"] as const;
 type Step = (typeof STEPS)[number];
 
 const STEP_ICON: Record<Step, React.ElementType> = {
   account: UserPlus,
   language: Languages,
-  appearance: Sun,
   hardware: Cpu,
   personalization: MonitorSmartphone,
   tmdb: KeyRound,
@@ -182,7 +179,6 @@ function SetupWizardPageInner() {
         >
           {step === "account" && <AccountStep onCreated={next} />}
           {step === "language" && <LanguageStep />}
-          {step === "appearance" && <AppearanceStep />}
           {step === "hardware" && <HardwareStep smartMode={smartMode} />}
           {step === "personalization" && <PersonalizationStep />}
           {step === "tmdb" && <TmdbStep />}
@@ -428,42 +424,6 @@ function LanguageStep() {
             {l === locale && <Check className="h-4 w-4 text-brand-glow" />}
           </button>
         ))}
-      </div>
-    </StepShell>
-  );
-}
-
-const THEME_OPTIONS: { id: ThemeMode; icon: typeof Sun; labelKey: string }[] = [
-  { id: "light", icon: Sun, labelKey: "profile.themeLight" },
-  { id: "dark", icon: Moon, labelKey: "profile.themeDark" },
-  { id: "auto", icon: MonitorSmartphone, labelKey: "profile.themeAuto" },
-];
-
-function AppearanceStep() {
-  const t = useT();
-  const { mode, setThemeMode } = useTheme();
-
-  return (
-    <StepShell title={t("setup.appearanceTitle")} hint={t("setup.appearanceHint")}>
-      <div className="grid gap-2 sm:grid-cols-3">
-        {THEME_OPTIONS.map((opt) => {
-          const Icon = opt.icon;
-          const active = mode === opt.id;
-          return (
-            <button
-              key={opt.id}
-              onClick={() => setThemeMode(opt.id)}
-              className={cn(
-                "flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-sm font-semibold transition-colors",
-                active ? "border-brand/40 bg-brand/12 text-brand-glow" : "border-white/8 bg-black/20 text-ink-soft hover:text-ink"
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              {t(opt.labelKey)}
-              {active && <Check className="h-4 w-4 text-brand-glow" />}
-            </button>
-          );
-        })}
       </div>
     </StepShell>
   );

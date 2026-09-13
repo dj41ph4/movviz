@@ -23,6 +23,7 @@ import type { MetaSearchResult, MetaPersonSearchResult, MetaDetail } from "@/lib
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
+import { PROVIDER_LIGHT_TILE, PROVIDER_SVG } from "@/lib/metadata/providerSvg";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
@@ -788,11 +789,21 @@ function DiscoverPageInner() {
             ))}
           </div>
           <div className="nx-discover-provider-tabs flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            {watchProviderTiles.slice(0, 8).map((tile) => (
-              <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} className={cn("nx-discover-provider-tab", String(tile.id) === watchProvider?.id && "nx-discover-provider-tab-active")}>
-                {tile.logoPath ? <TmdbImage path={tile.logoPath} size="w92" alt={tile.name} className="h-6 w-8 object-contain" /> : <span className="text-[9px] font-bold text-ink-soft">{tile.name.slice(0, 7)}</span>}
-              </button>
-            ))}
+            {watchProviderTiles.slice(0, 8).map((tile) => {
+              const localSvg = PROVIDER_SVG[tile.id];
+              return (
+                <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} className={cn("nx-discover-provider-tab", String(tile.id) === watchProvider?.id && "nx-discover-provider-tab-active", localSvg && PROVIDER_LIGHT_TILE.has(tile.id) && "nx-discover-provider-tab-light")}>
+                  {localSvg ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={localSvg} alt={tile.name} className="h-6 w-8 object-contain" />
+                  ) : tile.logoPath ? (
+                    <TmdbImage path={tile.logoPath} size="w92" alt={tile.name} className="h-6 w-8 object-contain" />
+                  ) : (
+                    <span className="text-[9px] font-bold text-ink-soft">{tile.name.slice(0, 7)}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <div className="relative shrink-0">
             <button
@@ -1227,29 +1238,35 @@ function PlatformsSection({ tiles, onClick }: { tiles: LogoTile[]; onClick: (til
         <p className="text-sm text-ink-dim">{t("discover.watchProvidersSubtitle")}</p>
       </div>
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-        {tiles.map((tile) => (
-          <button
-            key={tile.id}
-            type="button"
-            onClick={() => onClick(tile)}
-            title={tile.name}
-            className="group flex flex-col items-center gap-2 rounded-2xl p-1 transition-transform hover:-translate-y-0.5"
-          >
-            {/* Les logos plateformes TMDb sont déjà des icônes carrées à la
-             * couleur de la marque (rouge Netflix, bleu Prime, etc.) — un
-             * fond blanc plaqué par-dessus écrasait ce rendu et cassait
-             * l'identité de chaque service. On laisse l'image réelle occuper
-             * toute la tuile, comme l'esquisse. */}
-            <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 shadow-lg transition-shadow group-hover:border-brand/40 group-hover:shadow-brand/20">
-              {tile.logoPath ? (
-                <TmdbImage path={tile.logoPath} size="w500" alt={tile.name} className="h-full w-full object-cover" />
-              ) : (
-                <span className="line-clamp-2 text-center text-xs font-bold text-ink">{tile.name}</span>
-              )}
-            </div>
-            <span className="line-clamp-1 text-xs font-semibold text-ink-soft">{tile.name}</span>
-          </button>
-        ))}
+        {tiles.map((tile) => {
+          // SVG locaux (wordmarks larges) : object-contain + marges, jamais
+          // object-cover qui les rognerait. Les logos sombres prennent un
+          // fond clair, les autres gardent la tuile sombre. Les logos TMDb
+          // carrés gardent leur rendu plein cadre historique.
+          const localSvg = PROVIDER_SVG[tile.id];
+          const light = localSvg != null && PROVIDER_LIGHT_TILE.has(tile.id);
+          return (
+            <button
+              key={tile.id}
+              type="button"
+              onClick={() => onClick(tile)}
+              title={tile.name}
+              className="group flex flex-col items-center gap-2 rounded-2xl p-1 transition-transform hover:-translate-y-0.5"
+            >
+              <div className={cn("flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 shadow-lg transition-shadow group-hover:border-brand/40 group-hover:shadow-brand/20", light && "border-white/20 bg-[#f2f3f7]")}>
+                {localSvg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={localSvg} alt={tile.name} className="max-h-[62%] max-w-[78%] object-contain" />
+                ) : tile.logoPath ? (
+                  <TmdbImage path={tile.logoPath} size="w500" alt={tile.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="line-clamp-2 text-center text-xs font-bold text-ink">{tile.name}</span>
+                )}
+              </div>
+              <span className="line-clamp-1 text-xs font-semibold text-ink-soft">{tile.name}</span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

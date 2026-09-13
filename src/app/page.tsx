@@ -14,6 +14,7 @@ import { DashboardRows } from "@/components/dashboard/DashboardRows";
 import { DashboardSplash } from "@/components/dashboard/DashboardSplash";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { setSplashActive } from "@/lib/dashboard/splashCoordinator";
+import { PROVIDER_LIGHT_TILE, PROVIDER_SVG } from "@/lib/metadata/providerSvg";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { useT } from "@/i18n/provider";
@@ -310,11 +311,21 @@ export default function DashboardPage() {
         <section className="nx-home-providers" aria-label={t("discover.watchProviders")}>
           <h2 className="text-sm font-black tracking-tight text-ink">{t("discover.watchProviders")}</h2>
           <div className="mt-2 flex gap-2.5 overflow-x-auto pb-1">
-            {providerData!.tiles.slice(0, 8).map((provider) => (
-              <Link key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className="nx-provider-tile" title={provider.name}>
-                {provider.logoPath ? <TmdbImage path={provider.logoPath} size="w154" alt={provider.name} className="max-h-10 max-w-[88px] object-contain" /> : <span>{provider.name}</span>}
-              </Link>
-            ))}
+            {providerData!.tiles.slice(0, 8).map((provider) => {
+              const localSvg = PROVIDER_SVG[provider.id];
+              return (
+                <Link key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className={cn("nx-provider-tile", localSvg && PROVIDER_LIGHT_TILE.has(provider.id) && "nx-provider-tile-light")} title={provider.name}>
+                  {localSvg ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={localSvg} alt={provider.name} className="max-h-10 max-w-[88px] object-contain" />
+                  ) : provider.logoPath ? (
+                    <TmdbImage path={provider.logoPath} size="w154" alt={provider.name} className="max-h-10 max-w-[88px] object-contain" />
+                  ) : (
+                    <span>{provider.name}</span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}

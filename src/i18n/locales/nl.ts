@@ -347,8 +347,6 @@ export const nl: Dictionary = {
     accountHint: "Maak het account aan dat Movviz zal beheren — verplicht, hiermee log je in op de app. Later aangemaakte accounts (registratie of Plex) moeten door jou worden goedgekeurd.",
     languageTitle: "Taal",
     languageHint: "Kies de taal van de interface — op elk moment te wijzigen via de kiezer bovenaan het scherm.",
-    appearanceTitle: "Uiterlijk",
-    appearanceHint: "Licht, donker of automatisch op basis van je apparaatvoorkeur — op elk moment te wijzigen via je profiel.",
     hardwareTitle: "Belangrijkste apparaat",
     hardwareHint: "Waarop kijk je vooral? Dit geeft een verstandig startpunt aan het al bestaande scoresysteem (Instellingen → Kwaliteit) — niets ligt vast, alles blijft daarna aanpasbaar.",
     hardwareTv: "Recente tv",
@@ -864,11 +862,6 @@ export const nl: Dictionary = {
   profile: {
     title: "Profiel",
     description: "Beheer je account en toegang.",
-    appearance: "Weergave",
-    appearanceHint: "Kies hoe Movviz eruitziet op dit apparaat.",
-    themeLight: "Licht",
-    themeDark: "Donker",
-    themeAuto: "Automatisch",
     aiContext: {
       title: "Wat Movviz AI over jou weet",
       empty: "Nog niets — chat met de assistent of stem op zijn aanbevelingen zodat hij je leert kennen.",

@@ -5,7 +5,6 @@ import { Search, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavSearch } from "@/lib/nav/useNavSearch";
 import { LanguageSwitcher } from "./LanguageSwitcher";
-import { ThemeSwitcher } from "./ThemeSwitcher";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
 import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
@@ -54,9 +53,12 @@ export function Topbar() {
         scrolled ? "border-brand/15 bg-[#070d22]/88 backdrop-blur-xl" : "bg-transparent"
       )}
     >
-      {/* THE search box — always here, every screen size. */}
-      <div className="group flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-cyan/20 bg-[#0d1738]/82 px-3 transition-colors focus-within:border-brand/70 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]">
-        <Search className="h-4 w-4 shrink-0 text-ink-dim transition-colors group-focus-within:text-brand-glow" />
+      {/* THE search box — always here, every screen size. Rendu mobile
+          strict (PortraitTopHeader) : pill 46px, bordure électrique, fond
+          #131836, icône 17px + placeholder 13px #B3B3B3 — voir
+          .nx-search-pill. */}
+      <div className="group nx-search-pill flex h-[46px] min-w-0 flex-1 items-center gap-[10px] rounded-[23px] px-4 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]">
+        <Search className="h-[17px] w-[17px] shrink-0 text-[#B3B3B3]" />
         <input
           value={navSearch.value}
           onChange={(e) => navSearch.onChange(e.target.value)}
@@ -74,7 +76,7 @@ export function Topbar() {
           // autoComplete="off" is the standard second layer.
           type="search"
           autoComplete="off"
-          className="h-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-dim"
+          className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-[#B3B3B3]"
         />
       </div>
 
@@ -89,7 +91,6 @@ export function Topbar() {
           <Heart className="h-4 w-4 animate-heartbeat fill-down text-down" />
         </a>
         {user?.role === "admin" && <ActivityMonitor />}
-        <ThemeSwitcher />
         <LanguageSwitcher />
         <NotificationBell />
         <UserMenu />

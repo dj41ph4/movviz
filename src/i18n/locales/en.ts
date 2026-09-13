@@ -347,8 +347,6 @@ export const en: Dictionary = {
     accountHint: "Create the account that will manage Movviz — required, it's what signs you into the app. Accounts created afterward (sign-up or Plex) will need your approval.",
     languageTitle: "Language",
     languageHint: "Choose the interface language — changeable at any time from the switcher at the top of the screen.",
-    appearanceTitle: "Appearance",
-    appearanceHint: "Light, dark, or automatic based on your device's preference — changeable at any time from your profile.",
     hardwareTitle: "Main hardware",
     hardwareHint: "What do you mostly watch on? This gives a sane starting point to the scoring system already in place (Settings → Quality) — nothing is locked in, everything stays editable afterward.",
     hardwareTv: "Recent TV",
@@ -864,11 +862,6 @@ export const en: Dictionary = {
   profile: {
     title: "Profile",
     description: "Manage your account and access.",
-    appearance: "Appearance",
-    appearanceHint: "Choose how Movviz looks on this device.",
-    themeLight: "Light",
-    themeDark: "Dark",
-    themeAuto: "Automatic",
     aiContext: {
       title: "What Movviz AI knows about you",
       empty: "Nothing yet — chat with the assistant or vote on its recommendations to get it started.",
