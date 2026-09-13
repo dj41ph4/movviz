@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { buildHeroSlides } from "@/lib/dashboard/suggestionEngine";
+import { buildHeroSlides, buildLibraryHeroFallbackSlides } from "@/lib/dashboard/suggestionEngine";
 import { loadMovies } from "@/lib/library/store";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
@@ -13,8 +13,15 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const locale = req.nextUrl.searchParams.get("locale") ?? undefined;
+  const rich = req.nextUrl.searchParams.get("rich") === "1";
   const { hero, youtubeTrailerSearch } = loadDashboardLayout(user.id);
-  const slides = await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned }, youtubeTrailerSearch, hero.minYear);
+  // First paint is deliberately local and synchronous: a dashboard hero is
+  // useful with its stored artwork even while TMDb is overloaded. The client
+  // follows with ?rich=1 to restore recommendation ranking and trailers.
+  const fallbackSlides = buildLibraryHeroFallbackSlides(6);
+  const slides = rich
+    ? await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned }, youtubeTrailerSearch, hero.minYear).then((resolved) => resolved.length ? resolved : fallbackSlides)
+    : fallbackSlides;
 
   const cfg = loadPlexConfig();
   const byTmdbId = new Map(loadMovies().map((m) => [m.tmdbId, m] as const));

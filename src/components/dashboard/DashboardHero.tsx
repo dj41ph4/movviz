@@ -41,8 +41,14 @@ function reasonLabel(t: ReturnType<typeof useT>, reason: HeroSlide["score"]["rea
 export function DashboardHero({ settings }: { settings: DashboardHeroSettings }) {
   const t = useT();
   const { locale } = useI18n();
-  const { data } = useSWR<{ slides: HeroApiSlide[] }>(settings.enabled ? `/api/dashboard/hero?locale=${locale}` : null);
-  const slides = data?.slides ?? [];
+  const heroUrl = settings.enabled ? `/api/dashboard/hero?locale=${locale}` : null;
+  const { data } = useSWR<{ slides: HeroApiSlide[] }>(heroUrl);
+  // The first reply is local artwork; once it is on screen we can enrich it
+  // with TMDb ranking and ambient trailers without ever blocking the hero.
+  const { data: richData } = useSWR<{ slides: HeroApiSlide[] }>(
+    data?.slides?.length ? `${heroUrl}&rich=1` : null,
+  );
+  const slides = richData?.slides?.length ? richData.slides : data?.slides ?? [];
 
   const [index, setIndex] = useState(0);
   const [anchored, setAnchored] = useState(false);

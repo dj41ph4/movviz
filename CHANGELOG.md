@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.162 — September 2026
+
+### Accueil : hero disponible même sous surcharge TMDb
+
+- Le premier rendu du hero utilise immédiatement les backdrops déjà stockés dans la bibliothèque, sans dépendre d'une requête TMDb lente ou expirée.
+- Les recommandations enrichies et les bandes-annonces sont chargées ensuite, sans pouvoir masquer l'image habituelle du hero.
+
 ## v1.24.161 — September 2026
 
 ### Accueil : repli sûr du hero

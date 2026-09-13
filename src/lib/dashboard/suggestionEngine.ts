@@ -78,6 +78,56 @@ export interface HeroSlide {
   score: SuggestionScore;
 }
 
+/**
+ * Immediate, local-only hero.  The dashboard must never disappear merely
+ * because TMDb (or one of its enrichment calls) is slow: the library already
+ * has enough artwork and metadata for a real, useful hero while the richer
+ * recommendation pass finishes in the background.
+ */
+export function buildLibraryHeroFallbackSlides(targetCount = 6): HeroSlide[] {
+  const movies = loadMovies()
+    .filter((movie) => !!(movie.customBackdropPath ?? movie.backdropPath ?? movie.posterPath))
+    .sort((a, b) => {
+      const aAvailable = a.status === "available" ? 1 : 0;
+      const bAvailable = b.status === "available" ? 1 : 0;
+      return bAvailable - aAvailable || b.addedAt - a.addedAt;
+    })
+    .slice(0, targetCount);
+
+  return movies.map((movie): HeroSlide => ({
+    poolId: movie.status === "available" ? "recentlyAdded" : "upcoming",
+    libraryStatus: movie.status,
+    daysUntilRelease: movie.status === "upcoming" ? daysUntil(movie.vfReleaseDate ?? movie.releaseDate) : null,
+    libraryFile: movie.file,
+    detail: {
+      tmdbId: movie.tmdbId,
+      type: "movie",
+      title: movie.title,
+      originalTitle: movie.originalTitle ?? movie.title,
+      year: movie.year,
+      overview: movie.overview,
+      tagline: "",
+      posterPath: movie.posterPath,
+      backdropPath: movie.customBackdropPath ?? movie.backdropPath,
+      rating: movie.rating,
+      genres: movie.genres,
+      runtime: movie.runtime,
+      status: movie.status,
+      originalLanguage: "",
+      countries: [], studios: [], keywords: [], cast: [], crew: [], similar: [], collection: null,
+      isAnime: false, tvdbId: null, imdbId: movie.imdbId,
+      watchProviders: [], releaseDateFull: movie.releaseDate, vfReleaseDate: movie.vfReleaseDate,
+      revenue: null, budget: null, trailerKey: null, trailerKeys: [], ambientVideoKeys: [],
+      rtScore: null, metascore: null, imdbRating: null,
+    },
+    score: {
+      genreMatch: 0, directorMatch: 0, actorMatch: 0, requestBonus: 0, ratingBonus: 0,
+      recencyBonus: 0, availabilityBonus: movie.status === "available" ? 1 : 0,
+      qualityBonus: 0, languageBonus: 0, preferenceBonus: 0, total: 0, reasons: [],
+    },
+  }));
+}
+
 interface TasteProfile {
   topGenres: string[];
   topDirectors: string[];
