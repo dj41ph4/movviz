@@ -311,7 +311,7 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "download-state-reconcile",
     name: "Réconciliation des téléchargements en cours",
-    intervalMs: 5 * 60 * 1000, // every 5 min — hourly was too slow, stuck "downloading" badges persisted far too long
+    intervalMs: 2 * 60 * 1000, // every 2 min — a finished file must flip to "available" fast so the Play button appears without waiting for Plex; this is a single engineGet("torrents") + in-memory loops, cheap enough to run often
     // Items stuck on "downloading" whose torrent no longer exists in the
     // engine (deleted, wiped, lost on crash) go back to "missing" so the
     // wanted list and RSS scan pick them up again.
@@ -322,7 +322,7 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "stuck-downloads-recover",
     name: "Récupération des téléchargements terminés non importés",
-    intervalMs: 30 * 60 * 1000, // every 30 min
+    intervalMs: 15 * 60 * 1000, // every 15 min — bounded to completed/seeding torrents' files (no full-library walk), so cheap enough to run often; a finished download must become playable fast, without waiting for Plex
     // A completed torrent whose import callback never landed (engine crash
     // between completion and import, failed move, lost callback) leaves its
     // files in the download folder while the library item stays stuck on

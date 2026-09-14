@@ -43,6 +43,21 @@ export function learnPathMapping(plexPrefix: string, movvizPrefix: string): void
   savePathMappings(mappings);
 }
 
+/** Suppression manuelle depuis Réglages → Plex (validation humaine). */
+export function removePathMapping(plexPrefix: string, movvizPrefix: string): boolean {
+  const mappings = loadPathMappings();
+  const kept = mappings.filter(
+    (m) =>
+      !(
+        m.plexPrefix.toLowerCase() === plexPrefix.toLowerCase() &&
+        m.movvizPrefix.toLowerCase() === movvizPrefix.toLowerCase()
+      )
+  );
+  if (kept.length === mappings.length) return false;
+  savePathMappings(kept);
+  return true;
+}
+
 /**
  * Rewrites a Plex-reported path to Movviz's own filesystem view using the
  * longest matching learned prefix (tolerant of both separator styles, same

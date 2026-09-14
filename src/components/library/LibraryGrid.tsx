@@ -221,9 +221,42 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     || (technicalFilter === "watched" && watchlistKeys.has(`movie:${m.tmdbId}`))
     || (technicalFilter === "4k" && /2160|4k/i.test(m.file?.resolution ?? ""))
     || (technicalFilter === "hdr" && !!m.file?.hdr);
+  // Filet anti-doublons d'affichage : la base ne devrait jamais contenir 2x le
+  // même tmdbId (voir reconcile.ts), mais un doublon peut exister suite à 2
+  // sync Plex concurrents sur une fresh install. On n'affiche qu'une tuile par
+  // tmdbId — même règle de "meilleure entrée" que reconcile (available >
+  // downloading > searching > missing > upcoming, puis avec fichier, puis plus
+  // ancien). Pure lecture : ne supprime rien en base, no-op sur une
+  // bibliothèque saine.
+  const STATUS_RANK: Record<LibraryStatus, number> = { available: 4, downloading: 3, searching: 2, missing: 1, upcoming: 0 };
+  const dedupedMovies = useMemo(() => {
+    const byTmdbId = new Map<number, LibraryMovie>();
+    for (const m of movies) {
+      const prev = byTmdbId.get(m.tmdbId);
+      if (!prev) { byTmdbId.set(m.tmdbId, m); continue; }
+      const rank = (x: LibraryMovie) => STATUS_RANK[x.status] * 10 + (x.file ? 1 : 0);
+      const best = rank(m) !== rank(prev) ? (rank(m) > rank(prev) ? m : prev) : (m.addedAt <= prev.addedAt ? m : prev);
+      byTmdbId.set(m.tmdbId, best);
+    }
+    return [...byTmdbId.values()];
+  }, [movies]);
+  const countAvailableEpisodes = (s: LibrarySeries) =>
+    s.seasons.reduce((sum, season) => sum + season.episodes.filter((e) => e.status === "available").length, 0);
+  const dedupedSeries = useMemo(() => {
+    const byTmdbId = new Map<number, LibrarySeries>();
+    for (const s of series) {
+      const prev = byTmdbId.get(s.tmdbId);
+      if (!prev) { byTmdbId.set(s.tmdbId, s); continue; }
+      const a = countAvailableEpisodes(s);
+      const b = countAvailableEpisodes(prev);
+      const best = a !== b ? (a > b ? s : prev) : (s.addedAt <= prev.addedAt ? s : prev);
+      byTmdbId.set(s.tmdbId, best);
+    }
+    return [...byTmdbId.values()];
+  }, [series]);
   const movieItems = useMemo(
-    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && movieMatchesGenre(m) && movieMatchesTechnical(m))),
-    [movies, filter, type, genreFilter, technicalFilter, watchlistKeys]
+    () => (type === "series" ? [] : dedupedMovies.filter((m) => (filter === "all" || m.status === filter) && movieMatchesGenre(m) && movieMatchesTechnical(m))),
+    [dedupedMovies, filter, type, genreFilter, technicalFilter, watchlistKeys]
   );
   const seriesStatus = (s: LibrarySeries): LibraryStatus => {
     const monitored = s.seasons.flatMap((se) => se.episodes).filter((e) => e.monitored);
@@ -247,8 +280,8 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     return episodes.some((episode) => technicalFilter === "4k" ? /2160|4k/i.test(episode.file?.resolution ?? "") : !!episode.file?.hdr);
   };
   const seriesItems = useMemo(
-    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && seriesMatchesGenre(s) && seriesMatchesTechnical(s))),
-    [series, filter, type, genreFilter, technicalFilter, watchlistKeys]
+    () => (type === "movie" ? [] : dedupedSeries.filter((s) => (filter === "all" || seriesStatus(s) === filter) && seriesMatchesGenre(s) && seriesMatchesTechnical(s))),
+    [dedupedSeries, filter, type, genreFilter, technicalFilter, watchlistKeys]
   );
 
   // When "Tout" mixes movies and series, they must be sorted TOGETHER — every

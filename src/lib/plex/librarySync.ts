@@ -8,13 +8,13 @@ import {
   getSeriesByTmdbId, addSeries, updateSeries, loadSeries,
 } from "@/lib/library/store";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
-import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
+import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeries, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
-import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
+import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { registerMarkerCandidate } from "./markerSync";
 import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
@@ -33,22 +33,57 @@ function hasValidLocalFile(file: LibraryFile | null | undefined): boolean {
   });
 }
 
-// A run does hundreds of sequential awaited TMDb/Plex calls, so two overlapping
-// triggers (manual + scheduled, or a double click) would otherwise interleave
-// and both see "not in library yet" for the same title, creating duplicates.
-let syncInFlight = false;
-
-// Debounced "sync soon" trigger for right after a fresh import — Plex needs
-// a few seconds to actually scan the file it was just told to refresh
-// (refreshPlexLibraryFor) before its own API reports a ratingKey for it, so
-// firing syncPlexLibrary() immediately would just find nothing yet. A single
-// delayed timer, coalesced across bursts (a season pack finishing several
-// episodes within the same few seconds only pays for one extra sync instead
-// of one per file) — anchored on globalThis since Next bundles routes
-// separately. The regular 5-minute scheduled sync (src/lib/scheduler/tasks.ts)
-// stays as the safety net if this fires too early and Plex is still scanning.
-const gSync = globalThis as typeof globalThis & { __movvizPlexSyncSoonTimer?: ReturnType<typeof setTimeout> | null };
+// Next.js compiles routes into separate bundles — module-level state would
+// exist once per bundle, so two overlapping triggers (manual + scheduled, or
+// a double click) would otherwise interleave and both see "not in library
+// yet" for the same title, creating duplicates. Anchored on globalThis like
+// the timer below.
+const gSync = globalThis as typeof globalThis & {
+  __movvizPlexSyncInFlight?: boolean;
+  __movvizPlexSyncSoonTimer?: ReturnType<typeof setTimeout> | null;
+  __movvizPlexSyncStatus?: PlexSyncStatus;
+};
 const SYNC_SOON_DELAY_MS = 20_000;
+
+/**
+ * État d'avancement persistant du sync (globalThis = partagé entre bundles).
+ * Le bouton "Synchroniser" lance un run de plusieurs minutes en arrière-plan :
+ * sans ça, quitter la page puis revenir réactive le bouton côté client alors
+ * que le serveur tourne encore — l'utilisateur clique, reçoit
+ * `{alreadyRunning: true}` (0/0) et croit à un blocage. Le panneau Plex
+ * interroge cet état toutes les 3s et affiche la progression réelle.
+ */
+export interface PlexSyncStatus {
+  running: boolean;
+  startedAt: number | null;
+  finishedAt: number | null;
+  phase: "movies" | "series" | "finishing" | null;
+  sectionTitle: string | null;
+  moviesProcessed: number;
+  seriesProcessed: number;
+  moviesAdded: number;
+  seriesAdded: number;
+}
+
+export function getPlexSyncStatus(): PlexSyncStatus {
+  return (
+    gSync.__movvizPlexSyncStatus ?? {
+      running: false,
+      startedAt: null,
+      finishedAt: null,
+      phase: null,
+      sectionTitle: null,
+      moviesProcessed: 0,
+      seriesProcessed: 0,
+      moviesAdded: 0,
+      seriesAdded: 0,
+    }
+  );
+}
+
+function setSyncStatus(patch: Partial<PlexSyncStatus>): void {
+  gSync.__movvizPlexSyncStatus = { ...getPlexSyncStatus(), ...patch };
+}
 
 export function scheduleLibrarySyncSoon(): void {
   if (gSync.__movvizPlexSyncSoonTimer) return;
@@ -75,8 +110,19 @@ export function scheduleLibrarySyncSoon(): void {
 export async function syncPlexLibrary(opts?: { force?: boolean }) {
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return null;
-  if (syncInFlight) return { moviesAdded: 0, moviesMatched: 0, seriesAdded: 0, seriesMatched: 0, alreadyRunning: true as const };
-  syncInFlight = true;
+  if (gSync.__movvizPlexSyncInFlight) return { moviesAdded: 0, moviesMatched: 0, seriesAdded: 0, seriesMatched: 0, alreadyRunning: true as const };
+  gSync.__movvizPlexSyncInFlight = true;
+  setSyncStatus({
+    running: true,
+    startedAt: Date.now(),
+    finishedAt: null,
+    phase: null,
+    sectionTitle: null,
+    moviesProcessed: 0,
+    seriesProcessed: 0,
+    moviesAdded: 0,
+    seriesAdded: 0,
+  });
 
   try {
     if (!cfg.machineIdentifier) {
@@ -85,7 +131,8 @@ export async function syncPlexLibrary(opts?: { force?: boolean }) {
     }
     return await runSync(cfg, cfg.adminToken, !!opts?.force);
   } finally {
-    syncInFlight = false;
+    gSync.__movvizPlexSyncInFlight = false;
+    setSyncStatus({ running: false, finishedAt: Date.now(), phase: null, sectionTitle: null });
   }
 }
 
@@ -99,21 +146,26 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   const moviesSince = force ? undefined : state.moviesLastSyncedAt || undefined;
   for (const section of sections.filter((s) => s.type === "movie")) {
     await yieldToUser("sync Plex films");
+    setSyncStatus({ phase: "movies", sectionTitle: section.title });
     const r = await syncMovieSection(cfg, adminToken, section, moviesSince, seenMovieTmdbIds);
     moviesAdded += r.added;
     moviesMatched += r.matched;
+    setSyncStatus({ moviesAdded });
   }
 
   const seenSeriesTmdbIds = new Set<number>();
   const seriesSince = force ? undefined : state.seriesLastSyncedAt || undefined;
   for (const section of sections.filter((s) => s.type === "show")) {
     await yieldToUser("sync Plex séries");
+    setSyncStatus({ phase: "series", sectionTitle: section.title });
     const r = await syncShowSection(cfg, adminToken, section, seriesSince, seenSeriesTmdbIds);
     seriesAdded += r.added;
     seriesMatched += r.matched;
+    setSyncStatus({ seriesAdded });
   }
 
   // Full reconcile: mark items missing if Plex no longer has them
+  setSyncStatus({ phase: "finishing", sectionTitle: null });
   if (force) {
     markMissingFromPlex(seenMovieTmdbIds, seenSeriesTmdbIds);
   }
@@ -191,6 +243,135 @@ function toLibraryFileReconciled(plex: PlexLibraryItem, existingPath: string | n
   if (!file) return null;
   file.path = reconcileFilePath(existingPath, file.path);
   return file;
+}
+
+/**
+ * Même chemin physique = même film, même avec des mounts différents.
+ * Ex: Movviz écrit dans /data/film/X.mkv (mapping de volume1/docker/plex/),
+ * Plex reporte /volume1/docker/plex/film/X.mkv ou /movies/X.mkv pour le MÊME
+ * fichier. Comparaison en 3 niveaux : égalité normalisée, via les mappings
+ * appris (plex-path-mappings.json), puis suffixe parent + filename
+ * (commonSuffixDepth >= 2) pour les mounts pas encore appris (fresh install).
+ */
+function normalizePathForCompare(p: string): string {
+  return p.replace(/[\\/]+/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+function isSamePhysicalFile(a: string | null | undefined, b: string | null | undefined, minDepth = 2): boolean {
+  if (!a || !b) return false;
+  if (normalizePathForCompare(a) === normalizePathForCompare(b)) return true;
+  let mappings: PathMapping[] = [];
+  try { mappings = loadPathMappings(); } catch { mappings = []; }
+  if (isSamePhysicalFileCached(a, b, minDepth, mappings)) return true;
+  return false;
+}
+
+/**
+ * Variante sans aucun syscall (mappings pré-chargés une fois) pour les
+ * boucles de sync : isSamePhysicalFile() ci-dessus charge
+ * plex-path-mappings.json (stat disque) à CHAQUE comparaison — dans un scan
+ * de toute la bibliothèque par item Plex, ça bloque l'event loop Node et met
+ * toutes les routes API en timeout. Ici zéro I/O, mémoire seule.
+ */
+function applyMappingCached(p: string, mappings: PathMapping[]): string {
+  if (mappings.length === 0) return p;
+  const sep = p.includes("\\") && !p.includes("/") ? "\\" : "/";
+  const normalized = p.replace(/[\\/]/g, sep);
+  const lower = normalized.toLowerCase();
+  let best: PathMapping | null = null;
+  for (const m of mappings) {
+    const prefix = m.plexPrefix.replace(/[\\/]/g, sep);
+    if (lower.startsWith(prefix.toLowerCase())) {
+      if (!best || m.plexPrefix.length > best.plexPrefix.length) best = m;
+    }
+  }
+  if (!best) return p;
+  const rest = normalized.slice(best.plexPrefix.replace(/[\\/]/g, sep).length);
+  const movvizSep = best.movvizPrefix.includes("\\") && !best.movvizPrefix.includes("/") ? "\\" : "/";
+  return best.movvizPrefix + rest.split(sep).join(movvizSep);
+}
+
+function isSamePhysicalFileCached(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  minDepth: number,
+  mappings: PathMapping[]
+): boolean {
+  if (!a || !b) return false;
+  if (normalizePathForCompare(a) === normalizePathForCompare(b)) return true;
+  try {
+    const mappedA = applyMappingCached(a, mappings);
+    if (normalizePathForCompare(mappedA) === normalizePathForCompare(b)) return true;
+    const mappedB = applyMappingCached(b, mappings);
+    if (normalizePathForCompare(mappedB) === normalizePathForCompare(a)) return true;
+    if (normalizePathForCompare(mappedA) === normalizePathForCompare(mappedB)) return true;
+  } catch { /* mapping illisible — on tombe sur le suffixe */ }
+  try {
+    return commonSuffixDepth(a, b) >= minDepth;
+  } catch {
+    return false;
+  }
+}
+
+/** Retrouve un film déjà connu par son chemin physique (file + versions[]).
+ *  Deux passes, zéro syscall : passe 1 en égalité normalisée pure (mémoire
+ *  seule, cas courant quand les deux vues sont identiques), passe 2 avec les
+ *  mappings chargés UNE fois + suffixe. Un chargement des mappings par
+ *  comparaison bloquait l'event loop (stat disque × milliers de candidats) et
+ *  mettait toutes les routes API en timeout pendant le sync. */
+function findMovieByPhysicalPath(plexPath: string): LibraryMovie | null {
+  const movies = loadMovies();
+  const norm = normalizePathForCompare(plexPath);
+  for (const m of movies) {
+    if (m.file?.path && normalizePathForCompare(m.file.path) === norm) return m;
+    for (const v of m.versions ?? []) {
+      if (v.path && normalizePathForCompare(v.path) === norm) return m;
+    }
+  }
+  let mappings: PathMapping[] = [];
+  try { mappings = loadPathMappings(); } catch { mappings = []; }
+  for (const m of movies) {
+    const candidates = [m.file?.path, ...(m.versions ?? []).map((v) => v.path)];
+    for (const c of candidates) {
+      if (c && isSamePhysicalFileCached(c, plexPath, 2, mappings)) return m;
+    }
+  }
+  return null;
+}
+
+/**
+ * Retrouve une série déjà connue par un chemin d'épisode. Profondeur 3
+ * (show/season/fichier) : avec des noms génériques type S01E01.mkv, une
+ * profondeur 2 (Season 01/S01E01.mkv) collisionnerait entre 2 séries
+ * différentes, alors que 3 exige aussi le dossier de la série.
+ */
+function findSeriesByEpisodePhysicalPath(plexEpPaths: string[]): LibrarySeries | null {
+  const incoming = plexEpPaths.filter(Boolean);
+  if (incoming.length === 0) return null;
+  const incomingNorm = new Set(incoming.map(normalizePathForCompare));
+  const allSeries = loadSeries();
+  // Passe 1 : égalité normalisée pure, zéro syscall.
+  for (const s of allSeries) {
+    for (const season of s.seasons) {
+      for (const ep of season.episodes) {
+        if (ep.file?.path && incomingNorm.has(normalizePathForCompare(ep.file.path))) return s;
+      }
+    }
+  }
+  // Passe 2 : mappings (chargés une fois) + suffixe profondeur 3.
+  let mappings: PathMapping[] = [];
+  try { mappings = loadPathMappings(); } catch { mappings = []; }
+  for (const s of allSeries) {
+    const existingPaths: string[] = [];
+    for (const season of s.seasons) for (const ep of season.episodes) if (ep.file?.path) existingPaths.push(ep.file.path);
+    if (existingPaths.length === 0) continue;
+    for (const inc of incoming) {
+      for (const ex of existingPaths) {
+        if (isSamePhysicalFileCached(ex, inc, 3, mappings)) return s;
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -304,6 +485,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     // centaines d'items, chaque item = fetch Plex/TMDb séquentiel) cède la
     // main dès que l'utilisateur interagit, puis reprend 4 s après.
     await yieldToUser("sync Plex films");
+    setSyncStatus({ moviesProcessed: getPlexSyncStatus().moviesProcessed + 1 });
     if (item.tmdbId == null) continue;
     seenTmdbIds.add(item.tmdbId);
     // Signal markers : ce ratingKey existe chez Plex avec cet updatedAt —
@@ -335,8 +517,61 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       continue;
     }
 
+    // Même chemin physique = même film → on fusionne au lieu de créer un
+    // doublon. Couvre : 2 sections Plex sur le même dossier
+    // (/volume1/docker/plex/),
+    // 2 agents Plex qui résolvent 2 tmdbId différents pour le même fichier,
+    // et mounts différents (Movviz /data/film/... vs Plex /volume1/docker/plex/film/...).
+    // On garde l'entrée existante (historique utilisateur) et on ne change
+    // jamais son tmdbId — on ne fait que confirmer le fichier dispo.
+    if (file?.path) {
+      const byPath = findMovieByPhysicalPath(file.path);
+      if (byPath) {
+        const patch: Partial<LibraryMovie> = {};
+        if (byPath.status !== "available") patch.status = "available";
+        const merged = mergePlexVersions(byPath, item);
+        if (merged) {
+          patch.file = merged.file;
+          patch.versions = merged.versions;
+        } else {
+          patch.file = file;
+        }
+        if (!byPath.plexRatingKey) patch.plexRatingKey = item.ratingKey;
+        if (item.mediaDetail) patch.plexMediaInfo = item.mediaDetail;
+        updateMovie(byPath.id, patch);
+        matched++;
+        if (patch.file) probeMovieInBackground(byPath.id, patch.file.diskPath ?? patch.file.path);
+        continue;
+      }
+    }
+
     const meta = await fetchTmdbMovie(item.tmdbId);
     if (!meta) continue;
+
+    // Re-vérifie après le fetch TMDb (fenêtre de plusieurs secondes pendant
+    // laquelle un 2e run concurrent — double-clic, scheduler 5 min — a pu
+    // insérer le même film) : si le film est apparu entre-temps, on fusionne
+    // au lieu d'ajouter un 2e mv_xxx vers le même endroit.
+    const rechecked = getMovieByTmdbId(item.tmdbId) ?? (file?.path ? findMovieByPhysicalPath(file.path) : null);
+    if (rechecked) {
+      const patch: Partial<LibraryMovie> = {};
+      if (rechecked.status !== "available") patch.status = "available";
+      const merged = mergePlexVersions(rechecked, item);
+      if (merged) {
+        patch.file = merged.file;
+        patch.versions = merged.versions;
+      } else if (file) {
+        patch.file = file;
+      }
+      if (!rechecked.plexRatingKey) patch.plexRatingKey = item.ratingKey;
+      if (item.mediaDetail) patch.plexMediaInfo = item.mediaDetail;
+      if (Object.keys(patch).length > 0) {
+        updateMovie(rechecked.id, patch);
+        if (patch.file) probeMovieInBackground(rechecked.id, patch.file.diskPath ?? patch.file.path);
+      }
+      matched++;
+      continue;
+    }
 
     // Brand-new movie with several Plex Media entries already at add time —
     // no prior version history to preserve, just build versions[] directly.
@@ -407,6 +642,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
   for (const show of shows) {
     // Priorité absolue au clic/navigation — même règle que les films.
     await yieldToUser("sync Plex séries");
+    setSyncStatus({ seriesProcessed: getPlexSyncStatus().seriesProcessed + 1 });
     if (show.tmdbId == null) continue;
     seenTmdbIds.add(show.tmdbId);
     const episodes = await getShowEpisodes(cfg, show.ratingKey, token);
@@ -418,6 +654,27 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     const existing = getSeriesByTmdbId(show.tmdbId);
 
     if (!existing) {
+      // Même chemin d'épisode = même série → on fusionne au lieu de créer un
+      // doublon. Couvre 2 sections show sur le même dossier et mounts
+      // différents (Movviz /data/... vs Plex /volume1/docker/plex/... : comparaison par
+      // suffixe show/season/fichier, pas égalité stricte).
+      const plexEpPaths = episodes.map((pe) => pe.file?.path).filter((p): p is string => !!p);
+      const byPath = findSeriesByEpisodePhysicalPath(plexEpPaths);
+      if (byPath) {
+        const newSeasons = byPath.seasons.map((season) => ({
+          ...season,
+          episodes: season.episodes.map((ep) => {
+            const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+            if (plexEp && ep.status !== "available") {
+              return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file, plexRatingKey: plexEp.ratingKey };
+            }
+            return ep;
+          }),
+        }));
+        updateSeries(byPath.id, { seasons: newSeasons, plexRatingKey: byPath.plexRatingKey ?? show.ratingKey });
+        matched++;
+        continue;
+      }
       let meta = await fetchTmdbSeries(show.tmdbId);
       if (!meta) continue;
       // Correctif Yellowstone : Plex TVDB 85527 → TMDb 19355 docu 2009, alors que la vraie série est 73586 2018 (même titre, pas docu). Si le TMDb résolu est un docu peu voté et qu'il existe un homonyme série non-docu très populaire, on préfère le non-docu.
@@ -448,6 +705,12 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         });
         seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: monitoredByDefault, episodes: eps });
       }
+      // Re-vérifie après les fetch TMDb (un 2e run a pu insérer la même série
+      // pendant les await) : pas de 2e sr_xxx vers les mêmes fichiers.
+      const recheckedSeries =
+        getSeriesByTmdbId(show.tmdbId) ??
+        findSeriesByEpisodePhysicalPath(episodes.map((pe) => pe.file?.path).filter((p): p is string => !!p));
+      if (recheckedSeries) { matched++; continue; }
       const newSeriesId = `sr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       addSeries({
         id: newSeriesId,

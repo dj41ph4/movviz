@@ -1,12 +1,32 @@
 # Changelog
 
-## v1.24.171 — September 2026
+## v1.25.2 — September 2026
 
 ### Android TV : refonte de la navigation et du visuel
 
 - La navigation passe d'une barre du haut à une sidebar latérale repliable (icônes seules, s'agrandit au focus télécommande) — palette bleu-nuit, dégradé de marque bleu→violet→magenta.
 - Films et Séries fusionnent en un seul onglet Bibliothèque (Films/Séries/Collections) ; Recherche devient un onglet à part entière avec le même filtre Tout/Films/Séries que le mobile ; Découverte redevient accessible directement.
 - ⚠️ Non compilé/testé sur device — première vérification réelle via le build CI déclenché par ce tag.
+
+## v1.25.1 — September 2026
+
+### Hotfix : timeouts API pendant le sync Plex
+
+- La détection « même fichier physique » rechargeait `plex-path-mappings.json` (un `stat` disque) à chaque comparaison, en synchrone : sur une grosse bibliothèque, chaque item Plex scannait des milliers de chemins en bloquant l'event loop, et toutes les routes API Timeout pendant le sync.
+- Les gardes passent désormais en deux temps sans aucun syscall : égalité normalisée d'abord (mémoire seule), puis mappings chargés une seule fois + suffixe. Même traitement dans la réconciliation disque.
+- Aucun changement de comportement métier : mêmes fusions, mêmes règles, juste sans I/O.
+
+## v1.25.0 — September 2026
+
+### Bibliothèque Plex : fin des doublons, lecture immédiate et chemins Docker
+
+- Le verrou anti-doublons du sync Plex est désormais partagé entre tous les bundles (plus de double import lors d'un double-clic ou d'un chevauchement avec le planificateur), avec re-vérification après chaque appel TMDb.
+- Même chemin physique = même film : le sync fusionne au lieu de créer un doublon, y compris avec des mounts différents (Movviz `/data/film` ↔ Plex `/volume1/docker/plex/film`) et des agents Plex divergents. La grille masque aussi les doublons résiduels par `tmdbId`.
+- Réglages → Plex : nouvelle section de correspondance des chemins (Docker/Linux uniquement) — destinations finales du torrent comparées aux emplacements réels des sections Plex, suggestions à valider d'un clic, saisie manuelle possible. Rien n'est appliqué sans validation.
+- Lecture dès que le fichier est déplacé et renommé au bon endroit, sans attendre Plex (web, Android TV et mobile). Plex reste un enrichissement asynchrone (badges, URL de secours).
+- Le bouton de synchronisation affiche désormais un état d'avancement persistant (phase, section, compteur, secondes) et reste désactivé tant que le run serveur tourne.
+- La réconciliation quotidienne ne remonte plus de fausses anomalies liées aux doubles vues de mounts (comparaison exacte + traduction via mappings + suffixe parent/fichier).
+- Filets resserrés : réconciliation des téléchargements toutes les 2 minutes, récupération des terminés non importés toutes les 15 minutes.
 
 ## v1.24.170 — September 2026
 
