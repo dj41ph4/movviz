@@ -72,6 +72,13 @@ fun CatalogScreen(
     mode: MediaHubMode = MediaHubMode.LIBRARY,
     onModeChange: (MediaHubMode) -> Unit = {},
     onScrollChanged: (Boolean) -> Unit = {},
+    // false depuis le nouvel onglet Bibliothèque de la sidebar (LibraryScreen) :
+    // le toggle Suggestions/Bibliothèque n'a plus de sens quand Bibliothèque
+    // est déjà elle-même un onglet de nav à part entière — Découverte est
+    // à une flèche gauche de là, pas un mode à re-basculer dans l'écran.
+    // Toujours true pour les appelants historiques (les anciens hubs
+    // Films/Séries, s'ils redeviennent atteignables un jour).
+    showModeToggle: Boolean = true,
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -118,16 +125,24 @@ fun CatalogScreen(
     // Catalogue 10-foot : un inventaire dense et calme, proche de Plex.
     // Les contrôles restent compacts afin que les premières affiches soient
     // immédiatement visibles en 1080p comme en 4K.
-    Column(Modifier.fillMaxSize().padding(start = 56.dp, top = 78.dp, end = 52.dp, bottom = 30.dp)) {
-        MediaHubToggleRow(
-            mode = mode,
-            onModeChange = onModeChange,
-            firstFocusRequester = entryFocusRequester,
-        )
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
+    Column(Modifier.fillMaxSize().padding(start = 56.dp, top = 32.dp, end = 52.dp, bottom = 30.dp)) {
+        if (showModeToggle) {
+            MediaHubToggleRow(
+                mode = mode,
+                onModeChange = onModeChange,
+                firstFocusRequester = entryFocusRequester,
+            )
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
+        }
         Text(
             text = "${type.label} · ${sorted.size}",
             style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+            // Le toggle masqué (showModeToggle=false) portait la cible D-pad
+            // "flèche bas depuis la nav" — reportée ici pour ne jamais perdre
+            // ce repère quand LibraryScreen appelle cet écran.
+            modifier = Modifier.let {
+                if (!showModeToggle && entryFocusRequester != null) it.focusRequester(entryFocusRequester).focusable() else it
+            },
         )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
         SortRow(sort = sort, onSelect = { sort = it })

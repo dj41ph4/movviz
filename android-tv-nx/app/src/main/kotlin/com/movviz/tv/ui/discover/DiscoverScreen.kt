@@ -228,7 +228,7 @@ fun DiscoverScreen(
                         mode = mode,
                         onModeChange = onModeChange,
                         firstFocusRequester = hubFocus,
-                        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+                        modifier = Modifier.padding(start = 56.dp, top = 32.dp, bottom = 20.dp),
                     )
                 } else {
                     // Ancien point d'entrée, maintenu proprement : le
@@ -351,7 +351,7 @@ private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
         // logo et les liens de navigation, comme une seconde barre cassée.
         // Le conserver dans le flux garantit aussi un ordre D-pad naturel :
         // barre principale → choix Films/Séries → héro → genres → rangées.
-        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+        modifier = Modifier.padding(start = 56.dp, top = 32.dp, bottom = 20.dp),
     ) {
         ToggleChip(label = "Films", active = selected == HomeTab.MOVIES, onClick = { onSelect(HomeTab.MOVIES) })
         ToggleChip(label = "Séries", active = selected == HomeTab.SERIES, onClick = { onSelect(HomeTab.SERIES) })
