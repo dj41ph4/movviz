@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { syncPlexLibrary, refreshPlexLibraryFor } from "@/lib/plex/librarySync";
+import { syncPlexLibrary, refreshPlexLibraryFor, getPlexSyncStatus } from "@/lib/plex/librarySync";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * GET — état d'avancement persistant du sync (globalThis, partagé entre
+ * bundles). Le run dure plusieurs minutes en arrière-plan : sans ça, quitter
+ * la page puis revenir réactive le bouton côté client alors que le serveur
+ * tourne encore — l'utilisateur clique, reçoit `{alreadyRunning: true}` et
+ * croit à un blocage. Le panneau Plex interroge ici toutes les 3s.
+ */
+export async function GET(req: NextRequest) {
+  const admin = requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  return NextResponse.json(getPlexSyncStatus());
+}
 
 export async function POST(req: NextRequest) {
   const admin = requireAdmin(req);

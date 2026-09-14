@@ -38,6 +38,8 @@ export interface PlexSection {
   key: string;
   type: "movie" | "show";
   title: string;
+  /** Chemins réels déclarés côté serveur Plex (Location[]). Absent = Plex n'a rien exposé. */
+  locations: string[];
 }
 
 /** One `<Media>` entry parsed off a Plex item — see parseAllMediaVersions in client.ts. */

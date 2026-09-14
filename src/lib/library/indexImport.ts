@@ -73,6 +73,16 @@ export async function importMovieCandidate(
   const meta = await fetchTmdbMovie(tmdbId);
   if (!meta) return { ok: false, error: "movie not found on TMDb" };
 
+  // Re-vérifie après le fetch (3 imports en parallèle : un doublon coché 2x
+  // passe le premier check en même temps) — même règle que le sync Plex :
+  // même tmdbId ou même chemin physique = on fusionne, pas de 2e entrée.
+  const raced = getMovieByTmdbId(tmdbId);
+  if (raced) {
+    updateMovie(raced.id, { status: "available", file, monitored });
+    void notifySeerrStatus("movie", tmdbId, "available").catch(() => {});
+    return { ok: true, kind: "movie", id: raced.id };
+  }
+
   const movie: LibraryMovie = {
     id: `mv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     tmdbId: meta.tmdbId,
@@ -137,6 +147,22 @@ export async function importSeriesCandidate(
 
   const meta = await fetchTmdbSeries(tmdbId);
   if (!meta) return { ok: false, error: "series not found on TMDb" };
+
+  // Même garde anti-race que les films : le fetch TMDb + fetch par saison
+  // laisse une longue fenêtre pendant laquelle un import parallèle du même
+  // tmdbId passe le premier check en même temps.
+  const racedSeries = getSeriesByTmdbId(tmdbId);
+  if (racedSeries) {
+    const seasons = racedSeries.seasons.map((season) => ({
+      ...season,
+      episodes: season.episodes.map((ep) => {
+        const match = byEpisode.get(`${season.seasonNumber}.${ep.episodeNumber}`);
+        return match ? { ...ep, status: "available" as const, file: buildFile(match) } : ep;
+      }),
+    }));
+    updateSeries(racedSeries.id, { seasons, monitored });
+    return { ok: true, kind: "series", id: racedSeries.id };
+  }
 
   const seasonNumbers = [...new Set([...byEpisode.keys()].map((k) => Number(k.split(".")[0])))];
   const seasons: LibrarySeason[] = [];

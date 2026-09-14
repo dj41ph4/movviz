@@ -295,6 +295,15 @@ fun TitleDetailScreen(
     val localMovieId = remember(type, tmdbId, movies) {
         if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId && it.playbackSource == "movviz" }?.id else null
     }
+    // Fichier déplacé + renommé au bon endroit = lisible immédiatement, sans
+    // attendre Plex : dès que le file est enregistré (import engine, même si
+    // playbackSource n'est pas encore positionné et Plex n'a pas scanné), la
+    // fiche propose "Lire" via une clé synthétique Movviz résolue en local
+    // par le player. Ne s'active jamais sans file : un téléchargement en
+    // cours sans fichier garde sa pilule de progression.
+    val localPlayableId = remember(type, tmdbId, movies) {
+        if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId && it.file != null }?.id else null
+    }
     val localSeriesId = remember(type, tmdbId, series) {
         if (type == "series") series.firstOrNull { it.tmdbId == tmdbId }?.id else null
     }
@@ -847,7 +856,13 @@ fun TitleDetailScreen(
                     // avant).
                     val primaryCta: @Composable (Boolean) -> Unit = { fillWidth ->
                         val plexKey = plexRatingKey
-                        if (plexKey != null) {
+                        // "Lire" dès que le fichier est prêt côté Movviz, sans
+                        // attendre la clé Plex (scan Plex + sync, plusieurs
+                        // minutes). playKey synthétique = id Movviz, résolu en
+                        // local via localKey — Plex n'est qu'un enrichissement
+                        // async, jamais bloquant.
+                        val playKey = plexKey ?: localPlayableId
+                        if (playKey != null) {
                             val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
                             PrimaryPill(
                                 text = ctaText,
@@ -856,7 +871,7 @@ fun TitleDetailScreen(
                                 icon = MovvizIconPlay,
                                 fillWidth = fillWidth,
                             ) {
-                                onPlay(d.title, listOf(QueueItem(plexKey, null, -1, -1, localMovieId)), 0, d.posterPath)
+                                onPlay(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                             }
                         } else if (!libraryResolved) {
                             PrimaryPill(text = "Vérification du fichier…", brush = null, solidWhite = false, enabled = false, fillWidth = fillWidth, onClick = {})

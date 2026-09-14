@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.25.0 — September 2026
+
+### Bibliothèque Plex : fin des doublons, lecture immédiate et chemins Docker
+
+- Le verrou anti-doublons du sync Plex est désormais partagé entre tous les bundles (plus de double import lors d'un double-clic ou d'un chevauchement avec le planificateur), avec re-vérification après chaque appel TMDb.
+- Même chemin physique = même film : le sync fusionne au lieu de créer un doublon, y compris avec des mounts différents (Movviz `/data/film` ↔ Plex `/volume1/docker/plex/film`) et des agents Plex divergents. La grille masque aussi les doublons résiduels par `tmdbId`.
+- Réglages → Plex : nouvelle section de correspondance des chemins (Docker/Linux uniquement) — destinations finales du torrent comparées aux emplacements réels des sections Plex, suggestions à valider d'un clic, saisie manuelle possible. Rien n'est appliqué sans validation.
+- Lecture dès que le fichier est déplacé et renommé au bon endroit, sans attendre Plex (web, Android TV et mobile). Plex reste un enrichissement asynchrone (badges, URL de secours).
+- Le bouton de synchronisation affiche désormais un état d'avancement persistant (phase, section, compteur, secondes) et reste désactivé tant que le run serveur tourne.
+- La réconciliation quotidienne ne remonte plus de fausses anomalies liées aux doubles vues de mounts (comparaison exacte + traduction via mappings + suffixe parent/fichier).
+- Filets resserrés : réconciliation des téléchargements toutes les 2 minutes, récupération des terminés non importés toutes les 15 minutes.
+
 ## v1.24.170 — September 2026
 
 ### Barre latérale : repli automatique au survol

@@ -5,6 +5,7 @@ import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/serv
 import { trashRoots } from "@/lib/library/trashStore";
 import { pathFor } from "@/lib/library/renamePath";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { applyLearnedPathMapping } from "@/lib/plex/pathMappingStore";
 
 const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts)$/i;
 
@@ -121,10 +122,35 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
   const duplicateIssues = [...mergeDuplicateMovies(), ...mergeDuplicateSeries()];
 
   const trackedPaths = new Set<string>();
-  for (const movie of loadMovies()) if (movie.file) trackedPaths.add(pathFor(movie.file.path).normalize(movie.file.path));
+  // Clé insensible aux mounts (dossier parent + nom de fichier) : le même
+  // fichier physique vu via Plex (/volume1/docker/plex/film/X.mkv) et via
+  // Movviz (/data/film/X.mkv) ne doit compter ni comme "missing" ni comme
+  // "untracked" — sinon chaque titre Plex-importé génère des anomalies
+  // fantômes (des milliers de notifs) jusqu'au prochain rescan complet.
+  const trackedSuffixes = new Set<string>();
+  const mountAgnosticKey = (p: string): string => {
+    const parts = p.replace(/[\\/]+/g, "/").toLowerCase().split("/").filter(Boolean);
+    return parts.slice(-2).join("/");
+  };
+  const track = (raw: string) => {
+    const n = pathFor(raw).normalize(raw);
+    trackedPaths.add(n);
+    trackedSuffixes.add(mountAgnosticKey(n));
+    // Vue traduite via les mappings validés (Réglages → Plex) : comparaison
+    // exacte possible même avec des mounts différents.
+    try {
+      const mapped = applyLearnedPathMapping(n);
+      if (mapped !== n) {
+        const mn = pathFor(mapped).normalize(mapped);
+        trackedPaths.add(mn);
+        trackedSuffixes.add(mountAgnosticKey(mn));
+      }
+    } catch { /* mapping illisible — le suffixe ci-dessus couvre déjà */ }
+  };
+  for (const movie of loadMovies()) if (movie.file) track(movie.file.path);
   for (const series of loadSeries())
     for (const season of series.seasons)
-      for (const ep of season.episodes) if (ep.file) trackedPaths.add(pathFor(ep.file.path).normalize(ep.file.path));
+      for (const ep of season.episodes) if (ep.file) track(ep.file.path);
 
   const issues: RescanIssue[] = [];
   for (const p of trackedPaths) {
@@ -145,7 +171,12 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
     }
   }
   for (const p of onDisk) {
-    if (!trackedPaths.has(p)) issues.push({ kind: "untracked", path: p });
+    // Égalité exacte d'abord (cas normal), puis clé insensible aux mounts
+    // (même fichier vu via Plex et via Movviz). Faux négatif théorique : deux
+    // vrais fichiers différents partageant parent+nom sous deux racines
+    // distinctes — rare et bénin (une notif "untracked" manquée, rien de
+    // supprimé ni modifié).
+    if (!trackedPaths.has(p) && !trackedSuffixes.has(mountAgnosticKey(p))) issues.push({ kind: "untracked", path: p });
   }
 
   return [...duplicateIssues, ...issues];

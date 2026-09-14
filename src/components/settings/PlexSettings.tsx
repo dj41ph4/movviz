@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play } from "lucide-react";
+import { PlexPathMappings } from "@/components/settings/PlexPathMappings";
 
 interface PlexConfig {
   hostname: string;
@@ -24,6 +25,11 @@ export function PlexSettings() {
   const [linking, setLinking] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ moviesAdded: number; moviesMatched: number; seriesAdded: number; seriesMatched: number } | null>(null);
+  const [syncStatus, setSyncStatus] = useState<{
+    running: boolean; startedAt: number | null; phase: "movies" | "series" | "finishing" | null;
+    sectionTitle: string | null; moviesProcessed: number; seriesProcessed: number; moviesAdded: number; seriesAdded: number;
+  } | null>(null);
+  const [syncElapsed, setSyncElapsed] = useState(0);
   const [markerInfo, setMarkerInfo] = useState<{ stats: { mediaWithMarkers: number; intros: number; credits: number }; lastIncrementalAt: number | null; lastFullAt: number | null; jobRunning: boolean; lastJob: { status: string; result?: unknown; current: number; total: number } | null } | null>(null);
 
   const load = () =>
@@ -116,6 +122,27 @@ export function PlexSettings() {
       if (r.ok) setMarkerInfo(await r.json());
     } catch {}
   };
+  // État d'avancement persistant du sync bibliothèque : le run vit côté
+  // serveur (plusieurs minutes), donc le bouton doit rester désactivé même
+  // après un aller-retour navigation qui remonte le composant — sinon
+  // l'utilisateur re-clique dans le vide (alreadyRunning) et croit à un
+  // blocage. Poll léger toutes les 3s, comme les marqueurs.
+  const loadSyncStatus = async () => {
+    try {
+      const r = await fetch("/api/plex/library-sync", { cache: "no-store" });
+      if (r.ok) {
+        const s = await r.json();
+        setSyncStatus(s);
+        if (s?.running && s?.startedAt) setSyncElapsed(Math.max(0, Math.round((Date.now() - s.startedAt) / 1000)));
+      }
+    } catch {}
+  };
+  useEffect(() => {
+    if (!cfg?.connected) return;
+    loadSyncStatus();
+    const id = setInterval(loadSyncStatus, 3000);
+    return () => clearInterval(id);
+  }, [cfg?.connected]);
   useEffect(() => {
     if (cfg?.connected) loadMarkerInfo();
     const id = setInterval(() => { if (cfg?.connected) loadMarkerInfo(); }, 3000);
@@ -215,21 +242,27 @@ export function PlexSettings() {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               onClick={() => syncNow(false)}
-              disabled={syncing}
-              className="flex h-10 items-center gap-2 rounded-xl glass-strong text-ink-soft px-4 font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
+              disabled={syncing || !!syncStatus?.running}
+              className="flex h-11 items-center gap-2 rounded-xl glass-strong text-ink-soft px-4 font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
             >
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {syncing || syncStatus?.running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("plex.syncNow")}
             </button>
             <button
               onClick={() => syncNow(true)}
-              disabled={syncing}
+              disabled={syncing || !!syncStatus?.running}
               title={t("plex.fullRescanHint")}
-              className="flex h-10 items-center gap-2 rounded-xl glass-strong text-ink-soft px-4 font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
+              className="flex h-11 items-center gap-2 rounded-xl glass-strong text-ink-soft px-4 font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
             >
               {t("plex.fullRescan")}
             </button>
-            {syncResult && (
+            {syncStatus?.running ? (
+              <span className="text-xs font-semibold text-ink">
+                {t("plex.syncRunning")} {syncStatus.phase === "movies" ? t("plex.syncPhaseMovies") : syncStatus.phase === "series" ? t("plex.syncPhaseSeries") : t("plex.syncPhaseFinishing")}
+                {syncStatus.sectionTitle ? ` · ${syncStatus.sectionTitle}` : ""}
+                {` · ${syncStatus.moviesProcessed + syncStatus.seriesProcessed} ${t("plex.syncProcessed")} · ${syncElapsed}s`}
+              </span>
+            ) : syncResult && (
               <span className="text-xs text-ink-dim">
                 {t("plex.syncResult", {
                   moviesAdded: syncResult.moviesAdded,
@@ -285,6 +318,7 @@ export function PlexSettings() {
 
       {cfg.connected && <ProfilePicker />}
 
+      {cfg.connected && <PlexPathMappings />}
 
     </div>
   );

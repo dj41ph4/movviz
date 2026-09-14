@@ -257,8 +257,13 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       : overallSeriesStatus({ seasons: libraryMatch.seasons ?? [] })
     : null;
   // A completed, indexed Movviz file is a first-class playback source.
-  // Plex can enrich it later without turning it into an unplayable title.
-  const hasLocalPlayback = libraryStatus === "available" && !!libraryMatch?.id && !!libraryMatch.file;
+  // Plex only enriches it later (badges, fallback URL) — playback must never
+  // wait for Plex, nor for the status flip: the file may already be recorded
+  // while the status still says "downloading" (import callback racing, upgrade
+  // in progress on top of a complete former version). /api/playback/prepare
+  // is status-agnostic (it only needs the recorded file), so gating the
+  // button on the status alone would hide a playable title on all platforms.
+  const hasLocalPlayback = !!libraryMatch?.id && !!libraryMatch.file;
   const playbackRatingKey = libraryMatch?.plexRatingKey ?? libraryMatch?.id ?? null;
 
   const watchedEpisodes = new Set(
@@ -1352,7 +1357,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       )}
                     </div>
                   )}
-                  {libraryStatus === "available" && (hasLocalPlayback || libraryMatch?.plexUrl) && (
+                  {/* Lecture dès que le fichier est déplacé + renommé au bon
+                      endroit — sans attendre ni le flip de statut ni Plex.
+                      hasLocalPlayback ne dépend que du file enregistré (le
+                      serveur /api/playback/prepare est status-agnostic) :
+                      en "downloading" avec un file complet (upgrade par-dessus
+                      une version lisible, callback d'import en retard), le
+                      bouton apparaît quand même. Plex n'est qu'un
+                      enrichissement async (badges, URL de secours). */}
+                  {(hasLocalPlayback || (libraryStatus === "available" && libraryMatch?.plexUrl)) && (
                     playbackRatingKey && (betaPlayer || hasLocalPlayback) ? (
                       resumeSeconds != null ? (
                         // Resume pill (Netflix-style) — same play() call as the

@@ -889,10 +889,15 @@ export async function getLibrarySections(cfg: PlexServerConfig, token: string, m
     const res = await fetchWithRetry(`${serverBase(cfg)}/library/sections`, { headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
     if (!res.ok) return [];
     const data = await res.json();
-    const dirs: { key: string; type: string; title: string }[] = data?.MediaContainer?.Directory ?? [];
+    const dirs: { key: string; type: string; title: string; Location?: { path?: string } | { path?: string }[] }[] = data?.MediaContainer?.Directory ?? [];
     return dirs
       .filter((d) => d.type === "movie" || d.type === "show")
-      .map((d) => ({ key: d.key, type: d.type as "movie" | "show", title: d.title }));
+      .map((d) => {
+        const raw = d.Location;
+        const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+        const locations = arr.map((l) => String(l?.path ?? "").trim()).filter(Boolean);
+        return { key: d.key, type: d.type as "movie" | "show", title: d.title, locations };
+      });
   } catch {
     return [];
   }
