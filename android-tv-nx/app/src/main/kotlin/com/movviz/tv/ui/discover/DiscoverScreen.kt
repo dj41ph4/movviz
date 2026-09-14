@@ -228,12 +228,12 @@ fun DiscoverScreen(
                         mode = mode,
                         onModeChange = onModeChange,
                         firstFocusRequester = hubFocus,
-                        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+                        modifier = Modifier.padding(start = 56.dp, top = 32.dp, bottom = 20.dp),
                     )
                 } else {
                     // Ancien point d'entrée, maintenu proprement : le
                     // sélecteur commence sous la barre flottante.
-                    TypeToggleRow(selected = selectedType, onSelect = { selectedType = it })
+                    TypeToggleRow(selected = selectedType, onSelect = { selectedType = it }, firstFocusRequester = hubFocus)
                 }
             }
             if (activeHero != null) item {
@@ -342,7 +342,7 @@ private fun resolutionLabelForDiscover(resolution: String?): String? = when {
 }
 
 @Composable
-private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
+private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit, firstFocusRequester: FocusRequester? = null) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         // NxTopNav est une surcouche (volontairement transparente lorsque la
@@ -351,20 +351,25 @@ private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
         // logo et les liens de navigation, comme une seconde barre cassée.
         // Le conserver dans le flux garantit aussi un ordre D-pad naturel :
         // barre principale → choix Films/Séries → héro → genres → rangées.
-        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+        modifier = Modifier.padding(start = 56.dp, top = 32.dp, bottom = 20.dp),
     ) {
-        ToggleChip(label = "Films", active = selected == HomeTab.MOVIES, onClick = { onSelect(HomeTab.MOVIES) })
+        // Sans ce focusRequester, la flèche DROITE depuis la sidebar tombait
+        // dans le vide : entryFocusRequester (= contentFocusRequester) n'était
+        // attaché à rien ici, seulement dans la branche MediaHubToggleRow —
+        // Découverte devenait injoignable au D-pad (confirmé en test manuel).
+        ToggleChip(label = "Films", active = selected == HomeTab.MOVIES, onClick = { onSelect(HomeTab.MOVIES) }, focusRequester = firstFocusRequester)
         ToggleChip(label = "Séries", active = selected == HomeTab.SERIES, onClick = { onSelect(HomeTab.SERIES) })
     }
 }
 
 @Composable
-private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
+private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
         modifier = Modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

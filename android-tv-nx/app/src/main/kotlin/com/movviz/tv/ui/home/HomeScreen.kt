@@ -98,6 +98,7 @@ import androidx.tv.material3.Icon
 import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.StaticLogoWithGlow
+import com.movviz.tv.ui.theme.QualityPill
 import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.StatusPill
 import com.movviz.tv.ui.theme.statusTone
@@ -109,6 +110,7 @@ import kotlinx.coroutines.delay
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
@@ -949,6 +951,17 @@ internal fun HeroCarousel(
             // Même ligne méta que la fiche : ★ · année · durée · genres inline
             // (les chips séparées prenaient une rangée entière pour rien).
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Pastilles techniques (maquette) : uniquement quand la carte
+                // porte un vrai fichier local — jamais fabriquées pour un
+                // titre de découverte sans qualityLabel.
+                if (current.qualityLabel != null) {
+                    QualityPill(current.qualityLabel, MovvizCyan)
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                if (current.hasHdr) {
+                    QualityPill("HDR", MovvizAmber)
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
                 if (current.rating > 0) {
                     // Icône vectorielle : le glyphe ★ n'existe pas dans Inter
                     // (rendu fallback système cassé sur Google TV).
@@ -1282,6 +1295,11 @@ private fun DirectAmbientTrailer(
                 isFocusable = false
                 isFocusableInTouchMode = false
                 setShutterBackgroundColor(AndroidColor.TRANSPARENT)
+                // RESIZE_MODE_ZOOM (crop-to-fill) pour matcher exactement le
+                // ContentScale.Crop du backdrop statique derrière : le mode
+                // par défaut (FIT/letterbox) recadrait différemment et créait
+                // une bande visible entre l'image et la vidéo à la bascule.
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             }
         },
         update = { it.player = player },
@@ -1336,8 +1354,19 @@ private object TrailerWebViewPool {
     }
 }
 
+// Même « cover trick » que le hero web (TrailerHeader.tsx) : sans lui,
+// l'iframe YouTube gardait sa taille d'embed par défaut (letterboxée, ancrée
+// en haut-gauche) au lieu de recadrer plein cadre comme le backdrop statique
+// (ContentScale.Crop) derrière — décalage visible à la bascule image→vidéo.
 private fun ambientTrailerHtml(key: String, title: String): String = """
     <!doctype html><html><body style="margin:0;background:transparent;overflow:hidden">
+    <style>
+      #player, #player iframe {
+        position:absolute; top:50%; left:50%;
+        width:100vw; height:56.25vw; min-width:177.78vh; min-height:100vh;
+        transform:translate(-50%,-50%);
+      }
+    </style>
     <div id="player"></div><script src="https://www.youtube.com/iframe_api"></script>
     <script>
       var p; function onYouTubeIframeAPIReady(){

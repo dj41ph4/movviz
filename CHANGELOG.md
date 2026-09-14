@@ -7,6 +7,24 @@
 - Le fond animé "Aurora" (arrière-plan de l'app) est retiré — composant inutilisé qui alourdissait le rendu sans plus-value visuelle actuelle.
 - Moteur de suggestions et récupération des métadonnées TMDb affinés (orientation vidéo, textes traduits).
 
+## v1.25.3 — September 2026
+
+### Android TV/mobile : sidebar conforme au design, corrections lecteur et profils
+
+- Sidebar Android TV recalée sur les valeurs exactes de la maquette (largeurs, espacements, icônes) — l'icône Découverte (boussole) et le bug qui empêchait le D-pad d'atteindre le contenu de cet écran sont corrigés.
+- Carte de saison et badge "vu" sur les épisodes restylés dans l'identité Movviz au lieu d'un gris/blanc plat.
+- Photo de profil : un changement fait depuis le web n'était pas repris par les apps Android TV et mobile au lancement suivant (avatar rafraîchi en mémoire mais jamais réenregistré sur l'appareil) — corrigé sur les deux apps.
+- Aperçu vidéo (accueil et fiche titre) : la vidéo se recadrait différemment de l'image statique derrière elle, créant une bande visible à la bascule — corrigé sur Android TV et mobile.
+- Compilé et vérifié visuellement sur émulateur Android TV ; la grille de recherche et un cas rare de lecture déclenchée par erreur au D-pad restent à investiguer.
+
+## v1.25.2 — September 2026
+
+### Android TV : refonte de la navigation et du visuel
+
+- La navigation passe d'une barre du haut à une sidebar latérale repliable (icônes seules, s'agrandit au focus télécommande) — palette bleu-nuit, dégradé de marque bleu→violet→magenta.
+- Films et Séries fusionnent en un seul onglet Bibliothèque (Films/Séries/Collections) ; Recherche devient un onglet à part entière avec le même filtre Tout/Films/Séries que le mobile ; Découverte redevient accessible directement.
+- ⚠️ Non compilé/testé sur device — première vérification réelle via le build CI déclenché par ce tag.
+
 ## v1.25.1 — September 2026
 
 ### Hotfix : timeouts API pendant le sync Plex

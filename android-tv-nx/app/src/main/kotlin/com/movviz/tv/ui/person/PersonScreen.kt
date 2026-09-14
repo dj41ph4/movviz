@@ -98,7 +98,7 @@ fun PersonScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = 96.dp, bottom = 40.dp),
+            .padding(top = 32.dp, bottom = 40.dp),
     ) {
         item {
             val p = person

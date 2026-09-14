@@ -62,7 +62,7 @@ import androidx.navigation.navDeepLink
 import com.movviz.tv.ui.discover.RowDetailScreen
 import com.movviz.tv.ui.home.HomeTab
 import com.movviz.tv.ui.home.MainScreen
-import com.movviz.tv.ui.home.NxTopNav
+import com.movviz.tv.ui.home.NavRail
 import com.movviz.tv.ui.login.LoginScreen
 import com.movviz.tv.ui.person.PersonScreen
 import com.movviz.tv.ui.profile.ProfilePickerScreen
@@ -301,70 +301,54 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         return
     }
 
-    // NX: la navigation est une surcouche haute. Le contenu garde la pleine
-    // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
+    // Sidebar réservée : elle vit dans sa propre colonne, jamais en
+    // surcouche — le contenu commence strictement à sa droite (voir
+    // NavRail.kt). Remplace l'ancienne NxTopNav (barre du haut en overlay).
+    // Box englobant conservé (même s'il n'y a plus qu'un seul Row en
+    // premier enfant) : AutoUpdateOverlay doit rester dessiné PAR-DESSUS
+    // tout le reste, ce que seul un Box (empilement) garantit.
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (routeShowsNavRail(currentRoute)) {
-                NxTopNav(
-                    selected = tab,
-                    hasScrolled = headerHasScrolled,
-                    onSelect = { newTab ->
-                        if (currentRoute?.startsWith("home") != true) {
+    Row(modifier = Modifier.fillMaxSize().background(com.movviz.tv.ui.theme.MovvizBackground)) {
+        if (routeShowsNavRail(currentRoute)) {
+            NavRail(
+                selected = tab,
+                onSelect = { newTab ->
+                    if (currentRoute?.startsWith("home") != true) {
+                        navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                    }
+                    tab = newTab
+                    searchOpen = newTab == HomeTab.SEARCH
+                    if (newTab != HomeTab.SEARCH) searchQuery = ""
+                    headerHasScrolled = false
+                },
+                profiles = viewModel.profiles.collectAsState().value,
+                activeProfile = viewModel.activeProfile.collectAsState().value,
+                onProfileSelected = { profile ->
+                    scope.launch {
+                        if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {
                             navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
                         }
-                        tab = newTab
-                        searchOpen = false
-                        headerHasScrolled = false
-                    },
-                    searchOpen = searchOpen,
-                    searchQuery = searchQuery,
-                    onSearchToggle = {
-                        if (currentRoute?.startsWith("home") != true) {
-                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
-                        }
-                        searchOpen = !searchOpen
-                        if (searchOpen) tab = HomeTab.HOME else searchQuery = ""
-                    },
-                    onSearchQueryChange = { searchQuery = it },
-                    profiles = viewModel.profiles.collectAsState().value,
-                    activeProfile = viewModel.activeProfile.collectAsState().value,
-                    onProfileSelected = { profile ->
-                        scope.launch {
-                            if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {
-                                navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
-                            }
-                        }
-                    },
-                    onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
-                    onOpenProfile = {
-                        if (currentRoute?.startsWith("home") != true) {
-                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
-                        }
-                        tab = HomeTab.PROFILE
-                        searchOpen = false
-                        headerHasScrolled = false
-                    },
-                    onOpenSettings = {
-                        if (currentRoute?.startsWith("home") != true) {
-                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
-                        }
-                        tab = HomeTab.SETTINGS
-                        searchOpen = false
-                        headerHasScrolled = false
-                    },
-                    onSwitchProfile = {
-                        navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
-                    },
-                    onOpenDownloads = { navController.navigate(ROUTE_DOWNLOADS) },
-                    updateAvailableTag = viewModel.availableUpdateTag.collectAsState().value,
-                    onUpdateClick = { viewModel.requestUpdateInstall() },
-                    contentFocusRequester = contentFocusRequester,
-                    navRailFocusRequester = navRailFocusRequester,
-                    modifier = Modifier.align(Alignment.TopCenter).zIndex(10f),
-                )
-            }
-            Box(modifier = Modifier.fillMaxSize()) {
+                    }
+                },
+                onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
+                onOpenProfile = {
+                    if (currentRoute?.startsWith("home") != true) {
+                        navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                    }
+                    tab = HomeTab.PROFILE
+                    searchOpen = false
+                    headerHasScrolled = false
+                },
+                onSwitchProfile = {
+                    navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
+                },
+                updateAvailableTag = viewModel.availableUpdateTag.collectAsState().value,
+                onUpdateClick = { viewModel.requestUpdateInstall() },
+                contentFocusRequester = contentFocusRequester,
+                navRailFocusRequester = navRailFocusRequester,
+            )
+        }
+        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
         NavHost(navController = navController, startDestination = resolvedStart) {
 composable(ROUTE_WIZARD) {
             WizardScreen(

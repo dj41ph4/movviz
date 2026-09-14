@@ -825,7 +825,13 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                             name = user.username,
                         )
                         refreshed.cookieSnapshot?.let { profilePrefs.saveSession(url, user.id, it) }
+                        // Persister le nom/avatar rafraîchis, pas seulement en
+                        // mémoire : sans ça, le picker "Qui regarde ?" revenait
+                        // toujours à l'ancienne photo au prochain lancement,
+                        // même après un changement fait depuis le desktop.
+                        profilePrefs.saveProfile(url, user.id, refreshed.name, refreshed.avatar)
                         _activeProfile.value = refreshed
+                        _profiles.value = _profiles.value.map { if (it.id == refreshed.id) refreshed else it }
                         if (user.role == "admin") loadProfilesFromServer()
                     }
                 }

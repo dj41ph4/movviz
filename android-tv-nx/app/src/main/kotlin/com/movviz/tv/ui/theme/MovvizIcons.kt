@@ -399,6 +399,24 @@ val MovvizIconSearch: ImageVector by lazy {
     }
 }
 
+/** Découverte — boussole (anneau + aiguille), calquée sur le mockup Claude
+ *  Design (TvSidebar.dc.html) : remplace l'ancienne étoile. */
+val MovvizIconCompass: ImageVector by lazy {
+    movvizIcon("MovvizIconCompass") {
+        stroke(width = 2f) {
+            moveTo(21f, 12f)
+            arcToRelative(9f, 9f, 0f, true, true, -18f, 0f)
+            arcToRelative(9f, 9f, 0f, true, true, 18f, 0f)
+            close()
+            moveTo(14.5f, 9.5f)
+            lineTo(12.5f, 14.5f)
+            lineTo(7.5f, 16.5f)
+            lineTo(9.5f, 11.5f)
+            close()
+        }
+    }
+}
+
 /** Réglages — anneau et huit dents lisibles de loin, sans glyphes système. */
 val MovvizIconSettings: ImageVector by lazy {
     movvizIcon("MovvizIconSettings") {

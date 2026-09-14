@@ -86,9 +86,26 @@ fun MainScreen(
                 resultFocusRequester = contentFocusRequester,
             )
             tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
-            // Films et Séries sont désormais chacun un véritable hub : les
-            // suggestions de leur type, ou l'inventaire de leur type. Il n'y
-            // a plus de découverte séparée qui mélangeait l'intention.
+            // Découverte redevient un onglet de nav à part entière (refonte
+            // sidebar) : DiscoverScreen(fixedType = null) affiche déjà, sans
+            // aucun changement de son côté, son propre sélecteur Films/Séries
+            // interne à la place du toggle Suggestions/Bibliothèque des
+            // anciens hubs (voir le "else" de son item "type-toggle").
+            tab == HomeTab.DISCOVER -> DiscoverScreen(
+                viewModel = viewModel, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                fixedType = null, onScrollChanged = onHomeScrollChanged,
+            )
+            // Bibliothèque fusionne Films/Séries/Collections (maquette) —
+            // voir LibraryScreen.kt.
+            tab == HomeTab.LIBRARY -> LibraryScreen(
+                viewModel = viewModel, onOpenTitle = onOpenTitle,
+                entryFocusRequester = contentFocusRequester, onScrollChanged = onHomeScrollChanged,
+            )
+            // MOVIES/SERIES ne sont plus des destinations de nav directes
+            // (fusionnées dans LIBRARY) — les branches restent pour usage
+            // interne éventuel (HomeTab est aussi le type de filtre de
+            // Découverte/Bibliothèque), jamais atteintes depuis la sidebar.
             tab == HomeTab.MOVIES -> MediaHubScreen(
                 viewModel = viewModel, type = HomeTab.MOVIES,
                 onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
@@ -97,14 +114,6 @@ fun MainScreen(
             )
             tab == HomeTab.SERIES -> MediaHubScreen(
                 viewModel = viewModel, type = HomeTab.SERIES,
-                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
-                onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
-                onScrollChanged = onHomeScrollChanged,
-            )
-            // État résiduel d'une ancienne navigation : on retombe sur le
-            // hub Films plutôt que de présenter un onglet invisible.
-            tab == HomeTab.DISCOVER -> MediaHubScreen(
-                viewModel = viewModel, type = HomeTab.MOVIES,
                 onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 onScrollChanged = onHomeScrollChanged,

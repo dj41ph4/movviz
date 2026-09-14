@@ -88,7 +88,7 @@ fun SettingsScreen(
             // top = 96dp : dégage la barre de nav flottante (68dp + marge)
             // sans qu'un padding posé plus haut, au niveau de MainScreen,
             // n'ajoute une bande de fond opaque au-dessus de tout le monde.
-            .padding(start = 48.dp, top = 96.dp, end = 48.dp, bottom = 40.dp),
+            .padding(start = 48.dp, top = 32.dp, end = 48.dp, bottom = 40.dp),
     ) {
         Text(
             text = "Paramètres",
