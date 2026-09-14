@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.171 — September 2026
+
+### Android TV : refonte de la navigation et du visuel
+
+- La navigation passe d'une barre du haut à une sidebar latérale repliable (icônes seules, s'agrandit au focus télécommande) — palette bleu-nuit, dégradé de marque bleu→violet→magenta.
+- Films et Séries fusionnent en un seul onglet Bibliothèque (Films/Séries/Collections) ; Recherche devient un onglet à part entière avec le même filtre Tout/Films/Séries que le mobile ; Découverte redevient accessible directement.
+- ⚠️ Non compilé/testé sur device — première vérification réelle via le build CI déclenché par ce tag.
+
 ## v1.24.170 — September 2026
 
 ### Barre latérale : repli automatique au survol
