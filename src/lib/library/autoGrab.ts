@@ -189,7 +189,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
     DEFAULT_QUALITY_PROFILES.find((p) => p.id === movie.qualityProfileId) ??
     DEFAULT_QUALITY_PROFILES[0];
 
-  const media = createMediaRef("movie", movie.id, movie.tmdbId, movie.title);
+  const media = createMediaRef("movie", movie.id, movie.tmdbId, movie.title, undefined, undefined, undefined, undefined, movie.posterPath);
 
   // Scene/tracker releases are always named after the ORIGINAL title (e.g.
   // "The Man from Toronto" vs the French "Un homme de Toronto") — searching

@@ -383,7 +383,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     });
     logActivityV2({
       kind: "imported",
-      media: createMediaRef("movie", movie.id, movie.tmdbId, movie.title),
+      media: createMediaRef("movie", movie.id, movie.tmdbId, movie.title, undefined, undefined, undefined, undefined, movie.posterPath),
       actor: "system",
       release: best.quality ? createReleaseRef("", "Importé", "torrent", best.size, best.quality, 0) : undefined,
       import: createImportRef(finalFile.path, best.size, movie.title, best.quality ?? "—"),
@@ -456,7 +456,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       });
       logActivityV2({
         kind: "imported",
-        media: createMediaRef("series", series.id, series.tmdbId, mediaLabel, ref.season),
+        media: createMediaRef("series", series.id, series.tmdbId, mediaLabel, ref.season, undefined, undefined, undefined, series.posterPath),
         actor: "system",
         release: normalizedFiles[0]?.quality ? createReleaseRef("", "Importé", "torrent", normalizedFiles[0].size, normalizedFiles[0].quality, 0) : undefined,
       });
@@ -510,7 +510,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       });
       logActivityV2({
         kind: "imported",
-        media: createMediaRef("series", series.id, series.tmdbId, `${series.title} — Intégrale`),
+        media: createMediaRef("series", series.id, series.tmdbId, `${series.title} — Intégrale`, undefined, undefined, undefined, undefined, series.posterPath),
         actor: "system",
         release: normalizedFiles[0]?.quality ? createReleaseRef("", "Importé", "torrent", normalizedFiles[0].size, normalizedFiles[0].quality, 0) : undefined,
       });
@@ -597,7 +597,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     });
     logActivityV2({
       kind: "imported",
-      media: createMediaRef("series", series.id, series.tmdbId, series.title, ref.season, ref.episode),
+      media: createMediaRef("series", series.id, series.tmdbId, series.title, ref.season, ref.episode, undefined, undefined, series.posterPath),
       actor: "system",
       release: normalizedFiles[0]?.quality ? createReleaseRef("", "Importé", "torrent", normalizedFiles[0].size, normalizedFiles[0].quality, 0) : undefined,
     });

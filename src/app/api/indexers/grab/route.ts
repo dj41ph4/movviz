@@ -192,6 +192,8 @@ export async function POST(req: NextRequest) {
           packEpisodeCount,
           seasonCount,
           href: refMedia ? `/title/${category}/${refMedia.tmdbId}` : "#",
+          posterPath: refMedia?.posterPath ?? null,
+          tmdbId: refMedia?.tmdbId,
         },
         actor: "system",
         release: createReleaseRef(indexerName, data.name ?? "Release", relProtocol, relSize, relQual, relScore, relSeeders, relLeechers),

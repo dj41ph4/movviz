@@ -529,7 +529,8 @@ function logSeriesGrabV2(
       kind === "episode" ? season : kind === "season" ? season : 0,
       kind === "episode" ? episode : undefined,
       packEpisodeCount,
-      kind === "series" ? seasonCount : undefined
+      kind === "series" ? seasonCount : undefined,
+      series.posterPath
     ),
     actor: "system",
     release: createReleaseRef(
@@ -829,7 +830,7 @@ export async function searchAndGrabEpisode(
   const series = getSeries(seriesId);
   if (!series) return { error: "series not found" as const };
   const profile = profileFor(series.qualityProfileId);
-  const media = createMediaRef("series", seriesId, series.tmdbId, series.title, seasonNumber, episodeNumber);
+  const media = createMediaRef("series", seriesId, series.tmdbId, series.title, seasonNumber, episodeNumber, undefined, undefined, series.posterPath);
 
   // Snapshot the season's missing episodes before flipping this one to
   // "searching" — otherwise it drops out of its own "missing" filter below.

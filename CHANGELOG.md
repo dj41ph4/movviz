@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.168 — September 2026
+
+### Téléchargements : titre cliquable, détails sobres, jaquettes pour les prochains téléchargements
+
+- Cliquer sur le titre d'un téléchargement ouvre maintenant sa fiche, comme partout ailleurs dans l'app.
+- Le détail sous le titre (résolution, source, codec, audio, HDR) est redevenu du texte sobre au lieu de grosses pastilles colorées ; l'indexeur "Inconnu" n'est plus affiché quand l'info n'a jamais été enregistrée.
+- La jaquette de chaque titre s'affiche désormais pour tout nouveau téléchargement lancé à partir de cette version (l'info n'était jamais enregistrée nulle part avant, y compris sur le chemin réellement emprunté par une recherche/récupération manuelle) — les entrées déjà présentes dans la file/l'historique n'en auront pas rétroactivement.
+
 ## v1.24.167 — September 2026
 
 ### Téléchargements : bascules rapides cohérentes avec le reste de l'app

@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const movie = getMovie(ref.movieId);
     if (!movie) return NextResponse.json({ error: "movie_not_found" }, { status: 404 });
     updateMovie(movie.id, { status: "available", activeInfoHash: null, file });
-    updateActivityEntryV2(entryId, { media: createMediaRef("movie", movie.id, movie.tmdbId, movie.title) });
+    updateActivityEntryV2(entryId, { media: createMediaRef("movie", movie.id, movie.tmdbId, movie.title, undefined, undefined, undefined, undefined, movie.posterPath) });
     emitNotification("import_movie_available", `${movie.title} est maintenant disponible`, "/library", { title: movie.title });
     void refreshPlexLibraryFor("movie").catch(() => {});
     return NextResponse.json({ ok: true, updated: "movie", id: movie.id });
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   updateSeries(series.id, { seasons });
   updateActivityEntryV2(entryId, {
-    media: createMediaRef("series", series.id, series.tmdbId, series.title, targetSeason, targetEpisode),
+    media: createMediaRef("series", series.id, series.tmdbId, series.title, targetSeason, targetEpisode, undefined, undefined, series.posterPath),
   });
   emitNotification(
     "import_episode_available",

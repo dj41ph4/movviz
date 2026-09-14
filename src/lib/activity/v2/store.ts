@@ -65,7 +65,8 @@ export function createMediaRef(
   season?: number,
   episode?: number,
   packEpisodeCount?: number,
-  seasonCount?: number
+  seasonCount?: number,
+  posterPath?: string | null
 ): ActivityMedia {
   return {
     id,
@@ -75,6 +76,8 @@ export function createMediaRef(
     episode,
     packEpisodeCount,
     seasonCount,
+    posterPath: posterPath ?? null,
+    tmdbId,
     href: type === "movie" ? `/title/movie/${tmdbId}` : `/title/series/${tmdbId}`,
   };
 }

@@ -673,17 +673,48 @@ const QueueItemRow = memo(function QueueItemRow({
     { resolution: parsed.resolution, videoCodec: parsed.videoCodec, audioCodec: parsed.audioCodec, hdr: parsed.hdr, source: parsed.source, language: parsed.language },
     "surface",
   );
+  // Desktop row: plain, sober text rather than the colored pill badges
+  // (those stayed for the mobile card above, where there's more room and
+  // less competing detail on screen at once) — confirmed live: the pills
+  // read as loud/cheap at this density, next to five other columns.
+  const detailText = [parsed.resolution, parsed.source, parsed.videoCodec, parsed.audioCodec, parsed.hdr]
+    .filter(Boolean)
+    .join(" · ") || item.release.quality;
 
   return (
     <>
     <div className="nx-download-desktop-row hidden lg:grid" onClick={() => onToggleExpand(item.id)}>
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className={cn("nx-download-poster flex shrink-0 items-center justify-center overflow-hidden rounded-lg", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
-          {item.media.posterPath ? (
-            <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
-          ) : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
-        </span>
-        <div className="min-w-0"><p className="truncate text-xs font-bold text-ink">{item.media.title}</p><p className="truncate text-[10px] text-ink-dim">{item.release.quality} · {item.release.indexer}</p></div>
+        {item.media.linked === false ? (
+          <span className={cn("nx-download-poster flex shrink-0 items-center justify-center overflow-hidden rounded-lg", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")} title={t("activity.queueUnlinkedHint")}>
+            {item.media.posterPath ? (
+              <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
+            ) : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+          </span>
+        ) : (
+          <Link
+            href={item.media?.href ?? "#"}
+            onClick={(e) => e.stopPropagation()}
+            className={cn("nx-download-poster flex shrink-0 items-center justify-center overflow-hidden rounded-lg transition-opacity hover:opacity-80", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}
+          >
+            {item.media.posterPath ? (
+              <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
+            ) : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+          </Link>
+        )}
+        <div className="min-w-0">
+          {item.media.linked === false ? (
+            <p className="truncate text-xs font-bold text-ink" title={t("activity.queueUnlinkedHint")}>{item.media.title}</p>
+          ) : (
+            <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="truncate text-xs font-bold text-ink hover:text-brand-glow">
+              {item.media.title}
+            </Link>
+          )}
+          <p className="truncate text-[10px] text-ink-dim">
+            {detailText}
+            {item.release.indexer && item.release.indexer !== "Inconnu" && ` · ${item.release.indexer}`}
+          </p>
+        </div>
       </div>
       <div className="min-w-0 self-center">
         <div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full brand-gradient" style={{ width: `${Math.round(displayProgress * 100)}%` }} /></div>
