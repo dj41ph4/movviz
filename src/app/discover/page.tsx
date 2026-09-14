@@ -287,7 +287,10 @@ function DiscoverPageInner() {
   // same TMDb provider id is valid for movies and series, so it stays active
   // whichever tab the user is already on.
   const handleWatchProviderClick = (tile: LogoTile) => {
-    setWatchProvider({ id: String(tile.id), name: tile.name });
+    // Clicking the already-active platform again clears the filter instead
+    // of just re-selecting it — otherwise there was no way to get back to
+    // the unfiltered view except leaving the tab entirely.
+    setWatchProvider((current) => current?.id === String(tile.id) ? null : { id: String(tile.id), name: tile.name });
   };
 
   const seeAllRow = (key: string, meta?: RowMeta) => {

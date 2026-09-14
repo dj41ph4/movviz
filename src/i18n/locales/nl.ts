@@ -10,6 +10,8 @@ export const nl: Dictionary = {
   },
 
   nav: {
+    collapseSidebar: "Zijbalk inklappen",
+    expandSidebar: "Zijbalk uitklappen",
     dashboard: "Dashboard",
     discover: "Ontdekken",
     library: "Bibliotheek",

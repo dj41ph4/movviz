@@ -8,6 +8,8 @@ export const fr = {
   },
 
   nav: {
+    collapseSidebar: "Réduire la barre latérale",
+    expandSidebar: "Agrandir la barre latérale",
     dashboard: "Tableau de bord",
     discover: "Découverte",
     library: "Bibliothèque",

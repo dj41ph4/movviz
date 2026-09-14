@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.24.166 — September 2026
+
+### Barre latérale rétractable
+
+- La barre latérale peut désormais se replier en une simple colonne d'icônes agrandies (logo + icônes façon dock), pour gagner de la place à l'écran. Préférence mémorisée par appareil.
+
+### Découverte : filtre plateforme réinitialisable
+
+- Cliquer à nouveau sur une plateforme déjà sélectionnée désactive le filtre au lieu de rester bloqué dessus.
+
 ## v1.24.165 — September 2026
 
 ### Découverte : barre du haut agrandie et corrigée
