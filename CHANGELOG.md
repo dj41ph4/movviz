@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.170 — September 2026
+
+### Barre latérale : repli automatique au survol
+
+- La barre latérale se réduit désormais automatiquement en une colonne d'icônes et s'agrandit au survol de la souris, en poussant le contenu (plus de bouton manuel à cliquer).
+- Icônes repliées agrandies, plus espacées, sans fond sur les icônes inactives — seule l'icône active garde sa tuile dégradée.
+
 ## v1.24.169 — September 2026
 
 ### Téléchargements : les jaquettes s'affichent enfin

@@ -10,8 +10,6 @@ export const en: Dictionary = {
   },
 
   nav: {
-    collapseSidebar: "Collapse sidebar",
-    expandSidebar: "Expand sidebar",
     dashboard: "Dashboard",
     discover: "Discover",
     library: "Library",

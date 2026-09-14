@@ -24,7 +24,8 @@ const AWARD_OR_EVENT_TITLE = /\b(?:oscars?|academy\s+awards?|golden\s+globes?|em
  * whose vote_average defaults to 0, not a genuinely bad film), a future
  * release date means it can't be watched yet, and a documentary/making-of
  * isn't fiction — all read as "why is this being suggested to me" rather
- * than a real pick.
+ * than a real pick. An unreleased title never belongs here regardless of
+ * rating — that's what the "À venir" row is for, never Suggestions.
  *
  * Deliberately NOT applied to rows whose entire purpose is showing
  * unreleased content ("upcoming", "upcomingVod", the Dashboard's own

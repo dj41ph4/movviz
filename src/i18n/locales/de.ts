@@ -10,8 +10,6 @@ export const de: Dictionary = {
   },
 
   nav: {
-    collapseSidebar: "Seitenleiste einklappen",
-    expandSidebar: "Seitenleiste ausklappen",
     dashboard: "Übersicht",
     discover: "Entdecken",
     library: "Bibliothek",

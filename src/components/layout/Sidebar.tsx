@@ -16,8 +16,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
-import { useSidebarCollapsed } from "@/lib/settings/useSidebarCollapsed";
-import { ChevronDown, ClipboardList, Download, Loader2, PanelLeftClose, PanelLeftOpen, ShieldCheck, X } from "lucide-react";
+import { ChevronDown, ClipboardList, Download, Loader2, ShieldCheck, X } from "lucide-react";
 
 interface UpdateInfo {
   currentVersion: string;
@@ -60,7 +59,11 @@ export function Sidebar({ version }: { version: string }) {
   }, [pulseBadge]);
 
   const items = NAV.filter((item) => !item.adminOnly || user?.role === "admin");
-  const { collapsed, toggle: toggleCollapsed } = useSidebarCollapsed();
+  // Auto-collapse to an icon rail, expanding as an overlay on hover — the
+  // layout column itself never resizes (see the wrapper div below), so
+  // hovering never reflows the main content horizontally.
+  const [hovered, setHovered] = useState(false);
+  const collapsed = !hovered;
 
   const { data: updateInfo, isLoading } = useSWR<UpdateInfo>(
     user?.role === "admin" ? "/api/system/update" : null,
@@ -109,14 +112,14 @@ export function Sidebar({ version }: { version: string }) {
 
   return (
     <aside
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={cn(
-        "nx-sidebar sticky top-0 hidden h-screen shrink-0 flex-col gap-1 border-r border-white/10 bg-[#080d20] py-4 transition-[width] duration-200 lg:flex",
+        "nx-sidebar sticky top-0 hidden h-screen shrink-0 flex-col gap-1 overflow-hidden border-r border-white/10 bg-[#080d20] py-4 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex",
         collapsed ? "w-[84px] px-2" : "w-[235px] px-2.5",
       )}
     >
-      {/* Brand — logo alone when collapsed, no button crammed next to it;
-          the collapse toggle lives in the footer instead (see below), so
-          this stays exactly "just the logo" as asked. */}
+      {/* Brand — logo alone when collapsed, no button crammed next to it. */}
       <div className={cn("mb-4 flex items-center", collapsed ? "justify-center px-0" : "gap-2.5 px-2")}>
         <Link href="/" className="group flex items-center gap-2.5">
           <AnimatedLogo size="sm" />
@@ -125,7 +128,7 @@ export function Sidebar({ version }: { version: string }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-0.5">
+      <nav className={cn("flex flex-1 flex-col", collapsed ? "gap-3" : "gap-0.5")}>
         {items.filter((item) => item.href !== "/settings").map((item) => (
           <NavRow
             key={item.href}
@@ -150,7 +153,6 @@ export function Sidebar({ version }: { version: string }) {
           pulseBadge={pulseBadge}
           isAdmin={user?.role === "admin"}
           collapsed={collapsed}
-          onExpandSidebar={toggleCollapsed}
         />
         {items.filter((item) => item.href === "/settings").map((item) => (
           <NavRow key={item.href} item={item} pathname={pathname} collapsed={collapsed} liveCount={0} pulseBadge={pulseBadge} />
@@ -192,23 +194,10 @@ export function Sidebar({ version }: { version: string }) {
       )}
 
       {/* Version + Update button — collapsed down to just the status dot
-          (still a real link to the version page) so the retracted sidebar
-          stays logo + icons only, per the request. The collapse toggle
-          itself lives here too (not up by the logo) so the header stays a
-          clean, single, uncluttered logo. */}
+          (still a real link to the version page) so the retracted rail
+          stays logo + icons only; the sidebar itself expands on hover
+          (see the wrapper above), no manual toggle needed. */}
       <div className={cn("flex flex-col gap-2 pt-2 border-t border-white/5", collapsed && "items-center")}>
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          title={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
-          aria-label={collapsed ? t("nav.expandSidebar") : t("nav.collapseSidebar")}
-          className={cn(
-            "flex items-center rounded-lg text-ink-dim ring-focus transition-colors hover:bg-white/8 hover:text-ink",
-            collapsed ? "h-9 w-9 justify-center" : "h-8 w-full justify-start gap-2.5 px-2.5 text-[13px] font-semibold",
-          )}
-        >
-          {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <><PanelLeftClose className="h-4 w-4" /> {t("nav.collapseSidebar")}</>}
-        </button>
         <Link
           href="/settings?tab=about"
           title={collapsed ? `Movviz v${version}` : undefined}
@@ -336,16 +325,11 @@ function NavRow({ item, pathname, searchParams, liveCount, pulseBadge, collapsed
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}
-      <span
-        className={cn(
-          "relative shrink-0 transition-colors",
-          collapsed && !active && "flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] group-hover:bg-white/8",
-        )}
-      >
+      <span className={cn("relative shrink-0", collapsed && "flex h-8 w-8 items-center justify-center")}>
         <Icon
           className={cn(
             "transition-colors",
-            collapsed ? "h-9 w-9" : "h-[17px] w-[17px]",
+            collapsed ? "h-6 w-6" : "h-[17px] w-[17px]",
             active ? "text-white" : "text-ink-dim group-hover:text-ink-soft"
           )}
         />
@@ -382,7 +366,7 @@ function NavRow({ item, pathname, searchParams, liveCount, pulseBadge, collapsed
  *  pattern the old Bibliothèque submenu used. Live badge counts are kept
  *  on their sub-row (not just summed on the parent) so an admin still sees
  *  at a glance which one has something waiting. */
-function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloads, pulseBadge, isAdmin, collapsed = false, onExpandSidebar }: {
+function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloads, pulseBadge, isAdmin, collapsed = false }: {
   pathname: string;
   pendingRequests: number;
   pendingUsers: number;
@@ -390,7 +374,6 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
   pulseBadge: string | null;
   isAdmin: boolean;
   collapsed?: boolean;
-  onExpandSidebar?: () => void;
 }) {
   const t = useT();
   const subs = GESTION_NAV.filter((s) => !s.adminOnly || isAdmin);
@@ -415,7 +398,7 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
     return (
       <button
         type="button"
-        onClick={() => { setOpen(true); onExpandSidebar?.(); }}
+        onClick={() => setOpen(true)}
         title={t("nav.management")}
         className={cn(
           "group relative flex h-12 items-center justify-center rounded-[8px] ring-focus",
@@ -429,8 +412,8 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
           />
         )}
-        <span className={cn("relative shrink-0", !onGestion && "flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] group-hover:bg-white/8")}>
-          <ClipboardList className={cn("h-9 w-9 transition-colors", onGestion ? "text-white" : "text-ink-dim group-hover:text-ink-soft")} />
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+          <ClipboardList className={cn("h-6 w-6 transition-colors", onGestion ? "text-white" : "text-ink-dim group-hover:text-ink-soft")} />
           {anyLiveTotal > 0 && (
             <span className={cn("absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full brand-gradient ring-2 ring-[#080d20]", pulseBadge && "animate-badge-pulse")} />
           )}
