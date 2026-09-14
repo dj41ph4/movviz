@@ -222,11 +222,12 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
         ?? resolveFromLibraryRef(t.libraryRef, moviesById, seriesById);
 
       const media: ActivityMedia = movie
-        ? { id: movie.id, title: movie.title, type: "movie", href: `/title/movie/${movie.tmdbId}`, tmdbId: movie.tmdbId }
+        ? { id: movie.id, title: movie.title, type: "movie", href: `/title/movie/${movie.tmdbId}`, tmdbId: movie.tmdbId, posterPath: movie.posterPath }
         : seriesMatch
           ? {
               id: seriesMatch.series.id, title: seriesMatch.series.title, type: "series",
               season: seriesMatch.season, episode: seriesMatch.episode,
+              posterPath: seriesMatch.series.posterPath,
               packEpisodeCount: seriesMatch.count > 1 ? seriesMatch.count : undefined,
               // season === 0 = the torrent spans multiple seasons (an
               // intégrale, whether or not it covers every monitored season —

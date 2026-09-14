@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.169 — September 2026
+
+### Téléchargements : les jaquettes s'affichent enfin
+
+- La vraie cause : la file d'attente reconstruit les informations de chaque titre à chaque rafraîchissement depuis le moteur de téléchargement, sans jamais inclure la jaquette — corrigé. Fonctionne maintenant pour les téléchargements en cours ET déjà présents dans la file/l'historique (rétroactif, rien à relancer).
+
 ## v1.24.168 — September 2026
 
 ### Téléchargements : titre cliquable, détails sobres, jaquettes pour les prochains téléchargements
