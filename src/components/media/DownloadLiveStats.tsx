@@ -6,6 +6,7 @@ import { Activity, ArrowDown, ArrowUp, Download } from "lucide-react";
 import { formatBytes, formatSpeed } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
+import { Toggle } from "@/components/ui/Toggle";
 import type { EngineInstance } from "@/lib/types";
 
 type SpeedSample = { at: number; downloadSpeed: number; uploadSpeed: number; active: number };
@@ -97,8 +98,14 @@ export function DownloadLiveStats() {
         <div className="mb-3 text-sm font-bold text-ink">{t("settings.quickDownloadSettings")}</div>
         {primary ? (
           <div className="space-y-3 text-xs">
-            <QuickToggle label={t("settings.autoStart")} checked={primary.autoStart} onChange={() => updatePrimary({ autoStart: !primary.autoStart })} />
-            <QuickToggle label={t("downloads.seq")} checked={primary.sequential} onChange={() => updatePrimary({ sequential: !primary.sequential })} />
+            <div className="flex min-h-8 items-center justify-between gap-3">
+              <span className="text-ink-soft">{t("settings.autoStart")}</span>
+              <Toggle on={primary.autoStart} onChange={() => updatePrimary({ autoStart: !primary.autoStart })} />
+            </div>
+            <div className="flex min-h-8 items-center justify-between gap-3">
+              <span className="text-ink-soft">{t("downloads.seq")}</span>
+              <Toggle on={primary.sequential} onChange={() => updatePrimary({ sequential: !primary.sequential })} />
+            </div>
             <div className="flex items-center justify-between gap-2 border-t border-white/8 pt-3 text-ink-dim"><span>{t("settings.speedLimit")}</span><span className="font-semibold text-ink">{primary.downloadLimitKbps > 0 ? `${primary.downloadLimitKbps} KB/s` : "∞"}</span></div>
           </div>
         ) : <p className="text-xs text-ink-dim">—</p>}
@@ -108,13 +115,4 @@ export function DownloadLiveStats() {
       </section>
     </aside>
   );
-}
-
-function QuickToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
-  return <div className="flex min-h-11 items-center justify-between gap-3">
-    <span className="text-ink-soft">{label}</span>
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} onClick={onChange} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-brand">
-      <span className={`relative block h-5 w-9 rounded-full transition-colors ${checked ? "brand-gradient" : "bg-white/15"}`}><span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} /></span>
-    </button>
-  </div>;
 }

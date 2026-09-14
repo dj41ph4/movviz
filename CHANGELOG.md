@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.167 — September 2026
+
+### Téléchargements : bascules rapides cohérentes avec le reste de l'app
+
+- "Démarrage auto au boot" et "Séquentiel" utilisent maintenant le même composant d'interrupteur que partout ailleurs dans Movviz, au lieu d'un style maison qui détonnait.
+
 ## v1.24.166 — September 2026
 
 ### Barre latérale rétractable
