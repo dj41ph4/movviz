@@ -49,7 +49,7 @@ import com.movviz.tv.ui.theme.MovvizIconDotCircle
 import com.movviz.tv.ui.theme.MovvizIconPlus
 import com.movviz.tv.ui.theme.MovvizIconSwap
 import com.movviz.tv.ui.theme.MovvizIconHome
-import com.movviz.tv.ui.theme.MovvizIconStar
+import com.movviz.tv.ui.theme.MovvizIconCompass
 import com.movviz.tv.ui.theme.MovvizIconSearch
 import com.movviz.tv.ui.theme.MovvizIconSettings
 import com.movviz.tv.ui.theme.MovvizWordmark
@@ -72,6 +72,9 @@ import androidx.compose.ui.unit.IntOffset
 // Largeurs du design ("Movviz Android TV" / TvSidebar.dc.html) : repliée en
 // rail d'icônes, déployée au focus D-pad (pas de survol souris sur TV — le
 // hover web devient "un descendant quelconque de la colonne a le focus").
+// Valeurs exactes du mockup Claude Design (TvSidebar.dc.html) — source de
+// vérité : width 84/260, padding vertical 32, padding horizontal 14/20,
+// gap inter-items 6, gap icône-libellé 14, icônes 20px, logo margin-bottom 48.
 private val NAV_RAIL_COLLAPSED_WIDTH = 84.dp
 private val NAV_RAIL_EXPANDED_WIDTH = 260.dp
 
@@ -96,7 +99,7 @@ private val NAV_ITEMS = listOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.LIBRARY, 
 
 private fun HomeTab.icon(): ImageVector = when (this) {
     HomeTab.HOME -> MovvizIconHome
-    HomeTab.DISCOVER -> MovvizIconStar
+    HomeTab.DISCOVER -> MovvizIconCompass
     HomeTab.SEARCH -> MovvizIconSearch
     HomeTab.SETTINGS -> MovvizIconSettings
     // LIBRARY utilise une icône dessinée (voir BookmarkIcon) : pas de
@@ -178,9 +181,9 @@ fun NavRail(
                     strokeWidth = 1.dp.toPx(),
                 )
             }
-            .padding(horizontal = if (railFocused) 20.dp else 14.dp, vertical = 24.dp),
+            .padding(horizontal = if (railFocused) 20.dp else 14.dp, vertical = 32.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 34.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 48.dp)) {
             AnimatedLogo(size = 32.dp)
             AnimatedVisibility(visible = railFocused, enter = fadeIn(tween(180)), exit = fadeOut(tween(120))) {
                 Row {
@@ -457,7 +460,7 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = if (expanded) 14.dp else 10.dp, vertical = 12.dp),
+                modifier = Modifier.padding(horizontal = if (expanded) 16.dp else 0.dp, vertical = 12.dp),
             ) {
                 if (tab == HomeTab.LIBRARY) {
                     BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(20.dp))

@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.25.3 — September 2026
+
+### Android TV/mobile : sidebar conforme au design, corrections lecteur et profils
+
+- Sidebar Android TV recalée sur les valeurs exactes de la maquette (largeurs, espacements, icônes) — l'icône Découverte (boussole) et le bug qui empêchait le D-pad d'atteindre le contenu de cet écran sont corrigés.
+- Carte de saison et badge "vu" sur les épisodes restylés dans l'identité Movviz au lieu d'un gris/blanc plat.
+- Photo de profil : un changement fait depuis le web n'était pas repris par les apps Android TV et mobile au lancement suivant (avatar rafraîchi en mémoire mais jamais réenregistré sur l'appareil) — corrigé sur les deux apps.
+- Aperçu vidéo (accueil et fiche titre) : la vidéo se recadrait différemment de l'image statique derrière elle, créant une bande visible à la bascule — corrigé sur Android TV et mobile.
+- Compilé et vérifié visuellement sur émulateur Android TV ; la grille de recherche et un cas rare de lecture déclenchée par erreur au D-pad restent à investiguer.
+
 ## v1.25.2 — September 2026
 
 ### Android TV : refonte de la navigation et du visuel

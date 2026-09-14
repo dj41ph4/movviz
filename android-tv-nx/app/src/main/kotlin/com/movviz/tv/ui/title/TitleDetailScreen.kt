@@ -63,6 +63,8 @@ import com.movviz.tv.ui.home.AmbientPreview
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizBrand3
+import com.movviz.tv.ui.theme.MovvizSurface
 import com.movviz.tv.ui.theme.MovvizBrandGlow
 import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
@@ -1136,46 +1138,76 @@ private fun SeasonSelector(
     Column(modifier = Modifier.padding(bottom = 20.dp)) {
         Text(text = "Saisons", style = TextStyle(fontSize = 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(12.dp))
-        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
                 val selected = season.seasonNumber == selectedSeasonNumber
                 var focused by remember { mutableStateOf(false) }
-                val shape = RoundedCornerShape(12.dp)
-                Surface(
-                    onClick = { onSelect(season.seasonNumber) },
-                    modifier = Modifier
-                        .width(208.dp)
-                        .height(116.dp)
-                        .tvCardFocusHalo(focused, shape)
-                        .onFocusChanged { focused = it.isFocused }
-                        .tvPointerClick { onSelect(season.seasonNumber) },
-                    shape = ClickableSurfaceDefaults.shape(shape),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (selected) Color(0xFF29272F) else MovvizSurfaceStrong.copy(alpha = 0.94f),
-                        contentColor = MovvizInk,
-                    ),
-                    border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(
-                            border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.8f)),
-                            shape = shape,
-                        ),
-                    ),
+                val shape = RoundedCornerShape(10.dp)
+                Column(
+                    modifier = Modifier.width(132.dp),
+                    horizontalAlignment = Alignment.Start,
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
+                    // Vignette verticale façon Plex (pas de texte long dans la
+                    // carte) : numéro de saison en grand sur un aplat teinté de
+                    // marque, badge du nombre d'épisodes en haut à droite —
+                    // remplace l'ancienne carte paysage tout-texte qui jurait
+                    // avec le reste de l'app (retour utilisateur direct).
+                    Surface(
+                        onClick = { onSelect(season.seasonNumber) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(2f / 3f)
+                            .tvCardFocusHalo(focused, shape)
+                            .onFocusChanged { focused = it.isFocused }
+                            .tvPointerClick { onSelect(season.seasonNumber) },
+                        shape = ClickableSurfaceDefaults.shape(shape),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
+                        border = ClickableSurfaceDefaults.border(
+                            border = Border(
+                                border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MovvizBrand2 else Color.White.copy(alpha = 0.12f)),
+                                shape = shape,
+                            ),
+                            focusedBorder = Border(
+                                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2),
+                                shape = shape,
+                            ),
+                        ),
                     ) {
-                        Text(
-                            text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
-                            style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = "${season.episodes.size} épisodes",
-                            style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    if (selected) Brush.linearGradient(listOf(MovvizBrand3.copy(alpha = 0.55f), MovvizBrand.copy(alpha = 0.55f), MovvizBrand2.copy(alpha = 0.55f)))
+                                    else Brush.linearGradient(listOf(MovvizSurfaceStrong, MovvizSurface)),
+                                ),
+                        ) {
+                            Text(
+                                text = "${season.seasonNumber}",
+                                style = TextStyle(fontSize = 40.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = if (selected) 1f else 0.55f)),
+                                modifier = Modifier.align(Alignment.Center),
+                            )
+                            Text(
+                                text = "${season.episodes.size}",
+                                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(6.dp)
+                                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(5.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
+                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else MovvizInkSoft),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "${season.episodes.size} épisodes",
+                        style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
+                    )
                 }
             }
         }
@@ -1359,18 +1391,35 @@ private fun EpisodeCard(
                 modifier = Modifier.width(30.dp),
             )
             val stillModifier = Modifier.width(150.dp).height(84.dp).clip(RoundedCornerShape(6.dp))
-            if (metadata?.stillPath != null) {
-                Image(
-                    painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}"),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = stillModifier,
-                )
-            } else {
-                // Gabarit invariant : TMDb n'a pas toujours une capture, mais
-                // le titre ne doit jamais se décaler d'une ligne à l'autre.
-                Box(modifier = stillModifier.background(Color(0xFF29272F)), contentAlignment = Alignment.Center) {
-                    Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+            Box(modifier = stillModifier) {
+                if (metadata?.stillPath != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}"),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    // Gabarit invariant : TMDb n'a pas toujours une capture, mais
+                    // le titre ne doit jamais se décaler d'une ligne à l'autre.
+                    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF29272F)), contentAlignment = Alignment.Center) {
+                        Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+                    }
+                }
+                // Badge "vu" façon Plex, en style de marque Movviz (dégradé
+                // au lieu du check plat) — demandé explicitement : repérer
+                // d'un coup d'œil les épisodes déjà vus dans la liste.
+                if (watched) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(5.dp)
+                            .size(18.dp)
+                            .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), androidx.compose.foundation.shape.CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(11.dp))
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
