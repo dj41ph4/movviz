@@ -33,7 +33,7 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
         .bitmapConfig(Bitmap.Config.RGB_565)
         .memoryCache {
             MemoryCache.Builder(this)
-                .maxSizePercent(0.10)
+                .maxSizePercent(0.20)
                 .build()
         }
         // Les affiches, backdrops et logos TMDb utilisent tous leur URL

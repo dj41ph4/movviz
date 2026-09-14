@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.25.5 — September 2026
+
+### Android TV : cache mémoire images doublé
+
+- Le cache mémoire Coil passe de 10 % à 20 % de la RAM applicative : moins de re-téléchargements d'affiches/backdrops dans les rangées, plus fluide sur les boîtiers bien dotés.
+
 ## v1.25.4 — September 2026
 
 ### Nettoyage visuel : fond animé retiré, suggestions et métadonnées affinées
