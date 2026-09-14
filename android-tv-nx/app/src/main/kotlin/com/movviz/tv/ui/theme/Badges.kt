@@ -54,6 +54,22 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
     )
 }
 
+/** Pastille technique (4K/HDR/VF…) façon maquette "Movviz Android TV" :
+ *  bordure 1dp + fond teinté 12% de la couleur du badge, jamais de fond
+ *  opaque plein — un badge par info, à la différence de l'ancien "4K HDR"
+ *  concaténé en une seule pastille. */
+@Composable
+fun QualityPill(label: String, color: Color, modifier: Modifier = Modifier) {
+    Text(
+        text = label,
+        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = color),
+        modifier = modifier
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(5.dp))
+            .border(1.dp, color.copy(alpha = 0.55f), RoundedCornerShape(5.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    )
+}
+
 /** Rating badge — dark glass with gold star, Netflix-style. Icône
  *  vectorielle : le glyphe ★ n'existe pas dans Inter (rendu cassé TV). */
 @Composable

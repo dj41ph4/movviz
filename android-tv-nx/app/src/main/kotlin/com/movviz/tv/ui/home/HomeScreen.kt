@@ -98,6 +98,7 @@ import androidx.tv.material3.Icon
 import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.StaticLogoWithGlow
+import com.movviz.tv.ui.theme.QualityPill
 import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.StatusPill
 import com.movviz.tv.ui.theme.statusTone
@@ -949,6 +950,17 @@ internal fun HeroCarousel(
             // Même ligne méta que la fiche : ★ · année · durée · genres inline
             // (les chips séparées prenaient une rangée entière pour rien).
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Pastilles techniques (maquette) : uniquement quand la carte
+                // porte un vrai fichier local — jamais fabriquées pour un
+                // titre de découverte sans qualityLabel.
+                if (current.qualityLabel != null) {
+                    QualityPill(current.qualityLabel, MovvizCyan)
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                if (current.hasHdr) {
+                    QualityPill("HDR", MovvizAmber)
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
                 if (current.rating > 0) {
                     // Icône vectorielle : le glyphe ★ n'existe pas dans Inter
                     // (rendu fallback système cassé sur Google TV).
