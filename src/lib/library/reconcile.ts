@@ -5,7 +5,7 @@ import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/serv
 import { trashRoots } from "@/lib/library/trashStore";
 import { pathFor } from "@/lib/library/renamePath";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { applyLearnedPathMapping } from "@/lib/plex/pathMappingStore";
+import { loadPathMappings, type PathMapping } from "@/lib/plex/pathMappingStore";
 
 const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts)$/i;
 
@@ -132,20 +132,48 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
     const parts = p.replace(/[\\/]+/g, "/").toLowerCase().split("/").filter(Boolean);
     return parts.slice(-2).join("/");
   };
+  // Mappings chargés une fois (un stat disque), réutilisés en mémoire pure
+  // pour chaque path suivi — voir le même piège documenté dans librarySync.
+  let cachedMappings: PathMapping[] = [];
+  try { cachedMappings = loadPathMappings(); } catch { cachedMappings = []; }
+  const translateCached = (p: string, mappings: PathMapping[]): string[] => {
+    if (mappings.length === 0) return [p];
+    const out = new Set<string>([p]);
+    try {
+      // Même logique longest-prefix que applyLearnedPathMapping, sans I/O.
+      const withSep = (s: string) => (s.includes("\\") && !s.includes("/") ? "\\" : "/");
+      const sep = withSep(p);
+      const normalized = p.replace(/[\\/]/g, sep);
+      const lower = normalized.toLowerCase();
+      let best: PathMapping | null = null;
+      for (const m of mappings) {
+        const prefix = m.plexPrefix.replace(/[\\/]/g, sep);
+        if (lower.startsWith(prefix.toLowerCase())) {
+          if (!best || m.plexPrefix.length > best.plexPrefix.length) best = m;
+        }
+      }
+      if (best) {
+        const rest = normalized.slice(best.plexPrefix.replace(/[\\/]/g, sep).length);
+        const movvizSep = withSep(best.movvizPrefix);
+        out.add(best.movvizPrefix + rest.split(sep).join(movvizSep));
+      }
+    } catch { /* on garde au moins le path brut */ }
+    return [...out];
+  };
   const track = (raw: string) => {
     const n = pathFor(raw).normalize(raw);
     trackedPaths.add(n);
     trackedSuffixes.add(mountAgnosticKey(n));
     // Vue traduite via les mappings validés (Réglages → Plex) : comparaison
-    // exacte possible même avec des mounts différents.
-    try {
-      const mapped = applyLearnedPathMapping(n);
-      if (mapped !== n) {
-        const mn = pathFor(mapped).normalize(mapped);
-        trackedPaths.add(mn);
-        trackedSuffixes.add(mountAgnosticKey(mn));
-      }
-    } catch { /* mapping illisible — le suffixe ci-dessus couvre déjà */ }
+    // exacte possible même avec des mounts différents. Mappings chargés une
+    // fois pour toute la passe (pas un stat disque par fichier suivi, sinon
+    // l'event loop se bloque et les API timeout pendant le rescan).
+    for (const mapped of translateCached(n, cachedMappings)) {
+      if (mapped === n) continue;
+      const mn = pathFor(mapped).normalize(mapped);
+      trackedPaths.add(mn);
+      trackedSuffixes.add(mountAgnosticKey(mn));
+    }
   };
   for (const movie of loadMovies()) if (movie.file) track(movie.file.path);
   for (const series of loadSeries())

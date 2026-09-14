@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.25.1 — September 2026
+
+### Hotfix : timeouts API pendant le sync Plex
+
+- La détection « même fichier physique » rechargeait `plex-path-mappings.json` (un `stat` disque) à chaque comparaison, en synchrone : sur une grosse bibliothèque, chaque item Plex scannait des milliers de chemins en bloquant l'event loop, et toutes les routes API Timeout pendant le sync.
+- Les gardes passent désormais en deux temps sans aucun syscall : égalité normalisée d'abord (mémoire seule), puis mappings chargés une seule fois + suffixe. Même traitement dans la réconciliation disque.
+- Aucun changement de comportement métier : mêmes fusions, mêmes règles, juste sans I/O.
+
 ## v1.25.0 — September 2026
 
 ### Bibliothèque Plex : fin des doublons, lecture immédiate et chemins Docker

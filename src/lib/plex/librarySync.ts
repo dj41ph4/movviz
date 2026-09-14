@@ -14,7 +14,7 @@ import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
-import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
+import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { registerMarkerCandidate } from "./markerSync";
 import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
@@ -260,10 +260,49 @@ function normalizePathForCompare(p: string): string {
 function isSamePhysicalFile(a: string | null | undefined, b: string | null | undefined, minDepth = 2): boolean {
   if (!a || !b) return false;
   if (normalizePathForCompare(a) === normalizePathForCompare(b)) return true;
+  let mappings: PathMapping[] = [];
+  try { mappings = loadPathMappings(); } catch { mappings = []; }
+  if (isSamePhysicalFileCached(a, b, minDepth, mappings)) return true;
+  return false;
+}
+
+/**
+ * Variante sans aucun syscall (mappings pré-chargés une fois) pour les
+ * boucles de sync : isSamePhysicalFile() ci-dessus charge
+ * plex-path-mappings.json (stat disque) à CHAQUE comparaison — dans un scan
+ * de toute la bibliothèque par item Plex, ça bloque l'event loop Node et met
+ * toutes les routes API en timeout. Ici zéro I/O, mémoire seule.
+ */
+function applyMappingCached(p: string, mappings: PathMapping[]): string {
+  if (mappings.length === 0) return p;
+  const sep = p.includes("\\") && !p.includes("/") ? "\\" : "/";
+  const normalized = p.replace(/[\\/]/g, sep);
+  const lower = normalized.toLowerCase();
+  let best: PathMapping | null = null;
+  for (const m of mappings) {
+    const prefix = m.plexPrefix.replace(/[\\/]/g, sep);
+    if (lower.startsWith(prefix.toLowerCase())) {
+      if (!best || m.plexPrefix.length > best.plexPrefix.length) best = m;
+    }
+  }
+  if (!best) return p;
+  const rest = normalized.slice(best.plexPrefix.replace(/[\\/]/g, sep).length);
+  const movvizSep = best.movvizPrefix.includes("\\") && !best.movvizPrefix.includes("/") ? "\\" : "/";
+  return best.movvizPrefix + rest.split(sep).join(movvizSep);
+}
+
+function isSamePhysicalFileCached(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  minDepth: number,
+  mappings: PathMapping[]
+): boolean {
+  if (!a || !b) return false;
+  if (normalizePathForCompare(a) === normalizePathForCompare(b)) return true;
   try {
-    const mappedA = applyLearnedPathMapping(a);
+    const mappedA = applyMappingCached(a, mappings);
     if (normalizePathForCompare(mappedA) === normalizePathForCompare(b)) return true;
-    const mappedB = applyLearnedPathMapping(b);
+    const mappedB = applyMappingCached(b, mappings);
     if (normalizePathForCompare(mappedB) === normalizePathForCompare(a)) return true;
     if (normalizePathForCompare(mappedA) === normalizePathForCompare(mappedB)) return true;
   } catch { /* mapping illisible — on tombe sur le suffixe */ }
@@ -274,12 +313,27 @@ function isSamePhysicalFile(a: string | null | undefined, b: string | null | und
   }
 }
 
-/** Retrouve un film déjà connu par son chemin physique (file + versions[]). */
+/** Retrouve un film déjà connu par son chemin physique (file + versions[]).
+ *  Deux passes, zéro syscall : passe 1 en égalité normalisée pure (mémoire
+ *  seule, cas courant quand les deux vues sont identiques), passe 2 avec les
+ *  mappings chargés UNE fois + suffixe. Un chargement des mappings par
+ *  comparaison bloquait l'event loop (stat disque × milliers de candidats) et
+ *  mettait toutes les routes API en timeout pendant le sync. */
 function findMovieByPhysicalPath(plexPath: string): LibraryMovie | null {
-  for (const m of loadMovies()) {
+  const movies = loadMovies();
+  const norm = normalizePathForCompare(plexPath);
+  for (const m of movies) {
+    if (m.file?.path && normalizePathForCompare(m.file.path) === norm) return m;
+    for (const v of m.versions ?? []) {
+      if (v.path && normalizePathForCompare(v.path) === norm) return m;
+    }
+  }
+  let mappings: PathMapping[] = [];
+  try { mappings = loadPathMappings(); } catch { mappings = []; }
+  for (const m of movies) {
     const candidates = [m.file?.path, ...(m.versions ?? []).map((v) => v.path)];
     for (const c of candidates) {
-      if (c && isSamePhysicalFile(c, plexPath, 2)) return m;
+      if (c && isSamePhysicalFileCached(c, plexPath, 2, mappings)) return m;
     }
   }
   return null;
@@ -294,13 +348,26 @@ function findMovieByPhysicalPath(plexPath: string): LibraryMovie | null {
 function findSeriesByEpisodePhysicalPath(plexEpPaths: string[]): LibrarySeries | null {
   const incoming = plexEpPaths.filter(Boolean);
   if (incoming.length === 0) return null;
-  for (const s of loadSeries()) {
+  const incomingNorm = new Set(incoming.map(normalizePathForCompare));
+  const allSeries = loadSeries();
+  // Passe 1 : égalité normalisée pure, zéro syscall.
+  for (const s of allSeries) {
+    for (const season of s.seasons) {
+      for (const ep of season.episodes) {
+        if (ep.file?.path && incomingNorm.has(normalizePathForCompare(ep.file.path))) return s;
+      }
+    }
+  }
+  // Passe 2 : mappings (chargés une fois) + suffixe profondeur 3.
+  let mappings: PathMapping[] = [];
+  try { mappings = loadPathMappings(); } catch { mappings = []; }
+  for (const s of allSeries) {
     const existingPaths: string[] = [];
     for (const season of s.seasons) for (const ep of season.episodes) if (ep.file?.path) existingPaths.push(ep.file.path);
     if (existingPaths.length === 0) continue;
     for (const inc of incoming) {
       for (const ex of existingPaths) {
-        if (isSamePhysicalFile(ex, inc, 3)) return s;
+        if (isSamePhysicalFileCached(ex, inc, 3, mappings)) return s;
       }
     }
   }
