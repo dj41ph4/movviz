@@ -45,76 +45,15 @@ import com.movviz.tv.R
 import kotlin.math.cos
 import kotlin.math.sin
 
-private data class OrbitParticle(val radiusDp: Float, val periodMs: Int, val phaseDeg: Float, val reverse: Boolean, val color: Color)
-
-/*
- * Valeurs relevées directement dans src/components/fx/AnimatedLogo.tsx.
- * Les délais CSS négatifs sont convertis en position initiale sur l'orbite :
- * -2 / 6.5 tour en sens inverse = -110.769°, -4.5 / 8 = 202.5°.
- */
-private val DESKTOP_PARTICLES = listOf(
-    OrbitParticle(radiusDp = 30f, periodMs = 4500, phaseDeg = 0f, reverse = false, color = MovvizCyan),
-    OrbitParticle(radiusDp = 34f, periodMs = 6500, phaseDeg = -110.76923f, reverse = true, color = MovvizFlowMagenta),
-    OrbitParticle(radiusDp = 25f, periodMs = 8000, phaseDeg = 202.5f, reverse = false, color = MovvizBrand2),
-)
-
 /**
- * Port exact du mark desktop `src/components/fx/AnimatedLogo.tsx`.
- *
- * Il conserve les cinq éléments de l'original : halo aurora conique (5 s),
- * deux ondes (2,8 s, décalées de 1,4 s), trois particules, pulsation centrale
- * (3 s) et le même Clapperboard Lucide en trait 2,5. La Box ne clippe jamais
- * les effets extérieurs, comme le div HTML du desktop.
+ * Mark Movviz fixe — l'animation orbitale autour du logo (halo tournant,
+ * ondes, particules, pulsation) a été retirée : rendu kitsch sur TV.
+ * Même signature pour ne toucher à aucun appelant ; le mark officiel
+ * (R.drawable.movviz_mark) est affiché tel quel, sans effet.
  */
 @Composable
 fun AnimatedLogo(size: Dp = 56.dp) {
-    val infinite = rememberInfiniteTransition(label = "movviz_logo")
-
-    // Framer Motion : scale [1, 1.05, 1], 3 secondes ease-in-out.
-    val breathe by infinite.floatLoop(1f, 1.05f, 1500, FastOutSlowInEasing, RepeatMode.Reverse)
-    // .logo-halo { animation: logoSpin 5s linear infinite }
-    val haloRotation by infinite.floatLoop(0f, 360f, 5000, LinearEasing, RepeatMode.Restart)
-    // .logo-ripple { scale .75 -> 2.1, opacity .55 -> 0, 2.8s ease-out }
-    val ripple1 by infinite.floatLoop(0f, 1f, 2800, FastOutSlowInEasing, RepeatMode.Restart)
-    val ripple2 = (ripple1 + .5f) % 1f
-
-    // SIZES.md du composant desktop : outer 56, inner 44, icon 20, halo -12.
-    // À 40dp (rail) ces valeurs deviennent exactement le preset desktop sm.
-    val innerSize = if (size <= 40.dp) size else size * (44f / 56f)
-    val iconSize = if (size <= 40.dp) size * .5f else size * (20f / 56f)
-    val haloInset = if (size <= 40.dp) 10.dp else size * (12f / 56f)
-
-    Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
-        MulticolorBlurHalo(size = size + haloInset * 2, rotation = haloRotation)
-
-        RippleRing(size = size, progress = ripple1, color = MovvizBrand.copy(alpha = .4f))
-        RippleRing(size = size, progress = ripple2, color = MovvizFlowMagenta.copy(alpha = .3f))
-
-        DESKTOP_PARTICLES.forEach { p -> OrbitDot(particle = p) }
-
-        // Equivalent visuel du box-shadow .logo-glow-pulse sous le mark.
-        Box(
-            modifier = Modifier
-                .size(innerSize + 10.dp)
-                .scale(breathe)
-                .background(
-                    Brush.radialGradient(
-                        listOf(MovvizFlowMagenta.copy(alpha = .65f), MovvizBrand.copy(alpha = .35f), Color.Transparent),
-                    ),
-                    CircleShape,
-                )
-                .blur(9.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded),
-        )
-        // Logo officiel Movviz : asset réel (R.drawable.movviz_mark, même
-        // fichier que le mark desktop et Android mobile NX), plus jamais le
-        // clapperboard historique ni une tuile en dégradé recréée à la main.
-        Image(
-            painter = painterResource(R.drawable.movviz_mark),
-            contentDescription = "Movviz",
-            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-            modifier = Modifier.size(size).scale(breathe),
-        )
-    }
+    StaticLogo(size = size)
 }
 
 /**
@@ -174,42 +113,6 @@ private fun MulticolorBlurHalo(size: Dp, rotation: Float) {
         diffuse(MovvizCyan, .28f, .38f)
         diffuse(MovvizBrand2, -.38f, .28f)
     }
-}
-
-@Composable
-private fun RippleRing(size: Dp, progress: Float, color: Color) {
-    Box(
-        modifier = Modifier
-            .size(size)
-            .scale(.75f + progress * 1.35f)
-            .border(1.dp, color.copy(alpha = color.alpha * (.55f * (1f - progress))), CircleShape),
-    )
-}
-
-@Composable
-private fun OrbitDot(particle: OrbitParticle) {
-    val infinite = rememberInfiniteTransition(label = "orbit")
-    val angle by infinite.floatLoop(
-        from = particle.phaseDeg,
-        to = particle.phaseDeg + if (particle.reverse) -360f else 360f,
-        durationMs = particle.periodMs,
-        easing = LinearEasing,
-        repeatMode = RepeatMode.Restart,
-    )
-    val rad = Math.toRadians(angle.toDouble())
-    val dx = (cos(rad) * particle.radiusDp).toFloat()
-    val dy = (sin(rad) * particle.radiusDp).toFloat()
-
-    Box(
-        modifier = Modifier
-            .offset(x = dx.dp, y = dy.dp)
-            .size(8.dp)
-            .background(
-                Brush.radialGradient(listOf(Color.White.copy(alpha = .9f), particle.color, particle.color.copy(alpha = .1f))),
-                CircleShape,
-            )
-            .blur(1.dp),
-    )
 }
 
 @Composable

@@ -264,9 +264,15 @@ private fun SearchField(
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 // BasicTextField retient les flèches pour le curseur : la
                 // prévisualisation assure donc le passage au premier poster.
+                // Back/Escape rend la main à la navigation D-pad (quitte le
+                // champ sans quitter l'écran) et masque le clavier.
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
                         downFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+                    } else if ((event.key == Key.Back || event.key == Key.Escape) && event.type == KeyEventType.KeyUp) {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        true
                     } else false
                 },
         )

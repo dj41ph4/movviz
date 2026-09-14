@@ -11,8 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.focus.focusRestorer
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.itemsIndexed as tvRowItemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -264,15 +265,16 @@ private fun cardMatchesCatalogGenre(card: TvTitleCard, selection: CatalogGenreSe
 
 @Composable
 private fun CatalogGenreRow(genres: List<GenreDto>, selected: CatalogGenreSelection?, onSelect: (CatalogGenreSelection) -> Unit) {
-    LazyRow(
+    TvLazyRow(
+        modifier = Modifier.focusRestorer(),
         contentPadding = PaddingValues(end = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        items(SYNTHETIC_GENRES, key = { "synth-${it.first}" }) { (id, label) ->
-            val value = CatalogGenreSelection(id, label)
-            CatalogGenreChip(label = label, active = selected?.key == id, onClick = { onSelect(value) })
+        tvRowItemsIndexed(SYNTHETIC_GENRES, key = { _, item -> "synth-${item.first}" }) { _, item ->
+            val value = CatalogGenreSelection(item.first, item.second)
+            CatalogGenreChip(label = item.second, active = selected?.key == item.first, onClick = { onSelect(value) })
         }
-        items(genres, key = { "tmdb-${it.id}" }) { g ->
+        tvRowItemsIndexed(genres, key = { _, g -> "tmdb-${g.id}" }) { _, g ->
             val value = CatalogGenreSelection(g.id.toString(), g.name)
             CatalogGenreChip(label = g.name, active = selected?.key == value.key, onClick = { onSelect(value) })
         }

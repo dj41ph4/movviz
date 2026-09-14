@@ -4,10 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -20,12 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.itemsIndexed
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -80,99 +81,97 @@ fun SettingsScreen(
         viewModel.loadUserPrefs()
     }
 
-    Column(
+    // TvLazyColumn (pas Column+verticalScroll) : le défilement suit le
+    // focus D-pad automatiquement et la position survit au retour arrière.
+    // top = 32dp : dégage la barre de nav flottante sans bande opaque
+    // ajoutée plus haut au niveau de MainScreen.
+    TvLazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            // top = 96dp : dégage la barre de nav flottante (68dp + marge)
-            // sans qu'un padding posé plus haut, au niveau de MainScreen,
-            // n'ajoute une bande de fond opaque au-dessus de tout le monde.
-            .padding(start = 48.dp, top = 32.dp, end = 48.dp, bottom = 40.dp),
+            .background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(start = 48.dp, top = 32.dp, end = 48.dp, bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
-        Text(
-            text = "Paramètres",
-            style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
-            modifier = Modifier
-                .let { if (entryFocusRequester != null) it.focusRequester(entryFocusRequester) else it }
-                .background(if (headerFocused) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
-                .onFocusChanged { headerFocused = it.isFocused }
-                .focusable()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        )
-        Spacer(modifier = Modifier.height(28.dp))
-
-        SettingsSection(title = "Compte") {
-            InfoRow(label = "Utilisateur", value = currentUser?.username ?: "—")
-            Spacer(modifier = Modifier.height(10.dp))
-            Row {
-                Text(
-                    text = "Rôle",
-                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-                    modifier = Modifier.width(160.dp),
-                )
-                RolePill(role = currentUser?.role)
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            InfoRow(label = "Serveur", value = serverUrl ?: "—")
-        }
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        SettingsSection(title = "Lecture") {
+        item(contentType = "header") {
             Text(
-                text = "Langue audio par défaut",
-                style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            // horizontalScroll plutôt qu'un Row nu : les 7 langues dépassent
-            // la largeur de la carte (0.72f de l'écran), et un Row sans
-            // scroll ni wrap laisse Compose écraser le dernier chip à une
-            // largeur quasi nulle — son texte finit par passer à la ligne
-            // caractère par caractère (bug confirmé en direct sur "Allemand").
-            // Même pattern que la rangée de genres de la fiche titre
-            // (TitleDetailScreen) qui déborde déjà horizontalement.
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                text = "Paramètres",
+                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
                 modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(bottom = 2.dp),
-            ) {
-                AUDIO_LANGUAGE_LABELS.forEach { (code, label) ->
-                    LanguageChip(
-                        label = label,
-                        selected = (userPrefs?.preferredAudioLanguage ?: "auto") == code,
-                        onClick = { viewModel.setPreferredAudioLanguage(code) },
-                        focusRequester = null,
+                    .let { if (entryFocusRequester != null) it.focusRequester(entryFocusRequester) else it }
+                    .background(if (headerFocused) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
+                    .onFocusChanged { headerFocused = it.isFocused }
+                    .focusable()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+
+        item(contentType = "account") {
+            SettingsSection(title = "Compte") {
+                InfoRow(label = "Utilisateur", value = currentUser?.username ?: "—")
+                Spacer(modifier = Modifier.height(10.dp))
+                Row {
+                    Text(
+                        text = "Rôle",
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+                        modifier = Modifier.width(160.dp),
                     )
+                    RolePill(role = currentUser?.role)
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                InfoRow(label = "Serveur", value = serverUrl ?: "—")
+            }
+        }
+
+        item(contentType = "playback") {
+            SettingsSection(title = "Lecture") {
+                Text(
+                    text = "Langue audio par défaut",
+                    style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                // TvLazyRow (pas Row+horizontalScroll) : les 7 langues
+                // dépassent la carte et le scroll suit le focus D-pad, avec
+                // restauration de position au retour via focusRestorer.
+                TvLazyRow(
+                    modifier = Modifier.focusRestorer(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 2.dp),
+                ) {
+                    itemsIndexed(AUDIO_LANGUAGE_LABELS, key = { _, item -> "lang-${item.first}" }) { _, item ->
+                        LanguageChip(
+                            label = item.second,
+                            selected = (userPrefs?.preferredAudioLanguage ?: "auto") == item.first,
+                            onClick = { viewModel.setPreferredAudioLanguage(item.first) },
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
-
-        SettingsSection(title = "À propos") {
-            InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
-            Spacer(modifier = Modifier.height(10.dp))
-            InfoRow(label = "Application", value = "Movviz NX")
-            if (BuildConfig.AUTO_UPDATE) {
-                Spacer(modifier = Modifier.height(14.dp))
-                AutoUpdateToggle(viewModel)
-                Spacer(modifier = Modifier.height(14.dp))
-                SettingsButton(text = "Vérifier les mises à jour") { viewModel.requestUpdateCheck() }
-                val updateCheckStatus by viewModel.updateCheckStatus.collectAsState()
-                updateCheckStatus?.let {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+        item(contentType = "about") {
+            SettingsSection(title = "À propos") {
+                InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
+                Spacer(modifier = Modifier.height(10.dp))
+                InfoRow(label = "Application", value = "Movviz NX")
+                if (BuildConfig.AUTO_UPDATE) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    AutoUpdateToggle(viewModel)
+                    Spacer(modifier = Modifier.height(14.dp))
+                    SettingsButton(text = "Vérifier les mises à jour") { viewModel.requestUpdateCheck() }
+                    val updateCheckStatus by viewModel.updateCheckStatus.collectAsState()
+                    updateCheckStatus?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        SettingsButton(text = "Se déconnecter", dangerous = true) {
-            viewModel.logout()
-            onLoggedOut()
+        item(contentType = "logout") {
+            SettingsButton(text = "Se déconnecter", dangerous = true) {
+                viewModel.logout()
+                onLoggedOut()
+            }
         }
     }
 }
@@ -231,9 +230,10 @@ private fun AutoUpdateToggle(viewModel: AppViewModel) {
 
 /** Carte glass standard — même trio surface/bordure que le reste de l'app
  *  (voir NavRail, StatusPill) : fond sombre translucide + liseré blanc
- *  8-10%, jamais un aplat opaque. */
+ *  8-10%, jamais un aplat opaque. Contenu simple (plus de ColumnScope :
+ *  les sections vivent dans des item{} de TvLazyColumn). */
 @Composable
-private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column {
         Text(
             text = title.uppercase(),
@@ -246,7 +246,7 @@ private fun SettingsSection(title: String, content: @Composable ColumnScope.() -
                 .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
                 .padding(horizontal = 22.dp, vertical = 20.dp),
-            content = content,
+            content = { content() },
         )
     }
 }

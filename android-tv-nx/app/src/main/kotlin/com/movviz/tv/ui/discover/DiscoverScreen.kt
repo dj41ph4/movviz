@@ -12,10 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.focus.focusRestorer
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.itemsIndexed
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +54,7 @@ import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 
 /**
  * Découverte TV : hero + rangées éditoriales + sélecteur de genres, le même
@@ -183,7 +185,7 @@ fun DiscoverScreen(
     val heroFocus = remember { FocusRequester() }
     val emptyStateFocus = heroFocus
     val heroTopAnchor = remember { FocusRequester() }
-    val listState = rememberLazyListState()
+    val listState = rememberTvLazyListState().withTvPrefetchDisabled()
     val hasScrolled by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12
@@ -212,7 +214,7 @@ fun DiscoverScreen(
                 .focusRequester(emptyStateFocus)
                 .focusable(),
         )
-        else LazyColumn(Modifier.fillMaxSize(), state = listState) {
+        else TvLazyColumn(Modifier.fillMaxSize(), state = listState) {
             item(contentType = "topAnchor") {
                 Box(
                     modifier = Modifier
@@ -255,7 +257,7 @@ fun DiscoverScreen(
                 }
             }
             val firstRowKey = rows.first().key
-            items(rows, key = { "${selectedType.name}-${it.key}" }, contentType = { "discover-row" }) { row ->
+            itemsIndexed(rows, key = { _, row -> "${selectedType.name}-${row.key}" }, contentType = { _, _ -> "discover-row" }) { _, row ->
                 val label = if (row.key == "library") selectedType.label else discoverRowLabel(row.key, row.meta)
                 TitleRow(
                     heading = label,
@@ -402,14 +404,15 @@ private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: S
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
         )
-        LazyRow(
+        TvLazyRow(
+            modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(SYNTHETIC_GENRES, key = { "synth-${it.first}" }) { (id, label) ->
-                DiscoverGenreChip(label = label, onClick = { onSelect(id, label) })
+            itemsIndexed(SYNTHETIC_GENRES, key = { _, item -> "synth-${item.first}" }) { _, item ->
+                DiscoverGenreChip(label = item.second, onClick = { onSelect(item.first, item.second) })
             }
-            items(genres, key = { "tmdb-${it.id}" }) { g ->
+            itemsIndexed(genres, key = { _, g -> "tmdb-${g.id}" }) { _, g ->
                 DiscoverGenreChip(label = g.name, onClick = { onSelect(g.id.toString(), g.name) })
             }
         }
@@ -434,11 +437,12 @@ private fun DiscoverLogoRow(
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
         )
-        LazyRow(
+        TvLazyRow(
+            modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            items(tiles, key = { "$title-${it.id}" }) { tile ->
+            itemsIndexed(tiles, key = { _, tile -> "$title-${tile.id}" }) { _, tile ->
                 DiscoverLogoTile(tile = tile, onClick = onSelect?.let { { it(tile) } })
             }
         }

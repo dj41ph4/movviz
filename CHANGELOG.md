@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.25.6 — September 2026
+
+### Android TV NX : maquette Accueil, trailers alignés, pattern TV partout
+
+- Accueil : rangée « Plateformes » (tuiles 16/9, mêmes logos que Découverte, Voir-tout personnalisé au clic), hero conforme à la maquette (46 % / 500 px max, CTA « Reprendre » en dégradé de marque, dots bas-droite), rangée « Continuer » en cartes paysage 270x150 fixes avec still d'épisode, contexte S/E et progression incrustée, glow violet au focus.
+- Bandes-annonces : la TV jouait les sources directes (recherche par titre, parfois le mauvais film) avant YouTube, contrairement au desktop qui ne joue que YouTube — YouTube passe désormais en premier partout (hero, cartes, fiche titre), le direct n'est qu'un dernier recours.
+- Logo : animation orbitale retirée (halo tournant, ondes, particules, pulsation), mark fixe.
+- Découverte, Bibliothèque, Recherche et Paramètres basculés sur TvLazyColumn/TvLazyRow + focusRestorer ; Back/Escape dans le champ de recherche rend la main au D-pad sans quitter l'écran.
+- Pastille « VF » du hero ajoutée mais affichée uniquement sur donnée réelle (aucun champ VF renvoyé par le serveur aujourd'hui : jamais fabriquée).
+
 ## v1.25.5 — September 2026
 
 ### Android TV : cache mémoire images doublé
