@@ -187,6 +187,7 @@ export const fr = {
     add: "Ajouter",
     save: "Enregistrer",
     saving: "Enregistrement...",
+    actionFailed: "Échec de l'action.",
     cancel: "Annuler",
     confirm: "Confirmer",
     close: "Fermer",

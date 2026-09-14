@@ -782,7 +782,7 @@ function DiscoverPageInner() {
                 key={kind}
                 type="button"
                 onClick={() => kind === "all" ? clearFilters() : switchMediaType(kind)}
-                className={cn("rounded-lg px-4 py-2 text-xs font-bold transition-colors", (kind === "all" ? forYou : !forYou && mediaType === kind) ? "brand-gradient text-white" : "text-ink-soft hover:bg-white/8 hover:text-ink")}
+                className={cn("rounded-lg px-6 text-sm font-bold transition-colors", (kind === "all" ? forYou : !forYou && mediaType === kind) ? "brand-gradient text-white" : "text-ink-soft hover:bg-white/8 hover:text-ink")}
               >
                 {kind === "all" ? "Pour vous" : kind === "movie" ? t("common.movies") : t("common.series")}
               </button>
@@ -795,11 +795,11 @@ function DiscoverPageInner() {
                 <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} className={cn("nx-discover-provider-tab", String(tile.id) === watchProvider?.id && "nx-discover-provider-tab-active", localSvg && PROVIDER_LIGHT_TILE.has(tile.id) && "nx-discover-provider-tab-light")}>
                   {localSvg ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={localSvg} alt={tile.name} className="h-6 w-8 object-contain" />
+                    <img src={localSvg} alt={tile.name} className="h-8 w-11 object-contain" />
                   ) : tile.logoPath ? (
-                    <TmdbImage path={tile.logoPath} size="w92" alt={tile.name} className="h-6 w-8 object-contain" />
+                    <TmdbImage path={tile.logoPath} size="w92" alt={tile.name} className="h-8 w-11 object-contain" />
                   ) : (
-                    <span className="text-[9px] font-bold text-ink-soft">{tile.name.slice(0, 7)}</span>
+                    <span className="text-[13px] font-bold text-ink-soft">{tile.name.slice(0, 7)}</span>
                   )}
                 </button>
               );
@@ -812,10 +812,10 @@ function DiscoverPageInner() {
               className="nx-discover-filter-button"
               aria-expanded={openMenu === "desktopFilters"}
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" /> {t("filters.shortTitle")}
+              <SlidersHorizontal className="h-5 w-5" /> {t("filters.shortTitle")}
             </button>
             {openMenu === "desktopFilters" && (
-              <div className="nx-discover-filter-menu absolute right-0 top-full z-30 mt-2 w-60 p-3">
+              <div className="nx-discover-filter-menu absolute right-0 top-full z-30 mt-2 w-[22.5rem] p-3">
                 <label className="block text-[11px] font-bold text-ink-dim">{t("discover.genres")}</label>
                 <select value={genre} onChange={(e) => setGenre(e.target.value)} className="mt-1.5 h-9 w-full rounded-md border border-white/10 bg-[#0d1939] px-2 text-xs font-semibold text-ink outline-none">
                   <option value="">{t("common.all")}</option>
@@ -828,7 +828,7 @@ function DiscoverPageInner() {
             )}
           </div>
           <label className="nx-discover-sort shrink-0">
-            <span>{t("common.sortBy")}</span>
+            <span>{t("activity.sortBy")}</span>
             <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("discover.trending")}>
               <option value="popularity.desc">{t("discover.trending")}</option>
               <option value="vote_average.desc">{t("discover.sortTopRated")}</option>

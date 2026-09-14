@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.24.165 — September 2026
+
+### Découverte : barre du haut agrandie et corrigée
+
+- Onglets, logos plateformes, bouton Filtres et tri sont environ 50 % plus grands et plus lisibles.
+- Les logos plateformes remplissent mieux leur cadre.
+- Le libellé "Trier par" s'affichait comme une clé technique brute au lieu du texte traduit — corrigé.
+
+### Téléchargements : jaquettes et actions manquantes
+
+- Chaque téléchargement affiche désormais sa jaquette (au lieu d'une simple icône) dans une ligne légèrement plus haute.
+- Les boutons "remplacer" (recherche manuelle) et "supprimer" étaient absents à côté de pause sur le tableau de bord des téléchargements — ajoutés.
+- Les bascules "Démarrage auto au boot" et "Séquentiel" affichent maintenant un message d'erreur au lieu de rester silencieusement sans effet en cas d'échec.
+
 ## v1.24.164 — September 2026
 
 ### Accueil : les réglages du tableau de bord reprennent effet

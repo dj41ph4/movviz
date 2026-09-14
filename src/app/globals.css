@@ -792,37 +792,41 @@ body {
 
   .nx-desktop-shell .nx-discover-desktop-bar {
     align-items: center;
-    gap: .75rem;
-    min-height: 34px;
+    gap: 1.125rem;
+    min-height: 51px;
     padding: 0;
     background: transparent;
   }
 
   .nx-desktop-shell .nx-discover-mode-tabs {
     border: 1px solid rgba(70, 105, 203, .36);
-    border-radius: 7px;
-    padding: 2px;
+    border-radius: 11px;
+    padding: 3px;
     background: rgba(5, 15, 38, .68);
   }
 
   .nx-desktop-shell .nx-discover-mode-tabs button {
-    min-width: 60px;
-    border-radius: 5px;
-    padding: .43rem .72rem;
+    display: flex;
+    height: 41px;
+    min-width: 90px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 0 1.08rem;
   }
 
-  .nx-desktop-shell .nx-discover-provider-tabs { gap: .38rem; }
+  .nx-desktop-shell .nx-discover-provider-tabs { gap: .57rem; }
 
   .nx-desktop-shell .nx-discover-provider-tab {
     display: flex;
-    height: 31px;
-    width: 39px;
+    height: 47px;
+    width: 59px;
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
     overflow: hidden;
     border: 1px solid rgba(70, 105, 203, .36);
-    border-radius: 6px;
+    border-radius: 9px;
     background: #07152f;
     transition: border-color .16s ease, background .16s ease;
   }
@@ -848,14 +852,14 @@ body {
 
   .nx-desktop-shell .nx-discover-filter-button {
     display: inline-flex;
-    min-height: 31px;
+    min-height: 47px;
     align-items: center;
-    gap: .4rem;
+    gap: .6rem;
     border: 1px solid rgba(70, 105, 203, .5);
-    border-radius: 6px;
-    padding: .35rem .7rem;
+    border-radius: 9px;
+    padding: .525rem 1.05rem;
     color: var(--color-ink);
-    font-size: .7rem;
+    font-size: 1.05rem;
     font-weight: 800;
     background: #07152f;
   }
@@ -864,7 +868,7 @@ body {
 
   .nx-desktop-shell .nx-discover-filter-menu {
     border: 1px solid rgba(70, 105, 203, .5);
-    border-radius: 7px;
+    border-radius: 11px;
     background: #091735;
     box-shadow: 0 14px 28px rgba(0, 0, 0, .35);
   }
@@ -872,20 +876,20 @@ body {
   .nx-desktop-shell .nx-discover-sort {
     display: inline-flex;
     align-items: center;
-    gap: .4rem;
+    gap: .6rem;
     color: var(--color-ink-soft);
-    font-size: .68rem;
+    font-size: 1.02rem;
     font-weight: 700;
   }
 
   .nx-desktop-shell .nx-discover-sort select {
-    height: 31px;
-    min-width: 112px;
+    height: 47px;
+    min-width: 168px;
     border: 1px solid rgba(70, 105, 203, .45);
-    border-radius: 6px;
-    padding: 0 .55rem;
+    border-radius: 9px;
+    padding: 0 .825rem;
     color: var(--color-ink);
-    font-size: .7rem;
+    font-size: 1.05rem;
     font-weight: 700;
     background: #07152f;
   }
@@ -990,7 +994,7 @@ body {
   }
 
   .nx-desktop-shell .nx-download-table-head {
-    grid-template-columns: minmax(230px, 2fr) minmax(130px, 1fr) 100px 90px 100px 116px;
+    grid-template-columns: minmax(230px, 2fr) minmax(130px, 1fr) 100px 90px 100px 172px;
     gap: .75rem;
     padding: .1rem 1rem .35rem;
     color: color-mix(in oklab, var(--color-ink) 58%, transparent);
@@ -1000,12 +1004,17 @@ body {
     text-transform: uppercase;
   }
 
+  .nx-desktop-shell .nx-download-poster {
+    height: 62px;
+    width: 44px;
+  }
+
   .nx-desktop-shell .nx-download-desktop-row {
-    grid-template-columns: minmax(230px, 2fr) minmax(130px, 1fr) 100px 90px 100px 116px;
+    grid-template-columns: minmax(230px, 2fr) minmax(130px, 1fr) 100px 90px 100px 172px;
     gap: .75rem;
     align-items: stretch;
-    min-height: 68px;
-    padding: .55rem 1rem;
+    min-height: 84px;
+    padding: .6rem 1rem;
     border: 1px solid color-mix(in oklab, var(--color-cyan) 20%, var(--color-brand) 28%);
     border-radius: 10px;
     background: rgba(10, 20, 48, .76);

@@ -189,6 +189,7 @@ export const en: Dictionary = {
     add: "Add",
     save: "Save",
     saving: "Saving...",
+    actionFailed: "Action failed.",
     cancel: "Cancel",
     confirm: "Confirm",
     close: "Close",

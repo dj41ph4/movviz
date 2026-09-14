@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Activity, ArrowDown, ArrowUp, Download } from "lucide-react";
 import { formatBytes, formatSpeed } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
+import { toast } from "@/components/ui/Toast";
 import type { EngineInstance } from "@/lib/types";
 
 type SpeedSample = { at: number; downloadSpeed: number; uploadSpeed: number; active: number };
@@ -32,9 +33,25 @@ export function DownloadLiveStats() {
   const up = linePoints(history, "uploadSpeed");
   const primary = instanceData?.instances?.[0];
   const updatePrimary = async (patch: Partial<Pick<EngineInstance, "autoStart" | "sequential">>) => {
-    if (!primary) return;
-    await fetch(`/api/engine/instances/${primary.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
-    await mutateInstances();
+    if (!primary || !instanceData) return;
+    // Optimistic flip, no revalidation yet — the toggle used to sit
+    // unchanged until the next 15s poll even on success, reading as
+    // unresponsive. On failure (e.g. a non-admin session silently 403'd by
+    // the engine route) it now visibly snaps back instead of just staying
+    // stuck on the pre-click value with no feedback at all.
+    const optimistic = {
+      ...instanceData,
+      instances: instanceData.instances.map((inst) => inst.id === primary.id ? { ...inst, ...patch } : inst),
+    };
+    await mutateInstances(optimistic, { revalidate: false });
+    try {
+      const res = await fetch(`/api/engine/instances/${primary.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
+      if (!res.ok) throw new Error(String(res.status));
+    } catch {
+      toast("error", t("common.actionFailed"));
+    } finally {
+      await mutateInstances();
+    }
   };
 
   return (

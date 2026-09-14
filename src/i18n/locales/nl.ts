@@ -189,6 +189,7 @@ export const nl: Dictionary = {
     add: "Toevoegen",
     save: "Opslaan",
     saving: "Opslaan...",
+    actionFailed: "Actie mislukt.",
     cancel: "Annuleren",
     confirm: "Bevestigen",
     close: "Sluiten",

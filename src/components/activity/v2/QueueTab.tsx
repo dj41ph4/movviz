@@ -16,6 +16,7 @@ import type { QueueItem } from "@/lib/activity/v2/types";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { parseRelease } from "@/lib/naming/parser";
 import { buildMediaBadgeItems } from "@/components/library/MediaBadges";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
@@ -677,8 +678,10 @@ const QueueItemRow = memo(function QueueItemRow({
     <>
     <div className="nx-download-desktop-row hidden lg:grid" onClick={() => onToggleExpand(item.id)}>
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
-          {item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+        <span className={cn("nx-download-poster flex shrink-0 items-center justify-center overflow-hidden rounded-lg", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
+          {item.media.posterPath ? (
+            <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
+          ) : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
         </span>
         <div className="min-w-0"><p className="truncate text-xs font-bold text-ink">{item.media.title}</p><p className="truncate text-[10px] text-ink-dim">{item.release.quality} · {item.release.indexer}</p></div>
       </div>
@@ -691,6 +694,26 @@ const QueueItemRow = memo(function QueueItemRow({
       <span className={cn("w-fit self-center rounded-full border px-2 py-1 text-[10px] font-bold", item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" : item.status === "stalled" ? "border-down/30 bg-down/12 text-down" : "border-white/15 bg-white/5 text-ink-soft")}>{item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}</span>
       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
         {(item.status === "downloading" || item.status === "paused" || item.status === "queued") && <button type="button" onClick={() => onAction(item.id, item.status === "downloading" ? "pause" : "resume")} disabled={actionLoading !== null} className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan/25 text-ink hover:bg-cyan/10 disabled:opacity-40" title={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")}>{item.status === "downloading" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}</button>}
+        {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
+          <button
+            type="button"
+            onClick={() => onAction(item.id, "search")}
+            disabled={actionLoading !== null}
+            className={cn("flex h-8 w-8 items-center justify-center rounded-lg border text-ink hover:bg-white/8 disabled:opacity-40", item.status === "stalled" ? "border-down/30 text-down hover:bg-down/10" : "border-white/10")}
+            title={item.status === "stalled" ? t("downloads.replace") : t("downloads.manual")}
+          >
+            <Search className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(item.id, false)}
+          disabled={actionLoading !== null}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-ink-soft hover:border-down/30 hover:bg-down/10 hover:text-down disabled:opacity-40"
+          title={t("downloads.remove")}
+        >
+          {actionLoading === `remove_${item.id}` ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </button>
         <button type="button" onClick={() => onToggleExpand(item.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-ink-soft hover:bg-white/8" title={t("common.details")}><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} /></button>
       </div>
     </div>
@@ -708,9 +731,11 @@ const QueueItemRow = memo(function QueueItemRow({
         onClick={() => onToggleExpand(item.id)}
       >
         <div className="flex items-start gap-3">
-          <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+          <span className={cn("flex h-[70px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-xl",
             item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
-            {item.media.type === "movie" ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
+            {item.media.posterPath ? (
+              <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
+            ) : item.media.type === "movie" ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
           </span>
 
           <div className="min-w-0 flex-1">

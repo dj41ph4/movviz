@@ -189,6 +189,7 @@ export const de: Dictionary = {
     add: "Hinzufügen",
     save: "Speichern",
     saving: "Speichert...",
+    actionFailed: "Aktion fehlgeschlagen.",
     cancel: "Abbrechen",
     confirm: "Bestätigen",
     close: "Schließen",
