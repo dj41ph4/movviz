@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.25.4 — September 2026
+
+### Nettoyage visuel : fond animé retiré, suggestions et métadonnées affinées
+
+- Le fond animé "Aurora" (arrière-plan de l'app) est retiré — composant inutilisé qui alourdissait le rendu sans plus-value visuelle actuelle.
+- Moteur de suggestions et récupération des métadonnées TMDb affinés (orientation vidéo, textes traduits).
+
 ## v1.25.1 — September 2026
 
 ### Hotfix : timeouts API pendant le sync Plex

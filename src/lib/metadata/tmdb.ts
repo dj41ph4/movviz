@@ -13,7 +13,7 @@ import { loadTmdbKey } from "./store";
 import { getCache } from "@/lib/cache/registry";
 import { omdbConfigured, getOmdbRatings } from "./omdb";
 import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
-import { excludePortrait } from "./youtubeOrientation";
+import { excludePortrait, excludeUnknownOrPortrait } from "./youtubeOrientation";
 import { translateStatus } from "./statusTranslations";
 import { STREAMING_PLATFORMS } from "./curated";
 import { LOCALES } from "@/i18n/config";
@@ -1086,6 +1086,47 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
       episodeCount: s.episode_count,
       airDate: s.air_date,
     })) : undefined,
+  };
+}
+
+/**
+ * Cache-only trailer/ambient video keys for a title — never issues a network
+ * request (no TMDb fetch, no YouTube oEmbed orientation check), unlike
+ * getDetail(). Used by the dashboard's fast local hero fallback
+ * (suggestionEngine.ts's buildLibraryHeroFallbackSlides), which renders
+ * before the richer `?rich=1` pass and must never block on the network: a
+ * title whose detail was already fetched/cached (e.g. from a previous visit)
+ * gets its real video keys immediately instead of showing no video at all
+ * until the rich pass replaces the whole slide.
+ */
+export function getCachedVideoKeys(
+  type: "movie" | "series",
+  tmdbId: number,
+  preferLanguage?: string
+): { trailerKeys: string[]; ambientVideoKeys: string[] } {
+  const key = apiKey();
+  const empty = { trailerKeys: [], ambientVideoKeys: [] };
+  if (!key) return empty;
+
+  const kind = type === "movie" ? "movie" : "tv";
+  const url = new URL(`${BASE}/${kind}/${tmdbId}`);
+  url.searchParams.set("api_key", key);
+  url.searchParams.set("language", toTmdbLanguage(preferLanguage));
+  url.searchParams.set("append_to_response", "credits,recommendations,keywords,external_ids,videos,release_dates");
+  url.searchParams.set("include_video_language", `${LOCALES.join(",")},null`);
+
+  const cached = tmdbCache().getStale<RawDetail>(url.toString());
+  const videos = cached?.value.videos?.results;
+  if (!videos?.length) return empty;
+
+  const ctx = {
+    userLanguage: preferLanguage,
+    originalLanguage: cached!.value.original_language ?? null,
+    supportedLanguages: LOCALES,
+  };
+  return {
+    trailerKeys: excludeUnknownOrPortrait(selectMediaVideo(videos, { ...ctx, context: "details" })).slice(0, 5),
+    ambientVideoKeys: excludeUnknownOrPortrait(selectMediaVideo(videos, { ...ctx, context: "carousel" })).slice(0, 5),
   };
 }
 

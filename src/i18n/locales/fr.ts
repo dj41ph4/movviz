@@ -1361,7 +1361,7 @@ export const fr = {
     dashboardExperience: {
       animationsTitle: "Animations",
       animationsEnabled: "Activer les animations",
-      animationsHint: "Logo, transitions, fond aurora, effets. Désactive tout pour un affichage entièrement statique.",
+      animationsHint: "Logo, transitions, effets. Désactive tout pour un affichage entièrement statique.",
       modeTitle: "Mode d'affichage",
       modeHint: "Choisis l'ambiance du tableau de bord — ce réglage n'affecte que toi, pas les autres utilisateurs.",
       mode: { cinema: "Cinéma", classic: "Classique", compact: "Compact" },

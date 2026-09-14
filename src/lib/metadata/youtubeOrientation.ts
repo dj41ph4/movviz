@@ -81,3 +81,14 @@ export async function excludePortrait(keys: string[]): Promise<string[]> {
   const flags = await Promise.all(keys.map((key) => isPortraitYouTubeVideo(key)));
   return keys.filter((_, i) => !flags[i]);
 }
+
+/** Cache-only counterpart of excludePortrait — never queries oEmbed. Keeps
+ *  only keys already confirmed landscape; an unchecked key is dropped rather
+ *  than risked, since resolving it would mean a network round-trip. Used by
+ *  the dashboard's fast local hero fallback, which must never block on the
+ *  network (see suggestionEngine.ts's buildLibraryHeroFallbackSlides). */
+export function excludeUnknownOrPortrait(keys: string[]): string[] {
+  if (keys.length === 0) return keys;
+  const store = load();
+  return keys.filter((key) => store[key] === false);
+}

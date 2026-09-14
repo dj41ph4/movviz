@@ -1363,7 +1363,7 @@ export const it: Dictionary = {
     dashboardExperience: {
       animationsTitle: "Animazioni",
       animationsEnabled: "Attiva le animazioni",
-      animationsHint: "Logo, transizioni, sfondo aurora, effetti. Disattiva per un'interfaccia completamente statica.",
+      animationsHint: "Logo, transizioni, effetti. Disattiva per un'interfaccia completamente statica.",
       modeTitle: "Modalità di visualizzazione",
       modeHint: "Scegli l'atmosfera della dashboard — questa impostazione riguarda solo te, non gli altri utenti.",
       mode: { cinema: "Cinema", classic: "Classica", compact: "Compatta" },

@@ -20,7 +20,7 @@ import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getStatusTransitions } from "@/lib/library/statusTransitions";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { loadRequests } from "@/lib/requests/store";
-import { getDetail, trending } from "@/lib/metadata/tmdb";
+import { getDetail, getCachedVideoKeys, trending } from "@/lib/metadata/tmdb";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import type { LibraryFile, LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
@@ -82,9 +82,13 @@ export interface HeroSlide {
  * Immediate, local-only hero.  The dashboard must never disappear merely
  * because TMDb (or one of its enrichment calls) is slow: the library already
  * has enough artwork and metadata for a real, useful hero while the richer
- * recommendation pass finishes in the background.
+ * recommendation pass finishes in the background. Video keys come from a
+ * cache-only TMDb lookup (getCachedVideoKeys) — never a network call — so a
+ * title already fetched before (e.g. from an earlier hero refresh or its own
+ * detail page) still gets its ambient/trailer preview immediately instead of
+ * showing a static backdrop until the richer `?rich=1` pass replaces it.
  */
-export function buildLibraryHeroFallbackSlides(targetCount = 6): HeroSlide[] {
+export function buildLibraryHeroFallbackSlides(targetCount = 6, locale?: string): HeroSlide[] {
   const movies = loadMovies()
     .filter((movie) => !!(movie.customBackdropPath ?? movie.backdropPath ?? movie.posterPath))
     .sort((a, b) => {
@@ -94,38 +98,41 @@ export function buildLibraryHeroFallbackSlides(targetCount = 6): HeroSlide[] {
     })
     .slice(0, targetCount);
 
-  return movies.map((movie): HeroSlide => ({
-    poolId: movie.status === "available" ? "recentlyAdded" : "upcoming",
-    libraryStatus: movie.status,
-    daysUntilRelease: movie.status === "upcoming" ? daysUntil(movie.vfReleaseDate ?? movie.releaseDate) : null,
-    libraryFile: movie.file,
-    detail: {
-      tmdbId: movie.tmdbId,
-      type: "movie",
-      title: movie.title,
-      originalTitle: movie.originalTitle ?? movie.title,
-      year: movie.year,
-      overview: movie.overview,
-      tagline: "",
-      posterPath: movie.posterPath,
-      backdropPath: movie.customBackdropPath ?? movie.backdropPath,
-      rating: movie.rating,
-      genres: movie.genres,
-      runtime: movie.runtime,
-      status: movie.status,
-      originalLanguage: "",
-      countries: [], studios: [], keywords: [], cast: [], crew: [], similar: [], collection: null,
-      isAnime: false, tvdbId: null, imdbId: movie.imdbId,
-      watchProviders: [], releaseDateFull: movie.releaseDate, vfReleaseDate: movie.vfReleaseDate,
-      revenue: null, budget: null, trailerKey: null, trailerKeys: [], ambientVideoKeys: [],
-      rtScore: null, metascore: null, imdbRating: null,
-    },
-    score: {
-      genreMatch: 0, directorMatch: 0, actorMatch: 0, requestBonus: 0, ratingBonus: 0,
-      recencyBonus: 0, availabilityBonus: movie.status === "available" ? 1 : 0,
-      qualityBonus: 0, languageBonus: 0, preferenceBonus: 0, total: 0, reasons: [],
-    },
-  }));
+  return movies.map((movie): HeroSlide => {
+    const { trailerKeys, ambientVideoKeys } = getCachedVideoKeys("movie", movie.tmdbId, locale);
+    return {
+      poolId: movie.status === "available" ? "recentlyAdded" : "upcoming",
+      libraryStatus: movie.status,
+      daysUntilRelease: movie.status === "upcoming" ? daysUntil(movie.vfReleaseDate ?? movie.releaseDate) : null,
+      libraryFile: movie.file,
+      detail: {
+        tmdbId: movie.tmdbId,
+        type: "movie",
+        title: movie.title,
+        originalTitle: movie.originalTitle ?? movie.title,
+        year: movie.year,
+        overview: movie.overview,
+        tagline: "",
+        posterPath: movie.posterPath,
+        backdropPath: movie.customBackdropPath ?? movie.backdropPath,
+        rating: movie.rating,
+        genres: movie.genres,
+        runtime: movie.runtime,
+        status: movie.status,
+        originalLanguage: "",
+        countries: [], studios: [], keywords: [], cast: [], crew: [], similar: [], collection: null,
+        isAnime: false, tvdbId: null, imdbId: movie.imdbId,
+        watchProviders: [], releaseDateFull: movie.releaseDate, vfReleaseDate: movie.vfReleaseDate,
+        revenue: null, budget: null, trailerKey: trailerKeys[0] ?? null, trailerKeys, ambientVideoKeys,
+        rtScore: null, metascore: null, imdbRating: null,
+      },
+      score: {
+        genreMatch: 0, directorMatch: 0, actorMatch: 0, requestBonus: 0, ratingBonus: 0,
+        recencyBonus: 0, availabilityBonus: movie.status === "available" ? 1 : 0,
+        qualityBonus: 0, languageBonus: 0, preferenceBonus: 0, total: 0, reasons: [],
+      },
+    };
+  });
 }
 
 interface TasteProfile {

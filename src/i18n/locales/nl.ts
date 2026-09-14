@@ -1364,7 +1364,7 @@ export const nl: Dictionary = {
     dashboardExperience: {
       animationsTitle: "Animaties",
       animationsEnabled: "Animaties inschakelen",
-      animationsHint: "Logo, overgangen, aurora-achtergrond, effecten. Zet uit voor een volledig statische interface.",
+      animationsHint: "Logo, overgangen, effecten. Zet uit voor een volledig statische interface.",
       modeTitle: "Weergavemodus",
       modeHint: "Kies de sfeer van het dashboard — deze instelling geldt alleen voor jou, niet voor andere gebruikers.",
       mode: { cinema: "Cinema", classic: "Klassiek", compact: "Compact" },

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   // First paint is deliberately local and synchronous: a dashboard hero is
   // useful with its stored artwork even while TMDb is overloaded. The client
   // follows with ?rich=1 to restore recommendation ranking and trailers.
-  const fallbackSlides = buildLibraryHeroFallbackSlides(6);
+  const fallbackSlides = buildLibraryHeroFallbackSlides(6, locale);
   const slides = rich
     ? await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned }, youtubeTrailerSearch, hero.minYear).then((resolved) => resolved.length ? resolved : fallbackSlides)
     : fallbackSlides;

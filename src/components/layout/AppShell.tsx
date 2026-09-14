@@ -8,7 +8,6 @@ import { SWRConfig } from "swr";
 import { resetSwrCache } from "@/lib/swrCacheReset";
 import { useLibrarySSE } from "@/lib/events/useLibrarySSE";
 import { Hourglass, LogOut } from "lucide-react";
-import { AuroraBackground } from "@/components/fx/AuroraBackground";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { BottomNav } from "./BottomNav";
@@ -137,7 +136,6 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
     content = (
       <GpuProvider>
         <I18nProvider>
-          <AuroraBackground />
           <div className="relative z-10">{children}</div>
         </I18nProvider>
       </GpuProvider>
@@ -146,7 +144,6 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
     content = (
       <GpuProvider>
         <I18nProvider>
-          <AuroraBackground />
           <div className="relative z-10">
             <PendingApprovalScreen username={currentUser!.username} />
           </div>
@@ -163,7 +160,6 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
               <PlayerProvider>
                 <Suspense fallback={null}>
                   <PageLoaderProvider>
-                    <AuroraBackground />
                     <div className="nx-desktop-shell relative z-10 flex min-h-screen">
                       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-xl focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:outline-none">
                         Skip to main content

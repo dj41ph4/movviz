@@ -39,21 +39,7 @@
 
   --animate-shimmer: shimmer 2.5s linear infinite;
   --animate-heartbeat: heartbeat 1.2s ease-in-out infinite;
-  --animate-float: float 7s ease-in-out infinite;
-  --animate-aurora: aurora 18s ease-in-out infinite;
   --animate-pulse-glow: pulseGlow 3s ease-in-out infinite;
-}
-
-/* AuroraBackground's fixed cinematic backdrop — dark only, no light mode.
-   Kept separate from the @theme colors above since it needs a from/to pair
-   (the wash) and per-blob opacities, not just a single hue. */
-:root {
-  --aurora-wash-from: #0b1030;
-  --aurora-wash-to: #05060b;
-  --aurora-blob-1-opacity: 0.6;
-  --aurora-blob-2-opacity: 0.5;
-  --aurora-blob-3-opacity: 0.4;
-  --aurora-grid-line: rgba(255, 255, 255, 0.6);
 }
 
 @keyframes shimmer {
@@ -93,21 +79,9 @@
   animation: cascade-in 0.3s ease-out backwards;
   animation-delay: var(--cascade-delay, 0s);
 }
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-@keyframes aurora {
-  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  33% { transform: translate(6%, -4%) rotate(8deg) scale(1.1); }
-  66% { transform: translate(-5%, 5%) rotate(-6deg) scale(0.95); }
-}
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }
-}
-@keyframes logoSpin {
-  to { transform: rotate(360deg); }
 }
 @keyframes logoPulse {
   0%, 100% {
@@ -123,11 +97,6 @@
   from { background-position: 100% 50%; }
   to { background-position: 0% 50%; }
 }
-@keyframes logoRipple {
-  0% { transform: scale(0.75); opacity: 0.55; }
-  100% { transform: scale(2.1); opacity: 0; }
-}
-
 @keyframes badgePop {
   0% { transform: scale(1); }
   40% { transform: scale(1.25); }
@@ -185,16 +154,8 @@
 .reduce-motion .animate-shimmer-progress,
 .reduce-motion .animate-heartbeat,
 .reduce-motion .animate-page-fade-in,
-.reduce-motion .logo-ripple,
-.reduce-motion .logo-halo,
 .reduce-motion .logo-glow-pulse {
   animation: none !important;
-}
-
-.reduce-motion .logo-halo-static {
-  animation: none !important;
-  filter: blur(12px);
-  opacity: 0.7;
 }
 
 .reduce-motion *,
@@ -381,13 +342,6 @@ body {
    present.  A sharp edge and a quiet blue/violet line replace the broad
    glass blur so data-heavy screens retain their hierarchy. */
 @media (min-width: 1024px) {
-  /* The NX desktop reference uses a quiet navy surface, not moving aurora
-     lights.  Keep the ambient treatment for touch layouts only. */
-  .aurora-blob,
-  .aurora-grid {
-    display: none;
-  }
-
   /* The sketch's shell is compact and structured: a narrow navigation rail,
      short controls, and crisp indigo edges.  These selectors are deliberately
      limited to desktop so mobile keeps its touch-first hierarchy. */
@@ -602,20 +556,6 @@ body {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Animated brand logo mark — spinning aurora halo + breathing glow behind the icon. */
-.logo-halo {
-  background: conic-gradient(
-    from 0deg,
-    var(--color-brand),
-    var(--color-magenta),
-    var(--color-cyan),
-    var(--color-brand-2),
-    var(--color-brand)
-  );
-  filter: blur(16px);
-  animation: logoSpin 5s linear infinite;
-}
-
 .logo-glow-pulse {
   animation: logoPulse 3s ease-in-out infinite;
 }
@@ -694,26 +634,9 @@ body {
   animation: textFlow 5s linear infinite;
 }
 
-/* One-time expanding rings behind the login logo, staggered for depth. */
-.logo-ripple {
-  animation: logoRipple 2.8s ease-out infinite;
-}
-
 /* ============================================================
    GPU-tier optimizations — .gpu-low / .gpu-medium on <html>
    ============================================================ */
-
-/* Aurora: reduce blur progressively per tier */
-.gpu-ultralow .aurora-blob,
-.gpu-ultralow .aurora-grid {
-  display: none;
-}
-.gpu-medium .aurora-blob {
-  filter: blur(80px);
-}
-.gpu-low .aurora-blob {
-  filter: blur(40px);
-}
 
 /* Glass: reduce/remove expensive backdrop-filter per tier */
 .gpu-ultralow .glass,
