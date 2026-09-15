@@ -148,8 +148,9 @@ export class MovvizEngine {
   }
 
   findByInfoHash(infoHash) {
+    const lower = infoHash.toLowerCase();
     for (const inst of this.instances.values()) {
-      if (inst._get(infoHash) || inst.importedHistory.has(infoHash)) return inst;
+      if (inst._get(lower) || inst._get(infoHash) || inst.importedHistory.has(lower) || inst.importedHistory.has(infoHash)) return inst;
     }
     return null;
   }

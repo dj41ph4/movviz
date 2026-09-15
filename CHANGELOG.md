@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.25.10 — September 2026
+
+### Correctif téléchargements : pause/reprise WebTorrent
+
+- `pause`/`resume` ne faisaient plus rien depuis la refonte (casse sensible à la casse sur l'infoHash) — `WebTorrentBackend` et `AbstractBackend` passent désormais en insensible à la casse, `findByInfoHash` aussi ; le bouton pause/reprise du desktop comme du mobile repilote bien WebTorrent.
+
 ## v1.25.9 — September 2026
 
 ### Android TV NX : sidebar carrée, D-pad Prochainement débloqué

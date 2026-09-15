@@ -165,19 +165,22 @@ export class WebTorrentBackend extends AbstractBackend {
   }
 
   _clientPause(infoHash) {
-    const t = this.client?.torrents?.find((t2) => t2.infoHash === infoHash);
+    const lower = infoHash.toLowerCase();
+    const t = this.client?.torrents?.find((t2) => t2.infoHash.toLowerCase() === lower);
     if (t) { t.pause(); return true; }
     return false;
   }
 
   _clientResume(infoHash) {
-    const t = this.client?.torrents?.find((t2) => t2.infoHash === infoHash);
+    const lower = infoHash.toLowerCase();
+    const t = this.client?.torrents?.find((t2) => t2.infoHash.toLowerCase() === lower);
     if (t) { t.resume(); return true; }
     return false;
   }
 
   _clientSetSequential(infoHash, on) {
-    const t = this.client?.torrents?.find((t2) => t2.infoHash === infoHash);
+    const lower = infoHash.toLowerCase();
+    const t = this.client?.torrents?.find((t2) => t2.infoHash.toLowerCase() === lower);
     if (t) { t.sequential = on; return true; }
     return false;
   }

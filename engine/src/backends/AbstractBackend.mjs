@@ -556,13 +556,20 @@ export class AbstractBackend {
   }
 
   pause(infoHash) {
-    const m = this.meta.get(infoHash);
+    const key = infoHash.toLowerCase();
+    const m = this.meta.get(key) ?? this.meta.get(infoHash);
     if (m) m.userPaused = true;
-    return this._clientPause(infoHash);
+    // Ensure the persisted meta key is lowercased for future lookups
+    if (m && this.meta.has(infoHash) && infoHash !== key) {
+      this.meta.set(key, m);
+      this.meta.delete(infoHash);
+    }
+    return this._clientPause(key);
   }
 
   resume(infoHash) {
-    const m = this.meta.get(infoHash);
+    const key = infoHash.toLowerCase();
+    const m = this.meta.get(key) ?? this.meta.get(infoHash);
     if (m) {
       m.userPaused = false;
       m.stalled = false;
@@ -570,7 +577,11 @@ export class AbstractBackend {
       m.dequeuedAt = null;
       m.queued = false;
     }
-    return this._clientResume(infoHash);
+    if (m && this.meta.has(infoHash) && infoHash !== key) {
+      this.meta.set(key, m);
+      this.meta.delete(infoHash);
+    }
+    return this._clientResume(key);
   }
 
   /**
