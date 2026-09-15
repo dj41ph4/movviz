@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.25.15 — September 2026
+
+### Android TV NX : D-pad sidebar débloqué (focusGroup exit)
+
+- `Accueil 1×→ 3×↓ 3×←` renvoyait vers `Rechercher` au lieu d'`Accueil` — passage de `enter` à `exit` sur la `Box` contenu + `TvLazyColumn` en `focusGroup` pour que `LEFT` depuis n'importe quelle 1ère carte aille bien sur l'onglet sélectionné.
+
 ## v1.25.14 — September 2026
 
 ### Android TV NX : hero centré en haut

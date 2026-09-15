@@ -512,7 +512,7 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .focusGroup()
             .focusProperties {
-                enter = { focusDirection ->
+                exit = { focusDirection ->
                     if (focusDirection == androidx.compose.ui.focus.FocusDirection.Left) navRailFocusRequester ?: androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Default
                 }
             }

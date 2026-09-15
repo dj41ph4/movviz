@@ -10,9 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -113,6 +116,7 @@ private fun HomeTab.icon(): ImageVector = when (this) {
  * racine (MainActivity), jamais superposée au contenu : le hero et les pages
  * commencent donc toujours strictement à sa droite.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun NavRail(
     selected: HomeTab,
@@ -170,6 +174,12 @@ fun NavRail(
         modifier = modifier
             .width(width)
             .fillMaxHeight()
+            .focusGroup()
+            .focusProperties {
+                exit = { focusDirection ->
+                    if (focusDirection == FocusDirection.Right) contentFocusRequester ?: FocusRequester.Default else FocusRequester.Default
+                }
+            }
             .onFocusChanged { railFocused = it.hasFocus }
             .then(navDownKeyHandler)
             .background(MovvizSurface)
