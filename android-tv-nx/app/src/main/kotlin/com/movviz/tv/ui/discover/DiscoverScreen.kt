@@ -210,7 +210,7 @@ fun DiscoverScreen(
             "Aucun titre pour le moment",
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier
-                .padding(start = 64.dp, top = 96.dp)
+                .padding(start = 48.dp, top = 72.dp)
                 .focusRequester(emptyStateFocus)
                 .focusable(),
         )
@@ -230,7 +230,7 @@ fun DiscoverScreen(
                         mode = mode,
                         onModeChange = onModeChange,
                         firstFocusRequester = hubFocus,
-                        modifier = Modifier.padding(start = 56.dp, top = 32.dp, bottom = 20.dp),
+                        modifier = Modifier.padding(start = 42.dp, top = 24.dp, bottom = 15.dp),
                     )
                 } else {
                     // Ancien point d'entrée, maintenu proprement : le
@@ -346,14 +346,14 @@ private fun resolutionLabelForDiscover(resolution: String?): String? = when {
 @Composable
 private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit, firstFocusRequester: FocusRequester? = null) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         // NxTopNav est une surcouche (volontairement transparente lorsque la
         // page est en haut). Le sélecteur doit donc commencer *sous* ses
         // 62 dp : sinon les capsules Films/Séries se retrouvent derrière le
         // logo et les liens de navigation, comme une seconde barre cassée.
         // Le conserver dans le flux garantit aussi un ordre D-pad naturel :
         // barre principale → choix Films/Séries → héro → genres → rangées.
-        modifier = Modifier.padding(start = 56.dp, top = 32.dp, bottom = 20.dp),
+        modifier = Modifier.padding(start = 42.dp, top = 24.dp, bottom = 15.dp),
     ) {
         // Sans ce focusRequester, la flèche DROITE depuis la sidebar tombait
         // dans le vide : entryFocusRequester (= contentFocusRequester) n'était
@@ -387,8 +387,8 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit, focu
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            style = TextStyle(fontSize = 11.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+            modifier = Modifier.padding(horizontal = 15.dp, vertical = 8.dp),
         )
     }
 }
@@ -397,17 +397,17 @@ private val SYNTHETIC_GENRES = listOf("anime" to "Anime", "teen" to "Romance ado
 
 @Composable
 private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit) {
-    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+    Column(modifier = Modifier.padding(bottom = 24.dp)) {
         Text(
             text = "Genres",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = 39.dp, bottom = 9.dp),
         )
         TvLazyRow(
             modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             itemsIndexed(SYNTHETIC_GENRES, key = { _, item -> "synth-${item.first}" }) { _, item ->
                 DiscoverGenreChip(label = item.second, onClick = { onSelect(item.first, item.second) })
@@ -430,17 +430,17 @@ private fun DiscoverLogoRow(
     tiles: List<com.movviz.tv.data.LogoTileDto>,
     onSelect: ((com.movviz.tv.data.LogoTileDto) -> Unit)?,
 ) {
-    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+    Column(modifier = Modifier.padding(bottom = 24.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = 39.dp, bottom = 9.dp),
         )
         TvLazyRow(
             modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
             itemsIndexed(tiles, key = { _, tile -> "$title-${tile.id}" }) { _, tile ->
                 DiscoverLogoTile(tile = tile, onClick = onSelect?.let { { it(tile) } })
@@ -471,9 +471,9 @@ private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() 
                 // Une largeur fixe évite les ronds vides pendant le premier
                 // chargement Coil et donne une rangée de logos comparable à
                 // celle du desktop, pas une série de placeholders.
-                .width(136.dp)
-                .height(56.dp)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .width(102.dp)
+                .height(42.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
             if (tile.logoPath != null) {
@@ -486,9 +486,9 @@ private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
-                        .background(Color.White.copy(alpha = 0.95f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .height(30.dp)
+                        .background(Color.White.copy(alpha = 0.95f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     // SubcomposeAsyncImage plutôt que rememberAsyncImagePainter
@@ -524,7 +524,7 @@ private fun DiscoverLogoTileFallback(name: String, dark: Boolean, focused: Boole
     Text(
         text = name,
         style = TextStyle(
-            fontSize = 13.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (dark) Color(0xFF1A1A1A) else if (focused) MovvizInk else MovvizInkSoft,
         ),
@@ -550,8 +550,8 @@ private fun DiscoverGenreChip(label: String, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (focused) MovvizInk else MovvizInkSoft),
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (focused) MovvizInk else MovvizInkSoft),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
         )
     }
 }

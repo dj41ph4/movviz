@@ -76,26 +76,26 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .width(520.dp)
-                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-                .padding(40.dp),
+                .width(390.dp)
+                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(18.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+                .padding(30.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AnimatedLogo(size = 56.dp)
-            Spacer(Modifier.height(12.dp))
+            AnimatedLogo(size = 42.dp)
+            Spacer(Modifier.height(9.dp))
             MovvizWordmark()
             Spacer(Modifier.height(2.dp))
             Text(
                 text = "MEDIA CORE",
-                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim, letterSpacing = 3.sp),
+                style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim, letterSpacing = 2.sp),
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(15.dp))
             Text(
                 text = "À quelle adresse se trouve ton serveur ?",
-                style = TextStyle(fontSize = 15.sp, color = MovvizInkDim),
+                style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
             )
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(21.dp))
 
             TvTextField(
                 value = url,
@@ -106,14 +106,14 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
             )
 
             if (error != null) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(9.dp))
                 Text(
                     text = error!!,
-                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown),
+                    style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown),
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(15.dp))
 
             GradientButton(
                 text = if (testing) "Connexion..." else "Se connecter",
@@ -156,20 +156,20 @@ fun TvTextField(
             .border(
                 width = if (focused) 2.dp else 1.dp,
                 color = if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(9.dp),
             )
-            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(9.dp))
             .onFocusChanged { focused = it.isFocused }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 12.dp, vertical = 11.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         if (value.isEmpty()) {
-            Text(text = placeholder, style = TextStyle(fontSize = 16.sp, color = MovvizInkDim))
+            Text(text = placeholder, style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
         }
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 16.sp, color = MovvizInk),
+            textStyle = TextStyle(fontSize = 12.sp, color = MovvizInk),
             singleLine = true,
             // Sans imeAction/onDone, le bouton coche du clavier virtuel
             // n'a AUCUNE action assignée et ne referme donc jamais le
@@ -208,7 +208,7 @@ fun TvTextField(
 @Composable
 fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(9.dp)
     Surface(
         onClick = onClick,
         enabled = enabled,
@@ -237,8 +237,8 @@ fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusR
             ),
         ),
     ) {
-        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-            Text(text = text, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold))
+        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp), contentAlignment = Alignment.Center) {
+            Text(text = text, style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold))
         }
     }
 }

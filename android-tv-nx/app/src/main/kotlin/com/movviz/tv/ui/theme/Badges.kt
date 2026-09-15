@@ -47,10 +47,10 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
     val tone = statusTone(status)
     Text(
         text = tone.label,
-        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = tone.color),
+        style = TextStyle(fontSize = 7.sp, fontWeight = FontWeight.Bold, color = tone.color),
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(3.dp))
+            .padding(horizontal = 5.dp, vertical = 2.dp),
     )
 }
 
@@ -62,11 +62,11 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
 fun QualityPill(label: String, color: Color, modifier: Modifier = Modifier) {
     Text(
         text = label,
-        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = color),
+        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color),
         modifier = modifier
-            .background(color.copy(alpha = 0.12f), RoundedCornerShape(5.dp))
-            .border(1.dp, color.copy(alpha = 0.55f), RoundedCornerShape(5.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+            .border(1.dp, color.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
 
@@ -76,20 +76,20 @@ fun QualityPill(label: String, color: Color, modifier: Modifier = Modifier) {
 fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(3.dp))
+            .padding(horizontal = 5.dp, vertical = 2.dp),
     ) {
         Icon(
             imageVector = MovvizIconStar,
             contentDescription = null,
             tint = Color(0xFFF5C542),
-            modifier = Modifier.size(11.dp),
+            modifier = Modifier.size(8.dp),
         )
         Text(
             text = "%.1f".format(rating),
-            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
+            style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
         )
     }
 }

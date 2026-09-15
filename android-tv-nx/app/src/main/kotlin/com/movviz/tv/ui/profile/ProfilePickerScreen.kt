@@ -93,7 +93,7 @@ fun ProfilePickerScreen(
                         Color(0xFF10101A),
                         Color(0xFF05060B),
                     ),
-                    radius = 1_150f,
+                    radius = 862f,
                 ),
             ),
     ) {
@@ -107,30 +107,30 @@ fun ProfilePickerScreen(
                     Brush.radialGradient(
                         colors = listOf(MovvizBrand2.copy(alpha = .08f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                        radius = 920f,
+                        radius = 690f,
                     ),
                 ),
         )
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(top = 46.dp, bottom = 40.dp),
+            modifier = Modifier.fillMaxSize().padding(top = 35.dp, bottom = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(contentAlignment = Alignment.Center) {
-                AnimatedLogo(size = 38.dp)
+                AnimatedLogo(size = 29.dp)
             }
-            Spacer(Modifier.height(7.dp))
-            MovvizWordmark(fontSize = 18.sp)
+            Spacer(Modifier.height(5.dp))
+            MovvizWordmark(fontSize = 14.sp)
 
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(36.dp))
             Text(
                 text = "Qui regarde ?",
-                style = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Black, color = Color.White),
+                style = TextStyle(fontSize = 29.sp, fontWeight = FontWeight.Black, color = Color.White),
             )
-            Spacer(Modifier.height(9.dp))
+            Spacer(Modifier.height(7.dp))
             Text(
                 text = "Chaque profil garde ses reprises, ses goûts et ses suggestions.",
-                style = TextStyle(fontSize = 15.sp, color = Color.White.copy(alpha = .58f), textAlign = TextAlign.Center),
+                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = .58f), textAlign = TextAlign.Center),
             )
 
             AnimatedVisibility(
@@ -141,19 +141,19 @@ fun ProfilePickerScreen(
                 Text(
                     text = shownNotice ?: "",
                     color = MovvizAmber,
-                    fontSize = 13.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 14.dp),
+                    modifier = Modifier.padding(top = 11.dp),
                 )
             }
 
-            Spacer(Modifier.height(38.dp))
+            Spacer(Modifier.height(29.dp))
 
             TvLazyRow(
                 state = rememberTvLazyListState().withTvPrefetchDisabled(),
-                modifier = Modifier.widthIn(max = 1040.dp),
-                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(26.dp),
+                modifier = Modifier.widthIn(max = 780.dp),
+                contentPadding = PaddingValues(horizontal = 21.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = Alignment.Top,
             ) {
                 items(visibleProfiles, key = { it.id }) { profile ->
@@ -174,11 +174,11 @@ fun ProfilePickerScreen(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(18.dp))
             Text(
                 text = if (visibleProfiles.isEmpty()) "Ajoutez le premier utilisateur de cette TV" else "OK pour continuer  •  + pour ajouter un utilisateur",
                 color = Color.White.copy(alpha = .42f),
-                fontSize = 12.sp,
+                fontSize = 9.sp,
                 letterSpacing = .2.sp,
             )
         }

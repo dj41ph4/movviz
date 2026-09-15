@@ -1217,8 +1217,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     // en coin, la dernière image reste affichée — jamais de
                     // gel visuel silencieux pendant un ralentissement réseau.
                     BufferingSpinner(
-                        size = 28.dp,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(28.dp),
+                        size = 21.dp,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(21.dp),
                     )
                 } else {
                     Box(
@@ -1229,8 +1229,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                             // "lg" desktop (h-16 w-16 = 64dp) — même mark de
                             // marque que login/rail/à propos, pas un spinner
                             // générique inventé pour le lecteur.
-                            AnimatedLogo(size = 64.dp)
-                            Spacer(modifier = Modifier.height(16.dp))
+                            AnimatedLogo(size = 48.dp)
+                            Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "Optimisation en cours…",
                                 style = MaterialTheme.typography.labelSmall,
@@ -1249,12 +1249,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             visible = fallbackNotice != null,
             enter = fadeIn(),
             exit = fadeOut(),
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 28.dp),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 21.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(15.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             ) {
                 Text(
                     text = fallbackNotice ?: "",
@@ -1289,7 +1289,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 48.dp),
+                    modifier = Modifier.padding(horizontal = 36.dp),
                 ) {
                     Text(
                         text = msg,
@@ -1298,7 +1298,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         textAlign = TextAlign.Center,
                     )
                     if (techDetails.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = techDetails,
                             style = MaterialTheme.typography.labelSmall,
@@ -1308,8 +1308,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Spacer(modifier = Modifier.height(28.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Spacer(modifier = Modifier.height(21.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                         if (canRetry) {
                             ErrorActionButton(
                                 label = "Réessayer",
@@ -1380,7 +1380,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 Box(
                     modifier = Modifier
                         .background(Color.Black.copy(alpha = 0.65f), CircleShape)
-                        .padding(horizontal = 28.dp, vertical = 18.dp),
+                        .padding(horizontal = 21.dp, vertical = 14.dp),
                 ) {
                     Text(
                         text = seekIndicator ?: "",
@@ -1397,10 +1397,10 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // y compris si l'intro se termine tout près du prochain épisode.
         val hasSkip = activeMarker != null
         val skipBottom = when {
-            showNextEpisodeTeaser && hasNext && showControls -> 300.dp
-            showNextEpisodeTeaser && hasNext -> 210.dp
-            showControls -> 190.dp
-            else -> 56.dp
+            showNextEpisodeTeaser && hasNext && showControls -> 225.dp
+            showNextEpisodeTeaser && hasNext -> 158.dp
+            showControls -> 143.dp
+            else -> 42.dp
         }
         // "Passer l'intro / générique" — bottom-right, au-dessus du
         // panneau "Épisode suivant" s'il existe ; visible même quand les
@@ -1412,7 +1412,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             exit = fadeOut(tween(160)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 56.dp, bottom = skipBottom),
+                .padding(end = 42.dp, bottom = skipBottom),
         ) {
             val label = if (activeMarker?.type == "intro") "Passer l'intro" else "Passer le générique"
             SkipMarkerButton(
@@ -1432,7 +1432,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             exit = fadeOut(tween(200)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 56.dp, bottom = 130.dp),
+                .padding(end = 42.dp, bottom = 98.dp),
         ) {
             NextEpisodeTeaser(
                 label = queue.getOrNull(currentIndex + 1)?.label,
@@ -1610,9 +1610,9 @@ private fun PlayerProgressBar(
                 }
             },
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(5.dp)) {
             // Piste de fond — bg-white/14 desktop.
-            Box(modifier = Modifier.fillMaxSize().background(if (focused) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(3.dp)))
+            Box(modifier = Modifier.fillMaxSize().background(if (focused) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp)))
             // Zone déjà tamponnée — bg-white/20 desktop, posée sur toute la
             // largeur tamponnée (le remplissage de lecture, dessiné après,
             // recouvre la portion déjà lue : le résultat visuel est identique
@@ -1622,7 +1622,7 @@ private fun PlayerProgressBar(
                 modifier = Modifier
                     .fillMaxWidth(buffered)
                     .fillMaxHeight()
-                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(3.dp)),
+                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(2.dp)),
             )
             // Progression — dessinée au Canvas pour le halo : la lueur sous
             // le trait net (même dégradé en alpha faible, plus épaisse)
@@ -1667,7 +1667,7 @@ private fun PlayerProgressBar(
                 drawCircle(color = if (focused) MovvizBrand2 else Color.White, radius = if (focused) core * 1.25f else core * 1.0f, center = handleCenter)
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             // tabular-nums desktop : chiffres à chasse fixe pour que le
             // libellé ne "gigote" pas seconde par seconde.
@@ -1724,8 +1724,8 @@ private fun ControlsOverlay(
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
                 .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)))
-                .padding(horizontal = 56.dp)
-                .padding(top = 36.dp, bottom = 36.dp),
+                .padding(horizontal = 42.dp)
+                .padding(top = 27.dp, bottom = 27.dp),
         ) {
             Text(
                 text = title,
@@ -1735,7 +1735,7 @@ private fun ControlsOverlay(
                 overflow = TextOverflow.Ellipsis,
             )
             if (!subtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium.copy(shadow = titleShadow),
@@ -1752,7 +1752,7 @@ private fun ControlsOverlay(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 48.dp, vertical = 28.dp)
+                .padding(horizontal = 36.dp, vertical = 21.dp)
                 // rounded-[22px] desktop (VideoPlayer.tsx ~L2680) — même rayon
                 // que le panneau flottant du player web. Le fond reste un
                 // dégradé opaque plutôt qu'un vrai backdrop-blur : Compose n'a
@@ -1761,13 +1761,13 @@ private fun ControlsOverlay(
                 // à éviter sur un boîtier TV bas de gamme (priorité perf de
                 // cette tâche) — le dégradé sombre approche déjà le rendu
                 // "glass" sans repasser la scène entière au shader.
-                .clip(RoundedCornerShape(22.dp))
+                .clip(RoundedCornerShape(17.dp))
                 .background(
                     Brush.verticalGradient(listOf(Color(0xE60E0E14), Color(0xF008080C))),
-                    RoundedCornerShape(22.dp),
+                    RoundedCornerShape(17.dp),
                 )
-                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
-                .padding(horizontal = 28.dp, vertical = 20.dp),
+                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(17.dp))
+                .padding(horizontal = 21.dp, vertical = 15.dp),
         ) {
             PlayerProgressBar(
                 player = player,
@@ -1775,11 +1775,11 @@ private fun ControlsOverlay(
                 onMoveToControls = { playPauseFocus.requestFocus() },
                 onInteraction = onInteraction,
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 if (hasPrev) ControlButton(icon = MovvizIconSkipPrev, contentDescription = "Épisode précédent", onClick = onPrevEpisode, onMoveToProgress = { progressFocus.requestFocus() })
                 ControlButton(icon = MovvizIconRewind, contentDescription = "Reculer de 10 secondes", onClick = onSeekBack, onMoveToProgress = { progressFocus.requestFocus() })
@@ -1818,7 +1818,7 @@ private fun ControlButton(
     onMoveToProgress: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val size = if (small) 44.dp else if (primary) 68.dp else 56.dp
+    val size = if (small) 33.dp else if (primary) 51.dp else 42.dp
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -1856,13 +1856,13 @@ private fun ControlButton(
                     imageVector = icon,
                     contentDescription = contentDescription,
                     tint = tint,
-                    modifier = Modifier.size(if (small) 18.dp else if (primary) 28.dp else 24.dp),
+                    modifier = Modifier.size(if (small) 14.dp else if (primary) 21.dp else 18.dp),
                 )
             } else {
                 Text(
                     text = label ?: "",
                     style = TextStyle(
-                        fontSize = if (small) 13.sp else if (primary) 22.sp else 18.sp,
+                        fontSize = if (small) 10.sp else if (primary) 17.sp else 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = tint,
                     ),
@@ -1887,7 +1887,7 @@ private fun PlaybackModeBadge(fallbackLevel: Int) {
             .clip(RoundedCornerShape(50))
             .background(color.copy(alpha = 0.18f))
             .border(1.dp, color.copy(alpha = 0.65f), RoundedCornerShape(50))
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(horizontal = 9.dp, vertical = 5.dp),
     ) {
         Text(
             text = label,
@@ -1909,7 +1909,7 @@ private fun ErrorActionButton(
     focusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -1933,7 +1933,7 @@ private fun ErrorActionButton(
             text = label,
             style = MaterialTheme.typography.labelLarge,
             color = Color.White,
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 21.dp, vertical = 9.dp),
         )
     }
 }
@@ -1954,7 +1954,7 @@ private fun NextEpisodeTeaser(
 ) {
     var focused by remember { mutableStateOf(false) }
     val titleShadow = Shadow(color = Color.Black.copy(alpha = 0.8f), offset = Offset(0f, 2f), blurRadius = 8f)
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(9.dp)
     Surface(
         onClick = onNextEpisode,
         modifier = modifier
@@ -1974,9 +1974,9 @@ private fun NextEpisodeTeaser(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = 15.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -2005,7 +2005,7 @@ private fun NextEpisodeTeaser(
                 imageVector = MovvizIconSkipNext,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(21.dp),
             )
         }
     }
@@ -2039,11 +2039,11 @@ private fun SkipMarkerButton(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 17.dp, vertical = 9.dp),
         ) {
             Text(text = label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
-            Icon(imageVector = MovvizIconSkipNext, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Icon(imageVector = MovvizIconSkipNext, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
         }
     }
 }
@@ -2073,17 +2073,17 @@ private fun TrackDialog(
     ) {
         Surface(
             onClick = {},
-            modifier = Modifier.widthIn(min = 320.dp, max = 420.dp),
-            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(16.dp)),
+            modifier = Modifier.widthIn(min = 240.dp, max = 315.dp),
+            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
             colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface),
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier.padding(15.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MovvizInk),
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                TvLazyColumn(state = rememberTvLazyListState().withTvPrefetchDisabled(), modifier = Modifier.heightIn(max = 320.dp)) {
+                Spacer(modifier = Modifier.height(9.dp))
+                TvLazyColumn(state = rememberTvLazyListState().withTvPrefetchDisabled(), modifier = Modifier.heightIn(max = 240.dp)) {
                     if (includeOffOption) {
                         item {
                             TrackRow(
@@ -2111,7 +2111,7 @@ private fun TrackDialog(
 @Composable
 private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequester?, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -2136,7 +2136,7 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
         ),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 9.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -2146,7 +2146,7 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
                     imageVector = MovvizIconCheck,
                     contentDescription = null,
                     tint = MovvizBrand,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(14.dp),
                 )
             }
         }

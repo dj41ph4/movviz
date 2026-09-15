@@ -52,7 +52,7 @@ import kotlin.math.sin
  * (R.drawable.movviz_mark) est affiché tel quel, sans effet.
  */
 @Composable
-fun AnimatedLogo(size: Dp = 56.dp) {
+fun AnimatedLogo(size: Dp = 42.dp) {
     StaticLogo(size = size)
 }
 
@@ -62,7 +62,7 @@ fun AnimatedLogo(size: Dp = 56.dp) {
  * comme demandé. Elle ne sert jamais au rail, qui utilise AnimatedLogo.
  */
 @Composable
-fun StaticLogo(size: Dp = 30.dp) {
+fun StaticLogo(size: Dp = 23.dp) {
     Image(
         painter = painterResource(R.drawable.movviz_mark),
         contentDescription = "Movviz",
@@ -75,9 +75,9 @@ fun StaticLogo(size: Dp = 30.dp) {
  * mais entièrement fixe. Elle garde la présence de marque sans transformer
  * chaque carte de contenu en animation permanente. */
 @Composable
-fun StaticLogoWithGlow(size: Dp = 54.dp) {
+fun StaticLogoWithGlow(size: Dp = 41.dp) {
     Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
-        MulticolorBlurHalo(size = size + 24.dp, rotation = 0f)
+        MulticolorBlurHalo(size = size + 18.dp, rotation = 0f)
         StaticLogo(size = size * (44f / 56f))
     }
 }
@@ -146,7 +146,7 @@ private val WORDMARK_STOPS = listOf(
  * largeur mesuree du texte, avec TileMode.Mirror pour boucler proprement.
  */
 @Composable
-fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 28.sp) {
+fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 21.sp) {
     var widthPx by remember { mutableStateOf(0f) }
     val infinite = rememberInfiniteTransition(label = "wordmark_flow")
     val shift by infinite.floatLoop(0f, 1f, 8000, LinearEasing, RepeatMode.Restart)

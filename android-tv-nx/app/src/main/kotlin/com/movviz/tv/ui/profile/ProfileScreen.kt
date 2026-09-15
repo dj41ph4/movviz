@@ -41,7 +41,7 @@ import com.movviz.tv.ui.theme.MovvizBackground
 
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
-private val profileCardShape = RoundedCornerShape(10.dp)
+private val profileCardShape = RoundedCornerShape(8.dp)
 
 /** Dashboard personnel. La safe area haute évite que le premier focus passe
  * sous la navigation flottante de MainActivity. */
@@ -76,12 +76,12 @@ fun ProfileScreen(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize().background(MovvizBackground)
-            .padding(start = 56.dp, end = 56.dp, bottom = 48.dp),
+            .padding(start = 42.dp, end = 42.dp, bottom = 36.dp),
         // C'est du padding de contenu, pas une marge fixe : une fois la page
         // défilée, une rangée remonte naturellement sous la barre opaque au
         // lieu de laisser un grand trou noir permanent.
-        contentPadding = PaddingValues(top = 156.dp, bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(30.dp),
+        contentPadding = PaddingValues(top = 117.dp, bottom = 30.dp),
+        verticalArrangement = Arrangement.spacedBy(23.dp),
     ) {
         if (profileData == null) {
             item { ProfileLoadingDashboard() }
@@ -89,7 +89,7 @@ fun ProfileScreen(
         }
         item { ProfileDashboardHeader(profileData, activeProfile) }
         if (profileData.continueWatching.isEmpty() && profileData.watchHistory.isEmpty() && profileData.ratings.isEmpty() && profileData.watchlist.isEmpty()) item {
-            Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 16.sp)
+            Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 12.sp)
         }
         var entryAssigned = false
         profileRail("Continuer à regarder", profileData.continueWatching, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode, isResumeRail = true, heroLogos = heroLogos)
@@ -104,9 +104,9 @@ fun ProfileScreen(
 
 @Composable private fun ProfileLoadingDashboard() {
     Column {
-        Text("Mon espace", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Text("Chargement de votre activité…", color = Color(0xFFA7A7A7), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
+        Text("Mon espace", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text("Chargement de votre activité…", color = Color(0xFFA7A7A7), fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.padding(top = 15.dp)) {
             repeat(3) { ProfileMetric("…", 0, loading = true) }
         }
     }
@@ -114,16 +114,16 @@ fun ProfileScreen(
 
 @Composable private fun ProfileDashboardHeader(data: ProfileMediaResponseDto, profile: TvProfile?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        profile?.let { ProfileAvatar(it, Modifier.size(88.dp), cornerRadius = 44.dp) }
-        Column(modifier = Modifier.padding(start = if (profile != null) 18.dp else 0.dp)) {
+        profile?.let { ProfileAvatar(it, Modifier.size(66.dp), cornerRadius = 33.dp) }
+        Column(modifier = Modifier.padding(start = if (profile != null) 14.dp else 0.dp)) {
             Text(
                 if (profile?.name.isNullOrBlank()) "Mon espace" else "${profile?.name} · mon espace",
                 color = Color.White,
-                fontSize = 30.sp,
+                fontSize = 23.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Text("Vos reprises, votre historique et vos listes.", color = Color(0xFFA7A7A7), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 18.dp)) {
+            Text("Vos reprises, votre historique et vos listes.", color = Color(0xFFA7A7A7), fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.padding(top = 14.dp)) {
                 ProfileMetric("EN COURS", data.continueWatching.size)
                 ProfileMetric("VUS", data.watchHistory.size)
                 ProfileMetric("NOTES", data.ratings.size)
@@ -134,9 +134,9 @@ fun ProfileScreen(
 }
 
 @Composable private fun ProfileMetric(label: String, value: Int, loading: Boolean = false) {
-    Column(Modifier.width(142.dp).background(Color(0xFF1B1B20), RoundedCornerShape(10.dp)).padding(horizontal = 17.dp, vertical = 13.dp)) {
-        Text(if (loading) "—" else value.toString(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = Color(0xFFA7A7A7), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+    Column(Modifier.width(107.dp).background(Color(0xFF1B1B20), RoundedCornerShape(8.dp)).padding(horizontal = 13.dp, vertical = 10.dp)) {
+        Text(if (loading) "—" else value.toString(), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color(0xFFA7A7A7), fontSize = 8.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
@@ -152,8 +152,8 @@ private fun LazyListScope.profileRail(
     if (cards.isEmpty()) return
     item {
         Column(Modifier.fillMaxWidth()) {
-            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 14.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 11.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(15.dp)) {
                 itemsIndexed(cards, key = { _, card -> "${card.type}-${card.tmdbId}-${card.seasonNumber}-${card.episodeNumber}" }) { index, card ->
                     ProfilePosterCard(
                         card = card,
@@ -184,7 +184,7 @@ private fun LazyListScope.profileRail(
     onClick: () -> Unit,
 ) {
     Card(
-        onClick = onClick, modifier = modifier.width(184.dp).height(276.dp),
+        onClick = onClick, modifier = modifier.width(138.dp).height(207.dp),
         shape = CardDefaults.shape(shape = profileCardShape),
         colors = CardDefaults.colors(containerColor = Color(0xFF202026), focusedContainerColor = Color(0xFF302A3A), contentColor = Color.White, focusedContentColor = Color.White),
     ) {
@@ -213,14 +213,14 @@ private fun LazyListScope.profileRail(
                 Text(
                     text = "S${card.seasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(8.dp)
-                        .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(5.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(6.dp)
+                        .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
                 )
             }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, Color(0xE9000000)))))
@@ -232,18 +232,18 @@ private fun LazyListScope.profileRail(
                     contentDescription = card.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomStart,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 12.dp, bottom = 54.dp).heightIn(max = 42.dp).widthIn(max = 148.dp),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 9.dp, end = 9.dp, bottom = 41.dp).heightIn(max = 32.dp).widthIn(max = 111.dp),
                 )
             }
-            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
+            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(9.dp)) {
                 if (seriesLogoPath == null || !usesEpisodeResumeArtwork) {
-                    Text(card.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(card.title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" } ?: card.userRating?.let { "★ $it / 5" }
-                if (detail != null) Text(detail, color = Color(0xFFD1D1D1), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                if (detail != null) Text(detail, color = Color(0xFFD1D1D1), fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
                 card.progress?.let { progress ->
-                    Box(Modifier.fillMaxWidth().height(4.dp).padding(top = 9.dp).background(Color.White.copy(alpha = 0.35f), RoundedCornerShape(2.dp))) {
-                        Box(Modifier.fillMaxWidth(progress.ratio.toFloat().coerceIn(0f, 1f)).height(4.dp).background(Color(0xFFE84AD9), RoundedCornerShape(2.dp)))
+                    Box(Modifier.fillMaxWidth().height(3.dp).padding(top = 7.dp).background(Color.White.copy(alpha = 0.35f), RoundedCornerShape(2.dp))) {
+                        Box(Modifier.fillMaxWidth(progress.ratio.toFloat().coerceIn(0f, 1f)).height(3.dp).background(Color(0xFFE84AD9), RoundedCornerShape(2.dp)))
                     }
                 }
             }

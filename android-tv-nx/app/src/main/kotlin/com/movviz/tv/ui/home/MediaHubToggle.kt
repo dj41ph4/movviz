@@ -40,7 +40,7 @@ fun MediaHubToggleRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
     ) {
         MediaHubToggleChip(
@@ -89,8 +89,8 @@ private fun MediaHubToggleChip(
         Text(
             text = label,
             color = if (active || focused) Color.White else MovvizInkSoft,
-            fontSize = 15.sp,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
         )
     }
 }

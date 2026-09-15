@@ -89,35 +89,35 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 48.dp, top = 32.dp, end = 48.dp, bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp),
+        contentPadding = PaddingValues(start = 36.dp, top = 24.dp, end = 36.dp, bottom = 30.dp),
+        verticalArrangement = Arrangement.spacedBy(21.dp),
     ) {
         item(contentType = "header") {
             Text(
                 text = "Paramètres",
-                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
+                style = TextStyle(fontSize = 21.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
                 modifier = Modifier
                     .let { if (entryFocusRequester != null) it.focusRequester(entryFocusRequester) else it }
-                    .background(if (headerFocused) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
+                    .background(if (headerFocused) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(6.dp))
                     .onFocusChanged { headerFocused = it.isFocused }
                     .focusable()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
             )
         }
 
         item(contentType = "account") {
             SettingsSection(title = "Compte") {
                 InfoRow(label = "Utilisateur", value = currentUser?.username ?: "—")
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row {
                     Text(
                         text = "Rôle",
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-                        modifier = Modifier.width(160.dp),
+                        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+                        modifier = Modifier.width(120.dp),
                     )
                     RolePill(role = currentUser?.role)
                 }
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 InfoRow(label = "Serveur", value = serverUrl ?: "—")
             }
         }
@@ -126,15 +126,15 @@ fun SettingsScreen(
             SettingsSection(title = "Lecture") {
                 Text(
                     text = "Langue audio par défaut",
-                    style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+                    style = TextStyle(fontSize = 10.sp, color = MovvizInkSoft),
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(9.dp))
                 // TvLazyRow (pas Row+horizontalScroll) : les 7 langues
                 // dépassent la carte et le scroll suit le focus D-pad, avec
                 // restauration de position au retour via focusRestorer.
                 TvLazyRow(
                     modifier = Modifier.focusRestorer(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 2.dp),
                 ) {
                     itemsIndexed(AUDIO_LANGUAGE_LABELS, key = { _, item -> "lang-${item.first}" }) { _, item ->
@@ -151,17 +151,17 @@ fun SettingsScreen(
         item(contentType = "about") {
             SettingsSection(title = "À propos") {
                 InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 InfoRow(label = "Application", value = "Movviz NX")
                 if (BuildConfig.AUTO_UPDATE) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(11.dp))
                     AutoUpdateToggle(viewModel)
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(11.dp))
                     SettingsButton(text = "Vérifier les mises à jour") { viewModel.requestUpdateCheck() }
                     val updateCheckStatus by viewModel.updateCheckStatus.collectAsState()
                     updateCheckStatus?.let {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = it, style = TextStyle(fontSize = 9.sp, color = MovvizInkDim))
                     }
                 }
             }
@@ -180,11 +180,11 @@ fun SettingsScreen(
 private fun AutoUpdateToggle(viewModel: AppViewModel) {
     val enabled by viewModel.autoUpdateEnabled.collectAsState()
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     Surface(
         onClick = { viewModel.setAutoUpdateEnabled(!enabled) },
         modifier = Modifier
-            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.05f, maxElevation = 12.dp)
+            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.05f, maxElevation = 9.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick { viewModel.setAutoUpdateEnabled(!enabled) },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -200,28 +200,28 @@ private fun AutoUpdateToggle(viewModel: AppViewModel) {
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             Text(
                 text = if (enabled) "Auto-mise à jour : ON" else "Auto-mise à jour : OFF",
-                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold),
             )
             Box(
                 modifier = Modifier
-                    .width(44.dp)
-                    .height(24.dp)
+                    .width(33.dp)
+                    .height(18.dp)
                     .background(
                         if (enabled) MovvizBrand else Color.White.copy(alpha = 0.15f),
-                        RoundedCornerShape(12.dp),
+                        RoundedCornerShape(9.dp),
                     ),
             ) {
                 Box(
                     modifier = Modifier
-                        .size(20.dp)
-                        .offset(x = if (enabled) 22.dp else 2.dp, y = 2.dp)
-                        .background(Color.White, RoundedCornerShape(10.dp)),
+                        .size(15.dp)
+                        .offset(x = if (enabled) 17.dp else 2.dp, y = 2.dp)
+                        .background(Color.White, RoundedCornerShape(8.dp)),
                 )
             }
         }
@@ -237,15 +237,15 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column {
         Text(
             text = title.uppercase(),
-            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft, letterSpacing = 1.sp),
+            style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft, letterSpacing = 1.sp),
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(9.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.78f)
-                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-                .padding(horizontal = 22.dp, vertical = 20.dp),
+                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 17.dp, vertical = 15.dp),
             content = { content() },
         )
     }
@@ -256,12 +256,12 @@ private fun InfoRow(label: String, value: String) {
     Row {
         Text(
             text = label,
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-            modifier = Modifier.width(180.dp),
+            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+            modifier = Modifier.width(135.dp),
         )
         Text(
             text = value,
-            style = TextStyle(fontSize = 14.sp, color = MovvizInk),
+            style = TextStyle(fontSize = 11.sp, color = MovvizInk),
         )
     }
 }
@@ -275,11 +275,11 @@ private fun RolePill(role: String?) {
     }
     Text(
         text = label,
-        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = color),
+        style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = color),
         modifier = Modifier
             .background(color.copy(alpha = 0.13f), RoundedCornerShape(50))
             .border(1.dp, color.copy(alpha = 0.28f), RoundedCornerShape(50))
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+            .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }
 
@@ -294,7 +294,7 @@ private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit, 
         onClick = onClick,
         modifier = Modifier
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.06f, maxElevation = 12.dp)
+            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.06f, maxElevation = 9.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -311,10 +311,10 @@ private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit, 
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold),
+            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold),
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
         )
     }
 }
@@ -322,12 +322,12 @@ private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit, 
 @Composable
 private fun SettingsButton(text: String, dangerous: Boolean = false, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     val baseColor = if (dangerous) MovvizDown else Color.White
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .tvFocusLift(focused, shape = shape, maxScale = 1.05f, maxElevation = 12.dp)
+            .tvFocusLift(focused, shape = shape, maxScale = 1.05f, maxElevation = 9.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -344,8 +344,8 @@ private fun SettingsButton(text: String, dangerous: Boolean = false, onClick: ()
     ) {
         Text(
             text = text,
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp),
         )
     }
 }

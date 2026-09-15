@@ -57,13 +57,13 @@ fun ProfileTile(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.055f else 1f, label = "profile_scale")
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(17.dp)
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(154.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(116.dp)) {
         Surface(
             onClick = onClick,
             modifier = Modifier
-                .size(140.dp)
+                .size(105.dp)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 .graphicsLayer {
                     scaleX = scale
@@ -83,11 +83,11 @@ fun ProfileTile(
             ),
             border = ClickableSurfaceDefaults.border(
                 border = if (active) Border(BorderStroke(1.dp, MovvizBrand2.copy(alpha = .55f))) else Border.None,
-                focusedBorder = Border(BorderStroke(3.dp, Color.White)),
+                focusedBorder = Border(BorderStroke(2.dp, Color.White)),
             ),
         ) {
             Box(Modifier.fillMaxSize()) {
-                ProfileAvatar(profile, Modifier.fillMaxSize(), 22.dp)
+                ProfileAvatar(profile, Modifier.fillMaxSize(), 17.dp)
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
@@ -99,29 +99,29 @@ fun ProfileTile(
                     Box(
                         Modifier
                             .align(Alignment.BottomEnd)
-                            .size(18.dp)
+                            .size(14.dp)
                             .background(MovvizBrand2, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("✓", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        Text("✓", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }
         }
-        Spacer(Modifier.height(13.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
             text = profile.name,
             color = if (focused || selected) Color.White else Color.White.copy(alpha = .68f),
-            fontSize = 17.sp,
+            fontSize = 13.sp,
             fontWeight = if (focused) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         if (active) {
-            Spacer(Modifier.height(3.dp))
-            Text("Profil actif", color = MovvizBrand2, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(2.dp))
+            Text("Profil actif", color = MovvizBrand2, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         } else {
-            Spacer(Modifier.height(15.dp))
+            Spacer(Modifier.height(11.dp))
         }
     }
 }
@@ -131,13 +131,13 @@ fun ProfileTile(
 fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.055f else 1f, label = "profile_add_scale")
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(17.dp)
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(154.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(116.dp)) {
         Surface(
             onClick = onClick,
             modifier = Modifier
-                .size(140.dp)
+                .size(105.dp)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 .graphicsLayer {
                     scaleX = scale
@@ -154,34 +154,34 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
             ),
             border = ClickableSurfaceDefaults.border(
                 border = Border(BorderStroke(1.dp, Color.White.copy(alpha = .12f))),
-                focusedBorder = Border(BorderStroke(3.dp, MovvizBrand2)),
+                focusedBorder = Border(BorderStroke(2.dp, MovvizBrand2)),
             ),
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Box(
-                    Modifier.size(58.dp).background(
+                    Modifier.size(44.dp).background(
                         Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .20f), MovvizBrand2.copy(alpha = .24f))),
                         CircleShape,
                     ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("+", color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Light)
+                    Text("+", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Light)
                 }
             }
         }
-        Spacer(Modifier.height(13.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
             "Ajouter",
             color = if (focused) Color.White else Color.White.copy(alpha = .68f),
-            fontSize = 17.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.height(15.dp))
+        Spacer(Modifier.height(11.dp))
     }
 }
 
 @Composable
-fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 10.dp) {
+fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 8.dp) {
     val shape = RoundedCornerShape(cornerRadius)
     val url = profile.avatar
     if (!url.isNullOrBlank() && url.startsWith("http")) {
@@ -191,7 +191,7 @@ fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadiu
             modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
             contentAlignment = Alignment.Center,
         ) {
-            Text(profile.name.take(2).uppercase(), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
+            Text(profile.name.take(2).uppercase(), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black)
         }
     }
 }

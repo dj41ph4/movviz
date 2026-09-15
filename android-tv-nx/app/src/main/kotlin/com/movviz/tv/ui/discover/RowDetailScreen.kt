@@ -143,26 +143,26 @@ fun RowDetailScreen(
         if (repository != null) loadPage(1)
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(start = 52.dp, top = 64.dp, end = 52.dp, bottom = 30.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(start = 39.dp, top = 48.dp, end = 39.dp, bottom = 23.dp)) {
         Text(
             text = resolvedLabel,
-            style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
         )
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(11.dp))
         when {
             loading && cards.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                AnimatedLogo(size = 56.dp)
+                AnimatedLogo(size = 42.dp)
             }
             cards.isEmpty() -> Box(
-                modifier = Modifier.fillMaxWidth().padding(top = 48.dp).focusRequester(entryFocusRequester ?: remember { FocusRequester() }).focusable(),
+                modifier = Modifier.fillMaxWidth().padding(top = 36.dp).focusRequester(entryFocusRequester ?: remember { FocusRequester() }).focusable(),
             ) {
-                Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
+                Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 11.sp))
             }
             else -> TvLazyVerticalGrid(
                 state = rememberTvLazyGridState().withTvPrefetchDisabled(),
-                columns = TvGridCells.FixedSize(154.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
+                columns = TvGridCells.FixedSize(116.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(15.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 itemsIndexed(cards, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
@@ -170,7 +170,7 @@ fun RowDetailScreen(
                         card = card,
                         onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         focusRequester = if (index == 0) entryFocusRequester else null,
-                        width = 154.dp,
+                        width = 116.dp,
                         // Même principe portrait sans logo / logo posé au
                         // focus que le catalogue — voir CatalogScreen.kt.
                         aspectRatio = 2f / 3f,

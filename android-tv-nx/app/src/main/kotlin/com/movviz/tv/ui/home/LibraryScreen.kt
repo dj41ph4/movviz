@@ -64,8 +64,8 @@ fun LibraryScreen(
 ) {
     var tab by remember { mutableStateOf(LibraryTab.FILMS) }
 
-    Column(Modifier.fillMaxSize().padding(start = 56.dp, top = 32.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+    Column(Modifier.fillMaxSize().padding(start = 42.dp, top = 24.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
             LibraryTab.entries.forEach { t ->
                 LibraryToggleChip(
                     label = t.label,
@@ -87,7 +87,7 @@ fun LibraryScreen(
             LibraryTab.COLLECTIONS -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     "Collections — bientôt disponible",
-                    style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkDim),
+                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkDim),
                 )
             }
         }
@@ -117,11 +117,11 @@ private fun LibraryToggleChip(label: String, active: Boolean, onClick: () -> Uni
         Box(
             modifier = Modifier
                 .let { if (active) it.background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), shape) else it }
-                .padding(horizontal = 22.dp, vertical = 10.dp),
+                .padding(horizontal = 17.dp, vertical = 8.dp),
         ) {
             Text(
                 label,
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MovvizInkDim),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MovvizInkDim),
             )
         }
     }

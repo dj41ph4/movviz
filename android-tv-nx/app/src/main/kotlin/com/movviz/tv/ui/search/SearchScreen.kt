@@ -125,40 +125,40 @@ fun SearchScreen(
     var fieldFocused by remember { mutableStateOf(false) }
     // La sidebar ne recouvre plus rien verticalement (refonte nav) : 96dp
     // compensait l'ancienne barre du haut flottante, devenu inutile.
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(start = 48.dp, top = 32.dp, end = 48.dp, bottom = 30.dp)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(start = 36.dp, top = 24.dp, end = 36.dp, bottom = 23.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (showSearchField) {
-                Text("Recherche", style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground))
-                Spacer(Modifier.width(24.dp))
+                Text("Recherche", style = TextStyle(fontSize = 23.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground))
+                Spacer(Modifier.width(18.dp))
                 SearchField(
                     query,
                     fieldFocused,
                     { fieldFocused = it },
                     onQueryChange,
                     { viewModel.search(query, typeFilter.apiType) },
-                    Modifier.width(430.dp),
+                    Modifier.width(323.dp),
                     resultFocusRequester,
                     if (filteredResults.isNotEmpty()) firstResultFocusRequester else null,
                 )
             }
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(14.dp))
         if (query.isNotBlank()) {
             SearchTypeFilters(typeFilter) { typeFilter = it }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(11.dp))
         }
         if (query.isNotBlank() && suggestions.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 13.sp)
-                Spacer(Modifier.width(10.dp))
+                Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 10.sp)
+                Spacer(Modifier.width(8.dp))
                 suggestions.forEachIndexed { index, item ->
-                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp))) {
-                        Text(item.title, color = if (item.tmdbId == focusedTmdbId && item.type == focusedType) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp))
+                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(3.dp))) {
+                        Text(item.title, color = if (item.tmdbId == focusedTmdbId && item.type == focusedType) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 3.dp, vertical = 2.dp))
                     }
-                    if (index < suggestions.lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 12.sp)
+                    if (index < suggestions.lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 9.sp)
                 }
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
         }
         when {
             searching -> SearchFocusMessage(
@@ -177,7 +177,7 @@ fun SearchScreen(
                 text = if (results.isEmpty()) "Aucun résultat pour « $query »" else "Aucun ${typeFilter.label.lowercase()} pour « $query »",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
             )
-            else -> TvLazyVerticalGrid(state = rememberTvLazyGridState().withTvPrefetchDisabled(), columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
+            else -> TvLazyVerticalGrid(state = rememberTvLazyGridState().withTvPrefetchDisabled(), columns = TvGridCells.FixedSize(116.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(17.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
@@ -202,13 +202,13 @@ fun SearchScreen(
 
 @Composable
 private fun SearchTypeFilters(selected: SearchTypeFilter, onSelect: (SearchTypeFilter) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         SearchTypeFilter.entries.forEach { filter ->
             val active = filter == selected
             Surface(
                 onClick = { onSelect(filter) },
                 modifier = Modifier.tvPointerClick { onSelect(filter) },
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = if (active) MaterialTheme.colorScheme.primary else MovvizSurface,
                     focusedContainerColor = MaterialTheme.colorScheme.primary,
@@ -216,7 +216,7 @@ private fun SearchTypeFilters(selected: SearchTypeFilter, onSelect: (SearchTypeF
                     focusedContentColor = Color.White,
                 ),
             ) {
-                Text(filter.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp))
+                Text(filter.label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp))
             }
         }
     }
@@ -228,12 +228,12 @@ private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?) {
     Text(
         text = text,
         color = if (focused) MovvizInk else MovvizInkDim,
-        fontSize = 15.sp,
+        fontSize = 11.sp,
         modifier = Modifier
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .focusable()
             .onFocusChanged { focused = it.isFocused }
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp),
     )
 }
 
@@ -250,13 +250,13 @@ private fun SearchField(
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    Box(modifier.height(52.dp).border(2.dp, if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = .25f), RoundedCornerShape(26.dp)).background(MovvizSurface, RoundedCornerShape(26.dp)).onFocusChanged { onFocusChanged(it.isFocused) }.padding(horizontal = 20.dp), contentAlignment = Alignment.CenterStart) {
-        if (value.isEmpty()) Text("Rechercher un titre…", color = MovvizInkDim, fontSize = 17.sp)
+    Box(modifier.height(39.dp).border(2.dp, if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = .25f), RoundedCornerShape(20.dp)).background(MovvizSurface, RoundedCornerShape(20.dp)).onFocusChanged { onFocusChanged(it.isFocused) }.padding(horizontal = 15.dp), contentAlignment = Alignment.CenterStart) {
+        if (value.isEmpty()) Text("Rechercher un titre…", color = MovvizInkDim, fontSize = 13.sp)
         BasicTextField(
             value,
             onValueChange,
             singleLine = true,
-            textStyle = TextStyle(fontSize = 17.sp, color = MovvizInk),
+            textStyle = TextStyle(fontSize = 13.sp, color = MovvizInk),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch(); focusManager.clearFocus(); keyboardController?.hide() }),
             modifier = Modifier
@@ -281,15 +281,15 @@ private fun SearchField(
 
 @Composable
 private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     Column {
-        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
+        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
             Box(Modifier.fillMaxSize()) {
                 result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
-                if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(7.dp))
+                if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(5.dp))
             }
         }
-        Text(result.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp))
-        Text(if (result.type == "series") "Série" else "Film", color = MovvizInkDim, fontSize = 11.sp)
+        Text(result.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+        Text(if (result.type == "series") "Série" else "Film", color = MovvizInkDim, fontSize = 8.sp)
     }
 }

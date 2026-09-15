@@ -290,75 +290,75 @@ fun UpdateOverlay(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "Mise à jour, veuillez patienter…",
-                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White),
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(9.dp))
             Text(
                 text = "Nouvelle version : $targetVersion",
-                style = TextStyle(fontSize = 15.sp, color = Color.White.copy(alpha = 0.7f)),
+                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.7f)),
             )
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
             when (state) {
                 is UpdateUiState.Downloading -> {
                     ProgressBar(state.progress)
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(11.dp))
                     Text(
                         text = "${(state.progress * 100).toInt()}%",
-                        style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
+                        style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f)),
                     )
                 }
                 is UpdateUiState.Installing -> {
                     val progress = state.progress
                     if (progress != null) {
                         ProgressBar(progress)
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(11.dp))
                         Text(
                             text = "Installation… ${(progress * 100).toInt()}%",
-                            style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
+                            style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f)),
                         )
                     } else {
                         IndeterminateBar()
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(11.dp))
                         Text(
                             text = "Installation…",
-                            style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
+                            style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f)),
                         )
                     }
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(11.dp))
                     Text(
                         text = "L'application va redémarrer automatiquement",
-                        style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f)),
+                        style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.6f)),
                     )
                 }
                 UpdateUiState.NeedPermission -> {
                     Text(
                         text = "Autorise l'installation d'applications inconnues pour pouvoir mettre à jour Movviz",
-                        style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.85f)),
-                        modifier = Modifier.padding(horizontal = 64.dp),
+                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f)),
+                        modifier = Modifier.padding(horizontal = 48.dp),
                     )
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(18.dp))
                     Row {
                         ActionButton(text = "Autoriser", onClick = onAuthorize, focusRequester = authorizeFocusRequester)
-                        Spacer(Modifier.width(20.dp))
+                        Spacer(Modifier.width(15.dp))
                         ActionButton(text = "Plus tard", onClick = onLater)
                     }
                 }
                 UpdateUiState.FallbackInstall -> {
                     Text(
                         text = "L'installation automatique n'a pas abouti sur cet appareil",
-                        style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.85f)),
-                        modifier = Modifier.padding(horizontal = 64.dp),
+                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f)),
+                        modifier = Modifier.padding(horizontal = 48.dp),
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = "L'APK est téléchargé et vérifié : ouvre l'installeur système pour terminer.",
-                        style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f)),
-                        modifier = Modifier.padding(horizontal = 64.dp),
+                        style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f)),
+                        modifier = Modifier.padding(horizontal = 48.dp),
                     )
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(18.dp))
                     Row {
                         ActionButton(text = "Installer", onClick = onRetryInstall, focusRequester = retryFocusRequester)
-                        Spacer(Modifier.width(20.dp))
+                        Spacer(Modifier.width(15.dp))
                         ActionButton(text = "Plus tard", onClick = onLater)
                     }
                 }
@@ -377,13 +377,13 @@ private fun ProgressBar(fraction: Float) {
     Box(
         modifier = Modifier
             .fillMaxWidth(0.7f)
-            .height(10.dp)
+            .height(8.dp)
             .background(Color.White.copy(alpha = 0.15f), shape),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(fraction.coerceIn(0f, 1f))
-                .height(10.dp)
+                .height(8.dp)
                 .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape),
         )
     }
@@ -407,7 +407,7 @@ private fun IndeterminateBar() {
 @Composable
 private fun ActionButton(text: String, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(9.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -431,10 +431,10 @@ private fun ActionButton(text: String, onClick: () -> Unit, focusRequester: Focu
         ),
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 9.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = text, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold))
+            Text(text = text, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold))
         }
     }
 }

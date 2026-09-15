@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 private fun movvizIcon(name: String, block: ImageVector.Builder.() -> Unit): ImageVector =
     ImageVector.Builder(
         name = name,
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
+        defaultWidth = 18.dp,
+        defaultHeight = 18.dp,
         viewportWidth = 24f,
         viewportHeight = 24f,
     ).apply(block).build()

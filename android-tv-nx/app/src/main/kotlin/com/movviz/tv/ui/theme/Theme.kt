@@ -54,9 +54,9 @@ fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier =
 @Composable
 fun Modifier.tvFocusLift(
     focused: Boolean,
-    shape: Shape = RoundedCornerShape(8.dp),
+    shape: Shape = RoundedCornerShape(6.dp),
     maxScale: Float = 1.06f,
-    maxElevation: androidx.compose.ui.unit.Dp = 24.dp,
+    maxElevation: androidx.compose.ui.unit.Dp = 18.dp,
 ): Modifier {
     val scale by animateFloatAsState(
         targetValue = if (focused) maxScale else 1f,
@@ -88,7 +88,7 @@ fun Modifier.tvCardFocusHalo(
         label = "tvCardFocusAlpha",
     )
     val elevation by animateDpAsState(
-        targetValue = if (focused) 16.dp else 0.dp,
+        targetValue = if (focused) 12.dp else 0.dp,
         animationSpec = tween(durationMillis = 180),
         label = "tvCardFocusElevation",
     )
@@ -109,7 +109,7 @@ fun Modifier.tvCardFocusHalo(
  * à la couche de contenu Netflix. Ajuster ici propage partout ; ne JAMAIS
  * mettre un rayon ad hoc dans un écran.
  */
-val MovvizCardShape = RoundedCornerShape(12.dp)
+val MovvizCardShape = RoundedCornerShape(9.dp)
 
 /**
  * Famille Inter (la direction typographique de Netflix et de la plupart des
@@ -128,40 +128,40 @@ val MovvizFonts = FontFamily(
 private val MovvizTypography = Typography(
     // Hero / page title — large, bold, Netflix display style
     displayLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 44.sp, fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.5).sp, lineHeight = 50.sp,
+        fontFamily = MovvizFonts, fontSize = 33.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.5).sp, lineHeight = 38.sp,
     ),
     // Section header (hero subtitle, row headers)
     headlineMedium = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+        fontFamily = MovvizFonts, fontSize = 20.sp, fontWeight = FontWeight.Bold,
         letterSpacing = (-0.3).sp,
     ),
     // Row heading — large white bold, Netflix-style category label
     titleLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+        fontFamily = MovvizFonts, fontSize = 17.sp, fontWeight = FontWeight.Bold,
         letterSpacing = (-0.2).sp,
     ),
     // Card title
     titleMedium = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+        fontFamily = MovvizFonts, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
     ),
     // Synopsis / body text
     bodyLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 16.sp, fontWeight = FontWeight.Normal,
-        lineHeight = 24.sp,
+        fontFamily = MovvizFonts, fontSize = 12.sp, fontWeight = FontWeight.Normal,
+        lineHeight = 18.sp,
     ),
     // Secondary text, metadata
     bodyMedium = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 14.sp, fontWeight = FontWeight.Normal,
-        lineHeight = 20.sp,
+        fontFamily = MovvizFonts, fontSize = 11.sp, fontWeight = FontWeight.Normal,
+        lineHeight = 15.sp,
     ),
     // Button labels, badges
     labelLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+        fontFamily = MovvizFonts, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
     ),
     // Fine metadata (year, duration, resolution)
     labelSmall = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+        fontFamily = MovvizFonts, fontSize = 9.sp, fontWeight = FontWeight.Medium,
     ),
 )
 

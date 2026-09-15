@@ -126,18 +126,18 @@ fun CatalogScreen(
     // Catalogue 10-foot : un inventaire dense et calme, proche de Plex.
     // Les contrôles restent compacts afin que les premières affiches soient
     // immédiatement visibles en 1080p comme en 4K.
-    Column(Modifier.fillMaxSize().padding(start = 56.dp, top = 32.dp, end = 52.dp, bottom = 30.dp)) {
+    Column(Modifier.fillMaxSize().padding(start = 42.dp, top = 24.dp, end = 39.dp, bottom = 23.dp)) {
         if (showModeToggle) {
             MediaHubToggleRow(
                 mode = mode,
                 onModeChange = onModeChange,
                 firstFocusRequester = entryFocusRequester,
             )
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(17.dp))
         }
         Text(
             text = "${type.label} · ${sorted.size}",
-            style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
             // Le toggle masqué (showModeToggle=false) portait la cible D-pad
             // "flèche bas depuis la nav" — reportée ici pour ne jamais perdre
             // ce repère quand LibraryScreen appelle cet écran.
@@ -145,27 +145,27 @@ fun CatalogScreen(
                 if (!showModeToggle && entryFocusRequester != null) it.focusRequester(entryFocusRequester).focusable() else it
             },
         )
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(9.dp))
         SortRow(sort = sort, onSelect = { sort = it })
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (genres.isNotEmpty()) {
             CatalogGenreRow(genres = genres, selected = selectedGenre, onSelect = { selectedGenre = if (selectedGenre?.key == it.key) null else it })
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(11.dp))
         }
         when {
             sorted.isEmpty() -> Box(
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 18.dp)
                     .focusRequester(entryFocusRequester ?: topAnchor).focusable(),
             ) {
-                Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
+                Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 11.sp))
             }
             else -> TvLazyVerticalGrid(
                 // 132dp donne 6 à 7 affiches lisibles en 1080p (et davantage
                 // en 4K) : assez dense pour une bibliothèque TV, sans devenir
                 // une mosaïque illisible à trois mètres.
-                columns = TvGridCells.FixedSize(132.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                columns = TvGridCells.FixedSize(99.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.fillMaxSize(),
                 state = gridState,
             ) {
@@ -184,7 +184,7 @@ fun CatalogScreen(
                         // dessus au focus — mais la carte NE grandit PAS en
                         // paysage ici (grille verticale, pas de rangée : un
                         // agrandissement décalerait les cartes voisines).
-                        width = 132.dp,
+                        width = 99.dp,
                         aspectRatio = 2f / 3f,
                         preferPosterArt = true,
                         // La bibliothèque n'est pas une rangée éditoriale :
@@ -204,7 +204,7 @@ fun CatalogScreen(
 
 @Composable
 private fun SortRow(sort: CatalogSort, onSelect: (CatalogSort) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CatalogSort.entries.forEach { option ->
             SortChip(label = option.label, active = sort == option, onClick = { onSelect(option) })
         }
@@ -231,8 +231,8 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 13.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+            style = TextStyle(fontSize = 10.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
         )
     }
 }
@@ -267,8 +267,8 @@ private fun cardMatchesCatalogGenre(card: TvTitleCard, selection: CatalogGenreSe
 private fun CatalogGenreRow(genres: List<GenreDto>, selected: CatalogGenreSelection?, onSelect: (CatalogGenreSelection) -> Unit) {
     TvLazyRow(
         modifier = Modifier.focusRestorer(),
-        contentPadding = PaddingValues(end = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(end = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         tvRowItemsIndexed(SYNTHETIC_GENRES, key = { _, item -> "synth-${item.first}" }) { _, item ->
             val value = CatalogGenreSelection(item.first, item.second)
@@ -302,8 +302,8 @@ private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }
 }

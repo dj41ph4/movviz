@@ -75,8 +75,8 @@ import androidx.compose.ui.unit.IntOffset
 // Valeurs exactes du mockup Claude Design (TvSidebar.dc.html) — source de
 // vérité : width 84/260, padding vertical 32, padding horizontal 14/20,
 // gap inter-items 6, gap icône-libellé 14, icônes 20px, logo margin-bottom 48.
-private val NAV_RAIL_COLLAPSED_WIDTH = 84.dp
-private val NAV_RAIL_EXPANDED_WIDTH = 260.dp
+private val NAV_RAIL_COLLAPSED_WIDTH = 63.dp
+private val NAV_RAIL_EXPANDED_WIDTH = 195.dp
 
 // HomeTab garde MOVIES/SERIES/PROFILE : MOVIES/SERIES restent le filtre
 // interne Films/Séries de Découverte et de la Bibliothèque (jamais des
@@ -181,19 +181,19 @@ fun NavRail(
                     strokeWidth = 1.dp.toPx(),
                 )
             }
-            .padding(horizontal = if (railFocused) 20.dp else 14.dp, vertical = 32.dp),
+            .padding(horizontal = if (railFocused) 15.dp else 11.dp, vertical = 24.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 48.dp)) {
-            AnimatedLogo(size = 32.dp)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 36.dp)) {
+            AnimatedLogo(size = 24.dp)
             AnimatedVisibility(visible = railFocused, enter = fadeIn(tween(180)), exit = fadeOut(tween(120))) {
                 Row {
-                    Spacer(Modifier.width(10.dp))
-                    MovvizWordmark(fontSize = 19.sp)
+                    Spacer(Modifier.width(8.dp))
+                    MovvizWordmark(fontSize = 14.sp)
                 }
             }
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
             NAV_ITEMS.forEach { tabItem ->
                 TopNavItem(
                     tab = tabItem,
@@ -219,11 +219,11 @@ fun NavRail(
             onSwitch = onSwitchProfile,
         )
         AnimatedVisibility(visible = railFocused, enter = fadeIn(tween(180)), exit = fadeOut(tween(120))) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 11.dp)) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(MovvizBorder))
-                Spacer(Modifier.height(12.dp))
-                Text("Movviz v${BuildConfig.VERSION_NAME}", color = MovvizInkDim, fontSize = 12.sp)
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(9.dp))
+                Text("Movviz v${BuildConfig.VERSION_NAME}", color = MovvizInkDim, fontSize = 9.sp)
+                Spacer(Modifier.height(5.dp))
                 UpdateStatusPill(updateAvailable = updateAvailableTag != null, onClick = onUpdateClick)
             }
         }
@@ -239,7 +239,7 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
         animationSpec = infiniteRepeatable(tween(720), RepeatMode.Reverse),
         label = "updatePulseAlpha",
     )
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(15.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -254,16 +254,16 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, if (updateAvailable) MovvizBrand2 else MovvizOk), shape = shape),
         ),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
             Box(
-                Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                Modifier.size(5.dp).clip(androidx.compose.foundation.shape.CircleShape)
                     .background(if (updateAvailable) Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand2)) else Brush.linearGradient(listOf(MovvizOk, MovvizOk))),
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(5.dp))
             Text(
                 text = if (updateAvailable) "Mettre à jour" else "À jour",
                 color = if (updateAvailable) Color.White else MovvizOk,
-                fontSize = 12.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
             )
         }
@@ -284,12 +284,12 @@ private fun ProfileFooterRow(
     Box {
         // Cercle 38dp replié ; s'élargit (pleine largeur du rail) en mode
         // déployé pour laisser la place au nom, même logique que TopNavItem.
-        val avatarShape = if (expanded) RoundedCornerShape(19.dp) else androidx.compose.foundation.shape.CircleShape
+        val avatarShape = if (expanded) RoundedCornerShape(14.dp) else androidx.compose.foundation.shape.CircleShape
         Surface(
             onClick = { open = !open },
             modifier = Modifier
-                .height(38.dp)
-                .let { if (expanded) it.fillMaxWidth() else it.width(38.dp) }
+                .height(29.dp)
+                .let { if (expanded) it.fillMaxWidth() else it.width(29.dp) }
                 .tvPointerClick { open = !open },
             shape = ClickableSurfaceDefaults.shape(avatarShape),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .06f), focusedContainerColor = Color.White.copy(alpha = .14f)),
@@ -301,13 +301,13 @@ private fun ProfileFooterRow(
                 Box(Modifier.fillMaxHeight().aspectRatio(1f).clip(androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
                     if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize().clip(avatarShape))
                     else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-                        Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 AnimatedVisibility(visible = expanded, enter = fadeIn(tween(180)), exit = fadeOut(tween(100))) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Spacer(Modifier.width(10.dp))
-                        Text(active?.name ?: "—", color = MovvizInk, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.width(8.dp))
+                        Text(active?.name ?: "—", color = MovvizInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -328,35 +328,35 @@ private fun ProfileFooterRow(
                     }
                 }
                 Surface(
-                    modifier = Modifier.width(320.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.width(240.dp),
+                    shape = RoundedCornerShape(11.dp),
                     colors = SurfaceDefaults.colors(containerColor = MovvizSurface),
-                    border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBorder), shape = RoundedCornerShape(14.dp)),
+                    border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBorder), shape = RoundedCornerShape(11.dp)),
                 ) {
-                    Column(Modifier.padding(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
-                            Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                    Column(Modifier.padding(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
+                            Box(Modifier.size(26.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
                                 if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize())
-                                else Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                else Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                             }
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(9.dp))
                             Column {
-                                Text("Profil actif", color = MovvizInkDim, fontSize = 11.sp, letterSpacing = 1.sp)
-                                Text(active?.name ?: "—", color = MovvizInk, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Profil actif", color = MovvizInkDim, fontSize = 8.sp, letterSpacing = 1.sp)
+                                Text(active?.name ?: "—", color = MovvizInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(5.dp))
                         MenuItem(leadingIcon = MovvizIconDotCircle, label = "Mon profil", focusRequester = firstItemFocus, onClick = { open = false; onOpenProfile() })
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(5.dp))
                         MenuItem(leadingIcon = MovvizIconSwap, label = "Changer d'utilisateur", onClick = { open = false; onSwitch() })
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(5.dp))
                         if (profiles.isNotEmpty()) {
-                            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 16.dp).background(MovvizBorder))
-                            Spacer(Modifier.height(6.dp))
+                            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 12.dp).background(MovvizBorder))
+                            Spacer(Modifier.height(5.dp))
                             profiles.forEach { profile ->
                                 MenuItem(avatar = profile, label = profile.name, onClick = { open = false; onSelect(profile) })
                             }
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(3.dp))
                             MenuItem(leadingIcon = MovvizIconPlus, label = "Ajouter un utilisateur", accent = true, onClick = { open = false; onAdd() })
                         }
                     }
@@ -375,7 +375,7 @@ private fun MenuItem(
     accent: Boolean = false,
     focusRequester: FocusRequester? = null,
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -393,18 +393,18 @@ private fun MenuItem(
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2.copy(alpha = 0.9f)), shape = shape),
         ),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp)) {
             if (avatar != null) {
-                Box(Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(21.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
                     if (avatar.avatar?.startsWith("http") == true) AsyncImage(model = avatar.avatar, contentDescription = avatar.name, modifier = Modifier.fillMaxSize())
-                    else Text(avatar.name.take(2).uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    else Text(avatar.name.take(2).uppercase(), color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.width(10.dp))
-            } else if (leadingIcon != null) {
-                Icon(imageVector = leadingIcon, contentDescription = null, tint = if (accent) MovvizBrand2 else MovvizInk, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
+            } else if (leadingIcon != null) {
+                Icon(imageVector = leadingIcon, contentDescription = null, tint = if (accent) MovvizBrand2 else MovvizInk, modifier = Modifier.size(12.dp))
+                Spacer(Modifier.width(6.dp))
             }
-            Text(label, color = if (accent) MovvizBrand2 else MovvizInk, fontSize = 15.sp, fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium)
+            Text(label, color = if (accent) MovvizBrand2 else MovvizInk, fontSize = 11.sp, fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium)
         }
     }
 }
@@ -413,7 +413,7 @@ private fun MenuItem(
  *  blanc que les autres icônes vectorielles du rail. */
 @Composable
 private fun BookmarkIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(20.dp)) {
+    Canvas(modifier = modifier.size(15.dp)) {
         val w = size.width
         val h = size.height
         val path = androidx.compose.ui.graphics.Path().apply {
@@ -433,14 +433,14 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
     var focused by remember { mutableStateOf(false) }
     // Carré 56dp en rail replié (comme la maquette carrée du second visuel),
     // pill étirée en déployé. Même rayon que la tuile carrée de la 2e image.
-    val collapsedShape = RoundedCornerShape(14.dp)
-    val expandedShape = RoundedCornerShape(10.dp)
+    val collapsedShape = RoundedCornerShape(11.dp)
+    val expandedShape = RoundedCornerShape(8.dp)
     val shape = if (expanded) expandedShape else collapsedShape
 
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .let { if (expanded) it.fillMaxWidth() else it.size(56.dp) }
+            .let { if (expanded) it.fillMaxWidth() else it.size(42.dp) }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
@@ -465,22 +465,22 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
             if (expanded) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                 ) {
                     if (tab == HomeTab.LIBRARY) {
-                        BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(20.dp))
+                        BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(15.dp))
                     } else {
                         Icon(
                             imageVector = tab.icon(),
                             contentDescription = null,
                             tint = if (active) Color.White else MovvizInkDim,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(15.dp),
                         )
                     }
-                    Spacer(Modifier.width(14.dp))
+                    Spacer(Modifier.width(11.dp))
                     Text(
                         text = tab.label,
-                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MovvizInkDim),
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MovvizInkDim),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -488,13 +488,13 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
             } else {
                 // Carré centré, icône 22dp comme sur la 2e image (search carré)
                 if (tab == HomeTab.LIBRARY) {
-                    BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(22.dp))
+                    BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(17.dp))
                 } else {
                     Icon(
                         imageVector = tab.icon(),
                         contentDescription = tab.label,
                         tint = if (active) Color.White else MovvizInkDim,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(17.dp),
                     )
                 }
             }

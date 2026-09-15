@@ -102,21 +102,21 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
     ) {
         Column(
             modifier = Modifier
-                .width(400.dp)
-                .background(Color(0xFF101225), RoundedCornerShape(26.dp))
-                .border(1.dp, Color(0xFF292D45), RoundedCornerShape(26.dp))
-                .padding(horizontal = 34.dp, vertical = 32.dp),
+                .width(300.dp)
+                .background(Color(0xFF101225), RoundedCornerShape(20.dp))
+                .border(1.dp, Color(0xFF292D45), RoundedCornerShape(20.dp))
+                .padding(horizontal = 26.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AnimatedLogo(size = 52.dp)
-            Spacer(Modifier.height(10.dp))
-            MovvizWordmark(fontSize = 25.sp)
-            Spacer(Modifier.height(6.dp))
+            AnimatedLogo(size = 39.dp)
+            Spacer(Modifier.height(8.dp))
+            MovvizWordmark(fontSize = 19.sp)
+            Spacer(Modifier.height(5.dp))
             Text(
                 text = if (addMode) "Ajouter un utilisateur au foyer" else "Bienvenue sur Movviz",
-                style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
+                style = TextStyle(fontSize = 8.sp, color = MovvizInkDim),
             )
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(20.dp))
 
             FieldLabel("Nom d'utilisateur")
             LoginField(
@@ -125,7 +125,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 nextFocus = passwordFocus,
                 focusRequester = usernameFocus,
             )
-            Spacer(Modifier.height(13.dp))
+            Spacer(Modifier.height(10.dp))
             FieldLabel("Mot de passe")
             LoginField(
                 value = password,
@@ -136,11 +136,11 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
             )
 
             if (error != null) {
-                Spacer(Modifier.height(12.dp))
-                Text(text = error!!, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown))
+                Spacer(Modifier.height(9.dp))
+                Text(text = error!!, style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown))
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
             GradientButton(
                 text = if (busy) "Connexion..." else "Se connecter",
@@ -161,17 +161,17 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 },
             )
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.09f)))
                 Text(
                     text = "OU",
-                    style = TextStyle(fontSize = 10.sp, color = MovvizInkDim, letterSpacing = 1.sp),
-                    modifier = Modifier.padding(horizontal = 14.dp),
+                    style = TextStyle(fontSize = 8.sp, color = MovvizInkDim, letterSpacing = 1.sp),
+                    modifier = Modifier.padding(horizontal = 11.dp),
                 )
                 Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.09f)))
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
 
             Surface(
                 onClick = {
@@ -228,47 +228,47 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     }
                 },
                 modifier = Modifier.fillMaxWidth().focusRequester(plexLoginFocus),
-                shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(14.dp)),
+                shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(11.dp)),
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color.Transparent,
                     contentColor = MovvizAmber,
                 ),
                 border = ClickableSurfaceDefaults.border(
-                    border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = RoundedCornerShape(14.dp)),
-                    focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MovvizAmber), shape = RoundedCornerShape(14.dp)),
+                    border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = RoundedCornerShape(11.dp)),
+                    focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MovvizAmber), shape = RoundedCornerShape(11.dp)),
                 ),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 15.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp),
                 ) {
                     Icon(
                         imageVector = MovvizIconPlay,
                         contentDescription = null,
                         tint = MovvizAmber,
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(11.dp),
                     )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (plexBusy) "Connexion à Plex…" else "Se connecter avec Plex",
-                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizAmber),
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizAmber),
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                Text(text = "Pas encore de compte ? ", style = TextStyle(fontSize = 11.sp, color = MovvizInkDim))
-                Text(text = "Créer un compte", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary))
+                Text(text = "Pas encore de compte ? ", style = TextStyle(fontSize = 8.sp, color = MovvizInkDim))
+                Text(text = "Créer un compte", style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary))
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(9.dp))
             Surface(
                 onClick = onChangeServer,
                 colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = MovvizInkDim),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
             ) {
-                Text("Changer de serveur", fontSize = 11.sp, color = MovvizInkDim, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                Text("Changer de serveur", fontSize = 8.sp, color = MovvizInkDim, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
             }
         }
         if (plexCode != null) {
@@ -317,26 +317,26 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
         }
         val linkUrl = "https://plex.tv/link/?pin=${Uri.encode(code)}"
         val qr = remember(linkUrl) { createQrBitmap(linkUrl, 360) }
-        Column(Modifier.width(700.dp).background(Color(0xFF101225), RoundedCornerShape(22.dp)).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Connexion Plex", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(Modifier.height(12.dp))
-            Text("Scanne le QR code ou ouvre plex.tv/link", fontSize = 14.sp, color = MovvizInkSoft)
-            Spacer(Modifier.height(18.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(34.dp)) {
-                qr?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "QR code Plex", modifier = Modifier.size(180.dp)) }
+        Column(Modifier.width(525.dp).background(Color(0xFF101225), RoundedCornerShape(17.dp)).padding(23.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Connexion Plex", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Spacer(Modifier.height(9.dp))
+            Text("Scanne le QR code ou ouvre plex.tv/link", fontSize = 11.sp, color = MovvizInkSoft)
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(26.dp)) {
+                qr?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "QR code Plex", modifier = Modifier.size(135.dp)) }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Code TV", fontSize = 14.sp, color = MovvizInkDim)
-                    Spacer(Modifier.height(6.dp))
-                    Text(code.chunked(1).joinToString(" "), fontSize = 42.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 5.sp)
-                    Text("plex.tv/link", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizAmber)
+                    Text("Code TV", fontSize = 11.sp, color = MovvizInkDim)
+                    Spacer(Modifier.height(5.dp))
+                    Text(code.chunked(1).joinToString(" "), fontSize = 32.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 4.sp)
+                    Text("plex.tv/link", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizAmber)
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Text("La TV attend automatiquement la validation…", fontSize = 13.sp, color = MovvizInkDim)
-            Spacer(Modifier.height(22.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(onClick = onOpen, modifier = Modifier.focusRequester(openPlexFocus), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
-                Surface(onClick = onClose, colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
+            Spacer(Modifier.height(6.dp))
+            Text("La TV attend automatiquement la validation…", fontSize = 10.sp, color = MovvizInkDim)
+            Spacer(Modifier.height(17.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Surface(onClick = onOpen, modifier = Modifier.focusRequester(openPlexFocus), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
+                Surface(onClick = onClose, colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
             }
         }
     }
@@ -359,8 +359,8 @@ private fun createQrBitmap(content: String, size: Int): Bitmap? = runCatching {
 private fun FieldLabel(text: String) {
     Text(
         text = text,
-        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
     )
 }
 
@@ -380,17 +380,17 @@ private fun LoginField(
             .border(
                 width = if (focused) 2.dp else 1.dp,
                 color = if (focused) MaterialTheme.colorScheme.primary else Color.Transparent,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(9.dp),
             )
-            .background(Color(0xFFE8F0FF), RoundedCornerShape(12.dp))
+            .background(Color(0xFFE8F0FF), RoundedCornerShape(9.dp))
             .onFocusChanged { focused = it.isFocused }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 15.sp, color = Color(0xFF181A28)),
+            textStyle = TextStyle(fontSize = 11.sp, color = Color(0xFF181A28)),
             singleLine = true,
             visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(

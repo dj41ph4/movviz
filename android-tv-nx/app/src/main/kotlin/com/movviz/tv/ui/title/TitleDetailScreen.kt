@@ -461,7 +461,7 @@ fun TitleDetailScreen(
             } else {
                 Int.MAX_VALUE
             }
-            -(minOf(scroll * 0.4f, 80f).toInt()).toFloat()
+            -(minOf(scroll * 0.4f, 60f).toInt()).toFloat()
         }
     }
 
@@ -486,11 +486,11 @@ fun TitleDetailScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(640.dp)
+                    .height(480.dp)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         } else {
-            Box(modifier = Modifier.fillMaxWidth().height(560.dp).background(MaterialTheme.colorScheme.surface))
+            Box(modifier = Modifier.fillMaxWidth().height(420.dp).background(MaterialTheme.colorScheme.surface))
         }
 
         // L'aperçu est placé AU-DESSUS de l'image mais SOUS les dégradés : le
@@ -505,7 +505,7 @@ fun TitleDetailScreen(
                 title = preview?.title ?: detail?.title.orEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(640.dp)
+                    .height(480.dp)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         }
@@ -516,7 +516,7 @@ fun TitleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(560.dp)
+                .height(420.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.75f), MaterialTheme.colorScheme.background),
@@ -526,7 +526,7 @@ fun TitleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(560.dp)
+                .height(420.dp)
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.55f), Color.Transparent),
@@ -538,26 +538,26 @@ fun TitleDetailScreen(
             if (detailError == null) {
                 Text(
                     text = "Chargement…",
-                    style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.padding(start = 56.dp, top = 320.dp),
+                    style = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground),
+                    modifier = Modifier.padding(start = 42.dp, top = 240.dp),
                 )
             } else {
                 Column(
-                    modifier = Modifier.padding(start = 112.dp, top = 310.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.padding(start = 84.dp, top = 233.dp),
+                    verticalArrangement = Arrangement.spacedBy(11.dp),
                 ) {
                     Text(
                         text = "Impossible de charger cette fiche",
-                        style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
                     )
                     Text(
                         text = "Vérifiez la connexion puis réessayez.",
-                        style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft),
+                        style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft),
                     )
                     Surface(
                         onClick = { viewModel.loadDetail(type, tmdbId) },
                         modifier = Modifier.focusRequester(initialFocusRequester).tvPointerClick { viewModel.loadDetail(type, tmdbId) },
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                         colors = ClickableSurfaceDefaults.colors(
                             containerColor = MovvizBrand,
                             focusedContainerColor = MovvizBrand2,
@@ -565,7 +565,7 @@ fun TitleDetailScreen(
                             focusedContentColor = Color.White,
                         ),
                     ) {
-                        Text("Réessayer", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp))
+                        Text("Réessayer", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 17.dp, vertical = 9.dp))
                     }
                 }
                 LaunchedEffect(detailError) {
@@ -613,12 +613,12 @@ fun TitleDetailScreen(
         TvLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 56.dp, end = 56.dp, bottom = 40.dp),
+                .padding(start = 42.dp, end = 42.dp, bottom = 30.dp),
             state = lazyListState,
             // La barre supérieure flotte au-dessus du backdrop : une zone
             // sûre explicite empêche logo, titre et première ligne de passer
             // sous elle, en 1080p comme en 4K.
-            contentPadding = PaddingValues(top = 112.dp),
+            contentPadding = PaddingValues(top = 84.dp),
         ) {
             item {
             // Première cible D-pad = la zone VISUELLE du logo/titre, jamais
@@ -630,8 +630,8 @@ fun TitleDetailScreen(
             }
             Box(
                 modifier = Modifier
-                    .width(720.dp)
-                    .heightIn(min = 116.dp)
+                    .width(540.dp)
+                    .heightIn(min = 87.dp)
                     .focusRequester(initialFocusRequester)
                     .focusable()
                     .onFocusChanged { topAnchorFocused = it.isFocused }
@@ -640,7 +640,7 @@ fun TitleDetailScreen(
                     // ancre technique minuscule et invisible.
                     .background(
                         if (topAnchorFocused) Color.White.copy(alpha = 0.07f) else Color.Transparent,
-                        RoundedCornerShape(12.dp),
+                        RoundedCornerShape(9.dp),
                     ),
             ) {
                 if (titleLogoPath != null) {
@@ -650,16 +650,16 @@ fun TitleDetailScreen(
                         contentScale = ContentScale.Fit,
                         alignment = Alignment.CenterStart,
                         modifier = Modifier
-                            .heightIn(max = 116.dp)
-                            .width(620.dp),
+                            .heightIn(max = 87.dp)
+                            .width(465.dp),
                     )
                 } else if (showTitleFallback) {
                     Text(
                         text = d.title,
-                        style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                        style = TextStyle(fontSize = 33.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 720.dp),
+                        modifier = Modifier.widthIn(max = 540.dp),
                     )
                 }
             }
@@ -667,8 +667,8 @@ fun TitleDetailScreen(
             // Les états appartiennent au titre qu'on vient de lire : juste
             // sous le logo officiel, jamais avant lui.
             if (inLibrary || movieWatched) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(modifier = Modifier.height(9.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // Badge d'état RÉACTIF : reflète la file en direct
                     // (Recherche…/Téléchargement) plutôt qu'un statut
                     // bibliothèque figé — la fin du download bascule seul
@@ -699,13 +699,13 @@ fun TitleDetailScreen(
             if (!d.originalTitle.isNullOrBlank() && !d.originalTitle.equals(d.title, ignoreCase = true)) {
                 Text(
                     text = "Titre original : ${d.originalTitle}",
-                    style = TextStyle(fontSize = 13.sp, color = MovvizInkDim),
+                    style = TextStyle(fontSize = 10.sp, color = MovvizInkDim),
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 // Pas de note TMDb (rating = 0) → pas d'étoile du tout :
                 // "★ 0.0" est trompeur, une valeur absente n'est pas zéro.
                 if (d.rating > 0) {
@@ -713,11 +713,11 @@ fun TitleDetailScreen(
                         imageVector = MovvizIconStar,
                         contentDescription = null,
                         tint = Color(0xFFF5C144),
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(11.dp),
                     )
                     Text(
                         text = "%.1f".format(d.rating),
-                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C144)),
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C144)),
                     )
                     MetaSep()
                 }
@@ -733,16 +733,16 @@ fun TitleDetailScreen(
                         style = metaStyle(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 320.dp),
+                        modifier = Modifier.widthIn(max = 240.dp),
                     )
                 }
             }
 
             d.crew.firstOrNull { it.job == "Director" }?.let { director ->
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(5.dp))
                 Row {
-                    Text(text = "Réalisation ", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
-                    Text(text = director.name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                    Text(text = "Réalisation ", style = TextStyle(fontSize = 10.sp, color = MovvizInkDim))
+                    Text(text = director.name, style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                 }
             }
 
@@ -750,32 +750,32 @@ fun TitleDetailScreen(
             // de duplication d'un écran Collections qui n'existe pas côté TV.
             // Zone secondaire discrète, jamais la hiérarchie principale.
             d.collection?.let { collection ->
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(5.dp))
                 Row {
-                    Text(text = "Fait partie de ", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
-                    Text(text = collection.name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                    Text(text = "Fait partie de ", style = TextStyle(fontSize = 10.sp, color = MovvizInkDim))
+                    Text(text = collection.name, style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                 }
             }
 
             if (d.tagline.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = d.tagline,
-                    style = TextStyle(fontSize = 14.sp, fontStyle = FontStyle.Italic, color = MovvizInkSoft),
-                    modifier = Modifier.widthIn(max = 640.dp),
+                    style = TextStyle(fontSize = 11.sp, fontStyle = FontStyle.Italic, color = MovvizInkSoft),
+                    modifier = Modifier.widthIn(max = 480.dp),
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = d.overview,
-                style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 20.sp),
+                style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft, lineHeight = 15.sp),
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 640.dp),
+                modifier = Modifier.widthIn(max = 480.dp),
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Film : un seul CTA (Lire si le fichier est prêt, sinon Ajouter).
             // Série : Ajouter tant qu'elle n'est pas en bibliothèque — une
@@ -798,7 +798,7 @@ fun TitleDetailScreen(
                                 onPlay(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(9.dp))
                                 PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay) {
                                     onPlayFromStart(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                                 }
@@ -838,7 +838,7 @@ fun TitleDetailScreen(
                             }
                             PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, solidWhite = false, enabled = false) {}
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(9.dp))
                         PrimaryPill(
                             text = if (movieWatched) "Marquer non vu" else "Marquer vu",
                             brush = null,
@@ -853,11 +853,11 @@ fun TitleDetailScreen(
                     // PosterCard), juste sous un bouton plutôt que sur un
                     // poster ici.
                     movieResume?.let { resume ->
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Box(
                             modifier = Modifier
-                                .width(200.dp)
-                                .height(3.dp)
+                                .width(150.dp)
+                                .height(2.dp)
                                 .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp)),
                         ) {
                             Box(
@@ -912,9 +912,9 @@ fun TitleDetailScreen(
                     Text(
                         text = "S${episodeResume.seasonNumber} · Ép ${episodeResume.episodeNumber}" +
                             (episodeResume.episodeTitle?.let { " — $it" } ?: ""),
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row {
                         PrimaryPill(
                             text = "Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
@@ -932,7 +932,7 @@ fun TitleDetailScreen(
             }
 
             if (type == "series" && seriesWatchTargets.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(9.dp))
                 PrimaryPill(
                     text = if (allSeriesWatched) "Série vue — marquer non vue" else "Marquer toute la série vue",
                     brush = null,
@@ -944,8 +944,8 @@ fun TitleDetailScreen(
             }
 
             addError?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizDown))
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = it, style = TextStyle(fontSize = 9.sp, color = MovvizDown))
             }
             // Dialog Compose : l'épisode garde une vraie fiche plein écran,
             // indépendante du scroll de la liste de saisons.
@@ -969,16 +969,16 @@ fun TitleDetailScreen(
             } // item
 
             if (type == "series" && inLibrary) {
-                item { Spacer(modifier = Modifier.height(28.dp)) }
+                item { Spacer(modifier = Modifier.height(21.dp)) }
                 if (seasons.isEmpty()) {
                     item {
                         Text(
                             text = "Chargement des épisodes…",
-                            style = TextStyle(fontSize = 13.sp, color = MovvizInkDim),
+                            style = TextStyle(fontSize = 10.sp, color = MovvizInkDim),
                         )
                     }
                 } else if (visibleSeasons.isEmpty()) {
-                    item { Text(text = "Aucune saison principale disponible.", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim)) }
+                    item { Text(text = "Aucune saison principale disponible.", style = TextStyle(fontSize = 10.sp, color = MovvizInkDim)) }
                 } else {
                     item {
                         SeasonSelector(
@@ -994,7 +994,7 @@ fun TitleDetailScreen(
             }
 
             if (d.cast.isNotEmpty()) {
-                item { Spacer(modifier = Modifier.height(28.dp)) }
+                item { Spacer(modifier = Modifier.height(21.dp)) }
                 item { CastRow(cast = d.cast, onOpenPerson = onOpenPerson) }
             }
 
@@ -1002,7 +1002,7 @@ fun TitleDetailScreen(
             // (calculé hors du DSL LazyColumn, `remember` n'est pas
             // utilisable directement dans le corps d'un `item {}` builder).
             if (similarCards.isNotEmpty()) {
-                item { Spacer(modifier = Modifier.height(28.dp)) }
+                item { Spacer(modifier = Modifier.height(21.dp)) }
                 item {
                     TitleRow(
                         heading = "Titres similaires",
@@ -1047,22 +1047,22 @@ fun TitleDetailScreen(
  *  rangée horizontale scrollable, plus naturel au D-pad qu'une grille. */
 @Composable
 private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPerson: (Int) -> Unit) {
-    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+    Column(modifier = Modifier.padding(bottom = 6.dp)) {
         Text(
             text = "Distribution",
-            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
-            modifier = Modifier.padding(start = 48.dp, bottom = 12.dp),
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+            modifier = Modifier.padding(start = 36.dp, bottom = 9.dp),
         )
         TvLazyRow(
             state = rememberTvLazyListState().withTvPrefetchDisabled(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 36.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(cast.take(15), key = { it.id }) { member ->
-                val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                val shape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp)
                 Surface(
                     onClick = { onOpenPerson(member.id) },
-                    modifier = Modifier.width(84.dp).tvPointerClick { onOpenPerson(member.id) },
+                    modifier = Modifier.width(63.dp).tvPointerClick { onOpenPerson(member.id) },
                     shape = ClickableSurfaceDefaults.shape(shape),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
                     border = ClickableSurfaceDefaults.border(
@@ -1072,7 +1072,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .width(84.dp)
+                        .width(63.dp)
                         .clip(shape)
                         .background(MovvizSurfaceStrong),
                 ) {
@@ -1080,7 +1080,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(92.dp)
+                            .height(69.dp)
                             .background(MovvizSurfaceStrong),
                     ) {
                         if (photoUrl != null) {
@@ -1099,12 +1099,12 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color(0xF0121218))
-                            .padding(horizontal = 5.dp, vertical = 6.dp),
+                            .padding(horizontal = 4.dp, vertical = 5.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
                             text = member.name,
-                            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -1112,7 +1112,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                         if (member.character.isNotBlank()) {
                             Text(
                                 text = member.character,
-                                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.72f)),
+                                style = TextStyle(fontSize = 8.sp, color = Color.White.copy(alpha = 0.72f)),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -1135,16 +1135,16 @@ private fun SeasonSelector(
     selectedSeasonNumber: Int?,
     onSelect: (Int) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(bottom = 20.dp)) {
-        Text(text = "Saisons", style = TextStyle(fontSize = 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
-        Spacer(modifier = Modifier.height(12.dp))
-        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(modifier = Modifier.padding(bottom = 15.dp)) {
+        Text(text = "Saisons", style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+        Spacer(modifier = Modifier.height(9.dp))
+        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
                 val selected = season.seasonNumber == selectedSeasonNumber
                 var focused by remember { mutableStateOf(false) }
-                val shape = RoundedCornerShape(10.dp)
+                val shape = RoundedCornerShape(8.dp)
                 Column(
-                    modifier = Modifier.width(132.dp),
+                    modifier = Modifier.width(99.dp),
                     horizontalAlignment = Alignment.Start,
                 ) {
                     // Vignette verticale façon Plex (pas de texte long dans la
@@ -1183,30 +1183,30 @@ private fun SeasonSelector(
                         ) {
                             Text(
                                 text = "${season.seasonNumber}",
-                                style = TextStyle(fontSize = 40.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = if (selected) 1f else 0.55f)),
+                                style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = if (selected) 1f else 0.55f)),
                                 modifier = Modifier.align(Alignment.Center),
                             )
                             Text(
                                 text = "${season.episodes.size}",
-                                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                                style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White),
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .padding(6.dp)
-                                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(5.dp))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    .padding(5.dp)
+                                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 5.dp, vertical = 2.dp),
                             )
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else MovvizInkSoft),
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = "${season.episodes.size} épisodes",
-                        style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
+                        style = TextStyle(fontSize = 9.sp, color = MovvizInkDim),
                     )
                 }
             }
@@ -1250,27 +1250,27 @@ private fun SeasonPageOverlay(
     TvLazyColumn(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0F)),
-        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 156.dp, bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        contentPadding = PaddingValues(start = 42.dp, end = 42.dp, top = 117.dp, bottom = 36.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         item(key = "season-header") {
-            Column(modifier = Modifier.widthIn(max = 1120.dp)) {
+            Column(modifier = Modifier.widthIn(max = 840.dp)) {
             Text(
                 text = seriesTitle,
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(modifier = Modifier.height(5.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
-                    style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                    style = TextStyle(fontSize = 23.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 PrimaryPill(text = "Retour", brush = null, solidWhite = false, focusRequester = backFocus, onClick = onBack)
             }
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             SeasonEpisodeHeader(
                 season = season,
                 watchedEpisodeKeys = watchedEpisodeKeys,
@@ -1316,9 +1316,9 @@ private fun SeasonEpisodeList(
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
     val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
-    Column(modifier = Modifier.widthIn(max = 1120.dp).padding(bottom = 24.dp)) {
+    Column(modifier = Modifier.widthIn(max = 840.dp).padding(bottom = 18.dp)) {
         SeasonEpisodeHeader(season, watchedEpisodeKeys, downloading, onDownloadSeason, onToggleEpisodesWatched)
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(11.dp))
         season.episodes.forEach { ep ->
             EpisodeCard(
                     episode = ep,
@@ -1333,7 +1333,7 @@ private fun SeasonEpisodeList(
                     },
                     onClick = { onOpenEpisode(ep, metadataByEpisode[ep.episodeNumber]) },
             )
-            Spacer(modifier = Modifier.height(7.dp))
+            Spacer(modifier = Modifier.height(5.dp))
         }
     }
 }
@@ -1351,7 +1351,7 @@ private fun EpisodeCard(
     var focused by remember { mutableStateOf(false) }
     val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
         episode.status == "available"
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(6.dp)
     Surface(
         onClick = onClick,
         enabled = available,
@@ -1381,16 +1381,16 @@ private fun EpisodeCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(108.dp)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .height(81.dp)
+                .padding(horizontal = 11.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = episode.episodeNumber.toString(),
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-                modifier = Modifier.width(30.dp),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+                modifier = Modifier.width(23.dp),
             )
-            val stillModifier = Modifier.width(150.dp).height(84.dp).clip(RoundedCornerShape(6.dp))
+            val stillModifier = Modifier.width(113.dp).height(63.dp).clip(RoundedCornerShape(5.dp))
             Box(modifier = stillModifier) {
                 if (metadata?.stillPath != null) {
                     Image(
@@ -1403,7 +1403,7 @@ private fun EpisodeCard(
                     // Gabarit invariant : TMDb n'a pas toujours une capture, mais
                     // le titre ne doit jamais se décaler d'une ligne à l'autre.
                     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF29272F)), contentAlignment = Alignment.Center) {
-                        Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+                        Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
                     }
                 }
                 // Badge "vu" façon Plex, en style de marque Movviz (dégradé
@@ -1413,21 +1413,21 @@ private fun EpisodeCard(
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(5.dp)
-                            .size(18.dp)
+                            .padding(4.dp)
+                            .size(14.dp)
                             .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), androidx.compose.foundation.shape.CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(11.dp))
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(8.dp))
                     }
                 }
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = episode.title,
-                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -1444,15 +1444,15 @@ private fun EpisodeCard(
                         Box(
                             modifier = Modifier
                                 .background(tone.color.copy(alpha = 0.14f), RoundedCornerShape(50))
-                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                                .padding(horizontal = 5.dp, vertical = 2.dp),
                         ) {
-                            Text(text = tone.label, style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = tone.color))
+                            Text(text = tone.label, style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = tone.color))
                         }
                     }
                 }
                 metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = overview, style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft, lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(text = overview, style = TextStyle(fontSize = 9.sp, color = MovvizInkSoft, lineHeight = 12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 // Progression EN DIRECT de CET épisode précis (pas juste une
                 // pastille "Téléchargement" figée) quand un torrent de la file
@@ -1461,22 +1461,22 @@ private fun EpisodeCard(
                 // (formatSpeedShort/formatEta), mis à jour au même rythme que
                 // la file (3s, voir le LaunchedEffect plus haut).
                 if (queueItem != null && (episode.status == "downloading" || episode.status == "searching")) {
-                    Spacer(modifier = Modifier.height(5.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     if (episode.status == "searching") {
-                        Text(text = "Recherche en cours…", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrandGlow))
+                        Text(text = "Recherche en cours…", style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrandGlow))
                     } else {
                         val pct = (queueItem.download.progress.coerceIn(0.0, 1.0) * 100).toInt()
                         val speed = formatSpeedShort(queueItem.download.downloadSpeed)
                         val eta = formatEta(queueItem.download.eta)
                         Text(
                             text = listOfNotNull("$pct%", speed?.let { "$it/s" }, eta?.let { "$it restantes" }).joinToString(" · "),
-                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan),
+                            style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan),
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(3.dp))
                         Box(
                             modifier = Modifier
-                                .width(160.dp)
-                                .height(3.dp)
+                                .width(120.dp)
+                                .height(2.dp)
                                 .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp)),
                         ) {
                             Box(
@@ -1495,8 +1495,8 @@ private fun EpisodeCard(
                 modifier = Modifier
                     // Zone finale réservée : la coche reste visible même
                     // lorsqu'un long titre ou synopsis remplit la ligne.
-                    .padding(start = 14.dp)
-                    .size(44.dp)
+                    .padding(start = 11.dp)
+                    .size(33.dp)
                     .onFocusChanged { watchedFocused = it.isFocused }
                     .tvPointerClick { onToggleWatched(!watched) },
                 shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
@@ -1510,7 +1510,7 @@ private fun EpisodeCard(
                     Icon(
                         imageVector = MovvizIconCheck,
                         contentDescription = if (watched) "Marquer non vu" else "Marquer vu",
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(15.dp),
                     )
                 }
             }
@@ -1527,14 +1527,14 @@ private fun SeasonEpisodeHeader(
     onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(text = "${season.episodes.size} épisodes", style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+        Text(text = "${season.episodes.size} épisodes", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
         Spacer(modifier = Modifier.weight(1f))
         val hasReadyEpisode = season.episodes.any { (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available" }
         if (!hasReadyEpisode) PrimaryPill(text = if (downloading) "Recherche…" else "Télécharger la saison", brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), solidWhite = false, enabled = !downloading, icon = if (downloading) null else MovvizIconDownload, onClick = onDownloadSeason)
         val targets = season.episodes.filter { it.status != "upcoming" }.map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
         val allWatched = targets.isNotEmpty() && targets.all { watchedEpisodeKeys.contains("${it.season}.${it.episode}") }
         if (targets.isNotEmpty()) {
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             PrimaryPill(text = if (allWatched) "Saison non vue" else "Saison vue", brush = null, solidWhite = false, icon = MovvizIconCheck, onClick = { onToggleEpisodesWatched(targets, !allWatched) })
         }
     }
@@ -1555,15 +1555,15 @@ private fun FileTechInfoRow(file: com.movviz.tv.data.LibraryFileDto) {
         file.source,
     )
     if (parts.isEmpty()) return
-    Spacer(modifier = Modifier.height(10.dp))
+    Spacer(modifier = Modifier.height(8.dp))
     Text(
         text = parts.joinToString("  ·  "),
-        style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
+        style = TextStyle(fontSize = 9.sp, color = MovvizInkDim),
     )
 }
 
 @Composable
-private fun metaStyle() = TextStyle(fontSize = 14.sp, color = MovvizInkSoft)
+private fun metaStyle() = TextStyle(fontSize = 11.sp, color = MovvizInkSoft)
 
 @Composable
 private fun StatusBadge(text: String, tone: Color, icon: ImageVector? = null) {
@@ -1571,13 +1571,13 @@ private fun StatusBadge(text: String, tone: Color, icon: ImageVector? = null) {
         modifier = Modifier
             .background(tone.copy(alpha = 0.12f), RoundedCornerShape(50))
             .border(1.dp, tone.copy(alpha = 0.25f), RoundedCornerShape(50))
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 9.dp, vertical = 3.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             if (icon != null) {
-                Icon(imageVector = icon, contentDescription = null, tint = tone, modifier = Modifier.size(11.dp))
+                Icon(imageVector = icon, contentDescription = null, tint = tone, modifier = Modifier.size(8.dp))
             }
-            Text(text = text, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = tone))
+            Text(text = text, style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = tone))
         }
     }
 }
@@ -1614,33 +1614,33 @@ private fun EpisodeDetailOverlay(
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
-                .widthIn(max = 920.dp)
+                .widthIn(max = 690.dp)
                 .fillMaxWidth(0.82f)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(MovvizSurfaceStrong),
         ) {
-            Column(modifier = Modifier.padding(28.dp)) {
+            Column(modifier = Modifier.padding(21.dp)) {
                 selection.metadata?.stillPath?.let { still ->
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still"),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(10.dp)),
+                        modifier = Modifier.fillMaxWidth().height(188.dp).clip(RoundedCornerShape(8.dp)),
                     )
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
                 Text(
                     text = "S${selection.season.seasonNumber} · Épisode ${selection.episode.episodeNumber}",
-                    style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizCyan),
+                    style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizCyan),
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = selection.episode.title, style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MovvizInk))
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(text = selection.episode.title, style = TextStyle(fontSize = 21.sp, fontWeight = FontWeight.Black, color = MovvizInk))
                 selection.metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(text = overview, style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft, lineHeight = 21.sp), maxLines = 4, overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(9.dp))
+                    Text(text = overview, style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft, lineHeight = 16.sp), maxLines = 4, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     if (available) {
                         PrimaryPill(text = "Lire l'épisode", brush = null, solidWhite = true, icon = MovvizIconPlay, focusRequester = primaryActionFocus, onClick = onPlay)
                     } else {
@@ -1663,7 +1663,7 @@ private fun EpisodeDetailOverlay(
 
 @Composable
 private fun MetaSep() {
-    Text(text = "  •  ", style = TextStyle(fontSize = 14.sp, color = MovvizInkDim))
+    Text(text = "  •  ", style = TextStyle(fontSize = 11.sp, color = MovvizInkDim))
 }
 
 /** Bouton d'action principal — Surface focusable (obligatoire pour le D-pad),
@@ -1681,14 +1681,14 @@ private fun PrimaryPill(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(9.dp)
     Surface(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
             .let { if (brush != null) it.background(brush, shape) else it }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .tvFocusLift(focused && enabled, shape = shape, maxScale = 1.06f, maxElevation = 16.dp)
+            .tvFocusLift(focused && enabled, shape = shape, maxScale = 1.06f, maxElevation = 12.dp)
             .onFocusChanged { focused = it.isFocused }
             .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -1713,18 +1713,18 @@ private fun PrimaryPill(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 17.dp, vertical = 11.dp),
         ) {
             if (icon != null) {
                 // Sans tint explicite : Icon hérite de LocalContentColor de la
                 // Surface (noir sur pilule blanche, encre sinon) — le vecteur
                 // est entièrement recoloré par le tint.
-                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(12.dp))
             }
             Text(
                 text = text,
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold),
             )
         }
     }
@@ -1757,7 +1757,7 @@ private fun DownloadProgressPill(
     searching: Boolean,
     focusRequester: FocusRequester? = null,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(9.dp)
     var focused by remember { mutableStateOf(false) }
     val pct = (progress.coerceIn(0.0, 1.0) * 100).toInt()
     Surface(
@@ -1779,7 +1779,7 @@ private fun DownloadProgressPill(
             ),
         ),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 17.dp, vertical = 9.dp)) {
             Text(
                 text = if (searching) {
                     "Recherche en cours…"
@@ -1792,14 +1792,14 @@ private fun DownloadProgressPill(
                         eta?.let { "$it restantes" },
                     ).joinToString(" · ")
                 },
-                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
             )
             if (!searching) {
-                Spacer(modifier = Modifier.height(7.dp))
+                Spacer(modifier = Modifier.height(5.dp))
                 Box(
                     modifier = Modifier
-                        .width(220.dp)
-                        .height(4.dp)
+                        .width(165.dp)
+                        .height(3.dp)
                         .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp)),
                 ) {
                     Box(

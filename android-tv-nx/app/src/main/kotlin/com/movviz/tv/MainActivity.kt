@@ -292,7 +292,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     painter = painterResource(R.drawable.movviz_lockup),
                     contentDescription = "Movviz",
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.width(220.dp),
+                    modifier = Modifier.width(165.dp),
                 )
             }
         }

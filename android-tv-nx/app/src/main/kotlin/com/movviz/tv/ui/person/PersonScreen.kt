@@ -98,22 +98,22 @@ fun PersonScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = 32.dp, bottom = 40.dp),
+            .padding(top = 24.dp, bottom = 30.dp),
     ) {
         item {
             val p = person
             if (p == null) {
                 Text(
                     text = "Chargement…",
-                    style = TextStyle(fontSize = 15.sp, color = MovvizInkDim),
-                    modifier = Modifier.padding(start = 48.dp),
+                    style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
+                    modifier = Modifier.padding(start = 36.dp),
                 )
             } else {
-                Row(modifier = Modifier.padding(start = 48.dp, end = 48.dp, bottom = 32.dp)) {
+                Row(modifier = Modifier.padding(start = 36.dp, end = 36.dp, bottom = 24.dp)) {
                     val photoUrl = p.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
                     Box(
                         modifier = Modifier
-                            .size(140.dp)
+                            .size(105.dp)
                             .clip(CircleShape)
                             .background(MovvizSurfaceStrong),
                     ) {
@@ -126,17 +126,17 @@ fun PersonScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(28.dp))
+                    Spacer(modifier = Modifier.width(21.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = p.name,
-                            style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                            style = TextStyle(fontSize = 23.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                         )
                         if (p.biography.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = p.biography,
-                                style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 20.sp),
+                                style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft, lineHeight = 15.sp),
                                 maxLines = 6,
                                 overflow = TextOverflow.Ellipsis,
                             )

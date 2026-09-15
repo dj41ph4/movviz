@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.25.11 — September 2026
+
+### Android TV NX : réduction 25% globale + D-pad débloqué
+
+- Toute l'interface TV réduite de 25% (sidebar 63/195 dp, cartes 99/203/124 dp, typo 11/17 sp, etc.) — sidebar comprise, ratios et gradients conservés.
+- D-pad : `Accueil > droite > 3× bas > 3× gauche` ne bloque plus dans la sidebar — `LEFT` depuis la 1ère carte de chaque rangée (dont « Prochainement ») va explicitement sur l'onglet sélectionné, `UP` remonte à la NavRail, `RIGHT` retrouve le contenu même après scroll.
+
 ## v1.25.10 — September 2026
 
 ### Correctif téléchargements : pause/reprise WebTorrent
