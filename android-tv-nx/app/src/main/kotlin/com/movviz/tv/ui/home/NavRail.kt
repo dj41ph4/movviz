@@ -431,14 +431,16 @@ private fun BookmarkIcon(color: Color, modifier: Modifier = Modifier) {
 @Composable
 private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    // Carré 56dp en rail replié (comme la maquette carrée du second visuel),
+    // pill étirée en déployé. Même rayon que la tuile carrée de la 2e image.
+    val collapsedShape = RoundedCornerShape(14.dp)
+    val expandedShape = RoundedCornerShape(10.dp)
+    val shape = if (expanded) expandedShape else collapsedShape
 
     Surface(
         onClick = onClick,
         modifier = Modifier
-            // Déployé, chaque item occupe toute la largeur du rail pour que
-            // les pastilles s'alignent sur un même bord gauche.
-            .let { if (expanded) it.fillMaxWidth() else it }
+            .let { if (expanded) it.fillMaxWidth() else it.size(56.dp) }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
@@ -457,31 +459,43 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
         Box(
             modifier = Modifier
                 .let { if (active) it.background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), shape) else it }
+                .let { if (!expanded) it.fillMaxSize() else it },
+            contentAlignment = if (expanded) Alignment.CenterStart else Alignment.Center,
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = if (expanded) 16.dp else 0.dp, vertical = 12.dp),
-            ) {
+            if (expanded) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    if (tab == HomeTab.LIBRARY) {
+                        BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(20.dp))
+                    } else {
+                        Icon(
+                            imageVector = tab.icon(),
+                            contentDescription = null,
+                            tint = if (active) Color.White else MovvizInkDim,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Text(
+                        text = tab.label,
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MovvizInkDim),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else {
+                // Carré centré, icône 22dp comme sur la 2e image (search carré)
                 if (tab == HomeTab.LIBRARY) {
-                    BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(20.dp))
+                    BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(22.dp))
                 } else {
                     Icon(
                         imageVector = tab.icon(),
-                        contentDescription = if (expanded) null else tab.label,
+                        contentDescription = tab.label,
                         tint = if (active) Color.White else MovvizInkDim,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(22.dp),
                     )
-                }
-                AnimatedVisibility(visible = expanded, enter = fadeIn(tween(180)), exit = fadeOut(tween(100))) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Spacer(Modifier.width(14.dp))
-                        Text(
-                            text = tab.label,
-                            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MovvizInkDim),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
             }
         }

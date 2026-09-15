@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.25.9 — September 2026
+
+### Android TV NX : sidebar carrée, D-pad Prochainement débloqué
+
+- NavRail : icônes 56 dp carrées (14 dp radius) en rail replié, gradient conservé sur l'actif — comme le carré de la 2e image, plus de pill étirée moche au repos.
+- D-pad : `LEFT` depuis la 1ère carte de chaque rangée (dont « Prochainement ») va désormais explicitement sur l'onglet sélectionné via `focusProperties`, plus au hasard géométrique (Prochainement → Profil) — 1ère carte `LEFT` ne bloque plus.
+- Accueil : `UP` depuis le hero/contenu remonte proprement à la NavRail, `DOWN` reste dans la colonne sans s'échapper vers la sidebar/launcher.
+
 ## v1.25.8 — September 2026
 
 ### Android TV NX : durée restante sur Continuer, API on-deck enrichie

@@ -35,6 +35,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -505,35 +506,17 @@ fun HomeScreen(
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-    // Gestion D-pad au niveau contenu : LEFT/UP explicites vers la NavRail
-    // quand on est au bord. Sans ceci, LEFT depuis la 1ère carte choisissait
-    // un onglet aléatoire (géométrie, pas l'onglet sélectionné) et UP depuis
-    // le hero tombait sur l'ancre invisible — pièges #1 et #2.
-    val contentBoxModifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-        .onPreviewKeyEvent { event ->
-            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-            when (event.key) {
-                Key.DirectionLeft -> {
-                    // Tenter d'abord un déplacement naturel (carte ← carte).
-                    // S'il échoue (bord gauche), aller explicitement sur
-                    // l'onglet sélectionné de la NavRail, pas un onglet au
-                    // hasard trouvé par la recherche spatiale.
-                    if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) true
-                    else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
-                }
-                Key.DirectionUp -> {
-                    if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) true
-                    else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
-                }
-                Key.DirectionDown -> {
-                    // DOWN ne doit jamais s'échapper vers la sidebar/launcher :
-                    // soit il descend d'une rangée, soit il reste sur place.
-                    if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)) true else false
-                }
-                else -> false
-            }
-        }
-    Box(modifier = contentBoxModifier) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionUp) return@onPreviewKeyEvent false
+                // UP depuis le contenu : tenter d'abord un déplacement naturel
+                // (rangée → rangée, carte → hero). S'il échoue (déjà tout en
+                // haut), aller sur l'onglet sélectionné de la NavRail.
+                if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) true
+                else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+            },
+    ) {
         TvLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
@@ -584,6 +567,7 @@ fun HomeScreen(
                         ctaFocusRequester = contentFocus,
                         trailerAutoplay = dashboardLayout.hero.trailerAutoplay && activeCardPreviewKey == null,
                         onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        navRailFocusRequester = navRailFocusRequester,
                     )
                 }
             }
@@ -604,6 +588,7 @@ fun HomeScreen(
                                 else onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
                             },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            navRailFocusRequester = navRailFocusRequester,
                         )
                     }
                     "recentEpisodes" -> item(contentType = "row") {
@@ -615,6 +600,7 @@ fun HomeScreen(
                             onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
+                            navRailFocusRequester = navRailFocusRequester,
                         )
                     }
                     "becauseYouLike" -> item(contentType = "row") {
@@ -627,6 +613,7 @@ fun HomeScreen(
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                             showTypeBadge = true,
+                            navRailFocusRequester = navRailFocusRequester,
                         )
                     }
                     "shortSessions" -> item(contentType = "row") {
@@ -694,6 +681,7 @@ fun HomeScreen(
                         onSelect = { tile ->
                             onSeeAllRow("movie", "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous")
                         },
+                        navRailFocusRequester = navRailFocusRequester,
                     )
                 }
             }
@@ -808,6 +796,7 @@ internal fun HeroCarousel(
     ctaFocusRequester: FocusRequester,
     trailerAutoplay: Boolean = true,
     onOpen: (TvTitleCard) -> Unit,
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     val current = items[currentIndex.coerceIn(0, items.size - 1)]
     var showTitleFallback by remember(current.id, logoPath) { mutableStateOf(false) }
@@ -1100,6 +1089,7 @@ internal fun HeroCarousel(
                     onClick = { onOpen(current) },
                     modifier = Modifier
                         .focusRequester(ctaFocusRequester)
+                        .let { if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester; up = navRailFocusRequester } else it }
                         .tvFocusLift(focused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
@@ -1141,6 +1131,7 @@ internal fun HeroCarousel(
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
+                        .let { if (navRailFocusRequester != null) it.focusProperties { up = navRailFocusRequester } else it }
                         .tvFocusLift(infoFocused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
@@ -1535,6 +1526,7 @@ internal fun TitleRow(
      * actif à la fois sur Android TV. */
     onPreviewStateChanged: (cardId: String, active: Boolean) -> Unit = { _, _ -> },
     showTypeBadge: Boolean = false,
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     // État de focus partagé par toutes les cartes de la rangée — il vit ici
     // (pas dans PosterCard) pour survivre à la destruction des items par la
@@ -1590,6 +1582,7 @@ internal fun TitleRow(
                     card = renderedCard,
                     onClick = { onClick(card) },
                     focusRequester = if (index == 0) firstItemFocusRequester else null,
+                    navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
                     onFocusedChange = { focused ->
                         focusedCardState.value = if (focused) card else null
                         if (focused) onFocusedCard(card)
@@ -1681,6 +1674,7 @@ private fun RowHeading(text: String) {
 internal fun PlatformRow(
     tiles: List<com.movviz.tv.data.LogoTileDto>,
     onSelect: (com.movviz.tv.data.LogoTileDto) -> Unit,
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading("Plateformes")
@@ -1690,8 +1684,8 @@ internal fun PlatformRow(
             contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            tvItemsIndexed(tiles, key = { _, tile -> "platform-${tile.id}" }) { _, tile ->
-                PlatformTile(tile = tile, onClick = { onSelect(tile) })
+            tvItemsIndexed(tiles, key = { _, tile -> "platform-${tile.id}" }) { index, tile ->
+                PlatformTile(tile = tile, onClick = { onSelect(tile) }, navRailFocusRequester = if (index == 0) navRailFocusRequester else null)
             }
         }
     }
@@ -1704,6 +1698,7 @@ internal fun PlatformRow(
 private fun PlatformTile(
     tile: com.movviz.tv.data.LogoTileDto,
     onClick: () -> Unit,
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(6.dp)
@@ -1712,6 +1707,7 @@ private fun PlatformTile(
         modifier = Modifier
             .width(165.dp)
             .aspectRatio(16f / 9f)
+            .let { if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester } else it }
             .tvCardFocusHalo(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
@@ -1785,6 +1781,7 @@ internal fun ContinueWatchingRow(
     items: List<TvTitleCard>,
     onClick: (TvTitleCard) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading("Continuer à regarder")
@@ -1799,6 +1796,7 @@ internal fun ContinueWatchingRow(
                     card = card,
                     onClick = { onClick(card) },
                     focusRequester = if (index == 0) firstItemFocusRequester else null,
+                    navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
                 )
             }
         }
@@ -1813,6 +1811,7 @@ private fun ResumeCard(
     card: TvTitleCard,
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     var focused by remember(card.id) { mutableStateOf(false) }
     val tileShape = RoundedCornerShape(10.dp)
@@ -1829,6 +1828,7 @@ private fun ResumeCard(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .let { if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester } else it }
                 // Glow violet maquette via graphicsLayer (même mécanisme que
                 // le zoom Ken Burns du hero) : seule la bordure + ce halo
                 // bougent au focus, la carte ne change jamais de taille.
@@ -1972,6 +1972,10 @@ internal fun PosterCard(
     /** Pilule type FILM/SÉRIE pour les rangées mélangées (Home). Désactivé
      * par défaut pour ne pas surcharger les rails mono-type (Films, Séries). */
     showTypeBadge: Boolean = false,
+    /** Routage LEFT explicite depuis la 1ère carte vers l'onglet sélectionné
+     * de la NavRail — évite que la recherche spatiale ne choisisse un onglet
+     * au hasard selon Y (piège Prochainement → Profil). */
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
@@ -2001,6 +2005,9 @@ internal fun PosterCard(
                 .fillMaxWidth()
                 .aspectRatio(renderedAspect)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .let {
+                    if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester } else it
+                }
                 .tvCardFocusHalo(focused, shape = MovvizCardShape)
                 .onFocusChanged {
                     focused = it.isFocused
