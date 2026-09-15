@@ -105,10 +105,10 @@ class MovvizRepository(private val baseUrl: String) {
     /** TMDb renvoie une vingtaine de résultats par page. La recherche TV
      * affiche trois pages (jusqu'à 60 titres) pour rester proche du catalogue
      * Netflix, sans modifier la route backend. */
-    suspend fun search(query: String): ApiResult<List<SearchResultDto>> {
+    suspend fun search(query: String, type: String? = null): ApiResult<List<SearchResultDto>> {
         val all = mutableListOf<SearchResultDto>()
         for (page in 1..3) {
-            when (val response = safeCall { api.search(query, page) }) {
+            when (val response = safeCall { api.search(query, page, type) }) {
                 is ApiResult.Success -> {
                     all += response.data.results
                     if (response.data.results.isEmpty() || page >= response.data.totalPages) break

@@ -188,22 +188,20 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         }
     }
 
-    // Restauration du focus au retour d'un écran détail : quand on revient
-    // à l'accueil depuis une fiche, le focus doit revenir sur la NavRail
-    // pour que la télécommande réagisse immédiatement — sans ceci, le
-    // focus reste « nulle part » et l'utilisateur croit que l'app a gelé.
+    // Restauration du focus au retour d'un écran détail : laisser
+    // le focusRestorer de la rangée restaurer la même carte (spec P3),
+    // sans voler le focus vers la NavRail — sinon BACK ne revient jamais
+    // sur la carte d'origine. Le 300 ms garantit que la TvLazyRow est
+    // recomposée avant de redemander le focus contenu.
     var previousRoute by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentRoute) {
         if (currentRoute?.startsWith("home") == true &&
             previousRoute != null &&
             previousRoute?.startsWith("home") != true
         ) {
-            // Attendre la composition complète de l'écran contenu avant de
-            // demander le focus — le FocusRequester doit être attaché à un
-            // noeud composé vivant, sinon requestFocus() lève une exception
-            // (constaté en direct sur TV : 200 ms trop court, 300 ms OK).
             delay(300)
-            runCatching { navRailFocusRequester.requestFocus() }
+            val restored = runCatching { contentFocusRequester.requestFocus() }.isSuccess
+            if (!restored) runCatching { navRailFocusRequester.requestFocus() }
         }
         previousRoute = currentRoute
     }

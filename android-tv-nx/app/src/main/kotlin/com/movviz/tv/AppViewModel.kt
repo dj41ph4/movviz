@@ -1275,7 +1275,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      *  live-typing — le clavier virtuel Android TV rend la saisie lente et
      *  saccadée, une requête par caractère serait à la fois inutile et
      *  visuellement agaçante (résultats qui sautent en permanence). */
-    fun search(query: String) {
+    fun search(query: String, type: String? = null) {
         val repo = repository
         if (repo == null || query.isBlank()) {
             _searchResults.value = emptyList()
@@ -1283,7 +1283,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         }
         _searching.value = true
         viewModelScope.launch {
-            when (val r = repo.search(query.trim())) {
+            when (val r = repo.search(query.trim(), type)) {
                 is ApiResult.Success -> _searchResults.value = r.data
                 ApiResult.Unauthorized -> {
                     _searchResults.value = emptyList()

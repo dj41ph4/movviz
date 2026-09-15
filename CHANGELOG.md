@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.25.7 — September 2026
+
+### Android TV NX : D-pad débloqué, logos retrouvés, séries démêlées
+
+- D-pad : LEFT depuis le contenu vise désormais l'onglet sélectionné (plus au hasard), UP ne tombe plus sur l'ancre invisible de 2 px, DOWN ne s'échappe plus vers la sidebar/launcher, BACK depuis une fiche restaure la même carte (focusRestorer) au lieu de la NavRail — 3 pièges bloquants corrigés (rapport 183 tests : 161 PASS).
+- Plateformes : tuiles 16/9 avec fond blanc 95 % derrière le logo (comme Découverte), visibles même pour les logos sombres ; hero et rangées gardent leurs halos.
+- Séries démêlées : pilule FILM/SÉRIE sur les rangées mélangées (Sélection, Tendances, Ajoutés, éditoriales), recherche type-split côté serveur (`?type=movie|series`) au lieu d'un filtre client.
+
 ## v1.25.6 — September 2026
 
 ### Android TV NX : maquette Accueil, trailers alignés, pattern TV partout

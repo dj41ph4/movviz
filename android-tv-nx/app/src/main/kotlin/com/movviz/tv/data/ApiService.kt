@@ -110,7 +110,7 @@ interface MovvizApiService {
     ): Response<MetadataSeasonDto>
 
     @GET("api/metadata/search")
-    suspend fun search(@Query("q") query: String, @Query("page") page: Int = 1): Response<SearchResponseDto>
+    suspend fun search(@Query("q") query: String, @Query("page") page: Int = 1, @Query("type") type: String? = null): Response<SearchResponseDto>
 
     @GET("api/stream/{ratingKey}/info")
     suspend fun streamInfo(@Path("ratingKey") ratingKey: String): Response<StreamInfoDto>

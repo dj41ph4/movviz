@@ -496,7 +496,36 @@ fun HomeScreen(
     }
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    // Gestion D-pad au niveau contenu : LEFT/UP explicites vers la NavRail
+    // quand on est au bord. Sans ceci, LEFT depuis la 1ère carte choisissait
+    // un onglet aléatoire (géométrie, pas l'onglet sélectionné) et UP depuis
+    // le hero tombait sur l'ancre invisible — pièges #1 et #2.
+    val contentBoxModifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+        .onPreviewKeyEvent { event ->
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            when (event.key) {
+                Key.DirectionLeft -> {
+                    // Tenter d'abord un déplacement naturel (carte ← carte).
+                    // S'il échoue (bord gauche), aller explicitement sur
+                    // l'onglet sélectionné de la NavRail, pas un onglet au
+                    // hasard trouvé par la recherche spatiale.
+                    if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)) true
+                    else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+                }
+                Key.DirectionUp -> {
+                    if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) true
+                    else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+                }
+                Key.DirectionDown -> {
+                    // DOWN ne doit jamais s'échapper vers la sidebar/launcher :
+                    // soit il descend d'une rangée, soit il reste sur place.
+                    if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)) true else false
+                }
+                else -> false
+            }
+        }
+    Box(modifier = contentBoxModifier) {
         TvLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
@@ -518,18 +547,22 @@ fun HomeScreen(
                 // temps du chargement, puis la repasse au vrai premier
                 // élément dès qu'il existe (recomposition normale).
                 val anchorOwnsContentFocus = !showHero && firstVisibleSection == null
+                // Ancre invisible uniquement focusable quand elle porte
+                // réellement contentFocus (écran vide en chargement). Sinon
+                // elle créait un nœud fantôme [168,0][1920,2] qui captait UP
+                // depuis le hero/1ère rangée et affichait un focus invisible
+                // (piège #2 du rapport D-pad 1.25.6).
                 Box(
                     modifier = Modifier.fillMaxWidth().height(1.dp)
-                        .let { if (anchorOwnsContentFocus) it.focusRequester(contentFocus) else it }
-                        .focusRequester(topAnchor).focusable()
-                        .onPreviewKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                                navRailFocusRequester?.let {
-                                    runCatching { it.requestFocus() }.isSuccess
-                                } == true
-                            } else {
-                                false
-                            }
+                        .let {
+                            if (anchorOwnsContentFocus) it.focusRequester(contentFocus)
+                                .focusRequester(topAnchor).focusable()
+                                .onPreviewKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                                        navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+                                    } else false
+                                }
+                            else it.focusRequester(topAnchor)
                         },
                 )
             }
@@ -585,6 +618,7 @@ fun HomeScreen(
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
+                            showTypeBadge = true,
                         )
                     }
                     "shortSessions" -> item(contentType = "row") {
@@ -607,6 +641,7 @@ fun HomeScreen(
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
+                            showTypeBadge = true,
                         )
                     }
                     "availableNow" -> item(contentType = "row") {
@@ -618,6 +653,7 @@ fun HomeScreen(
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
+                            showTypeBadge = true,
                         )
                     }
                     "comingSoon" -> item(contentType = "row") {
@@ -664,6 +700,7 @@ fun HomeScreen(
                         onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         onPreviewStateChanged = onCardPreviewStateChanged,
+                        showTypeBadge = true,
                     )
                 }
             }
@@ -1489,6 +1526,7 @@ internal fun TitleRow(
      * carte active. Il peut alors couper le hero : un seul décodeur vidéo
      * actif à la fois sur Android TV. */
     onPreviewStateChanged: (cardId: String, active: Boolean) -> Unit = { _, _ -> },
+    showTypeBadge: Boolean = false,
 ) {
     // État de focus partagé par toutes les cartes de la rangée — il vit ici
     // (pas dans PosterCard) pour survivre à la destruction des items par la
@@ -1567,6 +1605,7 @@ internal fun TitleRow(
                     showCaption = false,
                     showTechnicalBadges = false,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
+                    showTypeBadge = showTypeBadge,
                 )
             }
             if (onSeeAll != null) {
@@ -1681,18 +1720,27 @@ private fun PlatformTile(
         ),
     ) {
         Box(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
             if (tile.logoPath != null) {
-                coil.compose.SubcomposeAsyncImage(
-                    model = "$TMDB_LOGO_BASE${tile.logoPath}",
-                    contentDescription = tile.name,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                    loading = { PlatformTileFallback(name = tile.name, focused = focused) },
-                    error = { PlatformTileFallback(name = tile.name, focused = focused) },
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .background(Color.White.copy(alpha = 0.95f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    coil.compose.SubcomposeAsyncImage(
+                        model = "$TMDB_LOGO_BASE${tile.logoPath}",
+                        contentDescription = tile.name,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                        loading = { PlatformTileFallback(name = tile.name, focused = focused) },
+                        error = { PlatformTileFallback(name = tile.name, focused = focused) },
+                    )
+                }
             } else {
                 PlatformTileFallback(name = tile.name, focused = focused)
             }
@@ -1911,6 +1959,9 @@ internal fun PosterCard(
     showCaption: Boolean = true,
     showTechnicalBadges: Boolean = true,
     titleLogoPath: String? = null,
+    /** Pilule type FILM/SÉRIE pour les rangées mélangées (Home). Désactivé
+     * par défaut pour ne pas surcharger les rails mono-type (Films, Séries). */
+    showTypeBadge: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
@@ -1966,6 +2017,27 @@ internal fun PosterCard(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                }
+                // Pilule type FILM/SÉRIE pour les rangées mélangées — toujours
+                // visible, même hors focus, pour démêler le fouilli à 3 m.
+                // Placée en haut-fin (épisode badge est en haut-début) pour
+                // éviter le chevauchement quand les deux sont présents.
+                if (showTypeBadge) {
+                    val typeLabel = if (card.isMovie) "FILM" else "SÉRIE"
+                    val typeColor = if (card.isMovie) MovvizCyan else MovvizBrand
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .background(typeColor.copy(alpha = 0.92f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            text = typeLabel,
+                            style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 0.6.sp),
+                            maxLines = 1,
+                        )
+                    }
                 }
                 // Une seule carte peut être expanded à la fois dans une
                 // rangée. Le pool d'AmbientTrailer n'autorise qu'un lecteur,
