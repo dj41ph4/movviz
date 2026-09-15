@@ -35,6 +35,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -199,6 +200,7 @@ internal data class TvTitleCard(
  * sont volontairement entrelacés ; Films/Séries gardent leurs hubs séparés. */
 private data class HomeEditorialRow(val key: String, val heading: String, val cards: List<TvTitleCard>)
 
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: AppViewModel,
@@ -508,6 +510,12 @@ fun HomeScreen(
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+            .focusGroup()
+            .focusProperties {
+                enter = { focusDirection ->
+                    if (focusDirection == androidx.compose.ui.focus.FocusDirection.Left) navRailFocusRequester ?: androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Default
+                }
+            }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionUp) return@onPreviewKeyEvent false
                 // UP depuis le contenu : tenter d'abord un déplacement naturel
@@ -518,7 +526,7 @@ fun HomeScreen(
             },
     ) {
         TvLazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().focusGroup(),
             state = listState,
             // Le rail possède désormais sa propre colonne hors de cet écran.
             // Le hero peut donc occuper toute la largeur de la zone contenu,
@@ -885,7 +893,7 @@ internal fun HeroCarousel(
     // immédiatement parcourable à la télécommande au lieu d'exiger un
     // défilement devant une affiche géante.
     val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
-    val heroHeight = (screenHeightDp * 0.46f).coerceIn(255f, 375f)
+    val heroHeight = (screenHeightDp * 0.46f).coerceIn(340f, 500f)
     Box(modifier = Modifier.fillMaxWidth().height(heroHeight.dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
@@ -904,6 +912,7 @@ internal fun HeroCarousel(
                 painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE${item.backdropPath}"),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter,
                 // graphicsLayer (pas .scale(zoom)) : .scale() avec une valeur
                 // lue depuis un State (ici animateFloat en continu tant que
                 // le hero est affiché) force une recomposition du composable
@@ -953,8 +962,8 @@ internal fun HeroCarousel(
                 .align(Alignment.BottomStart)
                 // bottom = dépassement du hero sous le pli (40dp) + marge
                 // visuelle : le CTA reste ENTièrement au-dessus de l'écran.
-                .padding(start = 39.dp, end = 30.dp, bottom = 35.dp)
-                .widthIn(max = 465.dp),
+                .padding(start = 52.dp, end = 40.dp, bottom = 46.dp)
+                .widthIn(max = 620.dp),
         ) {
             // Zone texte animée en fondu + glissement à chaque rotation.
             // Le CTA (plus bas) reste HORS de cette colonne : le focus D-pad
@@ -1089,7 +1098,6 @@ internal fun HeroCarousel(
                     onClick = { onOpen(current) },
                     modifier = Modifier
                         .focusRequester(ctaFocusRequester)
-                        .let { if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester; up = navRailFocusRequester } else it }
                         .tvFocusLift(focused, shape = RoundedCornerShape(5.dp), maxScale = 1.04f, maxElevation = 12.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
@@ -1131,7 +1139,6 @@ internal fun HeroCarousel(
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
-                        .let { if (navRailFocusRequester != null) it.focusProperties { up = navRailFocusRequester } else it }
                         .tvFocusLift(infoFocused, shape = RoundedCornerShape(5.dp), maxScale = 1.04f, maxElevation = 12.dp)
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
@@ -1707,7 +1714,6 @@ private fun PlatformTile(
         modifier = Modifier
             .width(124.dp)
             .aspectRatio(16f / 9f)
-            .let { if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester } else it }
             .tvCardFocusHalo(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
@@ -1828,7 +1834,6 @@ private fun ResumeCard(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .let { if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester } else it }
                 // Glow violet maquette via graphicsLayer (même mécanisme que
                 // le zoom Ken Burns du hero) : seule la bordure + ce halo
                 // bougent au focus, la carte ne change jamais de taille.
@@ -2005,9 +2010,6 @@ internal fun PosterCard(
                 .fillMaxWidth()
                 .aspectRatio(renderedAspect)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .let {
-                    if (navRailFocusRequester != null) it.focusProperties { left = navRailFocusRequester } else it
-                }
                 .tvCardFocusHalo(focused, shape = MovvizCardShape)
                 .onFocusChanged {
                     focused = it.isFocused

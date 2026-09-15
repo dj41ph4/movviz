@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.25.14 — September 2026
+
+### Android TV NX : hero centré en haut
+
+- Backdrop du hero aligné `TopCenter` (au lieu de centre) — on voit le haut de l'affiche, plus le bas coupé.
+
+## v1.25.13 — September 2026
+
+### Android TV NX : D-pad Accueil 1×→ 3×↓ 3×← débloqué
+
+- `Accueil > droite > 3× bas > 3× gauche` ne coince plus dans la sidebar — `focusGroup` + `focusProperties { enter/exit }` sur NavRail/Content remplacent les `left =` sur items lazy (qui cassaient le spatial), `TvLazyColumn` en `focusGroup`, `RIGHT` priorise `moveFocus` puis `contentFocus`.
+
+## v1.25.12 — September 2026
+
+### Android TV NX : hero immersif restauré
+
+- Le hero retrouve sa taille immersive d'origine (500 px max, 46% viewport, padding 52/40/46, width 620) — seules les tuiles et la sidebar restent à -25% comme demandé.
+
 ## v1.25.11 — September 2026
 
 ### Android TV NX : réduction 25% globale + D-pad débloqué
