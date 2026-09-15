@@ -153,6 +153,9 @@ internal data class TvTitleCard(
     /** Non-null uniquement pour une carte "Continuer à regarder" — affiche
      *  une fine barre de progression en bas du poster. */
     val progressPercent: Int? = null,
+    /** Minutes restantes estimées (durationMs - offsetMs)/60000, si le
+     * serveur les fournit. Null pour les entrées sans durée. */
+    val remainingMinutes: Int? = null,
     /** Vrai seulement pour le rail « Continuer à regarder ». Les données
      * d'un épisode ajouté peuvent contenir une position héritée, mais ne
      * doivent jamais devenir une fausse reprise. */
@@ -293,6 +296,10 @@ fun HomeScreen(
             } else {
                 series.firstOrNull { it.tmdbId == resume.tmdbId }?.let { it.customBackdropPath ?: it.backdropPath }
             }
+            val remaining = resume.durationMs?.let { dur ->
+                val rem = ((dur - resume.offsetMs).coerceAtLeast(0L) / 60_000L).toInt()
+                if (rem in 1..1000) rem else null
+            }
             TvTitleCard(
                 id = "cw-${resume.type}-${resume.tmdbId}-${resume.seasonNumber}-${resume.episodeNumber}",
                 title = resume.title ?: "—",
@@ -302,6 +309,7 @@ fun HomeScreen(
                 isMovie = resume.type == "movie",
                 rating = resume.rating,
                 progressPercent = resume.progressPercent,
+                remainingMinutes = remaining,
                 isResumeCard = true,
                 resumeSeasonNumber = resume.seasonNumber,
                 resumeEpisodeNumber = resume.episodeNumber,
@@ -1897,16 +1905,18 @@ private fun ResumeCard(
     }
 }
 
-/** Contexte sous la carte de reprise — honnête avec les données
- *  disponibles : S/E + titre d'épisode pour les séries, rien pour les
- *  films (le serveur ne renvoie aucun temps restant par titre). */
+/** Contexte sous la carte de reprise — S/E + titre d'épisode pour les
+ *  séries, durée restante si le serveur la fournit (durationMs), sinon
+ *  sans. Pour les films : juste le temps restant quand disponible. */
 private fun resumeCardMeta(card: TvTitleCard): String {
+    val remainingSuffix = card.remainingMinutes?.let { " · $it min restantes" } ?: ""
     if (!card.isMovie && card.episodeSeasonNumber != null && card.episodeNumber != null) {
         val base = "S${card.episodeSeasonNumber} E${card.episodeNumber}"
         val epTitle = card.episodeTitle?.takeIf { it.isNotBlank() }
-        return if (epTitle != null) "$base · $epTitle" else base
+        val core = if (epTitle != null) "$base · $epTitle" else base
+        return core + remainingSuffix
     }
-    return ""
+    return remainingSuffix.trimStart(' ', '·').let { if (it.isNotBlank()) it else "" }
 }
 
 /** Dernière affiche de la rangée : indication « voir plus » légère, au format

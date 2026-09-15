@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.25.8 — September 2026
+
+### Android TV NX : durée restante sur Continuer, API on-deck enrichie
+
+- `GET /api/plex/on-deck` expose désormais `durationMs` côté TV : la rangée « Continuer » affiche `S2 E3 · 22 min restantes` (ou `22 min restantes` pour un film) au lieu d'un simple `S2 E3`, avec barre fine conservée.
+
 ## v1.25.7 — September 2026
 
 ### Android TV NX : D-pad débloqué, logos retrouvés, séries démêlées

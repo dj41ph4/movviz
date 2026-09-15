@@ -756,6 +756,7 @@ data class OnDeckEntryDto(
     val rating: Double = 0.0,
     val progressPercent: Int = 0,
     val offsetMs: Long = 0L,
+    val durationMs: Long? = null,
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val episodeTitle: String? = null,
