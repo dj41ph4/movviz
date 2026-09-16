@@ -23,12 +23,21 @@ test("same Plex fingerprint is a no-op", () => {
   assert.equal(plexAvatarRefreshPatch(u, "https://plex/old", 200), null);
 });
 
-test("a later observed Plex change wins and exposes Plex through effectiveAvatar", () => {
+test("a later Plex change refreshes only the fallback when a Movviz avatar exists", () => {
   const u = user({ plexAvatarFingerprint: plexAvatarFingerprint("https://plex/old"), avatarSource: "movviz", avatarUpdatedAt: 100 });
   const patch = plexAvatarRefreshPatch(u, "https://plex/new", 200);
-  assert.equal(patch?.customAvatar, null);
+  assert.equal(patch?.plexAvatar, "https://plex/new");
+  assert.equal(patch?.customAvatar, undefined);
+  assert.equal(patch?.avatarSource, undefined);
+  assert.equal(effectiveAvatar({ ...u, ...patch }), "/api/avatars/usr_test?v=1");
+});
+
+test("Plex remains authoritative only when no Movviz avatar exists", () => {
+  const u = user({ customAvatar: null, plexAvatarFingerprint: plexAvatarFingerprint("https://plex/old"), avatarSource: "plex", avatarUpdatedAt: 100 });
+  const patch = plexAvatarRefreshPatch(u, "https://plex/new", 200);
   assert.equal(patch?.avatarSource, "plex");
   assert.equal(patch?.avatarUpdatedAt, 200);
+  assert.equal(effectiveAvatar({ ...u, ...patch }), "https://plex/new?movvizAvatarVersion=200");
 });
 
 test("effectiveAvatar cache-busts a changed Plex URL for TV/browser image caches", () => {
