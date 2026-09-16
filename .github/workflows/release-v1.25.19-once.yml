@@ -18,11 +18,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compile NX TV Kotlin
+      - name: Build NX TV release
         working-directory: android-tv-nx
         run: |
           chmod +x gradlew
-          ./gradlew :app:compileRetailReleaseKotlin --no-daemon
+          ./gradlew :app:assembleRelease --no-daemon
 
       - name: Bump version and changelog
         shell: python
