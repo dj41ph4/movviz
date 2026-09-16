@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.25.17 — September 2026
+
+### Profils : avatar Movviz canonique sur desktop, mobile NX et TV NX
+
+- L'avatar personnalisé Movviz reste la source de vérité : un rafraîchissement de la photo Plex met seulement à jour le fallback et ne peut plus effacer `customAvatar`.
+- Les fichiers d'avatar Movviz encore présents sur disque sont récupérés automatiquement si une ancienne logique les avait désactivés.
+- Android TV NX et Android Mobile NX normalisent les URLs `/api/avatars/...` par rapport au serveur Movviz afin que picker, sidebar, badges et fiche profil affichent tous la même photo.
+- L'upload Movviz tente aussi une réplication vers Plex via l'endpoint privé utilisé par Plex Web ; cette synchro est strictement best-effort et un refus côté Plex n'empêche jamais l'avatar Movviz local de fonctionner.
+
 ## v1.25.16 — September 2026
 
 ### Android TV NX : focus D-pad sidebar/content fiabilisé
