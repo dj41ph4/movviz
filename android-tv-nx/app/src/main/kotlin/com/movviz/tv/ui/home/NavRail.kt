@@ -19,12 +19,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -133,10 +127,6 @@ fun NavRail(
     // MainScreen : n'est attachée que si l'écran a déjà un vrai premier
     // élément (pas pendant le chargement, pas sur une liste vide).
     contentFocusRequester: FocusRequester? = null,
-    // Ancre de repli TOUJOURS attachée (voir MainScreen) — utilisée quand
-    // contentFocusRequester ne pointe encore vers rien de réel, pour ne
-    // JAMAIS laisser la flèche bas viser une cible non attachée.
-    fallbackFocusRequester: FocusRequester? = null,
     // Cible HAUT depuis le contenu : onglet sélectionné de la barre de
     // navigation, pour que la touche HAUT depuis le contenu rejoigne
     // directement la NavRail (frères superposés dans un Box — Compose
@@ -144,25 +134,13 @@ fun NavRail(
     navRailFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
-    // flèche droite depuis N'IMPORTE quel item de cette colonne (onglet,
-    // avatar profil) → 3 niveaux, du plus précis au plus robuste :
-    //   1. contentFocusRequester : le premier élément RÉEL de l'écran courant.
-    //   2. moveFocus(Right) : repli GÉOMÉTRIQUE — l'élément focusable le plus
-    //      proche dans la zone de contenu.
-    //   3. fallbackFocusRequester : ancre toujours attachée (MovvizNavHost).
-    val focusManager = LocalFocusManager.current
-    val navDownKeyHandler = Modifier.onPreviewKeyEvent { event ->
-        if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionRight) return@onPreviewKeyEvent false
-        // requestFocus() lève IllegalStateException quand le requester n'est
-        // attaché à aucun noeud composé — .isSuccess est le vrai test.
-        val moved = contentFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
-        if (moved) return@onPreviewKeyEvent true
-        if (focusManager.moveFocus(FocusDirection.Right)) return@onPreviewKeyEvent true
-        fallbackFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
-    }
-    // hasFocus (pas isFocused) : vrai dès qu'un DESCENDANT quelconque de la
-    // colonne a le focus D-pad — c'est ce qui fait « se déployer » (le
-    // survol souris n'existe pas sur TV, le focus D-pad en est l'équivalent).
+    // IMPORTANT : ne pas intercepter DPAD_RIGHT avec onPreviewKeyEvent ici.
+    // Le moteur de focus Compose sait déjà sortir d'un focusGroup via
+    // focusProperties.exit. Intercepter RIGHT puis appeler requestFocus()
+    // consommait la touche avant la recherche de focus native et pouvait
+    // laisser le focus dans la sidebar. L'ordre des modifiers est également
+    // volontaire : focusProperties DOIT envelopper focusGroup pour piloter
+    // la sortie du groupe (doc officielle Compose).
     var railFocused by remember { mutableStateOf(false) }
     val width by androidx.compose.animation.core.animateDpAsState(
         targetValue = if (railFocused) NAV_RAIL_EXPANDED_WIDTH else NAV_RAIL_COLLAPSED_WIDTH,
@@ -174,14 +152,17 @@ fun NavRail(
         modifier = modifier
             .width(width)
             .fillMaxHeight()
-            .focusGroup()
             .focusProperties {
                 exit = { focusDirection ->
-                    if (focusDirection == FocusDirection.Right) contentFocusRequester ?: FocusRequester.Default else FocusRequester.Default
+                    if (focusDirection == FocusDirection.Right) {
+                        contentFocusRequester ?: FocusRequester.Default
+                    } else {
+                        FocusRequester.Default
+                    }
                 }
             }
+            .focusGroup()
             .onFocusChanged { railFocused = it.hasFocus }
-            .then(navDownKeyHandler)
             .background(MovvizSurface)
             .drawBehind {
                 drawLine(
