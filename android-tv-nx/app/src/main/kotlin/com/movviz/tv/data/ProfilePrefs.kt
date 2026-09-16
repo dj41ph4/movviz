@@ -8,9 +8,23 @@ data class TvProfile(
     val id: String,
     val serverUrl: String,
     val name: String,
-    val avatar: String? = null,
+    var avatar: String? = null,
     val cookieSnapshot: String? = null,
-)
+) {
+    init {
+        // Les avatars Movviz sont servis sous forme d'URL relative
+        // (/api/avatars/…). Android/Coil a besoin d'une URL absolue et de
+        // nombreux écrans TV consomment directement TvProfile.avatar : on
+        // normalise donc une seule fois ici pour couvrir sidebar, picker,
+        // fiche profil et menus sans logique dupliquée.
+        avatar = when {
+            avatar.isNullOrBlank() -> null
+            avatar!!.startsWith("http") -> avatar
+            avatar!!.startsWith("/") -> serverUrl.trim().trimEnd('/') + avatar
+            else -> avatar
+        }
+    }
+}
 
 /** Cache LOCAL des sessions et identités de profil, par (serveur, compte).
  * La suppression des données de l'app efface donc aussi la liste : aucun
@@ -28,7 +42,8 @@ class ProfilePrefs(context: Context) {
     /** Profile identities are device-local; they must not be resurrected from
      * a shared server foyer after the app is deleted and reinstalled. */
     fun saveProfile(serverUrl: String, userId: String, name: String, avatar: String?) {
-        prefs.edit().putString(profileKey(serverUrl, userId), "$name\u0000${avatar ?: ""}").apply()
+        val normalizedAvatar = TvProfile(userId, serverUrl.trim().trimEnd('/'), name, avatar).avatar
+        prefs.edit().putString(profileKey(serverUrl, userId), "$name\u0000${normalizedAvatar ?: ""}").apply()
     }
 
     fun listProfiles(serverUrl: String): List<TvProfile> {
