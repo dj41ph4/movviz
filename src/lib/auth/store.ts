@@ -5,6 +5,7 @@ import { randomBytes, createHmac } from "node:crypto";
 import type { User } from "./types";
 import { getRawSigningKey } from "./signing";
 import { eventBus } from "@/lib/events/EventBus";
+import { avatarFileFor, publicAvatarUrl } from "@/lib/avatars";
 
 export const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -40,7 +41,25 @@ function writeJson(file: string, data: unknown) {
 // ---- Users ----
 
 export function loadUsers(): User[] {
-  return readJson<User[]>(USERS_FILE, []);
+  const users = readJson<User[]>(USERS_FILE, []);
+
+  // v1.24.123 could clear customAvatar when Plex reported a newer/different
+  // thumb, while deliberately leaving the Movviz avatar file on disk. Under
+  // the canonical Movviz-first policy that file is authoritative: recover it
+  // transparently so existing users do not have to upload their photo again.
+  let repaired = false;
+  const now = Date.now();
+  for (const user of users) {
+    if (user.customAvatar) continue;
+    if (!avatarFileFor(user.id)) continue;
+    user.customAvatar = publicAvatarUrl(user.id);
+    user.avatarSource = "movviz";
+    user.avatarUpdatedAt = now;
+    repaired = true;
+  }
+  if (repaired) writeJson(USERS_FILE, users);
+
+  return users;
 }
 function saveUsers(list: User[]) {
   writeJson(USERS_FILE, list);
