@@ -2,6 +2,54 @@ package com.movviz.tv.data
 
 import android.content.Context
 
+/**
+ * Identifiant unique pour toute la durée du process TV.
+ *
+ * Les photos de profil sont volontairement les SEULES images pour lesquelles
+ * on contourne le cache à chaque nouveau démarrage de l'application : Coil
+ * voit une URL différente après un restart, mais la même URL pendant toute
+ * la session (donc aucune requête répétée à chaque recomposition).
+ */
+private val AVATAR_SESSION_CACHE_BUSTER = System.currentTimeMillis().toString()
+
+private fun normalizeAvatarBase(serverUrl: String, avatar: String?): String? {
+    val raw = avatar?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return when {
+        raw.startsWith("http") -> raw
+        raw.startsWith("/") -> serverUrl.trim().trimEnd('/') + raw
+        else -> raw
+    }
+}
+
+/** Retire notre ancien cache-buster éventuel tout en conservant ?v=... et
+ * les autres paramètres fournis par Movviz/Plex. Évite d'empiler un nouveau
+ * paramètre à chaque sauvegarde locale de profil. */
+private fun stripAvatarSessionCacheBuster(url: String): String {
+    val fragmentIndex = url.indexOf('#')
+    val fragment = if (fragmentIndex >= 0) url.substring(fragmentIndex) else ""
+    val withoutFragment = if (fragmentIndex >= 0) url.substring(0, fragmentIndex) else url
+    val queryIndex = withoutFragment.indexOf('?')
+    if (queryIndex < 0) return url
+
+    val base = withoutFragment.substring(0, queryIndex)
+    val query = withoutFragment.substring(queryIndex + 1)
+        .split('&')
+        .filter { it.isNotBlank() && !it.startsWith("movvizTvSession=") }
+        .joinToString("&")
+
+    return base + (if (query.isNotEmpty()) "?$query" else "") + fragment
+}
+
+private fun avatarUrlForStorage(serverUrl: String, avatar: String?): String? =
+    normalizeAvatarBase(serverUrl, avatar)?.let(::stripAvatarSessionCacheBuster)
+
+private fun avatarUrlForDisplay(serverUrl: String, avatar: String?): String? {
+    val normalized = avatarUrlForStorage(serverUrl, avatar) ?: return null
+    if (!normalized.startsWith("http")) return normalized
+    val separator = if (normalized.contains('?')) "&" else "?"
+    return "$normalized${separator}movvizTvSession=$AVATAR_SESSION_CACHE_BUSTER"
+}
+
 /** Profil local de cette installation — référence un compte Movviz existant
  * sans créer un second système d'identités côté serveur. */
 data class TvProfile(
@@ -12,17 +60,11 @@ data class TvProfile(
     val cookieSnapshot: String? = null,
 ) {
     init {
-        // Les avatars Movviz sont servis sous forme d'URL relative
-        // (/api/avatars/…). Android/Coil a besoin d'une URL absolue et de
-        // nombreux écrans TV consomment directement TvProfile.avatar : on
-        // normalise donc une seule fois ici pour couvrir sidebar, picker,
-        // fiche profil et menus sans logique dupliquée.
-        avatar = when {
-            avatar.isNullOrBlank() -> null
-            avatar!!.startsWith("http") -> avatar
-            avatar!!.startsWith("/") -> serverUrl.trim().trimEnd('/') + avatar
-            else -> avatar
-        }
+        // Les avatars Movviz peuvent être relatifs (/api/avatars/…). On les
+        // rend absolus puis on ajoute le cache-buster de SESSION. Tous les
+        // écrans TV consomment TvProfile.avatar, donc footer, popup et picker
+        // bénéficient automatiquement du même rafraîchissement au démarrage.
+        avatar = avatarUrlForDisplay(serverUrl, avatar)
     }
 }
 
@@ -42,7 +84,9 @@ class ProfilePrefs(context: Context) {
     /** Profile identities are device-local; they must not be resurrected from
      * a shared server foyer after the app is deleted and reinstalled. */
     fun saveProfile(serverUrl: String, userId: String, name: String, avatar: String?) {
-        val normalizedAvatar = TvProfile(userId, serverUrl.trim().trimEnd('/'), name, avatar).avatar
+        // Ne JAMAIS persister movvizTvSession : c'est un identifiant éphémère
+        // propre au démarrage courant, pas une partie de l'URL canonique.
+        val normalizedAvatar = avatarUrlForStorage(serverUrl, avatar)
         prefs.edit().putString(profileKey(serverUrl, userId), "$name\u0000${normalizedAvatar ?: ""}").apply()
     }
 
