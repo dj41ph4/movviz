@@ -37,11 +37,11 @@ jobs:
 
       - name: Compile Android TV NX
         working-directory: android-tv-nx
-        run: ./gradlew :app:compileReleaseKotlin --no-daemon
+        run: bash ./gradlew :app:compileReleaseKotlin --no-daemon
 
       - name: Compile Android Mobile NX
         working-directory: android-mobile-nx
-        run: ./gradlew :app:compileReleaseKotlin --no-daemon
+        run: bash ./gradlew :app:compileReleaseKotlin --no-daemon
 
       - name: Commit push and tag
         run: |
