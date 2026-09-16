@@ -580,7 +580,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         // Le profil actif doit toujours être visible (nom dans le menu de la
         // pastille, tuile en tête de l'écran profil) — même quand l'app
         // redémarre sur une session persistée sans passer par un login.
-        if (user != null && _activeProfile.value == null) {
+        if (user != null && (_activeProfile.value == null || _activeProfile.value?.id == user.id)) {
             _activeProfile.value = TvProfile(
                 id = user.id,
                 serverUrl = url,
@@ -616,14 +616,26 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return result
     }
 
-    /** Liste des profils connus par cette installation. Le nom historique de
-     *  la méthode est conservé pour ne pas casser les appels existants, mais
-     *  aucun profil n'est désormais téléchargé depuis un autre appareil. */
+    /** Rafraîchit les identités locales depuis la source canonique Movviz.
+     *  On conserve la liste de profils propre à cet appareil (et ses cookies),
+     *  mais nom + avatar sont réconciliés avec le serveur pour qu'un changement
+     *  fait sur desktop soit visible sur TV sans recréer le profil. */
     suspend fun loadProfilesFromServer(): List<TvProfile> {
         val url = _serverUrl.value ?: return emptyList()
         val me = _currentUser.value
-        if (me != null && profilePrefs.listProfiles(url).none { it.id == me.id }) {
+        if (me != null) {
             profilePrefs.saveProfile(url, me.id, me.username, me.effectiveAvatar())
+        }
+        if (me?.role == "admin") {
+            when (val remote = MovvizRepository(url).tvProfiles()) {
+                is ApiResult.Success -> {
+                    val localIds = profilePrefs.listProfiles(url).map { it.id }.toSet()
+                    remote.data.filter { it.id in localIds }.forEach { profile ->
+                        profilePrefs.saveProfile(url, profile.id, profile.name, profile.avatar)
+                    }
+                }
+                else -> Unit
+            }
         }
         val profiles = profilePrefs.listProfiles(url)
         _profiles.value = profiles

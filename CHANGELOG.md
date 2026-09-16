@@ -1,3 +1,16 @@
+## v1.25.18 — September 2026
+
+### Android TV NX — sidebar premium + avatars Movviz réellement synchronisés
+
+- Sidebar déployée réduite de 195 dp à 156 dp (-20 %).
+- Suppression du gros dégradé actif et du contour blanc 2 dp : états actif/focus plus sobres, fond de marque léger et liseré 1 dp.
+- Correction du fond actif qui ne remplissait pas la largeur du bouton déployé.
+- Popup profil et footer harmonisés avec le même langage visuel premium.
+- Le profil actif est désormais rafraîchi même s'il existe déjà en cache : une photo changée sur desktop remplace immédiatement l'ancien avatar TV.
+- Les profils déjà connus de l'appareil réconcilient nom/avatar avec `/api/tv-profiles`; l'avatar Movviz (`customAvatar`) reste prioritaire et Plex n'est qu'un fallback.
+- Même réconciliation appliquée au client NX mobile.
+- Hero « À la une » : `Lire` par défaut, `Reprendre` uniquement lorsqu'une vraie progression existe.
+
 # Changelog
 
 ## v1.25.17 — September 2026

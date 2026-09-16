@@ -1085,7 +1085,7 @@ internal fun HeroCarousel(
             Spacer(modifier = Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 var focused by remember(current.id) { mutableStateOf(false) }
-                // CTA principal maquette : dégradé de marque + "Reprendre".
+                // CTA principal : "Lire" par défaut, "Reprendre" seulement avec une progression réelle.
                 // Même construction que l'item actif de NavRail (Surface
                 // transparente + fond dégradé interne) : le dégradé reste
                 // intact au focus, seuls le lift et la bordure blanche
@@ -1128,7 +1128,7 @@ internal fun HeroCarousel(
                             modifier = Modifier.size(11.dp),
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "Reprendre", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                        Text(text = if (current.isResumeCard && (current.progressPercent ?: 0) > 0) "Reprendre" else "Lire", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White))
                     }
                 }
 

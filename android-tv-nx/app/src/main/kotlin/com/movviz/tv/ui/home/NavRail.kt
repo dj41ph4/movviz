@@ -73,7 +73,7 @@ import androidx.compose.ui.unit.IntOffset
 // vérité : width 84/260, padding vertical 32, padding horizontal 14/20,
 // gap inter-items 6, gap icône-libellé 14, icônes 20px, logo margin-bottom 48.
 private val NAV_RAIL_COLLAPSED_WIDTH = 63.dp
-private val NAV_RAIL_EXPANDED_WIDTH = 195.dp
+private val NAV_RAIL_EXPANDED_WIDTH = 156.dp
 
 // HomeTab garde MOVIES/SERIES/PROFILE : MOVIES/SERIES restent le filtre
 // interne Films/Séries de Découverte et de la Bibliothèque (jamais des
@@ -242,7 +242,7 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
             focusedContainerColor = if (updateAvailable) MovvizBrand.copy(alpha = 0.32f) else MovvizOk.copy(alpha = 0.16f),
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, if (updateAvailable) MovvizBrand2 else MovvizOk), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, if (updateAvailable) MovvizBrand2.copy(alpha = 0.65f) else MovvizOk.copy(alpha = 0.65f)), shape = shape),
         ),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
@@ -285,7 +285,7 @@ private fun ProfileFooterRow(
             shape = ClickableSurfaceDefaults.shape(avatarShape),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .06f), focusedContainerColor = Color.White.copy(alpha = .14f)),
             border = ClickableSurfaceDefaults.border(
-                focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2), shape = avatarShape),
+                focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBrand2.copy(alpha = 0.55f)), shape = avatarShape),
             ),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize()) {
@@ -319,7 +319,7 @@ private fun ProfileFooterRow(
                     }
                 }
                 Surface(
-                    modifier = Modifier.width(240.dp),
+                    modifier = Modifier.width(215.dp),
                     shape = RoundedCornerShape(11.dp),
                     colors = SurfaceDefaults.colors(containerColor = MovvizSurface),
                     border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBorder), shape = RoundedCornerShape(11.dp)),
@@ -381,10 +381,10 @@ private fun MenuItem(
             focusedContentColor = MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2.copy(alpha = 0.9f)), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBrand2.copy(alpha = 0.50f)), shape = shape),
         ),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
             if (avatar != null) {
                 Box(Modifier.size(21.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
                     if (avatar.avatar?.startsWith("http") == true) AsyncImage(model = avatar.avatar, contentDescription = avatar.name, modifier = Modifier.fillMaxSize())
@@ -425,7 +425,7 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
     // Carré 56dp en rail replié (comme la maquette carrée du second visuel),
     // pill étirée en déployé. Même rayon que la tuile carrée de la 2e image.
     val collapsedShape = RoundedCornerShape(11.dp)
-    val expandedShape = RoundedCornerShape(8.dp)
+    val expandedShape = RoundedCornerShape(10.dp)
     val shape = if (expanded) expandedShape else collapsedShape
 
     Surface(
@@ -438,40 +438,40 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
-            focusedContainerColor = Color.White.copy(alpha = 0.09f),
-            pressedContainerColor = Color.White.copy(alpha = 0.14f),
+            focusedContainerColor = Color.White.copy(alpha = 0.055f),
+            pressedContainerColor = Color.White.copy(alpha = 0.08f),
             contentColor = if (active) MovvizInk else MovvizInkDim,
             focusedContentColor = MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBrand2.copy(alpha = 0.52f)), shape = shape),
         ),
     ) {
         Box(
             modifier = Modifier
-                .let { if (active) it.background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), shape) else it }
-                .let { if (!expanded) it.fillMaxSize() else it },
+                .let { if (active) it.background(MovvizBrand.copy(alpha = if (focused) 0.14f else 0.085f), shape) else it }
+                .let { if (expanded) it.fillMaxWidth() else it.fillMaxSize() },
             contentAlignment = if (expanded) Alignment.CenterStart else Alignment.Center,
         ) {
             if (expanded) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                 ) {
                     if (tab == HomeTab.LIBRARY) {
-                        BookmarkIcon(color = if (active) Color.White else MovvizInkDim, modifier = Modifier.size(15.dp))
+                        BookmarkIcon(color = if (active) MovvizInk else MovvizInkDim, modifier = Modifier.size(15.dp))
                     } else {
                         Icon(
                             imageVector = tab.icon(),
                             contentDescription = null,
-                            tint = if (active) Color.White else MovvizInkDim,
+                            tint = if (active) MovvizInk else MovvizInkDim,
                             modifier = Modifier.size(15.dp),
                         )
                     }
                     Spacer(Modifier.width(11.dp))
                     Text(
                         text = tab.label,
-                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (active) Color.White else MovvizInkDim),
+                        style = TextStyle(fontSize = 10.5.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium, color = if (active) MovvizInk else MovvizInkDim),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -484,7 +484,7 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
                     Icon(
                         imageVector = tab.icon(),
                         contentDescription = tab.label,
-                        tint = if (active) Color.White else MovvizInkDim,
+                        tint = if (active) MovvizInk else MovvizInkDim,
                         modifier = Modifier.size(17.dp),
                     )
                 }

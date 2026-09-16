@@ -720,14 +720,25 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return result
     }
 
-    /** Liste des profils connus par cette installation. Le nom historique de
-     *  la méthode est conservé pour ne pas casser les appels existants, mais
-     *  aucun profil n'est désormais téléchargé depuis un autre appareil. */
+    /** Rafraîchit nom + avatar des profils locaux depuis Movviz sans importer
+     *  de nouvelles sessions sur l'appareil. customAvatar reste prioritaire
+     *  côté serveur et Plex n'est qu'un fallback. */
     suspend fun loadProfilesFromServer(): List<TvProfile> {
         val url = _serverUrl.value ?: return emptyList()
         val me = _currentUser.value
         if (me != null) {
             profilePrefs.saveProfile(url, me.id, me.username, me.effectiveAvatar())
+        }
+        if (me?.role == "admin") {
+            when (val remote = MovvizRepository(url).tvProfiles()) {
+                is ApiResult.Success -> {
+                    val localIds = profilePrefs.listProfiles(url).map { it.id }.toSet()
+                    remote.data.filter { it.id in localIds }.forEach { profile ->
+                        profilePrefs.saveProfile(url, profile.id, profile.name, profile.avatar)
+                    }
+                }
+                else -> Unit
+            }
         }
         val profiles = profilePrefs.listProfiles(url)
         _profiles.value = profiles
