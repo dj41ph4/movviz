@@ -34,8 +34,15 @@ async function fingerprintPlexThumb(thumb: string, auth: { clientId: string; tok
   }
 }
 
-/** First observation is a baseline and never erases a legacy custom avatar.
- * A later different fingerprint is positive evidence of a Plex-side change. */
+/**
+ * Plex is a fallback avatar source, never the authority once the user picked
+ * a Movviz avatar. We still refresh the Plex URL/fingerprint so the fallback
+ * remains current, but a Plex-side change must NEVER clear customAvatar.
+ *
+ * This deliberately replaces the old "last change wins" behaviour from
+ * v1.24.123, which could silently revert TV/mobile to the Plex photo while a
+ * perfectly valid Movviz avatar file still existed.
+ */
 export function plexAvatarRefreshPatch(user: User, thumb: string | null, observedAt = Date.now(), observedFingerprint?: string): Partial<User> | null {
   const fingerprint = observedFingerprint ?? plexAvatarFingerprint(thumb);
   if (!fingerprint) return null;
@@ -45,10 +52,18 @@ export function plexAvatarRefreshPatch(user: User, thumb: string | null, observe
   if (!user.plexAvatarFingerprint) {
     return { plexAvatar: thumb, plexAvatarFingerprint: fingerprint };
   }
-  return {
+
+  const plexPatch: Partial<User> = {
     plexAvatar: thumb,
     plexAvatarFingerprint: fingerprint,
-    customAvatar: null,
+  };
+
+  // A Movviz-selected avatar is canonical. Plex may be updated in the
+  // background, but it is only the fallback and never destroys that choice.
+  if (user.customAvatar) return plexPatch;
+
+  return {
+    ...plexPatch,
     avatarUpdatedAt: observedAt,
     avatarSource: "plex",
   };
@@ -94,8 +109,7 @@ export async function tryPushAvatarToPlex(userId: string): Promise<boolean> {
     const beforeAccount = await getPlexAccount(auth.clientId, auth.token);
     const beforeFingerprint = beforeAccount?.thumb ? await fingerprintPlexThumb(beforeAccount.thumb, auth) : null;
     // This snapshot necessarily predates the PUT. Remembering it prevents an
-    // older, previously unobserved Plex change from beating today's Movviz
-    // upload if the PUT then fails.
+    // older, previously unobserved Plex change from confusing later refreshes.
     if (beforeAccount?.thumb && beforeFingerprint) {
       updateUser(user.id, { plexAvatar: beforeAccount.thumb, plexAvatarFingerprint: beforeFingerprint });
     }
