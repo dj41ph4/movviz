@@ -1,0 +1,209 @@
+name: Release v1.25.17 one-shot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/release-v1.25.17-once.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply NX TV premium sidebar and hero CTA fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          nav = Path('android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/NavRail.kt')
+          s = nav.read_text(encoding='utf-8')
+          if 'private val NAV_RAIL_EXPANDED_WIDTH = 195.dp' not in s:
+              raise SystemExit('Unexpected NavRail expanded width')
+          s = s.replace('private val NAV_RAIL_EXPANDED_WIDTH = 195.dp', 'private val NAV_RAIL_EXPANDED_WIDTH = 156.dp', 1)
+          s = s.replace('.padding(horizontal = if (railFocused) 15.dp else 11.dp, vertical = 24.dp)', '.padding(horizontal = if (railFocused) 10.dp else 11.dp, vertical = 24.dp)', 1)
+
+          marker = '@Composable\nprivate fun TopNavItem('
+          start = s.find(marker)
+          if start < 0:
+              raise SystemExit('TopNavItem marker not found')
+          new_block = '''@Composable
+private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+    var focused by remember { mutableStateOf(false) }
+    // Direction premium : l'état actif n'est plus un gros bouton dégradé.
+    // Le rail reste calme ; une fine signature de marque et un léger relief
+    // suffisent à indiquer la section courante. Le focus ajoute seulement un
+    // contour discret, sans empiler halo blanc + fond violet saturé.
+    val shape = if (expanded) RoundedCornerShape(8.dp) else RoundedCornerShape(11.dp)
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .let { if (expanded) it.fillMaxWidth() else it.size(42.dp) }
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (active) Color.White.copy(alpha = 0.055f) else Color.Transparent,
+            focusedContainerColor = if (active) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.075f),
+            pressedContainerColor = Color.White.copy(alpha = 0.12f),
+            contentColor = if (active) MovvizInk else MovvizInkSoft,
+            focusedContentColor = MovvizInk,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.24f)),
+                shape = shape,
+            ),
+        ),
+    ) {
+        if (expanded) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            if (active) Brush.verticalGradient(listOf(MovvizBrand3, MovvizBrand2))
+                            else Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent)),
+                        ),
+                )
+                Spacer(Modifier.width(8.dp))
+                if (tab == HomeTab.LIBRARY) {
+                    BookmarkIcon(
+                        color = if (active || focused) Color.White else MovvizInkSoft,
+                        modifier = Modifier.size(16.dp),
+                    )
+                } else {
+                    Icon(
+                        imageVector = tab.icon(),
+                        contentDescription = null,
+                        tint = if (active || focused) Color.White else MovvizInkSoft,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    text = tab.label,
+                    style = TextStyle(
+                        fontSize = 11.sp,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (active || focused) Color.White else MovvizInkSoft,
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        } else {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (tab == HomeTab.LIBRARY) {
+                    BookmarkIcon(
+                        color = if (active || focused) Color.White else MovvizInkSoft,
+                        modifier = Modifier.size(17.dp),
+                    )
+                } else {
+                    Icon(
+                        imageVector = tab.icon(),
+                        contentDescription = tab.label,
+                        tint = if (active || focused) Color.White else MovvizInkSoft,
+                        modifier = Modifier.size(17.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+'''
+          s = s[:start] + new_block
+          nav.write_text(s, encoding='utf-8')
+
+          home = Path('android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/HomeScreen.kt')
+          s = home.read_text(encoding='utf-8')
+          old = 'Text(text = "Reprendre", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White))'
+          new = 'Text(text = if (current.isResumeCard && current.progressPercent != null && current.progressPercent > 0) "Reprendre" else "Lire", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White))'
+          if old not in s:
+              raise SystemExit('Hero CTA hardcoded Reprendre pattern not found')
+          home.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          pkg = Path('package.json')
+          s = pkg.read_text(encoding='utf-8')
+          if '"version": "1.25.16"' not in s:
+              raise SystemExit('Unexpected package.json version')
+          pkg.write_text(s.replace('"version": "1.25.16"', '"version": "1.25.17"', 1), encoding='utf-8')
+
+          lock = Path('package-lock.json')
+          s = lock.read_text(encoding='utf-8')
+          if s.count('"version": "1.25.16"') < 2:
+              raise SystemExit('Unexpected package-lock version')
+          lock.write_text(s.replace('"version": "1.25.16"', '"version": "1.25.17"', 2), encoding='utf-8')
+
+          readme = Path('README.md')
+          s = readme.read_text(encoding='utf-8')
+          s = s.replace('version-1.25.16-a855f7', 'version-1.25.17-a855f7', 1)
+          s = s.replace('Version 1.25.16', 'Version 1.25.17', 1)
+          readme.write_text(s, encoding='utf-8')
+
+          changelog = Path('CHANGELOG.md')
+          s = changelog.read_text(encoding='utf-8')
+          if '## v1.25.17' not in s:
+              section = '''## v1.25.17 — September 2026
+
+### Android TV NX : sidebar premium et CTA À la une
+
+- Sidebar déployée réduite de 20 % : 195 dp → 156 dp, avec padding adapté sans toucher au rail replié ni au routage D-pad fiabilisé en 1.25.16.
+- Navigation visuelle simplifiée : suppression du gros aplat dégradé actif et de la bordure blanche 2 dp ; état actif par fond subtil + fine barre de marque, focus par contour discret 1 dp.
+- Icônes et libellés rééquilibrés avec une hiérarchie plus sobre et plus lisible à distance.
+- Hero « À la une » : « Reprendre » n'est plus codé en dur. Le CTA affiche « Lire » par défaut et ne réserve « Reprendre » qu'à une carte portant une vraie progression.
+
+'''
+              marker = '# Changelog\n\n'
+              if marker not in s:
+                  raise SystemExit('CHANGELOG header not found')
+              changelog.write_text(s.replace(marker, marker + section, 1), encoding='utf-8')
+          PY
+
+          git rm .github/workflows/release-v1.25.17-once.yml
+          git config user.name "dj41ph4"
+          git config user.email "dj41ph4@gmail.com"
+          git add android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/NavRail.kt android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/HomeScreen.kt package.json package-lock.json README.md CHANGELOG.md
+          git commit -m "release: v1.25.17 — sidebar NX premium et CTA hero Lire"
+          git push origin HEAD:main
+
+      - name: Create and push v1.25.17 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin --tags
+          if git show-ref --verify --quiet refs/tags/v1.25.17; then
+            echo "v1.25.17 already exists"
+            exit 1
+          fi
+          git tag v1.25.17 HEAD
+          git push origin v1.25.17
+
+      - name: Dispatch release workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run android-tv-build.yml --ref v1.25.17
+          gh workflow run android-mobile-build.yml --ref v1.25.17
+          gh workflow run linux-release-build.yml --ref v1.25.17
+          gh workflow run build-installer.yml --ref v1.25.17
+          gh workflow run docker-publish.yml --ref main
