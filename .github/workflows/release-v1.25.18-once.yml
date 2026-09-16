@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -16,5 +17,49 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Validate
-        run: echo "v1.25.18 release workflow is valid"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Apply fixes
+        run: python3 .github/scripts/release_v1_25_18.py
+
+      - name: Validate patch
+        run: |
+          grep -q 'NAV_RAIL_EXPANDED_WIDTH = 156.dp' android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/NavRail.kt
+          grep -q 'if (expanded) it.fillMaxWidth() else it.fillMaxSize()' android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/NavRail.kt
+          grep -q 'current.isResumeCard' android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/HomeScreen.kt
+          grep -q 'MovvizRepository(url).tvProfiles()' android-tv-nx/app/src/main/kotlin/com/movviz/tv/AppViewModel.kt
+          grep -q 'MovvizRepository(url).tvProfiles()' android-mobile-nx/app/src/main/kotlin/com/movviz/nx/mobile/AppViewModel.kt
+
+      - name: Compile Android TV NX
+        working-directory: android-tv-nx
+        run: ./gradlew :app:compileReleaseKotlin --no-daemon
+
+      - name: Compile Android Mobile NX
+        working-directory: android-mobile-nx
+        run: ./gradlew :app:compileReleaseKotlin --no-daemon
+
+      - name: Commit push and tag
+        run: |
+          git config user.name 'dj41ph4'
+          git config user.email 'dj41ph4@gmail.com'
+          git rm .github/workflows/release-v1.25.18-once.yml .github/scripts/release_v1_25_18.py
+          git add android-tv-nx android-mobile-nx package.json package-lock.json README.md CHANGELOG.md
+          git commit -m 'release: v1.25.18 — NX TV premium et avatars Movviz synchronisés'
+          git push origin HEAD:main
+          git tag v1.25.18
+          git push origin v1.25.18
+
+      - name: Dispatch release builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run android-tv-build.yml --ref v1.25.18
+          gh workflow run android-mobile-build.yml --ref v1.25.18
+          gh workflow run linux-release-build.yml --ref v1.25.18
+          gh workflow run build-installer.yml --ref v1.25.18
+          gh workflow run docker-publish.yml --ref main
