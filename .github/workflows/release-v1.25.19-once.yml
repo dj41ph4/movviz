@@ -45,17 +45,19 @@ jobs:
 
           changelog = Path('CHANGELOG.md')
           current = changelog.read_text(encoding='utf-8')
-          entry = '''## v1.25.19 — September 2026
-
-### Android TV NX : avatar rafraîchi à chaque démarrage
-
-- Aucun changement visuel par rapport à v1.25.18.
-- Les seules images dont le cache est forcé sont les photos de profil.
-- Un identifiant de session est ajouté à l'URL de l'avatar à chaque nouveau démarrage du process TV : Coil recharge donc réellement la photo au lieu de réutiliser une ancienne image en cache.
-- L'URL reste stable pendant toute la session afin d'éviter des téléchargements répétés lors des recompositions.
-- Le cache-buster éphémère n'est jamais persisté dans les préférences locales.
-
-'''
+          entry = "\n".join([
+              "## v1.25.19 — September 2026",
+              "",
+              "### Android TV NX : avatar rafraîchi à chaque démarrage",
+              "",
+              "- Aucun changement visuel par rapport à v1.25.18.",
+              "- Les seules images dont le cache est forcé sont les photos de profil.",
+              "- Un identifiant de session est ajouté à l'URL de l'avatar à chaque nouveau démarrage du process TV : Coil recharge donc réellement la photo au lieu de réutiliser une ancienne image en cache.",
+              "- L'URL reste stable pendant toute la session afin d'éviter des téléchargements répétés lors des recompositions.",
+              "- Le cache-buster éphémère n'est jamais persisté dans les préférences locales.",
+              "",
+              "",
+          ])
           if not current.startswith('## v1.25.19'):
               changelog.write_text(entry + current, encoding='utf-8')
 
