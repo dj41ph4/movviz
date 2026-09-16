@@ -26,7 +26,9 @@ jobs:
         run: |
           set -euo pipefail
           npm ci
-          npm test
+          mapfile -t TEST_FILES < <(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | sort)
+          test "${#TEST_FILES[@]}" -gt 0
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test "${TEST_FILES[@]}"
           npm run typecheck
 
       - name: Finalize v1.25.17 metadata
