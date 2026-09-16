@@ -180,12 +180,29 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     }
 }
 
+/** URL d'avatar exploitable par Coil : absolue telle quelle, URL Movviz
+ * relative résolue contre le serveur du profil, null pour les schémas non
+ * chargeables. Même règle que le client Android mobile NX. */
+fun resolveAvatarUrl(avatar: String?, serverUrl: String?): String? {
+    if (avatar.isNullOrBlank()) return null
+    if (avatar.startsWith("http")) return avatar
+    val base = serverUrl?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() } ?: return null
+    if (avatar.startsWith("/")) return base + avatar
+    return null
+}
+
 @Composable
 fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 8.dp) {
     val shape = RoundedCornerShape(cornerRadius)
-    val url = profile.avatar
-    if (!url.isNullOrBlank() && url.startsWith("http")) {
-        AsyncImage(model = url, contentDescription = profile.name, modifier = modifier.clip(shape))
+    val url = resolveAvatarUrl(profile.avatar, profile.serverUrl)
+    var failed by remember(url) { mutableStateOf(false) }
+    if (url != null && !failed) {
+        AsyncImage(
+            model = url,
+            contentDescription = profile.name,
+            onError = { failed = true },
+            modifier = modifier.clip(shape),
+        )
     } else {
         Box(
             modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
