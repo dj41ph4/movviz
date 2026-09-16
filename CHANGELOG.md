@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.25.16 — September 2026
+
+### Android TV NX : focus D-pad sidebar/content fiabilisé
+
+- Sidebar : suppression de l'interception globale de `DPAD_RIGHT`; la sortie vers le contenu repose désormais sur `focusProperties.exit`, prévue nativement par Compose.
+- Ordre des modifiers corrigé : `focusProperties` enveloppe `focusGroup` dans la NavRail et sur l'accueil, afin que les règles de sortie s'appliquent au bon focus target.
+- Suppression du fallback de focus non câblé dans la NavRail, qui compliquait le parcours sans jamais être utilisé.
+
 ## v1.25.15 — September 2026
 
 ### Android TV NX : D-pad sidebar débloqué (focusGroup exit)

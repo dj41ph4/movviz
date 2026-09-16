@@ -510,12 +510,12 @@ fun HomeScreen(
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-            .focusGroup()
             .focusProperties {
                 exit = { focusDirection ->
                     if (focusDirection == androidx.compose.ui.focus.FocusDirection.Left) navRailFocusRequester ?: androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Default
                 }
             }
+            .focusGroup()
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionUp) return@onPreviewKeyEvent false
                 // UP depuis le contenu : tenter d'abord un déplacement naturel
