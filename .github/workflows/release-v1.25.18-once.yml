@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   release:
-    if: github.event.head_commit.message == 'chore: prepare v1.25.18 TV premium/avatar fix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -193,7 +192,6 @@ jobs:
               '// CTA principal maquette : dégradé de marque + "Reprendre".',
               '// CTA principal : "Lire" par défaut, "Reprendre" seulement avec une progression réelle.')
 
-          # Version globale
           replace('package.json', '"version": "1.25.17"', '"version": "1.25.18"')
           p = Path('package-lock.json')
           s = p.read_text()
