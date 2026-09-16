@@ -22,57 +22,51 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Validate server avatar policy
-        shell: bash
+      - name: Validate avatar changes
         run: |
           set -euo pipefail
           npm ci
           npm test
           npm run typecheck
 
-      - name: Finalize release metadata
-        shell: bash
+      - name: Finalize v1.25.17 metadata
         run: |
           set -euo pipefail
           npm version 1.25.17 --no-git-tag-version
-
           python3 <<'PY'
           from pathlib import Path
 
           readme = Path("README.md")
-          s = readme.read_text(encoding="utf-8")
-          s = s.replace("version-1.25.16-a855f7", "version-1.25.17-a855f7", 1)
-          s = s.replace("Version 1.25.16", "Version 1.25.17", 1)
-          readme.write_text(s, encoding="utf-8")
+          text = readme.read_text(encoding="utf-8")
+          text = text.replace("version-1.25.16-a855f7", "version-1.25.17-a855f7", 1)
+          text = text.replace("Version 1.25.16", "Version 1.25.17", 1)
+          readme.write_text(text, encoding="utf-8")
 
           changelog = Path("CHANGELOG.md")
-          s = changelog.read_text(encoding="utf-8")
-          if "## v1.25.17" not in s:
-              section = """## v1.25.17 — September 2026
-
-### Profils : avatar Movviz canonique sur desktop, mobile NX et TV NX
-
-- L'avatar personnalisé Movviz est désormais la source de vérité : un rafraîchissement de la photo Plex met seulement à jour le fallback et ne peut plus effacer `customAvatar`.
-- Récupération automatique des fichiers d'avatar Movviz encore présents sur disque mais désactivés par l'ancienne logique « dernier changement gagnant » ; aucun nouvel upload n'est nécessaire si le fichier existe toujours.
-- Android TV NX et Android Mobile NX normalisent les URLs `/api/avatars/...` par rapport au serveur Movviz afin que picker, sidebar, badges et fiche profil affichent tous la même photo.
-- La réplication Movviz → Plex reste best-effort via l'endpoint privé utilisé par Plex Web : un refus ou changement côté Plex n'empêche jamais l'avatar Movviz de fonctionner.
-
-"""
+          text = changelog.read_text(encoding="utf-8")
+          if "## v1.25.17" not in text:
+              section = (
+                  "## v1.25.17 — September 2026\n\n"
+                  "### Profils : avatar Movviz canonique sur desktop, mobile NX et TV NX\n\n"
+                  "- L'avatar personnalisé Movviz reste la source de vérité : un rafraîchissement de la photo Plex met seulement à jour le fallback et ne peut plus effacer `customAvatar`.\n"
+                  "- Les fichiers d'avatar Movviz encore présents sur disque sont récupérés automatiquement si une ancienne logique les avait désactivés.\n"
+                  "- Android TV NX et Android Mobile NX normalisent les URLs `/api/avatars/...` par rapport au serveur Movviz afin que picker, sidebar, badges et fiche profil affichent tous la même photo.\n"
+                  "- L'upload Movviz tente aussi une réplication vers Plex via l'endpoint privé utilisé par Plex Web ; cette synchro est strictement best-effort et un refus côté Plex n'empêche jamais l'avatar Movviz local de fonctionner.\n\n"
+              )
               marker = "# Changelog\n\n"
-              if marker not in s:
+              if marker not in text:
                   raise SystemExit("CHANGELOG header not found")
-              changelog.write_text(s.replace(marker, marker + section, 1), encoding="utf-8")
+              changelog.write_text(text.replace(marker, marker + section, 1), encoding="utf-8")
           PY
 
-          git rm .github/workflows/release-v1.25.17-once.yml
           git config user.name "dj41ph4"
           git config user.email "dj41ph4@gmail.com"
-          git add package.json package-lock.json README.md CHANGELOG.md .github/workflows/release-v1.25.17-once.yml
+          git rm .github/workflows/release-v1.25.17-once.yml
+          git add package.json package-lock.json README.md CHANGELOG.md
           git commit -m "release: v1.25.17 — avatar Movviz canonique desktop/mobile/TV"
           git push origin HEAD:main
 
       - name: Create v1.25.17 tag
-        shell: bash
         run: |
           set -euo pipefail
           git fetch origin --tags
@@ -86,7 +80,6 @@ jobs:
       - name: Dispatch release builds
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
           gh workflow run android-tv-build.yml --ref v1.25.17
