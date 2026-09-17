@@ -84,7 +84,7 @@ class MovvizRepository(private val baseUrl: String) {
         safeCall { api.person(id) }
 
     suspend fun dashboardHero(): ApiResult<List<DashboardHeroSlideDto>> =
-        safeCall { api.dashboardHero() }.map { it.slides }
+        safeCall { api.dashboardHero(locale = "fr", rich = "1") }.map { it.slides }
 
     suspend fun dashboardLayout(): ApiResult<DashboardLayoutDto> =
         safeCall { api.dashboardLayout() }.map { it.layout }

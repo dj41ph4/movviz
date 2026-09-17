@@ -81,8 +81,16 @@ interface MovvizApiService {
     @GET("api/metadata/person")
     suspend fun person(@Query("id") id: Int): Response<PersonDto>
 
+    // locale/rich manquaient ici : sans rich=1, le serveur ne retourne QUE
+    // le repli local (bibliothèque récente, non personnalisé) et n'appelle
+    // jamais le vrai pipeline de recommandations du Hero — confirmé côté
+    // serveur (src/app/api/dashboard/hero/route.ts). locale reste "fr" en
+    // dur car l'app n'a aucun système i18n (chaînes françaises partout).
     @GET("api/dashboard/hero")
-    suspend fun dashboardHero(): Response<DashboardHeroResponseDto>
+    suspend fun dashboardHero(
+        @Query("locale") locale: String,
+        @Query("rich") rich: String,
+    ): Response<DashboardHeroResponseDto>
 
     @GET("api/dashboard/layout")
     suspend fun dashboardLayout(): Response<DashboardLayoutResponseDto>
