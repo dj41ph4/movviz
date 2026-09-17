@@ -1,3 +1,13 @@
+## v1.25.20 — September 2026
+
+### Refonte du moteur de recommandations « Pour vous »
+
+- Les seeds (titres utilisés comme point de départ des suggestions) sont désormais pondérés par force de signal réelle — note explicite, 👍, engagement série, récence — au lieu de traiter tout titre vu comme équivalent. Un film détesté-mais-vu ne pèse plus autant qu'un 5★.
+- Les candidats TMDb (`recommendations` + `similar`) sont agrégés par preuve multi-seed avec une fonction de consensus saturante, et classés par un scorer pur et déterministe (testable sans réseau) plutôt qu'une formule dominée par la popularité TMDb.
+- « Parce que vous avez regardé X » et le Hero du tableau de bord réutilisent désormais les mêmes primitives de goût communes (`userContext/taste.ts`) au lieu de logiques de scoring dupliquées — le Hero n'avait jusqu'ici aucun lien avec cette couche.
+- Correction d'un bug de région : le catalogue Netflix/Disney+/Prime et les badges « où regarder » forçaient `watch_region=FR` pour tout le monde, y compris les comptes belges/suisses/canadiens. Nouveau réglage « Région de streaming » dans le profil (11 pays, appliqué automatiquement sur Desktop, Mobile NX et TV NX puisqu'il est stocké côté compte).
+- Contrat des routes API inchangé — aucune mise à jour requise côté Android Mobile NX ou TV NX.
+
 ## v1.25.19 — September 2026
 
 ### Android TV NX : avatar rafraîchi à chaque démarrage
