@@ -1,3 +1,20 @@
+## v1.25.21 — September 2026
+
+### Statut « vu / non vu » : source de vérité unique
+
+- Correction d'un bug réel : une resynchronisation Plex tardive (historique
+  contenant encore une ancienne vue) pouvait ressusciter un titre marqué
+  « non vu » manuellement, faute de comparaison de dates entre les sources.
+- Nouveau résolveur canonique (`applyWatchDecision`) : la décision la plus
+  récente (Plex, lecteur, action manuelle, IA, import) gagne toujours par
+  le temps réel de l'événement, jamais par l'ordre de synchronisation.
+- Correction d'un vrai bug d'un caractère qui écrivait un timestamp dans la
+  mauvaise colonne lors de la fusion des états de lecture.
+- Le scrobble/unscrobble Plex sortant est désormais suivi et visible
+  (succès/échec), là où seul un journal diagnostique existait avant.
+- Contrat API inchangé — aucune mise à jour requise sur Desktop, Mobile NX
+  ou TV NX.
+
 ## v1.25.20 — September 2026
 
 ### Refonte du moteur de recommandations « Pour vous »
