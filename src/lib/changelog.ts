@@ -32,7 +32,10 @@ export function getChangelogEntry(version: string): ChangelogEntry | null {
   return readEntry(DEFAULT_FILE, version);
 }
 
-function readEntry(FILE: string, version: string): ChangelogEntry | null {
+/** Exportée pour les tests (scripts/changelog.test.ts) — le chemin par
+ *  défaut (DEFAULT_FILE) est figé au chargement du module, donc un test ne
+ *  peut pas le rediriger en changeant process.cwd() après coup. */
+export function readEntry(FILE: string, version: string): ChangelogEntry | null {
   if (!fs.existsSync(FILE)) return null;
   const lines = fs.readFileSync(FILE, "utf8").split("\n");
 
@@ -66,7 +69,20 @@ function readEntry(FILE: string, version: string): ChangelogEntry | null {
       continue;
     }
     const bullet = line.match(/^-\s+(.+)/);
-    if (bullet && current) current.items.push(bullet[1].trim());
+    if (bullet && current) {
+      current.items.push(bullet[1].trim());
+      continue;
+    }
+    // Ligne de continuation d'un item enroulé sur plusieurs lignes (indenté,
+    // ne commence ni par "-" ni par "#") — bug réel confirmé en direct :
+    // sans ceci, chaque item multi-lignes était silencieusement tronqué à
+    // sa première ligne dans le popup "Nouveautés" (les entrées les plus
+    // récentes du CHANGELOG.md enroulent leurs puces sur plusieurs lignes).
+    const continuation = line.match(/^\s+(\S.*)/);
+    if (continuation && current && current.items.length > 0) {
+      const lastIndex = current.items.length - 1;
+      current.items[lastIndex] = `${current.items[lastIndex]} ${continuation[1].trim()}`;
+    }
   }
 
   return { version, date: matchedDate, sections };
@@ -86,7 +102,7 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-function readRange(FILE: string): { version: string; date: string | null; sections: ChangelogSection[] }[] {
+export function readRange(FILE: string): { version: string; date: string | null; sections: ChangelogSection[] }[] {
   if (!fs.existsSync(FILE)) return [];
   const lines = fs.readFileSync(FILE, "utf8").split("\n");
 
@@ -110,7 +126,17 @@ function readRange(FILE: string): { version: string; date: string | null; sectio
         continue;
       }
       const bullet = line.match(/^-\s+(.+)/);
-      if (bullet && current) current.items.push(bullet[1].trim());
+      if (bullet && current) {
+        current.items.push(bullet[1].trim());
+        continue;
+      }
+      // Voir le commentaire équivalent dans readEntry() : sans ceci, un item
+      // enroulé sur plusieurs lignes était tronqué à sa première ligne.
+      const continuation = line.match(/^\s+(\S.*)/);
+      if (continuation && current && current.items.length > 0) {
+        const lastIndex = current.items.length - 1;
+        current.items[lastIndex] = `${current.items[lastIndex]} ${continuation[1].trim()}`;
+      }
     }
     out.push({ version, date, sections });
   }
