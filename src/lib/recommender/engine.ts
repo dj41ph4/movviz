@@ -9,6 +9,9 @@ import { getFeedback } from "@/lib/ai/tasteProfile";
 import { getComputedGenreTraits, getFavoriteKeywords, matchGenreAffinity, matchKeywordAffinity, getFavoritePeople } from "@/lib/userContext/taste";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { audienceSignal } from "@/lib/recommender/audienceSignal";
+import { buildSeeds } from "@/lib/recommender/seedBuilder";
+import { aggregateCandidateEvidence, type CandidateEvidence, type RelationSource } from "@/lib/recommender/evidence";
+import { scoreCandidate } from "@/lib/recommender/scorer";
 
 // Strictly per-account: this row is built ONLY from the target account's own
 // Plex watch history — never blended with what any other account has
@@ -45,13 +48,15 @@ export async function getRecommendations(
   );
 
   const excluded = new Set<number>([...watched, ...owned, ...dislikedTmdbIds]);
-  const seeds = watched.slice(0, 25);
+
+  // Un titre juste vu ne pèse plus pareil qu'un titre adoré/noté 5★/revu :
+  // buildSeeds() qualifie chaque seed par force de signal (note explicite,
+  // 👍, engagement série, récence) au lieu de traiter "vu" comme un
+  // indicateur binaire (audit Phase 1, §4.2/§17 du plan de refonte).
+  const seeds = buildSeeds(userId, type);
+  if (seeds.length === 0) return [];
 
   const fetchFn = type === "movie" ? getMovieRecommendations : getTvRecommendations;
-  const results = await mapWithConcurrency(seeds, 5, async (id) => {
-    try { return await fetchFn(id); } catch { return null; }
-  });
-
   // TMDb's TV /recommendations dataset (derived from OTHER users' viewing
   // overlap) is noticeably sparser than movies' — confirmed live: this row
   // ran out of replacements after a couple of 👎 for séries, while films
@@ -59,27 +64,33 @@ export async function getRecommendations(
   // equally to both. /similar is content-based (genres/keywords) rather
   // than behavior-based, so it has real signal even for a title
   // /recommendations barely covers, and is a legitimate SECOND vote toward
-  // the same candidate — merged into the identical counting loop below
-  // rather than kept separate, so a title both engines agree on still
-  // ranks higher than one only one of them suggested.
+  // the same candidate — merged into the same evidence pool below (with a
+  // slightly lower per-source weight, see evidence.ts) rather than kept
+  // fully separate, so a title both engines agree on still ranks higher
+  // than one only one of them suggested.
   const similarFn = type === "movie" ? getMovieSimilar : getTvSimilar;
-  const similarResults = await mapWithConcurrency(seeds, 5, async (id) => {
-    try { return await similarFn(id); } catch { return null; }
-  });
+  const [recommendationHits, similarHits] = await Promise.all([
+    mapWithConcurrency(seeds, 5, async (seed) => {
+      try { return { seed, page: await fetchFn(seed.tmdbId) }; } catch { return null; }
+    }),
+    mapWithConcurrency(seeds, 5, async (seed) => {
+      try { return { seed, page: await similarFn(seed.tmdbId) }; } catch { return null; }
+    }),
+  ]);
 
-  const score = new Map<number, { item: MetaSearchResult; count: number }>();
-  for (const r of [...results, ...similarResults]) {
-    if (!r) continue;
-    for (const item of r.results) {
-      if (excluded.has(item.tmdbId)) continue;
-      const existing = score.get(item.tmdbId);
-      if (existing) {
-        existing.count++;
-      } else {
-        score.set(item.tmdbId, { item, count: 1 });
-      }
+  const hits: Array<{ item: MetaSearchResult; source: RelationSource }> = [];
+  for (const kind of ["tmdb_recommendation", "tmdb_similar"] as const) {
+    const pages = kind === "tmdb_recommendation" ? recommendationHits : similarHits;
+    for (const entry of pages) {
+      if (!entry?.page) continue;
+      entry.page.results.forEach((item, sourceRank) => {
+        if (excluded.has(item.tmdbId)) return;
+        hits.push({ item, source: { kind, seedTmdbId: entry.seed.tmdbId, seedWeight: entry.seed.weight, sourceRank } });
+      });
     }
   }
+
+  const evidenceById = aggregateCandidateEvidence(hits);
 
   // "j'adore Jim Carrey" / plusieurs films avec le même acteur regardés =
   // c'est ça les suggestions : le reste de la filmographie d'un acteur ou
@@ -89,8 +100,8 @@ export async function getRecommendations(
   // ne suffisent pas : ils sont basés sur "les autres spectateurs de ce
   // titre ont aussi aimé", pas sur "cet acteur précis". On va donc chercher
   // sa filmographie complète via getPerson() et on l'injecte dans le même
-  // pool de candidats, avec une promotion aussi décisive que l'affinité de
-  // genre ci-dessous — sinon un acteur favori resterait noyé dans le composite.
+  // pool de candidats (comme une évidence à part, sans relation de seed —
+  // le terme "people" du scorer porte ce signal, pas relation/consensus).
   const favoritePeople = await getFavoritePeople(userId, 3);
   const personAffinity = new Map<number, number>();
   if (favoritePeople.length) {
@@ -106,11 +117,8 @@ export async function getRecommendations(
         if (person.role === "cast" && !credit.isCast) continue;
         if (person.role === "director" && !credit.isDirector) continue;
         if (excluded.has(credit.tmdbId)) continue;
-        const existing = score.get(credit.tmdbId);
-        if (existing) {
-          existing.count++;
-        } else {
-          score.set(credit.tmdbId, { item: credit, count: 1 });
+        if (!evidenceById.has(credit.tmdbId)) {
+          evidenceById.set(credit.tmdbId, { item: credit, sources: [], distinctSeedCount: 0 });
         }
         const prior = personAffinity.get(credit.tmdbId) ?? 0;
         if (strength > prior) personAffinity.set(credit.tmdbId, strength);
@@ -118,8 +126,7 @@ export async function getRecommendations(
     }
   }
 
-  const entries = [...score.values()];
-  const maxCount = Math.max(1, ...entries.map((s) => s.count));
+  const entries = [...evidenceById.values()];
 
   // Same TasteCompatibility signal chat recommendations already use
   // (contrastiveProfile.ts/recommendationScore.ts) — reusing it here is the
@@ -149,7 +156,7 @@ export async function getRecommendations(
   // detail request for keyword scoring. Going fifty deep multiplied every
   // dashboard refresh into dozens of extra TMDb connections.
   const detailCandidates = [...entries]
-    .sort((a, b) => audienceSignal(b.item) - audienceSignal(a.item) || b.count - a.count)
+    .sort((a, b) => audienceSignal(b.item) - audienceSignal(a.item) || b.distinctSeedCount - a.distinctSeedCount)
     .slice(0, 20);
   await mapWithConcurrency(detailCandidates, 4, async ({ item }) => {
     const detail = await getDetail(type, item.tmdbId).catch(() => null);
@@ -157,37 +164,35 @@ export async function getRecommendations(
   });
 
   const ranked = entries
-    .map((s) => {
+    .map((evidence: CandidateEvidence) => {
       let taste = 0;
       if (tasteVector) {
-        const candidateMood = getCachedMoodProfile(type, s.item.tmdbId)?.categories;
+        const candidateMood = getCachedMoodProfile(type, evidence.item.tmdbId)?.categories;
         if (candidateMood) {
           taste = (moodSimilarity(tasteVector.liked, candidateMood) - moodSimilarity(tasteVector.disliked, candidateMood)) * tasteVector.confidence;
         }
       }
       const genreNames = genreNameById.size
-        ? (s.item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)
+        ? (evidence.item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)
         : [];
-      const affinity = genreNames.length ? matchGenreAffinity(genreNames, genreTraits) : 0;
-      const personScore = personAffinity.get(s.item.tmdbId) ?? 0;
-      const keywordAffinity = matchKeywordAffinity(keywordDetails.get(s.item.tmdbId) ?? [], favoriteKeywords);
-      return {
-        item: s.item,
-        affinity,
-        personScore,
-        composite:
-          (s.count / maxCount) * 0.2
-          + affinity * 0.14
-          + keywordAffinity * 0.16
-          + personScore * 0.1
-          + Math.max(-1, Math.min(1, taste)) * 0.15
-          + audienceSignal(s.item) * 0.25
-          + (Math.min(s.item.rating ?? 0, 10) / 10) * 0.1,
-      };
+      const genreAffinity = genreNames.length ? matchGenreAffinity(genreNames, genreTraits) : 0;
+      const keywordAffinity = matchKeywordAffinity(keywordDetails.get(evidence.item.tmdbId) ?? [], favoriteKeywords);
+      const personAffinityScore = personAffinity.get(evidence.item.tmdbId) ?? 0;
+
+      const { score } = scoreCandidate({
+        evidence,
+        tasteVector: taste,
+        genreAffinity,
+        keywordAffinity,
+        personAffinity: personAffinityScore,
+      });
+
+      return { item: evidence.item, score };
     })
-    // No single broad signal can force the first place: people, genres,
-    // themes, behavior, rating and public traction all contribute.
-    .sort((a, b) => b.composite - a.composite)
+    // No single broad signal can force the first place: relation to seeds,
+    // multi-seed consensus, people, genres, themes, behavior, rating and
+    // public traction all contribute (see scorer.ts for exact weights).
+    .sort((a, b) => b.score - a.score)
     .slice(0, 200)
     .map((s) => s.item);
 
