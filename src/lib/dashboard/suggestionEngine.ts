@@ -23,7 +23,8 @@ import { loadRequests } from "@/lib/requests/store";
 import { getDetail, getCachedVideoKeys, trending } from "@/lib/metadata/tmdb";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import { mapWithConcurrency } from "@/lib/concurrency";
-import type { LibraryFile, LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
+import { getComputedGenreTraits, getFavoritePeople, matchGenreAffinity, type EvidenceTasteTrait } from "@/lib/userContext/taste";
+import type { LibraryFile, LibraryMovie, LibraryStatus } from "@/lib/library/types";
 import type { MetaDetail } from "@/lib/metadata/types";
 
 export const HERO_POOL_IDS = [
@@ -136,70 +137,31 @@ export function buildLibraryHeroFallbackSlides(targetCount = 6, locale?: string)
 }
 
 interface TasteProfile {
-  topGenres: string[];
+  genreTraits: Map<string, EvidenceTasteTrait>;
   topDirectors: string[];
   topActors: string[];
 }
 
-const TASTE_SAMPLE_SIZE = 12;
-
 /**
- * Built from a small sample of what THIS user has actually watched (via
- * their own per-user Plex watch status — see getWatchStatus) — genres come
- * cheap (already stored per `LibraryMovie`/`LibrarySeries`); director/actor
- * affinity needs full TMDb detail, so it's bounded to a handful of titles
- * instead of the whole library (stays cheap, uses the same cached
- * `getDetail` every detail page already calls).
- *
- * Deliberately never falls back to "whatever's in the shared library" once
- * this user has any real watch history — that would leak another
- * household member's taste (whoever added those titles) into this user's
- * own suggestions. The shared-library fallback only kicks in for a brand
- * new profile with zero watch history yet, so it still gets a non-empty
- * taste profile instead of no personalization at all.
+ * Repose sur les mêmes primitives canoniques que getRecommendations()/
+ * providerPersonalized.ts (userContext/taste.ts) au lieu de recompter les
+ * genres/réalisateurs/acteurs sur un échantillon local — évite au passage
+ * des appels getDetail() rien que pour construire le goût du Hero, alors
+ * que le Context Engine les a déjà (audit refonte recommandations, §7.1 :
+ * le Hero dupliquait sa propre couche de goût sans jamais consommer
+ * userContext/taste.ts). Strictement scope à CET utilisateur : aucun repli
+ * sur "toute la bibliothèque partagée" pour un profil neuf, contrairement à
+ * l'ancienne implémentation — ce repli aurait fait fuiter le goût d'un
+ * autre compte du foyer dans son propre Hero (§24/§48 du plan de refonte).
+ * Un profil neuf sans historique obtient donc un genreMatch/directorMatch/
+ * actorMatch à 0 partout plutôt qu'un faux signal emprunté à la maisonnée.
  */
-async function buildTasteProfile(movies: LibraryMovie[], series: LibrarySeries[], userId: string, locale?: string): Promise<TasteProfile> {
-  const status = getWatchStatus(userId);
-  const watchedMovieIds = new Set(status?.movies ?? []);
-  const watchedSeriesIds = new Set((status?.episodes ?? []).map((e) => e.tmdbId));
-  const hasPersonalSignal = watchedMovieIds.size > 0 || watchedSeriesIds.size > 0;
-
-  const genreSource = hasPersonalSignal
-    ? [...movies, ...series].filter((m) => watchedMovieIds.has(m.tmdbId) || watchedSeriesIds.has(m.tmdbId))
-    : [...movies, ...series];
-
-  const genreCounts = new Map<string, number>();
-  for (const m of genreSource) {
-    for (const g of m.genres) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
-  }
-  const topGenres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([g]) => g);
-
-  const movieSampleSource = hasPersonalSignal
-    ? movies.filter((m) => watchedMovieIds.has(m.tmdbId))
-    : movies.filter((m) => m.status === "available");
-  const sample = [...movieSampleSource]
-    .sort((a, b) => b.addedAt - a.addedAt)
-    .slice(0, TASTE_SAMPLE_SIZE);
-
-  const details = await mapWithConcurrency(sample, 4, async (m) => {
-    try {
-      return await getDetail("movie", m.tmdbId, locale);
-    } catch {
-      return null;
-    }
-  });
-
-  const directorCounts = new Map<string, number>();
-  const actorCounts = new Map<string, number>();
-  for (const d of details) {
-    if (!d) continue;
-    for (const c of d.crew) if (c.job === "Director") directorCounts.set(c.name, (directorCounts.get(c.name) ?? 0) + 1);
-    for (const a of d.cast.slice(0, 5)) actorCounts.set(a.name, (actorCounts.get(a.name) ?? 0) + 1);
-  }
-  const topDirectors = [...directorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n]) => n);
-  const topActors = [...actorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([n]) => n);
-
-  return { topGenres, topDirectors, topActors };
+async function buildTasteProfile(userId: string): Promise<TasteProfile> {
+  const genreTraits = new Map(getComputedGenreTraits(userId, 8).map((t) => [t.key, t] as const));
+  const favoritePeople = await getFavoritePeople(userId, 8);
+  const topDirectors = favoritePeople.filter((p) => p.role === "director").map((p) => p.name);
+  const topActors = favoritePeople.filter((p) => p.role === "cast").map((p) => p.name);
+  return { genreTraits, topDirectors, topActors };
 }
 
 export function scoreCandidate(
@@ -209,8 +171,8 @@ export function scoreCandidate(
 ): SuggestionScore {
   const reasons: SuggestionScore["reasons"] = [];
 
-  const matchedGenres = detail.genres.filter((g) => ctx.taste.topGenres.includes(g));
-  const genreMatch = matchedGenres.length > 0 ? Math.min(1, matchedGenres.length / 3) : 0;
+  const matchedGenres = detail.genres.filter((g) => ctx.taste.genreTraits.has(`genre:${g.trim().toLocaleLowerCase("fr")}`));
+  const genreMatch = matchGenreAffinity(detail.genres, ctx.taste.genreTraits);
   reasons.push({
     key: "genreMatch",
     matched: genreMatch > 0,
@@ -440,9 +402,9 @@ export async function buildHeroSlides(
   const refs = await gatherCandidateRefs(userId, candidateCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
   if (refs.length === 0) return [];
 
-  const [movies, series] = [loadMovies(), loadSeries()];
+  const movies = loadMovies();
   const [taste, details] = await Promise.all([
-    buildTasteProfile(movies, series, userId, locale),
+    buildTasteProfile(userId),
     mapWithConcurrency(refs, 4, async (ref) => {
       try {
         return await getDetail(ref.type, ref.tmdbId, locale, { youtubeTrailerSearch });
