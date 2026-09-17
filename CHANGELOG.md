@@ -1,3 +1,15 @@
+## v1.25.22 — September 2026
+
+### Android Mobile NX / TV NX : le Hero utilise enfin les vraies recommandations
+
+- Correction d'un bug réel : Mobile NX et TV NX n'envoyaient aucun
+  paramètre à l'appel du Hero, ce qui faisait toujours retomber le serveur
+  sur le repli local (bibliothèque récemment ajoutée, non personnalisé) —
+  le pipeline de recommandations (seeds pondérés, scorer, goût) n'était
+  jamais atteint sur Android, contrairement au web.
+- Aucun changement de contrat de données, aucune app à réinstaller pour
+  une raison technique liée à la version.
+
 ## v1.25.21 — September 2026
 
 ### Statut « vu / non vu » : source de vérité unique
