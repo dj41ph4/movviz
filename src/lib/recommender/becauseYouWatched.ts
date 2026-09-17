@@ -10,6 +10,8 @@ import { mapWithConcurrency } from "@/lib/concurrency";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { audienceSignal } from "@/lib/recommender/audienceSignal";
 import { getFavoriteKeywords, matchKeywordAffinity } from "@/lib/userContext/taste";
+import { aggregateCandidateEvidence } from "@/lib/recommender/evidence";
+import { scoreCandidate } from "@/lib/recommender/scorer";
 
 /**
  * "Because you watched/liked X" — a Discover row anchored on the single
@@ -135,8 +137,14 @@ async function rankCandidates(
   raw: MetaSearchResult[],
   excluded: Set<number>
 ): Promise<MetaSearchResult[]> {
-  const filtered = filterSuggestable(raw.filter((c) => c.tmdbId !== anchor.tmdbId && !excluded.has(c.tmdbId)));
+  // Rang TMDb original conservé pour la force de relation à l'ancre — perdu
+  // si on ne le capture pas avant filterSuggestable (qui peut retirer des
+  // entrées et décaler les index).
+  const withOriginalRank = raw.map((item, sourceRank) => ({ item, sourceRank }));
+  const eligible = withOriginalRank.filter(({ item }) => item.tmdbId !== anchor.tmdbId && !excluded.has(item.tmdbId));
+  const filtered = filterSuggestable(eligible.map((e) => e.item));
   if (filtered.length === 0) return filtered;
+  const rankByTmdbId = new Map(eligible.map((e) => [e.item.tmdbId, e.sourceRank]));
 
   const tasteVector = buildTasteVector(userId);
   const favoriteKeywords = await getFavoriteKeywords(userId);
@@ -146,6 +154,21 @@ async function rankCandidates(
     const detail = await getDetail(type, item.tmdbId).catch(() => null);
     if (detail) keywordDetails.set(item.tmdbId, detail.keywords);
   });
+
+  // Ancre forcée = un seed unique du même moteur commun (evidence.ts/
+  // scorer.ts) que getRecommendations() (§31 du plan de refonte) : une note
+  // explicite >=4 ("liked") représente le goût plus fermement qu'un simple
+  // visionnage de repli ("watched"), donc pèse plus dans relationToSeeds —
+  // mais reste volontairement sans affinité de genre/personne, cette
+  // rangée existe pour aller plus loin que le genre (voir doc du module).
+  const anchorWeight = anchor.verb === "liked" ? 1 : 0.55;
+  const evidenceById = aggregateCandidateEvidence(
+    filtered.map((item) => ({
+      item,
+      source: { kind: "tmdb_recommendation" as const, seedTmdbId: anchor.tmdbId, seedWeight: anchorWeight, sourceRank: rankByTmdbId.get(item.tmdbId) ?? 0 },
+    }))
+  );
+
   const scored = filtered.map((item) => {
     let taste = 0;
     if (tasteVector) {
@@ -155,11 +178,8 @@ async function rankCandidates(
       }
     }
     const keywordAffinity = matchKeywordAffinity(keywordDetails.get(item.tmdbId) ?? [], favoriteKeywords);
-    const score =
-      (Math.min(item.rating ?? 0, 10) / 10) * 0.15
-      + audienceSignal(item) * 0.3
-      + keywordAffinity * 0.25
-      + Math.max(0, taste) * 0.3;
+    const evidence = evidenceById.get(item.tmdbId)!;
+    const { score } = scoreCandidate({ evidence, tasteVector: taste, genreAffinity: 0, keywordAffinity, personAffinity: 0 });
     return { item, score };
   });
   scored.sort((a, b) => b.score - a.score);
