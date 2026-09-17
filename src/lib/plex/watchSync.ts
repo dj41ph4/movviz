@@ -3,7 +3,7 @@ import { getAccountHistory, batchTmdbIds, getLocalAccounts, getPlexAccount, getP
 import { getWatchStatus, mergePlexWatchedState } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
-import { recordUserContextEvent } from "@/lib/userContext/ingest";
+import { applyWatchDecision } from "@/lib/userContext/watchBridge";
 import type { User } from "@/lib/auth/types";
 import { refreshPlexAvatar } from "./avatarSync";
 
@@ -145,20 +145,47 @@ export async function syncUserWatchStatus(user: User) {
     // The timeline is append-only and timestamped at its real Plex event
     // time. This is what lets a Plex view from yesterday sit correctly
     // between Movviz views from two days ago and today on every client.
-    for (const h of history) {
-      if (!h.viewedAt) continue;
+    //
+    // Chaque ligne d'historique passe par applyWatchDecision() — seul point
+    // d'écriture du ledger ET de user_media_state pour Plex (§18 : jamais
+    // deux écritures séparées pour le même fait). Le résolveur LWW compare
+    // `viewedAt` à la dernière décision déjà en place : une vue Plex plus
+    // ancienne qu'un "marquer non vu" manuel plus récent est REJETÉE et ne
+    // ressuscite plus jamais l'état local — c'est le bug exact que corrige
+    // cette refonte (§1 du plan). Triées du plus ancien au plus récent pour
+    // que l'état affiché converge directement sans repasser par un état
+    // intermédiaire déjà obsolète.
+    const acceptedMovies = new Map<number, { tmdbId: number; title: string; watchedAt: number }>();
+    const acceptedEpisodes = new Map<string, { tmdbId: number; season: number; episode: number; title: string; watchedAt: number }>();
+    const orderedHistory = [...history].filter((h) => h.viewedAt).sort((a, b) => Number(a.viewedAt) - Number(b.viewedAt));
+    for (const h of orderedHistory) {
       if (h.type === "movie") {
         const tmdbId = movieInfo.get(h.ratingKey)?.tmdbId;
         if (tmdbId == null) continue;
-        recordUserContextEvent({ userId: user.id, eventType: "watched_marked", source: "plex_history", sourceEventId: `plex:${accountId}:${h.ratingKey}:${h.viewedAt}`, tmdbId, mediaType: "movie", title: h.title ?? null, ratingKey: h.ratingKey, occurredAt: h.viewedAt });
+        const result = applyWatchDecision({
+          userId: user.id, tmdbId, mediaType: "movie", title: h.title ?? null,
+          state: "watched", occurredAt: h.viewedAt!, source: "plex_history",
+          sourceEventId: `plex:${accountId}:${h.ratingKey}:${h.viewedAt}`,
+        });
+        // Un rejet (occurredAt plus ancien, ou perdant d'un tie-break) ne
+        // doit jamais effacer une acceptation précédente de CETTE même
+        // boucle pour le même film — la ligne rejetée n'a rien changé en
+        // base, l'état déjà accepté reste donc exact.
+        if (result.accepted) acceptedMovies.set(tmdbId, { tmdbId, title: h.title ?? "", watchedAt: h.viewedAt! });
       } else if (h.grandparentRatingKey) {
         const tmdbId = showInfo.get(h.grandparentRatingKey)?.tmdbId;
         if (tmdbId == null || h.season == null || h.episode == null) continue;
-        recordUserContextEvent({ userId: user.id, eventType: "watched_marked", source: "plex_history", sourceEventId: `plex:${accountId}:${h.ratingKey}:${h.viewedAt}`, tmdbId, mediaType: "episode", title: h.title ?? h.grandparentTitle ?? null, ratingKey: h.ratingKey, seasonNumber: h.season, episodeNumber: h.episode, occurredAt: h.viewedAt });
+        const result = applyWatchDecision({
+          userId: user.id, tmdbId, mediaType: "episode", seasonNumber: h.season, episodeNumber: h.episode,
+          title: h.title ?? h.grandparentTitle ?? null, state: "watched", occurredAt: h.viewedAt!, source: "plex_history",
+          sourceEventId: `plex:${accountId}:${h.ratingKey}:${h.viewedAt}`,
+        });
+        const key = `${tmdbId}.${h.season}.${h.episode}`;
+        if (result.accepted) acceptedEpisodes.set(key, { tmdbId, season: h.season, episode: h.episode, title: h.title ?? h.grandparentTitle ?? "", watchedAt: h.viewedAt! });
       }
     }
 
-    const mergedStatus = mergePlexWatchedState(user.id, [...movieStates.values()], episodes);
+    const mergedStatus = mergePlexWatchedState(user.id, [...acceptedMovies.values()], [...acceptedEpisodes.values()]);
     const recent = mergedStatus.recent ?? [];
     // mergePlexWatchedState() deliberately does not emit timeline rows: Plex
     // history above is the authoritative append-only record. Refresh the

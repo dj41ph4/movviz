@@ -11,7 +11,7 @@ const CONFIG_DIR =
 
 const CONTEXT_DIR = path.join(CONFIG_DIR, "context");
 export const USER_CONTEXT_DB_FILE = path.join(CONTEXT_DIR, "user-context.sqlite");
-export const USER_CONTEXT_SCHEMA_VERSION = 3;
+export const USER_CONTEXT_SCHEMA_VERSION = 4;
 
 const g = globalThis as typeof globalThis & {
   __movvizUserContextDb?: DatabaseSync | null;
@@ -184,6 +184,10 @@ function ensureSchema(db: DatabaseSync): void {
     ["watchlist_present", "INTEGER"], ["watchlist_updated_at", "INTEGER"],
     ["watchlist_source", "TEXT"], ["watchlist_added_at", "INTEGER"], ["watchlist_removed_at", "INTEGER"],
     ["plex_guid", "TEXT"], ["plex_discover_rating_key", "TEXT"],
+    // v4 — résolveur canonique watched (applyWatchDecision, watchBridge.ts) :
+    // identifiant déterministe de l'événement actuellement gagnant, pour le
+    // debug/audit d'un conflit sans avoir à rejouer le ledger.
+    ["watched_event_id", "TEXT"],
   ];
   for (const [name, type] of additions) {
     if (!columns.has(name)) db.exec(`ALTER TABLE user_media_state ADD COLUMN ${name} ${type}`);

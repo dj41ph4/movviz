@@ -799,7 +799,7 @@ export async function POST(req: NextRequest) {
       try {
         const resolved = await resolveAiItem({ title: w.title, type: w.type });
         if (!resolved) continue;
-        if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title);
+        if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title, undefined, "ai");
         else recordWatched(user.id, { tmdbId: resolved.tmdbId, type: "series", title: resolved.title, at: Date.now() });
       } catch {
         // best-effort, see comment above
@@ -945,7 +945,7 @@ export async function POST(req: NextRequest) {
             try {
               const resolved = await resolveAiItem({ title: w.title, type: w.type });
               if (!resolved) continue;
-              if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title);
+              if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title, undefined, "ai");
               else recordWatched(user.id, { tmdbId: resolved.tmdbId, type: "series", title: resolved.title, at: Date.now() });
             } catch {
               // best-effort, see comment above

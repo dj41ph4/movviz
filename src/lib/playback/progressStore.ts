@@ -279,8 +279,8 @@ export function applyMarkerSkip(sessionId: string, positionMs: number, markerTyp
 export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBoundarySource = "ended"): PlaybackProgress {
   if (p.watched) return p;
   p.watched = true; p.watchedAt = Date.now(); p.resumeOffsetMs = null; p.eligibleForResume = false; p.boundarySource = source; p.updatedAt = Date.now(); p.revision++; p.plex.pendingAction = "scrobble";
-  if (p.mediaType === "movie" && p.tmdbId != null) setWatchedMovies(p.userId, [p.tmdbId], true, p.title ?? "");
-  if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) setWatchedEpisodes(p.userId, [{ tmdbId: p.tmdbId, season: p.seasonNumber, episode: p.episodeNumber }], true, p.title ?? "");
+  if (p.mediaType === "movie" && p.tmdbId != null) setWatchedMovies(p.userId, [p.tmdbId], true, p.title ?? "", undefined, "movviz_playback");
+  if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) setWatchedEpisodes(p.userId, [{ tmdbId: p.tmdbId, season: p.seasonNumber, episode: p.episodeNumber }], true, p.title ?? "", "movviz_playback");
   recordPlaybackCompleted(p);
   return p;
 }

@@ -166,7 +166,7 @@ export async function importNetflixHistory(user: User, csv: string, onProgress?:
   // sequence would dwarf the TMDb resolution time above. watchWrite.ts logs
   // every attempt (plex.watchWrite in Journaux) regardless.
   for (const m of resolvedMovies) {
-    setWatchedMovies(user.id, [m.tmdbId], true, m.title, m.watchedAt);
+    setWatchedMovies(user.id, [m.tmdbId], true, m.title, m.watchedAt, "external_import");
     pushMovieWatchedToPlex(user, m.tmdbId, true).catch(() => {});
   }
   const bySeries = new Map<number, { tmdbId: number; season: number; episode: number; watchedAt: number | null; title: string }[]>();
@@ -176,7 +176,7 @@ export async function importNetflixHistory(user: User, csv: string, onProgress?:
     bySeries.set(e.tmdbId, list);
   }
   for (const [tmdbId, entries] of bySeries) {
-    setWatchedEpisodes(user.id, entries, true, entries[0].title);
+    setWatchedEpisodes(user.id, entries, true, entries[0].title, "external_import");
     pushEpisodesWatchedToPlex(user, entries, true).catch(() => {});
   }
 

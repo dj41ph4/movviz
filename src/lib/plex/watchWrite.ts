@@ -5,6 +5,26 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
 import type { PlexServerConfig } from "./types";
 import { updateUser } from "@/lib/auth/store";
+import { updateUserMediaSyncState } from "@/lib/userContext/syncState";
+import { mediaStateKey } from "@/lib/userContext/reconcile";
+
+const PLEX_WATCHED_SYNC_TARGET = "plex";
+const PLEX_WATCHED_SYNC_FIELD = "watched";
+
+/** user_media_sync_state existait déjà (watchlist Plex entrante) mais aucun
+ *  scrobble/unscrobble sortant n'y écrivait — §26-29, §56-57 du plan de
+ *  centralisation watched : PENDING avant la tentative, SYNCED/ERROR après,
+ *  jamais l'inverse (un échec Plex ne doit jamais annuler la décision
+ *  locale déjà appliquée par applyWatchDecision, juste rester visible pour
+ *  un retry futur). */
+function recordPlexWatchedSync(userId: string, stateKey: string, ok: boolean, error?: string): void {
+  updateUserMediaSyncState({
+    userId, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET,
+    capability: ok ? "SYNCED" : "ERROR",
+    ackAt: ok ? Date.now() : null,
+    error: ok ? null : (error ?? "push failed"),
+  });
+}
 
 /**
  * Movviz → Plex (demande explicite user — "bidirectionnel"). Push a
@@ -97,6 +117,7 @@ export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched
   if (!movie?.plexRatingKey) return;
 
   const ok = await setPlexWatched(cfg, auth.token, movie.plexRatingKey, watched);
+  recordPlexWatchedSync(user.id, mediaStateKey(user.id, "movie", tmdbId), ok);
   recordSearchLog(
     ok ? "info" : "warn",
     "plex.watchWrite",
@@ -203,11 +224,14 @@ export async function pushEpisodesWatchedToPlex(
     for (const e of eps) {
       const season = series.seasons.find((s) => s.seasonNumber === e.season);
       const episode = season?.episodes.find((ep) => ep.episodeNumber === e.episode);
+      const stateKey = mediaStateKey(user.id, "episode", tmdbId, e.season, e.episode);
       if (!episode?.plexRatingKey) {
         fail++;
+        recordPlexWatchedSync(user.id, stateKey, false, "no plexRatingKey yet");
         continue;
       }
       const result = await setPlexWatched(cfg, auth.token, episode.plexRatingKey, watched);
+      recordPlexWatchedSync(user.id, stateKey, result);
       if (result) ok++;
       else fail++;
     }

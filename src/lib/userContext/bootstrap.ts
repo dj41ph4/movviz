@@ -71,6 +71,12 @@ function syncLegacyWatchedState(userId: string): void {
   }
 
   withUserContextDb((db) => {
+    // Backfill non destructif (§47-51 du plan de centralisation watched) :
+    // ne force `watched=1` QUE si aucune décision canonique n'existe encore
+    // pour ce media (watched_updated_at IS NULL, l'état UNKNOWN du modèle).
+    // Une ligne déjà tranchée par applyWatchDecision() — y compris une
+    // décision UNWATCHED plus récente — n'est jamais écrasée par ce
+    // rattrapage best-effort du JSON legacy.
     const upsertMovie = db.prepare(`
       INSERT INTO user_media_state(
         state_key, user_id, tmdb_id, media_type, title_snapshot,
@@ -78,7 +84,7 @@ function syncLegacyWatchedState(userId: string): void {
       ) VALUES(?, ?, ?, 'movie', ?, 1, 0, 1, ?, ?)
       ON CONFLICT(state_key) DO UPDATE SET
         title_snapshot = COALESCE(excluded.title_snapshot, user_media_state.title_snapshot),
-        watched = 1,
+        watched = CASE WHEN user_media_state.watched_updated_at IS NULL THEN 1 ELSE user_media_state.watched END,
         watched_at = COALESCE(user_media_state.watched_at, excluded.watched_at),
         updated_at = MAX(user_media_state.updated_at, excluded.updated_at)
     `);
@@ -104,7 +110,7 @@ function syncLegacyWatchedState(userId: string): void {
         title_snapshot = COALESCE(excluded.title_snapshot, user_media_state.title_snapshot),
         season_number = excluded.season_number,
         episode_number = excluded.episode_number,
-        watched = 1,
+        watched = CASE WHEN user_media_state.watched_updated_at IS NULL THEN 1 ELSE user_media_state.watched END,
         updated_at = MAX(user_media_state.updated_at, excluded.updated_at)
     `);
     for (const episode of watch.episodes) {

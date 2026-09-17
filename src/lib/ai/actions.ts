@@ -248,7 +248,7 @@ async function markEpisodeWatchedFromTitle(user: User, tmdbId: number, seriesTit
       .sort((a, b) => b.score - a.score);
     if (!scored.length || scored[0].score < MIN_EPISODE_MATCH_SCORE) return;
     const entry = { tmdbId, season: scored[0].ep.seasonNumber, episode: scored[0].ep.episodeNumber };
-    setWatchedEpisodes(user.id, [entry], true, seriesTitle);
+    setWatchedEpisodes(user.id, [entry], true, seriesTitle, "ai");
     pushEpisodesWatchedToPlex(user, [entry], true).catch(() => {});
   } catch {
     // best-effort — see doc comment above
