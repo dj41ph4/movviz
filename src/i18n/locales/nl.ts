@@ -916,6 +916,8 @@ export const nl: Dictionary = {
     discover: "Ontdekken",
     discoverHint: "Vink de continenten aan die je interesseren — films en series van de rest worden uit Ontdekken gefilterd. Niets aangevinkt betekent dat alles wordt getoond.",
     discoverSaved: "Voorkeuren opgeslagen",
+    watchRegion: "Streamingregio",
+    watchRegionHint: "De Netflix/Disney+/Prime-catalogus en de \"waar te bekijken\"-badges gebruiken deze regio — niet de interfacetaal, zodat het klopt in België, Zwitserland of Canada.",
   },
 
   continents: {

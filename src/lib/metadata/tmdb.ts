@@ -18,6 +18,7 @@ import { translateStatus } from "./statusTranslations";
 import { STREAMING_PLATFORMS } from "./curated";
 import { LOCALES } from "@/i18n/config";
 import { matchesAnimeByIds, matchesTeenByIds } from "./genreTaxonomy";
+import { loadUserPrefs } from "@/lib/userPrefs/store";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -686,6 +687,31 @@ export interface DiscoverFilters {
   maxRuntime?: number;
   /** with_runtime.gte — movies only, same caveat as maxRuntime. Used for the "plus de 2h" duration filter. */
   minRuntime?: number;
+  /** ISO-3166-1 alpha-2 région pour watch_region (catalogue provider réel de
+   *  l'utilisateur) — résoudre via resolveWatchRegion(userId), jamais
+   *  hardcoder : un utilisateur belge ne doit pas recevoir le catalogue
+   *  français juste parce que watchProvider est renseigné. */
+  region?: string;
+}
+
+const DEFAULT_WATCH_REGION = "FR";
+
+/**
+ * Région TMDb à utiliser pour les catalogues provider et "où regarder" —
+ * source de vérité unique (audit refonte recommandations, 2026-09 : le
+ * hardcode `watch_region = "FR"` ne reflétait aucun réglage utilisateur,
+ * même pour un compte belge). Ordre de résolution : préférence explicite de
+ * l'utilisateur (Réglages) -> défaut global. Aucune déduction depuis la
+ * langue d'interface (fr -> FR serait faux pour un utilisateur belge/suisse/
+ * canadien) : sans préférence explicite, on assume le défaut plutôt que de
+ * deviner un mauvais pays avec confiance.
+ */
+export function resolveWatchRegion(userId?: string | null): string {
+  if (userId) {
+    const region = loadUserPrefs(userId).watchRegion;
+    if (region) return region;
+  }
+  return DEFAULT_WATCH_REGION;
 }
 
 const DATE_FIELD: Record<"movie" | "series", string> = { movie: "primary_release_date", series: "first_air_date" };
@@ -711,7 +737,7 @@ export async function discoverByFilters(
   if (filters.company) params.with_companies = filters.company;
   if (filters.watchProvider) {
     params.with_watch_providers = filters.watchProvider;
-    params.watch_region = "FR";
+    params.watch_region = filters.region ?? DEFAULT_WATCH_REGION;
   }
   if (filters.originCountries && filters.originCountries.length > 0) {
     params.with_origin_country = filters.originCountries.join("|");
@@ -1369,11 +1395,12 @@ interface RawProvider {
  * "available on" badges usually mean. Tries France first, falls back to the
  * US since TMDb's provider coverage is much better there.
  */
-export async function getWatchProviders(type: "movie" | "series", tmdbId: number): Promise<MetaWatchProvider[]> {
+export async function getWatchProviders(type: "movie" | "series", tmdbId: number, watchRegion = DEFAULT_WATCH_REGION): Promise<MetaWatchProvider[]> {
   const kind = type === "movie" ? "movie" : "tv";
   const data = await tmdbGet<RawWatchProviders>(`/${kind}/${tmdbId}/watch/providers`);
-  const region = data?.results?.FR?.flatrate?.length || data?.results?.FR?.ads?.length || data?.results?.FR?.free?.length
-    ? data.results.FR
+  const byRegion = data?.results?.[watchRegion];
+  const region = byRegion?.flatrate?.length || byRegion?.ads?.length || byRegion?.free?.length
+    ? byRegion
     : data?.results?.US;
   if (!region) return [];
   const providers = [...(region.flatrate ?? []), ...(region.ads ?? []), ...(region.free ?? [])];
@@ -1397,8 +1424,8 @@ interface RawWatchProviderListEntry {
  *  network ids, a watch-provider id is the SAME for movies and series, so
  *  this list (fetched once from the movie catalog) is valid for filtering
  *  either type. Order follows STREAMING_PLATFORMS, not the API response. */
-export async function getWatchProviderTiles(): Promise<{ id: number; name: string; logoPath: string | null }[]> {
-  const data = await tmdbGet<{ results: RawWatchProviderListEntry[] }>("/watch/providers/movie", { watch_region: "FR" });
+export async function getWatchProviderTiles(watchRegion = DEFAULT_WATCH_REGION): Promise<{ id: number; name: string; logoPath: string | null }[]> {
+  const data = await tmdbGet<{ results: RawWatchProviderListEntry[] }>("/watch/providers/movie", { watch_region: watchRegion });
   const results = data?.results ?? [];
   const byId = new Map(results.map((p) => [p.provider_id, p]));
   return STREAMING_PLATFORMS.map((platform) => {

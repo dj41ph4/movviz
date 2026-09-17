@@ -914,6 +914,8 @@ export const fr = {
     discover: "Découverte",
     discoverHint: "Coche les continents qui t'intéressent — les films et séries des autres seront filtrés du Découvrir. Rien coché = tout s'affiche.",
     discoverSaved: "Préférences enregistrées",
+    watchRegion: "Région de streaming",
+    watchRegionHint: "Le catalogue Netflix/Disney+/Prime et les badges « où regarder » utilisent cette région — pas la langue de l'interface, pour rester correct en Belgique, en Suisse ou au Canada.",
   },
 
   continents: {

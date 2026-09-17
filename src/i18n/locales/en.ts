@@ -916,6 +916,8 @@ export const en: Dictionary = {
     discover: "Discover",
     discoverHint: "Check the continents you care about — everyone else's movies and shows get filtered out of Discover. Nothing checked means everything shows.",
     discoverSaved: "Preferences saved",
+    watchRegion: "Streaming region",
+    watchRegionHint: "The Netflix/Disney+/Prime catalog and \"where to watch\" badges use this region — not the interface language, so it stays correct in Belgium, Switzerland, or Canada.",
   },
 
   continents: {

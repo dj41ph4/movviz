@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { discoverByFilters, getAnimeRow, getTeenRow } from "@/lib/metadata/tmdb";
+import { discoverByFilters, getAnimeRow, getTeenRow, resolveWatchRegion } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
+import { requireUser } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,11 @@ export async function GET(req: NextRequest) {
   const type = searchParams.get("type") === "series" ? "series" : "movie";
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
   const genre = searchParams.get("genre") ?? undefined;
+  // Lecture optionnelle : cette route reste accessible sans session (aucun
+  // requireUser bloquant ici avant cette refonte), donc region retombe sur
+  // le défaut global si personne n'est connecté, plutôt que d'ajouter une
+  // exigence d'auth qui n'existait pas.
+  const region = resolveWatchRegion(requireUser(req)?.id);
 
   // Anime/Teen are synthetic genre ids (genreTaxonomy.ts) — no real TMDb
   // with_genres value exists for either, so they route to the same
@@ -27,6 +33,7 @@ export async function GET(req: NextRequest) {
       watchProvider: searchParams.get("watchProvider") ?? undefined,
       maxRuntime: searchParams.get("maxRuntime") ? Number(searchParams.get("maxRuntime")) || undefined : undefined,
       minRuntime: searchParams.get("minRuntime") ? Number(searchParams.get("minRuntime")) || undefined : undefined,
+      region,
     };
     if (genre === ANIME_GENRE_ID) {
       return NextResponse.json(await getAnimeRow(type, PER_PAGE, undefined, page, extra));
@@ -44,6 +51,7 @@ export async function GET(req: NextRequest) {
       watchProvider: searchParams.get("watchProvider") ?? undefined,
       maxRuntime: searchParams.get("maxRuntime") ? Number(searchParams.get("maxRuntime")) || undefined : undefined,
       minRuntime: searchParams.get("minRuntime") ? Number(searchParams.get("minRuntime")) || undefined : undefined,
+      region,
     },
     page
   );

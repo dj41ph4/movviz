@@ -1,4 +1,4 @@
-import { discoverByFilters, getDetail, getGenres } from "@/lib/metadata/tmdb";
+import { discoverByFilters, getDetail, getGenres, resolveWatchRegion } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
@@ -147,7 +147,8 @@ export async function buildProviderNewRow(
   if (!providerName) return null;
 
   const excluded = excludedTmdbIds(type, userId);
-  const page1 = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSortFor(type), originCountries }, 1);
+  const region = resolveWatchRegion(userId);
+  const page1 = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSortFor(type), originCountries, region }, 1);
   const results = filterSuggestable(page1.results.filter((c) => !excluded.has(c.tmdbId)));
   if (results.length === 0) return null;
 
@@ -171,7 +172,8 @@ export async function getProviderNewPage(
   if (!providerName) return null;
 
   const excluded = excludedTmdbIds(type, userId);
-  const raw = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSortFor(type), originCountries }, page);
+  const region = resolveWatchRegion(userId);
+  const raw = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSortFor(type), originCountries, region }, page);
   const results = filterSuggestable(raw.results.filter((c) => !excluded.has(c.tmdbId)));
   return { results, page: raw.page, totalPages: raw.totalPages, meta: { providerId, providerName } };
 }
@@ -195,9 +197,15 @@ async function ensurePool(
   type: "movie" | "series",
   providerId: number,
   originCountries: string[] | undefined,
-  minCount: number
+  minCount: number,
+  region: string
 ): Promise<PoolState> {
-  const cacheKey = `${type}:${providerId}:${(originCountries ?? []).join(",")}`;
+  // La région fait partie de la clé : le pool est partagé entre utilisateurs
+  // (le catalogue provider ne dépend pas de qui demande) mais PAS entre
+  // régions différentes, sinon un compte belge recevrait un pool déjà
+  // rempli par un compte français (ou l'inverse) — bug de fuite de
+  // catalogue, pas juste de personnalisation.
+  const cacheKey = `${type}:${providerId}:${region}:${(originCountries ?? []).join(",")}`;
   const state: PoolState = poolCache().get<PoolState>(cacheKey) ?? {
     results: [],
     newestIds: [],
@@ -216,7 +224,7 @@ async function ensurePool(
   ) {
     if (!state.popularExhausted) {
       const nextPage = state.popularPage + 1;
-      const res = await discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, nextPage);
+      const res = await discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries, region }, nextPage);
       state.popularPage = nextPage;
       if (res.results.length === 0 || nextPage >= res.totalPages) state.popularExhausted = true;
       state.results = dedupe([...state.results, ...res.results]);
@@ -224,7 +232,7 @@ async function ensurePool(
     if (state.results.length >= minCount) break;
     if (!state.dateExhausted) {
       const nextPage = state.datePage + 1;
-      const res = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries }, nextPage);
+      const res = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries, region }, nextPage);
       state.datePage = nextPage;
       if (res.results.length === 0 || nextPage >= res.totalPages) state.dateExhausted = true;
       if (nextPage === 1) state.newestIds = res.results.map((item) => item.tmdbId);
@@ -356,7 +364,7 @@ export async function buildProviderSuggestedRow(
   // le classement a assez de matière pour refléter les goûts, y compris sur
   // des titres plus anciens. Les nouveautés de la première page date sont
   // volontairement réservées à leur propre rail.
-  const pool = await ensurePool(type, providerId, originCountries, INITIAL_SUGGESTION_POOL_SIZE);
+  const pool = await ensurePool(type, providerId, originCountries, INITIAL_SUGGESTION_POOL_SIZE, resolveWatchRegion(userId));
   if (pool.results.length === 0) return null;
 
   const excluded = excludedTmdbIds(type, userId);
@@ -408,7 +416,7 @@ export async function getProviderSuggestedPage(
   if (!providerName) return null;
   if (sort === "date") return getProviderNewPage(userId, type, providerId, page, originCountries);
 
-  const pool = await ensurePool(type, providerId, originCountries, page * ROW_SIZE);
+  const pool = await ensurePool(type, providerId, originCountries, page * ROW_SIZE, resolveWatchRegion(userId));
   const excluded = excludedTmdbIds(type, userId);
   const newestIds = new Set(pool.newestIds);
   const candidates = pool.results.filter((item) => !newestIds.has(item.tmdbId));

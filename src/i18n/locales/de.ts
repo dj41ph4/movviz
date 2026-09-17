@@ -916,6 +916,8 @@ export const de: Dictionary = {
     discover: "Entdecken",
     discoverHint: "Wähle die Kontinente, die dich interessieren — Filme und Serien der anderen werden aus Entdecken herausgefiltert. Ist nichts ausgewählt, wird alles angezeigt.",
     discoverSaved: "Einstellungen gespeichert",
+    watchRegion: "Streaming-Region",
+    watchRegionHint: "Der Netflix/Disney+/Prime-Katalog und die „Wo ansehen“-Badges verwenden diese Region — nicht die Oberflächensprache, damit es in Belgien, der Schweiz oder Kanada stimmt.",
   },
 
   continents: {

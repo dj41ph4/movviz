@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { useWatchRegion, WATCH_REGION_OPTIONS } from "@/lib/settings/useWatchRegion";
 import { Toggle } from "@/components/ui/Toggle";
 import { AiContextPanel } from "@/components/profile/AiContextPanel";
 
@@ -79,6 +80,13 @@ export default function ProfilePage() {
   const { locale } = useI18n();
   const user = useCurrentUser();
   const { adminEnabled: betaPlayerAvailable, userEnabled: betaPlayerOn, setUserEnabled: setBetaPlayerOn, loaded: betaPlayerLoaded } = useBetaPlayer();
+  const { value: watchRegion, set: setWatchRegion } = useWatchRegion();
+  let regionDisplayNames: Intl.DisplayNames | null = null;
+  try {
+    regionDisplayNames = new Intl.DisplayNames([locale], { type: "region" });
+  } catch {
+    regionDisplayNames = null;
+  }
   const { titlePanel } = useTitlePanel();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -366,6 +374,22 @@ export default function ProfilePage() {
             {savingDiscover ? <Loader2 className="inline h-3 w-3 animate-spin" /> : discoverMessage}
           </p>
         )}
+
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t("profile.watchRegion")}</p>
+            <p className="text-xs text-ink-dim">{t("profile.watchRegionHint")}</p>
+          </div>
+          <select
+            value={watchRegion}
+            onChange={(e) => setWatchRegion(e.target.value)}
+            className="h-9 shrink-0 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none focus:border-brand/40"
+          >
+            {WATCH_REGION_OPTIONS.map((code) => (
+              <option key={code} value={code}>{regionDisplayNames?.of(code) ?? code}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="mb-6 rounded-2xl glass p-5">

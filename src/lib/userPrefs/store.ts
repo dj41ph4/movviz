@@ -57,11 +57,19 @@ export interface UserPrefs {
    *  because a missing/unwatched special always blocked it. true opts back
    *  into counting specials like any other episode. */
   specialEpisodesEnabled?: boolean;
+  /** Région TMDb (ISO-3166-1 alpha-2, ex. "BE", "FR") utilisée pour filtrer
+   *  les catalogues provider (Netflix/Disney+/Prime) et "où regarder" —
+   *  jusqu'ici hardcodée à "FR" partout (audit refonte recommandations,
+   *  2026-09), ce qui donnait un catalogue français à un utilisateur belge.
+   *  Absente -> repli sur un défaut global (voir resolveWatchRegion dans
+   *  metadata/tmdb.ts), jamais déduite de la langue d'interface (fr != FR). */
+  watchRegion?: string;
 }
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
 const VALID_VIEW_MODES: LibraryViewMode[] = ["large", "small", "list"];
 const VALID_LOCALES = ["fr", "en", "it", "nl", "de"] as const;
+const ISO_3166_1_ALPHA_2 = /^[A-Z]{2}$/;
 
 type Store = Record<string, UserPrefs>;
 
@@ -89,6 +97,7 @@ function sanitize(prefs: unknown): UserPrefs {
   }
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
   if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;
+  if (typeof p.watchRegion === "string" && ISO_3166_1_ALPHA_2.test(p.watchRegion)) clean.watchRegion = p.watchRegion;
   return clean;
 }
 
