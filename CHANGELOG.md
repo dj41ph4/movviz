@@ -1,3 +1,11 @@
+## v1.25.25 — September 2026
+
+### Deux bugs Plex confirmés en direct via les journaux de production
+
+- Correction critique : 100 % des épisodes de chaque compte étaient rejetés « malformés » à chaque synchronisation Plex, quel que soit le compte — un champ que le serveur Plex ne renvoie jamais était utilisé pour identifier la série, empêchant tout épisode d'être marqué vu.
+- Correction critique : deux comptes distincts pouvaient obtenir le même identifiant interne lors de la création (connexion Plex), faisant silencieusement partager tout leur historique vu entre eux. Un identifiant garanti unique est désormais utilisé partout, et toute collision future est bloquée au lieu d'être ignorée.
+- Les comptes déjà affectés par la collision passée nécessitent un nettoyage ponctuel avant la resynchronisation complète.
+
 ## v1.25.24 — September 2026
 
 ### Le popup « Nouveautés » ne tronquait plus les notes de version
