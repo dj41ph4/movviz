@@ -1,3 +1,15 @@
+## v1.25.23 — September 2026
+
+### Correction critique : le suivi Plex ne se mettait plus à jour
+
+- Bug de régression réel : quand le moteur de contexte SQLite est
+  indisponible (notamment en production Docker), toute nouvelle décision
+  « vu » (Plex, manuel, lecteur, IA, import) était silencieusement rejetée
+  au lieu d'être appliquée — confirmé en direct (« vue ajoutée sur Plex,
+  synchro forcée, rien dans Movviz »).
+- Le résolveur fait maintenant confiance à la source quand aucune
+  information de conflit n'est disponible, au lieu de bloquer par défaut.
+
 ## v1.25.22 — September 2026
 
 ### Android Mobile NX / TV NX : le Hero utilise enfin les vraies recommandations
