@@ -117,7 +117,28 @@ export function getCurrentWatchState(input: Pick<WatchDecisionInput, "userId" | 
  */
 export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResult {
   const sourceEventId = input.sourceEventId ?? defaultSourceEventId(input);
-  const fallback: WatchDecisionResult = {
+
+  // Moteur de contexte indisponible (MOVVIZ_CONTEXT_ENGINE_DISABLED, ou
+  // node:sqlite absent du runtime — ex. Node sans --experimental-sqlite en
+  // production) : withUserContextDb retombe ICI, jamais dans le callback.
+  // Bug réel corrigé (confirmé live, "j'ai marqué vu sur Plex, rien dans
+  // Movviz après sync forcée") : cette valeur de repli renvoyait accepted:
+  // false, donc TOUTE décision watched était silencieusement rejetée dès
+  // que le moteur SQL était indisponible — alors qu'avant cette refonte,
+  // l'écriture JSON ne dépendait d'aucune résolution de conflit et gagnait
+  // toujours. Sans information de conflit disponible, on fait confiance à
+  // l'appelant (fail-open) plutôt que de bloquer silencieusement — c'est le
+  // filet de sécurité "Movviz doit continuer à fonctionner" du plan (§74).
+  const engineUnavailable: WatchDecisionResult = {
+    changed: true, accepted: true,
+    previousState: "unknown", effectiveState: input.state,
+    previousUpdatedAt: null, effectiveUpdatedAt: input.occurredAt,
+    reason: "newer_event",
+  };
+  // Doublon RÉEL détecté alors que le moteur EST disponible (même
+  // source_event_id déjà journalisé) : ce cas-ci doit rester un rejet, la
+  // décision a déjà été tranchée une fois pour cet événement précis.
+  const duplicate: WatchDecisionResult = {
     changed: false, accepted: false,
     previousState: "unknown", effectiveState: "unknown",
     previousUpdatedAt: null, effectiveUpdatedAt: null,
@@ -141,7 +162,7 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
       title: input.title ?? null,
       occurredAt: input.occurredAt,
     });
-    if (!inserted) return fallback;
+    if (!inserted) return duplicate;
 
     const key = stateKeyFor(input);
     const row = db.prepare(
@@ -219,5 +240,5 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
       previousUpdatedAt, effectiveUpdatedAt: input.occurredAt,
       reason,
     };
-  }, fallback);
+  }, engineUnavailable);
 }

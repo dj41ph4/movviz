@@ -1,5 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 import { getUserContextHealth } from "@/lib/userContext/database";
 import { applyWatchDecision } from "@/lib/userContext/watchBridge";
 
@@ -135,6 +140,42 @@ test("égalité stricte de timestamp : la priorité de source départage (manuel
   assert.equal(manualAtSameTime.accepted, true);
   assert.equal(manualAtSameTime.reason, "tie_break");
   assert.equal(manualAtSameTime.effectiveState, "unwatched");
+});
+
+test("moteur de contexte indisponible : setWatchedMovies() reste fail-open, ne bloque jamais silencieusement une décision", () => {
+  // Régression réelle trouvée en production (2026-09) : quand node:sqlite
+  // est indisponible (MOVVIZ_CONTEXT_ENGINE_DISABLED, ou runtime sans le
+  // module — ex. Docker Node 22-alpine sans --experimental-sqlite),
+  // withUserContextDb() retombe sur sa valeur de repli SANS jamais exécuter
+  // le callback d'applyWatchDecision(). Cette valeur DOIT rester
+  // "accepted:true" (fail-open, confiance à l'appelant) — la renvoyer à
+  // "accepted:false" a réellement fait disparaître TOUTE synchro Plex/
+  // manuelle en production dès que le moteur SQL était indisponible : plus
+  // rien ne se marquait vu malgré une synchro Plex forcée.
+  //
+  // Exécuté dans un VRAI processus enfant isolé (pas une mutation du
+  // singleton globalThis partagé du processus de test) : muter
+  // __movvizUserContextDb en place a déjà causé un skip aléatoire ailleurs
+  // dans la suite (node:test exécute les fichiers en parallèle par défaut).
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-engineoff-"));
+  try {
+    const script = `
+      import { setWatchedMovies, getWatchStatus } from "@/lib/plex/watchStore";
+      setWatchedMovies("repro-user", [329], true, "Jurassic Park", ${Date.now()}, "plex_history");
+      const status = getWatchStatus("repro-user");
+      process.stdout.write(JSON.stringify(status?.movies ?? []));
+    `;
+    const scriptPath = path.join(tmpDir, "repro.ts");
+    fs.writeFileSync(scriptPath, script);
+    const out = execFileSync(
+      process.execPath,
+      ["--experimental-transform-types", "--no-warnings", "--import", pathToFileURL(path.resolve("scripts/movviz-test-loader.mjs")).href, scriptPath],
+      { env: { ...process.env, MOVVIZ_CONTEXT_ENGINE_DISABLED: "1", MOVVIZ_DATA_DIR: tmpDir }, encoding: "utf8" },
+    );
+    assert.deepEqual(JSON.parse(out.trim().split("\n").pop() ?? "[]"), [329]);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 test("granularité épisode : deux épisodes distincts de la même série ont un état indépendant", (t) => {
