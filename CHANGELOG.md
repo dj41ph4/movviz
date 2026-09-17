@@ -1,3 +1,9 @@
+## v1.25.24 — September 2026
+
+### Le popup « Nouveautés » ne tronquait plus les notes de version
+
+- Bug confirmé en direct : un item de changelog enroulé sur plusieurs lignes n'affichait que sa première ligne dans le popup, alors que le fichier source était toujours complet.
+
 ## v1.25.23 — September 2026
 
 ### Correction critique : le suivi Plex ne se mettait plus à jour
