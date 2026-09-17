@@ -79,6 +79,14 @@ export function getUserByPlexId(plexId: string): User | null {
 }
 export function addUser(user: User): User {
   const list = loadUsers();
+  // Garde-fou ajouté après une collision réelle en production (2026-09,
+  // ancien schéma d'id faible dans les routes appelantes, déjà corrigé) :
+  // deux comptes avec le même `id` partageraient silencieusement toute
+  // donnée indexée par user.id (watch status, préférences...) — mieux vaut
+  // échouer bruyamment ici que corrompre des données en silence.
+  if (list.some((u) => u.id === user.id)) {
+    throw new Error(`addUser: id déjà utilisé (${user.id})`);
+  }
   list.push(user);
   saveUsers(list);
   eventBus.emit({ type: "user_updated" });

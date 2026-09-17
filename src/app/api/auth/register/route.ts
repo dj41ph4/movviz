@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { hasAnyUser, getUserByUsername, addUser, createSession } from "@/lib/auth/store";
 import { hashPassword } from "@/lib/auth/password";
 import { setSessionCookie } from "@/lib/auth/session";
@@ -29,7 +30,9 @@ export async function POST(req: NextRequest) {
 
   const isFirstUser = !hasAnyUser();
   const user: User = {
-    id: `usr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    // randomUUID() — voir le commentaire dans auth/plex/poll/route.ts pour
+    // la collision réelle qu'a produite l'ancien schéma faible.
+    id: `usr_${randomUUID()}`,
     username,
     passwordHash: hashPassword(password),
     role: isFirstUser ? "admin" : "user",

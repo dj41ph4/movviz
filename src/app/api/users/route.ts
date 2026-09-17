@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadUsers, getUserByUsername, addUser } from "@/lib/auth/store";
 import { toPublicUser, type User } from "@/lib/auth/types";
@@ -25,7 +26,9 @@ export async function POST(req: NextRequest) {
   if (getUserByUsername(username)) return NextResponse.json({ error: "username_taken" }, { status: 409 });
 
   const user: User = {
-    id: `usr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    // randomUUID() — voir le commentaire dans auth/plex/poll/route.ts pour
+    // la collision réelle qu'a produite l'ancien schéma faible.
+    id: `usr_${randomUUID()}`,
     username,
     passwordHash: hashPassword(password),
     role: "user",

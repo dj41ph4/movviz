@@ -1014,12 +1014,29 @@ interface RawHistoryItem {
   ratingKey: string;
   type?: string;
   grandparentRatingKey?: string;
+  /** Bug réel confirmé en direct (2026-09) : `/status/sessions/history/all`
+   *  ne renvoie PAS `grandparentRatingKey` sur ce serveur/cette version de
+   *  Plex — seulement `grandparentKey`, un chemin complet
+   *  ("/library/metadata/531052"), exactement comme `key`/`ratingKey` pour
+   *  le média lui-même. 100% des épisodes de chaque compte étaient rejetés
+   *  "malformés" (grandparentRatingKey toujours undefined) alors que
+   *  l'entrée brute était par ailleurs complète. */
+  grandparentKey?: string;
   grandparentTitle?: string;
   parentIndex?: number;
   index?: number;
   title?: string;
   viewedAt?: number;
   accountID?: number | string;
+}
+
+/** "/library/metadata/531052" -> "531052" — même relation que key/ratingKey
+ *  pour le média lui-même, appliquée ici au grandparent (la série).
+ *  Exportée pour les tests (scripts/plex-history.test.ts). */
+export function ratingKeyFromPath(pathValue: string | undefined): string | undefined {
+  if (!pathValue) return undefined;
+  const segment = pathValue.split("/").filter(Boolean).pop();
+  return segment || undefined;
 }
 
 export interface PlexAccountHistoryResult {
@@ -1124,13 +1141,14 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
         rejectedForeignEntries++;
         continue;
       }
+      const grandparentRatingKey = item.grandparentRatingKey ?? ratingKeyFromPath(item.grandparentKey);
       if (item.type === "movie") {
         out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, viewedAt: item.viewedAt, accountId: eventAccountId });
-      } else if (item.type === "episode" && item.grandparentRatingKey && item.parentIndex != null && item.index != null) {
+      } else if (item.type === "episode" && grandparentRatingKey && item.parentIndex != null && item.index != null) {
         out.push({
           ratingKey: item.ratingKey,
           type: "episode",
-          grandparentRatingKey: item.grandparentRatingKey,
+          grandparentRatingKey,
           grandparentTitle: item.grandparentTitle,
           season: item.parentIndex,
           episode: item.index,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { hasAnyUser, getUserByPlexId, addUser, updateUser, createSession } from "@/lib/auth/store";
 import { setSessionCookie } from "@/lib/auth/session";
 import { toPublicUser, type User } from "@/lib/auth/types";
@@ -42,7 +43,13 @@ export async function POST(req: NextRequest) {
     }
 
     user = {
-      id: `usr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      // Bug réel confirmé en direct (2026-09) : Date.now()+4 caractères
+      // aléatoires (~1,7M combinaisons) a produit une collision réelle entre
+      // deux comptes créés à quelques instants d'écart — même `user.id`,
+      // donc même clé dans plex-watch-status.json (indexé par user.id, pas
+      // plexId) : les deux comptes partageaient silencieusement le même
+      // historique vu. randomUUID() élimine le risque (2^122 combinaisons).
+      id: `usr_${randomUUID()}`,
       username: account.username,
       passwordHash: null,
       role: isFirstUser ? "admin" : "user",
