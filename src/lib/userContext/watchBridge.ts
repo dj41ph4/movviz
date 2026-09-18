@@ -79,6 +79,7 @@ interface CurrentWatchRow {
   watched: number;
   watched_updated_at: number | null;
   watched_source: string | null;
+  watched_event_id: string | null;
 }
 
 /**
@@ -166,7 +167,7 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
 
     const key = stateKeyFor(input);
     const row = db.prepare(
-      "SELECT watched, watched_updated_at, watched_source FROM user_media_state WHERE state_key = ?"
+      "SELECT watched, watched_updated_at, watched_source, watched_event_id FROM user_media_state WHERE state_key = ?"
     ).get(key) as CurrentWatchRow | undefined;
 
     const previousState: WatchCurrentState = !row || row.watched_updated_at == null
@@ -190,8 +191,15 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
           reason = "tie_break";
         } else {
           // Égalité totale (même timestamp, même priorité) : dernier
-          // départage déterministe, jamais Math.random().
-          wins = sourceEventId >= (row?.watched_source ?? "");
+          // départage déterministe, jamais Math.random(). Bug réel trouvé
+          // par audit (2026-09) : comparait sourceEventId (longue chaîne
+          // composite, ex. "movviz_manual:usr_xxx:movie:42:watched:169...")
+          // à watched_source (juste "movviz_manual") au lieu du VRAI
+          // identifiant du précédent événement (watched_event_id) — deux
+          // chaînes sans rapport, dont l'une préfixe quasi toujours l'autre,
+          // rendant ce départage gagnant presque systématiquement au lieu
+          // d'être réellement déterministe sur l'ordre de traitement.
+          wins = sourceEventId >= (row?.watched_event_id ?? "");
           reason = "tie_break";
         }
       }

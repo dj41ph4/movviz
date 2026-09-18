@@ -860,13 +860,18 @@ export async function getPlexOnDeck(cfg: PlexServerConfig, token: string, manage
     const res = await fetchWithRetry(`${serverBase(cfg)}/library/onDeck`, { headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
     if (!res.ok) return [];
     const data = await res.json();
-    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; parentIndex?: number; index?: number; viewOffset?: number; duration?: number; lastViewedAt?: number; updatedAt?: number }[] = data?.MediaContainer?.Metadata ?? [];
+    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; grandparentKey?: string; parentIndex?: number; index?: number; viewOffset?: number; duration?: number; lastViewedAt?: number; updatedAt?: number }[] = data?.MediaContainer?.Metadata ?? [];
     return raw
       .filter((item): item is typeof item & { type: "movie" | "episode" } => item.type === "movie" || item.type === "episode")
       .map((item) => ({
         ratingKey: item.ratingKey,
         type: item.type,
-        grandparentRatingKey: item.grandparentRatingKey,
+        // Même repli que getAccountHistory() (§Bug A, 2026-09) : ce serveur
+        // ne renvoie pas toujours grandparentRatingKey, seulement
+        // grandparentKey (un chemin) — sans ce repli, tout épisode "Continuer
+        // à regarder" non déjà apparié par ailleurs perdait silencieusement
+        // son lien vers sa série.
+        grandparentRatingKey: item.grandparentRatingKey ?? ratingKeyFromPath(item.grandparentKey),
         seasonNumber: item.parentIndex,
         episodeNumber: item.index,
         viewOffset: item.viewOffset ?? 0,

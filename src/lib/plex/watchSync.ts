@@ -1,5 +1,5 @@
 import { loadPlexConfig } from "./store";
-import { getAccountHistory, batchTmdbIds, getLocalAccounts, getPlexAccount, getPlexHomeUsers } from "./client";
+import { getAccountHistory, batchTmdbIds, getLocalAccounts, getPlexAccount, getPlexHomeUsers, getPlexFriends } from "./client";
 import { getWatchStatus, mergePlexWatchedState } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
@@ -63,15 +63,29 @@ export async function syncUserWatchStatus(user: User) {
   // leave this Movviz profile untouched.
   const isOwner = !!user.plexToken && user.plexToken === cfg.adminToken;
   const isHomeManaged = !!user.plexManagedUserId;
+  // Bug réel confirmé en direct (2026-09) : un compte "ami" importé
+  // (src/app/api/plex/import/route.ts) n'a jamais de plexToken tant que
+  // cette personne ne s'est pas connectée elle-même à Movviz via Plex — un
+  // profil géré par l'admin pour un tiers reste donc bloqué à `null` ici
+  // INDÉFINIMENT, échouant à 100% des tentatives de synchro, pour toujours
+  // (confirmé sur des heures de journaux réels). getPlexFriends() ne
+  // nécessite que le token admin (déjà disponible) et résout l'identité par
+  // id plex.tv stable — jamais par un token personnel qui peut ne jamais
+  // exister. Le repli sur getPlexAccount(user.plexToken) reste utile si
+  // cette personne n'apparaît plus dans la liste d'amis actuelle (accès
+  // révoqué puis reconnecté autrement) mais a quand même un token valide.
   const plexUsername = isOwner
     ? (await getPlexAccount(cfg.clientId, cfg.adminToken))?.username ?? null
     : isHomeManaged
       ? (await getPlexHomeUsers(cfg.adminToken)).find((h) => h.id === user.plexManagedUserId)?.title ?? null
-      : user.plexToken
-        ? (await getPlexAccount(cfg.clientId, user.plexToken))?.username ?? null
-        : null;
+      : (await getPlexFriends(cfg.clientId, cfg.adminToken)).find((f) => f.id === user.plexId)?.username
+        ?? (user.plexToken ? (await getPlexAccount(cfg.clientId, user.plexToken))?.username ?? null : null);
+  // sensitivity:"base" ignore casse ET accents (ex. "Léa" vs "Lea") — la
+  // correspondance par nom reste par nature fragile (voir commentaire
+  // ci-dessus, getPlexFriends() par id est la vraie protection), mais rien
+  // ne justifie de rester sensible aux accents en plus de ça.
   const match = plexUsername
-    ? (await getLocalAccounts(cfg, cfg.adminToken)).find((a) => a.name.trim().toLocaleLowerCase() === plexUsername.trim().toLocaleLowerCase())
+    ? (await getLocalAccounts(cfg, cfg.adminToken)).find((a) => a.name.trim().localeCompare(plexUsername.trim(), undefined, { sensitivity: "base" }) === 0)
     : undefined;
   if (!match) {
     recordSearchLog(
@@ -157,7 +171,16 @@ export async function syncUserWatchStatus(user: User) {
     // intermédiaire déjà obsolète.
     const acceptedMovies = new Map<number, { tmdbId: number; title: string; watchedAt: number }>();
     const acceptedEpisodes = new Map<string, { tmdbId: number; season: number; episode: number; title: string; watchedAt: number }>();
-    const orderedHistory = [...history].filter((h) => h.viewedAt).sort((a, b) => Number(a.viewedAt) - Number(b.viewedAt));
+    // Number.isFinite/>0 (trouvé par audit, 2026-09) : `h.viewedAt` n'est
+    // qu'une annotation TypeScript, jamais garantie à l'exécution — un
+    // viewedAt négatif, NaN ou non numérique atteindrait sinon
+    // applyWatchDecision() et pourrait geler injustement le résolveur LWW
+    // (rien ne peut jamais battre un occurredAt absurdement ancien/NaN), ou
+    // corrompre silencieusement watched_updated_at par coercition JS. Même
+    // garde déjà appliquée au comptage movieStates/episodeMap ci-dessus.
+    const orderedHistory = [...history]
+      .filter((h) => Number.isFinite(h.viewedAt) && Number(h.viewedAt) > 0)
+      .sort((a, b) => Number(a.viewedAt) - Number(b.viewedAt));
     for (const h of orderedHistory) {
       if (h.type === "movie") {
         const tmdbId = movieInfo.get(h.ratingKey)?.tmdbId;

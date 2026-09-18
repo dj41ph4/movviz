@@ -142,6 +142,30 @@ test("égalité stricte de timestamp : la priorité de source départage (manuel
   assert.equal(manualAtSameTime.effectiveState, "unwatched");
 });
 
+test("égalité totale (même timestamp, même priorité) : le départage compare le VRAI événement précédent, pas son nom de source", () => {
+  // Bug réel trouvé par audit (2026-09) : le départage à égalité totale
+  // comparait sourceEventId (longue chaîne composite) à watched_source
+  // (juste le nom court de la source, ex. "movviz_manual") au lieu du
+  // véritable identifiant du précédent événement (watched_event_id) — deux
+  // chaînes sans rapport. Avec l'ancien code bogué, ce cas précis
+  // (sourceEventId "b" contre l'ancien watched_source "movviz_manual")
+  // aurait donné `"b" >= "movviz_manual"` => false => rejeté à tort, alors
+  // que "b" est bien lexicographiquement postérieur au VRAI id précédent
+  // ("a") et doit gagner.
+  const userId = freshUserId();
+  const tmdbId = 9;
+  const T = 7_000_000;
+  // Le préfixe userId rend chaque littéral unique par exécution (l'index de
+  // dédoublonnage du ledger est (source, sourceEventId), SANS userId — un
+  // littéral fixe collisionnerait avec une exécution précédente du test
+  // dans le même fichier SQLite persistant, comme déjà rencontré plus haut).
+  const first = applyWatchDecision({ userId, tmdbId, mediaType: "movie", state: "watched", occurredAt: T, source: "movviz_manual", sourceEventId: `${userId}:a` });
+  assert.equal(first.accepted, true);
+  const second = applyWatchDecision({ userId, tmdbId, mediaType: "movie", state: "unwatched", occurredAt: T, source: "movviz_manual", sourceEventId: `${userId}:b` });
+  assert.equal(second.accepted, true, "sourceEventId \"b\" > le vrai id précédent \"a\" doit gagner");
+  assert.equal(second.effectiveState, "unwatched");
+});
+
 test("moteur de contexte indisponible : setWatchedMovies() reste fail-open, ne bloque jamais silencieusement une décision", () => {
   // Régression réelle trouvée en production (2026-09) : quand node:sqlite
   // est indisponible (MOVVIZ_CONTEXT_ENGINE_DISABLED, ou runtime sans le

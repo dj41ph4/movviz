@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { requireAdmin } from "@/lib/auth/guard";
 import { getUserByPlexId, addUser } from "@/lib/auth/store";
 import { loadPlexConfig } from "@/lib/plex/store";
@@ -21,7 +22,10 @@ export async function POST(req: NextRequest) {
   for (const friend of friends) {
     if (getUserByPlexId(friend.id)) continue;
     const user: User = {
-      id: `usr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}${friend.id}`,
+      // randomUUID() — cette route avait été oubliée lors de la correction
+      // de la collision réelle d'id de compte (2026-09, voir
+      // auth/plex/poll/route.ts pour le détail complet).
+      id: `usr_${randomUUID()}`,
       username: friend.username,
       passwordHash: null,
       role: "user",
