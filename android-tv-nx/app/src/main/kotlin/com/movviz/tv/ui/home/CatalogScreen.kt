@@ -86,14 +86,18 @@ fun CatalogScreen(
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
+    // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
+    val catalogWatchStatus by viewModel.watchStatus.collectAsState()
+    val watchedMovieIds = remember(catalogWatchStatus) { catalogWatchStatus?.movies?.toSet().orEmpty() }
     LaunchedEffect(Unit) { viewModel.loadLibrary() }
     val wantedType = if (type == HomeTab.MOVIES) "movie" else "series"
     LaunchedEffect(wantedType) { viewModel.loadGenres(wantedType) }
     val genres = if (type == HomeTab.MOVIES) movieGenres else seriesGenres
 
-    val cards = remember(movies, series, type) {
+    val cards = remember(movies, series, type, watchedMovieIds) {
         if (type == HomeTab.MOVIES) {
             movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
+                .withWatchedMovies(watchedMovieIds)
         } else {
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }

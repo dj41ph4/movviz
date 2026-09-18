@@ -59,6 +59,7 @@ import com.movviz.tv.data.MetadataEpisodeDto
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.home.TitleRow
 import com.movviz.tv.ui.home.TvTitleCard
+import com.movviz.tv.ui.home.withWatchedMovies
 import com.movviz.tv.ui.home.AmbientPreview
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
@@ -595,10 +596,12 @@ fun TitleDetailScreen(
         // LazyColumn, où `remember` n'est pas utilisable) puis réutilisé via
         // TitleRow/TvTitleCard de l'accueil pour rester visuellement
         // identique aux autres rangées de posters de l'app.
-        val similarCards = remember(d) {
+        val similarWatchedMovieIds = remember(watchStatus) { watchStatus?.movies?.toSet().orEmpty() }
+        val similarCards = remember(d, similarWatchedMovieIds) {
             d.similar
                 .filter { !(it.tmdbId == tmdbId && it.type == type) }
                 .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = it.type == "movie") }
+                .withWatchedMovies(similarWatchedMovieIds)
         }
 
         // Spec de scroll MINIMAL (comportement mobile) au lieu du pivot TV :

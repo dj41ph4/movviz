@@ -21,6 +21,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -96,6 +97,7 @@ import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
+import com.movviz.tv.ui.theme.MovvizIconCheck
 import com.movviz.tv.ui.theme.MovvizIconPlay
 import com.movviz.tv.ui.theme.MovvizIconStar
 import androidx.tv.material3.Icon
@@ -194,11 +196,24 @@ internal data class TvTitleCard(
     val episodeSeasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val episodeTitle: String? = null,
+    /** Vrai si ce film figure dans `watchStatus.movies` (vu manuellement ou
+     *  via Plex). V1 : jamais calculé pour les séries — voir le plan de
+     *  finalisation watch-state, phase 12-13. */
+    val watched: Boolean = false,
 )
 
 /** Rangée d'accueil multi-type. Accueil est le seul endroit où films et séries
  * sont volontairement entrelacés ; Films/Séries gardent leurs hubs séparés. */
 private data class HomeEditorialRow(val key: String, val heading: String, val cards: List<TvTitleCard>)
+
+/** Applique la pastille "vu" aux cartes film d'une liste, à partir des ids
+ *  tmdb présents dans `watchStatus.movies`. V1 : jamais les séries — voir le
+ *  plan de finalisation watch-state, phase 12-13. `internal` (pas `private`) :
+ *  réutilisé par Discover/PersonScreen/TitleDetailScreen/Catalog/RowDetail. */
+internal fun List<TvTitleCard>.withWatchedMovies(watchedMovieIds: Set<Int>): List<TvTitleCard> {
+    if (watchedMovieIds.isEmpty()) return this
+    return map { if (it.isMovie && it.tmdbId in watchedMovieIds) it.copy(watched = true) else it }
+}
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -232,6 +247,11 @@ fun HomeScreen(
     // loadDiscoverLogos() ci-dessous. Vide tant que le serveur n'a pas
     // répondu : la rangée est alors simplement absente, jamais un trou vide.
     val watchProviderTiles by viewModel.watchProviderTiles.collectAsState()
+    // Pastille "vu" (phase 12-13 watch-state) — films uniquement, voir
+    // TvTitleCard.watched. `watchStatus` est chargé au bootstrap (voir
+    // AppViewModel.bootstrapHome) donc déjà prêt avant le premier rendu.
+    val homeWatchStatus by viewModel.watchStatus.collectAsState()
+    val watchedMovieIds = remember(homeWatchStatus) { homeWatchStatus?.movies?.toSet().orEmpty() }
     // Un snapshot P0/P1 est publié en une seule transition. Cela évite les
     // recompositions et déplacements de focus produits par dix StateFlow
     // successifs. Sans snapshot (compatibilité serveur ancien), les flows
@@ -284,7 +304,7 @@ fun HomeScreen(
         rating = item.rating,
     )
 
-    val continueCards = remember(continueWatching, movies, series) {
+    val continueCards = remember(continueWatching, movies, series, watchedMovieIds) {
         // Une même reprise peut être remontée deux fois pendant la fusion
         // locale/Plex. Une ligne TV ne doit jamais l'afficher deux fois — et
         // TvLazyRow exige des clés uniques. L'ordre de l'API est conservé,
@@ -322,9 +342,11 @@ fun HomeScreen(
                 episodeNumber = resume.episodeNumber,
                 episodeTitle = resume.episodeTitle,
             )
-        }.distinctBy { it.id }
+        }.distinctBy { it.id }.withWatchedMovies(watchedMovieIds)
     }
     val recentEpisodeCards = remember(recentEpisodes) {
+        // Toujours des épisodes de série (isMovie = false) : jamais de
+        // pastille "vu" en V1, aucun besoin de withWatchedMovies ici.
         recentEpisodes.sortedByDescending { it.addedAt }.map { episode ->
             TvTitleCard(
                 id = "recent-episode-${episode.tmdbId}-${episode.seasonNumber}-${episode.episodeNumber}",
@@ -348,24 +370,25 @@ fun HomeScreen(
     }
 
     // Même source et même fusion que DashboardRows desktop.
-    val recommendationCards = remember(movieRecommendations, seriesRecommendations, minYear) {
+    val recommendationCards = remember(movieRecommendations, seriesRecommendations, minYear, watchedMovieIds) {
         movieRecommendations.filter { yearAllowed(it.year) }.map { searchCard(it, "rec") }
             .zipInterleave(seriesRecommendations.filter { yearAllowed(it.year) }.map { searchCard(it, "rec") })
             .distinctBy { "${it.isMovie}-${it.tmdbId}" }
             .take(20)
+            .withWatchedMovies(watchedMovieIds)
     }
-    val trendingCards = remember(movieRows, seriesRows, minYear) {
+    val trendingCards = remember(movieRows, seriesRows, minYear, watchedMovieIds) {
         val movie = movieRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }
             ?.results.orEmpty().filter { yearAllowed(it.year) }.map { searchCard(it, "trend") }
         val tv = seriesRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }
             ?.results.orEmpty().filter { yearAllowed(it.year) }.map { searchCard(it, "trend") }
-        movie.zipInterleave(tv).distinctBy { "${it.isMovie}-${it.tmdbId}" }.take(10)
+        movie.zipInterleave(tv).distinctBy { "${it.isMovie}-${it.tmdbId}" }.take(10).withWatchedMovies(watchedMovieIds)
     }
     // L'accueil ne s'arrête pas aux quelques blocs du dashboard : comme un
     // vrai écran de streaming, il prolonge le héros et la reprise avec les
     // étagères éditoriales de tous les services, dans un flux films + séries.
     // Les hubs Films/Séries affichent les mêmes données sans les mélanger.
-    val editorialHomeRows = remember(movieRows, seriesRows, minYear) {
+    val editorialHomeRows = remember(movieRows, seriesRows, minYear, watchedMovieIds) {
         val keys = (movieRows.map { it.key } + seriesRows.map { it.key }).distinct()
         keys.mapNotNull { key ->
             // Les blocs déjà exprimés au début de l'accueil restent uniques.
@@ -377,11 +400,12 @@ fun HomeScreen(
             val cards = movie.zipInterleave(tv)
                 .distinctBy { "${it.isMovie}-${it.tmdbId}" }
                 .take(20)
+                .withWatchedMovies(watchedMovieIds)
             cards.takeIf { it.isNotEmpty() }?.let { HomeEditorialRow(key, homeEditorialLabel(key, movieRows, seriesRows), it) }
         }
     }
 
-    val availableNowCards = remember(movies, series, minYear) {
+    val availableNowCards = remember(movies, series, minYear, watchedMovieIds) {
         val movie = movies.filter { it.status == "available" && yearAllowed(it.year) }.map {
             it.addedAt to TvTitleCard(
                 id = "available-movie-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
@@ -397,9 +421,9 @@ fun HomeScreen(
                 year = it.year, rating = it.rating, genres = it.genres,
             )
         }
-        (movie + shows).sortedByDescending { it.first }.map { it.second }.take(20)
+        (movie + shows).sortedByDescending { it.first }.map { it.second }.take(20).withWatchedMovies(watchedMovieIds)
     }
-    val shortSessionCards = remember(movies, minYear) {
+    val shortSessionCards = remember(movies, minYear, watchedMovieIds) {
         movies.filter { it.status == "available" && it.runtime != null && it.runtime <= 40 && yearAllowed(it.year) }
             .sortedByDescending { it.addedAt }
             .take(20)
@@ -410,9 +434,9 @@ fun HomeScreen(
                     year = it.year, rating = it.rating, genres = it.genres, runtime = it.runtime,
                     qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
                 )
-            }
+            }.withWatchedMovies(watchedMovieIds)
     }
-    val comingSoonCards = remember(movies, minYear) {
+    val comingSoonCards = remember(movies, minYear, watchedMovieIds) {
         movies.filter { it.status == "upcoming" && yearAllowed(it.year) }
             .sortedBy { it.vfReleaseDate ?: it.releaseDate ?: "9999-99-99" }
             .take(20)
@@ -422,7 +446,7 @@ fun HomeScreen(
                     backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = true,
                     year = it.year, rating = it.rating, genres = it.genres, status = it.status,
                 )
-            }
+            }.withWatchedMovies(watchedMovieIds)
     }
 
     val heroFallback = remember(availableNowCards, recommendationCards) {
@@ -2080,6 +2104,24 @@ internal fun PosterCard(
                         ) {
                             StaticLogoWithGlow(size = 41.dp)
                         }
+                    }
+                }
+                // Pastille "vu" — V1 films uniquement (voir TvTitleCard.watched
+                // et le plan de finalisation watch-state, phase 12-13). Même
+                // langage visuel que EpisodeCard côté fiche (cercle dégradé 3
+                // couleurs). Décalée sous la pilule FILM/SÉRIE quand les deux
+                // coexistent (rangées mélangées de l'accueil) pour éviter le
+                // chevauchement en TopEnd.
+                if (card.watched) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = if (showTypeBadge) 26.dp else 4.dp, end = 4.dp)
+                            .size(14.dp)
+                            .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(8.dp))
                     }
                 }
                 // Le badge S/E est un contexte éditorial d'épisode. Il peut

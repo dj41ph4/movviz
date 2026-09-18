@@ -50,6 +50,7 @@ import com.movviz.tv.ui.home.MediaHubMode
 import com.movviz.tv.ui.home.MediaHubToggleRow
 import com.movviz.tv.ui.home.TitleRow
 import com.movviz.tv.ui.home.TvTitleCard
+import com.movviz.tv.ui.home.withWatchedMovies
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.tvFocusLift
@@ -93,6 +94,9 @@ fun DiscoverScreen(
     val heroLogos by viewModel.heroLogos.collectAsState()
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
+    // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
+    val discoverWatchStatus by viewModel.watchStatus.collectAsState()
+    val watchedMovieIds = remember(discoverWatchStatus) { discoverWatchStatus?.movies?.toSet().orEmpty() }
     val editorialRows = if (selectedType == HomeTab.MOVIES) movieRows else seriesRows
     val watchProviderTiles by viewModel.watchProviderTiles.collectAsState()
     val companyTiles by viewModel.companyTiles.collectAsState()
@@ -108,13 +112,13 @@ fun DiscoverScreen(
     }
     val genres = if (selectedType == HomeTab.MOVIES) movieGenres else seriesGenres
 
-    val cards = remember(movies, series, selectedType) {
+    val cards = remember(movies, series, selectedType, watchedMovieIds) {
         if (selectedType == HomeTab.MOVIES) {
             movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForDiscover(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
         } else {
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
-    }
+    }.withWatchedMovies(watchedMovieIds)
     val recommendationIds = if (selectedType == HomeTab.MOVIES) movieLibraryRecommendations else seriesLibraryRecommendations
     val availableCards = remember(cards, selectedType) {
         if (selectedType == HomeTab.MOVIES) cards.filter { it.status == "available" } else cards
@@ -146,12 +150,12 @@ fun DiscoverScreen(
             }
         }
     }
-    val editorial = remember(editorialRows, wantedType) {
+    val editorial = remember(editorialRows, wantedType, watchedMovieIds) {
         editorialRows.filterNot { it.key == "kids" }.mapNotNull { row ->
             val rowCards = row.results.filter { it.type == wantedType }.map {
                 TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId,
                     isMovie = it.type == "movie", year = it.year, rating = it.rating)
-            }
+            }.withWatchedMovies(watchedMovieIds)
             if (rowCards.isEmpty()) null else DiscoverRow(row.key, row.meta, rowCards, seeAll = true)
         }
     }

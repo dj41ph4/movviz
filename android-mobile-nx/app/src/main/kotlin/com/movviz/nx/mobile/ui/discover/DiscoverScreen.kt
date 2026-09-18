@@ -57,6 +57,7 @@ import com.movviz.nx.mobile.ui.home.MediaHubToggleRow
 import com.movviz.nx.mobile.ui.home.TitleRow
 import com.movviz.nx.mobile.ui.home.TvTitleCard
 import com.movviz.nx.mobile.ui.home.rememberNarrowContent
+import com.movviz.nx.mobile.ui.home.withWatchedMovies
 import androidx.compose.ui.graphics.Brush
 import com.movviz.nx.mobile.ui.theme.MovvizAmber
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
@@ -120,6 +121,9 @@ fun DiscoverScreen(
     val heroLogos by viewModel.heroLogos.collectAsState()
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
+    // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
+    val discoverWatchStatus by viewModel.watchStatus.collectAsState()
+    val watchedMovieIds = remember(discoverWatchStatus) { discoverWatchStatus?.movies?.toSet().orEmpty() }
     // Une même clé de rangée peut exister côté films et séries. On les fusionne
     // pour éviter des clés LazyColumn dupliquées et obtenir une découverte
     // réellement mixte, pas deux copies de la même rangée.
@@ -144,7 +148,7 @@ fun DiscoverScreen(
     }
     val genres = if (mixedDiscovery) emptyList() else if (selectedType == HomeTab.MOVIES) movieGenres else seriesGenres
 
-    val cards = remember(movies, series, selectedType, mixedDiscovery) {
+    val cards = remember(movies, series, selectedType, mixedDiscovery, watchedMovieIds) {
         if (mixedDiscovery) {
             movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status) } +
                 series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
@@ -153,7 +157,7 @@ fun DiscoverScreen(
         } else {
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
-    }
+    }.withWatchedMovies(watchedMovieIds)
     val recommendationIds = if (mixedDiscovery) movieLibraryRecommendations + seriesLibraryRecommendations else if (selectedType == HomeTab.MOVIES) movieLibraryRecommendations else seriesLibraryRecommendations
     val availableCards = remember(cards, selectedType, mixedDiscovery) {
         if (!mixedDiscovery && selectedType == HomeTab.MOVIES) cards.filter { it.status == "available" } else cards
@@ -185,12 +189,12 @@ fun DiscoverScreen(
             }
         }
     }
-    val editorial = remember(editorialRows, wantedType, mixedDiscovery) {
+    val editorial = remember(editorialRows, wantedType, mixedDiscovery, watchedMovieIds) {
         editorialRows.filterNot { it.key == "kids" }.mapNotNull { row ->
             val rowCards = row.results.filter { mixedDiscovery || it.type == wantedType }.map {
                 TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId,
                     isMovie = it.type == "movie", year = it.year, rating = it.rating)
-            }
+            }.withWatchedMovies(watchedMovieIds)
             if (rowCards.isEmpty()) null else DiscoverRow(row.key, row.meta, rowCards, seeAll = !mixedDiscovery)
         }
     }
@@ -208,7 +212,7 @@ fun DiscoverScreen(
     // client de la même source que l'accueil (continueWatching), pas de
     // nouvel appel réseau.
     val continueWatching by viewModel.continueWatching.collectAsState()
-    val resumeCards = remember(continueWatching, wantedType) {
+    val resumeCards = remember(continueWatching, wantedType, watchedMovieIds) {
         continueWatching.filter { it.type == wantedType }.map { resume ->
             TvTitleCard(
                 id = "discover-resume-${resume.type}-${resume.tmdbId}",
@@ -223,7 +227,7 @@ fun DiscoverScreen(
                 resumeSeasonNumber = resume.seasonNumber,
                 resumeEpisodeNumber = resume.episodeNumber,
             )
-        }
+        }.withWatchedMovies(watchedMovieIds)
     }
     val heroItems = remember(dashboardHero, cards, wantedType, mixedDiscovery) {
         dashboardHero.filter { mixedDiscovery || it.detail.type == wantedType }.map { slide ->

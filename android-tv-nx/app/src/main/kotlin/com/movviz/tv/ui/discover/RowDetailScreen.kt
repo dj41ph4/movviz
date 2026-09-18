@@ -38,6 +38,7 @@ import com.movviz.tv.data.RowMetaDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.ui.home.PosterCard
 import com.movviz.tv.ui.home.TvTitleCard
+import com.movviz.tv.ui.home.withWatchedMovies
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
@@ -80,6 +81,9 @@ fun RowDetailScreen(
 ) {
     val baseUrl by viewModel.serverUrl.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
+    // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
+    val rowDetailWatchStatus by viewModel.watchStatus.collectAsState()
+    val watchedMovieIds = remember(rowDetailWatchStatus) { rowDetailWatchStatus?.movies?.toSet().orEmpty() }
     val repository = remember(baseUrl) { baseUrl?.let { MovvizRepository(it) } }
     val scope = rememberCoroutineScope()
 
@@ -117,7 +121,7 @@ fun RowDetailScreen(
             if (result != null) {
                 val newCards = result.results.map {
                     TvTitleCard("browse-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId, it.type == "movie", it.year, it.rating)
-                }
+                }.withWatchedMovies(watchedMovieIds)
                 cards = if (target == 1) newCards else cards + newCards
                 page = result.page
                 totalPages = result.totalPages

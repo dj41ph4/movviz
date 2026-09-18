@@ -30,6 +30,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.ui.home.TitleRow
 import com.movviz.tv.ui.home.TvTitleCard
+import com.movviz.tv.ui.home.withWatchedMovies
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
@@ -52,6 +53,9 @@ fun PersonScreen(
 ) {
     val person by viewModel.person.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
+    // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
+    val personWatchStatus by viewModel.watchStatus.collectAsState()
+    val watchedMovieIds = remember(personWatchStatus) { personWatchStatus?.movies?.toSet().orEmpty() }
 
     LaunchedEffect(personId) {
         viewModel.loadPerson(personId)
@@ -70,7 +74,7 @@ fun PersonScreen(
             "mike tyson mysteries|red carpet|the view|watch what happens",
         RegexOption.IGNORE_CASE,
     )
-    val filmography = remember(person) {
+    val filmography = remember(person, watchedMovieIds) {
         person?.credits.orEmpty()
             .filter { c -> !junkShow.containsMatchIn(c.title) }
             .map { c ->
@@ -85,7 +89,7 @@ fun PersonScreen(
                     rating = c.rating,
                     overview = c.overview,
                 )
-            }
+            }.withWatchedMovies(watchedMovieIds)
     }
 
     // Spec de scroll minimal (voir TitleDetailScreen) : le pivot TV

@@ -55,6 +55,7 @@ import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.data.SearchResultDto
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
+import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
@@ -125,6 +126,9 @@ fun SearchScreen(
     val firstResultFocusRequester = remember { FocusRequester() }
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
+    // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
+    val searchWatchStatus by viewModel.watchStatus.collectAsState()
+    val searchWatchedMovieIds = remember(searchWatchStatus) { searchWatchStatus?.movies?.toSet().orEmpty() }
     var typeFilter by remember { mutableStateOf(SearchTypeFilter.ALL) }
 
     // Le clic sur l'icône de loupe change seulement l'état de navigation ;
@@ -225,6 +229,7 @@ fun SearchScreen(
                         // par BAS. L'ancienne double attache rendait la
                         // recherche muette au D-pad sur certains appareils.
                         focusRequester = if (index == 0) firstResultFocusRequester else null,
+                        watched = result.type == "movie" && result.tmdbId in searchWatchedMovieIds,
                     ) { onOpenTitle(result.type, result.tmdbId) }
                 }
             }
@@ -306,13 +311,27 @@ private fun SearchField(
 }
 
 @Composable
-private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
+private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, focusRequester: FocusRequester? = null, watched: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Column {
         Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
             Box(Modifier.fillMaxSize()) {
                 result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                 if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(7.dp))
+                // Pastille "vu" (phase 12-13 watch-state) — films uniquement,
+                // même langage visuel que PosterCard (HomeScreen.kt).
+                if (watched) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(14.dp)
+                            .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(8.dp))
+                    }
+                }
             }
         }
         Text(result.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp))

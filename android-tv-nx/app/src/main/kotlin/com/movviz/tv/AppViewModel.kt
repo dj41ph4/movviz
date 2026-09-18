@@ -807,6 +807,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val profile = _activeProfile.value ?: return
         homeBootstrapStartedAt = SystemClock.elapsedRealtime()
         homeFirstFrameDrawn = false
+        loadWatchStatus()
         homeBootstrapJob = viewModelScope.launch {
             val started = homeBootstrapStartedAt
             Log.d("TV-PERF", "APP_START bootstrap")
