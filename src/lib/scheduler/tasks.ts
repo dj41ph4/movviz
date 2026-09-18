@@ -18,6 +18,7 @@ import { purgeExpiredTrash } from "@/lib/library/trashPurge";
 import { isAutoSearchMissingEnabled } from "@/lib/settings/automation";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { syncPlexUserMedia } from "@/lib/plex/userMediaSync";
+import { retryPendingPlexWatchedState } from "@/lib/plex/watchWrite";
 import { importSeerrRequests } from "@/lib/seerr/importRequests";
 import { seerrConfigured } from "@/lib/seerr/store";
 import { incrementalDiskScan } from "@/lib/library/diskScan";
@@ -141,6 +142,14 @@ export const TASKS: ScheduledTask[] = [
     name: "Synchronisation de la liste de suivi Plex",
     intervalMs: 60 * 1000, // every minute
     run: async () => {
+      // Phase 7 du plan de finalisation (2026-09) : filet de sécurité de
+      // l'outbox Movviz -> Plex (statut vu), réutilise cette tâche à la
+      // minute plutôt que d'en créer une nouvelle (§53-54 du plan) —
+      // délibérément PAS derrière le drapeau watchlistSyncEnabled
+      // ci-dessous, un concept indépendant (export du statut vu, pas import
+      // de la liste de suivi).
+      await retryPendingPlexWatchedState().catch(() => {});
+
       // Watchlist is a user intent, never an acquisition trigger. The
       // historical task id is retained for scheduler compatibility; the
       // bidirectional user-media adapter owns synchronization here.
@@ -199,7 +208,16 @@ export const TASKS: ScheduledTask[] = [
       // null) was silently excluded from every single sync run — their
       // watch status simply never populated from Plex, forever. Also
       // covers watchSync.ts's own fix for the same field.
-      const users = loadUsers().filter((u) => u.plexToken || u.plexManagedUserId);
+      //
+      // Second bug fix (audit ciblé, 2026-09) : ce filtre excluait encore un
+      // troisième cas — un compte "ami" importé (plexId renseigné,
+      // plexToken ET plexManagedUserId tous les deux null tant que cette
+      // personne ne s'est jamais connectée elle-même) n'était JAMAIS
+      // synchronisé en arrière-plan, même après la correction de
+      // watchSync.ts qui sait désormais résoudre son identité via
+      // getPlexFriends(). `plexId` est le vrai marqueur d'identité Plex,
+      // pas `plexToken` (une conséquence de connexion, pas une condition).
+      const users = loadUsers().filter((u) => u.plexId || u.plexManagedUserId);
       // Was one user at a time — combined with the per-show sequential calls
       // this fixed in watchSync.ts, a library with several Plex users could
       // hold the single active job slot for many minutes straight.

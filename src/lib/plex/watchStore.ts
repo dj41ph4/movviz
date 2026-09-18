@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import { applyWatchDecision, getCurrentWatchState, type WatchSource } from "@/lib/userContext/watchBridge";
+import { markPlexWatchedOutboxPending, shouldPropagateWatchedToPlex } from "./watchWrite";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -121,6 +122,13 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
     });
     if (!result.accepted) continue;
     accepted.push(tmdbId);
+    // Outbox durable (phase 6 du plan de finalisation) : PENDING créé ICI,
+    // AVANT toute tentative réseau, pour la même décision acceptée que
+    // celle qui vient de gagner en base — pas après un push fire-and-forget
+    // qui pourrait ne jamais aboutir. plex_history/legacy_migration ne
+    // propagent jamais vers Plex (§57 : éviter la boucle Plex -> Movviz ->
+    // Plex).
+    if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "movie", tmdbId);
     if (watched) {
       const key = String(tmdbId);
       if (!status.movies.includes(tmdbId)) status.movies.push(tmdbId);
@@ -169,6 +177,7 @@ export function setWatchedEpisodes(
         title: title || null, state: "watched", occurredAt: at, source,
       });
       if (!result.accepted) continue;
+      if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", e.tmdbId, e.season, e.episode);
       const prev = existing.get(key(e));
       if (!prev) {
         status.episodes.push({ tmdbId: e.tmdbId, season: e.season, episode: e.episode, at });
@@ -190,6 +199,7 @@ export function setWatchedEpisodes(
         title: title || null, state: "unwatched", occurredAt: at, source,
       });
       if (!result.accepted) continue;
+      if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", entry.tmdbId, entry.season, entry.episode);
       status.episodes = status.episodes.filter((episode) => key(episode) !== key(entry));
       accepted.push({ ...entry, at });
     }

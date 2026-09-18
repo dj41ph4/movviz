@@ -4,9 +4,10 @@ import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
 import type { PlexServerConfig } from "./types";
-import { updateUser } from "@/lib/auth/store";
-import { updateUserMediaSyncState } from "@/lib/userContext/syncState";
+import { updateUser, getUserById } from "@/lib/auth/store";
+import { updateUserMediaSyncState, getPendingSyncStates } from "@/lib/userContext/syncState";
 import { mediaStateKey } from "@/lib/userContext/reconcile";
+import { getCurrentWatchState } from "@/lib/userContext/watchBridge";
 
 const PLEX_WATCHED_SYNC_TARGET = "plex";
 const PLEX_WATCHED_SYNC_FIELD = "watched";
@@ -24,6 +25,29 @@ function recordPlexWatchedSync(userId: string, stateKey: string, ok: boolean, er
     ackAt: ok ? Date.now() : null,
     error: ok ? null : (error ?? "push failed"),
   });
+}
+
+// §58-59 du plan de finalisation : une décision qui vient de Plex (ou d'un
+// rattrapage legacy sans vraie intention utilisateur) ne doit jamais
+// redéclencher un export VERS Plex — sinon boucle Plex -> Movviz -> Plex
+// inutile. Seules les décisions d'origine réellement locale méritent une
+// propagation sortante.
+const PLEX_PROPAGATED_SOURCES = new Set(["movviz_manual", "movviz_playback", "external_import", "ai"]);
+export function shouldPropagateWatchedToPlex(source: string): boolean {
+  return PLEX_PROPAGATED_SOURCES.has(source);
+}
+
+/**
+ * Outbox durable (phase 6 du plan de finalisation, 2026-09) : marque PENDING
+ * AVANT toute tentative réseau (§48 — jamais après), pour qu'un crash ou une
+ * panne Plex entre la décision locale acceptée et l'appel réseau laisse
+ * quand même une trace retryable par le scheduler, au lieu de perdre
+ * silencieusement l'export si le processus fire-and-forget qui suit ne va
+ * jamais au bout.
+ */
+export function markPlexWatchedOutboxPending(userId: string, mediaType: "movie" | "episode", tmdbId: number, seasonNumber?: number, episodeNumber?: number): void {
+  const stateKey = mediaStateKey(userId, mediaType, tmdbId, seasonNumber, episodeNumber);
+  updateUserMediaSyncState({ userId, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "PENDING", observedAt: Date.now() });
 }
 
 /**
@@ -109,15 +133,29 @@ export async function resolvePlexServerAuth(user: User, cfg: PlexServerConfig): 
 }
 
 export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched: boolean): Promise<void> {
+  const stateKey = mediaStateKey(user.id, "movie", tmdbId);
   const cfg = loadPlexConfig();
-  if (!cfg.hostname) return;
-  const auth = await resolvePlexServerAuth(user, cfg);
-  if (!auth) return;
+  // §60 du plan : ce film n'a pas de plexRatingKey pour l'instant — pas
+  // une vraie erreur, juste une synchro bibliothèque pas encore passée.
+  // ERROR retryable (pas UNSUPPORTED) : le scheduler retente et réussira
+  // dès que plex-library-sync aura peuplé plexRatingKey.
   const movie = getMovieByTmdbId(tmdbId);
-  if (!movie?.plexRatingKey) return;
+  if (!movie?.plexRatingKey) {
+    recordPlexWatchedSync(user.id, stateKey, false, "no plexRatingKey yet");
+    return;
+  }
+  if (!cfg.hostname) {
+    updateUserMediaSyncState({ userId: user.id, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "UNSUPPORTED", error: "Plex non configuré" });
+    return;
+  }
+  const auth = await resolvePlexServerAuth(user, cfg);
+  if (!auth) {
+    updateUserMediaSyncState({ userId: user.id, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "UNSUPPORTED", error: "identité Plex non résolue pour ce compte" });
+    return;
+  }
 
   const ok = await setPlexWatched(cfg, auth.token, movie.plexRatingKey, watched);
-  recordPlexWatchedSync(user.id, mediaStateKey(user.id, "movie", tmdbId), ok);
+  recordPlexWatchedSync(user.id, stateKey, ok);
   recordSearchLog(
     ok ? "info" : "warn",
     "plex.watchWrite",
@@ -205,9 +243,18 @@ export async function pushEpisodesWatchedToPlex(
   watched: boolean
 ): Promise<void> {
   const cfg = loadPlexConfig();
-  if (!cfg.hostname) return;
+  // §61 du plan : aligner sur pushMovieWatchedToPlex — un échec structurel
+  // (Plex non configuré / identité non résolue) marque chaque entrée
+  // UNSUPPORTED au lieu de disparaître silencieusement sans aucune trace.
+  if (!cfg.hostname) {
+    for (const e of entries) updateUserMediaSyncState({ userId: user.id, stateKey: mediaStateKey(user.id, "episode", e.tmdbId, e.season, e.episode), field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "UNSUPPORTED", error: "Plex non configuré" });
+    return;
+  }
   const auth = await resolvePlexServerAuth(user, cfg);
-  if (!auth) return;
+  if (!auth) {
+    for (const e of entries) updateUserMediaSyncState({ userId: user.id, stateKey: mediaStateKey(user.id, "episode", e.tmdbId, e.season, e.episode), field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "UNSUPPORTED", error: "identité Plex non résolue pour ce compte" });
+    return;
+  }
 
   const bySeries = new Map<number, { season: number; episode: number }[]>();
   for (const e of entries) {
@@ -218,7 +265,12 @@ export async function pushEpisodesWatchedToPlex(
 
   for (const [tmdbId, eps] of bySeries) {
     const series = getSeriesByTmdbId(tmdbId);
-    if (!series) continue;
+    if (!series) {
+      // Série pas encore importée dans la bibliothèque Movviz : retryable,
+      // pas un échec permanent (alignement épisode/film, §61).
+      for (const e of eps) recordPlexWatchedSync(user.id, mediaStateKey(user.id, "episode", tmdbId, e.season, e.episode), false, "série pas encore dans la bibliothèque");
+      continue;
+    }
     let ok = 0;
     let fail = 0;
     for (const e of eps) {
@@ -240,5 +292,78 @@ export async function pushEpisodesWatchedToPlex(
       "plex.watchWrite",
       `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${series.title} » : ${ok} épisode(s) ${watched ? "marqué(s) vu(s)" : "marqué(s) non vu(s)"} sur Plex, ${fail} échec(s)/pas encore synchronisable(s)`
     );
+  }
+}
+
+function parseWatchedStateKey(stateKey: string): { userId: string; mediaType: "movie" | "episode"; tmdbId: number; seasonNumber?: number; episodeNumber?: number } | null {
+  const parts = stateKey.split(":");
+  if (parts.length === 3 && parts[1] === "movie") {
+    const tmdbId = Number(parts[2]);
+    return Number.isFinite(tmdbId) ? { userId: parts[0], mediaType: "movie", tmdbId } : null;
+  }
+  if (parts.length === 5 && parts[1] === "episode") {
+    const tmdbId = Number(parts[2]);
+    const seasonNumber = Number(parts[3]);
+    const episodeNumber = Number(parts[4]);
+    return Number.isFinite(tmdbId) && Number.isFinite(seasonNumber) && Number.isFinite(episodeNumber)
+      ? { userId: parts[0], mediaType: "episode", tmdbId, seasonNumber, episodeNumber }
+      : null;
+  }
+  return null;
+}
+
+// Retry minimal (§52 du plan) : pas de retry_count dédié, juste un délai
+// minimum depuis la dernière tentative — le scheduler qui appelle ceci
+// toutes les minutes (plex-watchlist-sync) fournit déjà un backoff naturel
+// tant que l'entrée continue d'échouer.
+const OUTBOX_RETRY_MIN_AGE_MS = 60_000;
+const OUTBOX_RETRY_BATCH_LIMIT = 200;
+
+/**
+ * Filet de sécurité de l'outbox durable (phase 7 du plan de finalisation) :
+ * relit chaque entrée PENDING/ERROR de user_media_sync_state (target=plex,
+ * field=watched) et retente l'export — mais en lisant l'état CANONIQUE
+ * ACTUEL (getCurrentWatchState) au moment du retry, jamais une valeur
+ * figée au moment de la décision initiale (§49 : coalescence — si l'état a
+ * changé entre-temps, seule la dernière décision compte, pas un rejeu de
+ * l'ancienne intention). Appelée depuis la tâche scheduler existante
+ * plex-watchlist-sync plutôt que créer une nouvelle boucle (§53-54).
+ */
+export async function retryPendingPlexWatchedState(): Promise<void> {
+  const cfg = loadPlexConfig();
+  if (!cfg.hostname) return;
+  const before = Date.now() - OUTBOX_RETRY_MIN_AGE_MS;
+  const pending = getPendingSyncStates({
+    target: PLEX_WATCHED_SYNC_TARGET, field: PLEX_WATCHED_SYNC_FIELD,
+    capabilities: ["PENDING", "ERROR"], before, limit: OUTBOX_RETRY_BATCH_LIMIT,
+  });
+  if (pending.length === 0) return;
+
+  const usersById = new Map<string, User>();
+  for (const entry of pending) {
+    const parsed = parseWatchedStateKey(entry.stateKey);
+    if (!parsed || parsed.userId !== entry.userId) continue;
+    let user = usersById.get(parsed.userId);
+    if (user === undefined) {
+      user = getUserById(parsed.userId) ?? undefined;
+      if (user) usersById.set(parsed.userId, user);
+    }
+    if (!user) continue;
+
+    const current = getCurrentWatchState({
+      userId: parsed.userId, tmdbId: parsed.tmdbId, mediaType: parsed.mediaType,
+      seasonNumber: parsed.seasonNumber, episodeNumber: parsed.episodeNumber,
+    });
+    // "unknown" ne devrait pas arriver ici (une entrée PENDING n'existe
+    // qu'après une décision acceptée), mais si jamais : on ne retente rien
+    // sans une intention canonique réelle à propager (§76 : jamais inventer).
+    if (current === "unknown") continue;
+    const watched = current === "watched";
+
+    if (parsed.mediaType === "movie") {
+      await pushMovieWatchedToPlex(user, parsed.tmdbId, watched).catch(() => {});
+    } else {
+      await pushEpisodesWatchedToPlex(user, [{ tmdbId: parsed.tmdbId, season: parsed.seasonNumber!, episode: parsed.episodeNumber! }], watched).catch(() => {});
+    }
   }
 }

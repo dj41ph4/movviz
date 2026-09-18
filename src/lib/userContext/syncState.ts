@@ -58,3 +58,43 @@ export function getUserMediaSyncStates(userId: string): UserMediaSyncState[] {
     FROM user_media_sync_state WHERE user_id = ? ORDER BY updated_at DESC
   `).all(userId) as unknown as UserMediaSyncState[], []);
 }
+
+/**
+ * Outbox durable (phase 6-7 du plan de finalisation, 2026-09) : requête SQL
+ * directe plutôt que charger toute la table puis filtrer en JS (§51 du
+ * plan). `before` sert de backoff simple — un appelant qui ne veut retenter
+ * que les entrées "assez vieilles" passe `Date.now() - backoffMs`, sans
+ * colonne retry_count dédiée (§52 : "ne pas ajouter sauf nécessité" — l'age
+ * de `updated_at` suffit pour un backoff à paliers fixes).
+ */
+export function getPendingSyncStates(input: {
+  target: string;
+  field: string;
+  capabilities: SyncCapability[];
+  before?: number;
+  limit?: number;
+}): UserMediaSyncState[] {
+  if (input.capabilities.length === 0) return [];
+  return withUserContextDb((db) => {
+    const placeholders = input.capabilities.map(() => "?").join(",");
+    const params: (string | number)[] = [input.target, input.field, ...input.capabilities];
+    let sql = `
+      SELECT user_id as userId, state_key as stateKey, field, target, capability,
+        last_observed_at as lastObservedAt, last_applied_at as lastAppliedAt,
+        last_ack_at as lastAckAt, last_remote_hash as lastRemoteHash,
+        last_error as lastError, updated_at as updatedAt
+      FROM user_media_sync_state
+      WHERE target = ? AND field = ? AND capability IN (${placeholders})
+    `;
+    if (input.before != null) {
+      sql += " AND updated_at <= ?";
+      params.push(input.before);
+    }
+    sql += " ORDER BY updated_at ASC";
+    if (input.limit != null) {
+      sql += " LIMIT ?";
+      params.push(input.limit);
+    }
+    return db.prepare(sql).all(...params) as unknown as UserMediaSyncState[];
+  }, []);
+}

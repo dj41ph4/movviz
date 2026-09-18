@@ -31,7 +31,13 @@ export interface PlaybackProgress {
   lastPlayedAt: number | null;
   updatedAt: number;
   revision: number;
-  plex: { lastImportedAt: number | null; lastExportedAt: number | null; pendingAction: "none" | "progress" | "scrobble" | "unscrobble"; lastError: string | null };
+  // Phase 14 du plan de finalisation (2026-09) : le champ `plex:
+  // {lastImportedAt, lastExportedAt, pendingAction, lastError}` a été
+  // supprimé ici — écrit à chaque completion mais JAMAIS lu nulle part
+  // (confirmé par recherche globale), un faux mécanisme de queue en
+  // parallèle du vrai outbox durable (user_media_sync_state,
+  // watchWrite.ts). §103 du plan : "ne pas laisser un faux mécanisme de
+  // queue parallèle".
 }
 
 export interface PlaybackSession {
@@ -95,7 +101,7 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
     return prior;
   }
   const now = Date.now();
-  const next: PlaybackProgress = { userId, ratingKey, mediaId: input.mediaId, mediaType: input.mediaType, durationMs: input.durationMs, tmdbId: input.tmdbId, seasonNumber: input.seasonNumber, episodeNumber: input.episodeNumber, title: input.title, resumeOffsetMs: null, actualPlayedMs: 0, eligibleForResume: false, watched: false, watchedAt: null, completionBoundaryMs: boundary.boundaryMs, boundarySource: boundary.source, lastPositionMs: 0, lastPlayedAt: null, updatedAt: now, revision: 1, plex: { lastImportedAt: null, lastExportedAt: null, pendingAction: "none", lastError: null } };
+  const next: PlaybackProgress = { userId, ratingKey, mediaId: input.mediaId, mediaType: input.mediaType, durationMs: input.durationMs, tmdbId: input.tmdbId, seasonNumber: input.seasonNumber, episodeNumber: input.episodeNumber, title: input.title, resumeOffsetMs: null, actualPlayedMs: 0, eligibleForResume: false, watched: false, watchedAt: null, completionBoundaryMs: boundary.boundaryMs, boundarySource: boundary.source, lastPositionMs: 0, lastPlayedAt: null, updatedAt: now, revision: 1 };
   (store().byUser[userId] ??= {})[key] = next;
   return next;
 }
@@ -278,7 +284,7 @@ export function applyMarkerSkip(sessionId: string, positionMs: number, markerTyp
 
 export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBoundarySource = "ended"): PlaybackProgress {
   if (p.watched) return p;
-  p.watched = true; p.watchedAt = Date.now(); p.resumeOffsetMs = null; p.eligibleForResume = false; p.boundarySource = source; p.updatedAt = Date.now(); p.revision++; p.plex.pendingAction = "scrobble";
+  p.watched = true; p.watchedAt = Date.now(); p.resumeOffsetMs = null; p.eligibleForResume = false; p.boundarySource = source; p.updatedAt = Date.now(); p.revision++;
   if (p.mediaType === "movie" && p.tmdbId != null) setWatchedMovies(p.userId, [p.tmdbId], true, p.title ?? "", undefined, "movviz_playback");
   if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) setWatchedEpisodes(p.userId, [{ tmdbId: p.tmdbId, season: p.seasonNumber, episode: p.episodeNumber }], true, p.title ?? "", "movviz_playback");
   recordPlaybackCompleted(p);
