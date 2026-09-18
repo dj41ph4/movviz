@@ -1,3 +1,13 @@
+## v1.25.27 — September 2026
+
+### Fiabilisation complète du statut « vu » et pastille sur les affiches Android
+
+- Correction critique : un crash ou une panne au tout mauvais moment pouvait laisser un titre marqué vu de façon incohérente en base ; l'écriture est désormais entièrement atomique (tout ou rien).
+- Le statut « vu / non vu » affiché dans l'app vient maintenant toujours de la source la plus fiable disponible, plus jamais d'une copie qui pouvait occasionnellement se désynchroniser.
+- Un export vers Plex qui échouait (panne réseau, Plex indisponible) était perdu silencieusement ; il est désormais automatiquement retenté en arrière-plan jusqu'à réussir.
+- Nouvel outil de diagnostic et de réparation pour les comptes historiquement affectés par le bug de collision d'identifiant déjà corrigé (deux comptes distincts partageant les mêmes films/épisodes vus).
+- Les applications Android (mobile et TV) affichent désormais une pastille « vu » sur les affiches de films dans l'accueil, Découvrir, le catalogue et la recherche.
+
 ## v1.25.26 — September 2026
 
 ### Résolution de profil Plex par identifiant + quatre bugs trouvés par audit
