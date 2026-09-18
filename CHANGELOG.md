@@ -1,3 +1,12 @@
+## v1.25.26 — September 2026
+
+### Résolution de profil Plex par identifiant + quatre bugs trouvés par audit
+
+- Correction critique : certains comptes (typiquement ceux gérés par l'admin, jamais connectés personnellement à Plex) échouaient à 100 % de leurs tentatives de synchronisation, indéfiniment. La résolution du compte Plex passe désormais par un identifiant stable au lieu de dépendre d'une connexion personnelle qui peut ne jamais avoir lieu.
+- Le même bug que la synchro des vues (champ manquant côté Plex) touchait aussi la liste « Continuer à regarder » — corrigé de la même façon.
+- Une route de création de compte oubliée lors de la précédente correction utilisait encore l'ancien identifiant à risque de collision — corrigée.
+- Un départage de conflit à égalité stricte comparait deux valeurs sans rapport, le rendant peu fiable — corrigé pour comparer les bonnes valeurs.
+
 ## v1.25.25 — September 2026
 
 ### Deux bugs Plex confirmés en direct via les journaux de production
