@@ -102,6 +102,38 @@ export function getCurrentWatchState(input: Pick<WatchDecisionInput, "userId" | 
   }, "unknown");
 }
 
+export interface CanonicalWatchStatus {
+  movies: number[];
+  episodes: { tmdbId: number; season: number; episode: number; at: number | null }[];
+}
+
+/**
+ * Lecture canonique pour les clients (phase 4 du plan de finalisation,
+ * 2026-09) : `/api/watch-status` doit répondre depuis `user_media_state`
+ * — la vraie source de vérité — plutôt que depuis le miroir JSON legacy,
+ * qui peut rester périmé si son écriture a échoué pour une raison qui
+ * n'affecte pas SQLite (ex. `jsonCacheReadFailed`, cf. watchStore.ts).
+ * Retourne `null` quand le moteur de contexte est indisponible — l'appelant
+ * doit alors retomber sur `getWatchStatus()` (JSON), jamais halluciner
+ * une liste vide comme "aucun titre vu".
+ */
+export function getCanonicalWatchStatus(userId: string): CanonicalWatchStatus | null {
+  return withUserContextDb((db) => {
+    const movieRows = db.prepare(
+      "SELECT tmdb_id FROM user_media_state WHERE user_id = ? AND media_type = 'movie' AND watched = 1 AND watched_updated_at IS NOT NULL"
+    ).all(userId) as { tmdb_id: number }[];
+    const episodeRows = db.prepare(
+      "SELECT tmdb_id, season_number, episode_number, watched_at FROM user_media_state WHERE user_id = ? AND media_type = 'episode' AND watched = 1 AND watched_updated_at IS NOT NULL"
+    ).all(userId) as { tmdb_id: number; season_number: number | null; episode_number: number | null; watched_at: number | null }[];
+    return {
+      movies: movieRows.map((r) => r.tmdb_id),
+      episodes: episodeRows
+        .filter((r) => r.season_number != null && r.episode_number != null)
+        .map((r) => ({ tmdbId: r.tmdb_id, season: r.season_number as number, episode: r.episode_number as number, at: r.watched_at })),
+    };
+  }, null);
+}
+
 /**
  * L'unique opération métier qui décide et enregistre un changement de
  * statut vu/non vu (§10-19 du plan de centralisation) : toute source —
