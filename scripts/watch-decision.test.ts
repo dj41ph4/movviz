@@ -216,3 +216,33 @@ test("granularité épisode : deux épisodes distincts de la même série ont un
   const ep2Check = applyWatchDecision({ userId, tmdbId, mediaType: "episode", seasonNumber: 1, episodeNumber: 2, state: "watched", occurredAt: 400_000, source: "plex_history", sourceEventId: `check:${userId}:${tmdbId}:2` });
   assert.equal(ep2Check.previousState, "watched", "S01E02 reste vu, non affecté par S01E01");
 });
+
+test("atomicité (§28 du plan de finalisation) : un crash entre l'écriture du ledger et celle de l'état courant ne doit laisser NI l'un NI l'autre", (t) => {
+  if (skipIfNoDb(t)) return;
+  const userId = freshUserId();
+  const sourceEventId = `atomic:${userId}`;
+  // tmdbId non bindable (undefined) : l'INSERT du ledger accepte `?? null`,
+  // donc réussit, mais l'UPSERT de user_media_state échoue en essayant de
+  // binder `undefined` directement (confirmé : node:sqlite lève "Provided
+  // value cannot be bound") — exactement le point de crash injecté entre
+  // les deux écritures que la transaction doit protéger. applyWatchDecision
+  // reste fail-open par conception (§ moteur indisponible plus haut) :
+  // withUserContextDb() avale toute exception interne et renvoie le repli
+  // "accepted:true", donc cet appel ne lève PAS — la vraie preuve
+  // d'atomicité est que le ROLLBACK a bien annulé l'INSERT du ledger.
+  const crashed = applyWatchDecision({
+    userId, tmdbId: undefined as unknown as number, mediaType: "movie",
+    state: "watched", occurredAt: 1_000_000, source: "movviz_manual", sourceEventId,
+  });
+  assert.equal(crashed.reason, "newer_event", "repli fail-open attendu, pas une propagation d'exception");
+  // Si la transaction a bien tout annulé (ROLLBACK), le ledger ne connaît
+  // PAS encore ce sourceEventId : un nouvel essai, cette fois valide, doit
+  // être traité comme un événement neuf, jamais "duplicate" (qui
+  // prouverait que l'INSERT du ledger avait survécu au rollback).
+  const retry = applyWatchDecision({
+    userId, tmdbId: 42, mediaType: "movie",
+    state: "watched", occurredAt: 1_000_000, source: "movviz_manual", sourceEventId,
+  });
+  assert.equal(retry.accepted, true);
+  assert.equal(retry.reason, "newer_event", "un ledger orphelin du crash précédent aurait renvoyé \"duplicate\" ici");
+});

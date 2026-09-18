@@ -1,3 +1,4 @@
+import type { DatabaseSync } from "node:sqlite";
 import { withUserContextDb } from "./database";
 import { recordUserContextEvent } from "./ingest";
 
@@ -147,6 +148,32 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
   };
 
   return withUserContextDb((db) => {
+    // Transaction explicite (phase 3 du plan de finalisation, 2026-09) :
+    // sans elle, un crash entre l'INSERT du ledger et l'UPSERT de l'état
+    // courant laisserait le ledger dire "événement connu" (INSERT OR IGNORE
+    // le redéduplique au prochain retry) sans que le snapshot courant
+    // n'ait jamais été mis à jour — un snapshot orphelin, silencieux.
+    // node:sqlite n'a pas d'API de transaction native (DatabaseSync ne
+    // l'expose pas) : BEGIN/COMMIT/ROLLBACK bruts, comme suggéré par le plan
+    // quand aucune primitive de plus haut niveau n'existe déjà.
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const result = applyWatchDecisionTx(db, input, sourceEventId, duplicate);
+      db.exec("COMMIT");
+      return result;
+    } catch (error) {
+      try { db.exec("ROLLBACK"); } catch { /* connexion déjà dans un état incertain — best-effort */ }
+      throw error;
+    }
+  }, engineUnavailable);
+}
+
+function applyWatchDecisionTx(
+  db: DatabaseSync,
+  input: WatchDecisionInput,
+  sourceEventId: string,
+  duplicate: WatchDecisionResult,
+): WatchDecisionResult {
     // Journal d'abord : idempotent via l'index unique (source, source_event_id)
     // déjà en place (ingest.ts) — un même événement Plex/import rejoué
     // plusieurs fois ne doit produire qu'une seule entrée logique et ne doit
@@ -248,5 +275,4 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
       previousUpdatedAt, effectiveUpdatedAt: input.occurredAt,
       reason,
     };
-  }, engineUnavailable);
 }
