@@ -11,7 +11,9 @@ export const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");
-const USERS_FILE = path.join(CONFIG_DIR, "users.json");
+// Exporté pour scripts/repair-watch-user-contamination.ts (backup avant
+// réparation, §93 du plan de finalisation watch-state).
+export const USERS_FILE = path.join(CONFIG_DIR, "users.json");
 const SESSIONS_FILE = path.join(CONFIG_DIR, "sessions.json");
 const SIGNING_KEY_FILE = path.join(CONFIG_DIR, ".session-secret");
 

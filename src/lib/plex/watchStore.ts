@@ -8,7 +8,10 @@ const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");
-const FILE = path.join(CONFIG_DIR, "plex-watch-status.json");
+// Exporté pour scripts/repair-watch-user-contamination.ts (backup avant
+// réparation, §93 du plan) — un seul endroit qui connaît ce chemin.
+export const PLEX_WATCH_STATUS_FILE = path.join(CONFIG_DIR, "plex-watch-status.json");
+const FILE = PLEX_WATCH_STATUS_FILE;
 
 export interface RecentWatch {
   tmdbId: number;
@@ -232,6 +235,32 @@ function write(list: WatchStatus[]): boolean {
 
 export function getWatchStatus(userId: string): WatchStatus | null {
   return read().find((w) => w.userId === userId) ?? null;
+}
+
+/**
+ * Réinitialise UNIQUEMENT la projection JSON (movies/episodes/recent) d'un
+ * compte précis — phase 14-15 du plan de finalisation (réparation d'un
+ * compte historiquement contaminé par la collision d'id corrigée cette
+ * semaine). Ne touche JAMAIS `user_media_state`/`context_events` (SQLite) :
+ * un userId partagé entre deux personnes rend les événements du ledger
+ * indissociables (§95 du plan — signaler l'ambiguïté, jamais l'inventer),
+ * donc seule la resynchro Plex qui suit peut reconstruire une projection
+ * propre pour CE compte. Utilisée exclusivement par
+ * scripts/repair-watch-user-contamination.ts, jamais en chemin normal.
+ */
+export function clearWatchStatusForUser(userId: string): { moviesCleared: number; episodesCleared: number } {
+  const list = read();
+  const status = list.find((w) => w.userId === userId);
+  if (!status) return { moviesCleared: 0, episodesCleared: 0 };
+  const moviesCleared = status.movies.length;
+  const episodesCleared = status.episodes.length;
+  status.movies = [];
+  status.episodes = [];
+  status.movieWatchedAt = {};
+  status.recent = [];
+  status.updatedAt = Date.now();
+  write(list);
+  return { moviesCleared, episodesCleared };
 }
 
 /**
