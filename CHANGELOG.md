@@ -1,3 +1,15 @@
+## v1.25.29 — September 2026
+
+### Plex partagé et épisodes/films sans ratingKey — fin des `NOT_IN_SHARED` fantômes
+
+- Les utilisateurs Plex partagés (`plexId` externe) ne dépendent plus de `getPlexFriends()` ( graphe social, souvent `friends=0` ) : `resolvePlexUserContext()` interroge désormais `GET /api/servers/{machineIdentifier}/shared_servers` (token propriétaire) et mappe exclusivement `SharedServer.userID == plexId` → `accessToken` devient le `serverToken` Plex du user, sans connexion personnelle requise. Fallback `getPlexFriends` supprimé du chemin PMS.
+- `getSharedServers()` lit `res.text()`, détecte `Content-Type` / premier caractère et parse JSON ou XML `<SharedServer>` (whitelist `id, userID, username, email, thumb, accessToken, accepted` uniquement, token jamais loggé). `HTTP non-200` = erreur, `HTTP 200` + XML valide = succès.
+- `localAccountId` ne conditionne plus le watched-state : `PlexUserContext` expose `localAccountId: number|null` + `historyAvailable: boolean`. Un partagé `RESOLVED` avec `accessToken` valide passe `source=shared … localAccountId=null historyAvailable=false` → `snapshot/quickVerify/viewCount` actifs, `pollHistory` ignoré proprement.
+- History `getAccountHistory()` conserve désormais les épisodes dès `grandparentTitle+parentIndex+index` même sans `grandparentRatingKey` ni `ratingKey`; `PlexHistoryEntry.ratingKey` devient optionnel. Films sans `ratingKey` enrichis via `resolveMovie` (titre exact Movviz → titre exact Plex library → vrai `ratingKey` + TMDB, `Guid` levée d'ambiguïté) au lieu de `continue`.
+- WatchSync réécrit en **resolve-first** : `resolveEpisode/resolveMovie` → vrai `ratingKey` Plex (`allLeaves`, vrai `episode.ratingKey`) → `verifyWatchState` → `reconcile`. Les `no verifyKey … S4E14` et `movie without ratingKey … La vie est belle` disparaissent.
+- `resolveEpisode` priorise le lookup Plex (`allLeaves`) quand la clé d'entrée manque, sinon Movviz exact d'abord ; upsert `mediaIdentityMap` sur la vraie clé. Taux de rejets malformés fortement réduit.
+- Observabilité conservée : `source=shared`, `tokenFp`, `plex.identity` sans token en clair.
+
 ## v1.25.28 — September 2026
 
 ### Architecture Plex Sync, Watch State & Recommandations — fiabilisation complète
