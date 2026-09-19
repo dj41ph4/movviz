@@ -13,6 +13,8 @@ export type ReconcileDecision =
   | "STALE_OBSERVATION" // observed state older than canonical, ignore
   | "IGNORED_MISSING_MEDIA"; // ratingKey removed from library, not a watch transition
 
+export type ReconcileMode = "NORMAL_SYNC" | "AUTHORITATIVE_RESCAN";
+
 export interface ReconcileInput {
   userId: string;
   canonicalIdentity: CanonicalMediaIdentity;
@@ -25,6 +27,7 @@ export interface ReconcileInput {
   pendingIntent?: { desiredState: "watched" | "unwatched"; revision: number; sourceEventId: string } | null;
   // Whether this is the very first snapshot for this user (baseline handling)
   isBaseline?: boolean;
+  mode?: ReconcileMode;
 }
 
 export interface ReconcileResult {
@@ -48,7 +51,7 @@ export interface ReconcileResult {
  * - If observedAt is stale (older than canonical's watched_updated_at): STALE
  */
 export function reconcile(input: ReconcileInput): ReconcileResult {
-  const { previousPlexObserved, currentPlexObserved, currentCanonicalState, currentCanonicalAt, pendingIntent, isBaseline } = input;
+  const { previousPlexObserved, currentPlexObserved, currentCanonicalState, currentCanonicalAt, pendingIntent, isBaseline, mode } = input;
 
   // Media removed from Plex? (§25) Don't interpret as UNWATCHED.
   if (!currentPlexObserved) {
@@ -69,6 +72,37 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
         ? "watched"
         : "unwatched"
     : null;
+
+  // AUTHORITATIVE_RESCAN (§2 plan final): full rescan repairs a false canonical
+  // even with no recent Plex transition. Plex==canonical → nothing, UNKNOWN/MISSING → nothing,
+  // pending local intent newer → never overwrite.
+  if (mode === "AUTHORITATIVE_RESCAN") {
+    if (curState === currentCanonicalState) {
+      return { decision: "UNCHANGED", shouldApply: false, reason: "authoritative_already_converged" };
+    }
+    if (currentCanonicalState === "unknown") {
+      if (curState === "watched") {
+        return { decision: "REMOTE_WATCHED", shouldApply: true, newCanonicalState: "watched", reason: "authoritative_unknown_to_watched" };
+      }
+      return { decision: "UNCHANGED", shouldApply: false, reason: "authoritative_unknown_stays" };
+    }
+    // Local intent pending and canonical already reflects it → don't overwrite with Plex
+    if (pendingIntent && pendingIntent.desiredState === currentCanonicalState && pendingIntent.desiredState !== curState) {
+      return { decision: "UNCHANGED", shouldApply: false, reason: "authoritative_local_pending_newer" };
+    }
+    if (curState === "watched" && currentCanonicalState === "unwatched") {
+      const plexTime = currentPlexObserved.lastViewedAt ?? currentPlexObserved.observedAt;
+      // If canonical UNWATCHED is newer than the Plex watch evidence, local intent wins
+      if (currentCanonicalAt != null && plexTime != null && plexTime < currentCanonicalAt) {
+        return { decision: "UNCHANGED", shouldApply: false, reason: "authoritative_canonical_newer" };
+      }
+      return { decision: "REMOTE_WATCHED", shouldApply: true, newCanonicalState: "watched", reason: "authoritative_repair_unwatched_to_watched" };
+    }
+    if (curState === "unwatched" && currentCanonicalState === "watched") {
+      return { decision: "REMOTE_UNWATCHED", shouldApply: true, newCanonicalState: "unwatched", reason: "authoritative_repair_watched_to_unwatched" };
+    }
+    return { decision: "UNCHANGED", shouldApply: false, reason: "authoritative_noop" };
+  }
 
   // Baseline handling (§26, §2): first time we see this ratingKey for this user.
   // Must remain prudent but not block definitively a recent Plex WATCHED when Movviz is UNWATCHED.

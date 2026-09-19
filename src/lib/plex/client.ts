@@ -1042,6 +1042,42 @@ export async function getSectionItems(
   return raw.map((item) => mapItem(item, infos.get(item.ratingKey) ?? null));
 }
 
+export interface ShowEpisodesResult {
+  items: PlexEpisodeItem[];
+  complete: boolean;
+  error?: string;
+}
+
+/** Atomic variant (§3 plan final): never returns [] silently on failure – caller must invalidate the global snapshot. */
+export async function getShowEpisodesAtomic(cfg: PlexServerConfig, showRatingKey: string, token: string, managedUserId?: string): Promise<ShowEpisodesResult> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}/allLeaves`, {
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) throw new Error(`plex_auth_failed:${res.status}`);
+      return { items: [], complete: false, error: `HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+    const items = raw
+      .filter((e) => e.parentIndex != null && e.index != null)
+      .map((e) => {
+        const streams = parseStreamInfo(e.Media);
+        return {
+          ...mapItem(e, { tmdbId: null, ...streams, mediaDetail: parseMediaDetail(e), mediaVersions: [] }),
+          seasonNumber: e.parentIndex!,
+          episodeNumber: e.index!,
+        };
+      });
+    return { items, complete: true };
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("plex_auth_failed")) throw e;
+    return { items: [], complete: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** Every episode of a show, flattened with season/episode numbers — one call, no per-season walk needed. */
 export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: string, token: string, managedUserId?: string): Promise<PlexEpisodeItem[]> {
   try {
@@ -1068,7 +1104,7 @@ export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: stri
 }
 
 export interface PlexHistoryEntry {
-  ratingKey: string;
+  ratingKey?: string; // optional for episodes – resolver can work from show+SxxExx (§1)
   type: "movie" | "episode";
   grandparentRatingKey?: string; // show, for episodes
   season?: number;
@@ -1081,7 +1117,7 @@ export interface PlexHistoryEntry {
 }
 
 interface RawHistoryItem {
-  ratingKey: string;
+  ratingKey?: string;
   type?: string;
   grandparentRatingKey?: string;
   /** Bug réel confirmé en direct (2026-09) : `/status/sessions/history/all`

@@ -1,4 +1,4 @@
-import { batchTmdbIds, getLibrarySections, getSectionRawItems, getShowEpisodes } from "./client";
+import { batchTmdbIds, getLibrarySections, getSectionRawItemsAtomic, getShowEpisodesAtomic } from "./client";
 import { loadPlexConfig } from "./store";
 import type { PlexUserContext } from "./plexUserContext";
 import type { CanonicalMediaIdentity } from "./mediaIdentityMap";
@@ -198,8 +198,9 @@ async function resolveViaShowLookup(
 
   const candidates: { ratingKey: string; title: string }[] = [];
   for (const section of showSections) {
-    const items = await getSectionRawItems(cfg, section.key, ctx.serverToken);
-    for (const it of items) {
+    const result = await getSectionRawItemsAtomic(cfg, section.key, ctx.serverToken);
+    if (!result.complete) return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_LIBRARY_SECTION", sample: { showTitle, section: section.key, error: result.error } };
+    for (const it of result.items) {
       if (it.title.trim().localeCompare(showTitle.trim(), undefined, { sensitivity: "base" }) === 0) {
         candidates.push({ ratingKey: it.ratingKey, title: it.title });
       }
@@ -213,18 +214,22 @@ async function resolveViaShowLookup(
   const tmdbShowId = showTmdb.get(showKey)?.tmdbId;
   if (tmdbShowId == null) return { status: "UNRESOLVED", reason: "UNRESOLVED_TMDB_MAPPING_FAILED", sample: { showTitle, showKey } };
 
-  // Verify episode exists via allLeaves
-  const eps = await getShowEpisodes(cfg, showKey, ctx.serverToken);
-  const match = eps.find((e) => e.seasonNumber === season && e.episodeNumber === episode);
+  // Verify episode exists via allLeaves (atomic) – also recovers the REAL Plex episode ratingKey (§1)
+  const epsRes = await getShowEpisodesAtomic(cfg, showKey, ctx.serverToken);
+  if (!epsRes.complete) return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND", sample: { showTitle, season, episode, error: epsRes.error } };
+  const match = epsRes.items.find((e) => e.seasonNumber === season && e.episodeNumber === episode);
   if (!match) return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND", sample: { showTitle, season, episode } };
 
-  // Upsert mapping for future fast path (only if we have a concrete ratingKey)
-  if (ratingKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey, canonical: { type: "episode", tmdbShowId, seasonNumber: season, episodeNumber: episode }, updatedAt: Date.now() });
+  const realRatingKey = match.ratingKey || ratingKey || undefined;
+  // Upsert mapping for future fast path on the REAL key (and legacy key if different)
+  const canonical = { type: "episode", tmdbShowId, seasonNumber: season, episodeNumber: episode } as const;
+  if (realRatingKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realRatingKey, canonical, updatedAt: Date.now() });
+  if (ratingKey && ratingKey !== realRatingKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey, canonical, updatedAt: Date.now() });
 
   return {
     status: "RESOLVED",
-    canonical: { type: "episode", tmdbShowId, seasonNumber: season, episodeNumber: episode },
-    ratingKey,
+    canonical,
+    ratingKey: realRatingKey,
     reason: "RESOLVED_SXXEXX",
   };
 }

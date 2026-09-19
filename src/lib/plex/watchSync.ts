@@ -1,9 +1,8 @@
 import { loadPlexConfig } from "./store";
 import { batchTmdbIds } from "./client";
-import { getWatchStatus, mergePlexWatchedState } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
-import { applyWatchDecision, getCurrentWatchState } from "@/lib/userContext/watchBridge";
+import { getCurrentWatchState } from "@/lib/userContext/watchBridge";
 import type { User } from "@/lib/auth/types";
 import { refreshPlexAvatar } from "./avatarSync";
 import { resolvePlexUserContext } from "./plexUserContext";
@@ -31,18 +30,21 @@ function getPendingIntentForMedia(
       : mediaStateKey(userId, "episode", (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber);
   const entry = getUserMediaSyncStates(userId).find((e) => e.stateKey === stateKey && e.field === "watched" && e.target === "plex" && (e.capability === "PENDING" || e.capability === "ERROR"));
   if (!entry) return null;
-  const pendingRevision = entry.revision ?? entry.updatedAt;
+  // Revision cleanup (§4 plan final): compare ONLY revision vs revision, never revision vs timestamp.
+  // Legacy entries without revision fall back to updatedAt once (migration temporaire).
+  const canonicalRevision = getWatchRevisionForMedia(userId, canonical);
+  const pendingRevision = entry.revision ?? null;
   const desired = (entry.desiredState as "watched" | "unwatched" | null) ?? (currentCanonicalState as "watched" | "unwatched");
-  // Superseded check (§34, §6): if canonical revision is newer than pending revision, pending is stale
-  if (currentCanonicalAt != null && pendingRevision < currentCanonicalAt) {
-    // Also check via DB revision if available
-    const rev = getWatchRevisionForMedia(userId, canonical);
-    if (rev != null && pendingRevision < rev) return null;
-  } else if (currentCanonicalAt == null) {
-    const rev = getWatchRevisionForMedia(userId, canonical);
-    if (rev != null && pendingRevision < rev) return null;
+  if (pendingRevision != null && canonicalRevision != null) {
+    if (pendingRevision < canonicalRevision) return null; // SUPERSEDED
+  } else if (pendingRevision == null) {
+    // Legacy migration: no revision stored – use updatedAt vs watched_updated_at once
+    if (currentCanonicalAt != null && entry.updatedAt < currentCanonicalAt) return null;
+    return { desiredState: desired, revision: entry.updatedAt, sourceEventId: entry.stateKey };
+  } else if (canonicalRevision == null) {
+    // Canonical has no revision yet (unknown/legacy) – pending is usable
   }
-  return { desiredState: desired, revision: pendingRevision, sourceEventId: entry.stateKey };
+  return { desiredState: desired, revision: pendingRevision ?? entry.updatedAt, sourceEventId: entry.stateKey };
 }
 
 function getWatchRevisionForMedia(userId: string, canonical: import("./mediaIdentityMap").CanonicalMediaIdentity): number | null {
@@ -68,14 +70,174 @@ const gSnapshot = globalThis as typeof globalThis & { __movvizPlexLastSnapshot?:
 function lastSnapshotMap(): Map<string, number> {
   return (gSnapshot.__movvizPlexLastSnapshot ??= new Map());
 }
-const SNAPSHOT_MIN_INTERVAL_MS = 30 * 60 * 1000; // 30 min
+const SNAPSHOT_MIN_INTERVAL_MS = 30 * 60 * 1000; // 30 min – full snapshot stays infrequent (§5)
 const HISTORY_TARGETED_VERIFY_LIMIT = 20; // max targeted verifies per history poll to avoid spike
+const QUICK_VERIFY_MIN_INTERVAL_MS = 2 * 60 * 1000; // 2 min – recent/known media re-check (§5)
+const QUICK_VERIFY_LIMIT = 30; // one batched call, cheap
+
+const gQuick = globalThis as typeof globalThis & { __movvizPlexLastQuickVerify?: Map<string, number> };
+function lastQuickMap(): Map<string, number> {
+  return (gQuick.__movvizPlexLastQuickVerify ??= new Map());
+}
+function shouldQuickVerify(userId: string): boolean {
+  const last = lastQuickMap().get(userId);
+  if (!last) return true;
+  return Date.now() - last >= QUICK_VERIFY_MIN_INTERVAL_MS;
+}
 
 function shouldSnapshot(userId: string, force = false): boolean {
   if (force) return true;
   const last = lastSnapshotMap().get(userId);
   if (!last) return true;
   return Date.now() - last >= SNAPSHOT_MIN_INTERVAL_MS;
+}
+
+/**
+ * Quick re-check (§5 plan final): re-verify the most recently observed ratingKeys
+ * plus any PENDING outbox media, in ONE batched metadata call. Detects manual
+ * Plex Mark watched/unwatched within minutes when history carries no event,
+ * without rescanning thousands of episodes.
+ */
+async function quickVerifyKnownMedia(
+  user: User,
+  ctx: import("./plexUserContext").PlexUserContext
+): Promise<{ checked: number; reconciled: number }> {
+  const cfg = loadPlexConfig();
+  const observed = getObservedStatesForUser(user.id, ctx.machineIdentifier);
+  if (observed.size === 0) return { checked: 0, reconciled: 0 };
+  // Most recent first
+  const recent = [...observed.values()].sort((a, b) => b.observedAt - a.observedAt).slice(0, QUICK_VERIFY_LIMIT);
+  // Plus pending outbox ratingKeys not already in the recent set
+  const pendingKeys = new Set<string>();
+  try {
+    const { resolveRatingKey } = await import("./mediaIdentityMap");
+    for (const s of getUserMediaSyncStates(user.id)) {
+      if (s.field !== "watched" || s.target !== "plex" || (s.capability !== "PENDING" && s.capability !== "ERROR")) continue;
+      // stateKey → canonical → ratingKey: parse stateKey (userId:type:tmdb[:s:e])
+      const parts = s.stateKey.split(":");
+      let canon: import("./mediaIdentityMap").CanonicalMediaIdentity | null = null;
+      if (parts.length === 3 && parts[1] === "movie") {
+        const tmdb = Number(parts[2]);
+        if (Number.isFinite(tmdb)) canon = { type: "movie", tmdbId: tmdb };
+      } else if (parts.length === 5 && parts[1] === "episode") {
+        const tmdb = Number(parts[2]); const sn = Number(parts[3]); const en = Number(parts[4]);
+        if (Number.isFinite(tmdb) && Number.isFinite(sn) && Number.isFinite(en)) canon = { type: "episode", tmdbShowId: tmdb, seasonNumber: sn, episodeNumber: en };
+      }
+      if (!canon) continue;
+      const rk = resolveRatingKey(ctx.machineIdentifier, canon);
+      if (rk && !recent.some((r) => r.ratingKey === rk)) pendingKeys.add(rk);
+      if (recent.length + pendingKeys.size >= QUICK_VERIFY_LIMIT) break;
+    }
+  } catch { /* best-effort */ }
+  const keys = [...recent.map((r) => r.ratingKey), ...pendingKeys].slice(0, QUICK_VERIFY_LIMIT);
+  if (keys.length === 0) return { checked: 0, reconciled: 0 };
+
+  const { batchPlexViewState } = await import("./client");
+  const { resolveCanonical } = await import("./mediaIdentityMap");
+  let viewMap: Map<string, import("./client").PlexViewState>;
+  try {
+    viewMap = await batchPlexViewState(cfg, ctx.serverToken, keys);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.startsWith("plex_auth_failed")) throw e;
+    // Partial batch → skip quick verify this round (snapshot will handle); never mutate
+    return { checked: 0, reconciled: 0 };
+  }
+  let reconciled = 0;
+  let checked = 0;
+  for (const rk of keys) {
+    const vs = viewMap.get(rk);
+    if (!vs) continue; // UNKNOWN – skip, never UNWATCHED
+    checked++;
+    const cur: import("./plexObservedState").PlexObservedState = {
+      userId: user.id,
+      machineIdentifier: ctx.machineIdentifier,
+      ratingKey: rk,
+      state: (vs.viewCount ?? 0) > 0 ? "WATCHED" : "UNWATCHED",
+      viewCount: vs.viewCount,
+      lastViewedAt: vs.lastViewedAt,
+      viewOffset: vs.viewOffset,
+      observedAt: Date.now(),
+    };
+    const previous = getObservedState(user.id, ctx.machineIdentifier, rk);
+    if (previous && previous.state === cur.state) {
+      upsertObservedState(cur);
+      continue;
+    }
+    // Resolve canonical without extra Plex calls: identity map, then Movviz library
+    let canonical: import("./mediaIdentityMap").CanonicalMediaIdentity | null = resolveCanonical(ctx.machineIdentifier, rk);
+    let title: string | null = null;
+    if (!canonical) {
+      const { getMovieByPlexRatingKey } = await import("@/lib/library/store");
+      const m = getMovieByPlexRatingKey(rk);
+      if (m) { canonical = { type: "movie", tmdbId: m.tmdbId }; title = m.title; }
+      else {
+        const { findEpisodeByPlexRatingKey } = await import("@/lib/library/store");
+        const hit = findEpisodeByPlexRatingKey(rk);
+        if (hit) { canonical = { type: "episode", tmdbShowId: hit.series.tmdbId, seasonNumber: hit.season.seasonNumber, episodeNumber: hit.episode.episodeNumber }; title = hit.series.title; }
+      }
+    }
+    if (!canonical) continue;
+    const currentCanonicalState = getCurrentWatchState({
+      userId: user.id,
+      tmdbId: canonical.type === "movie" ? canonical.tmdbId : canonical.tmdbShowId,
+      mediaType: canonical.type === "movie" ? "movie" : "episode",
+      seasonNumber: canonical.type === "episode" ? canonical.seasonNumber : undefined,
+      episodeNumber: canonical.type === "episode" ? canonical.episodeNumber : undefined,
+    });
+    const { withUserContextDb } = await import("@/lib/userContext/database");
+    const canonicalAt: number | null = withUserContextDb((db) => {
+      const key = canonical!.type === "movie" ? `${user.id}:movie:${(canonical as { tmdbId: number }).tmdbId}` : `${user.id}:episode:${(canonical as { tmdbShowId: number }).tmdbShowId}:${(canonical as { seasonNumber: number }).seasonNumber}:${(canonical as { episodeNumber: number }).episodeNumber}`;
+      const row = db.prepare("SELECT watched_updated_at FROM user_media_state WHERE state_key = ?").get(key) as { watched_updated_at: number | null } | undefined;
+      return row?.watched_updated_at ?? null;
+    }, null);
+    const pendingIntent = getPendingIntentForMedia(user.id, canonical, currentCanonicalState as "watched" | "unwatched" | "unknown", canonicalAt);
+    const result = reconcile({
+      userId: user.id,
+      canonicalIdentity: canonical,
+      ratingKey: rk,
+      machineIdentifier: ctx.machineIdentifier,
+      currentCanonicalState: currentCanonicalState as "watched" | "unwatched" | "unknown",
+      currentCanonicalAt: canonicalAt,
+      previousPlexObserved: previous,
+      currentPlexObserved: cur,
+      pendingIntent,
+      isBaseline: !previous,
+    });
+    if (result.decision === "ACK_LOCAL_WRITE" && pendingIntent) {
+      const stateKey =
+        canonical.type === "movie"
+          ? mediaStateKey(user.id, "movie", canonical.tmdbId)
+          : mediaStateKey(user.id, "episode", (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber);
+      updateUserMediaSyncState({ userId: user.id, stateKey, field: "watched", target: "plex", capability: "SYNCED", ackAt: Date.now(), error: null });
+      recordSearchLog("info", "plex.outbox", `plex.outbox ACK quickVerify user=${user.username} ratingKey=${rk} rev=${pendingIntent.revision} → SYNCED`);
+      upsertObservedState(cur);
+    } else if (result.shouldApply && result.newCanonicalState) {
+      if (applyReconcileDecision(
+        {
+          userId: user.id,
+          canonicalIdentity: canonical,
+          ratingKey: rk,
+          machineIdentifier: ctx.machineIdentifier,
+          currentCanonicalState: currentCanonicalState as "watched" | "unwatched" | "unknown",
+          currentCanonicalAt: canonicalAt,
+          previousPlexObserved: previous,
+          currentPlexObserved: cur,
+          pendingIntent,
+          isBaseline: !previous,
+        },
+        result,
+        title
+      )) {
+        reconciled++;
+        upsertObservedState(cur);
+        recordSearchLog("info", "plex.reconciler", `plex.reconciler quickVerify user=${user.username} ratingKey=${rk} decision=${result.decision} ${result.reason} -> ${result.newCanonicalState}`);
+      }
+    } else {
+      upsertObservedState(cur);
+    }
+  }
+  return { checked, reconciled };
 }
 
 /**
@@ -127,43 +289,35 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
     let historyReconciled = 0;
 
     if (historyRes.entries.length > 0) {
-      // Deduplicate ratingKeys from history (newest first already, but we verify per key once)
-      const byKey = new Map<string, (typeof historyRes.entries)[number]>();
-      for (const e of historyRes.entries) byKey.set(e.ratingKey, e);
-      // Limit to most recent N to avoid thundering herd on large history
-      const keysToVerify = [...byKey.keys()].slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
+      // Deduplicate entries – key by ratingKey when present, else by show+SxxExx (§1)
+      const seen = new Set<string>();
+      const deduped: (typeof historyRes.entries)[number][] = [];
+      for (const e of historyRes.entries) {
+        const k = e.ratingKey ?? `nork:${e.grandparentTitle ?? "?"}:${e.season ?? "?"}:${e.episode ?? "?"}:${e.viewedAt ?? "?"}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        deduped.push(e);
+      }
+      const entriesToProcess = deduped.slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
 
-      // Need TMDb mapping for history entries to build canonical identities
-      const movieKeys = keysToVerify.filter((k) => byKey.get(k)?.type === "movie");
-      const episodeEntries = keysToVerify.filter((k) => byKey.get(k)?.type === "episode").map((k) => byKey.get(k)!);
-      const showKeys = [...new Set(episodeEntries.map((e) => e.grandparentRatingKey).filter(Boolean) as string[])];
-      const [movieMap, showMap] = await Promise.all([
-        batchTmdbIds(cfg, ctx.serverToken, movieKeys),
-        batchTmdbIds(cfg, ctx.serverToken, showKeys),
-      ]);
-
-      for (const rk of keysToVerify) {
-        const entry = byKey.get(rk)!;
-        // Targeted verification: fetch actual current view state for this ratingKey
-        const observed = await verifyWatchState(ctx, rk);
-        if (!observed) {
-          recordSearchLog("warn", "plex.watchSync", `plex.watchSync history-trigger verify failed user=${user.username} ratingKey=${rk}`);
-          continue;
-        }
-        historyTriggered++;
-
-        // Resolve canonical identity
+      for (const entry of entriesToProcess) {
+        // Resolve canonical FIRST (§1: episode history → resolveEpisode → real ratingKey → verify → reconcile)
         let canonical: { type: "movie"; tmdbId: number } | { type: "episode"; tmdbShowId: number; seasonNumber: number; episodeNumber: number } | null = null;
         let title: string | null = null;
+        let verifyKey: string | undefined = entry.ratingKey;
         if (entry.type === "movie") {
-          const tmdbId = movieMap.get(rk)?.tmdbId;
+          if (!entry.ratingKey) {
+            recordSearchLog("warn", "plex.watchSync", `plex.watchSync movie without ratingKey user=${user.username} title=${entry.title ?? "?"}`);
+            continue;
+          }
+          const movieMap = await batchTmdbIds(cfg, ctx.serverToken, [entry.ratingKey]);
+          const tmdbId = movieMap.get(entry.ratingKey)?.tmdbId;
           if (tmdbId == null) continue;
           canonical = { type: "movie", tmdbId };
           title = entry.title ?? null;
         } else if (entry.type === "episode") {
-          // Try episodeResolver first for structured pipeline (§34)
           const raw = {
-            ratingKey: rk,
+            ratingKey: entry.ratingKey,
             type: "episode",
             grandparentTitle: entry.grandparentTitle,
             parentIndex: entry.season,
@@ -173,23 +327,40 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
             accountID: entry.accountId,
           };
           const resolved = await resolveEpisode(ctx, raw);
-          if (resolved.status === "RESOLVED" && resolved.canonical) {
-            canonical = resolved.canonical as unknown as typeof canonical;
-            title = entry.grandparentTitle ?? entry.title ?? null;
-          } else {
-            // Fallback via showMap + SxxExx
-            const showTmdb = entry.grandparentRatingKey ? showMap.get(entry.grandparentRatingKey)?.tmdbId : undefined;
-            if (showTmdb != null && entry.season != null && entry.episode != null) {
-              canonical = { type: "episode", tmdbShowId: showTmdb, seasonNumber: entry.season, episodeNumber: entry.episode };
-              title = entry.grandparentTitle ?? entry.title ?? null;
-            } else {
-              recordSearchLog("warn", "plex.watchSync", `plex.watchSync episode unresolved user=${user.username} ratingKey=${rk} reason=${resolved.reason} sample=${JSON.stringify(resolved.sample ?? raw).slice(0,500)}`);
-              continue;
+          if (resolved.status !== "RESOLVED" || !resolved.canonical) {
+            recordSearchLog("warn", "plex.watchSync", `plex.watchSync episode unresolved user=${user.username} ratingKey=${entry.ratingKey ?? "none"} show=${entry.grandparentTitle ?? "?"} S${entry.season ?? "?"}E${entry.episode ?? "?"} reason=${resolved.reason} sample=${JSON.stringify(resolved.sample ?? raw).slice(0,500)}`);
+            continue;
+          }
+          canonical = resolved.canonical;
+          title = entry.grandparentTitle ?? entry.title ?? null;
+          // Recover the REAL Plex episode ratingKey when the history event lacked one (§1)
+          verifyKey = resolved.ratingKey ?? entry.ratingKey;
+          const epCanon = canonical.type === "episode" ? canonical : null;
+          if (!verifyKey && epCanon) {
+            // Last resort: mediaIdentityMap, then Movviz library's known plexRatingKey
+            const { resolveRatingKey } = await import("./mediaIdentityMap");
+            verifyKey = resolveRatingKey(ctx.machineIdentifier, canonical) ?? undefined;
+            if (!verifyKey) {
+              const series = getSeriesByTmdbId(epCanon.tmdbShowId);
+              const season = series?.seasons.find((s) => s.seasonNumber === epCanon.seasonNumber);
+              verifyKey = season?.episodes.find((e) => e.episodeNumber === epCanon.episodeNumber)?.plexRatingKey ?? undefined;
             }
           }
         } else continue;
 
         if (!canonical) continue;
+        if (!verifyKey) {
+          recordSearchLog("warn", "plex.watchSync", `plex.watchSync no verifyKey user=${user.username} show=${entry.grandparentTitle ?? "?"} S${entry.season ?? "?"}E${entry.episode ?? "?"} – cannot verify, skipping`);
+          continue;
+        }
+        const rk = verifyKey;
+        // Targeted verification with the REAL ratingKey
+        const observed = await verifyWatchState(ctx, rk);
+        if (!observed) {
+          recordSearchLog("warn", "plex.watchSync", `plex.watchSync history-trigger verify failed user=${user.username} ratingKey=${rk}`);
+          continue;
+        }
+        historyTriggered++;
 
         // Reconcile (§40-45)
         const previous = getObservedState(user.id, ctx.machineIdentifier, rk);
@@ -263,6 +434,20 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         }
       }
       recordSearchLog("info", "plex.watchSync", `plex.watchSync history user=${user.username} entries=${historyRes.entries.length} triggered=${historyTriggered} reconciled=${historyReconciled}`);
+    }
+
+    // 1b) Quick re-check of recent/known media (§5): catches manual Mark watched/unwatched
+    // within ~2 min without a full 5000-episode scan. One batched call, cheap.
+    if (shouldQuickVerify(user.id)) {
+      try {
+        const qr = await quickVerifyKnownMedia(user, ctx);
+        if (qr.checked > 0) {
+          recordSearchLog("info", "plex.watchSync", `plex.watchSync quickVerify user=${user.username} checked=${qr.checked} reconciled=${qr.reconciled}`);
+        }
+        lastQuickMap().set(user.id, Date.now());
+      } catch (e) {
+        recordSearchLog("warn", "plex.watchSync", `plex.watchSync quickVerify failed user=${user.username} err=${e instanceof Error ? e.message : String(e)}`);
+      }
     }
 
     // 2) WatchStateObserver snapshot (§22-27) – the true WATCHED/UNWATCHED source
@@ -395,16 +580,10 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       recordSearchLog("info", "plex.watchSync", `plex.watchSync snapshot skipped user=${user.username} reason=throttled last=${Math.round((Date.now() - (lastSnapshotMap().get(user.id) ?? 0)) / 60000)}min ago`);
     }
 
-    // 3) Legacy history-only fallback for environments where snapshot is not yet fully reliable (no Plex server, or viewCount always owner)
-    // If we did 0 targeted reconciliations AND 0 snapshot reconciliations, we still want the old behavior of importing history as watched (for backward compat).
-    // But new logic already handles history via targeted verification – which requires viewCount to work. If viewCount is broken (always owner), targeted verification will show wrong state.
-    // In that case, we need fallback: directly apply history as watched via applyWatchDecision, as before, but ONLY if snapshot was skipped/failed and historyTriggered was 0.
-    // To detect viewCount broken, we rely on the diagnosis that snapshot watchedNow equals owner's watched, not user's. That's hard without live test.
-    // For now, keep legacy path as fallback when snapshot was throttled and history has entries but reconciled 0.
-    if (historyRes.entries.length > 0 && historyTriggered === 0 && !doSnapshot) {
-      // Legacy import – preserve old behavior for this edge case
-      await legacyHistoryImport(user, ctx, historyRes);
-    }
+    // 3) Single decision chain (§7 plan final): history→resolve→verify→reconcile above,
+    // quickVerify recent, snapshot below. No legacy direct-apply fallback – it bypassed
+    // verification and used adminToken mapping. If viewCount is per-owner broken on a
+    // server, targeted verification will show it in logs rather than silently importing.
 
     // 4) Outbox ACK is handled in watchWrite retry, not here.
 
@@ -418,94 +597,6 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
     recordSearchLog("error", "plex.watchSync", `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}) : échec de synchronisation — ${msg} — données précédentes conservées`);
     recordCircuitFailure(user.id, msg);
   }
-}
-
-async function legacyHistoryImport(user: User, ctx: { localAccountId: number; machineIdentifier: string; tokenFingerprint: string }, historyRes: Awaited<ReturnType<typeof pollHistory>>) {
-  const cfg = loadPlexConfig();
-  const history = historyRes.entries;
-  if (history.length === 0) {
-    const previous = getWatchStatus(user.id);
-    recordSearchLog("warn", "plex.watchSync", `${user.username} (plexId:${ctx.localAccountId}): aucun historique Plex retourné — sync ignorée, données précédentes conservées (${previous ? `${previous.movies.length} films / ${previous.episodes.length} épisodes` : "aucune donnée existante"})`);
-    return;
-  }
-  const movieRatingKeys = [...new Set(history.filter((h) => h.type === "movie").map((h) => h.ratingKey))];
-  const episodeEntries = history.filter((h) => h.type === "episode" && h.grandparentRatingKey);
-  const showRatingKeys = [...new Set(episodeEntries.map((h) => h.grandparentRatingKey!))];
-  const [movieInfo, showInfo] = await Promise.all([
-    batchTmdbIds(cfg, cfg.adminToken!, movieRatingKeys),
-    batchTmdbIds(cfg, cfg.adminToken!, showRatingKeys),
-  ]);
-
-  const movieStates = new Map<number, { tmdbId: number; title: string; watchedAt: number }>();
-  for (const entry of history.filter((item) => item.type === "movie")) {
-    const tmdbId = movieInfo.get(entry.ratingKey)?.tmdbId;
-    const watchedAt = Number(entry.viewedAt ?? 0);
-    if (tmdbId == null || !Number.isFinite(watchedAt) || watchedAt <= 0) continue;
-    const prior = movieStates.get(tmdbId);
-    if (!prior || watchedAt > prior.watchedAt) movieStates.set(tmdbId, { tmdbId, title: entry.title ?? "", watchedAt });
-  }
-  const episodeMap = new Map<string, { tmdbId: number; season: number; episode: number; title: string; watchedAt: number }>();
-  for (const e of episodeEntries) {
-    const tmdbId = showInfo.get(e.grandparentRatingKey!)?.tmdbId;
-    const watchedAt = Number(e.viewedAt ?? 0);
-    if (tmdbId == null || e.season == null || e.episode == null || !Number.isFinite(watchedAt) || watchedAt <= 0) continue;
-    const key = `${tmdbId}.${e.season}.${e.episode}`;
-    const prior = episodeMap.get(key);
-    if (!prior || watchedAt > prior.watchedAt) episodeMap.set(key, { tmdbId, season: e.season, episode: e.episode, title: e.grandparentTitle ?? e.title ?? "", watchedAt });
-  }
-
-  const acceptedMovies = new Map<number, { tmdbId: number; title: string; watchedAt: number }>();
-  const acceptedEpisodes = new Map<string, { tmdbId: number; season: number; episode: number; title: string; watchedAt: number }>();
-  const orderedHistory = [...history]
-    .filter((h) => Number.isFinite(h.viewedAt) && Number(h.viewedAt) > 0)
-    .sort((a, b) => Number(a.viewedAt) - Number(b.viewedAt));
-  for (const h of orderedHistory) {
-    if (h.type === "movie") {
-      const tmdbId = movieInfo.get(h.ratingKey)?.tmdbId;
-      if (tmdbId == null) continue;
-      const result = applyWatchDecision({
-        userId: user.id,
-        tmdbId,
-        mediaType: "movie",
-        title: h.title ?? null,
-        state: "watched",
-        occurredAt: h.viewedAt!,
-        source: "plex_history",
-        sourceEventId: `plex:${ctx.localAccountId}:${h.ratingKey}:${h.viewedAt}`,
-      });
-      if (result.accepted) acceptedMovies.set(tmdbId, { tmdbId, title: h.title ?? "", watchedAt: h.viewedAt! });
-    } else if (h.grandparentRatingKey) {
-      const tmdbId = showInfo.get(h.grandparentRatingKey)?.tmdbId;
-      if (tmdbId == null || h.season == null || h.episode == null) continue;
-      const result = applyWatchDecision({
-        userId: user.id,
-        tmdbId,
-        mediaType: "episode",
-        seasonNumber: h.season,
-        episodeNumber: h.episode,
-        title: h.title ?? h.grandparentTitle ?? null,
-        state: "watched",
-        occurredAt: h.viewedAt!,
-        source: "plex_history",
-        sourceEventId: `plex:${ctx.localAccountId}:${h.ratingKey}:${h.viewedAt}`,
-      });
-      const key = `${tmdbId}.${h.season}.${h.episode}`;
-      if (result.accepted) acceptedEpisodes.set(key, { tmdbId, season: h.season, episode: h.episode, title: h.title ?? h.grandparentTitle ?? "", watchedAt: h.viewedAt! });
-    }
-  }
-  const mergedStatus = mergePlexWatchedState(user.id, [...acceptedMovies.values()], [...acceptedEpisodes.values()]);
-  const recent = mergedStatus.recent ?? [];
-  refreshLegacyUserContext(user.id, true);
-  const rejectionParts = [
-    historyRes.rejectedForeign ? `${historyRes.rejectedForeign} autre(s) compte(s) rejeté(s)` : null,
-    historyRes.rejectedUnattributed ? `${historyRes.rejectedUnattributed} sans accountID rejeté(s)` : null,
-    historyRes.rejectedMalformed ? `${historyRes.rejectedMalformed} épisode(s) mal formé(s) rejeté(s)` : null,
-  ].filter((p): p is string => p != null);
-  recordSearchLog(
-    "info",
-    "plex.watchSync",
-    `${user.username} (plexId:${ctx.localAccountId}): [legacy fallback] synchronisé — ${acceptedMovies.size} film(s) vu(s), ${acceptedEpisodes.size} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) (${history.length} événement(s) vérifié(s), ${historyRes.totalEpisodeTypeSeen} brut(s)${rejectionParts.length ? `, ${rejectionParts.join(", ")}` : ""})`
-  );
 }
 
 type WatchSyncGate = Map<string, { at: number; promise: Promise<void> }>;

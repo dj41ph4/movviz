@@ -64,18 +64,32 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
     }
   }
 
-  // For shows, we need episodes leaves to snapshot episode watch state.
-  // We fetch allLeaves per show sequentially (with concurrency limit)
+  // For shows, we need episodes leaves – ATOMIC per §3: one failed show invalidates the whole snapshot
   const { mapWithConcurrency } = await import("@/lib/concurrency");
   const showKeyList = [...allShowKeys];
   const episodeKeysByShow = new Map<string, string[]>();
+  let episodesFailed: { showKey: string; error: string } | null = null;
   await mapWithConcurrency(showKeyList, 5, async (showKey) => {
-    const { getShowEpisodes } = await import("./client");
-    const eps = await getShowEpisodes(cfg, showKey, ctx.serverToken);
-    const keys = eps.map((e) => e.ratingKey);
+    if (episodesFailed) return;
+    const { getShowEpisodesAtomic } = await import("./client");
+    const result = await getShowEpisodesAtomic(cfg, showKey, ctx.serverToken);
+    if (!result.complete) {
+      episodesFailed = { showKey, error: result.error ?? "unknown" };
+      return;
+    }
+    const keys = result.items.map((e) => e.ratingKey);
     episodeKeysByShow.set(showKey, keys);
     for (const k of keys) allEpisodeKeys.add(k);
   });
+  if (episodesFailed) {
+    const f = episodesFailed as { showKey: string; error: string };
+    if (f.error.startsWith("plex_auth_failed")) {
+      recordSearchLog("error", "plex.snapshot", `plex.snapshot episodes auth failed user=${ctx.movvizUserId} show=${f.showKey} ${f.error}`);
+      return { ok: false, reason: `auth_failed:${f.error}` };
+    }
+    recordSearchLog("warn", "plex.snapshot", `plex.snapshot episodes incomplete user=${ctx.movvizUserId} show=${f.showKey} error=${f.error} – snapshot invalid (§3), no diff/replace/mutation`);
+    return { ok: false, reason: `episodes_incomplete show=${f.showKey} ${f.error}` };
+  }
 
   const allRatingKeys = [...allMovieKeys, ...allEpisodeKeys];
   // Show ratingKeys themselves are not watched directly; episodes are. So snapshot only movies + episodes.
@@ -261,6 +275,32 @@ export async function fullRescanUser(ctx: PlexUserContext): Promise<{ ok: boolea
       return row?.watched_updated_at ?? null;
     }, null);
     const { reconcile, applyReconcileDecision } = await import("./plexReconciler");
+    const { getUserMediaSyncStates } = await import("@/lib/userContext/syncState");
+    const { mediaStateKey } = await import("@/lib/userContext/reconcile");
+    const stateKey =
+      canonical.type === "movie"
+        ? mediaStateKey(ctx.movvizUserId, "movie", canonical.tmdbId)
+        : mediaStateKey(ctx.movvizUserId, "episode", (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber);
+    const syncEntry = getUserMediaSyncStates(ctx.movvizUserId).find((e) => e.stateKey === stateKey && e.field === "watched" && e.target === "plex" && (e.capability === "PENDING" || e.capability === "ERROR"));
+    // Revision-only superseded check (§4): pendingRevision vs canonicalRevision, never vs timestamp
+    const canonicalRevision: number | null = withUserContextDb((db) => {
+      const key2 = canonical!.type === "movie" ? `${ctx.movvizUserId}:movie:${(canonical as { tmdbId: number }).tmdbId}` : `${ctx.movvizUserId}:episode:${(canonical as { tmdbShowId: number }).tmdbShowId}:${(canonical as { seasonNumber: number }).seasonNumber}:${(canonical as { episodeNumber: number }).episodeNumber}`;
+      const row = db.prepare("SELECT watched_revision FROM user_media_state WHERE state_key = ?").get(key2) as { watched_revision: number | null } | undefined;
+      return row?.watched_revision ?? null;
+    }, null);
+    let pendingIntent: { desiredState: "watched" | "unwatched"; revision: number; sourceEventId: string } | null = null;
+    if (syncEntry && curState !== "unknown") {
+      if (syncEntry.revision != null && canonicalRevision != null) {
+        if (syncEntry.revision >= canonicalRevision) {
+          pendingIntent = { desiredState: ((syncEntry.desiredState as "watched" | "unwatched" | null) ?? (curState as "watched" | "unwatched")), revision: syncEntry.revision, sourceEventId: syncEntry.stateKey };
+        }
+        // else SUPERSEDED → null
+      } else if (syncEntry.revision == null) {
+        pendingIntent = { desiredState: ((syncEntry.desiredState as "watched" | "unwatched" | null) ?? (curState as "watched" | "unwatched")), revision: syncEntry.updatedAt, sourceEventId: syncEntry.stateKey };
+      } else {
+        pendingIntent = { desiredState: ((syncEntry.desiredState as "watched" | "unwatched" | null) ?? (curState as "watched" | "unwatched")), revision: syncEntry.revision, sourceEventId: syncEntry.stateKey };
+      }
+    }
     const res = reconcile({
       userId: ctx.movvizUserId,
       canonicalIdentity: canonical,
@@ -270,7 +310,9 @@ export async function fullRescanUser(ctx: PlexUserContext): Promise<{ ok: boolea
       currentCanonicalAt: canonicalAt,
       previousPlexObserved: previous.get(rk) ?? null,
       currentPlexObserved: observed,
+      pendingIntent,
       isBaseline: !previous.has(rk),
+      mode: "AUTHORITATIVE_RESCAN",
     });
     if (res.shouldApply && res.newCanonicalState) {
       const ok = applyReconcileDecision(
@@ -283,7 +325,9 @@ export async function fullRescanUser(ctx: PlexUserContext): Promise<{ ok: boolea
           currentCanonicalAt: canonicalAt,
           previousPlexObserved: previous.get(rk) ?? null,
           currentPlexObserved: observed,
+          pendingIntent,
           isBaseline: !previous.has(rk),
+          mode: "AUTHORITATIVE_RESCAN",
         },
         res,
         null
