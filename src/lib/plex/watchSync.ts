@@ -308,6 +308,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       : null;
     const bootstrapNeeded = bootstrapState != null && bootstrapState.status !== "COMPLETED";
     let historyRes;
+    let incrementalPagesFetched = 0;
     let bootstrapBatchStart = 0;
     let bootstrapBatchCount = 0;
     let bootstrapUpperBound: number | null = null;
@@ -327,6 +328,30 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       bootstrapBatchCount = historyRes.rawPageCount;
     } else {
       historyRes = await pollHistory(ctx, { start: 0, size: 100, sortDirection: "desc" });
+      incrementalPagesFetched = 1;
+      const cursor = getHistoryCursor(user.id, ctx.machineIdentifier);
+      // Descending pages are read only until the already-committed cursor is
+      // reached. This covers bursts larger than one Plex page without ever
+      // scanning old history in the normal incremental path.
+      if (cursor) {
+        const seenAtCursor = new Set(cursor.seenEventKeysAtTimestamp ?? []);
+        let page = historyRes;
+        let reachedCursor = false;
+        while (!reachedCursor && page.hasMore) {
+          reachedCursor = page.entries.some((entry) => {
+            const at = entry.viewedAt ?? 0;
+            const key = entry.ratingKey ?? `nork:${entry.grandparentTitle ?? "?"}:${entry.season ?? "?"}:${entry.episode ?? "?"}:${at}`;
+            return at < cursor.lastViewedAt || (at === cursor.lastViewedAt && seenAtCursor.has(key));
+          });
+          if (reachedCursor) break;
+          page = await pollHistory(ctx, { start: page.nextStart, size: 100, sortDirection: "desc" });
+          incrementalPagesFetched++;
+          historyRes.entries.push(...page.entries);
+          historyRes.rawPageCount += page.rawPageCount;
+          historyRes.hasMore = page.hasMore;
+          historyRes.nextStart = page.nextStart;
+        }
+      }
     }
     let historyTriggered = 0;
     let historyReconciled = 0;
@@ -375,9 +400,12 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         // If cursor exists and we have candidates, they are already the new ones; otherwise if no cursor (first incremental after bootstrap), use newest 20 as before
         const source = incrementalCandidates.length > 0 ? incrementalCandidates : (cursor ? [] : dedupedAll);
         source.sort((a, b) => (b.viewedAt ?? 0) - (a.viewedAt ?? 0));
-        entriesToProcess = source.slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
+        // Pages were bounded at the Plex transport layer and stopped at the
+        // cursor above; process every newly discovered event before committing
+        // that cursor, otherwise events 21..N would be lost.
+        entriesToProcess = source;
         if (cursor && incrementalCandidates.length === 0 && dedupedAll.length > 0) {
-          recordSearchLog("info", "plex.history", `plex.history incremental user=${user.username} no new events lastAt=${lastAt} total=${dedupedAll.length}`);
+          recordSearchLog("info", "plex.history", `plex.history incremental user=${user.username} pagesFetched=${incrementalPagesFetched} rawFetched=${historyRes.rawPageCount} newEvents=0 cursorAdvanced=false`);
         }
       }
 
@@ -745,7 +773,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
     refreshLegacyUserContext(user.id, true);
 
     recordCircuitSuccess(user.id);
-    recordSearchLog("info", "plex.watchSync", `plex.watchSync summary user=${user.username} authSource=${ctx.authSource} historyCapability=${ctx.watchImportCapability} snapshotCapability=${ctx.authSource === "owner" ? "AVAILABLE" : "UNAVAILABLE"} bootstrap=${bootstrapNeeded ? "running" : "completed"} historyReceived=${historyRes.entries.length} historyUnique=${historyRes.entries.length > 0 ? new Set(historyRes.entries.map((entry) => entry.ratingKey ?? `${entry.type}:${entry.grandparentTitle ?? entry.title ?? "?"}:${entry.season ?? ""}:${entry.episode ?? ""}`)).size : 0} historyProcessed=${historyProcessed} historyResolved=${historyResolved} historyUnresolved=${historyUnresolved} historyErrors=${historyErrors} reconciled=${historyReconciled} cursorAdvanced=${!bootstrapNeeded && historyProcessed > 0} durationMs=${Date.now() - syncStartedAt}`);
+    recordSearchLog("info", "plex.watchSync", `plex.watchSync summary user=${user.username} authSource=${ctx.authSource} historyCapability=${ctx.watchImportCapability} snapshotCapability=${ctx.authSource === "owner" ? "AVAILABLE" : "UNAVAILABLE"} bootstrap=${bootstrapNeeded ? "running" : "completed"} pagesFetched=${bootstrapNeeded ? 1 : incrementalPagesFetched} historyReceived=${historyRes.entries.length} historyUnique=${historyRes.entries.length > 0 ? new Set(historyRes.entries.map((entry) => entry.ratingKey ?? `${entry.type}:${entry.grandparentTitle ?? entry.title ?? "?"}:${entry.season ?? ""}:${entry.episode ?? ""}`)).size : 0} historyProcessed=${historyProcessed} historyResolved=${historyResolved} historyUnresolved=${historyUnresolved} historyErrors=${historyErrors} reconciled=${historyReconciled} cursorAdvanced=${!bootstrapNeeded && historyProcessed > 0} durationMs=${Date.now() - syncStartedAt}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack ?? err.message : String(err);
