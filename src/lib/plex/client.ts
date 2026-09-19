@@ -171,6 +171,76 @@ export async function getPlexHomeUsers(adminToken: string): Promise<PlexHomeUser
 }
 
 /**
+ * Real server shares: every Plex account this PMS is shared with, AS SEEN BY
+ * THE SERVER ITSELF — fundamentally different from `/api/v2/friends` (social
+ * graph), which routinely returns 0 entries for genuine server users and must
+ * therefore NEVER decide who can access the PMS.
+ *
+ * `GET https://plex.tv/api/servers/{machineId}/shared_servers` with the OWNER
+ * token. Each `SharedServer` entry carries the invited account's `userID`
+ * (= plex.tv account id, stable) plus that share's own `accessToken`, which
+ * authenticates PMS requests AS THAT USER — no personal Movviz login required.
+ * Confirmed against python-plexapi's `MyPlexUser.get_token()` (matches
+ * `userID`, returns `accessToken`) and live forum XML samples.
+ *
+ * Returns null when the endpoint itself fails (fail closed — NOT an empty
+ * list), [] when it succeeds with no shares. NEVER logs accessToken.
+ */
+export interface PlexSharedServer {
+  shareId: string;
+  userId: string; // plex.tv account id of the invited user
+  username: string;
+  email: string;
+  thumb: string | null;
+  accessToken: string | null; // PMS token for THIS user (null = pending invite, unusable)
+  accepted: boolean;
+}
+
+export async function getSharedServers(
+  clientId: string,
+  adminToken: string,
+  machineIdentifier: string
+): Promise<PlexSharedServer[] | null> {
+  try {
+    const res = await fetch(
+      `https://plex.tv/api/servers/${encodeURIComponent(machineIdentifier)}/shared_servers`,
+      { headers: headers(clientId, { "x-plex-token": adminToken }), cache: "no-store" }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const container = data?.MediaContainer ?? data ?? {};
+    const raw = container?.SharedServer ?? container?.sharedServer ?? [];
+    const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    // One-time shape diagnostic: key names + presence flags only, never token values.
+    if (list.length > 0) {
+      const keys = Object.keys(list[0] ?? {}).filter((k) => !/token/i.test(k));
+      const hasToken = list.filter((s: Record<string, unknown>) => typeof s?.accessToken === "string" && (s.accessToken as string).length > 0).length;
+      console.log(`[plex.sharedServers] machine=${machineIdentifier.slice(0, 8)} shares=${list.length} withAccessToken=${hasToken} keys=${keys.join(",")}`);
+    }
+    return list
+      .map((s: Record<string, unknown>) => {
+        const userId = s?.userID ?? s?.userId ?? s?.user_id;
+        if (userId == null || userId === "") return null;
+        const accessToken = typeof s?.accessToken === "string" && (s.accessToken as string).length > 0
+          ? (s.accessToken as string)
+          : null;
+        return {
+          shareId: String(s?.id ?? ""),
+          userId: String(userId),
+          username: String(s?.username ?? s?.title ?? s?.email ?? `plex-${String(userId)}`),
+          email: String(s?.email ?? ""),
+          thumb: typeof s?.thumb === "string" ? (s.thumb as string) : null,
+          accessToken,
+          accepted: s?.accepted == null ? true : ["1", "true", 1, true].includes(s.accepted as string | number | boolean),
+        } satisfies PlexSharedServer;
+      })
+      .filter((s): s is PlexSharedServer => s !== null);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Plex Home's `/switch` endpoint returns an account token for the selected
  * managed profile.  It is NOT yet a token accepted by a media server: callers
  * must exchange it through `getPlexServerAccessToken` below.  Keeping those

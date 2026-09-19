@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { User } from "@/lib/auth/types";
 import { loadPlexConfig, savePlexConfig } from "./store";
-import { getPlexAccount, getPlexFriends, getPlexHomeUsers, getLocalAccounts, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser } from "./client";
+import { getPlexAccount, getPlexHomeUsers, getLocalAccounts, getPlexServerAccessToken, getServerIdentity, getSharedServers, switchPlexHomeUser } from "./client";
 import type { PlexServerConfig } from "./types";
 import { getUserById, updateUser } from "@/lib/auth/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
@@ -29,8 +29,8 @@ export type PlexUserContext = {
   machineIdentifier: string;
   serverToken: string;
   tokenFingerprint: string; // sha256(token).slice(0,8) for logs
-  authSource: "owner" | "account" | "managed";
-  accountTokenSource: "OWNER" | "ACCOUNT" | "HOME_SWITCH";
+  authSource: "owner" | "managed" | "shared";
+  accountTokenSource: "OWNER" | "ACCOUNT" | "HOME_SWITCH" | "SHARED";
   bindingSource: BindingSource;
   resolvedAt: number;
   localAccountId: number; // PMS-local id (for /status/sessions/history/all accountID filter)
@@ -257,69 +257,59 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
     return { ok: true, ctx };
   }
 
-  // 3) Shared Plex account (friend) – use plexId (cloud id) -> resolve via getPlexFriends, then resources exchange
+  // 3) Shared server user – plexId (cloud id) mapped DIRECTLY onto the server's
+  // own share list (`GET /api/servers/{machineId}/shared_servers`, owner token).
+  // NEVER via /api/v2/friends (social graph ≠ server access). The share's own
+  // accessToken authenticates PMS reads AS THIS USER – no personal Movviz
+  // login required. ID match only, no name matching.
   if (user.plexId) {
-    const friends = await getPlexFriends(cfg.clientId, cfg.adminToken);
-    const friend = friends.find((f) => f.id === user.plexId);
-    const plexUsername = friend?.username ?? null;
-    if (!friend) {
-      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=not_in_shared_users friends=${friends.length}`);
-      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): not in shared users`, code: "NOT_IN_SHARED" };
+    const shares = await getSharedServers(cfg.clientId, cfg.adminToken, machineIdentifier);
+    if (shares === null) {
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=shared_servers_unreachable server=${machineIdentifier.slice(0, 8)}`);
+      return { ok: false, reason: `${user.username}: shared_servers endpoint unreachable`, code: "TOKEN_FAILED" };
     }
-    let resolvedUsername = plexUsername;
-    if (!resolvedUsername && user.plexToken) {
-      const acc = await getPlexAccount(cfg.clientId, user.plexToken);
-      resolvedUsername = acc?.username ?? null;
+    const share = shares.find((s) => s.userId === user.plexId);
+    if (!share) {
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=not_in_shared_servers shares=${shares.length}`);
+      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): not in this server's shared users`, code: "NOT_IN_SHARED" };
     }
     const localAccounts = await getLocalAccounts(cfg, cfg.adminToken);
-    const local = resolvedUsername
-      ? localAccounts.find((a) => a.name.trim().localeCompare(resolvedUsername!.trim(), undefined, { sensitivity: "base" }) === 0)
-      : undefined;
+    const local = localAccounts.find((a) => a.name.trim().localeCompare(share.username.trim(), undefined, { sensitivity: "base" }) === 0);
     if (!local) {
-      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} plexUsername=${resolvedUsername ?? "-"} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0,8)} friends=${friends.length} localAccounts=${localAccounts.map((a)=>a.name).join(",")}`);
-      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): local account not found for username ${resolvedUsername ?? "?"}`, code: "NO_LOCAL_BINDING" };
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} username=${share.username} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0, 8)} localAccounts=${localAccounts.map((a) => a.name).join(",")}`);
+      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): local account not found for username ${share.username}`, code: "NO_LOCAL_BINDING" };
     }
-    let serverToken = user.plexServerToken ?? null;
+    // Share accessToken first (it IS this user's PMS credential); cached
+    // plexServerToken (previously persisted from a share) as fallback.
+    let serverToken = share.accessToken ?? user.plexServerToken ?? null;
     if (!serverToken) {
-      let accountToken = user.plexToken ?? null;
-      if (!accountToken) {
-        recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=no_personal_token_for_friend`);
-        return { ok: false, reason: `${user.username}: friend account ${user.plexId} has no plexToken to exchange for server token`, code: "NO_PERSONAL_TOKEN" };
-      }
-      const st = await getPlexServerAccessToken(cfg.clientId, accountToken, machineIdentifier);
-      if (!st) {
-        recordSearchLog("warn", "plex.profileAuth", `${user.username}: Plex n'a pas fourni de jeton d'accès pour ce serveur — données Plex personnelles ignorées`);
-        return { ok: false, reason: `${user.username}: getPlexServerAccessToken failed for friend (no server access)`, code: "NO_SERVER_ACCESS" };
-      }
-      serverToken = st;
-      updateUser(user.id, { plexServerToken: serverToken });
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} share=${share.shareId} accepted=${share.accepted} status=unresolved reason=no_share_access_token`);
+      return { ok: false, reason: `${user.username}: share has no access token (invite pending?) and no cached server token`, code: "NO_SERVER_ACCESS" };
     }
     const tokenValid = await validatePlexServerToken(cfg, serverToken);
     if (!tokenValid) {
+      // Token rotated or revoked: re-fetch shares ONCE, retry with the fresh share token.
       updateUser(user.id, { plexServerToken: null });
       invalidatePlexUserContext(user.id);
-      if (user.plexToken) {
-        const st2 = await getPlexServerAccessToken(cfg.clientId, user.plexToken, machineIdentifier);
-        if (st2) {
-          serverToken = st2;
-          updateUser(user.id, { plexServerToken: serverToken });
-        } else {
-          return { ok: false, reason: `${user.username}: re-validate failed for friend`, code: "TOKEN_FAILED" };
-        }
-      } else {
-        return { ok: false, reason: `${user.username}: token invalid and no accountToken to re-exchange`, code: "TOKEN_FAILED" };
+      const fresh = await getSharedServers(cfg.clientId, cfg.adminToken, machineIdentifier);
+      const freshToken = fresh?.find((s) => s.userId === user.plexId)?.accessToken ?? null;
+      if (!freshToken || !(await validatePlexServerToken(cfg, freshToken))) {
+        recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=share_token_invalid`);
+        return { ok: false, reason: `${user.username}: share access token invalid`, code: "TOKEN_FAILED" };
       }
+      serverToken = freshToken;
     }
+    if (user.plexServerToken !== serverToken) updateUser(user.id, { plexServerToken: serverToken });
 
     const ctx: PlexUserContext = {
       movvizUserId: user.id,
       plexAccountId: user.plexId,
-      plexUsername: resolvedUsername ?? undefined,
+      plexUsername: share.username,
       machineIdentifier,
       serverToken,
       tokenFingerprint: fingerprintToken(serverToken),
-      authSource: "account",
-      accountTokenSource: "ACCOUNT",
+      authSource: "shared",
+      accountTokenSource: "SHARED",
       bindingSource: "ACCOUNT_EXACT",
       resolvedAt: Date.now(),
       localAccountId: local.id,
@@ -335,7 +325,7 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       verifiedAt: Date.now(),
       tokenFingerprint: ctx.tokenFingerprint,
     });
-    recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} username=${resolvedUsername ?? "-"} binding=account server=${machineIdentifier.slice(0,8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local.id} status=resolved`);
+    recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} source=shared plexId=${user.plexId} server=${machineIdentifier.slice(0, 8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local.id} status=resolved`);
     return { ok: true, ctx };
   }
 
@@ -394,11 +384,11 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
     return { ok: true, ctx };
   }
   if (user.plexId) {
+    // Prefer the share's own accessToken (no personal login needed); cached token as fallback.
     if (!serverToken) {
-      if (!user.plexToken) return { ok: false, reason: "no personal token via binding", code: "NO_PERSONAL_TOKEN" };
-      const st = await getPlexServerAccessToken(cfg.clientId, user.plexToken, machineIdentifier);
-      if (!st) return { ok: false, reason: "no server access via binding", code: "NO_SERVER_ACCESS" };
-      serverToken = st;
+      const shares = await getSharedServers(cfg.clientId, cfg.adminToken!, machineIdentifier).catch(() => null);
+      serverToken = shares?.find((s) => s.userId === user.plexId)?.accessToken ?? null;
+      if (!serverToken) return { ok: false, reason: "no share token via binding", code: "NO_SERVER_ACCESS" };
       updateUser(user.id, { plexServerToken: serverToken });
     }
     const valid = await validatePlexServerToken(cfg, serverToken);
@@ -412,8 +402,8 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
       machineIdentifier,
       serverToken,
       tokenFingerprint: fingerprintToken(serverToken),
-      authSource: "account",
-      accountTokenSource: "ACCOUNT",
+      authSource: "shared",
+      accountTokenSource: "SHARED",
       bindingSource: binding.bindingSource,
       resolvedAt: Date.now(),
       localAccountId: binding.localAccountId,
@@ -474,15 +464,20 @@ export async function diagnosePlexUser(movvizUserId: string): Promise<Record<str
   if (!cfg.hostname || !cfg.adminToken) return { ...base, status: "NOT_CONFIGURED" };
   const machineIdentifier = await ensureMachineIdentifier(cfg);
   base.machineIdentifier = machineIdentifier;
-  const friends = await getPlexFriends(cfg.clientId, cfg.adminToken).catch(() => []);
+  const shares = machineIdentifier
+    ? await getSharedServers(cfg.clientId, cfg.adminToken, machineIdentifier).catch(() => null)
+    : null;
   const homeUsers = await getPlexHomeUsers(cfg.adminToken).catch(() => []);
   const localAccounts = await getLocalAccounts(cfg, cfg.adminToken).catch(() => []);
-  base.plexFriendsCount = friends.length;
+  base.sharedServersCount = shares?.length ?? -1; // -1 = endpoint unreachable
+  base.sharedServersWithToken = shares?.filter((s) => !!s.accessToken).length ?? -1;
   base.plexHomeUsersCount = homeUsers.length;
   base.localAccounts = localAccounts.map((a) => ({ id: a.id, name: a.name }));
-  const friendMatch = user.plexId ? friends.find((f) => f.id === user.plexId) ?? null : null;
+  const shareMatch = user.plexId ? shares?.find((s) => s.userId === user.plexId) ?? null : null;
   const homeMatch = user.plexManagedUserId ? homeUsers.find((h) => h.id === user.plexManagedUserId) ?? null : null;
-  base.friendMatch = friendMatch ? { id: friendMatch.id, username: friendMatch.username } : null;
+  base.shareMatch = shareMatch
+    ? { shareId: shareMatch.shareId, userId: shareMatch.userId, username: shareMatch.username, hasAccessToken: !!shareMatch.accessToken, accepted: shareMatch.accepted }
+    : null;
   base.homeMatch = homeMatch ? { id: homeMatch.id, title: homeMatch.title } : null;
   const binding = machineIdentifier ? getBinding(user.id, machineIdentifier) : null;
   base.existingBinding = binding ?? null;

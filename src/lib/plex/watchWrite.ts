@@ -82,7 +82,7 @@ export function resolveToken(user: User, cfg: { adminToken: string | null }): { 
 
 export interface PlexServerAuth {
   token: string;
-  source: "owner" | "account" | "managed";
+  source: "owner" | "managed" | "shared";
 }
 
 function isOwnerAccount(user: User, cfg: PlexServerConfig) {
@@ -107,14 +107,14 @@ async function ensureMachineIdentifier(cfg: PlexServerConfig): Promise<string | 
 export async function resolvePlexServerAuth(user: User, cfg: PlexServerConfig): Promise<PlexServerAuth | null> {
   if (!cfg.hostname) return null;
   if (isOwnerAccount(user, cfg) && cfg.adminToken) return { token: cfg.adminToken, source: "owner" };
-  if (user.plexServerToken) return { token: user.plexServerToken, source: user.plexManagedUserId ? "managed" : "account" };
+  if (user.plexServerToken) return { token: user.plexServerToken, source: user.plexManagedUserId ? "managed" : "shared" };
   if (!cfg.adminToken) return null;
 
   const machineIdentifier = await ensureMachineIdentifier(cfg);
   if (!machineIdentifier) return null;
 
   let accountToken = user.plexToken;
-  let source: PlexServerAuth["source"] = "account";
+  let source: PlexServerAuth["source"] = "shared";
   if (!accountToken && user.plexManagedUserId) {
     accountToken = await switchPlexHomeUser(cfg.clientId, cfg.adminToken, user.plexManagedUserId);
     source = "managed";

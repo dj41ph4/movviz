@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       username: u.username,
       plexId: u.plexId,
       plexManagedUserId: u.plexManagedUserId,
-      bindingType: u.plexManagedUserId ? "managed" : u.plexId ? (u.role === "admin" && u.plexToken === cfg.adminToken ? "owner" : "account") : "none",
+      bindingType: u.plexManagedUserId ? "managed" : u.plexId ? (u.role === "admin" && u.plexToken === cfg.adminToken ? "owner" : "shared") : "none",
       bindingStatus: ctx ? "resolved" : (u.plexId || u.plexManagedUserId ? "unresolved" : "no_plex_identity"),
       plexDisplayName: ctx?.plexUsername ?? ctx?.plexTitle ?? null,
       plexAccountId: ctx?.plexAccountId ?? null,
