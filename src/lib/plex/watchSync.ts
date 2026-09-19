@@ -16,6 +16,7 @@ import { getSeriesByTmdbId, getMovieByTmdbId, findEpisodeByPlexRatingKey } from 
 import { withKeyLock } from "@/lib/library/locks";
 import { getUserMediaSyncStates, updateUserMediaSyncState } from "@/lib/userContext/syncState";
 import { mediaStateKey } from "@/lib/userContext/reconcile";
+import { getBootstrapState, isBootstrapCompleted, startBootstrap, updateBootstrapProgress, completeBootstrap, failBootstrap } from "./plexHistoryBootstrap";
 
 function getPendingIntentForMedia(
   userId: string,
@@ -288,17 +289,46 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
     let historyTriggered = 0;
     let historyReconciled = 0;
 
+    const bootstrapNeeded = ctx.historyAvailable && ctx.localAccountId != null && !isBootstrapCompleted(user.id, ctx.machineIdentifier);
     if (historyRes.entries.length > 0) {
+      // Bootstrap vs incremental (§ final plan)
       // Deduplicate entries – key by ratingKey when present, else by show+SxxExx (§1)
       const seen = new Set<string>();
-      const deduped: (typeof historyRes.entries)[number][] = [];
+      const dedupedAll: (typeof historyRes.entries)[number][] = [];
       for (const e of historyRes.entries) {
         const k = e.ratingKey ?? `nork:${e.grandparentTitle ?? "?"}:${e.season ?? "?"}:${e.episode ?? "?"}:${e.viewedAt ?? "?"}`;
         if (seen.has(k)) continue;
         seen.add(k);
-        deduped.push(e);
+        dedupedAll.push(e);
       }
-      const entriesToProcess = deduped.slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
+      // Bootstrap: treat ALL entries oldest-first in batches, resumable; incremental: newest 20
+      let entriesToProcess: (typeof historyRes.entries)[number][];
+      let bootstrapBatchStart = 0;
+      let bootstrapState: ReturnType<typeof getBootstrapState> = null;
+      if (bootstrapNeeded) {
+        bootstrapState = getBootstrapState(user.id, ctx.machineIdentifier);
+        if (!bootstrapState || !bootstrapState.inProgress) {
+          bootstrapState = startBootstrap(user.id, ctx.machineIdentifier, dedupedAll.length);
+          recordSearchLog("info", "plex.history", `plex.history bootstrap start user=${user.username} total=${dedupedAll.length}`);
+        }
+        // Sort oldest-first for LWW bootstrap
+        dedupedAll.sort((a, b) => (a.viewedAt ?? 0) - (b.viewedAt ?? 0));
+        bootstrapBatchStart = bootstrapState.cursorPageStart ?? 0;
+        // Process in batches of 200 for bootstrap – persist between batches
+        const BATCH_SIZE = 200;
+        const remaining = dedupedAll.slice(bootstrapBatchStart);
+        // We'll process only one batch per sync invocation to avoid monopolizing the process for hours
+        entriesToProcess = remaining.slice(0, BATCH_SIZE);
+        if (entriesToProcess.length === 0) {
+          completeBootstrap(user.id, ctx.machineIdentifier);
+          recordSearchLog("info", "plex.history", `plex.history bootstrap completed user=${user.username} total=${dedupedAll.length}`);
+          entriesToProcess = [];
+        }
+      } else {
+        // Incremental: newest first, limit 20
+        dedupedAll.sort((a, b) => (b.viewedAt ?? 0) - (a.viewedAt ?? 0));
+        entriesToProcess = dedupedAll.slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
+      }
 
       for (const entry of entriesToProcess) {
         // Resolve canonical FIRST (§1: episode history → resolveEpisode → real ratingKey → verify → reconcile)
@@ -460,7 +490,24 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           upsertObservedState(observed);
         }
       }
-      recordSearchLog("info", "plex.watchSync", `plex.watchSync history user=${user.username} entries=${historyRes.entries.length} triggered=${historyTriggered} reconciled=${historyReconciled}`);
+      recordSearchLog("info", "plex.watchSync", `plex.watchSync history user=${user.username} entries=${historyRes.entries.length} triggered=${historyTriggered} reconciled=${historyReconciled} ${bootstrapNeeded ? `bootstrap batch ${bootstrapBatchStart}-${bootstrapBatchStart + entriesToProcess.length}/${dedupedAll.length}` : ""}`);
+      // Bootstrap progress persistence – reprenable (§ final plan)
+      if (bootstrapNeeded) {
+        const nextCursor = bootstrapBatchStart + entriesToProcess.length;
+        const lastAt = entriesToProcess.length > 0 ? Math.max(...entriesToProcess.map((e) => e.viewedAt ?? 0)) : 0;
+        if (nextCursor >= dedupedAll.length) {
+          // All pages processed with no batch failure → completed
+          completeBootstrap(user.id, ctx.machineIdentifier);
+          recordSearchLog("info", "plex.history", `plex.history bootstrap completed user=${user.username} total=${dedupedAll.length}`);
+        } else {
+          updateBootstrapProgress(user.id, ctx.machineIdentifier, nextCursor, lastAt, nextCursor);
+          recordSearchLog("info", "plex.history", `plex.history bootstrap progress user=${user.username} ${nextCursor}/${dedupedAll.length}`);
+        }
+      }
+    } else if (bootstrapNeeded) {
+      // History empty but bootstrap expected – still mark completed to avoid infinite loop (no resolvable events)
+      completeBootstrap(user.id, ctx.machineIdentifier);
+      recordSearchLog("info", "plex.history", `plex.history bootstrap completed (empty) user=${user.username}`);
     }
 
     // 1b) Quick re-check (§5): batch viewCount is owner-only, so only for owner.

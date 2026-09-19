@@ -1,3 +1,11 @@
+## v1.25.31 — September 2026
+
+### Bootstrap historique complet et Plex → Movviz le plus réactif
+
+- Bootstrap historique complet : tant que `bootstrapCompleted=false`, `pollHistory` pagine `GET /status/sessions/history/all` et traite **toutes** les entrées (batches 200, persistance `plex-history-bootstrap.json` reprenable) au lieu de `slice(0,20)`. Les vues de 2022 supprimées de Plex en 2024 restent importables si `canonical` résolvable.
+- Après `bootstrapCompleted=true`, sync incrémentale par `lastViewedAt` uniquement (quelques entrées). Ne perd aucun événement, ne recommence jamais les 4000+ depuis zéro.
+- `localAccountId` reste `null` pour partagés sans binding : `historyAvailable=false` → `pollHistory` ignoré, `snapshot/quickVerify` restent actifs via `accessToken` du share.
+
 ## v1.25.30 — September 2026
 
 ### Plex → Movviz : chaîne history corrigée, plus de `viewCount` owner pour les profils partagés
