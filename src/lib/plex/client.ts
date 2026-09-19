@@ -1233,7 +1233,9 @@ export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: stri
 }
 
 export interface PlexHistoryEntry {
-  ratingKey?: string; // optional for episodes – resolver can work from show+SxxExx (§1)
+  ratingKey?: string; // optional – resolver can work from show+SxxExx (episodes) or title (movies)
+  guid?: string;
+  Guid?: { id: string }[];
   type: "movie" | "episode";
   grandparentRatingKey?: string; // show, for episodes
   season?: number;
@@ -1247,6 +1249,8 @@ export interface PlexHistoryEntry {
 
 interface RawHistoryItem {
   ratingKey?: string;
+  guid?: string;
+  Guid?: { id: string }[];
   type?: string;
   grandparentRatingKey?: string;
   /** Bug réel confirmé en direct (2026-09) : `/status/sessions/history/all`
@@ -1378,7 +1382,7 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
       }
       const grandparentRatingKey = item.grandparentRatingKey ?? ratingKeyFromPath(item.grandparentKey);
       if (item.type === "movie") {
-        out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, viewedAt: item.viewedAt, accountId: eventAccountId });
+        out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, guid: item.guid, Guid: item.Guid, viewedAt: item.viewedAt, accountId: eventAccountId });
       } else if (item.type === "episode" && item.parentIndex != null && item.index != null && (grandparentRatingKey || item.grandparentTitle)) {
         // Keep episode if we have at least show title + SxxExx, even without ratingKey (§1) – resolver will decide via Movviz/Plex library
         out.push({
@@ -1388,6 +1392,8 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
           grandparentTitle: item.grandparentTitle,
           season: item.parentIndex,
           episode: item.index,
+          guid: item.guid,
+          Guid: item.Guid,
           viewedAt: item.viewedAt,
           accountId: eventAccountId,
         });

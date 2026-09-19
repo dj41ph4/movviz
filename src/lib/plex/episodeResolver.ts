@@ -109,16 +109,23 @@ export async function resolveEpisode(
     }
   }
 
-  // 3) Movviz library exact title check first (Level 4 §17) – before Plex scan
-  if (raw.grandparentTitle && raw.parentIndex != null && raw.index != null) {
-    const movvizResolved = resolveViaMovvizLibrary(raw.grandparentTitle, raw.parentIndex, raw.index, ratingKey);
-    if (movvizResolved) return movvizResolved;
-  }
+  // 3) Show + SxxExx. Quand l'événement n'a PAS de ratingKey (cas History),
+  // le lookup Plex passe EN PREMIER : lui seul récupère le vrai episode.ratingKey
+  // via allLeaves, indispensable pour verifyWatchState. Le lookup Movviz local
+  // (rapide, sans réseau) reste premier quand un ratingKey est déjà présent,
+  // et sert de repli canonical sinon.
+  const hasInputKey = ratingKey.length > 0;
+  const movvizResolved = raw.grandparentTitle && raw.parentIndex != null && raw.index != null
+    ? resolveViaMovvizLibrary(raw.grandparentTitle, raw.parentIndex, raw.index, ratingKey)
+    : null;
+  if (hasInputKey && movvizResolved) return movvizResolved;
   // 3b) SxxExx exact match via Plex library (§35) – needs grandparentTitle + parentIndex + index
   if (raw.grandparentTitle && raw.parentIndex != null && raw.index != null) {
     const sxxexx = await resolveViaShowLookup(ctx, raw.grandparentTitle, raw.parentIndex, raw.index, ratingKey);
     if (sxxexx.status === "RESOLVED") return sxxexx;
     if (sxxexx.reason === "UNRESOLVED_AMBIGUOUS_MATCH" || sxxexx.reason === "AMBIGUOUS_SHOW") return { ...sxxexx, reason: "AMBIGUOUS_SHOW" as EpisodeResolveReason };
+    // Plex ne connaît pas la série : repli sur le canonical Movviz (sans clé Plex).
+    if (movvizResolved) return movvizResolved;
     // else continue to other fallbacks
   } else {
     if (!raw.grandparentTitle) return { status: "UNRESOLVED", reason: "MISSING_SHOW_TITLE", sample: raw as Record<string, unknown> };
@@ -232,6 +239,134 @@ async function resolveViaShowLookup(
     ratingKey: realRatingKey,
     reason: "RESOLVED_SXXEXX",
   };
+}
+
+export type MovieResolveReason =
+  | "RESOLVED_RATING_KEY"
+  | "RESOLVED_LIBRARY_LOOKUP"
+  | "RESOLVED_PLEX_LIBRARY"
+  | "RESOLVED_GUID"
+  | "UNRESOLVED_MISSING_TITLE"
+  | "UNRESOLVED_AMBIGUOUS_MATCH"
+  | "UNRESOLVED_MEDIA_NOT_FOUND"
+  | "UNRESOLVED_TMDB_MAPPING_FAILED"
+  | "UNRESOLVED_INVALID_TYPE";
+
+export type MovieResolveResult = {
+  status: "RESOLVED" | "UNRESOLVED";
+  canonical?: CanonicalMediaIdentity;
+  ratingKey?: string;
+  reason: MovieResolveReason;
+  sample?: Record<string, unknown>;
+};
+
+type RawMovieEvent = {
+  ratingKey?: string;
+  key?: string;
+  title?: string;
+  type?: string;
+  guid?: string;
+  Guid?: { id: string }[];
+  viewedAt?: number;
+};
+
+function tmdbIdFromGuids(guids: { id: string }[] | undefined): number | null {
+  const g = (guids ?? []).find((x) => typeof x?.id === "string" && x.id.startsWith("tmdb://"));
+  if (!g) return null;
+  const n = Number((g.id as string).replace("tmdb://", ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Resolver film pour les événements history sans ratingKey (ex. "La vie est
+ * belle") : titre exact → vrai ratingKey Plex → canonical TMDB → verify.
+ * Même contrat que resolveEpisode : match exact unique ou AMBIGUOUS, jamais
+ * de fuzzy silencieux. Réutilise les scans bibliothèque existants.
+ */
+export async function resolveMovie(
+  ctx: PlexUserContext,
+  raw: RawMovieEvent,
+): Promise<MovieResolveResult> {
+  const cfg = loadPlexConfig();
+  if (raw.type && raw.type !== "movie") {
+    return { status: "UNRESOLVED", reason: "UNRESOLVED_INVALID_TYPE", sample: raw as Record<string, unknown> };
+  }
+  const ratingKey = raw.ratingKey ?? raw.key?.split("/").pop() ?? "";
+
+  // 1) ratingKey direct → TMDB via metadata batch.
+  if (ratingKey) {
+    try {
+      const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [ratingKey]);
+      const tmdbId = tmdbMap.get(ratingKey)?.tmdbId;
+      if (tmdbId != null) {
+        return { status: "RESOLVED", canonical: { type: "movie", tmdbId }, ratingKey, reason: "RESOLVED_RATING_KEY" };
+      }
+    } catch { /* fall through */ }
+  }
+
+  const title = raw.title?.trim();
+  if (!title) {
+    return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_TITLE", sample: raw as Record<string, unknown> };
+  }
+  const eqTitle = (a: string, b: string) => a.trim().localeCompare(b.trim(), undefined, { sensitivity: "base" }) === 0;
+
+  // 2) Bibliothèque Movviz : titre exact → tmdbId + plexRatingKey connu.
+  try {
+    const { loadMovies } = require("@/lib/library/store") as typeof import("@/lib/library/store");
+    const movies = loadMovies() as Array<{ tmdbId: number; title: string; plexRatingKey?: string | null }>;
+    const candidates = movies.filter((m) => eqTitle(m.title, title));
+    if (candidates.length === 1 && candidates[0].plexRatingKey) {
+      return { status: "RESOLVED", canonical: { type: "movie", tmdbId: candidates[0].tmdbId }, ratingKey: candidates[0].plexRatingKey!, reason: "RESOLVED_LIBRARY_LOOKUP" };
+    }
+    if (candidates.length > 1) {
+      return { status: "UNRESOLVED", reason: "UNRESOLVED_AMBIGUOUS_MATCH", sample: { title, candidates: candidates.map((c) => c.title).slice(0, 3) } };
+    }
+    // 0 candidat Movviz (ou sans plexRatingKey) : continuer vers le scan Plex.
+  } catch { /* fall through to Plex scan */ }
+
+  // 3) Bibliothèque Plex : titre exact dans les sections films → vrai ratingKey → TMDB.
+  const sections = await getLibrarySections(cfg, ctx.serverToken);
+  const movieSections = sections.filter((s) => s.type === "movie");
+  if (movieSections.length === 0) {
+    return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND", sample: { title } };
+  }
+  const { getSectionRawItemsAtomic } = await import("./client");
+  const candidates: { ratingKey: string; title: string }[] = [];
+  for (const section of movieSections) {
+    const result = await getSectionRawItemsAtomic(cfg, section.key, ctx.serverToken);
+    if (!result.complete) {
+      return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND", sample: { title, section: section.key, error: result.error } };
+    }
+    for (const it of result.items) {
+      if (eqTitle(it.title, title)) candidates.push({ ratingKey: it.ratingKey, title: it.title });
+    }
+  }
+  if (candidates.length === 0) {
+    return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND", sample: { title } };
+  }
+  // Levée d'ambiguïté par GUID TMDB de l'événement si disponible.
+  let picked = candidates[0];
+  if (candidates.length > 1) {
+    const wantedTmdb = tmdbIdFromGuids(raw.Guid);
+    if (wantedTmdb != null) {
+      const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, candidates.map((c) => c.ratingKey));
+      const match = candidates.find((c) => tmdbMap.get(c.ratingKey)?.tmdbId === wantedTmdb);
+      if (match) {
+        picked = match;
+      } else {
+        return { status: "UNRESOLVED", reason: "UNRESOLVED_AMBIGUOUS_MATCH", sample: { title, candidates: candidates.map((c) => c.title).slice(0, 3) } };
+      }
+    } else {
+      return { status: "UNRESOLVED", reason: "UNRESOLVED_AMBIGUOUS_MATCH", sample: { title, candidates: candidates.map((c) => c.title).slice(0, 3) } };
+    }
+  }
+  const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [picked.ratingKey]);
+  const tmdbId = tmdbMap.get(picked.ratingKey)?.tmdbId;
+  if (tmdbId == null) {
+    return { status: "UNRESOLVED", reason: "UNRESOLVED_TMDB_MAPPING_FAILED", sample: { title, ratingKey: picked.ratingKey } };
+  }
+  upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: picked.ratingKey, canonical: { type: "movie", tmdbId }, updatedAt: Date.now() });
+  return { status: "RESOLVED", canonical: { type: "movie", tmdbId }, ratingKey: picked.ratingKey, reason: "RESOLVED_PLEX_LIBRARY" };
 }
 
 /**

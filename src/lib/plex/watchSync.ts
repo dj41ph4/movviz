@@ -10,7 +10,7 @@ import { pollHistory } from "./plexHistoryObserver";
 import { snapshotWatchState, verifyWatchState, diffSnapshots } from "./plexWatchStateObserver";
 import { getObservedStatesForUser, setObservedStates, getObservedState, upsertObservedState, replaceObservedStatesForUserServer } from "./plexObservedState";
 import { reconcile, applyReconcileDecision } from "./plexReconciler";
-import { resolveEpisode } from "./episodeResolver";
+import { resolveEpisode, resolveMovie } from "./episodeResolver";
 import { isCircuitOpen, recordCircuitFailure, recordCircuitSuccess } from "./plexCircuitBreaker";
 import { getSeriesByTmdbId, getMovieByTmdbId, findEpisodeByPlexRatingKey } from "@/lib/library/store";
 import { withKeyLock } from "@/lib/library/locks";
@@ -306,14 +306,19 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         let title: string | null = null;
         let verifyKey: string | undefined = entry.ratingKey;
         if (entry.type === "movie") {
-          if (!entry.ratingKey) {
-            recordSearchLog("warn", "plex.watchSync", `plex.watchSync movie without ratingKey user=${user.username} title=${entry.title ?? "?"}`);
+          // Resolver film : ratingKey direct, sinon titre exact → vrai ratingKey Plex.
+          const movieResolved = await resolveMovie(ctx, {
+            ratingKey: entry.ratingKey,
+            type: "movie",
+            title: entry.title,
+            guid: entry.guid,
+            Guid: entry.Guid,
+          });
+          if (movieResolved.status !== "RESOLVED" || !movieResolved.canonical || !movieResolved.ratingKey) {
+            recordSearchLog("warn", "plex.watchSync", `plex.watchSync movie unresolved user=${user.username} ratingKey=${entry.ratingKey ?? "none"} title=${entry.title ?? "?"} reason=${movieResolved.reason}`);
             continue;
           }
-          const movieMap = await batchTmdbIds(cfg, ctx.serverToken, [entry.ratingKey]);
-          const tmdbId = movieMap.get(entry.ratingKey)?.tmdbId;
-          if (tmdbId == null) continue;
-          canonical = { type: "movie", tmdbId };
+          canonical = movieResolved.canonical;
           title = entry.title ?? null;
         } else if (entry.type === "episode") {
           const raw = {
