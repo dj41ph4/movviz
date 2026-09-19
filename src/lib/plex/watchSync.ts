@@ -324,6 +324,9 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           const raw = {
             ratingKey: entry.ratingKey,
             type: "episode",
+            title: entry.title,
+            guid: entry.guid,
+            Guid: entry.Guid,
             grandparentTitle: entry.grandparentTitle,
             parentIndex: entry.season,
             index: entry.episode,
@@ -331,7 +334,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
             grandparentKey: entry.grandparentRatingKey ? `/library/metadata/${entry.grandparentRatingKey}` : undefined,
             accountID: entry.accountId,
           };
-          const resolved = await resolveEpisode(ctx, raw);
+          const resolved = await resolveEpisode(ctx, raw, { requireRatingKey: true });
           if (resolved.status !== "RESOLVED" || !resolved.canonical) {
             recordSearchLog("warn", "plex.watchSync", `plex.watchSync episode unresolved user=${user.username} ratingKey=${entry.ratingKey ?? "none"} show=${entry.grandparentTitle ?? "?"} S${entry.season ?? "?"}E${entry.episode ?? "?"} reason=${resolved.reason} sample=${JSON.stringify(resolved.sample ?? raw).slice(0,500)}`);
             continue;
@@ -359,11 +362,30 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           continue;
         }
         const rk = verifyKey;
-        // Targeted verification with the REAL ratingKey
-        const observed = await verifyWatchState(ctx, rk);
-        if (!observed) {
-          recordSearchLog("warn", "plex.watchSync", `plex.watchSync history-trigger verify failed user=${user.username} ratingKey=${rk}`);
-          continue;
+        // For shared/managed, viewCount is owner-only → history is the trigger itself.
+        // Never call verifyWatchState to decide WATCHED for those profiles.
+        let observed: import("./plexObservedState").PlexObservedState;
+        if (ctx.authSource !== "owner") {
+          if (entry.viewedAt == null || !Number.isFinite(entry.viewedAt) || entry.viewedAt <= 0) {
+            recordSearchLog("warn", "plex.watchSync", `plex.watchSync history without viewedAt user=${user.username} ratingKey=${rk} – skipping (no timestamp)`);
+            continue;
+          }
+          observed = {
+            userId: ctx.movvizUserId,
+            machineIdentifier: ctx.machineIdentifier,
+            ratingKey: rk,
+            state: "WATCHED",
+            viewCount: 1,
+            lastViewedAt: entry.viewedAt,
+            observedAt: Date.now(),
+          };
+        } else {
+          const v = await verifyWatchState(ctx, rk);
+          if (!v) {
+            recordSearchLog("warn", "plex.watchSync", `plex.watchSync history-trigger verify failed user=${user.username} ratingKey=${rk}`);
+            continue;
+          }
+          observed = v;
         }
         historyTriggered++;
 
@@ -441,9 +463,8 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       recordSearchLog("info", "plex.watchSync", `plex.watchSync history user=${user.username} entries=${historyRes.entries.length} triggered=${historyTriggered} reconciled=${historyReconciled}`);
     }
 
-    // 1b) Quick re-check of recent/known media (§5): catches manual Mark watched/unwatched
-    // within ~2 min without a full 5000-episode scan. One batched call, cheap.
-    if (shouldQuickVerify(user.id)) {
+    // 1b) Quick re-check (§5): batch viewCount is owner-only, so only for owner.
+    if (ctx.authSource === "owner" && shouldQuickVerify(user.id)) {
       try {
         const qr = await quickVerifyKnownMedia(user, ctx);
         if (qr.checked > 0) {
@@ -455,8 +476,8 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       }
     }
 
-    // 2) WatchStateObserver snapshot (§22-27) – the true WATCHED/UNWATCHED source
-    const doSnapshot = shouldSnapshot(user.id, opts?.forceSnapshot);
+    // 2) WatchStateObserver snapshot – owner only. Shared/managed have no reliable per-user viewCount.
+    const doSnapshot = ctx.authSource === "owner" && shouldSnapshot(user.id, opts?.forceSnapshot);
     if (doSnapshot) {
       const previousMap = getObservedStatesForUser(user.id, ctx.machineIdentifier);
       const snap = await snapshotWatchState(ctx);

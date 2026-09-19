@@ -28,6 +28,9 @@ type SnapshotResult =
 export async function snapshotWatchState(ctx: PlexUserContext, opts?: { forceSnapshot?: boolean }): Promise<SnapshotResult> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname) return { ok: false, reason: "plex_not_configured" };
+  if (ctx.authSource !== "owner") {
+    return { ok: false, reason: "unsupported_per_user_viewstate" };
+  }
 
   // 1) Discover all ratingKeys for movies + shows via adminToken (just IDs, not view state)
   // We use ctx.serverToken for view state, but need complete library listing.
@@ -237,6 +240,9 @@ export function diffSnapshots(previous: Map<string, PlexObservedState>, current:
  * Full user rescan (idempotent, per §27, §40-42) – builds validated snapshot, reconciles to canonical, replaces observed, rebuilds projections.
  */
 export async function fullRescanUser(ctx: PlexUserContext): Promise<{ ok: boolean; watchedCount: number; unwatchedCount: number; error?: string }> {
+  if (ctx.authSource !== "owner") {
+    return { ok: false, watchedCount: 0, unwatchedCount: 0, error: "unsupported_per_user_viewstate" };
+  }
   const previous = getObservedStatesForUser(ctx.movvizUserId, ctx.machineIdentifier);
   const snapshot = await snapshotWatchState(ctx);
   if (!snapshot.ok) return { ok: false, watchedCount: 0, unwatchedCount: 0, error: snapshot.reason };
