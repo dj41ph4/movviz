@@ -56,9 +56,14 @@ export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
   const now = Date.now();
 
   const seriesEpisodeCount = new Map<number, number>();
+  const seriesLatestAt = new Map<number, number>();
   if (type === "series") {
     for (const ep of episodes) {
       seriesEpisodeCount.set(ep.tmdbId, (seriesEpisodeCount.get(ep.tmdbId) ?? 0) + 1);
+      if (ep.at) {
+        const cur = seriesLatestAt.get(ep.tmdbId) ?? 0;
+        if (ep.at > cur) seriesLatestAt.set(ep.tmdbId, ep.at);
+      }
     }
   }
 
@@ -96,9 +101,10 @@ export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
       if (episodes >= 3) reasons.push("series_engagement");
       weight += engagement;
     }
-    // Canonical movies have no per-movie timestamp in JS fallback – use legacy movieWatchedAt when available, else DB watched_at would be needed.
-    // For episodes, recency is not applied here (series engagement already covers it).
-    const watchedAt = type === "movie" ? movieWatchedAt?.[String(tmdbId)] : undefined;
+    // Recency boost – films via movieWatchedAt, séries via latest episode at (§62, §86)
+    let watchedAt: number | undefined;
+    if (type === "movie") watchedAt = movieWatchedAt?.[String(tmdbId)];
+    else watchedAt = seriesLatestAt.get(tmdbId);
     if (watchedAt && now - watchedAt <= RECENT_WATCH_WINDOW_MS) {
       weight += 0.1;
       reasons.push("recent_watch");

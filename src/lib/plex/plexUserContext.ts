@@ -5,12 +5,21 @@ import { getPlexAccount, getPlexFriends, getPlexHomeUsers, getLocalAccounts, get
 import type { PlexServerConfig } from "./types";
 import { getUserById, updateUser } from "@/lib/auth/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { getBinding, upsertBinding, type BindingSource } from "./plexBindingStore";
 
 /**
  * Runtime context for ONE Movviz user against ONE Plex Media Server.
  * Centralises all identity/token resolution so callers never fallback to
  * adminToken silently (§6, §76).
  */
+
+// Distinct type brands (§5)
+export type MovvizUserId = string & { __brand: "MovvizUserId" };
+export type PlexCloudAccountId = string & { __brand: "PlexCloudAccountId" };
+export type PlexManagedUserId = string & { __brand: "PlexManagedUserId" };
+export type PlexLocalAccountId = number & { __brand: "PlexLocalAccountId" };
+export type PlexMachineIdentifier = string & { __brand: "PlexMachineIdentifier" };
+
 export type PlexUserContext = {
   movvizUserId: string;
   plexAccountId?: string; // cloud plex.tv id (plexId) if applicable
@@ -21,6 +30,8 @@ export type PlexUserContext = {
   serverToken: string;
   tokenFingerprint: string; // sha256(token).slice(0,8) for logs
   authSource: "owner" | "account" | "managed";
+  accountTokenSource: "OWNER" | "ACCOUNT" | "HOME_SWITCH";
+  bindingSource: BindingSource;
   resolvedAt: number;
   localAccountId: number; // PMS-local id (for /status/sessions/history/all accountID filter)
   localAccountName: string;
@@ -28,7 +39,7 @@ export type PlexUserContext = {
 
 type ResolveResult =
   | { ok: true; ctx: PlexUserContext }
-  | { ok: false; reason: string; code: "NOT_CONFIGURED" | "NO_PLEX_IDENTITY" | "IDENTITY_UNRESOLVED" | "TOKEN_FAILED" | "SERVER_ID_FAILED" | "LOCAL_ACCOUNT_MISSING" };
+  | { ok: false; reason: string; code: "NOT_CONFIGURED" | "NO_PLEX_IDENTITY" | "IDENTITY_UNRESOLVED" | "TOKEN_FAILED" | "SERVER_ID_FAILED" | "LOCAL_ACCOUNT_MISSING" | "AMBIGUOUS" | "ACCESS_DENIED" | "NO_SERVER_ACCESS" | "NOT_IN_HOME" | "NOT_IN_SHARED" | "NO_LOCAL_BINDING" | "NO_PERSONAL_TOKEN" };
 
 const g = globalThis as typeof globalThis & {
   __movvizPlexUserContextCache?: Map<string, { ctx: PlexUserContext; expiresAt: number }>;
@@ -103,6 +114,22 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
     return { ok: false, reason: "Failed to resolve machineIdentifier", code: "SERVER_ID_FAILED" };
   }
 
+  // Check existing binding first (§6)
+  const existingBinding = getBinding(user.id, machineIdentifier);
+  if (existingBinding) {
+    // Validate that binding's localAccount still exists and token still works
+    const localAccounts = await getLocalAccounts(cfg, cfg.adminToken);
+    const stillExists = localAccounts.find((a) => a.id === existingBinding.localAccountId);
+    if (stillExists) {
+      // Try to re-resolve serverToken quickly via cached plexServerToken or re-exchange
+      // For now, attempt to return cached context if plexServerToken still valid – we will re-validate token below via lightweight check
+      // Instead, we proceed to re-resolve token path that matches bindingSource, but reuse binding's localAccount
+      const ctx = await resolveViaBinding(user, cfg, machineIdentifier, existingBinding);
+      if (ctx.ok) return ctx;
+      // If binding-based resolve fails with TOKEN_FAILED, we fall through to full re-resolve (maybe token expired)
+    }
+  }
+
   // 1) Determine authSource and PMS token
   // Owner: adminToken is already PMS token
   if (isOwnerAccount(user, cfg) && cfg.adminToken) {
@@ -111,7 +138,6 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
     const match = ownerName
       ? localAccounts.find((a) => a.name.trim().localeCompare(ownerName.trim(), undefined, { sensitivity: "base" }) === 0)
       : undefined;
-    // Owner is conventionally id 1; if name match fails, fallback to 1 but log
     const local = match ?? localAccounts.find((a) => a.id === 1) ?? localAccounts[0];
     if (!local) {
       return { ok: false, reason: `${user.username}: no local account for owner`, code: "LOCAL_ACCOUNT_MISSING" };
@@ -125,33 +151,46 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       serverToken: cfg.adminToken,
       tokenFingerprint: fingerprintToken(cfg.adminToken),
       authSource: "owner",
+      accountTokenSource: "OWNER",
+      bindingSource: "OWNER_EXACT",
       resolvedAt: Date.now(),
       localAccountId: local.id,
       localAccountName: local.name,
     };
+    upsertBinding({
+      movvizUserId: user.id,
+      plexAccountId: user.plexId ?? undefined,
+      plexManagedUserId: user.plexManagedUserId ?? undefined,
+      machineIdentifier,
+      localAccountId: local.id,
+      localAccountName: local.name,
+      bindingSource: "OWNER_EXACT",
+      verifiedAt: Date.now(),
+      tokenFingerprint: ctx.tokenFingerprint,
+    });
     recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} plexAccountId=${user.plexId ?? "-"} binding=owner server=${machineIdentifier.slice(0,8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local.id} status=resolved`);
     return { ok: true, ctx };
   }
 
   // 2) Managed Home user: need switch -> accountToken -> serverToken
   if (user.plexManagedUserId) {
-    // Use cached plexServerToken if still valid for this machine?
-    // But we still need localAccountId. Verify token's server access still works.
     let serverToken = user.plexServerToken ?? null;
     let plexTitle: string | undefined;
-    // Resolve title for diagnostics
     const homeUsers = await getPlexHomeUsers(cfg.adminToken);
     const homeEntry = homeUsers.find((h) => h.id === user.plexManagedUserId);
     plexTitle = homeEntry?.title;
+    if (!homeEntry) {
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexManagedUserId=${user.plexManagedUserId} status=unresolved reason=not_in_home homeUsers=${homeUsers.length}`);
+      return { ok: false, reason: `${user.username} (managed ${user.plexManagedUserId}): not in Plex Home`, code: "NOT_IN_HOME" };
+    }
 
-    // Find local account by title (managed users appear by title in /accounts)
     const localAccounts = await getLocalAccounts(cfg, cfg.adminToken);
     const local = plexTitle
       ? localAccounts.find((a) => a.name.trim().localeCompare(plexTitle!.trim(), undefined, { sensitivity: "base" }) === 0)
       : undefined;
     if (!local) {
-      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexManagedUserId=${user.plexManagedUserId} title=${plexTitle ?? "-"} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0,8)}`);
-      return { ok: false, reason: `${user.username} (managed ${user.plexManagedUserId}): local account not found for title ${plexTitle ?? "?"}`, code: "LOCAL_ACCOUNT_MISSING" };
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexManagedUserId=${user.plexManagedUserId} title=${plexTitle ?? "-"} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0,8)} localAccounts=${localAccounts.map((a)=>a.name).join(",")}`);
+      return { ok: false, reason: `${user.username} (managed ${user.plexManagedUserId}): local account not found for title ${plexTitle ?? "?"}`, code: "NO_LOCAL_BINDING" };
     }
 
     if (!serverToken) {
@@ -163,11 +202,31 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       const st = await getPlexServerAccessToken(cfg.clientId, accountToken, machineIdentifier);
       if (!st) {
         recordSearchLog("warn", "plex.profileAuth", `${user.username}: Plex n'a pas fourni de jeton d'accès pour ce serveur — données Plex personnelles ignorées`);
-        return { ok: false, reason: `${user.username}: getPlexServerAccessToken failed for managed`, code: "TOKEN_FAILED" };
+        return { ok: false, reason: `${user.username}: getPlexServerAccessToken failed for managed (no server access)`, code: "NO_SERVER_ACCESS" };
       }
       serverToken = st;
       updateUser(user.id, { plexServerToken: serverToken });
     }
+    // Validate token with a lightweight call (e.g., server identity via that token) – best-effort
+    const tokenValid = await validatePlexServerToken(cfg, serverToken);
+    if (!tokenValid) {
+      // Invalidate and retry once (§8)
+      updateUser(user.id, { plexServerToken: null });
+      invalidatePlexUserContext(user.id);
+      const accountToken = await switchPlexHomeUser(cfg.clientId, cfg.adminToken, user.plexManagedUserId);
+      if (accountToken) {
+        const st2 = await getPlexServerAccessToken(cfg.clientId, accountToken, machineIdentifier);
+        if (st2) {
+          serverToken = st2;
+          updateUser(user.id, { plexServerToken: serverToken });
+        } else {
+          return { ok: false, reason: `${user.username}: re-exchange failed for managed`, code: "TOKEN_FAILED" };
+        }
+      } else {
+        return { ok: false, reason: `${user.username}: switch retry failed`, code: "TOKEN_FAILED" };
+      }
+    }
+
     const ctx: PlexUserContext = {
       movvizUserId: user.id,
       plexManagedUserId: user.plexManagedUserId,
@@ -177,10 +236,23 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       serverToken,
       tokenFingerprint: fingerprintToken(serverToken),
       authSource: "managed",
+      accountTokenSource: "HOME_SWITCH",
+      bindingSource: "HOME_EXACT",
       resolvedAt: Date.now(),
       localAccountId: local.id,
       localAccountName: local.name,
     };
+    upsertBinding({
+      movvizUserId: user.id,
+      plexManagedUserId: user.plexManagedUserId,
+      plexAccountId: user.plexId ?? undefined,
+      machineIdentifier,
+      localAccountId: local.id,
+      localAccountName: local.name,
+      bindingSource: "HOME_EXACT",
+      verifiedAt: Date.now(),
+      tokenFingerprint: ctx.tokenFingerprint,
+    });
     recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} plexManagedUserId=${user.plexManagedUserId} title=${plexTitle ?? "-"} binding=managed server=${machineIdentifier.slice(0,8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local.id} status=resolved`);
     return { ok: true, ctx };
   }
@@ -190,7 +262,10 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
     const friends = await getPlexFriends(cfg.clientId, cfg.adminToken);
     const friend = friends.find((f) => f.id === user.plexId);
     const plexUsername = friend?.username ?? null;
-    // If friend not in list but user has plexToken, try getPlexAccount as fallback
+    if (!friend) {
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=not_in_shared_users friends=${friends.length}`);
+      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): not in shared users`, code: "NOT_IN_SHARED" };
+    }
     let resolvedUsername = plexUsername;
     if (!resolvedUsername && user.plexToken) {
       const acc = await getPlexAccount(cfg.clientId, user.plexToken);
@@ -200,30 +275,42 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
     const local = resolvedUsername
       ? localAccounts.find((a) => a.name.trim().localeCompare(resolvedUsername!.trim(), undefined, { sensitivity: "base" }) === 0)
       : undefined;
-    // For external friends, local account name SHOULD match plexUsername; if not, we cannot safely map to local id -> fail closed
     if (!local) {
-      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} plexUsername=${resolvedUsername ?? "-"} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0,8)} friends=${friends.length}`);
-      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): local account not found for username ${resolvedUsername ?? "?"}`, code: "LOCAL_ACCOUNT_MISSING" };
+      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} plexUsername=${resolvedUsername ?? "-"} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0,8)} friends=${friends.length} localAccounts=${localAccounts.map((a)=>a.name).join(",")}`);
+      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): local account not found for username ${resolvedUsername ?? "?"}`, code: "NO_LOCAL_BINDING" };
     }
-    // Need serverToken – use cached if exists, else exchange via resources
     let serverToken = user.plexServerToken ?? null;
     if (!serverToken) {
       let accountToken = user.plexToken ?? null;
-      // If no personal token, we cannot get serverToken? But we can try to use adminToken to fetch friend's access? No – Plex resources endpoint requires accountToken.
-      // For friend accounts that never logged in via Movviz, we have no plexToken. This is known gap (§11).
-      // We will fail closed rather than fallback to admin token.
       if (!accountToken) {
-        recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=no_account_token_for_friend`);
-        return { ok: false, reason: `${user.username}: friend account ${user.plexId} has no plexToken to exchange for server token`, code: "TOKEN_FAILED" };
+        recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=no_personal_token_for_friend`);
+        return { ok: false, reason: `${user.username}: friend account ${user.plexId} has no plexToken to exchange for server token`, code: "NO_PERSONAL_TOKEN" };
       }
       const st = await getPlexServerAccessToken(cfg.clientId, accountToken, machineIdentifier);
       if (!st) {
         recordSearchLog("warn", "plex.profileAuth", `${user.username}: Plex n'a pas fourni de jeton d'accès pour ce serveur — données Plex personnelles ignorées`);
-        return { ok: false, reason: `${user.username}: getPlexServerAccessToken failed for friend`, code: "TOKEN_FAILED" };
+        return { ok: false, reason: `${user.username}: getPlexServerAccessToken failed for friend (no server access)`, code: "NO_SERVER_ACCESS" };
       }
       serverToken = st;
       updateUser(user.id, { plexServerToken: serverToken });
     }
+    const tokenValid = await validatePlexServerToken(cfg, serverToken);
+    if (!tokenValid) {
+      updateUser(user.id, { plexServerToken: null });
+      invalidatePlexUserContext(user.id);
+      if (user.plexToken) {
+        const st2 = await getPlexServerAccessToken(cfg.clientId, user.plexToken, machineIdentifier);
+        if (st2) {
+          serverToken = st2;
+          updateUser(user.id, { plexServerToken: serverToken });
+        } else {
+          return { ok: false, reason: `${user.username}: re-validate failed for friend`, code: "TOKEN_FAILED" };
+        }
+      } else {
+        return { ok: false, reason: `${user.username}: token invalid and no accountToken to re-exchange`, code: "TOKEN_FAILED" };
+      }
+    }
+
     const ctx: PlexUserContext = {
       movvizUserId: user.id,
       plexAccountId: user.plexId,
@@ -232,15 +319,127 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       serverToken,
       tokenFingerprint: fingerprintToken(serverToken),
       authSource: "account",
+      accountTokenSource: "ACCOUNT",
+      bindingSource: "ACCOUNT_EXACT",
       resolvedAt: Date.now(),
       localAccountId: local.id,
       localAccountName: local.name,
     };
+    upsertBinding({
+      movvizUserId: user.id,
+      plexAccountId: user.plexId,
+      machineIdentifier,
+      localAccountId: local.id,
+      localAccountName: local.name,
+      bindingSource: "ACCOUNT_EXACT",
+      verifiedAt: Date.now(),
+      tokenFingerprint: ctx.tokenFingerprint,
+    });
     recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} username=${resolvedUsername ?? "-"} binding=account server=${machineIdentifier.slice(0,8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local.id} status=resolved`);
     return { ok: true, ctx };
   }
 
   return { ok: false, reason: `${user.username}: no identity path`, code: "IDENTITY_UNRESOLVED" };
+}
+
+async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdentifier: string, binding: import("./plexBindingStore").PlexAccountBinding): Promise<ResolveResult> {
+  // Try to reconstruct context from binding + current user tokens
+  // We need serverToken – try cached plexServerToken first, then re-exchange if needed
+  let serverToken = user.plexServerToken ?? null;
+  if (isOwnerAccount(user, cfg) && cfg.adminToken) {
+    const ctx: PlexUserContext = {
+      movvizUserId: user.id,
+      plexAccountId: user.plexId ?? undefined,
+      plexManagedUserId: user.plexManagedUserId ?? undefined,
+      machineIdentifier,
+      serverToken: cfg.adminToken,
+      tokenFingerprint: fingerprintToken(cfg.adminToken),
+      authSource: "owner",
+      accountTokenSource: "OWNER",
+      bindingSource: binding.bindingSource,
+      resolvedAt: Date.now(),
+      localAccountId: binding.localAccountId,
+      localAccountName: binding.localAccountName,
+    };
+    return { ok: true, ctx };
+  }
+  if (user.plexManagedUserId) {
+    if (!serverToken) {
+      const accountToken = await switchPlexHomeUser(cfg.clientId, cfg.adminToken!, user.plexManagedUserId);
+      if (!accountToken) return { ok: false, reason: "switch failed via binding", code: "TOKEN_FAILED" };
+      const st = await getPlexServerAccessToken(cfg.clientId, accountToken, machineIdentifier);
+      if (!st) return { ok: false, reason: "no server access via binding", code: "NO_SERVER_ACCESS" };
+      serverToken = st;
+      updateUser(user.id, { plexServerToken: serverToken });
+    }
+    const valid = await validatePlexServerToken(cfg, serverToken);
+    if (!valid) {
+      updateUser(user.id, { plexServerToken: null });
+      return { ok: false, reason: "token invalid via binding", code: "TOKEN_FAILED" };
+    }
+    const ctx: PlexUserContext = {
+      movvizUserId: user.id,
+      plexManagedUserId: user.plexManagedUserId,
+      plexAccountId: user.plexId ?? undefined,
+      machineIdentifier,
+      serverToken,
+      tokenFingerprint: fingerprintToken(serverToken),
+      authSource: "managed",
+      accountTokenSource: "HOME_SWITCH",
+      bindingSource: binding.bindingSource,
+      resolvedAt: Date.now(),
+      localAccountId: binding.localAccountId,
+      localAccountName: binding.localAccountName,
+    };
+    return { ok: true, ctx };
+  }
+  if (user.plexId) {
+    if (!serverToken) {
+      if (!user.plexToken) return { ok: false, reason: "no personal token via binding", code: "NO_PERSONAL_TOKEN" };
+      const st = await getPlexServerAccessToken(cfg.clientId, user.plexToken, machineIdentifier);
+      if (!st) return { ok: false, reason: "no server access via binding", code: "NO_SERVER_ACCESS" };
+      serverToken = st;
+      updateUser(user.id, { plexServerToken: serverToken });
+    }
+    const valid = await validatePlexServerToken(cfg, serverToken);
+    if (!valid) {
+      updateUser(user.id, { plexServerToken: null });
+      return { ok: false, reason: "token invalid via binding", code: "TOKEN_FAILED" };
+    }
+    const ctx: PlexUserContext = {
+      movvizUserId: user.id,
+      plexAccountId: user.plexId,
+      machineIdentifier,
+      serverToken,
+      tokenFingerprint: fingerprintToken(serverToken),
+      authSource: "account",
+      accountTokenSource: "ACCOUNT",
+      bindingSource: binding.bindingSource,
+      resolvedAt: Date.now(),
+      localAccountId: binding.localAccountId,
+      localAccountName: binding.localAccountName,
+    };
+    return { ok: true, ctx };
+  }
+  return { ok: false, reason: "binding unusable", code: "IDENTITY_UNRESOLVED" };
+}
+
+async function validatePlexServerToken(cfg: PlexServerConfig, token: string): Promise<boolean> {
+  try {
+    // Lightweight validation: try to fetch library sections with this token – if 401/403, invalid
+    const { getLibrarySections } = await import("./client");
+    // We use a timeout-wrapped fetch inside getLibrarySections which returns [] on failure, but we need to distinguish 401 vs empty
+    // For now, we attempt a direct identity fetch with that token
+    const { safePlexUrl } = await import("./safeUrl");
+    const origin = safePlexUrl(cfg.hostname);
+    const base = origin ? `${origin}:${cfg.port}` : `${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`;
+    const res = await fetch(`${base}/identity`, { headers: { "x-plex-token": token, "x-plex-client-identifier": cfg.clientId }, cache: "no-store" });
+    if (res.status === 401 || res.status === 403) return false;
+    return res.ok;
+  } catch {
+    // Network error – assume token still potentially valid, don't invalidate aggressively
+    return true;
+  }
 }
 
 /** Invalidate cache for one user (on token change, machineId change, etc.) */
@@ -257,4 +456,43 @@ export function getCachedPlexUserContext(movvizUserId: string): PlexUserContext 
   const hit = ctxCache().get(movvizUserId);
   if (!hit || hit.expiresAt <= Date.now()) return null;
   return hit.ctx;
+}
+
+export async function diagnosePlexUser(movvizUserId: string): Promise<Record<string, unknown>> {
+  const user = getUserById(movvizUserId);
+  if (!user) return { movvizUserId, status: "USER_NOT_FOUND" };
+  const cfg = loadPlexConfig();
+  const base: Record<string, unknown> = {
+    movvizUserId: user.id,
+    username: user.username,
+    plexId: user.plexId,
+    plexManagedUserId: user.plexManagedUserId,
+    plexTokenPresent: !!user.plexToken,
+    plexServerTokenPresent: !!user.plexServerToken,
+    role: user.role,
+  };
+  if (!cfg.hostname || !cfg.adminToken) return { ...base, status: "NOT_CONFIGURED" };
+  const machineIdentifier = await ensureMachineIdentifier(cfg);
+  base.machineIdentifier = machineIdentifier;
+  const friends = await getPlexFriends(cfg.clientId, cfg.adminToken).catch(() => []);
+  const homeUsers = await getPlexHomeUsers(cfg.adminToken).catch(() => []);
+  const localAccounts = await getLocalAccounts(cfg, cfg.adminToken).catch(() => []);
+  base.plexFriendsCount = friends.length;
+  base.plexHomeUsersCount = homeUsers.length;
+  base.localAccounts = localAccounts.map((a) => ({ id: a.id, name: a.name }));
+  const friendMatch = user.plexId ? friends.find((f) => f.id === user.plexId) ?? null : null;
+  const homeMatch = user.plexManagedUserId ? homeUsers.find((h) => h.id === user.plexManagedUserId) ?? null : null;
+  base.friendMatch = friendMatch ? { id: friendMatch.id, username: friendMatch.username } : null;
+  base.homeMatch = homeMatch ? { id: homeMatch.id, title: homeMatch.title } : null;
+  const binding = machineIdentifier ? getBinding(user.id, machineIdentifier) : null;
+  base.existingBinding = binding ?? null;
+  const ctxRes = await resolvePlexUserContext(movvizUserId);
+  if (ctxRes.ok) {
+    base.resolveStatus = "RESOLVED";
+    base.ctx = { ...ctxRes.ctx, serverToken: undefined, tokenFingerprint: ctxRes.ctx.tokenFingerprint };
+  } else {
+    base.resolveStatus = ctxRes.code;
+    base.resolveReason = ctxRes.reason;
+  }
+  return base;
 }

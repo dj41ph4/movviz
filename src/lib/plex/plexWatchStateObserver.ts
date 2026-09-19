@@ -2,7 +2,7 @@ import { loadPlexConfig } from "./store";
 import { batchPlexViewState, getLibrarySections, getSectionRawItems } from "./client";
 import type { PlexUserContext } from "./plexUserContext";
 import type { PlexObservedState } from "./plexObservedState";
-import { getObservedStatesForUser, setObservedStates, getObservedState } from "./plexObservedState";
+import { getObservedStatesForUser, setObservedStates, getObservedState, replaceObservedStatesForUserServer } from "./plexObservedState";
 import { upsertMappings, resolveCanonical } from "./mediaIdentityMap";
 import type { CanonicalMediaIdentity } from "./mediaIdentityMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
@@ -84,24 +84,38 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
     return { ok: true, states: [], movieRatingKeys: [], showRatingKeys: showKeyList, episodeRatingKeys: [] };
   }
 
-  // Batch view state using USER token
-  const viewMap = await batchPlexViewState(cfg, ctx.serverToken, allRatingKeys);
+  // Batch view state using USER token – atomic per §25-28
+  let viewMap: Map<string, import("./client").PlexViewState>;
+  try {
+    viewMap = await batchPlexViewState(cfg, ctx.serverToken, allRatingKeys);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.startsWith("plex_auth_failed")) {
+      recordSearchLog("error", "plex.snapshot", `plex.snapshot auth failed user=${ctx.movvizUserId} ${msg}`);
+      return { ok: false, reason: `auth_failed:${msg}` };
+    }
+    if (msg.startsWith("plex_snapshot_partial")) {
+      recordSearchLog("warn", "plex.snapshot", `plex.snapshot partial user=${ctx.movvizUserId} ${msg} – snapshot invalid (§25)`);
+      return { ok: false, reason: msg };
+    }
+    recordSearchLog("warn", "plex.snapshot", `plex.snapshot batch error user=${ctx.movvizUserId} ${msg}`);
+    return { ok: false, reason: `batch_error:${msg}` };
+  }
   const now = Date.now();
   const states: PlexObservedState[] = [];
+  let missingCount = 0;
   for (const rk of allRatingKeys) {
     const vs = viewMap.get(rk);
     if (!vs) {
-      // No view state returned – treat as not watched? But §95: partial snapshot is invalid.
-      // If viewMap missing entry for a known ratingKey, we treat as UNWATCHED (conservative) but log.
-      // However if Plex omitted it due to error (batch failed for that chunk), viewMap would be empty for that chunk.
-      // We already handle batch failure by skipping chunk (continue) – that leaves missing entries.
-      // To be safe, if any batch failed, we should consider snapshot invalid? For now we mark missing as UNWATCHED but count.
+      // Missing view state for a ratingKey that was in current library listing.
+      // Per §23-25, absence of response is UNKNOWN, never UNWATCHED.
+      // Counting as UNKNOWN avoids interpreting a fetch gap as a watch transition.
+      missingCount++;
       states.push({
         userId: ctx.movvizUserId,
         machineIdentifier: ctx.machineIdentifier,
         ratingKey: rk,
-        state: "UNWATCHED",
-        viewCount: 0,
+        state: "UNKNOWN",
         observedAt: now,
       });
       continue;
@@ -186,26 +200,102 @@ export function diffSnapshots(previous: Map<string, PlexObservedState>, current:
   const previousWatched = new Set<string>();
   for (const [rk, st] of previous) if (st.state === "WATCHED") previousWatched.add(rk);
   const watchedNow = new Set<string>();
-  for (const st of current) if (st.state === "WATCHED") watchedNow.add(st.ratingKey);
+  const unwatchedNow = new Set<string>();
+  for (const st of current) {
+    if (st.state === "WATCHED") watchedNow.add(st.ratingKey);
+    else if (st.state === "UNWATCHED") unwatchedNow.add(st.ratingKey);
+    // UNKNOWN is ignored – not watched nor unwatched, prevents false UNWATCHED (§24)
+  }
 
   const newWatched: string[] = [];
   const newUnwatched: string[] = [];
   for (const rk of watchedNow) if (!previousWatched.has(rk)) newWatched.push(rk);
-  for (const rk of previousWatched) if (!watchedNow.has(rk)) newUnwatched.push(rk);
+  // Only count as newUnwatched if previous was WATCHED and current is explicitly UNWATCHED (not UNKNOWN/missing)
+  for (const rk of previousWatched) {
+    const cur = currentMap.get(rk);
+    if (cur?.state === "UNWATCHED") newUnwatched.push(rk);
+    // If cur is UNKNOWN or missing (MEDIA_MISSING), do not count as UNWATCHED (§30)
+  }
 
-  return { watchedNow, unwatchedNow: new Set([...currentMap.keys()].filter((k) => !watchedNow.has(k))), newWatched, newUnwatched };
+  return { watchedNow, unwatchedNow, newWatched, newUnwatched };
 }
 
 /**
- * Full user rescan (idempotent, per §27) – orchestrates snapshot + persistence.
+ * Full user rescan (idempotent, per §27, §40-42) – builds validated snapshot, reconciles to canonical, replaces observed, rebuilds projections.
  */
 export async function fullRescanUser(ctx: PlexUserContext): Promise<{ ok: boolean; watchedCount: number; unwatchedCount: number; error?: string }> {
   const previous = getObservedStatesForUser(ctx.movvizUserId, ctx.machineIdentifier);
   const snapshot = await snapshotWatchState(ctx);
   if (!snapshot.ok) return { ok: false, watchedCount: 0, unwatchedCount: 0, error: snapshot.reason };
-  // Atomic replace: only persist after complete snapshot (§95)
-  setObservedStates(snapshot.states);
   const diff = diffSnapshots(previous, snapshot.states);
-  recordSearchLog("info", "plex.snapshot", `plex.snapshot diff user=${ctx.movvizUserId} newWatched=${diff.newWatched.length} newUnwatched=${diff.newUnwatched.length} totalWatched=${diff.watchedNow.size}`);
+  // Reconcile each transition to canonical (§40) – makes full rescan actually converge watched state, not just observed
+  let reconciled = 0;
+  for (const rk of [...diff.newWatched, ...diff.newUnwatched]) {
+    const observed = snapshot.states.find((s) => s.ratingKey === rk);
+    if (!observed || observed.state === "UNKNOWN") continue;
+    // Resolve canonical via library store (best-effort)
+    let canonical: import("./mediaIdentityMap").CanonicalMediaIdentity | null = null;
+    if (snapshot.movieRatingKeys.includes(rk)) {
+      const tmdbMap = await batchTmdbIds(loadPlexConfig(), ctx.serverToken, [rk]);
+      const tmdbId = tmdbMap.get(rk)?.tmdbId;
+      if (tmdbId) canonical = { type: "movie", tmdbId };
+    } else if (snapshot.episodeRatingKeys.includes(rk)) {
+      const hit = (await import("@/lib/library/store")).findEpisodeByPlexRatingKey(rk);
+      if (hit) canonical = { type: "episode", tmdbShowId: hit.series.tmdbId, seasonNumber: hit.season.seasonNumber, episodeNumber: hit.episode.episodeNumber };
+    }
+    if (!canonical) continue;
+    const { getCurrentWatchState } = await import("@/lib/userContext/watchBridge");
+    const curState = getCurrentWatchState({
+      userId: ctx.movvizUserId,
+      tmdbId: canonical.type === "movie" ? canonical.tmdbId : canonical.tmdbShowId,
+      mediaType: canonical.type === "movie" ? "movie" : "episode",
+      seasonNumber: canonical.type === "episode" ? (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber : undefined,
+      episodeNumber: canonical.type === "episode" ? (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber : undefined,
+    });
+    const { withUserContextDb } = await import("@/lib/userContext/database");
+    const canonicalAt: number | null = withUserContextDb((db) => {
+      const key = canonical!.type === "movie" ? `${ctx.movvizUserId}:movie:${(canonical as { tmdbId: number }).tmdbId}` : `${ctx.movvizUserId}:episode:${(canonical as { tmdbShowId: number }).tmdbShowId}:${(canonical as { seasonNumber: number }).seasonNumber}:${(canonical as { episodeNumber: number }).episodeNumber}`;
+      const row = db.prepare("SELECT watched_updated_at FROM user_media_state WHERE state_key = ?").get(key) as { watched_updated_at: number | null } | undefined;
+      return row?.watched_updated_at ?? null;
+    }, null);
+    const { reconcile, applyReconcileDecision } = await import("./plexReconciler");
+    const res = reconcile({
+      userId: ctx.movvizUserId,
+      canonicalIdentity: canonical,
+      ratingKey: rk,
+      machineIdentifier: ctx.machineIdentifier,
+      currentCanonicalState: curState as "watched" | "unwatched" | "unknown",
+      currentCanonicalAt: canonicalAt,
+      previousPlexObserved: previous.get(rk) ?? null,
+      currentPlexObserved: observed,
+      isBaseline: !previous.has(rk),
+    });
+    if (res.shouldApply && res.newCanonicalState) {
+      const ok = applyReconcileDecision(
+        {
+          userId: ctx.movvizUserId,
+          canonicalIdentity: canonical,
+          ratingKey: rk,
+          machineIdentifier: ctx.machineIdentifier,
+          currentCanonicalState: curState as "watched" | "unwatched" | "unknown",
+          currentCanonicalAt: canonicalAt,
+          previousPlexObserved: previous.get(rk) ?? null,
+          currentPlexObserved: observed,
+          isBaseline: !previous.has(rk),
+        },
+        res,
+        null
+      );
+      if (ok) reconciled++;
+    }
+  }
+  // Atomic replace only after reconcile (§29)
+  replaceObservedStatesForUserServer(ctx.movvizUserId, ctx.machineIdentifier, snapshot.states);
+  recordSearchLog("info", "plex.snapshot", `plex.snapshot fullRescan user=${ctx.movvizUserId} newWatched=${diff.newWatched.length} newUnwatched=${diff.newUnwatched.length} reconciled=${reconciled} totalWatched=${diff.watchedNow.size}`);
+  // Refresh projections if any reconciled
+  if (reconciled > 0) {
+    const { refreshLegacyUserContext } = await import("@/lib/userContext/bootstrap");
+    refreshLegacyUserContext(ctx.movvizUserId, true);
+  }
   return { ok: true, watchedCount: diff.watchedNow.size, unwatchedCount: diff.unwatchedNow.size };
 }

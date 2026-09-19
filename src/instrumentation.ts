@@ -6,6 +6,15 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Phase 0 gate – prouver quel build tourne (§2)
+    try {
+      const { startupLogLine } = await import("@/lib/system");
+      const line = startupLogLine();
+      console.log(line);
+      const { recordSearchLog } = await import("@/lib/diagnostic/searchLog");
+      recordSearchLog("info", "movviz.startup", line);
+    } catch { /* best-effort */ }
+
     const { startEventLoopMonitor } = await import("@/lib/eventLoopMonitor");
     startEventLoopMonitor();
 

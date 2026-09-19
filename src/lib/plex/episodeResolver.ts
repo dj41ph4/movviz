@@ -19,7 +19,17 @@ export type EpisodeResolveReason =
   | "UNRESOLVED_TMDB_MAPPING_FAILED"
   | "UNRESOLVED_AMBIGUOUS_MATCH"
   | "UNRESOLVED_INVALID_TYPE"
-  | "UNRESOLVED_ACCOUNT_MISMATCH";
+  | "UNRESOLVED_ACCOUNT_MISMATCH"
+  | "MISSING_ALL_IDENTIFIERS"
+  | "MISSING_SHOW_TITLE"
+  | "MISSING_SEASON"
+  | "MISSING_EPISODE"
+  | "AMBIGUOUS_SHOW"
+  | "SHOW_NOT_FOUND"
+  | "EPISODE_NOT_FOUND"
+  | "ACCOUNT_MISMATCH"
+  | "GUID_UNRESOLVED"
+  | "RATINGKEY_UNRESOLVED";
 
 export type EpisodeResolveResult = {
   status: "RESOLVED" | "UNRESOLVED";
@@ -61,57 +71,59 @@ export async function resolveEpisode(
 ): Promise<EpisodeResolveResult> {
   const cfg = loadPlexConfig();
 
-  // Basic validation – structured reasons instead of generic "malformed"
-  if (!raw.ratingKey && !raw.key) {
-    return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_RATING_KEY", sample: raw as Record<string, unknown> };
-  }
   if (raw.type && raw.type !== "episode") {
     return { status: "UNRESOLVED", reason: "UNRESOLVED_INVALID_TYPE", sample: raw as Record<string, unknown> };
   }
   const ratingKey = raw.ratingKey ?? raw.key?.split("/").pop() ?? "";
-  if (!ratingKey) {
-    return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_RATING_KEY", sample: raw as Record<string, unknown> };
-  }
 
-  // 1) ratingKey direct – try to resolve via existing library mapping (fast path)
-  // If Movviz library already knows this episode's ratingKey -> canonical via store
-  const existing = findEpisodeByPlexRatingKeyCached(ratingKey);
-  if (existing) {
-    return {
-      status: "RESOLVED",
-      canonical: { type: "episode", tmdbShowId: existing.tmdbId, seasonNumber: existing.season, episodeNumber: existing.episode },
-      ratingKey,
-      reason: "RESOLVED_RATING_KEY",
-    };
-  }
-
-  // 2) GUID direct – batchTmdbIds will resolve via GUID if we fetch metadata
-  // We try metadata fetch for this single ratingKey with user token
-  try {
-    const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [ratingKey]);
-    const info = tmdbMap.get(ratingKey);
-    if (info?.tmdbId) {
-      // Need season/episode coordinates – they are in raw.parentIndex/index
-      if (raw.parentIndex != null && raw.index != null) {
-        // We still need show tmdbId – batchTmdbIds for episodes returns null tmdbId (episode items are not shows)
-        // So GUID path for episodes is not tmdb show – need grandparent.
-        // Fall through to SxxExx instead.
-      }
+  // 1) ratingKey direct – try to resolve via existing library mapping (fast path) if present
+  if (ratingKey) {
+    const existing = findEpisodeByPlexRatingKeyCached(ratingKey);
+    if (existing) {
+      return {
+        status: "RESOLVED",
+        canonical: { type: "episode", tmdbShowId: existing.tmdbId, seasonNumber: existing.season, episodeNumber: existing.episode },
+        ratingKey,
+        reason: "RESOLVED_RATING_KEY",
+      };
     }
-  } catch {
-    // ignore
+  } else {
+    // No ratingKey – continue to SxxExx path if we have show+season+episode
+    if (!raw.grandparentTitle && !raw.grandparentRatingKey && !raw.grandparentKey) {
+      return { status: "UNRESOLVED", reason: "MISSING_ALL_IDENTIFIERS", sample: raw as Record<string, unknown> };
+    }
   }
 
-  // 3) SxxExx exact match (§35) – needs grandparentTitle + parentIndex + index
+  // 2) GUID direct – batchTmdbIds will resolve via GUID if we fetch metadata (only if ratingKey present)
+  if (ratingKey) {
+    try {
+      const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [ratingKey]);
+      const info = tmdbMap.get(ratingKey);
+      if (info?.tmdbId) {
+        if (raw.parentIndex != null && raw.index != null) {
+          // Fall through to SxxExx – episode GUID path needs show
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3) Movviz library exact title check first (Level 4 §17) – before Plex scan
+  if (raw.grandparentTitle && raw.parentIndex != null && raw.index != null) {
+    const movvizResolved = resolveViaMovvizLibrary(raw.grandparentTitle, raw.parentIndex, raw.index, ratingKey);
+    if (movvizResolved) return movvizResolved;
+  }
+  // 3b) SxxExx exact match via Plex library (§35) – needs grandparentTitle + parentIndex + index
   if (raw.grandparentTitle && raw.parentIndex != null && raw.index != null) {
     const sxxexx = await resolveViaShowLookup(ctx, raw.grandparentTitle, raw.parentIndex, raw.index, ratingKey);
     if (sxxexx.status === "RESOLVED") return sxxexx;
-    if (sxxexx.reason === "UNRESOLVED_AMBIGUOUS_MATCH") return sxxexx; // don't fallback if ambiguous
+    if (sxxexx.reason === "UNRESOLVED_AMBIGUOUS_MATCH" || sxxexx.reason === "AMBIGUOUS_SHOW") return { ...sxxexx, reason: "AMBIGUOUS_SHOW" as EpisodeResolveReason };
     // else continue to other fallbacks
   } else {
-    if (!raw.grandparentTitle) return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_SHOW_TITLE", sample: raw as Record<string, unknown> };
-    if (raw.parentIndex == null) return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_SEASON_INDEX", sample: raw as Record<string, unknown> };
-    if (raw.index == null) return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_EPISODE_INDEX", sample: raw as Record<string, unknown> };
+    if (!raw.grandparentTitle) return { status: "UNRESOLVED", reason: "MISSING_SHOW_TITLE", sample: raw as Record<string, unknown> };
+    if (raw.parentIndex == null) return { status: "UNRESOLVED", reason: "MISSING_SEASON", sample: raw as Record<string, unknown> };
+    if (raw.index == null) return { status: "UNRESOLVED", reason: "MISSING_EPISODE", sample: raw as Record<string, unknown> };
   }
 
   // 4) TMDB mapping cache via show ratingKey
@@ -135,6 +147,30 @@ export async function resolveEpisode(
 
   // 5) Exhausted
   return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND", sample: raw as Record<string, unknown> };
+}
+
+function resolveViaMovvizLibrary(showTitle: string, season: number, episode: number, ratingKey: string): EpisodeResolveResult | null {
+  try {
+    const { loadSeries } = require("@/lib/library/store") as typeof import("@/lib/library/store");
+    const seriesList = loadSeries() as Array<{ tmdbId: number; title: string; seasons: Array<{ seasonNumber: number; episodes: Array<{ episodeNumber: number }> }> }>;
+    const candidates = seriesList.filter((s) => s.title.trim().localeCompare(showTitle.trim(), undefined, { sensitivity: "base" }) === 0);
+    if (candidates.length === 0) return null;
+    if (candidates.length > 1) return { status: "UNRESOLVED", reason: "AMBIGUOUS_SHOW", sample: { showTitle, candidates: candidates.map((c) => c.title).slice(0, 3) } };
+    const show = candidates[0];
+    const seasonObj = show.seasons.find((s) => s.seasonNumber === season);
+    if (!seasonObj) return { status: "UNRESOLVED", reason: "EPISODE_NOT_FOUND", sample: { showTitle, season, episode } };
+    const ep = seasonObj.episodes.find((e) => e.episodeNumber === episode);
+    if (!ep) return { status: "UNRESOLVED", reason: "EPISODE_NOT_FOUND", sample: { showTitle, season, episode } };
+    // For Euphoria S01E01 style, this is enough to resolve
+    return {
+      status: "RESOLVED",
+      canonical: { type: "episode", tmdbShowId: show.tmdbId, seasonNumber: season, episodeNumber: episode },
+      ratingKey: ratingKey || undefined,
+      reason: "RESOLVED_LIBRARY_LOOKUP",
+    };
+  } catch {
+    return null;
+  }
 }
 
 function findEpisodeByPlexRatingKeyCached(ratingKey: string): { tmdbId: number; season: number; episode: number } | null {
@@ -182,8 +218,8 @@ async function resolveViaShowLookup(
   const match = eps.find((e) => e.seasonNumber === season && e.episodeNumber === episode);
   if (!match) return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND", sample: { showTitle, season, episode } };
 
-  // Upsert mapping for future fast path
-  upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey, canonical: { type: "episode", tmdbShowId, seasonNumber: season, episodeNumber: episode }, updatedAt: Date.now() });
+  // Upsert mapping for future fast path (only if we have a concrete ratingKey)
+  if (ratingKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey, canonical: { type: "episode", tmdbShowId, seasonNumber: season, episodeNumber: episode }, updatedAt: Date.now() });
 
   return {
     status: "RESOLVED",

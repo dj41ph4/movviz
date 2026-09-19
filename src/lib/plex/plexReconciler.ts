@@ -57,9 +57,18 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
     }
     return { decision: "UNCHANGED", shouldApply: false, reason: "no_observation" };
   }
+  if (currentPlexObserved.state === "UNKNOWN") {
+    return { decision: "STALE_OBSERVATION", shouldApply: false, reason: "unknown_observation" };
+  }
 
   const curState = currentPlexObserved.state === "WATCHED" ? "watched" : "unwatched";
-  const prevState = previousPlexObserved ? (previousPlexObserved.state === "WATCHED" ? "watched" : "unwatched") : null;
+  const prevState = previousPlexObserved
+    ? previousPlexObserved.state === "UNKNOWN"
+      ? null
+      : previousPlexObserved.state === "WATCHED"
+        ? "watched"
+        : "unwatched"
+    : null;
 
   // Baseline handling (§26): first time we see this ratingKey for this user.
   // We record the observation but don't force canonical to follow if canonical already has a watched state that predates baseline.

@@ -9,12 +9,35 @@ import { refreshPlexAvatar } from "./avatarSync";
 import { resolvePlexUserContext } from "./plexUserContext";
 import { pollHistory } from "./plexHistoryObserver";
 import { snapshotWatchState, verifyWatchState, diffSnapshots } from "./plexWatchStateObserver";
-import { getObservedStatesForUser, setObservedStates, getObservedState, upsertObservedState } from "./plexObservedState";
+import { getObservedStatesForUser, setObservedStates, getObservedState, upsertObservedState, replaceObservedStatesForUserServer } from "./plexObservedState";
 import { reconcile, applyReconcileDecision } from "./plexReconciler";
 import { resolveEpisode } from "./episodeResolver";
 import { isCircuitOpen, recordCircuitFailure, recordCircuitSuccess } from "./plexCircuitBreaker";
 import { getSeriesByTmdbId, getMovieByTmdbId, findEpisodeByPlexRatingKey } from "@/lib/library/store";
 import { withKeyLock } from "@/lib/library/locks";
+import { getUserMediaSyncStates, updateUserMediaSyncState } from "@/lib/userContext/syncState";
+import { mediaStateKey } from "@/lib/userContext/reconcile";
+
+function getPendingIntentForMedia(
+  userId: string,
+  canonical: import("./mediaIdentityMap").CanonicalMediaIdentity,
+  currentCanonicalState: "watched" | "unwatched" | "unknown",
+  currentCanonicalAt: number | null
+): { desiredState: "watched" | "unwatched"; revision: number; sourceEventId: string } | null {
+  if (currentCanonicalState === "unknown") return null;
+  const stateKey =
+    canonical.type === "movie"
+      ? mediaStateKey(userId, "movie", canonical.tmdbId)
+      : mediaStateKey(userId, "episode", (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber);
+  const entry = getUserMediaSyncStates(userId).find((e) => e.stateKey === stateKey && e.field === "watched" && e.target === "plex" && (e.capability === "PENDING" || e.capability === "ERROR"));
+  if (!entry) return null;
+  // Superseded check (§34): if canonical has moved beyond pending's updatedAt, pending is stale
+  if (currentCanonicalAt != null && entry.updatedAt < currentCanonicalAt) {
+    // Pending is for an older revision – treat as superseded, don't use for ACK
+    return null;
+  }
+  return { desiredState: currentCanonicalState as "watched" | "unwatched", revision: entry.updatedAt, sourceEventId: entry.stateKey };
+}
 
 // Per-user sync lock (§94)
 const gLock = globalThis as typeof globalThis & { __movvizPlexSyncLocks?: Map<string, boolean> };
@@ -169,6 +192,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         }, null);
 
         const isBaseline = !previous;
+        const pendingIntent = getPendingIntentForMedia(user.id, canonical, currentCanonicalState as "watched" | "unwatched" | "unknown", canonicalAt);
         const result = reconcile({
           userId: user.id,
           canonicalIdentity: canonical,
@@ -178,10 +202,19 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           currentCanonicalAt: canonicalAt,
           previousPlexObserved: previous,
           currentPlexObserved: observed,
+          pendingIntent,
           isBaseline,
         });
 
-        if (result.shouldApply && result.newCanonicalState) {
+        if (result.decision === "ACK_LOCAL_WRITE" && pendingIntent) {
+          const stateKey =
+            canonical.type === "movie"
+              ? mediaStateKey(user.id, "movie", canonical.tmdbId)
+              : mediaStateKey(user.id, "episode", (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber);
+          updateUserMediaSyncState({ userId: user.id, stateKey, field: "watched", target: "plex", capability: "SYNCED", ackAt: Date.now(), error: null });
+          recordSearchLog("info", "plex.outbox", `plex.outbox ACK user=${user.username} ratingKey=${rk} rev=${pendingIntent.revision} → SYNCED`);
+          upsertObservedState(observed);
+        } else if (result.shouldApply && result.newCanonicalState) {
           const ok = applyReconcileDecision(
             {
               userId: user.id,
@@ -192,6 +225,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
               currentCanonicalAt: canonicalAt,
               previousPlexObserved: previous,
               currentPlexObserved: observed,
+              pendingIntent,
               isBaseline,
             },
             result,
@@ -282,6 +316,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           }, null);
 
           const isBaseline = !previous;
+          const pendingIntent = getPendingIntentForMedia(user.id, canonical, currentCanonicalState as "watched" | "unwatched" | "unknown", canonicalAt);
           const result = reconcile({
             userId: user.id,
             canonicalIdentity: canonical,
@@ -291,10 +326,18 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
             currentCanonicalAt: canonicalAt,
             previousPlexObserved: previous,
             currentPlexObserved: observed,
+            pendingIntent,
             isBaseline,
           });
 
-          if (result.shouldApply && result.newCanonicalState) {
+          if (result.decision === "ACK_LOCAL_WRITE" && pendingIntent) {
+            const stateKey =
+              canonical.type === "movie"
+                ? mediaStateKey(user.id, "movie", canonical.tmdbId)
+                : mediaStateKey(user.id, "episode", (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber);
+            updateUserMediaSyncState({ userId: user.id, stateKey, field: "watched", target: "plex", capability: "SYNCED", ackAt: Date.now(), error: null });
+            recordSearchLog("info", "plex.outbox", `plex.outbox ACK snapshot user=${user.username} ratingKey=${rk} rev=${pendingIntent.revision} → SYNCED`);
+          } else if (result.shouldApply && result.newCanonicalState) {
             const ok = applyReconcileDecision(
               {
                 userId: user.id,
@@ -305,6 +348,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
                 currentCanonicalAt: canonicalAt,
                 previousPlexObserved: previous,
                 currentPlexObserved: observed,
+                pendingIntent,
                 isBaseline,
               },
               result,
@@ -320,9 +364,8 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           }
         }
 
-        // Atomic persistence (§95) – only after full diff processed
-        // Build new map: keep all snap states, but we already reconciled. Persist.
-        setObservedStates(snap.states);
+        // Atomic persistence (§29, §95) – replace observed snapshot atomically
+        replaceObservedStatesForUserServer(user.id, ctx.machineIdentifier, snap.states);
         lastSnapshotMap().set(user.id, Date.now());
         recordSearchLog(
           "info",

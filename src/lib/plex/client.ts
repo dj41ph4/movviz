@@ -1334,6 +1334,7 @@ export async function batchPlexViewState(
 ): Promise<Map<string, PlexViewState>> {
   const result = new Map<string, PlexViewState>();
   const chunkSize = 50;
+  let failedChunks = 0;
   for (let i = 0; i < ratingKeys.length; i += chunkSize) {
     const chunk = ratingKeys.slice(i, i + chunkSize);
     try {
@@ -1341,7 +1342,11 @@ export async function batchPlexViewState(
         headers: serverHeaders(cfg, userToken),
         cache: "no-store",
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) throw new Error(`plex_auth_failed:${res.status}`);
+        failedChunks++;
+        continue;
+      }
       const data = await res.json();
       const raw: Array<{
         ratingKey: string;
@@ -1365,9 +1370,14 @@ export async function batchPlexViewState(
           Guid: item.Guid,
         });
       }
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("plex_auth_failed")) throw e;
+      failedChunks++;
       continue;
     }
+  }
+  if (failedChunks > 0 && result.size < ratingKeys.length) {
+    throw new Error(`plex_snapshot_partial: failedChunks=${failedChunks} expected=${ratingKeys.length} got=${result.size}`);
   }
   return result;
 }

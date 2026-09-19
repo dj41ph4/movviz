@@ -9,11 +9,12 @@ const CONFIG_DIR =
 
 const FILE = path.join(CONFIG_DIR, "plex-observed-state.json");
 
+export type ObservedWatchState = "WATCHED" | "UNWATCHED" | "UNKNOWN";
 export type PlexObservedState = {
   userId: string;
   machineIdentifier: string;
   ratingKey: string;
-  state: "WATCHED" | "UNWATCHED";
+  state: ObservedWatchState;
   viewCount?: number;
   lastViewedAt?: number; // epoch ms
   viewOffset?: number;
@@ -79,6 +80,22 @@ export function getAllObservedStates(): PlexObservedState[] {
 export function setObservedStates(states: PlexObservedState[]): void {
   const map = mem();
   for (const s of states) map.set(keyOf(s), s);
+  persist();
+}
+
+export function replaceObservedStatesForUserServer(userId: string, machineIdentifier: string, states: PlexObservedState[]): void {
+  const map = mem();
+  // Atomic replace per §29: delete old entries for this user/server, then insert new snapshot
+  const toDelete: string[] = [];
+  for (const [k, v] of map) {
+    if (v.userId === userId && v.machineIdentifier === machineIdentifier) toDelete.push(k);
+  }
+  for (const k of toDelete) map.delete(k);
+  for (const s of states) {
+    // Ensure state belongs to this user/server (defensive)
+    if (s.userId !== userId || s.machineIdentifier !== machineIdentifier) continue;
+    map.set(keyOf(s), s);
+  }
   persist();
 }
 
