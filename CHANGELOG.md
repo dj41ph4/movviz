@@ -1,3 +1,12 @@
+## v1.25.30 — September 2026
+
+### Plex → Movviz : chaîne history corrigée, plus de `viewCount` owner pour les profils partagés
+
+- Contradiction corrigée : `viewCount`/`batchPlexViewState` donnait l'état de l'owner même avec le token d'un autre user. Pour `shared`/`managed`, `snapshotWatchState`/`quickVerify`/`fullRescan` sont désormais désactivés (`unsupported_per_user_viewstate`) — plus d'import `WATCHED/UNWATCHED` depuis l'état owner.
+- `PlexHistoryEntry.ratingKey` optionnel : `getAccountHistory()` garde les films/épisodes dès `title`/`grandparentTitle+parentIndex+index` (Guid transmis), `watchSync` passe en **resolve-first** (épisodes : `resolveEpisode(requireRatingKey:true)` → vrai `episode.ratingKey` via `allLeaves`, films : `resolveMovie` par titre exact Plex/Movviz + levée d'ambiguïté `Guid tmdb://`). Plus de `no verifyKey` / `movie without ratingKey`.
+- `resolveEpisode` : nouveau `requireRatingKey` (history→verify refuse `RESOLVED` sans vraie clé), fast-path `grandparentRatingKey → getShowEpisodesAtomic` direct, fallback titre exact `Dragon Ball Z Kaï` avec log `exactTitleMatches`, TMDB-id `findPlexShowByTmdbId` quand titres divergent, `getSectionRawItemsAtomic` atomique. Taux de rejets mal formés au plus bas, chaque rejet a une vraie raison.
+- History filtré par `accountID` reste le trigger `WATCHED` pour `shared`/`managed` : `verifyWatchState` n'est plus appelé, une observation `WATCHED` directe est créée depuis `viewedAt`; `absence history` reste `UNKNOWN`, jamais `UNWATCHED`.
+
 ## v1.25.29 — September 2026
 
 ### Plex partagé et épisodes/films sans ratingKey — fin des `NOT_IN_SHARED` fantômes
