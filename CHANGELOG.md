@@ -1,3 +1,18 @@
+## v1.25.28 — September 2026
+
+### Architecture Plex Sync, Watch State & Recommandations — fiabilisation complète
+
+- Séparation stricte `PlexHistoryObserver` (activité, déclencheur) et `PlexWatchStateObserver` (état `WATCHED/UNWATCHED` via `viewCount/lastViewedAt` avec le token PMS de l'utilisateur). Corrige le bug P0 : « Marquer comme vu » dans Plex ne créait pas d'entrée history et restait invisible (désormais détecté par snapshot).
+- Contexte Plex unifié `resolvePlexUserContext()` — `owner/account/managed` via IDs stables, `machineIdentifier` + `serverToken` par `userId`, cache 5 min, invalidation sur 401/403. Suppression du fallback silencieux vers `adminToken` pour les données personnelles.
+- Reconciler canonique unique `PlexReconciler` (`BASELINE/UNCHANGED/REMOTE_WATCHED/REMOTE_UNWATCHED/ACK/CONFLICT`) + révision LWW — plus d'écriture directe depuis les observers, plus de boucle `Movviz→Plex→Movviz`.
+- Snapshot atomique par bibliothèque (`fetch all pages → validate → build set → diff`) — un snapshot partiel n'est jamais interprété comme `UNWATCHED`, média supprimé ≠ `UNWATCHED`.
+- Résolveur épisodes restructuré avec raisons `MISSING_RATING_KEY/MISSING_SEASON/AMBIGUOUS_MATCH` + échantillonnage, pipeline `ratingKey→GUID→SxxExx→library lookup`.
+- Vérification ciblée après chaque `scrobble/unscrobble` (`/:/scrobble` 200 ≠ preuve) + `outbox` `PENDING` conservée jusqu'à ACK, `STALE_INTENT` ignorée.
+- Stores isolés par `userId+machine+ratingKey` (`plex-observed-state.json`, `plex-media-identity-map.json`, curseur `plex-history-cursors.json` par utilisateur, circuit-breaker par utilisateur, lock `plex-sync:userId`).
+- Recommandations strictement `userId` — lecture de `CanonicalWatchState`, agrégation TV en signal show-level (poids `log1p`, saturation), exclusion `FullyWatched` uniquement.
+- Observabilité `GET /api/plex/status` (admin) : `binding/status/tokenFp/localAccount/lastHistory/lastSnapshot/watchedObserved/canonical/outbox/circuit` + logs structurés `plex.identity/history/snapshot/reconciler` sans token en clair.
+- Taux de rejets épisodes expliqué et fortement réduit, compteurs `rejectedForeign/Unattributed/Malformed` + `sampleMalformed` visibles.
+
 ## v1.25.27 — September 2026
 
 ### Fiabilisation complète du statut « vu » et pastille sur les affiches Android

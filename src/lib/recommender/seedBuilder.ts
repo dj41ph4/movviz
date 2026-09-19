@@ -1,4 +1,5 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
+import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 import { getAllRatings } from "@/lib/ai/tasteProfile";
 import { getFeedback } from "@/lib/ai/tasteProfile";
 
@@ -31,8 +32,15 @@ const MAX_SEEDS = 20;
  * indépendamment de cette fonction).
  */
 export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
-  const status = getWatchStatus(userId);
-  if (!status) return [];
+  const canonical = getCanonicalWatchStatus(userId);
+  const legacy = getWatchStatus(userId);
+  // Canonical is source of truth (§69) – JSON fallback only when engine unavailable
+  const movies = canonical ? canonical.movies : (legacy?.movies ?? []);
+  const episodes = canonical ? canonical.episodes : (legacy?.episodes ?? []);
+  const movieWatchedAt: Record<string, number> | undefined = legacy?.movieWatchedAt;
+  const hasAny = movies.length > 0 || episodes.length > 0;
+  if (!hasAny && !legacy) return [];
+  if (!hasAny && legacy && movies.length === 0 && episodes.length === 0) return [];
 
   const ratings = new Map(
     getAllRatings(userId)
@@ -49,13 +57,13 @@ export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
 
   const seriesEpisodeCount = new Map<number, number>();
   if (type === "series") {
-    for (const ep of status.episodes ?? []) {
+    for (const ep of episodes) {
       seriesEpisodeCount.set(ep.tmdbId, (seriesEpisodeCount.get(ep.tmdbId) ?? 0) + 1);
     }
   }
 
   const watchedIds: number[] =
-    type === "movie" ? (status.movies ?? []) : [...seriesEpisodeCount.keys()];
+    type === "movie" ? movies : [...seriesEpisodeCount.keys()];
 
   const seeds: Seed[] = [];
   for (const tmdbId of watchedIds) {
@@ -88,7 +96,9 @@ export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
       if (episodes >= 3) reasons.push("series_engagement");
       weight += engagement;
     }
-    const watchedAt = type === "movie" ? status.movieWatchedAt?.[String(tmdbId)] : undefined;
+    // Canonical movies have no per-movie timestamp in JS fallback – use legacy movieWatchedAt when available, else DB watched_at would be needed.
+    // For episodes, recency is not applied here (series engagement already covers it).
+    const watchedAt = type === "movie" ? movieWatchedAt?.[String(tmdbId)] : undefined;
     if (watchedAt && now - watchedAt <= RECENT_WATCH_WINDOW_MS) {
       weight += 0.1;
       reasons.push("recent_watch");

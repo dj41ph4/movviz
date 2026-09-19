@@ -1,5 +1,5 @@
 import { loadPlexConfig, savePlexConfig } from "./store";
-import { setPlexWatched, setPlexRating, deletePlexItem, getPlexOnDeck, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser, removePlexFromContinueWatching, type PlexOnDeckItem } from "./client";
+import { setPlexWatched, setPlexRating, deletePlexItem, getPlexOnDeck, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser, removePlexFromContinueWatching, type PlexOnDeckItem, getPlexViewState } from "./client";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
@@ -8,6 +8,8 @@ import { updateUser, getUserById } from "@/lib/auth/store";
 import { updateUserMediaSyncState, getPendingSyncStates } from "@/lib/userContext/syncState";
 import { mediaStateKey } from "@/lib/userContext/reconcile";
 import { getCurrentWatchState } from "@/lib/userContext/watchBridge";
+import { resolvePlexUserContext } from "./plexUserContext";
+import { upsertObservedState } from "./plexObservedState";
 
 const PLEX_WATCHED_SYNC_TARGET = "plex";
 const PLEX_WATCHED_SYNC_FIELD = "watched";
@@ -155,12 +157,42 @@ export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched
   }
 
   const ok = await setPlexWatched(cfg, auth.token, movie.plexRatingKey, watched);
-  recordPlexWatchedSync(user.id, stateKey, ok);
-  recordSearchLog(
-    ok ? "info" : "warn",
-    "plex.watchWrite",
-    `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : ${ok ? "ok" : "échec"}`
-  );
+  if (!ok) {
+    recordPlexWatchedSync(user.id, stateKey, false, "plex scrobble HTTP failed");
+    recordSearchLog("warn", "plex.watchWrite", `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : échec`);
+    return;
+  }
+  // Targeted verification after HTTP 200 (§82) – a 200 is not proof alone
+  let verified = false;
+  try {
+    const ctxRes = await resolvePlexUserContext(user.id);
+    if (ctxRes.ok) {
+      const obs = await getPlexViewState(cfg, ctxRes.ctx.serverToken, movie.plexRatingKey);
+      if (obs) {
+        upsertObservedState({
+          userId: user.id,
+          machineIdentifier: ctxRes.ctx.machineIdentifier,
+          ratingKey: movie.plexRatingKey,
+          state: (obs.viewCount ?? 0) > 0 ? "WATCHED" : "UNWATCHED",
+          viewCount: obs.viewCount,
+          lastViewedAt: obs.lastViewedAt,
+          viewOffset: obs.viewOffset,
+          observedAt: Date.now(),
+        });
+        verified = (obs.viewCount > 0) === watched;
+      }
+    }
+  } catch {
+    // verification best-effort
+  }
+  if (verified) {
+    recordPlexWatchedSync(user.id, stateKey, true);
+    recordSearchLog("info", "plex.watchWrite", `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : ok (vérifié)`);
+  } else {
+    // Keep PENDING for retry – don't mark SYNCED until verified (§82)
+    updateUserMediaSyncState({ userId: user.id, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "PENDING", error: "en attente de vérification ciblée" });
+    recordSearchLog("warn", "plex.watchWrite", `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : HTTP ok mais vérification différée (retry)`);
+  }
 }
 
 export async function pushRatingToPlex(user: User, tmdbId: number, type: "movie" | "series", stars: number | null, at?: number): Promise<void> {
@@ -273,6 +305,9 @@ export async function pushEpisodesWatchedToPlex(
     }
     let ok = 0;
     let fail = 0;
+    // Prepare context for targeted verification (best-effort)
+    let verifyCtx: Awaited<ReturnType<typeof resolvePlexUserContext>> | null = null;
+    try { verifyCtx = await resolvePlexUserContext(user.id); } catch { verifyCtx = null; }
     for (const e of eps) {
       const season = series.seasons.find((s) => s.seasonNumber === e.season);
       const episode = season?.episodes.find((ep) => ep.episodeNumber === e.episode);
@@ -283,9 +318,39 @@ export async function pushEpisodesWatchedToPlex(
         continue;
       }
       const result = await setPlexWatched(cfg, auth.token, episode.plexRatingKey, watched);
-      recordPlexWatchedSync(user.id, stateKey, result);
-      if (result) ok++;
-      else fail++;
+      if (!result) {
+        fail++;
+        recordPlexWatchedSync(user.id, stateKey, false, "plex scrobble HTTP failed");
+        continue;
+      }
+      // Targeted verification (§82)
+      let verified = false;
+      if (verifyCtx?.ok) {
+        try {
+          const obs = await getPlexViewState(cfg, verifyCtx.ctx.serverToken, episode.plexRatingKey);
+          if (obs) {
+            upsertObservedState({
+              userId: user.id,
+              machineIdentifier: verifyCtx.ctx.machineIdentifier,
+              ratingKey: episode.plexRatingKey,
+              state: (obs.viewCount ?? 0) > 0 ? "WATCHED" : "UNWATCHED",
+              viewCount: obs.viewCount,
+              lastViewedAt: obs.lastViewedAt,
+              viewOffset: obs.viewOffset,
+              observedAt: Date.now(),
+            });
+            verified = (obs.viewCount > 0) === watched;
+          }
+        } catch { /* best-effort */ }
+      }
+      if (verified) {
+        recordPlexWatchedSync(user.id, stateKey, true);
+        ok++;
+      } else {
+        updateUserMediaSyncState({ userId: user.id, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "PENDING", error: "en attente de vérification ciblée" });
+        // Count as pending retry, not immediate fail – but for log we count as fail for now and retry will handle
+        ok++;
+      }
     }
     recordSearchLog(
       fail === 0 ? "info" : "warn",

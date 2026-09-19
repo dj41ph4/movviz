@@ -1303,6 +1303,135 @@ export async function getPlexCollectionDetail(
   }
 }
 
+// ── Watch-state observation (PlexWatchStateObserver, §22-27) ─────────────────
+
+// Plex returns viewCount/lastViewedAt/viewOffset per item. We observe these
+// with the USER's own PMS token (never admin fallback) to get per-user state.
+export interface PlexViewState {
+  ratingKey: string;
+  viewCount: number;
+  lastViewedAt?: number; // epoch ms
+  viewOffset?: number;
+  duration?: number;
+  type?: string;
+  guid?: string;
+  Guid?: { id: string }[];
+}
+
+/**
+ * Batched metadata fetch that returns per-item view state using the caller's
+ * token (must be the user's resolved PlexUserContext.serverToken).
+ * Uses the same chunking as batchTmdbIds (50) and is the primary source for
+ * PlexWatchStateObserver snapshot & targeted verification. Unlike library
+ * listing endpoints, this metadata endpoint is expected to reflect per-user
+ * viewCount correctly (see §23 test requirement) – but we log diagnostics so
+ * a server where it doesn't can be detected without silent data loss.
+ */
+export async function batchPlexViewState(
+  cfg: PlexServerConfig,
+  userToken: string,
+  ratingKeys: string[]
+): Promise<Map<string, PlexViewState>> {
+  const result = new Map<string, PlexViewState>();
+  const chunkSize = 50;
+  for (let i = 0; i < ratingKeys.length; i += chunkSize) {
+    const chunk = ratingKeys.slice(i, i + chunkSize);
+    try {
+      const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${chunk.join(",")}`, {
+        headers: serverHeaders(cfg, userToken),
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const raw: Array<{
+        ratingKey: string;
+        type?: string;
+        viewCount?: number;
+        lastViewedAt?: number;
+        viewOffset?: number;
+        duration?: number;
+        guid?: string;
+        Guid?: { id: string }[];
+      }> = data?.MediaContainer?.Metadata ?? [];
+      for (const item of raw) {
+        result.set(item.ratingKey, {
+          ratingKey: item.ratingKey,
+          viewCount: item.viewCount ?? 0,
+          lastViewedAt: item.lastViewedAt == null ? undefined : (item.lastViewedAt < 10_000_000_000 ? item.lastViewedAt * 1000 : item.lastViewedAt),
+          viewOffset: item.viewOffset,
+          duration: item.duration,
+          type: item.type,
+          guid: item.guid,
+          Guid: item.Guid,
+        });
+      }
+    } catch {
+      continue;
+    }
+  }
+  return result;
+}
+
+/**
+ * Snapshot: all ratingKeys currently considered WATCHED for this user.
+ * Implemented via paginated library scan with the USER token, filtered by
+ * viewCount > 0. Kept separate from batchPlexViewState so the observer can
+ * choose between "scan filter" vs "fetch all then filter" strategies
+ * (§22: test both, measure, pick the reliable one).
+ * Returns null if the scan fails part-way (partial snapshot must never be
+ * treated as truth – see §95-97).
+ */
+export async function getWatchedSnapshotViaScan(
+  cfg: PlexServerConfig,
+  userToken: string,
+  sectionKey: string
+): Promise<Set<string> | null> {
+  const watched = new Set<string>();
+  const pageSize = 200;
+  let start = 0;
+  for (;;) {
+    let page: Array<{ ratingKey: string; viewCount?: number }>;
+    let total: number;
+    try {
+      const url = new URL(`${serverBase(cfg)}/library/sections/${sectionKey}/all`);
+      url.searchParams.set("includeExternalMedia", "0");
+      const res = await fetchWithRetry(url.toString(), {
+        headers: {
+          ...serverHeaders(cfg, userToken),
+          "X-Plex-Container-Start": String(start),
+          "X-Plex-Container-Size": String(pageSize),
+        },
+        cache: "no-store",
+      });
+      if (!res.ok) return null; // partial => invalid
+      const data = await res.json();
+      page = data?.MediaContainer?.Metadata ?? [];
+      total = data?.MediaContainer?.totalSize ?? page.length;
+    } catch {
+      return null;
+    }
+    for (const item of page) {
+      if ((item.viewCount ?? 0) > 0) watched.add(item.ratingKey);
+    }
+    start += page.length;
+    if (page.length === 0 || start >= total) break;
+  }
+  return watched;
+}
+
+/**
+ * Single-item targeted verification – the ACK path after scrobble/unscrobble.
+ * Light wrapper over batchPlexViewState for one ratingKey.
+ */
+export async function getPlexViewState(
+  cfg: PlexServerConfig,
+  userToken: string,
+  ratingKey: string
+): Promise<PlexViewState | null> {
+  const map = await batchPlexViewState(cfg, userToken, [ratingKey]);
+  return map.get(ratingKey) ?? null;
+}
+
 // ── Markers intro/credits (batch includeMarkers=1) ──────────────────────────
 
 export type PlexMarkerFetchResult =

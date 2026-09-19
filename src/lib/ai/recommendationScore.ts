@@ -1,4 +1,5 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
+import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 import { loadRequests } from "@/lib/requests/store";
 import { getSeriesByTmdbId } from "@/lib/library/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
@@ -141,10 +142,13 @@ export function scoreCandidates(
   // this one term, same as every other optional context param here.
   candidateGenres?: Map<string, string[]>
 ): ScoredCandidate[] {
-  const watch = getWatchStatus(userId);
-  const watchedMovies = new Set(watch?.movies ?? []);
+  const canonical = getCanonicalWatchStatus(userId);
+  const legacy = getWatchStatus(userId);
+  const movies = canonical ? canonical.movies : (legacy?.movies ?? []);
+  const episodes = canonical ? canonical.episodes : (legacy?.episodes ?? []);
+  const watchedMovies = new Set(movies);
   const watchedEpisodesBySeries = new Map<number, Set<string>>();
-  for (const e of watch?.episodes ?? []) {
+  for (const e of episodes) {
     const set = watchedEpisodesBySeries.get(e.tmdbId) ?? new Set<string>();
     set.add(`${e.season}.${e.episode}`);
     watchedEpisodesBySeries.set(e.tmdbId, set);
