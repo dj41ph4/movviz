@@ -14,6 +14,7 @@ import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules
 import { recordDecision } from "@/lib/library/decisionLog";
 import { withKeyLock } from "@/lib/library/locks";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
+import { resolveImportedSeasonAssociation } from "@/lib/library/importAssociation";
 import path from "node:path";
 import fsp from "node:fs/promises";
 
@@ -399,6 +400,30 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   // Season-part normalization (single-season series only) — see
   // normalizePartFiles. Every branch below works on the normalized list.
   const normalizedFiles = normalizePartFiles(series, files);
+
+  // The association picked at grab time is normally authoritative, but it is
+  // still client state: a stale modal or a manually selected S02 result from
+  // an S01 search can send the wrong `libraryRef`.  The engine has already
+  // parsed the files at this point and therefore knows the fact that matters
+  // for both the final folder and the library state.  When *every* imported
+  // file explicitly agrees on one other known season, correct the association
+  // before touching any episode.  This keeps local availability independent
+  // from Plex and, crucially, avoids the old false-success path where S02 was
+  // moved to Saison 2 but the callback quietly updated (or released) Saison 1.
+  //
+  // Do not infer from partial/mixed/season-less packs: those are ambiguous and
+  // must keep the requested scope instead of risking a wrong reassignment.
+  if (ref.kind === "season" && normalizedFiles.length > 0) {
+    const resolvedSeason = resolveImportedSeasonAssociation(
+      ref.season,
+      normalizedFiles.map((file) => file.season),
+      series.seasons.map((season) => season.seasonNumber),
+    );
+    if (resolvedSeason !== ref.season) {
+      console.warn(`[import] association de saison corrigée pour ${series.title}: demandée S${ref.season}, fichiers S${resolvedSeason}`);
+      return applyImportedFilesLocked({ kind: "season", seriesId: ref.seriesId, season: resolvedSeason }, files, infoHash);
+    }
+  }
 
   const label = ref.kind === "series" ? `${series.title} — intégrale` : `${series.title} — saison ${ref.season}`;
   const mediaLabel = ref.kind === "series" ? `${series.title} — Intégrale` : `${series.title} — Saison ${ref.season}`;

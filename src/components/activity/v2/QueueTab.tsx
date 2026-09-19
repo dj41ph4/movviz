@@ -384,6 +384,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
                 indexerId: best.indexerId,
                 category: item.media.type,
                 libraryRef: queueItemLibraryRef(item.media),
+                releaseTitle: best.title,
                 title: item.media.title,
                 indexerName: best.indexer,
                 quality,

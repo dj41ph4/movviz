@@ -206,6 +206,7 @@ function SearchPageInner() {
           indexerId: r.indexerId,
           category,
           libraryRef: resolvedLibraryRef,
+          releaseTitle: r.title,
           title: params.get("refTitle"),
           year: params.get("year") ? Number(params.get("year")) : null,
           indexerName: r.indexer,

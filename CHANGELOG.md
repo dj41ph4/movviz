@@ -1,3 +1,11 @@
+## v1.25.34 — September 2026
+
+### Association locale des saisons WebTorrent
+
+- Une release manuelle explicitement nommée pour une autre saison est désormais refusée avant son ajout à WebTorrent : `S02` ne peut plus être téléchargée comme `S01` par erreur.
+- Filet de sécurité côté import : quand tous les fichiers réellement importés indiquent une unique saison suivie différente, Movviz rattache l'état local à cette saison réelle immédiatement, sans dépendre de Plex.
+- Les packs mixtes, incomplets, sans numéro de saison ou visant une saison inconnue ne sont jamais réaffectés par inférence.
+
 ## v1.25.33 — September 2026
 
 ### Plex History V2 : pagination source, bootstrap reprenable et incrémental borné

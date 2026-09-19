@@ -78,6 +78,7 @@ export function IntegralSearchModal({
           indexerId: r.indexerId,
           category: "series",
           libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
+          releaseTitle: r.title,
           title,
           tmdbId,
           indexerName: r.indexer,

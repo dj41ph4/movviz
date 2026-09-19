@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import { markManualGrab } from "@/lib/library/manualGrab";
 import { isBlockedRelease } from "@/lib/library/blockedReleases";
+import { parseRelease } from "@/lib/naming/parser";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,23 @@ export async function POST(req: NextRequest) {
   const category = decodedRef ? (decodedRef.kind === "movie" ? "movie" : "series") : body.category;
   if (category !== "movie" && category !== "series") {
     return NextResponse.json({ error: "invalid_category" }, { status: 400 });
+  }
+
+  // A manual result can be clicked from an old search modal after the user
+  // changed season.  Refuse an explicitly-labelled wrong-season release
+  // before it ever reaches WebTorrent.  The import-side correction remains a
+  // safety net for legacy clients and races, but the normal path must make the
+  // mismatch visible rather than downloading a release under a false link.
+  const releaseTitle = typeof body.releaseTitle === "string" ? body.releaseTitle : "";
+  if (decodedRef?.kind === "season" && releaseTitle) {
+    const parsedSeason = parseRelease(releaseTitle).season;
+    if (parsedSeason != null && parsedSeason !== decodedRef.season) {
+      return NextResponse.json({
+        error: "season_mismatch",
+        expectedSeason: decodedRef.season,
+        detectedSeason: parsedSeason,
+      }, { status: 422 });
+    }
   }
 
   // Grab manuel sur un film DÉJÀ disponible (movie.file) : c'est un

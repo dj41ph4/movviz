@@ -35,6 +35,7 @@ export function ManualSearchModal({
   const [grabbing, setGrabbing] = useState<string | null>(null);
   const [grabbed, setGrabbed] = useState<Set<string>>(new Set());
   const [indexerErrors, setIndexerErrors] = useState<{ indexer: string; detail: string }[]>([]);
+  const [grabError, setGrabError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -43,6 +44,7 @@ export function ManualSearchModal({
     setGrabbed(new Set());
     setGrabbing(null);
     setIndexerErrors([]);
+    setGrabError(null);
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -73,6 +75,7 @@ export function ManualSearchModal({
   const grab = async (r: IndexerRelease) => {
     if (replaceItemId && !(await confirmDialog(t("downloads.confirmReplace", { title: r.title })))) return;
     setGrabbing(r.guid);
+    setGrabError(null);
     const quality = parseRelease(r.title).resolution ?? "Inconnue";
     try {
       const res = await fetch("/api/indexers/grab", {
@@ -92,6 +95,7 @@ export function ManualSearchModal({
           score: r.score,
           size: r.size,
           protocol: r.protocol,
+          releaseTitle: r.title,
           seeders: r.seeders,
           leechers: r.leechers,
           // Lets the grab route re-claim episodes still pointing at the
@@ -106,6 +110,9 @@ export function ManualSearchModal({
           await fetch(`/api/engine/torrents/${replaceItemId}?deleteData=1`, { method: "DELETE" });
           onReplaced?.();
         }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setGrabError(data.error === "season_mismatch" ? t("activity.linkError.season_mismatch") : t("activity.linkError.error"));
       }
     } finally {
       setGrabbing(null);
@@ -129,6 +136,11 @@ export function ManualSearchModal({
             <X className="h-4 w-4" />
           </button>
         </div>
+        {grabError && (
+          <div role="alert" className="mx-6 mt-4 rounded-xl border border-danger/35 bg-danger/10 px-4 py-3 text-sm text-danger">
+            {grabError}
+          </div>
+        )}
 
         {/* Content */}
         <div className="p-6">
