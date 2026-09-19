@@ -196,6 +196,59 @@ export interface PlexSharedServer {
   accepted: boolean;
 }
 
+/** Whitelisted SharedServer fields — nothing else is ever extracted, in either format. */
+type RawShareFields = {
+  id?: unknown;
+  userID?: unknown;
+  username?: unknown;
+  email?: unknown;
+  thumb?: unknown;
+  accessToken?: unknown;
+  accepted?: unknown;
+};
+
+/**
+ * Minimal `<SharedServer .../>` attribute parser (no XML dependency).
+ * Extracts ONLY whitelisted attributes — never logs or returns anything else.
+ */
+function parseSharedServersXml(body: string): RawShareFields[] {
+  const out: RawShareFields[] = [];
+  const tagRe = /<SharedServer\b([^>]*)\/?>/gi;
+  const attrRe = /(\w+)="([^"]*)"/g;
+  const wanted = new Set(["id", "userID", "username", "email", "thumb", "accessToken", "accepted"]);
+  let tagMatch: RegExpExecArray | null;
+  // biome-ignore lint: exec loop is the intended pattern here
+  while ((tagMatch = tagRe.exec(body)) !== null) {
+    const attrs: RawShareFields = {};
+    const attrBody = tagMatch[1] ?? "";
+    let attrMatch: RegExpExecArray | null;
+    // biome-ignore lint: exec loop is the intended pattern here
+    while ((attrMatch = attrRe.exec(attrBody)) !== null) {
+      const key = attrMatch[1];
+      if (wanted.has(key)) (attrs as Record<string, unknown>)[key] = attrMatch[2];
+    }
+    out.push(attrs);
+  }
+  return out;
+}
+
+function normalizeShare(s: RawShareFields): PlexSharedServer | null {
+  const userId = s?.userID;
+  if (userId == null || userId === "") return null;
+  const accessToken = typeof s?.accessToken === "string" && (s.accessToken as string).length > 0
+    ? (s.accessToken as string)
+    : null;
+  return {
+    shareId: String(s?.id ?? ""),
+    userId: String(userId),
+    username: String((s as Record<string, unknown>)?.username ?? (s as Record<string, unknown>)?.email ?? `plex-${String(userId)}`),
+    email: String(s?.email ?? ""),
+    thumb: typeof s?.thumb === "string" ? (s.thumb as string) : null,
+    accessToken,
+    accepted: s?.accepted == null ? true : ["1", "true", 1, true].includes(s.accepted as string | number | boolean),
+  };
+}
+
 export async function getSharedServers(
   clientId: string,
   adminToken: string,
@@ -206,34 +259,40 @@ export async function getSharedServers(
       `https://plex.tv/api/servers/${encodeURIComponent(machineIdentifier)}/shared_servers`,
       { headers: headers(clientId, { "x-plex-token": adminToken }), cache: "no-store" }
     );
+    // HTTP non-200 = erreur (fail closed, jamais une liste vide déguisée).
     if (!res.ok) return null;
-    const data = await res.json();
-    const container = data?.MediaContainer ?? data ?? {};
-    const raw = container?.SharedServer ?? container?.sharedServer ?? [];
-    const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    // One-time shape diagnostic: key names + presence flags only, never token values.
-    if (list.length > 0) {
-      const keys = Object.keys(list[0] ?? {}).filter((k) => !/token/i.test(k));
-      const hasToken = list.filter((s: Record<string, unknown>) => typeof s?.accessToken === "string" && (s.accessToken as string).length > 0).length;
-      console.log(`[plex.sharedServers] machine=${machineIdentifier.slice(0, 8)} shares=${list.length} withAccessToken=${hasToken} keys=${keys.join(",")}`);
+    // Cet endpoint peut renvoyer du XML même avec Accept: application/json —
+    // ne jamais faire res.json() aveuglément : lire le texte, détecter le
+    // format réel (Content-Type + premier caractère), puis parser en fonction.
+    const body = await res.text();
+    const trimmed = body.trimStart();
+    const contentType = res.headers.get("content-type") ?? "";
+    const looksJson = /json/i.test(contentType) || trimmed.startsWith("{") || trimmed.startsWith("[");
+    let rawList: RawShareFields[];
+    let format: "json" | "xml";
+    if (looksJson) {
+      let data: unknown;
+      try {
+        data = JSON.parse(body);
+      } catch {
+        return null; // JSON annoncé mais invalide → erreur, pas une liste vide
+      }
+      const container = (data as Record<string, unknown> | null)?.MediaContainer ?? data ?? {};
+      const raw = (container as Record<string, unknown>)?.SharedServer ?? (container as Record<string, unknown>)?.sharedServer ?? [];
+      rawList = (Array.isArray(raw) ? raw : raw ? [raw] : []) as RawShareFields[];
+      format = "json";
+    } else if (trimmed.startsWith("<")) {
+      // HTTP 200 + XML valide = succès : parser les attributs <SharedServer>.
+      rawList = parseSharedServersXml(body);
+      format = "xml";
+    } else {
+      return null; // corps vide ou format inconnu → erreur
     }
-    return list
-      .map((s: Record<string, unknown>) => {
-        const userId = s?.userID ?? s?.userId ?? s?.user_id;
-        if (userId == null || userId === "") return null;
-        const accessToken = typeof s?.accessToken === "string" && (s.accessToken as string).length > 0
-          ? (s.accessToken as string)
-          : null;
-        return {
-          shareId: String(s?.id ?? ""),
-          userId: String(userId),
-          username: String(s?.username ?? s?.title ?? s?.email ?? `plex-${String(userId)}`),
-          email: String(s?.email ?? ""),
-          thumb: typeof s?.thumb === "string" ? (s.thumb as string) : null,
-          accessToken,
-          accepted: s?.accepted == null ? true : ["1", "true", 1, true].includes(s.accepted as string | number | boolean),
-        } satisfies PlexSharedServer;
-      })
+    // Diagnostic de forme : format, comptes et présence de token uniquement — jamais de valeur.
+    const withToken = rawList.filter((s) => typeof s?.accessToken === "string" && (s.accessToken as string).length > 0).length;
+    console.log(`[plex.sharedServers] machine=${machineIdentifier.slice(0, 8)} format=${format} shares=${rawList.length} withAccessToken=${withToken}`);
+    return rawList
+      .map(normalizeShare)
       .filter((s): s is PlexSharedServer => s !== null);
   } catch {
     return null;
