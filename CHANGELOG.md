@@ -1,3 +1,12 @@
+## v1.25.33 — September 2026
+
+### Plex History V2 : pagination source, bootstrap reprenable et incrémental borné
+
+- `getAccountHistoryPage()` devient la primitive unique de lecture Plex History : une seule page HTTP, offset calculé sur le nombre brut d'éléments Plex et parsing/filtrage centralisés.
+- Bootstrap History V2 : pages ASC de 100, `currentStart` représente l'offset source Plex, reprise fiable après redémarrage et migration volontaire des anciens états V1 vers un nouveau full scan sans toucher aux vues existantes.
+- Les vues récentes restent prioritaires via une petite page DESC indépendante du bootstrap ; le snapshot owner est différé pendant le full puis exécuté à sa fin.
+- Incrémental DESC multi-pages jusqu'au curseur, y compris les timestamps identiques, sans recharger tout l'historique.
+
 ## v1.25.32 — September 2026
 
 - Recherche Android mobile et TV : état explicite en cas d'erreur, session expirée ou résultat vide, sans présenter une panne comme une recherche vide.
