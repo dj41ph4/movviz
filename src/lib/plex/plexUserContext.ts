@@ -33,8 +33,12 @@ export type PlexUserContext = {
   accountTokenSource: "OWNER" | "ACCOUNT" | "HOME_SWITCH" | "SHARED";
   bindingSource: BindingSource;
   resolvedAt: number;
-  localAccountId: number; // PMS-local id (for /status/sessions/history/all accountID filter)
+  // PMS-local id for the /status/sessions/history/all accountID filter.
+  // NULL = unknown: history poll is unavailable, but snapshot/quickVerify/
+  // watched-state reads via serverToken still work. NEVER blocks RESOLVED.
+  localAccountId: number | null;
   localAccountName: string;
+  historyAvailable: boolean;
 };
 
 type ResolveResult =
@@ -156,6 +160,7 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       resolvedAt: Date.now(),
       localAccountId: local.id,
       localAccountName: local.name,
+      historyAvailable: true,
     };
     upsertBinding({
       movvizUserId: user.id,
@@ -241,6 +246,7 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       resolvedAt: Date.now(),
       localAccountId: local.id,
       localAccountName: local.name,
+      historyAvailable: true,
     };
     upsertBinding({
       movvizUserId: user.id,
@@ -273,11 +279,20 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=not_in_shared_servers shares=${shares.length}`);
       return { ok: false, reason: `${user.username} (plexId:${user.plexId}): not in this server's shared users`, code: "NOT_IN_SHARED" };
     }
+    // RÈGLE ABSOLUE : un share valide + accessToken valide = RESOLVED, même
+    // sans localAccountId. Le local n'est résolu qu'en second temps, dans
+    // l'ordre : 1. binding existant confirmé, 2. EXACT share.username ==
+    // PMS /accounts name, 3. sinon null (history indisponible, snapshot OK).
+    // Jamais de fuzzy, de first-account, d'owner ou d'id 1 par défaut.
+    const existingShareBinding = getBinding(user.id, machineIdentifier);
     const localAccounts = await getLocalAccounts(cfg, cfg.adminToken);
-    const local = localAccounts.find((a) => a.name.trim().localeCompare(share.username.trim(), undefined, { sensitivity: "base" }) === 0);
+    const confirmedLocal = existingShareBinding
+      ? localAccounts.find((a) => a.id === existingShareBinding.localAccountId) ?? null
+      : null;
+    const exactLocal = localAccounts.find((a) => a.name.trim().localeCompare(share.username.trim(), undefined, { sensitivity: "base" }) === 0) ?? null;
+    const local = confirmedLocal ?? exactLocal;
     if (!local) {
-      recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} username=${share.username} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0, 8)} localAccounts=${localAccounts.map((a) => a.name).join(",")}`);
-      return { ok: false, reason: `${user.username} (plexId:${user.plexId}): local account not found for username ${share.username}`, code: "NO_LOCAL_BINDING" };
+      recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} username=${share.username} status=resolved_no_local localAccounts=${localAccounts.map((a) => a.name).join(",")} historyAvailable=false`);
     }
     // Share accessToken first (it IS this user's PMS credential); cached
     // plexServerToken (previously persisted from a share) as fallback.
@@ -312,20 +327,25 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       accountTokenSource: "SHARED",
       bindingSource: "ACCOUNT_EXACT",
       resolvedAt: Date.now(),
-      localAccountId: local.id,
-      localAccountName: local.name,
+      localAccountId: local?.id ?? null,
+      localAccountName: local?.name ?? share.username,
+      historyAvailable: local != null,
     };
-    upsertBinding({
-      movvizUserId: user.id,
-      plexAccountId: user.plexId,
-      machineIdentifier,
-      localAccountId: local.id,
-      localAccountName: local.name,
-      bindingSource: "ACCOUNT_EXACT",
-      verifiedAt: Date.now(),
-      tokenFingerprint: ctx.tokenFingerprint,
-    });
-    recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} source=shared plexId=${user.plexId} server=${machineIdentifier.slice(0, 8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local.id} status=resolved`);
+    // Persist the binding only when a local account is confirmed — a null
+    // local must never be written as a fake mapping.
+    if (local) {
+      upsertBinding({
+        movvizUserId: user.id,
+        plexAccountId: user.plexId,
+        machineIdentifier,
+        localAccountId: local.id,
+        localAccountName: local.name,
+        bindingSource: "ACCOUNT_EXACT",
+        verifiedAt: Date.now(),
+        tokenFingerprint: ctx.tokenFingerprint,
+      });
+    }
+    recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} source=shared plexId=${user.plexId} server=${machineIdentifier.slice(0, 8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local?.id ?? "null"} historyAvailable=${local != null} status=resolved`);
     return { ok: true, ctx };
   }
 
@@ -350,6 +370,7 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
       resolvedAt: Date.now(),
       localAccountId: binding.localAccountId,
       localAccountName: binding.localAccountName,
+      historyAvailable: true,
     };
     return { ok: true, ctx };
   }
@@ -380,6 +401,7 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
       resolvedAt: Date.now(),
       localAccountId: binding.localAccountId,
       localAccountName: binding.localAccountName,
+      historyAvailable: true,
     };
     return { ok: true, ctx };
   }
@@ -408,6 +430,7 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
       resolvedAt: Date.now(),
       localAccountId: binding.localAccountId,
       localAccountName: binding.localAccountName,
+      historyAvailable: true,
     };
     return { ok: true, ctx };
   }

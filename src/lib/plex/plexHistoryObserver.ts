@@ -45,21 +45,30 @@ export type HistoryPollResult = {
  * - Does NOT directly determine WATCHED/UNWATCHED – only returns history events
  * - Caller must trigger targeted PlexWatchStateObserver verification for each event's ratingKey
  */
+export const EMPTY_HISTORY_RESULT: HistoryPollResult = {
+  entries: [],
+  accountMismatch: 0,
+  unmapped: 0,
+  totalSeen: 0,
+  cursorAdvanced: false,
+  rejectedForeign: 0,
+  rejectedUnattributed: 0,
+  rejectedMalformed: 0,
+  sampleMalformed: null,
+  totalEpisodeTypeSeen: 0,
+};
+
 export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean }): Promise<HistoryPollResult> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) {
-    return {
-      entries: [],
-      accountMismatch: 0,
-      unmapped: 0,
-      totalSeen: 0,
-      cursorAdvanced: false,
-      rejectedForeign: 0,
-      rejectedUnattributed: 0,
-      rejectedMalformed: 0,
-      sampleMalformed: null,
-      totalEpisodeTypeSeen: 0,
-    };
+    return { ...EMPTY_HISTORY_RESULT };
+  }
+  // RÈGLE ABSOLUE : sans localAccountId connu, le poll history est simplement
+  // ignoré — snapshot/quickVerify/watched-state restent disponibles. Jamais
+  // de fallback vers un autre compte.
+  if (!ctx.historyAvailable || ctx.localAccountId == null) {
+    recordSearchLog("info", "plex.history", `plex.history user=${ctx.movvizUserId} skipped reason=no_local_account historyAvailable=false snapshot_still_active=true`);
+    return { ...EMPTY_HISTORY_RESULT };
   }
 
   const cursors = readCursors();
