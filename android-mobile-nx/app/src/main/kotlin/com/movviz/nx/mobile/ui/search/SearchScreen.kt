@@ -52,6 +52,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.nx.mobile.AppViewModel
+import com.movviz.nx.mobile.SearchState
 import com.movviz.nx.mobile.data.SearchResultDto
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
@@ -126,6 +127,7 @@ fun SearchScreen(
     val firstResultFocusRequester = remember { FocusRequester() }
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
+    val searchState by viewModel.searchState.collectAsState()
     // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
     val searchWatchStatus by viewModel.watchStatus.collectAsState()
     val searchWatchedMovieIds = remember(searchWatchStatus) { searchWatchStatus?.movies?.toSet().orEmpty() }
@@ -197,9 +199,17 @@ fun SearchScreen(
             Spacer(Modifier.height(18.dp))
         }
         when {
-            searching -> SearchFocusMessage(
+            searchState is SearchState.Loading -> SearchFocusMessage(
                 text = "Recherche…",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
+            )
+            searchState is SearchState.Unauthorized -> SearchRetryMessage(
+                text = "Session expirée. Reconnectez-vous.",
+                onRetry = { viewModel.search(query) },
+            )
+            searchState is SearchState.Error -> SearchRetryMessage(
+                text = "Recherche indisponible. Réessayer.",
+                onRetry = { viewModel.search(query) },
             )
             // Les états vides restent une destination D-pad visible. Avant,
             // la NavRail tentait le premier poster inexistant, retombait sur
@@ -271,6 +281,16 @@ private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?) {
             .focusable()
             .onFocusChanged { focused = it.isFocused }
             .padding(vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun SearchRetryMessage(text: String, onRetry: () -> Unit) {
+    Text(
+        text = text,
+        color = MovvizInkSoft,
+        fontSize = 15.sp,
+        modifier = Modifier.tvPointerClick(onRetry).focusable().padding(vertical = 8.dp),
     )
 }
 
@@ -366,6 +386,7 @@ private fun PortraitSearchScreen(
     val results by viewModel.searchResults.collectAsState()
     val personResults by viewModel.personSearchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
+    val searchState by viewModel.searchState.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val trendingSeries by viewModel.trendingSeries.collectAsState()
     var typeFilter by remember { mutableStateOf(PortraitSearchTypeFilter.ALL) }
@@ -519,7 +540,9 @@ private fun PortraitSearchScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Text(
                             text = when {
-                                searching -> "Recherche…"
+                                searchState is SearchState.Loading -> "Recherche…"
+                                searchState is SearchState.Unauthorized -> "Session expirée. Reconnectez-vous."
+                                searchState is SearchState.Error -> "Recherche indisponible — réessayer"
                                 filteredResults.isEmpty() -> "Aucun résultat pour « $query »"
                                 else -> "Résultats (${filteredResults.size})"
                             },

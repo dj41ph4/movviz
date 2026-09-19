@@ -3,6 +3,9 @@ package com.movviz.nx.mobile.data
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import android.os.SystemClock
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 
 /** Résultat uniforme des appels réseau — évite de faire fuiter les
  *  exceptions Retrofit/OkHttp jusqu'aux écrans, qui n'ont qu'à gérer trois
@@ -104,22 +107,48 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun metadataSeason(tmdbId: Int, seasonNumber: Int): ApiResult<MetadataSeasonDto> =
         safeCall { api.metadataSeason(tmdbId, seasonNumber) }
 
-    /** TMDb renvoie une vingtaine de résultats par page. La recherche TV
-     * affiche trois pages (jusqu'à 60 titres) pour rester proche du catalogue
-     * Netflix, sans modifier la route backend. */
+    /** La première page est publiée sans attendre les pages suivantes : une
+     * recherche interactive ne doit jamais être bloquée par la pagination. */
     suspend fun search(query: String): ApiResult<List<SearchResultDto>> {
-        val all = mutableListOf<SearchResultDto>()
-        for (page in 1..3) {
-            when (val response = safeCall { api.search(query, page) }) {
-                is ApiResult.Success -> {
-                    all += response.data.results
-                    if (response.data.results.isEmpty() || page >= response.data.totalPages) break
-                }
-                is ApiResult.Failure -> if (page == 1) return response
-                ApiResult.Unauthorized -> return ApiResult.Unauthorized
+        return when (val response = searchPage(query, page = 1)) {
+            is ApiResult.Success -> {
+                if (!response.data.configured) ApiResult.Failure("metadata_not_configured")
+                else ApiResult.Success(response.data.results)
             }
+            is ApiResult.Failure -> response
+            ApiResult.Unauthorized -> ApiResult.Unauthorized
         }
-        return ApiResult.Success(all.distinctBy { "${it.type}-${it.tmdbId}" })
+    }
+
+    /** Diagnostic deliberately excludes the query text and all credentials. */
+    private suspend fun searchPage(query: String, page: Int): ApiResult<SearchResponseDto> {
+        val startedAt = SystemClock.elapsedRealtime()
+        return try {
+            val response = api.search(query, page)
+            val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+            val body = response.body()
+            when {
+                response.code() == 401 -> {
+                    Log.w("MovvizSearch", "search queryLength=${query.length} page=$page endpoint=/api/metadata/search http=401 durationMs=$elapsedMs reason=session_expired")
+                    ApiResult.Unauthorized
+                }
+                response.isSuccessful && body != null -> {
+                    Log.i("MovvizSearch", "search queryLength=${query.length} page=$page endpoint=/api/metadata/search http=${response.code()} durationMs=$elapsedMs results=${body.results.size} totalPages=${body.totalPages} configured=${body.configured}")
+                    ApiResult.Success(body)
+                }
+                else -> {
+                    val message = serverError(response)
+                    Log.w("MovvizSearch", "search queryLength=${query.length} page=$page endpoint=/api/metadata/search http=${response.code()} durationMs=$elapsedMs failure=$message")
+                    ApiResult.Failure(message)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+            Log.e("MovvizSearch", "search queryLength=${query.length} page=$page endpoint=/api/metadata/search durationMs=$elapsedMs decodeOrNetworkError=${e.javaClass.simpleName}")
+            ApiResult.Failure(e.message ?: "Impossible de joindre le serveur")
+        }
     }
 
     /** Liste brute "Continuer à regarder" — voir OnDeckEntryDto. Distinct de
@@ -417,6 +446,8 @@ class MovvizRepository(private val baseUrl: String) {
                 response.isSuccessful && body != null -> ApiResult.Success(body)
                 else -> ApiResult.Failure(serverError(response))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Impossible de joindre le serveur")
         }

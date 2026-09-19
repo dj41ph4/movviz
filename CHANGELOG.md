@@ -1,3 +1,9 @@
+## v1.25.32 — September 2026
+
+- Recherche Android mobile et TV : état explicite en cas d'erreur, session expirée ou résultat vide, sans présenter une panne comme une recherche vide.
+- Recherche interactive : la dernière requête annule les précédentes et la première page est affichée sans attendre la pagination.
+- Diagnostic sûr de `/api/metadata/search` : code HTTP, durée, pagination et résultat décodé, sans journaliser la recherche ni les identifiants de session.
+
 ## v1.25.31 — September 2026
 
 ### Bootstrap historique complet et Plex → Movviz le plus réactif

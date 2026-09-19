@@ -563,6 +563,8 @@ data class SearchResultDto(
 
 @JsonClass(generateAdapter = true)
 data class SearchResponseDto(
+    /** False only when TMDb is not configured on the Movviz server. */
+    val configured: Boolean = true,
     val results: List<SearchResultDto> = emptyList(),
     val page: Int = 1,
     val totalPages: Int = 1,

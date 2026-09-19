@@ -47,6 +47,15 @@ import kotlinx.coroutines.withContext
 import android.os.SystemClock
 import android.util.Log
 
+sealed interface SearchState {
+    data object Idle : SearchState
+    data object Loading : SearchState
+    data object Empty : SearchState
+    data object Unauthorized : SearchState
+    data class Success(val results: List<SearchResultDto>) : SearchState
+    data class Error(val message: String) : SearchState
+}
+
 data class HomeUiState(
     /** Source atomique du Home pendant le bootstrap. Les StateFlow détaillés
      * restent disponibles pour les autres écrans, mais Home ne doit pas se
@@ -173,6 +182,11 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val _searching = MutableStateFlow(false)
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
+
+    private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
+    val searchState: StateFlow<SearchState> = _searchState.asStateFlow()
+    private var searchJob: Job? = null
+    private var searchRequestId = 0L
 
     // File de téléchargement en cours (moteur BitTorrent intégré) — le cœur
     // de Movviz n'est pas que la lecture mais aussi le téléchargement, donc
@@ -1291,20 +1305,38 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     fun search(query: String, type: String? = null) {
         val repo = repository
         if (repo == null || query.isBlank()) {
+            searchJob?.cancel()
+            searchRequestId++
             _searchResults.value = emptyList()
+            _searchState.value = SearchState.Idle
+            _searching.value = false
             return
         }
+        val normalizedQuery = query.trim()
+        val requestId = ++searchRequestId
+        searchJob?.cancel()
         _searching.value = true
-        viewModelScope.launch {
-            when (val r = repo.search(query.trim(), type)) {
-                is ApiResult.Success -> _searchResults.value = r.data
+        _searchState.value = SearchState.Loading
+        searchJob = viewModelScope.launch {
+            when (val r = repo.search(normalizedQuery, type)) {
+                is ApiResult.Success -> {
+                    if (requestId != searchRequestId) return@launch
+                    _searchResults.value = r.data
+                    _searchState.value = if (r.data.isEmpty()) SearchState.Empty else SearchState.Success(r.data)
+                }
                 ApiResult.Unauthorized -> {
+                    if (requestId != searchRequestId) return@launch
                     _searchResults.value = emptyList()
+                    _searchState.value = SearchState.Unauthorized
                     _sessionExpired.value = true
                 }
-                is ApiResult.Failure -> _searchResults.value = emptyList()
+                is ApiResult.Failure -> {
+                    if (requestId != searchRequestId) return@launch
+                    _searchResults.value = emptyList()
+                    _searchState.value = SearchState.Error(r.message)
+                }
             }
-            _searching.value = false
+            if (requestId == searchRequestId) _searching.value = false
         }
     }
 

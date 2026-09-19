@@ -45,6 +45,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.SearchState
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
@@ -100,6 +101,7 @@ fun SearchScreen(
     val firstResultFocusRequester = remember { FocusRequester() }
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
+    val searchState by viewModel.searchState.collectAsState()
     // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
     val searchWatchStatus by viewModel.watchStatus.collectAsState()
     val searchWatchedMovieIds = remember(searchWatchStatus) { searchWatchStatus?.movies?.toSet().orEmpty() }
@@ -171,9 +173,17 @@ fun SearchScreen(
             Spacer(Modifier.height(14.dp))
         }
         when {
-            searching -> SearchFocusMessage(
+            searchState is SearchState.Loading -> SearchFocusMessage(
                 text = "Recherche…",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
+            )
+            searchState is SearchState.Unauthorized -> SearchRetryMessage(
+                text = "Session expirée. Reconnectez-vous.",
+                onRetry = { viewModel.search(query) },
+            )
+            searchState is SearchState.Error -> SearchRetryMessage(
+                text = "Recherche indisponible. Réessayer.",
+                onRetry = { viewModel.search(query) },
             )
             // Les états vides restent une destination D-pad visible. Avant,
             // la NavRail tentait le premier poster inexistant, retombait sur
@@ -245,6 +255,16 @@ private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?) {
             .focusable()
             .onFocusChanged { focused = it.isFocused }
             .padding(vertical = 6.dp),
+    )
+}
+
+@Composable
+private fun SearchRetryMessage(text: String, onRetry: () -> Unit) {
+    Text(
+        text = text,
+        color = MovvizInkDim,
+        fontSize = 15.sp,
+        modifier = Modifier.tvPointerClick(onRetry).focusable().padding(vertical = 8.dp),
     )
 }
 
