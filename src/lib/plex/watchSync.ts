@@ -332,6 +332,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       let bootstrapState: ReturnType<typeof getBootstrapState> = null;
       let bootstrapUpperBound: number | null = null;
       let bootstrapEligibleTotal = 0;
+      let bootstrapBatchCount = 0;
       if (bootstrapNeeded) {
         // Capture upperBound at bootstrap start (newest viewedAt at that moment) – events newer than this belong to catch-up
         const currentMax = dedupedAll.length > 0 ? Math.max(...dedupedAll.map((e) => e.viewedAt ?? 0)) : 0;
@@ -349,8 +350,19 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         bootstrapBatchStart = bootstrapState.currentStart ?? 0;
         const BATCH_SIZE = 200;
         const remaining = bootstrapEligible.slice(bootstrapBatchStart);
-        entriesToProcess = remaining.slice(0, BATCH_SIZE);
-        if (entriesToProcess.length === 0) {
+        const bootstrapBatch = remaining.slice(0, BATCH_SIZE);
+        bootstrapBatchCount = bootstrapBatch.length;
+        // Events received after the initial upper bound are a separate
+        // catch-up lane. They must not wait for thousands of older watches,
+        // nor may they move the resumable bootstrap offset.
+        const recentCatchUp = bootstrapUpperBound == null
+          ? []
+          : dedupedAll
+            .filter((entry) => (entry.viewedAt ?? 0) > bootstrapUpperBound!)
+            .sort((a, b) => (b.viewedAt ?? 0) - (a.viewedAt ?? 0))
+            .slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
+        entriesToProcess = [...recentCatchUp, ...bootstrapBatch];
+        if (bootstrapBatchCount === 0) {
           // No more eligible entries in this bootstrap – mark completed (even if eligible was 0)
           completeBootstrap(user.id, ctx.machineIdentifier, bootstrapUpperBound);
           if (bootstrapUpperBound != null) {
@@ -560,8 +572,8 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       // Bootstrap progress persistence – reprenable (§ final plan)
       if (bootstrapNeeded && bootstrapState) {
         const eligibleTotal = bootstrapState.expectedTotal ?? bootstrapEligibleTotal ?? dedupedAll.length;
-        const nextCursor = bootstrapBatchStart + entriesToProcess.length;
-        if (entriesToProcess.length === 0 || nextCursor >= eligibleTotal) {
+        const nextCursor = bootstrapBatchStart + bootstrapBatchCount;
+        if (bootstrapBatchCount === 0 || nextCursor >= eligibleTotal) {
           completeBootstrap(user.id, ctx.machineIdentifier, bootstrapUpperBound);
           if (bootstrapUpperBound != null) {
           setHistoryCursor(user.id, ctx.machineIdentifier, bootstrapUpperBound, []);
