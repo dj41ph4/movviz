@@ -13,6 +13,13 @@ export type CanonicalMediaIdentity =
   | { type: "movie"; tmdbId: number }
   | { type: "episode"; tmdbShowId: number; seasonNumber: number; episodeNumber: number };
 
+/** Human-readable diagnostics only; this never changes the identity key. */
+export function formatCanonical(canonical: CanonicalMediaIdentity): string {
+  return canonical.type === "movie"
+    ? `movie:${canonical.tmdbId}`
+    : `episode:${canonical.tmdbShowId}:S${canonical.seasonNumber}E${canonical.episodeNumber}`;
+}
+
 export type MediaIdentityEntry = {
   machineIdentifier: string;
   ratingKey: string;

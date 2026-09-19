@@ -38,7 +38,10 @@ export type PlexUserContext = {
   // watched-state reads via serverToken still work. NEVER blocks RESOLVED.
   localAccountId: number | null;
   localAccountName: string;
+  /** PMS history accountID. This is not a Plex cloud userID. */
+  historyAccountId: number | null;
   historyAvailable: boolean;
+  watchImportCapability: "HISTORY" | "UNAVAILABLE";
 };
 
 type ResolveResult =
@@ -160,7 +163,9 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       resolvedAt: Date.now(),
       localAccountId: local.id,
       localAccountName: local.name,
+      historyAccountId: local.id,
       historyAvailable: true,
+      watchImportCapability: "HISTORY",
     };
     upsertBinding({
       movvizUserId: user.id,
@@ -246,7 +251,9 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       resolvedAt: Date.now(),
       localAccountId: local.id,
       localAccountName: local.name,
+      historyAccountId: local.id,
       historyAvailable: true,
+      watchImportCapability: "HISTORY",
     };
     upsertBinding({
       movvizUserId: user.id,
@@ -329,7 +336,11 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       resolvedAt: Date.now(),
       localAccountId: local?.id ?? null,
       localAccountName: local?.name ?? share.username,
+      // shared_servers.userID is a Plex cloud id, while accountID in PMS
+      // history is local to this server.  They are not interchangeable.
+      historyAccountId: local?.id ?? null,
       historyAvailable: local != null,
+      watchImportCapability: local ? "HISTORY" : "UNAVAILABLE",
     };
     // Persist the binding only when a local account is confirmed — a null
     // local must never be written as a fake mapping.
@@ -345,7 +356,7 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
         tokenFingerprint: ctx.tokenFingerprint,
       });
     }
-    recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} source=shared plexId=${user.plexId} server=${machineIdentifier.slice(0, 8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local?.id ?? "null"} historyAvailable=${local != null} status=resolved`);
+    recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} source=shared plexId=${user.plexId} server=${machineIdentifier.slice(0, 8)} tokenFp=${ctx.tokenFingerprint} localAccountId=${local?.id ?? "null"} historyAccountId=${ctx.historyAccountId ?? "null"} historyAvailable=${ctx.historyAvailable} watchImportCapability=${ctx.watchImportCapability} snapshotAvailable=false status=resolved`);
     return { ok: true, ctx };
   }
 
@@ -370,7 +381,9 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
       resolvedAt: Date.now(),
       localAccountId: binding.localAccountId,
       localAccountName: binding.localAccountName,
+      historyAccountId: binding.localAccountId,
       historyAvailable: true,
+      watchImportCapability: "HISTORY",
     };
     return { ok: true, ctx };
   }
@@ -401,7 +414,9 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
       resolvedAt: Date.now(),
       localAccountId: binding.localAccountId,
       localAccountName: binding.localAccountName,
+      historyAccountId: binding.localAccountId,
       historyAvailable: true,
+      watchImportCapability: "HISTORY",
     };
     return { ok: true, ctx };
   }
@@ -430,7 +445,9 @@ async function resolveViaBinding(user: User, cfg: PlexServerConfig, machineIdent
       resolvedAt: Date.now(),
       localAccountId: binding.localAccountId,
       localAccountName: binding.localAccountName,
+      historyAccountId: binding.localAccountId,
       historyAvailable: true,
+      watchImportCapability: "HISTORY",
     };
     return { ok: true, ctx };
   }

@@ -40,6 +40,13 @@ export type EpisodeResolveResult = {
   sample?: Record<string, unknown>;
 };
 
+/** Narrows resolver output before any episode fields are read. */
+export function resolvedEpisodeCanonical(result: EpisodeResolveResult | null): Extract<CanonicalMediaIdentity, { type: "episode" }> | null {
+  return result?.status === "RESOLVED" && result.canonical?.type === "episode"
+    ? result.canonical
+    : null;
+}
+
 type RawEpisodeEvent = {
   ratingKey?: string;
   key?: string;
@@ -119,6 +126,9 @@ export async function resolveEpisode(
   const movvizResolved = raw.grandparentTitle && raw.parentIndex != null && raw.index != null
     ? resolveViaMovvizLibrary(raw.grandparentTitle, raw.parentIndex, raw.index, ratingKey)
     : null;
+  // An UNRESOLVED result deliberately has no canonical identity.  Keep this
+  // guard central so every later fallback remains safe.
+  const movvizCanonical = resolvedEpisodeCanonical(movvizResolved);
   // requireRatingKey: a Movviz-only canonical without a Plex ratingKey is NOT RESOLVED for history→verify
   if (hasInputKey && movvizResolved) {
     if (!opts?.requireRatingKey || movvizResolved.ratingKey) return movvizResolved;
@@ -139,8 +149,8 @@ export async function resolveEpisode(
             const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [directShowKey]);
             tmdbShowId = tmdbMap.get(directShowKey)?.tmdbId ?? null;
           } catch { /* ignore */ }
-          if (tmdbShowId == null && movvizResolved?.canonical) {
-            tmdbShowId = (movvizResolved.canonical as Extract<CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId;
+          if (tmdbShowId == null && movvizCanonical) {
+            tmdbShowId = movvizCanonical.tmdbShowId;
           }
           if (tmdbShowId != null) {
             const realKey = match.ratingKey;
@@ -160,10 +170,12 @@ export async function resolveEpisode(
                 const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [directShowKey]);
                 tmdbShowId = tmdbMap.get(directShowKey)?.tmdbId ?? null;
               } catch { /* ignore */ }
-              if (tmdbShowId == null && movvizResolved?.canonical) tmdbShowId = (movvizResolved.canonical as Extract<CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId;
+              if (tmdbShowId == null && movvizCanonical) tmdbShowId = movvizCanonical.tmdbShowId;
               if (tmdbShowId != null && exact[0].seasonNumber != null && exact[0].episodeNumber != null) {
                 const realKey = exact[0].ratingKey;
-                const canonical = { type: "episode", tmdbShowId, seasonNumber: exact[0].seasonNumber, episodeNumber: exact[0].episodeNumber } as const;
+                // The title fallback finds the Plex key.  It must not silently
+                // renumber an already reliable Movviz episode identity.
+                const canonical = movvizCanonical ?? { type: "episode", tmdbShowId, seasonNumber: exact[0].seasonNumber, episodeNumber: exact[0].episodeNumber } as const;
                 if (realKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
                 recordSearchLog("info", "plex.resolve.episode", `plex.resolve.episode titleFallback user=${ctx.movvizUserId} show=${raw.grandparentTitle ?? "?"} history S${raw.parentIndex}E${raw.index} title="${raw.title}" plex S${exact[0].seasonNumber}E${exact[0].episodeNumber} exactTitleMatches=1`);
                 return { status: "RESOLVED", canonical, ratingKey: realKey, reason: "RESOLVED_SXXEXX" };
@@ -194,10 +206,10 @@ export async function resolveEpisode(
     }
     if (sxxexx.reason === "UNRESOLVED_AMBIGUOUS_MATCH" || sxxexx.reason === "AMBIGUOUS_SHOW") return { ...sxxexx, reason: "AMBIGUOUS_SHOW" as EpisodeResolveReason };
     // Plex ne connaît pas la série : repli sur le canonical Movviz seulement si la clé n'est pas exigée
-    if (movvizResolved && (!opts?.requireRatingKey || movvizResolved.ratingKey)) return movvizResolved;
-    if (movvizResolved && opts?.requireRatingKey && !movvizResolved.ratingKey) {
+    if (movvizCanonical && movvizResolved && (!opts?.requireRatingKey || movvizResolved.ratingKey)) return movvizResolved;
+    if (movvizCanonical && movvizResolved && opts?.requireRatingKey && !movvizResolved.ratingKey) {
       // Need a real Plex key – try TMDB-based show lookup (§5.D)
-      const tmdbShowId = (movvizResolved.canonical as Extract<CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId;
+      const tmdbShowId = movvizCanonical.tmdbShowId;
       const plexShow = await findPlexShowByTmdbId(ctx, tmdbShowId);
       if (plexShow) {
         const epsRes = await getShowEpisodesAtomic(cfg, plexShow.ratingKey, ctx.serverToken);
@@ -205,7 +217,7 @@ export async function resolveEpisode(
           const m = epsRes.items.find((e) => e.seasonNumber === raw.parentIndex && e.episodeNumber === raw.index);
           if (m) {
             const realKey = m.ratingKey;
-            const canonical = movvizResolved!.canonical!;
+            const canonical = movvizCanonical;
             if (realKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
             return { status: "RESOLVED", canonical, ratingKey: realKey, reason: "RESOLVED_SXXEXX" };
           }
@@ -267,6 +279,9 @@ function resolveViaMovvizLibrary(showTitle: string, season: number, episode: num
 }
 
 async function findPlexShowByTmdbId(ctx: PlexUserContext, tmdbShowId: number): Promise<{ ratingKey: string; title: string } | null> {
+  const cacheKey = `${ctx.machineIdentifier}:${tmdbShowId}`;
+  const cached = plexShowTmdbCache().get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
   const cfg = loadPlexConfig();
   const sections = await getLibrarySections(cfg, ctx.serverToken);
   const showSections = sections.filter((s) => s.type === "show");
@@ -277,10 +292,23 @@ async function findPlexShowByTmdbId(ctx: PlexUserContext, tmdbShowId: number): P
     if (keys.length === 0) continue;
     const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, keys);
     for (const it of result.items) {
-      if (tmdbMap.get(it.ratingKey)?.tmdbId === tmdbShowId) return { ratingKey: it.ratingKey, title: it.title };
+      if (tmdbMap.get(it.ratingKey)?.tmdbId === tmdbShowId) {
+        const value = { ratingKey: it.ratingKey, title: it.title };
+        plexShowTmdbCache().set(cacheKey, { value, expiresAt: Date.now() + PLEX_SHOW_TMDB_CACHE_TTL_MS });
+        return value;
+      }
     }
   }
+  plexShowTmdbCache().set(cacheKey, { value: null, expiresAt: Date.now() + PLEX_SHOW_TMDB_CACHE_TTL_MS });
   return null;
+}
+
+const PLEX_SHOW_TMDB_CACHE_TTL_MS = 5 * 60 * 1000;
+const gPlexShowTmdbCache = globalThis as typeof globalThis & {
+  __movvizPlexShowTmdbCache?: Map<string, { value: { ratingKey: string; title: string } | null; expiresAt: number }>;
+};
+function plexShowTmdbCache() {
+  return (gPlexShowTmdbCache.__movvizPlexShowTmdbCache ??= new Map());
 }
 
 function findEpisodeByPlexRatingKeyCached(ratingKey: string): { tmdbId: number; season: number; episode: number } | null {

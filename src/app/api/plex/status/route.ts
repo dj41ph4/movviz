@@ -6,6 +6,7 @@ import { getCachedPlexUserContext } from "@/lib/plex/plexUserContext";
 import { getObservedStatesForUser, getAllObservedStates } from "@/lib/plex/plexObservedState";
 import { getCircuitState } from "@/lib/plex/plexCircuitBreaker";
 import { getHistoryCursor } from "@/lib/plex/plexHistoryObserver";
+import { getBootstrapState } from "@/lib/plex/plexHistoryBootstrap";
 import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getPendingSyncStates } from "@/lib/userContext/syncState";
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
     const observed = machineIdentifier ? getObservedStatesForUser(u.id, machineIdentifier) : new Map();
     const watchedObserved = [...observed.values()].filter((s) => s.state === "WATCHED");
     const historyCursor = machineIdentifier ? getHistoryCursor(u.id, machineIdentifier) : null;
+    const bootstrap = machineIdentifier ? getBootstrapState(u.id, machineIdentifier) : null;
     const circuit = getCircuitState(u.id);
     const pending = getPendingSyncStates({ target: "plex", field: "watched", capabilities: ["PENDING", "ERROR"] }).filter((s) => s.userId === u.id);
 
@@ -58,6 +60,16 @@ export async function GET(req: NextRequest) {
       lastHistoryPoll: historyCursor?.updatedAt ?? null,
       lastHistoryViewedAt: historyCursor?.lastViewedAt ?? null,
       historyKeyCount: historyCursor?.historyKeyCount ?? 0,
+      historyBootstrapStatus: bootstrap?.status ?? null,
+      historyBootstrapProcessed: bootstrap?.processedEvents ?? 0,
+      historyBootstrapTotal: bootstrap?.expectedTotal ?? null,
+      historyBootstrapResolved: bootstrap?.resolvedEvents ?? 0,
+      historyBootstrapUnresolved: bootstrap?.unresolvedEvents ?? 0,
+      historyBootstrapStartedAt: bootstrap?.startedAt ?? null,
+      historyBootstrapCompletedAt: bootstrap?.completedAt ?? null,
+      historyBootstrapCurrentStart: bootstrap?.currentStart ?? 0,
+      historyBootstrapError: bootstrap?.error ?? null,
+      historyIncrementalCursor: historyCursor ? { lastViewedAt: historyCursor.lastViewedAt, seenKeys: historyCursor.seenEventKeysAtTimestamp ?? [] } : null,
       moviesObservedWatched: watchedObserved.filter((s) => s.ratingKey).length, // approximate
       episodesObservedWatched: watchedObserved.length, // includes both but filtered above is total; keep simple
       totalObserved: observed.size,

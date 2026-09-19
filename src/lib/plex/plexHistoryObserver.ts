@@ -12,7 +12,7 @@ const CONFIG_DIR =
   path.join(process.cwd(), ".movviz-data");
 const CURSOR_FILE = path.join(CONFIG_DIR, "plex-history-cursors.json");
 
-type CursorShape = Record<string, { lastViewedAt: number; historyKeyCount: number; updatedAt: number }>; // key = `${userId}::${machineIdentifier}::history`
+type CursorShape = Record<string, { lastViewedAt: number; historyKeyCount: number; updatedAt: number; seenEventKeysAtTimestamp?: string[] }>; // key = `${userId}::${machineIdentifier}::history`
 
 function cursorKey(userId: string, machineIdentifier: string): string {
   return `${userId}::${machineIdentifier}::history`;
@@ -63,11 +63,8 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
   if (!cfg.hostname || !cfg.adminToken) {
     return { ...EMPTY_HISTORY_RESULT };
   }
-  // RÈGLE ABSOLUE : sans localAccountId connu, le poll history est simplement
-  // ignoré — snapshot/quickVerify/watched-state restent disponibles. Jamais
-  // de fallback vers un autre compte.
-  if (!ctx.historyAvailable || ctx.localAccountId == null) {
-    recordSearchLog("info", "plex.history", `plex.history user=${ctx.movvizUserId} skipped reason=no_local_account historyAvailable=false snapshot_still_active=true`);
+  if (!ctx.historyAvailable || ctx.historyAccountId == null) {
+    recordSearchLog("info", "plex.history", `plex.history user=${ctx.movvizUserId} skipped reason=no_reliable_per_user_history historyAvailable=false snapshotAvailable=${ctx.authSource === "owner"}`);
     return { ...EMPTY_HISTORY_RESULT };
   }
 
@@ -75,16 +72,16 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
   const k = cursorKey(ctx.movvizUserId, ctx.machineIdentifier);
   const cursor = cursors[k];
 
-  // Use adminToken + localAccountId (PMS-local id space, §13)
-  const historyResult = await getAccountHistory(cfg, cfg.adminToken, ctx.localAccountId);
+  // Use adminToken + the proven PMS-local history account id.
+  const historyResult = await getAccountHistory(cfg, cfg.adminToken, ctx.historyAccountId);
   const entries = historyResult.entries;
 
   // Assertion §13: history.accountId must match expected localAccountId – getAccountHistory already filters, but we double-check & log mismatch
   let accountMismatch = 0;
   for (const e of entries) {
-    if (e.accountId != null && e.accountId !== ctx.localAccountId) {
+    if (e.accountId != null && e.accountId !== ctx.historyAccountId) {
       accountMismatch++;
-      recordSearchLog("warn", "plex.history", `PLEX_ACCOUNT_MISMATCH user=${ctx.movvizUserId} expected=${ctx.localAccountId} got=${e.accountId} ratingKey=${e.ratingKey}`);
+      recordSearchLog("warn", "plex.history", `PLEX_ACCOUNT_MISMATCH user=${ctx.movvizUserId} expected=${ctx.historyAccountId} got=${e.accountId} ratingKey=${e.ratingKey}`);
     }
   }
   if (accountMismatch > 0) {
@@ -104,18 +101,9 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
     };
   }
 
-  // Cursor advancement (§58): only after successful fetch + processing
-  // We store max viewedAt seen; next poll could theoretically filter, but for now we just record and always fetch newest first.
-  // The history endpoint pagination already handles large history; we just track cursor for diagnostics.
-  let cursorAdvanced = false;
-  if (entries.length > 0) {
-    const maxViewedAt = Math.max(...entries.map((e) => e.viewedAt ?? 0));
-    if (!cursor || maxViewedAt > cursor.lastViewedAt) {
-      cursors[k] = { lastViewedAt: maxViewedAt, historyKeyCount: entries.length, updatedAt: Date.now() };
-      writeCursors(cursors);
-      cursorAdvanced = true;
-    }
-  }
+  // The caller advances the cursor only after its batch has reconciled.  A
+  // fetch is not a processed event and must never make history disappear.
+  const cursorAdvanced = false;
 
   // Structured rejection diagnostics (§66-67)
   const hasRejections = historyResult.rejectedForeignEntries > 0 || historyResult.rejectedUnattributedEntries > 0 || historyResult.rejectedMalformedEpisodeEntries > 0;
@@ -128,7 +116,7 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
     recordSearchLog(
       hasRejections ? "warn" : "info",
       "plex.history",
-      `plex.history user=${ctx.movvizUserId} localAccountId=${ctx.localAccountId} received=${entries.length} totalEpisodeSeen=${historyResult.totalEpisodeTypeSeen} ${parts.length ? `, ${parts.join(", ")}` : ""} cursorAdvanced=${cursorAdvanced}`
+      `plex.history user=${ctx.movvizUserId} historyAccountId=${ctx.historyAccountId} received=${entries.length} totalEpisodeSeen=${historyResult.totalEpisodeTypeSeen} ${parts.length ? `, ${parts.join(", ")}` : ""} cursorAdvanced=${cursorAdvanced}`
     );
     if (historyResult.sampleMalformedEpisode) {
       recordSearchLog("warn", "plex.history", `plex.history sampleMalformed user=${ctx.movvizUserId} ${JSON.stringify(historyResult.sampleMalformedEpisode).slice(0, 800)}`);
@@ -157,7 +145,23 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
   };
 }
 
-export function getHistoryCursor(userId: string, machineIdentifier: string): { lastViewedAt: number; historyKeyCount: number; updatedAt: number } | null {
+/** Persist only the highest event timestamp which was fully processed. */
+export function setHistoryCursor(userId: string, machineIdentifier: string, lastViewedAt: number, entriesAtTimestamp: PlexHistoryEntry[] | string[] = []): void {
+  if (!Number.isFinite(lastViewedAt) || lastViewedAt <= 0) return;
+  const cursors = readCursors();
+  const k = cursorKey(userId, machineIdentifier);
+  const previous = cursors[k];
+  const seen = entriesAtTimestamp.length > 0 && typeof entriesAtTimestamp[0] === "string"
+    ? entriesAtTimestamp as string[]
+    : (entriesAtTimestamp as PlexHistoryEntry[])
+      .filter((entry) => (entry.viewedAt ?? 0) === lastViewedAt)
+      .map((entry) => entry.ratingKey ?? `nork:${entry.grandparentTitle ?? "?"}:${entry.season ?? "?"}:${entry.episode ?? "?"}:${entry.viewedAt ?? "?"}`);
+  if (previous?.lastViewedAt === lastViewedAt) seen.push(...(previous.seenEventKeysAtTimestamp ?? []));
+  cursors[k] = { lastViewedAt, historyKeyCount: previous?.historyKeyCount ?? 0, updatedAt: Date.now(), seenEventKeysAtTimestamp: [...new Set(seen)].slice(0, 50) };
+  writeCursors(cursors);
+}
+
+export function getHistoryCursor(userId: string, machineIdentifier: string): { lastViewedAt: number; historyKeyCount: number; updatedAt: number; seenEventKeysAtTimestamp?: string[] } | null {
   const cursors = readCursors();
   return cursors[cursorKey(userId, machineIdentifier)] ?? null;
 }

@@ -6,7 +6,7 @@ import { getCurrentWatchState } from "@/lib/userContext/watchBridge";
 import type { User } from "@/lib/auth/types";
 import { refreshPlexAvatar } from "./avatarSync";
 import { resolvePlexUserContext } from "./plexUserContext";
-import { pollHistory } from "./plexHistoryObserver";
+import { pollHistory, getHistoryCursor, setHistoryCursor } from "./plexHistoryObserver";
 import { snapshotWatchState, verifyWatchState, diffSnapshots } from "./plexWatchStateObserver";
 import { getObservedStatesForUser, setObservedStates, getObservedState, upsertObservedState, replaceObservedStatesForUserServer } from "./plexObservedState";
 import { reconcile, applyReconcileDecision } from "./plexReconciler";
@@ -17,6 +17,7 @@ import { withKeyLock } from "@/lib/library/locks";
 import { getUserMediaSyncStates, updateUserMediaSyncState } from "@/lib/userContext/syncState";
 import { mediaStateKey } from "@/lib/userContext/reconcile";
 import { getBootstrapState, isBootstrapCompleted, startBootstrap, updateBootstrapProgress, completeBootstrap, failBootstrap } from "./plexHistoryBootstrap";
+import { formatCanonical } from "./mediaIdentityMap";
 
 function getPendingIntentForMedia(
   userId: string,
@@ -60,10 +61,13 @@ function getWatchRevisionForMedia(userId: string, canonical: import("./mediaIden
   }, null);
 }
 
-// Per-user sync lock (§94)
-const gLock = globalThis as typeof globalThis & { __movvizPlexSyncLocks?: Map<string, boolean> };
+// Per-user sync lock (§94) + rerunRequested (§18)
+const gLock = globalThis as typeof globalThis & { __movvizPlexSyncLocks?: Map<string, boolean>; __movvizPlexRerunRequested?: Set<string> };
 function syncLocks(): Map<string, boolean> {
   return (gLock.__movvizPlexSyncLocks ??= new Map());
+}
+function rerunSet(): Set<string> {
+  return (gLock.__movvizPlexRerunRequested ??= new Set());
 }
 
 // Snapshot throttle per user (avoid hammering Plex every 30s via watch-status gate)
@@ -103,6 +107,10 @@ async function quickVerifyKnownMedia(
   user: User,
   ctx: import("./plexUserContext").PlexUserContext
 ): Promise<{ checked: number; reconciled: number }> {
+  // Metadata viewCount is documented as server-owner state for non-owner
+  // profiles. This guard protects the invariant even if an upstream caller
+  // regresses later.
+  if (ctx.authSource !== "owner") return { checked: 0, reconciled: 0 };
   const cfg = loadPlexConfig();
   const observed = getObservedStatesForUser(user.id, ctx.machineIdentifier);
   if (observed.size === 0) return { checked: 0, reconciled: 0 };
@@ -249,18 +257,27 @@ async function quickVerifyKnownMedia(
 export async function syncUserWatchStatus(user: User, opts?: { forceSnapshot?: boolean }) {
   const lockKey = `plex-sync:${user.id}`;
   if (syncLocks().get(user.id)) {
-    recordSearchLog("info", "plex.watchSync", `plex.watchSync user=${user.username} status=skipped reason=already_running`);
+    rerunSet().add(user.id);
+    recordSearchLog("info", "plex.watchSync", `plex.watchSync user=${user.username} status=skipped reason=already_running rerunRequested=true`);
     return;
   }
   syncLocks().set(user.id, true);
   try {
     await withKeyLock(lockKey, async () => doSync(user, opts));
+    // RerunRequested (§18): if a trigger arrived while we were running, do one immediate incremental catch-up
+    if (rerunSet().has(user.id)) {
+      rerunSet().delete(user.id);
+      recordSearchLog("info", "plex.watchSync", `plex.watchSync rerun user=${user.username} reason=trigger_during_sync`);
+      await withKeyLock(lockKey, async () => doSync(user, { forceSnapshot: false }));
+    }
   } finally {
     syncLocks().delete(user.id);
   }
 }
 
 async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
+  const syncStartedAt = Date.now();
+  let syncPhase = "identity";
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return;
   refreshPlexAvatar(user).catch(() => {});
@@ -285,52 +302,91 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
 
   try {
     // 1) History observer – activity + trigger (§28-29)
+    syncPhase = "history";
     const historyRes = await pollHistory(ctx);
     let historyTriggered = 0;
     let historyReconciled = 0;
+    let historyResolved = 0;
+    let historyUnresolved = 0;
+    let historyErrors = 0;
+    let historyProcessed = 0;
 
-    const bootstrapNeeded = ctx.historyAvailable && ctx.localAccountId != null && !isBootstrapCompleted(user.id, ctx.machineIdentifier);
+    const bootstrapNeeded = ctx.historyAvailable && ctx.historyAccountId != null && !isBootstrapCompleted(user.id, ctx.machineIdentifier);
     if (historyRes.entries.length > 0) {
       // Bootstrap vs incremental (§ final plan)
       // Deduplicate entries – key by ratingKey when present, else by show+SxxExx (§1)
       const seen = new Set<string>();
       const dedupedAll: (typeof historyRes.entries)[number][] = [];
       for (const e of historyRes.entries) {
-        const k = e.ratingKey ?? `nork:${e.grandparentTitle ?? "?"}:${e.season ?? "?"}:${e.episode ?? "?"}:${e.viewedAt ?? "?"}`;
+        const k = e.ratingKey
+          ?? (e.type === "episode"
+            ? `episode:${e.grandparentTitle ?? "?"}:${e.season ?? "?"}:${e.episode ?? "?"}`
+            : `movie:${e.guid ?? e.title ?? "?"}`);
         if (seen.has(k)) continue;
         seen.add(k);
         dedupedAll.push(e);
       }
-      // Bootstrap: treat ALL entries oldest-first in batches, resumable; incremental: newest 20
+      // Bootstrap: treat ALL entries oldest-first in batches, resumable with upperBound; incremental: newest 20
       let entriesToProcess: (typeof historyRes.entries)[number][];
       let bootstrapBatchStart = 0;
       let bootstrapState: ReturnType<typeof getBootstrapState> = null;
+      let bootstrapUpperBound: number | null = null;
+      let bootstrapEligibleTotal = 0;
       if (bootstrapNeeded) {
+        // Capture upperBound at bootstrap start (newest viewedAt at that moment) – events newer than this belong to catch-up
+        const currentMax = dedupedAll.length > 0 ? Math.max(...dedupedAll.map((e) => e.viewedAt ?? 0)) : 0;
         bootstrapState = getBootstrapState(user.id, ctx.machineIdentifier);
-        if (!bootstrapState || !bootstrapState.inProgress) {
-          bootstrapState = startBootstrap(user.id, ctx.machineIdentifier, dedupedAll.length);
-          recordSearchLog("info", "plex.history", `plex.history bootstrap start user=${user.username} total=${dedupedAll.length}`);
+        if (!bootstrapState || bootstrapState.status === "PENDING") {
+          bootstrapState = startBootstrap(user.id, ctx.machineIdentifier, dedupedAll.length, currentMax || null);
+          recordSearchLog("info", "plex.history", `plex.history bootstrap start user=${user.username} total=${dedupedAll.length} upperBound=${currentMax}`);
+        } else if (bootstrapState.upperBoundViewedAt == null && currentMax) {
+          bootstrapState.upperBoundViewedAt = currentMax;
         }
-        // Sort oldest-first for LWW bootstrap
-        dedupedAll.sort((a, b) => (a.viewedAt ?? 0) - (b.viewedAt ?? 0));
-        bootstrapBatchStart = bootstrapState.cursorPageStart ?? 0;
-        // Process in batches of 200 for bootstrap – persist between batches
+        bootstrapUpperBound = bootstrapState.upperBoundViewedAt;
+        const bootstrapEligible = bootstrapUpperBound != null ? dedupedAll.filter((e) => (e.viewedAt ?? 0) <= bootstrapUpperBound!) : dedupedAll;
+        bootstrapEligibleTotal = bootstrapEligible.length;
+        bootstrapEligible.sort((a, b) => (a.viewedAt ?? 0) - (b.viewedAt ?? 0));
+        bootstrapBatchStart = bootstrapState.currentStart ?? 0;
         const BATCH_SIZE = 200;
-        const remaining = dedupedAll.slice(bootstrapBatchStart);
-        // We'll process only one batch per sync invocation to avoid monopolizing the process for hours
+        const remaining = bootstrapEligible.slice(bootstrapBatchStart);
         entriesToProcess = remaining.slice(0, BATCH_SIZE);
         if (entriesToProcess.length === 0) {
-          completeBootstrap(user.id, ctx.machineIdentifier);
-          recordSearchLog("info", "plex.history", `plex.history bootstrap completed user=${user.username} total=${dedupedAll.length}`);
+          // No more eligible entries in this bootstrap – mark completed (even if eligible was 0)
+          completeBootstrap(user.id, ctx.machineIdentifier, bootstrapUpperBound);
+          if (bootstrapUpperBound != null) {
+            setHistoryCursor(user.id, ctx.machineIdentifier, bootstrapUpperBound, []);
+          }
+          recordSearchLog("info", "plex.history", `plex.history bootstrap completed user=${user.username} total=${dedupedAll.length} eligible=${bootstrapEligible.length} upperBound=${bootstrapUpperBound}`);
           entriesToProcess = [];
         }
       } else {
-        // Incremental: newest first, limit 20
-        dedupedAll.sort((a, b) => (b.viewedAt ?? 0) - (a.viewedAt ?? 0));
-        entriesToProcess = dedupedAll.slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
+        // Incremental: newest first, limit, but respect cursor + seenEventKeys (§17) to avoid re-reading 4641 each poll
+        const cursor = getHistoryCursor(user.id, ctx.machineIdentifier);
+        const lastAt = cursor?.lastViewedAt ?? 0;
+        const seenSet = new Set(cursor?.seenEventKeysAtTimestamp ?? []);
+        // Filter to only truly new events (viewedAt > lastAt, or == lastAt but not yet seen)
+        const incrementalCandidates = dedupedAll.filter((e) => {
+          const at = e.viewedAt ?? 0;
+          if (at > lastAt) return true;
+          if (at === lastAt) {
+            const k = e.ratingKey ?? `nork:${e.grandparentTitle ?? "?"}:${e.season ?? "?"}:${e.episode ?? "?"}:${e.viewedAt ?? "?"}`;
+            return !seenSet.has(k);
+          }
+          return false;
+        });
+        // If cursor exists and we have candidates, they are already the new ones; otherwise if no cursor (first incremental after bootstrap), use newest 20 as before
+        const source = incrementalCandidates.length > 0 ? incrementalCandidates : (cursor ? [] : dedupedAll);
+        source.sort((a, b) => (b.viewedAt ?? 0) - (a.viewedAt ?? 0));
+        entriesToProcess = source.slice(0, HISTORY_TARGETED_VERIFY_LIMIT);
+        if (cursor && incrementalCandidates.length === 0 && dedupedAll.length > 0) {
+          recordSearchLog("info", "plex.history", `plex.history incremental user=${user.username} no new events lastAt=${lastAt} total=${dedupedAll.length}`);
+        }
       }
 
       for (const entry of entriesToProcess) {
+        try {
+        historyProcessed++;
+        syncPhase = "history-resolve";
         // Resolve canonical FIRST (§1: episode history → resolveEpisode → real ratingKey → verify → reconcile)
         let canonical: { type: "movie"; tmdbId: number } | { type: "episode"; tmdbShowId: number; seasonNumber: number; episodeNumber: number } | null = null;
         let title: string | null = null;
@@ -345,6 +401,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
             Guid: entry.Guid,
           });
           if (movieResolved.status !== "RESOLVED" || !movieResolved.canonical || !movieResolved.ratingKey) {
+            historyUnresolved++;
             recordSearchLog("warn", "plex.watchSync", `plex.watchSync movie unresolved user=${user.username} ratingKey=${entry.ratingKey ?? "none"} title=${entry.title ?? "?"} reason=${movieResolved.reason}`);
             continue;
           }
@@ -366,6 +423,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           };
           const resolved = await resolveEpisode(ctx, raw, { requireRatingKey: true });
           if (resolved.status !== "RESOLVED" || !resolved.canonical) {
+            historyUnresolved++;
             recordSearchLog("warn", "plex.watchSync", `plex.watchSync episode unresolved user=${user.username} ratingKey=${entry.ratingKey ?? "none"} show=${entry.grandparentTitle ?? "?"} S${entry.season ?? "?"}E${entry.episode ?? "?"} reason=${resolved.reason} sample=${JSON.stringify(resolved.sample ?? raw).slice(0,500)}`);
             continue;
           }
@@ -387,6 +445,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         } else continue;
 
         if (!canonical) continue;
+        historyResolved++;
         if (!verifyKey) {
           recordSearchLog("warn", "plex.watchSync", `plex.watchSync no verifyKey user=${user.username} show=${entry.grandparentTitle ?? "?"} S${entry.season ?? "?"}E${entry.episode ?? "?"} – cannot verify, skipping`);
           continue;
@@ -420,6 +479,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         historyTriggered++;
 
         // Reconcile (§40-45)
+        syncPhase = "history-reconcile";
         const previous = getObservedState(user.id, ctx.machineIdentifier, rk);
         const currentCanonicalState = getCurrentWatchState({
           userId: user.id,
@@ -480,7 +540,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           if (ok) {
             historyReconciled++;
             upsertObservedState(observed);
-            recordSearchLog("info", "plex.reconciler", `plex.reconciler user=${user.username} ratingKey=${rk} decision=${result.decision} ${result.reason} canonical=${canonical.type}:${canonical.type === "movie" ? (canonical as { tmdbId: number }).tmdbId : (canonical as { tmdbShowId: number }).tmdbShowId}`);
+            recordSearchLog("info", "plex.reconciler", `plex.reconciler user=${user.username} ratingKey=${rk} decision=${result.decision} ${result.reason} canonical=${formatCanonical(canonical)}`);
           }
         } else if (result.decision !== "UNCHANGED" && result.decision !== "STALE_OBSERVATION") {
           recordSearchLog("info", "plex.reconciler", `plex.reconciler user=${user.username} ratingKey=${rk} decision=${result.decision} ${result.reason}`);
@@ -489,20 +549,36 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           // Still update observed state for tracking
           upsertObservedState(observed);
         }
-      }
-      recordSearchLog("info", "plex.watchSync", `plex.watchSync history user=${user.username} entries=${historyRes.entries.length} triggered=${historyTriggered} reconciled=${historyReconciled} ${bootstrapNeeded ? `bootstrap batch ${bootstrapBatchStart}-${bootstrapBatchStart + entriesToProcess.length}/${dedupedAll.length}` : ""}`);
-      // Bootstrap progress persistence – reprenable (§ final plan)
-      if (bootstrapNeeded) {
-        const nextCursor = bootstrapBatchStart + entriesToProcess.length;
-        const lastAt = entriesToProcess.length > 0 ? Math.max(...entriesToProcess.map((e) => e.viewedAt ?? 0)) : 0;
-        if (nextCursor >= dedupedAll.length) {
-          // All pages processed with no batch failure → completed
-          completeBootstrap(user.id, ctx.machineIdentifier);
-          recordSearchLog("info", "plex.history", `plex.history bootstrap completed user=${user.username} total=${dedupedAll.length}`);
-        } else {
-          updateBootstrapProgress(user.id, ctx.machineIdentifier, nextCursor, lastAt, nextCursor);
-          recordSearchLog("info", "plex.history", `plex.history bootstrap progress user=${user.username} ${nextCursor}/${dedupedAll.length}`);
+        } catch (error) {
+          historyErrors++;
+          const stack = error instanceof Error ? error.stack ?? error.message : String(error);
+          recordSearchLog("error", "plex.watchSync", `plex.watchSync history entry failed user=${user.username} phase=${syncPhase} entryType=${entry.type} ratingKey=${entry.ratingKey ?? "none"} show=${entry.grandparentTitle ?? "-"} season=${entry.season ?? "-"} episode=${entry.episode ?? "-"} title=${entry.title ?? "-"} error=${stack}`);
+          continue;
         }
+      }
+      recordSearchLog("info", "plex.watchSync", `plex.watchSync history user=${user.username} entries=${historyRes.entries.length} triggered=${historyTriggered} reconciled=${historyReconciled} ${bootstrapNeeded ? `bootstrap batch ${bootstrapBatchStart}-${bootstrapBatchStart + entriesToProcess.length}/${bootstrapEligibleTotal ?? dedupedAll.length} upperBound=${bootstrapUpperBound ?? "?"}` : ""}`);
+      // Bootstrap progress persistence – reprenable (§ final plan)
+      if (bootstrapNeeded && bootstrapState) {
+        const eligibleTotal = bootstrapState.expectedTotal ?? bootstrapEligibleTotal ?? dedupedAll.length;
+        const nextCursor = bootstrapBatchStart + entriesToProcess.length;
+        if (entriesToProcess.length === 0 || nextCursor >= eligibleTotal) {
+          completeBootstrap(user.id, ctx.machineIdentifier, bootstrapUpperBound);
+          if (bootstrapUpperBound != null) {
+          setHistoryCursor(user.id, ctx.machineIdentifier, bootstrapUpperBound, []);
+          }
+          recordSearchLog("info", "plex.history", `plex.history bootstrap completed user=${user.username} total=${dedupedAll.length} eligible=${eligibleTotal} upperBound=${bootstrapUpperBound}`);
+        } else {
+          const lastAt = entriesToProcess.length > 0 ? Math.max(...entriesToProcess.map((e) => e.viewedAt ?? 0)) : 0;
+          updateBootstrapProgress(user.id, ctx.machineIdentifier, nextCursor, historyResolved, historyUnresolved + historyErrors, nextCursor, lastAt, eligibleTotal);
+          recordSearchLog("info", "plex.history", `plex.history bootstrap progress user=${user.username} ${nextCursor}/${eligibleTotal}`);
+        }
+      }
+
+      // Incremental cursor follows only entries that completed their local
+      // handling. Replays after a crash are safe through the ledger.
+      if (!bootstrapNeeded && entriesToProcess.length > 0) {
+        const newest = Math.max(...entriesToProcess.map((entry) => entry.viewedAt ?? 0));
+        setHistoryCursor(user.id, ctx.machineIdentifier, newest, entriesToProcess);
       }
     } else if (bootstrapNeeded) {
       // History empty but bootstrap expected – still mark completed to avoid infinite loop (no resolvable events)
@@ -524,6 +600,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
     }
 
     // 2) WatchStateObserver snapshot – owner only. Shared/managed have no reliable per-user viewCount.
+    syncPhase = "snapshot";
     const doSnapshot = ctx.authSource === "owner" && shouldSnapshot(user.id, opts?.forceSnapshot);
     if (doSnapshot) {
       const previousMap = getObservedStatesForUser(user.id, ctx.machineIdentifier);
@@ -649,8 +726,11 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           `plex.watchSync snapshot user=${user.username} movies=${snap.movieRatingKeys.length} episodes=${snap.episodeRatingKeys.length} watchedNow=${diff.watchedNow.size} newWatched=${diff.newWatched.length} newUnwatched=${diff.newUnwatched.length} reconciledWatched=${snapReconciledWatched} reconciledUnwatched=${snapReconciledUnwatched}`
         );
       }
+    } else if (ctx.authSource !== "owner") {
+      recordSearchLog("info", "plex.watchSync", `plex.watchSync snapshot skipped user=${user.username} reason=unsupported_non_owner snapshotAvailable=false`);
     } else {
-      recordSearchLog("info", "plex.watchSync", `plex.watchSync snapshot skipped user=${user.username} reason=throttled last=${Math.round((Date.now() - (lastSnapshotMap().get(user.id) ?? 0)) / 60000)}min ago`);
+      const last = lastSnapshotMap().get(user.id);
+      recordSearchLog("info", "plex.watchSync", `plex.watchSync snapshot skipped user=${user.username} reason=throttled last=${last == null ? "never" : `${Math.round((Date.now() - last) / 60000)}min ago`}`);
     }
 
     // 3) Single decision chain (§7 plan final): history→resolve→verify→reconcile above,
@@ -664,10 +744,11 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
     refreshLegacyUserContext(user.id, true);
 
     recordCircuitSuccess(user.id);
-    recordSearchLog("info", "plex.watchSync", `plex.watchSync user=${user.username} done localAccountId=${ctx.localAccountId} server=${ctx.machineIdentifier.slice(0,8)} tokenFp=${ctx.tokenFingerprint}`);
+    recordSearchLog("info", "plex.watchSync", `plex.watchSync summary user=${user.username} authSource=${ctx.authSource} historyCapability=${ctx.watchImportCapability} snapshotCapability=${ctx.authSource === "owner" ? "AVAILABLE" : "UNAVAILABLE"} bootstrap=${bootstrapNeeded ? "running" : "completed"} historyReceived=${historyRes.entries.length} historyUnique=${historyRes.entries.length > 0 ? new Set(historyRes.entries.map((entry) => entry.ratingKey ?? `${entry.type}:${entry.grandparentTitle ?? entry.title ?? "?"}:${entry.season ?? ""}:${entry.episode ?? ""}`)).size : 0} historyProcessed=${historyProcessed} historyResolved=${historyResolved} historyUnresolved=${historyUnresolved} historyErrors=${historyErrors} reconciled=${historyReconciled} cursorAdvanced=${!bootstrapNeeded && historyProcessed > 0} durationMs=${Date.now() - syncStartedAt}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    recordSearchLog("error", "plex.watchSync", `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}) : échec de synchronisation — ${msg} — données précédentes conservées`);
+    const stack = err instanceof Error ? err.stack ?? err.message : String(err);
+    recordSearchLog("error", "plex.watchSync", `watchSync failed user=${user.username} phase=${syncPhase} error=${msg} stack=${stack} — données précédentes conservées`);
     recordCircuitFailure(user.id, msg);
   }
 }

@@ -218,10 +218,10 @@ export const TASKS: ScheduledTask[] = [
       // getPlexFriends(). `plexId` est le vrai marqueur d'identité Plex,
       // pas `plexToken` (une conséquence de connexion, pas une condition).
       const users = loadUsers().filter((u) => u.plexId || u.plexManagedUserId);
-      // Was one user at a time — combined with the per-show sequential calls
-      // this fixed in watchSync.ts, a library with several Plex users could
-      // hold the single active job slot for many minutes straight.
-      await mapWithConcurrency(users, 3, (user) => syncUserWatchStatus(user));
+      // Full history bootstrap can involve thousands of events per user and must
+      // not monopolize the process with 15 parallel full scans. Keep at most
+      // one full bootstrap at a time (owner snapshot is cheap, history is not).
+      await mapWithConcurrency(users, 1, (user) => syncUserWatchStatus(user));
     },
   },
   {
