@@ -1307,6 +1307,21 @@ export interface PlexAccountHistoryResult {
   totalEpisodeTypeSeen: number;
 }
 
+export type PlexAccountHistoryPageOptions = {
+  start: number;
+  size: number;
+  sortDirection: "asc" | "desc";
+};
+
+export type PlexAccountHistoryPageResult = PlexAccountHistoryResult & {
+  start: number;
+  requestedSize: number;
+  rawPageCount: number;
+  totalSize: number;
+  nextStart: number;
+  hasMore: boolean;
+};
+
 /**
  * Every playback-history entry for one Plex account (movies + episodes),
  * paginated, newest first.
@@ -1325,48 +1340,43 @@ export interface PlexAccountHistoryResult {
  * section-scan approach entirely, for both friend and Home-managed
  * accounts alike — one mechanism instead of two.
  */
-export async function getAccountHistory(cfg: PlexServerConfig, adminToken: string, accountId: number): Promise<PlexAccountHistoryResult> {
-  const out: PlexHistoryEntry[] = [];
+export async function getAccountHistoryPage(
+  cfg: PlexServerConfig,
+  adminToken: string,
+  accountId: number,
+  options: PlexAccountHistoryPageOptions,
+): Promise<PlexAccountHistoryPageResult> {
+  const start = Math.max(0, Math.floor(options.start));
+  const size = Math.max(1, Math.min(1000, Math.floor(options.size)));
+  const url = new URL(`${serverBase(cfg)}/status/sessions/history/all`);
+  url.searchParams.set("accountID", String(accountId));
+  url.searchParams.set("sort", `viewedAt:${options.sortDirection}`);
+  const res = await fetchWithRetry(url.toString(), {
+    headers: {
+      ...serverHeaders(cfg, adminToken),
+      "X-Plex-Container-Start": String(start),
+      "X-Plex-Container-Size": String(size),
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`plex_history_page_http_${res.status}`);
+  let data: { MediaContainer?: { Metadata?: RawHistoryItem[]; totalSize?: number; size?: number } };
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error("plex_history_page_invalid_json");
+  }
+  const raw = data?.MediaContainer?.Metadata;
+  if (!Array.isArray(raw)) throw new Error("plex_history_page_invalid_shape");
+  const totalSizeRaw = data?.MediaContainer?.totalSize ?? data?.MediaContainer?.size ?? raw.length;
+  const totalSize = Number.isFinite(Number(totalSizeRaw)) ? Math.max(0, Number(totalSizeRaw)) : raw.length;
+  const entries: PlexHistoryEntry[] = [];
   let rejectedForeignEntries = 0;
   let rejectedUnattributedEntries = 0;
   let rejectedMalformedEpisodeEntries = 0;
   let sampleMalformedEpisode: Record<string, unknown> | null = null;
-  // Bug fix: rejectedMalformedEpisodeEntries and the two rejection counters
-  // above only count an episode-typed item AFTER it already passed the
-  // accountID checks — so if this PMS's history simply never sends episode-
-  // typed items with a valid/matching accountID at all (the actual cause is
-  // still unconfirmed), every one of those counters stays at 0 and this
-  // whole diagnostic pass is invisible again. This one is unconditional —
-  // literally every `item.type === "episode"` seen in the raw response,
-  // before any other check — so the sync log can finally tell "Plex sent
-  // zero episode-typed events for this account" apart from "Plex sent some
-  // but they all got filtered out downstream".
   let totalEpisodeTypeSeen = 0;
-  const pageSize = 200;
-  let start = 0;
-  for (;;) {
-    let page: RawHistoryItem[];
-    let total: number;
-    try {
-      const url = new URL(`${serverBase(cfg)}/status/sessions/history/all`);
-      url.searchParams.set("accountID", String(accountId));
-      url.searchParams.set("sort", "viewedAt:desc");
-      const res = await fetchWithRetry(url.toString(), {
-        headers: {
-          ...serverHeaders(cfg, adminToken),
-          "X-Plex-Container-Start": String(start),
-          "X-Plex-Container-Size": String(pageSize),
-        },
-        cache: "no-store",
-      });
-      if (!res.ok) break;
-      const data = await res.json();
-      page = data?.MediaContainer?.Metadata ?? [];
-      total = data?.MediaContainer?.totalSize ?? data?.MediaContainer?.size ?? page.length;
-    } catch {
-      break;
-    }
-    for (const item of page) {
+  for (const item of raw) {
       if (item.type === "episode") totalEpisodeTypeSeen++;
       // PMS documents accountID in each history entry.  Never rely only on
       // the query parameter: a buggy/proxied response that ignores it must
@@ -1382,10 +1392,10 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
       }
       const grandparentRatingKey = item.grandparentRatingKey ?? ratingKeyFromPath(item.grandparentKey);
       if (item.type === "movie") {
-        out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, guid: item.guid, Guid: item.Guid, viewedAt: item.viewedAt, accountId: eventAccountId });
+        entries.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, guid: item.guid, Guid: item.Guid, viewedAt: item.viewedAt, accountId: eventAccountId });
       } else if (item.type === "episode" && item.parentIndex != null && item.index != null && (grandparentRatingKey || item.grandparentTitle)) {
         // Keep episode if we have at least show title + SxxExx, even without ratingKey (§1) – resolver will decide via Movviz/Plex library
-        out.push({
+        entries.push({
           ratingKey: item.ratingKey,
           type: "episode",
           grandparentRatingKey,
@@ -1401,11 +1411,46 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
         rejectedMalformedEpisodeEntries++;
         if (!sampleMalformedEpisode) sampleMalformedEpisode = { ...item };
       }
-    }
-    start += page.length;
-    if (page.length === 0 || start >= total) break;
   }
-  return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries, rejectedMalformedEpisodeEntries, sampleMalformedEpisode, totalEpisodeTypeSeen };
+  const rawPageCount = raw.length;
+  const nextStart = start + rawPageCount;
+  return {
+    entries,
+    start,
+    requestedSize: size,
+    rawPageCount,
+    totalSize,
+    nextStart,
+    hasMore: rawPageCount > 0 && nextStart < totalSize,
+    rejectedForeignEntries,
+    rejectedUnattributedEntries,
+    rejectedMalformedEpisodeEntries,
+    sampleMalformedEpisode,
+    totalEpisodeTypeSeen,
+  };
+}
+
+/** Legacy full reader, retained for callers outside the sync engine. */
+export async function getAccountHistory(cfg: PlexServerConfig, adminToken: string, accountId: number): Promise<PlexAccountHistoryResult> {
+  const entries: PlexHistoryEntry[] = [];
+  let start = 0;
+  let rejectedForeignEntries = 0;
+  let rejectedUnattributedEntries = 0;
+  let rejectedMalformedEpisodeEntries = 0;
+  let sampleMalformedEpisode: Record<string, unknown> | null = null;
+  let totalEpisodeTypeSeen = 0;
+  for (;;) {
+    const page = await getAccountHistoryPage(cfg, adminToken, accountId, { start, size: 200, sortDirection: "desc" });
+    entries.push(...page.entries);
+    rejectedForeignEntries += page.rejectedForeignEntries;
+    rejectedUnattributedEntries += page.rejectedUnattributedEntries;
+    rejectedMalformedEpisodeEntries += page.rejectedMalformedEpisodeEntries;
+    sampleMalformedEpisode ??= page.sampleMalformedEpisode;
+    totalEpisodeTypeSeen += page.totalEpisodeTypeSeen;
+    if (!page.hasMore) break;
+    start = page.nextStart;
+  }
+  return { entries, rejectedForeignEntries, rejectedUnattributedEntries, rejectedMalformedEpisodeEntries, sampleMalformedEpisode, totalEpisodeTypeSeen };
 }
 
 export interface PlexLocalAccount {
