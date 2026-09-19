@@ -131,7 +131,7 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
     // qui pourrait ne jamais aboutir. plex_history/legacy_migration ne
     // propagent jamais vers Plex (§57 : éviter la boucle Plex -> Movviz ->
     // Plex).
-    if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "movie", tmdbId);
+    if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "movie", tmdbId, undefined, undefined, result.revision, result.effectiveState as "watched" | "unwatched");
     if (watched) {
       const key = String(tmdbId);
       if (!status.movies.includes(tmdbId)) status.movies.push(tmdbId);
@@ -180,7 +180,7 @@ export function setWatchedEpisodes(
         title: title || null, state: "watched", occurredAt: at, source,
       });
       if (!result.accepted) continue;
-      if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", e.tmdbId, e.season, e.episode);
+      if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", e.tmdbId, e.season, e.episode, result.revision, result.effectiveState as "watched" | "unwatched");
       const prev = existing.get(key(e));
       if (!prev) {
         status.episodes.push({ tmdbId: e.tmdbId, season: e.season, episode: e.episode, at });
@@ -202,7 +202,7 @@ export function setWatchedEpisodes(
         title: title || null, state: "unwatched", occurredAt: at, source,
       });
       if (!result.accepted) continue;
-      if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", entry.tmdbId, entry.season, entry.episode);
+      if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", entry.tmdbId, entry.season, entry.episode, result.revision, result.effectiveState as "watched" | "unwatched");
       status.episodes = status.episodes.filter((episode) => key(episode) !== key(entry));
       accepted.push({ ...entry, at });
     }

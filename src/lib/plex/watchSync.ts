@@ -31,12 +31,30 @@ function getPendingIntentForMedia(
       : mediaStateKey(userId, "episode", (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber, (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber);
   const entry = getUserMediaSyncStates(userId).find((e) => e.stateKey === stateKey && e.field === "watched" && e.target === "plex" && (e.capability === "PENDING" || e.capability === "ERROR"));
   if (!entry) return null;
-  // Superseded check (§34): if canonical has moved beyond pending's updatedAt, pending is stale
-  if (currentCanonicalAt != null && entry.updatedAt < currentCanonicalAt) {
-    // Pending is for an older revision – treat as superseded, don't use for ACK
-    return null;
+  const pendingRevision = entry.revision ?? entry.updatedAt;
+  const desired = (entry.desiredState as "watched" | "unwatched" | null) ?? (currentCanonicalState as "watched" | "unwatched");
+  // Superseded check (§34, §6): if canonical revision is newer than pending revision, pending is stale
+  if (currentCanonicalAt != null && pendingRevision < currentCanonicalAt) {
+    // Also check via DB revision if available
+    const rev = getWatchRevisionForMedia(userId, canonical);
+    if (rev != null && pendingRevision < rev) return null;
+  } else if (currentCanonicalAt == null) {
+    const rev = getWatchRevisionForMedia(userId, canonical);
+    if (rev != null && pendingRevision < rev) return null;
   }
-  return { desiredState: currentCanonicalState as "watched" | "unwatched", revision: entry.updatedAt, sourceEventId: entry.stateKey };
+  return { desiredState: desired, revision: pendingRevision, sourceEventId: entry.stateKey };
+}
+
+function getWatchRevisionForMedia(userId: string, canonical: import("./mediaIdentityMap").CanonicalMediaIdentity): number | null {
+  const { withUserContextDb } = require("@/lib/userContext/database") as typeof import("@/lib/userContext/database");
+  return withUserContextDb((db) => {
+    const key =
+      canonical.type === "movie"
+        ? `${userId}:movie:${canonical.tmdbId}`
+        : `${userId}:episode:${(canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).tmdbShowId}:${(canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber}:${(canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber}`;
+    const row = db.prepare("SELECT watched_revision FROM user_media_state WHERE state_key = ?").get(key) as { watched_revision: number | null } | undefined;
+    return row?.watched_revision ?? null;
+  }, null);
 }
 
 // Per-user sync lock (§94)

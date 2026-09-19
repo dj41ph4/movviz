@@ -47,9 +47,9 @@ export function shouldPropagateWatchedToPlex(source: string): boolean {
  * silencieusement l'export si le processus fire-and-forget qui suit ne va
  * jamais au bout.
  */
-export function markPlexWatchedOutboxPending(userId: string, mediaType: "movie" | "episode", tmdbId: number, seasonNumber?: number, episodeNumber?: number): void {
+export function markPlexWatchedOutboxPending(userId: string, mediaType: "movie" | "episode", tmdbId: number, seasonNumber?: number, episodeNumber?: number, revision?: number | null, desiredState?: "watched" | "unwatched" | null): void {
   const stateKey = mediaStateKey(userId, mediaType, tmdbId, seasonNumber, episodeNumber);
-  updateUserMediaSyncState({ userId, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "PENDING", observedAt: Date.now() });
+  updateUserMediaSyncState({ userId, stateKey, field: PLEX_WATCHED_SYNC_FIELD, target: PLEX_WATCHED_SYNC_TARGET, capability: "PENDING", observedAt: Date.now(), revision: revision ?? null, desiredState: desiredState ?? null });
 }
 
 /**

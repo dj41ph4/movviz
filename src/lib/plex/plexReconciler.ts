@@ -70,9 +70,8 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
         : "unwatched"
     : null;
 
-  // Baseline handling (§26): first time we see this ratingKey for this user.
-  // We record the observation but don't force canonical to follow if canonical already has a watched state that predates baseline.
-  // However if canonical is unknown and Plex says watched, we should import.
+  // Baseline handling (§26, §2): first time we see this ratingKey for this user.
+  // Must remain prudent but not block definitively a recent Plex WATCHED when Movviz is UNWATCHED.
   if (isBaseline || !previousPlexObserved) {
     if (currentCanonicalState === "unknown") {
       if (curState === "watched") {
@@ -80,9 +79,19 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
       }
       return { decision: "BASELINE", shouldApply: false, reason: "baseline_unwatched_noop" };
     }
-    // Canonical already has a decision; baseline should not overwrite it blindly.
-    // Only if Plex is watched and canonical is unwatched, but with no prior observation we can't know if it's a real transition.
-    // Conservative: do NOT overwrite canonical on baseline.
+    // If Plex is WATCHED and canonical is UNWATCHED with a reliable newer timestamp, treat as real remote change
+    if (curState === "watched" && currentCanonicalState === "unwatched") {
+      const plexTime = currentPlexObserved.lastViewedAt ?? currentPlexObserved.observedAt;
+      const canonicalTime = currentCanonicalAt ?? 0;
+      // lastViewedAt is the real watch time, not snapshot time – if it's newer than canonical, it's a genuine newer event
+      if (plexTime != null && plexTime > canonicalTime) {
+        // Also ensure no pending local intent would be ACKed instead – pendingIntent check is done later, but baseline with pending is rare
+        if (!pendingIntent || pendingIntent.desiredState !== "watched") {
+          return { decision: "REMOTE_WATCHED", shouldApply: true, newCanonicalState: "watched", reason: "baseline_watched_newer_than_canonical" };
+        }
+      }
+    }
+    // Canonical already has a decision; baseline otherwise stays conservative.
     return { decision: "BASELINE", shouldApply: false, reason: "baseline_conservative_no_overwrite" };
   }
 

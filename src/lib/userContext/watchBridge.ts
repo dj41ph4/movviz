@@ -61,6 +61,7 @@ export interface WatchDecisionResult {
   previousUpdatedAt: number | null;
   effectiveUpdatedAt: number | null;
   reason: WatchDecisionReason;
+  revision: number | null;
 }
 
 function defaultSourceEventId(input: WatchDecisionInput): string {
@@ -81,6 +82,7 @@ interface CurrentWatchRow {
   watched_updated_at: number | null;
   watched_source: string | null;
   watched_event_id: string | null;
+  watched_revision?: number | null;
 }
 
 /**
@@ -168,6 +170,7 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
     previousState: "unknown", effectiveState: input.state,
     previousUpdatedAt: null, effectiveUpdatedAt: input.occurredAt,
     reason: "newer_event",
+    revision: null,
   };
   // Doublon RÉEL détecté alors que le moteur EST disponible (même
   // source_event_id déjà journalisé) : ce cas-ci doit rester un rejet, la
@@ -177,6 +180,7 @@ export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResu
     previousState: "unknown", effectiveState: "unknown",
     previousUpdatedAt: null, effectiveUpdatedAt: null,
     reason: "duplicate",
+    revision: null,
   };
 
   return withUserContextDb((db) => {
@@ -226,7 +230,7 @@ function applyWatchDecisionTx(
 
     const key = stateKeyFor(input);
     const row = db.prepare(
-      "SELECT watched, watched_updated_at, watched_source, watched_event_id FROM user_media_state WHERE state_key = ?"
+      "SELECT watched, watched_updated_at, watched_source, watched_event_id, watched_revision FROM user_media_state WHERE state_key = ?"
     ).get(key) as CurrentWatchRow | undefined;
 
     const previousState: WatchCurrentState = !row || row.watched_updated_at == null
@@ -270,16 +274,18 @@ function applyWatchDecisionTx(
         previousState, effectiveState: previousState,
         previousUpdatedAt, effectiveUpdatedAt: previousUpdatedAt,
         reason,
+        revision: row?.watched_revision ?? null,
       };
     }
 
     const watchedFlag = input.state === "watched" ? 1 : 0;
+    const nextRevision = (row?.watched_revision ?? 0) + 1;
     db.prepare(`
       INSERT INTO user_media_state(
         state_key, user_id, tmdb_id, media_type, title_snapshot,
         season_number, episode_number, watched, watched_at, updated_at,
-        watched_updated_at, watched_source, watched_event_id
-      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        watched_updated_at, watched_source, watched_event_id, watched_revision
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(state_key) DO UPDATE SET
         title_snapshot = COALESCE(excluded.title_snapshot, user_media_state.title_snapshot),
         season_number = COALESCE(excluded.season_number, user_media_state.season_number),
@@ -292,12 +298,13 @@ function applyWatchDecisionTx(
         updated_at = MAX(COALESCE(user_media_state.updated_at, 0), excluded.updated_at),
         watched_updated_at = excluded.watched_updated_at,
         watched_source = excluded.watched_source,
-        watched_event_id = excluded.watched_event_id
+        watched_event_id = excluded.watched_event_id,
+        watched_revision = excluded.watched_revision
     `).run(
       key, input.userId, input.tmdbId, input.mediaType, input.title ?? null,
       input.seasonNumber ?? null, input.episodeNumber ?? null,
       watchedFlag, input.state === "watched" ? input.occurredAt : null, input.occurredAt,
-      input.occurredAt, input.source, sourceEventId,
+      input.occurredAt, input.source, sourceEventId, nextRevision,
     );
 
     return {
@@ -306,5 +313,6 @@ function applyWatchDecisionTx(
       previousState, effectiveState: input.state,
       previousUpdatedAt, effectiveUpdatedAt: input.occurredAt,
       reason,
+      revision: nextRevision,
     };
 }

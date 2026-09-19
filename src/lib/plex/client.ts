@@ -965,6 +965,71 @@ export async function getSectionRawItems(
   return raw;
 }
 
+export interface SectionRawItemsResult {
+  items: RawLibraryItem[];
+  complete: boolean;
+  expectedTotal: number;
+  receivedTotal: number;
+  error?: string;
+}
+
+export async function getSectionRawItemsAtomic(
+  cfg: PlexServerConfig,
+  sectionKey: string,
+  token: string,
+  opts?: { sinceUnixSeconds?: number },
+  managedUserId?: string
+): Promise<SectionRawItemsResult> {
+  const raw: RawLibraryItem[] = [];
+  const pageSize = 200;
+  let start = 0;
+  let expectedTotal: number | null = null;
+  const incremental = opts?.sinceUnixSeconds != null;
+  for (;;) {
+    let page: RawLibraryItem[];
+    let total: number;
+    try {
+      const url = new URL(`${serverBase(cfg)}/library/sections/${sectionKey}/all`);
+      if (incremental) url.searchParams.set("sort", "updatedAt:desc");
+      url.searchParams.set("includeExternalMedia", "1");
+      const res = await fetchWithRetry(url.toString(), {
+        headers: {
+          ...serverHeaders(cfg, token, managedUserId),
+          "X-Plex-Container-Start": String(start),
+          "X-Plex-Container-Size": String(pageSize),
+        },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        return { items: raw, complete: false, expectedTotal: expectedTotal ?? raw.length, receivedTotal: raw.length, error: `HTTP ${res.status}` };
+      }
+      const data = await res.json();
+      page = data?.MediaContainer?.Metadata ?? [];
+      total = data?.MediaContainer?.totalSize ?? page.length;
+      if (expectedTotal == null) expectedTotal = total;
+      else if (total !== expectedTotal) {
+        // Total changed mid-pagination – treat as incomplete to avoid interpreting partial as complete
+        return { items: raw, complete: false, expectedTotal, receivedTotal: raw.length, error: `total_changed ${expectedTotal}->${total}` };
+      }
+    } catch (e) {
+      return { items: raw, complete: false, expectedTotal: expectedTotal ?? raw.length, receivedTotal: raw.length, error: e instanceof Error ? e.message : String(e) };
+    }
+    if (incremental) {
+      const fresh = page.filter((i) => (i.updatedAt ?? i.addedAt ?? 0) >= opts!.sinceUnixSeconds!);
+      raw.push(...fresh);
+      if (fresh.length < page.length) {
+        // Incremental complete – we have seen all fresh items
+        return { items: raw, complete: true, expectedTotal: raw.length, receivedTotal: raw.length };
+      }
+    } else {
+      raw.push(...page);
+    }
+    start += page.length;
+    if (page.length === 0 || start >= (expectedTotal ?? 0)) break;
+  }
+  return { items: raw, complete: true, expectedTotal: expectedTotal ?? raw.length, receivedTotal: raw.length };
+}
+
 export async function getSectionItems(
   cfg: PlexServerConfig,
   sectionKey: string,
@@ -1149,7 +1214,8 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
       const grandparentRatingKey = item.grandparentRatingKey ?? ratingKeyFromPath(item.grandparentKey);
       if (item.type === "movie") {
         out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, viewedAt: item.viewedAt, accountId: eventAccountId });
-      } else if (item.type === "episode" && grandparentRatingKey && item.parentIndex != null && item.index != null) {
+      } else if (item.type === "episode" && item.parentIndex != null && item.index != null && (grandparentRatingKey || item.grandparentTitle)) {
+        // Keep episode if we have at least show title + SxxExx, even without ratingKey (§1) – resolver will decide via Movviz/Plex library
         out.push({
           ratingKey: item.ratingKey,
           type: "episode",

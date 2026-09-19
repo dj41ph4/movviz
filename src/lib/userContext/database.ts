@@ -11,7 +11,7 @@ const CONFIG_DIR =
 
 const CONTEXT_DIR = path.join(CONFIG_DIR, "context");
 export const USER_CONTEXT_DB_FILE = path.join(CONTEXT_DIR, "user-context.sqlite");
-export const USER_CONTEXT_SCHEMA_VERSION = 4;
+export const USER_CONTEXT_SCHEMA_VERSION = 5;
 
 const g = globalThis as typeof globalThis & {
   __movvizUserContextDb?: DatabaseSync | null;
@@ -188,10 +188,16 @@ function ensureSchema(db: DatabaseSync): void {
     // identifiant déterministe de l'événement actuellement gagnant, pour le
     // debug/audit d'un conflit sans avoir à rejouer le ledger.
     ["watched_event_id", "TEXT"],
+    // v5 — vraie revision canonique (§6) : incrémentée à chaque décision acceptée, utilisée par l'outbox pour coalescence
+    ["watched_revision", "INTEGER"],
   ];
   for (const [name, type] of additions) {
     if (!columns.has(name)) db.exec(`ALTER TABLE user_media_state ADD COLUMN ${name} ${type}`);
   }
+  // v5 – outbox revision for coalescence (§6)
+  const syncColumns = new Set((db.prepare("PRAGMA table_info(user_media_sync_state)").all() as Array<{ name: string }>).map((row) => row.name));
+  if (!syncColumns.has("revision")) db.exec(`ALTER TABLE user_media_sync_state ADD COLUMN revision INTEGER`);
+  if (!syncColumns.has("desired_state")) db.exec(`ALTER TABLE user_media_sync_state ADD COLUMN desired_state TEXT`);
 
   const existing = db.prepare("SELECT version FROM context_schema WHERE version = ?").get(USER_CONTEXT_SCHEMA_VERSION);
   if (!existing) {

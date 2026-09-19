@@ -1,5 +1,5 @@
 import { loadPlexConfig } from "./store";
-import { batchPlexViewState, getLibrarySections, getSectionRawItems } from "./client";
+import { batchPlexViewState, getLibrarySections, getSectionRawItemsAtomic } from "./client";
 import type { PlexUserContext } from "./plexUserContext";
 import type { PlexObservedState } from "./plexObservedState";
 import { getObservedStatesForUser, setObservedStates, getObservedState, replaceObservedStatesForUserServer } from "./plexObservedState";
@@ -51,15 +51,14 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
   const allShowKeys = new Set<string>();
   const allEpisodeKeys = new Set<string>(); // will be fetched via allLeaves per show
 
-  // Gather movie and show ratingKeys
+  // Gather movie and show ratingKeys – atomic per §4
   for (const section of sections) {
-    const items = await getSectionRawItems(cfg, section.key, ctx.serverToken);
-    if (!items) continue; // getSectionRawItems returns array, but if fetch fails we skip – but we need to detect partial?
-    // If items is empty array, that's valid (empty section). If fetch failed mid-pagination, getSectionRawItems currently returns collected so far – but we treat that as partial snapshot risk.
-    // For strict atomicity (§95), we should detect failure: if totalSize not reached, we consider incomplete.
-    // However getSectionRawItems currently doesn't expose totalSize – it stops on error and returns partial. We approximate by checking if we got < total? But we don't have total.
-    // For now, we log and continue – but mark as possibly incomplete.
-    for (const it of items) {
+    const result = await getSectionRawItemsAtomic(cfg, section.key, ctx.serverToken);
+    if (!result.complete) {
+      recordSearchLog("warn", "plex.snapshot", `plex.snapshot listing incomplete user=${ctx.movvizUserId} section=${section.key} expected=${result.expectedTotal} received=${result.receivedTotal} error=${result.error ?? "unknown"} – snapshot invalid (§4)`);
+      return { ok: false, reason: `listing_incomplete section=${section.key} ${result.error ?? ""}`.trim() };
+    }
+    for (const it of result.items) {
       if (section.type === "movie") allMovieKeys.add(it.ratingKey);
       else if (section.type === "show") allShowKeys.add(it.ratingKey);
     }
@@ -228,11 +227,11 @@ export async function fullRescanUser(ctx: PlexUserContext): Promise<{ ok: boolea
   const snapshot = await snapshotWatchState(ctx);
   if (!snapshot.ok) return { ok: false, watchedCount: 0, unwatchedCount: 0, error: snapshot.reason };
   const diff = diffSnapshots(previous, snapshot.states);
-  // Reconcile each transition to canonical (§40) – makes full rescan actually converge watched state, not just observed
+  // Vraie convergence §3: comparer chaque média mappable Plex vs canonical, pas seulement newWatched/newUnwatched
   let reconciled = 0;
-  for (const rk of [...diff.newWatched, ...diff.newUnwatched]) {
-    const observed = snapshot.states.find((s) => s.ratingKey === rk);
-    if (!observed || observed.state === "UNKNOWN") continue;
+  const allMappable = snapshot.states.filter((s) => s.state !== "UNKNOWN");
+  for (const observed of allMappable) {
+    const rk = observed.ratingKey;
     // Resolve canonical via library store (best-effort)
     let canonical: import("./mediaIdentityMap").CanonicalMediaIdentity | null = null;
     if (snapshot.movieRatingKeys.includes(rk)) {
@@ -252,6 +251,9 @@ export async function fullRescanUser(ctx: PlexUserContext): Promise<{ ok: boolea
       seasonNumber: canonical.type === "episode" ? (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).seasonNumber : undefined,
       episodeNumber: canonical.type === "episode" ? (canonical as Extract<import("./mediaIdentityMap").CanonicalMediaIdentity, { type: "episode" }>).episodeNumber : undefined,
     });
+    // Skip if already converged (Plex state == canonical) – true idempotence §41
+    const plexWatched = observed.state === "WATCHED" ? "watched" : "unwatched";
+    if (plexWatched === curState) continue;
     const { withUserContextDb } = await import("@/lib/userContext/database");
     const canonicalAt: number | null = withUserContextDb((db) => {
       const key = canonical!.type === "movie" ? `${ctx.movvizUserId}:movie:${(canonical as { tmdbId: number }).tmdbId}` : `${ctx.movvizUserId}:episode:${(canonical as { tmdbShowId: number }).tmdbShowId}:${(canonical as { seasonNumber: number }).seasonNumber}:${(canonical as { episodeNumber: number }).episodeNumber}`;
