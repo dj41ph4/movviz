@@ -1,5 +1,5 @@
 import { loadPlexConfig } from "./store";
-import { getAccountHistory, type PlexHistoryEntry } from "./client";
+import { getAccountHistoryPage, type PlexHistoryEntry, type PlexAccountHistoryPageOptions } from "./client";
 import type { PlexUserContext } from "./plexUserContext";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import fs from "node:fs";
@@ -37,6 +37,10 @@ export type HistoryPollResult = {
   rejectedMalformed: number;
   sampleMalformed: Record<string, unknown> | null;
   totalEpisodeTypeSeen: number;
+  rawPageCount: number;
+  totalSize: number;
+  nextStart: number;
+  hasMore: boolean;
 };
 
 /**
@@ -56,9 +60,10 @@ export const EMPTY_HISTORY_RESULT: HistoryPollResult = {
   rejectedMalformed: 0,
   sampleMalformed: null,
   totalEpisodeTypeSeen: 0,
+  rawPageCount: 0, totalSize: 0, nextStart: 0, hasMore: false,
 };
 
-export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean }): Promise<HistoryPollResult> {
+export async function pollHistory(ctx: PlexUserContext, options: PlexAccountHistoryPageOptions): Promise<HistoryPollResult> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) {
     return { ...EMPTY_HISTORY_RESULT };
@@ -68,12 +73,7 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
     return { ...EMPTY_HISTORY_RESULT };
   }
 
-  const cursors = readCursors();
-  const k = cursorKey(ctx.movvizUserId, ctx.machineIdentifier);
-  const cursor = cursors[k];
-
-  // Use adminToken + the proven PMS-local history account id.
-  const historyResult = await getAccountHistory(cfg, cfg.adminToken, ctx.historyAccountId);
+  const historyResult = await getAccountHistoryPage(cfg, cfg.adminToken, ctx.historyAccountId, options);
   const entries = historyResult.entries;
 
   // Assertion §13: history.accountId must match expected localAccountId – getAccountHistory already filters, but we double-check & log mismatch
@@ -98,6 +98,7 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
       rejectedMalformed: historyResult.rejectedMalformedEpisodeEntries,
       sampleMalformed: historyResult.sampleMalformedEpisode,
       totalEpisodeTypeSeen: historyResult.totalEpisodeTypeSeen,
+      rawPageCount: historyResult.rawPageCount, totalSize: historyResult.totalSize, nextStart: historyResult.nextStart, hasMore: historyResult.hasMore,
     };
   }
 
@@ -142,6 +143,10 @@ export async function pollHistory(ctx: PlexUserContext, opts?: { force?: boolean
     rejectedMalformed: historyResult.rejectedMalformedEpisodeEntries,
     sampleMalformed: historyResult.sampleMalformedEpisode,
     totalEpisodeTypeSeen: historyResult.totalEpisodeTypeSeen,
+    rawPageCount: historyResult.rawPageCount,
+    totalSize: historyResult.totalSize,
+    nextStart: historyResult.nextStart,
+    hasMore: historyResult.hasMore,
   };
 }
 

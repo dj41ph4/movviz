@@ -9,7 +9,7 @@ const CONFIG_DIR =
 const FILE = path.join(CONFIG_DIR, "plex-history-bootstrap.json");
 
 export type PlexHistoryBootstrapState = {
-  version: 1;
+  version: 2;
   status: "PENDING" | "RUNNING" | "COMPLETED" | "ERROR";
   startedAt: number | null;
   completedAt: number | null;
@@ -17,9 +17,9 @@ export type PlexHistoryBootstrapState = {
   processedEvents: number;
   resolvedEvents: number;
   unresolvedEvents: number;
+  errorEvents: number;
   currentStart: number;
   expectedTotal: number | null;
-  newestViewedAt: number | null;
   upperBoundViewedAt: number | null;
   error: string | null;
 };
@@ -39,32 +39,27 @@ function migrateIfNeeded(raw: Record<string, unknown>): Shape {
   for (const [k, v] of Object.entries(raw)) {
     if (!v || typeof v !== "object") continue;
     const o = v as Record<string, unknown>;
-    // New shape already
-    if ("status" in o && "version" in o) {
+    // V2 is the only compatible shape: V1 currentStart indexed a local
+    // deduplicated array, V2 indexes the Plex source directly.
+    if (o.version === 2 && "status" in o) {
       out[k] = o as unknown as PlexHistoryBootstrapState;
       continue;
     }
-    // Old shape: { completed, inProgress, cursorPageStart, lastViewedAt, totalEntries, processedCount, updatedAt, lastError }
-    const completed = Boolean(o.completed);
-    const inProgress = Boolean(o.inProgress);
-    let status: PlexHistoryBootstrapState["status"] = "PENDING";
-    if (completed) status = "COMPLETED";
-    else if (inProgress) status = "RUNNING";
-    else if (o.lastError) status = "ERROR";
+    // V1 offsets are incompatible and are intentionally reset once.
     out[k] = {
-      version: 1,
-      status,
-      startedAt: (o.updatedAt as number | null) ?? null,
-      completedAt: completed ? (o.updatedAt as number | null) ?? null : null,
-      updatedAt: (o.updatedAt as number) ?? Date.now(),
-      processedEvents: (o.processedCount as number) ?? 0,
+      version: 2,
+      status: "PENDING",
+      startedAt: null,
+      completedAt: null,
+      updatedAt: Date.now(),
+      processedEvents: 0,
       resolvedEvents: 0,
       unresolvedEvents: 0,
-      currentStart: (o.cursorPageStart as number) ?? 0,
-      expectedTotal: (o.totalEntries as number | null) ?? null,
-      newestViewedAt: (o.lastViewedAt as number | null) ?? null,
+      errorEvents: 0,
+      currentStart: 0,
+      expectedTotal: null,
       upperBoundViewedAt: null,
-      error: (o.lastError as string | null) ?? null,
+      error: null,
     };
   }
   return out;
@@ -104,7 +99,7 @@ export function ensureBootstrapPending(userId: string, machineIdentifier: string
   const k = key(userId, machineIdentifier);
   if (!shape[k]) {
     shape[k] = {
-      version: 1,
+      version: 2,
       status: "PENDING",
       startedAt: null,
       completedAt: null,
@@ -112,9 +107,9 @@ export function ensureBootstrapPending(userId: string, machineIdentifier: string
       processedEvents: 0,
       resolvedEvents: 0,
       unresolvedEvents: 0,
+      errorEvents: 0,
       currentStart: 0,
       expectedTotal: null,
-      newestViewedAt: null,
       upperBoundViewedAt: null,
       error: null,
     };
@@ -130,7 +125,7 @@ export function startBootstrap(userId: string, machineIdentifier: string, totalE
   const k = key(userId, machineIdentifier);
   const now = Date.now();
   shape[k] = {
-    version: 1,
+    version: 2,
     status: "RUNNING",
     startedAt: shape[k]?.startedAt ?? now,
     completedAt: null,
@@ -138,9 +133,9 @@ export function startBootstrap(userId: string, machineIdentifier: string, totalE
     processedEvents: shape[k]?.processedEvents ?? 0,
     resolvedEvents: shape[k]?.resolvedEvents ?? 0,
     unresolvedEvents: shape[k]?.unresolvedEvents ?? 0,
+    errorEvents: shape[k]?.errorEvents ?? 0,
     currentStart: shape[k]?.currentStart ?? 0,
     expectedTotal: totalEntries,
-    newestViewedAt: shape[k]?.newestViewedAt ?? null,
     upperBoundViewedAt,
     error: null,
   };
@@ -159,7 +154,7 @@ export function updateBootstrapProgress(
   resolvedEvents: number,
   unresolvedEvents: number,
   currentStart: number,
-  newestViewedAt: number | null,
+  errorEvents: number,
   expectedTotal: number | null
 ): void {
   const shape = readStore();
@@ -169,15 +164,15 @@ export function updateBootstrapProgress(
   cur.processedEvents = processedEvents;
   cur.resolvedEvents = resolvedEvents;
   cur.unresolvedEvents = unresolvedEvents;
+  cur.errorEvents = errorEvents;
   cur.currentStart = currentStart;
   cur.expectedTotal = expectedTotal;
-  if (newestViewedAt != null) cur.newestViewedAt = Math.max(cur.newestViewedAt ?? 0, newestViewedAt);
   cur.updatedAt = Date.now();
   cur.status = "RUNNING";
   writeStore(shape);
 }
 
-export function completeBootstrap(userId: string, machineIdentifier: string, newestViewedAt?: number | null): void {
+export function completeBootstrap(userId: string, machineIdentifier: string): void {
   const shape = readStore();
   const k = key(userId, machineIdentifier);
   const cur = shape[k];
@@ -185,7 +180,6 @@ export function completeBootstrap(userId: string, machineIdentifier: string, new
   cur.status = "COMPLETED";
   cur.completedAt = Date.now();
   cur.updatedAt = Date.now();
-  if (newestViewedAt != null) cur.newestViewedAt = newestViewedAt;
   writeStore(shape);
 }
 
@@ -210,7 +204,7 @@ export function resetBootstrapForUser(userId: string, machineIdentifier: string)
   const shape = readStore();
   const k = key(userId, machineIdentifier);
   shape[k] = {
-    version: 1,
+    version: 2,
     status: "PENDING",
     startedAt: null,
     completedAt: null,
@@ -218,9 +212,9 @@ export function resetBootstrapForUser(userId: string, machineIdentifier: string)
     processedEvents: 0,
     resolvedEvents: 0,
     unresolvedEvents: 0,
+    errorEvents: 0,
     currentStart: 0,
     expectedTotal: null,
-    newestViewedAt: null,
     upperBoundViewedAt: null,
     error: null,
   };
