@@ -1,3 +1,11 @@
+## v1.25.36 — September 2026
+
+### Resynchronisation complète des vues Plex en arrière-plan
+
+- Les réglages Plex proposent désormais « Synchroniser toutes les vues » : le contrôle complet et autoritaire des états vu / non vu part dans la file Movviz, avec progression persistante, sans bloquer la page.
+- Les premières synchronisations conservent le bootstrap complet automatique avant tout passage incrémental ; le bouton est le recours explicite pour le relancer après une incohérence.
+- Une seule tâche complète peut tourner à la fois et les actions locales plus récentes restent protégées par le réconciliateur existant.
+
 ## v1.25.35 — September 2026
 
 ### Plex → Movviz : état « vu » immédiat sur les films

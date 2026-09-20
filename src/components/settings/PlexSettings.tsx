@@ -31,6 +31,7 @@ export function PlexSettings() {
   } | null>(null);
   const [syncElapsed, setSyncElapsed] = useState(0);
   const [markerInfo, setMarkerInfo] = useState<{ stats: { mediaWithMarkers: number; intros: number; credits: number }; lastIncrementalAt: number | null; lastFullAt: number | null; jobRunning: boolean; lastJob: { status: string; result?: unknown; current: number; total: number } | null } | null>(null);
+  const [watchRescan, setWatchRescan] = useState<{ running: boolean; job: { status: string; current: number; total: number; error: string | null } | null } | null>(null);
 
   const load = () =>
     fetch("/api/plex/config", { cache: "no-store" })
@@ -151,6 +152,22 @@ export function PlexSettings() {
   const syncMarkers = async (mode: "incremental" | "full") => {
     const r = await fetch("/api/plex/marker-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode }) });
     if (r.ok) loadMarkerInfo();
+  };
+  const loadWatchRescan = async () => {
+    try {
+      const r = await fetch("/api/plex/watch-rescan", { cache: "no-store" });
+      if (r.ok) setWatchRescan(await r.json());
+    } catch {}
+  };
+  useEffect(() => {
+    if (!cfg?.connected) return;
+    loadWatchRescan();
+    const id = setInterval(loadWatchRescan, 3000);
+    return () => clearInterval(id);
+  }, [cfg?.connected]);
+  const startWatchRescan = async () => {
+    const r = await fetch("/api/plex/watch-rescan", { method: "POST" });
+    if (r.ok || r.status === 409) loadWatchRescan();
   };
 
   if (!cfg) return null;
@@ -273,6 +290,33 @@ export function PlexSettings() {
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {cfg.connected && (
+        <div className="mt-5 border-t border-white/8 pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-ink">{t("plex.watchRescan")}</p>
+              <p className="text-xs text-ink-dim">{t("plex.watchRescanHint")}</p>
+            </div>
+            <button
+              onClick={startWatchRescan}
+              disabled={!!watchRescan?.running}
+              className="flex h-11 shrink-0 items-center gap-2 rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft disabled:opacity-50"
+            >
+              {watchRescan?.running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {t("plex.watchRescanAction")}
+            </button>
+          </div>
+          {watchRescan?.running && (
+            <p className="mt-2 text-xs font-semibold text-amber">
+              {t("plex.watchRescanRunning", { current: watchRescan.job?.current ?? 0, total: watchRescan.job?.total ?? 0 })}
+            </p>
+          )}
+          {!watchRescan?.running && watchRescan?.job?.status === "failed" && watchRescan.job.error && (
+            <p className="mt-2 text-xs font-semibold text-down">{watchRescan.job.error}</p>
+          )}
         </div>
       )}
 
