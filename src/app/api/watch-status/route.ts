@@ -12,11 +12,16 @@ export async function GET(req: NextRequest) {
 
   const tmdbId = Number(req.nextUrl.searchParams.get("tmdbId"));
   const type = req.nextUrl.searchParams.get("type");
+  let targetedSync: Awaited<ReturnType<typeof syncUserWatchStatusForMedia>> | null = null;
   // A title page asks for its own movie. Verify that exact Plex item now,
   // instead of making a manual Plex mark wait for the global history scan or
   // its 30-minute snapshot throttle. Series remain event-driven per episode.
   if (type === "movie" && Number.isInteger(tmdbId) && tmdbId > 0) {
-    await syncUserWatchStatusForMedia(user, { type: "movie", tmdbId }).catch(() => {});
+    try {
+      targetedSync = await syncUserWatchStatusForMedia(user, { type: "movie", tmdbId });
+    } catch {
+      targetedSync = { status: "failed", reason: "unexpected_error" };
+    }
   } else {
     // Pull this Plex profile before returning the general catalogue state.
     // The per-user gate prevents every card from triggering a full scan.
@@ -31,7 +36,7 @@ export async function GET(req: NextRequest) {
   const canonical = getCanonicalWatchStatus(user.id);
   const status = canonical ?? getWatchStatus(user.id);
   return NextResponse.json(
-    { movies: status?.movies ?? [], episodes: status?.episodes ?? [] },
+    { movies: status?.movies ?? [], episodes: status?.episodes ?? [], ...(targetedSync ? { targetedSync } : {}) },
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }

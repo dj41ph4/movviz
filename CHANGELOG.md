@@ -1,3 +1,9 @@
+## v1.25.38 — September 2026
+
+### Plex → Movviz : diagnostic ciblé fiable
+
+- La lecture ciblée d'un film indique désormais explicitement si Plex a renvoyé « vu » ou « non vu » et si le réconciliateur a appliqué ou refusé l'observation, sans exposer de token ni de clé Plex.
+
 ## v1.25.37 — September 2026
 
 ### Plex → Movviz : rattrapage des clés de films absentes

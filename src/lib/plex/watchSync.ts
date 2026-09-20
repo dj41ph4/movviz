@@ -253,6 +253,10 @@ export type PlexWatchTarget =
   | { type: "movie"; tmdbId: number }
   | { type: "episode"; tmdbShowId: number; seasonNumber: number; episodeNumber: number };
 
+export type PlexWatchTargetSyncOutcome =
+  | { status: "skipped" | "failed"; reason: string }
+  | { status: "observed"; observedState: "WATCHED" | "UNWATCHED"; decision: string; reason: string; applied: boolean };
+
 /**
  * Vérifie immédiatement UN média affiché à l'utilisateur.
  *
@@ -263,19 +267,19 @@ export type PlexWatchTarget =
  * Elle peut tourner à côté d'un scan général ; une ancienne photo du scan ne
  * réécrit pas le ledger canonique déjà convergé par cette vérification.
  */
-export async function syncUserWatchStatusForMedia(user: User, target: PlexWatchTarget): Promise<void> {
+export async function syncUserWatchStatusForMedia(user: User, target: PlexWatchTarget): Promise<PlexWatchTargetSyncOutcome> {
   const cfg = loadPlexConfig();
-  if (!cfg.hostname || !cfg.adminToken) return;
+  if (!cfg.hostname || !cfg.adminToken) return { status: "skipped", reason: "plex_not_configured" };
 
   const ctxRes = await resolvePlexUserContext(user.id);
   if (!ctxRes.ok) {
     recordSearchLog("warn", "plex.watchSync", `plex.watchSync targeted user=${user.username} status=skipped reason=${ctxRes.code}`);
-    return;
+    return { status: "skipped", reason: ctxRes.code };
   }
   const ctx = ctxRes.ctx;
   // A targeted metadata viewCount is reliable only for the owner, exactly as
   // quickVerify/snapshot. Managed/shared profiles continue to use History.
-  if (ctx.authSource !== "owner") return;
+  if (ctx.authSource !== "owner") return { status: "skipped", reason: "unsupported_per_user_viewstate" };
 
   const canonical: import("./mediaIdentityMap").CanonicalMediaIdentity = target.type === "movie"
     ? { type: "movie", tmdbId: target.tmdbId }
@@ -322,13 +326,13 @@ export async function syncUserWatchStatusForMedia(user: User, target: PlexWatchT
   }
   if (!ratingKey) {
     recordSearchLog("info", "plex.watchSync", `plex.watchSync targeted user=${user.username} canonical=${formatCanonical(canonical)} status=skipped reason=no_rating_key`);
-    return;
+    return { status: "skipped", reason: "no_rating_key" };
   }
 
   const observed = await verifyWatchState(ctx, ratingKey);
   if (!observed) {
     recordSearchLog("warn", "plex.watchSync", `plex.watchSync targeted user=${user.username} ratingKey=${ratingKey} status=skipped reason=verify_failed`);
-    return;
+    return { status: "skipped", reason: "verify_failed" };
   }
 
   const previous = getObservedState(user.id, ctx.machineIdentifier, ratingKey);
@@ -360,12 +364,13 @@ export async function syncUserWatchStatusForMedia(user: User, target: PlexWatchT
     pendingIntent,
     isBaseline: !previous,
   });
+  let applied = false;
   if (result.decision === "ACK_LOCAL_WRITE" && pendingIntent) {
     const stateKey = canonical.type === "movie"
       ? mediaStateKey(user.id, "movie", canonical.tmdbId)
       : mediaStateKey(user.id, "episode", canonical.tmdbShowId, canonical.seasonNumber, canonical.episodeNumber);
     updateUserMediaSyncState({ userId: user.id, stateKey, field: "watched", target: "plex", capability: "SYNCED", ackAt: Date.now(), error: null });
-  } else if (result.shouldApply && applyReconcileDecision({
+  } else if (result.shouldApply && (applied = applyReconcileDecision({
     userId: user.id,
     canonicalIdentity: canonical,
     ratingKey,
@@ -376,11 +381,12 @@ export async function syncUserWatchStatusForMedia(user: User, target: PlexWatchT
     currentPlexObserved: observed,
     pendingIntent,
     isBaseline: !previous,
-  }, result, title)) {
+  }, result, title))) {
     recordSearchLog("info", "plex.reconciler", `plex.reconciler targeted user=${user.username} ratingKey=${ratingKey} decision=${result.decision} ${result.reason} -> ${result.newCanonicalState}`);
   }
   upsertObservedState(observed);
   refreshLegacyUserContext(user.id, true);
+  return { status: "observed", observedState: observed.state === "WATCHED" ? "WATCHED" : "UNWATCHED", decision: result.decision, reason: result.reason, applied };
 }
 
 /**
