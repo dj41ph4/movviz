@@ -1,3 +1,10 @@
+## v1.25.42 — September 2026
+
+### Android TV / mobile : synchronisation Plex des séries
+
+- L'ouverture d'une fiche série sur Android TV et mobile déclenche maintenant la même vérification Plex ciblée que le web, pour que les épisodes vus remontent immédiatement dans Movviz.
+- Le rafraîchissement au retour sur la fiche conserve ce comportement ; les chargements généraux restent inchangés.
+
 ## v1.25.41 — September 2026
 
 ### Plex → Movviz : vues de séries immédiates

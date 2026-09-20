@@ -1220,10 +1220,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      *  reste des données secondaires de la fiche : un échec laisse
      *  simplement l'état vu/pas-vu indéterminé plutôt que de bloquer
      *  l'affichage de la fiche. */
-    fun loadWatchStatus() {
+    fun loadWatchStatus(type: String? = null, tmdbId: Int? = null) {
         val repo = repository ?: return
         viewModelScope.launch {
-            when (val r = repo.watchStatus()) {
+            when (val r = repo.watchStatus(type, tmdbId)) {
                 is ApiResult.Success -> _watchStatus.value = r.data
                 else -> Unit
             }

@@ -27,6 +27,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -100,6 +105,7 @@ private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
 // Les captures d'épisode sont affichées en petits formats : w780 suffit
 // largement, l'original est du gaspillage pur.
 private const val TMDB_STILL_BASE = "https://image.tmdb.org/t/p/w780"
+private const val TMDB_SEASON_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
 private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 
@@ -163,9 +169,11 @@ fun TitleDetailScreen(
     // Une fiche ouverte depuis Reprendre attend la résolution locale avant de
     // choisir son CTA : Plex est optionnel, l'index de fichiers fait foi.
     var libraryResolved by remember(type, tmdbId) { mutableStateOf(false) }
-    // Même cible à l'ouverture, en erreur et une fois les données chargées :
-    // le D-pad ne se perd jamais pendant une réponse réseau lente.
+    // Repli de focus pour les fiches sans action principale (une série, un
+    // téléchargement, ou une erreur). Un film disponible doit en revanche
+    // arriver directement sur sa première action, « Lire ».
     val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
+    val primaryActionFocusRequester = remember { FocusRequester() }
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -208,7 +216,7 @@ fun TitleDetailScreen(
         viewModel.loadContinueWatching()
         // Statut "vu" manuel — utile aux deux types (badge "Vu" sur un film
         // terminé, coche par épisode pour une série), voir /api/watch-status.
-        viewModel.loadWatchStatus()
+        viewModel.loadWatchStatus(type, tmdbId)
     }
 
     // PlayerActivity vit au-dessus de cette fiche. Quand elle se ferme, la
@@ -220,7 +228,7 @@ fun TitleDetailScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadContinueWatching()
-                viewModel.loadWatchStatus()
+                viewModel.loadWatchStatus(type, tmdbId)
                 if (viewModel.isInLibrary(type, tmdbId)) {
                     viewModel.refreshTitleLibraryEntry(type, tmdbId)
                 }
@@ -294,6 +302,14 @@ fun TitleDetailScreen(
     val localPlayableId = remember(type, tmdbId, movies) {
         if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId && it.file != null }?.id else null
     }
+    // Au premier rendu, la fiche TMDb arrive souvent avant l'entrée locale.
+    // Cette clé réactive indique précisément le moment où le premier CTA
+    // utilisable (« Lire » ou « Ajouter ») est réellement composé.
+    val moviePrimaryActionReady = type == "movie" && (
+        plexRatingKey != null ||
+            localPlayableId != null ||
+            (libraryResolved && !inLibrary && activeDownload == null)
+        )
     val localSeriesId = remember(type, tmdbId, series) {
         if (type == "series") series.firstOrNull { it.tmdbId == tmdbId }?.id else null
     }
@@ -391,10 +407,22 @@ fun TitleDetailScreen(
         }
     }
     val selectedSeason = visibleSeasons.firstOrNull { it.seasonNumber == selectedSeasonNumber }
-    LaunchedEffect(selectedSeasonNumber, type, tmdbId, inLibrary) {
-        if (type == "series" && inLibrary && selectedSeasonNumber != null) {
-            viewModel.loadSeasonMetadata(tmdbId, selectedSeasonNumber!!)
+    // Les jaquettes ne viennent pas de Plex : elles sont portées par le
+    // détail TMDb de chaque saison. Les charger dès que la liste Plex est
+    // connue permet d'afficher les cartes avant même l'ouverture d'une
+    // saison, avec le repli gradient si TMDb n'a aucune image.
+    LaunchedEffect(visibleSeasons, type, tmdbId, inLibrary) {
+        if (type == "series" && inLibrary) {
+            visibleSeasons.forEach { season ->
+                viewModel.loadSeasonMetadata(tmdbId, season.seasonNumber)
+            }
         }
+    }
+    val seasonMetadataByNumber = remember(seasonMetadata, tmdbId) {
+        seasonMetadata
+            .filterKeys { it.startsWith("$tmdbId-") }
+            .values
+            .associateBy { it.seasonNumber }
     }
 
     // Arrivée depuis « Continuer à regarder » (onOpenEpisode) : ouvre
@@ -411,25 +439,14 @@ fun TitleDetailScreen(
         selectedEpisode = EpisodeSelection(selectedSeason, episode, null)
     }
 
-    // Focus initial déterministe — sans ceci, rien ne réclame jamais le
-    // focus D-pad en entrant sur la fiche (constat direct : deux DPAD_DOWN
-    // consécutifs, focus immobile, avant ce correctif). La cible doit
-    // toujours être un élément déjà composé au premier rendu — viser
-    // directement le premier épisode d'une saison a été essayé et plante
-    // (IllegalStateException "FocusRequester is not initialized") ou échoue
-    // silencieusement : cette rangée vit dans la TvLazyColumn et n'est pas
-    // forcément composée tant qu'elle n'est pas au moins proche du viewport
-    // (synopsis long ⇒ saison 1 hors-champ au premier rendu). On utilise
-    // donc le logo/titre du premier `item{}` : toujours composé, y compris
-    // pour une série déjà en bibliothèque sans CTA générique. Une fois le
-    // focus posé sur cette zone visible, la descente D-pad
-    // classique fait défiler/composer les rangées de saisons normalement
-    // (même mécanisme que la ligne Films → Séries de l'accueil).
-    // Toujours repartir au début réel de la fiche à son ouverture. Sans ce
-    // reset, le focus initial sur un CTA pouvait conserver un offset LazyRow
-    // précédent et masquer logo/titre sous la navigation.
+    // Focus initial déterministe. Pour un film disponible, la priorité est
+    // l'action « Lire » : l'utilisateur vient de valider une carte et peut
+    // lancer immédiatement la lecture. Les autres fiches retombent sur
+    // l'ancre visuelle logo/titre, qui est toujours déjà composée.
+    // Toujours repartir au début réel de la fiche à son ouverture.
     val lazyListState = rememberTvLazyListState().withTvPrefetchDisabled()
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
+    var hasRequestedPrimaryActionFocus by remember(type, tmdbId) { mutableStateOf(false) }
     LaunchedEffect(detail) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
         if (detail == null) return@LaunchedEffect
@@ -439,12 +456,27 @@ fun TitleDetailScreen(
         // retente sur quelques frames plutôt que de laisser un crash D-pad
         // silencieux (constaté en direct) sortir l'utilisateur de l'app.
         repeat(10) { attempt ->
-            // requestFocus() renvoie Unit en Compose 1.7 et lève
-            // IllegalStateException si le noeud n'est pas encore attaché :
-            // on retente tant que la demande échoue (premier item{} pas
-            // encore composé au premier rendu).
-            val granted = runCatching { initialFocusRequester.requestFocus() }.isSuccess
+            // L'action principale n'existe que pour les films prêts ou à
+            // ajouter. Si elle n'est pas composée, l'ancre de titre reste le
+            // repli fiable pour les séries et états transitoires.
+            val granted = runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess ||
+                runCatching { initialFocusRequester.requestFocus() }.isSuccess
             if (granted) return@LaunchedEffect
+            if (attempt < 9) withFrameNanos { }
+        }
+    }
+
+    // L'index local peut arriver après le détail : dans ce cas l'ancre a
+    // déjà reçu le focus. Dès que l'action primaire est effectivement
+    // composée, on la sélectionne une seule fois — sans perturber la suite
+    // de navigation D-pad de l'utilisateur.
+    LaunchedEffect(moviePrimaryActionReady) {
+        if (!moviePrimaryActionReady || hasRequestedPrimaryActionFocus) return@LaunchedEffect
+        repeat(10) { attempt ->
+            if (runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess) {
+                hasRequestedPrimaryActionFocus = true
+                return@LaunchedEffect
+            }
             if (attempt < 9) withFrameNanos { }
         }
     }
@@ -637,6 +669,21 @@ fun TitleDetailScreen(
                     .heightIn(min = 87.dp)
                     .focusRequester(initialFocusRequester)
                     .focusable()
+                    // La destination spatiale par défaut privilégiait le
+                    // bouton d'état (« Marquer vu ») situé plus bas. Depuis
+                    // l'en-tête d'une fiche film, BAS mène toujours à la
+                    // première action utile : « Lire ».
+                    .onPreviewKeyEvent { event ->
+                        if (
+                            event.type == KeyEventType.KeyDown &&
+                            event.key == Key.DirectionDown &&
+                            moviePrimaryActionReady
+                        ) {
+                            runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess
+                        } else {
+                            false
+                        }
+                    }
                     .onFocusChanged { topAnchorFocused = it.isFocused }
                     // Le focus est volontairement discret, mais réel : le
                     // logo/titre devient son propre repère au lieu d'une
@@ -797,7 +844,13 @@ fun TitleDetailScreen(
                         val playKey = plexKey ?: localPlayableId
                         if (playKey != null) {
                             val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
-                            PrimaryPill(text = ctaText, brush = null, solidWhite = true, icon = MovvizIconPlay) {
+                            PrimaryPill(
+                                text = ctaText,
+                                brush = null,
+                                solidWhite = false,
+                                icon = MovvizIconPlay,
+                                focusRequester = primaryActionFocusRequester,
+                            ) {
                                 onPlay(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
@@ -815,6 +868,7 @@ fun TitleDetailScreen(
                                 solidWhite = false,
                                 enabled = !addingToLibrary,
                                 icon = if (addingToLibrary) null else MovvizIconPlus,
+                                focusRequester = primaryActionFocusRequester,
                             ) {
                                 scope.launch {
                                     when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
@@ -986,6 +1040,7 @@ fun TitleDetailScreen(
                     item {
                         SeasonSelector(
                             seasons = visibleSeasons,
+                            metadataBySeasonNumber = seasonMetadataByNumber,
                             selectedSeasonNumber = selectedSeasonNumber,
                             onSelect = {
                                 selectedSeasonNumber = it
@@ -1135,6 +1190,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
 @Composable
 private fun SeasonSelector(
     seasons: List<SeriesSeasonDto>,
+    metadataBySeasonNumber: Map<Int, com.movviz.tv.data.MetadataSeasonDto> = emptyMap(),
     selectedSeasonNumber: Int?,
     onSelect: (Int) -> Unit,
 ) {
@@ -1144,6 +1200,7 @@ private fun SeasonSelector(
         TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
                 val selected = season.seasonNumber == selectedSeasonNumber
+                val seasonPosterPath = metadataBySeasonNumber[season.seasonNumber]?.posterPath
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(8.dp)
                 Column(
@@ -1177,18 +1234,32 @@ private fun SeasonSelector(
                         ),
                     ) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    if (selected) Brush.linearGradient(listOf(MovvizBrand3.copy(alpha = 0.55f), MovvizBrand.copy(alpha = 0.55f), MovvizBrand2.copy(alpha = 0.55f)))
-                                    else Brush.linearGradient(listOf(MovvizSurfaceStrong, MovvizSurface)),
-                                ),
+                            modifier = Modifier.fillMaxSize(),
                         ) {
-                            Text(
-                                text = "${season.seasonNumber}",
-                                style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = if (selected) 1f else 0.55f)),
-                                modifier = Modifier.align(Alignment.Center),
-                            )
+                            if (seasonPosterPath != null) {
+                                Image(
+                                    painter = rememberAsyncImagePainter("$TMDB_SEASON_POSTER_BASE$seasonPosterPath"),
+                                    contentDescription = season.name.ifBlank { "Saison ${season.seasonNumber}" },
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                                // Voile léger pour conserver la lisibilité du
+                                // numéro et du badge sur les jaquettes claires.
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = if (selected) 0.12f else 0.28f)),
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            if (selected) Brush.linearGradient(listOf(MovvizBrand3.copy(alpha = 0.55f), MovvizBrand.copy(alpha = 0.55f), MovvizBrand2.copy(alpha = 0.55f)))
+                                            else Brush.linearGradient(listOf(MovvizSurfaceStrong, MovvizSurface)),
+                                        ),
+                                )
+                            }
                             Text(
                                 text = "${season.episodes.size}",
                                 style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White),
@@ -1697,7 +1768,15 @@ private fun PrimaryPill(
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else MovvizInk.copy(alpha = 0.1f),
-            contentColor = if (solidWhite) Color.Black else MovvizInk,
+            // Le bouton reste gris au repos et devient blanc uniquement
+            // lorsque le focus D-pad est réellement dessus.
+            focusedContainerColor = if (brush != null) Color.Transparent else Color.White,
+            contentColor = when {
+                solidWhite -> Color.Black
+                brush != null -> Color.White
+                else -> MovvizInk
+            },
+            focusedContentColor = if (solidWhite || brush == null) Color.Black else Color.White,
         ),
         // Bordure de focus blanche invisible sur le variant "Lire" (fond
         // déjà blanc plein) — corrigé : bordure en dégradé de marque sur ce

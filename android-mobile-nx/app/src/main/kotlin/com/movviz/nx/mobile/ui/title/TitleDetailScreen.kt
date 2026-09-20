@@ -220,7 +220,7 @@ fun TitleDetailScreen(
         viewModel.loadContinueWatching()
         // Statut "vu" manuel — utile aux deux types (badge "Vu" sur un film
         // terminé, coche par épisode pour une série), voir /api/watch-status.
-        viewModel.loadWatchStatus()
+        viewModel.loadWatchStatus(type, tmdbId)
     }
 
     // PlayerActivity vit au-dessus de cette fiche. Quand elle se ferme, la
@@ -232,7 +232,7 @@ fun TitleDetailScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadContinueWatching()
-                viewModel.loadWatchStatus()
+                viewModel.loadWatchStatus(type, tmdbId)
                 if (viewModel.isInLibrary(type, tmdbId)) {
                     viewModel.refreshTitleLibraryEntry(type, tmdbId)
                 }

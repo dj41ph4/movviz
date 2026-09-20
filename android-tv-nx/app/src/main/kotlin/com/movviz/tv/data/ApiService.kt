@@ -236,7 +236,10 @@ interface MovvizApiService {
     // WatchStatusDto. Sert la fiche titre TV (badge "Vu" sur un film déjà
     // terminé, coche sur les épisodes déjà regardés).
     @GET("api/watch-status")
-    suspend fun watchStatus(): Response<WatchStatusDto>
+    suspend fun watchStatus(
+        @Query("type") type: String? = null,
+        @Query("tmdbId") tmdbId: Int? = null,
+    ): Response<WatchStatusDto>
 
     @POST("api/watch/toggle")
     suspend fun toggleWatch(@Body body: WatchToggleRequestDto): Response<Map<String, Any?>>

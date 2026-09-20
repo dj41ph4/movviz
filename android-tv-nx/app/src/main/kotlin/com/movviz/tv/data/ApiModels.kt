@@ -534,6 +534,8 @@ data class MetadataSeasonDto(
     val seasonNumber: Int,
     val name: String,
     val episodeCount: Int = 0,
+    /** Jaquette TMDb de la saison (poster_path). */
+    val posterPath: String? = null,
     val episodes: List<MetadataEpisodeDto> = emptyList(),
 )
 

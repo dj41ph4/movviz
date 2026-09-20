@@ -333,8 +333,8 @@ class MovvizRepository(private val baseUrl: String) {
         safeCall { api.searchSeriesSeasonNow(libraryId, seasonNumber) }.map { }
 
     /** Statut "vu" manuel de l'utilisateur courant — voir WatchStatusDto. */
-    suspend fun watchStatus(): ApiResult<WatchStatusDto> =
-        safeCall { api.watchStatus() }
+    suspend fun watchStatus(type: String? = null, tmdbId: Int? = null): ApiResult<WatchStatusDto> =
+        safeCall { api.watchStatus(type, tmdbId) }
 
     suspend fun toggleWatch(
         tmdbId: Int,
