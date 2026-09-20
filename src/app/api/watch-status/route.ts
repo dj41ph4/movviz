@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { getWatchStatus } from "@/lib/plex/watchStore";
-import { syncUserWatchStatusForMedia, syncUserWatchStatusIfDue } from "@/lib/plex/watchSync";
+import { syncUserWatchStatusForMedia, syncUserWatchStatusForSeries, syncUserWatchStatusIfDue } from "@/lib/plex/watchSync";
 import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 
 export const dynamic = "force-dynamic";
@@ -12,13 +12,19 @@ export async function GET(req: NextRequest) {
 
   const tmdbId = Number(req.nextUrl.searchParams.get("tmdbId"));
   const type = req.nextUrl.searchParams.get("type");
-  let targetedSync: Awaited<ReturnType<typeof syncUserWatchStatusForMedia>> | null = null;
-  // A title page asks for its own movie. Verify that exact Plex item now,
-  // instead of making a manual Plex mark wait for the global history scan or
-  // its 30-minute snapshot throttle. Series remain event-driven per episode.
+  let targetedSync: Awaited<ReturnType<typeof syncUserWatchStatusForMedia>> | Awaited<ReturnType<typeof syncUserWatchStatusForSeries>> | null = null;
+  // A title page asks for its own media now, rather than waiting for global
+  // history or the snapshot throttle. A series is read in Plex batches using
+  // its already indexed episode ratingKeys.
   if (type === "movie" && Number.isInteger(tmdbId) && tmdbId > 0) {
     try {
       targetedSync = await syncUserWatchStatusForMedia(user, { type: "movie", tmdbId });
+    } catch {
+      targetedSync = { status: "failed", reason: "unexpected_error" };
+    }
+  } else if (type === "series" && Number.isInteger(tmdbId) && tmdbId > 0) {
+    try {
+      targetedSync = await syncUserWatchStatusForSeries(user, tmdbId);
     } catch {
       targetedSync = { status: "failed", reason: "unexpected_error" };
     }

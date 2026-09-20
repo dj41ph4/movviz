@@ -257,6 +257,66 @@ export type PlexWatchTargetSyncOutcome =
   | { status: "skipped" | "failed"; reason: string }
   | { status: "observed"; observedState: "WATCHED" | "UNWATCHED"; decision: string; reason: string; applied: boolean };
 
+export type PlexWatchSeriesSyncOutcome =
+  | { status: "skipped" | "failed"; reason: string }
+  | { status: "observed"; checked: number; watched: number; applied: number };
+
+/**
+ * Réconcilie une observation déjà lue dans Plex. Cette portion est partagée
+ * par la vérification d'une fiche et par celle d'une série entière : les deux
+ * chemins appliquent donc strictement les mêmes règles de fraîcheur/outbox.
+ */
+async function reconcileTargetObservation(
+  user: User,
+  ctx: import("./plexUserContext").PlexUserContext,
+  canonical: import("./mediaIdentityMap").CanonicalMediaIdentity,
+  ratingKey: string,
+  observed: import("./plexObservedState").PlexObservedState,
+  title: string | null,
+): Promise<{ decision: string; reason: string; applied: boolean }> {
+  const previous = getObservedState(user.id, ctx.machineIdentifier, ratingKey);
+  const currentCanonicalState = getCurrentWatchState({
+    userId: user.id,
+    tmdbId: canonical.type === "movie" ? canonical.tmdbId : canonical.tmdbShowId,
+    mediaType: canonical.type === "movie" ? "movie" : "episode",
+    seasonNumber: canonical.type === "episode" ? canonical.seasonNumber : undefined,
+    episodeNumber: canonical.type === "episode" ? canonical.episodeNumber : undefined,
+  });
+  const { withUserContextDb } = await import("@/lib/userContext/database");
+  const canonicalAt: number | null = withUserContextDb((db) => {
+    const stateKey = canonical.type === "movie"
+      ? `${user.id}:movie:${canonical.tmdbId}`
+      : `${user.id}:episode:${canonical.tmdbShowId}:${canonical.seasonNumber}:${canonical.episodeNumber}`;
+    const row = db.prepare("SELECT watched_updated_at FROM user_media_state WHERE state_key = ?").get(stateKey) as { watched_updated_at: number | null } | undefined;
+    return row?.watched_updated_at ?? null;
+  }, null);
+  const pendingIntent = getPendingIntentForMedia(user.id, canonical, currentCanonicalState as "watched" | "unwatched" | "unknown", canonicalAt);
+  const input = {
+    userId: user.id,
+    canonicalIdentity: canonical,
+    ratingKey,
+    machineIdentifier: ctx.machineIdentifier,
+    currentCanonicalState: currentCanonicalState as "watched" | "unwatched" | "unknown",
+    currentCanonicalAt: canonicalAt,
+    previousPlexObserved: previous,
+    currentPlexObserved: observed,
+    pendingIntent,
+    isBaseline: !previous,
+  } satisfies Parameters<typeof reconcile>[0];
+  const result = reconcile(input);
+  let applied = false;
+  if (result.decision === "ACK_LOCAL_WRITE" && pendingIntent) {
+    const stateKey = canonical.type === "movie"
+      ? mediaStateKey(user.id, "movie", canonical.tmdbId)
+      : mediaStateKey(user.id, "episode", canonical.tmdbShowId, canonical.seasonNumber, canonical.episodeNumber);
+    updateUserMediaSyncState({ userId: user.id, stateKey, field: "watched", target: "plex", capability: "SYNCED", ackAt: Date.now(), error: null });
+  } else if (result.shouldApply && (applied = applyReconcileDecision(input, result, title))) {
+    recordSearchLog("info", "plex.reconciler", `plex.reconciler targeted user=${user.username} ratingKey=${ratingKey} decision=${result.decision} ${result.reason} -> ${result.newCanonicalState}`);
+  }
+  upsertObservedState(observed);
+  return { decision: result.decision, reason: result.reason, applied };
+}
+
 /**
  * Vérifie immédiatement UN média affiché à l'utilisateur.
  *
@@ -335,58 +395,69 @@ export async function syncUserWatchStatusForMedia(user: User, target: PlexWatchT
     return { status: "skipped", reason: "verify_failed" };
   }
 
-  const previous = getObservedState(user.id, ctx.machineIdentifier, ratingKey);
-  const currentCanonicalState = getCurrentWatchState({
-    userId: user.id,
-    tmdbId: target.type === "movie" ? target.tmdbId : target.tmdbShowId,
-    mediaType: target.type === "movie" ? "movie" : "episode",
-    seasonNumber: target.type === "episode" ? target.seasonNumber : undefined,
-    episodeNumber: target.type === "episode" ? target.episodeNumber : undefined,
-  });
-  const { withUserContextDb } = await import("@/lib/userContext/database");
-  const canonicalAt: number | null = withUserContextDb((db) => {
-    const stateKey = canonical.type === "movie"
-      ? `${user.id}:movie:${canonical.tmdbId}`
-      : `${user.id}:episode:${canonical.tmdbShowId}:${canonical.seasonNumber}:${canonical.episodeNumber}`;
-    const row = db.prepare("SELECT watched_updated_at FROM user_media_state WHERE state_key = ?").get(stateKey) as { watched_updated_at: number | null } | undefined;
-    return row?.watched_updated_at ?? null;
-  }, null);
-  const pendingIntent = getPendingIntentForMedia(user.id, canonical, currentCanonicalState as "watched" | "unwatched" | "unknown", canonicalAt);
-  const result = reconcile({
-    userId: user.id,
-    canonicalIdentity: canonical,
-    ratingKey,
-    machineIdentifier: ctx.machineIdentifier,
-    currentCanonicalState: currentCanonicalState as "watched" | "unwatched" | "unknown",
-    currentCanonicalAt: canonicalAt,
-    previousPlexObserved: previous,
-    currentPlexObserved: observed,
-    pendingIntent,
-    isBaseline: !previous,
-  });
-  let applied = false;
-  if (result.decision === "ACK_LOCAL_WRITE" && pendingIntent) {
-    const stateKey = canonical.type === "movie"
-      ? mediaStateKey(user.id, "movie", canonical.tmdbId)
-      : mediaStateKey(user.id, "episode", canonical.tmdbShowId, canonical.seasonNumber, canonical.episodeNumber);
-    updateUserMediaSyncState({ userId: user.id, stateKey, field: "watched", target: "plex", capability: "SYNCED", ackAt: Date.now(), error: null });
-  } else if (result.shouldApply && (applied = applyReconcileDecision({
-    userId: user.id,
-    canonicalIdentity: canonical,
-    ratingKey,
-    machineIdentifier: ctx.machineIdentifier,
-    currentCanonicalState: currentCanonicalState as "watched" | "unwatched" | "unknown",
-    currentCanonicalAt: canonicalAt,
-    previousPlexObserved: previous,
-    currentPlexObserved: observed,
-    pendingIntent,
-    isBaseline: !previous,
-  }, result, title))) {
-    recordSearchLog("info", "plex.reconciler", `plex.reconciler targeted user=${user.username} ratingKey=${ratingKey} decision=${result.decision} ${result.reason} -> ${result.newCanonicalState}`);
-  }
-  upsertObservedState(observed);
+  const result = await reconcileTargetObservation(user, ctx, canonical, ratingKey, observed, title);
   refreshLegacyUserContext(user.id, true);
-  return { status: "observed", observedState: observed.state === "WATCHED" ? "WATCHED" : "UNWATCHED", decision: result.decision, reason: result.reason, applied };
+  return { status: "observed", observedState: observed.state === "WATCHED" ? "WATCHED" : "UNWATCHED", ...result };
+}
+
+/**
+ * Vérifie tous les épisodes déjà indexés d'une série en appels Plex groupés.
+ * Une fiche série ne dépend ainsi ni de la prochaine page de l'historique ni
+ * du snapshot global cadencé : Naruto est réconcilié dès son ouverture.
+ */
+export async function syncUserWatchStatusForSeries(user: User, tmdbShowId: number): Promise<PlexWatchSeriesSyncOutcome> {
+  const cfg = loadPlexConfig();
+  if (!cfg.hostname || !cfg.adminToken) return { status: "skipped", reason: "plex_not_configured" };
+  const ctxRes = await resolvePlexUserContext(user.id);
+  if (!ctxRes.ok) return { status: "skipped", reason: ctxRes.code };
+  const ctx = ctxRes.ctx;
+  if (ctx.authSource !== "owner") return { status: "skipped", reason: "unsupported_per_user_viewstate" };
+
+  const series = getSeriesByTmdbId(tmdbShowId);
+  const episodes = series?.seasons.flatMap((season) => season.episodes
+    .filter((episode) => Boolean(episode.plexRatingKey))
+    .map((episode) => ({ seasonNumber: season.seasonNumber, episodeNumber: episode.episodeNumber, ratingKey: episode.plexRatingKey! }))) ?? [];
+  if (episodes.length === 0) return { status: "skipped", reason: "no_library_episode_keys" };
+
+  const { batchPlexViewState } = await import("./client");
+  let viewMap: Map<string, import("./client").PlexViewState>;
+  try {
+    viewMap = await batchPlexViewState(cfg, ctx.serverToken, episodes.map((episode) => episode.ratingKey));
+  } catch (error) {
+    const reason = error instanceof Error && error.message.startsWith("plex_auth_failed") ? error.message : "verify_failed";
+    recordSearchLog("warn", "plex.watchSync", `plex.watchSync series user=${user.username} tmdb=${tmdbShowId} status=failed reason=${reason}`);
+    return { status: "failed", reason };
+  }
+
+  let checked = 0;
+  let watched = 0;
+  let applied = 0;
+  for (const episode of episodes) {
+    const state = viewMap.get(episode.ratingKey);
+    if (!state) continue; // réponse Plex incomplète : aucune absence n'est assimilée à « non vu »
+    checked++;
+    const observed: import("./plexObservedState").PlexObservedState = {
+      userId: user.id,
+      machineIdentifier: ctx.machineIdentifier,
+      ratingKey: episode.ratingKey,
+      state: state.viewCount > 0 ? "WATCHED" : "UNWATCHED",
+      viewCount: state.viewCount,
+      lastViewedAt: state.lastViewedAt,
+      viewOffset: state.viewOffset,
+      observedAt: Date.now(),
+    };
+    if (observed.state === "WATCHED") watched++;
+    const result = await reconcileTargetObservation(user, ctx, {
+      type: "episode",
+      tmdbShowId,
+      seasonNumber: episode.seasonNumber,
+      episodeNumber: episode.episodeNumber,
+    }, episode.ratingKey, observed, series?.title ?? null);
+    if (result.applied) applied++;
+  }
+  refreshLegacyUserContext(user.id, true);
+  recordSearchLog("info", "plex.watchSync", `plex.watchSync series user=${user.username} tmdb=${tmdbShowId} checked=${checked} watched=${watched} applied=${applied}`);
+  return { status: "observed", checked, watched, applied };
 }
 
 /**

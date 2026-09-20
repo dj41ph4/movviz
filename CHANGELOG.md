@@ -1,3 +1,11 @@
+## v1.25.41 — September 2026
+
+### Plex → Movviz : vues de séries immédiates
+
+- L'ouverture d'une fiche série lit maintenant les états Plex de tous ses épisodes déjà indexés, par lots de 50 clés, puis les réconcilie immédiatement. Naruto ne dépend plus du prochain passage de l'historique global ni du snapshot cadencé.
+- Une réponse Plex partielle ne peut jamais transformer un épisode absent de la réponse en « non vu ».
+- Une saison normale est complète quand tous ses épisodes disponibles sont vus ; une série est complète quand toutes ses saisons normales le sont. Les épisodes spéciaux (saison 0) ne bloquent jamais la complétion de la série.
+
 ## v1.25.40 — September 2026
 
 ### Plex → Movviz : synchronisation sans SQLite

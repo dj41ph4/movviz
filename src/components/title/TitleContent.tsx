@@ -34,7 +34,6 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
-import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
 import { setPageTitleContext } from "@/lib/ai/pageContext";
 import { toast } from "@/components/ui/Toast";
@@ -195,7 +194,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const user = useCurrentUser();
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play, request: playerRequest } = usePlayer();
-  const { enabled: specialEpisodesEnabled } = useSpecialEpisodes();
 
   /* ── data fetching ──────────────────────────────────────────────────── */
 
@@ -242,11 +240,11 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     [watchlistData, tmdbId],
   );
 
-  // A film page asks the server to verify its exact Plex ratingKey. This is
-  // deliberately separate from the catalogue-wide status cache: a manual
-  // Plex mark must not wait for the next global history/snapshot pass.
-  const watchStatusEndpoint = type === "movie"
-    ? `/api/watch-status?type=movie&tmdbId=${tmdbId}`
+  // La fiche vérifie son média Plex immédiatement. Pour une série, les clés
+  // déjà indexées de ses épisodes sont regroupées côté serveur : un « vu »
+  // dans Plex ne dépend donc pas du scan global suivant.
+  const watchStatusEndpoint = type === "movie" || type === "series"
+    ? `/api/watch-status?type=${type}&tmdbId=${tmdbId}`
     : "/api/watch-status";
   const { data: watchData, mutate: mutateWatch } = useSWR<{
     movies: number[];
@@ -285,10 +283,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     if (type !== "series" || !libraryMatch) return [];
     const out: { season: number; episode: number }[] = [];
     for (const s of libraryMatch.seasons ?? []) {
-      // Specials (season 0) are excluded from "fully watched" unless the
-      // user opted back in — confirmed live: a missing/unwatched special
-      // was silently keeping otherwise-complete series stuck as unwatched.
-      if (!specialEpisodesEnabled && s.seasonNumber === 0) continue;
+      // Les spéciaux ne participent jamais à la complétion d'une série :
+      // toutes les saisons normales terminées = série vue, même si un OVA
+      // ou un bonus de la saison 0 n'a pas été regardé.
+      if (s.seasonNumber === 0) continue;
       for (const e of s.episodes ?? []) {
         // An episode that hasn't aired yet (TBA/upcoming) can't possibly
         // have been watched — it must never block "fully watched" either,
@@ -300,7 +298,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       }
     }
     return out;
-  }, [type, libraryMatch, specialEpisodesEnabled]);
+  }, [type, libraryMatch]);
   const allSeriesWatched =
     seriesEpisodes.length > 0 &&
     seriesEpisodes.every((e) => watchedEpisodes.has(`${e.season}.${e.episode}`));
