@@ -37,6 +37,40 @@ test("la vérification ciblée applique un vu Plex sans attendre un snapshot glo
   assert.equal(result.newCanonicalState, "watched");
 });
 
+test("une observation Plex stable répare une fiche Movviz restée désynchronisée", () => {
+  const result = reconcile({
+    userId,
+    canonicalIdentity: { type: "movie", tmdbId: 1145899 },
+    ratingKey,
+    machineIdentifier,
+    currentCanonicalState: "unwatched",
+    currentCanonicalAt: 1_000,
+    previousPlexObserved: {
+      userId,
+      machineIdentifier,
+      ratingKey,
+      state: "WATCHED",
+      viewCount: 1,
+      lastViewedAt: 2_000,
+      observedAt: 2_010,
+    },
+    currentPlexObserved: {
+      userId,
+      machineIdentifier,
+      ratingKey,
+      state: "WATCHED",
+      viewCount: 1,
+      lastViewedAt: 2_000,
+      observedAt: 2_100,
+    },
+  });
+
+  assert.equal(result.decision, "REMOTE_WATCHED");
+  assert.equal(result.shouldApply, true);
+  assert.equal(result.newCanonicalState, "watched");
+  assert.equal(result.reason, "state_repair_observed_watched");
+});
+
 test("la vérification ciblée ne remplace pas un non-vu local plus récent", () => {
   const result = reconcile({
     userId,

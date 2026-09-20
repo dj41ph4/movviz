@@ -1,3 +1,10 @@
+## v1.25.39 — September 2026
+
+### Plex → Movviz : réparation immédiate des vues divergentes
+
+- Une observation Plex stable (« vu » ou « non vu » déjà présente dans le journal local) répare désormais l'état Movviz si celui-ci a divergé : l'interface ne peut plus rester à tort sur « non vu » après qu'une synchronisation ciblée a confirmé Plex.
+- Les protections de fraîcheur restent inchangées : une action locale plus récente continue de l'emporter sur une observation Plex ancienne.
+
 ## v1.25.38 — September 2026
 
 ### Plex → Movviz : diagnostic ciblé fiable

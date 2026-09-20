@@ -173,6 +173,25 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
 
   // No change from previous observation
   if (prevState === curState) {
+    // The Plex ledger can already contain this observation while the canonical
+    // Movviz state was missed by an earlier write.  A stable Plex state must
+    // still repair that divergence; otherwise a targeted sync can report a
+    // successful WATCHED observation forever without updating the UI.
+    if (curState !== currentCanonicalState) {
+      return curState === "watched"
+        ? {
+            decision: "REMOTE_WATCHED",
+            shouldApply: true,
+            newCanonicalState: "watched",
+            reason: "state_repair_observed_watched",
+          }
+        : {
+            decision: "REMOTE_UNWATCHED",
+            shouldApply: true,
+            newCanonicalState: "unwatched",
+            reason: "state_repair_observed_unwatched",
+          };
+    }
     return { decision: "UNCHANGED", shouldApply: false, reason: "no_transition" };
   }
 
