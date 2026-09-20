@@ -605,7 +605,13 @@ async function runSearch(
     ? ix.categories.filter((c) => scopeCategories.includes(c) || !KNOWN_STANDARD_CATEGORY_IDS.has(c))
     : ix.categories;
   const effective = scoped.length ? scoped : ix.categories;
-  const withCat = effective.length ? { ...params, cat: effective.join(",") } : params;
+  // Torznab servers are allowed to choose a small default page size. C411
+  // defaults to a partial/older slice when `limit` is omitted, while its own
+  // web search exposes the full recent result set. Always request the largest
+  // useful first page for interactive searches so fresh episodes are not
+  // hidden simply because older releases filled the server default page.
+  const paged = { ...params, limit: "100" };
+  const withCat = effective.length ? { ...paged, cat: effective.join(",") } : paged;
   let r;
   try {
     r = await fetchXml(buildUrl(ix, withCat), ix);
