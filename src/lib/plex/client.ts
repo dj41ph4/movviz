@@ -1360,15 +1360,32 @@ export async function getAccountHistoryPage(
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`plex_history_page_http_${res.status}`);
-  let data: { MediaContainer?: { Metadata?: RawHistoryItem[]; totalSize?: number; size?: number } };
+  let data: { MediaContainer?: { Metadata?: RawHistoryItem[] | RawHistoryItem; totalSize?: number; size?: number } };
   try {
     data = await res.json();
   } catch {
     throw new Error("plex_history_page_invalid_json");
   }
-  const raw = data?.MediaContainer?.Metadata;
-  if (!Array.isArray(raw)) throw new Error("plex_history_page_invalid_shape");
-  const totalSizeRaw = data?.MediaContainer?.totalSize ?? data?.MediaContainer?.size ?? raw.length;
+  const container = data?.MediaContainer;
+  if (container == null || typeof container !== "object" || Array.isArray(container)) {
+    throw new Error(`plex_history_page_invalid_shape:container=${container == null ? "missing" : Array.isArray(container) ? "array" : typeof container}`);
+  }
+  const metadata = container.Metadata;
+  let raw: RawHistoryItem[];
+  if (metadata == null) {
+    // Plex omits Metadata entirely on empty pages (size=0, or start beyond
+    // totalSize) — a coherent empty page, not a corrupt response. The caller
+    // (watchSync bootstrap/incremental) already handles empty pages.
+    raw = [];
+  } else if (Array.isArray(metadata)) {
+    raw = metadata;
+  } else if (typeof metadata === "object") {
+    // Single-item pages may serialize Metadata as one object, not an array.
+    raw = [metadata];
+  } else {
+    throw new Error(`plex_history_page_invalid_shape:metadata=${typeof metadata}`);
+  }
+  const totalSizeRaw = container.totalSize ?? container.size ?? raw.length;
   const totalSize = Number.isFinite(Number(totalSizeRaw)) ? Math.max(0, Number(totalSizeRaw)) : raw.length;
   const entries: PlexHistoryEntry[] = [];
   let rejectedForeignEntries = 0;

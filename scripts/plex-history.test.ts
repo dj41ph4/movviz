@@ -62,3 +62,74 @@ test("getAccountHistoryPage effectue un seul appel et avance sur le nombre brut"
     globalThis.fetch = originalFetch;
   }
 });
+
+test("getAccountHistoryPage : page vide sans Metadata (start au-delà du total) -> page vide, pas d'erreur", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({ MediaContainer: {
+      size: 0, totalSize: 4641,
+    } }), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const page = await getAccountHistoryPage(config, "admin-token", 7, { start: 4700, size: 100, sortDirection: "desc" });
+    assert.equal(page.entries.length, 0);
+    assert.equal(page.rawPageCount, 0);
+    assert.equal(page.totalSize, 4641);
+    assert.equal(page.nextStart, 4700);
+    assert.equal(page.hasMore, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("getAccountHistoryPage : historique vide (size=0, totalSize=0) -> page vide, pas d'erreur", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({ MediaContainer: {
+      size: 0, totalSize: 0,
+    } }), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const page = await getAccountHistoryPage(config, "admin-token", 7, { start: 0, size: 100, sortDirection: "desc" });
+    assert.equal(page.entries.length, 0);
+    assert.equal(page.rawPageCount, 0);
+    assert.equal(page.totalSize, 0);
+    assert.equal(page.hasMore, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("getAccountHistoryPage : Metadata objet unique -> enveloppé en tableau", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({ MediaContainer: {
+      size: 1, totalSize: 4641,
+      Metadata: { type: "movie", ratingKey: "movie-1", title: "Movie 1", accountID: 7, viewedAt: 5 },
+    } }), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const page = await getAccountHistoryPage(config, "admin-token", 7, { start: 0, size: 1, sortDirection: "desc" });
+    assert.equal(page.entries.length, 1);
+    assert.equal(page.rawPageCount, 1);
+    assert.equal(page.nextStart, 1);
+    assert.equal(page.hasMore, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("getAccountHistoryPage : MediaContainer absent -> erreur invalid_shape conservée", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(
+      () => getAccountHistoryPage(config, "admin-token", 7, { start: 0, size: 100, sortDirection: "desc" }),
+      /plex_history_page_invalid_shape/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

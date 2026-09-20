@@ -1,3 +1,10 @@
+## v1.25.46 — September 2026
+
+### Plex → Movviz : fin des échecs `plex_history_page_invalid_shape`
+
+- Plex omet la clé `Metadata` sur les pages d'historique vides (compte sans historique, ou pagination au-delà du total) : ces réponses sont désormais traitées comme des pages vides cohérentes au lieu de faire échouer toute la synchronisation des vues.
+- Une page à un seul élément sérialisée en objet unique (cas du bootstrap `size=1`) est enveloppée en tableau ; seul un `MediaContainer` absent ou une forme vraiment invalide déclenche encore l'erreur, avec un diagnostic de forme dans le message pour trancher au prochain log.
+
 ## v1.25.45 — September 2026
 
 ### Android TV : les épisodes d'une saison passent en grille
