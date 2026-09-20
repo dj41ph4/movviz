@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.graphics.Brush
@@ -940,7 +941,7 @@ fun TitleDetailScreen(
                             PrimaryPill(
                                 text = ctaText,
                                 brush = null,
-                                solidWhite = false,
+
                                 icon = MovvizIconPlay,
                                 focusRequester = primaryActionFocusRequester,
                             ) {
@@ -948,17 +949,17 @@ fun TitleDetailScreen(
                             }
                             if (movieResume != null) {
                                 Spacer(modifier = Modifier.width(9.dp))
-                                PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay) {
+                                PrimaryPill(text = "Lire depuis le début", brush = null, icon = MovvizIconReplay) {
                                     onPlayFromStart(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                                 }
                             }
                         } else if (!libraryResolved) {
-                            PrimaryPill(text = "Vérification du fichier…", brush = null, solidWhite = false, enabled = false, onClick = {})
+                            PrimaryPill(text = "Vérification du fichier…", brush = null, enabled = false, onClick = {})
                         } else if (!inLibrary) {
                             PrimaryPill(
                                 text = if (addingToLibrary) "Ajout…" else "Ajouter à la bibliothèque",
                                 brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                                solidWhite = false,
+
                                 enabled = !addingToLibrary,
                                 icon = if (addingToLibrary) null else MovvizIconPlus,
                                 focusRequester = primaryActionFocusRequester,
@@ -986,13 +987,13 @@ fun TitleDetailScreen(
                             val movieStatus = remember(type, tmdbId, movies) {
                                 if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId }?.status else null
                             }
-                            PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, solidWhite = false, enabled = false) {}
+                            PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, enabled = false) {}
                         }
                         Spacer(modifier = Modifier.width(9.dp))
                         PrimaryPill(
                             text = if (movieWatched) "Marquer non vu" else "Marquer vu",
                             brush = null,
-                            solidWhite = false,
+
                             icon = MovvizIconCheck,
                         ) {
                             viewModel.toggleMovieWatched(tmdbId, d.title, !movieWatched)
@@ -1034,14 +1035,18 @@ fun TitleDetailScreen(
                     }
                 }
             } else if (!libraryResolved) {
-                PrimaryPill(text = "Vérification du fichier…", brush = null, solidWhite = false, enabled = false, onClick = {})
+                PrimaryPill(text = "Vérification du fichier…", brush = null, enabled = false, onClick = {})
             } else if (!inLibrary) {
                 Row {
                     PrimaryPill(
                         text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                        solidWhite = false,
+
                         enabled = !addingToLibrary,
+                        // Cible du focus d'ouverture pour un titre PAS encore
+                        // en bibliothèque : sans elle, cette fiche n'avait
+                        // aucune action focusable et s'ouvrait sur le rail.
+                        focusRequester = primaryActionFocusRequester,
                     ) {
                         scope.launch {
                             when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
@@ -1069,7 +1074,7 @@ fun TitleDetailScreen(
                         PrimaryPill(
                             text = "Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
                             brush = null,
-                            solidWhite = true,
+
                             icon = MovvizIconPlay,
                             // Sans ce requester, la demande de focus
                             // d'ouverture n'avait AUCUNE cible sur une fiche
@@ -1103,7 +1108,7 @@ fun TitleDetailScreen(
                         PrimaryPill(
                             text = if (nextWatched) "Revoir depuis le début" else "Lire S${nextEpisode.seasonNumber} · Ép ${nextEpisode.episodeNumber}",
                             brush = null,
-                            solidWhite = true,
+
                             icon = if (nextWatched) MovvizIconReplay else MovvizIconPlay,
                             // Même raison que la branche « Reprendre » : c'est
                             // la cible du focus d'ouverture d'une fiche série.
@@ -1120,8 +1125,17 @@ fun TitleDetailScreen(
                 PrimaryPill(
                     text = if (allSeriesWatched) "Série vue — marquer non vue" else "Marquer toute la série vue",
                     brush = null,
-                    solidWhite = false,
+
                     icon = MovvizIconCheck,
+                    // Dernier filet : une série EN bibliothèque dont aucun
+                    // épisode n'est encore téléchargé n'affiche ni reprise ni
+                    // bouton de lecture — aucune branche au-dessus ne rend
+                    // quoi que ce soit. Sans cette cible, la fiche s'ouvrait
+                    // sans action focusable et le focus restait sur le rail
+                    // (cas confirmé sur émulateur avec une série non
+                    // téléchargée). Elle ne prend le rôle que si aucun vrai
+                    // CTA n'existe, pour ne jamais voler le focus à « Lire ».
+                    focusRequester = if (episodeResume == null && nextEpisode == null) primaryActionFocusRequester else null,
                 ) {
                     viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched, scope = "series")
                 }
@@ -1197,6 +1211,7 @@ fun TitleDetailScreen(
                 episodeDownloads = episodeDownloads,
                 episodeProgress = episodeProgress,
                 focusLocked = episodePageOpen,
+                railEntryFocusRequester = entryFocusRequester,
                 onBack = { openSeasonNumber = null },
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, openSeason.seasonNumber) },
                 onToggleEpisodesWatched = { episodes, watched ->
@@ -1502,7 +1517,7 @@ private fun SeasonSelector(
  * défiler la page toute seule avant même que l'utilisateur touche la
  * télécommande.
  */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun SeasonPageOverlay(
     seriesTitle: String,
@@ -1515,6 +1530,14 @@ private fun SeasonPageOverlay(
     /** Vrai quand la fiche d'un épisode est posée par-dessus cet écran : les
      *  lignes restent dessinées mais ne doivent plus capter le D-pad. */
     focusLocked: Boolean,
+    /** Cible « entrer dans le contenu » visée par la NavRail (flèche DROITE).
+     *  Elle est normalement portée par le logo de la fiche série — un nœud
+     *  qui se retrouve DERRIÈRE cet écran quand il est ouvert : revenir du
+     *  rail envoyait donc le focus sur un élément invisible, puis, une fois
+     *  la fiche désactivée, sur rien du tout. D'où l'impression de chercher
+     *  le curseur à l'aveugle. Tant que cet écran est affiché, c'est lui qui
+     *  porte la cible. */
+    railEntryFocusRequester: FocusRequester? = null,
     onBack: () -> Unit,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
@@ -1576,12 +1599,25 @@ private fun SeasonPageOverlay(
                         true
                     } else false
                 }
-                // Même règle que la fiche : le verrou n'est posé que lorsque
-                // la fiche d'un épisode recouvre cet écran.
+                // Verrou posé uniquement lorsque la fiche d'un épisode
+                // recouvre cet écran. Il précède le focusGroup pour
+                // s'appliquer à lui, donc à tout le sous-arbre.
+                .then(if (focusLocked) Modifier.focusProperties { canFocus = false } else Modifier)
                 .then(
-                    if (focusLocked) Modifier.focusProperties { canFocus = false }.focusGroup()
+                    if (railEntryFocusRequester != null) Modifier.focusRequester(railEntryFocusRequester)
                     else Modifier,
-                ),
+                )
+                // Revenir du rail rend la main à la LIGNE QUITTÉE, pas au
+                // début de la saison : sans restauration, une flèche droite
+                // après un détour par le menu repartait de nulle part et il
+                // fallait tâtonner pour retrouver le curseur.
+                // Repli explicite sur l'épisode d'atterrissage : une ligne
+                // sortie de composition par la liste paresseuse pendant le
+                // détour ne peut plus être restaurée, et le repli par défaut
+                // (premier enfant) renvoyait sur la barre d'actions — donc à
+                // côté de ce que l'utilisateur regardait.
+                .focusRestorer { firstEpisodeFocus }
+                .focusGroup(),
             contentPadding = PaddingValues(start = 42.dp, end = 42.dp, top = 96.dp, bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -1706,7 +1742,7 @@ private fun SeasonPageHeader(
                     text = if (landingWatched) "Revoir l'épisode ${landingEpisode.episodeNumber}"
                     else "Lire l'épisode ${landingEpisode.episodeNumber}",
                     brush = null,
-                    solidWhite = true,
+
                     icon = if (landingWatched) MovvizIconReplay else MovvizIconPlay,
                     focusRequester = primaryActionFocus,
                     onClick = { onPlayEpisode(landingEpisode) },
@@ -1716,7 +1752,7 @@ private fun SeasonPageHeader(
                 PrimaryPill(
                     text = if (downloading) "Recherche…" else "Compléter la saison",
                     brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                    solidWhite = false,
+
                     enabled = !downloading,
                     icon = if (downloading) null else MovvizIconDownload,
                     focusRequester = if (landingEpisode == null) primaryActionFocus else null,
@@ -1728,12 +1764,12 @@ private fun SeasonPageHeader(
                 PrimaryPill(
                     text = if (allWatched) "Marquer non vue" else "Marquer la saison vue",
                     brush = null,
-                    solidWhite = false,
+
                     icon = MovvizIconCheck,
                     onClick = { onToggleEpisodesWatched(targets, !allWatched) },
                 )
             }
-            PrimaryPill(text = "Retour", brush = null, solidWhite = false, focusRequester = backFocus, onClick = onBack)
+            PrimaryPill(text = "Retour", brush = null, focusRequester = backFocus, onClick = onBack)
         }
     }
 }
@@ -2216,7 +2252,7 @@ private fun EpisodeDetailOverlay(
                     PrimaryPill(
                         text = if (resumeOffset != null) "Reprendre à ${formatResumeTime(resumeOffset)}" else "Lire l'épisode",
                         brush = null,
-                        solidWhite = true,
+
                         icon = MovvizIconPlay,
                         focusRequester = primaryActionFocus,
                         onClick = onPlay,
@@ -2225,7 +2261,7 @@ private fun EpisodeDetailOverlay(
                     PrimaryPill(
                         text = if (downloading) "Recherche…" else "Télécharger la saison",
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                        solidWhite = false,
+
                         enabled = !downloading,
                         icon = if (downloading) null else MovvizIconDownload,
                         focusRequester = primaryActionFocus,
@@ -2236,12 +2272,12 @@ private fun EpisodeDetailOverlay(
                     PrimaryPill(
                         text = if (watched) "Marquer non vu" else "Marquer vu",
                         brush = null,
-                        solidWhite = false,
+
                         icon = MovvizIconCheck,
                         onClick = { onToggleWatched(!watched) },
                     )
                 }
-                PrimaryPill(text = "Retour", brush = null, solidWhite = false, onClick = onDismiss)
+                PrimaryPill(text = "Retour", brush = null, onClick = onDismiss)
             }
         }
     }
@@ -2260,7 +2296,6 @@ private fun MetaSep() {
 private fun PrimaryPill(
     text: String,
     brush: Brush?,
-    solidWhite: Boolean,
     enabled: Boolean = true,
     icon: ImageVector? = null,
     focusRequester: FocusRequester? = null,
@@ -2279,24 +2314,23 @@ private fun PrimaryPill(
             .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else MovvizInk.copy(alpha = 0.1f),
-            // Le bouton reste gris au repos et devient blanc uniquement
-            // lorsque le focus D-pad est réellement dessus.
+            // AUCUN bouton n'est blanc au repos : gris + texte blanc, et le
+            // blanc (texte noir) est réservé à l'élément réellement focalisé.
+            // Un bouton blanc en permanence criait plus fort que le focus
+            // lui-même, donc on ne savait plus où l'on était à la
+            // télécommande. Seul le variant en dégradé de marque garde son
+            // fond propre, dessiné par Modifier.background.
+            containerColor = if (brush != null) Color.Transparent else MovvizInk.copy(alpha = 0.1f),
             focusedContainerColor = if (brush != null) Color.Transparent else Color.White,
-            contentColor = when {
-                solidWhite -> Color.Black
-                brush != null -> Color.White
-                else -> MovvizInk
-            },
-            focusedContentColor = if (solidWhite || brush == null) Color.Black else Color.White,
+            contentColor = if (brush != null) Color.White else MovvizInk,
+            focusedContentColor = if (brush != null) Color.White else Color.Black,
         ),
-        // Bordure de focus blanche invisible sur le variant "Lire" (fond
-        // déjà blanc plein) — corrigé : bordure en dégradé de marque sur ce
-        // variant précis, blanche partout ailleurs où le fond est sombre ou
-        // déjà en dégradé de marque (contraste garanti dans les deux cas).
+        // Le fond focalisé étant blanc, une bordure blanche serait invisible :
+        // le liseré passe en dégradé de marque sur ces boutons-là, et reste
+        // blanc sur le variant dégradé dont le fond est déjà coloré.
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = if (solidWhite) {
+                border = if (brush == null) {
                     androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)))
                 } else {
                     androidx.compose.foundation.BorderStroke(2.dp, Color.White)
