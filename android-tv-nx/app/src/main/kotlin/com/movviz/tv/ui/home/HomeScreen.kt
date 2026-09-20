@@ -1628,12 +1628,10 @@ internal fun TitleRow(
                     preferPosterArt = true,
                     // Le slot LazyRow ne bouge jamais. La mini-fiche est une
                     // surcouche de rangée (ci-dessous), jamais un reflow.
-                    expandToLandscapeOnFocus = true,
                     // La carte active conserve exactement la hauteur de
                     // l'affiche (132 × 3/2 = 198dp) : seul son ratio change.
                     // En 16:9, cela donne 352×198dp, un vrai passage au
                     // paysage plutôt qu'une carte qui rétrécit au focus.
-                    expandedWidth = 264.dp,
                     showCaption = false,
                     showTechnicalBadges = false,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
@@ -1993,8 +1991,6 @@ internal fun PosterCard(
     width: androidx.compose.ui.unit.Dp = 173.dp,
     aspectRatio: Float = 16f / 9f,
     preferPosterArt: Boolean = false,
-    expandToLandscapeOnFocus: Boolean = false,
-    expandedWidth: androidx.compose.ui.unit.Dp = width,
     showCaption: Boolean = true,
     showTechnicalBadges: Boolean = true,
     titleLogoPath: String? = null,
@@ -2009,14 +2005,14 @@ internal fun PosterCard(
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
     val backdropUrl = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
-    val expanded = focused && expandToLandscapeOnFocus
-    // L'affiche portrait est une image éditoriale fixe, pas un backdrop à
-    // zoomer. L'ancienne interpolation largeur+ratio étirait son contenu
-    // durant ~220 ms, ce qui donnait un effet "cheap" très visible. La
-    // bascule de surface est désormais nette ; l'animation reste réservée
-    // au fondu vidéo du paysage, jamais à l'affiche elle-même.
-    val renderedWidth = if (expanded) expandedWidth else width
-    val renderedAspect = if (expanded) 16f / 9f else aspectRatio
+    // Une carte ne change JAMAIS de géométrie au focus. L'élargissement en
+    // paysage poussait ses voisines, remontait la carte focalisée hors de
+    // l'alignement de sa rangée et recadrait l'image assez pour rogner le
+    // badge « S01 · E05 » incrusté dessus — trois défauts pour un effet qui
+    // n'apportait rien : le contour de focus dit déjà où l'on est.
+    val expanded = false
+    val renderedWidth = width
+    val renderedAspect = aspectRatio
     // Une affiche reste une affiche : jamais de backdrop paysage recadré
     // dans un cadre 2:3. Le backdrop est réservé au seul état paysage.
     val resumeEpisodeStillUrl = card.resumeEpisodeStillPath?.let { "$TMDB_BACKDROP_BASE$it" }

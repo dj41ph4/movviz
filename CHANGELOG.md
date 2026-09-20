@@ -1,3 +1,29 @@
+## v1.25.45 — September 2026
+
+### Android TV : les épisodes d'une saison passent en grille
+
+- La saison présente désormais ses épisodes en grille de vignettes 16:9 sur quatre colonnes, à la place de la liste verticale. Une saison de vingt épisodes tient en cinq rangées et se parcourt à la télécommande en deux dimensions au lieu d'une longue descente.
+- Le fond de l'écran prend la couleur dominante de la jaquette de la saison au lieu d'un noir uniforme.
+- L'en-tête regroupe la jaquette avec son nombre d'épisodes, l'avancement, et une barre d'actions sur une seule rangée : lire, compléter la saison, marquer vue, retour.
+- Chaque vignette porte son numéro d'épisode, sa pastille « vu », sa barre de reprise et son état de téléchargement ; le titre, la note, la durée et la date restent lisibles sous l'image.
+
+### Plus aucun agrandissement au focus
+
+- Les cartes, tuiles, boutons et photos de profil ne changent plus de taille lorsqu'ils sont sélectionnés. Trois causes distinctes se cumulaient, dont l'agrandissement appliqué par défaut à toutes les surfaces cliquables, et l'élargissement en paysage des cartes de l'accueil — ce dernier décalait sa rangée entière et rognait le badge de saison incrusté sur l'image.
+- Un bouton n'est plus jamais blanc au repos : fond gris et texte blanc, le blanc à texte noir étant réservé à l'élément réellement sélectionné, pour que le focus reste l'élément le plus visible de l'écran.
+
+### Navigation à la télécommande
+
+- L'ouverture d'une fiche série laissait le focus bloqué dans la barre latérale : aucune action n'était sélectionnable tant qu'aucun épisode n'était téléchargé, et une série jamais commencée n'avait aucun bouton de lecture.
+- L'écran d'une saison s'ouvrait parfois sans aucun élément sélectionné, la télécommande semblait alors ne plus répondre.
+- Remonter des épisodes vers la barre d'actions envoyait le focus derrière l'écran affiché, dans le menu latéral.
+- Revenir du menu latéral vers un épisode demandait une dizaine d'appuis et du tâtonnement : la flèche droite visait un élément caché sous l'écran de saison. Un seul appui suffit désormais, et il rend la main à la vignette quittée.
+- Fermer une saison rend le focus à la fiche de la série au lieu de le laisser dans le menu latéral.
+
+### Lecture
+
+- Passer à l'épisode suivant marque le précédent comme vu dès qu'il a été lu à plus de 70 %, sur Android TV comme sur mobile. Un épisode réellement terminé ne réapparaît plus dans « Continuer à regarder » parce que le générique a été sauté.
+
 ## v1.25.44 — September 2026
 
 ### Android TV : liste des saisons et des épisodes refondue

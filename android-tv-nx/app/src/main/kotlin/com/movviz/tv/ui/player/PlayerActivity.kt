@@ -254,6 +254,11 @@ fun forQueue(
     }
 }
 
+/** Part de l'épisode sortant au-delà de laquelle un passage au suivant
+ *  le marque VU. Règle produit, pas une constante technique : enchaîner
+ *  sur l'épisode suivant est en soi le signal que le précédent est fini. */
+private const val EPISODE_ADVANCE_WATCHED_RATIO = 0.70
+
 data class QueueItem(
     val ratingKey: String,
     val label: String?,
@@ -667,12 +672,25 @@ ExoPlayer.Builder(context)
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
         val outgoingPosition = exoPlayer.currentPosition.coerceAtLeast(0)
+        // Lue AVANT stop() : ExoPlayer rend la durée indisponible une fois
+        // arrêté, et c'est elle qui décide de la règle ci-dessous.
+        val outgoingDuration = exoPlayer.duration.takeIf { it > 0L }
+        // Passer à l'épisode suivant alors que le précédent dépasse 70 %
+        // vaut « terminé » : enchaîner EST le signal que l'épisode est fini
+        // pour l'utilisateur, générique sauté ou fin coupée comprises. Sans
+        // ça, des épisodes réellement regardés restaient « en cours » et
+        // revenaient encombrer Continuer à regarder. Seuil distinct de celui
+        // du lecteur (« proche de la fin »), qui lui se déclenche à
+        // l'approche du générique et non au changement d'épisode.
+        val outgoingMostlyWatched = outgoingDuration != null &&
+            outgoingPosition >= (outgoingDuration * EPISODE_ADVANCE_WATCHED_RATIO).toLong()
+        val markWatched = markOutgoingWatched || outgoingMostlyWatched
         playbackSessionId = null
         completeCurrentOnDispose = false
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         scope.launch {
-            if (markOutgoingWatched) outgoingSession?.let { repository.playbackEnded(it) }
+            if (markWatched) outgoingSession?.let { repository.playbackEnded(it) }
             else {
                 outgoingSession?.let { repository.playbackStop(it, outgoingPosition) }
                 repository.reportStop(outgoing.ratingKey)

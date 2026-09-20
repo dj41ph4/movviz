@@ -51,6 +51,11 @@ import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.foundation.lazy.list.itemsIndexed
 import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
+import androidx.tv.foundation.lazy.grid.items
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
@@ -533,6 +538,23 @@ fun TitleDetailScreen(
                 runCatching { initialFocusRequester.requestFocus() }.isSuccess
             if (granted) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
+        }
+    }
+
+    // Fermeture d'un écran posé par-dessus la fiche (saison, épisode) : le
+    // sous-arbre de la fiche vient d'être réactivé, mais plus personne ne
+    // demande le focus — la demande d'ouverture, elle, n'a lieu qu'une fois.
+    // Sans ceci, Retour depuis une saison rendait la main à la barre de
+    // navigation au lieu de la fiche, et il fallait retraverser le rail pour
+    // revenir au contenu.
+    val anyOverlayOpen = openSeasonNumber != null || selectedEpisode != null
+    LaunchedEffect(anyOverlayOpen) {
+        if (anyOverlayOpen || detail == null) return@LaunchedEffect
+        repeat(20) { attempt ->
+            val granted = runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess ||
+                runCatching { initialFocusRequester.requestFocus() }.isSuccess
+            if (granted) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
         }
     }
 
@@ -1504,18 +1526,71 @@ private fun SeasonSelector(
         }
     }
 }
+/**
+ * Teinte ambiante extraite de l'affiche.
+ *
+ * L'écran de saison reprend le parti pris de Plex : le fond n'est pas noir,
+ * il prend la couleur dominante de la jaquette. On échantillonne l'image en
+ * 24×24 via Coil — pas de bibliothèque de palette en plus pour une seule
+ * couleur — en écartant les pixels trop sombres, trop clairs ou trop ternes,
+ * qui tirent toutes les affiches vers le même gris. Sans pixel exploitable,
+ * on retombe sur la surface de marque plutôt que d'inventer une teinte.
+ */
+@Composable
+private fun rememberAmbientTint(imageUrl: String?): Color {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var tint by remember(imageUrl) { mutableStateOf(MovvizSurface) }
+    LaunchedEffect(imageUrl) {
+        val url = imageUrl ?: return@LaunchedEffect
+        val bitmap = runCatching {
+            val request = coil.request.ImageRequest.Builder(context)
+                .data(url)
+                .size(24, 24)
+                // Un bitmap matériel n'est pas lisible par getPixel().
+                .allowHardware(false)
+                .build()
+            (coil.Coil.imageLoader(context).execute(request).drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
+        }.getOrNull() ?: return@LaunchedEffect
+        var r = 0L
+        var g = 0L
+        var b = 0L
+        var kept = 0
+        val hsv = FloatArray(3)
+        for (x in 0 until bitmap.width) {
+            for (y in 0 until bitmap.height) {
+                val pixel = bitmap.getPixel(x, y)
+                android.graphics.Color.colorToHSV(pixel, hsv)
+                if (hsv[2] < 0.22f || hsv[2] > 0.95f || hsv[1] < 0.20f) continue
+                r += android.graphics.Color.red(pixel)
+                g += android.graphics.Color.green(pixel)
+                b += android.graphics.Color.blue(pixel)
+                kept++
+            }
+        }
+        if (kept == 0) return@LaunchedEffect
+        tint = Color((r / kept).toInt(), (g / kept).toInt(), (b / kept).toInt())
+    }
+    val animated by animateColorAsState(targetValue = tint, animationSpec = tween(520), label = "ambientTint")
+    return animated
+}
 
 /**
- * Page autonome de saison, construite comme un « preplay » Plex : un en-tête
- * qui pose le contexte (jaquette de saison, avancement, synopsis), une barre
- * d'action juste en dessous, puis la liste des épisodes.
+ * Page autonome de saison, construite comme un « preplay » Plex : fond
+ * ambiant teinté par la jaquette, en-tête qui pose le contexte, barre
+ * d'actions, puis les épisodes en GRILLE de vignettes 16:9.
  *
- * Les épisodes restent à taille constante pour que la coche, le titre et la
- * vignette ne quittent jamais le viewport au focus. La spec BringIntoView
- * vide est indispensable ici comme sur la fiche : avec le pivot TV par
- * défaut, demander le focus sur le prochain épisode à l'ouverture ferait
- * défiler la page toute seule avant même que l'utilisateur touche la
- * télécommande.
+ * La grille (et non une liste dense) est un choix assumé : c'est la forme
+ * de Plex, et au D-pad elle transforme une longue descente en un parcours à
+ * deux dimensions — une saison de 24 épisodes tient en 6 rangées au lieu de
+ * 24. Chaque carte garde une géométrie FIXE ; le focus l'éclaire, il ne la
+ * redimensionne jamais.
+ *
+ * Les protections D-pad de cet écran sont toutes nécessaires et chacune
+ * répare un blocage constaté : consommation de HAUT (sinon le conteneur de
+ * fiche renvoie le focus derrière l'écran), cible d'entrée propre visée par
+ * la barre de navigation (sinon la flèche droite vise le logo de la fiche,
+ * invisible sous cet écran), restauration de la carte quittée, et verrou du
+ * sous-arbre quand la fiche d'un épisode passe par-dessus.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -1527,16 +1602,7 @@ private fun SeasonPageOverlay(
     downloading: Boolean,
     episodeDownloads: Map<String, QueueItemDto>,
     episodeProgress: Map<String, com.movviz.tv.data.PlaybackProgressDto>,
-    /** Vrai quand la fiche d'un épisode est posée par-dessus cet écran : les
-     *  lignes restent dessinées mais ne doivent plus capter le D-pad. */
     focusLocked: Boolean,
-    /** Cible « entrer dans le contenu » visée par la NavRail (flèche DROITE).
-     *  Elle est normalement portée par le logo de la fiche série — un nœud
-     *  qui se retrouve DERRIÈRE cet écran quand il est ouvert : revenir du
-     *  rail envoyait donc le focus sur un élément invisible, puis, une fois
-     *  la fiche désactivée, sur rien du tout. D'où l'impression de chercher
-     *  le curseur à l'aveugle. Tant que cet écran est affiché, c'est lui qui
-     *  porte la cible. */
     railEntryFocusRequester: FocusRequester? = null,
     onBack: () -> Unit,
     onDownloadSeason: () -> Unit,
@@ -1544,10 +1610,8 @@ private fun SeasonPageOverlay(
     onPlayEpisode: (SeriesEpisodeDto) -> Unit,
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
-    // Désactivé explicitement quand la fiche d'un épisode est ouverte :
-    // l'ordre de composition suffirait en théorie à ce que le niveau le plus
-    // profond gagne, mais Retour doit fermer UN niveau, jamais deux, et cela
-    // ne doit dépendre d'aucune subtilité d'ordre d'enregistrement.
+    // Désactivé quand la fiche d'un épisode est ouverte : Retour doit fermer
+    // UN niveau, jamais deux, sans dépendre d'un ordre d'enregistrement.
     BackHandler(enabled = !focusLocked, onBack = onBack)
     val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
     val firstEpisodeFocus = remember { FocusRequester() }
@@ -1555,21 +1619,15 @@ private fun SeasonPageOverlay(
     val backFocus = remember { FocusRequester() }
     fun playable(ep: SeriesEpisodeDto) =
         (ep.plexRatingKey != null || ep.playbackSource == "movviz") && ep.status == "available"
-    // Cible d'atterrissage = le prochain épisode à regarder, pas juste le
-    // premier de la liste : sur une saison déjà entamée, retomber sur l'ép. 1
-    // oblige à redescendre toute la saison à la main.
     val landingEpisode = remember(season, watchedEpisodeKeys) {
         season.episodes.firstOrNull { playable(it) && !watchedEpisodeKeys.contains("${season.seasonNumber}.${it.episodeNumber}") }
             ?: season.episodes.firstOrNull { playable(it) }
     }
     LaunchedEffect(season.seasonNumber, landingEpisode?.episodeNumber) {
-        // requestFocus() lève tant que le nœud n'est pas attaché : on retente
-        // sur plusieurs frames. Surtout, on essaie PLUSIEURS cibles dans
-        // l'ordre de préférence au lieu d'une seule : la ligne d'épisode vit
-        // dans une liste paresseuse et peut n'être composée que bien après
-        // l'en-tête. Quand elle manquait, plus aucune demande n'aboutissait
-        // et l'écran s'ouvrait sans AUCUN élément focalisé — le D-pad
-        // paraissait mort et la moindre touche renvoyait dans la sidebar.
+        // Plusieurs cibles, sur plusieurs frames : la carte visée vit dans
+        // une grille paresseuse et peut n'être composée que bien après
+        // l'en-tête. Quand elle manquait, l'écran s'ouvrait sans AUCUN
+        // élément focalisé et le D-pad paraissait mort.
         repeat(20) { attempt ->
             val targets = listOfNotNull(
                 landingEpisode?.let { firstEpisodeFocus },
@@ -1581,86 +1639,92 @@ private fun SeasonPageOverlay(
         }
     }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-    CompositionLocalProvider(LocalBringIntoViewSpec provides object : BringIntoViewSpec {}) {
-        TvLazyColumn(
-            state = rememberTvLazyListState().withTvPrefetchDisabled(),
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MovvizBackground)
-                // UP est CONSOMMÉ ici, toujours. Le conteneur de la fiche
-                // (DetailUpToNavHandler) bascule sur la NavRail dès qu'un
-                // moveFocus(Up) échoue — logique juste pour une fiche, fausse
-                // pour cet écran-ci, qui couvre tout l'affichage : remonter
-                // depuis le premier épisode vers la barre d'actions envoyait
-                // le focus dans la sidebar, derrière un écran opaque.
-                .onKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
-                        true
-                    } else false
+    val ambient = rememberAmbientTint(metadata?.posterPath?.let { "$TMDB_SEASON_POSTER_BASE$it" })
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MovvizBackground)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        ambient.copy(alpha = 0.78f),
+                        ambient.copy(alpha = 0.30f),
+                        MovvizBackground,
+                    ),
+                ),
+            ),
+    ) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides object : BringIntoViewSpec {}) {
+            TvLazyVerticalGrid(
+                columns = androidx.tv.foundation.lazy.grid.TvGridCells.Fixed(4),
+                state = rememberTvLazyGridState().withTvPrefetchDisabled(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    // HAUT est CONSOMMÉ ici, toujours : le conteneur de la
+                    // fiche bascule sur la barre de navigation dès qu'un
+                    // moveFocus(Up) échoue, ce qui enverrait le focus
+                    // derrière cet écran opaque.
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
+                            true
+                        } else false
+                    }
+                    .then(if (focusLocked) Modifier.focusProperties { canFocus = false } else Modifier)
+                    .then(
+                        if (railEntryFocusRequester != null) Modifier.focusRequester(railEntryFocusRequester)
+                        else Modifier,
+                    )
+                    .focusRestorer { firstEpisodeFocus }
+                    .focusGroup(),
+                contentPadding = PaddingValues(start = 42.dp, end = 42.dp, top = 96.dp, bottom = 40.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                verticalArrangement = Arrangement.spacedBy(22.dp),
+            ) {
+                item(
+                    key = "season-header",
+                    span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(maxLineSpan) },
+                ) {
+                    SeasonPageHeader(
+                        seriesTitle = seriesTitle,
+                        season = season,
+                        metadata = metadata,
+                        watchedEpisodeKeys = watchedEpisodeKeys,
+                        downloading = downloading,
+                        landingEpisode = landingEpisode,
+                        primaryActionFocus = primaryActionFocus,
+                        backFocus = backFocus,
+                        onBack = onBack,
+                        onDownloadSeason = onDownloadSeason,
+                        onToggleEpisodesWatched = onToggleEpisodesWatched,
+                        onPlayEpisode = onPlayEpisode,
+                    )
                 }
-                // Verrou posé uniquement lorsque la fiche d'un épisode
-                // recouvre cet écran. Il précède le focusGroup pour
-                // s'appliquer à lui, donc à tout le sous-arbre.
-                .then(if (focusLocked) Modifier.focusProperties { canFocus = false } else Modifier)
-                .then(
-                    if (railEntryFocusRequester != null) Modifier.focusRequester(railEntryFocusRequester)
-                    else Modifier,
-                )
-                // Revenir du rail rend la main à la LIGNE QUITTÉE, pas au
-                // début de la saison : sans restauration, une flèche droite
-                // après un détour par le menu repartait de nulle part et il
-                // fallait tâtonner pour retrouver le curseur.
-                // Repli explicite sur l'épisode d'atterrissage : une ligne
-                // sortie de composition par la liste paresseuse pendant le
-                // détour ne peut plus être restaurée, et le repli par défaut
-                // (premier enfant) renvoyait sur la barre d'actions — donc à
-                // côté de ce que l'utilisateur regardait.
-                .focusRestorer { firstEpisodeFocus }
-                .focusGroup(),
-            contentPadding = PaddingValues(start = 42.dp, end = 42.dp, top = 96.dp, bottom = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            item(key = "season-header") {
-                SeasonPageHeader(
-                    seriesTitle = seriesTitle,
-                    season = season,
-                    metadata = metadata,
-                    watchedEpisodeKeys = watchedEpisodeKeys,
-                    downloading = downloading,
-                    landingEpisode = landingEpisode,
-                    primaryActionFocus = primaryActionFocus,
-                    backFocus = backFocus,
-                    onBack = onBack,
-                    onDownloadSeason = onDownloadSeason,
-                    onToggleEpisodesWatched = onToggleEpisodesWatched,
-                    onPlayEpisode = onPlayEpisode,
-                )
-            }
-            items(season.episodes, key = { "episode-${it.episodeNumber}" }) { episode ->
-                val key = "${season.seasonNumber}.${episode.episodeNumber}"
-                EpisodeCard(
-                    episode = episode,
-                    metadata = metadataByEpisode[episode.episodeNumber],
-                    watched = watchedEpisodeKeys.contains(key),
-                    queueItem = episodeDownloads[key],
-                    progress = episodeProgress[key],
-                    focusRequester = if (episode.episodeNumber == landingEpisode?.episodeNumber) firstEpisodeFocus else null,
-                    onToggleWatched = { watched ->
-                        onToggleEpisodesWatched(listOf(com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, episode.episodeNumber)), watched)
-                    },
-                    onPlay = { onPlayEpisode(episode) },
-                    onOpenDetails = { onOpenEpisode(episode, metadataByEpisode[episode.episodeNumber]) },
-                )
+                items(season.episodes, key = { "episode-${it.episodeNumber}" }) { episode ->
+                    val key = "${season.seasonNumber}.${episode.episodeNumber}"
+                    EpisodeGridCard(
+                        episode = episode,
+                        metadata = metadataByEpisode[episode.episodeNumber],
+                        watched = watchedEpisodeKeys.contains(key),
+                        queueItem = episodeDownloads[key],
+                        progress = episodeProgress[key],
+                        focusRequester = if (episode.episodeNumber == landingEpisode?.episodeNumber) firstEpisodeFocus else null,
+                        onToggleWatched = { watched ->
+                            onToggleEpisodesWatched(listOf(com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, episode.episodeNumber)), watched)
+                        },
+                        onPlay = { onPlayEpisode(episode) },
+                        onOpenDetails = { onOpenEpisode(episode, metadataByEpisode[episode.episodeNumber]) },
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * En-tête de l'écran de saison : jaquette, avancement, synopsis, puis la
- * barre d'action. Les actions tiennent sur UNE rangée — au D-pad, une barre
- * qui se replie sur deux lignes transforme un aller simple en labyrinthe.
+ * En-tête de l'écran de saison : jaquette, avancement, puis la barre
+ * d'actions. Les actions tiennent sur UNE rangée — au D-pad, une barre qui
+ * se replie sur deux lignes transforme un aller simple en labyrinthe.
  */
 @Composable
 private fun SeasonPageHeader(
@@ -1680,122 +1744,122 @@ private fun SeasonPageHeader(
     val watchable = season.episodes.filter { it.status != "upcoming" }
     val watchedCount = watchable.count { watchedEpisodeKeys.contains("${season.seasonNumber}.${it.episodeNumber}") }
     val allWatched = watchable.isNotEmpty() && watchedCount == watchable.size
-    // "Compléter la saison" doit rester proposé tant qu'il MANQUE quelque
-    // chose, pas seulement quand la saison est vide : une saison à moitié
-    // téléchargée n'avait jusqu'ici aucun moyen d'être complétée depuis cet
-    // écran, le bouton disparaissait dès le premier épisode disponible.
     val missingCount = season.episodes.count { it.status == "missing" }
     val seasonLabel = season.name.ifBlank {
         if (season.seasonNumber == 0) "Spéciaux" else "Saison ${season.seasonNumber}"
     }
     val landingWatched = landingEpisode != null &&
         watchedEpisodeKeys.contains("${season.seasonNumber}.${landingEpisode.episodeNumber}")
-    Column(modifier = Modifier.widthIn(max = 980.dp).padding(bottom = 10.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
         Row(verticalAlignment = Alignment.Top) {
             metadata?.posterPath?.let { poster ->
-                Image(
-                    painter = rememberAsyncImagePainter("$TMDB_SEASON_POSTER_BASE$poster"),
-                    contentDescription = seasonLabel,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.width(96.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)),
-                )
-                Spacer(modifier = Modifier.width(18.dp))
+                Box {
+                    Image(
+                        painter = rememberAsyncImagePainter("$TMDB_SEASON_POSTER_BASE$poster"),
+                        contentDescription = seasonLabel,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.width(112.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)),
+                    )
+                    // Badge de comptage en coin de jaquette, comme Plex.
+                    Text(
+                        text = "${season.episodes.size}",
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .background(Color.Black.copy(alpha = 0.62f), RoundedCornerShape(5.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(20.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = seriesTitle,
-                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = seasonLabel,
-                    style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                    style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = "${season.episodes.size} épisodes",
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft),
+                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft),
                     )
                     if (watchable.isNotEmpty()) {
-                        Text(text = "·", style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+                        Text(text = "·", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
                         Text(
                             text = if (allWatched) "Saison vue" else "$watchedCount/${watchable.size} vus",
-                            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (allWatched) MovvizBrandGlow else MovvizInkSoft),
+                            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (allWatched) MovvizBrandGlow else MovvizInkSoft),
                         )
                     }
                     if (missingCount > 0) {
-                        Text(text = "·", style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
-                        StatusBadge(text = "$missingCount manquants", tone = MovvizAmber)
+                        Text(text = "·", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
+                        StatusBadge(text = "$missingCount manquants", tone = MovvizAmber, fontSize = 11.sp)
                     }
                 }
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    if (landingEpisode != null) {
+                        PrimaryPill(
+                            text = if (landingWatched) "Revoir l'épisode ${landingEpisode.episodeNumber}"
+                            else "Lire l'épisode ${landingEpisode.episodeNumber}",
+                            brush = null,
+                            icon = if (landingWatched) MovvizIconReplay else MovvizIconPlay,
+                            focusRequester = primaryActionFocus,
+                            onClick = { onPlayEpisode(landingEpisode) },
+                        )
+                    }
+                    if (missingCount > 0) {
+                        PrimaryPill(
+                            text = if (downloading) "Recherche…" else "Compléter la saison",
+                            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                            enabled = !downloading,
+                            icon = if (downloading) null else MovvizIconDownload,
+                            focusRequester = if (landingEpisode == null) primaryActionFocus else null,
+                            onClick = onDownloadSeason,
+                        )
+                    }
+                    if (watchable.isNotEmpty()) {
+                        val targets = watchable.map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
+                        PrimaryPill(
+                            text = if (allWatched) "Marquer non vue" else "Marquer la saison vue",
+                            brush = null,
+                            icon = MovvizIconCheck,
+                            onClick = { onToggleEpisodesWatched(targets, !allWatched) },
+                        )
+                    }
+                    PrimaryPill(text = "Retour", brush = null, focusRequester = backFocus, onClick = onBack)
+                }
             }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        // UNE seule rangée d'actions, dans l'ordre d'usage réel : lire,
-        // compléter, marquer, sortir.
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            if (landingEpisode != null) {
-                PrimaryPill(
-                    text = if (landingWatched) "Revoir l'épisode ${landingEpisode.episodeNumber}"
-                    else "Lire l'épisode ${landingEpisode.episodeNumber}",
-                    brush = null,
-
-                    icon = if (landingWatched) MovvizIconReplay else MovvizIconPlay,
-                    focusRequester = primaryActionFocus,
-                    onClick = { onPlayEpisode(landingEpisode) },
-                )
-            }
-            if (missingCount > 0) {
-                PrimaryPill(
-                    text = if (downloading) "Recherche…" else "Compléter la saison",
-                    brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-
-                    enabled = !downloading,
-                    icon = if (downloading) null else MovvizIconDownload,
-                    focusRequester = if (landingEpisode == null) primaryActionFocus else null,
-                    onClick = onDownloadSeason,
-                )
-            }
-            if (watchable.isNotEmpty()) {
-                val targets = watchable.map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
-                PrimaryPill(
-                    text = if (allWatched) "Marquer non vue" else "Marquer la saison vue",
-                    brush = null,
-
-                    icon = MovvizIconCheck,
-                    onClick = { onToggleEpisodesWatched(targets, !allWatched) },
-                )
-            }
-            PrimaryPill(text = "Retour", brush = null, focusRequester = backFocus, onClick = onBack)
         }
     }
 }
 
 /**
- * Une ligne d'épisode — la brique centrale de l'écran de saison.
+ * Une carte d'épisode dans la grille — vignette 16:9, puis le texte sous
+ * l'image, exactement la forme d'une carte Plex.
  *
- * Trois cibles au D-pad, toujours aux mêmes trois colonnes d'une ligne à
- * l'autre pour que BAS reste vertical quelle que soit la colonne occupée :
- * la ligne elle-même (lecture), « Infos » (fiche détaillée), la coche (vu).
- * « Infos » reste focusable même quand l'épisode n'est pas disponible —
- * c'est le seul chemin vers le téléchargement d'un épisode isolé, qui était
- * jusqu'ici inatteignable puisque la ligne entière devenait infocusable.
+ * La carte a une hauteur FIXE : le titre est sur une ligne, la méta sur
+ * une ligne, et la zone d'actions est réservée. Une carte qui grandit au
+ * focus décale toute sa rangée et fait sortir les voisines du champ.
  *
- * La géométrie est FIXE : hauteur imposée, vignette imposée, emplacements
- * d'action réservés. Le focus n'éclaire la ligne, il ne la redimensionne
- * jamais — une ligne qui grandit au focus fait sauter tout ce qui la suit
- * hors du viewport à la télécommande.
+ * Deux cibles au D-pad seulement (la carte, puis la coche) : dans une
+ * grille, ajouter une troisième colonne d'action par carte rendrait le
+ * déplacement horizontal interminable. La fiche détaillée s'ouvre donc par
+ * appui LONG plutôt que par un bouton dédié — la lecture reste sur OK.
  */
 @Composable
-private fun EpisodeCard(
+private fun EpisodeGridCard(
     episode: SeriesEpisodeDto,
     metadata: MetadataEpisodeDto?,
     watched: Boolean = false,
     queueItem: QueueItemDto? = null,
-    /** Position de reprise de CET épisode — voir PlaybackProgressDto. */
     progress: com.movviz.tv.data.PlaybackProgressDto? = null,
     focusRequester: FocusRequester? = null,
     onToggleWatched: (Boolean) -> Unit,
@@ -1807,51 +1871,44 @@ private fun EpisodeCard(
         episode.status == "available"
     val shape = RoundedCornerShape(8.dp)
     val downloading = queueItem != null && (episode.status == "downloading" || episode.status == "searching")
-    // Fraction de reprise, bornée au-dessus de 1 % : une barre d'un pixel sur
-    // un épisode à peine ouvert par erreur est du bruit, pas de l'information.
     val resumeFraction = progress?.let {
         if (it.durationMs > 0L) ((it.resumeOffsetMs ?: 0L).toFloat() / it.durationMs.toFloat()).coerceIn(0f, 1f) else null
     }?.takeIf { it > 0.01f }
-    Surface(
-        onClick = onPlay,
-        enabled = available,
-        modifier = Modifier
-            .fillMaxWidth()
-            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .tvCardFocusHalo(focused && available, shape = shape)
-            .onFocusChanged { focused = it.isFocused }
-            .let { if (available) it.tvPointerClick(onPlay) else it },
-        shape = ClickableSurfaceDefaults.shape(shape = shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            // Surface opaque au repos puis un cran plus claire au focus : le
-            // backdrop ne doit jamais transparaître sous un titre blanc. Les
-            // teintes viennent de la palette bleu-nuit de l'app, les gris
-            // neutres d'avant étaient la seule zone hors charte du client.
-            containerColor = MovvizSurface,
-            focusedContainerColor = MovvizSurfaceStrong,
-            contentColor = MovvizInk,
-            focusedContentColor = MovvizInk,
-        ),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
-                shape = shape,
-            ),
-        ),
-    ) {
-        Row(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = onPlay,
+            enabled = available,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(104.dp)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .aspectRatio(16f / 9f)
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .tvCardFocusHalo(focused, shape = shape)
+                .onFocusChanged { focused = it.isFocused }
+                .let { if (available) it.tvPointerClick(onPlay) else it }
+                // OK lance la lecture, appui LONG ouvre la fiche : dans une
+                // grille il n'y a pas la place d'un bouton « Infos » par
+                // carte sans allonger tout le parcours horizontal.
+                .onKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyUp && event.key == Key.Menu) {
+                        onOpenDetails(); true
+                    } else false
+                },
+            shape = ClickableSurfaceDefaults.shape(shape = shape),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = MovvizSurface,
+                focusedContainerColor = MovvizSurfaceStrong,
+                contentColor = MovvizInk,
+                focusedContentColor = MovvizInk,
+            ),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),
+                    shape = shape,
+                ),
+            ),
         ) {
-            Text(
-                text = episode.episodeNumber.toString(),
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-                modifier = Modifier.width(28.dp),
-            )
-            Box(modifier = Modifier.width(150.dp).height(84.dp).clip(RoundedCornerShape(6.dp))) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 if (metadata?.stillPath != null) {
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}"),
@@ -1860,22 +1917,52 @@ private fun EpisodeCard(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    // Gabarit invariant : TMDb n'a pas toujours une capture,
-                    // mais le titre ne doit jamais se décaler d'une ligne à
-                    // l'autre.
                     Box(modifier = Modifier.fillMaxSize().background(MovvizSurfaceStrong), contentAlignment = Alignment.Center) {
-                        Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+                        Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
                     }
                 }
-                // Reprise en cours : barre incrustée au bas de la vignette,
-                // comme Plex. Source = /api/playback/continue-watching, la
-                // seule qui expose plusieurs épisodes entamés à la fois.
+                // Voile bas : le texte incrusté doit rester lisible quelle
+                // que soit la capture, y compris une image très claire.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                            ),
+                        ),
+                )
+                Text(
+                    text = "ÉP. ${episode.episodeNumber}",
+                    style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(8.dp),
+                )
+                if (watched) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .size(20.dp)
+                            .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), androidx.compose.foundation.shape.CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(11.dp))
+                    }
+                }
+                if (!available) {
+                    val tone = statusTone(episode.status)
+                    Box(modifier = Modifier.align(Alignment.TopStart).padding(6.dp)) {
+                        StatusBadge(text = tone.label, tone = tone.color, fontSize = 10.sp)
+                    }
+                }
                 if (resumeFraction != null && !watched) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
-                            .height(4.dp)
+                            .height(5.dp)
                             .background(Color.Black.copy(alpha = 0.62f)),
                     ) {
                         Box(
@@ -1886,101 +1973,36 @@ private fun EpisodeCard(
                         )
                     }
                 }
-                // Pastille « vu » en dégradé de marque — repérer d'un coup
-                // d'œil les épisodes déjà regardés dans la liste.
-                if (watched) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(5.dp)
-                            .size(18.dp)
-                            .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), androidx.compose.foundation.shape.CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(10.dp))
-                    }
-                }
             }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(
-                        text = episode.title,
-                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    // Pastille de statut par ÉPISODE — même trio couleur /
-                    // fond 14 % / bordure 28 % que le reste de la charte ;
-                    // c'était la seule pastille de l'app à avoir perdu sa
-                    // bordure en route.
-                    if (!available) {
-                        val tone = statusTone(episode.status)
-                        StatusBadge(text = tone.label, tone = tone.color, fontSize = 11.sp)
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                EpisodeMetaRow(episode = episode, metadata = metadata)
-                Spacer(modifier = Modifier.height(4.dp))
-                // Une seule ligne basse : la progression de téléchargement
-                // prend la place du synopsis quand elle existe. Les deux
-                // ensemble dépasseraient la hauteur fixe de la ligne.
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = episode.title,
+                    style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(3.dp))
                 if (downloading && queueItem != null) {
                     if (episode.status == "searching") {
-                        Text(text = "Recherche en cours…", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrandGlow))
+                        Text(text = "Recherche en cours…", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrandGlow), maxLines = 1)
                     } else {
                         val pct = (queueItem.download.progress.coerceIn(0.0, 1.0) * 100).toInt()
-                        val speed = formatSpeedShort(queueItem.download.downloadSpeed)
-                        val eta = formatEta(queueItem.download.eta)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = listOfNotNull("$pct%", speed?.let { "$it/s" }, eta?.let { "$it restantes" }).joinToString(" · "),
-                                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .width(140.dp)
-                                    .height(3.dp)
-                                    .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp)),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(fraction = queueItem.download.progress.coerceIn(0.0, 1.0).toFloat())
-                                        .fillMaxHeight()
-                                        .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
                         Text(
-                            text = overview,
-                            style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft, lineHeight = 15.sp),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
+                            text = listOfNotNull("$pct%", formatSpeedShort(queueItem.download.downloadSpeed)?.let { "$it/s" })
+                                .joinToString(" · "),
+                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan),
+                            maxLines = 1,
                         )
                     }
+                } else {
+                    EpisodeMetaRow(episode = episode, metadata = metadata)
                 }
             }
-            // Colonnes d'action à emplacement FIXE : la coche et « Infos »
-            // gardent la même position d'une ligne à l'autre, sinon BAS
-            // dérive latéralement au fil de la saison.
-            Spacer(modifier = Modifier.width(12.dp))
-            EpisodeRowAction(
-                icon = MovvizIconInfo,
-                contentDescription = "Voir la fiche de l'épisode",
-                active = false,
-                onClick = onOpenDetails,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            if (episode.status == "upcoming") {
-                // Un épisode non diffusé n'a pas d'état "vu" à basculer. On
-                // réserve quand même la place pour ne pas désaligner la
-                // colonne, sans créer de cible focusable fantôme.
-                Spacer(modifier = Modifier.size(36.dp))
-            } else {
+            if (episode.status != "upcoming") {
+                Spacer(modifier = Modifier.width(8.dp))
                 EpisodeRowAction(
                     icon = MovvizIconCheck,
                     contentDescription = if (watched) "Marquer non vu" else "Marquer vu",
@@ -1992,8 +2014,8 @@ private fun EpisodeCard(
     }
 }
 
-/** Bouton rond d'une ligne d'épisode — taille et forme identiques pour tous,
- *  c'est ce qui garde les colonnes alignées de haut en bas de la saison. */
+/** Bouton rond d'une carte d'épisode — taille et forme identiques partout,
+ *  c'est ce qui garde les colonnes alignées d'une rangée à l'autre. */
 @Composable
 private fun EpisodeRowAction(
     icon: ImageVector,
@@ -2003,17 +2025,18 @@ private fun EpisodeRowAction(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(36.dp).tvPointerClick(onClick),
+        modifier = Modifier.size(32.dp).tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) MovvizCyan.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.12f),
-            focusedContainerColor = if (active) MovvizCyan else Color.White.copy(alpha = 0.26f),
+            focusedContainerColor = if (active) MovvizCyan else Color.White,
             contentColor = if (active) Color.White else MovvizInkSoft,
-            focusedContentColor = Color.White,
+            focusedContentColor = if (active) Color.White else Color.Black,
         ),
     ) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(16.dp))
+            Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(15.dp))
         }
     }
 }
