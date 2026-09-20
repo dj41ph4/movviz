@@ -81,7 +81,7 @@ private fun MediaHubToggleChip(
         // L'onglet actif porte le dégradé de marque plein (rose→violet),
         // comme les pilules "Découverte/Films/Séries" de la charte mobile —
         // pas un simple aplat blanc translucide.
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
             focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,

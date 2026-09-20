@@ -73,7 +73,7 @@ private fun MediaHubToggleChip(
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
             focusedContainerColor = Color.White.copy(alpha = 0.26f),
             contentColor = if (active) Color.White else MovvizInkSoft,

@@ -495,7 +495,7 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         // Dégradé de marque plein sur l'onglet actif — même traitement que
         // MediaHubToggleChip, cohérent avec les pilules de la charte mobile.
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
             focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,
@@ -601,7 +601,7 @@ private fun DiscoverLogoTile(tile: com.movviz.nx.mobile.data.LogoTileDto, onClic
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(handleClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
         ),
@@ -749,7 +749,7 @@ private fun DiscoverMoodTile(label: String, color: Color, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = color.copy(alpha = 0.14f),
             focusedContainerColor = color.copy(alpha = 0.26f),
             contentColor = Color.White,
@@ -781,7 +781,7 @@ private fun DiscoverGenreChip(label: String, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = MovvizInk.copy(alpha = 0.08f), contentColor = MovvizInk),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizInk.copy(alpha = 0.08f), contentColor = MovvizInk),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
         ),

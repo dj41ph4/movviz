@@ -237,7 +237,7 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
             .let { if (updateAvailable) it.graphicsLayer { this.alpha = alpha } else it }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (updateAvailable) MovvizBrand.copy(alpha = 0.18f) else MovvizOk.copy(alpha = 0.08f),
             focusedContainerColor = if (updateAvailable) MovvizBrand.copy(alpha = 0.32f) else MovvizOk.copy(alpha = 0.16f),
         ),
@@ -283,7 +283,7 @@ private fun ProfileFooterRow(
                 .let { if (expanded) it.fillMaxWidth() else it.width(29.dp) }
                 .tvPointerClick { open = !open },
             shape = ClickableSurfaceDefaults.shape(avatarShape),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .06f), focusedContainerColor = Color.White.copy(alpha = .14f)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .06f), focusedContainerColor = Color.White.copy(alpha = .14f)),
             border = ClickableSurfaceDefaults.border(
                 focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBrand2.copy(alpha = 0.55f)), shape = avatarShape),
             ),
@@ -374,7 +374,7 @@ private fun MenuItem(
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = Color.White.copy(alpha = 0.09f),
             contentColor = if (accent) MovvizBrand2 else MovvizInk,
@@ -436,7 +436,7 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = Color.White.copy(alpha = 0.055f),
             pressedContainerColor = Color.White.copy(alpha = 0.08f),

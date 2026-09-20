@@ -115,7 +115,7 @@ fun PortraitTopHeader(
                 onClick = onAvatarClick,
                 modifier = Modifier.size(36.dp).tvPointerClick(onAvatarClick),
                 shape = ClickableSurfaceDefaults.shape(CircleShape),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = MovvizSurfaceStrong,
                     focusedContainerColor = MovvizSurfaceStrong,
                     contentColor = Color.White,
@@ -155,7 +155,7 @@ fun PortraitTopHeader(
                 .border(1.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder, RoundedCornerShape(23.dp))
                 .tvPointerClick(onSearchClick),
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = MovvizSurface,
                     focusedContainerColor = MovvizSurfaceStrong,
                     contentColor = Color.White,
@@ -207,7 +207,7 @@ private fun PortraitUpdateButton(
         onClick = onClick,
         modifier = modifier.size(44.dp).tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(CircleShape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = MovvizSurfaceStrong,
             focusedContainerColor = MovvizSurfaceStrong,
             contentColor = Color.White,

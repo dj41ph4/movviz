@@ -223,7 +223,7 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
             focusedContainerColor = Color.White.copy(alpha = 0.26f),
             contentColor = if (active) Color.White else MovvizInkSoft,
@@ -296,7 +296,7 @@ private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) MovvizInk.copy(alpha = 0.9f) else MovvizInk.copy(alpha = 0.08f),
             contentColor = if (active) Color.White else MovvizInk,
         ),

@@ -194,7 +194,7 @@ fun MovvizDropdownChip(
         onClick = onClick,
         modifier = modifier.tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.White.copy(alpha = 0.07f),
             focusedContainerColor = Color.White.copy(alpha = 0.16f),
             contentColor = MovvizInkSoft,

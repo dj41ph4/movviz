@@ -1219,7 +1219,7 @@ internal fun HeroCarousel(
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (mobileStyle) Color.Transparent else Color.White,
                         focusedContainerColor = if (mobileStyle) Color.Transparent else Color.White,
                         contentColor = if (mobileStyle) Color.White else Color.Black,
@@ -1271,7 +1271,7 @@ internal fun HeroCarousel(
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                         containerColor = Color.White.copy(alpha = 0.15f),
                         focusedContainerColor = Color.White.copy(alpha = 0.26f),
                         contentColor = Color.White,

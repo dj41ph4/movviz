@@ -311,7 +311,7 @@ fun NavRail(
                 .onFocusChanged { gearFocused = it.isFocused }
                 .tvPointerClick { onSelect(HomeTab.SETTINGS) },
             shape = ClickableSurfaceDefaults.shape(shape = gearShape),
-            colors = ClickableSurfaceDefaults.colors(
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                 containerColor = if (selected == HomeTab.SETTINGS) Color.White.copy(alpha = 0.14f) else Color.Transparent,
                 focusedContainerColor = Color.White.copy(alpha = 0.10f),
             ),
@@ -366,7 +366,7 @@ private fun UpdateAvailableButton(tag: String, expanded: Boolean, onClick: () ->
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = MovvizBrand.copy(alpha = 0.18f),
             focusedContainerColor = MovvizBrand.copy(alpha = 0.32f),
             contentColor = Color.White,
@@ -421,7 +421,7 @@ private fun ProfileMenuButton(
                 .size(36.dp)
                 .tvPointerClick { open = !open },
             shape = ClickableSurfaceDefaults.shape(avatarShape),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f), focusedContainerColor = Color.White.copy(alpha = .22f)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f), focusedContainerColor = Color.White.copy(alpha = .22f)),
             border = ClickableSurfaceDefaults.border(
                 focusedBorder = androidx.tv.material3.Border(
                     border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2),
@@ -567,7 +567,7 @@ private fun MenuItem(
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = Color.White.copy(alpha = 0.09f),
             contentColor = if (accent) MovvizBrand2 else Color.White,
@@ -618,7 +618,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
         onClick = onToggle,
         modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onToggle),
         shape = ClickableSurfaceDefaults.shape(shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (open) Color.White.copy(alpha = .14f) else Color.Transparent,
             focusedContainerColor = Color.White.copy(alpha = .10f),
         ),
@@ -698,7 +698,7 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
         // garde le focus D-pad, écrasant notre teinte discrète et rendant le
         // libellé illisible ("gros bouton blanc" constaté en direct — le
         // focus initial reste sur "Accueil" tant que rien n'a bougé).
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.White.copy(alpha = 0.17f) else Color.Transparent,
             focusedContainerColor = if (active) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.09f),
             pressedContainerColor = Color.White.copy(alpha = 0.22f),

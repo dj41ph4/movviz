@@ -76,7 +76,7 @@ fun ProfileTile(
                 }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape),
-            colors = ClickableSurfaceDefaults.colors(
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                 containerColor = Color.White.copy(alpha = if (selected) .10f else .045f),
                 focusedContainerColor = Color.White.copy(alpha = .12f),
                 contentColor = Color.White,
@@ -147,7 +147,7 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape),
-            colors = ClickableSurfaceDefaults.colors(
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                 containerColor = Color.White.copy(alpha = .055f),
                 focusedContainerColor = Color.White.copy(alpha = .10f),
                 contentColor = MovvizBrand2,

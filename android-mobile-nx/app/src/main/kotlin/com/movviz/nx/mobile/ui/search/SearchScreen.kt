@@ -190,7 +190,7 @@ fun SearchScreen(
                 Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 13.sp)
                 Spacer(Modifier.width(10.dp))
                 suggestions.forEachIndexed { index, item ->
-                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp))) {
+                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp))) {
                         Text(item.title, color = if (item.tmdbId == focusedTmdbId && item.type == focusedType) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp))
                     }
                     if (index < suggestions.lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 12.sp)
@@ -256,7 +256,7 @@ private fun SearchTypeFilters(selected: SearchTypeFilter, onSelect: (SearchTypeF
                 onClick = { onSelect(filter) },
                 modifier = Modifier.tvPointerClick { onSelect(filter) },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = if (active) MaterialTheme.colorScheme.primary else MovvizSurface,
                     focusedContainerColor = MaterialTheme.colorScheme.primary,
                     contentColor = if (active) Color.White else MovvizInk,
@@ -334,7 +334,7 @@ private fun SearchField(
 private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, focusRequester: FocusRequester? = null, watched: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Column {
-        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
+        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
             Box(Modifier.fillMaxSize()) {
                 result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                 if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(7.dp))
@@ -428,7 +428,7 @@ private fun PortraitSearchScreen(
                 modifier = Modifier.weight(1f).height(46.dp),
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
                 onClick = {},
-                colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface, contentColor = Color.White),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface, contentColor = Color.White),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                     Icon(imageVector = MovvizIconSearch, contentDescription = null, tint = MovvizInkSoft, modifier = Modifier.size(17.dp))
@@ -453,7 +453,7 @@ private fun PortraitSearchScreen(
                             onClick = { onQueryChange("") },
                             modifier = Modifier.size(20.dp).tvPointerClick { onQueryChange("") },
                             shape = ClickableSurfaceDefaults.shape(CircleShape),
-                            colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.14f), contentColor = Color.White),
+                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.14f), contentColor = Color.White),
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("×", fontSize = 13.sp, color = Color.White)
@@ -578,7 +578,7 @@ private fun SearchTypePill(label: String, active: Boolean, onClick: () -> Unit) 
         onClick = onClick,
         modifier = Modifier.height(32.dp).tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
             contentColor = if (active) Color.White else MovvizInkSoft,
         ),

@@ -826,7 +826,7 @@ private fun PortraitBottomNav(
                     .height(60.dp)
                     .tvPointerClick { onSelect(item.tab) },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color.Transparent,
                     focusedContainerColor = Color.White.copy(alpha = .10f),
                     contentColor = Color.White,

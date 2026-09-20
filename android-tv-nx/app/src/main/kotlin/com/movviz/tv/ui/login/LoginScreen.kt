@@ -229,7 +229,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 },
                 modifier = Modifier.fillMaxWidth().focusRequester(plexLoginFocus),
                 shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(11.dp)),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color.Transparent,
                     contentColor = MovvizAmber,
                 ),
@@ -265,7 +265,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
             Spacer(Modifier.height(9.dp))
             Surface(
                 onClick = onChangeServer,
-                colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = MovvizInkDim),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = MovvizInkDim),
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
             ) {
                 Text("Changer de serveur", fontSize = 8.sp, color = MovvizInkDim, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
@@ -335,8 +335,8 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
             Text("La TV attend automatiquement la validation…", fontSize = 10.sp, color = MovvizInkDim)
             Spacer(Modifier.height(17.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Surface(onClick = onOpen, modifier = Modifier.focusRequester(openPlexFocus), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
-                Surface(onClick = onClose, colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
+                Surface(onClick = onOpen, modifier = Modifier.focusRequester(openPlexFocus), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
+                Surface(onClick = onClose, scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
             }
         }
     }

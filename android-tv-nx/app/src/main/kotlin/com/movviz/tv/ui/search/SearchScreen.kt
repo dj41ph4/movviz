@@ -164,7 +164,7 @@ fun SearchScreen(
                 Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 10.sp)
                 Spacer(Modifier.width(8.dp))
                 suggestions.forEachIndexed { index, item ->
-                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(3.dp))) {
+                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(3.dp))) {
                         Text(item.title, color = if (item.tmdbId == focusedTmdbId && item.type == focusedType) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 3.dp, vertical = 2.dp))
                     }
                     if (index < suggestions.lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 9.sp)
@@ -230,7 +230,7 @@ private fun SearchTypeFilters(selected: SearchTypeFilter, onSelect: (SearchTypeF
                 onClick = { onSelect(filter) },
                 modifier = Modifier.tvPointerClick { onSelect(filter) },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = if (active) MaterialTheme.colorScheme.primary else MovvizSurface,
                     focusedContainerColor = MaterialTheme.colorScheme.primary,
                     contentColor = if (active) Color.White else MovvizInk,
@@ -314,7 +314,7 @@ private fun SearchField(
 private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, focusRequester: FocusRequester? = null, watched: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
     Column {
-        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
+        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
             Box(Modifier.fillMaxSize()) {
                 result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                 if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(5.dp))

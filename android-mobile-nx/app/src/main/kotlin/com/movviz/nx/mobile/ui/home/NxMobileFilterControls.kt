@@ -66,7 +66,7 @@ fun MediaHubSegmentedPills(
                 onClick = { onSelect(tab) },
                 modifier = Modifier.weight(1f).height(36.dp).tvPointerClick { onSelect(tab) },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(26.dp)),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color.Transparent,
                     focusedContainerColor = Color.White.copy(alpha = 0.10f),
                     contentColor = if (isActive) Color.White else MovvizInkSoft,
@@ -131,7 +131,7 @@ fun FilterDropdownChip(
             onClick = { open = true },
             modifier = Modifier.height(34.dp).tvPointerClick { open = true },
             shape = ClickableSurfaceDefaults.shape(shape),
-            colors = ClickableSurfaceDefaults.colors(
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                 containerColor = if (selectedLabel != null) MovvizBrand.copy(alpha = 0.24f) else Color.White.copy(alpha = 0.07f),
                 focusedContainerColor = Color.White.copy(alpha = 0.16f),
                 contentColor = Color.White,
@@ -194,7 +194,7 @@ private fun FilterPopupItem(label: String, active: Boolean = false, onClick: () 
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().height(42.dp).tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) MovvizBrand.copy(alpha = 0.22f) else Color.Transparent,
             focusedContainerColor = Color.White.copy(alpha = 0.12f),
             contentColor = Color.White,

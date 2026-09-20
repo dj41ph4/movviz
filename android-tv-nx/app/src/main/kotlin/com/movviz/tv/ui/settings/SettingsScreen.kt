@@ -188,7 +188,7 @@ private fun AutoUpdateToggle(viewModel: AppViewModel) {
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick { viewModel.setAutoUpdateEnabled(!enabled) },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (enabled) MovvizBrand.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f),
             contentColor = if (enabled) MovvizBrand else MovvizInkSoft,
         ),
@@ -298,7 +298,7 @@ private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit, 
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) MovvizBrand.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.08f),
             contentColor = if (selected) Color.White else MovvizInkSoft,
         ),
@@ -331,7 +331,7 @@ private fun SettingsButton(text: String, dangerous: Boolean = false, onClick: ()
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = baseColor.copy(alpha = 0.12f),
             contentColor = baseColor,
         ),

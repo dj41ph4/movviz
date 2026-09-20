@@ -289,7 +289,7 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         // Pilule active en dégradé de marque, comme les autres bascules de
         // la charte mobile (toggle Suggestions/Bibliothèque, Films/Séries).
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
             focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,
@@ -370,7 +370,7 @@ private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         // Pilule de genre sélectionnée : dégradé de marque plutôt qu'un
         // aplat blanc neutre — même langage que les autres bascules.
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.Transparent else MovvizInk.copy(alpha = 0.08f),
             contentColor = if (active) Color.White else MovvizInk,
         ),

@@ -120,7 +120,7 @@ private fun DownloadRow(item: QueueItemDto, completed: Boolean, onClick: () -> U
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = MovvizSurfaceStrong,
             focusedContainerColor = MovvizSurfaceStrong.copy(alpha = .8f),
             contentColor = MovvizInk,

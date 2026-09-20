@@ -33,6 +33,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -177,7 +178,18 @@ fun TitleDetailScreen(
     // Repli de focus pour les fiches sans action principale (une série, un
     // téléchargement, ou une erreur). Un film disponible doit en revanche
     // arriver directement sur sa première action, « Lire ».
-    val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
+    // DEUX rôles distincts, longtemps portés par la même instance :
+    //  - `entryFocusRequester` vient de MainActivity et est l'instance
+    //    PARTAGÉE que la NavRail vise pour entrer dans le contenu ;
+    //  - la fiche a besoin, elle, d'une cible bien à elle pour poser son
+    //    focus initial.
+    // Les confondre rendait la demande d'ouverture ambiguë : elle pouvait
+    // se résoudre ailleurs que sur l'ancre de cette fiche, et le focus
+    // restait alors sur le rail — la fiche s'ouvrait « coincée dans la
+    // sidebar ». Les deux requesters sont donc chaînés sur le MÊME nœud
+    // (motif déjà utilisé par l'accueil), chacun gardant son rôle.
+    val ownEntryFocusRequester = remember { FocusRequester() }
+    val initialFocusRequester = ownEntryFocusRequester
     val primaryActionFocusRequester = remember { FocusRequester() }
 
     val movies by viewModel.movies.collectAsState()
@@ -648,7 +660,7 @@ fun TitleDetailScreen(
                         onClick = { viewModel.loadDetail(type, tmdbId) },
                         modifier = Modifier.focusRequester(initialFocusRequester).tvPointerClick { viewModel.loadDetail(type, tmdbId) },
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-                        colors = ClickableSurfaceDefaults.colors(
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                             containerColor = MovvizBrand,
                             focusedContainerColor = MovvizBrand2,
                             contentColor = Color.White,
@@ -715,8 +727,17 @@ fun TitleDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(start = 42.dp, end = 42.dp, bottom = 30.dp)
-                .focusProperties { canFocus = !seasonPageOpen && !episodePageOpen }
-                .focusGroup(),
+                // Appliqué UNIQUEMENT quand un écran est posé au-dessus :
+                // `focusGroup()` crée un focus target, donc le poser en
+                // permanence change le parcours du cas normal (focus initial
+                // capturé par le groupe au lieu d'atteindre la cible
+                // d'entrée). Hors overlay, la chaîne doit rester exactement
+                // celle d'avant.
+                .then(
+                    if (seasonPageOpen || episodePageOpen) {
+                        Modifier.focusProperties { canFocus = false }.focusGroup()
+                    } else Modifier,
+                ),
             state = lazyListState,
             // La barre supérieure flotte au-dessus du backdrop : une zone
             // sûre explicite empêche logo, titre et première ligne de passer
@@ -735,7 +756,11 @@ fun TitleDetailScreen(
                 modifier = Modifier
                     .width(540.dp)
                     .heightIn(min = 87.dp)
+                    // Les deux requesters sur le même nœud : celui de la
+                    // fiche (focus d'ouverture) et celui, partagé, que la
+                    // NavRail vise pour entrer dans le contenu.
                     .focusRequester(initialFocusRequester)
+                    .let { if (entryFocusRequester != null) it.focusRequester(entryFocusRequester) else it }
                     .focusable()
                     // La destination spatiale par défaut privilégiait le
                     // bouton d'état (« Marquer vu ») situé plus bas. Depuis
@@ -1046,6 +1071,12 @@ fun TitleDetailScreen(
                             brush = null,
                             solidWhite = true,
                             icon = MovvizIconPlay,
+                            // Sans ce requester, la demande de focus
+                            // d'ouverture n'avait AUCUNE cible sur une fiche
+                            // série (il n'était attaché qu'aux CTA de film) :
+                            // le focus restait sur la NavRail et la fiche
+                            // s'ouvrait « coincée dans la sidebar ».
+                            focusRequester = primaryActionFocusRequester,
                         ) {
                             val index = playableEpisodes.indexOfFirst {
                                 it.seasonNumber == episodeResume.seasonNumber && it.episodeNumber == episodeResume.episodeNumber
@@ -1074,6 +1105,9 @@ fun TitleDetailScreen(
                             brush = null,
                             solidWhite = true,
                             icon = if (nextWatched) MovvizIconReplay else MovvizIconPlay,
+                            // Même raison que la branche « Reprendre » : c'est
+                            // la cible du focus d'ouverture d'une fiche série.
+                            focusRequester = primaryActionFocusRequester,
                         ) {
                             onPlay(d.title, playableEpisodes, nextEpisodeIndex, d.posterPath)
                         }
@@ -1240,7 +1274,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                     onClick = { onOpenPerson(member.id) },
                     modifier = Modifier.width(63.dp).tvPointerClick { onOpenPerson(member.id) },
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
                     border = ClickableSurfaceDefaults.border(
                         focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape),
                     ),
@@ -1350,7 +1384,7 @@ private fun SeasonSelector(
                             .onFocusChanged { focused = it.isFocused }
                             .tvPointerClick { onSelect(season.seasonNumber) },
                         shape = ClickableSurfaceDefaults.shape(shape),
-                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
                         border = ClickableSurfaceDefaults.border(
                             border = Border(
                                 border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MovvizBrand2 else Color.White.copy(alpha = 0.12f)),
@@ -1507,24 +1541,47 @@ private fun SeasonPageOverlay(
     }
     LaunchedEffect(season.seasonNumber, landingEpisode?.episodeNumber) {
         // requestFocus() lève tant que le nœud n'est pas attaché : on retente
-        // sur quelques frames plutôt que de perdre le focus initial.
-        repeat(10) { attempt ->
-            val requester = when {
-                landingEpisode != null -> firstEpisodeFocus
-                else -> backFocus
-            }
-            if (runCatching { requester.requestFocus() }.isSuccess) return@LaunchedEffect
-            if (attempt < 9) withFrameNanos { }
+        // sur plusieurs frames. Surtout, on essaie PLUSIEURS cibles dans
+        // l'ordre de préférence au lieu d'une seule : la ligne d'épisode vit
+        // dans une liste paresseuse et peut n'être composée que bien après
+        // l'en-tête. Quand elle manquait, plus aucune demande n'aboutissait
+        // et l'écran s'ouvrait sans AUCUN élément focalisé — le D-pad
+        // paraissait mort et la moindre touche renvoyait dans la sidebar.
+        repeat(20) { attempt ->
+            val targets = listOfNotNull(
+                landingEpisode?.let { firstEpisodeFocus },
+                primaryActionFocus,
+                backFocus,
+            )
+            if (targets.any { runCatching { it.requestFocus() }.isSuccess }) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
         }
     }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     CompositionLocalProvider(LocalBringIntoViewSpec provides object : BringIntoViewSpec {}) {
         TvLazyColumn(
             state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier
                 .fillMaxSize()
                 .background(MovvizBackground)
-                .focusProperties { canFocus = !focusLocked }
-                .focusGroup(),
+                // UP est CONSOMMÉ ici, toujours. Le conteneur de la fiche
+                // (DetailUpToNavHandler) bascule sur la NavRail dès qu'un
+                // moveFocus(Up) échoue — logique juste pour une fiche, fausse
+                // pour cet écran-ci, qui couvre tout l'affichage : remonter
+                // depuis le premier épisode vers la barre d'actions envoyait
+                // le focus dans la sidebar, derrière un écran opaque.
+                .onKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
+                        true
+                    } else false
+                }
+                // Même règle que la fiche : le verrou n'est posé que lorsque
+                // la fiche d'un épisode recouvre cet écran.
+                .then(
+                    if (focusLocked) Modifier.focusProperties { canFocus = false }.focusGroup()
+                    else Modifier,
+                ),
             contentPadding = PaddingValues(start = 42.dp, end = 42.dp, top = 96.dp, bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -1729,7 +1786,7 @@ private fun EpisodeCard(
             .onFocusChanged { focused = it.isFocused }
             .let { if (available) it.tvPointerClick(onPlay) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             // Surface opaque au repos puis un cran plus claire au focus : le
             // backdrop ne doit jamais transparaître sous un titre blanc. Les
             // teintes viennent de la palette bleu-nuit de l'app, les gris
@@ -1912,7 +1969,7 @@ private fun EpisodeRowAction(
         onClick = onClick,
         modifier = Modifier.size(36.dp).tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) MovvizCyan.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.12f),
             focusedContainerColor = if (active) MovvizCyan else Color.White.copy(alpha = 0.26f),
             contentColor = if (active) Color.White else MovvizInkSoft,
@@ -2221,7 +2278,7 @@ private fun PrimaryPill(
             .onFocusChanged { focused = it.isFocused }
             .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else MovvizInk.copy(alpha = 0.1f),
             // Le bouton reste gris au repos et devient blanc uniquement
             // lorsque le focus D-pad est réellement dessus.
@@ -2305,7 +2362,7 @@ private fun DownloadProgressPill(
             .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = MovvizInk.copy(alpha = 0.14f),
             contentColor = MovvizInkSoft,
         ),

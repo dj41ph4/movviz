@@ -624,7 +624,7 @@ fun TitleDetailScreen(
                         onClick = { viewModel.loadDetail(type, tmdbId) },
                         modifier = Modifier.focusRequester(initialFocusRequester).tvPointerClick { viewModel.loadDetail(type, tmdbId) },
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
-                        colors = ClickableSurfaceDefaults.colors(
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                             containerColor = MovvizBrand,
                             focusedContainerColor = MovvizBrand2,
                             contentColor = Color.White,
@@ -1173,7 +1173,7 @@ private fun CastRow(cast: List<com.movviz.nx.mobile.data.MetaCastMemberDto>, onO
                     onClick = { onOpenPerson(member.id) },
                     modifier = Modifier.width(84.dp).tvPointerClick { onOpenPerson(member.id) },
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
                     border = ClickableSurfaceDefaults.border(
                         focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape),
                     ),
@@ -1261,7 +1261,7 @@ private fun SeasonSelector(
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onSelect(season.seasonNumber) },
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    colors = ClickableSurfaceDefaults.colors(
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (selected) Color(0xFF29272F) else MovvizSurfaceStrong.copy(alpha = 0.94f),
                         contentColor = MovvizInk,
                     ),
@@ -1442,7 +1442,7 @@ private fun EpisodeCard(
             .onFocusChanged { focused = it.isFocused }
             .let { if (available) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             // Les vignettes d'épisodes ne doivent jamais laisser le
             // backdrop clair traverser sous un titre blanc : surface opaque
             // au repos, puis simplement un cran plus clair au focus.
@@ -1563,7 +1563,7 @@ private fun EpisodeCard(
                     .onFocusChanged { watchedFocused = it.isFocused }
                     .tvPointerClick { onToggleWatched(!watched) },
                 shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
-                colors = ClickableSurfaceDefaults.colors(
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = if (watched) MovvizCyan.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.12f),
                     focusedContainerColor = if (watched) MovvizCyan else Color.White.copy(alpha = 0.24f),
                     contentColor = if (watched) Color.White else MovvizInkSoft,
@@ -1787,7 +1787,7 @@ private fun PrimaryPill(
             .onFocusChanged { focused = it.isFocused }
             .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else MovvizInk.copy(alpha = 0.1f),
             contentColor = if (solidWhite) Color.Black else MovvizInk,
         ),
@@ -1865,7 +1865,7 @@ private fun DownloadProgressPill(
             .tvFocusLift(focused, shape = shape, maxScale = 1.03f)
             .onFocusChanged { focused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = MovvizInk.copy(alpha = 0.14f),
             contentColor = MovvizInkSoft,
         ),

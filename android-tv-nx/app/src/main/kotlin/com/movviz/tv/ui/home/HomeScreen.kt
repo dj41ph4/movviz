@@ -1126,7 +1126,7 @@ internal fun HeroCarousel(
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(5.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                         containerColor = Color.Transparent,
                         focusedContainerColor = Color.Transparent,
                         contentColor = Color.White,
@@ -1167,7 +1167,7 @@ internal fun HeroCarousel(
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(5.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                         containerColor = Color.White.copy(alpha = 0.15f),
                         focusedContainerColor = Color.White.copy(alpha = 0.26f),
                         contentColor = Color.White,
@@ -1742,7 +1742,7 @@ private fun PlatformTile(
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = Color(0xFF010511).copy(alpha = 0.72f),
             focusedContainerColor = MovvizSurfaceStrong,
         ),
@@ -1871,7 +1871,7 @@ private fun ResumeCard(
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape = tileShape),
-            colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
                     border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrandGlow),

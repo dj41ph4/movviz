@@ -1838,7 +1838,7 @@ private fun ControlButton(
             }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.12f),
             contentColor = if (primary) Color.Black else Color.White,
         ),
@@ -1918,7 +1918,7 @@ private fun ErrorActionButton(
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (primary) MovvizBrand else Color.White.copy(alpha = 0.14f),
             contentColor = Color.White,
         ),
@@ -1962,7 +1962,7 @@ private fun NextEpisodeTeaser(
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onNextEpisode),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = MovvizSurface.copy(alpha = 0.92f),
             contentColor = Color.White,
         ),
@@ -2032,7 +2032,7 @@ private fun SkipMarkerButton(
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onSkip),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface.copy(alpha = 0.92f), contentColor = Color.White),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface.copy(alpha = 0.92f), contentColor = Color.White),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = shape),
         ),
@@ -2075,7 +2075,7 @@ private fun TrackDialog(
             onClick = {},
             modifier = Modifier.widthIn(min = 240.dp, max = 315.dp),
             shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface),
         ) {
             Column(modifier = Modifier.padding(15.dp)) {
                 Text(
@@ -2120,7 +2120,7 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (focused) MovvizInk.copy(alpha = 0.14f) else Color.Transparent,
             contentColor = MovvizInk,
         ),
