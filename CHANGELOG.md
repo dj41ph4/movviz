@@ -1,3 +1,10 @@
+## v1.25.48 — September 2026
+
+### Recherche C411 : la page complète de résultats est enfin demandée
+
+- Movviz laissait C411 choisir la taille de sa page par défaut, qui ne renvoie qu'une tranche partielle et plutôt ancienne des résultats : des épisodes récents restaient invisibles dans Movviz alors que la recherche web de l'indexeur, elle, les listait. Chaque recherche interactive demande désormais explicitement les 100 premiers résultats.
+- Ce correctif était déjà dans l'image publiée sous v1.25.47, mais le numéro de version n'avait pas été incrémenté : l'application affichait toujours v1.25.46 après mise à jour. La numérotation repart d'aplomb en v1.25.48.
+
 ## v1.25.46 — September 2026
 
 ### Plex → Movviz : fin des échecs `plex_history_page_invalid_shape`
