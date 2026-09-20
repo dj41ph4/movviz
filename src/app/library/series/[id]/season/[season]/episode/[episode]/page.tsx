@@ -59,6 +59,23 @@ export default function EpisodeDetailPage({
   // after them, or this would violate rules-of-hooks the moment `ep` is
   // still unknown on first paint.
   const { label: playLabel } = usePlayLabel(ep?.plexRatingKey);
+  const stillPath = meta?.stillPath ?? null;
+  // Only needed for play()'s backdropUrl below (Tier 3, no fallback — see
+  // useTmdbImageUrl's doc comment); the <img> further down resolves its own
+  // CDN-vs-local (with fallback) directly via TmdbImage.
+  //
+  // Hoisted here for the same reason as usePlayLabel above, and it was not:
+  // on a cold SWR cache the first render exits at `if (!series)` below, so
+  // calling this after that point registered useTmdbImageUrl's own hooks
+  // (useCdnImages / useLocalNetworkPriority / useIsLocalNetwork — three
+  // useSWR/useState chains) only from the second render on. SWR re-renders
+  // the same instance rather than remounting it, so React saw the hook count
+  // grow between two renders of one component: "Rendered more hooks than
+  // during the previous render", i.e. the page crashed to its error boundary
+  // on any cold entry (direct URL, bookmark, notification deep link, F5) —
+  // never when arriving from the series page, which shares this SWR key and
+  // so already has the data on the very first render.
+  const still = useTmdbImageUrl(stillPath, "original");
 
   if (!series) return (
     <div className="mx-auto max-w-[1000px] animate-pulse">
@@ -76,11 +93,6 @@ export default function EpisodeDetailPage({
   );
 
   const Icon = STATUS_ICON[ep.status];
-  const stillPath = meta?.stillPath ?? null;
-  // Only needed for play()'s backdropUrl below (Tier 3, no fallback — see
-  // useTmdbImageUrl's doc comment); the <img> right below resolves its own
-  // CDN-vs-local (with fallback) directly via TmdbImage.
-  const still = useTmdbImageUrl(stillPath, "original");
 
   return (
     <div className="mx-auto max-w-[1000px]">

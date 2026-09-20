@@ -17,14 +17,80 @@ interface Entry<T> {
   value: T;
   expiresAt: number;
   /**
-   * JSON size of `value`, computed once at set(). stats() used to
-   * re-serialize every cached value on each call — with the TMDb cache full
-   * (3,500 entries, tens of MB of JSON) that meant megabytes of stringify work
-   * per poll of the cache panel, on the main thread. Absent on entries
-   * loaded from a persist file written before this field existed.
+   * Approximate JSON size of `value`, measured lazily by stats() and
+   * memoized here (see measureEntries below). Absent until it has been
+   * measured, and on entries loaded from a persist file written before this
+   * field existed.
+   *
+   * History, because both extremes were wrong: stats() originally
+   * re-serialized every cached value on each call, which with a full cache
+   * meant megabytes of stringify per poll of the cache panel (it polls every
+   * few seconds) on the main thread. Moving it to set() fixed that but paid
+   * a full JSON.stringify of every TMDb response purely for a display
+   * statistic — on the hot path, allocating a throwaway string per cached
+   * response for the whole of a library warm. Lazy + bounded + memoized
+   * costs nothing on set(), nothing on a converged panel poll, and a
+   * capped slice of work on the polls in between.
    */
   sizeBytes?: number;
 }
+
+/**
+ * Byte size `value` WOULD have as JSON, without building the JSON string.
+ * Same order of CPU as JSON.stringify().length but allocation-free, which is
+ * the point: the values here are whole TMDb responses, and materializing one
+ * throwaway string per measurement is exactly the kind of multi-hundred-KB
+ * transient allocation that drives this process's RSS up.
+ *
+ * Approximate on purpose — numbers are counted at a flat width rather than
+ * formatted. The panel displays a human-readable MB figure, so being off by
+ * a few percent on a 40 MB total is invisible, and it never justifies the
+ * allocation that exactness would cost.
+ *
+ * `depth` is a hard safety stop, not a tuning knob. JSON.stringify (which
+ * this replaced) throws on a circular structure, and the old call site
+ * caught that and scored the entry 0; a plain recursive walk would instead
+ * recurse forever and take the whole process down with a stack overflow.
+ * Every value cached here is a parsed API response today — acyclic by
+ * construction — so this ceiling should never actually be reached, which is
+ * exactly why it must not be able to crash anything if one ever is.
+ */
+const MAX_MEASURE_DEPTH = 64;
+
+function approxJsonSize(value: unknown, depth = 0): number {
+  if (value === null || value === undefined) return 4; // "null"
+  switch (typeof value) {
+    case "boolean":
+      return value ? 4 : 5;
+    case "number":
+      return 8;
+    case "string":
+      return value.length + 2; // quotes; ignores escaping
+    case "object":
+      break;
+    default:
+      return 0; // function/symbol — not serializable, contributes nothing
+  }
+  if (depth >= MAX_MEASURE_DEPTH) return 0;
+  if (Array.isArray(value)) {
+    let total = 2; // []
+    for (const item of value) total += approxJsonSize(item, depth + 1) + 1; // + comma
+    return total;
+  }
+  let total = 2; // {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    total += k.length + 4 + approxJsonSize(v, depth + 1); // "key": + comma
+  }
+  return total;
+}
+
+/**
+ * How many not-yet-measured entries one stats() call is allowed to measure.
+ * The panel polls, so a cache loaded cold from disk converges to exact over
+ * a handful of polls instead of stalling the first one — and once converged,
+ * every later poll only sums memoized numbers.
+ */
+const MEASURE_BUDGET_PER_STATS_CALL = 2000;
 
 // Unbounded before this — a bulk operation touching thousands of distinct
 // URLs (e.g. scanning a whole library for the first time) kept every
@@ -173,13 +239,8 @@ class NamedCache {
 
   set<T>(key: string, value: T) {
     this.store.delete(key); // re-insert at the end so it counts as freshest for eviction order
-    let sizeBytes = 0;
-    try {
-      sizeBytes = JSON.stringify(value)?.length ?? 0;
-    } catch {
-      // Unserializable values can't be persisted anyway; 0 keeps stats honest enough.
-    }
-    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs, sizeBytes });
+    // No size measurement here on purpose — stats() does it lazily. See Entry.sizeBytes.
+    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
     while (this.store.size > this.maxEntries) {
       const oldest = this.store.keys().next().value;
       if (oldest === undefined) break;
@@ -209,11 +270,40 @@ class NamedCache {
 
   stats() {
     let keySize = 0;
-    let valueSize = 0;
-    for (const [k, v] of this.store) {
+    let measuredSize = 0;
+    let measuredCount = 0;
+    let unmeasuredCount = 0;
+    let budget = MEASURE_BUDGET_PER_STATS_CALL;
+
+    for (const [k, entry] of this.store) {
       keySize += k.length;
-      valueSize += v.sizeBytes ?? 0;
+      if (entry.sizeBytes === undefined) {
+        if (budget > 0) {
+          budget--;
+          // Mirrors what the old JSON.stringify path did: a value that can't
+          // be measured (a throwing getter) scores 0 rather than failing the
+          // admin panel's whole request. Memoized either way, so a bad value
+          // is not re-attempted on every poll.
+          try {
+            entry.sizeBytes = approxJsonSize(entry.value);
+          } catch {
+            entry.sizeBytes = 0;
+          }
+        } else {
+          unmeasuredCount++;
+          continue;
+        }
+      }
+      measuredSize += entry.sizeBytes;
+      measuredCount++;
     }
+
+    // Entries left over past the budget are billed at the average of the ones
+    // already measured, so the displayed total is right in magnitude from the
+    // very first poll rather than climbing from zero as measurement catches up.
+    const average = measuredCount > 0 ? measuredSize / measuredCount : 0;
+    const valueSize = Math.round(measuredSize + unmeasuredCount * average);
+
     return {
       name: this.name,
       hits: this.hits,
@@ -222,6 +312,8 @@ class NamedCache {
       maxEntries: this.maxEntries,
       keySizeBytes: keySize,
       valueSizeBytes: valueSize,
+      /** True while part of the total is still extrapolated — the panel marks it "≈". */
+      sizeEstimated: unmeasuredCount > 0,
       persisted: !!this.persistFile,
     };
   }

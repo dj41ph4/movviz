@@ -144,7 +144,17 @@ function runFfprobe(input: string, headers?: Record<string, string>): Promise<Ff
       reject(new Error(`ffprobe timed out after ${PROBE_TIMEOUT_MS}ms`));
     }, PROBE_TIMEOUT_MS);
     p.on("error", (err) => { clearTimeout(t); reject(err); });
-    p.on("exit", (code) => {
+    // "close", not "exit": `exit` fires as soon as the child process ends,
+    // which does NOT guarantee its stdout has been fully drained into
+    // `chunks` yet — `close` is the one that waits for the stdio streams to
+    // close. Confirmed live: a Plex sync fires probeEpisodeInBackground()
+    // for every episode of a series at once (librarySync.ts), and on a NAS
+    // that burst of concurrent ffprobe processes made `exit` regularly win
+    // the race against the last stdout chunk — 48 probes of one series all
+    // failed inside the same second with "SyntaxError: Unexpected end of
+    // JSON input" from the JSON.parse below, on files that probe perfectly
+    // well one at a time.
+    p.on("close", (code) => {
       clearTimeout(t);
       if (code !== 0) {
         reject(new Error(`ffprobe exited with code ${code}: ${stderr.slice(0, 500)}`));

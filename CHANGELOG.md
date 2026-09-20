@@ -1,3 +1,15 @@
+## v1.25.43 — September 2026
+
+### Performances : analyses techniques et caches
+
+- Les analyses techniques des fichiers (ffprobe) échouaient en masse dès qu'une synchronisation Plex en lançait plusieurs dizaines en parallèle : leur résultat était lu avant d'avoir fini d'être écrit. Elles aboutissent désormais toutes.
+- Le cache de ces analyses perdait la quasi-totalité de ses entrées quand plusieurs s'exécutaient en même temps, ce qui faisait ré-analyser les mêmes fichiers à chaque synchronisation. Les résultats sont maintenant conservés, ce qui supprime une charge de fond permanente sur le serveur.
+- Le cache TMDb ne sérialise plus chaque réponse pour alimenter une simple statistique d'affichage, et le panneau Cache des réglages cesse d'interroger le serveur en continu lorsque rien ne progresse.
+
+### Corrections
+
+- La fiche d'un épisode ne plante plus lorsqu'elle est ouverte directement — lien, favori ou rafraîchissement de la page — au lieu d'être atteinte depuis la fiche de la série.
+
 ## v1.25.42 — September 2026
 
 ### Android TV / mobile : synchronisation Plex des séries

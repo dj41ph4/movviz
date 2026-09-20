@@ -16,6 +16,8 @@ interface CacheStats {
   maxEntries: number;
   keySizeBytes: number;
   valueSizeBytes: number;
+  /** Part of the total is still extrapolated server-side — shown as "≈". */
+  sizeEstimated?: boolean;
 }
 
 interface WarmState {
@@ -70,13 +72,20 @@ export function CachePanel() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setArtworkWarm(d));
 
+  // Fast polling only buys something while a warm job's progress bar is
+  // actually moving. Idle, this panel used to keep three endpoints busy at
+  // ~2 req/s for as long as it stayed open — each /api/cache hit walking
+  // every entry of every cache on the server's main thread — purely to
+  // re-render numbers that had not changed.
+  const warmRunning = !!warm?.running || !!artworkWarm?.running;
+
   useEffect(() => {
     load();
     loadWarm();
     loadArtworkWarm();
-    const id = setInterval(() => { load(); loadWarm(); loadArtworkWarm(); }, 1500);
+    const id = setInterval(() => { load(); loadWarm(); loadArtworkWarm(); }, warmRunning ? 1500 : 6000);
     return () => clearInterval(id);
-  }, []);
+  }, [warmRunning]);
 
   const startWarm = () => fetch("/api/cache/warm", { method: "POST" }).then(loadWarm);
   const startArtworkWarm = (mode: "complete" | "incremental") =>
@@ -296,7 +305,9 @@ export function CachePanel() {
               <td className="px-4 py-3 text-ok">{c.hits}</td>
               <td className="px-4 py-3 text-ink-dim">{c.misses}</td>
               <td className="px-4 py-3 text-ink-soft">{c.keys} / {c.maxEntries}</td>
-              <td className="px-4 py-3 text-ink-dim">{formatBytes(c.keySizeBytes + c.valueSizeBytes)}</td>
+              <td className="px-4 py-3 text-ink-dim">
+                {c.sizeEstimated ? "≈ " : ""}{formatBytes(c.keySizeBytes + c.valueSizeBytes)}
+              </td>
               <td className="px-4 py-3 text-right">
                 <button
                   onClick={() => clear(c.name)}

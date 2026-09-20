@@ -102,7 +102,16 @@ export async function getOrProbeMediaDescriptor(mediaId: string, filePath: strin
     descriptor,
     updatedAt: Date.now(),
   };
-  saveAll([...entries.filter((e) => e.mediaId !== mediaId), next]);
+  // Re-read instead of reusing `entries`: that snapshot was taken BEFORE the
+  // probe above, and probes run concurrently (probeEpisodeInBackground() is
+  // fired for every episode of a series at once during a Plex sync). Every
+  // one of them used to take the same pre-probe snapshot, then write
+  // "snapshot + my own entry" — so the last writer silently dropped every
+  // other probe's result. The cache never actually filled up, and each sync
+  // re-probed the very same files forever. loadAll() here sees the other
+  // probes' writes because writeJsonCached updates its in-memory copy
+  // synchronously (fsJsonCache.ts), so this merge is not itself racy.
+  saveAll([...loadAll().filter((e) => e.mediaId !== mediaId), next]);
   return descriptor;
 }
 
@@ -147,7 +156,9 @@ export async function getOrProbeRemoteMediaDescriptor(
     const descriptor = await probeRemoteMedia(mediaId, sourceUrl, headers);
     const next: RemoteCacheEntry = { mediaId, sourceUrl, probeVersion: PROBE_VERSION, ffprobeVersion, descriptor, updatedAt: Date.now() };
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    writeJsonCached(REMOTE_FILE, [...entries.filter((e) => e.mediaId !== mediaId), next]);
+    // Re-read for the same reason as the local cache above — `entries` predates the probe.
+    const current = readJson<RemoteCacheEntry[]>(REMOTE_FILE, []);
+    writeJsonCached(REMOTE_FILE, [...current.filter((e) => e.mediaId !== mediaId), next]);
     return descriptor;
   } catch (err) {
     console.error(`[media-probe] remote probe failed for ${mediaId}:`, err);
