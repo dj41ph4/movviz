@@ -296,6 +296,30 @@ export async function syncUserWatchStatusForMedia(user: User, target: PlexWatchT
     ratingKey ??= episode?.plexRatingKey ?? null;
     title = series?.title ?? null;
   }
+
+  // Une fiche Movviz peut arriver avant que la synchronisation de bibliothèque
+  // ait enregistré sa ratingKey locale. Ce n'est pas une raison valable pour
+  // ignorer son état Plex : résoudre alors CE film par son titre exact dans
+  // Plex, puis vérifier que le TMDb retourné est bien celui de la fiche. La
+  // seconde condition est indispensable pour ne jamais lier deux homonymes.
+  if (!ratingKey && target.type === "movie" && title) {
+    try {
+      const resolved = await resolveMovie(ctx, {
+        type: "movie",
+        title,
+        Guid: [{ id: `tmdb://${target.tmdbId}` }],
+      });
+      const resolvedCanonical = resolved.canonical;
+      if (resolved.status === "RESOLVED" && resolvedCanonical?.type === "movie" && resolvedCanonical.tmdbId === target.tmdbId && resolved.ratingKey) {
+        ratingKey = resolved.ratingKey;
+        recordSearchLog("info", "plex.watchSync", `plex.watchSync targeted user=${user.username} canonical=${formatCanonical(canonical)} ratingKey_resolved=${ratingKey} source=${resolved.reason}`);
+      } else {
+        recordSearchLog("warn", "plex.watchSync", `plex.watchSync targeted user=${user.username} canonical=${formatCanonical(canonical)} status=skipped reason=${resolved.reason}`);
+      }
+    } catch (error) {
+      recordSearchLog("error", "plex.watchSync", `plex.watchSync targeted user=${user.username} canonical=${formatCanonical(canonical)} status=failed phase=resolve_rating_key error=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
   if (!ratingKey) {
     recordSearchLog("info", "plex.watchSync", `plex.watchSync targeted user=${user.username} canonical=${formatCanonical(canonical)} status=skipped reason=no_rating_key`);
     return;

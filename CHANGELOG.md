@@ -1,3 +1,10 @@
+## v1.25.37 — September 2026
+
+### Plex → Movviz : rattrapage des clés de films absentes
+
+- Lorsqu'une fiche film ne possède pas encore sa `ratingKey` locale, Movviz la résout désormais dans Plex sur le titre exact puis valide impérativement le même identifiant TMDb avant de lire son état vu.
+- Les échecs de résolution sont tracés explicitement ; ils ne sont plus confondus avec une synchronisation réussie ni ne peuvent associer deux films homonymes.
+
 ## v1.25.36 — September 2026
 
 ### Resynchronisation complète des vues Plex en arrière-plan
