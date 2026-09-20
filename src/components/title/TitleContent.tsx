@@ -242,10 +242,16 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     [watchlistData, tmdbId],
   );
 
+  // A film page asks the server to verify its exact Plex ratingKey. This is
+  // deliberately separate from the catalogue-wide status cache: a manual
+  // Plex mark must not wait for the next global history/snapshot pass.
+  const watchStatusEndpoint = type === "movie"
+    ? `/api/watch-status?type=movie&tmdbId=${tmdbId}`
+    : "/api/watch-status";
   const { data: watchData, mutate: mutateWatch } = useSWR<{
     movies: number[];
     episodes: { tmdbId: number; season: number; episode: number }[];
-  }>("/api/watch-status", fetcher);
+  }>(watchStatusEndpoint, fetcher);
 
   /* ── derived ────────────────────────────────────────────────────────── */
 

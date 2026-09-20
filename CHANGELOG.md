@@ -1,3 +1,11 @@
+## v1.25.35 — September 2026
+
+### Plex → Movviz : état « vu » immédiat sur les films
+
+- L’ouverture d’une fiche film vérifie désormais directement sa `ratingKey` Plex et réconcilie son état « vu / non vu » sans attendre le scan d’historique global ni son snapshot de 30 minutes.
+- Cette vérification ciblée est indépendante d’un bootstrap d’historique long, mais conserve les protections de concurrence et de fraîcheur : une action locale plus récente n’est jamais écrasée.
+- En cas d’indisponibilité Plex ou de clé encore inconnue, la fiche reste utilisable et le mécanisme général de synchronisation conserve le relais.
+
 ## v1.25.34 — September 2026
 
 ### Association locale des saisons WebTorrent

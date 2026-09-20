@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { getWatchStatus } from "@/lib/plex/watchStore";
-import { syncUserWatchStatusIfDue } from "@/lib/plex/watchSync";
+import { syncUserWatchStatusForMedia, syncUserWatchStatusIfDue } from "@/lib/plex/watchSync";
 import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +10,18 @@ export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  // Pull this exact Plex profile before returning its watched state.  This
-  // replaces the former "wait for the 2-hour scheduler" behaviour while the
-  // per-user gate in watchSync prevents every card from triggering a scan.
-  await syncUserWatchStatusIfDue(user);
+  const tmdbId = Number(req.nextUrl.searchParams.get("tmdbId"));
+  const type = req.nextUrl.searchParams.get("type");
+  // A title page asks for its own movie. Verify that exact Plex item now,
+  // instead of making a manual Plex mark wait for the global history scan or
+  // its 30-minute snapshot throttle. Series remain event-driven per episode.
+  if (type === "movie" && Number.isInteger(tmdbId) && tmdbId > 0) {
+    await syncUserWatchStatusForMedia(user, { type: "movie", tmdbId }).catch(() => {});
+  } else {
+    // Pull this Plex profile before returning the general catalogue state.
+    // The per-user gate prevents every card from triggering a full scan.
+    await syncUserWatchStatusIfDue(user);
+  }
   // Phase 4 du plan de finalisation (2026-09) : la réponse client vient
   // désormais de user_media_state (la vraie source de vérité), pas du
   // miroir JSON legacy — qui peut rester périmé pour des raisons qui
