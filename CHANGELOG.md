@@ -1,3 +1,12 @@
+## v1.25.49 — September 2026
+
+### Un épisode re-téléchargé remplace son fichier au lieu de s'installer à côté
+
+- Une sélection manuelle — ou un ré-téléchargement, ou une montée en qualité — sur un épisode qui avait déjà un fichier laissait les deux sur le disque. Le moteur renomme le fichier importé avant de connaître l'intention : il se heurtait au nom déjà pris et déposait un « Série - S01E01 (2).mkv » à côté de l'original, que Plex présentait ensuite comme une seconde version en continuant de servir l'ancienne. L'ancien fichier est maintenant supprimé et le nouveau reprend le nom final attendu : choisir une release à la main remplace réellement celle en place. Les saisons et les packs intégrale suivent la même règle ; seuls les films en bénéficiaient jusqu'ici.
+- Ce retour au nom final ne fonctionnait en réalité pour personne, films compris : le suffixe de collision était cherché à la fin du nom de fichier alors qu'il est posé juste avant l'extension, donc jamais reconnu.
+- La suppression de l'ancien fichier vise désormais le chemin réel sur le disque et non celui vu depuis Plex, qui peut en différer — c'est ce qui laissait des fichiers en place quand l'entrée venait d'un scan de la bibliothèque.
+- Le nom final n'est jamais écrasé s'il est occupé par un fichier tiers, un ré-import sur le même chemin ne se supprime pas lui-même, et rien n'est touché hors des racines bibliothèque du moteur.
+
 ## v1.25.48 — September 2026
 
 ### Recherche C411 : la page complète de résultats est enfin demandée

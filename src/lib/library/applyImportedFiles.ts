@@ -161,64 +161,134 @@ async function deleteLibraryFile(filePath: string, roots: string[]): Promise<voi
 }
 
 /** Suffixe de collision ajouté par le moteur (AbstractBackend.avoidCollision) :
- *  « (2) », « (3) »… collé juste avant l'extension quand le nom final attendu
- *  est déjà occupé sur disque au moment du renommage. */
-function stripCollisionSuffix(basename: string): string {
-  return basename.replace(/ \((\d+)\)$/, "");
+ *  « (2) », « (3) »… collé juste AVANT l'extension quand le nom final attendu
+ *  est déjà occupé sur disque au moment du renommage. Il est donc à chercher
+ *  sur le nom SANS extension : « Série - S01E01 (2).mkv » ne se termine pas
+ *  par « (2) ». Retourne le nom de fichier complet, extension comprise. */
+export function stripCollisionSuffix(fileName: string, p: typeof path.posix): string {
+  const ext = p.extname(fileName);
+  const stem = ext ? fileName.slice(0, fileName.length - ext.length) : fileName;
+  const canonical = stem.replace(/ \((\d+)\)$/, "");
+  return canonical === stem ? fileName : canonical + ext;
+}
+
+/** Chemin réel sur le disque — `path` peut être le chemin vu côté Plex quand
+ *  il diffère du disque local (voir LibraryFile.diskPath). Toute suppression
+ *  ou tout renommage doit viser le disque, jamais la vue Plex. */
+function diskPathOf(file: { path: string; diskPath?: string } | null | undefined): string | null {
+  return file ? (file.diskPath || file.path || null) : null;
+}
+
+/** Comparaison de chemins — insensible à la casse sur Windows, comme isUnderLibraryRoot. */
+function samePath(a: string, b: string): boolean {
+  return process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
 /**
- * Finalisation d'un import de REMPLACEMENT (mode "replace"/"optimize"/
- * ré-import simple — tout sauf "add") :
- * 1. L'ANCIEN fichier primaire est supprimé du disque (deleteLibraryFile,
- *    gardes de sécurité complètes) AVANT toute manipulation du nouveau.
- * 2. Le moteur renomme le nouveau fichier AVANT de connaître l'intention
+ * Finalisation d'un import de REMPLACEMENT — partagée par les films et les
+ * épisodes (tout sauf une « version supplémentaire » explicite, mode "add") :
+ * 1. Les ANCIENS fichiers sont supprimés du disque (deleteLibraryFile, gardes
+ *    de sécurité complètes) AVANT toute manipulation des nouveaux.
+ * 2. Le moteur renomme les nouveaux fichiers AVANT de connaître l'intention
  *    (avoidCollision) : si le nom final attendu était occupé par l'ancien
  *    fichier, le nouveau a reçu un suffixe « (2) »/« (3) »…. Une fois
- *    l'ancien fichier supprimé, le nouveau fichier est ramené vers ce nom
- *    final — plus aucun doublon « (n) » dans Plex. Le renommage n'écrase
- *    JAMAIS un fichier existant et ne touche que des fichiers sous une
+ *    l'ancien supprimé, le nouveau est ramené vers ce nom final — plus aucun
+ *    « … (2).mkv » posé à côté du fichier remplacé. Le renommage n'écrase
+ *    JAMAIS un fichier existant et ne touche que des fichiers vivant sous une
  *    racine bibliothèque du moteur.
+ * Retourne l'association chemin importé → chemin final, pour les seuls
+ * fichiers réellement renommés.
  */
+export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string[], roots: string[]): Promise<Map<string, string>> {
+  const renamed = new Map<string, string>();
+  const keep = newPaths.filter(Boolean).map((p) => pathFor(p).resolve(p));
+
+  for (const oldPath of oldPaths) {
+    if (!oldPath) continue;
+    const resolvedOld = pathFor(oldPath).resolve(oldPath);
+    // self-delete guard : l'« ancien » fichier EST le fichier fraîchement
+    // importé (ré-import du même chemin) — le supprimer viderait l'entrée.
+    if (keep.some((p) => samePath(p, resolvedOld))) continue;
+    await deleteLibraryFile(oldPath, roots);
+  }
+
+  for (const newPath of newPaths) {
+    if (!newPath) continue;
+    const np = pathFor(newPath);
+    const resolvedNew = np.resolve(newPath);
+    const base = np.basename(resolvedNew);
+    const stripped = stripCollisionSuffix(base, np);
+    if (stripped === base) continue; // pas de suffixe de collision — nom déjà final
+    if (!isUnderLibraryRoot(resolvedNew, np.sep, roots, process.platform !== "win32")) continue;
+    const expected = np.join(np.dirname(resolvedNew), stripped);
+    if (samePath(expected, resolvedNew)) continue;
+    try {
+      await fsp.access(expected);
+      continue; // nom final occupé par un autre fichier — ne jamais écraser
+    } catch {
+      // libre — on peut renommer
+    }
+    try {
+      await fsp.rename(resolvedNew, expected);
+      renamed.set(newPath, expected);
+      console.log(`[import] version remplacée renommée vers le nom final: ${expected}`);
+    } catch (err) {
+      console.warn(`[import] renommage vers le nom final impossible (${(err as Error).message}) — nom actuel conservé`);
+    }
+  }
+  return renamed;
+}
+
+/** Variante film : un seul ancien fichier, un seul nouveau. */
 async function finalizeReplacePath<T extends { path: string }>(movie: { file: LibraryFile | null }, newFile: T, roots: string[]): Promise<T> {
-  if (!movie.file) return newFile;
-  const oldPath = movie.file.path;
-  const newPath = newFile.path;
-  if (!oldPath || !newPath) return newFile;
-  const op = pathFor(oldPath);
-  const np = pathFor(newPath);
-  const resolvedOld = op.resolve(oldPath);
-  const resolvedNew = np.resolve(newPath);
-  if (resolvedOld === resolvedNew) return newFile; // self-delete guard
+  const oldPath = diskPathOf(movie.file);
+  const renamed = await finalizeReplacedFiles(oldPath ? [oldPath] : [], [newFile.path], roots);
+  const finalPath = renamed.get(newFile.path);
+  return finalPath ? { ...newFile, path: finalPath } : newFile;
+}
 
-  // 1. Supprimer l'ancien fichier AVANT de renommer le nouveau.
-  await deleteLibraryFile(oldPath, roots);
+/**
+ * Même finalisation, côté séries. Un épisode qui reçoit un fichier alors
+ * qu'il en avait DÉJÀ un est un remplacement — sélection manuelle d'une autre
+ * release, ré-téléchargement, montée en qualité. Sans ça l'ancien fichier
+ * reste sur le disque, Plex garde les deux versions et continue de servir
+ * l'ancienne, et la nouvelle traîne sous un nom « … S01E01 (2).mkv ».
+ * Les racines du moteur ne sont interrogées que s'il y a réellement quelque
+ * chose à supprimer ou à renommer.
+ */
+async function finalizeEpisodeReplacements(oldPaths: string[], files: ImportedFile[]): Promise<Map<string, string>> {
+  const newPaths = files.map((f) => f.path).filter(Boolean);
+  const hasCollisionSuffix = newPaths.some((p) => {
+    const np = pathFor(p);
+    const base = np.basename(np.resolve(p));
+    return stripCollisionSuffix(base, np) !== base;
+  });
+  if (oldPaths.length === 0 && !hasCollisionSuffix) return new Map();
+  return finalizeReplacedFiles(oldPaths, newPaths, await engineLibraryRoots());
+}
 
-  // 2. Ramener le nouveau fichier vers son nom final attendu.
-  const newBase = np.basename(resolvedNew);
-  const stripped = stripCollisionSuffix(newBase);
-  if (stripped === newBase) return newFile; // pas de suffixe de collision — nom déjà final
-  // Les noms canoniques (sans suffixe) doivent correspondre — sinon ce n'est
-  // pas le même nom final que l'ancien fichier, on ne renomme pas.
-  if (stripCollisionSuffix(op.basename(resolvedOld)) !== stripped) return newFile;
-  if (!isUnderLibraryRoot(resolvedNew, np.sep, roots, process.platform !== "win32")) return newFile;
-
-  const expected = np.join(np.dirname(resolvedNew), stripped + np.extname(resolvedNew));
-  if (np.resolve(expected) === resolvedNew) return newFile;
-  try {
-    await fsp.access(expected);
-    return newFile; // nom final occupé par un autre fichier — ne jamais écraser
-  } catch {
-    // libre — on peut renommer
+/**
+ * Pré-passe commune aux trois branches séries : rejoue l'association
+ * fichier → épisode AVANT de construire le nouvel état, pour connaître les
+ * fichiers remplacés (à supprimer) et ramener les nouveaux à leur nom final.
+ * Le `Map` retourné traduit chemin importé → chemin final.
+ */
+async function prepareEpisodeReplacements(
+  series: { seasons: Array<{ seasonNumber: number; episodes: Array<{ episodeNumber: number; file: LibraryFile | null }> }> },
+  matchFor: (seasonNumber: number, episodeNumber: number) => ImportedFile | null,
+): Promise<Map<string, string>> {
+  const replaced: string[] = [];
+  const matched: ImportedFile[] = [];
+  for (const season of series.seasons) {
+    for (const ep of season.episodes) {
+      const match = matchFor(season.seasonNumber, ep.episodeNumber);
+      if (!match) continue;
+      if (!matched.includes(match)) matched.push(match);
+      const old = diskPathOf(ep.file);
+      if (old) replaced.push(old);
+    }
   }
-  try {
-    await fsp.rename(resolvedNew, expected);
-    console.log(`[import] version remplacée renommée vers le nom final: ${expected}`);
-    return { ...newFile, path: expected };
-  } catch (err) {
-    console.warn(`[import] renommage vers le nom final impossible (${(err as Error).message}) — nom actuel conservé`);
-    return newFile;
-  }
+  return finalizeEpisodeReplacements(replaced, matched);
 }
 
 /** Same root-validated deletion pattern as deleteLibraryFile — never an
@@ -439,19 +509,24 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // (f.season == null, e.g. a bare "01.mkv" the engine couldn't season-tag)
     // is still accepted — that's a real gap in the filename, not a mismatch.
     const seasonFiles = normalizedFiles.filter((f) => f.season == null || f.season === ref.season);
+    // Remplacement des épisodes qui avaient déjà un fichier — voir
+    // prepareEpisodeReplacements (suppression de l'ancien + retour au nom final).
+    const renamedPaths = await prepareEpisodeReplacements(series, (seasonNumber, episodeNumber) =>
+      seasonNumber === ref.season ? seasonFiles.find((f) => movedFileCoversEpisode(f, episodeNumber)) ?? null : null);
     const probedEpisodes: { season: number; episode: number; path: string }[] = [];
     const seasons = series.seasons.map((season) => {
       if (season.seasonNumber !== ref.season) return season;
       const episodes = season.episodes.map((ep) => {
         const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
         if (!match) return releaseIfOrphaned(ep, infoHash);
-        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: match.path });
+        const filePath = renamedPaths.get(match.path) ?? match.path;
+        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: filePath });
         return {
           ...ep,
           status: "available" as const,
           activeInfoHash: null,
           file: {
-            path: match.path,
+            path: filePath,
             quality: match.quality ?? "—",
             resolution: match.resolution,
             videoCodec: match.videoCodec,
@@ -495,19 +570,22 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // Complete-series pack — dispatch each file to its correct episode
     // across multiple seasons. Files without season/episode metadata are
     // skipped (they don't belong to any tracked episode).
+    const renamedPaths = await prepareEpisodeReplacements(series, (seasonNumber, episodeNumber) =>
+      normalizedFiles.find((f) => f.season === seasonNumber && movedFileCoversEpisode(f, episodeNumber)) ?? null);
     const probedEpisodes: { season: number; episode: number; path: string }[] = [];
     const seasons = series.seasons.map((season) => {
       const seasonFiles = normalizedFiles.filter((f) => f.season === season.seasonNumber);
       const episodes = season.episodes.map((ep) => {
         const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
         if (!match) return releaseIfOrphaned(ep, infoHash);
-        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: match.path });
+        const filePath = renamedPaths.get(match.path) ?? match.path;
+        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: filePath });
         return {
           ...ep,
           status: "available" as const,
           activeInfoHash: null,
           file: {
-            path: match.path,
+            path: filePath,
             quality: match.quality ?? "—",
             resolution: match.resolution,
             videoCodec: match.videoCodec,
@@ -562,19 +640,28 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   const singleFile = normalizedFiles.length === 1 ? normalizedFiles[0] : null;
   // Same season-consistency guard as the "season" branch above.
   const seasonFiles = normalizedFiles.filter((f) => f.season == null || f.season === ref.season);
+  // Sélection manuelle / ré-téléchargement d'un épisode DÉJÀ présent : l'ancien
+  // fichier est supprimé et le nouveau reprend le nom final, au lieu de laisser
+  // le « (2) » du moteur s'installer à côté (voir prepareEpisodeReplacements).
+  const renamedPaths = await prepareEpisodeReplacements(series, (seasonNumber, episodeNumber) => {
+    if (seasonNumber !== ref.season) return null;
+    if (singleFile) return episodeNumber === ref.episode ? singleFile : null;
+    return seasonFiles.find((f) => movedFileCoversEpisode(f, episodeNumber)) ?? null;
+  });
   const probedEpisodes: { season: number; episode: number; path: string }[] = [];
   const seasons = series.seasons.map((season) => {
     if (season.seasonNumber !== ref.season) return season;
     const episodes = season.episodes.map((ep) => {
       if (singleFile) {
         if (ep.episodeNumber !== ref.episode) return releaseIfOrphaned(ep, infoHash);
-        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: singleFile.path });
+        const filePath = renamedPaths.get(singleFile.path) ?? singleFile.path;
+        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: filePath });
         return {
           ...ep,
           status: "available" as const,
           activeInfoHash: null,
           file: {
-            path: singleFile.path,
+            path: filePath,
             quality: singleFile.quality ?? "—",
             resolution: singleFile.resolution,
             videoCodec: singleFile.videoCodec,
@@ -588,13 +675,14 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       }
       const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
       if (!match) return releaseIfOrphaned(ep, infoHash);
-      probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: match.path });
+      const filePath = renamedPaths.get(match.path) ?? match.path;
+      probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: filePath });
       return {
         ...ep,
         status: "available" as const,
         activeInfoHash: null,
         file: {
-          path: match.path,
+          path: filePath,
           quality: match.quality ?? "—",
           resolution: match.resolution,
           videoCodec: match.videoCodec,
