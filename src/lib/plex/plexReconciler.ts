@@ -1,4 +1,6 @@
 import { getCurrentWatchState, applyWatchDecision } from "@/lib/userContext/watchBridge";
+import { getUserContextDb } from "@/lib/userContext/database";
+import { setWatchedEpisodes, setWatchedMovies } from "./watchStore";
 import type { WatchSource } from "@/lib/userContext/watchBridge";
 import type { PlexObservedState } from "./plexObservedState";
 import type { CanonicalMediaIdentity } from "./mediaIdentityMap";
@@ -232,5 +234,28 @@ export function applyReconcileDecision(input: ReconcileInput, result: ReconcileR
     source,
     sourceEventId,
   });
-  return res.accepted;
+  if (!res.accepted) return false;
+
+  // Some production runtimes intentionally run without node:sqlite. In that
+  // case applyWatchDecision accepts the event so Plex sync keeps working, but
+  // there is no canonical SQLite row for the API to read. Mirror the accepted
+  // decision straight into the legacy JSON store, which is the API fallback
+  // in this mode. Without this, diagnostics can say "applied" forever while
+  // the user still sees the title as unwatched.
+  if (!getUserContextDb()) {
+    const watched = result.newCanonicalState === "watched";
+    if (canon.type === "movie") {
+      return setWatchedMovies(input.userId, [canon.tmdbId], watched, title ?? "", at, source);
+    }
+    if (canon.type === "episode") {
+      return setWatchedEpisodes(
+        input.userId,
+        [{ tmdbId: canon.tmdbShowId, season: canon.seasonNumber, episode: canon.episodeNumber, watchedAt: at }],
+        watched,
+        title ?? "",
+        source,
+      );
+    }
+  }
+  return true;
 }

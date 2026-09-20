@@ -144,11 +144,13 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
       // the append-only context ledger and must never be erased here.
     }
   }
-  if (accepted.length === 0) return;
+  if (accepted.length === 0) return false;
   status.updatedAt = Date.now();
   if (write(list)) {
     for (const tmdbId of accepted) mirrorProgress(userId, tmdbId, "movie", watched, undefined, undefined, at);
+    return true;
   }
+  return false;
 }
 
 /** Manual watched toggle — episodes (tmdbId = series). Watched adds each
@@ -207,11 +209,13 @@ export function setWatchedEpisodes(
       accepted.push({ ...entry, at });
     }
   }
-  if (accepted.length === 0) return;
+  if (accepted.length === 0) return false;
   status.updatedAt = now;
   if (write(list)) {
     for (const e of accepted) mirrorProgress(userId, e.tmdbId, "series", watched, e.season, e.episode, e.at);
+    return true;
   }
+  return false;
 }
 
 function read(): WatchStatus[] {

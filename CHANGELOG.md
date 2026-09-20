@@ -1,3 +1,9 @@
+## v1.25.40 — September 2026
+
+### Plex → Movviz : synchronisation sans SQLite
+
+- Quand le moteur de contexte SQLite n'est pas disponible sur le serveur, une décision Plex acceptée est désormais écrite immédiatement dans le magasin JSON de compatibilité lu par l'interface. Le diagnostic « appliqué » correspond donc enfin à un état réellement visible dans Movviz.
+
 ## v1.25.39 — September 2026
 
 ### Plex → Movviz : réparation immédiate des vues divergentes
