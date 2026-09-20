@@ -1,3 +1,28 @@
+## v1.25.44 — September 2026
+
+### Android TV : liste des saisons et des épisodes refondue
+
+- La liste des épisodes d'une saison est repensée façon Plex : vignette plus grande, titre et synopsis nettement plus lisibles de loin, et une ligne d'informations qui indique enfin la durée, la date de diffusion, la définition et le HDR du fichier réellement présent.
+- Un épisode déjà commencé affiche sa barre de progression directement sur sa vignette, y compris lorsque plusieurs épisodes d'une même série sont en cours.
+- Appuyer sur OK lance maintenant la lecture immédiatement ; un bouton « Infos » ouvre la fiche détaillée de l'épisode, qui devient un écran plein et non plus une fenêtre flottante.
+- Un épisode manquant est désormais atteignable à la télécommande : sa fiche permet de le télécharger, ce qui était impossible puisque la ligne entière était inaccessible.
+- L'écran de saison s'ouvre sur le prochain épisode à regarder plutôt que sur le premier, et gagne un en-tête avec jaquette, avancement et barre d'actions : lire, compléter la saison, marquer la saison vue, retour.
+- « Compléter la saison » reste proposé tant qu'il manque des épisodes, alors qu'il disparaissait dès qu'un seul épisode était disponible.
+- La fiche d'une série propose un bouton de lecture même quand aucun épisode n'est en cours : il pointe sur le prochain épisode non vu. Jusqu'ici, une série jamais commencée n'avait aucun bouton de lecture.
+- Les vignettes de saison indiquent leur avancement (épisodes vus, liseré de progression, coche quand la saison est terminée) à la place d'un simple nombre d'épisodes.
+- Les épisodes spéciaux redeviennent accessibles : ils apparaissent après les saisons numérotées et n'entrent jamais dans le calcul de complétion d'une série.
+- La liste d'épisodes reprend les couleurs de Movviz : c'était la seule zone de l'application restée sur un gris neutre.
+
+### Interface TV et mobile : plus d'agrandissement au focus
+
+- Les cartes, tuiles, boutons et photos de profil ne s'agrandissent plus lorsqu'ils sont sélectionnés. L'agrandissement rendait flous les éléments incrustés — numéro d'épisode, pastille « vu », logo — pendant toute l'animation. La sélection reste signalée par l'ombre portée et le contour de focus.
+
+### Corrections
+
+- Photo de profil : celle choisie depuis le web n'apparaissait jamais sur Android TV ni sur Android mobile dès que l'appareil connaissait déjà un profil, c'est-à-dire à chaque démarrage sauf le tout premier. Le sélecteur de profils et la pastille de profil se remettent désormais à jour en arrière-plan à chaque lancement, sans ralentir l'ouverture de l'application.
+- La navigation à la télécommande ne peut plus se perdre derrière un écran : depuis la liste des épisodes ou la fiche d'un épisode, le focus ne redescend plus dans la fiche de la série restée en dessous, et Retour ferme toujours exactement un niveau.
+- La durée et la note propres à chaque épisode sont désormais transmises par le serveur ; elles étaient récupérées auprès de TMDb puis abandonnées sans être utilisées.
+
 ## v1.25.43 — September 2026
 
 ### Performances : analyses techniques et caches

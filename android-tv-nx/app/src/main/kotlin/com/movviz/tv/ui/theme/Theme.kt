@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -45,31 +44,31 @@ fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier =
     }
 
 /**
- * "Lift" Netflix-style : la carte au focus se détache visuellement avec un
- * scale + ombre profonde portée. Netflix utilise un lift discret mais net :
- * la carte s'agrandit légèrement (1.06x) avec une ombre diffuse noire — pas
- * de bordure colorée, pas de scale agressif. Le rebond spring est adouci
- * pour un mouvement naturel à la télécommande.
+ * "Lift" au focus : l'élément se détache par une ombre profonde portée, et
+ * UNIQUEMENT par elle.
+ *
+ * Le scale d'agrandissement a été retiré volontairement. Une carte qui zoome
+ * rééchantillonne tout ce qu'elle contient : un numéro d'épisode, une
+ * pastille "vu", un logo incrusté deviennent flous ou dentelés le temps de
+ * l'animation, et le défaut est d'autant plus visible que l'élément est
+ * petit. Le gain perçu ne compensait pas ce bruit permanent — l'ombre seule
+ * suffit à dire où est le focus, la bordure de focus faisant le reste.
+ *
+ * `maxScale` a disparu de la signature plutôt que d'être ignoré : un
+ * paramètre qui ne fait rien finit toujours par être réintroduit ailleurs.
  */
 @Composable
 fun Modifier.tvFocusLift(
     focused: Boolean,
     shape: Shape = RoundedCornerShape(6.dp),
-    maxScale: Float = 1.06f,
     maxElevation: androidx.compose.ui.unit.Dp = 18.dp,
 ): Modifier {
-    val scale by animateFloatAsState(
-        targetValue = if (focused) maxScale else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "tvFocusLiftScale",
-    )
     val elevation by animateDpAsState(
         targetValue = if (focused) maxElevation else 0.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "tvFocusLiftElevation",
     )
     return this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
         .shadow(elevation = elevation, shape = shape, ambientColor = androidx.compose.ui.graphics.Color.Black, spotColor = androidx.compose.ui.graphics.Color.Black)
 }
 

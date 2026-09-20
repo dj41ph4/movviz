@@ -760,6 +760,34 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return profiles
     }
 
+    /**
+     * Réconciliation d'arrière-plan des identités affichées par le picker.
+     *
+     * Le démarrage est local-first : la destination est choisie depuis le
+     * cache, sans réseau. Mais le cache ne vieillit jamais tout seul — une
+     * photo changée sur desktop n'a aucun moyen d'arriver jusqu'ici sans
+     * qu'on aille la chercher. Appelé APRÈS que la navigation soit décidée,
+     * donc un serveur lent ou absent ne retarde jamais l'affichage : en cas
+     * d'échec, loadProfilesFromServer retombe sur exactement la liste locale
+     * déjà à l'écran.
+     *
+     * Limite assumée : /api/tv-profiles est admin-only, donc un compte
+     * invité ne rafraîchit que SA propre identité, pas celle des autres
+     * membres du foyer. C'est le contrat de sécurité du foyer, pas un oubli.
+     */
+    suspend fun refreshProfilesInBackground() {
+        if (_serverUrl.value == null) return
+        if (_currentUser.value == null) refreshCurrentUser()
+        if (_currentUser.value == null) return
+        val hadActiveProfile = _activeProfile.value != null
+        loadProfilesFromServer()
+        // Rafraîchir des identités ne doit pas en ÉLIRE une : tant que
+        // personne n'a choisi dans le picker, il n'y a pas de profil actif,
+        // et en désigner un poserait une pastille « Profil actif » sur une
+        // tuile que l'utilisateur n'a pas sélectionnée.
+        if (!hadActiveProfile) _activeProfile.value = null
+    }
+
     /** Picker local-first : aucune requête n'est nécessaire pour montrer les
      * profils déjà connus de cet appareil. La session est validée seulement
      * après sélection, donc le cache ne contourne jamais l'authentification. */

@@ -1122,7 +1122,7 @@ internal fun HeroCarousel(
                     onClick = { onOpen(current) },
                     modifier = Modifier
                         .focusRequester(ctaFocusRequester)
-                        .tvFocusLift(focused, shape = RoundedCornerShape(5.dp), maxScale = 1.04f, maxElevation = 12.dp)
+                        .tvFocusLift(focused, shape = RoundedCornerShape(5.dp), maxElevation = 12.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(5.dp)),
@@ -1163,7 +1163,7 @@ internal fun HeroCarousel(
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
-                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(5.dp), maxScale = 1.04f, maxElevation = 12.dp)
+                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(5.dp), maxElevation = 12.dp)
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(5.dp)),

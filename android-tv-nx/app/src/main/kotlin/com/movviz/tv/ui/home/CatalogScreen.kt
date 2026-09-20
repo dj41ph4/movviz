@@ -292,7 +292,7 @@ private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .tvFocusLift(focused, shape = shape, maxScale = 1.04f)
+            .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

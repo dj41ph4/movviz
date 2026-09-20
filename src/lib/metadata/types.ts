@@ -29,6 +29,10 @@ export interface MetaEpisode {
   airDate: string | null; // ISO date
   overview: string;
   stillPath: string | null;
+  /** Durée en minutes. TMDb l'expose sur /tv/{id}/season/{n} (jamais sur la liste des saisons du détail série) et la laisse vide sur les épisodes non encore diffusés — null veut donc dire "inconnue", pas "0". */
+  runtime: number | null;
+  /** Note TMDb de l'épisode (0 quand personne n'a voté), distincte de la note de la série. */
+  rating: number;
 }
 
 export interface MetaSeason {

@@ -157,6 +157,11 @@ interface MovvizApiService {
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>
 
+    // Toutes les positions de reprise de l'utilisateur, sans la dédup "une
+    // par série" de /api/plex/on-deck — voir PlaybackProgressDto.
+    @GET("api/playback/continue-watching")
+    suspend fun playbackProgress(): Response<PlaybackProgressResponseDto>
+
     // Recherche manuelle "maintenant" pour un titre déjà en bibliothèque —
     // voir SearchTriggerResponseDto. Pas encore branché à l'UI TV, disponible
     // pour l'écran de découverte/téléchargement.

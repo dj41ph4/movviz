@@ -17,6 +17,7 @@ import com.movviz.tv.data.OnDeckEntryDto
 import com.movviz.tv.data.PersonDto
 import com.movviz.tv.data.PlexPinDto
 import com.movviz.tv.data.PlexPollDto
+import com.movviz.tv.data.PlaybackProgressDto
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
@@ -268,6 +269,14 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // resumeOffsetMs, mais garde la liste entière plutôt qu'une seule entrée.
     private val _continueWatching = MutableStateFlow<List<OnDeckEntryDto>>(emptyList())
     val continueWatching: StateFlow<List<OnDeckEntryDto>> = _continueWatching.asStateFlow()
+
+    // Positions de reprise par CLÉ de lecture — alimente la barre de
+    // progression incrustée sur chaque vignette d'épisode. continueWatching
+    // ne peut pas jouer ce rôle : il est dédupliqué à une entrée par série
+    // (voir PlaybackProgressDto). Chargé à l'ouverture d'une fiche série
+    // uniquement, comme le reste des données secondaires de fiche.
+    private val _playbackProgress = MutableStateFlow<Map<String, PlaybackProgressDto>>(emptyMap())
+    val playbackProgress: StateFlow<Map<String, PlaybackProgressDto>> = _playbackProgress.asStateFlow()
 
     // Statut "vu" manuel par utilisateur (distinct de LibraryStatus, qui dit
     // si le FICHIER existe, pas si on l'a regardé) — voir WatchStatusDto.
@@ -657,6 +666,34 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return profiles
     }
 
+    /**
+     * Réconciliation d'arrière-plan des identités affichées par le picker.
+     *
+     * Le démarrage est local-first : la destination est choisie depuis le
+     * cache, sans réseau. Mais le cache ne vieillit jamais tout seul — une
+     * photo changée sur desktop n'a aucun moyen d'arriver jusqu'ici sans
+     * qu'on aille la chercher. Appelé APRÈS que la navigation soit décidée,
+     * donc un serveur lent ou absent ne retarde jamais l'affichage : en cas
+     * d'échec, loadProfilesFromServer retombe sur exactement la liste locale
+     * déjà à l'écran.
+     *
+     * Limite assumée : /api/tv-profiles est admin-only, donc un compte
+     * invité ne rafraîchit que SA propre identité, pas celle des autres
+     * membres du foyer. C'est le contrat de sécurité du foyer, pas un oubli.
+     */
+    suspend fun refreshProfilesInBackground() {
+        if (_serverUrl.value == null) return
+        if (_currentUser.value == null) refreshCurrentUser()
+        if (_currentUser.value == null) return
+        val hadActiveProfile = _activeProfile.value != null
+        loadProfilesFromServer()
+        // Rafraîchir des identités ne doit pas en ÉLIRE une : tant que
+        // personne n'a choisi dans le picker, il n'y a pas de profil actif,
+        // et en désigner un poserait une pastille « Profil actif » sur une
+        // tuile que l'utilisateur n'a pas sélectionnée.
+        if (!hadActiveProfile) _activeProfile.value = null
+    }
+
     /** Picker local-first : aucune requête n'est nécessaire pour montrer les
      * profils déjà connus de cet appareil. La session est validée seulement
      * après sélection, donc le cache ne contourne jamais l'authentification. */
@@ -686,6 +723,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _dashboardHero.value = emptyList()
         _heroLogos.value = emptyMap()
         _continueWatching.value = emptyList()
+        _playbackProgress.value = emptyMap()
         _queue.value = emptyList()
         _trendingMovies.value = emptyList()
         _trendingSeries.value = emptyList()
@@ -1211,6 +1249,23 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                         com.movviz.tv.tvchannel.TvChannelProvider.sync(getApplication(), r.data)
                     }
                 }
+                else -> Unit
+            }
+        }
+    }
+
+    /** Positions de reprise indexées par clé de lecture — best-effort, un
+     *  échec laisse simplement les vignettes sans barre de progression.
+     *  Les entrées déjà terminées ou sans offset exploitable sont écartées
+     *  ici plutôt qu'à l'affichage, pour qu'aucune vignette ne se retrouve
+     *  avec une barre pleine sur un épisode en réalité fini. */
+    fun loadPlaybackProgress() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val r = repo.playbackProgress()) {
+                is ApiResult.Success -> _playbackProgress.value = r.data
+                    .filter { !it.watched && (it.resumeOffsetMs ?: 0L) > 0L && it.durationMs > 0L }
+                    .associateBy { it.ratingKey }
                 else -> Unit
             }
         }

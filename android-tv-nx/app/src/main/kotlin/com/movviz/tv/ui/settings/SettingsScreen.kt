@@ -184,7 +184,7 @@ private fun AutoUpdateToggle(viewModel: AppViewModel) {
     Surface(
         onClick = { viewModel.setAutoUpdateEnabled(!enabled) },
         modifier = Modifier
-            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.05f, maxElevation = 9.dp)
+            .tvFocusLift(focused = focused, shape = shape, maxElevation = 9.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick { viewModel.setAutoUpdateEnabled(!enabled) },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -294,7 +294,7 @@ private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit, 
         onClick = onClick,
         modifier = Modifier
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.06f, maxElevation = 9.dp)
+            .tvFocusLift(focused = focused, shape = shape, maxElevation = 9.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -327,7 +327,7 @@ private fun SettingsButton(text: String, dangerous: Boolean = false, onClick: ()
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .tvFocusLift(focused, shape = shape, maxScale = 1.05f, maxElevation = 9.dp)
+            .tvFocusLift(focused, shape = shape, maxElevation = 9.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

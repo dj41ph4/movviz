@@ -156,6 +156,11 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun onDeckItems(): ApiResult<List<OnDeckEntryDto>> =
         safeCall { api.onDeck() }.map { it.items }
 
+    /** Toutes les positions de reprise encore valides — voir
+     *  PlaybackProgressDto pour la différence avec onDeckItems(). */
+    suspend fun playbackProgress(): ApiResult<List<PlaybackProgressDto>> =
+        safeCall { api.playbackProgress() }.map { it.items }
+
     /** File de téléchargement en cours — voir QueueItemDto. */
     suspend fun queue(): ApiResult<List<QueueItemDto>> =
         safeCall { api.queue() }.map { it.items }

@@ -461,7 +461,7 @@ private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() 
     Surface(
         onClick = handleClick,
         modifier = Modifier
-            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(handleClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -543,7 +543,7 @@ private fun DiscoverGenreChip(label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .tvFocusLift(focused, shape = shape, maxScale = 1.04f)
+            .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

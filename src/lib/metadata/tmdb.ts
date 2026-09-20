@@ -637,6 +637,12 @@ export async function getSeason(tmdbId: number, seasonNumber: number, preferLang
       airDate: e.air_date ?? null,
       overview: e.overview ?? "",
       stillPath: e.still_path ?? null,
+      // Deux champs que TMDb renvoie depuis toujours sur cette route et qui
+      // étaient simplement jetés ici. Un `runtime` à 0 existe sur les
+      // épisodes mal renseignés : traité comme absent, pour qu'un client
+      // affiche "rien" plutôt qu'un franc "0 min".
+      runtime: e.runtime && e.runtime > 0 ? e.runtime : null,
+      rating: e.vote_average ?? 0,
     })),
   };
 }
@@ -1563,5 +1569,7 @@ interface RawSeasonDetail {
     air_date?: string | null;
     overview?: string;
     still_path?: string | null;
+    runtime?: number | null;
+    vote_average?: number | null;
   }[];
 }

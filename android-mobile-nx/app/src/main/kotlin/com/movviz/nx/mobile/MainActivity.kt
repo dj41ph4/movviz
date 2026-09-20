@@ -266,6 +266,16 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         val cachedProfiles = viewModel.loadCachedProfiles()
         if (cachedProfiles.isNotEmpty()) {
             startDestination = ROUTE_PROFILES
+            // Le cache local décide où l'on ATTERRIT, il n'est pas pour
+            // autant la source de vérité de ce qu'on affiche. Nom et photo
+            // ont pu changer sur desktop depuis le dernier lancement, et ce
+            // retour anticipé sautait la seule réconciliation existante :
+            // dès que l'appareil connaissait un profil — c'est-à-dire à
+            // chaque démarrage sauf le tout premier — le picker restait figé
+            // sur la photo mémorisée au login, indéfiniment. La navigation
+            // reste donc local-first (startDestination est déjà décidé), la
+            // réconciliation part derrière et met les tuiles à jour en place.
+            launch { viewModel.refreshProfilesInBackground() }
             return@LaunchedEffect
         }
         val user = viewModel.refreshCurrentUser()

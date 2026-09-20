@@ -302,6 +302,31 @@ val MovvizIconDotCircle: ImageVector by lazy {
     }
 }
 
+/** ⓘ Informations — anneau + point et barre, même trait rond que le reste du
+ *  jeu. Ouvre la fiche détaillée d'un épisode sans lancer la lecture. */
+val MovvizIconInfo: ImageVector by lazy {
+    movvizIcon("MovvizIconInfo") {
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            fill = null,
+        ) {
+            moveTo(12f, 3.6f)
+            arcToRelative(8.4f, 8.4f, 0f, true, false, 0.01f, 0f)
+            close()
+        }
+        fillPath {
+            moveTo(12f, 6.6f)
+            arcToRelative(1.35f, 1.35f, 0f, true, false, 0.01f, 0f)
+            close()
+        }
+        stroke(2.2f) {
+            moveTo(12f, 10.9f)
+            lineTo(12f, 16.6f)
+        }
+    }
+}
+
 /** ↻ Recommencer depuis le début — flèche circulaire (chemin Material). */
 val MovvizIconReplay: ImageVector by lazy {
     movvizIcon("MovvizIconReplay") {

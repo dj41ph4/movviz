@@ -500,6 +500,17 @@ data class SeriesEpisodeDto(
     val plexRatingKey: String?,
     val playbackSource: String? = null,
     val plexLinkStatus: String? = null,
+    /** Date de diffusion venue de la BIBLIOTHÈQUE (LibraryEpisode.airDate),
+     *  pas de TMDb : elle est déjà dans le JSON de /api/library/series/{id}
+     *  et permet d'afficher une date même sans métadonnées de saison
+     *  chargées. TMDb (MetadataEpisodeDto.airDate) reste prioritaire quand
+     *  elle est disponible, puisqu'elle suit la langue demandée. */
+    val airDate: String? = null,
+    /** Fichier réellement présent en bibliothèque (résolution, codecs, HDR,
+     *  source). `LibraryEpisode.file` existe côté serveur et partait déjà
+     *  dans la réponse — le champ manquait simplement ici, donc Moshi le
+     *  jetait en silence. Null tant qu'aucun fichier n'est importé. */
+    val file: LibraryFileDto? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -527,6 +538,11 @@ data class MetadataEpisodeDto(
     val airDate: String? = null,
     val overview: String = "",
     val stillPath: String? = null,
+    /** Durée TMDb en minutes, null quand TMDb ne la connaît pas (épisode non
+     *  encore diffusé, fiche incomplète) — voir MetaEpisode côté serveur. */
+    val runtime: Int? = null,
+    /** Note TMDb de l'ÉPISODE, 0 quand personne n'a voté. */
+    val rating: Double = 0.0,
 )
 
 @JsonClass(generateAdapter = true)
@@ -794,6 +810,38 @@ data class TrailerSourceDto(
 @JsonClass(generateAdapter = true)
 data class OnDeckResponseDto(
     val items: List<OnDeckEntryDto> = emptyList(),
+)
+
+/**
+ * Miroir (partiel) de PlaybackProgress (src/lib/playback/progressStore.ts),
+ * servi par GET /api/playback/continue-watching.
+ *
+ * À NE PAS confondre avec OnDeckEntryDto : /api/plex/on-deck est délibérément
+ * réduit à UNE reprise par série (dédup `series:<tmdbId>`, la plus récente
+ * gagne), ce qui en fait la bonne source pour un CTA « Reprendre » et une
+ * mauvaise source pour une liste d'épisodes — deux épisodes commencés dans la
+ * même saison n'y coexistent jamais. Cette route-ci renvoie au contraire
+ * toutes les positions encore reprenables de l'utilisateur, ce qu'il faut
+ * pour incruster une barre de progression sur CHAQUE vignette concernée.
+ *
+ * Le rattachement à un épisode se fait par `ratingKey`, jamais par
+ * saison/épisode : le client TV n'envoie pas seasonNumber/episodeNumber à
+ * l'ouverture d'une session (voir PlaybackSessionRequest), donc ces deux
+ * champs sont vides pour tout ce qui a été lancé depuis cette app. La clé,
+ * elle, est exactement celle calculée par episodePlaybackTarget().
+ */
+@JsonClass(generateAdapter = true)
+data class PlaybackProgressDto(
+    val ratingKey: String,
+    val mediaType: String = "movie",
+    val durationMs: Long = 0L,
+    val resumeOffsetMs: Long? = null,
+    val watched: Boolean = false,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlaybackProgressResponseDto(
+    val items: List<PlaybackProgressDto> = emptyList(),
 )
 
 // Miroir (partiel) de ActivityMedia/ActivityDownload/QueueItem

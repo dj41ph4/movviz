@@ -1825,10 +1825,10 @@ private fun ControlButton(
             .size(size)
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             // tvFocusLift (Theme.kt) au lieu d'un scale() isolé — même lift
-            // "profondeur" que les cartes posters, maxScale un peu plus
+            // "profondeur" que les cartes posters, ombre un peu plus
             // marqué (1.12) : un petit bouton rond a besoin d'un delta plus
             // visible qu'une grande carte pour rester lisible au focus.
-            .tvFocusLift(focused, shape = CircleShape, maxScale = 1.12f)
+            .tvFocusLift(focused, shape = CircleShape)
             .onFocusChanged { focused = it.isFocused }
             .onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
@@ -1914,7 +1914,7 @@ private fun ErrorActionButton(
         onClick = onClick,
         modifier = Modifier
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -1958,7 +1958,7 @@ private fun NextEpisodeTeaser(
     Surface(
         onClick = onNextEpisode,
         modifier = modifier
-            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onNextEpisode),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -2028,7 +2028,7 @@ private fun SkipMarkerButton(
         onClick = onSkip,
         modifier = Modifier
             .focusRequester(focusRequester)
-            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onSkip),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

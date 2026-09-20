@@ -1,6 +1,5 @@
 package com.movviz.tv.ui.profile
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -56,7 +55,6 @@ fun ProfileTile(
     focusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.055f else 1f, label = "profile_scale")
     val shape = RoundedCornerShape(17.dp)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(116.dp)) {
@@ -65,11 +63,9 @@ fun ProfileTile(
             modifier = Modifier
                 .size(105.dp)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    shadowElevation = if (focused) 28f else 0f
-                }
+                // Ombre seule au focus, jamais de scale : un avatar ou une
+                // initiale incrustée se rééchantillonne mal pendant le zoom.
+                .graphicsLayer { shadowElevation = if (focused) 28f else 0f }
                 .onFocusChanged {
                     focused = it.isFocused
                     if (it.isFocused) onFocus()
@@ -130,7 +126,6 @@ fun ProfileTile(
 @Composable
 fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (focused) 1.055f else 1f, label = "profile_add_scale")
     val shape = RoundedCornerShape(17.dp)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(116.dp)) {
@@ -139,11 +134,8 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
             modifier = Modifier
                 .size(105.dp)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    shadowElevation = if (focused) 24f else 0f
-                }
+                // Même règle que la tuile de profil : ombre, pas de zoom.
+                .graphicsLayer { shadowElevation = if (focused) 24f else 0f }
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape),
