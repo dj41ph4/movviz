@@ -1,3 +1,12 @@
+## v1.25.59 — September 2026
+
+### Une série ne peut plus être téléchargée à la place d'un film
+
+- Une saison entière de série pouvait s'installer dans le dossier d'un film : « Resident Evil (2026) » et « Van Helsing (2021) » avaient reçu les 13 épisodes de `The Resident S06` et de `Van Helsing S04`, nommés « (2) » à « (13) » à côté du film. La sélection d'une release de film ne regardait que le titre et l'année : un nom d'épisode n'a pas d'année, donc il passait, et rien ne rejetait la mention de saison.
+- Un film refuse désormais toute release qui porte un marqueur de saison ou d'épisode (S04, S01E05, « Saison 2 »), à tous les endroits où il en choisit une : recherche automatique, scan des flux, mise à niveau de qualité et ajout d'une version. « Special Edition » et les titres comme « Season of the Witch » restent acceptés.
+- Le moteur film n'importe plus qu'un seul fichier vidéo par torrent, le plus gros, sans plus déverser les autres dans le dossier avec un suffixe. Un torrent « film » qui contient plusieurs fichiers d'épisodes n'est pas importé du tout, et le film retourne en « manquant ».
+- À faire à la main pour les titres déjà touchés : supprimer les fichiers en trop dans le dossier du film, puis remettre le film en « manquant » depuis sa fiche.
+
 ## v1.25.58 — September 2026
 
 ### Android TV : plus de plantage sur la rangée Genres, cartes de saison et cartes épurées

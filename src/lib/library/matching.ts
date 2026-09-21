@@ -278,6 +278,17 @@ export function yearIsCompatible(parsedYear: string | null, targetYear: number |
   return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 2;
 }
 
+// Explicit season/episode markers only (S01, S01E05, "Saison 2", "Season 3").
+// Deliberately NOT parseRelease().season: that one also flags "Special"/"OVA"
+// as season 0, which would wrongly reject a "Special Edition" movie release.
+// Mirrored in workers/releaseMatchWorker.mjs — keep in sync.
+const SERIES_MARKER_RE = /\bS\d{1,2}E\d{1,3}|\bS\d{1,2}\b|\b(?:Saisons?|Seasons?|Seizoen|Staffel|Temporadas?)[.\s]?\d{1,2}\b/i;
+
+/** True when a release name is plainly a TV season/episode, so it can never be a movie. */
+export function looksLikeSeriesRelease(releaseTitle: string): boolean {
+  return SERIES_MARKER_RE.test(releaseTitle);
+}
+
 /**
  * Series: the parsed season must match exactly. For a specific-episode search
  * the parsed episode must match too; for a season-pack search the release

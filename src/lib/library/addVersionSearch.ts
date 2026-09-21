@@ -2,7 +2,7 @@ import { getMovie, updateMovie } from "@/lib/library/store";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
+import { releaseTitleMatches, yearIsCompatible, looksLikeSeriesRelease } from "@/lib/library/matching";
 import { loadReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
@@ -59,6 +59,7 @@ function filterCandidates(
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []))
     .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+    .filter(({ release }) => !looksLikeSeriesRelease(release.title))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
     .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
     .map(({ release, parsed }) => ({

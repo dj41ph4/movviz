@@ -1,6 +1,6 @@
 import { readRssCache } from "@/lib/indexers/rssCache";
 import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
+import { releaseTitleMatches, yearIsCompatible, looksLikeSeriesRelease } from "@/lib/library/matching";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
@@ -25,6 +25,7 @@ async function rssMatchIndexersInner() {
   if (releases.length === 0) return { grabbed: 0 };
 
   const parsedReleases = releases.map((r) => parseRelease(r.title));
+  const seriesLike = new Set(parsedReleases.filter((_, i) => looksLikeSeriesRelease(releases[i].title)));
 
   const missingMovies = loadMovies().filter((m) => m.monitored && m.status === "missing");
   const missingSeasons: { seriesId: string; seriesTitle: string; seriesAliases: string[]; season: number }[] = [];
@@ -60,6 +61,7 @@ async function rssMatchIndexersInner() {
   for (const parsed of parsedReleases) {
     for (const movie of missingMovies) {
       if (grabbedMovies.has(movie.id)) continue;
+      if (seriesLike.has(parsed)) continue;
       if (!releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []) || !yearIsCompatible(parsed.year, movie.year)) continue;
       grabbedMovies.add(movie.id);
       await yieldToUser("match RSS films");

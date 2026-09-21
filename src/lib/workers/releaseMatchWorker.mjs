@@ -316,6 +316,9 @@ function yearIsCompatible(parsedYear, targetYear) {
   return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 2;
 }
 
+// Mirror of matching.ts's looksLikeSeriesRelease — a season/episode release can never be a movie.
+const SERIES_MARKER_RE = /\bS\d{1,2}E\d{1,3}|\bS\d{1,2}\b|\b(?:Saisons?|Seasons?|Seizoen|Staffel|Temporadas?)[.\s]?\d{1,2}\b/i;
+
 // Mirror of matching.ts's seasonEpisodeMatches + part-pack fallback — see
 // matching.ts for the full rationale (single-season series split in the DVD
 // order: part P ≥ 2 covers episodes ((P-1)*partSize+1 .. min(total, P*partSize))).
@@ -352,7 +355,7 @@ function matchReleases({ releases, targetTitle, aliases, targetYear, seasonNumbe
   );
   const step3 = isSeries
     ? step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber, partTotalEpisodes ?? null))
-    : step2.filter(({ parsed }) => yearIsCompatible(parsed.year, targetYear ?? null));
+    : step2.filter(({ idx, parsed }) => yearIsCompatible(parsed.year, targetYear ?? null) && !SERIES_MARKER_RE.test(releases[idx].title));
   const step4 = isSeries ? step3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true)) : step3;
 
   return {

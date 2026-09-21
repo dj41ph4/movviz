@@ -894,7 +894,22 @@ export class AbstractBackend {
       // by _cleanupDownloadFolder once the torrent finishes, so simply
       // leaving them out of `targets` here is enough — no separate delete needed.
       const nonJunk = availableFiles.filter((f) => !JUNK_EXT_RE.test(f.name));
-      const targets = videoFiles.length ? videoFiles : nonJunk;
+      let targets = videoFiles.length ? videoFiles : nonJunk;
+      // A movie is exactly one video file. Importing every file of a torrent
+      // into the movie folder is how a season pack ended up as 12 "Title
+      // (2026) (2).mkv … (13).mkv" (avoidCollision suffixes) next to the
+      // film: a torrent with several episode files is not a movie at all —
+      // import nothing (the library releases the movie back to "missing");
+      // otherwise keep only the largest file and leave extras/samples out.
+      if (this.cfg.category !== "series" && targets.length > 1) {
+        const episodic = targets.filter((f) => parseRelease(f.name).episode != null);
+        if (episodic.length >= 2) {
+          console.warn(`[engine:${this.cfg.id}][${this.cfg.logTag}]   ${snap.name} — ${episodic.length} fichiers d'épisodes dans un torrent « film » : import refusé`);
+          targets = [];
+        } else {
+          targets = [targets.reduce((a, b) => (b.length > a.length ? b : a))];
+        }
+      }
       const releaseInfo = parseRelease(snap.name);
       let firstDest = null;
       for (const file of targets) {

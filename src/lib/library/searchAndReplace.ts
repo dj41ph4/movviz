@@ -5,7 +5,7 @@ import { encodeLibraryRef } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
+import { releaseTitleMatches, yearIsCompatible, looksLikeSeriesRelease } from "@/lib/library/matching";
 import { withinSizeLimit, loadReleaseRules, normalizeCodec } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { applyCustomFormats, searchMovie } from "@/lib/indexers/torznab";
@@ -132,6 +132,7 @@ function computeSafeMatches(
   return parsedReleases
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []))
     .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+    .filter(({ release }) => !looksLikeSeriesRelease(release.title))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
     .filter(({ parsed }) => parsed.resolution && profile.allowedResolutions.includes(parsed.resolution))
     // Equal or better resolution only — a "replace" is never a downgrade in quality.
