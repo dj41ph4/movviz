@@ -38,6 +38,26 @@ jobs:
       - name: Repair native Compose focus graph
         run: python3 scripts/fix_dpad_v12550.py
 
+      - name: Opt in native Compose focus routing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          files = [
+              Path("android-tv-nx/app/src/main/kotlin/com/movviz/tv/MainActivity.kt"),
+              Path("android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/home/MainScreen.kt"),
+          ]
+          names = ["DetailFocusToNavHandler", "MainScreen"]
+          for path, name in zip(files, names):
+              text = path.read_text()
+              needle = f"@Composable\nprivate fun {name}(" if name.startswith("Detail") else f"@Composable\nfun {name}("
+              replacement = "@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)\n" + needle
+              if replacement not in text:
+                  if needle not in text:
+                      raise SystemExit(f"Composable {name} not found in {path}")
+                  text = text.replace(needle, replacement, 1)
+                  path.write_text(text)
+          PY
+
       - name: Compile Android TV after focus repair
         working-directory: android-tv-nx
         run: gradle :app:assembleDebug --no-daemon
