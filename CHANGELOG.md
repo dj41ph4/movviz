@@ -1,3 +1,11 @@
+## v1.25.52 — September 2026
+
+### Android TV : la photo de profil s'affiche dans la sidebar
+
+- Les trois pastilles de profil du rail (pied de rail, en-tête du menu, lignes de profil) n'acceptaient qu'un avatar en URL absolue : une photo servie en chemin relatif par Movviz n'était jamais résolue contre le serveur du profil et retombait silencieusement sur les initiales. Un avatar Plex expiré (401) laissait de son côté un rond vide, faute de repli sur erreur.
+- Elles utilisent désormais le même composant que le client mobile, où l'affichage fonctionne : résolution de l'URL relative, recadrage de l'image et retour aux initiales aussi bien en cas d'URL absente que d'échec réseau.
+- Aucun changement visuel : formes, tailles, corps des initiales et dégradé de repli restent identiques.
+
 ## v1.25.50 — September 2026
 
 ### Android TV : D-pad réparé après la refonte sidebar

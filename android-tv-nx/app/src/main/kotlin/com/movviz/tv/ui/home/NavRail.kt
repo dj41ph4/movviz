@@ -60,7 +60,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import com.movviz.tv.data.TvProfile
-import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -290,9 +289,15 @@ private fun ProfileFooterRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxHeight().aspectRatio(1f).clip(androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
-                    if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize().clip(avatarShape))
-                    else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-                        Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    if (active != null) {
+                        com.movviz.tv.ui.profile.AvatarImage(
+                            profile = active,
+                            modifier = Modifier.fillMaxSize(),
+                            shape = avatarShape,
+                            initialsFontSize = 10.sp,
+                        )
+                    } else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                        Text("?", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 AnimatedVisibility(visible = expanded, enter = fadeIn(tween(180)), exit = fadeOut(tween(100))) {
@@ -327,8 +332,14 @@ private fun ProfileFooterRow(
                     Column(Modifier.padding(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
                             Box(Modifier.size(26.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-                                if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize())
-                                else Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                if (active != null) {
+                                    com.movviz.tv.ui.profile.AvatarImage(
+                                        profile = active,
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                        initialsFontSize = 8.sp,
+                                    )
+                                } else Text("?", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.width(9.dp))
                             Column {
@@ -387,8 +398,12 @@ private fun MenuItem(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
             if (avatar != null) {
                 Box(Modifier.size(21.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-                    if (avatar.avatar?.startsWith("http") == true) AsyncImage(model = avatar.avatar, contentDescription = avatar.name, modifier = Modifier.fillMaxSize())
-                    else Text(avatar.name.take(2).uppercase(), color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    com.movviz.tv.ui.profile.AvatarImage(
+                        profile = avatar,
+                        modifier = Modifier.fillMaxSize(),
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        initialsFontSize = 8.sp,
+                    )
                 }
                 Spacer(Modifier.width(8.dp))
             } else if (leadingIcon != null) {

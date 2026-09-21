@@ -183,15 +183,25 @@ fun resolveAvatarUrl(avatar: String?, serverUrl: String?): String? {
     return null
 }
 
+/** Photo de profil unique de l'app (picker, fiche profil, rail) : image
+ *  chargée via Coil, repli initiales en cas d'URL absente OU d'échec réseau
+ *  (401 avatar Plex expiré → initiales, jamais un rond vide). Copie conforme
+ *  du composant du client mobile NX, dont le rendu est celui qui marche. */
 @Composable
-fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 8.dp) {
-    val shape = RoundedCornerShape(cornerRadius)
+fun AvatarImage(
+    profile: TvProfile,
+    modifier: Modifier = Modifier,
+    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(8.dp),
+    initialsFontSize: androidx.compose.ui.unit.TextUnit = 26.sp,
+    contentDescription: String? = null,
+) {
     val url = resolveAvatarUrl(profile.avatar, profile.serverUrl)
     var failed by remember(url) { mutableStateOf(false) }
     if (url != null && !failed) {
         AsyncImage(
             model = url,
-            contentDescription = profile.name,
+            contentDescription = contentDescription ?: profile.name,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             onError = { failed = true },
             modifier = modifier.clip(shape),
         )
@@ -200,7 +210,22 @@ fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadiu
             modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
             contentAlignment = Alignment.Center,
         ) {
-            Text(profile.name.take(2).uppercase(), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black)
+            Text(
+                profile.name.take(2).uppercase(),
+                color = Color.White,
+                fontSize = initialsFontSize,
+                fontWeight = FontWeight.Black,
+            )
         }
     }
+}
+
+@Composable
+fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 8.dp) {
+    AvatarImage(
+        profile = profile,
+        modifier = modifier,
+        shape = RoundedCornerShape(cornerRadius),
+        initialsFontSize = 26.sp,
+    )
 }
