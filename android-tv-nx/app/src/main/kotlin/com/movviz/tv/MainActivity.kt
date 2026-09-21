@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -189,6 +190,16 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // sans voler le focus vers la NavRail — sinon BACK ne revient jamais
     // sur la carte d'origine. Le 300 ms garantit que la TvLazyRow est
     // recomposée avant de redemander le focus contenu.
+    // Le focus rentre dans le CONTENU et n'en sort que sur un LEFT de
+    // l'utilisateur : aucun repli vers la sidebar quand la cible n'est pas
+    // encore attachée, on réessaie sur quelques images en respectant le
+    // booléen réellement renvoyé par requestFocus().
+    suspend fun enterContent() {
+        repeat(30) { attempt ->
+            if (runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)) return
+            if (attempt < 29) withFrameNanos { }
+        }
+    }
     var previousRoute by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentRoute) {
         if (currentRoute?.startsWith("home") == true &&
@@ -196,10 +207,20 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             previousRoute?.startsWith("home") != true
         ) {
             delay(300)
-            val restored = runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)
-            if (!restored) runCatching { navRailFocusRequester.requestFocus() }
+            enterContent()
         }
         previousRoute = currentRoute
+    }
+    // Changement de page depuis la sidebar : le focus passe dans la nouvelle
+    // page au lieu de rester sur l'onglet cliqué. La recherche garde son
+    // propre focus (champ de saisie).
+    var previousTab by remember { mutableStateOf(tab) }
+    LaunchedEffect(tab) {
+        if (tab == previousTab) return@LaunchedEffect
+        previousTab = tab
+        if (tab == HomeTab.SEARCH) return@LaunchedEffect
+        delay(120)
+        enterContent()
     }
 
 // Démarrage façon Netflix : URL inconnue → wizard ; sinon, on vérifie

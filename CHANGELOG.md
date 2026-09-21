@@ -1,3 +1,14 @@
+## v1.25.56 — September 2026
+
+### Android TV : bande-annonce, focus qui reste dans le contenu, finitions des fiches
+
+- Les fiches film et série ont un bouton « Bande-annonce » : lecture plein écran avec le son, à partir des mêmes bandes-annonces que sur le desktop (YouTube d’abord, puis les sources directes en dernier recours). OK ou lecture/pause bascule la lecture, gauche et droite reculent ou avancent de 10 secondes (maintenir répète), Retour referme et rend le focus au bouton. Une barre affiche le temps écoulé, la progression et la durée à chaque touche puis s’efface seule, et reste visible en pause ; un retour visuel confirme chaque action.
+- Le voile sombre du haut des fiches couvre désormais toute la hauteur de l'image : il laissait une bande d'image à nu, puis une coupure nette en bas.
+- Dans une fiche série, plus aucune saison n'a de contour permanent : toutes ont la même bordure discrète au repos, et seule la carte qui a le focus reçoit le contour de marque, ce qui supprimait la confusion entre « sélectionnée » et « focalisée ».
+- Le focus ne retombe plus dans la sidebar en changeant de page. Après un clic sur un onglet, il entre dans la nouvelle page. Au retour d'une fiche vers l'accueil, la demande de focus réessaie sans jamais se replier sur la sidebar. Au retour d'une page de saison, le focus revient sur la carte de cette saison, et au retour de la fiche d'un épisode, sur la carte de cet épisode.
+- Le message affiché pendant une mise à jour disait que l'application allait redémarrer toute seule, ce qui n'est pas le cas : il demande maintenant de redémarrer l'application après la mise à jour (TV et mobile).
+- Aucune interception de touche ajoutée dans la sidebar ni dans les pages : seules la lecture de la bande-annonce gère ses propres touches, à l'intérieur de son écran.
+
 ## v1.25.55 — September 2026
 
 ### Android TV : fiche épisode façon Plex, accueil Films / Séries TV, photo de profil

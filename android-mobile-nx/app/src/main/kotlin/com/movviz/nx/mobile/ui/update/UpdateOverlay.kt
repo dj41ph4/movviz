@@ -326,7 +326,7 @@ fun UpdateOverlay(
                     }
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        text = "L'application va redémarrer automatiquement",
+                        text = "Redémarre l'application après la mise à jour",
                         style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f)),
                     )
                 }

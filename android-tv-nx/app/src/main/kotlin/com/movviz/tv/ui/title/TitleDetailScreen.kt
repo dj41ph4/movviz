@@ -87,6 +87,7 @@ import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizIconCheck
 import com.movviz.tv.ui.theme.MovvizIconDownload
+import com.movviz.tv.ui.theme.MovvizIconFilm
 import com.movviz.tv.ui.theme.MovvizIconInfo
 import com.movviz.tv.ui.theme.MovvizIconPlay
 import com.movviz.tv.ui.theme.MovvizIconPlus
@@ -113,6 +114,7 @@ import kotlinx.coroutines.launch
 // w1280, PAS "original" : un backdrop plein écran en "original" télécharge
 // jusqu'à 4000px de large pour un écran TV 1080p — gaspillage réseau et
 // mémoire inutile (même raisonnement que le hero, HomeScreen.kt).
+private val BACKDROP_HEIGHT = 480.dp
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
 // Les captures d'épisode sont affichées en petits formats : w780 suffit
 // largement, l'original est du gaspillage pur.
@@ -178,6 +180,23 @@ fun TitleDetailScreen(
     // la liste d'épisodes garde tout l'espace et un parcours D-pad simple.
     var openSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(initialSeasonNumber) }
     var selectedEpisode by remember(type, tmdbId) { mutableStateOf<EpisodeSelection?>(null) }
+    // Cartes de saison de la fiche : au retour d'une page de saison, le focus
+    // revient sur la carte d'où l'on vient, jamais vers la sidebar.
+    val seasonCardFocus = remember(type, tmdbId) { mutableMapOf<Int, FocusRequester>() }
+    // Bande-annonce plein écran (même source que le desktop) : niveau d'écran
+    // au-dessus de la fiche ; à sa fermeture le focus revient sur son bouton.
+    var trailerOpen by remember(type, tmdbId) { mutableStateOf(false) }
+    var trailerWasOpened by remember(type, tmdbId) { mutableStateOf(false) }
+    val trailerButtonFocus = remember(type, tmdbId) { FocusRequester() }
+    LaunchedEffect(trailerOpen) {
+        if (trailerOpen) { trailerWasOpened = true; return@LaunchedEffect }
+        if (!trailerWasOpened) return@LaunchedEffect
+        repeat(20) { attempt ->
+            if (runCatching { trailerButtonFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
+        }
+    }
+    var lastOpenedSeason by remember(type, tmdbId) { mutableStateOf<Int?>(null) }
     // Une fiche ouverte depuis Reprendre attend la résolution locale avant de
     // choisir son CTA : Plex est optionnel, l'index de fichiers fait foi.
     var libraryResolved by remember(type, tmdbId) { mutableStateOf(false) }
@@ -534,7 +553,8 @@ fun TitleDetailScreen(
             // L'action principale n'existe que pour les films prêts ou à
             // ajouter. Si elle n'est pas composée, l'ancre de titre reste le
             // repli fiable pour les séries et états transitoires.
-            val granted = runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false) ||
+            val granted = lastOpenedSeason?.let { seasonCardFocus[it] }?.let { card -> runCatching { card.requestFocus() }.getOrDefault(false) } == true ||
+                runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false) ||
                 runCatching { initialFocusRequester.requestFocus() }.getOrDefault(false)
             if (granted) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
@@ -576,9 +596,9 @@ fun TitleDetailScreen(
     // Parallax du backdrop (effet profondeur Apple TV) : l'image glisse à
     // 0.4x la vitesse de la liste pendant le scroll. Limité aux premiers
     // ~200dp de scroll — le backdrop sort du champ ensuite, l'effet est
-    // plafonné et invisible de toute façon. L'image fait 640dp pour 560dp
-    // visibles : les 80dp de marge absorbent la translation sans jamais
-    // révéler de trou sous le dégradé.
+    // plafonné et invisible de toute façon. Les voiles ont la même hauteur
+    // que l'image (BACKDROP_HEIGHT) : le bas reste opaque et aucun bord
+    // d'image ne se devine, même décalé par la parallaxe.
     val parallaxOffset by remember {
         derivedStateOf {
             val scroll = if (lazyListState.firstVisibleItemIndex == 0) {
@@ -611,7 +631,7 @@ fun TitleDetailScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(480.dp)
+                    .height(BACKDROP_HEIGHT)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         } else {
@@ -630,7 +650,7 @@ fun TitleDetailScreen(
                 title = preview?.title ?: detail?.title.orEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(480.dp)
+                    .height(BACKDROP_HEIGHT)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         }
@@ -638,10 +658,12 @@ fun TitleDetailScreen(
         // Même double dégradé que le web (vertical pour la lisibilité du bas,
         // horizontal pour ancrer le texte à gauche) — juste transposé à des
         // Brush Compose au lieu de classes Tailwind.
+        // Les voiles couvrent TOUTE la hauteur de l image (480dp) : à 420dp ils
+        // laissaient 60dp d image à nu puis une coupure nette en bas.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(420.dp)
+                .height(BACKDROP_HEIGHT)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.75f), MaterialTheme.colorScheme.background),
@@ -651,7 +673,7 @@ fun TitleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(420.dp)
+                .height(BACKDROP_HEIGHT)
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.55f), Color.Transparent),
@@ -757,7 +779,7 @@ fun TitleDetailScreen(
                 // d'entrée). Hors overlay, la chaîne doit rester exactement
                 // celle d'avant.
                 .then(
-                    if (seasonPageOpen || episodePageOpen) {
+                    if (seasonPageOpen || episodePageOpen || trailerOpen) {
                         Modifier.focusProperties { canFocus = false }.focusGroup()
                     } else Modifier,
                 ),
@@ -1142,6 +1164,19 @@ fun TitleDetailScreen(
                 }
             }
 
+            // Bande-annonce : clés YouTube de la fiche (contexte "Trailer", comme
+            // le bouton du desktop) puis sources directes de /api/tv/preview.
+            val trailerDirectSources = ambientPreview?.directSources.orEmpty()
+            if (hasTrailer(d.trailerKeys, trailerDirectSources)) {
+                Spacer(modifier = Modifier.height(9.dp))
+                PrimaryPill(
+                    text = "Bande-annonce",
+                    brush = null,
+                    icon = MovvizIconFilm,
+                    focusRequester = trailerButtonFocus,
+                ) { trailerOpen = true }
+            }
+
             if (type == "series" && seriesWatchTargets.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(9.dp))
                 PrimaryPill(
@@ -1186,9 +1221,10 @@ fun TitleDetailScreen(
                             seasons = visibleSeasons,
                             metadataBySeasonNumber = seasonMetadataByNumber,
                             watchedEpisodeKeys = watchedEpisodeKeys,
-                            selectedSeasonNumber = selectedSeasonNumber,
+                            focusRequesterFor = { seasonCardFocus.getOrPut(it) { FocusRequester() } },
                             onSelect = {
                                 selectedSeasonNumber = it
+                                lastOpenedSeason = it
                                 openSeasonNumber = it
                             },
                         )
@@ -1283,6 +1319,15 @@ fun TitleDetailScreen(
                     )
                 },
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber) },
+            )
+        }
+
+        if (trailerOpen) {
+            TrailerOverlay(
+                title = d.title,
+                youtubeKeys = d.trailerKeys,
+                directSources = ambientPreview?.directSources.orEmpty(),
+                onClose = { trailerOpen = false },
             )
         }
     }
@@ -1381,7 +1426,7 @@ private fun SeasonSelector(
     seasons: List<SeriesSeasonDto>,
     metadataBySeasonNumber: Map<Int, com.movviz.tv.data.MetadataSeasonDto> = emptyMap(),
     watchedEpisodeKeys: Set<String> = emptySet(),
-    selectedSeasonNumber: Int?,
+    focusRequesterFor: (Int) -> FocusRequester,
     onSelect: (Int) -> Unit,
 ) {
     Column(modifier = Modifier.padding(bottom = 15.dp)) {
@@ -1389,7 +1434,6 @@ private fun SeasonSelector(
         Spacer(modifier = Modifier.height(9.dp))
         TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
-                val selected = season.seasonNumber == selectedSeasonNumber
                 val seasonPosterPath = metadataBySeasonNumber[season.seasonNumber]?.posterPath
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(8.dp)
@@ -1417,6 +1461,7 @@ private fun SeasonSelector(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(2f / 3f)
+                            .focusRequester(focusRequesterFor(season.seasonNumber))
                             .tvCardFocusHalo(focused, shape)
                             .onFocusChanged { focused = it.isFocused }
                             .tvPointerClick { onSelect(season.seasonNumber) },
@@ -1424,7 +1469,7 @@ private fun SeasonSelector(
                         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
                         border = ClickableSurfaceDefaults.border(
                             border = Border(
-                                border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MovvizBrand2 else Color.White.copy(alpha = 0.12f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
                                 shape = shape,
                             ),
                             focusedBorder = Border(
@@ -1448,15 +1493,14 @@ private fun SeasonSelector(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = if (selected) 0.12f else 0.28f)),
+                                        .background(Color.Black.copy(alpha = 0.28f)),
                                 )
                             } else {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(
-                                            if (selected) Brush.linearGradient(listOf(MovvizBrand3.copy(alpha = 0.55f), MovvizBrand.copy(alpha = 0.55f), MovvizBrand2.copy(alpha = 0.55f)))
-                                            else Brush.linearGradient(listOf(MovvizSurfaceStrong, MovvizSurface)),
+                                            Brush.linearGradient(listOf(MovvizSurfaceStrong, MovvizSurface)),
                                         ),
                                 )
                             }
@@ -1512,7 +1556,7 @@ private fun SeasonSelector(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = seasonLabel,
-                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else MovvizInkSoft),
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (focused) Color.White else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1613,6 +1657,18 @@ private fun SeasonPageOverlay(
     // Désactivé quand la fiche d'un épisode est ouverte : Retour doit fermer
     // UN niveau, jamais deux, sans dépendre d'un ordre d'enregistrement.
     BackHandler(enabled = !focusLocked, onBack = onBack)
+    // Retour de la fiche d'un épisode : le focus revient sur SA carte dans la
+    // grille, pas sur la sidebar ni sur le premier épisode.
+    val episodeCardFocus = remember(season.seasonNumber) { mutableMapOf<Int, FocusRequester>() }
+    var lastOpenedEpisode by remember(season.seasonNumber) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(focusLocked) {
+        val target = lastOpenedEpisode?.let { episodeCardFocus[it] } ?: return@LaunchedEffect
+        if (focusLocked) return@LaunchedEffect
+        repeat(20) { attempt ->
+            if (runCatching { target.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
+        }
+    }
     val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
     val firstEpisodeFocus = remember { FocusRequester() }
     val primaryActionFocus = remember { FocusRequester() }
@@ -1709,7 +1765,11 @@ private fun SeasonPageOverlay(
                         queueItem = episodeDownloads[key],
                         progress = episodeProgress[key],
                         focusRequester = if (episode.episodeNumber == landingEpisode?.episodeNumber) firstEpisodeFocus else null,
-                        onOpenDetails = { onOpenEpisode(episode, metadataByEpisode[episode.episodeNumber]) },
+                        returnFocusRequester = episodeCardFocus.getOrPut(episode.episodeNumber) { FocusRequester() },
+                        onOpenDetails = {
+                            lastOpenedEpisode = episode.episodeNumber
+                            onOpenEpisode(episode, metadataByEpisode[episode.episodeNumber])
+                        },
                     )
                 }
             }
@@ -1857,6 +1917,7 @@ private fun EpisodeGridCard(
     queueItem: QueueItemDto? = null,
     progress: com.movviz.tv.data.PlaybackProgressDto? = null,
     focusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
     onOpenDetails: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -1874,6 +1935,7 @@ private fun EpisodeGridCard(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .let { if (returnFocusRequester != null) it.focusRequester(returnFocusRequester) else it }
                 .tvCardFocusHalo(focused, shape = shape)
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onOpenDetails),
