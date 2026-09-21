@@ -476,7 +476,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     },
                     onSearchQueryChange = { searchQuery = it },
                     profiles = viewModel.profiles.collectAsState().value,
-                    activeProfile = viewModel.activeProfile.collectAsState().value,
+                    activeProfile = portraitActiveProfile,
                     onProfileSelected = { profile ->
                         scope.launch {
                             if (viewModel.selectProfile(profile) is com.movviz.nx.mobile.data.ApiResult.Success) {
