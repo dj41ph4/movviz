@@ -541,10 +541,10 @@ composable(ROUTE_PROFILES) {
                 tmdbId = tmdbId,
                 initialSeasonNumber = season,
                 initialEpisodeNumber = episode,
-                onPlay = { title, queue, startIndex, posterPath ->
+                onPlay = { title, queue, startIndex, posterPath, resumeMs ->
                     val url = baseUrl ?: return@TitleDetailScreen
                     context.startActivity(
-                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, posterPath = posterPath, profileId = viewModel.currentUser.value?.id),
+                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, posterPath = posterPath, profileId = viewModel.currentUser.value?.id, resumeMs = resumeMs),
                     )
                 },
                 onPlayFromStart = { title, queue, startIndex, posterPath ->

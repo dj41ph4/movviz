@@ -53,6 +53,7 @@ import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 
 private enum class CatalogSort(val label: String) {
+    RECENT("Récemment ajouté"),
     NAME("Nom"),
     RATING("Note"),
     YEAR("Année"),
@@ -104,15 +105,20 @@ fun CatalogScreen(
         }
     }
 
-    var sort by remember(type) { mutableStateOf(CatalogSort.NAME) }
+    // Date d'ajout à la bibliothèque, par carte, pour le tri « Récemment ajouté ».
+    val addedAtById = remember(movies, series, type) {
+        if (type == HomeTab.MOVIES) movies.associate { it.id to it.addedAt } else series.associate { it.id to it.addedAt }
+    }
+    var sort by remember(type) { mutableStateOf(CatalogSort.RECENT) }
     var selectedGenre by remember(type) { mutableStateOf<CatalogGenreSelection?>(null) }
 
     val filtered = remember(cards, selectedGenre) {
         val selection = selectedGenre
         if (selection == null) cards else cards.filter { cardMatchesCatalogGenre(it, selection) }
     }
-    val sorted = remember(filtered, sort) {
+    val sorted = remember(filtered, sort, addedAtById) {
         when (sort) {
+            CatalogSort.RECENT -> filtered.sortedByDescending { addedAtById[it.id] ?: 0L }
             CatalogSort.NAME -> filtered.sortedBy { it.title.lowercase() }
             CatalogSort.RATING -> filtered.sortedByDescending { it.rating }
             CatalogSort.YEAR -> filtered.sortedByDescending { it.year ?: 0 }

@@ -1,3 +1,13 @@
+## v1.25.61 — September 2026
+
+### Android TV : lecture et reprise fiabilisées, temps du transcodage audio, tri « Récemment ajouté »
+
+- Le temps s'affichait « 0:00 » et la barre ne bougeait pas quand l'audio d'un fichier n'est pas décodable par la TV (le serveur envoie alors un flux sans durée ni index). La position affichée est maintenant le point de départ plus le temps de lecture, la durée vient des informations du fichier, et avancer ou reculer redemande le flux au serveur à la nouvelle position. La reprise, l'enregistrement de la position, l'enchaînement d'épisode et les marqueurs d'intro suivent cette même position.
+- Les boutons de lecture de la série, de la saison et de la fiche épisode passent par un seul chemin. Le bouton « Reprendre à … » transmet au lecteur la position qu'il annonce, au lieu que le lecteur la recalcule autrement : un épisode entamé mais qui n'était pas le dernier de sa série repartait du début malgré le libellé. Sans reprise, l'épisode démarre du début, et un épisode introuvable dans la file de lecture le dit au lieu de ne rien faire.
+- La fiche d'un épisode a un bouton « Du début » à côté de « Reprendre », et une reprise vue sur l'accueil apparaît aussi sur la fiche.
+- Après « Retour » depuis une fiche épisode ouverte par « Continuer à regarder », le focus revient sur la carte de l'épisode au lieu de retomber sur la barre latérale.
+- Bibliothèque Films et Séries : nouveau tri « Récemment ajouté », placé avant Nom, Note et Année et choisi par défaut.
+
 ## v1.25.60 — September 2026
 
 ### Android TV : boutons côte à côte et « vu » en simple icône, marque-page rond sur desktop

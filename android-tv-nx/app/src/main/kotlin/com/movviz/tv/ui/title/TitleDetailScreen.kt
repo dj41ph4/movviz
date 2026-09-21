@@ -145,7 +145,9 @@ fun TitleDetailScreen(
     viewModel: AppViewModel,
     type: String,
     tmdbId: Int,
-    onPlay: (title: String, queue: List<QueueItem>, startIndex: Int, posterPath: String?) -> Unit,
+    /** `resumeMs` : position annoncée par le bouton « Reprendre à … » — le
+     *  lecteur la reprend telle quelle au lieu de la recalculer. */
+    onPlay: (title: String, queue: List<QueueItem>, startIndex: Int, posterPath: String?, resumeMs: Long?) -> Unit,
     onPlayFromStart: (title: String, queue: List<QueueItem>, startIndex: Int, posterPath: String?) -> Unit,
     // Navigation vers un AUTRE titre depuis cette même fiche — sert la
     // rangée "Titres similaires" plus bas (clic → nouvelle fiche, poussée
@@ -438,8 +440,8 @@ fun TitleDetailScreen(
     // Source volontairement différente de continueWatching, dédupliqué à une
     // seule reprise par série — voir PlaybackProgressDto.
     val playbackProgress by viewModel.playbackProgress.collectAsState()
-    val episodeProgress = remember(seasons, localSeriesId, playbackProgress) {
-        if (type != "series" || playbackProgress.isEmpty()) emptyMap()
+    val episodeProgress = remember(seasons, localSeriesId, playbackProgress, continueWatching) {
+        if (type != "series" || (playbackProgress.isEmpty() && continueWatching.isEmpty())) emptyMap()
         else buildMap {
             seasons.forEach { season ->
                 season.episodes.forEach { ep ->
@@ -455,6 +457,18 @@ fun TitleDetailScreen(
                     }
                 }
             }
+            // La reprise vue sur l'accueil (Continuer à regarder) doit aussi
+            // apparaître sur la fiche : quand les deux sources ne s'accordent pas
+            // sur la clé de l'épisode, l'entrée « on-deck » complète la carte au
+            // lieu de laisser « Lecture » repartir du début.
+            continueWatching
+                .filter { it.type == "episode" && it.tmdbId == tmdbId && it.seasonNumber != null && it.episodeNumber != null && it.offsetMs > 0L }
+                .forEach { entry ->
+                    val key = "${entry.seasonNumber}.${entry.episodeNumber}"
+                    if (!containsKey(key)) {
+                        put(key, com.movviz.tv.data.PlaybackProgressDto(ratingKey = "", mediaType = "episode", durationMs = entry.durationMs ?: 0L, resumeOffsetMs = entry.offsetMs))
+                    }
+                }
         }
     }
 
@@ -732,6 +746,29 @@ fun TitleDetailScreen(
         // la saison 1 encadrée comme si elle était choisie.
         val detailReadyAt = remember(d.tmdbId) { android.os.SystemClock.uptimeMillis() }
         var seasonFocusGuardUsed by remember(d.tmdbId) { mutableStateOf(false) }
+        // UN SEUL chemin de lecture d'un épisode pour tous les boutons (série,
+        // saison, fiche épisode) : la position de reprise vient de la même
+        // source que le libellé « Reprendre à … » et est transmise au lecteur ;
+        // sans reprise, l'épisode démarre du début (jamais d'une position
+        // périmée). Un épisode introuvable dans la file le dit au lieu de ne
+        // rien faire.
+        val playContext = androidx.compose.ui.platform.LocalContext.current
+        fun episodeResumeMs(seasonNumber: Int, episodeNumber: Int): Long? {
+            val key = "$seasonNumber.$episodeNumber"
+            if (watchedEpisodeKeys.contains(key)) return null
+            return episodeProgress[key]?.resumeOffsetMs?.takeIf { it > 5_000L }
+        }
+        fun playEpisode(seasonNumber: Int, episodeNumber: Int, resumeMs: Long?, fromStart: Boolean = false) {
+            val index = playableEpisodes.indexOfFirst {
+                it.seasonNumber == seasonNumber && it.episodeNumber == episodeNumber
+            }
+            if (index < 0) {
+                android.widget.Toast.makeText(playContext, "Cet épisode n'est pas encore lisible", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (fromStart || resumeMs == null) onPlayFromStart(d.title, playableEpisodes, index, d.posterPath)
+            else onPlay(d.title, playableEpisodes, index, d.posterPath, resumeMs)
+        }
         val titleLogoPath = heroLogos["$type-$tmdbId"]
         var showTitleFallback by remember(titleLogoPath, d.tmdbId) { mutableStateOf(false) }
         LaunchedEffect(titleLogoPath, d.tmdbId) {
@@ -1035,7 +1072,9 @@ fun TitleDetailScreen(
                                 icon = MovvizIconPlay,
                                 focusRequester = primaryActionFocusRequester,
                             ) {
-                                onPlay(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
+                                val movieQueue = listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId))
+                                if (movieResume != null) onPlay(d.title, movieQueue, 0, d.posterPath, movieResume.offsetMs)
+                                else onPlayFromStart(d.title, movieQueue, 0, d.posterPath)
                             }
                             if (movieResume != null) {
                                 PrimaryPill(text = "Lire depuis le début", brush = null, icon = MovvizIconReplay) {
@@ -1175,10 +1214,9 @@ fun TitleDetailScreen(
                             // s'ouvrait « coincée dans la sidebar ».
                             focusRequester = primaryActionFocusRequester,
                         ) {
-                            val index = playableEpisodes.indexOfFirst {
-                                it.seasonNumber == episodeResume.seasonNumber && it.episodeNumber == episodeResume.episodeNumber
-                            }
-                            if (index >= 0) onPlay(d.title, playableEpisodes, index, d.posterPath)
+                            val resumeSeason = episodeResume.seasonNumber
+                            val resumeEpisode = episodeResume.episodeNumber
+                            if (resumeSeason != null && resumeEpisode != null) playEpisode(resumeSeason, resumeEpisode, episodeResume.offsetMs)
                         }
                         trailerAction()
                         seriesWatchAction()
@@ -1192,6 +1230,7 @@ fun TitleDetailScreen(
                 // (ou le premier, série entièrement vue), comme le « Lire »
                 // d'une fiche série Plex.
                 val nextWatched = watchedEpisodeKeys.contains("${nextEpisode.seasonNumber}.${nextEpisode.episodeNumber}")
+                val nextResume = episodeResumeMs(nextEpisode.seasonNumber, nextEpisode.episodeNumber)
                 Column {
                     Text(
                         text = "S${nextEpisode.seasonNumber} · Ép ${nextEpisode.episodeNumber}",
@@ -1200,7 +1239,11 @@ fun TitleDetailScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         PrimaryPill(
-                            text = if (nextWatched) "Revoir depuis le début" else "Lire S${nextEpisode.seasonNumber} · Ép ${nextEpisode.episodeNumber}",
+                            text = when {
+                                nextWatched -> "Revoir depuis le début"
+                                nextResume != null -> "Reprendre à ${formatResumeTime(nextResume)}"
+                                else -> "Lire S${nextEpisode.seasonNumber} · Ép ${nextEpisode.episodeNumber}"
+                            },
                             brush = null,
 
                             icon = if (nextWatched) MovvizIconReplay else MovvizIconPlay,
@@ -1208,7 +1251,7 @@ fun TitleDetailScreen(
                             // la cible du focus d'ouverture d'une fiche série.
                             focusRequester = primaryActionFocusRequester,
                         ) {
-                            onPlay(d.title, playableEpisodes, nextEpisodeIndex, d.posterPath)
+                            playEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber, nextResume, fromStart = nextWatched)
                         }
                         trailerAction()
                         seriesWatchAction()
@@ -1316,10 +1359,11 @@ fun TitleDetailScreen(
                     viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = "season", season = openSeason.seasonNumber)
                 },
                 onPlayEpisode = { episode ->
-                    val index = playableEpisodes.indexOfFirst {
-                        it.seasonNumber == openSeason.seasonNumber && it.episodeNumber == episode.episodeNumber
-                    }
-                    if (index >= 0) onPlay(d.title, playableEpisodes, index, d.posterPath)
+                    playEpisode(
+                        openSeason.seasonNumber,
+                        episode.episodeNumber,
+                        episodeResumeMs(openSeason.seasonNumber, episode.episodeNumber),
+                    )
                 },
                 onOpenEpisode = { episode, metadataEpisode ->
                     selectedEpisode = EpisodeSelection(openSeason, episode, metadataEpisode)
@@ -1341,13 +1385,13 @@ fun TitleDetailScreen(
                 progress = episodeProgress[episodeKey],
                 onDismiss = { selectedEpisode = null },
                 onPlay = {
-                    val index = playableEpisodes.indexOfFirst {
-                        it.seasonNumber == selection.season.seasonNumber && it.episodeNumber == selection.episode.episodeNumber
-                    }
-                    if (index >= 0) {
-                        selectedEpisode = null
-                        onPlay(d.title, playableEpisodes, index, d.posterPath)
-                    }
+                    val resume = episodeResumeMs(selection.season.seasonNumber, selection.episode.episodeNumber)
+                    selectedEpisode = null
+                    playEpisode(selection.season.seasonNumber, selection.episode.episodeNumber, resume)
+                },
+                onPlayFromStart = {
+                    selectedEpisode = null
+                    playEpisode(selection.season.seasonNumber, selection.episode.episodeNumber, null, fromStart = true)
                 },
                 onToggleWatched = { watched ->
                     viewModel.toggleEpisodeWatched(
@@ -1696,18 +1740,28 @@ private fun SeasonPageOverlay(
     // grille, pas sur la sidebar ni sur le premier épisode.
     val episodeCardFocus = remember(season.seasonNumber) { mutableMapOf<Int, FocusRequester>() }
     var lastOpenedEpisode by remember(season.seasonNumber) { mutableStateOf<Int?>(null) }
-    LaunchedEffect(focusLocked) {
-        val target = lastOpenedEpisode?.let { episodeCardFocus[it] } ?: return@LaunchedEffect
-        if (focusLocked) return@LaunchedEffect
-        repeat(20) { attempt ->
-            if (runCatching { target.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
-            if (attempt < 19) withFrameNanos { }
-        }
-    }
     val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
     val firstEpisodeFocus = remember { FocusRequester() }
     val primaryActionFocus = remember { FocusRequester() }
     val backFocus = remember { FocusRequester() }
+    var episodePageWasOpen by remember(season.seasonNumber) { mutableStateOf(false) }
+    LaunchedEffect(focusLocked) {
+        if (focusLocked) { episodePageWasOpen = true; return@LaunchedEffect }
+        if (!episodePageWasOpen) return@LaunchedEffect
+        // Carte d'origine si on la connaît ; sinon (fiche ouverte par « Continuer
+        // à regarder ») le premier épisode lisible, puis les actions de l'en-tête :
+        // le focus ne doit jamais retomber sur la sidebar ni se perdre.
+        val targets = listOfNotNull(
+            lastOpenedEpisode?.let { episodeCardFocus[it] },
+            firstEpisodeFocus,
+            primaryActionFocus,
+            backFocus,
+        )
+        repeat(20) { attempt ->
+            if (targets.any { runCatching { it.requestFocus() }.getOrDefault(false) }) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
+        }
+    }
     fun playable(ep: SeriesEpisodeDto) =
         (ep.plexRatingKey != null || ep.playbackSource == "movviz") && ep.status == "available"
     val landingEpisode = remember(season, watchedEpisodeKeys) {
@@ -1781,6 +1835,7 @@ private fun SeasonPageOverlay(
                         season = season,
                         metadata = metadata,
                         watchedEpisodeKeys = watchedEpisodeKeys,
+                        episodeProgress = episodeProgress,
                         downloading = downloading,
                         landingEpisode = landingEpisode,
                         primaryActionFocus = primaryActionFocus,
@@ -1823,6 +1878,7 @@ private fun SeasonPageHeader(
     season: SeriesSeasonDto,
     metadata: com.movviz.tv.data.MetadataSeasonDto?,
     watchedEpisodeKeys: Set<String>,
+    episodeProgress: Map<String, com.movviz.tv.data.PlaybackProgressDto>,
     downloading: Boolean,
     landingEpisode: SeriesEpisodeDto?,
     primaryActionFocus: FocusRequester,
@@ -1897,9 +1953,14 @@ private fun SeasonPageHeader(
                 Spacer(modifier = Modifier.height(18.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     if (landingEpisode != null) {
+                        val landingResume = if (landingWatched) null else
+                            episodeProgress["${season.seasonNumber}.${landingEpisode.episodeNumber}"]?.resumeOffsetMs?.takeIf { it > 5_000L }
                         PrimaryPill(
-                            text = if (landingWatched) "Revoir l'épisode ${landingEpisode.episodeNumber}"
-                            else "Lire l'épisode ${landingEpisode.episodeNumber}",
+                            text = when {
+                                landingWatched -> "Revoir l'épisode ${landingEpisode.episodeNumber}"
+                                landingResume != null -> "Reprendre l'épisode ${landingEpisode.episodeNumber} à ${formatResumeTime(landingResume)}"
+                                else -> "Lire l'épisode ${landingEpisode.episodeNumber}"
+                            },
                             brush = null,
                             icon = if (landingWatched) MovvizIconReplay else MovvizIconPlay,
                             focusRequester = primaryActionFocus,
@@ -2219,6 +2280,7 @@ private fun EpisodeDetailOverlay(
     progress: com.movviz.tv.data.PlaybackProgressDto?,
     onDismiss: () -> Unit,
     onPlay: () -> Unit,
+    onPlayFromStart: () -> Unit,
     onToggleWatched: (Boolean) -> Unit,
     onDownloadSeason: () -> Unit,
 ) {
@@ -2363,6 +2425,9 @@ private fun EpisodeDetailOverlay(
                                 focusRequester = primaryActionFocus,
                                 onClick = onPlay,
                             )
+                            if (resumeOffset != null) {
+                                PrimaryPill(text = "Du début", brush = null, icon = MovvizIconReplay, onClick = onPlayFromStart)
+                            }
                         } else {
                             PrimaryPill(
                                 text = if (downloading) "Recherche…" else "Télécharger la saison",
