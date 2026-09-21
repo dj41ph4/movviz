@@ -1239,6 +1239,9 @@ fun TitleDetailScreen(
                 onToggleEpisodesWatched = { episodes, watched ->
                     viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = "season", season = openSeason.seasonNumber)
                 },
+                onToggleEpisodeWatched = { episodeNumber, watched ->
+                    viewModel.toggleEpisodeWatched(tmdbId, d.title, openSeason.seasonNumber, episodeNumber, watched)
+                },
                 onPlayEpisode = { episode ->
                     val index = playableEpisodes.indexOfFirst {
                         it.seasonNumber == openSeason.seasonNumber && it.episodeNumber == episode.episodeNumber
@@ -1273,13 +1276,12 @@ fun TitleDetailScreen(
                     }
                 },
                 onToggleWatched = { watched ->
-                    viewModel.toggleEpisodesWatched(
+                    viewModel.toggleEpisodeWatched(
                         tmdbId,
                         d.title,
-                        listOf(com.movviz.tv.data.WatchToggleEpisodeDto(selection.season.seasonNumber, selection.episode.episodeNumber)),
+                        selection.season.seasonNumber,
+                        selection.episode.episodeNumber,
                         watched,
-                        scope = "season",
-                        season = selection.season.seasonNumber,
                     )
                 },
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber) },
@@ -1607,6 +1609,7 @@ private fun SeasonPageOverlay(
     onBack: () -> Unit,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
+    onToggleEpisodeWatched: (Int, Boolean) -> Unit,
     onPlayEpisode: (SeriesEpisodeDto) -> Unit,
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
@@ -1710,7 +1713,7 @@ private fun SeasonPageOverlay(
                         progress = episodeProgress[key],
                         focusRequester = if (episode.episodeNumber == landingEpisode?.episodeNumber) firstEpisodeFocus else null,
                         onToggleWatched = { watched ->
-                            onToggleEpisodesWatched(listOf(com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, episode.episodeNumber)), watched)
+                            onToggleEpisodeWatched(episode.episodeNumber, watched)
                         },
                         onPlay = { onPlayEpisode(episode) },
                         onOpenDetails = { onOpenEpisode(episode, metadataByEpisode[episode.episodeNumber]) },

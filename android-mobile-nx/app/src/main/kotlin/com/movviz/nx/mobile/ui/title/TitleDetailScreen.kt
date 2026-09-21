@@ -1136,6 +1136,9 @@ fun TitleDetailScreen(
                 onToggleEpisodesWatched = { episodes, watched ->
                     viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = "season", season = openSeason.seasonNumber)
                 },
+                onToggleEpisodeWatched = { episodeNumber, watched ->
+                    viewModel.toggleEpisodeWatched(tmdbId, d.title, openSeason.seasonNumber, episodeNumber, watched)
+                },
                 onOpenEpisode = { episode, metadataEpisode ->
                     selectedEpisode = EpisodeSelection(openSeason, episode, metadataEpisode)
                 },
@@ -1306,6 +1309,7 @@ private fun SeasonPageOverlay(
     onBack: () -> Unit,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.nx.mobile.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
+    onToggleEpisodeWatched: (Int, Boolean) -> Unit,
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -1367,7 +1371,7 @@ private fun SeasonPageOverlay(
                 queueItem = episodeDownloads["${season.seasonNumber}.${episode.episodeNumber}"],
                 focusRequester = if (episode.episodeNumber == season.episodes.getOrNull(firstAvailableIndex)?.episodeNumber) firstEpisodeFocus else null,
                 onToggleWatched = { watched ->
-                    onToggleEpisodesWatched(listOf(com.movviz.nx.mobile.data.WatchToggleEpisodeDto(season.seasonNumber, episode.episodeNumber)), watched)
+                    onToggleEpisodeWatched(episode.episodeNumber, watched)
                 },
                 onClick = { onOpenEpisode(episode, metadataByEpisode[episode.episodeNumber]) },
             )

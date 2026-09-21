@@ -1,3 +1,11 @@
+## v1.25.54 — September 2026
+
+### Android TV / Mobile NX : le statut Vu reste attaché à l'épisode
+
+- La coche « Vu » d'un épisode passait par le callback de saison et envoyait `scope="season"` à `/api/watch/toggle`. Le serveur faisait donc exactement ce qui lui était demandé : il étendait l'action à tous les épisodes connus de la saison.
+- Les actions unitaires TV et mobile réutilisent désormais `toggleEpisodeWatched(...)`, déjà présent dans les ViewModels et équivalent au comportement desktop : un seul épisode est envoyé, sans scope.
+- Les vrais boutons « Marquer la saison vue » conservent `toggleEpisodesWatched(..., scope="season")` et « Marquer toute la série vue » conserve `scope="series"`. Aucun endpoint ni comportement serveur n'a été réinventé.
+
 ## v1.25.53 — September 2026
 
 ### Android TV : sortie fiable du hero Accueil au D-pad
