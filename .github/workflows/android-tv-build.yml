@@ -2,6 +2,7 @@ name: Build Movviz NX Android TV APK
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   pull_request:
     paths: ["android-tv-nx/**", ".github/workflows/android-tv-build.yml"]
