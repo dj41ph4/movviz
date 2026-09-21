@@ -583,7 +583,9 @@ fun TitleDetailScreen(
     // navigation au lieu de la fiche, et il fallait retraverser le rail pour
     // revenir au contenu.
     val anyOverlayOpen = openSeasonNumber != null || selectedEpisode != null
-    LaunchedEffect(anyOverlayOpen) {
+    // Relancé aussi à l'ARRIVÉE de la fiche : sur un réseau lent elle se charge
+    // après le premier passage, qui ne trouvait alors aucun élément à focaliser.
+    LaunchedEffect(anyOverlayOpen, detail?.tmdbId) {
         if (anyOverlayOpen || detail == null) return@LaunchedEffect
         repeat(20) { attempt ->
             val granted = runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false) ||
@@ -597,8 +599,13 @@ fun TitleDetailScreen(
     // déjà reçu le focus. Dès que l'action primaire est effectivement
     // composée, on la sélectionne une seule fois — sans perturber la suite
     // de navigation D-pad de l'utilisateur.
-    LaunchedEffect(moviePrimaryActionReady) {
-        if (!moviePrimaryActionReady || hasRequestedPrimaryActionFocus) return@LaunchedEffect
+    // Même logique pour une série : « Lire / Reprendre » n'existe qu'une fois
+    // les saisons chargées. Le focus d'ouverture (l'en-tête) la rejoint alors
+    // une seule fois, au lieu de rester sur la barre ou l'ancre.
+    val seriesPrimaryActionReady = type == "series" &&
+        ((episodeResume?.seasonNumber != null && episodeResume.episodeNumber != null) || nextEpisode != null)
+    LaunchedEffect(moviePrimaryActionReady, seriesPrimaryActionReady) {
+        if (!(moviePrimaryActionReady || seriesPrimaryActionReady) || hasRequestedPrimaryActionFocus) return@LaunchedEffect
         repeat(10) { attempt ->
             if (runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false)) {
                 hasRequestedPrimaryActionFocus = true
@@ -698,11 +705,12 @@ fun TitleDetailScreen(
 
         if (detail == null) {
             if (detailError == null) {
-                Text(
-                    text = "Chargement…",
-                    style = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.padding(start = 42.dp, top = 240.dp),
-                )
+                // Pendant le chargement, le focus reste SUR CET ÉCRAN : sans
+                // cible focusable, Compose le donnait à la barre latérale
+                // (« le D-pad repart sur Accueil ») et il n'en revenait plus.
+                Box(modifier = Modifier.fillMaxSize().focusRequester(initialFocusRequester).focusable()) {
+                    com.movviz.tv.ui.theme.MovvizLoader(modifier = Modifier.fillMaxSize())
+                }
             } else {
                 Column(
                     modifier = Modifier.padding(start = 84.dp, top = 233.dp),
@@ -1063,40 +1071,44 @@ fun TitleDetailScreen(
                         // local via localKey (voir localMovieUrl) — Plex ne
                         // fournit qu'un enrichissement async, jamais bloquant.
                         val playKey = plexKey ?: localPlayableId
-                        if (playKey != null) {
-                            val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
+                        if (playKey != null || !libraryResolved || !inLibrary) {
+                            // UN SEUL bouton pour « Lire », « Reprendre », « Vérification »
+                            // et « Ajouter » : c'est le même nœud qui change de libellé
+                            // au lieu d'être remplacé par un autre. Quand la fiche
+                            // s'actualisait, le bouton vérifié était détruit puis recréé
+                            // et le focus tombait sur la barre latérale (« Accueil »).
+                            // Avant la résolution, il est déjà là, en « Lire » grisé.
+                            val checking = playKey == null && !libraryResolved
+                            val canAdd = playKey == null && libraryResolved && !inLibrary
+                            val ctaText = when {
+                                playKey != null && movieResume != null -> "Reprendre à ${formatResumeTime(movieResume.offsetMs)}"
+                                playKey != null || checking -> "Lire"
+                                addingToLibrary -> "Ajout…"
+                                else -> "Ajouter à la bibliothèque"
+                            }
                             PrimaryPill(
                                 text = ctaText,
-                                brush = null,
-
-                                icon = MovvizIconPlay,
+                                brush = if (canAdd) Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)) else null,
+                                enabled = !checking && !(canAdd && addingToLibrary),
+                                icon = if (canAdd) (if (addingToLibrary) null else MovvizIconPlus) else MovvizIconPlay,
                                 focusRequester = primaryActionFocusRequester,
                             ) {
-                                val movieQueue = listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId))
-                                if (movieResume != null) onPlay(d.title, movieQueue, 0, d.posterPath, movieResume.offsetMs)
-                                else onPlayFromStart(d.title, movieQueue, 0, d.posterPath)
-                            }
-                            if (movieResume != null) {
-                                PrimaryPill(text = "Lire depuis le début", brush = null, icon = MovvizIconReplay) {
-                                    onPlayFromStart(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
+                                if (playKey != null) {
+                                    val movieQueue = listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId))
+                                    if (movieResume != null) onPlay(d.title, movieQueue, 0, d.posterPath, movieResume.offsetMs)
+                                    else onPlayFromStart(d.title, movieQueue, 0, d.posterPath)
+                                } else if (canAdd) {
+                                    scope.launch {
+                                        when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
+                                            is ApiResult.Failure -> addError = friendlyAddError(result.message)
+                                            else -> addError = null
+                                        }
+                                    }
                                 }
                             }
-                        } else if (!libraryResolved) {
-                            PrimaryPill(text = "Vérification du fichier…", brush = null, enabled = false, onClick = {})
-                        } else if (!inLibrary) {
-                            PrimaryPill(
-                                text = if (addingToLibrary) "Ajout…" else "Ajouter à la bibliothèque",
-                                brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-
-                                enabled = !addingToLibrary,
-                                icon = if (addingToLibrary) null else MovvizIconPlus,
-                                focusRequester = primaryActionFocusRequester,
-                            ) {
-                                scope.launch {
-                                    when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
-                                        is ApiResult.Failure -> addError = friendlyAddError(result.message)
-                                        else -> addError = null
-                                    }
+                            if (playKey != null && movieResume != null) {
+                                PrimaryPill(text = "Lire depuis le début", brush = null, icon = MovvizIconReplay) {
+                                    onPlayFromStart(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                                 }
                             }
                         } else if (activeDownload != null) {
@@ -1187,71 +1199,40 @@ fun TitleDetailScreen(
                     }
                     trailerAction()
                 }
-            } else if (episodeResume != null) {
-                // Série en bibliothèque avec un épisode en cours : même
-                // traitement que "Reprendre" côté film (CTA + libellé de
-                // l'épisode juste en dessous du titre), pour que l'ouverture
-                // depuis "Continuer à regarder" mène droit à la reprise au
-                // lieu de laisser deviner où chercher plus bas dans la liste
-                // des saisons.
+            } else if ((episodeResume?.seasonNumber != null && episodeResume.episodeNumber != null) || (type == "series" && nextEpisode != null)) {
+                // Série en bibliothèque : UN SEUL bouton pour « Reprendre » (épisode
+                // en cours) et « Lire / Revoir » (prochain épisode). Avant, deux
+                // branches distinctes : quand la reprise arrivait après coup, le
+                // bouton focalisé était détruit et remplacé, et le focus tombait
+                // sur la barre latérale. Ici c'est le même nœud qui change de
+                // libellé, le focus ne bouge pas.
+                val resumeSeason = episodeResume?.seasonNumber
+                val resumeEpisode = episodeResume?.episodeNumber
+                val useResume = episodeResume != null && resumeSeason != null && resumeEpisode != null
+                val ctaSeason = if (useResume) resumeSeason!! else nextEpisode!!.seasonNumber
+                val ctaEpisode = if (useResume) resumeEpisode!! else nextEpisode!!.episodeNumber
+                val ctaWatched = !useResume && watchedEpisodeKeys.contains("$ctaSeason.$ctaEpisode")
+                val ctaResume = if (useResume) episodeResume!!.offsetMs else episodeResumeMs(ctaSeason, ctaEpisode)
                 Column {
                     Text(
-                        text = "S${episodeResume.seasonNumber} · Ép ${episodeResume.episodeNumber}" +
-                            (episodeResume.episodeTitle?.let { " — $it" } ?: ""),
-                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        PrimaryPill(
-                            text = "Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
-                            brush = null,
-
-                            icon = MovvizIconPlay,
-                            // Sans ce requester, la demande de focus
-                            // d'ouverture n'avait AUCUNE cible sur une fiche
-                            // série (il n'était attaché qu'aux CTA de film) :
-                            // le focus restait sur la NavRail et la fiche
-                            // s'ouvrait « coincée dans la sidebar ».
-                            focusRequester = primaryActionFocusRequester,
-                        ) {
-                            val resumeSeason = episodeResume.seasonNumber
-                            val resumeEpisode = episodeResume.episodeNumber
-                            if (resumeSeason != null && resumeEpisode != null) playEpisode(resumeSeason, resumeEpisode, episodeResume.offsetMs)
-                        }
-                        trailerAction()
-                        seriesWatchAction()
-                    }
-                }
-            } else if (type == "series" && nextEpisode != null) {
-                // Série en bibliothèque mais AUCUNE reprise en cours : la
-                // fiche n'avait tout simplement aucun bouton de lecture, il
-                // fallait ouvrir une saison pour espérer lancer quoi que ce
-                // soit. Le bouton pointe ici sur le prochain épisode non vu
-                // (ou le premier, série entièrement vue), comme le « Lire »
-                // d'une fiche série Plex.
-                val nextWatched = watchedEpisodeKeys.contains("${nextEpisode.seasonNumber}.${nextEpisode.episodeNumber}")
-                val nextResume = episodeResumeMs(nextEpisode.seasonNumber, nextEpisode.episodeNumber)
-                Column {
-                    Text(
-                        text = "S${nextEpisode.seasonNumber} · Ép ${nextEpisode.episodeNumber}",
+                        text = "S$ctaSeason · Ép $ctaEpisode" +
+                            (if (useResume) (episodeResume!!.episodeTitle?.let { " — $it" } ?: "") else ""),
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         PrimaryPill(
                             text = when {
-                                nextWatched -> "Revoir depuis le début"
-                                nextResume != null -> "Reprendre à ${formatResumeTime(nextResume)}"
-                                else -> "Lire S${nextEpisode.seasonNumber} · Ép ${nextEpisode.episodeNumber}"
+                                ctaWatched -> "Revoir depuis le début"
+                                ctaResume != null -> "Reprendre à ${formatResumeTime(ctaResume)}"
+                                else -> "Lire S$ctaSeason · Ép $ctaEpisode"
                             },
                             brush = null,
-
-                            icon = if (nextWatched) MovvizIconReplay else MovvizIconPlay,
-                            // Même raison que la branche « Reprendre » : c'est
-                            // la cible du focus d'ouverture d'une fiche série.
+                            icon = if (ctaWatched) MovvizIconReplay else MovvizIconPlay,
+                            // Cible du focus d'ouverture d'une fiche série.
                             focusRequester = primaryActionFocusRequester,
                         ) {
-                            playEpisode(nextEpisode.seasonNumber, nextEpisode.episodeNumber, nextResume, fromStart = nextWatched)
+                            playEpisode(ctaSeason, ctaEpisode, ctaResume, fromStart = ctaWatched)
                         }
                         trailerAction()
                         seriesWatchAction()
@@ -1276,9 +1257,9 @@ fun TitleDetailScreen(
                 item { Spacer(modifier = Modifier.height(21.dp)) }
                 if (seasons.isEmpty()) {
                     item {
-                        Text(
-                            text = "Chargement des épisodes…",
-                            style = TextStyle(fontSize = 10.sp, color = MovvizInkDim),
+                        com.movviz.tv.ui.theme.MovvizLoader(
+                            modifier = Modifier.fillMaxWidth().height(120.dp),
+                            size = 30.dp,
                         )
                     }
                 } else if (visibleSeasons.isEmpty()) {

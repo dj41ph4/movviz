@@ -107,11 +107,7 @@ fun PersonScreen(
         item {
             val p = person
             if (p == null) {
-                Text(
-                    text = "Chargement…",
-                    style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
-                    modifier = Modifier.padding(start = 36.dp),
-                )
+                com.movviz.tv.ui.theme.MovvizLoader(modifier = Modifier.fillMaxWidth().height(360.dp))
             } else {
                 Row(modifier = Modifier.padding(start = 36.dp, end = 36.dp, bottom = 24.dp)) {
                     val photoUrl = p.profilePath?.let { "$TMDB_PROFILE_BASE$it" }

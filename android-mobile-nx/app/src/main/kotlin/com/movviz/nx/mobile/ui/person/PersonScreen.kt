@@ -140,11 +140,7 @@ fun PersonScreen(
         item {
             val p = person
             if (p == null) {
-                Text(
-                    text = "Chargement…",
-                    style = TextStyle(fontSize = 15.sp, color = MovvizInkDim),
-                    modifier = Modifier.padding(start = sideEdge),
-                )
+                com.movviz.nx.mobile.ui.theme.MovvizLoader(modifier = Modifier.fillMaxWidth().height(420.dp), size = 64.dp)
             } else {
                 val photoUrl = p.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
                 val photo = @Composable {

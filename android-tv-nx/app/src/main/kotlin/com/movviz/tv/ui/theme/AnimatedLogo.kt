@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -168,3 +173,61 @@ fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 21.sp) {
         modifier = Modifier.onSizeChanged { widthPx = it.width.toFloat() },
     )
 }
+
+
+/**
+ * Chargement premium, commun à toutes les fiches : le mark Movviz respire au
+ * centre d'un halo aurora qui tourne lentement, puis un filet de marque
+ * balaye sous lui. Remplace le texte « Chargement… » seul sur fond noir.
+ * Aucun texte : l'écran se comprend sans lecture, de loin comme sur un
+ * téléphone.
+ */
+@Composable
+fun MovvizLoader(modifier: Modifier = Modifier.fillMaxSize(), size: Dp = 64.dp) {
+    val infinite = rememberInfiniteTransition(label = "movviz_loader")
+    val rotation by infinite.floatLoop(0f, 360f, 9000, LinearEasing, RepeatMode.Restart)
+    val breathe by infinite.floatLoop(0.94f, 1.06f, 1300, FastOutSlowInEasing, RepeatMode.Reverse)
+    val glow by infinite.floatLoop(0.55f, 1f, 1300, FastOutSlowInEasing, RepeatMode.Reverse)
+    val sweep by infinite.floatLoop(0f, 1f, 1500, FastOutSlowInEasing, RepeatMode.Restart)
+    androidx.compose.foundation.layout.Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+    ) {
+        Box(modifier = Modifier.size(size * 2), contentAlignment = Alignment.Center) {
+            // Pas de couche alpha : elle rognerait le halo aux bords de son carré.
+            // Il « respire » par son échelle seulement.
+            Box(modifier = Modifier.androidxGraphicsScale(0.9f + 0.2f * glow)) {
+                MulticolorBlurHalo(size = size * 2, rotation = rotation)
+            }
+            Box(modifier = Modifier.androidxGraphicsScale(breathe)) { StaticLogo(size = size) }
+        }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.androidxHeight(size * 0.3f))
+        Box(
+            modifier = Modifier
+                .androidxWidth(size * 1.6f)
+                .androidxHeight(3.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.10f))
+                .drawBehind {
+                    val segment = this.size.width * 0.42f
+                    val x = -segment + (this.size.width + segment) * sweep
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.Transparent, MovvizBrand, MovvizBrand2, Color.Transparent),
+                            startX = x,
+                            endX = x + segment,
+                        ),
+                        topLeft = Offset(x, 0f),
+                        size = androidx.compose.ui.geometry.Size(segment, this.size.height),
+                    )
+                },
+        )
+    }
+}
+
+private fun Modifier.androidxGraphicsScale(scale: Float): Modifier =
+    this.then(Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
+
+private fun Modifier.androidxHeight(h: Dp): Modifier = this.then(Modifier.height(h))
+private fun Modifier.androidxWidth(w: Dp): Modifier = this.then(Modifier.width(w))

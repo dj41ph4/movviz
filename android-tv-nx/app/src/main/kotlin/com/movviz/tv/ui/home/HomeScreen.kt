@@ -673,6 +673,7 @@ fun HomeScreen(
                             },
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             navRailFocusRequester = navRailFocusRequester,
+                            titleLogoPaths = heroLogos,
                         )
                     }
                     "recentEpisodes" -> item(contentType = "row") {
@@ -1884,6 +1885,7 @@ internal fun ContinueWatchingRow(
     onClick: (TvTitleCard) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
     navRailFocusRequester: FocusRequester? = null,
+    titleLogoPaths: Map<String, String> = emptyMap(),
 ) {
     Column(modifier = Modifier.padding(bottom = 24.dp)) {
         RowHeading("Continuer à regarder")
@@ -1899,6 +1901,7 @@ internal fun ContinueWatchingRow(
                     onClick = { onClick(card) },
                     focusRequester = if (index == 0) firstItemFocusRequester else null,
                     navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
+                    titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                 )
             }
         }
@@ -1914,6 +1917,7 @@ private fun ResumeCard(
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
     navRailFocusRequester: FocusRequester? = null,
+    titleLogoPath: String? = null,
 ) {
     var focused by remember(card.id) { mutableStateOf(false) }
     val tileShape = RoundedCornerShape(8.dp)
@@ -1967,6 +1971,28 @@ private fun ResumeCard(
                         StaticLogoWithGlow(size = 33.dp)
                     }
                 }
+                // Logo officiel du titre en bas à gauche, sur un voile : il
+                // remplace le nom écrit sous la carte quand il existe.
+                if (titleLogoPath != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(70.dp)
+                            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f)))),
+                    )
+                    Image(
+                        painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
+                        contentDescription = card.title,
+                        contentScale = ContentScale.Fit,
+                        alignment = Alignment.BottomStart,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 10.dp, bottom = 10.dp)
+                            .heightIn(max = 34.dp)
+                            .widthIn(max = 130.dp),
+                    )
+                }
                 // Barre de progression fine incrustée — décorative, jamais
                 // focusable. progressPercent vient du on-deck Plex/serveur.
                 val progress = card.progressPercent
@@ -1989,7 +2015,7 @@ private fun ResumeCard(
             }
         }
         Spacer(modifier = Modifier.height(6.dp))
-        Text(
+        if (titleLogoPath == null) Text(
             text = card.title,
             style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
             maxLines = 1,

@@ -1,3 +1,12 @@
+## v1.25.63 — September 2026
+
+### Android TV et smartphone : chargement premium ; Android TV : focus stable à l'ouverture d'une fiche
+
+- Le texte « Chargement… » seul sur un fond noir est remplacé, sur Android TV et sur smartphone, par un vrai chargement de marque : le logo Movviz respire au centre d'un halo aurora qui tourne lentement, avec un filet lumineux qui balaie dessous. Il sert pour les fiches film et série, la fiche d'un acteur et le chargement des épisodes.
+- Ouvrir une fiche depuis l'accueil ne renvoie plus le D-pad sur « Accueil » : pendant le chargement, personne ne pouvait recevoir le focus, qui tombait alors sur la barre latérale et n'en revenait plus. L'écran de chargement garde maintenant le focus, et la demande de focus est relancée à l'arrivée de la fiche.
+- Le bouton principal d'une fiche est désormais un seul et même bouton qui change de libellé (« Lire », « Reprendre à … », « Ajouter à la bibliothèque »), au lieu d'être détruit puis recréé à chaque actualisation ; il est présent dès l'ouverture, grisé le temps de la vérification, au lieu du texte « Vérification du fichier… ». Le focus ne bouge donc plus quand la fiche se rafraîchit.
+- La rangée « Continuer à regarder » affiche le logo officiel du titre sur la vignette, à la place du nom écrit dessous.
+
 ## v1.25.62 — September 2026
 
 ### Android TV : fiche épisode façon Plex, bande-annonce plein écran

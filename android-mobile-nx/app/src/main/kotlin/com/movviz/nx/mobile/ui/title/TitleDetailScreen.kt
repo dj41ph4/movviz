@@ -602,11 +602,7 @@ fun TitleDetailScreen(
 
         if (detail == null) {
             if (detailError == null) {
-                Text(
-                    text = "Chargement…",
-                    style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.padding(start = if (narrowDetail) 16.dp else 56.dp, top = if (compactPortrait) 300.dp else if (unfoldedDetail) 16.dp else 320.dp),
-                )
+                com.movviz.nx.mobile.ui.theme.MovvizLoader(modifier = Modifier.fillMaxSize(), size = 72.dp)
             } else {
                 Column(
                     modifier = Modifier.padding(start = 112.dp, top = 310.dp),
@@ -1075,9 +1071,9 @@ fun TitleDetailScreen(
                 item { Spacer(modifier = Modifier.height(28.dp)) }
                 if (seasons.isEmpty()) {
                     item {
-                        Text(
-                            text = "Chargement des épisodes…",
-                            style = TextStyle(fontSize = 13.sp, color = MovvizInkDim),
+                        com.movviz.nx.mobile.ui.theme.MovvizLoader(
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            size = 34.dp,
                         )
                     }
                 } else if (visibleSeasons.isEmpty()) {
