@@ -2281,30 +2281,9 @@ internal fun PosterCard(
                             .heightIn(max = 41.dp)
                             .widthIn(max = 165.dp),
                     )
-                } else if (focused || usesEpisodeResumeArtwork) {
-                    // Grilles (catalogue, "voir tout") : contrairement à
-                    // TitleRow, qui affiche un bandeau de contexte sous la
-                    // rangée pour la carte active, une grille verticale n'a
-                    // pas cet espace. Sans repli, un titre sans logo TMDb (ou
-                    // dont le logo n'a pas encore fini de charger) restait
-                    // muet au focus — rien n'identifiait la carte avant OK.
-                    Text(
-                        text = card.title,
-                        style = TextStyle(
-                            fontSize = if (expanded || usesEpisodeResumeArtwork) 14.sp else 7.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        ),
-                        maxLines = if (expanded || usesEpisodeResumeArtwork) 2 else 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(9.dp)
-                            .background(Color.Black.copy(alpha = 0.52f), RoundedCornerShape(3.dp))
-                            .padding(horizontal = if (expanded || usesEpisodeResumeArtwork) 8.dp else 4.dp, vertical = if (expanded || usesEpisodeResumeArtwork) 5.dp else 2.dp)
-                            .widthIn(max = if (expanded || usesEpisodeResumeArtwork) 165.dp else 69.dp),
-                    )
                 }
+                // Aucun nom de titre incrusté sur les cartes : le logo (quand il
+                // existe) suffit, le reste passe par l'image elle-même.
                 // Même paire de pastilles que la grille bibliothèque desktop
                 // (note ★ en haut-gauche, statut en bas-gauche) — voir
                 // ui/theme/Badges.kt. Le statut n'existe que pour les films

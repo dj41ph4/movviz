@@ -409,6 +409,7 @@ private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: S
             modifier = Modifier.padding(start = 39.dp, bottom = 9.dp),
         )
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -442,6 +443,7 @@ private fun DiscoverLogoRow(
             modifier = Modifier.padding(start = 39.dp, bottom = 9.dp),
         )
         TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
             horizontalArrangement = Arrangement.spacedBy(11.dp),

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.focus.focusRestorer
 import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.foundation.lazy.list.itemsIndexed as tvRowItemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -270,6 +271,7 @@ private fun cardMatchesCatalogGenre(card: TvTitleCard, selection: CatalogGenreSe
 @Composable
 private fun CatalogGenreRow(genres: List<GenreDto>, selected: CatalogGenreSelection?, onSelect: (CatalogGenreSelection) -> Unit) {
     TvLazyRow(
+        state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier.focusRestorer(),
         contentPadding = PaddingValues(end = 18.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

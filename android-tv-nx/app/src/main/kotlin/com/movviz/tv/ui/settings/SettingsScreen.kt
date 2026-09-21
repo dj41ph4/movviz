@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import androidx.tv.foundation.lazy.list.itemsIndexed
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -86,6 +88,7 @@ fun SettingsScreen(
     // top = 32dp : dégage la barre de nav flottante sans bande opaque
     // ajoutée plus haut au niveau de MainScreen.
     TvLazyColumn(
+        state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
@@ -133,6 +136,7 @@ fun SettingsScreen(
                 // dépassent la carte et le scroll suit le focus D-pad, avec
                 // restauration de position au retour via focusRestorer.
                 TvLazyRow(
+                    state = rememberTvLazyListState().withTvPrefetchDisabled(),
                     modifier = Modifier.focusRestorer(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 2.dp),

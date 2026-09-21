@@ -1,3 +1,12 @@
+## v1.25.58 — September 2026
+
+### Android TV : plus de plantage sur la rangée Genres, cartes de saison et cartes épurées
+
+- L'application plantait dès que le D-pad faisait défiler la rangée des genres de Découverte, sans même entrer dedans. Cinq listes n'avaient pas la protection contre le défilement qui évite l'erreur du composant de listes TV : les genres et les plateformes de Découverte, les genres de la Bibliothèque, la liste des Paramètres et sa rangée de langues. Elles l'ont maintenant, et plus aucune liste du client n'en est privée.
+- Les cartes de saison d'une fiche série n'affichent plus « 0/10 » ni la ligne « x/y vus » dessous : un simple chiffre sur fond noir en haut à droite donne le nombre d'épisodes non vus, remplacé par une coche quand la saison est entièrement vue.
+- Les noms de films et de séries incrustés sur les affiches sont retirés ; les logos, eux, restent.
+- À l'ouverture d'une fiche série, le focus ne reste plus sur la saison 1 (encadrée comme si elle était choisie) quand le bouton principal vient de se recomposer : il retourne au bouton principal.
+
 ## v1.25.57 — September 2026
 
 ### Android TV : photos de profil relues à chaque lancement, bande-annonce fiabilisée

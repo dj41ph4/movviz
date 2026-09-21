@@ -725,6 +725,12 @@ fun TitleDetailScreen(
             return@Box
         }
         val d = detail!!
+        // Fenêtre d'ouverture de la fiche : si le focus tombe tout seul sur une
+        // carte de saison (l'action principale vient d'être recomposée et a
+        // perdu le focus), on le rend à l'action principale au lieu de laisser
+        // la saison 1 encadrée comme si elle était choisie.
+        val detailReadyAt = remember(d.tmdbId) { android.os.SystemClock.uptimeMillis() }
+        var seasonFocusGuardUsed by remember(d.tmdbId) { mutableStateOf(false) }
         val titleLogoPath = heroLogos["$type-$tmdbId"]
         var showTitleFallback by remember(titleLogoPath, d.tmdbId) { mutableStateOf(false) }
         LaunchedEffect(titleLogoPath, d.tmdbId) {
@@ -1222,6 +1228,21 @@ fun TitleDetailScreen(
                             metadataBySeasonNumber = seasonMetadataByNumber,
                             watchedEpisodeKeys = watchedEpisodeKeys,
                             focusRequesterFor = { seasonCardFocus.getOrPut(it) { FocusRequester() } },
+                            onCardFocused = {
+                                if (!seasonFocusGuardUsed && lastOpenedSeason == null &&
+                                    android.os.SystemClock.uptimeMillis() - detailReadyAt < 2_000L
+                                ) {
+                                    seasonFocusGuardUsed = true
+                                    scope.launch {
+                                        repeat(10) { attempt ->
+                                            if (runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false) ||
+                                                runCatching { initialFocusRequester.requestFocus() }.getOrDefault(false)
+                                            ) return@launch
+                                            if (attempt < 9) withFrameNanos { }
+                                        }
+                                    }
+                                }
+                            },
                             onSelect = {
                                 selectedSeasonNumber = it
                                 lastOpenedSeason = it
@@ -1427,6 +1448,7 @@ private fun SeasonSelector(
     metadataBySeasonNumber: Map<Int, com.movviz.tv.data.MetadataSeasonDto> = emptyMap(),
     watchedEpisodeKeys: Set<String> = emptySet(),
     focusRequesterFor: (Int) -> FocusRequester,
+    onCardFocused: (Int) -> Unit = {},
     onSelect: (Int) -> Unit,
 ) {
     Column(modifier = Modifier.padding(bottom = 15.dp)) {
@@ -1463,7 +1485,10 @@ private fun SeasonSelector(
                             .aspectRatio(2f / 3f)
                             .focusRequester(focusRequesterFor(season.seasonNumber))
                             .tvCardFocusHalo(focused, shape)
-                            .onFocusChanged { focused = it.isFocused }
+                            .onFocusChanged {
+                                focused = it.isFocused
+                                if (it.isFocused) onCardFocused(season.seasonNumber)
+                            }
                             .tvPointerClick { onSelect(season.seasonNumber) },
                         shape = ClickableSurfaceDefaults.shape(shape),
                         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
@@ -1504,32 +1529,28 @@ private fun SeasonSelector(
                                         ),
                                 )
                             }
-                            // Saison intégralement vue : la coche de marque
-                            // remplace le ratio, même repère que la pastille
-                            // posée sur un épisode vu dans la liste.
+                            // Comme sur Plex : un simple chiffre sur fond noir en
+                            // haut à droite = épisodes pas encore vus ; une coche
+                            // quand toute la saison est vue ; rien tant que la
+                            // saison n'a aucun épisode à voir.
                             if (seasonComplete) {
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .padding(5.dp)
-                                        .size(18.dp)
-                                        .background(
-                                            Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)),
-                                            androidx.compose.foundation.shape.CircleShape,
-                                        ),
-                                    contentAlignment = Alignment.Center,
+                                        .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(bottomStart = 6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 5.dp),
                                 ) {
                                     Icon(imageVector = MovvizIconCheck, contentDescription = "Saison vue", tint = Color.White, modifier = Modifier.size(10.dp))
                                 }
-                            } else {
+                            } else if (watchable.isNotEmpty()) {
                                 Text(
-                                    text = "$watchedCount/${watchable.size.coerceAtLeast(season.episodes.size)}",
-                                    style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                                    text = "${watchable.size - watchedCount}",
+                                    style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White),
+                                    maxLines = 1,
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .padding(5.dp)
-                                        .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
-                                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                                        .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(bottomStart = 6.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
                                 )
                             }
                             // Liseré d'avancement collé au bas de la jaquette
@@ -1559,11 +1580,6 @@ private fun SeasonSelector(
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (focused) Color.White else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = if (watchable.isEmpty()) "${season.episodes.size} épisodes"
-                        else "$watchedCount/${watchable.size} vus",
-                        style = TextStyle(fontSize = 9.sp, color = MovvizInkDim),
                     )
                 }
             }
