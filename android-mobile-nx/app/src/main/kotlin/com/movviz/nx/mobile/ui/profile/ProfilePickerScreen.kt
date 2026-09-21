@@ -117,16 +117,14 @@ fun ProfilePickerScreen(
                 val first = visibleProfiles.firstOrNull()
                 if (first != null) {
                     MaquetteProfileTile(
-                        initials = first.initials(),
-                        name = first.displayName(),
+                        profile = first,
                         focusRequester = firstTileFocus,
                         onClick = { onSelect(first) },
                     )
                     // Profils suivants éventuels : tuiles compactes en dessous du premier.
                     visibleProfiles.drop(1).forEach { profile ->
                         MaquetteProfileTile(
-                            initials = profile.initials(),
-                            name = profile.displayName(),
+                            profile = profile,
                             focusRequester = null,
                             onClick = { onSelect(profile) },
                         )
@@ -150,23 +148,14 @@ fun ProfilePickerScreen(
 
 private fun TvProfile.displayName(): String = name.ifBlank { id.take(8) }
 
-private fun TvProfile.initials(): String {
-    val n = displayName().trim()
-    if (n.isEmpty()) return "?"
-    val parts = n.split(" ").filter { it.isNotEmpty() }
-    return if (parts.size >= 2) "${parts[0].first().uppercase()}${parts[1].first().uppercase()}"
-    else n.take(2).uppercase()
-}
-
 @Composable
-private fun MaquetteProfileTile(initials: String, name: String, focusRequester: FocusRequester?, onClick: () -> Unit) {
+private fun MaquetteProfileTile(profile: TvProfile, focusRequester: FocusRequester?, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
                 .size(118.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(Brush.linearGradient(listOf(Color(0xFF9D5CFF), Color(0xFF6D28D9))), )
                 .border(
                     width = if (focused) 3.dp else 0.dp,
                     color = Color.White.copy(alpha = if (focused) 0.95f else 0f),
@@ -178,16 +167,17 @@ private fun MaquetteProfileTile(initials: String, name: String, focusRequester: 
                 .tvPointerClick(onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = initials.uppercase(),
-                style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Color.White),
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
+            AvatarImage(
+                profile = profile,
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(20.dp),
+                initialsFontSize = 30.sp,
+                contentDescription = "Profil ${profile.displayName()}",
             )
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = name,
+            text = profile.displayName(),
             style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White, textAlign = TextAlign.Center),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
