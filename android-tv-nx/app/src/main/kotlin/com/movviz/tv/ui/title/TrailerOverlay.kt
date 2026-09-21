@@ -124,6 +124,14 @@ internal fun TrailerOverlay(
     var duration by remember(index) { mutableLongStateOf(0L) }
     var playing by remember(index) { mutableStateOf(false) }
     var started by remember(index) { mutableStateOf(false) }
+    var lastError by remember { mutableStateOf<String?>(null) }
+    // Une source qui ne démarre pas en 12 s est abandonnée pour la suivante :
+    // jamais de chargement infini.
+    LaunchedEffect(index) {
+        if (candidates.getOrNull(index) == null) return@LaunchedEffect
+        delay(12_000L)
+        if (!started) { lastError = "délai dépassé"; index += 1 }
+    }
 
     // Barre de progression : affichée 3,5 s après chaque touche, en
     // permanence en pause.
@@ -198,20 +206,20 @@ internal fun TrailerOverlay(
         when (current) {
             is TrailerCandidate.YouTube -> YouTubeTrailer(
                 key = current.key,
-                onError = { index += 1 },
+                onError = { code -> lastError = "YouTube $code"; index += 1 },
                 onEnded = onClose,
                 clock = clock,
                 modifier = Modifier.fillMaxSize(),
             )
             is TrailerCandidate.Direct -> DirectTrailer(
                 url = current.url,
-                onError = { index += 1 },
+                onError = { lastError = "source directe"; index += 1 },
                 onEnded = onClose,
                 clock = clock,
                 modifier = Modifier.fillMaxSize(),
             )
             null -> Text(
-                text = "Bande-annonce indisponible",
+                text = "Bande-annonce indisponible" + (lastError?.let { " ($it)" } ?: ""),
                 style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
                 modifier = Modifier.align(Alignment.Center),
             )
@@ -356,12 +364,12 @@ private fun formatClock(ms: Long): String {
 
 private class TrailerBridge(
     private val onEnded: () -> Unit,
-    private val onError: () -> Unit,
+    private val onError: (Int) -> Unit,
     private val onTick: (Long, Long, Boolean) -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
     @JavascriptInterface fun ended() { main.post(onEnded) }
-    @JavascriptInterface fun error() { main.post(onError) }
+    @JavascriptInterface fun error(code: Int) { main.post { onError(code) } }
     @JavascriptInterface fun tick(positionSeconds: Double, durationSeconds: Double, state: Int) {
         main.post { onTick((positionSeconds * 1000).toLong(), (durationSeconds * 1000).toLong(), state == 1) }
     }
@@ -371,7 +379,7 @@ private class TrailerBridge(
 @Composable
 private fun YouTubeTrailer(
     key: String,
-    onError: () -> Unit,
+    onError: (Int) -> Unit,
     onEnded: () -> Unit,
     clock: TrailerClock,
     modifier: Modifier = Modifier,
@@ -426,15 +434,21 @@ private fun youtubeTrailerHtml(key: String): String = """
     <style>html,body{height:100%}#player,#player iframe{position:absolute;top:0;left:0;width:100%;height:100%}</style>
     <div id="player"></div><script src="https://www.youtube.com/iframe_api"></script>
     <script>
-      var p;
+      var p; var unmuted=false;
       function onYouTubeIframeAPIReady(){
         p=new YT.Player('player',{
           width:'100%',height:'100%',videoId:'$key',
-          playerVars:{autoplay:1,controls:0,playsinline:1,rel:0,modestbranding:1,fs:0,iv_load_policy:3,disablekb:1},
+          playerVars:{autoplay:1,mute:1,controls:0,playsinline:1,rel:0,modestbranding:1,fs:0,iv_load_policy:3,disablekb:1},
           events:{
-            onReady:function(e){e.target.playVideo();},
-            onStateChange:function(e){if(e.data===YT.PlayerState.ENDED){MovvizTrailer.ended();}},
-            onError:function(e){MovvizTrailer.error();}
+            onReady:function(e){e.target.mute();e.target.playVideo();},
+            onStateChange:function(e){
+              if(e.data===YT.PlayerState.PLAYING&&!unmuted){
+                unmuted=true;
+                try{p.unMute();p.setVolume(100);}catch(x){}
+              }
+              if(e.data===YT.PlayerState.ENDED){MovvizTrailer.ended();}
+            },
+            onError:function(e){MovvizTrailer.error(e.data);}
           }
         });
         setInterval(function(){

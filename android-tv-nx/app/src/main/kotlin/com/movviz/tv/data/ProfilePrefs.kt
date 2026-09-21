@@ -10,7 +10,15 @@ import android.content.Context
  * voit une URL différente après un restart, mais la même URL pendant toute
  * la session (donc aucune requête répétée à chaque recomposition).
  */
-private val AVATAR_SESSION_CACHE_BUSTER = System.currentTimeMillis().toString()
+@Volatile
+private var avatarSessionCacheBuster = System.currentTimeMillis().toString()
+
+/** Nouveau lancement (ou retour au premier plan) : les photos de profil
+ *  sont redemandées au serveur au lieu de sortir du cache d'image. Les
+ *  TvProfile construits APRÈS cet appel portent la nouvelle valeur. */
+fun renewAvatarSession() {
+    avatarSessionCacheBuster = System.currentTimeMillis().toString()
+}
 
 private fun normalizeAvatarBase(serverUrl: String, avatar: String?): String? {
     val raw = avatar?.trim()?.takeIf { it.isNotEmpty() } ?: return null
@@ -47,7 +55,7 @@ private fun avatarUrlForDisplay(serverUrl: String, avatar: String?): String? {
     val normalized = avatarUrlForStorage(serverUrl, avatar) ?: return null
     if (!normalized.startsWith("http")) return normalized
     val separator = if (normalized.contains('?')) "&" else "?"
-    return "$normalized${separator}movvizTvSession=$AVATAR_SESSION_CACHE_BUSTER"
+    return "$normalized${separator}movvizTvSession=$avatarSessionCacheBuster"
 }
 
 /** Profil local de cette installation — référence un compte Movviz existant

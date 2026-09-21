@@ -1,3 +1,11 @@
+## v1.25.57 — September 2026
+
+### Android TV : photos de profil relues à chaque lancement, bande-annonce fiabilisée
+
+- La photo et le nom du profil actif sont relus depuis Movviz à chaque lancement et à chaque retour au premier plan, et les images de profil sont redemandées au serveur au lieu de ressortir du cache. Avant, une photo changée ailleurs n'arrivait sur la TV qu'à l'ajout d'un nouveau profil, parce que l'appli, souvent gardée en mémoire, ne relisait rien sans passer par le sélecteur.
+- La bande-annonce YouTube démarre d'abord muette, comme l'aperçu de l'accueil, puis remet le son dès que la lecture commence : un démarrage avec le son pouvait rester bloqué sans aucune erreur, sur un écran de chargement.
+- Une source qui ne démarre pas en 12 secondes est abandonnée pour la suivante, et quand plus aucune ne fonctionne, l'écran indique la cause au lieu de charger indéfiniment.
+
 ## v1.25.56 — September 2026
 
 ### Android TV : bande-annonce, focus qui reste dans le contenu, finitions des fiches

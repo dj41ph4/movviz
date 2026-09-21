@@ -200,6 +200,18 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             if (attempt < 29) withFrameNanos { }
         }
     }
+    // Photos de profil : relues à chaque lancement et à chaque retour au
+    // premier plan (voir refreshAvatarsOnLaunch).
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                scope.launch { viewModel.refreshAvatarsOnLaunch() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var previousRoute by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentRoute) {
         if (currentRoute?.startsWith("home") == true &&

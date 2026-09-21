@@ -643,6 +643,34 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      *  On conserve la liste de profils propre à cet appareil (et ses cookies),
      *  mais nom + avatar sont réconciliés avec le serveur pour qu'un changement
      *  fait sur desktop soit visible sur TV sans recréer le profil. */
+    private var lastAvatarRefreshAt = 0L
+
+    /** À chaque lancement ou retour au premier plan : la photo et le nom du
+     *  profil actif sont relus depuis Movviz, et les images de profil sont
+     *  redemandées (nouveau jeton de session) au lieu de sortir du cache.
+     *  Sans ça, une photo changée ailleurs n'arrivait qu'à l'ajout d'un
+     *  nouveau profil. Aucun effet tant qu'aucun profil n'est choisi. */
+    suspend fun refreshAvatarsOnLaunch() {
+        val url = _serverUrl.value ?: return
+        val active = _activeProfile.value ?: return
+        val now = System.currentTimeMillis()
+        if (now - lastAvatarRefreshAt < 20_000L) return
+        lastAvatarRefreshAt = now
+        com.movviz.tv.data.renewAvatarSession()
+        val user = (MovvizRepository(url).me() as? ApiResult.Success)?.data
+        if (user != null && user.id == active.id) {
+            _currentUser.value = user
+            profilePrefs.saveProfile(url, user.id, user.username, user.effectiveAvatar() ?: active.avatar)
+            if (user.role == "admin") loadProfilesFromServer()
+        }
+        // Reconstruit les profils avec le nouveau jeton, même sans réponse.
+        val fresh = profilePrefs.listProfiles(url)
+        if (fresh.isNotEmpty()) {
+            _profiles.value = fresh
+            fresh.firstOrNull { it.id == active.id }?.let { _activeProfile.value = it }
+        }
+    }
+
     suspend fun loadProfilesFromServer(): List<TvProfile> {
         val url = _serverUrl.value ?: return emptyList()
         val me = _currentUser.value
