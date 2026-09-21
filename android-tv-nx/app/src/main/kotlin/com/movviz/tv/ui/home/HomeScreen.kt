@@ -516,6 +516,13 @@ fun HomeScreen(
     // Reprendre — restent immédiatement sous lui et ne sont jamais masquées.
     val showHero = heroItems.isNotEmpty()
     val contentFocus = entryFocusRequester ?: remember { FocusRequester() }
+    // Quand le hero est présent, son CTA reste la cible d'entrée depuis la
+    // sidebar, mais DOWN doit viser une vraie carte déjà connue plutôt que
+    // dépendre de la recherche spatiale entre deux items d'une TvLazyColumn.
+    // Sur certaines TV, la première rangée n'est pas encore une candidate
+    // spatiale tant qu'elle n'a pas commencé à entrer dans le viewport : le
+    // hero devient alors une île de focus jusqu'au premier scroll.
+    val firstRowFocus = remember { FocusRequester() }
     val topAnchor = remember { FocusRequester() }
     val listState = rememberTvLazyListState().withTvPrefetchDisabled()
     val hasScrolled by remember {
@@ -577,6 +584,7 @@ fun HomeScreen(
                         logoPath = activeHero?.let { heroLogos["${if (it.isMovie) "movie" else "series"}-${it.tmdbId}"] },
                         onSelectIndex = { heroIndex = it },
                         ctaFocusRequester = contentFocus,
+                        downFocusRequester = if (firstVisibleSection != null) firstRowFocus else null,
                         trailerAutoplay = dashboardLayout.hero.trailerAutoplay && activeCardPreviewKey == null,
                         onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         navRailFocusRequester = navRailFocusRequester,
@@ -599,7 +607,7 @@ fun HomeScreen(
                                 if (!card.isMovie && season != null && episode != null) onOpenEpisode(card.tmdbId, season, episode)
                                 else onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
                             },
-                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             navRailFocusRequester = navRailFocusRequester,
                         )
                     }
@@ -607,7 +615,7 @@ fun HomeScreen(
                         TitleRow(
                             heading = "Épisodes récemment ajoutés", items = recentEpisodeCards,
                             onClick = { onOpenTitle("series", it.tmdbId) },
-                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
@@ -619,7 +627,7 @@ fun HomeScreen(
                         TitleRow(
                             heading = "Sélection pour vous", items = recommendationCards,
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -632,7 +640,7 @@ fun HomeScreen(
                         TitleRow(
                             heading = "Moins de 40 minutes", items = shortSessionCards,
                             onClick = { onOpenTitle("movie", it.tmdbId) },
-                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -643,7 +651,7 @@ fun HomeScreen(
                         TitleRow(
                             heading = "Tendances Movviz", items = trendingCards,
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -655,7 +663,7 @@ fun HomeScreen(
                         TitleRow(
                             heading = "Ajoutés récemment", items = availableNowCards,
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -667,7 +675,7 @@ fun HomeScreen(
                         TitleRow(
                             heading = "Prochainement", items = comingSoonCards,
                             onClick = { onOpenTitle("movie", it.tmdbId) },
-                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview("movie", it.tmdbId) },
@@ -806,6 +814,9 @@ internal fun HeroCarousel(
     logoPath: String?,
     onSelectIndex: (Int) -> Unit,
     ctaFocusRequester: FocusRequester,
+    // Première carte réelle sous le hero. Utilisée uniquement par le moteur
+    // de focus Compose : aucune touche n'est interceptée/consommée ici.
+    downFocusRequester: FocusRequester? = null,
     trailerAutoplay: Boolean = true,
     onOpen: (TvTitleCard) -> Unit,
     navRailFocusRequester: FocusRequester? = null,
@@ -1102,6 +1113,10 @@ internal fun HeroCarousel(
                     onClick = { onOpen(current) },
                     modifier = Modifier
                         .focusRequester(ctaFocusRequester)
+                        .focusProperties {
+                            left = navRailFocusRequester ?: FocusRequester.Default
+                            down = downFocusRequester ?: FocusRequester.Default
+                        }
                         .tvFocusLift(focused, shape = RoundedCornerShape(5.dp), maxElevation = 12.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
@@ -1143,6 +1158,9 @@ internal fun HeroCarousel(
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
+                        .focusProperties {
+                            down = downFocusRequester ?: FocusRequester.Default
+                        }
                         .tvFocusLift(infoFocused, shape = RoundedCornerShape(5.dp), maxElevation = 12.dp)
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },

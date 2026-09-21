@@ -1,3 +1,11 @@
+## v1.25.53 — September 2026
+
+### Android TV : sortie fiable du hero Accueil au D-pad
+
+- Le haut d’Accueil pouvait rester bloqué sur les boutons du hero : DOWN dépendait encore de la recherche spatiale automatique de Compose pour découvrir la première carte d’une TvLazyColumn, qui n’est pas toujours candidate tant qu’elle n’est pas suffisamment entrée dans le viewport.
+- Le hero et la première carte de la première rangée sont maintenant reliés par focusProperties.down et un FocusRequester dédié. Le bouton principal garde également une sortie LEFT explicite vers la sidebar.
+- Aucun onKeyEvent/onPreviewKeyEvent n’est réintroduit : le déplacement reste entièrement géré par le moteur de focus Compose, et le visuel ne change pas.
+
 ## v1.25.52 — September 2026
 
 ### Android TV : la photo de profil s'affiche dans la sidebar
