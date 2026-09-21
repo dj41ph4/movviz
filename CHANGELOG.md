@@ -1,3 +1,11 @@
+## v1.25.60 — September 2026
+
+### Android TV : boutons côte à côte et « vu » en simple icône, marque-page rond sur desktop
+
+- Sur la fiche d'un film ou d'une série, Lire / Reprendre, Bande-annonce et « vu » sont sur une seule ligne au lieu d'une pile verticale de trois boutons.
+- « Marquer vu » devient une icône : grise et éteinte tant que ce n'est pas vu, verte et allumée (fond, coche et liseré) une fois vu, blanche au focus comme tous les boutons. Le libellé s'affiche sous l'icône quand elle a le focus, sans décaler les boutons voisins. Même bouton sur la fiche film, la fiche série, la page d'une saison et la page d'un épisode, où « Marquer vu » ne se coupe plus sur deux lignes.
+- Sur desktop, « Ajouter à ma liste » sur la page d'un titre est un bouton rond comme la loupe, le filtre ou l'œil : l'icône se colore et se remplit quand le titre est dans la liste, le libellé reste en infobulle.
+
 ## v1.25.59 — September 2026
 
 ### Une série ne peut plus être téléchargée à la place d'un film

@@ -37,6 +37,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -971,6 +972,45 @@ fun TitleDetailScreen(
 
             Spacer(modifier = Modifier.height(18.dp))
 
+            // Actions secondaires posées sur la MÊME ligne que le CTA (plus
+            // en colonne dessous) : bande-annonce, puis « vu » en simple icône.
+            // Chaque Row qui les reçoit est en spacedBy(9.dp) : une action
+            // absente n'ajoute donc aucun espace fantôme.
+            // Bande-annonce : clés YouTube de la fiche (contexte "Trailer",
+            // comme le bouton du desktop) puis sources directes de
+            // /api/tv/preview.
+            val trailerDirectSources = ambientPreview?.directSources.orEmpty()
+            val trailerAction: @Composable () -> Unit = {
+                if (hasTrailer(d.trailerKeys, trailerDirectSources)) {
+                    PrimaryPill(
+                        text = "Bande-annonce",
+                        brush = null,
+                        icon = MovvizIconFilm,
+                        focusRequester = trailerButtonFocus,
+                    ) { trailerOpen = true }
+                }
+            }
+            val seriesWatchAction: @Composable () -> Unit = {
+                if (type == "series" && seriesWatchTargets.isNotEmpty()) {
+                    WatchedToggle(
+                        watched = allSeriesWatched,
+                        label = if (allSeriesWatched) "Série vue — marquer comme non vue" else "Marquer toute la série comme vue",
+                        // Dernier filet : une série EN bibliothèque dont aucun
+                        // épisode n'est encore téléchargé n'affiche ni reprise
+                        // ni bouton de lecture — aucune branche du CTA ne rend
+                        // quoi que ce soit. Sans cette cible, la fiche
+                        // s'ouvrait sans action focusable et le focus restait
+                        // sur le rail (cas confirmé sur émulateur avec une
+                        // série non téléchargée). Elle ne prend le rôle que si
+                        // aucun vrai CTA n'existe, pour ne jamais voler le
+                        // focus à « Lire ».
+                        focusRequester = if (episodeResume == null && nextEpisode == null) primaryActionFocusRequester else null,
+                    ) {
+                        viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched, scope = "series")
+                    }
+                }
+            }
+
             // Film : un seul CTA (Lire si le fichier est prêt, sinon Ajouter).
             // Série : Ajouter tant qu'elle n'est pas en bibliothèque — une
             // fois dedans, la lecture se fait épisode par épisode plus bas,
@@ -978,7 +1018,7 @@ fun TitleDetailScreen(
             // Plex/Netflix : jamais un simple bouton "Lire" sur une série).
             if (type == "movie") {
                 Column {
-                    Row {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         val plexKey = plexRatingKey
                         // "Lire" dès que le fichier est prêt côté Movviz, sans
                         // attendre la clé Plex (scan Plex + sync, plusieurs
@@ -998,7 +1038,6 @@ fun TitleDetailScreen(
                                 onPlay(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
-                                Spacer(modifier = Modifier.width(9.dp))
                                 PrimaryPill(text = "Lire depuis le début", brush = null, icon = MovvizIconReplay) {
                                     onPlayFromStart(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                                 }
@@ -1039,12 +1078,10 @@ fun TitleDetailScreen(
                             }
                             PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, enabled = false) {}
                         }
-                        Spacer(modifier = Modifier.width(9.dp))
-                        PrimaryPill(
-                            text = if (movieWatched) "Marquer non vu" else "Marquer vu",
-                            brush = null,
-
-                            icon = MovvizIconCheck,
+                        trailerAction()
+                        WatchedToggle(
+                            watched = movieWatched,
+                            label = if (movieWatched) "Vu — marquer comme non vu" else "Marquer comme vu",
                         ) {
                             viewModel.toggleMovieWatched(tmdbId, d.title, !movieWatched)
                         }
@@ -1085,9 +1122,13 @@ fun TitleDetailScreen(
                     }
                 }
             } else if (!libraryResolved) {
-                PrimaryPill(text = "Vérification du fichier…", brush = null, enabled = false, onClick = {})
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    PrimaryPill(text = "Vérification du fichier…", brush = null, enabled = false, onClick = {})
+                    trailerAction()
+                    seriesWatchAction()
+                }
             } else if (!inLibrary) {
-                Row {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     PrimaryPill(
                         text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
@@ -1105,6 +1146,7 @@ fun TitleDetailScreen(
                             }
                         }
                     }
+                    trailerAction()
                 }
             } else if (episodeResume != null) {
                 // Série en bibliothèque avec un épisode en cours : même
@@ -1120,7 +1162,7 @@ fun TitleDetailScreen(
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         PrimaryPill(
                             text = "Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
                             brush = null,
@@ -1138,6 +1180,8 @@ fun TitleDetailScreen(
                             }
                             if (index >= 0) onPlay(d.title, playableEpisodes, index, d.posterPath)
                         }
+                        trailerAction()
+                        seriesWatchAction()
                     }
                 }
             } else if (type == "series" && nextEpisode != null) {
@@ -1154,7 +1198,7 @@ fun TitleDetailScreen(
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                         PrimaryPill(
                             text = if (nextWatched) "Revoir depuis le début" else "Lire S${nextEpisode.seasonNumber} · Ép ${nextEpisode.episodeNumber}",
                             brush = null,
@@ -1166,41 +1210,16 @@ fun TitleDetailScreen(
                         ) {
                             onPlay(d.title, playableEpisodes, nextEpisodeIndex, d.posterPath)
                         }
+                        trailerAction()
+                        seriesWatchAction()
                     }
                 }
-            }
-
-            // Bande-annonce : clés YouTube de la fiche (contexte "Trailer", comme
-            // le bouton du desktop) puis sources directes de /api/tv/preview.
-            val trailerDirectSources = ambientPreview?.directSources.orEmpty()
-            if (hasTrailer(d.trailerKeys, trailerDirectSources)) {
-                Spacer(modifier = Modifier.height(9.dp))
-                PrimaryPill(
-                    text = "Bande-annonce",
-                    brush = null,
-                    icon = MovvizIconFilm,
-                    focusRequester = trailerButtonFocus,
-                ) { trailerOpen = true }
-            }
-
-            if (type == "series" && seriesWatchTargets.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(9.dp))
-                PrimaryPill(
-                    text = if (allSeriesWatched) "Série vue — marquer non vue" else "Marquer toute la série vue",
-                    brush = null,
-
-                    icon = MovvizIconCheck,
-                    // Dernier filet : une série EN bibliothèque dont aucun
-                    // épisode n'est encore téléchargé n'affiche ni reprise ni
-                    // bouton de lecture — aucune branche au-dessus ne rend
-                    // quoi que ce soit. Sans cette cible, la fiche s'ouvrait
-                    // sans action focusable et le focus restait sur le rail
-                    // (cas confirmé sur émulateur avec une série non
-                    // téléchargée). Elle ne prend le rôle que si aucun vrai
-                    // CTA n'existe, pour ne jamais voler le focus à « Lire ».
-                    focusRequester = if (episodeResume == null && nextEpisode == null) primaryActionFocusRequester else null,
-                ) {
-                    viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched, scope = "series")
+            } else {
+                // Série en bibliothèque sans épisode lisible : pas de CTA, mais
+                // la bande-annonce et « vu » restent sur leur propre ligne.
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    trailerAction()
+                    seriesWatchAction()
                 }
             }
 
@@ -1899,10 +1918,9 @@ private fun SeasonPageHeader(
                     }
                     if (watchable.isNotEmpty()) {
                         val targets = watchable.map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
-                        PrimaryPill(
-                            text = if (allWatched) "Marquer non vue" else "Marquer la saison vue",
-                            brush = null,
-                            icon = MovvizIconCheck,
+                        WatchedToggle(
+                            watched = allWatched,
+                            label = if (allWatched) "Saison vue — marquer comme non vue" else "Marquer la saison comme vue",
                             onClick = { onToggleEpisodesWatched(targets, !allWatched) },
                         )
                     }
@@ -2356,10 +2374,9 @@ private fun EpisodeDetailOverlay(
                             )
                         }
                         if (episode.status != "upcoming") {
-                            PrimaryPill(
-                                text = if (watched) "Marquer non vu" else "Marquer vu",
-                                brush = null,
-                                icon = MovvizIconCheck,
+                            WatchedToggle(
+                                watched = watched,
+                                label = if (watched) "Vu — marquer comme non vu" else "Marquer comme vu",
                                 onClick = { onToggleWatched(!watched) },
                             )
                         }
@@ -2412,6 +2429,77 @@ private fun EpisodeFileTable(file: com.movviz.tv.data.LibraryFileDto) {
 @Composable
 private fun MetaSep() {
     Text(text = "  •  ", style = TextStyle(fontSize = 11.sp, color = MovvizInkDim))
+}
+
+/**
+ * « Vu » en simple icône, à côté du CTA : éteint (gris, coche terne) tant que
+ * ce n'est pas vu, ALLUMÉ (fond et coche verts, liseré vert) quand c'est vu.
+ * Une icône seule ne se lit pas à la télécommande : dès qu'elle a le focus, son
+ * libellé s'affiche juste en dessous, en surimpression — posé par un layout de
+ * taille nulle, donc il ne décale JAMAIS les boutons voisins (géométrie fixe,
+ * voir les pièges D-pad).
+ * Repos gris / focus blanc, comme tous les boutons : le vert n'est que l'état.
+ */
+@Composable
+private fun WatchedToggle(
+    watched: Boolean,
+    label: String,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(9.dp)
+    val greenOnWhite = Color(0xFF0E9F63) // MovvizOk est trop clair sur fond blanc
+    Box {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .tvFocusLift(focused, shape = shape, maxElevation = 12.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .tvPointerClick(onClick),
+            shape = ClickableSurfaceDefaults.shape(shape = shape),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = if (watched) MovvizOk.copy(alpha = 0.16f) else MovvizInk.copy(alpha = 0.1f),
+                focusedContainerColor = Color.White,
+                contentColor = if (watched) MovvizOk else MovvizInkDim,
+                focusedContentColor = if (watched) greenOnWhite else Color.Black,
+            ),
+            border = ClickableSurfaceDefaults.border(
+                border = if (watched) {
+                    Border(border = androidx.compose.foundation.BorderStroke(1.5.dp, MovvizOk.copy(alpha = 0.75f)), shape = shape)
+                } else {
+                    Border.None
+                },
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                    shape = shape,
+                ),
+            ),
+        ) {
+            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
+                Icon(imageVector = MovvizIconCheck, contentDescription = label, modifier = Modifier.size(13.dp))
+            }
+        }
+        if (focused) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier
+                    // Taille 0×0 pour le parent : le libellé est dessiné hors
+                    // flux, sous le bouton, et ne pousse aucun voisin.
+                    .layout { measurable, _ ->
+                        val placeable = measurable.measure(androidx.compose.ui.unit.Constraints())
+                        layout(0, 0) { placeable.place(0, 42.dp.roundToPx()) }
+                    }
+                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+    }
 }
 
 /** Bouton d'action principal — Surface focusable (obligatoire pour le D-pad),

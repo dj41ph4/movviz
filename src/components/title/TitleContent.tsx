@@ -1529,9 +1529,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 onClick={toggleWatchlist}
                 disabled={watching}
                 title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+                aria-label={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
                 className={cn(
-                  "flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold backdrop-blur transition-transform hover:scale-105 active:scale-95",
-                  onWatchlist ? "border-brand-glow/40 text-brand-glow" : "border-white/25 text-white/85 hover:border-white/45 hover:text-white",
+                  "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-transform hover:scale-110 active:scale-90",
+                  onWatchlist ? "text-brand-glow" : "text-white/80 hover:text-white",
                 )}
               >
                 {watching ? (
@@ -1540,11 +1541,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   <Bookmark
                     className={cn(
                       "h-4 w-4",
-                      onWatchlist && "fill-brand-glow",
+                      onWatchlist && "fill-brand-glow/40",
                     )}
                   />
                 )}
-                {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
               </button>
               {detail.trailerKey && (
                 <button
