@@ -534,8 +534,8 @@ fun TitleDetailScreen(
             // L'action principale n'existe que pour les films prêts ou à
             // ajouter. Si elle n'est pas composée, l'ancre de titre reste le
             // repli fiable pour les séries et états transitoires.
-            val granted = runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess ||
-                runCatching { initialFocusRequester.requestFocus() }.isSuccess
+            val granted = runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false) ||
+                runCatching { initialFocusRequester.requestFocus() }.getOrDefault(false)
             if (granted) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
         }
@@ -551,8 +551,8 @@ fun TitleDetailScreen(
     LaunchedEffect(anyOverlayOpen) {
         if (anyOverlayOpen || detail == null) return@LaunchedEffect
         repeat(20) { attempt ->
-            val granted = runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess ||
-                runCatching { initialFocusRequester.requestFocus() }.isSuccess
+            val granted = runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false) ||
+                runCatching { initialFocusRequester.requestFocus() }.getOrDefault(false)
             if (granted) return@LaunchedEffect
             if (attempt < 19) withFrameNanos { }
         }
@@ -565,7 +565,7 @@ fun TitleDetailScreen(
     LaunchedEffect(moviePrimaryActionReady) {
         if (!moviePrimaryActionReady || hasRequestedPrimaryActionFocus) return@LaunchedEffect
         repeat(10) { attempt ->
-            if (runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess) {
+            if (runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false)) {
                 hasRequestedPrimaryActionFocus = true
                 return@LaunchedEffect
             }
@@ -695,7 +695,7 @@ fun TitleDetailScreen(
                 }
                 LaunchedEffect(detailError) {
                     repeat(10) { attempt ->
-                        if (runCatching { initialFocusRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+                        if (runCatching { initialFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
                         if (attempt < 9) withFrameNanos { }
                     }
                 }
@@ -795,7 +795,7 @@ fun TitleDetailScreen(
                             event.key == Key.DirectionDown &&
                             moviePrimaryActionReady
                         ) {
-                            runCatching { primaryActionFocusRequester.requestFocus() }.isSuccess
+                            runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false)
                         } else {
                             false
                         }
@@ -1634,7 +1634,7 @@ private fun SeasonPageOverlay(
                 primaryActionFocus,
                 backFocus,
             )
-            if (targets.any { runCatching { it.requestFocus() }.isSuccess }) return@LaunchedEffect
+            if (targets.any { runCatching { it.requestFocus() }.getOrDefault(false) }) return@LaunchedEffect
             if (attempt < 19) withFrameNanos { }
         }
     }
@@ -2189,7 +2189,7 @@ private fun EpisodeDetailOverlay(
     val primaryActionFocus = remember { FocusRequester() }
     LaunchedEffect(episode.seasonNumber, episode.episodeNumber) {
         repeat(10) { attempt ->
-            if (runCatching { primaryActionFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { primaryActionFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
         }
     }

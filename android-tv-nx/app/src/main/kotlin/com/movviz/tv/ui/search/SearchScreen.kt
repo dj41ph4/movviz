@@ -114,7 +114,7 @@ fun SearchScreen(
     LaunchedEffect(showSearchField) {
         if (!showSearchField || resultFocusRequester == null) return@LaunchedEffect
         repeat(4) { attempt ->
-            if (runCatching { resultFocusRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { resultFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
             if (attempt < 3) withFrameNanos { }
         }
     }
@@ -299,7 +299,7 @@ private fun SearchField(
                 // champ sans quitter l'écran) et masque le clavier.
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
-                        downFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+                        downFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
                     } else if ((event.key == Key.Back || event.key == Key.Escape) && event.type == KeyEventType.KeyUp) {
                         keyboardController?.hide()
                         focusManager.clearFocus()

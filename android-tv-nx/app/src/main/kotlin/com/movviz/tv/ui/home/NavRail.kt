@@ -313,7 +313,7 @@ private fun ProfileFooterRow(
                 val firstItemFocus = remember { FocusRequester() }
                 LaunchedEffect(open) {
                     repeat(10) { attempt ->
-                        val granted = try { firstItemFocus.requestFocus(); true } catch (_: Exception) { false }
+                        val granted = try { firstItemFocus.requestFocus() } catch (_: Exception) { false }
                         if (granted) return@LaunchedEffect
                         if (attempt < 9) withFrameNanos { }
                     }

@@ -88,7 +88,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
     // supposer que le champ est déjà attaché.
     LaunchedEffect(Unit) {
         repeat(10) { attempt ->
-            val granted = runCatching { usernameFocus.requestFocus() }.isSuccess
+            val granted = runCatching { usernameFocus.requestFocus() }.getOrDefault(false)
             if (granted) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
         }
@@ -310,7 +310,7 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
                 // requestFocus() renvoie Unit en Compose 1.7 et lève
                 // IllegalStateException si le noeud n'est pas encore
                 // attaché : on retente tant que la demande échoue.
-                val granted = runCatching { openPlexFocus.requestFocus() }.isSuccess
+                val granted = runCatching { openPlexFocus.requestFocus() }.getOrDefault(false)
                 if (granted) return@LaunchedEffect
                 if (attempt < 9) withFrameNanos { }
             }

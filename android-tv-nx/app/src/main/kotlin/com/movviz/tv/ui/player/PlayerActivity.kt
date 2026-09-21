@@ -1085,7 +1085,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         lastInteraction = System.currentTimeMillis()
         showControls = true
         repeat(6) { attempt ->
-            val granted = runCatching { skipMarkerFocus.requestFocus() }.isSuccess
+            val granted = runCatching { skipMarkerFocus.requestFocus() }.getOrDefault(false)
             if (granted) return@LaunchedEffect
             if (attempt < 5) withFrameNanos { }
         }
@@ -1117,7 +1117,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     LaunchedEffect(showControls) {
         val target = if (showControls) playPauseFocus else hiddenCatcherFocus
         repeat(5) { attempt ->
-            val ok = runCatching { target.requestFocus() }.isSuccess
+            val ok = runCatching { target.requestFocus() }.getOrDefault(false)
             if (ok) return@LaunchedEffect
             if (attempt < 4) withFrameNanos { }
         }
@@ -1296,7 +1296,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 // focusables du tout, uniquement cliquables au pointeur).
                 val target = if (canRetry) retryFocus else exitFocus
                 repeat(5) { attempt ->
-                    val ok = runCatching { target.requestFocus() }.isSuccess
+                    val ok = runCatching { target.requestFocus() }.getOrDefault(false)
                     if (ok) return@LaunchedEffect
                     if (attempt < 4) withFrameNanos { }
                 }
@@ -2077,7 +2077,7 @@ private fun TrackDialog(
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         repeat(5) { attempt ->
-            val ok = runCatching { firstFocus.requestFocus() }.isSuccess
+            val ok = runCatching { firstFocus.requestFocus() }.getOrDefault(false)
             if (ok) return@LaunchedEffect
             if (attempt < 4) withFrameNanos { }
         }

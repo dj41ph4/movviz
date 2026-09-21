@@ -78,7 +78,7 @@ fun ProfilePickerScreen(
     }
     LaunchedEffect(visibleProfiles) {
         repeat(10) { attempt ->
-            if (runCatching { firstTileFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (runCatching { firstTileFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
         }
     }

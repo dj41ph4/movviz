@@ -3,6 +3,7 @@ package com.movviz.tv.ui.home
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,12 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.dp
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.ui.discover.DiscoverScreen
@@ -31,6 +27,7 @@ import com.movviz.tv.ui.profile.ProfileScreen
  * dans une colonne réservée à gauche. Ce contenu est son frère de droite :
  * il n'est jamais recouvert par la navigation, y compris sur la fiche titre.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun MainScreen(
     viewModel: AppViewModel,
@@ -50,24 +47,28 @@ fun MainScreen(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     contentFocusRequester: FocusRequester,
-    // Cible HAUT depuis le contenu → NavRail : onglet sélectionné de la
+    // Cible GAUCHE depuis le contenu → NavRail : onglet sélectionné de la
     // barre reçoit le focus quand l'utilisateur appuie sur HAUT alors que
     // plus rien ne se trouve au-dessus dans le contenu.
     navRailFocusRequester: FocusRequester? = null,
     onHomeScrollChanged: (Boolean) -> Unit = {},
 ) {
-    val focusManager = LocalFocusManager.current
     Box(
-        // L'accueil possède sa propre arborescence TV : son TvLazyColumn doit
-        // recevoir UP directement pour remonter de rangée en rangée. Les
-        // écrans historiques conservent leur repli global vers la NavRail,
-        // afin que cette correction ne change pas leurs parcours existants.
-        modifier = Modifier.fillMaxSize().onKeyEvent { event ->
-            if (tab == HomeTab.HOME && !searchOpen) return@onKeyEvent false
-            if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionUp) return@onKeyEvent false
-            if (focusManager.moveFocus(FocusDirection.Up)) true
-            else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
-        },
+        // La navigation est désormais une sidebar à GAUCHE. Le déplacement
+        // vertical reste entièrement natif (TvLazyColumn/TvLazyRow). On ne
+        // redirige que la vraie sortie LEFT du groupe vers l'onglet actif,
+        // via focusProperties, sans intercepter les touches.
+        modifier = Modifier.fillMaxSize()
+            .focusProperties {
+                exit = { focusDirection ->
+                    if (focusDirection == FocusDirection.Left) {
+                        navRailFocusRequester ?: FocusRequester.Default
+                    } else {
+                        FocusRequester.Default
+                    }
+                }
+            }
+            .focusGroup(),
         // Jamais de padding top ici, sur AUCUN écran : un padding poussait
         // Recherche/Paramètres sous une bande opaque (MaterialTheme.
         // colorScheme.background plein sous la nav transparente) qui

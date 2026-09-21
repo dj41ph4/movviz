@@ -14,6 +14,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,15 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -200,7 +196,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             previousRoute?.startsWith("home") != true
         ) {
             delay(300)
-            val restored = runCatching { contentFocusRequester.requestFocus() }.isSuccess
+            val restored = runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)
             if (!restored) runCatching { navRailFocusRequester.requestFocus() }
         }
         previousRoute = currentRoute
@@ -505,7 +501,7 @@ composable(ROUTE_PROFILES) {
             // épisodes → saison), puis l'onglet actif de la NavRail. Sans
             // ceci, la fiche (hors MainScreen) n'avait AUCUN chemin vers la
             // barre : le focus restait piégé dans le contenu.
-            DetailUpToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester) {
                 TitleDetailScreen(
                 viewModel = viewModel,
                 type = type,
@@ -543,8 +539,8 @@ composable(ROUTE_PROFILES) {
             arguments = listOf(navArgument("id") { type = NavType.IntType }),
         ) { backStackEntry ->
             val personId = backStackEntry.arguments?.getInt("id") ?: 0
-            // Même symétrie HAUT que la fiche titre (voir DetailUpToNavHandler).
-            DetailUpToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+            // Même symétrie HAUT que la fiche titre (voir DetailFocusToNavHandler).
+            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester) {
                 PersonScreen(
                     viewModel = viewModel,
                     personId = personId,
@@ -572,8 +568,8 @@ composable(ROUTE_PROFILES) {
             // fait (voir le commentaire sur rowDetailRoute()).
             val key = android.net.Uri.decode(backStackEntry.arguments?.getString("key") ?: "")
             val label = android.net.Uri.decode(backStackEntry.arguments?.getString("label") ?: "")
-            // Même symétrie HAUT que la fiche titre/acteur (voir DetailUpToNavHandler).
-            DetailUpToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+            // Même symétrie HAUT que la fiche titre/acteur (voir DetailFocusToNavHandler).
+            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester) {
                 RowDetailScreen(
                     viewModel = viewModel,
                     mode = mode,
@@ -594,28 +590,29 @@ composable(ROUTE_PROFILES) {
     }
 }
 
-/** Conteneur des écrans HORS MainScreen (fiche titre, fiche acteur) avec la
- *  même symétrie D-pad HAUT : monter d'abord À L'INTÉRIEUR du contenu
- *  (moveFocus respecte toute la hiérarchie composée), puis basculer sur
- *  l'onglet actif de la NavRail quand plus rien ne se trouve au-dessus.
- *  Sans ceci, ces écrans n'avaient AUCUN chemin vers la barre de nav — le
- *  focus restait piégé dans le contenu (constaté en direct : « on ne peut
- *  pas remonter au menu depuis une fiche »). */
+/** Conteneur des écrans HORS MainScreen (fiche titre, fiche acteur,
+ * grille « voir tout »). La NavRail vit à GAUCHE : Compose garde le contrôle
+ * de UP/DOWN/RIGHT à l'intérieur du contenu et seule une sortie LEFT du
+ * groupe est redirigée vers l'onglet actif. Aucun événement D-pad n'est
+ * consommé manuellement ici. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-private fun DetailUpToNavHandler(
+private fun DetailFocusToNavHandler(
     navRailFocusRequester: FocusRequester,
     content: @Composable () -> Unit,
 ) {
-    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     Box(
         modifier = Modifier.fillMaxSize()
-            .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                    val movedInside = focusManager.moveFocus(FocusDirection.Up)
-                    if (movedInside) true
-                    else runCatching { navRailFocusRequester.requestFocus() }.isSuccess
-                } else false
-            },
+            .focusProperties {
+                exit = { focusDirection ->
+                    if (focusDirection == FocusDirection.Left) {
+                        navRailFocusRequester
+                    } else {
+                        FocusRequester.Default
+                    }
+                }
+            }
+            .focusGroup(),
     ) {
         content()
     }

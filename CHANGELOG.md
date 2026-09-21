@@ -1,3 +1,12 @@
+## v1.25.50 — September 2026
+
+### Android TV : D-pad réparé après la refonte sidebar
+
+- La navigation latérale et le contenu utilisent de nouveau un seul moteur de focus : `focusProperties`/`focusGroup` de Compose, sans interception globale de `UP`.
+- La sidebar étant désormais à gauche, la sortie du contenu vers le menu se fait sur `LEFT`; `UP`/`DOWN` restent natifs dans les listes, rangées, grilles et fiches.
+- Les anciens appels `runCatching { requestFocus() }.isSuccess` ont été corrigés : le booléen réellement renvoyé par `requestFocus()` est maintenant respecté, donc un refus de focus n'est plus pris pour un succès.
+- Aucun changement visuel : dimensions, couleurs, cartes, sidebar et animations restent identiques à la refonte actuelle.
+
 ## v1.25.49 — September 2026
 
 ### Un épisode re-téléchargé remplace son fichier au lieu de s'installer à côté

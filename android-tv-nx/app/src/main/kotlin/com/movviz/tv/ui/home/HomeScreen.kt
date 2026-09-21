@@ -55,11 +55,6 @@ import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.foundation.lazy.list.itemsIndexed as tvItemsIndexed
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -223,9 +218,8 @@ fun HomeScreen(
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
     entryFocusRequester: FocusRequester? = null,
-    // Destination UP uniquement depuis l'ancre réellement située au sommet.
-    // Ne jamais l'employer depuis une carte : TvLazyColumn doit d'abord
-    // résoudre la rangée précédente et faire défiler le contenu.
+    // Destination GAUCHE vers la NavRail. Le déplacement vertical reste
+    // entièrement géré par les listes TV natives.
     navRailFocusRequester: FocusRequester? = null,
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
@@ -531,7 +525,6 @@ fun HomeScreen(
     }
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
 
-    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .focusProperties {
@@ -539,15 +532,7 @@ fun HomeScreen(
                     if (focusDirection == androidx.compose.ui.focus.FocusDirection.Left) navRailFocusRequester ?: androidx.compose.ui.focus.FocusRequester.Default else androidx.compose.ui.focus.FocusRequester.Default
                 }
             }
-            .focusGroup()
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionUp) return@onPreviewKeyEvent false
-                // UP depuis le contenu : tenter d'abord un déplacement naturel
-                // (rangée → rangée, carte → hero). S'il échoue (déjà tout en
-                // haut), aller sur l'onglet sélectionné de la NavRail.
-                if (focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) true
-                else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
-            },
+            .focusGroup(),
     ) {
         TvLazyColumn(
             modifier = Modifier.fillMaxSize().focusGroup(),
@@ -580,11 +565,6 @@ fun HomeScreen(
                         .let {
                             if (anchorOwnsContentFocus) it.focusRequester(contentFocus)
                                 .focusRequester(topAnchor).focusable()
-                                .onPreviewKeyEvent { event ->
-                                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                                        navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
-                                    } else false
-                                }
                             else it.focusRequester(topAnchor)
                         },
                 )
