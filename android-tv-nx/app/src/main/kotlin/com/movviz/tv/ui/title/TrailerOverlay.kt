@@ -8,7 +8,6 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -73,6 +72,10 @@ private val YOUTUBE_KEY = Regex("[A-Za-z0-9_-]{6,}")
 private const val HUD_VISIBLE_MS = 3500L
 private const val SEEK_SECONDS = 10
 
+// YouTube met parfois plus de 12 s à répondre sur un réseau domestique : une
+// source n'est abandonnée qu'après ce délai.
+private const val START_TIMEOUT_MS = 25_000L
+
 /** Une source de bande-annonce jouable : YouTube (clés TMDb de la fiche, même
  *  liste que le desktop) ou source directe (Apple/IMDb/Prime, renvoyée par
  *  /api/tv/preview qui partage les candidats du desktop). */
@@ -111,9 +114,9 @@ internal fun TrailerOverlay(
     title: String,
     youtubeKeys: List<String>,
     directSources: List<TrailerSourceDto>,
+    originUrl: String?,
     onClose: () -> Unit,
 ) {
-    BackHandler(onBack = onClose)
     val candidates = remember(youtubeKeys, directSources) { trailerCandidates(youtubeKeys, directSources) }
     var index by remember(candidates) { mutableIntStateOf(0) }
     val current = candidates.getOrNull(index)
@@ -129,7 +132,7 @@ internal fun TrailerOverlay(
     // jamais de chargement infini.
     LaunchedEffect(index) {
         if (candidates.getOrNull(index) == null) return@LaunchedEffect
-        delay(12_000L)
+        delay(START_TIMEOUT_MS)
         if (!started) { lastError = "délai dépassé"; index += 1 }
     }
 
@@ -172,118 +175,130 @@ internal fun TrailerOverlay(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .focusRequester(focus)
-            .focusable()
-            .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                when (event.key) {
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
-                        // Le retour visuel annonce l'état À VENIR : le lecteur
-                        // ne confirme qu'au tick suivant.
-                        feedback(if (event.key == Key.MediaPlay || (event.key != Key.MediaPause && !playing)) "play" else "pause")
-                        hudPoke += 1
-                        toggle?.invoke(); true
-                    }
-                    Key.DirectionLeft, Key.MediaRewind -> {
-                        feedback("−$SEEK_SECONDS s"); hudPoke += 1
-                        seekBy?.invoke(-SEEK_SECONDS); true
-                    }
-                    Key.DirectionRight, Key.MediaFastForward -> {
-                        feedback("+$SEEK_SECONDS s"); hudPoke += 1
-                        seekBy?.invoke(SEEK_SECONDS); true
-                    }
-                    // Haut / bas réveillent la barre mais ne sortent jamais
-                    // de l'overlay.
-                    Key.DirectionUp, Key.DirectionDown -> { hudPoke += 1; true }
-                    else -> false
-                }
-            },
+    // Fenêtre à part (Dialog) : la bande-annonce couvre VRAIMENT tout l'écran,
+    // barre latérale comprise. Retour est géré par la fenêtre elle-même.
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onClose,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false,
+        ),
     ) {
-        when (current) {
-            is TrailerCandidate.YouTube -> YouTubeTrailer(
-                key = current.key,
-                onError = { code -> lastError = "YouTube $code"; index += 1 },
-                onEnded = onClose,
-                clock = clock,
-                modifier = Modifier.fillMaxSize(),
-            )
-            is TrailerCandidate.Direct -> DirectTrailer(
-                url = current.url,
-                onError = { lastError = "source directe"; index += 1 },
-                onEnded = onClose,
-                clock = clock,
-                modifier = Modifier.fillMaxSize(),
-            )
-            null -> Text(
-                text = "Bande-annonce indisponible" + (lastError?.let { " ($it)" } ?: ""),
-                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-
-        if (current != null && !started) {
-            Text(
-                text = "Chargement de la bande-annonce…",
-                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f)),
-                modifier = Modifier.align(Alignment.Center),
-            )
-        }
-
-        // Retour visuel central : icône lecture / pause ou « ±10 s ».
-        AnimatedVisibility(
-            visible = flash != null,
-            enter = fadeIn(tween(80)),
-            exit = fadeOut(tween(260)),
-            modifier = Modifier.align(Alignment.Center),
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .focusRequester(focus)
+                .focusable()
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    when (event.key) {
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
+                            // Le retour visuel annonce l'état À VENIR : le lecteur
+                            // ne confirme qu'au tick suivant.
+                            feedback(if (event.key == Key.MediaPlay || (event.key != Key.MediaPause && !playing)) "play" else "pause")
+                            hudPoke += 1
+                            toggle?.invoke(); true
+                        }
+                        Key.DirectionLeft, Key.MediaRewind -> {
+                            feedback("−$SEEK_SECONDS s"); hudPoke += 1
+                            seekBy?.invoke(-SEEK_SECONDS); true
+                        }
+                        Key.DirectionRight, Key.MediaFastForward -> {
+                            feedback("+$SEEK_SECONDS s"); hudPoke += 1
+                            seekBy?.invoke(SEEK_SECONDS); true
+                        }
+                        // Haut / bas réveillent la barre mais ne sortent jamais
+                        // de l'overlay.
+                        Key.DirectionUp, Key.DirectionDown -> { hudPoke += 1; true }
+                        else -> false
+                    }
+                },
         ) {
-            Box(
-                modifier = Modifier
-                    .size(92.dp)
-                    .background(Color.Black.copy(alpha = 0.55f), CircleShape),
-                contentAlignment = Alignment.Center,
+            when (current) {
+                is TrailerCandidate.YouTube -> YouTubeTrailer(
+                    key = current.key,
+                    originUrl = originUrl,
+                    onError = { code -> lastError = "YouTube $code"; index += 1 },
+                    onEnded = onClose,
+                    clock = clock,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                is TrailerCandidate.Direct -> DirectTrailer(
+                    url = current.url,
+                    onError = { lastError = "source directe"; index += 1 },
+                    onEnded = onClose,
+                    clock = clock,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                null -> Text(
+                    text = "Bande-annonce indisponible" + (lastError?.let { " ($it)" } ?: ""),
+                    style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+
+            if (current != null && !started) {
+                Text(
+                    text = "Chargement de la bande-annonce…",
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f)),
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+
+            // Retour visuel central : icône lecture / pause ou « ±10 s ».
+            AnimatedVisibility(
+                visible = flash != null,
+                enter = fadeIn(tween(80)),
+                exit = fadeOut(tween(260)),
+                modifier = Modifier.align(Alignment.Center),
             ) {
-                when (flash) {
-                    "play" -> Icon(imageVector = MovvizIconPlay, contentDescription = "Lecture", tint = Color.White, modifier = Modifier.size(38.dp))
-                    "pause" -> Icon(imageVector = MovvizIconPause, contentDescription = "Pause", tint = Color.White, modifier = Modifier.size(38.dp))
-                    else -> Text(
-                        text = flash.orEmpty(),
-                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White),
+                Box(
+                    modifier = Modifier
+                        .size(92.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when (flash) {
+                        "play" -> Icon(imageVector = MovvizIconPlay, contentDescription = "Lecture", tint = Color.White, modifier = Modifier.size(38.dp))
+                        "pause" -> Icon(imageVector = MovvizIconPause, contentDescription = "Pause", tint = Color.White, modifier = Modifier.size(38.dp))
+                        else -> Text(
+                            text = flash.orEmpty(),
+                            style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White),
+                        )
+                    }
+                }
+            }
+
+            val hudVisible = started && (hudRecent || !playing)
+            AnimatedVisibility(
+                visible = hudVisible,
+                enter = fadeIn(tween(160)),
+                exit = fadeOut(tween(320)),
+                modifier = Modifier.align(Alignment.TopStart),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)))
+                        .padding(start = 42.dp, end = 42.dp, top = 30.dp, bottom = 36.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 1,
                     )
                 }
             }
-        }
-
-        val hudVisible = started && (hudRecent || !playing)
-        AnimatedVisibility(
-            visible = hudVisible,
-            enter = fadeIn(tween(160)),
-            exit = fadeOut(tween(320)),
-            modifier = Modifier.align(Alignment.TopStart),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)))
-                    .padding(start = 42.dp, end = 42.dp, top = 30.dp, bottom = 36.dp),
+            AnimatedVisibility(
+                visible = hudVisible,
+                enter = fadeIn(tween(160)),
+                exit = fadeOut(tween(320)),
+                modifier = Modifier.align(Alignment.BottomStart),
             ) {
-                Text(
-                    text = title,
-                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
-                    maxLines = 1,
-                )
+                TrailerControls(position = position, duration = duration, playing = playing)
             }
-        }
-        AnimatedVisibility(
-            visible = hudVisible,
-            enter = fadeIn(tween(160)),
-            exit = fadeOut(tween(320)),
-            modifier = Modifier.align(Alignment.BottomStart),
-        ) {
-            TrailerControls(position = position, duration = duration, playing = playing)
         }
     }
 }
@@ -368,9 +383,14 @@ private class TrailerBridge(
     private val onTick: (Long, Long, Boolean) -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
+    private var lastState = Int.MIN_VALUE
     @JavascriptInterface fun ended() { main.post(onEnded) }
-    @JavascriptInterface fun error(code: Int) { main.post { onError(code) } }
+    @JavascriptInterface fun error(code: Int) {
+        android.util.Log.w("MovvizTrailer", "erreur YouTube code=$code")
+        main.post { onError(code) }
+    }
     @JavascriptInterface fun tick(positionSeconds: Double, durationSeconds: Double, state: Int) {
+        if (state != lastState) { lastState = state; android.util.Log.i("MovvizTrailer", "état YouTube=$state pos=$positionSeconds dur=$durationSeconds") }
         main.post { onTick((positionSeconds * 1000).toLong(), (durationSeconds * 1000).toLong(), state == 1) }
     }
 }
@@ -379,6 +399,7 @@ private class TrailerBridge(
 @Composable
 private fun YouTubeTrailer(
     key: String,
+    originUrl: String?,
     onError: (Int) -> Unit,
     onEnded: () -> Unit,
     clock: TrailerClock,
@@ -406,8 +427,17 @@ private fun YouTubeTrailer(
                 isFocusableInTouchMode = false
                 settings.javaScriptEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
-                webChromeClient = WebChromeClient()
-                webViewClient = WebViewClient()
+                webChromeClient = object : WebChromeClient() {
+                    override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
+                        android.util.Log.i("MovvizTrailer", "console: ${message.message()}")
+                        return true
+                    }
+                }
+                webViewClient = object : WebViewClient() {
+                    override fun onReceivedError(view: WebView, request: android.webkit.WebResourceRequest, error: android.webkit.WebResourceError) {
+                        android.util.Log.w("MovvizTrailer", "réseau: ${request.url} → ${error.description}")
+                    }
+                }
                 webView = this
             }
         },
@@ -416,7 +446,12 @@ private fun YouTubeTrailer(
                 view.tag = key
                 view.removeJavascriptInterface("MovvizTrailer")
                 view.addJavascriptInterface(bridge, "MovvizTrailer")
-                view.loadDataWithBaseURL("https://www.youtube.com", youtubeTrailerHtml(key), "text/html", "utf-8", null)
+                // Même principe que le desktop : la page qui embarque le lecteur
+                // YouTube est servie depuis l'adresse de Movviz (jamais depuis
+                // youtube.com lui-même), donc YouTube voit une origine d'intégration
+                // normale au lieu d'un lecteur qui s'embarque lui-même.
+                val base = originUrl?.takeIf { it.startsWith("http") } ?: "https://www.youtube.com"
+                view.loadDataWithBaseURL(base, youtubeTrailerHtml(key, base), "text/html", "utf-8", null)
             }
         },
         onRelease = { view ->
@@ -429,7 +464,7 @@ private fun YouTubeTrailer(
     )
 }
 
-private fun youtubeTrailerHtml(key: String): String = """
+private fun youtubeTrailerHtml(key: String, origin: String): String = """
     <!doctype html><html><body style="margin:0;background:#000;overflow:hidden">
     <style>html,body{height:100%}#player,#player iframe{position:absolute;top:0;left:0;width:100%;height:100%}</style>
     <div id="player"></div><script src="https://www.youtube.com/iframe_api"></script>
@@ -438,7 +473,7 @@ private fun youtubeTrailerHtml(key: String): String = """
       function onYouTubeIframeAPIReady(){
         p=new YT.Player('player',{
           width:'100%',height:'100%',videoId:'$key',
-          playerVars:{autoplay:1,mute:1,controls:0,playsinline:1,rel:0,modestbranding:1,fs:0,iv_load_policy:3,disablekb:1},
+          playerVars:{autoplay:1,mute:1,controls:0,playsinline:1,rel:0,modestbranding:1,fs:0,iv_load_policy:3,disablekb:1,origin:'$origin'},
           events:{
             onReady:function(e){e.target.mute();e.target.playVideo();},
             onStateChange:function(e){

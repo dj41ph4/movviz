@@ -1,3 +1,12 @@
+## v1.25.62 — September 2026
+
+### Android TV : fiche épisode façon Plex, bande-annonce plein écran
+
+- La fiche d'un épisode reprend le principe de Plex : fond teinté par la couleur dominante de la capture, capture plus petite avec son bandeau « Regardé » / « En cours », nom de la série en grand, titre de l'épisode, « Saison · Épisode », puis une ligne avec la définition en pastille, la date, la durée et la note, les boutons, le synopsis et le tableau du fichier sur deux colonnes.
+- Ouverte depuis « Continuer à regarder », la fiche n'avait ni capture, ni synopsis, ni durée, ni note : elle relit maintenant les métadonnées de la saison dès qu'elles sont chargées, et affiche le titre TMDb de l'épisode quand il existe plutôt que « Épisode N ».
+- La bande-annonce s'ouvre dans une fenêtre à part qui couvre tout l'écran, barre latérale comprise ; Retour la referme et le focus revient sur le bouton « Bande-annonce ».
+- Pour éviter le délai dépassé au lancement, le lecteur YouTube est servi depuis l'adresse de Movviz comme sur le desktop, au lieu de youtube.com, et une source n'est abandonnée qu'après 25 secondes. L'état du lecteur et ses erreurs sont désormais tracés pour diagnostiquer un échec sur une box.
+
 ## v1.25.61 — September 2026
 
 ### Android TV : lecture et reprise fiabilisées, temps du transcodage audio, tri « Récemment ajouté »

@@ -1377,9 +1377,16 @@ fun TitleDetailScreen(
         // dessous plutôt que de compter sur la géométrie.
         selectedEpisode?.let { selection ->
             val episodeKey = "${selection.season.seasonNumber}.${selection.episode.episodeNumber}"
+            // Fiche ouverte depuis « Continuer à regarder » : la sélection naît sans
+            // métadonnées ; on les relit ici dès que la saison est chargée, pour que
+            // capture, synopsis, durée et note apparaissent.
+            val liveSelection = if (selection.metadata != null) selection else selection.copy(
+                metadata = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, selection.season.seasonNumber)]
+                    ?.episodes?.firstOrNull { it.episodeNumber == selection.episode.episodeNumber },
+            )
             EpisodeDetailOverlay(
                 seriesTitle = d.title,
-                selection = selection,
+                selection = liveSelection,
                 downloading = searchingSeason == selection.season.seasonNumber,
                 watched = watchedEpisodeKeys.contains(episodeKey),
                 progress = episodeProgress[episodeKey],
@@ -1411,6 +1418,7 @@ fun TitleDetailScreen(
                 title = d.title,
                 youtubeKeys = d.trailerKeys,
                 directSources = ambientPreview?.directSources.orEmpty(),
+                originUrl = viewModel.serverUrl.value,
                 onClose = { trailerOpen = false },
             )
         }
@@ -2299,194 +2307,225 @@ private fun EpisodeDetailOverlay(
             if (attempt < 9) withFrameNanos { }
         }
     }
+    val metadata = selection.metadata
+    val stillUrl = metadata?.stillPath?.let { "$TMDB_STILL_BASE$it" }
+    // Couleur dominante de la capture : elle teinte tout l'écran, comme la
+    // fiche épisode de Plex, au lieu d'un fond noir uniforme.
+    val tint = rememberAmbientTint(stillUrl)
     Box(modifier = Modifier.fillMaxSize().background(MovvizBackground)) {
-        // Fond : la capture de l'épisode en plein écran, assombrie, comme le
-        // hero d'une fiche film. Deux voiles (gauche et bas) gardent le texte
-        // lisible quelle que soit l'image, y compris très claire.
-        if (selection.metadata?.stillPath != null) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.linearGradient(listOf(tint.copy(alpha = 0.92f), tint.copy(alpha = 0.42f), MovvizBackground)),
+            ),
+        )
+        // Texture légère : la capture elle-même, très en retrait.
+        if (stillUrl != null) {
             Image(
-                painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${selection.metadata.stillPath}"),
+                painter = rememberAsyncImagePainter(model = stillUrl),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                alpha = 0.5f,
+                alpha = 0.12f,
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        // Voile bas : le tableau technique reste lisible sur toute teinte.
         Box(
             modifier = Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(listOf(MovvizBackground, MovvizBackground.copy(alpha = 0.86f), MovvizBackground.copy(alpha = 0.35f))),
+                Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, MovvizBackground.copy(alpha = 0.7f))),
             ),
         )
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(Color.Transparent, MovvizBackground)),
-            ),
-        )
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 42.dp, end = 42.dp, top = 96.dp, bottom = 36.dp)
-                .widthIn(max = 1040.dp),
+                .padding(start = 42.dp, end = 42.dp, top = 84.dp, bottom = 30.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.width(380.dp)) {
-                    Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))) {
-                        if (selection.metadata?.stillPath != null) {
-                            Image(
-                                painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${selection.metadata.stillPath}"),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        } else {
-                            Box(modifier = Modifier.fillMaxSize().background(MovvizSurfaceStrong), contentAlignment = Alignment.Center) {
-                                Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
-                            }
+            Column(modifier = Modifier.width(300.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))) {
+                    if (stillUrl != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = stillUrl),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize().background(MovvizSurfaceStrong), contentAlignment = Alignment.Center) {
+                            Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
                         }
-                        if (resumeOffset != null && progress != null && progress.durationMs > 0L) {
+                    }
+                    if (resumeOffset != null && progress != null && progress.durationMs > 0L) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .background(Color.Black.copy(alpha = 0.62f)),
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .fillMaxWidth()
-                                    .height(5.dp)
-                                    .background(Color.Black.copy(alpha = 0.62f)),
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(fraction = (resumeOffset.toFloat() / progress.durationMs.toFloat()).coerceIn(0f, 1f))
-                                        .fillMaxHeight()
-                                        .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
-                                )
-                            }
-                        }
-                    }
-                    // Bandeau d'état sous la capture, comme « Regardé » sur Plex.
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(34.dp)
-                            .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp)),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        when {
-                            watched -> {
-                                Icon(imageVector = MovvizIconCheck, contentDescription = null, tint = MovvizInk, modifier = Modifier.size(13.dp))
-                                Spacer(modifier = Modifier.width(7.dp))
-                                Text(text = "Regardé", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk))
-                            }
-                            resumeOffset != null -> Text(
-                                text = "En cours · ${formatResumeTime(resumeOffset)}",
-                                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+                                    .fillMaxWidth(fraction = (resumeOffset.toFloat() / progress.durationMs.toFloat()).coerceIn(0f, 1f))
+                                    .fillMaxHeight()
+                                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
                             )
-                            else -> Text(text = "Non regardé", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                         }
                     }
                 }
-                Spacer(modifier = Modifier.width(32.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = seriesTitle,
-                        style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = episode.title,
-                        style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = "Saison ${selection.season.seasonNumber}",
-                            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
-                        )
-                        Text(
-                            text = "Épisode ${episode.episodeNumber}",
-                            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
-                        )
-                        if (!available) {
-                            val tone = statusTone(episode.status)
-                            StatusBadge(text = tone.label, tone = tone.color)
+                // Bandeau d'état sous la capture, comme « Regardé » sur Plex.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp)
+                        .background(Color.Black.copy(alpha = 0.32f), RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp)),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    when {
+                        watched -> {
+                            Icon(imageVector = MovvizIconCheck, contentDescription = null, tint = MovvizInk, modifier = Modifier.size(12.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Regardé", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk))
                         }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    EpisodeMetaRow(episode = episode, metadata = selection.metadata)
-                    Spacer(modifier = Modifier.height(18.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        if (available) {
-                            PrimaryPill(
-                                text = if (resumeOffset != null) "Reprendre à ${formatResumeTime(resumeOffset)}" else "Lecture",
-                                brush = null,
-                                icon = MovvizIconPlay,
-                                focusRequester = primaryActionFocus,
-                                onClick = onPlay,
-                            )
-                            if (resumeOffset != null) {
-                                PrimaryPill(text = "Du début", brush = null, icon = MovvizIconReplay, onClick = onPlayFromStart)
-                            }
-                        } else {
-                            PrimaryPill(
-                                text = if (downloading) "Recherche…" else "Télécharger la saison",
-                                brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                                enabled = !downloading,
-                                icon = if (downloading) null else MovvizIconDownload,
-                                focusRequester = primaryActionFocus,
-                                onClick = onDownloadSeason,
-                            )
-                        }
-                        if (episode.status != "upcoming") {
-                            WatchedToggle(
-                                watched = watched,
-                                label = if (watched) "Vu — marquer comme non vu" else "Marquer comme vu",
-                                onClick = { onToggleWatched(!watched) },
-                            )
-                        }
-                        PrimaryPill(text = "Retour", brush = null, onClick = onDismiss)
-                    }
-                    selection.metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-                        Spacer(modifier = Modifier.height(18.dp))
-                        Text(
-                            text = overview,
-                            style = TextStyle(fontSize = 13.sp, color = MovvizInk.copy(alpha = 0.86f), lineHeight = 20.sp),
-                            maxLines = 5,
-                            overflow = TextOverflow.Ellipsis,
+                        resumeOffset != null -> Text(
+                            text = "En cours · ${formatResumeTime(resumeOffset)}",
+                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
                         )
+                        else -> Text(text = "Non regardé", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                     }
-                    // Infos techniques du fichier RÉELLEMENT importé, en
-                    // tableau libellé / valeur. Réalisation et scénario ne
-                    // figurent pas ici : le serveur ne les renvoie pas.
-                    episode.file?.let { EpisodeFileTable(it) }
                 }
+            }
+            Spacer(modifier = Modifier.width(30.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = seriesTitle,
+                    style = TextStyle(fontSize = 34.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    // Titre TMDb (dans la langue demandée) quand il existe : celui de la
+                    // bibliothèque n'est souvent que « Épisode N ».
+                    text = metadata?.title?.takeIf { it.isNotBlank() } ?: episode.title,
+                    style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MovvizInk.copy(alpha = 0.8f)),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text(
+                        text = "Saison ${selection.season.seasonNumber}",
+                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+                    )
+                    Text(
+                        text = "Épisode ${episode.episodeNumber}",
+                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+                    )
+                    if (!available) {
+                        val tone = statusTone(episode.status)
+                        StatusBadge(text = tone.label, tone = tone.color)
+                    }
+                }
+                Spacer(modifier = Modifier.height(9.dp))
+                // Ligne méta façon Plex : définition en pastille, date, durée,
+                // note. Chaque morceau est optionnel, jamais de tiret vide.
+                val resolution = episode.file?.resolution
+                val rating = metadata?.rating ?: 0.0
+                val date = formatAirDate(metadata?.airDate ?: episode.airDate)
+                val runtime = metadata?.runtime?.let { formatEpisodeRuntime(it) }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (resolution != null) {
+                        Text(
+                            text = listOfNotNull(resolution, episode.file?.hdr).joinToString(" "),
+                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                            modifier = Modifier
+                                .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        )
+                    }
+                    date?.let { Text(text = it, style = TextStyle(fontSize = 13.sp, color = MovvizInk.copy(alpha = 0.85f))) }
+                    runtime?.let { Text(text = it, style = TextStyle(fontSize = 13.sp, color = MovvizInk.copy(alpha = 0.85f))) }
+                    if (rating > 0.0) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(imageVector = MovvizIconStar, contentDescription = null, tint = Color(0xFFF5C542), modifier = Modifier.size(12.dp))
+                            Text(text = "%.1f".format(rating), style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    if (available) {
+                        PrimaryPill(
+                            text = if (resumeOffset != null) "Reprendre à ${formatResumeTime(resumeOffset)}" else "Lecture",
+                            brush = null,
+                            icon = MovvizIconPlay,
+                            focusRequester = primaryActionFocus,
+                            onClick = onPlay,
+                        )
+                        if (resumeOffset != null) {
+                            PrimaryPill(text = "Du début", brush = null, icon = MovvizIconReplay, onClick = onPlayFromStart)
+                        }
+                    } else {
+                        PrimaryPill(
+                            text = if (downloading) "Recherche…" else "Télécharger la saison",
+                            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                            enabled = !downloading,
+                            icon = if (downloading) null else MovvizIconDownload,
+                            focusRequester = primaryActionFocus,
+                            onClick = onDownloadSeason,
+                        )
+                    }
+                    if (episode.status != "upcoming") {
+                        WatchedToggle(
+                            watched = watched,
+                            label = if (watched) "Vu — marquer comme non vu" else "Marquer comme vu",
+                            onClick = { onToggleWatched(!watched) },
+                        )
+                    }
+                    PrimaryPill(text = "Retour", brush = null, onClick = onDismiss)
+                }
+                metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                    Spacer(modifier = Modifier.height(22.dp))
+                    Text(
+                        text = overview,
+                        style = TextStyle(fontSize = 14.sp, color = MovvizInk.copy(alpha = 0.92f), lineHeight = 21.sp),
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                // Infos du fichier RÉELLEMENT importé. Réalisation et scénario
+                // ne figurent pas ici : le serveur ne les renvoie pas.
+                episode.file?.let { EpisodeFileTable(it) }
             }
         }
     }
 }
 
-/** Tableau libellé / valeur du fichier d'un épisode. Une ligne absente du
- *  fichier n'est simplement pas affichée — jamais de tiret vide. */
+/** Tableau libellé / valeur du fichier d'un épisode, sur deux colonnes comme
+ *  la fiche Plex. Une ligne absente du fichier n'est pas affichée. */
 @Composable
 private fun EpisodeFileTable(file: com.movviz.tv.data.LibraryFileDto) {
     val video = listOfNotNull(file.resolution, file.videoCodec?.let { "($it)" }).joinToString(" ").ifBlank { null }
-    val rows = listOfNotNull(
-        video?.let { "Vidéo" to it },
-        file.hdr?.let { "HDR" to it },
-        file.audioCodec?.let { "Audio" to it },
-        file.source?.let { "Source" to it },
-    )
-    if (rows.isEmpty()) return
-    Spacer(modifier = Modifier.height(16.dp))
-    rows.forEach { (label, value) ->
-        Row(modifier = Modifier.padding(vertical = 3.dp)) {
-            Text(
-                text = label,
-                style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
-                modifier = Modifier.width(96.dp),
-            )
-            Text(text = value, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk))
+    val columns = listOf(
+        listOfNotNull(video?.let { "Vidéo" to it }, file.audioCodec?.let { "Audio" to it }),
+        listOfNotNull(file.hdr?.let { "HDR" to it }, file.source?.let { "Source" to it }),
+    ).filter { it.isNotEmpty() }
+    if (columns.isEmpty()) return
+    Spacer(modifier = Modifier.height(26.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(44.dp)) {
+        columns.forEach { column ->
+            Column {
+                column.forEach { (label, value) ->
+                    Row(modifier = Modifier.padding(vertical = 3.dp)) {
+                        Text(
+                            text = label,
+                            style = TextStyle(fontSize = 12.sp, color = MovvizInk.copy(alpha = 0.55f)),
+                            modifier = Modifier.width(64.dp),
+                        )
+                        Text(text = value, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk))
+                    }
+                }
+            }
         }
     }
 }
