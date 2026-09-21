@@ -59,21 +59,7 @@ jobs:
           set -euo pipefail
           npm version 1.25.53 --no-git-tag-version
           sed -i 's/version-1\.25\.52-a855f7/version-1.25.53-a855f7/g; s/Version 1\.25\.52/Version 1.25.53/g' README.md
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('CHANGELOG.md')
-          current = p.read_text(encoding='utf-8')
-          entry = '''## v1.25.53 — September 2026
-
-### Android TV : sortie fiable du hero Accueil au D-pad
-
-- Le haut d’Accueil pouvait rester bloqué sur les boutons du hero : `DOWN` dépendait encore de la recherche spatiale automatique de Compose pour découvrir la première carte d’une `TvLazyColumn`, qui n’est pas toujours candidate tant qu’elle n’est pas suffisamment entrée dans le viewport.
-- Le hero et la première carte de la première rangée sont maintenant reliés par `focusProperties.down` et un `FocusRequester` dédié. Le bouton principal garde également une sortie `LEFT` explicite vers la sidebar.
-- Aucun `onKeyEvent`/`onPreviewKeyEvent` n’est réintroduit : le déplacement reste entièrement géré par le moteur de focus Compose, et le visuel ne change pas.
-
-'''
-          p.write_text(entry + current, encoding='utf-8')
-          PY
+          python -c "from pathlib import Path; p=Path('CHANGELOG.md'); current=p.read_text(encoding='utf-8'); entry='## v1.25.53 — September 2026\\n\\n### Android TV : sortie fiable du hero Accueil au D-pad\\n\\n- Le haut d’Accueil pouvait rester bloqué sur les boutons du hero : DOWN dépendait encore de la recherche spatiale automatique de Compose pour découvrir la première carte d’une TvLazyColumn, qui n’est pas toujours candidate tant qu’elle n’est pas suffisamment entrée dans le viewport.\\n- Le hero et la première carte de la première rangée sont maintenant reliés par focusProperties.down et un FocusRequester dédié. Le bouton principal garde également une sortie LEFT explicite vers la sidebar.\\n- Aucun onKeyEvent/onPreviewKeyEvent n’est réintroduit : le déplacement reste entièrement géré par le moteur de focus Compose, et le visuel ne change pas.\\n\\n'; p.write_text(entry+current, encoding='utf-8')"
 
       - name: Commit, tag and push
         run: |
