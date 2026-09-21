@@ -1,0 +1,88 @@
+name: One-shot episode watched scope repair v1.25.54
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/fix_episode_watch_scope_v12554.py"
+      - ".github/workflows/fix-episode-watch-v1.25.54-once.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  repair-validate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Guard expected version
+        run: |
+          set -euo pipefail
+          current="$(node -p "require('./package.json').version")"
+          test "$current" = "1.25.53" || { echo "::error::Expected 1.25.53, found $current; refusing to overwrite a newer release"; exit 1; }
+          ! git rev-parse -q --verify refs/tags/v1.25.54 >/dev/null || { echo "::error::v1.25.54 already exists"; exit 1; }
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+
+      - name: Apply existing-route watched repair
+        run: |
+          set -euo pipefail
+          python scripts/fix_episode_watch_scope_v12554.py
+          git diff --check
+
+      - name: Compile Android TV Kotlin
+        working-directory: android-tv-nx
+        run: gradle :app:compileDebugKotlin --no-daemon
+
+      - name: Compile Android Mobile Kotlin
+        working-directory: android-mobile-nx
+        run: gradle :app:compileDebugKotlin --no-daemon
+
+      - name: Finalize version metadata
+        run: |
+          set -euo pipefail
+          npm version 1.25.54 --no-git-tag-version
+          test "$(node -p "require('./package.json').version")" = "1.25.54"
+          grep -q 'version-1.25.54-a855f7' README.md
+          grep -q '^## v1.25.54' CHANGELOG.md
+          git diff --check
+
+      - name: Commit, tag, push and dispatch Android builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm scripts/fix_episode_watch_scope_v12554.py .github/workflows/fix-episode-watch-v1.25.54-once.yml
+          git add android-tv-nx/app/src/main/kotlin/com/movviz/tv/ui/title/TitleDetailScreen.kt
+          git add android-mobile-nx/app/src/main/kotlin/com/movviz/nx/mobile/ui/title/TitleDetailScreen.kt
+          git add package.json package-lock.json README.md CHANGELOG.md
+          git diff --cached --check
+          git commit -m "release: v1.25.54 — corrige le vu par épisode sur Android"
+          git push origin HEAD:main
+          git tag v1.25.54
+          git push origin v1.25.54
+          gh api --method POST repos/${{ github.repository }}/actions/workflows/android-tv-build.yml/dispatches -f ref=v1.25.54
+          gh api --method POST repos/${{ github.repository }}/actions/workflows/android-mobile-build.yml/dispatches -f ref=v1.25.54
