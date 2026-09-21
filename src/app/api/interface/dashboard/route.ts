@@ -37,6 +37,9 @@ export async function GET(req: NextRequest) {
       let searchingEpisodes = 0;
       const compactSeries = series.map((show) => {
         let hasAvailableEpisode = false;
+        // Available episodes per season, so clients can show a season's
+        // unwatched count without loading the full season tree.
+        const availableBySeason: Record<number, number> = {};
         for (const season of show.seasons) {
           for (const episode of season.episodes) {
             if (!episode.monitored) continue;
@@ -44,6 +47,7 @@ export async function GET(req: NextRequest) {
             if (episode.status === "available") {
               availableEpisodes++;
               hasAvailableEpisode = true;
+              availableBySeason[season.seasonNumber] = (availableBySeason[season.seasonNumber] ?? 0) + 1;
             } else if (episode.status === "downloading") downloadingEpisodes++;
             else if (episode.status === "searching") searchingEpisodes++;
             else if (episode.status === "missing") missingEpisodes++;
@@ -62,6 +66,7 @@ export async function GET(req: NextRequest) {
           genres: show.genres,
           addedAt: show.addedAt,
           hasAvailableEpisode,
+          availableBySeason,
         };
       });
 

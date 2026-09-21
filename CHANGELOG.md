@@ -1,3 +1,14 @@
+## v1.25.55 — September 2026
+
+### Android TV : fiche épisode façon Plex, accueil Films / Séries TV, photo de profil
+
+- Un appui sur une carte d'épisode ouvre toujours sa fiche : capture en fond, état « Regardé » ou « En cours » sous l'image, titre de la série, saison, épisode, note, durée et date, puis « Lecture » (ou « Reprendre à 00:12:34 » quand une reprise existe), « Marquer vu » et le tableau du fichier (vidéo, HDR, audio, source). La coche « Vu » sous chaque carte disparaît : tout se fait depuis la fiche.
+- L'accueil sépare les ajouts récents en deux rangées, « Récemment ajouté dans Films » et « Récemment ajouté dans Séries TV », au lieu d'une rangée mélangée.
+- Dans les rangées de séries, plusieurs épisodes arrivés ensemble ne s'affichent plus côte à côte : ils forment une seule carte de saison, avec le nombre d'épisodes non vus en haut à droite, ou une coche quand toute la saison est vue. Un épisode seul garde sa carte épisode, avec la coche s'il est déjà vu.
+- Le serveur ajoute à l'accueil compact le nombre d'épisodes disponibles par saison, pour compter la saison entière. Sans lui, le compteur retombe sur les épisodes récents seuls.
+- La photo de profil s'affiche enfin dans la sidebar : les images utilisaient un client réseau sans session, alors que le client mobile partage celui de l'API. Les initiales ne servent plus que de repli.
+- Aucune interception de touche ajoutée : le D-pad reste géré par le moteur de focus Compose.
+
 ## v1.25.54 — September 2026
 
 ### Android TV / Mobile NX : le statut Vu reste attaché à l'épisode

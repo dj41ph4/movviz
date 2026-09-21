@@ -46,6 +46,8 @@ export interface DashboardLibrarySeries {
   genres: string[];
   addedAt: number;
   hasAvailableEpisode: boolean;
+  /** Available episode count per season number. */
+  availableBySeason?: Record<number, number>;
 }
 
 /** A concrete file that arrived in a series.  This deliberately models an

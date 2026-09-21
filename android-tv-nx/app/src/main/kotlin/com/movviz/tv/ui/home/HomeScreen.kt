@@ -191,6 +191,14 @@ internal data class TvTitleCard(
     val episodeSeasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val episodeTitle: String? = null,
+    /** Carte « saison » d'une rangée d'ajouts récents : plusieurs épisodes
+     *  d'une même série arrivés ensemble sont regroupés en UNE carte, jamais
+     *  côte à côte. `unwatchedCount` = épisodes de cette saison pas encore
+     *  vus (pastille en haut à droite), null quand tout est vu. */
+    val seasonLabel: String? = null,
+    val unwatchedCount: Int? = null,
+    /** Saison (ou épisode) entièrement vu : coche à la place du compteur. */
+    val fullyWatched: Boolean = false,
     /** Vrai si ce film figure dans `watchStatus.movies` (vu manuellement ou
      *  via Plex). V1 : jamais calculé pour les séries — voir le plan de
      *  finalisation watch-state, phase 12-13. */
@@ -209,6 +217,49 @@ internal fun List<TvTitleCard>.withWatchedMovies(watchedMovieIds: Set<Int>): Lis
     if (watchedMovieIds.isEmpty()) return this
     return map { if (it.isMovie && it.tmdbId in watchedMovieIds) it.copy(watched = true) else it }
 }
+
+/** Ajouts récents de séries, une carte PAR série : un seul épisode arrivé →
+ *  carte épisode ; plusieurs → carte de la saison la plus récente avec le
+ *  nombre d'épisodes non vus. Le décompte porte sur les épisodes récents
+ *  renvoyés par le serveur (les plus récents, en nombre limité). */
+private fun groupRecentEpisodes(
+    episodes: List<com.movviz.tv.data.RecentEpisodeDto>,
+    watched: Set<Triple<Int, Int, Int>>,
+    availableBySeason: Map<Int, Map<String, Int>>,
+): List<TvTitleCard> =
+    episodes.groupBy { it.tmdbId }.values.map { group ->
+        val latest = group.maxBy { it.addedAt }
+        val card = if (group.size == 1) {
+            TvTitleCard(
+                id = "recent-episode-${latest.tmdbId}-${latest.seasonNumber}-${latest.episodeNumber}",
+                title = latest.seriesTitle, posterPath = latest.posterPath, backdropPath = latest.backdropPath,
+                tmdbId = latest.tmdbId, isMovie = false, rating = latest.rating,
+                episodeSeasonNumber = latest.seasonNumber, episodeNumber = latest.episodeNumber,
+                episodeTitle = latest.episodeTitle,
+                fullyWatched = Triple(latest.tmdbId, latest.seasonNumber, latest.episodeNumber) in watched,
+            )
+        } else {
+            val season = latest.seasonNumber
+            // Toute la saison si le serveur donne le total disponible ; sinon
+            // repli sur les seuls épisodes récents connus.
+            val seasonTotal = availableBySeason[latest.tmdbId]?.get(season.toString())
+            val unwatched = if (seasonTotal != null) {
+                val seen = watched.count { it.first == latest.tmdbId && it.second == season }
+                (seasonTotal - seen).coerceAtLeast(0)
+            } else {
+                group.count { it.seasonNumber == season && Triple(it.tmdbId, it.seasonNumber, it.episodeNumber) !in watched }
+            }
+            TvTitleCard(
+                id = "recent-season-${latest.tmdbId}-$season",
+                title = latest.seriesTitle, posterPath = latest.posterPath, backdropPath = latest.backdropPath,
+                tmdbId = latest.tmdbId, isMovie = false, rating = latest.rating,
+                seasonLabel = if (season == 0) "Spéciaux" else "Saison $season",
+                unwatchedCount = unwatched.takeIf { it > 0 },
+                fullyWatched = unwatched == 0,
+            )
+        }
+        latest.addedAt to card
+    }.sortedByDescending { it.first }.map { it.second }
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -338,19 +389,13 @@ fun HomeScreen(
             )
         }.distinctBy { it.id }.withWatchedMovies(watchedMovieIds)
     }
-    val recentEpisodeCards = remember(recentEpisodes) {
-        // Toujours des épisodes de série (isMovie = false) : jamais de
-        // pastille "vu" en V1, aucun besoin de withWatchedMovies ici.
-        recentEpisodes.sortedByDescending { it.addedAt }.map { episode ->
-            TvTitleCard(
-                id = "recent-episode-${episode.tmdbId}-${episode.seasonNumber}-${episode.episodeNumber}",
-                title = episode.seriesTitle, posterPath = episode.posterPath, backdropPath = episode.backdropPath,
-                tmdbId = episode.tmdbId, isMovie = false, rating = episode.rating,
-                episodeSeasonNumber = episode.seasonNumber, episodeNumber = episode.episodeNumber,
-                episodeTitle = episode.episodeTitle,
-            )
-        }.distinctBy { it.id }.take(20)
+    val watchedEpisodeTriples = remember(homeWatchStatus) {
+        homeWatchStatus?.episodes.orEmpty().map { Triple(it.tmdbId, it.season, it.episode) }.toSet()
     }
+    val groupedRecentCards = remember(recentEpisodes, watchedEpisodeTriples, series) {
+        groupRecentEpisodes(recentEpisodes, watchedEpisodeTriples, series.associate { it.tmdbId to it.availableBySeason })
+    }
+    val recentEpisodeCards = remember(groupedRecentCards) { groupedRecentCards.take(20) }
     // Les vignettes de reprise sont déjà visibles au premier frame : charger
     // leurs logos en parallèle (et non seulement au focus) évite le texte
     // de repli sur chaque carte alors qu'un logo officiel existe. Le
@@ -399,7 +444,10 @@ fun HomeScreen(
         }
     }
 
-    val availableNowCards = remember(movies, series, minYear, watchedMovieIds) {
+    // Films et séries construits séparément (20 chacun) : deux rangées
+    // « Récemment ajouté dans Films / Séries TV » comme sur Plex. Découper
+    // après coup un top 20 mélangé laisserait une rangée quasi vide.
+    val availableSplit = remember(movies, series, minYear, watchedMovieIds) {
         val movie = movies.filter { it.status == "available" && yearAllowed(it.year) }.map {
             it.addedAt to TvTitleCard(
                 id = "available-movie-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
@@ -415,7 +463,23 @@ fun HomeScreen(
                 year = it.year, rating = it.rating, genres = it.genres,
             )
         }
-        (movie + shows).sortedByDescending { it.first }.map { it.second }.take(20).withWatchedMovies(watchedMovieIds)
+        val recent = { list: List<Pair<Long, TvTitleCard>> ->
+            list.sortedByDescending { it.first }.map { it.second }.take(20).withWatchedMovies(watchedMovieIds)
+        }
+        recent(movie) to recent(shows)
+    }
+    val availableMovieCards = availableSplit.first
+    // Séries : arrivées récentes regroupées par série (voir
+    // groupRecentEpisodes), puis les séries disponibles sans arrivée récente
+    // connue pour compléter la rangée.
+    val availableSeriesCards = remember(groupedRecentCards, availableSplit) {
+        val grouped = groupedRecentCards.filter { card -> availableSplit.second.any { it.tmdbId == card.tmdbId } }
+        val groupedIds = grouped.map { it.tmdbId }.toSet()
+        (grouped + availableSplit.second.filter { it.tmdbId !in groupedIds }).take(20)
+    }
+    // Liste mélangée, gardée pour le hero de secours.
+    val availableNowCards = remember(availableSplit) {
+        (availableSplit.first + availableSplit.second)
     }
     val shortSessionCards = remember(movies, minYear, watchedMovieIds) {
         movies.filter { it.status == "available" && it.runtime != null && it.runtime <= 40 && yearAllowed(it.year) }
@@ -659,17 +723,29 @@ fun HomeScreen(
                             showTypeBadge = true,
                         )
                     }
-                    "availableNow" -> item(contentType = "row") {
-                        TitleRow(
-                            heading = "Ajoutés récemment", items = availableNowCards,
-                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
-                            titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            onPreviewStateChanged = onCardPreviewStateChanged,
-                            showTypeBadge = true,
-                        )
+                    "availableNow" -> {
+                        if (availableMovieCards.isNotEmpty()) item(contentType = "row") {
+                            TitleRow(
+                                heading = "Récemment ajouté dans Films", items = availableMovieCards,
+                                onClick = { onOpenTitle("movie", it.tmdbId) },
+                                firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
+                                titleLogoPaths = heroLogos,
+                                onFocusedCard = { viewModel.requestHeroLogo("movie", it.tmdbId) },
+                                previewLoader = { viewModel.loadTvPreview("movie", it.tmdbId) },
+                                onPreviewStateChanged = onCardPreviewStateChanged,
+                            )
+                        }
+                        if (availableSeriesCards.isNotEmpty()) item(contentType = "row") {
+                            TitleRow(
+                                heading = "Récemment ajouté dans Séries TV", items = availableSeriesCards,
+                                onClick = { onOpenTitle("series", it.tmdbId) },
+                                firstItemFocusRequester = if (firstVisibleSection == sectionId && availableMovieCards.isEmpty()) { if (showHero) firstRowFocus else contentFocus } else null,
+                                titleLogoPaths = heroLogos,
+                                onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
+                                previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
+                                onPreviewStateChanged = onCardPreviewStateChanged,
+                            )
+                        }
                     }
                     "comingSoon" -> item(contentType = "row") {
                         TitleRow(
@@ -2122,6 +2198,41 @@ internal fun PosterCard(
                 // donc apparaître dans « Épisodes récemment ajoutés » comme
                 // dans « Continuer à regarder », sans transformer la carte
                 // récente en fausse reprise.
+                if (card.seasonLabel != null) {
+                    Text(
+                        text = card.seasonLabel,
+                        style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 1,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(5.dp)
+                            .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 3.dp),
+                    )
+                }
+                if (card.fullyWatched) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(bottomStart = 6.dp))
+                            .padding(horizontal = 7.dp, vertical = 5.dp),
+                    ) {
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(10.dp))
+                    }
+                }
+                // Compteur d'épisodes non vus de la saison, en haut à droite
+                // comme sur Plex.
+                if (card.unwatchedCount != null) {
+                    Text(
+                        text = "${card.unwatchedCount}",
+                        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White),
+                        maxLines = 1,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(bottomStart = 6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
                 val episodeBadge = card.episodeSeasonNumber != null && card.episodeNumber != null
                 if (episodeBadge) {
                     Text(

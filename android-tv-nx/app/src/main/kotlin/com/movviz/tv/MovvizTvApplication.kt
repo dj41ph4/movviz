@@ -25,6 +25,12 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        // Client HTTP PARTAGÉ avec l'API (même CookieJar persistant), comme
+        // sur le client mobile : les avatars protégés par la session (401 sans
+        // cookie) se chargent comme les posters publics. Avec le client
+        // anonyme par défaut de Coil, la photo de profil restait vide et
+        // retombait sur les initiales.
+        .okHttpClient(ApiClient.httpClient())
         // RGB_565 (2 octets/pixel) au lieu du ARGB_8888 par défaut (4
         // octets/pixel) : les posters/backdrops TMDb sont des JPEG opaques,
         // aucun canal alpha à perdre — moitié moins de mémoire pour un cache

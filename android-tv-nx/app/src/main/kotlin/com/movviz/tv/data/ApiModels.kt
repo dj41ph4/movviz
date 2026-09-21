@@ -71,6 +71,8 @@ data class LibrarySeriesDto(
     val genres: List<String> = emptyList(),
     val addedAt: Long = 0L,
     val hasAvailableEpisode: Boolean = false,
+    /** Épisodes disponibles par numéro de saison (compact dashboard). */
+    val availableBySeason: Map<String, Int> = emptyMap(),
     val customBackdropPath: String? = null,
     val customLogoPath: String? = null,
     // Les saisons sont déjà renvoyées par /api/library/series. Les conserver
@@ -200,6 +202,7 @@ data class InterfaceSeriesDto(
     val year: Int? = null,
     val addedAt: Long? = null,
     val hasAvailableEpisode: Boolean? = null,
+    val availableBySeason: Map<String, Int>? = null,
     val customBackdropPath: String? = null,
     val customLogoPath: String? = null,
     val posterPath: String? = null,
@@ -218,6 +221,7 @@ data class InterfaceSeriesDto(
             year = year,
             addedAt = addedAt ?: 0L,
             hasAvailableEpisode = hasAvailableEpisode ?: false,
+            availableBySeason = availableBySeason.orEmpty(),
             customBackdropPath = customBackdropPath,
             customLogoPath = customLogoPath,
             posterPath = posterPath,
