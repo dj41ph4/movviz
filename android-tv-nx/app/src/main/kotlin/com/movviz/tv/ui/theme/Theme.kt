@@ -1,17 +1,10 @@
 package com.movviz.tv.ui.theme
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
@@ -44,64 +37,42 @@ fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier =
     }
 
 /**
- * "Lift" au focus : l'élément se détache par une ombre profonde portée, et
- * UNIQUEMENT par elle.
+ * "Lift" au focus : plus aucune ombre portée ni agrandissement, seulement le
+ * cadre de focus (posé par la Surface appelante ou par tvCardFocusHalo).
  *
- * Le scale d'agrandissement a été retiré volontairement. Une carte qui zoome
- * rééchantillonne tout ce qu'elle contient : un numéro d'épisode, une
- * pastille "vu", un logo incrusté deviennent flous ou dentelés le temps de
- * l'animation, et le défaut est d'autant plus visible que l'élément est
- * petit. Le gain perçu ne compensait pas ce bruit permanent — l'ombre seule
- * suffit à dire où est le focus, la bordure de focus faisant le reste.
- *
- * `maxScale` a disparu de la signature plutôt que d'être ignoré : un
- * paramètre qui ne fait rien finit toujours par être réintroduit ailleurs.
+ * Le scale d'agrandissement avait déjà été retiré (une carte qui zoome
+ * rééchantillonne tout ce qu'elle contient — numéro d'épisode, pastille
+ * "vu", logo incrusté — et devient floue/dentelée le temps de l'animation).
+ * L'ombre profonde qui restait à sa place donnait à son tour une impression
+ * de gonflement au focus, signalée en direct comme un "zoom" malgré
+ * l'absence de scale réel : le halo lumineux grossissant autour de la carte
+ * lit comme un agrandissement même sans redimensionnement. Retirée à son
+ * tour : le contour de focus suffit à dire où l'on est.
  */
 @Composable
 fun Modifier.tvFocusLift(
     focused: Boolean,
     shape: Shape = RoundedCornerShape(6.dp),
     maxElevation: androidx.compose.ui.unit.Dp = 18.dp,
-): Modifier {
-    val elevation by animateDpAsState(
-        targetValue = if (focused) maxElevation else 0.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "tvFocusLiftElevation",
-    )
-    return this
-        .shadow(elevation = elevation, shape = shape, ambientColor = androidx.compose.ui.graphics.Color.Black, spotColor = androidx.compose.ui.graphics.Color.Black)
-}
+): Modifier = this
 
-/** Focus des cartes de contenu TV : leur taille ne change jamais. La
- * référence conserve la grande carte éditoriale à gauche et déplace
- * uniquement le cadre de focus entre les affiches ; un zoom, même GPU,
- * créerait une impression de collision avec ses voisines. */
+/** Focus des cartes de contenu TV : ni la taille ni l'ombre ne changent
+ * jamais, seul le contour de focus s'allume — même raison que tvFocusLift
+ * ci-dessus (une ombre qui grossit se lit comme un zoom).
+ *
+ * Ne dessine plus son propre contour : chaque appelant configure déjà un
+ * `border = ClickableSurfaceDefaults.border(focusedBorder = ...)` natif sur
+ * sa Surface. Les deux contours (celui-ci en tween(160) et celui, animé
+ * séparément, de tv-material3) se déphasaient légèrement en sortant de
+ * focus — deux bordures blanches quasi superposées qui ne s'éteignent
+ * jamais exactement ensemble, vu comme un clignotement en quittant un
+ * bouton/une carte. Un seul mécanisme doit piloter un indicateur de focus
+ * donné ; c'est désormais la Surface elle-même, seule source. */
 @Composable
 fun Modifier.tvCardFocusHalo(
     focused: Boolean,
     shape: Shape = MovvizCardShape,
-): Modifier {
-    val focusAlpha by animateFloatAsState(
-        targetValue = if (focused) 1f else 0f,
-        animationSpec = tween(durationMillis = 160),
-        label = "tvCardFocusAlpha",
-    )
-    val elevation by animateDpAsState(
-        targetValue = if (focused) 12.dp else 0.dp,
-        animationSpec = tween(durationMillis = 180),
-        label = "tvCardFocusElevation",
-    )
-    val haloAlpha = focusAlpha * 0.14f
-    val outlineAlpha = focusAlpha * 0.9f
-    return this
-        .shadow(
-            elevation = elevation,
-            shape = shape,
-            ambientColor = Color.White.copy(alpha = haloAlpha),
-            spotColor = Color.Black.copy(alpha = haloAlpha),
-        )
-        .border(2.dp, Color.White.copy(alpha = outlineAlpha), shape)
-}
+): Modifier = this
 
 /**
  * Forme unique des cartes Netflix — coins arrondis doux (8dp), identiques

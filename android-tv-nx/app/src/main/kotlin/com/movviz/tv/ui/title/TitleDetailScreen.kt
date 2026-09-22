@@ -565,11 +565,14 @@ fun TitleDetailScreen(
         // retente sur quelques frames plutôt que de laisser un crash D-pad
         // silencieux (constaté en direct) sortir l'utilisateur de l'app.
         repeat(10) { attempt ->
-            // L'action principale n'existe que pour les films prêts ou à
-            // ajouter. Si elle n'est pas composée, l'ancre de titre reste le
-            // repli fiable pour les séries et états transitoires.
+            // L'ouverture atterrit TOUJOURS sur l'ancre du haut (logo/titre),
+            // jamais directement sur « Lire » : pour un film déjà disponible
+            // le bouton existe dès la première frame, donc le viser ici
+            // faisait défiler la fiche pour l'amener à l'écran et cachait le
+            // haut (jaquette, titre) dès l'ouverture — signalé en direct.
+            // BAS depuis l'ancre mène déjà au CTA (voir plus bas), donc rien
+            // n'est perdu en atterrissage.
             val granted = lastOpenedSeason?.let { seasonCardFocus[it] }?.let { card -> runCatching { card.requestFocus() }.getOrDefault(false) } == true ||
-                runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false) ||
                 runCatching { initialFocusRequester.requestFocus() }.getOrDefault(false)
             if (granted) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
@@ -2070,15 +2073,17 @@ private fun EpisodeGridCard(
                         .padding(8.dp),
                 )
                 if (watched) {
+                    // Même pastille que « saison vue » (SeasonSelector) : un
+                    // seul langage visuel "vu" dans toute l'app, la liste
+                    // d'épisodes doit se lire au même coup d'œil que la
+                    // rangée de saisons au-dessus.
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .size(20.dp)
-                            .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), androidx.compose.foundation.shape.CircleShape),
-                        contentAlignment = Alignment.Center,
+                            .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(bottomStart = 6.dp))
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
                     ) {
-                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(11.dp))
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(10.dp))
                     }
                 }
                 if (!available) {

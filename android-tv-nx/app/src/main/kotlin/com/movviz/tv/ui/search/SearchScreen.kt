@@ -67,6 +67,15 @@ import kotlinx.coroutines.delay
 // d'image plus grande que le rendu, la moitié du poids réseau/mémoire).
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
 
+/** Insensible aux accents/casse — même principe que normalizedGenre côté
+ *  Bibliothèque (CatalogScreen.kt) : "drag" doit matcher "Dragon Ball" et
+ *  "Élise" doit matcher "elise". */
+private fun normalizedSearchText(value: String): String =
+    java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+        .replace("\\p{M}+".toRegex(), "")
+        .trim()
+        .lowercase()
+
 // Porté depuis android-mobile-nx (même écran de recherche, demandé
 // explicitement identique entre TV et mobile) : filtre Tout/Films/Séries
 // sous le champ, absent de la version TV jusqu'ici.
@@ -105,6 +114,12 @@ fun SearchScreen(
     // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
     val searchWatchStatus by viewModel.watchStatus.collectAsState()
     val searchWatchedMovieIds = remember(searchWatchStatus) { searchWatchStatus?.movies?.toSet().orEmpty() }
+    // La bibliothèque est nécessaire à la correspondance instantanée
+    // ci-dessous ; déjà chargée si l'accueil a été visité, mais Recherche
+    // peut être le tout premier onglet ouvert (deep link, reprise d'app).
+    LaunchedEffect(Unit) { viewModel.loadLibrary() }
+    val libraryMovies by viewModel.movies.collectAsState()
+    val librarySeries by viewModel.series.collectAsState()
 
     // Le clic sur l'icône de loupe change seulement l'état de navigation ;
     // il ne déplace pas automatiquement le focus Compose. Sans cette reprise
@@ -130,6 +145,41 @@ fun SearchScreen(
     val filteredResults = remember(results, typeFilter) {
         typeFilter.apiType?.let { type -> results.filter { it.type == type } } ?: results
     }
+    // Correspondances DANS LA BIBLIOTHÈQUE, calculées localement à chaque
+    // frappe — pas de debounce, pas de réseau : "drag" doit faire apparaître
+    // "Dragon Ball" tout de suite s'il est déjà dans Movviz, sans attendre
+    // ni la fin de la saisie ni la réponse TMDb (recherche floue par
+    // popularité, qui peut classer d'autres titres "Drag…" avant lui).
+    val libraryMatches = remember(query, libraryMovies, librarySeries, typeFilter) {
+        val q = normalizedSearchText(query)
+        if (q.isBlank()) {
+            emptyList()
+        } else {
+            val movieMatches = if (typeFilter.apiType != "series") {
+                libraryMovies.filter { normalizedSearchText(it.title).contains(q) }
+                    .map { SearchResultDto(it.tmdbId, "movie", it.title, it.year, it.posterPath, it.backdropPath, it.rating) }
+            } else emptyList()
+            val seriesMatches = if (typeFilter.apiType != "movie") {
+                librarySeries.filter { normalizedSearchText(it.title).contains(q) }
+                    .map { SearchResultDto(it.tmdbId, "series", it.title, it.year, it.posterPath, it.backdropPath, it.rating) }
+            } else emptyList()
+            // Un titre qui COMMENCE par la saisie passe avant un titre qui la
+            // contient seulement plus loin, puis les titres les plus courts
+            // (correspondance la plus proche) d'abord.
+            (movieMatches + seriesMatches).sortedWith(
+                compareBy({ !normalizedSearchText(it.title).startsWith(q) }, { it.title.length }),
+            )
+        }
+    }
+    // La bibliothèque passe devant TMDb, sans doublon (même titre déjà en
+    // bibliothèque ET dans les résultats distants).
+    val mergedResults = remember(libraryMatches, filteredResults) {
+        val seen = HashSet<String>()
+        val combined = ArrayList<SearchResultDto>(libraryMatches.size + filteredResults.size)
+        for (item in libraryMatches) if (seen.add("${item.type}-${item.tmdbId}")) combined.add(item)
+        for (item in filteredResults) if (seen.add("${item.type}-${item.tmdbId}")) combined.add(item)
+        combined
+    }
     // Prise UNE fois par changement de résultats : l'ancien code appelait
     // results.take(8) à chaque itération de la boucle (sous-liste recréée à
     // chaque passage) + une fois pour lastIndex.
@@ -150,7 +200,7 @@ fun SearchScreen(
                     { viewModel.search(query, typeFilter.apiType) },
                     Modifier.width(323.dp),
                     resultFocusRequester,
-                    if (filteredResults.isNotEmpty()) firstResultFocusRequester else null,
+                    if (mergedResults.isNotEmpty()) firstResultFocusRequester else null,
                 )
             }
         }
@@ -173,18 +223,6 @@ fun SearchScreen(
             Spacer(Modifier.height(14.dp))
         }
         when {
-            searchState is SearchState.Loading -> SearchFocusMessage(
-                text = "Recherche…",
-                focusRequester = if (showSearchField) null else resultFocusRequester,
-            )
-            searchState is SearchState.Unauthorized -> SearchRetryMessage(
-                text = "Session expirée. Reconnectez-vous.",
-                onRetry = { viewModel.search(query) },
-            )
-            searchState is SearchState.Error -> SearchRetryMessage(
-                text = "Recherche indisponible. Réessayer.",
-                onRetry = { viewModel.search(query) },
-            )
             // Les états vides restent une destination D-pad visible. Avant,
             // la NavRail tentait le premier poster inexistant, retombait sur
             // son ancre technique et l'utilisateur avait l'impression que
@@ -193,15 +231,16 @@ fun SearchScreen(
                 text = "Recherchez un film ou une série",
                 focusRequester = if (showSearchField) null else resultFocusRequester,
             )
-            filteredResults.isEmpty() -> SearchFocusMessage(
-                text = if (results.isEmpty()) "Aucun résultat pour « $query »" else "Aucun ${typeFilter.label.lowercase()} pour « $query »",
-                focusRequester = if (showSearchField) null else resultFocusRequester,
-            )
-            else -> TvLazyVerticalGrid(state = rememberTvLazyGridState().withTvPrefetchDisabled(), columns = TvGridCells.FixedSize(116.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(17.dp), modifier = Modifier.fillMaxSize()) {
+            // Les correspondances de bibliothèque passent AVANT l'état
+            // réseau : un titre déjà chez l'utilisateur s'affiche dès la
+            // frappe, sans attendre le debounce ni la réponse TMDb — la
+            // grille reste ensuite à jour au fil de l'arrivée des résultats
+            // distants (mergedResults se recompose).
+            mergedResults.isNotEmpty() -> TvLazyVerticalGrid(state = rememberTvLazyGridState().withTvPrefetchDisabled(), columns = TvGridCells.FixedSize(116.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(17.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
-                itemsIndexed(filteredResults, key = { _, result -> "${result.type}-${result.tmdbId}" }, contentType = { _, _ -> "search-result" }) { index, result ->
+                itemsIndexed(mergedResults, key = { _, result -> "${result.type}-${result.tmdbId}" }, contentType = { _, _ -> "search-result" }) { index, result ->
                     SearchResultCard(
                         result,
                         result.tmdbId == focusedTmdbId && result.type == focusedType,
@@ -217,6 +256,22 @@ fun SearchScreen(
                     ) { onOpenTitle(result.type, result.tmdbId) }
                 }
             }
+            searchState is SearchState.Loading -> SearchFocusMessage(
+                text = "Recherche…",
+                focusRequester = if (showSearchField) null else resultFocusRequester,
+            )
+            searchState is SearchState.Unauthorized -> SearchRetryMessage(
+                text = "Session expirée. Reconnectez-vous.",
+                onRetry = { viewModel.search(query) },
+            )
+            searchState is SearchState.Error -> SearchRetryMessage(
+                text = "Recherche indisponible. Réessayer.",
+                onRetry = { viewModel.search(query) },
+            )
+            else -> SearchFocusMessage(
+                text = if (results.isEmpty()) "Aucun résultat pour « $query »" else "Aucun ${typeFilter.label.lowercase()} pour « $query »",
+                focusRequester = if (showSearchField) null else resultFocusRequester,
+            )
         }
     }
 }
@@ -318,18 +373,17 @@ private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus
             Box(Modifier.fillMaxSize()) {
                 result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                 if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(5.dp))
-                // Pastille "vu" (phase 12-13 watch-state) — films uniquement,
-                // même langage visuel que PosterCard (HomeScreen.kt).
+                // Pastille "vu" — même langage visuel que partout ailleurs
+                // (saison vue, épisode vu, PosterCard) : pastille noire à
+                // coin arrondi en haut à droite.
                 if (watched) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(14.dp)
-                            .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), CircleShape),
-                        contentAlignment = Alignment.Center,
+                            .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(bottomStart = 6.dp))
+                            .padding(horizontal = 7.dp, vertical = 5.dp),
                     ) {
-                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(8.dp))
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(10.dp))
                     }
                 }
             }

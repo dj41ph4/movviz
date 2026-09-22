@@ -60,10 +60,47 @@ export interface PlaybackSession {
   lastIsPlaying: boolean;
 }
 
-interface PlaybackProgressStore { version: 1; byUser: Record<string, Record<string, PlaybackProgress>> }
+interface PlaybackProgressStore {
+  version: 1;
+  byUser: Record<string, Record<string, PlaybackProgress>>;
+  /** Une seule fois par installation : voir backfillMostlyWatchedOnFirstLoad. */
+  backfilledQuitWatchedV1?: boolean;
+}
+
+// Doit rester alignée avec PLAYBACK_QUIT_WATCHED_RATIO (android-tv-nx
+// PlayerActivity.kt) : même règle produit ("quitter/passer au suivant
+// au-delà de ce seuil = terminé pour l'utilisateur"), demandée le
+// 2026-09-22. Dupliquée plutôt que partagée : Kotlin et TypeScript ne
+// partagent aucun module.
+const BACKFILL_QUIT_WATCHED_RATIO = 0.80;
+
+/** Applique UNE SEULE FOIS, à la première lecture du fichier après cette
+ *  mise à jour, la nouvelle règle "quitter au-delà de 80% = vu" à ce qui
+ *  était déjà en cours avant elle. Sans ça, toute reprise déjà avancée à ce
+ *  moment-là (un film vu à 85% la semaine dernière, jamais quitté depuis
+ *  dans les 90% qui déclenchaient l'ancienne règle) restait "en cours" pour
+ *  toujours — la nouvelle règle ne s'applique qu'aux lectures FUTURES,
+ *  jamais à l'état déjà stocké. Idempotent (marqueur `backfilledQuitWatchedV1`
+ *  posé avant tout, y compris quand rien ne correspond) : ne rescane jamais
+ *  deux fois le même fichier. */
+function backfillMostlyWatchedOnFirstLoad(s: PlaybackProgressStore): void {
+  if (s.backfilledQuitWatchedV1) return;
+  s.backfilledQuitWatchedV1 = true;
+  for (const bucket of Object.values(s.byUser)) {
+    for (const p of Object.values(bucket)) {
+      if (p.watched || p.tmdbId == null || !p.durationMs || p.resumeOffsetMs == null) continue;
+      if (p.resumeOffsetMs / p.durationMs < BACKFILL_QUIT_WATCHED_RATIO) continue;
+      markPlaybackWatched(p, "ended");
+    }
+  }
+  writeJsonCached(FILE, s);
+}
 
 function store(): PlaybackProgressStore {
-  return (g.__movvizPlaybackProgress ??= readJsonCached<PlaybackProgressStore>(FILE, { version: 1, byUser: {} }));
+  if (g.__movvizPlaybackProgress) return g.__movvizPlaybackProgress;
+  const loaded = readJsonCached<PlaybackProgressStore>(FILE, { version: 1, byUser: {} });
+  backfillMostlyWatchedOnFirstLoad(loaded);
+  return (g.__movvizPlaybackProgress = loaded);
 }
 function persist() { writeJsonCached(FILE, store()); }
 function id() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; }

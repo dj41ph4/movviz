@@ -1,3 +1,16 @@
+## v1.25.65 — September 2026
+
+### Android TV : lecture, bibliothèque, recherche et focus stabilisés
+
+- La bande-annonce plein écran perdait parfois le son après une remise en mémoire tampon (réseau capricieux) : l'image restait mais le son ne revenait pas. Il est désormais réappliqué à chaque reprise de lecture au lieu d'une seule fois au début.
+- Dans la Bibliothèque, changer de tri ou de genre remonte maintenant la grille tout en haut au lieu de laisser le premier titre hors champ. Le tri, le genre choisi et la nouvelle case « Afficher les manquants » (décochée par défaut, qui masque les films sans fichier et les séries sans aucun épisode disponible) restent en mémoire en changeant d'onglet, y compris au retour d'une fiche.
+- Le filtre Films/Séries de la Bibliothèque et de Découverte se souvient de son dernier choix au lieu de retomber sur Films à chaque retour.
+- La recherche fait apparaître un titre déjà présent dans la bibliothèque dès les premières lettres tapées, sans attendre la fin de la saisie ni la réponse distante.
+- Les cartes, jaquettes et badges ne zooment plus du tout au focus, et le contour de sélection ne clignote plus en quittant un bouton.
+- Un film ou un épisode regardé à plus de 80 % puis quitté (Retour, ou passage à l'épisode suivant) est désormais marqué vu et disparaît de Continuer à regarder, comme c'était déjà le cas en atteignant le générique. Ce qui était déjà dans ce cas avant cette mise à jour est mis à jour automatiquement, une seule fois.
+- La pastille « vu » (épisode, saison, film, recherche) prend partout le même style : pastille noire à coin arrondi, identique à celle des saisons.
+- Ouvrir une fiche n'atterrit plus directement sur le bouton « Lire » : le haut de l'écran (jaquette, titre) reste visible à l'ouverture, BAS menant toujours au bouton.
+
 ## v1.25.64 — September 2026
 
 ### Android TV : logo sur les films de « Continuer à regarder »

@@ -2064,6 +2064,7 @@ private fun SeeAllTile(onClick: () -> Unit) {
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = MovvizCardShape),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizInk.copy(alpha = 0.08f)),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
@@ -2139,6 +2140,13 @@ internal fun PosterCard(
                 }
                 .tvPointerClick(onClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = MovvizCardShape),
+            // La librairie tv-material3 zoome de 10% au focus par défaut
+            // (focusedScale=1.1) tant qu'on ne l'écrase pas explicitement —
+            // c'est LE vrai zoom signalé en direct, jamais retiré ici alors
+            // que `expanded` (l'agrandissement paysage maison) l'était déjà
+            // depuis longtemps : deux mécanismes différents, un seul avait
+            // été neutralisé.
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
@@ -2204,22 +2212,22 @@ internal fun PosterCard(
                         }
                     }
                 }
-                // Pastille "vu" — V1 films uniquement (voir TvTitleCard.watched
-                // et le plan de finalisation watch-state, phase 12-13). Même
-                // langage visuel que EpisodeCard côté fiche (cercle dégradé 3
-                // couleurs). Décalée sous la pilule FILM/SÉRIE quand les deux
+                // Pastille "vu" — films uniquement (voir TvTitleCard.watched).
+                // Même langage visuel que la coche "saison vue"/"épisode vu" :
+                // pastille noire à coin arrondi en haut à droite, pas le
+                // cercle dégradé d'avant — un seul symbole "vu" dans toute
+                // l'app. Décalée sous la pilule FILM/SÉRIE quand les deux
                 // coexistent (rangées mélangées de l'accueil) pour éviter le
                 // chevauchement en TopEnd.
                 if (card.watched) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = if (showTypeBadge) 26.dp else 4.dp, end = 4.dp)
-                            .size(14.dp)
-                            .background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), CircleShape),
-                        contentAlignment = Alignment.Center,
+                            .padding(top = if (showTypeBadge) 22.dp else 0.dp)
+                            .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(bottomStart = 6.dp))
+                            .padding(horizontal = 7.dp, vertical = 5.dp),
                     ) {
-                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(8.dp))
+                        Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(10.dp))
                     }
                 }
                 // Le badge S/E est un contexte éditorial d'épisode. Il peut
@@ -2497,6 +2505,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .let { if (clickable) it.tvPointerClick(onClick) else it },
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = shape),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
         border = androidx.tv.material3.ClickableSurfaceDefaults.border(
             focusedBorder = Border(

@@ -155,6 +155,17 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var headerHasScrolled by remember { mutableStateOf(false) }
+    // Filtre Films/Séries de la Bibliothèque et de Découverte, hoistés ici
+    // pour la même raison que `tab` : ROUTE_HOME quitte entièrement la
+    // composition en ouvrant une fiche (route à part du NavHost), donc un
+    // état local à LibraryScreen/DiscoverScreen oubliait Séries au retour
+    // et retombait toujours sur Films.
+    var libraryTab by remember { mutableStateOf(com.movviz.tv.ui.home.LibraryTab.FILMS) }
+    var discoverType by remember { mutableStateOf(HomeTab.MOVIES) }
+    // Tri/genre/« manquants » de la Bibliothèque : mêmes raisons, un jeu par
+    // sous-onglet (Films et Séries n'ont jamais le même tri en tête).
+    var libraryMovieFilters by remember { mutableStateOf(com.movviz.tv.ui.home.CatalogFilters()) }
+    var librarySeriesFilters by remember { mutableStateOf(com.movviz.tv.ui.home.CatalogFilters()) }
     // Cible D-pad « premier élément réel du contenu affiché » — la NavRail
     // tente de viser ceci en premier pour que la flèche bas depuis N'IMPORTE
     // quel item de la barre y descende directement (au lieu de compter sur
@@ -503,6 +514,14 @@ composable(ROUTE_PROFILES) {
                 contentFocusRequester = contentFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
                 onHomeScrollChanged = { headerHasScrolled = it },
+                libraryTab = libraryTab,
+                onLibraryTabChange = { libraryTab = it },
+                discoverType = discoverType,
+                onDiscoverTypeChange = { discoverType = it },
+                libraryMovieFilters = libraryMovieFilters,
+                onLibraryMovieFiltersChange = { libraryMovieFilters = it },
+                librarySeriesFilters = librarySeriesFilters,
+                onLibrarySeriesFiltersChange = { librarySeriesFilters = it },
             )
         }
         composable(ROUTE_DOWNLOADS) {

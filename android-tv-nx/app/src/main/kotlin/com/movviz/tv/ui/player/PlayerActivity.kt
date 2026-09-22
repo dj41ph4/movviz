@@ -261,10 +261,13 @@ fun forQueue(
     }
 }
 
-/** Part de l'épisode sortant au-delà de laquelle un passage au suivant
- *  le marque VU. Règle produit, pas une constante technique : enchaîner
- *  sur l'épisode suivant est en soi le signal que le précédent est fini. */
-private const val EPISODE_ADVANCE_WATCHED_RATIO = 0.70
+/** Part de la lecture au-delà de laquelle quitter (Retour, passage au
+ *  suivant, ou fermeture système de l'Activity) marque VU. Règle produit,
+ *  pas une constante technique : dépasser ce seuil ET s'arrêter là est en
+ *  soi le signal que l'utilisateur en a fini avec ce film ou cet épisode,
+ *  générique sauté ou coupure avant la toute fin comprise. S'applique aux
+ *  films comme aux épisodes — le calcul est purement position/durée. */
+private const val PLAYBACK_QUIT_WATCHED_RATIO = 0.80
 
 data class QueueItem(
     val ratingKey: String,
@@ -722,7 +725,7 @@ ExoPlayer.Builder(context)
         // du lecteur (« proche de la fin »), qui lui se déclenche à
         // l'approche du générique et non au changement d'épisode.
         val outgoingMostlyWatched = outgoingDuration != null &&
-            outgoingPosition >= (outgoingDuration * EPISODE_ADVANCE_WATCHED_RATIO).toLong()
+            outgoingPosition >= (outgoingDuration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
         val markWatched = markOutgoingWatched || outgoingMostlyWatched
         playbackSessionId = null
         completeCurrentOnDispose = false
@@ -970,10 +973,22 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             runCatching {
                 kotlinx.coroutines.runBlocking {
                     val id = playbackSessionId
+                    // Quitter (Retour, fermeture système) au-delà du même
+                    // seuil que "passer au suivant" doit marquer VU pour la
+                    // même raison : au-delà de 70%, s'arrêter là EST le signal
+                    // que c'est fini pour l'utilisateur — générique atteint ou
+                    // non. Avant, seul isInEndingCredits() (marqueur explicite
+                    // ou 90% sans marqueur) déclenchait ce cas : un film ou un
+                    // épisode quitté à 80% restait "en cours" indéfiniment et
+                    // polluait Continuer à regarder malgré un visionnage jugé
+                    // terminé par l'utilisateur.
+                    val duration = timelineDur().takeIf { it > 0L }
+                    val mostlyWatched = duration != null &&
+                        timelinePos() >= (duration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
                     // Covers system-initiated Activity teardown too (not only
                     // our Back/Retour callback): credits must not resurrect a
                     // Continue Watching card.
-                    val shouldComplete = completeCurrentOnDispose || isInEndingCredits()
+                    val shouldComplete = completeCurrentOnDispose || isInEndingCredits() || mostlyWatched
                     if (id != null) {
                         if (shouldComplete) repository.playbackEnded(id)
                         else repository.playbackStop(id, timelinePos())

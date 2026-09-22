@@ -469,7 +469,7 @@ private fun youtubeTrailerHtml(key: String, origin: String): String = """
     <style>html,body{height:100%}#player,#player iframe{position:absolute;top:0;left:0;width:100%;height:100%}</style>
     <div id="player"></div><script src="https://www.youtube.com/iframe_api"></script>
     <script>
-      var p; var unmuted=false;
+      var p;
       function onYouTubeIframeAPIReady(){
         p=new YT.Player('player',{
           width:'100%',height:'100%',videoId:'$key',
@@ -477,8 +477,12 @@ private fun youtubeTrailerHtml(key: String, origin: String): String = """
           events:{
             onReady:function(e){e.target.mute();e.target.playVideo();},
             onStateChange:function(e){
-              if(e.data===YT.PlayerState.PLAYING&&!unmuted){
-                unmuted=true;
+              // Remis à chaque passage en lecture, pas une seule fois : un
+              // réseau capricieux peut faire rebufferiser puis rejouer la
+              // source, ce qui réapplique le mute:1 du chargement initial et
+              // laissait la bande-annonce muette pour de bon avec l'ancien
+              // garde-fou "une seule fois".
+              if(e.data===YT.PlayerState.PLAYING){
                 try{p.unMute();p.setVolume(100);}catch(x){}
               }
               if(e.data===YT.PlayerState.ENDED){MovvizTrailer.ended();}

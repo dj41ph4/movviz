@@ -80,9 +80,20 @@ fun DiscoverScreen(
     // Même contrat que l'accueil : le parent rend la surcouche NX opaque dès
     // que le contenu défile derrière elle, puis transparente au sommet.
     onScrollChanged: (Boolean) -> Unit = {},
+    // Hoisté jusqu'à MovvizNavHost quand fixedType est null (onglet
+    // Découverte de la sidebar) : sans ça, ouvrir une fiche depuis
+    // Découverte > Séries puis Retour retombait sur Films, cet écran étant
+    // entièrement recomposé après un aller-retour sur la pile de nav.
+    hoistedSelectedType: HomeTab? = null,
+    onSelectedTypeChange: (HomeTab) -> Unit = {},
 ) {
-    var selectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
-    LaunchedEffect(fixedType) { fixedType?.let { selectedType = it } }
+    var localSelectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
+    LaunchedEffect(fixedType) { fixedType?.let { localSelectedType = it } }
+    val selectedType = fixedType ?: hoistedSelectedType ?: localSelectedType
+    val setSelectedType: (HomeTab) -> Unit = { newType ->
+        localSelectedType = newType
+        onSelectedTypeChange(newType)
+    }
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -239,7 +250,7 @@ fun DiscoverScreen(
                 } else {
                     // Ancien point d'entrée, maintenu proprement : le
                     // sélecteur commence sous la barre flottante.
-                    TypeToggleRow(selected = selectedType, onSelect = { selectedType = it }, firstFocusRequester = hubFocus)
+                    TypeToggleRow(selected = selectedType, onSelect = setSelectedType, firstFocusRequester = hubFocus)
                 }
             }
             if (activeHero != null) item {

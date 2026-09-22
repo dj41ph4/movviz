@@ -29,7 +29,7 @@ import com.movviz.tv.ui.profile.ProfileScreen
  */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun MainScreen(
+internal fun MainScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     // Ouverture d'une série depuis "Continuer à regarder" — sur le bon
@@ -52,6 +52,20 @@ fun MainScreen(
     // plus rien ne se trouve au-dessus dans le contenu.
     navRailFocusRequester: FocusRequester? = null,
     onHomeScrollChanged: (Boolean) -> Unit = {},
+    // Filtre Films/Séries de la Bibliothèque et de Découverte, hoistés
+    // jusqu'à MovvizNavHost : ouvrir une fiche depuis Bibliothèque > Séries
+    // puis Retour doit rester sur Séries, pas retomber sur Films — voir
+    // LibraryScreen.kt et DiscoverScreen.kt.
+    libraryTab: LibraryTab = LibraryTab.FILMS,
+    onLibraryTabChange: (LibraryTab) -> Unit = {},
+    discoverType: HomeTab = HomeTab.MOVIES,
+    onDiscoverTypeChange: (HomeTab) -> Unit = {},
+    // Tri/genre/« manquants » de la Bibliothèque, un jeu par sous-onglet —
+    // même hoisting que libraryTab/discoverType et pour la même raison.
+    libraryMovieFilters: CatalogFilters = CatalogFilters(),
+    onLibraryMovieFiltersChange: (CatalogFilters) -> Unit = {},
+    librarySeriesFilters: CatalogFilters = CatalogFilters(),
+    onLibrarySeriesFiltersChange: (CatalogFilters) -> Unit = {},
 ) {
     Box(
         // La navigation est désormais une sidebar à GAUCHE. Le déplacement
@@ -96,12 +110,16 @@ fun MainScreen(
                 viewModel = viewModel, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 fixedType = null, onScrollChanged = onHomeScrollChanged,
+                hoistedSelectedType = discoverType, onSelectedTypeChange = onDiscoverTypeChange,
             )
             // Bibliothèque fusionne Films/Séries/Collections (maquette) —
             // voir LibraryScreen.kt.
             tab == HomeTab.LIBRARY -> LibraryScreen(
                 viewModel = viewModel, onOpenTitle = onOpenTitle,
                 entryFocusRequester = contentFocusRequester, onScrollChanged = onHomeScrollChanged,
+                tab = libraryTab, onTabChange = onLibraryTabChange,
+                movieFilters = libraryMovieFilters, onMovieFiltersChange = onLibraryMovieFiltersChange,
+                seriesFilters = librarySeriesFilters, onSeriesFiltersChange = onLibrarySeriesFiltersChange,
             )
             // MOVIES/SERIES ne sont plus des destinations de nav directes
             // (fusionnées dans LIBRARY) — les branches restent pour usage

@@ -1,6 +1,8 @@
 package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.focus.focusRestorer
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.rememberTvLazyListState
@@ -52,12 +56,24 @@ import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 
-private enum class CatalogSort(val label: String) {
+internal enum class CatalogSort(val label: String) {
     RECENT("Récemment ajouté"),
     NAME("Nom"),
     RATING("Note"),
     YEAR("Année"),
 }
+
+/** Tri, genre et case « manquants » d'un onglet Films ou Séries de la
+ *  Bibliothèque — hoisté jusqu'à MovvizNavHost (MainActivity) pour survivre
+ *  à un aller-retour vers une fiche ET à un changement d'onglet de la
+ *  sidebar (ex. Bibliothèque → Découverte → Bibliothèque) : sans ça, ces
+ *  réglages locaux à CatalogScreen étaient perdus dès que l'écran quittait
+ *  la composition. */
+internal data class CatalogFilters(
+    val sort: CatalogSort = CatalogSort.RECENT,
+    val genre: CatalogGenreSelection? = null,
+    val showMissing: Boolean = false,
+)
 
 /**
  * Catalogue Films/Séries TV : bibliothèque complète en grille, triable
@@ -67,7 +83,7 @@ private enum class CatalogSort(val label: String) {
  * complète de la bibliothèque avec tri par genre nom note etc".
  */
 @Composable
-fun CatalogScreen(
+internal fun CatalogScreen(
     viewModel: AppViewModel,
     type: HomeTab,
     onOpenTitle: (String, Int) -> Unit,
@@ -82,6 +98,8 @@ fun CatalogScreen(
     // Toujours true pour les appelants historiques (les anciens hubs
     // Films/Séries, s'ils redeviennent atteignables un jour).
     showModeToggle: Boolean = true,
+    hoistedFilters: CatalogFilters? = null,
+    onFiltersChange: (CatalogFilters) -> Unit = {},
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -109,12 +127,25 @@ fun CatalogScreen(
     val addedAtById = remember(movies, series, type) {
         if (type == HomeTab.MOVIES) movies.associate { it.id to it.addedAt } else series.associate { it.id to it.addedAt }
     }
-    var sort by remember(type) { mutableStateOf(CatalogSort.RECENT) }
-    var selectedGenre by remember(type) { mutableStateOf<CatalogGenreSelection?>(null) }
+    var sort by remember(type) { mutableStateOf(hoistedFilters?.sort ?: CatalogSort.RECENT) }
+    var selectedGenre by remember(type) { mutableStateOf(hoistedFilters?.genre) }
+    // Décoché par défaut : les derniers ajouts pas encore téléchargés
+    // n'encombrent plus la bibliothèque tant qu'on ne demande pas
+    // explicitement à les voir.
+    var showMissing by remember(type) { mutableStateOf(hoistedFilters?.showMissing ?: false) }
+    LaunchedEffect(sort, selectedGenre, showMissing) { onFiltersChange(CatalogFilters(sort, selectedGenre, showMissing)) }
+    // Une série ne compte comme "manquante" que si AUCUN de ses épisodes
+    // n'est disponible — une série avec ne serait-ce qu'un épisode reste
+    // visible, contrairement à un film qui n'a qu'un seul fichier possible.
+    val missingSeriesIds = remember(series) { series.filterNot { it.hasAvailableEpisode }.map { it.id }.toSet() }
 
-    val filtered = remember(cards, selectedGenre) {
+    val filtered = remember(cards, selectedGenre, showMissing, missingSeriesIds) {
         val selection = selectedGenre
-        if (selection == null) cards else cards.filter { cardMatchesCatalogGenre(it, selection) }
+        cards.filter { card ->
+            val matchesGenre = selection == null || cardMatchesCatalogGenre(card, selection)
+            val isMissing = if (card.isMovie) card.status != null && card.status != "available" else card.id in missingSeriesIds
+            matchesGenre && (showMissing || !isMissing)
+        }
     }
     val sorted = remember(filtered, sort, addedAtById) {
         when (sort) {
@@ -127,6 +158,11 @@ fun CatalogScreen(
 
     val topAnchor = remember { FocusRequester() }
     val gridState = rememberTvLazyGridState().withTvPrefetchDisabled()
+    // Changer de tri ou de genre doit toujours ramener sur le premier
+    // titre de la liste : sans ça, la grille restait scrollée là où
+    // l'utilisateur l'avait laissée, sur un tri qui n'avait plus rien à
+    // voir avec ce qui était affiché.
+    LaunchedEffect(sort, selectedGenre, showMissing) { gridState.scrollToItem(0) }
     val hasScrolled by remember {
         derivedStateOf {
             gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 12
@@ -157,7 +193,11 @@ fun CatalogScreen(
             },
         )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(9.dp))
-        SortRow(sort = sort, onSelect = { sort = it })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            SortRow(sort = sort, onSelect = { sort = it })
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(4.dp))
+            MissingFilterChip(checked = showMissing, onToggle = { showMissing = !showMissing })
+        }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (genres.isNotEmpty()) {
             CatalogGenreRow(genres = genres, selected = selectedGenre, onSelect = { selectedGenre = if (selectedGenre?.key == it.key) null else it })
@@ -248,7 +288,56 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
     }
 }
 
-private data class CatalogGenreSelection(val key: String, val label: String)
+/** Case à cocher « Afficher les manquants », décochée par défaut : masque
+ *  les titres pas encore téléchargés (film sans fichier, série sans aucun
+ *  épisode disponible) pour ne pas mélanger derniers ajouts et vraie
+ *  bibliothèque prête à regarder. */
+@Composable
+private fun MissingFilterChip(checked: Boolean, onToggle: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onToggle,
+        modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onToggle),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (checked) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
+            focusedContainerColor = Color.White.copy(alpha = 0.26f),
+            contentColor = if (checked) Color.White else MovvizInkSoft,
+            focusedContentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
+        ),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .background(if (checked) Color.White else Color.Transparent, RoundedCornerShape(3.dp))
+                    .border(androidx.compose.foundation.BorderStroke(1.5.dp, if (checked) Color.White else Color.White.copy(alpha = 0.6f)), RoundedCornerShape(3.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (checked) {
+                    Text(
+                        text = "✓",
+                        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.Black),
+                    )
+                }
+            }
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = "Afficher les manquants",
+                style = TextStyle(fontSize = 10.sp, fontWeight = if (checked) FontWeight.Bold else FontWeight.SemiBold),
+            )
+        }
+    }
+}
+
+internal data class CatalogGenreSelection(val key: String, val label: String)
 private val SYNTHETIC_GENRES = listOf("anime" to "Anime", "teen" to "Romance ado")
 
 private fun normalizedGenre(value: String): String =

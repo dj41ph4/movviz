@@ -40,7 +40,7 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.ui.graphics.Brush
 
-private enum class LibraryTab(val label: String) { FILMS("Films"), SERIES("Séries"), COLLECTIONS("Collections") }
+enum class LibraryTab(val label: String) { FILMS("Films"), SERIES("Séries"), COLLECTIONS("Collections") }
 
 /**
  * Bibliothèque unifiée (maquette "Movviz Android TV") : Films/Séries/
@@ -56,21 +56,32 @@ private enum class LibraryTab(val label: String) { FILMS("Films"), SERIES("Séri
  * d'API dédié.
  */
 @Composable
-fun LibraryScreen(
+internal fun LibraryScreen(
     viewModel: AppViewModel,
     onOpenTitle: (String, Int) -> Unit,
     entryFocusRequester: FocusRequester? = null,
     onScrollChanged: (Boolean) -> Unit = {},
+    // Hoisté jusqu'à MovvizNavHost (MainActivity) : cet écran quitte
+    // complètement la composition en ouvrant une fiche (route à part dans
+    // le NavHost), donc un état purement local ici oubliait Films/Séries
+    // au retour et retombait toujours sur Films.
+    tab: LibraryTab = LibraryTab.FILMS,
+    onTabChange: (LibraryTab) -> Unit = {},
+    // Même principe pour le tri/genre/« manquants » de chaque sous-onglet :
+    // hoistés jusqu'à MainActivity, un jeu de réglages par Films et par
+    // Séries.
+    movieFilters: CatalogFilters = CatalogFilters(),
+    onMovieFiltersChange: (CatalogFilters) -> Unit = {},
+    seriesFilters: CatalogFilters = CatalogFilters(),
+    onSeriesFiltersChange: (CatalogFilters) -> Unit = {},
 ) {
-    var tab by remember { mutableStateOf(LibraryTab.FILMS) }
-
     Column(Modifier.fillMaxSize().padding(start = 42.dp, top = 24.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
             LibraryTab.entries.forEach { t ->
                 LibraryToggleChip(
                     label = t.label,
                     active = tab == t,
-                    onClick = { tab = t },
+                    onClick = { onTabChange(t) },
                     focusRequester = if (t == LibraryTab.FILMS) entryFocusRequester else null,
                 )
             }
@@ -79,10 +90,12 @@ fun LibraryScreen(
             LibraryTab.FILMS -> CatalogScreen(
                 viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle,
                 showModeToggle = false, onScrollChanged = onScrollChanged,
+                hoistedFilters = movieFilters, onFiltersChange = onMovieFiltersChange,
             )
             LibraryTab.SERIES -> CatalogScreen(
                 viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle,
                 showModeToggle = false, onScrollChanged = onScrollChanged,
+                hoistedFilters = seriesFilters, onFiltersChange = onSeriesFiltersChange,
             )
             LibraryTab.COLLECTIONS -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
