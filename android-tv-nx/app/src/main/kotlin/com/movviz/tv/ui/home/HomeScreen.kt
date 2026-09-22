@@ -400,12 +400,14 @@ fun HomeScreen(
     // leurs logos en parallèle (et non seulement au focus) évite le texte
     // de repli sur chaque carte alors qu'un logo officiel existe. Le
     // ViewModel déduplique les requêtes et conserve le cache partagé.
+    // Films ET séries : un film repris (« 300 », « 100 Millions ! ») a
+    // autant droit à son logo qu'une série — seul le repli affiche encore
+    // le nom écrit, jamais les deux à la fois.
     LaunchedEffect(continueCards) {
         continueCards
-            .filter { !it.isMovie && it.resumeSeasonNumber != null && it.resumeEpisodeNumber != null }
-            .map { it.tmdbId }
+            .map { if (it.isMovie) "movie" to it.tmdbId else "series" to it.tmdbId }
             .distinct()
-            .forEach { viewModel.requestHeroLogo("series", it) }
+            .forEach { (type, tmdbId) -> viewModel.requestHeroLogo(type, tmdbId) }
     }
 
     // Même source et même fusion que DashboardRows desktop.

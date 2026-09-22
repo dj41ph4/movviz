@@ -1,3 +1,9 @@
+## v1.25.64 — September 2026
+
+### Android TV : logo sur les films de « Continuer à regarder »
+
+- Les vignettes de la rangée « Continuer à regarder » ne demandaient le logo officiel du titre que pour les séries : un film repris (« 300 », « 100 Millions ! ») gardait toujours son nom écrit en dessous, jamais son logo. Les films sont désormais traités comme les séries.
+
 ## v1.25.63 — September 2026
 
 ### Android TV et smartphone : chargement premium ; Android TV : focus stable à l'ouverture d'une fiche
