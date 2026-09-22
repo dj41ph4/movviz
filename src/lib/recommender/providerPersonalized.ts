@@ -1,6 +1,5 @@
 import { discoverByFilters, getDetail, getGenres, resolveWatchRegion } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
-import { loadMovies, loadSeries } from "@/lib/library/store";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, getOrAnalyzeMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
 import { loadAiConfig } from "@/lib/ai/store";
@@ -119,18 +118,20 @@ function dateSortFor(type: "movie" | "series"): string {
   return type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
 }
 
-// Same exclusion policy as becauseYouWatched.ts/engine.ts — owned, watched,
-// and 👎'd titles never enter a "for you" rail. A film genuinely already
+// Same exclusion policy as becauseYouWatched.ts/engine.ts — watched and
+// 👎'd titles never enter a "for you" rail. A film genuinely already
 // watched is excluded; a series is only excluded per the existing
 // completion logic baked into getWatchStatus (a single watched episode does
 // NOT mark the whole series consumed — see [[feedback-dto-audit-against-server]]
 // era lesson, still respected here since this reuses the same store).
+// "owned" was dropped from this exclusion (same fix as engine.ts/
+// becauseYouWatched.ts) — a title already in the library but never watched
+// belongs here just as much as a true external discovery.
 function excludedTmdbIds(type: "movie" | "series", userId: string): Set<number> {
-  const owned = (type === "movie" ? loadMovies() : loadSeries()).map((m) => m.tmdbId);
   const status = getWatchStatus(userId);
   const watched = type === "movie" ? (status?.movies ?? []) : [...new Set((status?.episodes ?? []).map((e) => e.tmdbId))];
   const disliked = getFeedback(userId).filter((f) => !f.liked && f.type === type).map((f) => f.tmdbId);
-  return new Set([...owned, ...watched, ...disliked]);
+  return new Set([...watched, ...disliked]);
 }
 
 // ---------------------------------------------------------------------------

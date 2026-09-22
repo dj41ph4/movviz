@@ -96,6 +96,7 @@ import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.PlaybackPrefs
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizBrand3
 import com.movviz.tv.ui.theme.MovvizBrandGlow
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizIconCheck
@@ -268,6 +269,18 @@ fun forQueue(
  *  générique sauté ou coupure avant la toute fin comprise. S'applique aux
  *  films comme aux épisodes — le calcul est purement position/durée. */
 private const val PLAYBACK_QUIT_WATCHED_RATIO = 0.80
+
+/** Hauteur vidéo réellement décodée (ExoPlayer) → même palier que côté
+ *  bibliothèque (resolutionLabelForCatalog, CatalogScreen.kt) : 4K/1080p/
+ *  720p, sinon la hauteur brute. Reflète un éventuel transcodage à la
+ *  volée, jamais la résolution du fichier source. */
+private fun resolutionLabelFor(height: Int): String? = when {
+    height <= 0 -> null
+    height >= 2000 -> "4K"
+    height >= 1000 -> "1080p"
+    height >= 700 -> "720p"
+    else -> "${height}p"
+}
 
 data class QueueItem(
     val ratingKey: String,
@@ -1188,6 +1201,10 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         when {
             showAudioDialog -> showAudioDialog = false
             showSubtitleDialog -> showSubtitleDialog = false
+            // La barre visible absorbe d'abord un Retour — elle redescend
+            // au lieu de quitter directement le lecteur. Un second Retour,
+            // barre déjà masquée, quitte réellement.
+            showControls -> showControls = false
             else -> exitPlayerAction()
         }
     }
@@ -1199,8 +1216,11 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             // d'auto-masquage, même si elle ne déplace pas le focus (appui
             // "à vide" sur un overlay déjà affiché) — le D-pad seul ne doit
             // jamais laisser les contrôles s'éteindre en pleine navigation.
+            // Retour est exclu : il doit pouvoir faire redescendre la barre
+            // (BackHandler ci-dessus) sans qu'un poke() concurrent ne la
+            // relance aussitôt via ce minuteur.
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown) poke()
+                if (event.type == KeyEventType.KeyDown && event.key != Key.Back) poke()
                 false
             },
     ) {
@@ -1264,7 +1284,16 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     .focusable()
                     .onPreviewKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown) poke()
-                        false
+                        // OK/Entrée est explicitement AVALÉ ici : sans ça, le
+                        // focus passe à playPauseFocus (LaunchedEffect(showControls)
+                        // ci-dessus) avant que le KEY_UP de cette même pression
+                        // ne soit délivré, et ce KEY_UP tombe alors sur le
+                        // nouveau focus — le bouton pause le reçoit et se
+                        // déclenche dans la foulée. Un seul OK affichait donc
+                        // la barre ET mettait en pause. Un premier OK ne fait
+                        // plus que révéler la barre ; il faut un second OK,
+                        // une fois le focus réellement sur pause, pour l'activer.
+                        event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
                     }
                     .tvPointerClick { poke() },
             )
@@ -1414,6 +1443,26 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             }
         }
 
+        // Résolution/codec audio RÉELLEMENT décodés (pistes ExoPlayer), pas
+        // devinés depuis le nom de fichier : la vérité de ce qui joue,
+        // transcodage compris — un 4K transcodé en 1080p affiche 1080p, pas
+        // la résolution source. Recalculé à chaque changement de piste
+        // (tracksVersion, déjà incrémenté par onTracksChanged plus haut).
+        val (resolutionLabel, audioCodecMime, audioChannelCount) = remember(tracksVersion) {
+            var height = 0
+            var mime: String? = null
+            var channels = 0
+            exoPlayer.currentTracks.groups.forEach { g ->
+                if (g.length == 0) return@forEach
+                val f = runCatching { g.getTrackFormat(0) }.getOrNull() ?: return@forEach
+                when (g.type) {
+                    C.TRACK_TYPE_VIDEO -> if (f.height > height) height = f.height
+                    C.TRACK_TYPE_AUDIO -> if (g.isSelected) { mime = f.sampleMimeType; channels = f.channelCount }
+                }
+            }
+            Triple(resolutionLabelFor(height), mime, channels)
+        }
+
         // Overlay plein écran (titre haut, boutons centre, progression bas) —
         // fade pur, sans slide : un déplacement est perçu comme un saut,
         // Netflix ne fait que des fondus (alpha GPU, zéro layout).
@@ -1425,6 +1474,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         ) {
             ControlsOverlay(
                 title = mainTitle,
+                resolutionLabel = resolutionLabel,
+                audioCodecMime = audioCodecMime,
+                audioChannelCount = audioChannelCount,
                 subtitle = current.label,
                 isPlaying = isPlaying,
                 player = exoPlayer,
@@ -1780,6 +1832,9 @@ private fun ControlsOverlay(
     hasNext: Boolean,
     hasPrev: Boolean,
     fallbackLevel: Int,
+    resolutionLabel: String?,
+    audioCodecMime: String?,
+    audioChannelCount: Int,
     playPauseFocus: FocusRequester,
     progressFocus: FocusRequester,
     onInteraction: () -> Unit,
@@ -1881,6 +1936,8 @@ private fun ControlsOverlay(
                 ControlButton(icon = MovvizIconForward, contentDescription = "Avancer de 10 secondes", onClick = onSeekForward, onMoveToProgress = { progressFocus.requestFocus() })
                 if (hasNext) ControlButton(icon = MovvizIconSkipNext, contentDescription = "Épisode suivant", onClick = onNextEpisode, onMoveToProgress = { progressFocus.requestFocus() })
                 Spacer(modifier = Modifier.weight(1f))
+                ResolutionBadge(resolutionLabel)
+                AudioCodecBadge(audioCodecMime, audioChannelCount)
                 PlaybackModeBadge(fallbackLevel)
                 ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true, onMoveToProgress = { progressFocus.requestFocus() })
                 ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true, onMoveToProgress = { progressFocus.requestFocus() })
@@ -1957,6 +2014,104 @@ private fun ControlButton(
             }
         }
     }
+}
+
+/** Fond commun aux badges qualité/codec : même pastille noire semi-opaque
+ *  que les "logos" desktop (FormatLogos.tsx, web) — un seul langage visuel
+ *  de badge technique entre les deux plateformes. */
+@Composable
+private fun TechBadgePill(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.55f))
+            .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+            .padding(horizontal = 9.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/** Wordmark à deux lignes (légende grise + nom en gras) — même mise en page
+ *  que les logos Dolby du desktop (FormatLogos.tsx : "DOLBY" petit/gris au-
+ *  dessus, "VISION"/"ATMOS"/"DIGITAL" en gras dessous), reconstruite en
+ *  Compose plutôt qu'en SVG puisque ce ne sont que deux lignes de texte
+ *  stylées, pas un vrai tracé vectoriel. */
+@Composable
+private fun WordmarkBadge(caption: String, name: String) {
+    TechBadgePill {
+        Column(horizontalAlignment = Alignment.Start) {
+            Text(
+                text = caption,
+                style = TextStyle(fontSize = 6.5.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.6f), letterSpacing = 0.6.sp),
+                maxLines = 1,
+            )
+            Text(
+                text = name,
+                style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 0.3.sp),
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TextBadge(text: String) {
+    TechBadgePill {
+        Text(text = text, style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White))
+    }
+}
+
+/** Résolution réellement décodée — voir resolutionLabelFor(). Rien n'est
+ *  affiché tant qu'ExoPlayer n'a pas encore exposé de piste vidéo. */
+@Composable
+private fun ResolutionBadge(label: String?) {
+    if (label == null) return
+    if (label == "4K") {
+        // Même traitement dégradé que Logo4K côté desktop (FormatLogos.tsx) —
+        // statique ici plutôt que le SMIL animé du SVG web, mais la même
+        // intention "premium" pour ce seul badge.
+        TechBadgePill {
+            Text(
+                text = "4K",
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    brush = Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)),
+                ),
+            )
+        }
+    } else {
+        TextBadge(label)
+    }
+}
+
+/** Codec audio réellement sélectionné (piste ExoPlayer, voir le calcul dans
+ *  le composable racine) — mêmes familles et mêmes wordmarks que le badge
+ *  desktop (MediaBadges.tsx buildMediaBadgeItems, bloc "Audio codec") :
+ *  logos pour les formats premium, pastille texte pour le reste. Le canal
+ *  ne permet pas de distinguer Atmos d'un Dolby Digital+/TrueHD simple au
+ *  niveau MIME ExoPlayer (contrairement au nom de fichier parsé côté
+ *  desktop) — la famille de codec reste correcte, seule cette nuance-là
+ *  n'est pas rejouée ici. */
+@Composable
+private fun AudioCodecBadge(mime: String?, channelCount: Int) {
+    if (mime == null) return
+    when (mime) {
+        MimeTypes.AUDIO_E_AC3 -> WordmarkBadge("DOLBY", "DIGITAL+")
+        MimeTypes.AUDIO_AC3 -> WordmarkBadge("DOLBY", "DIGITAL")
+        MimeTypes.AUDIO_TRUEHD -> TextBadge("TrueHD")
+        MimeTypes.AUDIO_DTS, MimeTypes.AUDIO_DTS_HD, MimeTypes.AUDIO_DTS_EXPRESS -> TextBadge("DTS")
+        MimeTypes.AUDIO_AAC -> TextBadge("AAC")
+        MimeTypes.AUDIO_FLAC -> TextBadge("FLAC")
+        MimeTypes.AUDIO_OPUS -> TextBadge("Opus")
+        MimeTypes.AUDIO_MPEG, MimeTypes.AUDIO_MPEG_L2 -> TextBadge("MP3")
+        MimeTypes.AUDIO_RAW -> TextBadge("PCM")
+        else -> codecShortName(mime)?.let { TextBadge(it) }
+    }
+    // channelCount conservé dans la signature pour une évolution ultérieure
+    // ("5.1"/"7.1" à côté du nom) — non affiché pour l'instant, pas de
+    // signal fiable à 100% sur tous les boîtiers (canaux matricés).
+    @Suppress("UNUSED_EXPRESSION") channelCount
 }
 
 /** État réellement choisi par load()/les fallbacks codecs, pas une

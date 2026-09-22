@@ -56,6 +56,10 @@ import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.tv.foundation.lazy.grid.items
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -711,8 +715,13 @@ fun TitleDetailScreen(
                 // Pendant le chargement, le focus reste SUR CET ÉCRAN : sans
                 // cible focusable, Compose le donnait à la barre latérale
                 // (« le D-pad repart sur Accueil ») et il n'en revenait plus.
+                // Squelette plutôt que le spinner plein écran : la silhouette
+                // de la vraie fiche (jaquette, titre, boutons, synopsis) est
+                // déjà là, seul le contenu réel vient la remplacer — un
+                // chargement qui se voit moins qu'un écran nu suivi d'un
+                // remplacement brutal.
                 Box(modifier = Modifier.fillMaxSize().focusRequester(initialFocusRequester).focusable()) {
-                    com.movviz.tv.ui.theme.MovvizLoader(modifier = Modifier.fillMaxSize())
+                    TitleDetailSkeleton()
                 }
             } else {
                 Column(
@@ -1493,6 +1502,50 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
         }
 
 }
+}
+
+/** Silhouette de la fiche (jaquette, titre, boutons, synopsis) affichée
+ *  pendant le tout premier chargement — jamais pour un titre déjà en cache
+ *  (voir AppViewModel.loadDetail). Un souffle lent (alpha 0.35 → 0.65) dit
+ *  "ça charge" sans le spinner générique qui masquait toute la mise en page
+ *  réelle en dessous. */
+@Composable
+private fun TitleDetailSkeleton() {
+    val infinite = rememberInfiniteTransition(label = "titleSkeleton")
+    val pulse by infinite.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.65f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "titleSkeletonPulse",
+    )
+    val blockColor = MovvizInkDim.copy(alpha = pulse * 0.3f)
+    @Composable
+    fun Block(width: androidx.compose.ui.unit.Dp, height: androidx.compose.ui.unit.Dp, shape: RoundedCornerShape = RoundedCornerShape(6.dp)) {
+        Box(modifier = Modifier.width(width).height(height).background(blockColor, shape))
+    }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxWidth().height(BACKDROP_HEIGHT).background(MovvizInkDim.copy(alpha = pulse * 0.18f)))
+        Column(
+            modifier = Modifier.padding(start = 84.dp, top = 40.dp, end = 84.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Block(width = 420.dp, height = 52.dp)
+            Block(width = 260.dp, height = 16.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Block(width = 130.dp, height = 40.dp, shape = RoundedCornerShape(20.dp))
+                Block(width = 130.dp, height = 40.dp, shape = RoundedCornerShape(20.dp))
+                Block(width = 40.dp, height = 40.dp, shape = RoundedCornerShape(20.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Block(width = 560.dp, height = 12.dp)
+                Block(width = 520.dp, height = 12.dp)
+                Block(width = 380.dp, height = 12.dp)
+            }
+        }
+    }
 }
 
 /** Sommaire d'une série : les saisons sont des destinations, pas des onglets

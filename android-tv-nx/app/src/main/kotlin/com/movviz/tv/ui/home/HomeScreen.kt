@@ -684,7 +684,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle("series", it.tmdbId) },
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
+                            onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                             navRailFocusRequester = navRailFocusRequester,
@@ -696,7 +696,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                             showTypeBadge = true,
@@ -709,7 +709,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle("movie", it.tmdbId) },
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                         )
@@ -720,7 +720,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                             showTypeBadge = true,
@@ -733,7 +733,7 @@ fun HomeScreen(
                                 onClick = { onOpenTitle("movie", it.tmdbId) },
                                 firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                                 titleLogoPaths = heroLogos,
-                                onFocusedCard = { viewModel.requestHeroLogo("movie", it.tmdbId) },
+                                onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, "movie", it.tmdbId) },
                                 previewLoader = { viewModel.loadTvPreview("movie", it.tmdbId) },
                                 onPreviewStateChanged = onCardPreviewStateChanged,
                             )
@@ -744,7 +744,7 @@ fun HomeScreen(
                                 onClick = { onOpenTitle("series", it.tmdbId) },
                                 firstItemFocusRequester = if (firstVisibleSection == sectionId && availableMovieCards.isEmpty()) { if (showHero) firstRowFocus else contentFocus } else null,
                                 titleLogoPaths = heroLogos,
-                                onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
+                                onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, "series", it.tmdbId) },
                                 previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
                                 onPreviewStateChanged = onCardPreviewStateChanged,
                             )
@@ -756,7 +756,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle("movie", it.tmdbId) },
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, if (it.isMovie) "movie" else "series", it.tmdbId) },
                             previewLoader = { viewModel.loadTvPreview("movie", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                         )
@@ -792,7 +792,7 @@ fun HomeScreen(
                         items = row.cards,
                         onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         titleLogoPaths = heroLogos,
-                        onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                        onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, if (it.isMovie) "movie" else "series", it.tmdbId) },
                         previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         onPreviewStateChanged = onCardPreviewStateChanged,
                         showTypeBadge = true,
@@ -1610,6 +1610,15 @@ private fun ambientTrailerHtml(key: String, title: String): String = """
       }
     </script></body></html>
 """.trimIndent()
+
+/** Même signal de focus que le logo hero (déjà déclenché carte par carte,
+ *  sans coût réseau notable) : en profiter pour lancer aussi la précharge
+ *  de la fiche, qui s'auto-annule si le focus repart avant 750 ms — voir
+ *  AppViewModel.scheduleDetailPrefetch. */
+internal fun requestHeroLogoAndPrefetch(viewModel: AppViewModel, type: String, tmdbId: Int) {
+    viewModel.requestHeroLogo(type, tmdbId)
+    viewModel.scheduleDetailPrefetch(type, tmdbId)
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable

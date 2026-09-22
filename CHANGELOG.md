@@ -1,3 +1,13 @@
+## v1.25.66 — September 2026
+
+### Suggestions moins avares, fiches instantanées, barre de lecture enrichie
+
+- Le moteur de suggestion (« Sélection pour vous », « Dans la lignée de … », « Suggestion Netflix/Prime pour vous ») retirait systématiquement tout titre déjà présent dans la bibliothèque, même jamais regardé — alors que « Titres similaires » en bas d'une fiche ne filtre jamais la bibliothèque et affiche ces mêmes titres. Seul ce qui a réellement été vu est désormais exclu.
+- Rouvrir une fiche déjà consultée cette session s'affiche instantanément (une version fraîche se recharge en silence derrière) ; le tout premier chargement affiche la silhouette de la fiche à la place du spinner. Une fiche pointée à la télécommande pendant 750 ms se précharge en tâche de fond, pour un rendu instantané une fois ouverte.
+- La barre de lecture affiche la résolution (4K/1080p/720p) et le codec audio (Dolby Digital/Digital+, TrueHD, DTS, AAC…) réellement décodés, avec le même style de badge que le desktop.
+- Un premier OK pendant la lecture n'affiche que la barre, sans mettre en pause : il fallait auparavant un aller-retour de focus involontaire pour que ça n'arrive pas. Un second OK, sur le bouton pause désormais réellement focalisé, met en pause.
+- Retour fait d'abord redescendre la barre de lecture si elle est affichée, avant de quitter le lecteur au Retour suivant.
+
 ## v1.25.65 — September 2026
 
 ### Android TV : lecture, bibliothèque, recherche et focus stabilisés

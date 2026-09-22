@@ -162,6 +162,15 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // erreurs réseau/API sont un état visible et récupérable côté TV.
     private val _detailError = MutableStateFlow<String?>(null)
     val detailError: StateFlow<String?> = _detailError.asStateFlow()
+    // Cache mémoire, le temps de la session (jamais persisté) : contrairement
+    // à l'accueil (HomeSnapshot local), une fiche repartait toujours de zéro
+    // à chaque ouverture, même en rouvrant le même titre quelques secondes
+    // plus tard (retour depuis "Titres similaires", double ouverture par
+    // erreur…). Le contenu mis en cache s'affiche immédiatement pendant
+    // qu'une version fraîche est requêtée en silence derrière — même
+    // compromis que l'accueil : l'affichage instantané peut être vieux de
+    // quelques secondes (un statut qui vient de passer "disponible").
+    private val detailCache = mutableMapOf<Pair<String, Int>, MetaDetailDto>()
 
     private val _person = MutableStateFlow<PersonDto?>(null)
     val person: StateFlow<PersonDto?> = _person.asStateFlow()
@@ -441,13 +450,49 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     fun loadDetail(type: String, tmdbId: Int) {
         val repo = repository ?: return
-        _detail.value = null
+        val key = type to tmdbId
+        val cached = detailCache[key]
+        // Un titre déjà vu cette session s'affiche tout de suite ; sinon
+        // c'est le squelette (TitleDetailScreen) qui occupe l'écran pendant
+        // le premier aller-retour réseau, jamais un écran nu.
+        _detail.value = cached
         _detailError.value = null
         viewModelScope.launch {
             when (val d = repo.detail(type, tmdbId)) {
-                is ApiResult.Success -> _detail.value = d.data
+                is ApiResult.Success -> {
+                    detailCache[key] = d.data
+                    _detail.value = d.data
+                }
                 ApiResult.Unauthorized -> _sessionExpired.value = true
-                is ApiResult.Failure -> _detailError.value = d.message
+                // Le cache reste affiché plutôt que de le remplacer par un
+                // message d'erreur si le rafraîchissement silencieux échoue :
+                // seul un tout premier chargement sans rien à montrer bascule
+                // sur l'écran d'erreur.
+                is ApiResult.Failure -> if (cached == null) _detailError.value = d.message
+            }
+        }
+    }
+
+    private var detailPrefetchJob: Job? = null
+
+    /** Précharge silencieuse dans le cache de fiches : appelée à chaque
+     *  carte qui prend le focus (même signal que requestHeroLogo), mais le
+     *  vrai appel réseau n'a lieu que si le focus reste dessus 750 ms sans
+     *  bouger — un balayage rapide de rangée au D-pad ne doit jamais
+     *  déclencher une requête par carte survolée. Le job unique annule
+     *  automatiquement la tentative de la carte précédente dès qu'une
+     *  nouvelle carte prend le focus avant l'échéance. */
+    fun scheduleDetailPrefetch(type: String, tmdbId: Int) {
+        val key = type to tmdbId
+        if (detailCache.containsKey(key)) return
+        detailPrefetchJob?.cancel()
+        detailPrefetchJob = viewModelScope.launch {
+            delay(750)
+            val repo = repository ?: return@launch
+            if (detailCache.containsKey(key)) return@launch
+            when (val d = repo.detail(type, tmdbId)) {
+                is ApiResult.Success -> detailCache[key] = d.data
+                else -> Unit
             }
         }
     }

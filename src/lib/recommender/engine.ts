@@ -1,6 +1,5 @@
 import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres, getPerson, getDetail } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
-import { loadMovies, loadSeries } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
@@ -24,10 +23,6 @@ export async function getRecommendations(
   userId: string,
   type: "movie" | "series"
 ): Promise<MetaSearchResult[]> {
-  const owned = new Set<number>(
-    (type === "movie" ? loadMovies() : loadSeries()).map((m) => m.tmdbId)
-  );
-
   const status = getWatchStatus(userId);
   const watched: number[] =
     type === "movie"
@@ -47,7 +42,12 @@ export async function getRecommendations(
     getFeedback(userId).filter((f) => !f.liked && f.type === type).map((f) => f.tmdbId)
   );
 
-  const excluded = new Set<number>([...watched, ...owned, ...dislikedTmdbIds]);
+  // Posséder un titre ne veut pas dire l'avoir vu : le retirer empêchait un
+  // titre déjà en bibliothèque mais jamais regardé — souvent exactement ce
+  // qu'on a envie de voir ensuite, confirmé en direct — d'apparaître ici,
+  // alors que "Titres similaires" sur une fiche (même moteur, par titre) ne
+  // filtre jamais la bibliothèque et le montre. Seul "déjà vu" doit exclure.
+  const excluded = new Set<number>([...watched, ...dislikedTmdbIds]);
 
   // Un titre juste vu ne pèse plus pareil qu'un titre adoré/noté 5★/revu :
   // buildSeeds() qualifie chaque seed par force de signal (note explicite,

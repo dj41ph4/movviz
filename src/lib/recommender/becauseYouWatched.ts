@@ -217,11 +217,14 @@ async function rankCandidates(
   return [...reranked, ...scored.slice(MOOD_CANDIDATE_LIMIT)].map((s) => s.item);
 }
 
+// Ne plus exclure ce qui est déjà possédé (même correction qu'engine.ts) :
+// un titre en bibliothèque mais jamais regardé doit pouvoir apparaître ici,
+// exactement comme "Titres similaires" sur sa fiche ne filtre jamais la
+// bibliothèque.
 function excludedTmdbIds(type: "movie" | "series", userId: string): Set<number> {
-  const owned = (type === "movie" ? loadMovies() : loadSeries()).map((m) => m.tmdbId);
   const status = getWatchStatus(userId);
   const watched = type === "movie" ? (status?.movies ?? []) : status?.episodes.map((e) => e.tmdbId) ?? [];
-  return new Set([...owned, ...watched]);
+  return new Set(watched);
 }
 
 // No originCountries param: getMovieRecommendations/getTvRecommendations

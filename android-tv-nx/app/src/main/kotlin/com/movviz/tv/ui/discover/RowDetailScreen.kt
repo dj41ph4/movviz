@@ -182,7 +182,11 @@ fun RowDetailScreen(
                         showCaption = false,
                         titleLogoPath = heroLogos["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                         onFocusedChange = { focused ->
-                            if (focused) viewModel.requestHeroLogo(if (card.isMovie) "movie" else "series", card.tmdbId)
+                            val cardType = if (card.isMovie) "movie" else "series"
+                            if (focused) {
+                                viewModel.requestHeroLogo(cardType, card.tmdbId)
+                                viewModel.scheduleDetailPrefetch(cardType, card.tmdbId)
+                            }
                         },
                     )
                 }

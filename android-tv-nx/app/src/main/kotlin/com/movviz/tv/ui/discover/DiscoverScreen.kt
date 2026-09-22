@@ -141,24 +141,19 @@ fun DiscoverScreen(
     val bestInLibrary = remember(availableCards) {
         availableCards.sortedByDescending { it.rating }.take(20)
     }
-    val favouriteGenres = remember(availableCards) {
-        availableCards.flatMap { it.genres }
-            .groupingBy { it }
-            .eachCount()
-            .filterValues { it >= 4 }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(2)
-            .map { it.first }
-    }
-    val librarySuggestionRows = remember(localRecommendations, bestInLibrary, favouriteGenres, availableCards) {
+    // Les rangées par genre ("favouriteGenres", un simple comptage de genres
+    // dans la bibliothèque) ont été retirées : elles ne matchaient que sur
+    // le style, en parallèle du vrai moteur de suggestion (server-side,
+    // src/lib/recommender/engine.ts — par titre vu, TMDb /similar ET
+    // /recommendations agrégés, pondérés par force de signal, taste vector,
+    // affinité acteurs/réalisateurs). Desktop n'a jamais eu cette logique de
+    // repli propre à Android TV ; `localRecommendations` (le vrai moteur,
+    // restreint à ce qui est déjà dans la bibliothèque) est le seul repli
+    // légitime ici, "best-in-library" restant un simple tri par note.
+    val librarySuggestionRows = remember(localRecommendations, bestInLibrary) {
         buildList {
             if (localRecommendations.isNotEmpty()) add(DiscoverRow("for-you", null, localRecommendations, seeAll = false))
             if (bestInLibrary.isNotEmpty()) add(DiscoverRow("best-in-library", null, bestInLibrary, seeAll = false))
-            favouriteGenres.forEach { genre ->
-                val matching = availableCards.filter { genre in it.genres }.sortedByDescending { it.rating }.take(20)
-                if (matching.isNotEmpty()) add(DiscoverRow("library-genre-$genre", null, matching, seeAll = false))
-            }
         }
     }
     val editorial = remember(editorialRows, wantedType, watchedMovieIds) {
