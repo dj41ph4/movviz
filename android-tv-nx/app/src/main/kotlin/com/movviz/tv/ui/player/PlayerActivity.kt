@@ -1283,7 +1283,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     .focusRequester(hiddenCatcherFocus)
                     .focusable()
                     .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown) poke()
+                        // Retour exclu du poke() : quand la barre est déjà
+                        // masquée, c'est justement le cas que le BackHandler
+                        // doit pouvoir quitter le lecteur — relancer le
+                        // minuteur d'affichage ici entrait en course avec lui
+                        // et pouvait laisser Retour sans aucun effet visible.
+                        if (event.type == KeyEventType.KeyDown && event.key != Key.Back) poke()
                         // OK/Entrée est explicitement AVALÉ ici : sans ça, le
                         // focus passe à playPauseFocus (LaunchedEffect(showControls)
                         // ci-dessus) avant que le KEY_UP de cette même pression
@@ -1816,6 +1821,22 @@ private fun timeLabelStyle() = MaterialTheme.typography.labelSmall.copy(
     fontFeatureSettings = "tnum",
 )
 
+/** Heure système actuelle, "HH:mm" — juste un repère pendant la lecture,
+ *  pas une horloge à la seconde : une minute de résolution suffit et évite
+ *  une recomposition inutile 60 fois plus fréquente que nécessaire. */
+@Composable
+private fun currentClockLabel(): String {
+    val formatter = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+    var label by remember { mutableStateOf(formatter.format(java.util.Date())) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            label = formatter.format(java.util.Date())
+            delay(30_000L)
+        }
+    }
+    return label
+}
+
 /** Overlay premium : un titre calme en haut, les gestes de lecture au centre
  * et un vrai dock en verre au bas. La hiérarchie reste Netflix (lecture
  * immédiate), la finition adopte le volume/les séparations d'Apple TV et
@@ -1857,8 +1878,10 @@ private fun ControlsOverlay(
             // minuteur d'auto-masquage (les boutons consomment leurs taps).
             .tvPointerClick { onInteraction() },
     ) {
-        // Zone haute : titre + libellé saison/épisode
-        Column(
+        // Zone haute : titre + libellé saison/épisode à gauche, heure actuelle
+        // à droite — juste un repère, pas une horloge à la seconde près.
+        Row(
+            verticalAlignment = Alignment.Top,
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
@@ -1866,23 +1889,32 @@ private fun ControlsOverlay(
                 .padding(horizontal = 42.dp)
                 .padding(top = 27.dp, bottom = 27.dp),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(shadow = titleShadow),
-                color = MovvizInk,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(3.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium.copy(shadow = titleShadow),
-                    color = MovvizInkSoft,
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium.copy(shadow = titleShadow),
+                    color = MovvizInk,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (!subtitle.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium.copy(shadow = titleShadow),
+                        color = MovvizInkSoft,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
+            Spacer(modifier = Modifier.width(21.dp))
+            Text(
+                text = currentClockLabel(),
+                style = MaterialTheme.typography.headlineMedium.copy(shadow = titleShadow),
+                color = MovvizInk,
+                maxLines = 1,
+            )
         }
 
         // Toutes les interactions sont volontairement dans le dock : aucune

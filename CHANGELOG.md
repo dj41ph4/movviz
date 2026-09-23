@@ -1,3 +1,10 @@
+## v1.25.67 — September 2026
+
+### Android TV : Retour fiabilisé dans le lecteur, heure affichée sur la barre
+
+- Depuis l'ajout de « Retour referme d'abord la barre », Retour pouvait rester sans aucun effet quand la barre était déjà masquée : la zone qui capte les touches à ce moment-là relançait quand même le minuteur d'affichage sur un appui Retour, entrant en course avec la fermeture du lecteur. Corrigé.
+- La barre de lecture affiche désormais l'heure actuelle en haut à droite, à côté du titre du film ou de l'épisode en haut à gauche.
+
 ## v1.25.66 — September 2026
 
 ### Suggestions moins avares, fiches instantanées, barre de lecture enrichie
