@@ -27,7 +27,7 @@ export function requireUser(req: NextRequest): User | null {
   const sessionUser = getCurrentUser(req);
   if (sessionUser) {
     if (sessionUser.status === "pending") return null;
-    if (isUserInteraction(req.nextUrl.pathname, req.method)) markUserActivity(sessionUser);
+    if (isUserInteraction(req.nextUrl.pathname, req.method, req.nextUrl.search, sessionUser.id)) markUserActivity(sessionUser);
     return sessionUser;
   }
 
@@ -36,7 +36,7 @@ export function requireUser(req: NextRequest): User | null {
   const userId = resolveTokenUserId(token);
   const tokenUser = userId ? getUserById(userId) : null;
   if (!tokenUser || tokenUser.status === "pending") return null;
-  if (isUserInteraction(req.nextUrl.pathname, req.method)) markUserActivity(tokenUser);
+  if (isUserInteraction(req.nextUrl.pathname, req.method, req.nextUrl.search, tokenUser.id)) markUserActivity(tokenUser);
   return tokenUser;
 }
 

@@ -194,10 +194,11 @@ export function DashboardRows({
   // Netflix's "short on time" idea, grounded in Movviz data rather than an
   // invented runtime: only files that are actually available and whose movie
   // runtime is known make the row. Series are intentionally excluded until
-  // episode duration is part of their persisted library model.
+  // episode duration is part of their persisted library model. Under 10 min
+  // it's a short/clip/bonus, not a film for a short evening — left out.
   const shortSessions = useMemo(
     () => movies
-      .filter((movie) => movie.status === "available" && movie.runtime !== null && movie.runtime <= 40 && afterMinYear(movie) && isNotExcluded("movie", movie.tmdbId))
+      .filter((movie) => movie.status === "available" && movie.runtime !== null && movie.runtime >= 10 && movie.runtime <= 40 && afterMinYear(movie) && isNotExcluded("movie", movie.tmdbId))
       .sort((a, b) => b.addedAt - a.addedAt)
       .slice(0, 20),
     [movies, afterMinYear, isNotExcluded]

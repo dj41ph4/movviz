@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import readline from "node:readline";
 
 /**
  * Small in-memory TTL cache with real hit/miss accounting, used to avoid
@@ -114,6 +115,8 @@ const DEFAULT_MAX_ENTRIES = 3500;
 const SAVE_DEBOUNCE_MS = 30_000;
 /** Chars serialized between two awaited writes in writeStreamed(). */
 const WRITE_CHUNK_CHARS = 1 << 20;
+/** Persisted caches up to this size still load synchronously at construction (OMDb, small ones). */
+const SYNC_LOAD_MAX_BYTES = 8 * 1024 * 1024;
 
 class NamedCache {
   private store = new Map<string, Entry<unknown>>();
@@ -125,6 +128,12 @@ class NamedCache {
   private writeInFlight = false;
   /** Set when the store changed during an in-flight write — one more pass follows it. */
   private pendingWrite = false;
+  /** One-line-per-entry file actually written; `persistFile` (single JSON object) is only read once to migrate. */
+  private readonly linesFile?: string;
+  private loaded = true;
+  /** Bumped by clear() so a load still streaming in can't resurrect cleared entries. */
+  private loadGeneration = 0;
+  private readonly loadedPromise: Promise<void>;
 
   constructor(
     public readonly name: string,
@@ -132,17 +141,74 @@ class NamedCache {
     private persistFile?: string,
     private readonly maxEntries = DEFAULT_MAX_ENTRIES
   ) {
-    if (persistFile) this.loadFromDisk();
+    this.linesFile = persistFile ? persistFile.replace(/\.json$/, "") + ".ndjson" : undefined;
+    this.loadedPromise = this.loadFromDisk();
   }
 
-  private loadFromDisk() {
-    if (!this.persistFile) return;
+  /**
+   * Resolves once the persisted entries are in memory. Small files load
+   * synchronously in the constructor (already resolved); a large one streams
+   * in without blocking the event loop — callers that must not miss a
+   * persisted entry (TMDb reads, the cache-only hero lookup) await this.
+   */
+  whenLoaded(): Promise<void> {
+    return this.loadedPromise;
+  }
+
+  private loadFromDisk(): Promise<void> {
+    if (!this.persistFile || !this.linesFile) return Promise.resolve();
+    let size = -1;
+    try { size = fs.statSync(this.linesFile).size; } catch { /* not migrated yet */ }
+    if (size < 0) {
+      // Legacy single-object file: parsed in one go, one last time, then
+      // rewritten line-per-entry by the next save.
+      try {
+        const data = JSON.parse(fs.readFileSync(this.persistFile, "utf8")) as Record<string, Entry<unknown>>;
+        for (const [k, v] of Object.entries(data)) this.store.set(k, v);
+        if (this.store.size > 0) this.scheduleSave();
+      } catch {
+        // No cache file yet, or corrupt — start empty, harmless.
+      }
+      return Promise.resolve();
+    }
+    if (size <= SYNC_LOAD_MAX_BYTES) {
+      try {
+        for (const line of fs.readFileSync(this.linesFile, "utf8").split("\n")) this.loadLine(line);
+      } catch { /* unreadable — start empty */ }
+      return Promise.resolve();
+    }
+    // Hundreds of MB (the TMDb cache in production): parsing it in one shot
+    // froze the whole server for seconds at every start.
+    this.loaded = false;
+    const generation = this.loadGeneration;
+    const lines = readline.createInterface({ input: fs.createReadStream(this.linesFile, "utf8"), crlfDelay: Infinity });
+    return (async () => {
+      try {
+        for await (const line of lines) {
+          if (generation !== this.loadGeneration) break;
+          this.loadLine(line);
+        }
+      } catch {
+        // Partial load is fine: whatever was read stays, the rest refetches.
+      } finally {
+        lines.close();
+        this.loaded = true;
+        if (this.pendingWrite) {
+          this.pendingWrite = false;
+          this.saveToDisk();
+        }
+      }
+    })();
+  }
+
+  private loadLine(line: string) {
+    if (!line) return;
     try {
-      const raw = fs.readFileSync(this.persistFile, "utf8");
-      const data = JSON.parse(raw) as Record<string, Entry<unknown>>;
-      for (const [k, v] of Object.entries(data)) this.store.set(k, v);
+      const [key, entry] = JSON.parse(line) as [string, Entry<unknown>];
+      // A fresher entry fetched while the file was still streaming in wins.
+      if (!this.store.has(key)) this.store.set(key, entry);
     } catch {
-      // No cache file yet, or corrupt — start empty, harmless.
+      // Truncated/corrupt line — skip it, keep the rest.
     }
   }
 
@@ -159,13 +225,16 @@ class NamedCache {
    * process for seconds on the NAS (and built a 360 MB string each time).
    */
   private saveToDisk() {
-    if (!this.persistFile) return;
-    if (this.writeInFlight) {
+    if (!this.persistFile || !this.linesFile) return;
+    // Writing before the stream finished would persist a partial cache over the full one.
+    if (this.writeInFlight || !this.loaded) {
       this.pendingWrite = true;
       return;
     }
     this.writeInFlight = true;
-    this.writeStreamed(this.persistFile)
+    const legacyFile = this.persistFile;
+    this.writeStreamed(this.linesFile)
+      .then(() => fs.promises.rm(legacyFile, { force: true }))
       .catch(() => {
         // Best-effort — losing the persisted cache just means a cold start next time.
       })
@@ -186,16 +255,16 @@ class NamedCache {
     await fs.promises.mkdir(path.dirname(file), { recursive: true });
     const handle = await fs.promises.open(tmp, "w");
     try {
-      let chunk = "{";
-      for (let i = 0; i < entries.length; i++) {
-        const [key, entry] = entries[i];
-        chunk += `${i === 0 ? "" : ","}${JSON.stringify(key)}:${JSON.stringify(entry)}`;
+      // One `[key, entry]` per line so the next start can stream it back in.
+      let chunk = "";
+      for (const pair of entries) {
+        chunk += `${JSON.stringify(pair)}\n`;
         if (chunk.length >= WRITE_CHUNK_CHARS) {
           await handle.write(chunk, null, "utf8");
           chunk = "";
         }
       }
-      await handle.write(`${chunk}}`, null, "utf8");
+      await handle.write(chunk, null, "utf8");
     } finally {
       await handle.close();
     }
@@ -207,6 +276,7 @@ class NamedCache {
     if (!this.persistFile) return;
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.saveToDisk(), SAVE_DEBOUNCE_MS);
+    this.saveTimer.unref?.();
   }
 
   get<T>(key: string): T | undefined {
@@ -261,6 +331,7 @@ class NamedCache {
   }
 
   clear() {
+    this.loadGeneration++;
     this.store.clear();
     this.hits = 0;
     this.misses = 0;

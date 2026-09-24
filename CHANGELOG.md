@@ -1,3 +1,12 @@
+## v1.25.69 — September 2026
+
+### Démarrage sans gel, tâches de fond qui avancent, « Moins de 40 minutes » sans courts
+
+- « Vous avez peu de temps ? Moins de 40 minutes » ne propose plus les courts de moins de 10 minutes (bonus, clips, mini-épisodes), sur desktop, Android TV et Android mobile.
+- Après chaque redémarrage ou mise à jour, le serveur relisait d'un seul bloc son cache TMDb de plusieurs centaines de Mo et se figeait plusieurs secondes : tout restait en chargement. Il le relit désormais progressivement sans bloquer. Le reste de l'application répond aussitôt, et seules les pages qui ont besoin de TMDb attendent quelques instants la fin de la lecture, au lieu de tout redemander à TMDb. Le premier démarrage après cette mise à jour convertit une dernière fois l'ancien fichier.
+- Une TV ou un téléphone laissé ouvert sur une fiche ou sur un film en lecture comptait comme un utilisateur en train de cliquer, en continu : les tâches de fond (synchronisation Plex, intros et génériques…) se mettaient en retrait et pouvaient traîner des heures. Seules les vraies actions comptent désormais : ouvrir une fiche, naviguer, lancer ou avancer une lecture. Les rafraîchissements automatiques ne comptent plus, sur toutes les applications.
+- Les mesures de performance réservées aux administrateurs incluent maintenant la répartition de la mémoire du serveur.
+
 ## v1.25.68 — September 2026
 
 ### Bande-annonce avec image sur Android TV, serveur qui ne se fige plus

@@ -1,3 +1,4 @@
+import v8 from "node:v8";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { aggregatePerf, recordPerf, perfLabel, getPerfEntries } from "@/lib/perf";
@@ -21,9 +22,21 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json({ entries });
   }
+  // Where the process memory actually sits (JS heap by space vs native
+  // buffers) — RSS alone (2-3 GB on the NAS) can't say what to shrink.
+  const mb = (n: number) => Math.round(n / 1024 / 1024);
+  const mem = process.memoryUsage();
   return NextResponse.json({
     aggregates: aggregatePerf(),
     eventLoop: { live: getEventLoopLive(), history: getEventLoopHistory() },
+    memory: {
+      rssMb: mb(mem.rss),
+      heapUsedMb: mb(mem.heapUsed),
+      heapTotalMb: mb(mem.heapTotal),
+      externalMb: mb(mem.external),
+      arrayBuffersMb: mb(mem.arrayBuffers),
+      heapSpaces: v8.getHeapSpaceStatistics().map((s) => ({ name: s.space_name, usedMb: mb(s.space_used_size) })),
+    },
   });
 }
 

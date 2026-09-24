@@ -5,6 +5,7 @@ import { loadMovies } from "@/lib/library/store";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { loadDashboardLayout } from "@/lib/dashboard/store";
+import { tmdbCacheLoaded } from "@/lib/metadata/tmdb";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,9 @@ export async function GET(req: NextRequest) {
   // First paint is deliberately local and synchronous: a dashboard hero is
   // useful with its stored artwork even while TMDb is overloaded. The client
   // follows with ?rich=1 to restore recommendation ranking and trailers.
+  // Its video keys are a cache-only TMDb lookup: just after a server start,
+  // wait for the persisted cache (local disk) to finish streaming in.
+  await tmdbCacheLoaded();
   const fallbackSlides = buildLibraryHeroFallbackSlides(6, locale);
   const slides = rich
     ? await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned }, youtubeTrailerSearch, hero.minYear).then((resolved) => resolved.length ? resolved : fallbackSlides)

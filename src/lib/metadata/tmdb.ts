@@ -51,6 +51,11 @@ function tmdbCache() {
   return getCache(TMDB_CACHE_NAME, TMDB_CACHE_TTL_MS, TMDB_CACHE_FILE, TMDB_CACHE_MAX_ENTRIES);
 }
 
+/** Resolves once the persisted TMDb cache has streamed back in after a start — see NamedCache.whenLoaded(). */
+export function tmdbCacheLoaded(): Promise<void> {
+  return tmdbCache().whenLoaded();
+}
+
 /**
  * TMDb client — the source of truth for "what movies/series exist". Requires
  * a free API key from themoviedb.org (Settings → API). Read from
@@ -168,6 +173,9 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, lan
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
   const cache = tmdbCache();
+  // Right after a start the persisted entries may still be streaming in:
+  // wait for them rather than refetch from TMDb what is already on disk.
+  await cache.whenLoaded();
   const cacheKey = url.toString();
   const cached = cache.getStale<T>(cacheKey);
   if (cached !== undefined) {

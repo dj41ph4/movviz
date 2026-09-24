@@ -89,6 +89,38 @@ const SILENT_MUTATION_PREFIXES = ["/api/perf"];
 /** POST de sauvegarde de progression du player (VideoPlayer, toutes les 10 s). */
 const PROGRESS_POST_RE = /^\/api\/stream\/[^/]+\/progress$/;
 
+/** Heartbeat de session de lecture (lecteurs Android TV / mobile). */
+const HEARTBEAT_POST_RE = /^\/api\/playback\/sessions\/[^/]+\/heartbeat$/;
+
+/**
+ * Un GET strictement identique (même utilisateur, même URL, query comprise)
+ * déjà vu dans cette fenêtre est un rafraîchissement automatique, pas un
+ * clic. Couvre sans liste à tenir à jour les boucles des apps Android
+ * (fiche ouverte : entrée bibliothèque 4-8 s, saisons 4-10 s) et tout futur
+ * poller web ou Android — c'est ce qui laissait l'arrière-plan bridé des
+ * heures dès qu'une TV restait allumée sur une fiche. 90 s couvre aussi les
+ * pollers lents (/api/plex/on-deck toutes les 30 s). La première ouverture
+ * d'une URL compte toujours comme une interaction.
+ */
+const POLL_REPEAT_WINDOW_MS = 90_000;
+const REPEAT_TRACK_MAX = 500;
+
+const gRepeat = globalThis as typeof globalThis & { __movvizRecentGets?: Map<string, number> };
+const recentGets: Map<string, number> = (gRepeat.__movvizRecentGets ??= new Map());
+
+function isRepeatedGet(key: string, now: number): boolean {
+  const seen = recentGets.get(key);
+  recentGets.delete(key); // réinséré en fin : l'ordre de la Map suit la dernière vue
+  recentGets.set(key, now);
+  if (recentGets.size > REPEAT_TRACK_MAX) {
+    for (const [k, t] of recentGets) {
+      if (now - t < POLL_REPEAT_WINDOW_MS && recentGets.size <= REPEAT_TRACK_MAX) break;
+      recentGets.delete(k);
+    }
+  }
+  return seen !== undefined && now - seen < POLL_REPEAT_WINDOW_MS;
+}
+
 /**
  * La requête représente-t-elle une vraie interaction utilisateur ?
  * - Mutation (POST/PUT/DELETE…) : un bouton cliqué → OUI, sauf poll silencieux
@@ -98,14 +130,17 @@ const PROGRESS_POST_RE = /^\/api\/stream\/[^/]+\/progress$/;
  *   l'activité à elle seule : la lecture = inactivité, la reprise de l'arrêt
  *   de l'arrière-plan se fait donc 4 s après le dernier clic réel.
  */
-export function isUserInteraction(pathname: string, method: string): boolean {
+export function isUserInteraction(pathname: string, method: string, search = "", userId?: string): boolean {
   if (method !== "GET") {
     return (
       !SILENT_MUTATION_PREFIXES.some((p) => pathname.startsWith(p)) &&
-      !PROGRESS_POST_RE.test(pathname)
+      !PROGRESS_POST_RE.test(pathname) &&
+      !HEARTBEAT_POST_RE.test(pathname)
     );
   }
-  return !POLL_PREFIXES.some((p) => pathname.startsWith(p));
+  if (POLL_PREFIXES.some((p) => pathname.startsWith(p))) return false;
+  if (userId === undefined) return true;
+  return !isRepeatedGet(`${userId}|${pathname}${search}`, Date.now());
 }
 
 /**

@@ -425,7 +425,7 @@ fun HomeScreen(
         (movie + shows).sortedByDescending { it.first }.map { it.second }.take(20).withWatchedMovies(watchedMovieIds)
     }
     val shortSessionCards = remember(movies, minYear, watchedMovieIds) {
-        movies.filter { it.status == "available" && it.runtime != null && it.runtime <= 40 && yearAllowed(it.year) }
+        movies.filter { it.status == "available" && it.runtime != null && it.runtime in 10..40 && yearAllowed(it.year) }
             .sortedByDescending { it.addedAt }
             .take(20)
             .map {
