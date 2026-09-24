@@ -1133,33 +1133,39 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         poke()
         if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = isInEndingCredits())
     }
-    fun skipMarkerAction() {
-        val m = activeMarker ?: return
-        poke()
-        playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
-        seekAbs(m.endMs)
-    }
     fun nextEpisodeAction() {
         poke()
         // Explicit Next is intentional: do not leave the skipped episode in Reprendre.
         if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = true)
     }
+    fun skipMarkerAction() {
+        val m = activeMarker ?: return
+        poke()
+        // « Passer le générique » dans une série qui a une suite = épisode
+        // suivant (demande 2026-09-24). Pas de tri sur `final` : Plex le
+        // laisse à false sur la plupart des génériques de fin (vérifié sur
+        // 9-1-1). L'intro, le film et le dernier épisode sautent toujours
+        // simplement à la fin du marqueur.
+        if (m.type == "credits" && currentIndex < queue.size - 1) {
+            nextEpisodeAction()
+            return
+        }
+        playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
+        seekAbs(m.endMs)
+    }
 
     // Les marqueurs ne sont pas de simples décorations : à l'entrée dans une
-    // intro/générique, on révèle l'action et on lui donne un vrai point
-    // d'entrée D-pad. La barre de contrôle reste visible en arrière-plan,
-    // mais OK déclenche immédiatement le saut attendu au lieu de demander
-    // une navigation spatiale hasardeuse jusqu'en bas à droite.
+    // intro/générique, on révèle l'action et le bouton prend le focus D-pad
+    // (voir les deux LaunchedEffect de focus ci-dessous) — OK déclenche
+    // aussitôt le saut au lieu d'une navigation jusqu'en bas à droite.
     val skipMarkerFocus = remember { FocusRequester() }
+    var skipMarkerFocused by remember { mutableStateOf(false) }
+    val menuOpen = showAudioDialog || showSubtitleDialog || errorMessage != null
+    val skipVisible = activeMarker != null && !menuOpen
     LaunchedEffect(activeMarker?.type, activeMarker?.startMs, activeMarker?.endMs) {
         if (activeMarker == null || errorMessage != null) return@LaunchedEffect
         lastInteraction = System.currentTimeMillis()
         showControls = true
-        repeat(6) { attempt ->
-            val granted = runCatching { skipMarkerFocus.requestFocus() }.getOrDefault(false)
-            if (granted) return@LaunchedEffect
-            if (attempt < 5) withFrameNanos { }
-        }
     }
 
     val latestPauseForBackground by rememberUpdatedState(::pauseForBackground)
@@ -1185,12 +1191,40 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     // pas du choix spatial implicite de Compose, qui varie selon les TV.
     val progressFocus = remember { FocusRequester() }
     val hiddenCatcherFocus = remember { FocusRequester() }
+    // Une seule règle décide du focus quand la barre apparaît/disparaît :
+    // tant que « Passer l'intro / le générique » est affiché, c'est lui qui
+    // le garde — sinon le masquage auto de la barre (5 s) l'envoyait sur le
+    // capteur invisible et OK ne sautait plus rien.
     LaunchedEffect(showControls) {
-        val target = if (showControls) playPauseFocus else hiddenCatcherFocus
-        repeat(5) { attempt ->
+        if (menuOpen) return@LaunchedEffect
+        val target = when {
+            skipVisible -> skipMarkerFocus
+            showControls -> playPauseFocus
+            else -> hiddenCatcherFocus
+        }
+        repeat(20) { attempt ->
             val ok = runCatching { target.requestFocus() }.getOrDefault(false)
             if (ok) return@LaunchedEffect
-            if (attempt < 4) withFrameNanos { }
+            if (attempt < 19) withFrameNanos { }
+        }
+    }
+    // Apparition du bouton : il prend le focus (le nœud n'est attaché qu'une
+    // frame ou deux après, d'où la boucle qui respecte le booléen renvoyé).
+    // Disparition : le focus n'est rendu à la barre / au capteur QUE si le
+    // bouton l'avait — jamais arraché à la barre de progression en cours
+    // d'utilisation, ni à un menu audio / sous-titres.
+    LaunchedEffect(skipVisible) {
+        if (menuOpen) return@LaunchedEffect
+        val target = when {
+            skipVisible -> skipMarkerFocus
+            !skipMarkerFocused -> return@LaunchedEffect
+            showControls -> playPauseFocus
+            else -> hiddenCatcherFocus
+        }
+        repeat(20) { attempt ->
+            val ok = runCatching { target.requestFocus() }.getOrDefault(false)
+            if (ok) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
         }
     }
 
@@ -1531,7 +1565,6 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // Next") — le marqueur est toujours au-dessus du dock de contrôle
         // et du teaser d'épisode. Les deux actions ne se superposent jamais,
         // y compris si l'intro se termine tout près du prochain épisode.
-        val hasSkip = activeMarker != null
         val skipBottom = when {
             showNextEpisodeTeaser && hasNext && showControls -> 225.dp
             showNextEpisodeTeaser && hasNext -> 158.dp
@@ -1543,7 +1576,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // contrôles sont masqués, mais ne vole jamais le focus d'un menu
         // ouvert (audio, sous-titres, contrôles, erreur).
         AnimatedVisibility(
-            visible = hasSkip && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
+            visible = skipVisible,
             enter = fadeIn(tween(200)) + slideInVertically(tween(220)) { it / 2 },
             exit = fadeOut(tween(160)),
             modifier = Modifier
@@ -1555,6 +1588,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 label = label,
                 focusRequester = skipMarkerFocus,
                 onSkip = { skipMarkerAction() },
+                onFocusChange = { skipMarkerFocused = it },
+                onWakeControls = { poke() },
             )
         }
 
@@ -2295,15 +2330,41 @@ private fun SkipMarkerButton(
     label: String,
     focusRequester: FocusRequester,
     onSkip: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
+    onWakeControls: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    // Le bouton prend le focus pendant la lecture : si OK était déjà enfoncé
+    // ailleurs à cet instant, seul son relâchement arriverait ici et
+    // déclencherait un saut non voulu. Un clic exige donc l'appui ET le
+    // relâchement sur ce bouton.
+    var pressStartedHere by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onSkip,
         modifier = Modifier
             .focusRequester(focusRequester)
             .tvFocusLift(focused, shape = shape)
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged {
+                focused = it.isFocused
+                onFocusChange(it.isFocused)
+                if (!it.isFocused) pressStartedHere = false
+            }
+            .onPreviewKeyEvent { event ->
+                val isOk = event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
+                when {
+                    isOk && event.type == KeyEventType.KeyDown -> { pressStartedHere = true; false }
+                    isOk && event.type == KeyEventType.KeyUp -> {
+                        val orphan = !pressStartedHere
+                        pressStartedHere = false
+                        orphan
+                    }
+                    // Une flèche réveille la barre comme le faisait le capteur
+                    // invisible, que ce bouton remplace tant qu'il est affiché.
+                    event.type == KeyEventType.KeyDown && event.key != Key.Back -> { onWakeControls(); false }
+                    else -> false
+                }
+            }
             .tvPointerClick(onSkip),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface.copy(alpha = 0.92f), contentColor = Color.White),

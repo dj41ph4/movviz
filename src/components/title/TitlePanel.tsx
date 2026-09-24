@@ -39,6 +39,40 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
     return lockBodyScroll();
   }, []);
 
+  // Échap = « Fermer », mais jamais à la place d'autre chose : une fenêtre
+  // ouverte par-dessus la fiche, un champ en cours de saisie, ou le plein
+  // écran vidéo, dont Échap est la sortie native.
+  useEffect(() => {
+    // Les fenêtres de la fiche (modifier, versions, recherches…) sont des
+    // `fixed inset-0` rendues dans ce panneau ou téléportées en fin de
+    // <body> (createPortal) — donc après lui dans le document. Un décor de
+    // fond placé avant, ou non cliquable, ne compte pas.
+    const overlayAbovePanel = (): boolean => {
+      const panel = document.querySelector("[data-title-panel]");
+      if (!panel) return false;
+      for (const el of document.querySelectorAll<HTMLElement>(".fixed.inset-0")) {
+        if (el === panel) continue;
+        const inside = panel.contains(el);
+        const after = (panel.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+        if (!inside && !after) continue;
+        const style = getComputedStyle(el);
+        if (style.display === "none" || style.visibility === "hidden" || style.pointerEvents === "none") continue;
+        return true;
+      }
+      return false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (document.fullscreenElement) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (overlayAbovePanel()) return;
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <motion.div
       data-title-panel

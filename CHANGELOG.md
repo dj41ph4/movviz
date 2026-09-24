@@ -1,3 +1,11 @@
+## v1.25.73 — September 2026
+
+### Android TV : « Passer le générique » en un seul OK, Échap ferme la fiche sur desktop
+
+- Android TV : quand « Passer l'intro » ou « Passer le générique » apparaît, la télécommande est placée dessus et y reste, même quand la barre de lecture se masque. Avant, la barre reprenait la sélection et OK ne faisait pas le saut. Une flèche réaffiche la barre sans perdre le bouton.
+- Android TV : dans une série, OK sur « Passer le générique » lance directement l'épisode suivant (l'épisode quitté est marqué vu). L'intro, un film ou le dernier épisode sautent simplement la séquence, comme avant.
+- Desktop : Échap ferme la fiche ouverte, comme le bouton « Fermer ». Il ne ferme rien si une fenêtre est ouverte par-dessus (modifier, versions, recherches), pendant une saisie ou en plein écran vidéo.
+
 ## v1.25.72 — September 2026
 
 ### « Sélection pour vous » sans invasion d'un acteur, cartes plus sobres
