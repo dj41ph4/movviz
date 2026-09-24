@@ -32,12 +32,18 @@ async function isFile(p: string): Promise<boolean> {
   }
 }
 
+/**
+ * Only a definite "not found" counts as missing: the scheduled pass moves
+ * missing files' titles to the trash, so a transient NAS error (EIO, EBUSY,
+ * EACCES, a timeout on a network share) must never read as a deletion.
+ */
 async function exists(p: string): Promise<boolean> {
   try {
     await fs.promises.access(p);
     return true;
-  } catch {
-    return false;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    return !(code === "ENOENT" || code === "ENOTDIR");
   }
 }
 
@@ -213,7 +219,13 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
       for (const ep of season.episodes) if (ep.file) track(ep.file.path);
 
   const issues: RescanIssue[] = [];
-  const verifiable = [...trackedPaths].filter((p) => roots.some((root) => isUnderRoot(p, root))); // others aren't checkable from this filesystem — skip
+  // A root that can't be listed right now (share unmounted, NAS asleep) would
+  // make every file under it read as "missing" — skip it entirely instead.
+  const reachable = await mapWithConcurrency(roots, DISK_CONCURRENCY, async (root) => {
+    try { return (await fs.promises.stat(root)).isDirectory(); } catch { return false; }
+  });
+  const reachableRoots = roots.filter((_, i) => reachable[i]);
+  const verifiable = [...trackedPaths].filter((p) => reachableRoots.some((root) => isUnderRoot(p, root))); // others aren't checkable from this filesystem — skip
   const present = await mapWithConcurrency(verifiable, DISK_CONCURRENCY, exists);
   verifiable.forEach((p, i) => { if (!present[i]) issues.push({ kind: "missing", path: p }); });
 

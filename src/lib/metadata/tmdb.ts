@@ -51,9 +51,12 @@ function tmdbCache() {
   return getCache(TMDB_CACHE_NAME, TMDB_CACHE_TTL_MS, TMDB_CACHE_FILE, TMDB_CACHE_MAX_ENTRIES);
 }
 
-/** Resolves once the persisted TMDb cache has streamed back in after a start — see NamedCache.whenLoaded(). */
+/** Longest a request waits for the persisted TMDb cache to stream back in after a start. */
+const TMDB_CACHE_LOAD_MAX_WAIT_MS = 3_000;
+
+/** Resolves once the persisted TMDb cache is loaded, or after 3 s at most — see NamedCache.whenLoaded(). */
 export function tmdbCacheLoaded(): Promise<void> {
-  return tmdbCache().whenLoaded();
+  return tmdbCache().whenLoaded(TMDB_CACHE_LOAD_MAX_WAIT_MS);
 }
 
 /**
@@ -174,8 +177,8 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, lan
 
   const cache = tmdbCache();
   // Right after a start the persisted entries may still be streaming in:
-  // wait for them rather than refetch from TMDb what is already on disk.
-  await cache.whenLoaded();
+  // wait for them (3 s at most) rather than refetch from TMDb what is already on disk.
+  await cache.whenLoaded(TMDB_CACHE_LOAD_MAX_WAIT_MS);
   const cacheKey = url.toString();
   const cached = cache.getStale<T>(cacheKey);
   if (cached !== undefined) {

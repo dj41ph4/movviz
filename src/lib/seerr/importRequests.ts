@@ -153,10 +153,10 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
     else if (o.kind === "failed") failed++;
   }
 
-  // Only the dedupe matters after an import, and only when titles were added:
-  // this runs every few minutes, and the full disk reconcile it used to call
-  // (whose result was discarded here anyway) crawled the whole library each time.
-  if (importedApproved > 0) mergeLibraryDuplicates();
+  // Only the dedupe mattered here (in-memory, no disk access): the full disk
+  // reconcile this used to call — whose result was discarded — crawled the
+  // whole library every few minutes and froze the server for 30+ s on a NAS.
+  mergeLibraryDuplicates();
 
   return {
     seerrUsers: seerrUsers.length,

@@ -89,9 +89,6 @@ const SILENT_MUTATION_PREFIXES = ["/api/perf"];
 /** POST de sauvegarde de progression du player (VideoPlayer, toutes les 10 s). */
 const PROGRESS_POST_RE = /^\/api\/stream\/[^/]+\/progress$/;
 
-/** Heartbeat de session de lecture (lecteurs Android TV / mobile). */
-const HEARTBEAT_POST_RE = /^\/api\/playback\/sessions\/[^/]+\/heartbeat$/;
-
 /**
  * Un GET strictement identique (même utilisateur, même URL, query comprise)
  * déjà vu dans cette fenêtre est un rafraîchissement automatique, pas un
@@ -134,8 +131,10 @@ export function isUserInteraction(pathname: string, method: string, search = "",
   if (method !== "GET") {
     return (
       !SILENT_MUTATION_PREFIXES.some((p) => pathname.startsWith(p)) &&
-      !PROGRESS_POST_RE.test(pathname) &&
-      !HEARTBEAT_POST_RE.test(pathname)
+      !PROGRESS_POST_RE.test(pathname)
+      // Le heartbeat des lecteurs Android (POST /api/playback/sessions/:id/heartbeat)
+      // reste volontairement une interaction : pendant une lecture dont le flux
+      // passe par ce processus, l'arrière-plan doit continuer à céder la main.
     );
   }
   if (POLL_PREFIXES.some((p) => pathname.startsWith(p))) return false;

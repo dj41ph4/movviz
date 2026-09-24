@@ -19,9 +19,33 @@ import type { RescanIssue } from "@/lib/library/reconcile";
  * "missing"/"searching"/"upcoming" is left untouched — there's nothing to
  * trash, it was never confirmed available in the first place.
  */
-export function applyMissingFileTrash(issues: RescanIssue[]): { movies: number; episodes: number; series: number } {
+/**
+ * Circuit breaker: a pass that suddenly finds a large share of the library
+ * "gone" is far more likely a storage hiccup (share remounted elsewhere, disk
+ * swapped, path mapping changed) than a real mass deletion. Nothing is moved
+ * to the trash then — permanently deleting a trashed episode/series asks Plex
+ * to delete the media, so a false "missing" must never get that far.
+ */
+const MASS_MISSING_MIN_COUNT = 50;
+const MASS_MISSING_MAX_SHARE = 0.2;
+
+export function applyMissingFileTrash(issues: RescanIssue[]): { movies: number; episodes: number; series: number; blockedMissing?: number } {
   const missingPaths = new Set(issues.filter((i) => i.kind === "missing").map((i) => i.path));
   if (missingPaths.size === 0) return { movies: 0, episodes: 0, series: 0 };
+
+  let availableFiles = 0;
+  let matchedFiles = 0;
+  const countFile = (p: string) => {
+    availableFiles++;
+    if (missingPaths.has(pathFor(p).normalize(p))) matchedFiles++;
+  };
+  for (const movie of loadMovies()) if (movie.status === "available" && movie.file) countFile(movie.file.path);
+  for (const series of loadSeries())
+    for (const season of series.seasons)
+      for (const ep of season.episodes) if (ep.status === "available" && ep.file) countFile(ep.file.path);
+  if (matchedFiles > MASS_MISSING_MIN_COUNT && matchedFiles > availableFiles * MASS_MISSING_MAX_SHARE) {
+    return { movies: 0, episodes: 0, series: 0, blockedMissing: matchedFiles };
+  }
 
   let movies = 0;
   for (const movie of loadMovies()) {

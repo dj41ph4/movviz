@@ -1,3 +1,13 @@
+## v1.25.70 — September 2026
+
+### Audit des deux dernières versions : protections renforcées
+
+- Lecture sur Android TV et mobile : la lecture en cours compte de nouveau comme une activité, et les tâches de fond se mettent en retrait pendant un film ou un épisode, comme avant la v1.25.69. Seules les pages laissées ouvertes sans rien faire ne brident plus l'arrière-plan.
+- Réconciliation bibliothèque / disque : un fichier n'est considéré comme disparu que s'il est réellement introuvable. Une erreur passagère du stockage (NAS occupé, partage réseau lent) ne compte plus comme une disparition. Un dossier de téléchargement momentanément inaccessible (partage démonté, disque en veille) est ignoré pendant la passe, au lieu de faire paraître absente toute la bibliothèque qu'il contient.
+- Nouvelle sécurité : si une passe trouve d'un coup plus de 50 fichiers introuvables représentant plus de 20 % de la bibliothèque, rien n'est déplacé vers la corbeille et une notification signale l'anomalie. La réconciliation n'a jamais supprimé de fichier du disque. Cette sécurité empêche en plus qu'un stockage indisponible remplisse la corbeille de titres encore présents.
+- L'import Overseerr/Seerr fusionne de nouveau les éventuels doublons de la bibliothèque à chaque passage, comme avant la v1.25.68 (sans la vérification disque qui figeait le serveur).
+- Juste après un redémarrage, une page n'attend plus que 3 secondes au maximum la relecture du cache TMDb, pour ne jamais dépasser le délai d'attente des applications Android.
+
 ## v1.25.69 — September 2026
 
 ### Démarrage sans gel, tâches de fond qui avancent, « Moins de 40 minutes » sans courts

@@ -30,8 +30,8 @@ test("la même URL chez un autre utilisateur n'est pas une répétition", () => 
   assert.equal(isUserInteraction("/api/interface/dashboard", "GET", "", `usr_b_${stamp}`), true);
 });
 
-test("heartbeat du lecteur Android = silencieux, seek/stop = vraies actions", () => {
-  assert.equal(isUserInteraction("/api/playback/sessions/abc123/heartbeat", "POST"), false);
+test("lecture Android : heartbeat, seek et stop comptent (la lecture reste prioritaire sur l'arrière-plan)", () => {
+  assert.equal(isUserInteraction("/api/playback/sessions/abc123/heartbeat", "POST"), true);
   assert.equal(isUserInteraction("/api/playback/sessions/abc123/seek", "POST"), true);
   assert.equal(isUserInteraction("/api/playback/sessions/abc123/stop", "POST"), true);
   assert.equal(isUserInteraction("/api/stream/12345/progress", "POST"), false);

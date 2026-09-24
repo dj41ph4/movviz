@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   // useful with its stored artwork even while TMDb is overloaded. The client
   // follows with ?rich=1 to restore recommendation ranking and trailers.
   // Its video keys are a cache-only TMDb lookup: just after a server start,
-  // wait for the persisted cache (local disk) to finish streaming in.
+  // wait for the persisted cache (local disk) to stream in — 3 s at most.
   await tmdbCacheLoaded();
   const fallbackSlides = buildLibraryHeroFallbackSlides(6, locale);
   const slides = rich

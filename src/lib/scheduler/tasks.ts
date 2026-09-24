@@ -65,7 +65,14 @@ export const TASKS: ScheduledTask[] = [
       const issues = await reconcileLibrary();
       const trashed = applyMissingFileTrash(issues);
       const trashedCount = trashed.movies + trashed.episodes + trashed.series;
-      if (trashedCount > 0) {
+      if (trashed.blockedMissing) {
+        emitNotification(
+          "reconcile_issues",
+          `Réconciliation suspendue : ${trashed.blockedMissing} fichier(s) introuvables d'un coup, probablement un stockage indisponible. Rien n'a été déplacé vers la corbeille.`,
+          "/library",
+          { count: trashed.blockedMissing }
+        );
+      } else if (trashedCount > 0) {
         emitNotification(
           "reconcile_issues",
           `Réconciliation : ${trashedCount} fichier(s) disparu(s) du disque déplacé(s) vers la corbeille`,

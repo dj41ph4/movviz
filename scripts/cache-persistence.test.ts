@@ -102,3 +102,17 @@ test("lignes corrompues : ignorées, le reste est gardé", async () => {
   assert.equal(c.getStale("ok")?.value, 1);
   assert.equal(c.stats().keys, 1);
 });
+
+test("attente plafonnée : un chargement lent ne retient jamais la requête au-delà du plafond", async () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "slow.json");
+  const lines: string[] = [];
+  for (let i = 0; i < 700; i++) lines.push(JSON.stringify([`k${i}`, { value: big(i), expiresAt: Date.now() + 1e6 }]));
+  fs.writeFileSync(path.join(dir, "slow.ndjson"), lines.join("\n") + "\n");
+  const c = getCache(`slow-${Date.now()}`, 60_000, file);
+  const t = performance.now();
+  await c.whenLoaded(1);
+  assert.ok(performance.now() - t < 100, "l'attente plafonnée doit rendre la main tout de suite");
+  await c.whenLoaded();
+  assert.equal(c.stats().keys, 700);
+});

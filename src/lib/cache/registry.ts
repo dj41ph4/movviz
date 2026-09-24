@@ -150,9 +150,17 @@ class NamedCache {
    * synchronously in the constructor (already resolved); a large one streams
    * in without blocking the event loop — callers that must not miss a
    * persisted entry (TMDb reads, the cache-only hero lookup) await this.
+   * `maxWaitMs` caps the wait so a slow disk never pushes a client request
+   * past its own timeout (Android apps give up after 15 s): past it, the
+   * caller just proceeds with whatever is loaded so far.
    */
-  whenLoaded(): Promise<void> {
-    return this.loadedPromise;
+  whenLoaded(maxWaitMs?: number): Promise<void> {
+    if (this.loaded || maxWaitMs === undefined) return this.loadedPromise;
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, maxWaitMs);
+      timer.unref?.();
+      void this.loadedPromise.then(() => { clearTimeout(timer); resolve(); });
+    });
   }
 
   private loadFromDisk(): Promise<void> {
