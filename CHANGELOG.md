@@ -1,3 +1,11 @@
+## v1.25.71 — September 2026
+
+### « Sélection pour vous » tient compte de tout ce que vous avez vu
+
+- Chaque titre vu apporte désormais sa part de suggestions. Avant, un seul titre fort (noté, aimé ou vu récemment) amenait tous ses similaires en tête et remplissait la moitié de la rangée. Les titres recommandés par plusieurs de vos visionnages passent devant : c'est le signe le plus sûr de ce que vous aimez.
+- Films et séries se nourrissent l'un l'autre : les séries que vous regardez orientent aussi les films proposés, et inversement (un anime amène des films d'animation japonais, une série policière des films du même registre, un film épique des séries épiques). Quelqu'un qui ne regarde que des séries reçoit maintenant aussi des films.
+- Même amélioration pour « Voir tout », la page Découverte et le hero de l'accueil, sur desktop, Android TV et Android mobile.
+
 ## v1.25.70 — September 2026
 
 ### Audit des deux dernières versions : protections renforcées

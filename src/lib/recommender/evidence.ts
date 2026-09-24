@@ -1,7 +1,7 @@
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { Seed } from "@/lib/recommender/seedBuilder";
 
-export type RelationKind = "tmdb_recommendation" | "tmdb_similar";
+export type RelationKind = "tmdb_recommendation" | "tmdb_similar" | "cross_type_genre";
 
 export interface RelationSource {
   kind: RelationKind;
@@ -28,9 +28,13 @@ export interface CandidateEvidence {
 export const RELATION_KIND_WEIGHT: Record<RelationKind, number> = {
   tmdb_recommendation: 1,
   tmdb_similar: 0.85,
+  // Pont films ↔ séries (crossType.ts) : même registre (genres + langue),
+  // pas un lien titre à titre — un vote nettement plus faible, qui compte
+  // surtout quand plusieurs titres vus de l'autre type convergent.
+  cross_type_genre: 0.5,
 };
 
-function rankDecay(rank: number): number {
+export function rankDecay(rank: number): number {
   return 1 / (1 + rank * 0.12);
 }
 

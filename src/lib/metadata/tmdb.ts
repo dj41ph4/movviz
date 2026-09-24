@@ -602,6 +602,20 @@ export async function getMovie(tmdbId: number): Promise<MetaMovie | null> {
   };
 }
 
+/**
+ * Genre ids + original language of a title, for the cross-type bridge of
+ * "Sélection pour vous" (a watched series pointing at films of the same
+ * vein, and vice versa). Same request — same cache entry — as getMovie() /
+ * getSeries(): no extra TMDb call for a title already fetched.
+ */
+export async function getGenreProfile(type: "movie" | "series", tmdbId: number): Promise<{ genreIds: number[]; originalLanguage: string | null } | null> {
+  const data = type === "movie"
+    ? await tmdbGet<RawMovie>(`/movie/${tmdbId}`, { append_to_response: "external_ids,release_dates" })
+    : await tmdbGet<RawSeries>(`/tv/${tmdbId}`, { append_to_response: "external_ids" });
+  if (!data) return null;
+  return { genreIds: (data.genres ?? []).map((g) => g.id), originalLanguage: data.original_language ?? null };
+}
+
 export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
   const data = await tmdbGet<RawSeries>(`/tv/${tmdbId}`, { append_to_response: "external_ids" });
   if (!data) return null;
@@ -709,6 +723,8 @@ export interface DiscoverFilters {
    *  hardcoder : un utilisateur belge ne doit pas recevoir le catalogue
    *  français juste parce que watchProvider est renseigné. */
   region?: string;
+  /** with_original_language — ISO 639-1 ("ja" for anime, "ko"…). */
+  originalLanguage?: string;
 }
 
 const DEFAULT_WATCH_REGION = "FR";
@@ -750,6 +766,7 @@ export async function discoverByFilters(
   }
   const params: Record<string, string> = { sort_by: sortBy, page: String(page) };
   if (filters.genre) params.with_genres = filters.genre;
+  if (filters.originalLanguage) params.with_original_language = filters.originalLanguage;
   if (filters.year) params[type === "movie" ? "primary_release_year" : "first_air_date_year"] = filters.year;
   if (filters.company) params.with_companies = filters.company;
   if (filters.watchProvider) {
@@ -1557,6 +1574,7 @@ interface RawSeries {
   vote_average?: number;
   genres?: { id: number; name: string }[];
   origin_country?: string[];
+  original_language?: string;
   status?: string;
   seasons?: {
     season_number: number;

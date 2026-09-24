@@ -1,4 +1,6 @@
-import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres, getPerson, getDetail } from "@/lib/metadata/tmdb";
+import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres, getPerson, getDetail, getGenreProfile, discoverByFilters } from "@/lib/metadata/tmdb";
+import { crossTypeBridgeFilters } from "@/lib/recommender/crossType";
+import { diversifyBySeed } from "@/lib/recommender/diversify";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
@@ -19,6 +21,9 @@ import { scoreCandidate } from "@/lib/recommender/scorer";
 // user after an earlier attempt at cross-account blending — even a single
 // watched title of one's own is used as a real (if narrow) personal seed
 // rather than falling back to a generic list once there's at least one.
+/** Titres vus de l'autre type traduits en registre (films ↔ séries). */
+const CROSS_TYPE_SEEDS = 6;
+
 export async function getRecommendations(
   userId: string,
   type: "movie" | "series"
@@ -29,7 +34,13 @@ export async function getRecommendations(
       ? (status?.movies ?? [])
       : [...new Set((status?.episodes ?? []).map((e) => e.tmdbId))];
 
-  if (watched.length === 0) return [];
+  // Titres vus de l'AUTRE type : leurs registres (genres + langue) nourrissent
+  // aussi cette rangée — voir crossType.ts. Quelqu'un qui ne regarde que des
+  // séries reçoit donc aussi des films choisis à partir de ses séries.
+  const crossType = type === "movie" ? "series" : "movie";
+  const crossSeeds = buildSeeds(userId, crossType).slice(0, CROSS_TYPE_SEEDS);
+
+  if (watched.length === 0 && crossSeeds.length === 0) return [];
 
   // "Mauvaise recommandation" (👎 sur une carte de cette rangée) recorded a
   // feedback entry but this engine never read it back — the same title kept
@@ -54,7 +65,7 @@ export async function getRecommendations(
   // 👍, engagement série, récence) au lieu de traiter "vu" comme un
   // indicateur binaire (audit Phase 1, §4.2/§17 du plan de refonte).
   const seeds = buildSeeds(userId, type);
-  if (seeds.length === 0) return [];
+  if (seeds.length === 0 && crossSeeds.length === 0) return [];
 
   const fetchFn = type === "movie" ? getMovieRecommendations : getTvRecommendations;
   // TMDb's TV /recommendations dataset (derived from OTHER users' viewing
@@ -69,12 +80,21 @@ export async function getRecommendations(
   // fully separate, so a title both engines agree on still ranks higher
   // than one only one of them suggested.
   const similarFn = type === "movie" ? getMovieSimilar : getTvSimilar;
-  const [recommendationHits, similarHits] = await Promise.all([
+  const [recommendationHits, similarHits, bridgeHits] = await Promise.all([
     mapWithConcurrency(seeds, 5, async (seed) => {
       try { return { seed, page: await fetchFn(seed.tmdbId) }; } catch { return null; }
     }),
     mapWithConcurrency(seeds, 5, async (seed) => {
       try { return { seed, page: await similarFn(seed.tmdbId) }; } catch { return null; }
+    }),
+    mapWithConcurrency(crossSeeds, 3, async (seed) => {
+      try {
+        const profile = await getGenreProfile(crossType, seed.tmdbId);
+        const filters = profile ? crossTypeBridgeFilters(crossType, profile) : null;
+        // vote_average.desc impose déjà ≥200 votes (discoverByFilters) : des
+        // titres reconnus du même registre, pas le premier titre populaire venu.
+        return filters ? { seed, page: await discoverByFilters(type, { ...filters, sort: "vote_average.desc" }) } : null;
+      } catch { return null; }
     }),
   ]);
 
@@ -88,6 +108,15 @@ export async function getRecommendations(
         hits.push({ item, source: { kind, seedTmdbId: entry.seed.tmdbId, seedWeight: entry.seed.weight, sourceRank } });
       });
     }
+  }
+  for (const entry of bridgeHits) {
+    if (!entry?.page) continue;
+    entry.page.results.forEach((item, sourceRank) => {
+      if (excluded.has(item.tmdbId)) return;
+      // Identifiant négatif : un film et une série peuvent partager le même
+      // tmdbId, et deux titres vus distincts doivent compter comme deux voix.
+      hits.push({ item, source: { kind: "cross_type_genre", seedTmdbId: -entry.seed.tmdbId, seedWeight: entry.seed.weight, sourceRank } });
+    });
   }
 
   const evidenceById = aggregateCandidateEvidence(hits);
@@ -187,14 +216,13 @@ export async function getRecommendations(
         personAffinity: personAffinityScore,
       });
 
-      return { item: evidence.item, score };
+      return { item: evidence.item, score, evidence };
     })
     // No single broad signal can force the first place: relation to seeds,
     // multi-seed consensus, people, genres, themes, behavior, rating and
     // public traction all contribute (see scorer.ts for exact weights).
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 200)
-    .map((s) => s.item);
+    .sort((a, b) => b.score - a.score);
 
-  return filterSuggestable(ranked);
+  // Then no single watched title may fill the row on its own (diversify.ts).
+  return filterSuggestable(diversifyBySeed(ranked).slice(0, 200).map((s) => s.item));
 }
