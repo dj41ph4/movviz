@@ -1,3 +1,12 @@
+## v1.25.72 — September 2026
+
+### « Sélection pour vous » sans invasion d'un acteur, cartes plus sobres
+
+- « Sélection pour vous » : la filmographie des acteurs et réalisateurs favoris est soumise à la même limite que le reste. Depuis la v1.25.71, elle pouvait remplir la rangée (plusieurs films d'une même saga, apparitions TV sans rapport).
+- Le lien entre films et séries ne s'appuie plus sur la langue française ou européenne d'un titre vu : une comédie française regardée n'amène plus de séries françaises quand ce n'est pas votre goût. Le japonais (anime) ou le coréen (drama) restent pris en compte.
+- Accueil desktop : « Suggestions adaptées » revient au format paysage, comme les autres rangées. Seule « Tendances Movviz » garde le format affiche.
+- Bibliothèque desktop : la pastille « Disponible » des cartes (et le compteur d'épisodes des séries) est 25 % plus petite.
+
 ## v1.25.71 — September 2026
 
 ### « Sélection pour vous » tient compte de tout ce que vous avez vu

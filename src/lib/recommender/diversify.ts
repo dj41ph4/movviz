@@ -9,16 +9,21 @@ import { RELATION_KIND_WEIGHT, rankDecay, type CandidateEvidence } from "@/lib/r
  * Re-classement glouton : chaque candidat est rattaché au titre vu qui le
  * soutient le mieux ; chaque suggestion déjà retenue pour ce titre vu
  * diminue le poids de la suivante (DECAY^n). Un titre soutenu par plusieurs
- * titres vus garde son avantage (son score contient déjà le consensus), et
- * un titre sans titre vu d'origine (filmographie d'une personne favorite)
- * n'est jamais pénalisé.
+ * titres vus garde son avantage (son score contient déjà le consensus).
+ *
+ * Les titres sans titre vu d'origine (filmographie d'une personne favorite)
+ * forment UN groupe soumis à la même décroissance : exemptés, ils remontaient
+ * en bloc dès que tout le reste reculait (constaté en prod : quatre « John
+ * Wick » et une série d'apparitions TV d'un même acteur en tête de rangée).
  */
 const DECAY = 0.7;
 /** Profondeur re-classée : largement au-delà de la rangée et du « Voir tout ». */
 const DIVERSIFY_DEPTH = 80;
+/** Groupe des candidats venus uniquement d'une filmographie. */
+const PEOPLE_GROUP = Number.MIN_SAFE_INTEGER;
 
-function dominantSeed(evidence: CandidateEvidence): number | null {
-  let best: number | null = null;
+function dominantSeed(evidence: CandidateEvidence): number {
+  let best = PEOPLE_GROUP;
   let bestValue = -1;
   for (const s of evidence.sources) {
     const value = RELATION_KIND_WEIGHT[s.kind] * s.seedWeight * rankDecay(s.sourceRank);
@@ -37,13 +42,13 @@ export function diversifyBySeed<T extends { score: number; evidence: CandidateEv
     let bestAdjusted = -Infinity;
     for (let i = 0; i < remaining.length; i++) {
       const seed = dominantSeed(remaining[i].evidence);
-      const already = seed === null ? 0 : perSeed.get(seed) ?? 0;
+      const already = perSeed.get(seed) ?? 0;
       const adjusted = remaining[i].score * Math.pow(DECAY, already);
       if (adjusted > bestAdjusted) { bestAdjusted = adjusted; bestIndex = i; }
     }
     const [chosen] = remaining.splice(bestIndex, 1);
     const seed = dominantSeed(chosen.evidence);
-    if (seed !== null) perSeed.set(seed, (perSeed.get(seed) ?? 0) + 1);
+    perSeed.set(seed, (perSeed.get(seed) ?? 0) + 1);
     picked.push(chosen);
   }
   return [...picked, ...remaining];

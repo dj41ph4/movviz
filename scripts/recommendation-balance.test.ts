@@ -63,3 +63,19 @@ test("pont : un genre large seul en anglais ne suffit pas (« Drame » ramènera
 test("pont films → séries : action/aventure et science-fiction fusionnés côté séries", () => {
   assert.deepEqual(crossTypeBridgeFilters("movie", { genreIds: [28, 12, 878], originalLanguage: "en" }), { genre: "10759,10765" });
 });
+
+test("filmographies de personnes favorites : un groupe limité comme les autres, plus d'invasion", () => {
+  // Constaté en prod : quatre « John Wick » + apparitions TV d'un même acteur
+  // remontaient en bloc, exemptées de la limite par titre vu.
+  const people = Array.from({ length: 10 }, (_, i) => candidate(500 + i, 0.3 - i * 0.001, []));
+  const seeded = [1, 2, 3].flatMap((seed) => Array.from({ length: 6 }, (_, i) => candidate(seed * 100 + i, 0.4 - i * 0.002, [{ seed, rank: i }])));
+  const top12 = diversifyBySeed([...seeded, ...people].sort((a, b) => b.score - a.score)).slice(0, 12);
+  const fromPeople = top12.filter((c) => c.evidence.sources.length === 0).length;
+  assert.ok(fromPeople <= 3, `${fromPeople} titres sur 12 viennent d'une filmographie`);
+});
+
+test("pont : la langue ne cible que si elle définit un registre (pas le français, cf. « n'aime pas les films français »)", () => {
+  assert.equal(crossTypeBridgeFilters("movie", { genreIds: [35], originalLanguage: "fr" }), null);
+  assert.deepEqual(crossTypeBridgeFilters("movie", { genreIds: [35, 80], originalLanguage: "fr" }), { genre: "80,35" });
+  assert.deepEqual(crossTypeBridgeFilters("series", { genreIds: [18], originalLanguage: "ko" }), { genre: "18", originalLanguage: "ko" });
+});

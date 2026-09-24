@@ -111,10 +111,10 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
 
   const statusPill = (
     <span className={cn(
-      "flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-bold",
+      "flex items-center gap-[3px] whitespace-nowrap rounded-full border px-1.5 py-[1.5px] text-[7.5px] font-bold",
       movie.status === "upcoming" && daysToRelease != null ? "border-brand/25 bg-brand/12 text-brand-glow" : STATUS_TONE[movie.status]
     )}>
-      <StatusIcon className={cn("h-2.5 w-2.5", isDownloading && "animate-spin")} />
+      <StatusIcon className={cn("h-[7.5px] w-[7.5px]", isDownloading && "animate-spin")} />
       {movie.status === "upcoming" && daysToRelease != null ? upcomingLabel : t(`status.${movie.status}`)}
     </span>
   );

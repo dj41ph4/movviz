@@ -45,10 +45,10 @@ export function LibrarySeriesCard({
 
   const episodesPill = (
     <span className={cn(
-      "flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-bold",
+      "flex items-center gap-[3px] whitespace-nowrap rounded-full border px-1.5 py-[1.5px] text-[7.5px] font-bold",
       allAvailable ? "text-ok bg-ok/12 border-ok/25" : downloading > 0 ? "text-cyan bg-cyan/12 border-cyan/25" : "text-amber bg-amber/12 border-amber/25"
     )}>
-      {allAvailable ? <Check className="h-2.5 w-2.5" /> : <HardDriveDownload className="h-2.5 w-2.5" />}
+      {allAvailable ? <Check className="h-[7.5px] w-[7.5px]" /> : <HardDriveDownload className="h-[7.5px] w-[7.5px]" />}
       {available}/{monitored.length} {t("common.episodesShort")}
     </span>
   );

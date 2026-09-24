@@ -47,12 +47,22 @@ const MOVIE_TO_TV: Record<number, number[]> = {
 const BROAD = new Set([18, 35]);
 
 /**
+ * Langues dont l'origine ne définit PAS un registre à elle seule : une
+ * comédie française vue n'implique pas d'aimer « le cinéma français »
+ * (constaté en prod : un profil qui n'aime explicitement pas les films
+ * français recevait Kaamelott à cause d'une seule comédie vue). Le japonais
+ * (anime), le coréen (drama)… en définissent un, eux.
+ */
+const NON_DEFINING_LANGUAGES = new Set(["en", "fr", "es", "de", "it", "pt", "nl", "sv", "da", "no", "fi", "pl"]);
+
+/**
  * Filtres de recherche (type cible) qui retrouvent le registre d'un titre vu
  * de l'autre type, ou null s'il n'y a rien d'assez précis à traduire.
  * Au plus deux genres, combinés en ET — un seul genre large (« Drame »)
  * ramènerait n'importe quel titre populaire. La langue d'origine n'est
- * gardée que hors anglais : c'est elle qui distingue un anime d'un dessin
- * animé américain, un drama coréen d'un soap.
+ * gardée que lorsqu'elle définit un registre (NON_DEFINING_LANGUAGES) :
+ * c'est elle qui distingue un anime d'un dessin animé américain, un drama
+ * coréen d'un soap.
  */
 export function crossTypeBridgeFilters(
   seedType: "movie" | "series",
@@ -65,7 +75,7 @@ export function crossTypeBridgeFilters(
   }
   const specific = mapped.filter((id) => !BROAD.has(id));
   const broad = mapped.filter((id) => BROAD.has(id));
-  const language = profile.originalLanguage && profile.originalLanguage !== "en" ? profile.originalLanguage : undefined;
+  const language = profile.originalLanguage && !NON_DEFINING_LANGUAGES.has(profile.originalLanguage) ? profile.originalLanguage : undefined;
   // Un genre précis suffit ; un genre large seul n'est acceptable que
   // lorsque la langue d'origine resserre déjà le registre.
   if (specific.length === 0 && !(broad.length > 0 && language)) return null;
