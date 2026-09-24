@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -284,6 +285,15 @@ private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
 
 private const val TAG = "MovvizPlayer"
 private const val SEEK_STEP_MS = 10_000L
+/** Silence après le dernier appui ⏩/⏪ avant le vrai saut d'une rafale. */
+private const val SEEK_COMMIT_DELAY_MS = 700L
+
+/** Cumul d'une rafale : « +40s », « −1:20 ». */
+private fun formatSeekShift(shiftMs: Long): String {
+    val sign = if (shiftMs < 0) "−" else "+"
+    val total = kotlin.math.abs(shiftMs) / 1_000L
+    return if (total < 60) "$sign${total}s" else "$sign${total / 60}:${"%02d".format(total % 60)}"
+}
 private const val CONTROLS_TIMEOUT_MS = 5_000L
 private const val PROGRESS_REPORT_INTERVAL_MS = 10_000L
 private const val MAX_NETWORK_AUTO_RETRIES = 2
@@ -466,6 +476,12 @@ private fun PlayerScreen(
     // comme Netflix : un "+10s" ou "−10s" en overlay semi-transparent qui
     // apparaît/disparaît en fondu, sans obscurcir l'image.
     var seekIndicator by remember { mutableStateOf<String?>(null) }
+    // Avance / recul GROUPÉS (même règle que l'app TV) : chaque appui déplace
+    // une cible en attente, un seul vrai saut part SEEK_COMMIT_DELAY_MS après
+    // le dernier — en flux transcodé, chaque saut relance un flux serveur.
+    var pendingSeekTarget by remember { mutableStateOf<Long?>(null) }
+    var pendingSeekOrigin by remember { mutableStateOf<Long?>(null) }
+    var pendingSeekToken by remember { mutableIntStateOf(0) }
     // Panneau "Épisode suivant" en fin d'épisode — visible ~45s avant la fin,
     // même comportement que Netflix : carte avec libellé, compte à rebours
     // et bouton "⏭". Toujours visible, pas dans l'overlay auto-masquant.
@@ -583,6 +599,8 @@ ExoPlayer.Builder(context)
     // ne peut donc pas l'inférer de l'extension et choisirait à tort
     // ProgressiveMediaSource au lieu de DashMediaSource/HlsMediaSource.
     fun load(item: QueueItem, resumeMs: Long, level: Int = 0) {
+        pendingSeekTarget = null
+        pendingSeekOrigin = null
         loading = true
         // Toujours couper le texte AVANT de préparer un nouveau MediaItem :
         // cela supprime le flash de sous-titre forcé/default qu'ExoPlayer peut
@@ -680,6 +698,9 @@ ExoPlayer.Builder(context)
      */
     fun advanceTo(nextIndex: Int, markOutgoingWatched: Boolean) {
         if (nextIndex !in queue.indices || nextIndex == currentIndex) return
+        // Une rafale ⏩ en attente visait l'épisode quitté, jamais le suivant.
+        pendingSeekTarget = null
+        pendingSeekOrigin = null
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
         val outgoingPosition = exoPlayer.currentPosition.coerceAtLeast(0)
@@ -1005,6 +1026,16 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         seekIndicator = null
     }
 
+    // Le seul vrai saut d'une rafale : chaque appui relance ce délai.
+    LaunchedEffect(pendingSeekToken) {
+        val target = pendingSeekTarget ?: return@LaunchedEffect
+        delay(SEEK_COMMIT_DELAY_MS)
+        if (pendingSeekTarget != target) return@LaunchedEffect
+        pendingSeekTarget = null
+        pendingSeekOrigin = null
+        exoPlayer.seekTo(target)
+    }
+
     // Surveillance de la position pour afficher le panneau "Épisode suivant"
     // en fin d'épisode — même UX que Netflix : la carte apparaît ~45s avant
     // la fin, avec le libellé du prochain épisode et un compte à rebours.
@@ -1060,31 +1091,47 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         poke()
         if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
     }
+    fun queueSeekBy(deltaMs: Long) {
+        val base = pendingSeekTarget ?: exoPlayer.currentPosition
+        val max = exoPlayer.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        if (pendingSeekOrigin == null) pendingSeekOrigin = exoPlayer.currentPosition
+        val target = (base + deltaMs).coerceIn(0L, max)
+        pendingSeekTarget = target
+        pendingSeekToken++
+        seekIndicator = formatSeekShift(target - (pendingSeekOrigin ?: target))
+    }
     fun seekBackAction() {
         poke()
-        exoPlayer.seekTo((exoPlayer.currentPosition - SEEK_STEP_MS).coerceAtLeast(0))
-        seekIndicator = "−10s"
+        queueSeekBy(-SEEK_STEP_MS)
     }
     fun seekForwardAction() {
         poke()
-        exoPlayer.seekTo((exoPlayer.currentPosition + SEEK_STEP_MS).coerceAtMost(exoPlayer.duration.coerceAtLeast(0)))
-        seekIndicator = "+10s"
+        queueSeekBy(SEEK_STEP_MS)
     }
     fun prevEpisodeAction() {
         poke()
         if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = isInEndingCredits())
-    }
-    fun skipMarkerAction() {
-        val m = activeMarker ?: return
-        poke()
-        playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
-        exoPlayer.seekTo(m.endMs)
     }
     fun nextEpisodeAction() {
         poke()
         // An explicit Next is an intentional skip: never leave the outgoing
         // episode in Reprendre, even if the viewer pressed it before credits.
         if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = true)
+    }
+    fun skipMarkerAction() {
+        val m = activeMarker ?: return
+        poke()
+        pendingSeekTarget = null
+        pendingSeekOrigin = null
+        // Même règle que l'app TV : « Passer le générique » dans une série
+        // qui a une suite = épisode suivant (pas de tri sur `final`, que Plex
+        // laisse à false sur la plupart des génériques de fin).
+        if (m.type == "credits" && currentIndex < queue.size - 1) {
+            nextEpisodeAction()
+            return
+        }
+        playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
+        exoPlayer.seekTo(m.endMs)
     }
 
     // Les marqueurs ne sont pas de simples décorations : à l'entrée dans une

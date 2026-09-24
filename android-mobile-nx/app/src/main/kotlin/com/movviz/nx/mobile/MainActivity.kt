@@ -165,6 +165,18 @@ class MainActivity : ComponentActivity() {
         pendingDeepLink = intent
     }
 
+    // Boucles de rafraîchissement suspendues hors écran (téléphone verrouillé,
+    // autre app, lecteur par-dessus) — voir AppViewModel.setAppVisible.
+    override fun onStart() {
+        super.onStart()
+        appViewModel.setAppVisible(true)
+    }
+
+    override fun onStop() {
+        appViewModel.setAppVisible(false)
+        super.onStop()
+    }
+
     /** Récupère (et vide) le deep link en attente, s'il y en a un. */
     fun consumeDeepLink(): Intent? {
         val link = pendingDeepLink

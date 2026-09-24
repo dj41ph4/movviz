@@ -128,7 +128,9 @@ private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
 // largement, l'original est du gaspillage pur.
 private const val TMDB_STILL_BASE = "https://image.tmdb.org/t/p/w780"
 private const val TMDB_SEASON_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
-private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185"
+// w342 : en w185, une photo de distribution était agrandie (floue) sur les
+// TV 4K dont l'interface est rendue en haute densité.
+private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w342"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 
 private data class EpisodeSelection(
@@ -669,7 +671,7 @@ fun TitleDetailScreen(
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
             Image(
-                painter = rememberAsyncImagePainter(model = backdropUrl),
+                painter = rememberAsyncImagePainter(model = backdropUrl, contentScale = ContentScale.Crop),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -1490,7 +1492,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                     ) {
                         if (photoUrl != null) {
                             androidx.compose.foundation.Image(
-                                painter = coil.compose.rememberAsyncImagePainter(model = photoUrl),
+                                painter = coil.compose.rememberAsyncImagePainter(model = photoUrl, contentScale = androidx.compose.ui.layout.ContentScale.Crop),
                                 contentDescription = member.name,
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),
@@ -1644,7 +1646,7 @@ private fun SeasonSelector(
                         ) {
                             if (seasonPosterPath != null) {
                                 Image(
-                                    painter = rememberAsyncImagePainter("$TMDB_SEASON_POSTER_BASE$seasonPosterPath"),
+                                    painter = rememberAsyncImagePainter("$TMDB_SEASON_POSTER_BASE$seasonPosterPath", contentScale = ContentScale.Crop),
                                     contentDescription = seasonLabel,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize(),
@@ -1742,6 +1744,9 @@ private fun rememberAmbientTint(imageUrl: String?): Color {
             val request = coil.request.ImageRequest.Builder(context)
                 .data(url)
                 .size(24, 24)
+                // Clé de cache à part : la vignette 24×24 ne doit jamais être
+                // resservie à l'affiche ou à l'image d'épisode affichée (flou).
+                .memoryCacheKey("tint:$url")
                 // Un bitmap matériel n'est pas lisible par getPixel().
                 .allowHardware(false)
                 .build()
@@ -1975,7 +1980,7 @@ private fun SeasonPageHeader(
             metadata?.posterPath?.let { poster ->
                 Box {
                     Image(
-                        painter = rememberAsyncImagePainter("$TMDB_SEASON_POSTER_BASE$poster"),
+                        painter = rememberAsyncImagePainter("$TMDB_SEASON_POSTER_BASE$poster", contentScale = ContentScale.Crop),
                         contentDescription = seasonLabel,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.width(112.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)),
@@ -2125,7 +2130,7 @@ private fun EpisodeGridCard(
             Box(modifier = Modifier.fillMaxSize()) {
                 if (metadata?.stillPath != null) {
                     Image(
-                        painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}"),
+                        painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}", contentScale = ContentScale.Crop),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
@@ -2388,7 +2393,7 @@ private fun EpisodeDetailOverlay(
         // Texture légère : la capture elle-même, très en retrait.
         if (stillUrl != null) {
             Image(
-                painter = rememberAsyncImagePainter(model = stillUrl),
+                painter = rememberAsyncImagePainter(model = stillUrl, contentScale = ContentScale.Crop),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alpha = 0.12f,
@@ -2411,7 +2416,7 @@ private fun EpisodeDetailOverlay(
                 Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))) {
                     if (stillUrl != null) {
                         Image(
-                            painter = rememberAsyncImagePainter(model = stillUrl),
+                            painter = rememberAsyncImagePainter(model = stillUrl, contentScale = ContentScale.Crop),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),

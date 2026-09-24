@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 /**
  * Small in-memory TTL cache with real hit/miss accounting, used to avoid
@@ -188,6 +189,7 @@ class NamedCache {
     // Hundreds of MB (the TMDb cache in production): parsing it in one shot
     // froze the whole server for seconds at every start.
     this.loaded = false;
+    const loadStartedAt = Date.now();
     const generation = this.loadGeneration;
     const lines = readline.createInterface({ input: fs.createReadStream(this.linesFile, "utf8"), crlfDelay: Infinity });
     return (async () => {
@@ -201,6 +203,9 @@ class NamedCache {
       } finally {
         lines.close();
         this.loaded = true;
+        // Durée réelle du rechargement au démarrage : pendant cette phase, une
+        // lecture absente de la mémoire attend (plafonné) — à connaître.
+        recordSearchLog("info", "cache.loaded", `${this.name} : ${this.store.size} entrées relues en ${Date.now() - loadStartedAt} ms (${Math.round(size / 1e6)} Mo)`, Date.now() - loadStartedAt);
         if (this.pendingWrite) {
           this.pendingWrite = false;
           this.saveToDisk();
@@ -285,6 +290,11 @@ class NamedCache {
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.saveToDisk(), SAVE_DEBOUNCE_MS);
     this.saveTimer.unref?.();
+  }
+
+  /** Presence check that doesn't count as a hit or miss. */
+  has(key: string): boolean {
+    return this.store.has(key);
   }
 
   get<T>(key: string): T | undefined {

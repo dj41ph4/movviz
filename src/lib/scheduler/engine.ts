@@ -2,6 +2,8 @@ import { TASKS } from "./tasks";
 import { getTaskRun, recordTaskRun, getTaskConfig } from "./state";
 import { enqueueJob, isSourceActive } from "@/lib/jobs/queue";
 import type { JobType } from "@/lib/jobs/types";
+import { openBlockWindow } from "@/lib/blockProbe";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 /** Effective interval for a task — persisted override or hardcoded default. */
 export function getEffectiveInterval(id: string, defaultMs: number): number {
@@ -15,6 +17,8 @@ export interface TaskStatus {
   intervalMs: number;
   lastRunAt: number | null;
   lastDurationMs: number | null;
+  /** Pire gel du serveur pendant la dernière exécution (null = pas encore mesuré). */
+  lastMaxBlockMs: number | null;
   nextRunAt: number | null;
 }
 
@@ -28,6 +32,7 @@ export function listTaskStatus(): TaskStatus[] {
       intervalMs,
       lastRunAt: run.lastRunAt,
       lastDurationMs: run.lastDurationMs,
+      lastMaxBlockMs: run.lastMaxBlockMs ?? null,
       nextRunAt: run.lastRunAt != null ? run.lastRunAt + intervalMs : null,
     };
   });
@@ -38,10 +43,16 @@ export async function runTaskNow(id: string): Promise<{ ok: true } | { ok: false
   const task = TASKS.find((t) => t.id === id);
   if (!task) return { ok: false, error: "not_found" };
   const start = Date.now();
+  // Mesure seule (blockProbe.ts) : quelle tâche fige le serveur, et combien.
+  const probe = openBlockWindow(`tâche ${id}`);
   try {
     await task.run();
   } finally {
-    recordTaskRun(id, Date.now() - start);
+    const { maxBlockMs, overlapping } = probe.end();
+    recordTaskRun(id, Date.now() - start, maxBlockMs);
+    if (maxBlockMs >= 1_000) {
+      recordSearchLog("warn", "perf.task_block", `tâche ${id} : serveur figé jusqu'à ${maxBlockMs} ms (durée ${Date.now() - start} ms)${overlapping.length ? ` — en parallèle : ${overlapping.join(", ")}` : ""}`, maxBlockMs);
+    }
   }
   return { ok: true };
 }

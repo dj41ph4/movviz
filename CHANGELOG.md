@@ -1,3 +1,12 @@
+## v1.25.75 — September 2026
+
+### Images nettes sur Android, mêmes optimisations sur mobile, mesure des ralentissements du serveur
+
+- Android TV et mobile : les affiches, fonds, photos d'acteurs, vignettes d'épisodes et de saisons s'affichent nets dès le départ. Elles étaient chargées dans une taille trop petite pour leur cadre, puis agrandies (flou), et ne devenaient nettes qu'une fois la carte sélectionnée. Les photos d'acteurs sont aussi chargées dans une meilleure résolution pour les TV 4K.
+- Android mobile : les mêmes améliorations que sur Android TV. L'application n'interroge plus le serveur quand elle n'est pas à l'écran. L'avance et le recul rapides sont groupés en un seul saut. Dans une série, « Passer le générique » lance l'épisode suivant.
+- Juste après un redémarrage du serveur, une fiche n'attend plus la relecture du cache TMDb pour les informations déjà en mémoire. Chaque lecture pouvait auparavant attendre jusqu'à 3 secondes pendant cette phase.
+- Diagnostic : le serveur enregistre désormais quelle tâche planifiée ou quelle étape du démarrage le fige, et pendant combien de temps. Il note aussi la lecture des gros fichiers, pour cibler les prochaines optimisations.
+
 ## v1.25.74 — September 2026
 
 ### Android TV : fiche entière à l'ouverture, avance rapide groupée, plus de requêtes en arrière-plan

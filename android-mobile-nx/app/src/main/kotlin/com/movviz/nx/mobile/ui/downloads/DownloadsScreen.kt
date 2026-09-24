@@ -130,7 +130,7 @@ private fun DownloadRow(item: QueueItemDto, completed: Boolean, onClick: () -> U
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             item.media.posterPath?.let {
                 Image(
-                    rememberAsyncImagePainter("https://image.tmdb.org/t/p/w342$it"),
+                    rememberAsyncImagePainter("https://image.tmdb.org/t/p/w342$it", contentScale = ContentScale.Crop),
                     null,
                     Modifier.width(52.dp).height(76.dp).clip(RoundedCornerShape(6.dp)),
                     contentScale = ContentScale.Crop,

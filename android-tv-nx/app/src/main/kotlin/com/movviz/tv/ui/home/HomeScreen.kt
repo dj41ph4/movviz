@@ -948,6 +948,11 @@ internal fun HeroCarousel(
             ImageRequest.Builder(context)
                 .data(url)
                 .size(Size(64, 36))
+                // Clé de cache à part : sans elle, cette vignette 64×36 était
+                // resservie aux cartes qui affichent la même image (le cache
+                // accepte une version plus petite que demandée) — cartes floues
+                // jusqu'à ce qu'un focus recharge la vraie taille.
+                .memoryCacheKey("luminance:$url")
                 .target(
                     onStart = {},
                     onError = {},
@@ -1003,7 +1008,7 @@ internal fun HeroCarousel(
                 label = "zoom",
             )
             Image(
-                painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE${item.backdropPath}"),
+                painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE${item.backdropPath}", contentScale = ContentScale.Crop),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopCenter,
@@ -1969,7 +1974,7 @@ private fun ResumeCard(
             Box(modifier = Modifier.fillMaxSize()) {
                 if (imageUrl != null) {
                     Image(
-                        painter = rememberAsyncImagePainter(model = imageUrl),
+                        painter = rememberAsyncImagePainter(model = imageUrl, contentScale = ContentScale.Crop),
                         contentDescription = card.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
@@ -2170,7 +2175,7 @@ internal fun PosterCard(
                     // L'affiche demeure derrière le backdrop pendant son
                     // chargement : aucune carte vide ou flash noir.
                     Image(
-                        painter = rememberAsyncImagePainter(model = activeImage),
+                        painter = rememberAsyncImagePainter(model = activeImage, contentScale = ContentScale.Crop),
                         contentDescription = card.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
@@ -2533,7 +2538,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
             ) {
                 if (posterUrl != null) {
                     Image(
-                        painter = rememberAsyncImagePainter(model = posterUrl),
+                        painter = rememberAsyncImagePainter(model = posterUrl, contentScale = ContentScale.Crop),
                         contentDescription = item.media.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),

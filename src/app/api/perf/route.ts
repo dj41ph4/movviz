@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { aggregatePerf, recordPerf, perfLabel, getPerfEntries } from "@/lib/perf";
 import { getEventLoopHistory, getEventLoopLive } from "@/lib/eventLoopMonitor";
+import { getBlockLog } from "@/lib/blockProbe";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     aggregates: aggregatePerf(),
     eventLoop: { live: getEventLoopLive(), history: getEventLoopHistory() },
+    // Gels ≥ 500 ms attribués aux tâches / étapes de démarrage ouvertes à ce moment.
+    blocks: getBlockLog(),
     memory: {
       rssMb: mb(mem.rss),
       heapUsedMb: mb(mem.heapUsed),

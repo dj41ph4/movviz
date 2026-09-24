@@ -18,6 +18,22 @@ export async function register() {
     const { startEventLoopMonitor } = await import("@/lib/eventLoopMonitor");
     startEventLoopMonitor();
 
+    // Mesure du démarrage (blockProbe.ts) : chaque étape chronométrée, et tout
+    // gel ≥ 500 ms des 2 premières minutes noté avec ce qui tournait alors —
+    // un gel de 11 s au démarrage restait inexpliqué (2026-09-24).
+    const { openBlockWindow, measureBlocking } = await import("@/lib/blockProbe");
+    const { recordSearchLog: logBootPhase } = await import("@/lib/diagnostic/searchLog");
+    const bootWatch = openBlockWindow("démarrage (2 premières minutes)");
+    setTimeout(() => {
+      const { maxBlockMs } = bootWatch.end();
+      logBootPhase("info", "boot.watch", `2 premières minutes : pire gel ${maxBlockMs} ms (détail : /api/perf → blocks)`, maxBlockMs);
+    }, 120_000).unref();
+    const phase = async <T,>(label: string, fn: () => Promise<T> | T): Promise<T> => {
+      const { value, maxBlockMs, durationMs } = await measureBlocking(`démarrage : ${label}`, async () => fn(), 500);
+      logBootPhase("info", "boot.phase", `${label} : ${durationMs} ms, pire gel ${maxBlockMs} ms`, durationMs);
+      return value;
+    };
+
     const { recordPerf, perfLabel } = await import("@/lib/perf");
 
     // Time every OUTBOUND fetch the server makes (TMDb, Plex, indexers,
@@ -55,13 +71,13 @@ export async function register() {
     }
 
     const { reconcileStaleSearches } = await import("@/lib/library/reconcileStaleSearches");
-    reconcileStaleSearches();
+    await phase("recherches interrompues", () => reconcileStaleSearches());
 
     const { bootstrapEngine } = await import("@/lib/engine/bootstrap");
-    await bootstrapEngine();
+    await phase("moteur de téléchargement", () => bootstrapEngine());
 
     const { bootstrapResolver } = await import("@/lib/resolver/bootstrap");
-    await bootstrapResolver();
+    await phase("résolveur", () => bootstrapResolver());
 
     // Seed the RSS cache on boot so searches work immediately instead of
     // returning nothing until the first scheduled refresh (every 6h).
@@ -76,7 +92,7 @@ export async function register() {
     clearAllRateLimits();
     const { refreshRssCache: bootRefreshRss } = await import("@/lib/indexers/rssCache");
     const { recordSearchLog: logBoot } = await import("@/lib/diagnostic/searchLog");
-    const bootResult = await bootRefreshRss().catch((e: unknown) => {
+    const bootResult = await phase("cache RSS", () => bootRefreshRss()).catch((e: unknown) => {
       logBoot("error", "boot.rss_refresh_failed", `Refresh boot échoué: ${(e as Error)?.message ?? e}`);
       return null;
     });
@@ -86,7 +102,7 @@ export async function register() {
     clearAllRateLimits();
 
     const { startScheduler } = await import("@/lib/scheduler/engine");
-    startScheduler();
+    await phase("planificateur", () => startScheduler());
 
     // Real gap found during the playback engine audit (TODO_POST_MOTEUR_LECTURE.md
     // §5): neither ffmpeg engine (Plex remux, local) had a process-exit

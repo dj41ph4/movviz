@@ -152,7 +152,7 @@ fun PersonScreen(
                     ) {
                         if (photoUrl != null) {
                             Image(
-                                painter = rememberAsyncImagePainter(model = photoUrl),
+                                painter = rememberAsyncImagePainter(model = photoUrl, contentScale = ContentScale.Crop),
                                 contentDescription = p.name,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),

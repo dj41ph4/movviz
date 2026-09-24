@@ -203,7 +203,7 @@ private fun LibraryMediaGridCard(card: ProfileMediaCardDto, modifier: Modifier =
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(libraryTileShape).background(MovvizSurfaceStrong)) {
             val path = card.posterPath ?: card.stillPath
             if (path != null) Image(
-                painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$path"), contentDescription = card.title,
+                painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$path", contentScale = ContentScale.Crop), contentDescription = card.title,
                 contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
             )
         }
@@ -223,7 +223,7 @@ private fun CollectionTile(collection: CollectionDto, onClick: () -> Unit) {
             val path = collection.posterPath ?: collection.backdropPath
             if (path != null) {
                 Image(
-                    painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$path"),
+                    painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$path", contentScale = ContentScale.Crop),
                     contentDescription = collection.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
@@ -250,7 +250,7 @@ private fun SagaTile(saga: SagaSummaryDto, onClick: () -> Unit) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(libraryTileShape)) {
             if (saga.posterPath != null) {
                 Image(
-                    painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE${saga.posterPath}"),
+                    painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE${saga.posterPath}", contentScale = ContentScale.Crop),
                     contentDescription = saga.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),

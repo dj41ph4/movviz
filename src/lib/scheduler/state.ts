@@ -11,6 +11,8 @@ const FILE = path.join(CONFIG_DIR, "scheduler.json");
 interface TaskRun {
   lastRunAt: number | null;
   lastDurationMs: number | null;
+  /** Pire gel de la boucle d'événements pendant la dernière exécution (blockProbe.ts). */
+  lastMaxBlockMs?: number | null;
 }
 
 export interface TaskConfig {
@@ -52,9 +54,9 @@ export function getTaskRun(id: string): TaskRun {
   return loadData().runs[id] ?? { lastRunAt: null, lastDurationMs: null };
 }
 
-export function recordTaskRun(id: string, durationMs: number) {
+export function recordTaskRun(id: string, durationMs: number, maxBlockMs: number | null = null) {
   const data = loadData();
-  data.runs[id] = { lastRunAt: Date.now(), lastDurationMs: durationMs };
+  data.runs[id] = { lastRunAt: Date.now(), lastDurationMs: durationMs, lastMaxBlockMs: maxBlockMs };
   saveData(data);
 }
 

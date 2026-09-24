@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import zlib from "node:zlib";
+import path from "node:path";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { getJsonWritePool } from "./workers/jsonWritePool";
 
 /**
@@ -112,7 +114,15 @@ export function readJsonCached<T>(file: string, fallback: T): T {
     return hit.value as T;
   }
   try {
+    const parseStart = performance.now();
     const value = JSON.parse(fs.readFileSync(file, "utf8")) as T;
+    // Lecture + décodage synchrones : c'est un gel direct du serveur. Tracé
+    // au-delà de 200 ms pour savoir quel fichier coûte quoi (gel de 11 s
+    // inexpliqué au démarrage, 2026-09-24).
+    const parseMs = Math.round(performance.now() - parseStart);
+    if (parseMs >= 200) {
+      recordSearchLog("info", "perf.json_parse", `${path.basename(file)} : ${Math.round(stat.size / 1e6)} Mo lus et décodés en ${parseMs} ms (serveur figé pendant ce temps)`, parseMs);
+    }
     cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value });
     lastKnownSize.set(file, stat.size);
     readFailures.delete(file);

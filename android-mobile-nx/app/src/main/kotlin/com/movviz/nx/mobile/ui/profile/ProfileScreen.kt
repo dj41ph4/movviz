@@ -455,6 +455,7 @@ internal fun LazyListScope.profileRail(
                     painter = rememberAsyncImagePainter(
                         model = "$TMDB_POSTER_BASE$imagePath",
                         onError = { imageFailed = true },
+                        contentScale = ContentScale.Crop,
                     ),
                     contentDescription = card.title,
                     contentScale = ContentScale.Crop,

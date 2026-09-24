@@ -92,6 +92,7 @@ import kotlinx.coroutines.delay
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
 // w1280, PAS "original" : un backdrop plein écran en "original" télécharge
@@ -101,7 +102,9 @@ private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
 // Les captures d'épisode sont affichées en petits formats : w780 suffit
 // largement, l'original est du gaspillage pur.
 private const val TMDB_STILL_BASE = "https://image.tmdb.org/t/p/w780"
-private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185"
+// w342 : en w185, une photo de distribution était agrandie (floue) sur les
+// écrans haute densité.
+private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w342"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 
 private data class EpisodeSelection(
@@ -249,12 +252,18 @@ fun TitleDetailScreen(
     // Rythme accéléré (4s) tant qu'un téléchargement est actif pour CE
     // titre : le passage "Téléchargement en cours…" → "Lire" doit être
     // quasi immédiat à la fin du download, sans attendre un cycle long.
+    // Les trois boucles de la fiche ne tournent que fiche À L'ÉCRAN
+    // (repeatOnLifecycle STARTED) : téléphone verrouillé, autre app ou
+    // lecteur par-dessus = plus aucune requête. Au retour, l'observateur
+    // ON_RESUME ci-dessus rafraîchit tout une fois, puis elles reprennent.
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
         viewModel.refreshTitleLibraryEntry(type, tmdbId)
-        while (true) {
-            delay(if (activeDownload != null) 4_000 else 8_000)
-            viewModel.refreshTitleLibraryEntry(type, tmdbId)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(if (activeDownload != null) 4_000 else 8_000)
+                viewModel.refreshTitleLibraryEntry(type, tmdbId)
+            }
         }
     }
 
@@ -263,9 +272,11 @@ fun TitleDetailScreen(
     // rangée "Téléchargements en cours" de l'accueil).
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
-        while (true) {
-            viewModel.loadQueue()
-            delay(3_000)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                viewModel.loadQueue()
+                delay(3_000)
+            }
         }
     }
 
@@ -280,10 +291,12 @@ fun TitleDetailScreen(
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (type != "series" || !inLibrary) return@LaunchedEffect
         viewModel.loadSeriesSeasons(tmdbId)
-        while (true) {
-            val active = viewModel.seriesSeasons.value.any { s -> s.episodes.any { it.status == "downloading" || it.status == "searching" } }
-            delay(if (active) 4_000 else 10_000)
-            viewModel.loadSeriesSeasons(tmdbId)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val active = viewModel.seriesSeasons.value.any { s -> s.episodes.any { it.status == "downloading" || it.status == "searching" } }
+                delay(if (active) 4_000 else 10_000)
+                viewModel.loadSeriesSeasons(tmdbId)
+            }
         }
     }
 
@@ -501,7 +514,7 @@ fun TitleDetailScreen(
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
             Image(
-                painter = rememberAsyncImagePainter(model = backdropUrl),
+                painter = rememberAsyncImagePainter(model = backdropUrl, contentScale = ContentScale.Crop),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -1193,7 +1206,7 @@ private fun CastRow(cast: List<com.movviz.nx.mobile.data.MetaCastMemberDto>, onO
                     ) {
                         if (photoUrl != null) {
                             androidx.compose.foundation.Image(
-                                painter = coil.compose.rememberAsyncImagePainter(model = photoUrl),
+                                painter = coil.compose.rememberAsyncImagePainter(model = photoUrl, contentScale = androidx.compose.ui.layout.ContentScale.Crop),
                                 contentDescription = member.name,
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),
@@ -1473,7 +1486,7 @@ private fun EpisodeCard(
             val stillModifier = Modifier.width(if (compactPortrait) 100.dp else 150.dp).height(if (compactPortrait) 56.dp else 84.dp).clip(RoundedCornerShape(6.dp))
             if (metadata?.stillPath != null) {
                 Image(
-                    painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}"),
+                    painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}", contentScale = ContentScale.Crop),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = stillModifier,
@@ -1685,7 +1698,7 @@ private fun EpisodeDetailOverlay(
             Column(modifier = Modifier.padding(28.dp)) {
                 selection.metadata?.stillPath?.let { still ->
                     Image(
-                        painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still"),
+                        painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still", contentScale = ContentScale.Crop),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(10.dp)),

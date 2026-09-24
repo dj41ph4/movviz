@@ -176,10 +176,13 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, lan
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
   const cache = tmdbCache();
-  // Right after a start the persisted entries may still be streaming in:
-  // wait for them (3 s at most) rather than refetch from TMDb what is already on disk.
-  await cache.whenLoaded(TMDB_CACHE_LOAD_MAX_WAIT_MS);
   const cacheKey = url.toString();
+  // Right after a start the persisted entries may still be streaming in:
+  // wait for them (3 s at most) rather than refetch from TMDb what is already
+  // on disk — but only when this entry isn't in memory yet. Waiting on every
+  // read made a title page (several TMDb reads in a row) pay up to 3 s per
+  // read for the whole duration of the reload.
+  if (!cache.has(cacheKey)) await cache.whenLoaded(TMDB_CACHE_LOAD_MAX_WAIT_MS);
   const cached = cache.getStale<T>(cacheKey);
   if (cached !== undefined) {
     // Past the TTL: serve the stale copy instantly and refresh behind the
