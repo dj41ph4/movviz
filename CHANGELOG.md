@@ -1,3 +1,11 @@
+## v1.25.74 — September 2026
+
+### Android TV : fiche entière à l'ouverture, avance rapide groupée, plus de requêtes en arrière-plan
+
+- La fiche s'ouvre désormais entière : logo, badge d'état et informations restent visibles quand « Lire » est sélectionné, au lieu d'un défilement automatique qui coupait le haut. Passer de « Lire » à « Bande-annonce » ne fait plus bouger la fiche ; le défilement normal reprend en descendant vers les saisons, la distribution ou les titres similaires.
+- Avance et recul rapides groupés dans le lecteur : les appuis successifs sur ⏩ / ⏪ (ou sur la barre de progression) s'additionnent à l'écran (« +1:00 »), puis un seul saut part quand on relâche. Avant, chaque appui relançait la lecture côté serveur, et une série d'appuis rapides pouvait finir en erreur de lecture.
+- L'application ne rafraîchit plus rien quand elle n'est pas à l'écran (TV passée sur une autre application, lecture en cours). Une fiche laissée ouverte continuait à interroger le serveur plusieurs dizaines de fois par minute ; tout se rafraîchit d'un coup au retour.
+
 ## v1.25.73 — September 2026
 
 ### Android TV : « Passer le générique » en un seul OK, Échap ferme la fiche sur desktop

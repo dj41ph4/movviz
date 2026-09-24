@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -304,6 +305,15 @@ private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
 
 private const val TAG = "MovvizPlayer"
 private const val SEEK_STEP_MS = 10_000L
+/** Silence après le dernier appui ⏩/⏪ avant le vrai saut d'une rafale. */
+private const val SEEK_COMMIT_DELAY_MS = 700L
+
+/** Cumul d'une rafale : « +40s », « −1:20 ». */
+private fun formatSeekShift(shiftMs: Long): String {
+    val sign = if (shiftMs < 0) "−" else "+"
+    val total = kotlin.math.abs(shiftMs) / 1_000L
+    return if (total < 60) "$sign${total}s" else "$sign${total / 60}:${"%02d".format(total % 60)}"
+}
 private const val CONTROLS_TIMEOUT_MS = 5_000L
 private const val PROGRESS_REPORT_INTERVAL_MS = 10_000L
 private const val MAX_NETWORK_AUTO_RETRIES = 2
@@ -487,6 +497,14 @@ private fun PlayerScreen(
     // comme Netflix : un "+10s" ou "−10s" en overlay semi-transparent qui
     // apparaît/disparaît en fondu, sans obscurcir l'image.
     var seekIndicator by remember { mutableStateOf<String?>(null) }
+    // Avance / recul GROUPÉS : chaque appui déplace une cible en attente et
+    // un seul vrai saut part SEEK_COMMIT_DELAY_MS après le dernier. En flux
+    // transcodé, chaque saut relance un flux serveur — une rafale de ⏩
+    // relançait autant de transcodages et finissait en erreur de lecture
+    // (constaté sur émulateur). Remis à zéro par tout vrai saut / chargement.
+    var pendingSeekTarget by remember { mutableStateOf<Long?>(null) }
+    var pendingSeekOrigin by remember { mutableStateOf<Long?>(null) }
+    var pendingSeekToken by remember { mutableIntStateOf(0) }
     // Panneau "Épisode suivant" en fin d'épisode — visible ~45s avant la fin,
     // même comportement que Netflix : carte avec libellé, compte à rebours
     // et bouton "⏭". Toujours visible, pas dans l'overlay auto-masquant.
@@ -623,6 +641,8 @@ ExoPlayer.Builder(context)
     }
 
     fun load(item: QueueItem, resumeMs: Long, level: Int = 0) {
+        pendingSeekTarget = null
+        pendingSeekOrigin = null
         loading = true
         remuxActive = level == 1 && level1FfmpegAvailable
         remuxBaseMs = if (remuxActive) resumeMs.coerceAtLeast(0) else 0L
@@ -703,6 +723,8 @@ ExoPlayer.Builder(context)
     /** Déplacement absolu : ExoPlayer sur un flux normal, nouveau flux serveur
      *  décalé sur le flux ffmpeg (qui n'est pas navigable). */
     fun seekAbs(targetMs: Long) {
+        pendingSeekTarget = null
+        pendingSeekOrigin = null
         val dur = timelineDur()
         val target = targetMs.coerceAtLeast(0L).let { if (dur > 0L) it.coerceAtMost((dur - 1_000L).coerceAtLeast(0L)) else it }
         if (remuxActive) load(queue[currentIndex], target, level = 1)
@@ -724,6 +746,9 @@ ExoPlayer.Builder(context)
      * only the overlay title changes while the previous media keeps playing. */
     fun advanceTo(nextIndex: Int, markOutgoingWatched: Boolean) {
         if (nextIndex !in queue.indices || nextIndex == currentIndex) return
+        // Une rafale ⏩ en attente visait l'épisode quitté, jamais le suivant.
+        pendingSeekTarget = null
+        pendingSeekOrigin = null
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
         val outgoingPosition = timelinePos()
@@ -1064,6 +1089,13 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         seekIndicator = null
     }
 
+    // Le seul vrai saut d'une rafale : chaque appui relance ce délai.
+    LaunchedEffect(pendingSeekToken) {
+        if (pendingSeekTarget == null) return@LaunchedEffect
+        delay(SEEK_COMMIT_DELAY_MS)
+        pendingSeekTarget?.let { seekAbs(it) }
+    }
+
     // Surveillance de la position pour afficher le panneau "Épisode suivant"
     // en fin d'épisode — même UX que Netflix : la carte apparaît ~45s avant
     // la fin, avec le libellé du prochain épisode et un compte à rebours.
@@ -1119,15 +1151,28 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         poke()
         if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
     }
+    /** Position affichée : la cible en attente pendant une rafale, sinon la lecture. */
+    fun displayedPos(): Long = pendingSeekTarget ?: timelinePos()
+    /** Déplace la cible en attente (bornée comme seekAbs) sans sauter. */
+    fun queueSeekTo(targetMs: Long) {
+        val dur = timelineDur()
+        val target = targetMs.coerceAtLeast(0L).let { if (dur > 0L) it.coerceAtMost((dur - 1_000L).coerceAtLeast(0L)) else it }
+        if (pendingSeekOrigin == null) pendingSeekOrigin = timelinePos()
+        pendingSeekTarget = target
+        pendingSeekToken++
+    }
+    fun queueSeekBy(deltaMs: Long) {
+        queueSeekTo(displayedPos() + deltaMs)
+        val shift = (pendingSeekTarget ?: 0L) - (pendingSeekOrigin ?: 0L)
+        seekIndicator = formatSeekShift(shift)
+    }
     fun seekBackAction() {
         poke()
-        seekAbs(timelinePos() - SEEK_STEP_MS)
-        seekIndicator = "−10s"
+        queueSeekBy(-SEEK_STEP_MS)
     }
     fun seekForwardAction() {
         poke()
-        seekAbs(timelinePos() + SEEK_STEP_MS)
-        seekIndicator = "+10s"
+        queueSeekBy(SEEK_STEP_MS)
     }
     fun prevEpisodeAction() {
         poke()
@@ -1519,9 +1564,11 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 subtitle = current.label,
                 isPlaying = isPlaying,
                 player = exoPlayer,
-                positionProvider = { timelinePos() },
+                // La barre suit la cible en attente d'une rafale, et ses
+                // flèches s'y ajoutent au lieu de sauter à chaque appui.
+                positionProvider = { displayedPos() },
                 durationProvider = { timelineDur() },
-                onSeekTo = { seekAbs(it) },
+                onSeekTo = { queueSeekTo(it) },
                 hasNext = hasNext,
                 hasPrev = hasPrev,
                 fallbackLevel = fallbackLevel,

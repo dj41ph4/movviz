@@ -25,6 +25,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.graphics.Brush
@@ -114,6 +116,7 @@ import kotlinx.coroutines.delay
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
 // w1280, PAS "original" : un backdrop plein écran en "original" télécharge
@@ -299,12 +302,19 @@ fun TitleDetailScreen(
     // Rythme accéléré (4s) tant qu'un téléchargement est actif pour CE
     // titre : le passage "Téléchargement en cours…" → "Lire" doit être
     // quasi immédiat à la fin du download, sans attendre un cycle long.
+    // Les trois boucles de la fiche ne tournent que fiche À L'ÉCRAN
+    // (repeatOnLifecycle STARTED) : TV passée sur une autre app ou lecteur
+    // par-dessus = plus aucune requête (33/min mesurées avant). Au retour,
+    // l'observateur ON_RESUME ci-dessus rafraîchit tout une fois, puis les
+    // boucles reprennent leur rythme.
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
         viewModel.refreshTitleLibraryEntry(type, tmdbId)
-        while (true) {
-            delay(if (activeDownload != null) 4_000 else 8_000)
-            viewModel.refreshTitleLibraryEntry(type, tmdbId)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(if (activeDownload != null) 4_000 else 8_000)
+                viewModel.refreshTitleLibraryEntry(type, tmdbId)
+            }
         }
     }
 
@@ -313,9 +323,11 @@ fun TitleDetailScreen(
     // rangée "Téléchargements en cours" de l'accueil).
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
-        while (true) {
-            viewModel.loadQueue()
-            delay(3_000)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                viewModel.loadQueue()
+                delay(3_000)
+            }
         }
     }
 
@@ -330,10 +342,12 @@ fun TitleDetailScreen(
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (type != "series" || !inLibrary) return@LaunchedEffect
         viewModel.loadSeriesSeasons(tmdbId)
-        while (true) {
-            val active = viewModel.seriesSeasons.value.any { s -> s.episodes.any { it.status == "downloading" || it.status == "searching" } }
-            delay(if (active) 4_000 else 10_000)
-            viewModel.loadSeriesSeasons(tmdbId)
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val active = viewModel.seriesSeasons.value.any { s -> s.episodes.any { it.status == "downloading" || it.status == "searching" } }
+                delay(if (active) 4_000 else 10_000)
+                viewModel.loadSeriesSeasons(tmdbId)
+            }
         }
     }
 
@@ -861,6 +875,20 @@ fun TitleDetailScreen(
             LaunchedEffect(topAnchorFocused) {
                 if (topAnchorFocused) lazyListState.animateScrollToItem(0)
             }
+            // TvLazyColumn a son PROPRE pivot (élément focalisé placé à 30 %
+            // de l'écran) et ignore le LocalBringIntoViewSpec posé autour :
+            // focaliser « Lire » à l'ouverture faisait défiler la fiche et
+            // coupait logo et badge (constaté en direct : « Lire » à y≈30 %).
+            // Tant que le focus est dans une rangée d'actions de l'en-tête,
+            // la fiche reste donc calée en haut ; plus bas, le pivot reprend.
+            val headerRowsFocused = remember { mutableStateMapOf<String, Boolean>() }
+            val headerActionsFocused = headerRowsFocused.values.any { it }
+            LaunchedEffect(headerActionsFocused) {
+                if (!headerActionsFocused) return@LaunchedEffect
+                snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
+                    .collect { (index, offset) -> if (index != 0 || offset != 0) lazyListState.scrollToItem(0) }
+            }
+            fun Modifier.keepsHeaderAtTop(row: String) = onFocusChanged { headerRowsFocused[row] = it.hasFocus }
             Box(
                 modifier = Modifier
                     .width(540.dp)
@@ -1075,7 +1103,7 @@ fun TitleDetailScreen(
             // Plex/Netflix : jamais un simple bouton "Lire" sur une série).
             if (type == "movie") {
                 Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("movie")) {
                         val plexKey = plexRatingKey
                         // "Lire" dès que le fichier est prêt côté Movviz, sans
                         // attendre la clé Plex (scan Plex + sync, plusieurs
@@ -1185,13 +1213,13 @@ fun TitleDetailScreen(
                     }
                 }
             } else if (!libraryResolved) {
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("checking")) {
                     PrimaryPill(text = "Vérification du fichier…", brush = null, enabled = false, onClick = {})
                     trailerAction()
                     seriesWatchAction()
                 }
             } else if (!inLibrary) {
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("add")) {
                     PrimaryPill(
                         text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
@@ -1232,7 +1260,7 @@ fun TitleDetailScreen(
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("series")) {
                         PrimaryPill(
                             text = when {
                                 ctaWatched -> "Revoir depuis le début"
@@ -1253,7 +1281,7 @@ fun TitleDetailScreen(
             } else {
                 // Série en bibliothèque sans épisode lisible : pas de CTA, mais
                 // la bande-annonce et « vu » restent sur leur propre ligne.
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("seriesNoCta")) {
                     trailerAction()
                     seriesWatchAction()
                 }

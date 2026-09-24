@@ -97,6 +97,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private var pendingHomeP1: PendingHomeP1? = null
     private var homeFirstFrameDrawn = false
     private var queuePollingJob: Job? = null
+    /** La file a été démarrée pour cette session (profil actif). */
+    private var queuePollingWanted = false
+    /** MainActivity au premier plan (ON_START..ON_STOP) — le lecteur, posé
+     *  par-dessus, compte comme hors écran. */
+    private var appVisible = true
+
+    /** Mesuré sur émulateur : une TV passée sur une autre app continuait
+     *  d'interroger le serveur (33 requêtes/min depuis une fiche). Hors
+     *  écran, la boucle de file s'arrête ; au retour elle repart et
+     *  rafraîchit immédiatement. */
+    fun setAppVisible(visible: Boolean) {
+        appVisible = visible
+        if (!visible) {
+            queuePollingJob?.cancel()
+            queuePollingJob = null
+        } else if (queuePollingWanted) {
+            startQueuePolling()
+        }
+    }
     private var homeBootstrapStartedAt: Long = 0L
     private val _homeUiState = MutableStateFlow(HomeUiState())
     val homeUiState: StateFlow<HomeUiState> = _homeUiState.asStateFlow()
@@ -788,6 +807,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         homeFirstFrameDrawn = false
         queuePollingJob?.cancel()
         queuePollingJob = null
+        queuePollingWanted = false
         _currentUser.value = null
         _activeProfile.value = null
         _movies.value = emptyList()
@@ -1275,8 +1295,11 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     }
 
     /** P2 : la file ne démarre qu'une fois le premier viewport publié. Elle
-     * est annulée lors d'une déconnexion ou d'un changement de profil. */
+     * est annulée lors d'une déconnexion ou d'un changement de profil, et
+     * suspendue tant que l'app n'est pas à l'écran (voir setAppVisible). */
     private fun startQueuePolling() {
+        queuePollingWanted = true
+        if (!appVisible) return
         if (queuePollingJob?.isActive == true) return
         val repo = repository ?: return
         queuePollingJob = viewModelScope.launch {

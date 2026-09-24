@@ -217,8 +217,10 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
+                viewModel.setAppVisible(true)
                 scope.launch { viewModel.refreshAvatarsOnLaunch() }
             }
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) viewModel.setAppVisible(false)
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
