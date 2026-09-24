@@ -6,7 +6,7 @@ import { addMovieToLibrary } from "@/lib/library/autoGrab";
 import { addSeriesToLibrary } from "@/lib/library/autoGrabSeries";
 import { addRequest, loadRequests } from "@/lib/requests/store";
 import { isBlocked } from "@/lib/blocklist/store";
-import { reconcileLibrary } from "@/lib/library/reconcile";
+import { mergeLibraryDuplicates } from "@/lib/library/reconcile";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries } from "@/lib/metadata/tmdb";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { setMediaMapEntry, notifySeerrStatus } from "@/lib/seerr/mediaMap";
@@ -153,7 +153,10 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
     else if (o.kind === "failed") failed++;
   }
 
-  await reconcileLibrary();
+  // Only the dedupe matters after an import, and only when titles were added:
+  // this runs every few minutes, and the full disk reconcile it used to call
+  // (whose result was discarded here anyway) crawled the whole library each time.
+  if (importedApproved > 0) mergeLibraryDuplicates();
 
   return {
     seerrUsers: seerrUsers.length,

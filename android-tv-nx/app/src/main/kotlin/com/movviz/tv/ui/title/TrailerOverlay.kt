@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.graphics.Color as AndroidColor
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -420,6 +421,11 @@ private fun YouTubeTrailer(
     AndroidView(
         factory = { ctx ->
             WebView(ctx).apply {
+                // AndroidView pose WRAP_CONTENT par défaut : une WebView en
+                // WRAP_CONTENT a un viewport de hauteur 0 pour le CSS
+                // (height:100%, 100vh → 0 px), l'iframe YouTube jouait donc
+                // le son dans un cadre invisible.
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(AndroidColor.BLACK)
                 // Le focus reste sur l'overlay Compose : la WebView ne le
                 // capte jamais, les touches sont traduites en JS.

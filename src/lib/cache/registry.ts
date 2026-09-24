@@ -112,6 +112,8 @@ const DEFAULT_MAX_ENTRIES = 3500;
 // as the NAS disk (often busy seeding/downloading at the same time) took to
 // swallow it: app unresponsive, CPU idle, API calls timing out.
 const SAVE_DEBOUNCE_MS = 30_000;
+/** Chars serialized between two awaited writes in writeStreamed(). */
+const WRITE_CHUNK_CHARS = 1 << 20;
 
 class NamedCache {
   private store = new Map<string, Entry<unknown>>();
@@ -121,8 +123,8 @@ class NamedCache {
   private lastDiagAt = 0;
   /** Semaphore: true while a disk write is in flight. Max 1 at any time. */
   private writeInFlight = false;
-  /** Single pending write value when a write is in progress. */
-  private pendingWrite: string | null = null;
+  /** Set when the store changed during an in-flight write — one more pass follows it. */
+  private pendingWrite = false;
 
   constructor(
     public readonly name: string,
@@ -149,58 +151,55 @@ class NamedCache {
    * writeFileSync straight onto the final file before, which both blocked
    * the whole event loop for the duration of a multi-MB write (the "app
    * frozen with an idle CPU, every API call timing out" symptom on the NAS)
-   * and could leave a truncated file behind on a crash mid-write. Only the
-   * JSON.stringify still runs on the main thread (~40 ms for a full TMDb
-   * cache), once per SAVE_DEBOUNCE_MS at most.
+   * and could leave a truncated file behind on a crash mid-write.
+   *
+   * Serialized entry by entry and flushed in ~1 MB chunks, each write
+   * yielding back to the event loop: the TMDb cache reached ~360 MB of JSON
+   * in production, and a single JSON.stringify of the whole map froze the
+   * process for seconds on the NAS (and built a 360 MB string each time).
    */
   private saveToDisk() {
-    const file = this.persistFile;
-    if (!file) return;
-    const json = JSON.stringify(Object.fromEntries(this.store));
+    if (!this.persistFile) return;
     if (this.writeInFlight) {
-      this.pendingWrite = json;
+      this.pendingWrite = true;
       return;
     }
     this.writeInFlight = true;
-    const tmp = `${file}.tmp`;
-    const doWrite = () =>
-      fs.promises
-        .mkdir(path.dirname(file), { recursive: true })
-        .then(() => fs.promises.writeFile(tmp, json, "utf8"))
-        .then(() => fs.promises.rename(tmp, file));
-
-    doWrite()
+    this.writeStreamed(this.persistFile)
       .catch(() => {
         // Best-effort — losing the persisted cache just means a cold start next time.
       })
       .finally(() => {
         this.writeInFlight = false;
-        if (this.pendingWrite !== null) {
-          const next = this.pendingWrite;
-          this.pendingWrite = null;
-          this.triggerWriteChain(next);
+        if (this.pendingWrite) {
+          this.pendingWrite = false;
+          this.saveToDisk();
         }
       });
   }
 
-  private triggerWriteChain(json: string) {
-    const file = this.persistFile;
-    if (!file) return;
-    this.writeInFlight = true;
+  private async writeStreamed(file: string) {
+    // Snapshot of references only: set() swaps entries rather than mutating
+    // them, so later writes to the map can't tear this pass.
+    const entries = [...this.store];
     const tmp = `${file}.tmp`;
-    fs.promises
-      .mkdir(path.dirname(file), { recursive: true })
-      .then(() => fs.promises.writeFile(tmp, json, "utf8"))
-      .then(() => fs.promises.rename(tmp, file))
-      .catch(() => {})
-      .finally(() => {
-        this.writeInFlight = false;
-        if (this.pendingWrite !== null) {
-          const next = this.pendingWrite;
-          this.pendingWrite = null;
-          this.triggerWriteChain(next);
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
+    const handle = await fs.promises.open(tmp, "w");
+    try {
+      let chunk = "{";
+      for (let i = 0; i < entries.length; i++) {
+        const [key, entry] = entries[i];
+        chunk += `${i === 0 ? "" : ","}${JSON.stringify(key)}:${JSON.stringify(entry)}`;
+        if (chunk.length >= WRITE_CHUNK_CHARS) {
+          await handle.write(chunk, null, "utf8");
+          chunk = "";
         }
-      });
+      }
+      await handle.write(`${chunk}}`, null, "utf8");
+    } finally {
+      await handle.close();
+    }
+    await fs.promises.rename(tmp, file);
   }
 
   /** Debounced so a burst of writes (e.g. a cache-warm pass) doesn't re-serialize the whole map every call. */

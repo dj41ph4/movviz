@@ -6,14 +6,38 @@ import { trashRoots } from "@/lib/library/trashStore";
 import { pathFor } from "@/lib/library/renamePath";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { loadPathMappings, type PathMapping } from "@/lib/plex/pathMappingStore";
+import { mapWithConcurrency } from "@/lib/concurrency";
 
 const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts)$/i;
 
-function walk(dir: string): string[] {
+// Disk checks run on the libuv threadpool, never on the main thread: the sync
+// versions (readdirSync of the whole completed folder + existsSync/statSync
+// per file) froze the event loop for 30+ s on the NAS, so every API request —
+// even a bare 401 — timed out while a pass was running.
+const DISK_CONCURRENCY = 8;
+
+async function walk(dir: string): Promise<string[]> {
   try {
-    return fs.readdirSync(dir, { recursive: true, withFileTypes: false }) as unknown as string[];
+    return await fs.promises.readdir(dir, { recursive: true });
   } catch {
     return [];
+  }
+}
+
+async function isFile(p: string): Promise<boolean> {
+  try {
+    return (await fs.promises.stat(p)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function exists(p: string): Promise<boolean> {
+  try {
+    await fs.promises.access(p);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -85,6 +109,14 @@ function mergeDuplicateSeries(): RescanIssue[] {
   }
   if (toRemove.size > 0) pruneSeries(toRemove);
   return issues;
+}
+
+/**
+ * Collapses same-tmdbId duplicates only — no disk access. For callers that
+ * just added titles and only need the dedupe, not the full disk reconcile.
+ */
+export function mergeLibraryDuplicates(): RescanIssue[] {
+  return [...mergeDuplicateMovies(), ...mergeDuplicateSeries()];
 }
 
 /** Case-insensitive on Windows/macOS-style filesystems; exact elsewhere isn't worth the complexity here. */
@@ -181,10 +213,9 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
       for (const ep of season.episodes) if (ep.file) track(ep.file.path);
 
   const issues: RescanIssue[] = [];
-  for (const p of trackedPaths) {
-    if (!roots.some((root) => isUnderRoot(p, root))) continue; // not verifiable from this filesystem — skip
-    if (!fs.existsSync(p)) issues.push({ kind: "missing", path: p });
-  }
+  const verifiable = [...trackedPaths].filter((p) => roots.some((root) => isUnderRoot(p, root))); // others aren't checkable from this filesystem — skip
+  const present = await mapWithConcurrency(verifiable, DISK_CONCURRENCY, exists);
+  verifiable.forEach((p, i) => { if (!present[i]) issues.push({ kind: "missing", path: p }); });
 
   const trashPrefixes = trashRoots();
   const isInTrash = (p: string) => trashPrefixes.some((root) => isUnderRoot(p, root));
@@ -192,11 +223,12 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
   const onDisk = new Set<string>();
   for (const inst of instances as { completedPath: string }[]) {
     const base = inst.completedPath;
-    for (const rel of walk(base)) {
-      const full = pathFor(base).join(base, String(rel));
-      if (isInTrash(full)) continue; // a trashed file isn't "untracked" — it's deliberately awaiting purge, not a stray
-      if (VIDEO_EXT.test(full) && fs.existsSync(full) && fs.statSync(full).isFile()) onDisk.add(full);
-    }
+    const candidates = (await walk(base))
+      .map((rel) => pathFor(base).join(base, String(rel)))
+      // a trashed file isn't "untracked" — it's deliberately awaiting purge, not a stray
+      .filter((full) => VIDEO_EXT.test(full) && !isInTrash(full));
+    const files = await mapWithConcurrency(candidates, DISK_CONCURRENCY, isFile);
+    candidates.forEach((full, i) => { if (files[i]) onDisk.add(full); });
   }
   for (const p of onDisk) {
     // Égalité exacte d'abord (cas normal), puis clé insensible aux mounts

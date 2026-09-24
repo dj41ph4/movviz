@@ -1,3 +1,11 @@
+## v1.25.68 — September 2026
+
+### Bande-annonce avec image sur Android TV, serveur qui ne se fige plus
+
+- Android TV : la bande-annonce plein écran jouait le son sur un écran noir. La vidéo YouTube était bien lue, mais dans un cadre de hauteur nulle, donc invisible. Elle occupe désormais tout l'écran.
+- L'import périodique des demandes Overseerr/Seerr relançait à chaque passage une vérification complète du disque, qui figeait tout le serveur jusqu'à plus de 30 secondes sur un NAS : chaque page et chaque fiche restaient alors en chargement, jusqu'à l'abandon côté Android TV. L'import ne fait plus que dédoublonner les titres qu'il vient d'ajouter, et la vérification du disque (quotidienne ou lancée à la main) ne bloque plus le serveur pendant qu'elle tourne.
+- La sauvegarde du cache TMDb, qui dépasse plusieurs centaines de Mo sur une grosse bibliothèque, était écrite d'un seul bloc et figeait le serveur plusieurs secondes à chaque fois. Elle est maintenant écrite par petits morceaux, sans interrompre les autres requêtes.
+
 ## v1.25.67 — September 2026
 
 ### Android TV : Retour fiabilisé dans le lecteur, heure affichée sur la barre
