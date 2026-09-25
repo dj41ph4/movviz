@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { stripCollisionSuffix, finalizeReplacedFiles } from "@/lib/library/applyImportedFiles";
+import { stripCollisionSuffix, finalizeReplacedFiles, firstAddedAt } from "@/lib/library/applyImportedFiles";
 
 /** Racine bibliothèque jetable + une saison dedans (profondeur ≥ 2 exigée par les gardes de suppression). */
 async function makeLibrary(): Promise<{ root: string; season: string }> {
@@ -82,4 +82,14 @@ test("un fichier hors racine bibliothèque n'est ni supprimé ni renommé", asyn
   assert.equal(renamed.size, 0);
   await fsp.rm(root, { recursive: true, force: true });
   await fsp.rm(outside, { recursive: true, force: true });
+});
+
+test("un fichier revu au même endroit garde sa date d'ajout, un vrai nouveau fichier prend la date du jour", () => {
+  const first = Date.UTC(2026, 8, 20);
+  const existing = { path: "/lib/H/Saison 3/H - S03E14.mkv", size: 1_000, addedAt: first };
+  assert.equal(firstAddedAt(existing, existing.path, 1_000), first, "même fichier : jamais « tout juste ajouté »");
+  const t0 = Date.now();
+  assert.ok(firstAddedAt(existing, existing.path, 2_000) >= t0, "nouvelle release (taille différente) : date du jour");
+  assert.ok(firstAddedAt(existing, "/lib/H/Saison 3/autre.mkv", 1_000) >= t0, "autre chemin : date du jour");
+  assert.ok(firstAddedAt(null, existing.path, 1_000) >= t0, "premier import : date du jour");
 });

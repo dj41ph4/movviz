@@ -1,7 +1,7 @@
 import path from "node:path";
 import fsp from "node:fs/promises";
 import fs from "node:fs";
-import { loadMovies, loadSeries } from "@/lib/library/store";
+import { getMovie, getSeries, loadMovies, loadSeries } from "@/lib/library/store";
 import { loadNamingTemplates } from "@/lib/naming/store";
 import { parseRelease } from "@/lib/naming/parser";
 import { buildContext, renderSegment } from "@/lib/naming/render";
@@ -646,7 +646,12 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
               // forever. Reconcile the library status here using the file
               // that's ALREADY at its destination, same shared path as a
               // normal import.
-              if (importRef) {
+              // Already reconciled (this exact file shown as available): the
+              // scheduled recovery sees the leftover source copy on EVERY pass
+              // (every 15 min, every restart) — re-importing it each time made
+              // the episode « just added » again (top of « Épisodes récemment
+              // ajoutés ») and re-sent its « est maintenant disponible ».
+              if (importRef && !libraryAlreadyHasFile(importRef, dest, parsed.episode ?? null, parsed.episodeEnd ?? null)) {
                 const fileEntry: ImportedFile = {
                   path: dest,
                   quality: null,
@@ -716,4 +721,21 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
   } finally {
     g.__movvizRecoverRunning = false;
   }
+}
+
+/** The library already lists this exact file as available for what the
+ *  import would target — nothing left to reconcile. */
+function libraryAlreadyHasFile(ref: import("@/lib/library/applyImportedFiles").LibraryImportRef, dest: string, episode: number | null, episodeEnd: number | null): boolean {
+  if (ref.kind === "movie") {
+    const movie = getMovie(ref.movieId);
+    return !!movie && movie.status === "available" && movie.file?.path === dest;
+  }
+  if (ref.kind === "series" || episode == null) return false;
+  const season = getSeries(ref.seriesId)?.seasons.find((s) => s.seasonNumber === ref.season);
+  if (!season) return false;
+  for (let n = episode; n <= (episodeEnd ?? episode); n++) {
+    const ep = season.episodes.find((e) => e.episodeNumber === n);
+    if (!ep || ep.status !== "available" || ep.file?.path !== dest) return false;
+  }
+  return true;
 }

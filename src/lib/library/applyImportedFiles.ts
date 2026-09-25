@@ -33,6 +33,13 @@ export interface ImportedFile {
   episodeEnd?: number | null;
 }
 
+/** A file re-imported where it already is (same path, same size) is not a
+ *  new arrival: it keeps its first date, or it would jump back to the top of
+ *  « Épisodes récemment ajoutés » every time it is seen again. */
+export function firstAddedAt(existing: { path: string; size: number; addedAt: number } | null | undefined, path: string, size: number): number {
+  return existing && existing.path === path && existing.size === size && existing.addedAt > 0 ? existing.addedAt : Date.now();
+}
+
 export type LibraryImportRef =
   | { kind: "movie"; movieId: string }
   | { kind: "season"; seriesId: string; season: number }
@@ -534,7 +541,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
             hdr: match.hdr,
             source: match.source,
             size: match.size,
-            addedAt: Date.now(),
+            addedAt: firstAddedAt(ep.file, filePath, match.size),
           },
         };
       });
@@ -593,7 +600,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
             hdr: match.hdr,
             source: match.source,
             size: match.size,
-            addedAt: Date.now(),
+            addedAt: firstAddedAt(ep.file, filePath, match.size),
           },
         };
       });
@@ -669,7 +676,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
             hdr: singleFile.hdr,
             source: singleFile.source,
             size: singleFile.size,
-            addedAt: Date.now(),
+            addedAt: firstAddedAt(ep.file, filePath, singleFile.size),
           },
         };
       }
@@ -690,7 +697,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
           hdr: match.hdr,
           source: match.source,
           size: match.size,
-          addedAt: Date.now(),
+          addedAt: firstAddedAt(ep.file, filePath, match.size),
         },
       };
     });

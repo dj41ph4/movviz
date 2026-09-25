@@ -1,3 +1,9 @@
+## v1.25.91 — September 2026
+
+### Épisodes récemment ajoutés : fini les titres bloqués en tête
+
+- Épisodes récemment ajoutés : des épisodes déjà présents dans la bibliothèque (par exemple « H ») revenaient en tête de la liste et renvoyaient leur notification « est maintenant disponible », comme s'ils venaient d'arriver. La récupération automatique des téléchargements, qui passe toutes les 15 minutes et à chaque redémarrage, les réimportait à chaque fois. Elle laisse désormais tranquille un fichier que la bibliothèque a déjà. Un fichier revu au même endroit garde sa date d'ajout d'origine.
+
 ## v1.25.90 — September 2026
 
 ### Android TV et mobile : bouton « Vu » instantané
