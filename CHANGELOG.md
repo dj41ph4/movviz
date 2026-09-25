@@ -1,3 +1,9 @@
+## v1.25.86 — September 2026
+
+### Assistant IA : il comprend malgré les fautes de frappe
+
+- Assistant IA : les fautes de frappe ne l'empêchent plus de comprendre. « apelle moi maitre », « je l'ai deja vu », « recomande moi un flim d'horeur » ou « le prochian episdoe » sont reconnus comme s'ils étaient bien écrits, pour toutes ses réactions et pas seulement quelques phrases. Les titres de films et de séries restent cherchés tels que tu les as écrits, et les mots courants ne sont jamais « corrigés » à tort.
+
 ## v1.25.85 — September 2026
 
 ### Assistant IA : il garde le fil et ne se soumet à personne

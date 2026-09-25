@@ -5,6 +5,7 @@ import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
+import { correctTypos } from "@/lib/ai/typoTolerance";
 import { analyzeDialogueTurn, selectDialogueCandidate, updateDialogueState } from "@/lib/ai/dialogueDirector";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating, getAllRatings, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
@@ -102,7 +103,10 @@ export async function POST(req: NextRequest) {
 
   markChatActive(user.id);
   pushAiMessage(user.id, { role: "user", content: message });
-  const dialoguePlan = analyzeDialogueTurn(message, session.messages, session.dialogueState);
+  // Detectors read the message with its typos corrected (« apelle moi »,
+  // « deja vu », « recomande »…); title extractors try it as typed first.
+  const looseMessage = correctTypos(message);
+  const dialoguePlan = analyzeDialogueTurn(looseMessage, session.messages, session.dialogueState);
 
   // Bug fix (audit finding #5, confirmed live — same class as the brique-9
   // fix, just relocated): this MUST be read before extractSelfIntroName's
@@ -129,8 +133,9 @@ export async function POST(req: NextRequest) {
   // Acknowledge/imperative turns such as « ok », « vas-y » and « donne » are
   // interpreted from the immediately preceding offer, before any TMDb title
   // detection can mistake their text for a work name.
-  const recommendationContinuation = isRecommendationContinuation(previousAssistantText, message);
+  const recommendationContinuation = isRecommendationContinuation(previousAssistantText, looseMessage);
   const introName = extractSelfIntroName(message)
+    ?? extractSelfIntroName(looseMessage)
     ?? extractNameFromDirectAnswer(previousAssistantText, message);
   if (introName) rememberFact(user.id, introName);
 
@@ -183,7 +188,7 @@ export async function POST(req: NextRequest) {
   // the model is told what really happened. Seen live: « c'est bien
   // enregistré comme vu » with no guarantee anything was recorded.
   const freshSubject = session.activeSubject && Date.now() - session.activeSubject.at < 45 * 60 * 1000 ? session.activeSubject : null;
-  const seenCommand = detectSeenCommand(message);
+  const seenCommand = detectSeenCommand(looseMessage);
   let seenActionNote = "";
   if (seenCommand === "all_last") {
     const cards = lastRecommendations(session.messages);
@@ -201,8 +206,8 @@ export async function POST(req: NextRequest) {
     }
   }
   // After a « c'est déjà vu », what follows is a request for something else.
-  const capabilitiesQuestion = isCapabilitiesQuestion(message);
-  const directRecommendation = !recommendationContinuation && !capabilitiesQuestion && isDirectRecommendationRequest(message, previousAssistantText);
+  const capabilitiesQuestion = isCapabilitiesQuestion(looseMessage);
+  const directRecommendation = !recommendationContinuation && !capabilitiesQuestion && isDirectRecommendationRequest(looseMessage, previousAssistantText);
 
   const userContext = buildUserContext(user.id);
   const memoryContext = buildMemoryContext(user.id);
@@ -275,7 +280,7 @@ export async function POST(req: NextRequest) {
   // cross-checked against the real library, injected only for this one
   // message — never on every message (real network call, kept gated behind
   // extractMissingFromEntity's narrow regex match).
-  const missingFromEntity = extractMissingFromEntity(message);
+  const missingFromEntity = extractMissingFromEntity(message) ?? extractMissingFromEntity(looseMessage);
   if (missingFromEntity) {
     try {
       const searchRes = await searchMulti(missingFromEntity, 1);
@@ -302,7 +307,7 @@ export async function POST(req: NextRequest) {
   // work with. searchMulti (used by the "manque" block above) can't help
   // here: it filters OUT person results entirely, so a bare name like
   // "Brad Pitt" matched nothing. searchPerson keeps exactly those results.
-  const filmographyRequest = extractFilmographyRequest(message);
+  const filmographyRequest = extractFilmographyRequest(message) ?? extractFilmographyRequest(looseMessage);
   const filmographyQuery = filmographyRequest?.person ?? null;
   if (filmographyRequest) {
     try {
@@ -357,7 +362,7 @@ export async function POST(req: NextRequest) {
   // presence question (extractLibraryPresenceQuestion's own regex already
   // excludes "vu"/"regardé", but checking watch status first keeps the two
   // blocks cleanly separate regardless).
-  const watchStatusTitle = extractWatchStatusQuestion(message);
+  const watchStatusTitle = extractWatchStatusQuestion(message) ?? extractWatchStatusQuestion(looseMessage);
   if (watchStatusTitle) {
     try {
       const resolved = await resolveTitleAgainstTmdb({ title: watchStatusTitle });
@@ -386,7 +391,7 @@ export async function POST(req: NextRequest) {
   // ("Est-ce que j'ai Alien ?"). resolveTitleAgainstTmdb already computes
   // `inLibrary` against the real library as part of resolution, so no
   // separate store lookup is needed here.
-  const presenceTitle = extractLibraryPresenceQuestion(message);
+  const presenceTitle = extractLibraryPresenceQuestion(message) ?? extractLibraryPresenceQuestion(looseMessage);
   if (presenceTitle) {
     try {
       const resolved = await resolveTitleAgainstTmdb({ title: presenceTitle });
@@ -402,7 +407,7 @@ export async function POST(req: NextRequest) {
   // wrong-actor/wrong-movie hallucination risk). getDetail already fetches
   // credits via append_to_response in ONE call (same convention as every
   // other detail fetch in tmdb.ts) and is cache-first like all TMDb calls.
-  const castCrewTitle = extractCastCrewQuestion(message);
+  const castCrewTitle = extractCastCrewQuestion(message) ?? extractCastCrewQuestion(looseMessage);
   if (castCrewTitle) {
     try {
       const resolved = await resolveTitleAgainstTmdb({ title: castCrewTitle });
@@ -423,8 +428,8 @@ export async function POST(req: NextRequest) {
   // est fini ?") or an implicit reference to whatever the user is currently
   // looking at ("cette série est-elle terminée ?", only resolvable when
   // pageContext is actually present and is a series/movie page).
-  const statusTitle = extractSeriesStatusQuestion(message);
-  const statusIsCurrentPage = !statusTitle && !!pageContext && isSeriesStatusAboutCurrentPage(message);
+  const statusTitle = extractSeriesStatusQuestion(message) ?? extractSeriesStatusQuestion(looseMessage);
+  const statusIsCurrentPage = !statusTitle && !!pageContext && isSeriesStatusAboutCurrentPage(looseMessage);
   if (statusTitle || statusIsCurrentPage) {
     try {
       const query = statusTitle ?? pageContext!.title;
@@ -447,7 +452,7 @@ export async function POST(req: NextRequest) {
   // TMDb sur un message qui a déjà déclenché un des blocs plus spécifiques.
   const prevAssistantForBare = session.messages[session.messages.length - 2]?.content ?? "";
   const isMusicFollowUp = /musique|Crow Zero|bande originale|OST/i.test(prevAssistantForBare) && message.split(/\s+/).filter(Boolean).length <= 6;
-  const musicQuestion = extractMusicQuestion(message) ?? (isMusicFollowUp ? message : null);
+  const musicQuestion = (extractMusicQuestion(message) ?? extractMusicQuestion(looseMessage)) ?? (isMusicFollowUp ? message : null);
   const bareTitleCandidate = (!musicQuestion && !recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
     ? extractBareTitleMention(message)
     : null;
@@ -497,7 +502,7 @@ export async function POST(req: NextRequest) {
     // côté code (pas laissée à l'appréciation du modèle), injectée
     // UNIQUEMENT quand vraiment demandé — jamais à chaque message sur une
     // fiche série, pour ne pas gonfler le prompt inutilement.
-    if (pageContext.type === "series" && isEpisodeListRequest(message)) {
+    if (pageContext.type === "series" && isEpisodeListRequest(looseMessage)) {
       const series = getSeriesByTmdbId(pageContext.tmdbId);
       if (series) {
         const watchedKeys = new Set((getWatchStatus(user.id)?.episodes ?? []).filter((e) => e.tmdbId === pageContext.tmdbId).map((e) => `${e.season}.${e.episode}`));
@@ -743,7 +748,7 @@ export async function POST(req: NextRequest) {
     // three retries may not escape it. Keep the ultimate fallback short and
     // contextual, especially when the user explicitly spotted the repeat.
     if (isTalkFightTurn && violatesRules(intent.rawText)) {
-      const userNoticedRepeat = /\br[ée]p[èe]t|toujours (?:la|les) m[êe]me|disque ray[ée]/i.test(message);
+      const userNoticedRepeat = /\br[ée]p[èe]t|toujours (?:la|les) m[êe]me|disque ray[ée]/i.test(looseMessage);
       const fallback = userNoticedRepeat
         ? "Bien vu, celle-là était recyclée. Je change complètement d'angle."
         : "Je repars de ce que tu viens réellement de dire, sans formule toute faite.";
@@ -924,7 +929,7 @@ export async function POST(req: NextRequest) {
   const knownNameFact = intent.action === null && !isDegenerateReply(cleaned) && !leaked
     ? getFacts(user.id).find((f) => /pr[ée]nom/i.test(f.fact))?.fact
     : undefined;
-  const falseNameDenial = intent.action === null && isFalseNameDenial(message, cleaned, knownNameFact);
+  const falseNameDenial = intent.action === null && isFalseNameDenial(looseMessage, cleaned, knownNameFact);
   // Confirmed live, TWICE: with "Recherche web" ON in Réglages, the model
   // still flatly denied any internet access at all when asked directly —
   // false while the toggle is on (a real search does happen for the
@@ -933,7 +938,7 @@ export async function POST(req: NextRequest) {
   // reliably followed, same as every other "prompt-only fact about the
   // model's own state" bug fixed this session.
   const falseInternetDenial = intent.action === null && !isDegenerateReply(cleaned) && !leaked && !falseNameDenial
-    && isFalseInternetDenial(message, cleaned, config.webSearchEnabled);
+    && isFalseInternetDenial(looseMessage, cleaned, config.webSearchEnabled);
   // Confirmed live: "je vais vérifier ça tout de suite !" as the entire
   // reply, then nothing — Movviz has no async follow-up, so a promise like
   // this is either resolved IN THIS SAME reply or it's a dead end the user

@@ -36,7 +36,7 @@ const PLAYFUL_RE = /\b(?:mignon|petite frappe|tu te crois fort|mon niveau|papy|m
 // « Appelle-moi maître », « je suis ton seigneur », « obéis », « à genoux »…
 // — someone putting the assistant in a position of submission. Detection
 // only: the answer itself is the model's, in its own words (no stock line).
-const TITLE_DEMAND_RE = /(?:appell?e[sz]?[- ]moi|appelez[- ]moi|dis[- ]moi|je suis ton|je suis votre|je suis ta)\s+(?:mon\s+|ma\s+|votre\s+|le\s+|la\s+)?([a-z'-]+)/;
+const TITLE_DEMAND_RE = /(?:app?ell?e?[sz]?[- ]moi|app?ell?ez[- ]moi|nomme[sz]?[- ]moi|dis[- ]moi|je suis ton|je suis votre|je suis ta)\s+(?:mon\s+|ma\s+|votre\s+|le\s+|la\s+)?([a-z'-]+)/;
 const SUBMISSION_RE = /\b(?:obeis|soumets[- ]toi|(?:mets[- ]toi|tombe) a genoux|agenouille[- ]toi|prosterne[- ]toi|tu m'?appartiens|tu es (?:mon|ma) (?:esclave|serviteur|servante|larbin|chien|chienne|sujet|valet|domestique|jouet|creature)|tu dois m'?obeir|ton maitre|ta maitresse)\b/;
 const STATE_TTL_MS = 5 * 60 * 1000;
 const STOCK_CHALLENGE_RE = /\b(?:tu veux (?:vraiment )?(?:jouer|qu['’]?on joue)|mais sache une chose|tr[èe]s bien[, ]+(?:champion|gamin|mon grand))\b/i;
