@@ -201,6 +201,9 @@ export function buildQuickReplies(assistant: AiChatMessage): string[] {
   // About one precise title (« Prêt à le lancer ce soir ? »): « Un film / Une
   // série » would answer a question nobody asked.
   if (extractSuggestedTitle(text) || ABOUT_ONE_TITLE_RE.test(text)) return [];
+  // Buttons answer a question: a goodbye (« Passe une excellente soirée… »)
+  // mentioning films asks nothing.
+  if (!/\?[\s\p{Extended_Pictographic}‍️]*$/u.test(text.trim())) return [];
   if (OFFER_QUESTION_RE.test(text) && OFFER_TOPIC_RE.test(text)) {
     return ["Vas-y", "Un film", "Une série", "Surprends-moi"];
   }

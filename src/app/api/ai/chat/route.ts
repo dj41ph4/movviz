@@ -1218,7 +1218,13 @@ export async function POST(req: NextRequest) {
       allItems.map((item) => [`${item.type}:${item.tmdbId}`, (item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)] as const)
     );
 
+    // « un film d'horreur » asks for films: a series never makes the cut
+    // (and vice versa). Only when the request says so explicitly.
+    const asksFilm = /\bfilms?\b/i.test(looseMessage);
+    const asksSeries = /\bs[ée]ries?\b/i.test(looseMessage);
+    const wantedType = asksFilm && !asksSeries ? "movie" : asksSeries && !asksFilm ? "series" : null;
     const rank = () => scoreCandidates(user.id, allItems, reasons, SHOWN_CARDS + ALTERNATE_CARDS, mood, tasteVector, franchise, fatigue, candidateGenres, alreadyProposed)
+      .filter((r) => !wantedType || r.type === wantedType)
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     let ranked = rank();
     // Everything already seen or proposed is filtered out: for someone who
@@ -1226,8 +1232,20 @@ export async function POST(req: NextRequest) {
     // TMDb's « similar » of what they watched last rather than showing two
     // lonely cards (or none).
     if (ranked.length < SHOWN_CARDS) {
+      // The top-up comes from what they watched last, whatever it was: it
+      // must still fit what was asked — at least one genre in common with the
+      // model's own picks (a « film d'horreur pour débutant » once got a
+      // cartoon series from the last show watched).
+      const askedGenreIds = new Set(allItems.flatMap((item) => item.genreIds ?? []));
+      const beforeTopUp = new Set(allItems.map((item) => `${item.type}:${item.tmdbId}`));
       const lastWatched = (getWatchStatus(user.id)?.recent ?? []).slice(0, 3);
       for (const recent of lastWatched) await addSimilar(recent, 8);
+      if (askedGenreIds.size) {
+        for (let i = allItems.length - 1; i >= 0; i--) {
+          const item = allItems[i];
+          if (!beforeTopUp.has(`${item.type}:${item.tmdbId}`) && !(item.genreIds ?? []).some((id) => askedGenreIds.has(id))) allItems.splice(i, 1);
+        }
+      }
       for (const item of allItems) {
         const key = `${item.type}:${item.tmdbId}`;
         if (!candidateGenres.has(key)) candidateGenres.set(key, (item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n));

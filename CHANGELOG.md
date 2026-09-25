@@ -1,3 +1,10 @@
+## v1.25.95 — September 2026
+
+### Assistant IA : propositions fidèles à la demande, pas de boutons sur un au revoir
+
+- Assistant IA : une demande de film ne propose plus de série, et inversement. Quand la plupart de ses idées sont déjà vues, les titres ajoutés en complément doivent désormais partager un genre avec la demande : un « film d'horreur pour débutant » affichait une série animée tirée de la dernière chose regardée.
+- Assistant IA : les boutons de réponse rapide n'apparaissent que si son message pose vraiment une question. Un « bonne soirée » n'en affiche plus.
+
 ## v1.25.94 — September 2026
 
 ### Lecture : l'avancement et les « vu » ne se perdent plus

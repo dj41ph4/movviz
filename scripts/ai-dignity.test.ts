@@ -101,3 +101,9 @@ test("les réponses rapides viennent de la question posée, jamais des boutons g
   // Sans ligne CHOIX, une question sur UN titre précis n'affiche plus « Un film / Une série ».
   assert.deepEqual(buildQuickReplies({ role: "assistant", content: "Prêt à le lancer dès ce soir ou tu gardes ça pour un autre moment ?" }), []);
 });
+
+test("un au revoir n'affiche aucun bouton, une vraie proposition si", async () => {
+  const { buildQuickReplies } = await import("../src/lib/ai/chatAssist.ts");
+  assert.deepEqual(buildQuickReplies({ role: "assistant", content: "Passe une excellente soirée, Seb ! Profite bien de ton film, et fais signe dès que tu veux qu'on se relance une session ciné. À plus ! 🍿🎬" }), []);
+  assert.ok(buildQuickReplies({ role: "assistant", content: "Tu veux plutôt un film ou une série ce soir ? 🍿" }).length > 0);
+});
