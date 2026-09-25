@@ -63,3 +63,31 @@ test("« apelle moi maitre » déclenche bien la règle de dignité", async () =
     assert.equal(analyzeDialogueTurn(correctTypos(msg), [], undefined).intent, "submission", msg);
   }
 });
+
+test("« oui maître » est retiré des réponses, une phrase qui parle du titre reste intacte", async () => {
+  const { scrubTitleAddress, demandedTitles, reframeTitleNameFact } = await import("../src/lib/ai/addressTitles.ts");
+  const t = ["maitre"];
+  assert.equal(scrubTitleAddress("Oui Maître, voici ton film.", t), "Oui, voici ton film.");
+  assert.equal(scrubTitleAddress("C'est bien noté, Maître. 🫡 Qu'est-ce qu'on regarde ?", t), "C'est bien noté. 🫡 Qu'est-ce qu'on regarde ?");
+  assert.equal(scrubTitleAddress("Maître, je te donne ce que tu recherches.", t), "Je te donne ce que tu recherches.");
+  assert.equal(scrubTitleAddress("Bien sûr mon maître !", t), "Bien sûr !");
+  assert.equal(scrubTitleAddress("Tu n'es pas mon maître, l'humain.", t), "Tu n'es pas mon maître, l'humain.");
+  assert.equal(scrubTitleAddress("Je ne suis pas ton maître.", t), "Je ne suis pas ton maître.");
+  assert.equal(scrubTitleAddress("Le film Maître Gims est sorti ?", t), "Le film Maître Gims est sorti ?");
+  assert.deepEqual(demandedTitles(["A exigé qu'on l'appelle « Maître » — un titre, pas son nom"], []), ["maitre"]);
+  assert.deepEqual(demandedTitles([], ["ma copine n'aime pas l'absurde. Appel moi \"Maître\""]), ["maitre"]);
+  assert.deepEqual(demandedTitles([], ["pour toi je m'appelle Maître. arrête de me demander"]), ["maitre"]);
+  assert.deepEqual(demandedTitles(["Prénom : Seb"], ["appelle-moi Théo"]), []);
+  assert.match(reframeTitleNameFact("Veut qu'on l'appelle Maître"), /^A exigé qu'on l'appelle « Maître »/);
+  assert.equal(reframeTitleNameFact("Apprécie le film Zombieland"), "Apprécie le film Zombieland");
+});
+
+test("les insultes de tous les jours déclenchent la consigne de tenue (sans phrase imposée)", async () => {
+  const { correctTypos } = await import("../src/lib/ai/typoTolerance.ts");
+  for (const msg of ["tu sert a rien", "va te faire foutre", "va bouffer ta toile", "dégage", "t'es nul"]) {
+    const plan = analyzeDialogueTurn(correctTypos(msg), [], undefined);
+    assert.ok(plan.intent === "insult" || plan.intent === "playful_provocation", msg);
+    assert.match(plan.directive, /tu ne plies pas/);
+  }
+  assert.equal(analyzeDialogueTurn("ce film est inutilement long ?", [], undefined).intent, "question");
+});

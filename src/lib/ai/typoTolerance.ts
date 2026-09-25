@@ -62,6 +62,9 @@ const KEEP_AS_IS = [
   "série", "vie", "rien", "tout", "tous", "toute", "toutes", "bien", "fin", "film", "filme", "filmé", "ville",
   "vide", "suite", "suit", "suivre", "joue", "jeu", "roi", "reine", "boss", "chef", "sire", "prince", "lord",
   "king", "queen", "daddy", "papa", "maman", "maison", "mois", "moins", "mec", "meuf", "pote", "potes",
+  "sert", "sers", "servent", "servir", "sent", "sens", "vont", "vais", "fais", "font", "mets", "met", "prends",
+  "prend", "donne", "donnes", "veille", "reste", "restes", "tiens", "tient", "viens", "vient", "part", "pars",
+  "perds", "perd", "lis", "lit", "ecris", "écris", "croit", "doit", "dois", "peut", "vaut", "fout", "foutre",
 ];
 
 const strip = (word: string) => word.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

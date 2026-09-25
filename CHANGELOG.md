@@ -1,3 +1,10 @@
+## v1.25.92 — September 2026
+
+### Assistant IA : plus jamais « oui maître », et il ne se laisse pas écraser
+
+- Assistant IA : quelqu'un qui a exigé d'être appelé « Maître » (ou Seigneur, Majesté…) n'a plus droit aux « oui maître ». L'assistant imitait ses propres anciennes réponses de la conversation : ces formules sont désormais effacées de ce qu'il relit et de ce qu'il écrit. Une consigne lui rappelle que ce titre n'est pas un nom, y compris d'une session à l'autre. Une phrase qui parle du titre (« tu n'es pas mon maître ») reste intacte.
+- Assistant IA : face à une insulte ou à du mépris (« tu sers à rien », « va te faire foutre »…), il ne s'excuse plus platement et ne donne plus raison à l'insulte. Il garde sa tenue avec une pique subtile, sans attaque gratuite ni rancune, et dose sa réponse selon le ton : répartie légère pour une taquinerie, correction honnête pour une vraie critique.
+
 ## v1.25.91 — September 2026
 
 ### Épisodes récemment ajoutés : fini les titres bloqués en tête

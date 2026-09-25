@@ -6,6 +6,7 @@ import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallu
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { correctTypos } from "@/lib/ai/typoTolerance";
+import { demandedTitles, scrubTitleAddress } from "@/lib/ai/addressTitles";
 import { analyzeDialogueTurn, selectDialogueCandidate, updateDialogueState } from "@/lib/ai/dialogueDirector";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating, getAllRatings, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
@@ -107,6 +108,15 @@ export async function POST(req: NextRequest) {
   // « deja vu », « recomande »…); title extractors try it as typed first.
   const looseMessage = correctTypos(message);
   const dialoguePlan = analyzeDialogueTurn(looseMessage, session.messages, session.dialogueState);
+  // Someone who demanded a title (« appelle-moi maître ») — now or sessions
+  // ago: the model kept answering « oui maître » because its own past
+  // replies in the history said so. Those are scrubbed from what it reads,
+  // and from what it writes.
+  const titleDemands = demandedTitles(
+    getFacts(user.id).map((f) => f.fact),
+    session.messages.filter((m) => m.role === "user").map((m) => correctTypos(m.content)),
+  );
+  const scrubTitles = titleDemands.length ? (text: string) => scrubTitleAddress(text, titleDemands) : undefined;
 
   // Bug fix (audit finding #5, confirmed live — same class as the brique-9
   // fix, just relocated): this MUST be read before extractSelfIntroName's
@@ -225,6 +235,9 @@ export async function POST(req: NextRequest) {
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
   system += buildRatingsContext(user.id);
+  if (titleDemands.length && dialoguePlan.intent !== "submission") {
+    system += `\n\nTITRE REFUSÉ — cet utilisateur a exigé qu'on l'appelle « ${titleDemands.join(" », « ")} » : un titre, pas son nom. Si tu l'as appelé ainsi plus haut dans la conversation, c'était une erreur, ne recommence pas. Ne l'appelle jamais ainsi, ne dis jamais « oui maître » ni rien qui signe ta soumission. Inutile d'en reparler à chaque message : réponds normalement à ce qu'il dit. S'il réclame encore le titre, refuse-le avec la même dignité malicieuse, avec des mots neufs.`;
+  }
   system += `\n\nDIRECTEUR DE DIALOGUE — décision déterministe pour CE tour (elle prime sur les règles générales de joute si elles se contredisent) : ${dialoguePlan.directive}`;
   system += `\n\nCONTINUITÉ COURTE — les messages de cette session qui te sont fournis sont une mémoire active, pas un simple historique décoratif. Relis en priorité les 10 derniers messages avant de répondre. Si le message actuel contient une référence implicite (ça, ce changement, lui, celui-là, ce que je viens de dire), résous-la depuis ces tours récents. La dernière correction explicite de l'utilisateur remplace immédiatement une ancienne affirmation contradictoire de l'assistant. Ne demande jamais de répéter une information clairement présente quelques messages plus haut.`;
   let groundedAnswer: string | null = null;
@@ -554,11 +567,11 @@ export async function POST(req: NextRequest) {
       text = groundedAnswer;
       providerName = "tmdb";
     } else if (dialoguePlan.useDualCandidates) {
-      const candidates = await callAiCandidates(config, system, historyForModel(session.messages));
+      const candidates = await callAiCandidates(config, system, historyForModel(session.messages, scrubTitles));
       text = selectDialogueCandidate(candidates.map((candidate) => candidate.text), dialoguePlan, recentConversationReplies, message);
       providerName = candidates[0]?.provider ?? config.primary;
     } else {
-      const res = await callAi(config, system, historyForModel(session.messages));
+      const res = await callAi(config, system, historyForModel(session.messages, scrubTitles));
       text = res.text;
       providerName = res.provider;
     }
@@ -587,7 +600,7 @@ export async function POST(req: NextRequest) {
       return Promise.reject(new Error("correction_budget_exhausted"));
     }
     correctionsLeft--;
-    return callAi(config, retrySystem, historyForModel(session.messages));
+    return callAi(config, retrySystem, historyForModel(session.messages, scrubTitles));
   };
   let intent = parseIntent(text);
   // The model occasionally keeps chatting after an explicit « yes/give it
@@ -1074,6 +1087,7 @@ export async function POST(req: NextRequest) {
       ? `C'est noté ⭐ ${list}.`
       : `C'est noté ⭐ ${list} — ${appliedRatings.length} titres mis à jour.`;
   }
+  if (scrubTitles && finalCleaned) finalCleaned = scrubTitles(finalCleaned);
   const FALLBACK_TEXT = "J’ai raté ma réponse sur ce tour. Le contexte de la conversation est toujours là, je repars de ce qu’on vient de se dire.";
   const assistant: AiChatMessage = { role: "assistant", content: finalCleaned || FALLBACK_TEXT };
 

@@ -47,9 +47,10 @@ export function lastRecommendations(messages: AiChatMessage[]): AiRecommendation
  *  « pourquoi celui-ci ? » a few messages later pointed at nothing and it
  *  seemed to lose the thread. Each such turn now carries its titles (and the
  *  outcome of an add), in the order the cards were shown. */
-export function historyForModel(messages: AiChatMessage[]): AiChatMessage[] {
+export function historyForModel(messages: AiChatMessage[], scrub?: (text: string) => string): AiChatMessage[] {
   return messages.map((m) => {
     if (m.role !== "assistant") return m;
+    if (scrub) m = { ...m, content: scrub(m.content) };
     const lines: string[] = [];
     (m.recommendations ?? []).forEach((r, i) => {
       lines.push(`${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}, ${r.type === "series" ? "série" : "film"}`);
