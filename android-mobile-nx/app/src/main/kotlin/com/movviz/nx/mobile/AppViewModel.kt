@@ -1493,8 +1493,26 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      * Movviz, puis propage best-effort vers le Plex du profil connecté. */
     fun toggleMovieWatched(tmdbId: Int, title: String, watched: Boolean) {
         val repo = repository ?: return
+        // Instantané : le bouton bascule à l'appui, Movviz enregistre en
+        // arrière-plan. Attendre la réponse (puis relire tout l'état vu)
+        // laissait le bouton figé une à plusieurs secondes.
+        applyWatchedLocally(tmdbId, movie = true, episodes = emptyList(), watched = watched)
         viewModelScope.launch {
             if (repo.toggleWatch(tmdbId, "movie", watched, title) is ApiResult.Success) loadWatchStatus()
+            else applyWatchedLocally(tmdbId, movie = true, episodes = emptyList(), watched = !watched)
+        }
+    }
+
+    /** Reflète tout de suite un changement « vu » dans l'état affiché ; le
+     *  serveur fait foi ensuite (rechargé après succès, annulé en cas d'échec). */
+    private fun applyWatchedLocally(tmdbId: Int, movie: Boolean, episodes: List<com.movviz.nx.mobile.data.WatchToggleEpisodeDto>, watched: Boolean) {
+        val current = _watchStatus.value ?: com.movviz.nx.mobile.data.WatchStatusDto()
+        _watchStatus.value = if (movie) {
+            current.copy(movies = if (watched) (current.movies + tmdbId).distinct() else current.movies.filter { it != tmdbId })
+        } else {
+            val keys = episodes.map { it.season to it.episode }.toSet()
+            val kept = current.episodes.filterNot { it.tmdbId == tmdbId && (it.season to it.episode) in keys }
+            current.copy(episodes = if (watched) kept + episodes.map { com.movviz.nx.mobile.data.WatchedEpisodeDto(tmdbId, it.season, it.episode) } else kept)
         }
     }
 
@@ -1512,8 +1530,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     ) {
         if (episodes.isEmpty()) return
         val repo = repository ?: return
+        applyWatchedLocally(tmdbId, movie = false, episodes = episodes, watched = watched)
         viewModelScope.launch {
             if (repo.toggleWatch(tmdbId, "series", watched, title, episodes, scope, season) is ApiResult.Success) loadWatchStatus()
+            else applyWatchedLocally(tmdbId, movie = false, episodes = episodes, watched = !watched)
         }
     }
 

@@ -1,3 +1,9 @@
+## v1.25.90 — September 2026
+
+### Android TV et mobile : bouton « Vu » instantané
+
+- Android TV et mobile : le bouton « Vu » bascule dès l'appui. Movviz enregistre ensuite en arrière-plan, sans faire attendre la réponse du serveur, et remet l'état d'avant seulement si l'enregistrement échoue.
+
 ## v1.25.89 — September 2026
 
 ### Assistant IA : Gemini seul, clés utilisées à tour de rôle
