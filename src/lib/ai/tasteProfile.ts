@@ -2,6 +2,7 @@ import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import type { AiContextInsight, AiContextProfile, AiCorrectionEntry, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile, TitleRating, RatingSource, RatingOrigin } from "./types";
+import { reframeTitleNameFact } from "./addressTitles";
 
 /**
  * Foundation of the AI v2 taste engine (AI.MD §2.A/§2.G): a strictly
@@ -102,6 +103,9 @@ const NAME_FACT_RE = /pr[ée]nom/i;
  *  "I'm called Alex" doesn't pile up, bounded so the prompt this feeds back
  *  into never grows unbounded. */
 export function rememberFact(userId: string, fact: string): void {
+  // « Prénom : Maître » would replace the real first name (one name fact
+  // kept) — a title is stored as the demand it is, whoever produced it.
+  fact = reframeTitleNameFact(fact);
   const store = read();
   const profile = profileForUser(store, userId);
   let deduped = profile.facts.filter((f) => f.fact.toLowerCase() !== fact.toLowerCase());
@@ -119,7 +123,9 @@ export function rememberFact(userId: string, fact: string): void {
 }
 
 export function getFacts(userId: string): AiFactEntry[] {
-  return profileForUser(read(), userId).facts;
+  // A « Prénom : Maître » stored before titles were told apart reads as
+  // the demand it really was.
+  return profileForUser(read(), userId).facts.map((f) => ({ ...f, fact: reframeTitleNameFact(f.fact) }));
 }
 
 

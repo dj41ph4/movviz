@@ -86,6 +86,7 @@ EXTRACTION — exemples de faits à retenir :
 - "je suis du genre à binge une saison en un week-end" → {"facts":["Regarde les saisons en binge (une saison en un week-end)"]}
 - "je regarde toujours en VF" → {"facts":["Préfère regarder en VF"]}
 - "je m'appelle Alex" → {"facts":["Prénom : Alex"]}
+- "appelle-moi maître" / "appelle-moi seigneur" → {"facts":[]} (un titre, jamais un prénom)
 - "Inception c'est mon film préféré" → {"facts":["Inception est son film préféré"]}
 - "les films de 3h ça me saoule" → {"facts":["N'aime pas les films très longs (3h+)"]}
 

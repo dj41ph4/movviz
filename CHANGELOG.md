@@ -1,3 +1,10 @@
+## v1.25.85 — September 2026
+
+### Assistant IA : il garde le fil et ne se soumet à personne
+
+- Assistant IA : il garde le fil d'une conversation après une série de propositions. Il retient désormais les titres qu'il a présentés en cartes et comprend « le deuxième », « celui-là » ou « pourquoi celui-ci ? » plusieurs messages plus tard.
+- Assistant IA : « appelle-moi maître » (ou seigneur, majesté, patron…) n'est plus pris pour un prénom et ne remplace plus le vrai. L'assistant refuse le titre avec humour, rappelle à son interlocuteur qu'il n'est qu'un humain, réclame son vrai nom et le menace gentiment d'un surnom de son cru. Il le fait toujours avec ses propres mots, jamais avec une phrase toute faite, et continue d'aider pour tout le reste. Un ancien « prénom » de ce genre déjà enregistré est corrigé automatiquement.
+
 ## v1.25.84 — September 2026
 
 ### Assistant IA : bouton « Ma liste » sur les propositions

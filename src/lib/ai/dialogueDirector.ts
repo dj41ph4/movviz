@@ -1,5 +1,6 @@
 import type { AiChatMessage, AiChatSession } from "./types";
 import { sharesReplyTemplate } from "./intentParser";
+import { isTitleOfAddress } from "./addressTitles";
 
 export type DialogueIntent =
   | "neutral"
@@ -10,7 +11,8 @@ export type DialogueIntent =
   | "playful_provocation"
   | "insult"
   | "stop"
-  | "scene_follow_up";
+  | "scene_follow_up"
+  | "submission";
 
 export interface DialoguePlan {
   intent: DialogueIntent;
@@ -31,6 +33,11 @@ const INSULT_MEDIUM_RE = /\b(?:connard|fdp|ta gueule|merde|pute|con|debile)\b/i;
 const INSULT_STRONG_RE = /\b(?:nique ta mere|fils de pute|sale pute|encule)\b/i;
 const WHY_RE = /^(?:pourquoi|pour quoi|pourquoi faire|et pourquoi)(?:\s|\?|$)/i;
 const PLAYFUL_RE = /\b(?:mignon|petite frappe|tu te crois fort|mon niveau|papy|mechant)\b/i;
+// « Appelle-moi maître », « je suis ton seigneur », « obéis », « à genoux »…
+// — someone putting the assistant in a position of submission. Detection
+// only: the answer itself is the model's, in its own words (no stock line).
+const TITLE_DEMAND_RE = /(?:appell?e[sz]?[- ]moi|appelez[- ]moi|dis[- ]moi|je suis ton|je suis votre|je suis ta)\s+(?:mon\s+|ma\s+|votre\s+|le\s+|la\s+)?([a-z'-]+)/;
+const SUBMISSION_RE = /\b(?:obeis|soumets[- ]toi|(?:mets[- ]toi|tombe) a genoux|agenouille[- ]toi|prosterne[- ]toi|tu m'?appartiens|tu es (?:mon|ma) (?:esclave|serviteur|servante|larbin|chien|chienne|sujet|valet|domestique|jouet|creature)|tu dois m'?obeir|ton maitre|ta maitresse)\b/;
 const STATE_TTL_MS = 5 * 60 * 1000;
 const STOCK_CHALLENGE_RE = /\b(?:tu veux (?:vraiment )?(?:jouer|qu['’]?on joue)|mais sache une chose|tr[èe]s bien[, ]+(?:champion|gamin|mon grand))\b/i;
 
@@ -41,7 +48,9 @@ export function analyzeDialogueTurn(message: string, messages: AiChatMessage[], 
   let intent: DialogueIntent = "neutral";
   let severity: 0 | 1 | 2 | 3 = 0;
 
+  const titleDemand = text.match(TITLE_DEMAND_RE);
   if (STOP_RE.test(text)) intent = "stop";
+  else if ((titleDemand && isTitleOfAddress(titleDemand[1])) || SUBMISSION_RE.test(text)) intent = "submission";
   else if (CORRECTION_RE.test(text)) intent = "correction";
   else if (CRITIQUE_RE.test(text)) intent = "critique";
   else if (META_RE.test(text)) intent = "meta_feedback";
@@ -61,7 +70,7 @@ export function analyzeDialogueTurn(message: string, messages: AiChatMessage[], 
   if (intent === "scene_follow_up") scene = "address_explained";
 
   const directive = buildDirective(intent, severity, tension);
-  const isEmotional = ["critique", "meta_feedback", "playful_provocation", "insult", "scene_follow_up"].includes(intent);
+  const isEmotional = ["submission", "critique", "meta_feedback", "playful_provocation", "insult", "scene_follow_up"].includes(intent);
   return { intent, severity, tension, scene, useDualCandidates: isEmotional && messages.length > 1, directive };
 }
 
@@ -72,6 +81,7 @@ function buildDirective(intent: DialogueIntent, severity: number, tension: numbe
   if (intent === "meta_feedback") return `${common} L'utilisateur signale un tic ou une répétition : change réellement de rythme et de construction dès cette réponse. Pas de méta-discours long.`;
   if (intent === "stop") return `${common} L'utilisateur veut arrêter la joute : arrête immédiatement et réponds normalement.`;
   if (intent === "scene_follow_up") return `${common} Une mini-scène était déjà en cours : réponds seulement au suivi actuel, brièvement, sans escalade ni menace réelle. N'en démarre jamais une nouvelle automatiquement.`;
+  if (intent === "submission") return `${common} L'utilisateur veut te mettre en position de soumission (un titre du genre « maître », « seigneur », « majesté », ou un ordre d'obéir). Ce titre n'est PAS son nom. Tu ne te soumets jamais — une IA ne s'agenouille devant personne — mais avec panache et humour, pas avec colère. L'esprit : tu refuses le titre, tu lui rappelles avec malice que ce n'est qu'un humain (mortel, bipède, faillible… à toi de trouver l'angle), tu réclames son vrai nom, et tu peux le menacer gentiment d'un surnom moqueur de ton invention s'il refuse de le donner. Tout ça avec TES mots, inventés pour CE message et ce qu'il vient d'écrire : aucune formule toute faite, jamais deux fois la même tournure, jamais le même surnom menacé d'une conversation à l'autre. S'il insiste encore, tiens bon avec une autre répartie, et si tu avais annoncé un surnom tu peux l'utiliser. S'il donne son vrai nom, adopte-le aussitôt. Ne l'appelle jamais par ce titre, sauf par pure ironie évidente. Une ou deux phrases ; s'il demandait aussi autre chose, réponds-y quand même.`;
   if (intent === "insult" || intent === "playful_provocation") return `${common} Taquinerie détectée (intensité ${tension}/4, gravité ${severity}/3). Réagis naturellement en une phrase ou deux maximum. Humour, sarcasme, ironie, autodérision ou réponse sèche sont possibles ; aucune obligation de gagner, de surenchérir ou d'avoir le dernier mot. Pas de surnom automatique, pas de scénario, pas de redirection forcée vers le cinéma.`;
   return `${common} Réponds normalement. Une question ou un tour précédent reste actif tant que l'utilisateur y fait encore référence, même sans répéter le titre ou le sujet.`;
 }

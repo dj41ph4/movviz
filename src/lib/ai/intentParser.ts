@@ -1,4 +1,5 @@
 import type { AiAddItem } from "./types";
+import { isTitleOfAddress } from "./addressTitles";
 
 /**
  * Intent parser — the single gate between the LLM's free-form output and
@@ -425,7 +426,7 @@ export function extractNameFromDirectAnswer(previousAssistantMessage: string | u
   if (!previousAssistantMessage || !NAME_QUESTION_RE.test(previousAssistantMessage)) return null;
   const trimmed = userMessage.trim().replace(/[.!?]+$/, "");
   if (!/^[a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29}$/i.test(trimmed)) return null;
-  if (NOT_A_NAME.has(trimmed.toLowerCase())) return null;
+  if (NOT_A_NAME.has(trimmed.toLowerCase()) || isTitleOfAddress(trimmed)) return null;
   const name = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
   return `Prénom : ${name}`;
 }
@@ -864,7 +865,7 @@ export function extractSelfIntroName(userMessage: string): string | null {
   // A verb/filler word can end up captured by the loose alternation above
   // ("moi c'est cool" → "cool") — reject anything that isn't plausibly a
   // first name rather than store noise as someone's identity.
-  if (NOT_A_NAME.has(raw.toLowerCase())) return null;
+  if (NOT_A_NAME.has(raw.toLowerCase()) || isTitleOfAddress(raw)) return null;
   const name = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   return `Prénom : ${name}`;
 }

@@ -41,6 +41,27 @@ export function lastRecommendations(messages: AiChatMessage[]): AiRecommendation
   return [];
 }
 
+/** The conversation as the model reads it. A recommendation turn is stored
+ *  as its one-line intro, the titles living in the cards: sent as is, the
+ *  model never saw what it had proposed, so « le deuxième », « celui-là » or
+ *  « pourquoi celui-ci ? » a few messages later pointed at nothing and it
+ *  seemed to lose the thread. Each such turn now carries its titles (and the
+ *  outcome of an add), in the order the cards were shown. */
+export function historyForModel(messages: AiChatMessage[]): AiChatMessage[] {
+  return messages.map((m) => {
+    if (m.role !== "assistant") return m;
+    const lines: string[] = [];
+    (m.recommendations ?? []).forEach((r, i) => {
+      lines.push(`${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}, ${r.type === "series" ? "série" : "film"}`);
+    });
+    const cards = lines.length ? `\n[Cartes proposées dans ce message :\n${lines.join("\n")}]` : "";
+    const actions = (m.actions ?? []).length
+      ? `\n[Actions : ${m.actions!.map((a) => `${a.title}${a.year ? ` (${a.year})` : ""} — ${a.status}`).join(" ; ")}]`
+      : "";
+    return cards || actions ? { ...m, content: `${m.content}${cards}${actions}` } : m;
+  });
+}
+
 /** Every title already shown as a card in this conversation. */
 export function proposedKeys(messages: AiChatMessage[]): Set<string> {
   const keys = new Set<string>();

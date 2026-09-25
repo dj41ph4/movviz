@@ -21,7 +21,7 @@ import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getOrFetchScene } from "@/lib/ai/sceneCache";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import { markSeen } from "@/lib/ai/seen";
-import { detectSeenCommand, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
+import { detectSeenCommand, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -549,11 +549,11 @@ export async function POST(req: NextRequest) {
       text = groundedAnswer;
       providerName = "tmdb";
     } else if (dialoguePlan.useDualCandidates) {
-      const candidates = await callAiCandidates(config, system, session.messages);
+      const candidates = await callAiCandidates(config, system, historyForModel(session.messages));
       text = selectDialogueCandidate(candidates.map((candidate) => candidate.text), dialoguePlan, recentConversationReplies, message);
       providerName = candidates[0]?.provider ?? config.primary;
     } else {
-      const res = await callAi(config, system, session.messages);
+      const res = await callAi(config, system, historyForModel(session.messages));
       text = res.text;
       providerName = res.provider;
     }
@@ -582,7 +582,7 @@ export async function POST(req: NextRequest) {
       return Promise.reject(new Error("correction_budget_exhausted"));
     }
     correctionsLeft--;
-    return callAi(config, retrySystem, session.messages);
+    return callAi(config, retrySystem, historyForModel(session.messages));
   };
   let intent = parseIntent(text);
   // The model occasionally keeps chatting after an explicit « yes/give it
