@@ -1,3 +1,9 @@
+## v1.25.88 — September 2026
+
+### Assistant IA : il ne reste plus muet quand Gemini sature
+
+- Assistant IA : un message sur deux restait sans réponse quand le modèle Gemini était saturé (« high demand ») ou avait atteint sa limite de requêtes à la minute. L'assistant passe désormais aussitôt au modèle Gemini suivant, qui a son propre quota, au lieu d'abandonner. Il n'attend plus 45 secondes un modèle bloqué avant d'essayer ailleurs.
+
 ## v1.25.87 — September 2026
 
 ### Assistant IA : boutons des propositions alignés

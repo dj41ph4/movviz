@@ -18,7 +18,10 @@ import { GEMINI_RECOMMENDED_MODELS, defaultModel, isFreeModel } from "./freeMode
  * there is no SSRF surface here (AGENTS.md).
  */
 
-const TIMEOUT_MS = 45_000;
+// Per attempt. A reply normally takes 1-5 s (a 15-card recommendation up to
+// ~15 s); 45 s used to be spent waiting on a stuck model before failing,
+// when the next Gemini model would have answered in two.
+const TIMEOUT_MS = 25_000;
 // A bulk add_media request (~100 titles pasted at once, e.g. a Netflix
 // export) needs room for the whole JSON: an old 1024-token ceiling cut it
 // mid-object and every retry hit the same wall. Well past the prompt's own
@@ -65,6 +68,16 @@ export function isModelUnavailable(err: AiCallError): boolean {
 function isQuotaSpent(err: AiCallError): boolean {
   if (err.status === 413) return true;
   return /quota exceeded|exceeded your current quota|requests per day|tokens per day|request too large/i.test(err.message);
+}
+
+/** Worth trying the next Gemini model: its free quota is counted per MODEL
+ *  (« limit: 15, model: gemini-3.5-flash-lite »), and Google overloads one
+ *  model at a time (503 « This model is currently experiencing high
+ *  demand »). Both came back as a failed message, one question in two,
+ *  while the next model was free. */
+export function isGeminiModelBusy(err: AiCallError): boolean {
+  if (err.status === 429 || err.status === 500 || err.status === 503 || err.status === 504) return true;
+  return /high demand|overloaded|currently unavailable|try again later|timeout|timed out|aborted|quota|rate limit|resource exhausted|too many requests|internal error/i.test(err.message);
 }
 
 /** Respects the provider's Retry-After (capped), else a short fixed pause. */
@@ -146,7 +159,7 @@ async function generate(provider: AiProviderId, key: string, model: string, syst
 const MIN_INTERVAL_MS: Record<AiProviderId, number> = { groq: 2_000, gemini: 1_000 };
 /** After a persistent refusal (429 even after the retry), the provider is
  *  left alone this long: an immediate failure instead of hammering it. */
-const RATE_LIMIT_COOLDOWN_MS = 60_000;
+const RATE_LIMIT_COOLDOWN_MS = 20_000;
 
 /** Several users can be answered at once: free plans count requests per
  *  MINUTE, not requests in flight — so only the STARTS are spaced. Waiting
@@ -236,34 +249,50 @@ async function callProvider(config: AiConfig, provider: AiProviderId, system: st
   const model = isFreeModel(provider, configured) ? configured : defaultModel(provider);
   const keys = config.providers[provider].keys.map((k) => k.key.trim()).filter(Boolean);
   if (keys.length === 0) throw new AiCallError(provider, "Aucune clé configurée", false);
-  const modelsToTry = provider === "gemini"
-    ? [model, ...GEMINI_RECOMMENDED_MODELS.map((m) => m.id).filter((id) => id !== model)]
-    : [model];
+  if (provider === "gemini") {
+    return callGemini(keys, [model, ...GEMINI_RECOMMENDED_MODELS.map((m) => m.id).filter((id) => id !== model)], system, messages);
+  }
 
+  // Groq: every key in turn; a plain burst limit gets one transparent retry
+  // on the same key, a spent quota moves to the next key at once.
   let lastError: AiCallError | null = null;
   for (const key of keys) {
-    for (const modelId of modelsToTry) {
-      let modelUnavailable = false;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          return await generate(provider, key, modelId, system, messages);
-        } catch (e) {
-          lastError = e instanceof AiCallError ? e : new AiCallError(provider, (e as Error).message, false);
-          if (provider === "gemini" && isModelUnavailable(lastError)) { modelUnavailable = true; break; }
-          // A spent quota won't come back in 6 s: next key at once. A plain
-          // burst limit gets one transparent retry on the same key.
-          if (isQuotaSpent(lastError)) break;
-          if (attempt === 0 && isRateLimited(lastError)) {
-            await sleep(rateLimitDelayMs(lastError));
-            continue;
-          }
-          break;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await generate(provider, key, model, system, messages);
+      } catch (e) {
+        lastError = e instanceof AiCallError ? e : new AiCallError(provider, (e as Error).message, false);
+        if (!isQuotaSpent(lastError) && attempt === 0 && isRateLimited(lastError)) {
+          await sleep(rateLimitDelayMs(lastError));
+          continue;
         }
+        break;
       }
-      if (!modelUnavailable) break; // any other failure: next key
     }
   }
   throw lastError ?? new AiCallError(provider, "Échec inconnu", false);
+}
+
+/** Gemini: every key of a model, then the next model — at once, no pause:
+ *  a busy, rate-limited or refused model hands over to the next free one
+ *  (each has its own quota). A request Google rejects for what it IS (bad
+ *  request, e.g. a malformed conversation) would fail on every model: it
+ *  stops there instead of burning the other models' quota. */
+async function callGemini(keys: string[], models: string[], system: string, messages: AiChatMessage[]): Promise<string> {
+  let lastError: AiCallError | null = null;
+  for (const modelId of models) {
+    for (const key of keys) {
+      try {
+        return await generate("gemini", key, modelId, system, messages);
+      } catch (e) {
+        lastError = e instanceof AiCallError ? e : new AiCallError("gemini", (e as Error).message, false);
+        if (!isModelUnavailable(lastError) && !isGeminiModelBusy(lastError) && !isQuotaSpent(lastError) && lastError.status !== 403) {
+          throw lastError;
+        }
+      }
+    }
+  }
+  throw lastError ?? new AiCallError("gemini", "Échec inconnu", false);
 }
 
 /** Asks the AI: primary provider first, then the other one; returns the text

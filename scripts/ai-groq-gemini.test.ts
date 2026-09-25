@@ -135,3 +135,39 @@ test("the model always answers the user: a conversation ending with its own mess
     globalThis.fetch = originalFetch;
   }
 });
+
+test("a Gemini model overloaded or out of per-minute quota hands over to the next model at once", async () => {
+  const originalFetch = globalThis.fetch;
+  const models: string[] = [];
+  globalThis.fetch = (async (input) => {
+    const model = decodeURIComponent(String(input).match(/models\/([^:]+):/)?.[1] ?? "");
+    models.push(model);
+    if (model === "gemini-3.5-flash-lite") return new Response(JSON.stringify({ error: { message: "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later." } }), { status: 503 });
+    if (model === "gemini-3.1-flash-lite") return new Response(JSON.stringify({ error: { message: "You exceeded your current quota. Quota exceeded for metric: generate_content_free_tier_requests, limit: 15, model: gemini-3.1-flash-lite" } }), { status: 429 });
+    return geminiOk("Réponse du modèle suivant");
+  }) as typeof fetch;
+  try {
+    const t0 = Date.now();
+    const result = await callAi(config({ gemini: ["AIza-test"] }, "gemini"), "system", [{ role: "user", content: "salut ça va ?" }]);
+    assert.deepEqual(result, { text: "Réponse du modèle suivant", provider: "gemini" });
+    assert.deepEqual(models, ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]);
+    assert.ok(Date.now() - t0 < 5000, "no pause between models");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a request Gemini rejects for what it is stops there instead of burning every model's quota", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { message: "Request contains an invalid argument." } }), { status: 400 });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(callAi(config({ gemini: ["AIza-test"] }, "gemini"), "system", [{ role: "user", content: "a" }]));
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
