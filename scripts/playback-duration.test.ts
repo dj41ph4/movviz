@@ -72,3 +72,25 @@ test.after(async () => {
     }
   }
 });
+
+test("a player session survives a server restart: progress and « terminé » are still recorded", async () => {
+  const { session } = openPlaybackSession("restart-user", { ratingKey: "plex-restart", mediaType: "movie", durationMs: 3_600_000 });
+  // Wait for the store to reach the disk, as it would before an update restarts the server.
+  const file = path.join(tempDir, "playback-progress.json");
+  for (let i = 0; i < 60; i++) {
+    if (fs.existsSync(file) && JSON.parse(fs.readFileSync(file, "utf8")).sessions?.[session.id]) break;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  // « Restart »: everything held in memory is gone.
+  const g = globalThis as { __movvizPlaybackSessions?: unknown; __movvizPlaybackProgress?: unknown };
+  delete g.__movvizPlaybackSessions;
+  delete g.__movvizPlaybackProgress;
+  const { resetAllCaches } = await import("../src/lib/fsJsonCache.ts");
+  resetAllCaches();
+
+  assert.ok(getPlaybackSession(session.id), "the session is found again after the restart");
+  const p = applyHeartbeat(session.id, { sequence: 1, positionMs: 600_000, isPlaying: true });
+  assert.equal(p.lastPositionMs, 600_000, "the progress sent after the restart is recorded");
+  stopPlayback(session.id, 600_000);
+  assert.equal(getPlaybackSession(session.id), null, "a stopped session is gone for good");
+});

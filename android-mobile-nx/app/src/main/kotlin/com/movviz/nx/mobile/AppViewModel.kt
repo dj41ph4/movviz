@@ -1497,14 +1497,24 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         // arrière-plan. Attendre la réponse (puis relire tout l'état vu)
         // laissait le bouton figé une à plusieurs secondes.
         applyWatchedLocally(tmdbId, movie = true, episodes = emptyList(), watched = watched)
+        if (watched) dropFromContinueWatching(tmdbId, movie = true, episodes = emptyList())
         viewModelScope.launch {
-            if (repo.toggleWatch(tmdbId, "movie", watched, title) is ApiResult.Success) loadWatchStatus()
+            if (repo.toggleWatch(tmdbId, "movie", watched, title) is ApiResult.Success) { loadWatchStatus(); loadContinueWatching() }
             else applyWatchedLocally(tmdbId, movie = true, episodes = emptyList(), watched = !watched)
         }
     }
 
     /** Reflète tout de suite un changement « vu » dans l'état affiché ; le
      *  serveur fait foi ensuite (rechargé après succès, annulé en cas d'échec). */
+    /** Marqué vu = plus rien à reprendre : l'entrée quitte « Reprendre » dès
+     *  l'appui (le serveur efface l'avancement et la reprise Plex ensuite). */
+    private fun dropFromContinueWatching(tmdbId: Int, movie: Boolean, episodes: List<Pair<Int, Int>>) {
+        _continueWatching.value = _continueWatching.value.filterNot { entry ->
+            entry.tmdbId == tmdbId && if (movie) entry.type == "movie" else
+                entry.type == "episode" && (entry.seasonNumber to entry.episodeNumber) in episodes.map { (s, e) -> s to e }
+        }
+    }
+
     private fun applyWatchedLocally(tmdbId: Int, movie: Boolean, episodes: List<com.movviz.nx.mobile.data.WatchToggleEpisodeDto>, watched: Boolean) {
         val current = _watchStatus.value ?: com.movviz.nx.mobile.data.WatchStatusDto()
         _watchStatus.value = if (movie) {
@@ -1531,8 +1541,9 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         if (episodes.isEmpty()) return
         val repo = repository ?: return
         applyWatchedLocally(tmdbId, movie = false, episodes = episodes, watched = watched)
+        if (watched) dropFromContinueWatching(tmdbId, movie = false, episodes = episodes.map { it.season to it.episode })
         viewModelScope.launch {
-            if (repo.toggleWatch(tmdbId, "series", watched, title, episodes, scope, season) is ApiResult.Success) loadWatchStatus()
+            if (repo.toggleWatch(tmdbId, "series", watched, title, episodes, scope, season) is ApiResult.Success) { loadWatchStatus(); loadContinueWatching() }
             else applyWatchedLocally(tmdbId, movie = false, episodes = episodes, watched = !watched)
         }
     }

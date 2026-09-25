@@ -65,6 +65,39 @@ interface PlaybackProgressStore {
   byUser: Record<string, Record<string, PlaybackProgress>>;
   /** Une seule fois par installation : voir backfillMostlyWatchedOnFirstLoad. */
   backfilledQuitWatchedV1?: boolean;
+  /** Open player sessions, kept on disk so they survive a server restart. */
+  sessions?: Record<string, PlaybackSession>;
+}
+
+/** A session silent this long is a player long gone. */
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Player sessions used to live in memory only: every server restart (each
+ * automatic update) dropped them, and a player already running kept sending
+ * its progress and its « terminé » to a session that no longer existed —
+ * answered 404, silently ignored by the Android apps. Nothing was recorded:
+ * the position stayed where it was before the restart and a finished title
+ * stayed in « Reprendre ». They are now kept in the progress file (the same
+ * objects: every persist() writes their latest state) and reloaded at start.
+ */
+function sessions(): Map<string, PlaybackSession> {
+  if (g.__movvizPlaybackSessions) return g.__movvizPlaybackSessions;
+  const saved = store().sessions ?? {};
+  return (g.__movvizPlaybackSessions = new Map(Object.entries(saved)));
+}
+
+function rememberSession(session: PlaybackSession): void {
+  const s = store();
+  const kept: Record<string, PlaybackSession> = {};
+  const now = Date.now();
+  for (const [key, value] of Object.entries(s.sessions ?? {})) {
+    if (now - value.lastHeartbeatAt <= SESSION_TTL_MS) kept[key] = value;
+    else g.__movvizPlaybackSessions?.delete(key);
+  }
+  kept[session.id] = session;
+  s.sessions = kept;
+  sessions().set(session.id, session);
 }
 
 // Doit rester alignée avec PLAYBACK_QUIT_WATCHED_RATIO (android-tv-nx
@@ -237,12 +270,13 @@ export function openPlaybackSession(userId: string, input: { ratingKey: string; 
   const progress = ensure(userId, input.ratingKey, input);
   const now = Date.now();
   const session: PlaybackSession = { id: id(), userId, ratingKey: input.ratingKey, mediaId: input.mediaId, startedAt: now, lastHeartbeatAt: now, lastPositionMs: progress.watched ? 0 : (progress.resumeOffsetMs ?? 0), lastSequence: -1, actualPlayedMs: 0, seekPending: false, durationMs: input.durationMs, mediaType: input.mediaType, lastIsPlaying: true };
-  (g.__movvizPlaybackSessions ??= new Map()).set(session.id, session);
+  rememberSession(session);
+  persist();
   recordPlaybackStarted(session.id, progress, now);
   return { session, progress };
 }
 
-export function getPlaybackSession(sessionId: string): PlaybackSession | null { return g.__movvizPlaybackSessions?.get(sessionId) ?? null; }
+export function getPlaybackSession(sessionId: string): PlaybackSession | null { return sessions().get(sessionId) ?? null; }
 
 /**
  * Every heartbeat session that has pinged within `freshWindowMs` — i.e.
@@ -255,7 +289,7 @@ export function getPlaybackSession(sessionId: string): PlaybackSession | null { 
  */
 export function listActiveHeartbeatSessions(freshWindowMs = 60_000): PlaybackSession[] {
   const now = Date.now();
-  return [...(g.__movvizPlaybackSessions?.values() ?? [])].filter((s) => now - s.lastHeartbeatAt <= freshWindowMs);
+  return [...sessions().values()].filter((s) => now - s.lastHeartbeatAt <= freshWindowMs);
 }
 
 /**
@@ -349,5 +383,5 @@ export function stopPlayback(sessionId: string, positionMs?: number): PlaybackPr
     }
   }
   if (!completedHere) { p.updatedAt = Date.now(); p.revision++; }
-  recordPlaybackStopped(sessionId, p); g.__movvizPlaybackSessions?.delete(sessionId); persist(); return p;
+  recordPlaybackStopped(sessionId, p); sessions().delete(sessionId); delete store().sessions?.[sessionId]; persist(); return p;
 }

@@ -1,3 +1,10 @@
+## v1.25.94 — September 2026
+
+### Lecture : l'avancement et les « vu » ne se perdent plus
+
+- Lecture : l'avancement et la fin d'un épisode ou d'un film n'étaient plus enregistrés, sur tous les appareils (web, Android TV, mobile). Les sessions de lecture n'existaient qu'en mémoire du serveur : chaque redémarrage, par exemple à chaque mise à jour automatique, les effaçait, et un lecteur déjà lancé continuait d'envoyer sa progression dans le vide. La position restait bloquée à la dernière valeur enregistrée avant le redémarrage, et un titre terminé restait dans « Reprendre ». Les sessions sont désormais conservées et retrouvées après un redémarrage. Le lecteur web rouvre aussi une session d'office s'il en perd une.
+- Reprendre : marquer vu un titre qui est dans « Reprendre » efface son avancement et le retire aussitôt de la liste, même avant que Plex ait pris en compte le « vu ». Sur Android TV et mobile, la carte disparaît dès l'appui.
+
 ## v1.25.93 — September 2026
 
 ### Assistant IA : réponses rapides adaptées à sa question

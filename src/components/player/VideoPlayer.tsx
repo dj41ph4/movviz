@@ -1792,6 +1792,22 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ sequence: ++playbackSequenceRef.current, positionMs: Math.round(displayTime * 1000), isPlaying: !ve.paused, playbackRate: ve.playbackRate }),
           keepalive: true,
+        }).then((r) => {
+          // The server lost this session (a restart before sessions were
+          // kept on disk): every later position went nowhere and « Reprendre »
+          // stayed at the last one saved. Open a fresh session instead.
+          if (r.status !== 404 || playbackSessionRef.current !== sessionId) return;
+          playbackSessionRef.current = null;
+          void fetch("/api/playback/sessions", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ ratingKey, mediaId: movvizId, mediaType, durationMs: Math.max(1, Math.round((infoRef.current.durationMs ?? 0) || ve.duration * 1000 || 1_000_000)), tmdbId, seasonNumber, episodeNumber, title }),
+          }).then((res) => res.ok ? res.json() : null).then((data: { sessionId?: string } | null) => {
+            if (data?.sessionId && playbackSessionRef.current == null) {
+              playbackSessionRef.current = data.sessionId;
+              playbackSequenceRef.current = 0;
+            }
+          }).catch(() => void 0);
         }).catch(() => void 0);
       }
       if (!localPlayback) void fetch(`/api/stream/${ratingKey}/progress`, {

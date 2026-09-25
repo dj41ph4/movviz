@@ -4,6 +4,7 @@ import { getVerifiedOnDeck, resolvePlexServerAuth } from "./watchWrite";
 import { isEarlierEpisode } from "./onDeckPolicy";
 import { getMovieByPlexRatingKey, findEpisodeByPlexLocator } from "@/lib/library/store";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
+import { getWatchStatus } from "./watchStore";
 import { completionBoundaryMs } from "@/lib/playback/progressPolicy";
 import { getMovie, getSeason, getSeries } from "@/lib/metadata/tmdb";
 import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
@@ -92,6 +93,16 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
   if (!cfg.hostname) return (await attachEpisodeStills(items)).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
 
   const onDeck = await getVerifiedOnDeck(user, cfg);
+  // Marked « vu » in Movviz after Plex last saw it played: the Plex resume
+  // is stale (Plex catches up on the « vu » a moment later), so the title
+  // leaves « Reprendre » at once. A later Plex play (a rewatch) still wins,
+  // and a view without a date never hides anything.
+  const watchStatus = getWatchStatus(user.id);
+  const watchedInMovvizAfter = (at: number | undefined, playedAt: number): boolean => at != null && at > 0 && at >= playedAt;
+  const movieWatchedAfter = (tmdbId: number, playedAt: number) =>
+    !!watchStatus?.movies.includes(tmdbId) && watchedInMovvizAfter(watchStatus.movieWatchedAt?.[String(tmdbId)], playedAt);
+  const episodeWatchedAfter = (tmdbId: number, season: number, episode: number, playedAt: number) =>
+    watchedInMovvizAfter(watchStatus?.episodes.find((e) => e.tmdbId === tmdbId && e.season === season && e.episode === episode)?.at ?? undefined, playedAt);
   // Plex is an optional peer, not a subset of the Movviz library. Resolve
   // external IDs directly from Plex so a perfectly valid Plex resume is not
   // silently dropped merely because the title was never added to Movviz.
@@ -124,6 +135,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
       const movie = getMovieByPlexRatingKey(d.ratingKey);
       const tmdbId = movie?.tmdbId ?? metadataByKey.get(d.ratingKey)?.tmdbId;
       if (tmdbId == null) continue;
+      if (movieWatchedAfter(tmdbId, d.lastViewedAt ?? d.updatedAt ?? 0)) continue;
       const meta = movie ? null : await resolveMovieMeta(tmdbId);
       if (!movie && !meta) continue;
       const key = movie?.plexRatingKey ?? d.ratingKey;
@@ -138,6 +150,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const c = { tmdbId, season, episode };
     const first = firstBySeries.get(c.tmdbId);
     if (d.viewOffset <= 0 && (first?.season !== c.season || first?.episode !== c.episode)) continue;
+    if (d.viewOffset > 0 && episodeWatchedAfter(c.tmdbId, season, episode, d.lastViewedAt ?? d.updatedAt ?? 0)) continue;
     const meta = found ? null : await resolveSeriesMeta(tmdbId);
     if (!found && !meta) continue;
     const key = found?.episode.plexRatingKey ?? d.ratingKey;
