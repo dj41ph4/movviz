@@ -19,7 +19,7 @@ function deepMerge(base: AiConfig, patch: unknown): AiConfig {
   return {
     enabled: p.enabled ?? base.enabled,
     primary: p.primary && AI_PROVIDERS.includes(p.primary) ? p.primary : base.primary,
-    providers: { groq: provider("groq"), gemini: provider("gemini") },
+    providers: { gemini: provider("gemini") },
     webSearchEnabled: p.webSearchEnabled ?? base.webSearchEnabled,
     webSearchKey: typeof p.webSearchKey === "string" && p.webSearchKey.trim() ? p.webSearchKey.trim() : undefined,
   };

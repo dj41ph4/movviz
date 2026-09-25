@@ -1,15 +1,11 @@
 /**
- * Two AI providers (demande explicite : Mistral, Cerebras, OpenRouter et
- * OpenCode retirés — Cerebras exige un moyen de paiement, OpenCode ne marche
- * que dans son propre logiciel) :
- *  - Groq, model openai/gpt-oss-120b (free plan: 30 requests/min, 1 000/day);
- *  - Gemini (free plan, several models).
- * The primary one is tried first; the other takes over automatically when
- * it fails. Several keys per provider: a key whose quota is spent hands over
- * to the next one at once.
+ * One AI provider: Gemini (free plan, several models). Demande explicite :
+ * Mistral, Cerebras, OpenRouter, OpenCode puis Groq retirés — Groq refusait
+ * toute demande du chat (limite gratuite de 8 000 tokens/minute, la consigne
+ * en fait ~14 000). Several keys, used in turn (see providers.ts).
  */
-export type AiProviderId = "groq" | "gemini";
-export const AI_PROVIDERS: AiProviderId[] = ["groq", "gemini"];
+export type AiProviderId = "gemini";
+export const AI_PROVIDERS: AiProviderId[] = ["gemini"];
 
 export interface AiProviderKey {
   id: string;
@@ -23,7 +19,7 @@ export interface AiProviderConfig {
 
 export interface AiConfig {
   enabled: boolean;
-  /** Tried first; the other provider takes over when it fails. */
+  /** Always "gemini" — kept so configs stay one shape. */
   primary: AiProviderId;
   providers: Record<AiProviderId, AiProviderConfig>;
   /** Demande explicite user — recherche web (musique, scène culte,
@@ -38,9 +34,8 @@ export interface AiConfig {
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
   enabled: false,
-  primary: "groq",
+  primary: "gemini",
   providers: {
-    groq: { model: "openai/gpt-oss-120b", keys: [] },
     gemini: { model: "gemini-3.5-flash-lite", keys: [] },
   },
   webSearchEnabled: false,

@@ -3,16 +3,16 @@ import { AI_PROVIDERS } from "./types";
 import { GEMINI_RECOMMENDED_MODELS, defaultModel, isFreeModel } from "./freeModels";
 
 /**
- * AI client — Groq (openai/gpt-oss-120b) and Gemini. Safety nets that keep
- * the assistant answering on free keys:
- *  1. Provider fallback — the primary provider first; when it fails, the
- *     other one takes over automatically (providers without a key are skipped).
- *  2. Key rotation — several keys per provider; a key whose quota is spent
- *     hands over to the next one at once.
- *  3. Gemini model fallback — a model Google refuses (retired, or outside
- *     this key's free tier) is skipped for the next free one.
- * Every call to a provider goes through its queue (see withProviderGate):
- * one request at a time, spaced, and a pause after a persistent refusal.
+ * AI client — Gemini. Safety nets that keep the assistant answering on free
+ * keys:
+ *  1. Keys in turn — call 1 on key 1, call 2 on key 2… then key 1 again:
+ *     each key rests between two uses instead of the first one being worn
+ *     out before the second is ever touched. A key that fails hands over to
+ *     the next one within the same call.
+ *  2. Model fallback — a model that is busy, out of its per-minute quota or
+ *     refused hands over to the next free one (each has its own quota).
+ * Every call goes through the provider's queue (see withProviderGate):
+ * starts spaced, and a pause after a persistent refusal.
  *
  * URLs are hardcoded constants — no user-supplied URL is ever fetched, so
  * there is no SSRF surface here (AGENTS.md).
@@ -61,10 +61,8 @@ export function isModelUnavailable(err: AiCallError): boolean {
   return /no longer available|is not found|not supported for generatecontent|limit:\s*0\b/i.test(err.message);
 }
 
-/** The key's quota is used up — daily/monthly (« Quota exceeded for
- *  metric… », « You exceeded your current quota », Groq « requests per day »)
- *  or a request larger than the per-minute token allowance (Groq 413) — as
- *  opposed to a momentary burst: retrying the same key won't help. */
+/** The key's quota is used up (« Quota exceeded for metric… », « You
+ *  exceeded your current quota ») — as opposed to a momentary burst. */
 function isQuotaSpent(err: AiCallError): boolean {
   if (err.status === 413) return true;
   return /quota exceeded|exceeded your current quota|requests per day|tokens per day|request too large/i.test(err.message);
@@ -78,13 +76,6 @@ function isQuotaSpent(err: AiCallError): boolean {
 export function isGeminiModelBusy(err: AiCallError): boolean {
   if (err.status === 429 || err.status === 500 || err.status === 503 || err.status === 504) return true;
   return /high demand|overloaded|currently unavailable|try again later|timeout|timed out|aborted|quota|rate limit|resource exhausted|too many requests|internal error/i.test(err.message);
-}
-
-/** Respects the provider's Retry-After (capped), else a short fixed pause. */
-function rateLimitDelayMs(err: AiCallError): number {
-  const asked = typeof err.retryAfterSec === "number" && Number.isFinite(err.retryAfterSec) ? err.retryAfterSec : NaN;
-  if (!Number.isNaN(asked)) return Math.min(Math.max(asked, 0), 30) * 1000;
-  return 6000;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -127,20 +118,6 @@ function geminiUrl(model: string, key: string): string {
 
 /** One call with one key and one model; throws AiCallError on failure. */
 async function generate(provider: AiProviderId, key: string, model: string, system: string, messages: AiChatMessage[]): Promise<string> {
-  if (provider === "groq") {
-    // OpenAI-compatible. gpt-oss is a reasoning model: « low » keeps the
-    // thinking short (latency, and its tokens count in the same budget); the
-    // reasoning comes back in its own field, never inside the answer.
-    const json = await jsonFetch(provider, "https://api.groq.com/openai/v1/chat/completions", { authorization: `Bearer ${key}` }, {
-      model,
-      messages: [{ role: "system", content: system }, ...messages.map((m) => ({ role: m.role, content: m.content }))],
-      temperature: 0.2,
-      max_completion_tokens: MAX_RESPONSE_TOKENS,
-      reasoning_effort: "low",
-    });
-    const choices = (json as { choices?: { message?: { content?: string } }[] })?.choices ?? [];
-    return choices.map((c) => c.message?.content ?? "").join("").trim();
-  }
   const json = await jsonFetch(provider, geminiUrl(model, key), {}, {
     systemInstruction: { parts: [{ text: system }] },
     contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
@@ -153,10 +130,9 @@ async function generate(provider: AiProviderId, key: string, model: string, syst
 /**
  * Free plans limit requests per minute: the chat used to fire its answer AND
  * the fact extraction at the same time, the second got a 429 for sure, then
- * a retry 6 s later. Calls to one provider therefore go one at a time, at
- * least MIN_INTERVAL_MS apart (Groq free plan: 30 requests/min).
+ * a retry 6 s later. Starts are therefore spaced at least MIN_INTERVAL_MS.
  */
-const MIN_INTERVAL_MS: Record<AiProviderId, number> = { groq: 2_000, gemini: 1_000 };
+const MIN_INTERVAL_MS: Record<AiProviderId, number> = { gemini: 1_000 };
 /** After a persistent refusal (429 even after the retry), the provider is
  *  left alone this long: an immediate failure instead of hammering it. */
 const RATE_LIMIT_COOLDOWN_MS = 20_000;
@@ -241,47 +217,38 @@ export async function probeGeminiModel(key: string, model: string, keyTag: strin
   return result;
 }
 
-/** Every key of one provider in order (and for Gemini, the configured model
- *  then the other free ones when Google refuses it); throws the last failure. */
+/** The configured model first, then the other free ones. */
 async function callProvider(config: AiConfig, provider: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
   const configured = config.providers[provider].model.trim();
   // An old or forged config must never quietly reach a paid model.
   const model = isFreeModel(provider, configured) ? configured : defaultModel(provider);
   const keys = config.providers[provider].keys.map((k) => k.key.trim()).filter(Boolean);
   if (keys.length === 0) throw new AiCallError(provider, "Aucune clé configurée", false);
-  if (provider === "gemini") {
-    return callGemini(keys, [model, ...GEMINI_RECOMMENDED_MODELS.map((m) => m.id).filter((id) => id !== model)], system, messages);
-  }
-
-  // Groq: every key in turn; a plain burst limit gets one transparent retry
-  // on the same key, a spent quota moves to the next key at once.
-  let lastError: AiCallError | null = null;
-  for (const key of keys) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        return await generate(provider, key, model, system, messages);
-      } catch (e) {
-        lastError = e instanceof AiCallError ? e : new AiCallError(provider, (e as Error).message, false);
-        if (!isQuotaSpent(lastError) && attempt === 0 && isRateLimited(lastError)) {
-          await sleep(rateLimitDelayMs(lastError));
-          continue;
-        }
-        break;
-      }
-    }
-  }
-  throw lastError ?? new AiCallError(provider, "Échec inconnu", false);
+  return callGemini(keys, [model, ...GEMINI_RECOMMENDED_MODELS.map((m) => m.id).filter((id) => id !== model)], system, messages);
 }
 
-/** Gemini: every key of a model, then the next model — at once, no pause:
+const gRotation = globalThis as typeof globalThis & { __movvizAiKeyTurn?: { next: number } };
+const keyTurn = (gRotation.__movvizAiKeyTurn ??= { next: 0 });
+
+/** The keys in this call's order: each call starts one key further than the
+ *  previous one (demande explicite : message 1 sur la clé 1, message 2 sur la
+ *  clé 2…, la 1re se repose pendant ce temps), the others follow as backup. */
+export function keysInTurn(keys: string[]): string[] {
+  if (keys.length < 2) return keys;
+  const start = keyTurn.next++ % keys.length;
+  return [...keys.slice(start), ...keys.slice(0, start)];
+}
+
+/** Every key of a model (in turn order), then the next model — at once, no pause:
  *  a busy, rate-limited or refused model hands over to the next free one
  *  (each has its own quota). A request Google rejects for what it IS (bad
  *  request, e.g. a malformed conversation) would fail on every model: it
  *  stops there instead of burning the other models' quota. */
 async function callGemini(keys: string[], models: string[], system: string, messages: AiChatMessage[]): Promise<string> {
   let lastError: AiCallError | null = null;
+  const ordered = keysInTurn(keys);
   for (const modelId of models) {
-    for (const key of keys) {
+    for (const key of ordered) {
       try {
         return await generate("gemini", key, modelId, system, messages);
       } catch (e) {
@@ -295,23 +262,16 @@ async function callGemini(keys: string[], models: string[], system: string, mess
   throw lastError ?? new AiCallError("gemini", "Échec inconnu", false);
 }
 
-/** Asks the AI: primary provider first, then the other one; returns the text
- *  and the provider that answered (shown as « via Groq » / « via Gemini »). */
+/** Asks the AI; returns the text and the provider that answered. */
 export async function callAi(config: AiConfig, system: string, conversation: AiChatMessage[]): Promise<{ text: string; provider: AiProviderId }> {
   // The model always answers the USER: trailing assistant turns are dropped
   // (Gemini 3 rejects a request ending with a model turn outright).
   const messages = trimTrailingAssistantTurns(conversation);
-  const inputTokens = estimateTokens(system, messages);
-  const order = [config.primary, ...AI_PROVIDERS.filter((p) => p !== config.primary)]
-    .filter((p) => config.providers[p].keys.some((k) => k.key.trim()))
-    // Groq's free plan refuses any request above 8 000 tokens/minute — the
-    // chat's own prompt is ~14 000. Skip it for those instead of spending a
-    // refused round trip on every message; it still serves the small calls.
-    .filter((p, _, all) => p !== "groq" || inputTokens <= GROQ_FREE_MAX_INPUT_TOKENS || all.length === 1);
+  const order = AI_PROVIDERS.filter((p) => config.providers[p].keys.some((k) => k.key.trim()));
   let lastError: AiCallError | null = null;
   for (const provider of order) {
     try {
-      // callProvider already retried once: a 429 reaching the gate is persistent.
+      // Every key and model already tried: a 429 reaching the gate is persistent.
       const text = await withProviderGate(provider, () => callProvider(config, provider, system, messages), true);
       if (text) return { text, provider };
       lastError = new AiCallError(provider, "Réponse vide du modèle", false);
@@ -322,19 +282,12 @@ export async function callAi(config: AiConfig, system: string, conversation: AiC
   throw lastError ?? new AiCallError(config.primary, "Aucune clé IA configurée", false);
 }
 
-/** Groq free plan: 8 000 tokens/minute, input + output — room left for the answer. */
-const GROQ_FREE_MAX_INPUT_TOKENS = 6_500;
-
 function trimTrailingAssistantTurns(messages: AiChatMessage[]): AiChatMessage[] {
   let end = messages.length;
   while (end > 1 && messages[end - 1].role === "assistant") end--;
   return end === messages.length ? messages : messages.slice(0, end);
 }
 
-/** Rough token count (~3.5 characters per token for French prose). */
-function estimateTokens(system: string, messages: AiChatMessage[]): number {
-  return Math.ceil((system.length + messages.reduce((n, m) => n + m.content.length, 0)) / 3.5);
-}
 
 export interface AiCandidateResult {
   text: string;

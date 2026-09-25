@@ -19,13 +19,7 @@ export async function POST(req: NextRequest) {
     ? (requested as AiProviderId)
     : stored.primary;
 
-  // Only the tested provider keeps its keys: callAi() would otherwise fall
-  // back to the other one and report ITS success as this provider's.
-  const testConfig: AiConfig = {
-    ...stored,
-    primary: provider,
-    providers: Object.fromEntries(AI_PROVIDERS.map((id) => [id, id === provider ? stored.providers[id] : { ...stored.providers[id], keys: [] }])) as AiConfig["providers"],
-  };
+  const testConfig: AiConfig = { ...stored, primary: provider };
   if (testConfig.providers[provider].keys.filter((k) => k.key.trim()).length === 0) {
     return NextResponse.json({ ok: false, detail: "no_keys" }, { status: 400 });
   }

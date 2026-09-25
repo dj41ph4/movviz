@@ -7,20 +7,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 import { Bot, Loader2, Plus, Trash2 } from "lucide-react";
 import { AI_PROVIDERS, type AiProviderId } from "@/lib/ai/types";
-import { GEMINI_RECOMMENDED_MODELS, GROQ_MODELS } from "@/lib/ai/freeModels";
+import { GEMINI_RECOMMENDED_MODELS } from "@/lib/ai/freeModels";
 import { AiDebugLogPanel } from "@/components/settings/AiDebugLogPanel";
 
 const PROVIDERS = AI_PROVIDERS;
 
 /** Where to grab a free key for each provider — plain URLs, no translation needed. */
 const PROVIDER_KEY_URL: Record<AiProviderId, string> = {
-  groq: "https://console.groq.com/keys",
   gemini: "https://aistudio.google.com/apikey",
 };
 
 /** Shown until the server's list arrives (and if it can't be reached). */
 const BUILTIN_MODELS: Record<AiProviderId, { id: string; label: string }[]> = {
-  groq: [...GROQ_MODELS],
   gemini: [...GEMINI_RECOMMENDED_MODELS],
 };
 
@@ -278,28 +276,6 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
           label={t("ai.settings.enabled")}
           hint={t("ai.settings.enabledHint")}
         />
-
-        {/* Two providers: the primary one answers, the other takes over by
-            itself when it fails — no order to manage, no switch to forget. */}
-        <div>
-          <p className="mb-2 text-sm font-bold text-ink">{t("ai.settings.primary")}</p>
-          <div className="flex gap-2">
-            {PROVIDERS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setDraft({ ...draft, primary: id })}
-                className={cn(
-                  "h-11 flex-1 rounded-xl text-sm font-bold transition-colors",
-                  draft.primary === id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
-                )}
-              >
-                {t(`ai.provider.${id}`)}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 text-xs text-ink-dim">{t("ai.settings.primaryHint")}</p>
-        </div>
 
         <Switch
           checked={draft.webSearchEnabled}

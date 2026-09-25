@@ -2304,8 +2304,6 @@ export const en: Dictionary = {
     disabled: "AI is disabled",
     viaProvider: "via {provider}",
     provider: {
-      groq: "Groq",
-      groqHint: "GPT-OSS 120B, very fast — free plan",
       gemini: "Gemini",
       geminiHint: "Generous free Google quota",
     },
@@ -2349,8 +2347,6 @@ export const en: Dictionary = {
       loading: "Loading…",
       enabled: "Enable AI",
       enabledHint: "Off by default. Once enabled, the chat button appears bottom-right.",
-      primary: "Main provider",
-      primaryHint: "It answers first; if it fails (quota, error), the other one takes over automatically.",
       webSearch: "Web search (memorable scenes)",
       webSearchHint: "A real web search (Tavily) whose results are summarized by your assistant — for a soundtrack, an iconic scene, a filmography. Requires a free Tavily key.",
       webSearchKey: "Tavily API key",

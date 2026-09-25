@@ -9,8 +9,6 @@ function config(provider: AiProviderId, model: string): AiConfig {
     enabled: true,
     primary: provider,
     providers: {
-      groq: { ...DEFAULT_AI_CONFIG.providers.groq, keys: [] },
-      gemini: { ...DEFAULT_AI_CONFIG.providers.gemini, keys: [] },
       [provider]: { model, keys: [{ id: "test", key: "test-key" }] },
     },
   };
@@ -42,26 +40,6 @@ test("two users at once: starts are spaced for the free tier, but the second nev
     assert.ok(gap >= 950, `starts must stay spaced (${gap} ms)`);
     assert.ok(gap < 2_000, `the second user must not wait for the first answer (${gap} ms)`);
     assert.equal(maxInFlight, 2, "both answers are under way together");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("a provider still refusing after its retry is left alone instead of hammered", async () => {
-  const originalFetch = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = (async () => {
-    calls++;
-    return new Response(JSON.stringify({ error: { message: "Too many requests" } }), { status: 429, headers: { "retry-after": "0" } });
-  }) as typeof fetch;
-  try {
-    const cfg = config("groq", "openai/gpt-oss-120b");
-    await assert.rejects(callAi(cfg, "system", [{ role: "user", content: "a" }]), (e: { status?: number }) => e.status === 429);
-    assert.equal(calls, 2); // first try + one transparent retry
-    const t0 = Date.now();
-    await assert.rejects(callAi(cfg, "system", [{ role: "user", content: "b" }]), (e: { quota?: boolean }) => e.quota === true);
-    assert.equal(calls, 2, "no request may be sent during the cooldown");
-    assert.ok(Date.now() - t0 < 100, "the refusal during the cooldown must be immediate");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -127,6 +105,28 @@ test("a Gemini key with its quota spent hands over to the next key at once", asy
     assert.equal(result.text, "ok");
     assert.deepEqual(keysUsed, ["k1", "k2"], "the spent key is not retried");
     assert.ok(Date.now() - t0 < 2_000, "no 6 s wait before the next key");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// Last: it leaves the Gemini queue cooling down for the rest of the file.
+test("a provider still refusing on every model is left alone instead of hammered", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { message: "Too many requests" } }), { status: 429, headers: { "retry-after": "0" } });
+  }) as typeof fetch;
+  try {
+    const cfg = config("gemini", "gemini-3.5-flash-lite");
+    await assert.rejects(callAi(cfg, "system", [{ role: "user", content: "a" }]), (e: { status?: number }) => e.status === 429);
+    const tried = calls; // each free model once
+    assert.ok(tried >= 2);
+    const t0 = Date.now();
+    await assert.rejects(callAi(cfg, "system", [{ role: "user", content: "b" }]), (e: { quota?: boolean }) => e.quota === true);
+    assert.equal(calls, tried, "no request may be sent during the cooldown");
+    assert.ok(Date.now() - t0 < 100, "the refusal during the cooldown must be immediate");
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -43,15 +43,15 @@ test("searchWeb: Tavily results are synthesized by the AI chain, never by the mo
     if (url === "https://api.tavily.com/search") {
       return new Response(JSON.stringify({ answer: "Le morceau est « Lux Æterna ».", results: [{ title: "Requiem for a Dream OST", url: "https://example.org/ost", content: "Clint Mansell compose Lux Æterna…" }] }), { status: 200 });
     }
-    return new Response(JSON.stringify({ choices: [{ message: { content: "C'est « Lux Æterna » de Clint Mansell." } }] }), { status: 200 });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "C'est « Lux Æterna » de Clint Mansell." }] } }] }), { status: 200 });
   }) as typeof fetch;
   try {
-    const cfg = config({ webSearchEnabled: true, webSearchKey: "tvly-test", primary: "groq" });
-    cfg.providers = { ...cfg.providers, groq: { model: "openai/gpt-oss-120b", keys: [{ id: "g", key: "groq-key" }] } };
+    const cfg = config({ webSearchEnabled: true, webSearchKey: "tvly-test" });
+    cfg.providers = { gemini: { model: "gemini-3.5-flash-lite", keys: [{ id: "g", key: "gemini-key" }] } };
     const text = await searchWeb(cfg, "Quelle est la musique principale de Requiem for a Dream ?");
     assert.equal(text, "C'est « Lux Æterna » de Clint Mansell.");
     assert.equal(calls[0].url, "https://api.tavily.com/search");
-    assert.equal(calls[1].url, "https://api.groq.com/openai/v1/chat/completions");
+    assert.ok(calls[1].url.startsWith("https://generativelanguage.googleapis.com/"), "Gemini writes the answer from the search results");
     assert.match(JSON.stringify(calls[1].body), /Clint Mansell compose Lux/, "the search results are handed to the model");
   } finally {
     globalThis.fetch = originalFetch;

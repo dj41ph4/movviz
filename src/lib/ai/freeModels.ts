@@ -5,13 +5,6 @@ export interface FreeModelOption {
   label: string;
 }
 
-/** Groq: the one model asked for (free plan: 30 requests/min, 1 000/day,
- *  8 000 tokens/min — the assistant's long prompt can exceed that last one,
- *  in which case Gemini takes over automatically). */
-export const GROQ_MODELS: readonly FreeModelOption[] = [
-  { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B — ~1 000 requêtes/jour" },
-];
-
 /**
  * Gemini models with a free quota, recommended first. Flash-Lite leads:
  * ~500 free requests/day, against ~20/day for Flash (a chat burns through 20
@@ -74,16 +67,16 @@ export function isFreeGeminiModel(id: string): boolean {
 
 /** Free models the settings offer for a provider (Gemini: filtered by what
  *  this key's account can see). */
-export async function loadFreeModels(provider: AiProviderId, key?: string): Promise<FreeModelOption[]> {
-  return provider === "groq" ? [...GROQ_MODELS] : loadGeminiModels(key);
+export async function loadFreeModels(_provider: AiProviderId, key?: string): Promise<FreeModelOption[]> {
+  return loadGeminiModels(key);
 }
 
 /** Never lets an old or forged config reach a paid model. */
-export function isFreeModel(provider: AiProviderId, id: string): boolean {
-  return provider === "groq" ? GROQ_MODELS.some((m) => m.id === id) : isFreeGeminiModel(id);
+export function isFreeModel(_provider: AiProviderId, id: string): boolean {
+  return isFreeGeminiModel(id);
 }
 
 /** The model used when the configured one is not an allowed free model. */
-export function defaultModel(provider: AiProviderId): string {
-  return provider === "groq" ? GROQ_MODELS[0].id : GEMINI_RECOMMENDED_MODELS[0].id;
+export function defaultModel(_provider: AiProviderId): string {
+  return GEMINI_RECOMMENDED_MODELS[0].id;
 }

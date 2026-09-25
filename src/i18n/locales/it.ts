@@ -2303,8 +2303,6 @@ export const it: Dictionary = {
     disabled: "IA disattivata",
     viaProvider: "tramite {provider}",
     provider: {
-      groq: "Groq",
-      groqHint: "GPT-OSS 120B, molto veloce — piano gratuito",
       gemini: "Gemini",
       geminiHint: "Quota gratuita Google generosa",
     },
@@ -2348,8 +2346,6 @@ export const it: Dictionary = {
       loading: "Caricamento…",
       enabled: "Attiva l'IA",
       enabledHint: "Disattivata di default. Una volta attivata, il pulsante della chat appare in basso a destra.",
-      primary: "Fornitore principale",
-      primaryHint: "Risponde per primo; se fallisce (quota, errore), l'altro subentra automaticamente.",
       webSearch: "Ricerca web (scene memorabili)",
       webSearchHint: "Una vera ricerca sul web (Tavily) i cui risultati vengono riassunti dal tuo assistente — per una colonna sonora, una scena cult, una filmografia. Richiede una chiave Tavily gratuita.",
       webSearchKey: "Chiave API Tavily",

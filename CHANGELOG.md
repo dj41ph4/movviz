@@ -1,3 +1,10 @@
+## v1.25.89 — September 2026
+
+### Assistant IA : Gemini seul, clés utilisées à tour de rôle
+
+- Assistant IA : Groq est retiré. Sa limite gratuite (8 000 tokens par minute) refusait toutes les questions du chat, dont la consigne est bien plus longue. Gemini répond à tout, recherche web comprise : la recherche passe par Tavily et Gemini rédige la réponse à partir des résultats.
+- Assistant IA : avec plusieurs clés Gemini, chaque message part sur la clé suivante (message 1 sur la clé 1, message 2 sur la clé 2… puis retour à la première). Chaque clé se repose entre deux utilisations, au lieu d'user la première avant de toucher aux autres. Si une clé est occupée ou épuisée, la suivante prend le relais dans le même message, sans attente.
+
 ## v1.25.88 — September 2026
 
 ### Assistant IA : il ne reste plus muet quand Gemini sature

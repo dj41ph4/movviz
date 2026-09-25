@@ -2304,8 +2304,6 @@ export const nl: Dictionary = {
     disabled: "AI is uitgeschakeld",
     viaProvider: "via {provider}",
     provider: {
-      groq: "Groq",
-      groqHint: "GPT-OSS 120B, zeer snel — gratis plan",
       gemini: "Gemini",
       geminiHint: "Royaal gratis Google-quotum",
     },
@@ -2349,8 +2347,6 @@ export const nl: Dictionary = {
       loading: "Laden…",
       enabled: "AI inschakelen",
       enabledHint: "Standaard uitgeschakeld. Na activering verschijnt de chatknop rechtsonder.",
-      primary: "Hoofdaanbieder",
-      primaryHint: "Hij antwoordt eerst; mislukt dat (quotum, fout), dan neemt de andere het automatisch over.",
       webSearch: "Webzoeken (memorabele scènes)",
       webSearchHint: "Een echte zoekopdracht op het web (Tavily) waarvan je assistent de resultaten samenvat — voor een soundtrack, een iconische scène, een filmografie. Vereist een gratis Tavily-sleutel.",
       webSearchKey: "Tavily-API-sleutel",

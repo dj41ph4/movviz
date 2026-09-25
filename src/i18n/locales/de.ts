@@ -2303,8 +2303,6 @@ diskScan: {
     disabled: "KI ist deaktiviert",
     viaProvider: "über {provider}",
     provider: {
-      groq: "Groq",
-      groqHint: "GPT-OSS 120B, sehr schnell — kostenloser Plan",
       gemini: "Gemini",
       geminiHint: "Großzügiges kostenloses Google-Kontingent",
     },
@@ -2348,8 +2346,6 @@ diskScan: {
       loading: "Lädt…",
       enabled: "KI aktivieren",
       enabledHint: "Standardmäßig deaktiviert. Nach der Aktivierung erscheint der Chat-Button unten rechts.",
-      primary: "Hauptanbieter",
-      primaryHint: "Er antwortet zuerst; schlägt das fehl (Kontingent, Fehler), übernimmt automatisch der andere.",
       webSearch: "Websuche (denkwürdige Szenen)",
       webSearchHint: "Eine echte Websuche (Tavily), deren Ergebnisse dein Assistent zusammenfasst — für einen Soundtrack, eine Kultszene, eine Filmografie. Benötigt einen kostenlosen Tavily-Schlüssel.",
       webSearchKey: "Tavily-API-Schlüssel",

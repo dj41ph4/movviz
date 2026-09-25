@@ -2302,8 +2302,6 @@ export const fr = {
     disabled: "L'IA est désactivée",
     viaProvider: "via {provider}",
     provider: {
-      groq: "Groq",
-      groqHint: "GPT-OSS 120B, très rapide — offre gratuite",
       gemini: "Gemini",
       geminiHint: "Généreux quota gratuit Google",
     },
@@ -2347,8 +2345,6 @@ export const fr = {
       loading: "Chargement…",
       enabled: "Activer l'IA",
       enabledHint: "Désactivé par défaut. Une fois activé, le bouton de chat apparaît en bas à droite.",
-      primary: "Fournisseur principal",
-      primaryHint: "Il répond en premier ; si ça échoue (quota, erreur), l'autre prend le relais automatiquement.",
       webSearch: "Recherche web (scènes mémorables)",
       webSearchHint: "Une vraie recherche sur le web (Tavily) dont les résultats sont résumés par ton assistant — pour une musique, une scène culte, une filmographie. Nécessite une clé Tavily gratuite.",
       webSearchKey: "Clé API Tavily",
