@@ -504,7 +504,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Scène mémorable (demande explicite user, Mistral web_search UNIQUEMENT
+    // Scène mémorable (demande explicite user, recherche web Tavily UNIQUEMENT
     // — voir sceneCache.ts/providers.ts). Seulement pour un titre CONFIRMÉ
     // vu (jamais pour un titre juste consulté) — cache-first, donc coût
     // réel seulement la toute première fois que ce titre est référencé,
@@ -519,7 +519,7 @@ export async function POST(req: NextRequest) {
       if (confirmedWatched) {
         const scene = await getOrFetchScene(config, pageContext.type, pageContext.tmdbId, pageContext.title);
         if (scene) {
-          system += `\n\nSCÈNES TROUVÉES VIA RECHERCHE WEB pour « ${pageContext.title} » (Mistral web_search, à utiliser seulement si pertinent et seulement selon la règle SCÈNE MÉMORABLE ci-dessus — ignore complètement si ça ne sert pas ce message précis) :\n${scene.findings}`;
+          system += `\n\nSCÈNES TROUVÉES VIA RECHERCHE WEB pour « ${pageContext.title} » (recherche web réelle, à utiliser seulement si pertinent et seulement selon la règle SCÈNE MÉMORABLE ci-dessus — ignore complètement si ça ne sert pas ce message précis) :\n${scene.findings}`;
         }
       }
     }
@@ -572,7 +572,7 @@ export async function POST(req: NextRequest) {
 
   // Budget de corrections. Chaque garde-fou ci-dessous peut relancer le
   // modèle ; cumulés, un seul message pouvait coûter jusqu'à 15 appels, ce
-  // qu'aucune offre gratuite (Mistral : ~1 requête/s) ne tient — le chat
+  // qu'aucune offre gratuite (Gemini : ~15 requêtes/min) ne tient — le chat
   // finissait en 429 ou en 30 s d'attente. Au-delà du budget, chaque garde-
   // fou retombe sur sa réponse de secours déterministe (ses catch le gèrent).
   let correctionsLeft = MAX_CORRECTION_CALLS;

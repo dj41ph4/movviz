@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadAiConfig } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { AI_PROVIDER_ORDER, type AiConfig, type AiProviderId } from "@/lib/ai/types";
+import { AI_PROVIDERS, type AiConfig, type AiProviderId } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
 
@@ -15,14 +15,17 @@ export async function POST(req: NextRequest) {
   const requested = String(body?.provider ?? "");
   const stored = loadAiConfig();
 
-  const provider: AiProviderId = AI_PROVIDER_ORDER.includes(requested as AiProviderId)
+  const provider: AiProviderId = AI_PROVIDERS.includes(requested as AiProviderId)
     ? (requested as AiProviderId)
     : stored.primary;
 
-  // callAi() construit sa chaîne depuis `priority` (pas `primary`) : sans
-  // priority explicite, c'est le primary STOCKÉ qui était testé quel que
-  // soit le bouton cliqué (constaté : "Tester" sur opencode testait mistral).
-  const testConfig: AiConfig = { ...stored, primary: provider, priority: [provider], fallback: false };
+  // Only the tested provider keeps its keys: callAi() would otherwise fall
+  // back to the other one and report ITS success as this provider's.
+  const testConfig: AiConfig = {
+    ...stored,
+    primary: provider,
+    providers: Object.fromEntries(AI_PROVIDERS.map((id) => [id, id === provider ? stored.providers[id] : { ...stored.providers[id], keys: [] }])) as AiConfig["providers"],
+  };
   if (testConfig.providers[provider].keys.filter((k) => k.key.trim()).length === 0) {
     return NextResponse.json({ ok: false, detail: "no_keys" }, { status: 400 });
   }

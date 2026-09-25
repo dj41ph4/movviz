@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { requireAdmin } from "@/lib/auth/guard";
-import { AI_PROVIDER_ORDER } from "@/lib/ai/types";
+import { AI_PROVIDERS } from "@/lib/ai/types";
 import { loadAiConfig } from "@/lib/ai/store";
 import { loadFreeModels, type FreeModelOption } from "@/lib/ai/freeModels";
 import { probeGeminiModel } from "@/lib/ai/providers";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const config = loadAiConfig();
-  const entries = await Promise.all(AI_PROVIDER_ORDER.map(async (provider) => {
+  const entries = await Promise.all(AI_PROVIDERS.map(async (provider) => {
     const key = config.providers[provider].keys.find((entry) => entry.key.trim())?.key.trim();
     const models = await loadFreeModels(provider, key);
     return [provider, provider === "gemini" && key ? await keepWorkingGeminiModels(key, models) : models] as const;

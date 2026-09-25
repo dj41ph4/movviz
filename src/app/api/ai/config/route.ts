@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { jsonCacheReadFailed } from "@/lib/fsJsonCache";
 import { AI_CONFIG_FILE, loadAiConfig, saveAiConfig } from "@/lib/ai/store";
-import { AI_PROVIDER_ORDER, type AiConfig, type AiProviderId, type AiProviderKey } from "@/lib/ai/types";
-import { FREE_MODEL_FALLBACKS, isAllowedFreeModel } from "@/lib/ai/freeModels";
+import { AI_PROVIDERS, type AiConfig, type AiProviderId, type AiProviderKey } from "@/lib/ai/types";
+import { defaultModel, isFreeModel } from "@/lib/ai/freeModels";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +11,11 @@ function redactConfig(config: AiConfig) {
   return {
     enabled: config.enabled,
     primary: config.primary,
-    priority: config.priority,
-    fallback: config.fallback,
     webSearchEnabled: config.webSearchEnabled,
+    // Like provider keys: only whether one is stored, never the key itself.
+    hasWebSearchKey: !!config.webSearchKey,
     providers: Object.fromEntries(
-      AI_PROVIDER_ORDER.map((id) => [
+      AI_PROVIDERS.map((id) => [
         id,
         {
           model: config.providers[id].model,
@@ -48,21 +48,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "config temporarily unreadable — save refused, API keys preserved" }, { status: 503 });
   }
   const current = loadAiConfig();
-  const incomingPrimary = String(body.primary ?? current.primary);
-  const requestedPriority = Array.isArray(body.priority) ? body.priority : current.priority;
-  const priority = [...requestedPriority, ...AI_PROVIDER_ORDER]
-    .filter((id, index, all): id is AiProviderId => typeof id === "string" && AI_PROVIDER_ORDER.includes(id as AiProviderId) && all.indexOf(id) === index);
-  const primary = priority[0] ?? (AI_PROVIDER_ORDER.includes(incomingPrimary as AiProviderId) ? incomingPrimary : current.primary) as AiProviderId;
+  const primary: AiProviderId = AI_PROVIDERS.includes(body.primary) ? body.primary : current.primary;
 
-  const providers = { ...current.providers } as AiConfig["providers"];
-  for (const id of AI_PROVIDER_ORDER) {
+  const providers = { ...current.providers };
+  for (const id of AI_PROVIDERS) {
     const inc = body.providers?.[id];
     if (!inc || typeof inc !== "object") continue;
     const requestedModel = typeof inc.model === "string" ? inc.model.trim() : "";
     const currentModel = current.providers[id].model;
-    const model = isAllowedFreeModel(id, requestedModel)
-      ? requestedModel
-      : (isAllowedFreeModel(id, currentModel) ? currentModel : FREE_MODEL_FALLBACKS[id][0].id);
+    // Free models only — never let a request pick a paid one.
+    const model = isFreeModel(id, requestedModel) ? requestedModel : isFreeModel(id, currentModel) ? currentModel : defaultModel(id);
     providers[id] = {
       model,
       keys: mergeKeys(current.providers[id].keys, Array.isArray(inc.keys) ? inc.keys : []),
@@ -72,10 +67,12 @@ export async function PUT(req: NextRequest) {
   const next = saveAiConfig({
     enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled,
     primary,
-    priority,
-    fallback: typeof body.fallback === "boolean" ? body.fallback : current.fallback,
-    webSearchEnabled: typeof body.webSearchEnabled === "boolean" ? body.webSearchEnabled : current.webSearchEnabled,
     providers,
+    webSearchEnabled: typeof body.webSearchEnabled === "boolean" ? body.webSearchEnabled : current.webSearchEnabled,
+    // A new key replaces the stored one; an empty field keeps it; « Supprimer » clears it.
+    webSearchKey: typeof body.webSearchKey === "string" && body.webSearchKey.trim()
+      ? body.webSearchKey.trim()
+      : body.clearWebSearchKey === true ? undefined : current.webSearchKey,
   });
   return NextResponse.json(redactConfig(next));
 }

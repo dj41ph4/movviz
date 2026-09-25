@@ -1,24 +1,15 @@
-export type AiProviderId = "cerebras" | "mistral" | "openrouter" | "gemini" | "opencode";
-
 /**
- * Fallback only, used while the live Zen catalogue cannot be reached.  The
- * settings UI obtains the exhaustive list from /zen/v1/models; never turn
- * this small recovery list into the source of truth again.
+ * Two AI providers (demande explicite : Mistral, Cerebras, OpenRouter et
+ * OpenCode retirés — Cerebras exige un moyen de paiement, OpenCode ne marche
+ * que dans son propre logiciel) :
+ *  - Groq, model openai/gpt-oss-120b (free plan: 30 requests/min, 1 000/day);
+ *  - Gemini (free plan, several models).
+ * The primary one is tried first; the other takes over automatically when
+ * it fails. Several keys per provider: a key whose quota is spent hands over
+ * to the next one at once.
  */
-export const OPENCODE_ZEN_FREE_MODELS = [
-  { id: "big-pickle", label: "Big Pickle" },
-  { id: "mimo-v2.5-free", label: "MiMo V2.5 Free" },
-  { id: "ling-3.0-flash-fin-free", label: "Ling 3.0 Flash Fin Free" },
-  { id: "nemotron-3-ultra-free", label: "Nemotron 3 Ultra Free" },
-  { id: "nemotron-3.5-lightning-free", label: "Nemotron 3.5 Lightning Free" },
-  { id: "muse-spark-1.3-contributor-free", label: "Muse Spark 1.3 Contributor Free" },
-] as const;
-
-export const DEFAULT_OPENCODE_ZEN_MODEL = OPENCODE_ZEN_FREE_MODELS[0].id;
-
-export function isOpenCodeZenFreeModel(model: string): boolean {
-  return OPENCODE_ZEN_FREE_MODELS.some((entry) => entry.id === model);
-}
+export type AiProviderId = "groq" | "gemini";
+export const AI_PROVIDERS: AiProviderId[] = ["groq", "gemini"];
 
 export interface AiProviderKey {
   id: string;
@@ -32,39 +23,25 @@ export interface AiProviderConfig {
 
 export interface AiConfig {
   enabled: boolean;
-  /** First provider tried on every request. */
+  /** Tried first; the other provider takes over when it fails. */
   primary: AiProviderId;
-  /** Complete, user-defined provider order. The first entry is `primary`. */
-  priority: AiProviderId[];
-  /** When true (and enabled), a provider that fails (quota/error) falls back to the next one in order. */
-  fallback: boolean;
   providers: Record<AiProviderId, AiProviderConfig>;
-  /** Demande explicite user — recherche web pour les scènes mémorables
-   *  (contextBuilder.ts n'utilise jamais ceci ; c'est providers.ts
-   *  searchTitleScene). Mistral UNIQUEMENT (seul fournisseur dont l'API
-   *  supporte le connecteur web_search côté Movviz aujourd'hui) — quel que
-   *  soit le fournisseur PRIMARY, OpenRouter/Gemini n'ont jamais accès au
-   *  web. Off par défaut (AGENTS.md : toute future fonctionnalité IA reste
-   *  invisible tant qu'elle n'est pas explicitement activée). */
+  /** Demande explicite user — recherche web (musique, scène culte,
+   *  filmographie) : une recherche Tavily dont les résultats sont synthétisés
+   *  par l'IA configurée — aucun modèle ne navigue lui-même. Off par défaut
+   *  (AGENTS.md : toute future fonctionnalité IA reste invisible tant qu'elle
+   *  n'est pas explicitement activée). */
   webSearchEnabled: boolean;
+  /** Tavily API key for the web search (never sent to the browser). */
+  webSearchKey?: string;
 }
-
-// Cerebras first (demande explicite : « remplace Mistral par Cerebras ») —
-// gpt-oss-120b, fast and with a far roomier free tier. Mistral stays
-// available: it is the only provider behind the web search.
-export const AI_PROVIDER_ORDER: AiProviderId[] = ["cerebras", "mistral", "openrouter", "gemini", "opencode"];
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
   enabled: false,
-  primary: "cerebras",
-  priority: [...AI_PROVIDER_ORDER],
-  fallback: true,
+  primary: "groq",
   providers: {
-    cerebras: { model: "gpt-oss-120b", keys: [] },
-    mistral: { model: "mistral-small-latest", keys: [] },
-    openrouter: { model: "openrouter/free", keys: [] },
+    groq: { model: "openai/gpt-oss-120b", keys: [] },
     gemini: { model: "gemini-3.5-flash-lite", keys: [] },
-    opencode: { model: DEFAULT_OPENCODE_ZEN_MODEL, keys: [] },
   },
   webSearchEnabled: false,
 };

@@ -5,20 +5,23 @@ import { mutate } from "swr";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
-import { ArrowDown, ArrowUp, Bot, Loader2, Plus, X, Trash2 } from "lucide-react";
-import { AI_PROVIDER_ORDER, type AiProviderId } from "@/lib/ai/types";
-import { FREE_MODEL_FALLBACKS } from "@/lib/ai/freeModels";
+import { Bot, Loader2, Plus, Trash2 } from "lucide-react";
+import { AI_PROVIDERS, type AiProviderId } from "@/lib/ai/types";
+import { GEMINI_RECOMMENDED_MODELS, GROQ_MODELS } from "@/lib/ai/freeModels";
 import { AiDebugLogPanel } from "@/components/settings/AiDebugLogPanel";
 
-const PROVIDERS = AI_PROVIDER_ORDER;
+const PROVIDERS = AI_PROVIDERS;
 
 /** Where to grab a free key for each provider — plain URLs, no translation needed. */
 const PROVIDER_KEY_URL: Record<AiProviderId, string> = {
-  cerebras: "https://cloud.cerebras.ai",
-  mistral: "https://console.mistral.ai/api-keys",
-  openrouter: "https://openrouter.ai/keys",
+  groq: "https://console.groq.com/keys",
   gemini: "https://aistudio.google.com/apikey",
-  opencode: "https://opencode.ai/auth",
+};
+
+/** Shown until the server's list arrives (and if it can't be reached). */
+const BUILTIN_MODELS: Record<AiProviderId, { id: string; label: string }[]> = {
+  groq: [...GROQ_MODELS],
+  gemini: [...GEMINI_RECOMMENDED_MODELS],
 };
 
 interface KeyRow {
@@ -37,9 +40,12 @@ interface ProviderDraft {
 interface ConfigDraft {
   enabled: boolean;
   primary: AiProviderId;
-  priority: AiProviderId[];
-  fallback: boolean;
   webSearchEnabled: boolean;
+  /** Whether a Tavily key is stored server-side (the key itself never comes back). */
+  hasWebSearchKey: boolean;
+  /** A newly typed Tavily key, sent on save; empty = keep the stored one. */
+  webSearchKeyInput: string;
+  clearWebSearchKey: boolean;
   providers: Record<AiProviderId, ProviderDraft>;
 }
 
@@ -71,9 +77,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
   const [testing, setTesting] = useState<AiProviderId | null>(null);
   const [testResult, setTestResult] = useState<{ provider: AiProviderId; ok: boolean; detail?: string; latency?: number; message?: string } | null>(null);
   const [modelsChecked, setModelsChecked] = useState(false);
-  const [freeModels, setFreeModels] = useState<Record<AiProviderId, { id: string; label: string }[]>>(() =>
-    Object.fromEntries(PROVIDERS.map((provider) => [provider, [...FREE_MODEL_FALLBACKS[provider]]])) as Record<AiProviderId, { id: string; label: string }[]>
-  );
+  const [freeModels, setFreeModels] = useState<Record<AiProviderId, { id: string; label: string }[]>>(BUILTIN_MODELS);
 
   useEffect(() => {
     (async () => {
@@ -93,8 +97,8 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
               keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
             };
           }
-          const priority = Array.isArray(d.priority) ? d.priority.filter((id: AiProviderId) => PROVIDERS.includes(id)) : [...PROVIDERS];
-          setDraft({ enabled: !!d.enabled, primary: priority[0] ?? d.primary ?? "mistral", priority, fallback: d.fallback ?? true, webSearchEnabled: !!d.webSearchEnabled, providers });
+          const primary: AiProviderId = PROVIDERS.includes(d.primary) ? d.primary : PROVIDERS[0];
+          setDraft({ enabled: !!d.enabled, primary, webSearchEnabled: !!d.webSearchEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
         }
       } catch { /* leave unloaded */ }
       setLoaded(true);
@@ -112,7 +116,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
           const models = payload.providers[provider];
           next[provider] = Array.isArray(models)
             ? models.filter((model: unknown): model is { id: string; label: string } => !!model && typeof (model as { id?: unknown }).id === "string" && typeof (model as { label?: unknown }).label === "string")
-            : [...FREE_MODEL_FALLBACKS[provider]];
+            : BUILTIN_MODELS[provider];
         }
         setFreeModels(next);
       } catch {
@@ -154,9 +158,9 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
       const body = {
         enabled: draft.enabled,
         primary: draft.primary,
-        priority: draft.priority,
-        fallback: draft.fallback,
         webSearchEnabled: draft.webSearchEnabled,
+        webSearchKey: draft.webSearchKeyInput.trim(),
+        clearWebSearchKey: draft.clearWebSearchKey,
         providers: Object.fromEntries(
           PROVIDERS.map((id) => [
             id,
@@ -181,7 +185,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
           };
         }
-        setDraft({ enabled: d.enabled, primary: d.primary, priority: d.priority ?? draft.priority, fallback: d.fallback, webSearchEnabled: !!d.webSearchEnabled, providers });
+        setDraft({ enabled: d.enabled, primary: d.primary, webSearchEnabled: !!d.webSearchEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
         setTestResult(null);
         toast("success", t("ai.settings.saved"));
         // The floating chat button reads its own "enabled" via SWR on
@@ -237,14 +241,6 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
     setDraft({ ...draft, providers: { ...draft.providers, [provider]: { ...draft.providers[provider], model } } });
   };
 
-  const moveProvider = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= draft.priority.length) return;
-    const priority = [...draft.priority];
-    [priority[index], priority[target]] = [priority[target], priority[index]];
-    setDraft({ ...draft, priority, primary: priority[0] });
-  };
-
   const hasAnyKey = PROVIDERS.some((id) => draft.providers[id].keys.length > 0);
 
   return (
@@ -283,27 +279,27 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
           hint={t("ai.settings.enabledHint")}
         />
 
+        {/* Two providers: the primary one answers, the other takes over by
+            itself when it fails — no order to manage, no switch to forget. */}
         <div>
-          <p className="mb-2 text-sm font-bold text-ink">{t("ai.settings.priority")}</p>
-          <div className="space-y-2">
-            {draft.priority.map((id, index) => (
-              <div key={id} className={cn("flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2", index === 0 ? "border-brand/40 bg-brand/12" : "border-white/8 bg-black/20")}>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/8 text-xs font-black text-brand-glow">{index + 1}</span>
-                <span className="min-w-0 flex-1 text-sm font-semibold text-ink">{t(`ai.provider.${id}`)}{index === 0 ? <span className="ml-2 text-xs font-normal text-brand-glow">{t("ai.settings.primaryBadge")}</span> : null}</span>
-                <button type="button" onClick={() => moveProvider(index, -1)} disabled={index === 0} title={t("ai.settings.moveUp")} className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-white/8 disabled:opacity-25"><ArrowUp className="h-4 w-4" /></button>
-                <button type="button" onClick={() => moveProvider(index, 1)} disabled={index === draft.priority.length - 1} title={t("ai.settings.moveDown")} className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-white/8 disabled:opacity-25"><ArrowDown className="h-4 w-4" /></button>
-              </div>
+          <p className="mb-2 text-sm font-bold text-ink">{t("ai.settings.primary")}</p>
+          <div className="flex gap-2">
+            {PROVIDERS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setDraft({ ...draft, primary: id })}
+                className={cn(
+                  "h-11 flex-1 rounded-xl text-sm font-bold transition-colors",
+                  draft.primary === id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
+                )}
+              >
+                {t(`ai.provider.${id}`)}
+              </button>
             ))}
           </div>
-          <p className="mt-1.5 text-xs text-ink-dim">{t("ai.settings.priorityHint")}</p>
+          <p className="mt-1.5 text-xs text-ink-dim">{t("ai.settings.primaryHint")}</p>
         </div>
-
-        <Switch
-          checked={draft.fallback}
-          onChange={(v) => setDraft({ ...draft, fallback: v })}
-          label={t("ai.settings.fallback")}
-          hint={t("ai.settings.fallbackHint")}
-        />
 
         <Switch
           checked={draft.webSearchEnabled}
@@ -311,6 +307,33 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
           label={t("ai.settings.webSearch")}
           hint={t("ai.settings.webSearchHint")}
         />
+        {draft.webSearchEnabled ? (
+          <div className="-mt-2 rounded-xl glass p-3">
+            <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-dim">{t("ai.settings.webSearchKey")}</label>
+            {draft.hasWebSearchKey && !draft.clearWebSearchKey ? (
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="rounded-full border border-ok/30 bg-ok/12 px-2.5 py-0.5 text-[11px] font-bold text-ok">{t("ai.settings.webSearchKeySaved")}</span>
+                <button
+                  onClick={() => setDraft({ ...draft, clearWebSearchKey: true, webSearchKeyInput: "" })}
+                  className="text-xs font-semibold text-ink-dim hover:text-down"
+                >
+                  {t("ai.settings.webSearchKeyRemove")}
+                </button>
+              </div>
+            ) : null}
+            <input
+              type="password"
+              value={draft.webSearchKeyInput}
+              onChange={(e) => setDraft({ ...draft, webSearchKeyInput: e.target.value, clearWebSearchKey: false })}
+              placeholder={t("ai.settings.webSearchKeyPlaceholder")}
+              autoComplete="off"
+              className="h-11 w-full rounded-xl glass-strong px-3 text-sm text-ink outline-none placeholder:text-ink-dim"
+            />
+            <a href="https://app.tavily.com" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-brand-glow hover:underline">
+              {t("ai.settings.webSearchKeyGet")}
+            </a>
+          </div>
+        ) : null}
 
         <div className="border-t border-white/5 pt-5">
           <p className="mb-3 text-sm font-bold text-ink">{t("ai.settings.providers")}</p>
@@ -349,23 +372,13 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-dim">
                       {t("ai.settings.model")}
                     </label>
-                    {id === "mistral" ? (
-                      <select
-                        value={p.model}
-                        onChange={(e) => setModel(id, e.target.value)}
-                        className="h-11 w-full rounded-xl glass-strong px-3 text-sm text-ink outline-none"
-                      >
-                        {freeModels[id].map((model) => (
-                          <option key={model.id} value={model.id} className="bg-surface text-ink">{model.label}</option>
-                        ))}
-                      </select>
-                    ) : id === "gemini" && !modelsChecked && p.keys.some((k) => !k.isNew) ? (
+                    {id === "gemini" && !modelsChecked && p.keys.some((k) => !k.isNew) ? (
                       <p className="flex h-11 items-center gap-2 text-sm text-ink-soft">
                         <Loader2 className="h-4 w-4 animate-spin" /> {t("ai.settings.modelsChecking")}
                       </p>
                     ) : id === "gemini" && freeModels.gemini.length === 0 ? (
                       <p className="flex min-h-11 items-center text-sm text-ink-soft">{t("ai.settings.noWorkingModel")}</p>
-                    ) : id === "cerebras" || id === "opencode" || id === "openrouter" || id === "gemini" ? (
+                    ) : (
                       <select
                         value={p.model}
                         onChange={(e) => setModel(id, e.target.value)}
@@ -377,13 +390,6 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                           </option>
                         ))}
                       </select>
-                    ) : (
-                      <input
-                        value={p.model}
-                        onChange={(e) => setModel(id, e.target.value)}
-                        placeholder={id === "openrouter" ? "provider/model (ex: deepseek/deepseek-chat)" : ""}
-                        className="w-full rounded-xl glass-strong px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-dim"
-                      />
                     )}
                   </div>
 

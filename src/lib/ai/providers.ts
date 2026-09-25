@@ -1,33 +1,30 @@
 import type { AiChatMessage, AiConfig, AiProviderId } from "./types";
-import { AI_PROVIDER_ORDER, DEFAULT_OPENCODE_ZEN_MODEL, isOpenCodeZenFreeModel } from "./types";
-import { FREE_MODEL_FALLBACKS, isAllowedFreeModel } from "./freeModels";
+import { AI_PROVIDERS } from "./types";
+import { GEMINI_RECOMMENDED_MODELS, defaultModel, isFreeModel } from "./freeModels";
 
 /**
- * Multi-provider LLM client with two independent fallback layers:
- *  1. Per-provider key rotation — a provider holds a LIST of API keys; a
- *     quota/rate-limit/error on one key automatically retries with the next
- *     (the whole point of "several free-tier keys": once the free quota of
- *     the first is spent, the second takes over).
- *  2. Provider fallback — if the primary provider (Mistral by default) is
- *     exhausted, the next one in line (OpenRouter, then Gemini) is tried,
- *     when `fallback` is enabled in the AI settings.
+ * AI client — Groq (openai/gpt-oss-120b) and Gemini. Safety nets that keep
+ * the assistant answering on free keys:
+ *  1. Provider fallback — the primary provider first; when it fails, the
+ *     other one takes over automatically (providers without a key are skipped).
+ *  2. Key rotation — several keys per provider; a key whose quota is spent
+ *     hands over to the next one at once.
+ *  3. Gemini model fallback — a model Google refuses (retired, or outside
+ *     this key's free tier) is skipped for the next free one.
+ * Every call to a provider goes through its queue (see withProviderGate):
+ * one request at a time, spaced, and a pause after a persistent refusal.
  *
  * URLs are hardcoded constants — no user-supplied URL is ever fetched, so
  * there is no SSRF surface here (AGENTS.md).
  */
 
 const TIMEOUT_MS = 45_000;
-// Bug fix (confirmed live): a bulk add_media request (~100 titles pasted at
-// once, e.g. straight from a Netflix history export) produced JSON the
-// model tried to fill for every title — the old 1024-token ceiling cut the
-// response off mid-object, and the repair-tolerant JSON parser can't
-// recover an unterminated array. Every retry hit the exact same wall and
-// fell through to the generic "j'ai eu un souci" apology, no matter how the
-// user rephrased. Raised well past what the prompt's own 25-item cap
-// (intentParser.ts) actually needs, so hitting this ceiling should now mean
-// something is genuinely wrong rather than a routine long list.
+// A bulk add_media request (~100 titles pasted at once, e.g. a Netflix
+// export) needs room for the whole JSON: an old 1024-token ceiling cut it
+// mid-object and every retry hit the same wall. Well past the prompt's own
+// 25-item cap (intentParser.ts).
 const MAX_RESPONSE_TOKENS = 4096;
-const QUOTA_RE = /quota|rate limit|resource exhausted|insufficient_quota|429|too many requests|403|forbidden|invalid api key|api key not valid/i;
+const QUOTA_RE = /quota|rate limit|resource exhausted|429|too many requests|403|forbidden|api key not valid|invalid api key/i;
 
 export class AiCallError extends Error {
   readonly provider: AiProviderId;
@@ -45,10 +42,8 @@ export class AiCallError extends Error {
   }
 }
 
-/** A 429/rate-limit is usually transient (shared free-tier quota, burst) —
- *  worth ONE retry after a pause, unlike a 403/auth failure which will never
- *  succeed on retry. Kept deliberately narrow: anything else falls through
- *  to the next key/provider immediately, no added latency. */
+/** A momentary 429 (burst) is worth ONE retry after a pause, unlike a 403 /
+ *  bad key, which never succeeds on retry. */
 function isRateLimited(err: AiCallError): boolean {
   if (err.status === 429) return true;
   return /rate limit|too many requests|resource exhausted/i.test(err.message);
@@ -63,14 +58,17 @@ export function isModelUnavailable(err: AiCallError): boolean {
   return /no longer available|is not found|not supported for generatecontent|limit:\s*0\b/i.test(err.message);
 }
 
-/** The key's quota is used up (Gemini « Quota exceeded for metric… », «
- *  You exceeded your current quota »), as opposed to a momentary burst. */
+/** The key's quota is used up — daily/monthly (« Quota exceeded for
+ *  metric… », « You exceeded your current quota », Groq « requests per day »)
+ *  or a request larger than the per-minute token allowance (Groq 413) — as
+ *  opposed to a momentary burst: retrying the same key won't help. */
 function isQuotaSpent(err: AiCallError): boolean {
-  return /quota exceeded|exceeded your current quota/i.test(err.message);
+  if (err.status === 413) return true;
+  return /quota exceeded|exceeded your current quota|requests per day|tokens per day|request too large/i.test(err.message);
 }
 
 /** Respects the provider's Retry-After (capped), else a short fixed pause. */
-export function rateLimitDelayMs(err: AiCallError): number {
+function rateLimitDelayMs(err: AiCallError): number {
   const asked = typeof err.retryAfterSec === "number" && Number.isFinite(err.retryAfterSec) ? err.retryAfterSec : NaN;
   if (!Number.isNaN(asked)) return Math.min(Math.max(asked, 0), 30) * 1000;
   return 6000;
@@ -80,14 +78,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-interface RawResponse {
-  text: string;
-}
-
-async function jsonFetch(providerId: AiProviderId, url: string, headers: Record<string, string>, body: unknown, method = "POST"): Promise<unknown> {
+async function jsonFetch(provider: AiProviderId, url: string, headers: Record<string, string>, body: unknown): Promise<unknown> {
   const res = await fetch(url, {
-    method,
-    headers,
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
@@ -95,17 +89,11 @@ async function jsonFetch(providerId: AiProviderId, url: string, headers: Record<
   const raw = await res.text();
   let json: unknown = null;
   try { json = raw ? JSON.parse(raw) : null; } catch { /* non-JSON error body */ }
-  const errorMessage = (() => {
-    if (typeof raw !== "string") return null;
-    try {
-      const j = JSON.parse(raw) as { error?: { message?: string } | string; message?: string };
-      const m = typeof j.error === "string" ? j.error : j.error?.message ?? j.message;
-      return typeof m === "string" ? m : null;
-    } catch { return null; }
-  })();
   if (!res.ok) {
-    // Capture Retry-After for 429s (seconds, or HTTP date) so callers can
-    // honor the pause the provider asked for instead of guessing.
+    const j = json as { error?: { message?: string } | string; message?: string } | null;
+    const m = typeof j?.error === "string" ? j.error : j?.error?.message ?? j?.message;
+    const errorMessage = typeof m === "string" ? m : null;
+    // Retry-After for 429s (seconds, or HTTP date): honor the pause asked for.
     let retryAfterSec: number | undefined;
     if (res.status === 429) {
       const header = res.headers?.get("retry-after");
@@ -114,86 +102,80 @@ async function jsonFetch(providerId: AiProviderId, url: string, headers: Record<
         retryAfterSec = Number.isFinite(secs) ? secs : Math.max(0, (Date.parse(header) - Date.now()) / 1000);
       }
     }
-    if (res.status === 429 || res.status === 403 || (errorMessage && QUOTA_RE.test(errorMessage))) {
-      throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status}`, true, res.status, retryAfterSec);
-    }
-    throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status} (${res.statusText})`, false, res.status);
+    const quota = res.status === 429 || res.status === 403 || res.status === 413 || (!!errorMessage && QUOTA_RE.test(errorMessage));
+    throw new AiCallError(provider, errorMessage ?? `HTTP ${res.status}`, quota, res.status, retryAfterSec);
   }
   return json ?? raw;
 }
 
-function toOpenAiMessages(messages: AiChatMessage[]): { role: "user" | "assistant"; content: string }[] {
-  return messages.map((m) => ({ role: m.role, content: m.content }));
+function geminiUrl(model: string, key: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
 }
 
-/** Calls a single provider with a single key; throws AiCallError on failure. */
-async function callWithKey(providerId: AiProviderId, url: string, headers: Record<string, string>, body: unknown): Promise<string> {
-  const json = await jsonFetch(providerId, url, headers, body);
-  let text = "";
-  if (providerId === "gemini") {
-    const cands = (json as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates ?? [];
-    text = cands.map((c) => (c.content?.parts ?? []).map((p) => p.text ?? "").join("")).join("");
-  } else if (providerId === "opencode" && url.endsWith("/responses")) {
-    const response = json as { output_text?: string; output?: { content?: { type?: string; text?: string }[] }[] };
-    text = response.output_text ?? (response.output ?? [])
-      .flatMap((item) => item.content ?? [])
-      .filter((part) => part.type === "output_text")
-      .map((part) => part.text ?? "")
-      .join("");
-  } else {
+/** One call with one key and one model; throws AiCallError on failure. */
+async function generate(provider: AiProviderId, key: string, model: string, system: string, messages: AiChatMessage[]): Promise<string> {
+  if (provider === "groq") {
+    // OpenAI-compatible. gpt-oss is a reasoning model: « low » keeps the
+    // thinking short (latency, and its tokens count in the same budget); the
+    // reasoning comes back in its own field, never inside the answer.
+    const json = await jsonFetch(provider, "https://api.groq.com/openai/v1/chat/completions", { authorization: `Bearer ${key}` }, {
+      model,
+      messages: [{ role: "system", content: system }, ...messages.map((m) => ({ role: m.role, content: m.content }))],
+      temperature: 0.2,
+      max_completion_tokens: MAX_RESPONSE_TOKENS,
+      reasoning_effort: "low",
+    });
     const choices = (json as { choices?: { message?: { content?: string } }[] })?.choices ?? [];
-    text = choices.map((c) => c.message?.content ?? "").join("");
+    return choices.map((c) => c.message?.content ?? "").join("").trim();
   }
-  return text.trim();
+  const json = await jsonFetch(provider, geminiUrl(model, key), {}, {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+    generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
+  });
+  const candidates = (json as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates ?? [];
+  return candidates.map((c) => (c.content?.parts ?? []).map((p) => p.text ?? "").join("")).join("").trim();
 }
 
 /**
- * Débit par fournisseur. Les offres gratuites limitent le nombre de requêtes
- * par seconde (Mistral : ~1/s) : le chat lançait sa réponse ET l'extraction
- * de faits EN MÊME TEMPS, la seconde prenait un 429 à coup sûr, puis une
- * relance 6 s plus tard. Les appels d'un même fournisseur passent donc un par
- * un, espacés d'au moins MIN_INTERVAL_MS.
+ * Free plans limit requests per minute: the chat used to fire its answer AND
+ * the fact extraction at the same time, the second got a 429 for sure, then
+ * a retry 6 s later. Calls to one provider therefore go one at a time, at
+ * least MIN_INTERVAL_MS apart (Groq free plan: 30 requests/min).
  */
-// Cerebras free tier: 30 requests/minute → one every 2 s.
-const MIN_INTERVAL_MS: Partial<Record<AiProviderId, number>> = { cerebras: 2_000, mistral: 1_100, gemini: 1_000 };
-/** Après un refus persistant (429 même après la relance), le fournisseur est
- *  laissé tranquille ce temps-là : échec immédiat au lieu de le marteler. */
+const MIN_INTERVAL_MS: Record<AiProviderId, number> = { groq: 2_000, gemini: 1_000 };
+/** After a persistent refusal (429 even after the retry), the provider is
+ *  left alone this long: an immediate failure instead of hammering it. */
 const RATE_LIMIT_COOLDOWN_MS = 60_000;
 
-interface ProviderGate { tail: Promise<void>; lastStartAt: number; coolUntil: number }
-const gGates = globalThis as typeof globalThis & { __movvizAiGates?: Map<AiProviderId, ProviderGate> };
-const gates: Map<AiProviderId, ProviderGate> = (gGates.__movvizAiGates ??= new Map());
-function gateFor(providerId: AiProviderId): ProviderGate {
-  let gate = gates.get(providerId);
-  if (!gate) { gate = { tail: Promise.resolve(), lastStartAt: 0, coolUntil: 0 }; gates.set(providerId, gate); }
+interface Gate { tail: Promise<void>; lastStartAt: number; coolUntil: number }
+const gGates = globalThis as typeof globalThis & { __movvizAiGates?: Map<AiProviderId, Gate> };
+const gates: Map<AiProviderId, Gate> = (gGates.__movvizAiGates ??= new Map());
+function gateFor(provider: AiProviderId): Gate {
+  let gate = gates.get(provider);
+  if (!gate) { gate = { tail: Promise.resolve(), lastStartAt: 0, coolUntil: 0 }; gates.set(provider, gate); }
   return gate;
 }
 
-async function callProvider(config: AiConfig, providerId: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
-  // callProviderNow already retried once: a 429 reaching the gate is persistent.
-  return withProviderGate(providerId, () => callProviderNow(config, providerId, system, messages), true);
-}
-
-/** Runs one request against a provider inside its queue (see MIN_INTERVAL_MS
- *  and RATE_LIMIT_COOLDOWN_MS). Every call to a provider must go through
- *  here, or it silently eats the quota the others are pacing themselves on. */
-async function withProviderGate<T>(providerId: AiProviderId, run: () => Promise<T>, coolDownOnRateLimit: boolean): Promise<T> {
-  const gate = gateFor(providerId);
-  const coolingDown = () => new AiCallError(providerId, `Limite de débit atteinte — nouvel essai possible dans ${Math.ceil((gate.coolUntil - Date.now()) / 1000)} s`, true, 429);
+/** Runs one request inside a provider's queue. Every call to a provider must
+ *  go through here, or it silently eats the quota the others pace on. */
+async function withProviderGate<T>(provider: AiProviderId, run: () => Promise<T>, coolDownOnRateLimit: boolean): Promise<T> {
+  const gate = gateFor(provider);
+  const coolingDown = () => new AiCallError(provider, `Limite de débit atteinte — nouvel essai possible dans ${Math.ceil((gate.coolUntil - Date.now()) / 1000)} s`, true, 429);
   if (Date.now() < gate.coolUntil) throw coolingDown();
   let release!: () => void;
   const turn = gate.tail;
   gate.tail = new Promise<void>((resolve) => { release = resolve; });
   await turn;
   try {
-    // Un appel placé dans la file avant la pause ne doit pas partir pendant celle-ci.
+    // A call queued before the pause must not leave during it.
     if (Date.now() < gate.coolUntil) throw coolingDown();
-    const wait = gate.lastStartAt + (MIN_INTERVAL_MS[providerId] ?? 0) - Date.now();
+    const wait = gate.lastStartAt + MIN_INTERVAL_MS[provider] - Date.now();
     if (wait > 0) await sleep(wait);
     gate.lastStartAt = Date.now();
     return await run();
   } catch (e) {
-    if (coolDownOnRateLimit && e instanceof AiCallError && isRateLimited(e)) gate.coolUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+    if (coolDownOnRateLimit && e instanceof AiCallError && isRateLimited(e) && !isQuotaSpent(e)) gate.coolUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
     throw e;
   } finally {
     release();
@@ -218,8 +200,7 @@ export async function probeGeminiModel(key: string, model: string, keyTag: strin
   if (cached && cached.result !== "unknown" && Date.now() - cached.at < PROBE_TTL_MS[cached.result]) return cached.result;
   let result: GeminiProbe;
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-    await withProviderGate("gemini", () => jsonFetch("gemini", url, { "content-type": "application/json" }, {
+    await withProviderGate("gemini", () => jsonFetch("gemini", geminiUrl(model, key), {}, {
       contents: [{ role: "user", parts: [{ text: "Réponds OK." }] }],
       generationConfig: { maxOutputTokens: 256 },
     }), false);
@@ -231,88 +212,30 @@ export async function probeGeminiModel(key: string, model: string, keyTag: strin
   return result;
 }
 
-/** Tries every key of one provider in order; throws the last failure when all are exhausted. */
-async function callProviderNow(config: AiConfig, providerId: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
-  const provider = config.providers[providerId];
-  const configuredModel = provider.model.trim();
-  // Configuration files predate the strict free-only selector. Enforce the
-  // same restriction at the actual call boundary so an old file or forged
-  // request cannot quietly spend credits.
-  const model = providerId === "opencode"
-    ? (isOpenCodeZenFreeModel(configuredModel) ? configuredModel : DEFAULT_OPENCODE_ZEN_MODEL)
-    : (isAllowedFreeModel(providerId, configuredModel) ? configuredModel : FREE_MODEL_FALLBACKS[providerId][0].id);
-  const keys = provider.keys.filter((k) => k.key.trim().length > 0);
-  if (keys.length === 0) throw new AiCallError(providerId, "Aucune clé API configurée pour ce fournisseur", false);
-
-  // Gemini: a model Google retired or keeps out of this key's free tier is a
-  // permanent refusal, not a transient one — try the next free model instead
-  // of failing the whole call (a stale setting must never silence the chat).
-  const modelsToTry = providerId === "gemini"
-    ? [model, ...FREE_MODEL_FALLBACKS.gemini.map((m) => m.id).filter((id) => id !== model)]
+/** Every key of one provider in order (and for Gemini, the configured model
+ *  then the other free ones when Google refuses it); throws the last failure. */
+async function callProvider(config: AiConfig, provider: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
+  const configured = config.providers[provider].model.trim();
+  // An old or forged config must never quietly reach a paid model.
+  const model = isFreeModel(provider, configured) ? configured : defaultModel(provider);
+  const keys = config.providers[provider].keys.map((k) => k.key.trim()).filter(Boolean);
+  if (keys.length === 0) throw new AiCallError(provider, "Aucune clé configurée", false);
+  const modelsToTry = provider === "gemini"
+    ? [model, ...GEMINI_RECOMMENDED_MODELS.map((m) => m.id).filter((id) => id !== model)]
     : [model];
+
   let lastError: AiCallError | null = null;
-  for (const entry of keys) {
-    const key = entry.key.trim();
+  for (const key of keys) {
     for (const modelId of modelsToTry) {
       let modelUnavailable = false;
-      // One transparent retry on rate-limit: a first 429 on a shared free-tier
-      // quota often clears within seconds — no reason to burn the next key or
-      // fall over to the next provider for a transient signal. Anything else
-      // (auth, model error, second 429) moves on immediately.
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          if (providerId === "gemini") {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(key)}`;
-            return await callWithKey(providerId, url, { "content-type": "application/json" }, {
-              systemInstruction: { parts: [{ text: system }] },
-              contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-              generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
-            });
-          }
-          if (providerId === "opencode") {
-            const responsesProtocol = model === "muse-spark-1.3-contributor-free";
-            const url = `https://opencode.ai/zen/v1/${responsesProtocol ? "responses" : "chat/completions"}`;
-            const headers = { "content-type": "application/json", authorization: `Bearer ${key}` };
-            const body = responsesProtocol
-              ? { model, instructions: system, input: toOpenAiMessages(messages), max_output_tokens: MAX_RESPONSE_TOKENS }
-              : { model, messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)], temperature: 0.2, max_tokens: MAX_RESPONSE_TOKENS };
-            return await callWithKey(providerId, url, headers, body);
-          }
-          if (providerId === "cerebras") {
-            // OpenAI-compatible. gpt-oss is a reasoning model: « low » keeps
-            // the thinking short (latency) and its tokens count in the same
-            // completion budget, hence max_completion_tokens.
-            return await callWithKey(providerId, "https://api.cerebras.ai/v1/chat/completions", {
-              "content-type": "application/json",
-              authorization: `Bearer ${key}`,
-            }, {
-              model,
-              messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
-              temperature: 0.2,
-              max_completion_tokens: MAX_RESPONSE_TOKENS,
-              reasoning_effort: "low",
-            });
-          }
-          const url = providerId === "mistral"
-            ? "https://api.mistral.ai/v1/chat/completions"
-            : "https://openrouter.ai/api/v1/chat/completions";
-          const headers: Record<string, string> = {
-            "content-type": "application/json",
-            authorization: `Bearer ${key}`,
-            ...(providerId === "openrouter" ? { "X-Title": "Movviz" } : {}),
-          };
-          return await callWithKey(providerId, url, headers, {
-            model,
-            messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
-            temperature: 0.2,
-            max_tokens: MAX_RESPONSE_TOKENS,
-          });
+          return await generate(provider, key, modelId, system, messages);
         } catch (e) {
-          lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);
-          if (providerId === "gemini" && isModelUnavailable(lastError)) { modelUnavailable = true; break; }
-          // A spent daily/monthly quota won't come back in 6 s: go straight
-          // to the next key instead of waiting on this one (several Gemini
-          // keys then chain without a gap). A plain burst limit still retries.
+          lastError = e instanceof AiCallError ? e : new AiCallError(provider, (e as Error).message, false);
+          if (provider === "gemini" && isModelUnavailable(lastError)) { modelUnavailable = true; break; }
+          // A spent quota won't come back in 6 s: next key at once. A plain
+          // burst limit gets one transparent retry on the same key.
           if (isQuotaSpent(lastError)) break;
           if (attempt === 0 && isRateLimited(lastError)) {
             await sleep(rateLimitDelayMs(lastError));
@@ -321,78 +244,42 @@ async function callProviderNow(config: AiConfig, providerId: AiProviderId, syste
           break;
         }
       }
-      if (!modelUnavailable) break; // any other failure: next key, as before
+      if (!modelUnavailable) break; // any other failure: next key
     }
   }
-  throw lastError ?? new AiCallError(providerId, "Échec inconnu", false);
+  throw lastError ?? new AiCallError(provider, "Échec inconnu", false);
 }
 
-/** Extracts the assistant text from a Mistral Conversations API response —
- *  a different shape than Chat Completions (`outputs[]` mixing tool-
- *  execution entries and message entries, not a `choices[]` array). Only
- *  `message.output` entries are ever assistant-facing text; `content` can
- *  be a plain string or an array of `{type,text}` parts depending on the
- *  connector, so both are handled. */
-function extractConversationText(json: unknown): string {
-  const outputs = (json as { outputs?: unknown[] })?.outputs ?? [];
-  const parts: string[] = [];
-  for (const raw of outputs) {
-    const out = raw as { type?: string; content?: unknown };
-    if (out.type !== "message.output") continue;
-    if (typeof out.content === "string") {
-      parts.push(out.content);
-    } else if (Array.isArray(out.content)) {
-      for (const piece of out.content) {
-        const p = piece as { text?: string };
-        if (typeof p.text === "string") parts.push(p.text);
-      }
-    }
-  }
-  return parts.join("\n").trim();
-}
-
-/**
- * Web-grounded scene lookup (demande explicite user) — Mistral's
- * `web_search` built-in connector, which ONLY exists on the Conversations
- * API (`/v1/conversations`), a different endpoint/shape from the plain
- * Chat Completions API every other call in this file uses. Deliberately
- * Mistral-only: OpenRouter/Gemini have no equivalent wired here, and this
- * function is never used as a fallback target — callers gate on
- * `config.webSearchEnabled` AND a configured Mistral key before calling.
- * Returns null on ANY failure (no key, quota, empty result) — the caller
- * (contextBuilder.ts's scene cache) degrades to simply not having a scene
- * to reference, never a broken chat reply.
- */
-export async function searchWeb(config: AiConfig, prompt: string): Promise<string | null> {
-  if (!config.webSearchEnabled) return null;
-  const provider = config.providers.mistral;
-  const model = provider.model.trim() || "mistral-small-latest";
-  const keys = provider.keys.filter((k) => k.key.trim().length > 0);
-  if (keys.length === 0) return null;
-
-  for (const entry of keys) {
+/** Asks the AI: primary provider first, then the other one; returns the text
+ *  and the provider that answered (shown as « via Groq » / « via Gemini »). */
+export async function callAi(config: AiConfig, system: string, messages: AiChatMessage[]): Promise<{ text: string; provider: AiProviderId }> {
+  const inputTokens = estimateTokens(system, messages);
+  const order = [config.primary, ...AI_PROVIDERS.filter((p) => p !== config.primary)]
+    .filter((p) => config.providers[p].keys.some((k) => k.key.trim()))
+    // Groq's free plan refuses any request above 8 000 tokens/minute — the
+    // chat's own prompt is ~14 000. Skip it for those instead of spending a
+    // refused round trip on every message; it still serves the small calls.
+    .filter((p, _, all) => p !== "groq" || inputTokens <= GROQ_FREE_MAX_INPUT_TOKENS || all.length === 1);
+  let lastError: AiCallError | null = null;
+  for (const provider of order) {
     try {
-      const json = await withProviderGate("mistral", () => jsonFetch("mistral", "https://api.mistral.ai/v1/conversations", {
-        "content-type": "application/json",
-        authorization: `Bearer ${entry.key.trim()}`,
-      }, {
-        model,
-        inputs: [{ role: "user", content: prompt }],
-        tools: [{ type: "web_search" }],
-      }), false);
-      const text = extractConversationText(json);
-      if (text) return text;
-    } catch {
-      // try the next key — same key-rotation spirit as callProvider above
+      // callProvider already retried once: a 429 reaching the gate is persistent.
+      const text = await withProviderGate(provider, () => callProvider(config, provider, system, messages), true);
+      if (text) return { text, provider };
+      lastError = new AiCallError(provider, "Réponse vide du modèle", false);
+    } catch (e) {
+      lastError = e instanceof AiCallError ? e : new AiCallError(provider, (e as Error).message, false);
     }
   }
-  return null;
+  throw lastError ?? new AiCallError(config.primary, "Aucune clé IA configurée", false);
 }
 
-/** Compatibility name used by the scene cache. General factual searches
- *  now share the exact same authenticated Mistral web connector. */
-export async function searchTitleScene(config: AiConfig, prompt: string): Promise<string | null> {
-  return searchWeb(config, prompt);
+/** Groq free plan: 8 000 tokens/minute, input + output — room left for the answer. */
+const GROQ_FREE_MAX_INPUT_TOKENS = 6_500;
+
+/** Rough token count (~3.5 characters per token for French prose). */
+function estimateTokens(system: string, messages: AiChatMessage[]): number {
+  return Math.ceil((system.length + messages.reduce((n, m) => n + m.content.length, 0)) / 3.5);
 }
 
 export interface AiCandidateResult {
@@ -400,54 +287,65 @@ export interface AiCandidateResult {
   provider: AiProviderId;
 }
 
-/** Two independent Mistral opinions, one visible result. The second key is
- *  an optional quality lane, never a requirement: 0/1 key, a quota error or
- *  a network failure transparently falls back to the normal provider chain. */
+/** One candidate reply (the dialogue director can pick among several). */
 export async function callAiCandidates(config: AiConfig, system: string, messages: AiChatMessage[]): Promise<AiCandidateResult[]> {
-  const provider = config.providers.mistral;
-  const keys = provider.keys.filter((entry) => entry.key.trim()).slice(0, 2);
-  if (config.primary !== "mistral" || keys.length < 2) return [await callAi(config, system, messages)];
+  return [await callAi(config, system, messages)];
+}
 
-  const model = provider.model.trim() || "mistral-small-latest";
-  const body = {
-    model,
-    messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
-    temperature: 0.35,
-    max_tokens: MAX_RESPONSE_TOKENS,
-  };
-  const settled = await Promise.allSettled(keys.map((entry) => callWithKey(
-    "mistral",
-    "https://api.mistral.ai/v1/chat/completions",
-    { "content-type": "application/json", authorization: `Bearer ${entry.key.trim()}` },
-    body,
-  )));
-  const candidates = settled
-    .filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled" && !!result.value.trim())
-    .map((result) => ({ text: result.value, provider: "mistral" as const }));
-  return candidates.length ? candidates : [await callAi(config, system, messages)];
+interface TavilyResult {
+  title?: string;
+  url?: string;
+  content?: string;
+}
+
+/** One Tavily search (https://api.tavily.com/search). Null on any failure. */
+async function tavilySearch(apiKey: string, query: string): Promise<{ answer: string | null; results: TavilyResult[] } | null> {
+  try {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+      // Tavily caps queries at 400 characters.
+      body: JSON.stringify({ query: query.slice(0, 400), max_results: 6, include_answer: true, search_depth: "basic" }),
+      signal: AbortSignal.timeout(20_000),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { answer?: unknown; results?: unknown };
+    const results = Array.isArray(data.results) ? (data.results as TavilyResult[]) : [];
+    return { answer: typeof data.answer === "string" ? data.answer : null, results };
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Calls the configured chain: primary provider first, then the others in
- * in the administrator's configured priority order when fallback is enabled. Returns
- * the assistant text plus the provider that actually answered (so the UI
- * can surface which free-tier quota is being used).
+ * Web search for the assistant (« Recherche web » in Réglages → IA): the
+ * question goes to a real search engine (Tavily), and its results are then
+ * synthesized by the configured AI — the model itself never browses.
+ * Returns null on ANY failure (disabled, no key, no result, AI down): callers
+ * degrade to not having web facts, never to a broken reply.
  */
-export async function callAi(config: AiConfig, system: string, messages: AiChatMessage[]): Promise<{ text: string; provider: AiProviderId }> {
-  const configured = Array.isArray(config.priority) && config.priority.length ? config.priority : [config.primary];
-  const order = [...configured, ...AI_PROVIDER_ORDER]
-    .filter((provider, index, all): provider is AiProviderId => AI_PROVIDER_ORDER.includes(provider) && all.indexOf(provider) === index);
-  const chain = config.fallback ? order : [order[0]];
-
-  let lastError: AiCallError | null = null;
-  for (const providerId of chain) {
-    try {
-      const text = await callProvider(config, providerId, system, messages);
-      if (text) return { text, provider: providerId };
-      lastError = new AiCallError(providerId, "Réponse vide du modèle", false);
-    } catch (e) {
-      lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);
-    }
+export async function searchWeb(config: AiConfig, prompt: string): Promise<string | null> {
+  if (!config.webSearchEnabled) return null;
+  const apiKey = config.webSearchKey?.trim();
+  if (!apiKey) return null;
+  const found = await tavilySearch(apiKey, prompt);
+  if (!found || (!found.answer && found.results.length === 0)) return null;
+  const sources = found.results
+    .slice(0, 6)
+    .map((r, i) => `[${i + 1}] ${r.title ?? ""} — ${r.url ?? ""}\n${(r.content ?? "").slice(0, 900)}`)
+    .join("\n\n");
+  const system = "Tu synthétises des résultats de recherche web, en français. Réponds UNIQUEMENT à partir des sources fournies : n'invente rien, et si elles ne permettent pas de répondre, dis-le. Réponse directe et concise, avec les liens utiles quand c'est pertinent.";
+  const user = `Demande : ${prompt}\n\n${found.answer ? `Résumé du moteur de recherche : ${found.answer}\n\n` : ""}Sources :\n${sources}`;
+  try {
+    const { text } = await callAi(config, system, [{ role: "user", content: user }]);
+    return text.trim() || null;
+  } catch {
+    return null;
   }
-  throw lastError ?? new AiCallError(config.primary, "Aucun fournisseur disponible", false);
+}
+
+/** Compatibility name used by the scene cache. */
+export async function searchTitleScene(config: AiConfig, prompt: string): Promise<string | null> {
+  return searchWeb(config, prompt);
 }

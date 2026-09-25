@@ -1,3 +1,12 @@
+## v1.25.82 — September 2026
+
+### Assistant IA : Groq et Gemini uniquement, recherche web réelle
+
+- Assistant IA : deux fournisseurs seulement, Groq (modèle GPT-OSS 120B) et Gemini, tous deux avec une offre gratuite. Mistral, Cerebras (qui exige un moyen de paiement), OpenRouter et OpenCode (inutilisable en dehors de son propre logiciel) sont retirés.
+- Assistant IA : on choisit simplement le fournisseur principal ; si celui-ci échoue (quota atteint, erreur), l'autre prend le relais automatiquement. Il n'y a plus d'ordre à régler ni d'option de bascule à activer.
+- Assistant IA : la conversation dépasse la limite gratuite de Groq (8 000 tokens par minute), elle part donc directement vers Gemini, sans passer par une demande refusée. Groq sert aux appels plus courts.
+- Assistant IA : la recherche web (musique d'un film, scène culte, filmographie) passe par un vrai moteur de recherche, Tavily, dont les résultats sont résumés par l'assistant. Il suffit de coller sa clé Tavily gratuite sous l'option « Recherche web » dans Réglages → IA.
+
 ## v1.25.81 — September 2026
 
 ### Cerebras comme assistant IA principal

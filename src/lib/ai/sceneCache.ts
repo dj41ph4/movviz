@@ -6,7 +6,7 @@ import type { AiConfig } from "./types";
 
 /**
  * "Scène mémorable" — web-grounded candidate scenes for a title, found via
- * Mistral's web_search connector (providers.ts searchTitleScene), cached
+ * web search (Tavily + the AI chain, providers.ts searchTitleScene), cached
  * GLOBALLY per title (a fact about the title, not about any one user — same
  * reasoning as the Mood Engine's ai-title-analysis.json) so the same title
  * is only ever searched ONCE, no matter how many users/conversations later
