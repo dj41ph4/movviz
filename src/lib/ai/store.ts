@@ -106,6 +106,22 @@ export function pushAiMessage(userId: string, message: AiChatSession["messages"]
   return session;
 }
 
+const gActivity = globalThis as typeof globalThis & { __movvizAiChatActivity?: Map<string, number> };
+const chatActivity: Map<string, number> = (gActivity.__movvizAiChatActivity ??= new Map());
+
+/** A question from this user is being answered (or was, moments ago). */
+export function markChatActive(userId: string): void {
+  chatActivity.set(userId, Date.now());
+}
+
+/** The proactive nudge stays out of an active conversation: it used to be
+ *  appended while a question was being answered, so the model then received
+ *  a conversation ending with ITS OWN message (Gemini 3 refuses that:
+ *  « Requests ending with a model turn are not supported »). */
+export function isChatActive(userId: string, withinMs = 120_000): boolean {
+  return Date.now() - (chatActivity.get(userId) ?? 0) < withinMs;
+}
+
 /** Drops the user's last message when it got no answer (the model call
  *  failed): otherwise it stayed in the history as an orphan question — shown
  *  again on every reload, and fed to the model as if it had been answered. */

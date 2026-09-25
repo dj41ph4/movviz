@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { loadAiSession, clearAiSession, pushAiMessage } from "@/lib/ai/store";
+import { loadAiSession, clearAiSession, pushAiMessage, isChatActive } from "@/lib/ai/store";
 import { loadAiConfig } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts } from "@/lib/ai/intentParser";
@@ -30,6 +30,8 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
   // Never on a truly fresh account — that's the onboarding flow's moment
   // (actions.ts isFirstInteraction), not this one.
   if (session.messages.length === 0 && getFacts(userId).length === 0) return;
+  // Never into a conversation in progress (see isChatActive).
+  if (isChatActive(userId)) return;
   if (!checkProactivePulse(userId)) return;
 
   try {
@@ -62,6 +64,8 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
     const { facts, cleaned } = extractFacts(intent.rawText);
     for (const fact of facts) rememberFact(userId, fact);
     if (!cleaned) return;
+    // A question may have arrived while this nudge was being written.
+    if (isChatActive(userId)) return;
     pushAiMessage(userId, { role: "assistant", content: cleaned });
     pendingNudges.add(userId);
     console.log(`[ai] proactive nudge sent user=${username} provider=${res.provider}`);

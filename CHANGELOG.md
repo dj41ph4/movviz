@@ -1,3 +1,10 @@
+## v1.25.83 — September 2026
+
+### Assistant IA : plus d'erreur Gemini en pleine question, plusieurs utilisateurs servis en même temps
+
+- Assistant IA : l'erreur « Requests ending with a model turn are not supported » ne peut plus se produire. Le message spontané de l'assistant pouvait s'ajouter à la conversation pendant qu'une question était en cours de traitement : les modèles Gemini 3 refusaient alors la demande. Ce message n'intervient plus pendant une conversation active, et l'assistant répond toujours au dernier message de l'utilisateur.
+- Assistant IA : plusieurs personnes peuvent lui parler en même temps sans attendre la réponse des autres. Les demandes partent à quelques instants d'intervalle pour respecter les quotas gratuits, mais jusqu'à trois réponses sont préparées simultanément.
+
 ## v1.25.82 — September 2026
 
 ### Assistant IA : Groq et Gemini uniquement, recherche web réelle

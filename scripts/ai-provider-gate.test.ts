@@ -18,7 +18,7 @@ function config(provider: AiProviderId, model: string): AiConfig {
 
 const ok = (text: string) => new Response(JSON.stringify({ choices: [{ message: { content: text } }], candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
 
-test("calls to the same provider run one at a time, spaced for the free tier (Gemini)", async () => {
+test("two users at once: starts are spaced for the free tier, but the second never waits for the first's whole answer", async () => {
   const originalFetch = globalThis.fetch;
   let inFlight = 0;
   let maxInFlight = 0;
@@ -27,18 +27,21 @@ test("calls to the same provider run one at a time, spaced for the free tier (Ge
     inFlight++;
     maxInFlight = Math.max(maxInFlight, inFlight);
     starts.push(Date.now());
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The first user's answer is slow (a long Gemini reply).
+    await new Promise((resolve) => setTimeout(resolve, starts.length === 1 ? 3_000 : 50));
     inFlight--;
     return ok("ok");
   }) as typeof fetch;
   try {
     const cfg = config("gemini", "gemini-3.5-flash-lite");
     await Promise.all([
-      callAi(cfg, "system", [{ role: "user", content: "a" }]),
-      callAi(cfg, "system", [{ role: "user", content: "b" }]),
+      callAi(cfg, "system", [{ role: "user", content: "utilisateur 1" }]),
+      callAi(cfg, "system", [{ role: "user", content: "utilisateur 2" }]),
     ]);
-    assert.equal(maxInFlight, 1);
-    assert.ok(starts[1] - starts[0] >= 950, `spacing was ${starts[1] - starts[0]} ms`);
+    const gap = starts[1] - starts[0];
+    assert.ok(gap >= 950, `starts must stay spaced (${gap} ms)`);
+    assert.ok(gap < 2_000, `the second user must not wait for the first answer (${gap} ms)`);
+    assert.equal(maxInFlight, 2, "both answers are under way together");
   } finally {
     globalThis.fetch = originalFetch;
   }

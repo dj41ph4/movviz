@@ -112,3 +112,26 @@ test("a request too big for Groq's free plan goes straight to Gemini", async () 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("the model always answers the user: a conversation ending with its own message is trimmed", async () => {
+  const originalFetch = globalThis.fetch;
+  let contents: { role: string }[] = [];
+  globalThis.fetch = (async (_input, init) => {
+    contents = JSON.parse(String(init?.body)).contents;
+    // Gemini 3's real behaviour when the last turn is the model's.
+    if (contents[contents.length - 1]?.role === "model") {
+      return new Response(JSON.stringify({ error: { message: "Requests ending with a model turn are not supported." } }), { status: 400 });
+    }
+    return geminiOk("un film d'horreur doux");
+  }) as typeof fetch;
+  try {
+    const result = await callAi(config({ gemini: ["m"] }, "gemini"), "s", [
+      { role: "user", content: "aide moi a trouver un film d'horreur pour débutant" },
+      { role: "assistant", content: "Au fait, tu as vu quoi récemment ?" }, // nudge appended mid-request
+    ]);
+    assert.equal(result.text, "un film d'horreur doux");
+    assert.equal(contents[contents.length - 1].role, "user");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

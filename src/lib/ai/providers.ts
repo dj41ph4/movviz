@@ -148,12 +148,18 @@ const MIN_INTERVAL_MS: Record<AiProviderId, number> = { groq: 2_000, gemini: 1_0
  *  left alone this long: an immediate failure instead of hammering it. */
 const RATE_LIMIT_COOLDOWN_MS = 60_000;
 
-interface Gate { tail: Promise<void>; lastStartAt: number; coolUntil: number }
+/** Several users can be answered at once: free plans count requests per
+ *  MINUTE, not requests in flight — so only the STARTS are spaced. Waiting
+ *  for a whole answer (5-17 s) before the next user's even began made a
+ *  second person wait for the first one's reply. */
+const MAX_IN_FLIGHT = 3;
+
+interface Gate { tail: Promise<void>; lastStartAt: number; coolUntil: number; inFlight: number; waiters: (() => void)[] }
 const gGates = globalThis as typeof globalThis & { __movvizAiGates?: Map<AiProviderId, Gate> };
 const gates: Map<AiProviderId, Gate> = (gGates.__movvizAiGates ??= new Map());
 function gateFor(provider: AiProviderId): Gate {
   let gate = gates.get(provider);
-  if (!gate) { gate = { tail: Promise.resolve(), lastStartAt: 0, coolUntil: 0 }; gates.set(provider, gate); }
+  if (!gate) { gate = { tail: Promise.resolve(), lastStartAt: 0, coolUntil: 0, inFlight: 0, waiters: [] }; gates.set(provider, gate); }
   return gate;
 }
 
@@ -163,22 +169,32 @@ async function withProviderGate<T>(provider: AiProviderId, run: () => Promise<T>
   const gate = gateFor(provider);
   const coolingDown = () => new AiCallError(provider, `Limite de débit atteinte — nouvel essai possible dans ${Math.ceil((gate.coolUntil - Date.now()) / 1000)} s`, true, 429);
   if (Date.now() < gate.coolUntil) throw coolingDown();
+  // 1) A start slot, in arrival order: at most MAX_IN_FLIGHT answers under
+  //    way, and starts at least MIN_INTERVAL_MS apart.
   let release!: () => void;
   const turn = gate.tail;
   gate.tail = new Promise<void>((resolve) => { release = resolve; });
   await turn;
   try {
+    while (gate.inFlight >= MAX_IN_FLIGHT) await new Promise<void>((resolve) => gate.waiters.push(resolve));
     // A call queued before the pause must not leave during it.
     if (Date.now() < gate.coolUntil) throw coolingDown();
     const wait = gate.lastStartAt + MIN_INTERVAL_MS[provider] - Date.now();
     if (wait > 0) await sleep(wait);
     gate.lastStartAt = Date.now();
+    gate.inFlight++;
+  } finally {
+    release(); // the next caller may schedule its own start now
+  }
+  // 2) The request itself, alongside the others in flight.
+  try {
     return await run();
   } catch (e) {
     if (coolDownOnRateLimit && e instanceof AiCallError && isRateLimited(e) && !isQuotaSpent(e)) gate.coolUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
     throw e;
   } finally {
-    release();
+    gate.inFlight--;
+    gate.waiters.shift()?.();
   }
 }
 
@@ -252,7 +268,10 @@ async function callProvider(config: AiConfig, provider: AiProviderId, system: st
 
 /** Asks the AI: primary provider first, then the other one; returns the text
  *  and the provider that answered (shown as « via Groq » / « via Gemini »). */
-export async function callAi(config: AiConfig, system: string, messages: AiChatMessage[]): Promise<{ text: string; provider: AiProviderId }> {
+export async function callAi(config: AiConfig, system: string, conversation: AiChatMessage[]): Promise<{ text: string; provider: AiProviderId }> {
+  // The model always answers the USER: trailing assistant turns are dropped
+  // (Gemini 3 rejects a request ending with a model turn outright).
+  const messages = trimTrailingAssistantTurns(conversation);
   const inputTokens = estimateTokens(system, messages);
   const order = [config.primary, ...AI_PROVIDERS.filter((p) => p !== config.primary)]
     .filter((p) => config.providers[p].keys.some((k) => k.key.trim()))
@@ -276,6 +295,12 @@ export async function callAi(config: AiConfig, system: string, messages: AiChatM
 
 /** Groq free plan: 8 000 tokens/minute, input + output — room left for the answer. */
 const GROQ_FREE_MAX_INPUT_TOKENS = 6_500;
+
+function trimTrailingAssistantTurns(messages: AiChatMessage[]): AiChatMessage[] {
+  let end = messages.length;
+  while (end > 1 && messages[end - 1].role === "assistant") end--;
+  return end === messages.length ? messages : messages.slice(0, end);
+}
 
 /** Rough token count (~3.5 characters per token for French prose). */
 function estimateTokens(system: string, messages: AiChatMessage[]): number {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState, dropUnansweredUserMessage } from "@/lib/ai/store";
+import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState, dropUnansweredUserMessage, markChatActive } from "@/lib/ai/store";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
   // that was just added and never detect a first-ever interaction.
   const wasEmptySession = session.messages.length === 0;
 
+  markChatActive(user.id);
   pushAiMessage(user.id, { role: "user", content: message });
   const dialoguePlan = analyzeDialogueTurn(message, session.messages, session.dialogueState);
 
