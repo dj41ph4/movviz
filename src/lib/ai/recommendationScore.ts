@@ -1,5 +1,4 @@
-import { getWatchStatus } from "@/lib/plex/watchStore";
-import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
+import { getSeenKeys, type SeenKey } from "@/lib/ai/seen";
 import { loadRequests } from "@/lib/requests/store";
 import { getSeriesByTmdbId } from "@/lib/library/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
@@ -140,19 +139,12 @@ export function scoreCandidates(
   // metadata/tmdb.ts's getGenres — same fr-FR names the library already
   // uses). Optional/omittable: a caller that doesn't pass it just skips
   // this one term, same as every other optional context param here.
-  candidateGenres?: Map<string, string[]>
+  candidateGenres?: Map<string, string[]>,
+  // "type:tmdbId" keys never to show again — the titles already proposed
+  // earlier in the same conversation (chat/route.ts).
+  excludeKeys?: Set<string>
 ): ScoredCandidate[] {
-  const canonical = getCanonicalWatchStatus(userId);
-  const legacy = getWatchStatus(userId);
-  const movies = canonical ? canonical.movies : (legacy?.movies ?? []);
-  const episodes = canonical ? canonical.episodes : (legacy?.episodes ?? []);
-  const watchedMovies = new Set(movies);
-  const watchedEpisodesBySeries = new Map<number, Set<string>>();
-  for (const e of episodes) {
-    const set = watchedEpisodesBySeries.get(e.tmdbId) ?? new Set<string>();
-    set.add(`${e.season}.${e.episode}`);
-    watchedEpisodesBySeries.set(e.tmdbId, set);
-  }
+  const seen = getSeenKeys(userId);
 
   const pendingOrApproved = new Set(
     loadRequests()
@@ -184,10 +176,8 @@ export function scoreCandidates(
   const scored: ScoredCandidate[] = [];
   for (const c of candidates) {
     const key = `${c.type}:${c.tmdbId}`;
-    const alreadySeen = c.type === "movie"
-      ? watchedMovies.has(c.tmdbId)
-      : isSeriesFullyWatched(c.tmdbId, watchedEpisodesBySeries.get(c.tmdbId) ?? new Set());
-    if (alreadySeen) continue; // AlreadySeen — hard exclude, per spec (series: fully watched only, see isSeriesFullyWatched)
+    if (seen.has(key as SeenKey)) continue; // AlreadySeen — hard exclude; a started series counts (seen.ts)
+    if (excludeKeys?.has(key)) continue; // AlreadyProposed in this conversation
     if (dislikedExactKeys.has(key)) continue; // AlreadyRejected — hard exclude, never re-propose the same rejected title
     const explicitPreference = explicitPreferences.get(key);
     if (explicitPreference && explicitPreference.affinity <= -0.75) continue; // explicit correction wins

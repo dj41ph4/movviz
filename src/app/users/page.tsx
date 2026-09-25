@@ -79,7 +79,15 @@ export default function UsersPage() {
     try {
       const res = await fetch("/api/plex/import", { method: "POST" });
       const d = await res.json();
-      setImportMsg(res.ok ? t("plex.importedCount", { n: d.imported ?? 0 }) : t("plex.notConnected"));
+      setImportMsg(
+        res.ok
+          ? (d.imported ?? 0) === 0 && d.total > 0
+            ? t("plex.allImported", { total: d.total })
+            : t("plex.importedCount", { n: d.imported ?? 0 })
+          : d?.error === "plex_unreachable"
+            ? t("plex.unreachable")
+            : t("plex.notConnected")
+      );
       if (res.ok) load();
     } finally {
       setImporting(false);

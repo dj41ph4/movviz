@@ -317,4 +317,11 @@ interface MovvizApiService {
 
     @POST("api/ai/session")
     suspend fun aiClearSession(@Body body: Map<String, Any>): Response<Map<String, Any?>>
+
+    // « Déjà vu » / « Pas pour moi » sur une carte : renvoie la carte qui la remplace.
+    @POST("api/ai/card")
+    suspend fun aiCardAction(@Body body: AiCardActionRequestDto): Response<AiCardActionResponseDto>
+
+    @POST("api/ai/feedback")
+    suspend fun aiFeedback(@Body body: AiFeedbackRequestDto): Response<Map<String, Any?>>
 }

@@ -267,17 +267,9 @@ export function Sidebar({ version }: { version: string }) {
               </button>
             </div>
             <p className="text-sm leading-relaxed text-ink-soft">{t("settings.aboutUpdateNotWindows")}</p>
-            <a
-              href={updateInfo.releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 flex h-10 items-center justify-center rounded-xl glass px-4 text-sm font-semibold text-ink-soft hover:text-ink"
-            >
-              {t("update.clickToUpdate")}
-            </a>
             <button
               onClick={() => setShowNasInfo(false)}
-              className="mt-2 flex h-10 w-full items-center justify-center rounded-xl brand-gradient text-sm font-bold text-white"
+              className="mt-4 flex h-10 w-full items-center justify-center rounded-xl brand-gradient text-sm font-bold text-white"
             >
               {t("update.whatsNewClose")}
             </button>

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { AI_PROVIDER_ORDER, DEFAULT_AI_CONFIG, type AiChatSession, type AiConfig } from "./types";
+import { AI_PROVIDER_ORDER, DEFAULT_AI_CONFIG, type AiChatSession, type AiConfig, type AiRecommendation } from "./types";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 export const AI_CONFIG_FILE = path.join(CONFIG_DIR, "ai.json");
@@ -106,6 +106,26 @@ export function pushAiMessage(userId: string, message: AiChatSession["messages"]
   session.updatedAt = Date.now();
   scheduleSessionsFlush();
   return session;
+}
+
+/** « Déjà vu » / « Pas pour moi » on a card: the card leaves its message
+ *  for good (a reload must not bring it back) and the next best-ranked
+ *  alternate takes its place. Returns that replacement, or null when the
+ *  message has none left (the card is then simply removed). */
+export function replaceRecommendationCard(userId: string, type: "movie" | "series", tmdbId: number): AiRecommendation | null {
+  const session = loadAiSession(userId);
+  for (let i = session.messages.length - 1; i >= 0; i--) {
+    const message = session.messages[i];
+    const index = message.recommendations?.findIndex((r) => r.type === type && r.tmdbId === tmdbId) ?? -1;
+    if (index < 0) continue;
+    const replacement = message.alternates?.shift() ?? null;
+    if (replacement) message.recommendations!.splice(index, 1, replacement);
+    else message.recommendations!.splice(index, 1);
+    session.updatedAt = Date.now();
+    scheduleSessionsFlush();
+    return replacement;
+  }
+  return null;
 }
 
 /** Enregistre le titre qui vient d'être réellement résolu comme sujet actif

@@ -3,12 +3,13 @@ import { randomUUID } from "node:crypto";
 import { requireAdmin } from "@/lib/auth/guard";
 import { getUserByPlexId, addUser } from "@/lib/auth/store";
 import { loadPlexConfig } from "@/lib/plex/store";
-import { getPlexFriends } from "@/lib/plex/client";
+import { getPlexServerAccounts } from "@/lib/plex/serverAccounts";
 import type { User } from "@/lib/auth/types";
 
 export const dynamic = "force-dynamic";
 
-/** Create a local (passwordless, Plex-only) account for every friend that isn't already imported. */
+/** Create a local (passwordless, Plex-only) account for every Plex account
+ *  with access to the server that isn't already imported. */
 export async function POST(req: NextRequest) {
   const admin = requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -16,7 +17,8 @@ export async function POST(req: NextRequest) {
   const cfg = loadPlexConfig();
   if (!cfg.adminToken) return NextResponse.json({ error: "plex_not_connected" }, { status: 400 });
 
-  const friends = await getPlexFriends(cfg.clientId, cfg.adminToken);
+  const friends = await getPlexServerAccounts();
+  if (friends === null) return NextResponse.json({ error: "plex_unreachable" }, { status: 502 });
   const created: User[] = [];
 
   for (const friend of friends) {
@@ -47,5 +49,5 @@ export async function POST(req: NextRequest) {
     created.push(user);
   }
 
-  return NextResponse.json({ imported: created.length });
+  return NextResponse.json({ imported: created.length, total: friends.length });
 }

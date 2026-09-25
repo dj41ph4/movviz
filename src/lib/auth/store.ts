@@ -178,6 +178,14 @@ export function destroySession(token: string | undefined | null) {
   saveSessions(loadSessions().filter((s) => s.token !== raw));
 }
 
+/** Signs a deleted account out of every device at once. */
+export function destroySessionsForUser(userId: string): number {
+  const list = loadSessions();
+  const kept = list.filter((s) => s.userId !== userId);
+  if (kept.length !== list.length) saveSessions(kept);
+  return list.length - kept.length;
+}
+
 /** Drop every session past its expiry — real maintenance, run by the scheduler. */
 export function purgeExpiredSessions(): number {
   const list = loadSessions();

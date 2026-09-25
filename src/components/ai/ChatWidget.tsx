@@ -10,7 +10,7 @@ import { getPageTitleContext } from "@/lib/ai/pageContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { AiActionOutcome, AiChatMessage, AiRecommendation } from "@/lib/ai/types";
 import {
-  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown,
+  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown, Eye,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<AiActionOutcome["status"], string> = {
@@ -98,31 +98,27 @@ function ActionList({
 }
 
 function RecommendationCards({
-  cards, adding, onAdd, votes, onVote, t,
+  cards, adding, onAdd, votes, onVote, swapping, onSwap, t,
 }: {
   cards: AiRecommendation[];
   adding: Record<string, "adding" | "added">;
   onAdd: (card: AiRecommendation) => void;
   votes: Record<string, "like" | "dislike">;
-  onVote: (card: AiRecommendation, liked: boolean) => void;
+  onVote: (card: AiRecommendation) => void;
+  /** Card being replaced after « Déjà vu » / « Pas pour moi ». */
+  swapping: string | null;
+  onSwap: (card: AiRecommendation, action: "seen" | "dislike") => void;
   t: (k: string) => string;
 }) {
   return (
     <div className="mt-3 space-y-2">
-      {cards.map((card, i) => {
+      {cards.map((card) => {
         const key = `${card.type}-${card.tmdbId}`;
         const state = adding[key];
         const vote = votes[key];
+        const busy = swapping === key;
         return (
-          <div key={key}>
-            {/* A connector line before each card instead of a silent wall
-                of cards — cycles through varied phrasing (i18n, not
-                LLM-generated: reliable and consistent regardless of what
-                the model did with its own text this time) so it reads as
-                a real back-and-forth rather than a dumped list. */}
-            <p className="mb-1.5 text-xs font-semibold text-ink-soft">
-              {t(`ai.recoIntro${(i % 5) + 1}`)}
-            </p>
+          <div key={key} className={cn("transition-opacity", busy && "pointer-events-none opacity-40")}>
             <div className="flex gap-3 rounded-xl glass p-3">
             {/* Real /title/{type}/{tmdbId} link — pages that mount
                 useTitlePanel() (Discover, Library, Calendar…) intercept
@@ -168,7 +164,7 @@ function RecommendationCards({
               {card.reason ? (
                 <p className="mt-1 text-xs italic leading-snug text-ink-soft">« {card.reason} »</p>
               ) : null}
-              <div className="mt-1.5 flex items-center gap-1.5">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {card.inLibrary ? (
                   <span className="inline-flex items-center gap-1 rounded-lg bg-white/6 px-2 py-1 text-[11px] font-bold text-ink-soft">
                     <Check className="h-3 w-3" /> {t("ai.inLibrary")}
@@ -188,7 +184,14 @@ function RecommendationCards({
                   </button>
                 )}
                 <button
-                  onClick={() => onVote(card, true)}
+                  onClick={() => onSwap(card, "seen")}
+                  title={t("ai.markSeen")}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-ink-soft transition-colors hover:bg-white/8 hover:text-ink"
+                >
+                  <Eye className="h-3.5 w-3.5" /> {t("ai.markSeen")}
+                </button>
+                <button
+                  onClick={() => onVote(card)}
                   title={t("ai.feedbackLike")}
                   aria-label={t("ai.feedbackLike")}
                   className={cn(
@@ -199,12 +202,12 @@ function RecommendationCards({
                   <ThumbsUp className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => onVote(card, false)}
+                  onClick={() => onSwap(card, "dislike")}
                   title={t("ai.feedbackDislike")}
                   aria-label={t("ai.feedbackDislike")}
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
-                    vote === "dislike" ? "bg-red/15 text-red" : "text-ink-dim hover:bg-white/8 hover:text-ink-soft"
+                    "text-ink-dim hover:bg-white/8 hover:text-ink-soft"
                   )}
                 >
                   <ThumbsDown className="h-3.5 w-3.5" />
@@ -352,15 +355,47 @@ export function ChatWidget() {
     }
   }, [adding, t, sendText]);
 
-  const voteCard = useCallback((card: AiRecommendation, liked: boolean) => {
+  const voteCard = useCallback((card: AiRecommendation) => {
     const key = `${card.type}-${card.tmdbId}`;
-    setVotes((p) => ({ ...p, [key]: liked ? "like" : "dislike" }));
+    setVotes((p) => ({ ...p, [key]: "like" }));
     fetch("/api/ai/feedback", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ tmdbId: card.tmdbId, title: card.title, type: card.type, liked, reason: card.reason }),
+      body: JSON.stringify({ tmdbId: card.tmdbId, title: card.title, type: card.type, liked: true, reason: card.reason }),
     }).catch(() => {});
   }, []);
+
+  // « Déjà vu » / « Pas pour moi »: the server records it and hands back the
+  // next best-ranked card kept with the message, swapped in place.
+  const [swapping, setSwapping] = useState<string | null>(null);
+  const swapCard = useCallback(async (card: AiRecommendation, action: "seen" | "dislike") => {
+    const key = `${card.type}-${card.tmdbId}`;
+    if (swapping) return;
+    setSwapping(key);
+    try {
+      const r = await fetch("/api/ai/card", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, tmdbId: card.tmdbId, type: card.type, title: card.title, reason: card.reason }),
+      });
+      const data = (await r.json().catch(() => null)) as { replacement?: AiRecommendation | null } | null;
+      if (!r.ok) throw new Error("card_action_failed");
+      const replacement = data?.replacement ?? null;
+      setMessages((all) => all.map((m) => {
+        const index = m.recommendations?.findIndex((c) => c.type === card.type && c.tmdbId === card.tmdbId) ?? -1;
+        if (index < 0) return m;
+        const next = [...m.recommendations!];
+        if (replacement) next.splice(index, 1, replacement);
+        else next.splice(index, 1);
+        return { ...m, recommendations: next };
+      }));
+      toast("success", t(replacement ? "ai.cardSwapped" : "ai.cardNoReserve"));
+    } catch {
+      toast("error", t("ai.error"));
+    } finally {
+      setSwapping(null);
+    }
+  }, [swapping, t]);
 
   // Deleting a wrong "already in library" entry — the human clicks Trash
   // then confirms, exactly like any other delete control in Movviz; the
@@ -459,7 +494,22 @@ export function ChatWidget() {
                       />
                     ) : null}
                     {msg.recommendations && msg.recommendations.length ? (
-                      <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} votes={votes} onVote={voteCard} t={t} />
+                      <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} votes={votes} onVote={voteCard} swapping={swapping} onSwap={swapCard} t={t} />
+                    ) : null}
+                    {/* Quick replies — only under the latest message, one tap
+                        sends the text as if typed. */}
+                    {i === messages.length - 1 && !busy && msg.suggestions?.length ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {msg.suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion}
+                            onClick={() => sendText(suggestion)}
+                            className="h-8 rounded-full border border-brand-glow/30 bg-brand-glow/12 px-3 text-xs font-semibold text-brand-glow transition-colors hover:bg-brand-glow/20"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
                     ) : null}
                   </div>
                 </div>

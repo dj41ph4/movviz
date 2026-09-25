@@ -151,3 +151,17 @@ test("AlreadyRejected : un titre déjà noté 👎 n'est plus jamais reproposé,
   assert.equal(ranked.length, 1, "le titre rejeté est exclu, jamais juste pénalisé");
   assert.equal(ranked[0].tmdbId, 998041);
 });
+
+test("AlreadySeen / AlreadyProposed : une série commencée et un titre déjà proposé dans la conversation ne reviennent plus", async () => {
+  const { recordWatched } = await import("@/lib/plex/watchStore");
+  const userId = `test-user-seen-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  // A show with new seasons still coming is never « fully watched »: the old
+  // rule kept proposing it (Chainsaw Man, Jujutsu Kaisen… « j'ai déjà tout vu »).
+  recordWatched(userId, { tmdbId: 998050, type: "series", title: "Série en cours", at: Date.now() });
+  const started: ResolvedAiItem = { title: "Série en cours", type: "series", tmdbId: 998050, overview: "", posterPath: null, rating: 9, inLibrary: true };
+  const proposed: ResolvedAiItem = { title: "Déjà proposé", type: "movie", tmdbId: 998051, overview: "", posterPath: null, rating: 9, inLibrary: false };
+  const fresh: ResolvedAiItem = { title: "Nouveau", type: "movie", tmdbId: 998052, overview: "", posterPath: null, rating: 6, inLibrary: false };
+
+  const ranked = scoreCandidates(userId, [started, proposed, fresh], new Map(), 6, undefined, undefined, undefined, undefined, undefined, new Set(["movie:998051"]));
+  assert.deepEqual(ranked.map((r) => r.tmdbId), [998052]);
+});

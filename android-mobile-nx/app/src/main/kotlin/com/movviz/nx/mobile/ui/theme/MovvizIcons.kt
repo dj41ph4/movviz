@@ -523,3 +523,133 @@ val MovvizIconCompass: ImageVector by lazy {
         }
     }
 }
+
+/** Étincelle — bulle de l'assistant IA (même symbole que le desktop). */
+val MovvizIconSparkle: ImageVector by lazy {
+    movvizIcon("MovvizIconSparkle") {
+        fillPath {
+            moveTo(11f, 2.5f)
+            curveTo(11.6f, 7.4f, 13.6f, 9.4f, 18.5f, 10f)
+            curveTo(13.6f, 10.6f, 11.6f, 12.6f, 11f, 17.5f)
+            curveTo(10.4f, 12.6f, 8.4f, 10.6f, 3.5f, 10f)
+            curveTo(8.4f, 9.4f, 10.4f, 7.4f, 11f, 2.5f)
+            close()
+            moveTo(18f, 14.5f)
+            curveTo(18.3f, 16.6f, 19.1f, 17.4f, 21.2f, 17.7f)
+            curveTo(19.1f, 18f, 18.3f, 18.8f, 18f, 20.9f)
+            curveTo(17.7f, 18.8f, 16.9f, 18f, 14.8f, 17.7f)
+            curveTo(16.9f, 17.4f, 17.7f, 16.6f, 18f, 14.5f)
+            close()
+        }
+    }
+}
+
+/** Envoyer — flèche en papier. */
+val MovvizIconSend: ImageVector by lazy {
+    movvizIcon("MovvizIconSend") {
+        stroke(width = 2.2f) {
+            moveTo(4.5f, 12f)
+            lineTo(19.5f, 4.5f)
+            lineTo(15.5f, 19.5f)
+            lineTo(11.5f, 13f)
+            close()
+            moveTo(11.5f, 13f)
+            lineTo(19.5f, 4.5f)
+        }
+    }
+}
+
+/** ✕ Fermer. */
+val MovvizIconClose: ImageVector by lazy {
+    movvizIcon("MovvizIconClose") {
+        stroke(width = 2.4f) {
+            moveTo(6f, 6f)
+            lineTo(18f, 18f)
+            moveTo(18f, 6f)
+            lineTo(6f, 18f)
+        }
+    }
+}
+
+/** Corbeille — effacer la conversation. */
+val MovvizIconTrash: ImageVector by lazy {
+    movvizIcon("MovvizIconTrash") {
+        stroke(width = 2f) {
+            moveTo(4.5f, 7f)
+            lineTo(19.5f, 7f)
+            moveTo(9.5f, 7f)
+            lineTo(10f, 4.5f)
+            lineTo(14f, 4.5f)
+            lineTo(14.5f, 7f)
+            moveTo(6.5f, 7f)
+            lineTo(7.5f, 19.5f)
+            lineTo(16.5f, 19.5f)
+            lineTo(17.5f, 7f)
+            moveTo(10.2f, 10.5f)
+            lineTo(10.4f, 16f)
+            moveTo(13.8f, 10.5f)
+            lineTo(13.6f, 16f)
+        }
+    }
+}
+
+/** Pouce levé — « j'aime cette suggestion ». */
+val MovvizIconThumbUp: ImageVector by lazy {
+    movvizIcon("MovvizIconThumbUp") {
+        stroke(width = 2f) {
+            moveTo(7.5f, 10.5f)
+            lineTo(7.5f, 19.5f)
+            lineTo(4.5f, 19.5f)
+            lineTo(4.5f, 10.5f)
+            close()
+            moveTo(7.5f, 10.5f)
+            lineTo(11f, 4.5f)
+            curveTo(12.6f, 4.5f, 13.6f, 5.6f, 13.2f, 7.2f)
+            lineTo(12.6f, 9.5f)
+            lineTo(18f, 9.5f)
+            curveTo(19.2f, 9.5f, 20f, 10.6f, 19.7f, 11.7f)
+            lineTo(18.2f, 18f)
+            curveTo(18f, 18.9f, 17.2f, 19.5f, 16.3f, 19.5f)
+            lineTo(7.5f, 19.5f)
+        }
+    }
+}
+
+/** Pouce baissé — « pas pour moi ». */
+val MovvizIconThumbDown: ImageVector by lazy {
+    movvizIcon("MovvizIconThumbDown") {
+        stroke(width = 2f) {
+            moveTo(16.5f, 13.5f)
+            lineTo(16.5f, 4.5f)
+            lineTo(19.5f, 4.5f)
+            lineTo(19.5f, 13.5f)
+            close()
+            moveTo(16.5f, 13.5f)
+            lineTo(13f, 19.5f)
+            curveTo(11.4f, 19.5f, 10.4f, 18.4f, 10.8f, 16.8f)
+            lineTo(11.4f, 14.5f)
+            lineTo(6f, 14.5f)
+            curveTo(4.8f, 14.5f, 4f, 13.4f, 4.3f, 12.3f)
+            lineTo(5.8f, 6f)
+            curveTo(6f, 5.1f, 6.8f, 4.5f, 7.7f, 4.5f)
+            lineTo(16.5f, 4.5f)
+        }
+    }
+}
+
+/** Œil — « déjà vu ». */
+val MovvizIconEye: ImageVector by lazy {
+    movvizIcon("MovvizIconEye") {
+        stroke(width = 2f) {
+            moveTo(2.5f, 12f)
+            curveTo(5f, 7.5f, 8.3f, 5.5f, 12f, 5.5f)
+            curveTo(15.7f, 5.5f, 19f, 7.5f, 21.5f, 12f)
+            curveTo(19f, 16.5f, 15.7f, 18.5f, 12f, 18.5f)
+            curveTo(8.3f, 18.5f, 5f, 16.5f, 2.5f, 12f)
+            close()
+            moveTo(12f, 9f)
+            arcToRelative(3f, 3f, 0f, true, true, -0.01f, 0f)
+            close()
+        }
+    }
+}

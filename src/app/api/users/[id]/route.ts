@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { getUserById, updateUser, deleteUser, loadUsers } from "@/lib/auth/store";
+import { getUserById, updateUser, deleteUser, loadUsers, destroySessionsForUser } from "@/lib/auth/store";
+import { clearAiSession } from "@/lib/ai/store";
 import { toPublicUser } from "@/lib/auth/types";
 import { emitNotification } from "@/lib/notifications/store";
 
@@ -59,7 +60,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   return updated ? NextResponse.json(toPublicUser(updated)) : NextResponse.json({ error: "not found" }, { status: 404 });
 }
 
-/** Admin-only: reject a still-pending registration by deleting it outright — it never had real access. */
+/** Admin-only: delete an account — a still-pending registration (« Refuser »)
+ *  or an existing one (« Supprimer ce compte » on its page). The account is
+ *  signed out everywhere at once and its assistant conversation erased; its
+ *  requests and history stay, as for any past activity on the server. */
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const admin = requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -67,10 +71,14 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const target = getUserById(id);
   if (!target) return NextResponse.json({ error: "not found" }, { status: 404 });
-  if (target.status !== "pending") {
-    return NextResponse.json({ error: "not_pending" }, { status: 400 });
+  // Same guards as demotion: never delete yourself, never the last admin.
+  if (id === admin.id) return NextResponse.json({ error: "cannot_delete_self" }, { status: 400 });
+  if (target.role === "admin" && loadUsers().filter((u) => u.role === "admin").length <= 1) {
+    return NextResponse.json({ error: "last_admin" }, { status: 400 });
   }
 
   deleteUser(id);
+  destroySessionsForUser(id);
+  clearAiSession(id);
   return NextResponse.json({ ok: true });
 }

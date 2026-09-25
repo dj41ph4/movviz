@@ -4,7 +4,8 @@ import { hasAnyUser, getUserByPlexId, addUser, updateUser, createSession } from 
 import { setSessionCookie } from "@/lib/auth/session";
 import { toPublicUser, type User } from "@/lib/auth/types";
 import { loadPlexConfig, savePlexConfig } from "@/lib/plex/store";
-import { checkPin, getPlexAccount, getPlexFriends } from "@/lib/plex/client";
+import { checkPin, getPlexAccount } from "@/lib/plex/client";
+import { getPlexServerAccounts } from "@/lib/plex/serverAccounts";
 import { syncPlexUserMedia } from "@/lib/plex/userMediaSync";
 
 export const dynamic = "force-dynamic";
@@ -34,9 +35,12 @@ export async function POST(req: NextRequest) {
     const isFirstUser = !hasAnyUser();
 
     if (!isFirstUser) {
-      // Only auto-provision accounts that actually have access to the configured server.
-      const friends = cfg.adminToken ? await getPlexFriends(cfg.clientId, cfg.adminToken) : [];
-      const hasAccess = friends.some((f) => f.id === account.id);
+      // Only auto-provision accounts that actually have access to the
+      // configured server — its share list, not plex.tv's friends list alone
+      // (empty in production, which turned away genuine server users).
+      // Plex unreachable = no access (fail closed).
+      const accounts = cfg.adminToken ? await getPlexServerAccounts() : null;
+      const hasAccess = (accounts ?? []).some((a) => a.id === account.id);
       if (!hasAccess) {
         return NextResponse.json({ error: "no_plex_access" }, { status: 403 });
       }

@@ -788,6 +788,16 @@ composable(ROUTE_PROFILES) {
                 modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
             )
         }
+        // Assistant IA : bulle sur les onglets (au-dessus de la barre basse en
+        // portrait), chat plein écran par-dessus tout le reste une fois ouvert.
+        Box(Modifier.fillMaxSize().zIndex(20f)) {
+            com.movviz.nx.mobile.ui.ai.AiChatLauncher(
+                viewModel = viewModel,
+                showButton = currentRoute?.startsWith("home") == true && !searchOpen,
+                buttonBottomPadding = if (compactPortrait) 96.dp else 24.dp,
+                onOpenTitle = { type, tmdbId -> navController.navigate(detailRoute(type, tmdbId)) },
+            )
+        }
         AutoUpdateOverlay(viewModel)
     }
 }

@@ -430,6 +430,10 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun aiChat(message: String, pageContext: AiPageContextDto? = null): ApiResult<AiChatResponseDto> =
         safeCall { api.aiChat(AiChatRequestDto(message, pageContext)) }
     suspend fun aiClearSession(): ApiResult<Unit> = safeCall { api.aiClearSession(mapOf("clear" to true)) }.map { }
+    suspend fun aiCardAction(action: String, card: AiRecommendationDto): ApiResult<AiCardActionResponseDto> =
+        safeCall { api.aiCardAction(AiCardActionRequestDto(action, card.tmdbId, card.type, card.title, card.reason)) }
+    suspend fun aiLike(card: AiRecommendationDto): ApiResult<Unit> =
+        safeCall { api.aiFeedback(AiFeedbackRequestDto(card.tmdbId, card.type, card.title, true, card.reason)) }.map { }
 
     private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
         is ApiResult.Success -> ApiResult.Success(transform(data))

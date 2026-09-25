@@ -112,6 +112,11 @@ export interface AiChatMessage {
   actions?: AiActionOutcome[];
   /** Resolved recommendation cards (recommend intent). */
   recommendations?: AiRecommendation[];
+  /** Next best-ranked cards, not shown: « Déjà vu » / 👎 on a card swaps
+   *  the next one in, without another call to the model. */
+  alternates?: AiRecommendation[];
+  /** Quick replies shown under the last message; one tap sends the text. */
+  suggestions?: string[];
 }
 
 export interface AiChatSession {

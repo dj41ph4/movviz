@@ -70,7 +70,7 @@ function isOwnerAccount(user: User, cfg: PlexServerConfig): boolean {
   return user.role === "admin" && !!cfg.adminToken && user.plexToken === cfg.adminToken;
 }
 
-async function ensureMachineIdentifier(cfg: PlexServerConfig): Promise<string | null> {
+export async function ensureMachineIdentifier(cfg: PlexServerConfig): Promise<string | null> {
   if (cfg.machineIdentifier) return cfg.machineIdentifier;
   const mid = await getServerIdentity(cfg);
   if (!mid) return null;

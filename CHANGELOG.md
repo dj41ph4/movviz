@@ -1,3 +1,16 @@
+## v1.25.77 — September 2026
+
+### Assistant IA plus pertinent et sur mobile, suppression de comptes, import des utilisateurs Plex réparé
+
+- Assistant IA : il ne propose plus jamais un titre déjà vu, y compris une série commencée ou encore en cours de diffusion, ni un titre déjà proposé dans la même conversation. Il connaît la liste de tout ce que vous avez vu, même quand il conseille en quelques mots.
+- Assistant IA : il agit au lieu de reposer des questions. « Dans le même genre », « de l'animation », « tu sais ce que j'aime » donnent directement une sélection. Il s'appuie sur un profil de goûts calculé à partir de ce que vous regardez vraiment (genres dominants, acteurs et réalisateurs favoris, séries en cours) et va chercher des titres moins connus quand les classiques sont déjà vus.
+- Assistant IA : « mets-le en vu » et « j'ai déjà tout vu » marquent réellement les titres comme vus. Chaque suggestion a un bouton « Déjà vu » et un bouton « Pas pour moi » qui la remplacent aussitôt par une autre. Des réponses rapides (« Plus sombre », « Plutôt un film », « Des pépites moins connues »…) apparaissent sous ses réponses, et il présente ses sélections avec sa propre phrase.
+- Assistant IA : demandez-lui ce qu'il peut faire pour vous, il répond par une liste claire de ce qu'il sait vraiment faire. Il connaît aussi les nouveautés de la version de Movviz en cours.
+- Android mobile : l'assistant IA arrive dans l'application, avec la même conversation que sur ordinateur, les mêmes suggestions et les mêmes boutons.
+- Utilisateurs : un administrateur peut supprimer un compte depuis sa fiche. Le compte est déconnecté de tous ses appareils. Impossible de supprimer son propre compte ou le dernier administrateur.
+- Plex : « Importer les utilisateurs Plex » retrouve de nouveau les personnes qui ont accès au serveur. L'import s'appuyait sur la liste d'amis Plex, souvent vide même pour de vrais utilisateurs du serveur. Pour la même raison, un nouvel utilisateur du serveur pouvait se voir refuser la connexion avec son compte Plex.
+- Mise à jour sur NAS / Docker : le bouton « Cliquez ici pour mettre à jour », inutilisable sur ces installations, est retiré de la fenêtre de mise à jour.
+
 ## v1.25.76 — September 2026
 
 ### Assistant IA réparé, « À revoir sans modération », plus de titres déjà vus dans les suggestions

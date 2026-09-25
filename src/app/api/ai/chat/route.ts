@@ -20,6 +20,8 @@ import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watc
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getOrFetchScene } from "@/lib/ai/sceneCache";
 import { recordAiCall } from "@/lib/ai/debugLog";
+import { markSeen } from "@/lib/ai/seen";
+import { detectSeenCommand, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +32,8 @@ export const dynamic = "force-dynamic";
 const PROACTIVE_RATING_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const PROACTIVE_RATING_CHANCE = 0.3;
 const MAX_CORRECTION_CALLS = 2;
+const SHOWN_CARDS = 6;
+const ALTERNATE_CARDS = 6;
 const CORRECTION_TIME_BUDGET_MS = 20_000;
 
 function summarizeAdd(outcomes: AiActionOutcome[]): string[] {
@@ -173,6 +177,32 @@ export async function POST(req: NextRequest) {
     triggerIncrementalContextIfDue(user.id).catch(() => {});
   }
 
+  // « mets-le en vu » / « j'ai déjà tout vu » — done by code, BEFORE the
+  // context is built (so the seen list below already includes them), and
+  // the model is told what really happened. Seen live: « c'est bien
+  // enregistré comme vu » with no guarantee anything was recorded.
+  const freshSubject = session.activeSubject && Date.now() - session.activeSubject.at < 45 * 60 * 1000 ? session.activeSubject : null;
+  const seenCommand = detectSeenCommand(message);
+  let seenActionNote = "";
+  if (seenCommand === "all_last") {
+    const cards = lastRecommendations(session.messages);
+    for (const card of cards) markSeen(user.id, card);
+    if (cards.length) {
+      seenActionNote = `\n\nACTION RÉELLE EFFECTUÉE PAR MOVVIZ — les ${cards.length} titres de ta dernière sélection viennent d'être marqués comme vus : ${cards.map((c) => c.title).join(", ")}. Ne les repropose plus, prends-en acte avec humour (il a vraiment tout vu !) et propose-lui autre chose de moins évident.`;
+    }
+  } else if (seenCommand === "subject") {
+    const target = pageContext ?? freshSubject;
+    if (target) {
+      markSeen(user.id, target);
+      seenActionNote = `\n\nACTION RÉELLE EFFECTUÉE PAR MOVVIZ — « ${target.title} » vient d'être marqué comme vu. Confirme-le simplement, sans rien inventer d'autre.`;
+    } else {
+      seenActionNote = "\n\nMARQUER COMME VU — tu ne sais pas de quel titre il parle (aucun titre en cours dans la conversation) : rien n'a été marqué. Demande-lui lequel en une phrase ; ne prétends surtout pas l'avoir fait.";
+    }
+  }
+  // After a « c'est déjà vu », what follows is a request for something else.
+  const capabilitiesQuestion = isCapabilitiesQuestion(message);
+  const directRecommendation = !recommendationContinuation && !capabilitiesQuestion && isDirectRecommendationRequest(message, previousAssistantText);
+
   const userContext = buildUserContext(user.id);
   const memoryContext = buildMemoryContext(user.id);
   const usageContext = formatUsageProfile(await buildUsageProfile(user.id));
@@ -203,8 +233,16 @@ export async function POST(req: NextRequest) {
     }).join("\n");
     system += `\n\nANTI-RÉPÉTITION POUR CE TOUR — voici les structures récemment utilisées par TOI. Ce ne sont pas des exemples à imiter mais une liste noire temporaire : ne reprends ni leur amorce, ni leur chute, ni le même enchaînement rhétorique avec seulement quelques mots changés. Tu peux garder exactement la même personnalité ; change seulement l'angle et la construction. Ne termine pas automatiquement par une question ou un retour au cinéma.\n${usedShapes}`;
   }
+  system += await buildTasteProfileSection(user.id);
+  system += buildSeenListSection(user.id);
+  system += buildMovvizSelfSection();
+  system += seenActionNote;
+  if (capabilitiesQuestion) system += buildCapabilitiesSection(config.webSearchEnabled);
+  if (directRecommendation) {
+    system += "\n\nDEMANDE DE RECOMMANDATION — l'utilisateur veut des titres MAINTENANT. Réponds en MODE 2 (JSON recommend valide, 12 à 15 titres) sans poser de question de clarification : son PROFIL DE GOÛTS et la conversation te donnent tout ce qu'il faut. Respecte ce qu'il vient de préciser (animation, film, série, plus sombre, moins connu…) et ce dont vous parliez juste avant. Aucun titre de la liste DÉJÀ VUS. Ajoute le champ \"intro\" : UNE phrase courte, dans ta personnalité, qui présente la sélection.";
+  }
   if (recommendationContinuation) {
-    system += "\n\nCONTINUITÉ DE RECOMMANDATION — la réponse très courte de l'utilisateur confirme ta proposition précédente. Fournis MAINTENANT une vraie sélection en MODE 2 : JSON recommend valide, 4 à 8 titres, sans texte autour. Ne traite jamais son mot court comme le titre d'une œuvre et ne redemande pas s'il veut des recommandations.";
+    system += "\n\nCONTINUITÉ DE RECOMMANDATION — la réponse très courte de l'utilisateur confirme ta proposition précédente. Fournis MAINTENANT une vraie sélection en MODE 2 : JSON recommend valide, 12 à 15 titres (aucun déjà vu), avec un champ \"intro\" d'une phrase, sans texte autour. Ne traite jamais son mot court comme le titre d'une œuvre et ne redemande pas s'il veut des recommandations.";
   }
   if (explicitTasteRating) {
     system += `\n\nNOTE EXPLICITE DÉJÀ ENREGISTRÉE — l'utilisateur vient d'attribuer ${explicitTasteRating.stars}/5 à ${explicitTasteRating.isGlobal ? "l'ensemble de " : "« "}${explicitTasteRating.subject}${explicitTasteRating.isGlobal ? "" : " »"}. Réagis simplement et naturellement ; ne lui redemande ni confirmation ni une autre note.`;
@@ -550,9 +588,9 @@ export async function POST(req: NextRequest) {
   // is required.  One bounded retry turns that unfulfilled promise into
   // cards; it can never trigger a library add because the required action is
   // recommend only.
-  if (recommendationContinuation && intent.action !== "recommend") {
+  if ((recommendationContinuation || directRecommendation) && intent.action !== "recommend") {
     try {
-      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a ignoré une confirmation explicite de recommandation. Réponds maintenant UNIQUEMENT avec le JSON {"action":"recommend","items":[...]} demandé, contenant 4 à 8 titres réellement recommandés. Ne parle pas du mot court de l'utilisateur comme s'il s'agissait d'un titre et n'ajoute aucun média.`;
+      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a ignoré une demande explicite de recommandation (une question de plus au lieu de titres). Réponds maintenant UNIQUEMENT avec le JSON {"action":"recommend","intro":"...","items":[...]} demandé, contenant 12 à 15 titres réellement recommandés, aucun déjà vu. Ne parle pas du mot court de l'utilisateur comme s'il s'agissait d'un titre et n'ajoute aucun média.`;
       const retryRes = await callCorrection(retrySystem);
       const retryIntent = parseIntent(retryRes.text);
       if (retryIntent.action === "recommend") intent = retryIntent;
@@ -1055,15 +1093,19 @@ export async function POST(req: NextRequest) {
     // reference-less version of this. A generic reason is attached since
     // these weren't proposed by the model — never invents one for TMDb's
     // pick, just names the mechanism honestly.
-    if (pageContext) {
-      const exclude = new Set(allItems.map((i) => `${i.type}:${i.tmdbId}`));
-      exclude.add(`${pageContext.type}:${pageContext.tmdbId}`);
-      const similar = await getSimilarCandidates(pageContext.type, pageContext.tmdbId, exclude, 8);
+    // Anchor: the page being looked at, else the title the conversation is
+    // about (« dans le même genre » right after talking about a show).
+    const anchor = pageContext ?? freshSubject;
+    const alreadyProposed = proposedKeys(session.messages);
+    const addSimilar = async (from: { type: "movie" | "series"; tmdbId: number; title: string }, limit: number) => {
+      const exclude = new Set([...allItems.map((i) => `${i.type}:${i.tmdbId}`), ...alreadyProposed, `${from.type}:${from.tmdbId}`]);
+      const similar = await getSimilarCandidates(from.type, from.tmdbId, exclude, limit);
       for (const s of similar) {
-        reasons.set(`${s.type}:${s.tmdbId}`, `Similaire à « ${pageContext.title} » selon TMDb`);
+        reasons.set(`${s.type}:${s.tmdbId}`, `Dans la lignée de « ${from.title} »`);
       }
       allItems = [...allItems, ...similar];
-    }
+    };
+    if (anchor) await addSimilar(anchor, 8);
 
     // Mood Engine (AI.MD §2.B/C) — only when there's a clear reference title
     // (the page the user is currently on): analyzing/comparing mood for a
@@ -1148,13 +1190,29 @@ export async function POST(req: NextRequest) {
     const candidateTypes = new Set(allItems.map((item) => item.type));
     const genreLists = await Promise.all([...candidateTypes].map((type) => getGenres(type)));
     const genreNameById = new Map(genreLists.flat().map((g) => [g.id, g.name] as const));
-    const candidateGenres = new Map(
+    const candidateGenres = new Map<string, string[]>(
       allItems.map((item) => [`${item.type}:${item.tmdbId}`, (item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)] as const)
     );
 
-    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood, tasteVector, franchise, fatigue, candidateGenres)
+    const rank = () => scoreCandidates(user.id, allItems, reasons, SHOWN_CARDS + ALTERNATE_CARDS, mood, tasteVector, franchise, fatigue, candidateGenres, alreadyProposed)
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
+    let ranked = rank();
+    // Everything already seen or proposed is filtered out: for someone who
+    // has seen a lot, most of the model's picks can vanish. Top up from
+    // TMDb's « similar » of what they watched last rather than showing two
+    // lonely cards (or none).
+    if (ranked.length < SHOWN_CARDS) {
+      const lastWatched = (getWatchStatus(user.id)?.recent ?? []).slice(0, 3);
+      for (const recent of lastWatched) await addSimilar(recent, 8);
+      for (const item of allItems) {
+        const key = `${item.type}:${item.tmdbId}`;
+        if (!candidateGenres.has(key)) candidateGenres.set(key, (item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n));
+      }
+      ranked = rank();
+    }
+    const recommendations = ranked.slice(0, SHOWN_CARDS);
     assistant.recommendations = recommendations;
+    assistant.alternates = ranked.slice(SHOWN_CARDS);
     itemCount = recommendations.length;
     // Bug fix (confirmed live): unlike add_media just above, this branch
     // never reassigned `assistant.content` — a "recommend" reply is pure
@@ -1164,15 +1222,34 @@ export async function POST(req: NextRequest) {
     // shown right on top of the recommendation cards it had just built
     // successfully — a false "something's wrong" message on the single
     // most common successful path in the whole feature.
-    assistant.content = [cleaned, recommendations.length
-      ? "Voici ce qui devrait bien coller :"
-      : "Je n'ai rien trouvé qui corresponde vraiment cette fois — essaie de préciser un peu ta demande."].filter(Boolean).join("\n\n");
+    // One line in the assistant's own voice (the model's "intro") above the
+    // cards — replaces a fixed « Voici ce qui devrait bien coller : » that
+    // was stacked on top of any text the model had written.
+    assistant.content = recommendations.length
+      ? (cleaned || recommendationIntro(intent.intro, recentConversationReplies))
+      : "Là, tout ce qui me venait, tu l'as déjà vu ou je te l'ai déjà proposé. Donne-moi une piste (un titre que tu as adoré, une ambiance, une durée) et je creuse ailleurs.";
     console.log(`[ai] action=recommend candidates=${allItems.length} (llm=${pairs.length}) shown=${recommendations.length} mood=${!!mood} user=${user.username}`);
   }
   recordAiCall({
     username: user.username, kind: intent.action ?? "chat", provider: providerName,
     success: true, durationMs: latency, itemCount, message,
   });
+
+  const suggestions = capabilitiesQuestion && !assistant.recommendations?.length
+    ? ["Conseille-moi un film", "Une série pour ce soir", "Quoi de neuf dans Movviz ?"]
+    : buildQuickReplies(assistant);
+  if (suggestions.length) assistant.suggestions = suggestions;
+  // A title put forward in plain text becomes the conversation's subject, so
+  // « dans le même genre » or « mets-le en vu » right after refers to it.
+  // Resolved after replying: it only matters for the next message.
+  if (intent.action === null) {
+    const suggested = extractSuggestedTitle(assistant.content);
+    if (suggested) {
+      void resolveTitleAgainstTmdb({ title: suggested })
+        .then((resolved) => { if (resolved) setActiveSubject(user.id, { tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title }); })
+        .catch(() => {});
+    }
+  }
 
   pushAiMessage(user.id, assistant);
   setDialogueState(user.id, updateDialogueState(dialoguePlan, assistant.content));

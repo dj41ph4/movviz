@@ -17,6 +17,8 @@ export interface ParsedIntent {
   items: AiRecommendIntentItem[];
   /** The part of the model's reply that is NOT the JSON intent (free text). */
   rawText: string;
+  /** recommend only: the one line the model wrote to present its picks. */
+  intro?: string;
 }
 
 const MAX_ITEMS = 25;
@@ -178,7 +180,8 @@ export function parseIntent(text: string): ParsedIntent {
   // to where the JSON used to be — never legitimate content here, this
   // assistant's replies are conversational prose, not code blocks.
   stripped = stripped.replace(/```(?:json)?/gi, "").replace(/\n{3,}/g, "\n\n").trim();
-  return { action, items, rawText: stripped };
+  const intro = action === "recommend" && typeof obj.intro === "string" ? obj.intro.trim().slice(0, 240) : "";
+  return { action, items, rawText: stripped, ...(intro ? { intro } : {}) };
 }
 
 const FACT_MAX_LEN = 150;

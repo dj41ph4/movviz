@@ -8,6 +8,11 @@ data class AiChatMessageDto(
     val content: String,
     val actions: List<AiActionOutcomeDto>? = null,
     val recommendations: List<AiRecommendationDto>? = null,
+    // Cartes suivantes du classement, non affichées : « Déjà vu » / « Pas
+    // pour moi » en fait monter une à la place (côté serveur, voir /api/ai/card).
+    val alternates: List<AiRecommendationDto>? = null,
+    // Réponses rapides sous le dernier message (un appui envoie le texte).
+    val suggestions: List<String>? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -32,6 +37,7 @@ data class AiRecommendationDto(
     val rating: Double = 0.0,
     val inLibrary: Boolean = false,
     val reason: String? = null,
+    val distance: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -60,4 +66,28 @@ data class AiChatResponseDto(
     val provider: String? = null,
     val error: String? = null,
     val detail: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AiCardActionRequestDto(
+    val action: String,
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val reason: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AiCardActionResponseDto(
+    val ok: Boolean = false,
+    val replacement: AiRecommendationDto? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AiFeedbackRequestDto(
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val liked: Boolean,
+    val reason: String? = null,
 )

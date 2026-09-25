@@ -8,7 +8,9 @@ import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
 import type { PublicUser } from "@/lib/auth/types";
-import { ArrowLeft, ShieldCheck, User as UserIcon, ShieldAlert, Loader2, KeyRound } from "lucide-react";
+import { ArrowLeft, ShieldCheck, User as UserIcon, ShieldAlert, Loader2, KeyRound, Trash2 } from "lucide-react";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { toast } from "@/components/ui/Toast";
 
 const TABS = [
   { id: "general", labelKey: "auth.tabGeneral" },
@@ -43,6 +45,24 @@ export default function UserDetailPage() {
       if (res.ok) setUser(await res.json());
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [deleting, setDeleting] = useState(false);
+  const deleteAccount = async () => {
+    if (!user) return;
+    if (!(await confirmDialog(t("auth.confirmDeleteAccount", { name: user.username }), { confirmLabel: t("auth.deleteAccount") }))) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/users/${params.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/users");
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      toast("error", data?.error === "last_admin" ? t("auth.deleteLastAdmin") : t("auth.deleteFailed"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -112,6 +132,23 @@ export default function UserDetailPage() {
       )}
       {tab === "password" && !user.plexId && (
         <PasswordTab userId={user.id} />
+      )}
+
+      {user.id !== currentUser?.id && (
+        <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-down/20 bg-down/5 p-5 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-bold text-down">{t("auth.deleteAccount")}</h3>
+            <p className="mt-1 text-xs leading-relaxed text-ink-soft">{t("auth.deleteAccountHint")}</p>
+          </div>
+          <button
+            onClick={deleteAccount}
+            disabled={deleting}
+            className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-down/12 px-4 text-sm font-bold text-down hover:bg-down/20 disabled:opacity-50"
+          >
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {t("auth.deleteAccount")}
+          </button>
+        </div>
       )}
     </div>
   );

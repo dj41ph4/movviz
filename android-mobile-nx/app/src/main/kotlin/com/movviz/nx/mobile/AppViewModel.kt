@@ -19,6 +19,8 @@ import com.movviz.nx.mobile.data.PlexPinDto
 import com.movviz.nx.mobile.data.PlexPollDto
 import com.movviz.nx.mobile.data.QueueItemDto
 import com.movviz.nx.mobile.data.SearchResultDto
+import com.movviz.nx.mobile.data.AiChatMessageDto
+import com.movviz.nx.mobile.data.AiRecommendationDto
 import com.movviz.nx.mobile.data.ServerPrefs
 import com.movviz.nx.mobile.data.ProfilePrefs
 import com.movviz.nx.mobile.data.TvProfile
@@ -244,6 +246,98 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // « À revoir sans modération » — livré par /api/interface/dashboard.
     private val _rewatch = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val rewatch: StateFlow<List<SearchResultDto>> = _rewatch.asStateFlow()
+
+    // ── Assistant IA : même conversation que le desktop (session par userId) ──
+    private val _aiEnabled = MutableStateFlow(false)
+    val aiEnabled: StateFlow<Boolean> = _aiEnabled.asStateFlow()
+    private val _aiMessages = MutableStateFlow<List<AiChatMessageDto>>(emptyList())
+    val aiMessages: StateFlow<List<AiChatMessageDto>> = _aiMessages.asStateFlow()
+    private val _aiBusy = MutableStateFlow(false)
+    val aiBusy: StateFlow<Boolean> = _aiBusy.asStateFlow()
+    /** Carte en cours de remplacement (« type:tmdbId »), grisée le temps de l'appel. */
+    private val _aiSwapping = MutableStateFlow<String?>(null)
+    val aiSwapping: StateFlow<String?> = _aiSwapping.asStateFlow()
+
+    /** Relit la session (bulle visible seulement si l'IA est activée côté serveur). */
+    fun refreshAiSession() {
+        viewModelScope.launch {
+            val result = repository?.aiSession()
+            if (result is ApiResult.Success) {
+                _aiEnabled.value = result.data.enabled
+                if (!_aiBusy.value) _aiMessages.value = result.data.messages
+            }
+        }
+    }
+
+    fun sendAiMessage(text: String) {
+        val message = text.trim()
+        val repo = repository ?: return
+        if (message.isEmpty() || _aiBusy.value) return
+        _aiMessages.value = _aiMessages.value + AiChatMessageDto(role = "user", content = message)
+        _aiBusy.value = true
+        viewModelScope.launch {
+            val reply = when (val result = repo.aiChat(message)) {
+                is ApiResult.Success -> result.data.message
+                    ?: AiChatMessageDto(role = "assistant", content = aiErrorText(result.data.detail))
+                is ApiResult.Failure -> AiChatMessageDto(role = "assistant", content = aiErrorText(null))
+                ApiResult.Unauthorized -> AiChatMessageDto(role = "assistant", content = aiErrorText(null))
+            }
+            _aiMessages.value = _aiMessages.value + reply
+            _aiBusy.value = false
+        }
+    }
+
+    private fun aiErrorText(detail: String?): String =
+        "Je n'ai pas réussi à répondre, réessaie dans un instant." + (detail?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "")
+
+    /** « Déjà vu » (action = "seen") ou « Pas pour moi » ("dislike") : la carte
+     *  est remplacée par la suivante du classement, sans nouvel appel au modèle. */
+    fun aiCardAction(card: AiRecommendationDto, action: String) {
+        val repo = repository ?: return
+        val key = "${card.type}:${card.tmdbId}"
+        if (_aiSwapping.value != null) return
+        _aiSwapping.value = key
+        viewModelScope.launch {
+            val result = repo.aiCardAction(action, card)
+            if (result is ApiResult.Success) {
+                val replacement = result.data.replacement
+                _aiMessages.value = _aiMessages.value.map { message ->
+                    val cards = message.recommendations ?: return@map message
+                    val index = cards.indexOfFirst { it.type == card.type && it.tmdbId == card.tmdbId }
+                    if (index < 0) return@map message
+                    val next = cards.toMutableList()
+                    if (replacement != null) next[index] = replacement else next.removeAt(index)
+                    message.copy(recommendations = next)
+                }
+            }
+            _aiSwapping.value = null
+        }
+    }
+
+    fun aiLike(card: AiRecommendationDto) {
+        val repo = repository ?: return
+        viewModelScope.launch { repo.aiLike(card) }
+    }
+
+    /** « Ajouter » sur une carte : même route que partout ailleurs dans l'app. */
+    fun aiAddCard(card: AiRecommendationDto) {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            if (repo.addToLibrary(card.type, card.tmdbId) is ApiResult.Success) {
+                _aiMessages.value = _aiMessages.value.map { message ->
+                    val cards = message.recommendations ?: return@map message
+                    if (cards.none { it.type == card.type && it.tmdbId == card.tmdbId }) return@map message
+                    message.copy(recommendations = cards.map { if (it.type == card.type && it.tmdbId == card.tmdbId) it.copy(inLibrary = true) else it })
+                }
+            }
+        }
+    }
+
+    fun clearAiSession() {
+        val repo = repository ?: return
+        _aiMessages.value = emptyList()
+        viewModelScope.launch { repo.aiClearSession() }
+    }
 
     private val _seriesLibraryRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val seriesLibraryRecommendations: StateFlow<List<SearchResultDto>> = _seriesLibraryRecommendations.asStateFlow()
@@ -847,6 +941,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _seriesRows.value = emptyList()
         _movieLibraryRecommendations.value = emptyList()
         _rewatch.value = emptyList()
+        _aiEnabled.value = false
+        _aiMessages.value = emptyList()
+        _aiBusy.value = false
+        _aiSwapping.value = null
         _seriesLibraryRecommendations.value = emptyList()
         _detail.value = null
         _detailError.value = null
