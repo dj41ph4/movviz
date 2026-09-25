@@ -1,3 +1,10 @@
+## v1.25.93 — September 2026
+
+### Assistant IA : réponses rapides adaptées à sa question
+
+- Assistant IA : les boutons de réponse rapide sous un message répondent à la question qu'il vient de poser. Il les propose lui-même (par exemple « Oui, ce soir », « Plus tard », « Un autre du même genre »), au lieu des boutons fixes « Vas-y / Un film / Une série / Surprends-moi » qui s'affichaient même quand il parlait d'un titre précis.
+- Assistant IA : il n'écrit plus le nom d'un emoji en toutes lettres à côté de l'emoji (« popcorn 🍿 »).
+
 ## v1.25.92 — September 2026
 
 ### Assistant IA : plus jamais « oui maître », et il ne se laisse pas écraser

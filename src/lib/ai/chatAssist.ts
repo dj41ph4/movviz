@@ -182,6 +182,8 @@ export function buildMovvizSelfSection(): string {
 // ── Quick replies ───────────────────────────────────────────────────────
 
 /** Chips under the reply: one tap sends the text as the next message. */
+const ABOUT_ONE_TITLE_RE = /\b(?:le|la|l['’])\s*(?:lancer|regarder|voir|mettre|ajouter|garder|commencer)\b|\bcelui-(?:l[àa]|ci)\b|\bcelle-(?:l[àa]|ci)\b/i;
+
 export function buildQuickReplies(assistant: AiChatMessage): string[] {
   const recos = assistant.recommendations ?? [];
   if (recos.length) {
@@ -196,10 +198,35 @@ export function buildQuickReplies(assistant: AiChatMessage): string[] {
   }
   if (assistant.actions?.length) return [];
   const text = assistant.content;
+  // About one precise title (« Prêt à le lancer ce soir ? »): « Un film / Une
+  // série » would answer a question nobody asked.
+  if (extractSuggestedTitle(text) || ABOUT_ONE_TITLE_RE.test(text)) return [];
   if (OFFER_QUESTION_RE.test(text) && OFFER_TOPIC_RE.test(text)) {
     return ["Vas-y", "Un film", "Une série", "Surprends-moi"];
   }
   return [];
+}
+
+// The model's own quick replies: it knows what it just asked, so it writes
+// the answers (« Oui, ce soir », « Plutôt demain », « Un autre du même
+// genre »), in a hidden [[CHOIX: a | b | c]] line at the end of its reply.
+const CHOICES_RE = /\[\[\s*CHOIX\s*:([^\]]*)\]\]/gi;
+
+/** The quick replies the model offered (2-4 short ones), if any. */
+export function extractQuickChoices(text: string): string[] {
+  const found: string[] = [];
+  for (const match of text.matchAll(CHOICES_RE)) {
+    for (const raw of match[1].split("|")) {
+      const choice = raw.trim().replace(/^["«“]\s*|\s*["»”]$/g, "");
+      if (choice && choice.length <= 40 && !found.some((c) => c.toLowerCase() === choice.toLowerCase())) found.push(choice);
+    }
+  }
+  return found.length >= 2 ? found.slice(0, 4) : [];
+}
+
+/** The reply without its hidden [[CHOIX: …]] line. */
+export function stripQuickChoices(text: string): string {
+  return text.replace(CHOICES_RE, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 // ── Recommendation intro ────────────────────────────────────────────────

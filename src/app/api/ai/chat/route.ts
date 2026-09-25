@@ -23,7 +23,7 @@ import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getOrFetchScene } from "@/lib/ai/sceneCache";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import { markSeen } from "@/lib/ai/seen";
-import { detectSeenCommand, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
+import { detectSeenCommand, extractQuickChoices, stripQuickChoices, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -602,6 +602,9 @@ export async function POST(req: NextRequest) {
     correctionsLeft--;
     return callAi(config, retrySystem, historyForModel(session.messages, scrubTitles));
   };
+  // The model's own quick replies ([[CHOIX: …]]), taken out of the text first.
+  const modelChoices = extractQuickChoices(text);
+  text = stripQuickChoices(text);
   let intent = parseIntent(text);
   // The model occasionally keeps chatting after an explicit « yes/give it
   // to me » even though this branch has already established that a selection
@@ -1256,9 +1259,12 @@ export async function POST(req: NextRequest) {
     success: true, durationMs: latency, itemCount, message,
   });
 
+  assistant.content = stripQuickChoices(assistant.content);
   const suggestions = capabilitiesQuestion && !assistant.recommendations?.length
     ? ["Conseille-moi un film", "Une série pour ce soir", "Quoi de neuf dans Movviz ?"]
-    : buildQuickReplies(assistant);
+    : modelChoices.length && !assistant.recommendations?.length && !assistant.actions?.length
+      ? modelChoices
+      : buildQuickReplies(assistant);
   if (suggestions.length) assistant.suggestions = suggestions;
   // A title put forward in plain text becomes the conversation's subject, so
   // « dans le même genre » or « mets-le en vu » right after refers to it.

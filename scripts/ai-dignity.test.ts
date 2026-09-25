@@ -91,3 +91,13 @@ test("les insultes de tous les jours déclenchent la consigne de tenue (sans phr
   }
   assert.equal(analyzeDialogueTurn("ce film est inutilement long ?", [], undefined).intent, "question");
 });
+
+test("les réponses rapides viennent de la question posée, jamais des boutons génériques hors sujet", async () => {
+  const { extractQuickChoices, stripQuickChoices, buildQuickReplies } = await import("../src/lib/ai/chatAssist.ts");
+  const reply = "Bien joué ! Prêt à le lancer dès ce soir ou tu gardes ça pour un autre moment ? 🍿\n[[CHOIX: Oui, ce soir | Plus tard | Un autre du même genre]]";
+  assert.deepEqual(extractQuickChoices(reply), ["Oui, ce soir", "Plus tard", "Un autre du même genre"]);
+  assert.equal(stripQuickChoices(reply), "Bien joué ! Prêt à le lancer dès ce soir ou tu gardes ça pour un autre moment ? 🍿");
+  assert.deepEqual(extractQuickChoices("Rien à proposer."), []);
+  // Sans ligne CHOIX, une question sur UN titre précis n'affiche plus « Un film / Une série ».
+  assert.deepEqual(buildQuickReplies({ role: "assistant", content: "Prêt à le lancer dès ce soir ou tu gardes ça pour un autre moment ?" }), []);
+});
