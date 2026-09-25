@@ -123,7 +123,8 @@ function RecommendationCards({
         const onList = watchlist.has(`${card.type}:${card.tmdbId}`);
         return (
           <div key={key} className={cn("transition-opacity", busy && "pointer-events-none opacity-40")}>
-            <div className="flex gap-3 rounded-xl glass p-3">
+            <div className="rounded-xl glass p-3">
+            <div className="flex gap-3">
             {/* Real /title/{type}/{tmdbId} link — pages that mount
                 useTitlePanel() (Discover, Library, Calendar…) intercept
                 this exact href pattern and open it as the sliding
@@ -168,14 +169,18 @@ function RecommendationCards({
               {card.reason ? (
                 <p className="mt-1 text-xs italic leading-snug text-ink-soft">« {card.reason} »</p>
               ) : null}
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            </div>
+            </div>
+              {/* Full card width, one line: under the poster too, so a
+                  narrow panel no longer pushes 👎 onto a second row. */}
+              <div className="mt-2 flex items-center gap-1">
                 {card.inLibrary ? (
                   // Just the green check: « Dans la bibliothèque » took the
                   // room the actions need (the label stays as a tooltip).
                   <span
                     title={t("ai.inLibrary")}
                     aria-label={t("ai.inLibrary")}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-ok/12 text-ok"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ok/12 text-ok"
                   >
                     <Check className="h-4 w-4" />
                   </span>
@@ -183,7 +188,7 @@ function RecommendationCards({
                   <span
                     title={t("ai.added")}
                     aria-label={t("ai.added")}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-ok/12 text-ok"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ok/12 text-ok"
                   >
                     <Check className="h-4 w-4" />
                   </span>
@@ -191,7 +196,7 @@ function RecommendationCards({
                   <button
                     onClick={() => onAdd(card)}
                     disabled={state === "adding"}
-                    className="inline-flex h-8 items-center gap-1 rounded-lg bg-brand px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-85 disabled:opacity-50"
+                    className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-brand px-2.5 text-[11px] font-bold text-white transition-opacity hover:opacity-85 disabled:opacity-50"
                   >
                     {state === "adding" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
                     {t("ai.add")}
@@ -212,7 +217,7 @@ function RecommendationCards({
                 <button
                   onClick={() => onSwap(card, "seen")}
                   title={t("ai.markSeen")}
-                  className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-ink-soft transition-colors hover:bg-white/8 hover:text-ink"
+                  className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-bold text-ink-soft transition-colors hover:bg-white/8 hover:text-ink"
                 >
                   <Eye className="h-3.5 w-3.5" /> {t("ai.markSeen")}
                 </button>
@@ -221,7 +226,7 @@ function RecommendationCards({
                   title={t("ai.feedbackLike")}
                   aria-label={t("ai.feedbackLike")}
                   className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                    "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
                     vote === "like" ? "bg-ok/15 text-ok" : "text-ink-dim hover:bg-white/8 hover:text-ink-soft"
                   )}
                 >
@@ -239,7 +244,6 @@ function RecommendationCards({
                   <ThumbsDown className="h-3.5 w-3.5" />
                 </button>
               </div>
-            </div>
             </div>
           </div>
         );

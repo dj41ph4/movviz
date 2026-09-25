@@ -1,3 +1,9 @@
+## v1.25.87 — September 2026
+
+### Assistant IA : boutons des propositions alignés
+
+- Assistant IA : les boutons d'une proposition (coche, Ma liste, Déjà vu, 👍, 👎) tiennent sur une seule ligne, sur toute la largeur de la carte, avec 👍 et 👎 calés à droite. Sur une fenêtre étroite, 👎 ne passe plus tout seul à la ligne.
+
 ## v1.25.86 — September 2026
 
 ### Assistant IA : il comprend malgré les fautes de frappe
