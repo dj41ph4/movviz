@@ -57,6 +57,7 @@ import com.movviz.nx.mobile.ui.wizard.OnboardingOrDivider
 import com.movviz.nx.mobile.ui.wizard.OnboardingPrimaryButton
 import com.movviz.nx.mobile.ui.wizard.OnboardingTitles
 import kotlinx.coroutines.launch
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import kotlinx.coroutines.delay
 
 /**
@@ -230,7 +231,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                         style = TextStyle(fontSize = 11.sp, color = MovvizInkDim, textAlign = TextAlign.Center),
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onChangeServer)
+                            .hapticClickable(onClick = onChangeServer)
                             .tvPointerClick(onChangeServer)
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
@@ -255,7 +256,7 @@ private fun PlexButton(busy: Boolean, onClick: () -> Unit) {
                 shape = RoundedCornerShape(14.dp),
             )
             .onFocusChanged { focused = it.isFocused }
-            .clickable(onClick = onClick)
+            .hapticClickable(onClick = onClick)
             .tvPointerClick(onClick)
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center,
@@ -333,7 +334,7 @@ private fun LoginField(
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = { onTrailingClick?.invoke() })
+                    .hapticClickable(onClick = { onTrailingClick?.invoke() })
                     .tvPointerClick { onTrailingClick?.invoke() }
                     .padding(4.dp),
             )

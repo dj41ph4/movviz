@@ -178,7 +178,9 @@ private fun subtitleFor(item: QueueItemDto): String {
 }
 
 private fun etaLabel(seconds: Long): String? {
-    if (seconds <= 0) return null
+    // Au-delà d'une semaine, le débit est quasi nul (ex. 2 o/s) : afficher
+    // « 37458 h 36 min restantes » n'a aucun sens, on n'affiche rien.
+    if (seconds <= 0 || seconds > 7 * 24 * 3600) return null
     val minutes = seconds / 60
     return when {
         minutes < 1 -> "moins d'1 min restante"

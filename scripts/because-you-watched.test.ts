@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { setWatchedEpisodes, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
+import { setWatchedEpisodes, setWatchedMovies } from "@/lib/plex/watchStore";
 import { setRating } from "@/lib/ai/tasteProfile";
 import { pickAnchor } from "@/lib/recommender/becauseYouWatched";
 
@@ -30,12 +30,11 @@ test("pickAnchor (series) : la série avec le plus d'épisodes vus gagne", () =>
 test("pickAnchor (series) : égalité départagée par l'entrée la plus récente, résultat stable rejoué deux fois", () => {
   const userId = freshUserId();
   const now = Date.now();
-  setWatchedEpisodes(userId, [{ tmdbId: 2001, season: 1, episode: 1 }], true, "Ancienne série");
-  setWatchedEpisodes(userId, [{ tmdbId: 2002, season: 1, episode: 1 }], true, "Série récente");
-  // Force un ordre de récence explicite (setWatchedEpisodes utilise Date.now()
-  // en interne, insuffisant pour un départage déterministe dans un test).
-  recordWatched(userId, { tmdbId: 2001, type: "series", title: "Ancienne série", at: now - 10_000 });
-  recordWatched(userId, { tmdbId: 2002, type: "series", title: "Série récente", at: now });
+  // Dates de visionnage explicites : un ordre de récence déterministe. (Réécrire
+  // ensuite une date plus ancienne ne « vieillit » plus un titre : la date la
+  // plus récente l'emporte toujours, voir upsertRecent.)
+  setWatchedEpisodes(userId, [{ tmdbId: 2001, season: 1, episode: 1, watchedAt: now - 10_000 }], true, "Ancienne série");
+  setWatchedEpisodes(userId, [{ tmdbId: 2002, season: 1, episode: 1, watchedAt: now }], true, "Série récente");
 
   assert.equal(pickAnchor(userId, "series")?.tmdbId, 2002);
   assert.equal(pickAnchor(userId, "series")?.tmdbId, 2002);
@@ -64,10 +63,8 @@ test("pickAnchor (movie) : une note 'inferred' ne produit JAMAIS verb:liked, ret
 test("pickAnchor (movie) : sans note, le film le plus récemment regardé gagne", () => {
   const userId = freshUserId();
   const now = Date.now();
-  setWatchedMovies(userId, [5001], true, "Ancien");
-  setWatchedMovies(userId, [5002], true, "Récent");
-  recordWatched(userId, { tmdbId: 5001, type: "movie", title: "Ancien", at: now - 10_000 });
-  recordWatched(userId, { tmdbId: 5002, type: "movie", title: "Récent", at: now });
+  setWatchedMovies(userId, [5001], true, "Ancien", now - 10_000);
+  setWatchedMovies(userId, [5002], true, "Récent", now);
 
   const anchor = pickAnchor(userId, "movie");
   assert.equal(anchor?.tmdbId, 5002);

@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -83,6 +85,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizLine
 import com.movviz.nx.mobile.ui.theme.MovvizOk
 import com.movviz.nx.mobile.ui.theme.MovvizSurface
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
 
 private const val POSTER_BASE = "https://image.tmdb.org/t/p/w185"
@@ -104,10 +107,25 @@ fun AiChatLauncher(
 ) {
     val enabled by viewModel.aiEnabled.collectAsState()
     var open by rememberSaveable { mutableStateOf(false) }
-    // Relu à chaque changement de compte/profil : la conversation est par profil.
+    // Relu à chaque changement de compte/profil (la conversation est par
+    // profil) ET quand l'adresse du serveur arrive : elle est lue de façon
+    // asynchrone au démarrage, et la toute première lecture partait avant elle
+    // — sans nouvel essai, la bulle restait absente jusqu'à ce qu'une rotation
+    // recrée l'écran (« visible en paysage, pas en portrait »). Nouvel essai
+    // ensuite tant que l'IA n'est pas confirmée active.
     val user by viewModel.currentUser.collectAsState()
     val profile by viewModel.activeProfile.collectAsState()
-    LaunchedEffect(user?.username, profile) { viewModel.refreshAiSession() }
+    val serverUrl by viewModel.serverUrl.collectAsState()
+    LaunchedEffect(user?.username, profile, serverUrl) {
+        if (serverUrl == null) return@LaunchedEffect
+        var attempt = 0
+        while (true) {
+            viewModel.refreshAiSession()
+            kotlinx.coroutines.delay(if (attempt == 0) 5_000L else if (attempt == 1) 15_000L else 60_000L)
+            if (viewModel.aiEnabled.value) break
+            attempt++
+        }
+    }
     if (!enabled) return
 
     if (open) {
@@ -129,7 +147,7 @@ fun AiChatLauncher(
                     .shadow(12.dp, CircleShape, clip = false)
                     .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape)
                     .clip(CircleShape)
-                    .clickable { open = true; viewModel.refreshAiSession() },
+                    .hapticClickable { open = true; viewModel.refreshAiSession() },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(MovvizIconSparkle, contentDescription = "Assistant Movviz", tint = Color.White, modifier = Modifier.size(26.dp))
@@ -152,6 +170,24 @@ private fun AiChatScreen(
     val liked = remember { mutableStateMapOf<String, Boolean>() }
     val listState = rememberLazyListState()
     BackHandler(onBack = onClose)
+    // Sans mode déclaré, Android faisait GLISSER toute la fenêtre au-dessus du
+    // clavier, en plus de l'imePadding ci-dessous : le décalage comptait deux
+    // fois et la saisie finissait presque en haut de l'écran. Tant que le chat
+    // est ouvert : « redimensionner » (la fenêtre ne glisse plus, seul
+    // imePadding compte), puis retour au réglage d'avant à la fermeture.
+    val context = LocalContext.current
+    val activity = remember(context) {
+        var c: android.content.Context? = context
+        while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+        c as? android.app.Activity
+    }
+    DisposableEffect(activity) {
+        val window = activity?.window
+        val previous = window?.attributes?.softInputMode
+        @Suppress("DEPRECATION")
+        window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose { if (window != null && previous != null) window.setSoftInputMode(previous) }
+    }
 
     val send: (String) -> Unit = { text ->
         if (text.isNotBlank() && !busy) {
@@ -276,7 +312,7 @@ private fun AiChatScreen(
                         .alpha(if (canSend) 1f else .4f)
                         .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape)
                         .clip(CircleShape)
-                        .clickable(enabled = canSend) { send(input) },
+                        .hapticClickable(enabled = canSend) { send(input) },
                     contentAlignment = Alignment.Center,
                 ) { Icon(MovvizIconSend, contentDescription = "Envoyer", tint = Color.White, modifier = Modifier.size(22.dp)) }
             }
@@ -287,7 +323,7 @@ private fun AiChatScreen(
 @Composable
 private fun HeaderButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     Box(
-        Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
+        Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).hapticClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription = label, tint = MovvizInkSoft, modifier = Modifier.size(20.dp)) }
 }
@@ -384,7 +420,7 @@ private fun RecommendationCard(
             .padding(10.dp),
     ) {
         Box(
-            Modifier.width(56.dp).height(84.dp).clip(RoundedCornerShape(8.dp)).background(MovvizSurfaceStrong).clickable(onClick = onOpen),
+            Modifier.width(56.dp).height(84.dp).clip(RoundedCornerShape(8.dp)).background(MovvizSurfaceStrong).hapticClickable(onClick = onOpen),
             contentAlignment = Alignment.Center,
         ) {
             if (card.posterPath != null) {
@@ -407,12 +443,12 @@ private fun RecommendationCard(
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable(onClick = onOpen),
+                modifier = Modifier.hapticClickable(onClick = onOpen),
             )
             val meta = listOfNotNull(
                 card.year?.toString(),
                 if (card.type == "series") "Série" else "Film",
-                card.rating.takeIf { it > 0 }?.let { String.format(java.util.Locale.FRANCE, "%.1f", it) },
+                card.rating?.takeIf { it > 0 }?.let { String.format(java.util.Locale.FRANCE, "%.1f", it) },
             ).joinToString(" · ")
             Text(meta, color = MovvizInkSoft, fontSize = 12.sp)
             card.reason?.takeIf { it.isNotBlank() }?.let {
@@ -445,7 +481,7 @@ private fun CardChip(icon: ImageVector, label: String, tint: Color, background: 
             .height(36.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(background)
-            .clickable(onClick = onClick)
+            .hapticClickable(onClick = onClick)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -458,7 +494,7 @@ private fun CardChip(icon: ImageVector, label: String, tint: Color, background: 
 @Composable
 private fun CardIcon(icon: ImageVector, label: String, tint: Color, onClick: () -> Unit) {
     Box(
-        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick),
+        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).hapticClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(17.dp)) }
 }
@@ -476,7 +512,7 @@ private fun QuickReplies(options: List<String>, onPick: (String) -> Unit) {
                     .clip(RoundedCornerShape(18.dp))
                     .background(MovvizBrandGlow.copy(alpha = .14f))
                     .border(1.dp, MovvizBrandGlow.copy(alpha = .35f), RoundedCornerShape(18.dp))
-                    .clickable { onPick(option) }
+                    .hapticClickable { onPick(option) }
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) { Text(option, color = MovvizBrandGlow, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }

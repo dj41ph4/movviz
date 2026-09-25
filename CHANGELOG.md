@@ -1,3 +1,15 @@
+## v1.25.79 — September 2026
+
+### Android mobile : assistant visible en portrait, épisodes lisibles, retour haptique
+
+- Android mobile : la bulle de l'assistant IA apparaît de nouveau en portrait. L'application demandait l'état de l'assistant avant d'avoir chargé l'adresse du serveur, et ne réessayait jamais : la bulle n'apparaissait qu'après une rotation de l'écran.
+- Android mobile : dans le chat, la zone de saisie reste juste au-dessus du clavier, au lieu de remonter presque en haut de l'écran.
+- Android mobile, portrait : la liste des épisodes d'une saison est entièrement revue. Titre sur deux lignes, date de diffusion, résumé sur toute la largeur, coche « vu » discrète et marges de téléphone. Les titres étaient coupés après trois lettres.
+- Android mobile, portrait : la fenêtre d'un épisode empile ses boutons au lieu d'écrire « Retour » lettre par lettre. Sur la fiche, « Reprendre » et « Série vue » prennent toute la largeur, les cartes de saison sont plus compactes, « Distribution » et « Titres similaires » sont alignés sur le reste de la page, et les titres sous les affiches ne sont plus coupés au milieu d'un mot.
+- Android mobile : chaque bouton donne un léger retour haptique au toucher, y compris ceux qui marquent un titre ou un épisode comme vu. Le réglage de vibration du téléphone est respecté.
+- Téléchargements : plus de durée restante absurde (« 37458 h ») quand une source ne débite presque rien, et les titres sur deux lignes sont correctement espacés.
+- Administration : la reprise de l'historique d'un profil Plex supprimé tourne désormais en arrière-plan, sans être coupée au bout d'une minute.
+
 ## v1.25.78 — September 2026
 
 ### Dates des vues Plex corrigées, séries en cours qui restent en tête

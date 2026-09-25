@@ -1732,6 +1732,10 @@ internal fun TitleRow(
      * carte active. Il peut alors couper le hero : un seul décodeur vidéo
      * actif à la fois sur Android TV. */
     onPreviewStateChanged: (cardId: String, active: Boolean) -> Unit = { _, _ -> },
+    /** La rangée vit déjà dans une colonne à marges (fiche titre) : pas de
+     *  seconde marge interne en portrait/déplié — sinon elle se décalait de
+     *  16 dp par rapport au reste de la page. */
+    insetInParent: Boolean = false,
 ) {
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
@@ -1770,8 +1774,9 @@ internal fun TitleRow(
             onPreviewStateChanged(card.id, false)
         }
     }
+    val edge = if (narrowRow && insetInParent) 0.dp else if (narrowRow) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
-        RowHeading(heading)
+        RowHeading(heading, start = edge)
         // Ajustement exact au viewport RÉEL (BoxWithConstraints, arithmétique
         // Dp flottante) : la 4e carte doit COMMENCER hors champ. L'arrangement
         // pose un spacing entre CHAQUE paire (y compris c3→c4) : il faut donc
@@ -1782,17 +1787,14 @@ internal fun TitleRow(
             modifier = Modifier.fillMaxWidth(),
         ) {
             val fitWidth = if (narrowRow) {
-                ((maxWidth - 43.dp) / 3).coerceAtLeast(88.dp)
+                ((maxWidth - edge - 27.dp) / 3).coerceAtLeast(88.dp)
             } else {
                 132.dp
             }
             TvLazyRow(
                 state = rememberTvLazyListState().withTvPrefetchDisabled(),
                 modifier = Modifier.focusRestorer(),
-                contentPadding = PaddingValues(
-                    start = if (narrowRow) 16.dp else 52.dp,
-                    end = if (narrowRow) 16.dp else 52.dp,
-                ),
+                contentPadding = PaddingValues(start = edge, end = edge),
                 horizontalArrangement = Arrangement.spacedBy(if (narrowRow) 10.dp else 12.dp),
             ) {
             tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { index, _ -> if (index == 0) "featured" else "poster" }) { index, card ->
@@ -1888,7 +1890,7 @@ internal fun TitleRow(
  *  padding start identique au padding de la LazyRow pour un alignement
  *  parfait avec la première carte. */
 @Composable
-private fun RowHeading(text: String) {
+private fun RowHeading(text: String, start: androidx.compose.ui.unit.Dp? = null) {
         val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
             it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
         }
@@ -1897,7 +1899,7 @@ private fun RowHeading(text: String) {
             text = text,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = if (narrow) 16.dp else 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = start ?: if (narrow) 16.dp else 52.dp, bottom = 12.dp),
         )
 }
 
@@ -2203,7 +2205,10 @@ internal fun PosterCard(
         if (showCaption) {
             Text(
                 text = card.title,
-                style = MaterialTheme.typography.titleMedium,
+                // Affiche étroite (3 par ligne en portrait) : le titre plein
+                // format se coupait au milieu d'un mot (« Girlfrie / nd »).
+                style = if (width < 140.dp) MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp, lineHeight = 18.sp)
+                    else MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

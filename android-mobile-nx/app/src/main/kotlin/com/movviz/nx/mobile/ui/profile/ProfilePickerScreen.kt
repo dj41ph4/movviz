@@ -48,6 +48,7 @@ import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import com.movviz.nx.mobile.ui.wizard.OnboardingBackground
 import com.movviz.nx.mobile.ui.wizard.OnboardingCard
 import com.movviz.nx.mobile.ui.wizard.OnboardingHeader
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.wizard.OnboardingTitles
 
 /**
@@ -163,7 +164,7 @@ private fun MaquetteProfileTile(profile: TvProfile, focusRequester: FocusRequest
                 )
                 .onFocusChanged { focused = it.isFocused }
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .clickable(onClick = onClick)
+                .hapticClickable(onClick = onClick)
                 .tvPointerClick(onClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -202,7 +203,7 @@ private fun MaquetteAddTile(focusRequester: FocusRequester?, onClick: () -> Unit
                 )
                 .onFocusChanged { focused = it.isFocused }
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .clickable(onClick = onClick)
+                .hapticClickable(onClick = onClick)
                 .tvPointerClick(onClick),
             contentAlignment = Alignment.Center,
         ) {

@@ -55,6 +55,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
 import com.movviz.nx.mobile.ui.theme.MovvizOk
 import com.movviz.nx.mobile.ui.theme.MovvizSurface
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 
 /**
@@ -190,7 +191,7 @@ fun SlimRail(
                             Modifier
                         },
                     )
-                    .clickable(onClick = { onSelectTab(item.tab) })
+                    .hapticClickable(onClick = { onSelectTab(item.tab) })
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -222,7 +223,7 @@ fun SlimRail(
                     .height(48.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, MovvizElectricBorder, RoundedCornerShape(12.dp))
-                    .clickable(onClick = onUpdateClick)
+                    .hapticClickable(onClick = onUpdateClick)
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -254,7 +255,7 @@ fun SlimRail(
                 .fillMaxWidth()
                 .height(48.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onAvatarClick)
+                .hapticClickable(onClick = onAvatarClick)
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -481,7 +482,7 @@ private fun UnfoldedPanelSection(
             Text(
                 text = "Tout voir  >",
                 style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrand2),
-                modifier = Modifier.clickable(onClick = onSeeAll).padding(start = 8.dp),
+                modifier = Modifier.hapticClickable(onClick = onSeeAll).padding(start = 8.dp),
             )
         }
         content()
@@ -502,7 +503,7 @@ private fun UnfoldedQueueRow(
             .clip(RoundedCornerShape(12.dp))
             .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(12.dp))
             .border(1.5.dp, MovvizElectricBorder, RoundedCornerShape(12.dp))
-            .let { if (clickable) it.clickable(onClick = onClick) else it }
+            .let { if (clickable) it.hapticClickable(onClick = onClick) else it }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

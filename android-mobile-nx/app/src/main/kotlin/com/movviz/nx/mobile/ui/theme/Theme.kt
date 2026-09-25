@@ -5,7 +5,11 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.composed
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -39,10 +43,27 @@ import com.movviz.nx.mobile.R
  * aucun double-déclenchement possible, DPAD et pointeur restent tous deux
  * fonctionnels.
  */
-fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier =
-    this.pointerInput(onClick) {
-        detectTapGestures(onTap = { onClick() })
+fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier = composed {
+    // Retour haptique sur chaque appui tactile (demande explicite : « il
+    // manque cruellement de retour haptique »). Vibration « touche de
+    // clavier » : discrète, et respecte le réglage système de l'utilisateur.
+    val view = LocalView.current
+    pointerInput(onClick) {
+        detectTapGestures(onTap = {
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            onClick()
+        })
     }
+}
+
+/** `clickable` + le même retour haptique que tvPointerClick. */
+fun Modifier.hapticClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {
+    val view = LocalView.current
+    clickable(enabled = enabled) {
+        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        onClick()
+    }
+}
 
 /**
  * "Lift" Netflix-style : la carte au focus se détache visuellement avec un
@@ -143,7 +164,10 @@ private val MovvizTypography = Typography(
     ),
     // Card title
     titleMedium = TextStyle(
+        // Interligne explicite : sans lui, un titre sur deux lignes sous une
+        // affiche (« Les Brigades / immunitaires ») s'étalait sur un grand vide.
         fontFamily = MovvizFonts, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+        lineHeight = 20.sp,
     ),
     // Synopsis / body text
     bodyLarge = TextStyle(

@@ -1033,6 +1033,8 @@ fun TitleDetailScreen(
                             brush = null,
                             solidWhite = true,
                             icon = MovvizIconPlay,
+                            // Pleine largeur en portrait, comme « Lire » côté film.
+                            fillWidth = compactPortrait,
                         ) {
                             val index = playableEpisodes.indexOfFirst {
                                 it.seasonNumber == episodeResume.seasonNumber && it.episodeNumber == episodeResume.episodeNumber
@@ -1050,6 +1052,7 @@ fun TitleDetailScreen(
                     brush = null,
                     solidWhite = false,
                     icon = MovvizIconCheck,
+                    fillWidth = compactPortrait,
                 ) {
                     viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched, scope = "series")
                 }
@@ -1122,6 +1125,7 @@ fun TitleDetailScreen(
                         onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         titleLogoPaths = heroLogos,
                         onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                        insetInParent = true,
                     )
                 }
             }
@@ -1167,7 +1171,10 @@ private fun CastRow(cast: List<com.movviz.nx.mobile.data.MetaCastMemberDto>, onO
     // sections en portrait, où tout le reste utilise 16.dp (voir le Column
     // englobant plus haut dans ce fichier, ligne ~606).
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
-    val edge = if (compactPortrait) 16.dp else 48.dp
+    // La colonne de la fiche porte déjà la marge (16 dp en portrait/déplié) :
+    // en ajouter une ici décalait la rangée de 16 dp par rapport au reste.
+    val narrowDetail = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
+    val edge = if (narrowDetail) 0.dp else 48.dp
     Column(modifier = Modifier.padding(bottom = 8.dp)) {
         Text(
             text = "Distribution",
@@ -1256,8 +1263,11 @@ private fun SeasonSelector(
     selectedSeasonNumber: Int?,
     onSelect: (Int) -> Unit,
 ) {
+    // Portrait : cartes compactes — elles ne portent que du texte, la grande
+    // carte TV laissait un rectangle vide sous « 12 épisodes ».
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     Column(modifier = Modifier.padding(bottom = 20.dp)) {
-        Text(text = "Saisons", style = TextStyle(fontSize = 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+        Text(text = "Saisons", style = TextStyle(fontSize = if (compactPortrait) 22.sp else 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(12.dp))
         TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
@@ -1267,8 +1277,8 @@ private fun SeasonSelector(
                 Surface(
                     onClick = { onSelect(season.seasonNumber) },
                     modifier = Modifier
-                        .width(208.dp)
-                        .height(116.dp)
+                        .width(if (compactPortrait) 168.dp else 208.dp)
+                        .height(if (compactPortrait) 76.dp else 116.dp)
                         .tvCardFocusHalo(focused, shape)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onSelect(season.seasonNumber) },
@@ -1285,8 +1295,8 @@ private fun SeasonSelector(
                     ),
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.padding(horizontal = if (compactPortrait) 14.dp else 18.dp, vertical = if (compactPortrait) 12.dp else 16.dp),
+                        verticalArrangement = if (compactPortrait) Arrangement.spacedBy(4.dp) else Arrangement.SpaceBetween,
                     ) {
                         Text(
                             text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
@@ -1339,11 +1349,15 @@ private fun SeasonPageOverlay(
             if (attempt < 9) withFrameNanos { }
         }
     }
+    // Téléphone en portrait : marges de téléphone (les 56 dp TV mangeaient un
+    // quart de la largeur et tronquaient chaque titre après trois lettres).
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     TvLazyColumn(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizPage),
-        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 156.dp, bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        contentPadding = if (compactPortrait) PaddingValues(start = 16.dp, end = 16.dp, top = 104.dp, bottom = 48.dp)
+            else PaddingValues(start = 56.dp, end = 56.dp, top = 156.dp, bottom = 48.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 10.dp else 7.dp),
     ) {
         item(key = "season-header") {
             Column(modifier = Modifier.widthIn(max = 1120.dp)) {
@@ -1360,9 +1374,11 @@ private fun SeasonPageOverlay(
                     style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                PrimaryPill(text = "Retour", brush = null, solidWhite = false, focusRequester = backFocus, onClick = onBack)
+                // En portrait, la flèche flottante en haut à gauche fait déjà
+                // « retour » : pas de second bouton qui écrase le titre.
+                if (!compactPortrait) PrimaryPill(text = "Retour", brush = null, solidWhite = false, focusRequester = backFocus, onClick = onBack)
             }
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(if (compactPortrait) 12.dp else 18.dp))
             SeasonEpisodeHeader(
                 season = season,
                 watchedEpisodeKeys = watchedEpisodeKeys,
@@ -1441,6 +1457,10 @@ private fun EpisodeCard(
     onClick: () -> Unit,
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    if (compactPortrait) {
+        EpisodeCardPortrait(episode, metadata, watched, queueItem, focusRequester, onToggleWatched, onClick)
+        return
+    }
     var focused by remember { mutableStateOf(false) }
     val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
         episode.status == "available"
@@ -1594,6 +1614,144 @@ private fun EpisodeCard(
     }
 }
 
+/**
+ * Épisode sur téléphone en portrait, façon Netflix mobile : miniature 16:9 +
+ * titre sur DEUX lignes + date de diffusion, coche « vu » discrète, puis le
+ * résumé sur toute la largeur. L'ancienne ligne (celle de la TV, tassée)
+ * tronquait chaque titre après trois lettres (« Le bâ… »).
+ */
+@Composable
+private fun EpisodeCardPortrait(
+    episode: SeriesEpisodeDto,
+    metadata: MetadataEpisodeDto?,
+    watched: Boolean,
+    queueItem: QueueItemDto?,
+    focusRequester: FocusRequester?,
+    onToggleWatched: (Boolean) -> Unit,
+    onClick: () -> Unit,
+) {
+    val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") && episode.status == "available"
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onClick,
+        enabled = available,
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .let { if (available) it.tvPointerClick(onClick) else it },
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color(0xFF16161A),
+            focusedContainerColor = Color(0xFF24232A),
+            contentColor = MovvizInk,
+            focusedContentColor = MovvizInk,
+        ),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.width(128.dp).height(72.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF29272F)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (metadata?.stillPath != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}", contentScale = ContentScale.Crop),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+                    }
+                    if (watched) {
+                        // Bandeau « vu » en bas de la miniature, comme une
+                        // lecture terminée : lisible sans prendre de place.
+                        Box(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(MovvizCyan))
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${episode.episodeNumber}. ${episode.title}",
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, lineHeight = 19.sp, color = if (available) MovvizInk else MovvizInkSoft),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val airDate = metadata?.airDate?.let { formatEpisodeAirDate(it) }
+                    if (!available || airDate != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!available) {
+                                val tone = statusTone(episode.status)
+                                Box(modifier = Modifier.background(tone.color.copy(alpha = 0.14f), RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                                    Text(text = tone.label, style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = tone.color))
+                                }
+                            }
+                            if (airDate != null) Text(text = airDate, style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Surface(
+                    onClick = { onToggleWatched(!watched) },
+                    modifier = Modifier.size(40.dp).tvPointerClick { onToggleWatched(!watched) },
+                    shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (watched) MovvizCyan.copy(alpha = 0.18f) else Color.Transparent,
+                        focusedContainerColor = if (watched) MovvizCyan.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.12f),
+                        contentColor = if (watched) MovvizCyan else MovvizInkDim,
+                        focusedContentColor = if (watched) MovvizCyan else MovvizInk,
+                    ),
+                    border = ClickableSurfaceDefaults.border(
+                        border = Border(
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, if (watched) MovvizCyan.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.22f)),
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                        ),
+                    ),
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(imageVector = MovvizIconCheck, contentDescription = if (watched) "Marquer non vu" else "Marquer vu", modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+            metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = overview, style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, lineHeight = 18.sp), maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+            if (queueItem != null && (episode.status == "downloading" || episode.status == "searching")) {
+                Spacer(modifier = Modifier.height(8.dp))
+                if (episode.status == "searching") {
+                    Text(text = "Recherche en cours…", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrandGlow))
+                } else {
+                    val progress = queueItem.download.progress.coerceIn(0.0, 1.0)
+                    val speed = formatSpeedShort(queueItem.download.downloadSpeed)
+                    val eta = formatEta(queueItem.download.eta)
+                    Text(
+                        text = listOfNotNull("${(progress * 100).toInt()}%", speed?.let { "$it/s" }, eta?.let { "$it restantes" }).joinToString(" · "),
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan),
+                    )
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp))) {
+                        Box(modifier = Modifier.fillMaxWidth(fraction = progress.toFloat()).fillMaxHeight().background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** « 2024-01-12 » (TMDb) → « 12 janv. 2024 ». Texte brut si le format surprend. */
+private fun formatEpisodeAirDate(raw: String): String? {
+    if (raw.isBlank()) return null
+    return runCatching {
+        // SimpleDateFormat plutôt que java.time : minSdk 24, java.time n’existe qu’à partir de l’API 26.
+        val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(raw.take(10)) ?: return raw
+        java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.FRANCE).format(date)
+    }.getOrNull() ?: raw
+}
+
 @Composable
 private fun SeasonEpisodeHeader(
     season: SeriesSeasonDto,
@@ -1687,38 +1845,41 @@ private fun EpisodeDetailOverlay(
             if (attempt < 9) withFrameNanos { }
         }
     }
-    Dialog(onDismissRequest = onDismiss) {
+    // Portrait : fenêtre presque pleine largeur et boutons empilés — côte à
+    // côte, « Retour » n'avait plus la place et s'écrivait lettre par lettre.
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = !compactPortrait)) {
         Box(
             modifier = Modifier
                 .widthIn(max = 920.dp)
-                .fillMaxWidth(0.82f)
+                .fillMaxWidth(if (compactPortrait) 0.94f else 0.82f)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MovvizSurfaceStrong),
         ) {
-            Column(modifier = Modifier.padding(28.dp)) {
+            Column(modifier = Modifier.padding(if (compactPortrait) 20.dp else 28.dp)) {
                 selection.metadata?.stillPath?.let { still ->
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still", contentScale = ContentScale.Crop),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(10.dp)),
+                        modifier = Modifier.fillMaxWidth().height(if (compactPortrait) 180.dp else 250.dp).clip(RoundedCornerShape(10.dp)),
                     )
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(if (compactPortrait) 14.dp else 18.dp))
                 }
                 Text(
                     text = "S${selection.season.seasonNumber} · Épisode ${selection.episode.episodeNumber}",
                     style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizCyan),
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(text = selection.episode.title, style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MovvizInk))
+                Text(text = selection.episode.title, style = TextStyle(fontSize = if (compactPortrait) 22.sp else 28.sp, fontWeight = FontWeight.Black, color = MovvizInk, lineHeight = if (compactPortrait) 27.sp else 34.sp))
                 selection.metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(text = overview, style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft, lineHeight = 21.sp), maxLines = 4, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Spacer(modifier = Modifier.height(if (compactPortrait) 20.dp else 24.dp))
+                val primary: @Composable () -> Unit = {
                     if (available) {
-                        PrimaryPill(text = "Lire l'épisode", brush = null, solidWhite = true, icon = MovvizIconPlay, focusRequester = primaryActionFocus, onClick = onPlay)
+                        PrimaryPill(text = "Lire l'épisode", brush = null, solidWhite = true, icon = MovvizIconPlay, focusRequester = primaryActionFocus, fillWidth = compactPortrait, onClick = onPlay)
                     } else {
                         PrimaryPill(
                             text = if (downloading) "Recherche…" else "Télécharger la saison",
@@ -1727,10 +1888,21 @@ private fun EpisodeDetailOverlay(
                             enabled = !downloading,
                             icon = if (downloading) null else MovvizIconDownload,
                             focusRequester = primaryActionFocus,
+                            fillWidth = compactPortrait,
                             onClick = onDownloadSeason,
                         )
                     }
-                    PrimaryPill(text = "Retour", brush = null, solidWhite = false, onClick = onDismiss)
+                }
+                if (compactPortrait) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        primary()
+                        PrimaryPill(text = "Retour", brush = null, solidWhite = false, fillWidth = true, onClick = onDismiss)
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        primary()
+                        PrimaryPill(text = "Retour", brush = null, solidWhite = false, onClick = onDismiss)
+                    }
                 }
             }
         }
@@ -1933,7 +2105,8 @@ private fun formatSpeedShort(bytesPerSec: Double): String? {
 
 /** ETA secondes → "42 s" / "12 min" / "1 h 05". */
 private fun formatEta(seconds: Long): String? {
-    if (seconds <= 0L) return null
+    // Plus d'une semaine = débit quasi nul : aucune estimation crédible.
+    if (seconds <= 0L || seconds > 7L * 24 * 3600) return null
     return when {
         seconds < 60 -> "${seconds}s"
         seconds < 3600 -> "${seconds / 60} min"

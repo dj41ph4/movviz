@@ -49,6 +49,7 @@ import com.movviz.nx.mobile.ui.mobile.rememberCompactPortrait
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
@@ -153,7 +154,7 @@ fun LibraryHubScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = "‹ ${selectedCollection.name}", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { selectedCollectionId = null }.tvPointerClick { selectedCollectionId = null }.padding(top = 2.dp, bottom = 2.dp),
+                            modifier = Modifier.hapticClickable { selectedCollectionId = null }.tvPointerClick { selectedCollectionId = null }.padding(top = 2.dp, bottom = 2.dp),
                         )
                     }
                     if (selectedCards.isEmpty()) {
@@ -167,7 +168,7 @@ fun LibraryHubScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = "‹ ${selectedSaga.name}", color = MovvizInk, fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { selectedSagaId = null }.tvPointerClick { selectedSagaId = null }.padding(top = 2.dp, bottom = 2.dp),
+                            modifier = Modifier.hapticClickable { selectedSagaId = null }.tvPointerClick { selectedSagaId = null }.padding(top = 2.dp, bottom = 2.dp),
                         )
                     }
                     if (selectedSagaCards.isEmpty()) {
@@ -199,7 +200,7 @@ private fun LibraryGridHeading(title: String) {
 
 @Composable
 private fun LibraryMediaGridCard(card: ProfileMediaCardDto, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(modifier = modifier.fillMaxWidth().clickable(onClick = onClick).tvPointerClick(onClick)) {
+    Column(modifier = modifier.fillMaxWidth().hapticClickable(onClick = onClick).tvPointerClick(onClick)) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(libraryTileShape).background(MovvizSurfaceStrong)) {
             val path = card.posterPath ?: card.stillPath
             if (path != null) Image(
@@ -216,7 +217,7 @@ private val libraryTileShape = RoundedCornerShape(10.dp)
 
 @Composable
 private fun CollectionTile(collection: CollectionDto, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).tvPointerClick(onClick)) {
+    Column(Modifier.fillMaxWidth().hapticClickable(onClick = onClick).tvPointerClick(onClick)) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(1f).clip(libraryTileShape),
         ) {
@@ -246,7 +247,7 @@ private fun CollectionTile(collection: CollectionDto, onClick: () -> Unit) {
 
 @Composable
 private fun SagaTile(saga: SagaSummaryDto, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).tvPointerClick(onClick)) {
+    Column(Modifier.fillMaxWidth().hapticClickable(onClick = onClick).tvPointerClick(onClick)) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(libraryTileShape)) {
             if (saga.posterPath != null) {
                 Image(

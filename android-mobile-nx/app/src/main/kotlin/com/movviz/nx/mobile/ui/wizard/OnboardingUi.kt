@@ -39,6 +39,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizWordmark
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 
 val OnboardingCardShape = RoundedCornerShape(26.dp)
@@ -157,7 +158,7 @@ fun OnboardingPrimaryButton(
             )
             .onFocusChanged { focused = it.isFocused }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .clickable(enabled = enabled, onClick = onClick)
+            .hapticClickable(enabled = enabled, onClick = onClick)
             .tvPointerClick(onClick)
             .padding(vertical = 15.dp),
         contentAlignment = Alignment.Center,

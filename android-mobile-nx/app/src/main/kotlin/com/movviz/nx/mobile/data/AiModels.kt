@@ -32,9 +32,11 @@ data class AiRecommendationDto(
     val year: Int? = null,
     val type: String = "movie",
     val tmdbId: Int,
-    val overview: String = "",
+    // Nullables : une vieille carte sans résumé ni note (null côté serveur)
+    // ne doit jamais faire échouer la lecture de toute la conversation.
+    val overview: String? = null,
     val posterPath: String? = null,
-    val rating: Double = 0.0,
+    val rating: Double? = null,
     val inLibrary: Boolean = false,
     val reason: String? = null,
     val distance: String? = null,

@@ -54,6 +54,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconPlus
 import com.movviz.nx.mobile.ui.theme.MovvizIconReplay
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
 import com.movviz.nx.mobile.ui.theme.MovvizIconStar
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.theme.MovvizIconSwap
 
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
@@ -227,7 +228,7 @@ private fun ProfileSettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let { if (onClick != null) it.hapticClickable(onClick = onClick) else it }
             .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -288,7 +289,7 @@ private fun ProfileSettingsRow(
                     modifier = Modifier
                         .border(2.dp, MovvizElectricBorder, CircleShape)
                         .padding(3.dp)
-                        .then(if (onChangePhoto != null) Modifier.clickable(onClick = onChangePhoto) else Modifier),
+                        .then(if (onChangePhoto != null) Modifier.hapticClickable(onClick = onChangePhoto) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
                     ProfileAvatar(profile, Modifier.size(82.dp), cornerRadius = 41.dp)
@@ -309,7 +310,7 @@ private fun ProfileSettingsRow(
                                 ),
                                 CircleShape,
                             )
-                            .clickable(onClick = onChangePhoto),
+                            .hapticClickable(onClick = onChangePhoto),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -343,7 +344,7 @@ private fun ProfileSettingsRow(
             )
         }
         androidx.compose.foundation.layout.Box(
-            modifier = Modifier.size(44.dp).clickable(onClick = onOpenSettings),
+            modifier = Modifier.size(44.dp).hapticClickable(onClick = onOpenSettings),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -403,7 +404,7 @@ internal fun LazyListScope.profileRail(
                         color = Color(0xFFA7A7A7),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 8.dp).clickable(onClick = onSeeAll),
+                        modifier = Modifier.padding(start = 8.dp).hapticClickable(onClick = onSeeAll),
                     )
                 }
             }
