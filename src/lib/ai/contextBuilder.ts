@@ -180,13 +180,30 @@ export function isIncrementalContextDue(userId: string): boolean {
  * response).
  */
 export async function triggerIncrementalContextIfDue(userId: string): Promise<void> {
+  // Un seul passage à la fois par utilisateur, et un échec compte comme une
+  // tentative : sans ça, un fournisseur saturé (429) était relancé à CHAQUE
+  // action de l'utilisateur (≈200 appels/h mesurés), ce qui entretenait la
+  // saturation et faisait échouer le chat lui-même.
+  if (incrementalInFlight.has(userId)) return;
+  if (Date.now() - (incrementalLastAttemptAt.get(userId) ?? 0) < INCREMENTAL_COOLDOWN_MS) return;
   if (!isIncrementalContextDue(userId)) return;
   const config = loadAiConfig();
   if (!config.enabled) return;
+  incrementalInFlight.add(userId);
+  incrementalLastAttemptAt.set(userId, Date.now());
   try {
     const insights = await buildIncrementalContext(config, userId);
     if (insights) saveContextInsights(userId, insights, true);
   } catch {
-    // Best-effort — a missed top-up just means the next due check retries.
+    // Best-effort — a missed top-up is retried after the cooldown.
+  } finally {
+    incrementalInFlight.delete(userId);
   }
 }
+
+const gIncremental = globalThis as typeof globalThis & {
+  __movvizIncrementalInFlight?: Set<string>;
+  __movvizIncrementalLastAttemptAt?: Map<string, number>;
+};
+const incrementalInFlight: Set<string> = (gIncremental.__movvizIncrementalInFlight ??= new Set());
+const incrementalLastAttemptAt: Map<string, number> = (gIncremental.__movvizIncrementalLastAttemptAt ??= new Map());

@@ -59,7 +59,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   providers: {
     mistral: { model: "mistral-small-latest", keys: [] },
     openrouter: { model: "openrouter/free", keys: [] },
-    gemini: { model: "gemini-2.5-flash-lite", keys: [] },
+    gemini: { model: "gemini-3.5-flash-lite", keys: [] },
     opencode: { model: DEFAULT_OPENCODE_ZEN_MODEL, keys: [] },
   },
   webSearchEnabled: false,

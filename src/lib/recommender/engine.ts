@@ -1,7 +1,7 @@
 import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres, getPerson, getDetail, getGenreProfile, discoverByFilters } from "@/lib/metadata/tmdb";
 import { crossTypeBridgeFilters } from "@/lib/recommender/crossType";
+import { getWatchedTitles } from "@/lib/recommender/watchedTitles";
 import { diversifyBySeed } from "@/lib/recommender/diversify";
-import { getWatchStatus } from "@/lib/plex/watchStore";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
@@ -28,11 +28,9 @@ export async function getRecommendations(
   userId: string,
   type: "movie" | "series"
 ): Promise<MetaSearchResult[]> {
-  const status = getWatchStatus(userId);
-  const watched: number[] =
-    type === "movie"
-      ? (status?.movies ?? [])
-      : [...new Set((status?.episodes ?? []).map((e) => e.tmdbId))];
+  // Titres marqués vus + historique de lecture (watchedTitles.ts) : un film
+  // déjà lancé ne revient jamais en suggestion.
+  const watched: number[] = [...getWatchedTitles(userId, type).keys()];
 
   // Titres vus de l'AUTRE type : leurs registres (genres + langue) nourrissent
   // aussi cette rangée — voir crossType.ts. Quelqu'un qui ne regarde que des

@@ -6,6 +6,7 @@ import { libraryFilePaths, loadMovies, loadSeries } from "@/lib/library/store";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { memoizeByFileMtimes } from "@/lib/fsJsonCache";
+import { buildRewatchRow } from "@/lib/dashboard/rewatch";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ function technical(file: { resolution: string | null; videoCodec: string | null;
 }
 
 export async function GET(req: NextRequest) {
-  if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const cfg = loadPlexConfig();
   const payload = memoizeByFileMtimes<DashboardInterfaceData>(
@@ -149,5 +151,7 @@ export async function GET(req: NextRequest) {
       };
     },
   );
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-cache" } });
+  // « À revoir » dépend de l'utilisateur : calculé à chaque requête, hors
+  // du cache partagé ci-dessus (données locales seulement, aucun appel TMDb).
+  return NextResponse.json({ ...payload, rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
 }

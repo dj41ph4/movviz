@@ -54,6 +54,15 @@ function isRateLimited(err: AiCallError): boolean {
   return /rate limit|too many requests|resource exhausted/i.test(err.message);
 }
 
+/** Google answers a retired model (or one kept from new users) with a 404 or
+ *  a 400 "no longer available", and a model outside this key's free tier
+ *  with a 429 whose quota "limit" is 0. Both are permanent for this key —
+ *  unlike an ordinary 429, waiting will not help. */
+export function isModelUnavailable(err: AiCallError): boolean {
+  if (err.status === 404) return true;
+  return /no longer available|is not found|not supported for generatecontent|limit:\s*0\b/i.test(err.message);
+}
+
 /** Respects the provider's Retry-After (capped), else a short fixed pause. */
 export function rateLimitDelayMs(err: AiCallError): number {
   const asked = typeof err.retryAfterSec === "number" && Number.isFinite(err.retryAfterSec) ? err.retryAfterSec : NaN;
@@ -132,8 +141,91 @@ async function callWithKey(providerId: AiProviderId, url: string, headers: Recor
   return text.trim();
 }
 
-/** Tries every key of one provider in order; throws the last failure when all are exhausted. */
+/**
+ * Débit par fournisseur. Les offres gratuites limitent le nombre de requêtes
+ * par seconde (Mistral : ~1/s) : le chat lançait sa réponse ET l'extraction
+ * de faits EN MÊME TEMPS, la seconde prenait un 429 à coup sûr, puis une
+ * relance 6 s plus tard. Les appels d'un même fournisseur passent donc un par
+ * un, espacés d'au moins MIN_INTERVAL_MS.
+ */
+const MIN_INTERVAL_MS: Partial<Record<AiProviderId, number>> = { mistral: 1_100, gemini: 1_000 };
+/** Après un refus persistant (429 même après la relance), le fournisseur est
+ *  laissé tranquille ce temps-là : échec immédiat au lieu de le marteler. */
+const RATE_LIMIT_COOLDOWN_MS = 60_000;
+
+interface ProviderGate { tail: Promise<void>; lastStartAt: number; coolUntil: number }
+const gGates = globalThis as typeof globalThis & { __movvizAiGates?: Map<AiProviderId, ProviderGate> };
+const gates: Map<AiProviderId, ProviderGate> = (gGates.__movvizAiGates ??= new Map());
+function gateFor(providerId: AiProviderId): ProviderGate {
+  let gate = gates.get(providerId);
+  if (!gate) { gate = { tail: Promise.resolve(), lastStartAt: 0, coolUntil: 0 }; gates.set(providerId, gate); }
+  return gate;
+}
+
 async function callProvider(config: AiConfig, providerId: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
+  // callProviderNow already retried once: a 429 reaching the gate is persistent.
+  return withProviderGate(providerId, () => callProviderNow(config, providerId, system, messages), true);
+}
+
+/** Runs one request against a provider inside its queue (see MIN_INTERVAL_MS
+ *  and RATE_LIMIT_COOLDOWN_MS). Every call to a provider must go through
+ *  here, or it silently eats the quota the others are pacing themselves on. */
+async function withProviderGate<T>(providerId: AiProviderId, run: () => Promise<T>, coolDownOnRateLimit: boolean): Promise<T> {
+  const gate = gateFor(providerId);
+  const coolingDown = () => new AiCallError(providerId, `Limite de débit atteinte — nouvel essai possible dans ${Math.ceil((gate.coolUntil - Date.now()) / 1000)} s`, true, 429);
+  if (Date.now() < gate.coolUntil) throw coolingDown();
+  let release!: () => void;
+  const turn = gate.tail;
+  gate.tail = new Promise<void>((resolve) => { release = resolve; });
+  await turn;
+  try {
+    // Un appel placé dans la file avant la pause ne doit pas partir pendant celle-ci.
+    if (Date.now() < gate.coolUntil) throw coolingDown();
+    const wait = gate.lastStartAt + (MIN_INTERVAL_MS[providerId] ?? 0) - Date.now();
+    if (wait > 0) await sleep(wait);
+    gate.lastStartAt = Date.now();
+    return await run();
+  } catch (e) {
+    if (coolDownOnRateLimit && e instanceof AiCallError && isRateLimited(e)) gate.coolUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+    throw e;
+  } finally {
+    release();
+  }
+}
+
+export type GeminiProbe = "ok" | "unavailable" | "unknown";
+const PROBE_TTL_MS: Record<Exclude<GeminiProbe, "unknown">, number> = { ok: 6 * 60 * 60 * 1000, unavailable: 24 * 60 * 60 * 1000 };
+const gProbes = globalThis as typeof globalThis & { __movvizGeminiProbes?: Map<string, { result: GeminiProbe; at: number }> };
+const geminiProbes: Map<string, { result: GeminiProbe; at: number }> = (gProbes.__movvizGeminiProbes ??= new Map());
+
+/**
+ * Really asks one Gemini model for a one-word answer with this key. Google's
+ * Models API lists models it then refuses (retired 2.5 models, models without
+ * a free quota), so a listing proves nothing — only an actual call does.
+ * "unknown" (network error, ordinary rate limit) is never cached: it says
+ * nothing about the model itself.
+ */
+export async function probeGeminiModel(key: string, model: string, keyTag: string): Promise<GeminiProbe> {
+  const cacheKey = `${keyTag}:${model}`;
+  const cached = geminiProbes.get(cacheKey);
+  if (cached && cached.result !== "unknown" && Date.now() - cached.at < PROBE_TTL_MS[cached.result]) return cached.result;
+  let result: GeminiProbe;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+    await withProviderGate("gemini", () => jsonFetch("gemini", url, { "content-type": "application/json" }, {
+      contents: [{ role: "user", parts: [{ text: "Réponds OK." }] }],
+      generationConfig: { maxOutputTokens: 256 },
+    }), false);
+    result = "ok";
+  } catch (e) {
+    result = e instanceof AiCallError && isModelUnavailable(e) ? "unavailable" : "unknown";
+  }
+  if (result !== "unknown") geminiProbes.set(cacheKey, { result, at: Date.now() });
+  return result;
+}
+
+/** Tries every key of one provider in order; throws the last failure when all are exhausted. */
+async function callProviderNow(config: AiConfig, providerId: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
   const provider = config.providers[providerId];
   const configuredModel = provider.model.trim();
   // Configuration files predate the strict free-only selector. Enforce the
@@ -145,54 +237,65 @@ async function callProvider(config: AiConfig, providerId: AiProviderId, system: 
   const keys = provider.keys.filter((k) => k.key.trim().length > 0);
   if (keys.length === 0) throw new AiCallError(providerId, "Aucune clé API configurée pour ce fournisseur", false);
 
+  // Gemini: a model Google retired or keeps out of this key's free tier is a
+  // permanent refusal, not a transient one — try the next free model instead
+  // of failing the whole call (a stale setting must never silence the chat).
+  const modelsToTry = providerId === "gemini"
+    ? [model, ...FREE_MODEL_FALLBACKS.gemini.map((m) => m.id).filter((id) => id !== model)]
+    : [model];
   let lastError: AiCallError | null = null;
   for (const entry of keys) {
     const key = entry.key.trim();
-    // One transparent retry on rate-limit: a first 429 on a shared free-tier
-    // quota often clears within seconds — no reason to burn the next key or
-    // fall over to the next provider for a transient signal. Anything else
-    // (auth, model error, second 429) moves on immediately.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        if (providerId === "gemini") {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-          return await callWithKey(providerId, url, { "content-type": "application/json" }, {
-            systemInstruction: { parts: [{ text: system }] },
-            contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-            generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
+    for (const modelId of modelsToTry) {
+      let modelUnavailable = false;
+      // One transparent retry on rate-limit: a first 429 on a shared free-tier
+      // quota often clears within seconds — no reason to burn the next key or
+      // fall over to the next provider for a transient signal. Anything else
+      // (auth, model error, second 429) moves on immediately.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          if (providerId === "gemini") {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(key)}`;
+            return await callWithKey(providerId, url, { "content-type": "application/json" }, {
+              systemInstruction: { parts: [{ text: system }] },
+              contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+              generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
+            });
+          }
+          if (providerId === "opencode") {
+            const responsesProtocol = model === "muse-spark-1.3-contributor-free";
+            const url = `https://opencode.ai/zen/v1/${responsesProtocol ? "responses" : "chat/completions"}`;
+            const headers = { "content-type": "application/json", authorization: `Bearer ${key}` };
+            const body = responsesProtocol
+              ? { model, instructions: system, input: toOpenAiMessages(messages), max_output_tokens: MAX_RESPONSE_TOKENS }
+              : { model, messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)], temperature: 0.2, max_tokens: MAX_RESPONSE_TOKENS };
+            return await callWithKey(providerId, url, headers, body);
+          }
+          const url = providerId === "mistral"
+            ? "https://api.mistral.ai/v1/chat/completions"
+            : "https://openrouter.ai/api/v1/chat/completions";
+          const headers: Record<string, string> = {
+            "content-type": "application/json",
+            authorization: `Bearer ${key}`,
+            ...(providerId === "openrouter" ? { "X-Title": "Movviz" } : {}),
+          };
+          return await callWithKey(providerId, url, headers, {
+            model,
+            messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
+            temperature: 0.2,
+            max_tokens: MAX_RESPONSE_TOKENS,
           });
+        } catch (e) {
+          lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);
+          if (providerId === "gemini" && isModelUnavailable(lastError)) { modelUnavailable = true; break; }
+          if (attempt === 0 && isRateLimited(lastError)) {
+            await sleep(rateLimitDelayMs(lastError));
+            continue;
+          }
+          break;
         }
-        if (providerId === "opencode") {
-          const responsesProtocol = model === "muse-spark-1.3-contributor-free";
-          const url = `https://opencode.ai/zen/v1/${responsesProtocol ? "responses" : "chat/completions"}`;
-          const headers = { "content-type": "application/json", authorization: `Bearer ${key}` };
-          const body = responsesProtocol
-            ? { model, instructions: system, input: toOpenAiMessages(messages), max_output_tokens: MAX_RESPONSE_TOKENS }
-            : { model, messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)], temperature: 0.2, max_tokens: MAX_RESPONSE_TOKENS };
-          return await callWithKey(providerId, url, headers, body);
-        }
-        const url = providerId === "mistral"
-          ? "https://api.mistral.ai/v1/chat/completions"
-          : "https://openrouter.ai/api/v1/chat/completions";
-        const headers: Record<string, string> = {
-          "content-type": "application/json",
-          authorization: `Bearer ${key}`,
-          ...(providerId === "openrouter" ? { "X-Title": "Movviz" } : {}),
-        };
-        return await callWithKey(providerId, url, headers, {
-          model,
-          messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
-          temperature: 0.2,
-          max_tokens: MAX_RESPONSE_TOKENS,
-        });
-      } catch (e) {
-        lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);
-        if (attempt === 0 && isRateLimited(lastError)) {
-          await sleep(rateLimitDelayMs(lastError));
-          continue;
-        }
-        break;
       }
+      if (!modelUnavailable) break; // any other failure: next key, as before
     }
   }
   throw lastError ?? new AiCallError(providerId, "Échec inconnu", false);
@@ -243,14 +346,14 @@ export async function searchWeb(config: AiConfig, prompt: string): Promise<strin
 
   for (const entry of keys) {
     try {
-      const json = await jsonFetch("mistral", "https://api.mistral.ai/v1/conversations", {
+      const json = await withProviderGate("mistral", () => jsonFetch("mistral", "https://api.mistral.ai/v1/conversations", {
         "content-type": "application/json",
         authorization: `Bearer ${entry.key.trim()}`,
       }, {
         model,
         inputs: [{ role: "user", content: prompt }],
         tools: [{ type: "web_search" }],
-      });
+      }), false);
       const text = extractConversationText(json);
       if (text) return text;
     } catch {

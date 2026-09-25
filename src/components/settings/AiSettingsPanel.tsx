@@ -69,6 +69,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<AiProviderId | null>(null);
   const [testResult, setTestResult] = useState<{ provider: AiProviderId; ok: boolean; detail?: string; latency?: number; message?: string } | null>(null);
+  const [modelsChecked, setModelsChecked] = useState(false);
   const [freeModels, setFreeModels] = useState<Record<AiProviderId, { id: string; label: string }[]>>(() =>
     Object.fromEntries(PROVIDERS.map((provider) => [provider, [...FREE_MODEL_FALLBACKS[provider]]])) as Record<AiProviderId, { id: string; label: string }[]>
   );
@@ -115,9 +116,27 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         setFreeModels(next);
       } catch {
         // The safe built-in free fallback remains visible.
+      } finally {
+        setModelsChecked(true);
       }
     })();
   }, []);
+
+  // The Gemini list only holds models that really answered with the stored
+  // key: a setting left on a model Google has since refused (e.g. the 2.5
+  // range) is moved to the first working one, which « Enregistrer » persists.
+  useEffect(() => {
+    if (!draft || !modelsChecked) return;
+    let providers: ConfigDraft["providers"] | null = null;
+    for (const provider of PROVIDERS) {
+      const list = freeModels[provider];
+      if (list.length && !list.some((model) => model.id === draft.providers[provider].model)) {
+        providers ??= { ...draft.providers };
+        providers[provider] = { ...draft.providers[provider], model: list[0].id };
+      }
+    }
+    if (providers) setDraft({ ...draft, providers });
+  }, [draft, freeModels, modelsChecked]);
 
   if (!loaded) {
     return (
@@ -339,6 +358,12 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                           <option key={model.id} value={model.id} className="bg-surface text-ink">{model.label}</option>
                         ))}
                       </select>
+                    ) : id === "gemini" && !modelsChecked && p.keys.some((k) => !k.isNew) ? (
+                      <p className="flex h-11 items-center gap-2 text-sm text-ink-soft">
+                        <Loader2 className="h-4 w-4 animate-spin" /> {t("ai.settings.modelsChecking")}
+                      </p>
+                    ) : id === "gemini" && freeModels.gemini.length === 0 ? (
+                      <p className="flex min-h-11 items-center text-sm text-ink-soft">{t("ai.settings.noWorkingModel")}</p>
                     ) : id === "opencode" || id === "openrouter" || id === "gemini" ? (
                       <select
                         value={p.model}

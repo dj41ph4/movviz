@@ -63,6 +63,7 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
     for (const fact of facts) rememberFact(userId, fact);
     if (!cleaned) return;
     pushAiMessage(userId, { role: "assistant", content: cleaned });
+    pendingNudges.add(userId);
     console.log(`[ai] proactive nudge sent user=${username} provider=${res.provider}`);
   } catch {
     // Best-effort — see doc comment above.
@@ -88,16 +89,35 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const before = loadAiSession(user.id).messages.length;
-  await maybeSendProactiveNudge(user.id, user.username);
-  await triggerIncrementalContextIfDue(user.id);
-  const messages = loadAiSession(user.id).messages;
+  // Ces deux appels au modèle bloquaient la réponse (16,8 s mesurées avec un
+  // fournisseur saturé) : le widget restait vide. La relance a désormais au
+  // plus NUDGE_WAIT_MS pour figurer dans CETTE réponse ; au-delà elle finit
+  // en arrière-plan et sera signalée au prochain GET (pendingNudges). La
+  // mise à jour du contexte ne concerne pas cette réponse : jamais attendue.
+  void triggerIncrementalContextIfDue(user.id);
+  let nudging = nudgesInFlight.get(user.id);
+  if (!nudging) {
+    nudging = maybeSendProactiveNudge(user.id, user.username).finally(() => nudgesInFlight.delete(user.id));
+    nudgesInFlight.set(user.id, nudging);
+  }
+  await Promise.race([nudging, new Promise<void>((resolve) => setTimeout(resolve, NUDGE_WAIT_MS))]);
+  const proactive = pendingNudges.delete(user.id);
   return NextResponse.json({
-    messages,
+    messages: loadAiSession(user.id).messages,
     enabled: loadAiConfig().enabled,
-    proactive: messages.length > before,
+    proactive,
   });
 }
+
+const NUDGE_WAIT_MS = 1_500;
+const gNudges = globalThis as typeof globalThis & {
+  __movvizAiNudgesInFlight?: Map<string, Promise<void>>;
+  __movvizAiPendingNudges?: Set<string>;
+};
+/** Une seule relance en cours par utilisateur, même si plusieurs GET arrivent. */
+const nudgesInFlight: Map<string, Promise<void>> = (gNudges.__movvizAiNudgesInFlight ??= new Map());
+/** Relances envoyées mais pas encore signalées au client. */
+const pendingNudges: Set<string> = (gNudges.__movvizAiPendingNudges ??= new Set());
 
 /** POST { clear: true } wipes the user's chat session (memory of past
  *  interactions stays intact — only the conversation is reset). */

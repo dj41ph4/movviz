@@ -98,6 +98,9 @@ data class InterfaceDashboardDto(
     /** Concrete new files, not just parent shows.  Mobile uses this to show
      * the useful “what episode just arrived?” shelf. */
     val recentEpisodes: List<InterfaceRecentEpisodeDto?>? = emptyList(),
+    /** « À revoir sans modération » : films et séries déjà vus, encore
+     *  lisibles, du plus récent au plus ancien (propre à l'utilisateur). */
+    val rewatch: List<SearchResultDto?>? = emptyList(),
 )
 
 @JsonClass(generateAdapter = true)

@@ -1,3 +1,13 @@
+## v1.25.76 — September 2026
+
+### Assistant IA réparé, « À revoir sans modération », plus de titres déjà vus dans les suggestions
+
+- Assistant IA : il répond de nouveau. Movviz saturait lui-même le quota gratuit de Mistral (environ une requête par seconde) : la mise à jour du profil était relancée à chaque action après un échec, l'ouverture du chat attendait deux appels à l'IA, et un seul message pouvait en déclencher jusqu'à une quinzaine. Les appels passent maintenant un par un et au bon rythme, un fournisseur qui refuse est laissé au repos une minute, et un message ne demande plus que deux corrections au maximum.
+- Assistant IA : le chat s'ouvre immédiatement, sans attendre l'IA. Une recommandation demandée depuis une fiche s'affiche sans attendre l'analyse de chaque titre proposé ; les analyses manquantes se font ensuite, en arrière-plan.
+- Gemini : Google a fermé les modèles 2.5 aux nouveaux comptes. Movviz passe sur Gemini 3.5 Flash Lite et, si Google refuse un modèle, essaie automatiquement le suivant. Dans Réglages → IA, la liste des modèles Gemini est testée avec votre clé et ne montre que ceux qui répondent vraiment, avec leur quota gratuit quotidien.
+- Accueil (desktop, Android TV et mobile) : nouvelle rangée « À revoir sans modération » avec les films et séries déjà vus et encore disponibles, du plus récent au plus ancien. Un titre marqué 👎 n'y apparaît pas.
+- Suggestions : un film ou une série déjà vu n'y apparaît plus, qu'il ait été marqué vu à la main ou simplement regardé.
+
 ## v1.25.75 — September 2026
 
 ### Images nettes sur Android, mêmes optimisations sur mobile, mesure des ralentissements du serveur

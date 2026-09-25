@@ -237,6 +237,7 @@ fun HomeScreen(
     val streamedSeries by viewModel.series.collectAsState()
     val streamedRecentEpisodes by viewModel.recentEpisodes.collectAsState()
     val streamedContinueWatching by viewModel.continueWatching.collectAsState()
+    val rewatchResults by viewModel.rewatch.collectAsState()
     val queue by viewModel.queue.collectAsState()
     val streamedMovieRows by viewModel.movieRows.collectAsState()
     val streamedSeriesRows by viewModel.seriesRows.collectAsState()
@@ -378,6 +379,13 @@ fun HomeScreen(
             .take(20)
             .withWatchedMovies(watchedMovieIds)
     }
+    // « À revoir sans modération » : déjà vus, encore lisibles (serveur : rewatch.ts).
+    val rewatchCards = remember(rewatchResults, watchedMovieIds) {
+        rewatchResults.map { searchCard(it, "rw") }
+            .distinctBy { "${it.isMovie}-${it.tmdbId}" }
+            .take(20)
+            .withWatchedMovies(watchedMovieIds)
+    }
     val trendingCards = remember(movieRows, seriesRows, minYear, watchedMovieIds) {
         val movie = movieRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }
             ?.results.orEmpty().filter { yearAllowed(it.year) }.map { searchCard(it, "trend") }
@@ -499,6 +507,7 @@ fun HomeScreen(
             val hasContent = when (section.id) {
                 "continueWatching" -> continueCards.isNotEmpty()
                 "becauseYouLike" -> recommendationCards.isNotEmpty()
+                "rewatch" -> rewatchCards.isNotEmpty()
                 "shortSessions" -> shortSessionCards.isNotEmpty()
                 "discover" -> trendingCards.isNotEmpty()
                 "availableNow" -> availableNowCards.isNotEmpty()
@@ -695,6 +704,17 @@ fun HomeScreen(
                     "becauseYouLike" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Sélection pour vous", items = recommendationCards,
+                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
+                        )
+                    }
+                    "rewatch" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "À revoir sans modération", items = rewatchCards,
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,

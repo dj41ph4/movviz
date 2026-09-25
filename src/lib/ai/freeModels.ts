@@ -10,9 +10,16 @@ export const FREE_MODEL_FALLBACKS: Record<AiProviderId, readonly FreeModelOption
   mistral: [{ id: "mistral-small-latest", label: "Mistral Small — quota du plan gratuit" }],
   openrouter: [{ id: "openrouter/free", label: "OpenRouter Free — sélection automatique" }],
   gemini: [
-    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    // Google a fermé la gamme 2.5 aux nouveaux utilisateurs (erreur « no
+    // longer available… use gemini-3.5-flash-lite »). Une config encore
+    // réglée sur un modèle retiré retombe automatiquement sur le premier.
+    // Flash-Lite first: ~500 free requests/day, against ~20/day for Flash
+    // (a chat burns through 20 in one evening). Also the order in which
+    // callProvider falls back when Google refuses the configured model.
+    { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite — ~500 requêtes/jour" },
+    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite — ~500 requêtes/jour" },
+    { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash — ~20 requêtes/jour" },
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash — ~20 requêtes/jour" },
   ],
   opencode: [
     { id: "big-pickle", label: "Big Pickle" },
@@ -25,9 +32,23 @@ export const FREE_MODEL_FALLBACKS: Record<AiProviderId, readonly FreeModelOption
 };
 
 /** Google does not provide price/free-tier metadata in its Models API.  This
- * allow-list is the official Gemini Developer API free-tier text catalogue;
- * the live Models API below still removes any ID inaccessible to this key. */
-const GEMINI_FREE_TEXT_IDS = new Set(FREE_MODEL_FALLBACKS.gemini.map((model) => model.id));
+ * allow-list is the official Gemini Developer API free-tier text catalogue
+ * (ai.google.dev/gemini-api/docs/pricing, "Free of charge" rows). Being on it
+ * does not mean a given key can use the model — Google keeps retired ones
+ * from new users — so the settings list is then filtered by a real call
+ * (probeGeminiModel), and callProvider skips any model Google refuses. */
+const GEMINI_EXTRA_FREE_MODELS: readonly FreeModelOption[] = [
+  { id: "gemini-3.7-flash", label: "Gemini 3.7 Flash — ~20 requêtes/jour" },
+  { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash — ~20 requêtes/jour" },
+  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
+  // Still free, but only for accounts that used them before Google closed
+  // the 2.5 range to new users — the real-call filter keeps them or not.
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (anciens comptes)" },
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (anciens comptes)" },
+];
+const GEMINI_LABELS = new Map([...FREE_MODEL_FALLBACKS.gemini, ...GEMINI_EXTRA_FREE_MODELS].map((model) => [model.id, model.label]));
+const GEMINI_FREE_TEXT_IDS = new Set(GEMINI_LABELS.keys());
+const GEMINI_ORDER = [...GEMINI_LABELS.keys()];
 
 const toNumber = (value: unknown) => {
   const n = typeof value === "string" || typeof value === "number" ? Number(value) : NaN;
@@ -78,10 +99,10 @@ export async function loadFreeModels(provider: AiProviderId, key?: string): Prom
         const id = typeof model.name === "string" ? model.name.replace(/^models\//, "") : "";
         const methods = Array.isArray(model.supportedGenerationMethods) ? model.supportedGenerationMethods : [];
         return id && GEMINI_FREE_TEXT_IDS.has(id) && methods.includes("generateContent")
-          ? [{ id, label: typeof model.displayName === "string" ? model.displayName : title(id) }]
+          ? [{ id, label: GEMINI_LABELS.get(id) ?? (typeof model.displayName === "string" ? model.displayName : title(id)) }]
           : [];
       });
-      if (models.length) return models.sort((a, b) => a.label.localeCompare(b.label));
+      if (models.length) return models.sort((a, b) => GEMINI_ORDER.indexOf(a.id) - GEMINI_ORDER.indexOf(b.id));
     }
   } catch {
     // Falling back below is deliberate: an upstream catalogue failure may not

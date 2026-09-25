@@ -29,6 +29,8 @@ export const dynamic = "force-dynamic";
 // enough to never feel like an interrogation (spec: "ne jamais bombarder").
 const PROACTIVE_RATING_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const PROACTIVE_RATING_CHANCE = 0.3;
+const MAX_CORRECTION_CALLS = 2;
+const CORRECTION_TIME_BUDGET_MS = 20_000;
 
 function summarizeAdd(outcomes: AiActionOutcome[]): string[] {
   const counts = { added: 0, already: 0, requested: 0, not_found: 0, blocked: 0, error: 0 };
@@ -500,11 +502,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Apprentissage conversationnel continu (demande explicite : "la moindre
-  // chose qu'il apprend sur moi doit devenir du contexte") — l'extraction
-  // des faits tourne EN PARALLÈLE de la réponse (latence invisible) et est
-  // attendue avant le retour pour que l'écriture soit garantie.
-  const factsPromise = extractConversationFacts(user.id, message).catch(() => {});
   const t0 = Date.now();
   let providerName = "";
   let text: string;
@@ -530,11 +527,23 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ error: "ai_call_failed", detail: (err.message ?? null)?.slice(0, 200) ?? null }, { status: 502 });
   }
-  await factsPromise;
   const latency = Date.now() - t0;
   const usedModel = (config.providers as Record<string, { model?: string }>)[providerName]?.model ?? "?";
   console.log(`[ai] chat ok user=${user.username} provider=${providerName} model=${usedModel} latency=${latency}ms`);
 
+  // Budget de corrections. Chaque garde-fou ci-dessous peut relancer le
+  // modèle ; cumulés, un seul message pouvait coûter jusqu'à 15 appels, ce
+  // qu'aucune offre gratuite (Mistral : ~1 requête/s) ne tient — le chat
+  // finissait en 429 ou en 30 s d'attente. Au-delà du budget, chaque garde-
+  // fou retombe sur sa réponse de secours déterministe (ses catch le gèrent).
+  let correctionsLeft = MAX_CORRECTION_CALLS;
+  const callCorrection = (retrySystem: string) => {
+    if (correctionsLeft <= 0 || Date.now() - t0 > CORRECTION_TIME_BUDGET_MS) {
+      return Promise.reject(new Error("correction_budget_exhausted"));
+    }
+    correctionsLeft--;
+    return callAi(config, retrySystem, session.messages);
+  };
   let intent = parseIntent(text);
   // The model occasionally keeps chatting after an explicit « yes/give it
   // to me » even though this branch has already established that a selection
@@ -544,7 +553,7 @@ export async function POST(req: NextRequest) {
   if (recommendationContinuation && intent.action !== "recommend") {
     try {
       const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a ignoré une confirmation explicite de recommandation. Réponds maintenant UNIQUEMENT avec le JSON {"action":"recommend","items":[...]} demandé, contenant 4 à 8 titres réellement recommandés. Ne parle pas du mot court de l'utilisateur comme s'il s'agissait d'un titre et n'ajoute aucun média.`;
-      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryRes = await callCorrection(retrySystem);
       const retryIntent = parseIntent(retryRes.text);
       if (retryIntent.action === "recommend") intent = retryIntent;
     } catch {
@@ -609,7 +618,7 @@ export async function POST(req: NextRequest) {
     for (let attempt = 0; attempt < 2 && intent.action === "recommend"; attempt++) {
       try {
         const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a répondu à une insulte/provocation par une liste de recommandations JSON — c'est une erreur, l'utilisateur n'a rien demandé de tel, il te charrie seulement. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON) avec de la répartie, sans citer aucun titre précis.`;
-        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryRes = await callCorrection(retrySystem);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
       } catch {
@@ -626,7 +635,7 @@ export async function POST(req: NextRequest) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : le champ "reason" d'un de tes items recopiait mot pour mot un exemple donné dans tes instructions, au lieu d'inventer sa propre formule comme demandé explicitement. Refais le même JSON recommend avec des "reason" entièrement originaux, dans le même esprit mais jamais copiés d'un exemple.`;
-        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryRes = await callCorrection(retrySystem);
         const retryIntent = parseIntent(retryRes.text);
         const stillBanned = retryIntent.action === "recommend"
           && retryIntent.items.some((it) => BANNED_EXAMPLE_PHRASES.some((ex) => sharesRepeatedPhrase(it.reason ?? "", ex)));
@@ -675,7 +684,7 @@ export async function POST(req: NextRequest) {
           ? "Garde ta répartie et ta personnalité, mais utilise un angle entièrement neuf. Une phrase courte suffit ; ne termine pas systématiquement par une question ou un retour au cinéma."
           : "Conserve le sens, les faits et ta personnalité, mais reconstruis entièrement la réponse. Ne change pas de sujet et n'ajoute pas une relance artificielle.";
         const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait la structure d'une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${isTalkFightTurn && CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle retombait dans une formule défensive ou artificielle" : ""}${STOCK_PERSONA_RE.test(intent.rawText) ? " elle commençait par une formule de défi stéréotypée : change complètement d'entrée, va directement au contenu" : ""}${isTalkFightTurn && BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}${isTalkFightTurn && GHOSTFACE_DIDASCALIE_RE.test(intent.rawText) ? " elle ajoutait une didascalie *voix de ghostface* (interdit : dis juste la phrase nue \"Tu aimes les films d'horreur ?\" sans décor)" : ""}${isTalkFightTurn && WEAK_BANNED_RE.test(intent.rawText) ? " elle ressortait une ancienne formule faible" : ""}. ${retryStyle}`;
-        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryRes = await callCorrection(retrySystem);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
       } catch {
@@ -717,7 +726,7 @@ export async function POST(req: NextRequest) {
     for (let attempt = 0; attempt < 2 && intent.rawText === BROKEN_ACTION_FALLBACK; attempt++) {
       try {
         const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a tenté un JSON structuré ({"action":"add_media"|"recommend",...}) mais il était mal formé et n'a pas pu être lu. Réponds cette fois avec un JSON strictement valide (guillemets doubles, pas de virgule finale, toutes les accolades/crochets fermés) — reprends la même intention que ta réponse précédente.`;
-        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryRes = await callCorrection(retrySystem);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action !== null || retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
       } catch {
@@ -743,7 +752,7 @@ export async function POST(req: NextRequest) {
   if (bareTitleCandidate && intent.action === "add_media") {
     try {
       const retrySystem = `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a traité une simple mention de titre ("${bareTitleCandidate}") comme une DEMANDE D'AJOUT explicite (JSON add_media) — c'est une erreur, l'utilisateur n'a employé aucun verbe d'action (ajoute, mets, télécharge, prends...), il a juste mentionné le titre. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON), en réagissant naturellement à ce titre avec ta personnalité habituelle et en utilisant la section "VÉRIFICATION RÉELLE — titre mentionné" fournie plus haut dans ce prompt — ne l'ajoute PAS toi-même à la bibliothèque sans demande explicite.`;
-      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryRes = await callCorrection(retrySystem);
       const retryIntent = parseIntent(retryRes.text);
       if (retryIntent.action === null) intent = retryIntent;
     } catch {
@@ -774,7 +783,7 @@ export async function POST(req: NextRequest) {
     for (let attempt = 0; attempt < 2 && promisesListWithNothing(intent.rawText); attempt++) {
       try {
         const retrySystem = `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message annonçait une liste ("${intent.rawText.trim()}") mais ne contenait ensuite AUCUN élément réel — tu as répondu en texte libre au lieu du format JSON attendu pour une vraie recommandation ou un vrai ajout. Réponds cette fois avec le VRAI format JSON décrit plus haut dans ce prompt (mode 1 ou 2), avec de vrais titres dedans — jamais une simple promesse de liste sans contenu derrière.`;
-        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryRes = await callCorrection(retrySystem);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action !== null || !promisesListWithNothing(retryIntent.rawText)) {
           intent = retryIntent;
@@ -931,7 +940,7 @@ export async function POST(req: NextRequest) {
             ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message s'est contentée de PROMETTRE de vérifier quelque chose ("je vais vérifier", "laisse-moi regarder"...) alors qu'une vraie vérification (section "VÉRIFICATION RÉELLE" plus haut dans ce prompt) est DÉJÀ disponible dans ce même message — tu n'as aucune raison d'attendre, réponds directement et maintenant avec cette information réelle, dans ta personnalité habituelle (naturel, chaleureux, avec des emojis avec modération).`
             : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message s'est contentée de PROMETTRE de vérifier quelque chose ("je vais vérifier"...) — c'est une erreur, Movviz n'a pas de mécanisme pour revenir vers l'utilisateur après coup, une promesse comme ça reste sans suite pour toujours. Réponds cette fois soit avec l'information si tu l'as réellement, soit en disant honnêtement que tu ne peux pas vérifier ça pour l'instant — jamais une promesse d'action que tu ne peux pas tenir dans ce même message.`)
         : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ne contenait AUCUNE phrase réelle${facts.length ? ` (seulement ${facts.length > 1 ? "des lignes" : "une ligne"} interne${facts.length > 1 ? "s" : ""} de mémorisation, ex. ${facts.map((f) => `« ${f} »`).join(", ")})` : ""} — c'est une erreur, jamais une réponse acceptable. Réponds cette fois avec une vraie phrase, en français, qui répond concrètement à ce que l'utilisateur vient de dire — garde ta personnalité habituelle. Tu peux toujours ajouter une ligne \`[[FAIT: ...]]\` APRÈS cette phrase si pertinent, mais ta réponse ne peut plus être vide de texte réel.`;
-      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryRes = await callCorrection(retrySystem);
       const retryIntent = parseIntent(retryRes.text);
       // Only trust the retry if it stayed in mode 3 — a retry that suddenly
       // emits add_media/recommend JSON would be a mode switch mid-repair,
@@ -1075,11 +1084,20 @@ export async function POST(req: NextRequest) {
         ? await getOrAnalyzeMoodProfile(config, pageContext.type, pageContext.tmdbId, pageContext.title, refDetail.overview, refDetail.genres)
         : null;
       if (refProfile) {
+        // Cache seul pendant la requête : analyser 20-30 candidats inconnus
+        // ici coûtait autant d'appels au modèle avant d'afficher quoi que
+        // ce soit. Les manquants sont analysés en arrière-plan (un à la fois,
+        // file du fournisseur) et serviront à la prochaine demande.
         const candidateMoods = new Map<string, AiMoodCategories>();
-        await mapWithConcurrency(allItems, 3, async (item) => {
-          const profile = await getOrAnalyzeMoodProfile(config, item.type, item.tmdbId, item.title, item.overview);
+        const unanalyzed: typeof allItems = [];
+        for (const item of allItems) {
+          const profile = getCachedMoodProfile(item.type, item.tmdbId);
           if (profile) candidateMoods.set(`${item.type}:${item.tmdbId}`, profile.categories);
-        });
+          else unanalyzed.push(item);
+        }
+        if (unanalyzed.length) {
+          void mapWithConcurrency(unanalyzed, 1, (item) => getOrAnalyzeMoodProfile(config, item.type, item.tmdbId, item.title, item.overview)).catch(() => {});
+        }
         mood = { reference: refProfile.categories, candidates: candidateMoods };
       }
       if (pageContext.type === "movie" && refDetail && "collectionId" in refDetail && refDetail.collectionId) {
@@ -1158,5 +1176,10 @@ export async function POST(req: NextRequest) {
 
   pushAiMessage(user.id, assistant);
   setDialogueState(user.id, updateDialogueState(dialoguePlan, assistant.content));
+  // Apprentissage conversationnel continu (demande explicite : "la moindre
+  // chose qu'il apprend sur moi doit devenir du contexte"). Lancée APRÈS la
+  // réponse : en parallèle, elle passait devant la réponse dans la file du
+  // fournisseur (un appel à la fois, voir providers.ts) et la retardait.
+  void extractConversationFacts(user.id, message).catch(() => {});
   return NextResponse.json({ message: assistant, provider: providerName });
 }

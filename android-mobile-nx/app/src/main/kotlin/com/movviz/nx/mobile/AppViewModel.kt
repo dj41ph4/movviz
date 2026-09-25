@@ -241,6 +241,9 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // suggestions qui existent déjà réellement dans la médiathèque.
     private val _movieLibraryRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val movieLibraryRecommendations: StateFlow<List<SearchResultDto>> = _movieLibraryRecommendations.asStateFlow()
+    // « À revoir sans modération » — livré par /api/interface/dashboard.
+    private val _rewatch = MutableStateFlow<List<SearchResultDto>>(emptyList())
+    val rewatch: StateFlow<List<SearchResultDto>> = _rewatch.asStateFlow()
 
     private val _seriesLibraryRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val seriesLibraryRecommendations: StateFlow<List<SearchResultDto>> = _seriesLibraryRecommendations.asStateFlow()
@@ -843,6 +846,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _movieRows.value = emptyList()
         _seriesRows.value = emptyList()
         _movieLibraryRecommendations.value = emptyList()
+        _rewatch.value = emptyList()
         _seriesLibraryRecommendations.value = emptyList()
         _detail.value = null
         _detailError.value = null
@@ -1010,6 +1014,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 return@launch
             }
             val compact = (library as? ApiResult.Success)?.data
+            compact?.let { _rewatch.value = it.rewatch.orEmpty().filterNotNull() }
             if (compact != null) {
                 _homeUiState.value = _homeUiState.value.copy(bootProgress = 75, bootMessage = "Préparation du premier écran…")
                 val fresh = HomeSnapshot(
@@ -1139,6 +1144,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         // plus ancien ou d'une réponse momentanément indisponible.
         when (val snapshot = repo.interfaceDashboard()) {
             is ApiResult.Success -> {
+                _rewatch.value = snapshot.data.rewatch.orEmpty().filterNotNull()
                 // Le contrat compact est volontairement tolérant : une
                 // entrée historique incomplète ne doit jamais abattre toute
                 // l'application. On ignore seulement cette entrée, puis le

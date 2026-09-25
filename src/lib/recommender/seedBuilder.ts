@@ -2,6 +2,7 @@ import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 import { getAllRatings } from "@/lib/ai/tasteProfile";
 import { getFeedback } from "@/lib/ai/tasteProfile";
+import { getWatchedTitles } from "@/lib/recommender/watchedTitles";
 
 export type SeedReason =
   | "explicit_high_rating"
@@ -67,8 +68,13 @@ export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
     }
   }
 
-  const watchedIds: number[] =
-    type === "movie" ? movies : [...seriesEpisodeCount.keys()];
+  // + historique de lecture : un titre lancé sans être marqué « vu » dit
+  // aussi quelque chose des goûts (watchedTitles.ts).
+  const allWatched = getWatchedTitles(userId, type);
+  const watchedIds: number[] = [...new Set([
+    ...(type === "movie" ? movies : [...seriesEpisodeCount.keys()]),
+    ...allWatched.keys(),
+  ])];
 
   const seeds: Seed[] = [];
   for (const tmdbId of watchedIds) {
@@ -105,6 +111,7 @@ export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
     let watchedAt: number | undefined;
     if (type === "movie") watchedAt = movieWatchedAt?.[String(tmdbId)];
     else watchedAt = seriesLatestAt.get(tmdbId);
+    watchedAt = watchedAt || allWatched.get(tmdbId) || undefined;
     if (watchedAt && now - watchedAt <= RECENT_WATCH_WINDOW_MS) {
       weight += 0.1;
       reasons.push("recent_watch");

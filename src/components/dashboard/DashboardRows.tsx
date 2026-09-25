@@ -113,6 +113,11 @@ export function DashboardRows({
   const { data: seriesRecData } = useSWR<{ results: MetaSearchResult[] }>(
     visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=series" : null
   );
+  // « À revoir sans modération » : films et séries déjà vus, encore lisibles
+  // (src/lib/dashboard/rewatch.ts — même définition de « vu » que les suggestions).
+  const { data: rewatchData } = useSWR<{ results: MetaSearchResult[] }>(
+    visible.has("rewatch") ? "/api/dashboard/rewatch" : null
+  );
   // A 👎 is a durable exclusion, not merely a local animation on one card.
   // Dashboard shelves such as "Moins de 40 minutes" are assembled directly
   // from the library, so they must consume this same server-side record as
@@ -125,6 +130,10 @@ export function DashboardRows({
   const isNotExcluded = useCallback(
     (type: "movie" | "series", tmdbId: number) => !excludedTitleKeys.has(`${type}:${tmdbId}`),
     [excludedTitleKeys]
+  );
+  const rewatch = useMemo(
+    () => (rewatchData?.results ?? []).filter((item) => isNotExcluded(item.type, item.tmdbId)),
+    [rewatchData, isNotExcluded]
   );
   // Reflects Plex's own "on deck" state, which Movviz's own player also
   // reports into (see /api/stream/[ratingKey]/progress) — one row, one
@@ -264,6 +273,7 @@ export function DashboardRows({
       continueWatching.forEach((item) => add(item.type === "movie" ? "movie" : "series", item.tmdbId));
     }
     if (visible.has("becauseYouLike")) recommended.forEach((item) => add(item.type, item.tmdbId));
+    if (visible.has("rewatch")) rewatch.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("shortSessions")) shortSessions.forEach((item) => add("movie", item.tmdbId));
     if (visible.has("discover")) trending.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("availableNow")) recentlyAdded.forEach(({ type, item }) => add(type, item.tmdbId));
@@ -272,7 +282,7 @@ export function DashboardRows({
     if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
 
     return [...refs.values()];
-  }, [visible, continueWatching, recommended, shortSessions, trending, recentlyAdded, upcoming, upgrades, localArtwork]);
+  }, [visible, continueWatching, recommended, rewatch, shortSessions, trending, recentlyAdded, upcoming, upgrades, localArtwork]);
   const artworkData = useTitleArtworkBatch(artworkRefs, locale);
 
   const resolveArtwork = (type: "movie" | "series", tmdbId: number, fallbackBackdrop?: string | null): ResolvedArtwork => {
@@ -288,7 +298,7 @@ export function DashboardRows({
     };
   };
 
-  const sectionOrder: DashboardSectionId[] = ["continueWatching", "becauseYouLike", "shortSessions", "discover", "availableNow", "comingSoon", "upgradesAvailable"];
+  const sectionOrder: DashboardSectionId[] = ["continueWatching", "becauseYouLike", "rewatch", "shortSessions", "discover", "availableNow", "comingSoon", "upgradesAvailable"];
 
   return (
     <div className="space-y-8">
@@ -447,6 +457,21 @@ export function DashboardRows({
           return (
             <PosterRow key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
               {recommended.map((r) => {
+                const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
+                return (
+                  <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
+                  </CardErrorBoundary>
+                );
+              })}
+            </PosterRow>
+          );
+        }
+
+        if (id === "rewatch" && rewatch.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.rowRewatch")}>
+              {rewatch.map((r) => {
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
