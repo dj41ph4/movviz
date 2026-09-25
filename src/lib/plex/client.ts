@@ -1340,6 +1340,15 @@ export type PlexAccountHistoryPageResult = PlexAccountHistoryResult & {
  * section-scan approach entirely, for both friend and Home-managed
  * accounts alike — one mechanism instead of two.
  */
+/** PMS sends Unix SECONDS; Movviz works in milliseconds everywhere. The
+ *  other Plex dates (addedAt, lastViewedAt…) were already converted, but the
+ *  playback history was not: every shared user's « vu le » landed in January
+ *  1970 (seen on the Plex accounts diagnostic). Already-ms values pass through. */
+export function plexTimeToMs(value: number | null | undefined): number | undefined {
+  if (value == null || !Number.isFinite(value)) return undefined;
+  return value < 10_000_000_000 ? value * 1000 : value;
+}
+
 export async function getAccountHistoryPage(
   cfg: PlexServerConfig,
   adminToken: string,
@@ -1409,7 +1418,7 @@ export async function getAccountHistoryPage(
       }
       const grandparentRatingKey = item.grandparentRatingKey ?? ratingKeyFromPath(item.grandparentKey);
       if (item.type === "movie") {
-        entries.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, guid: item.guid, Guid: item.Guid, viewedAt: item.viewedAt, accountId: eventAccountId });
+        entries.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, guid: item.guid, Guid: item.Guid, viewedAt: plexTimeToMs(item.viewedAt), accountId: eventAccountId });
       } else if (item.type === "episode" && item.parentIndex != null && item.index != null && (grandparentRatingKey || item.grandparentTitle)) {
         // Keep episode if we have at least show title + SxxExx, even without ratingKey (§1) – resolver will decide via Movviz/Plex library
         entries.push({
@@ -1421,7 +1430,7 @@ export async function getAccountHistoryPage(
           episode: item.index,
           guid: item.guid,
           Guid: item.Guid,
-          viewedAt: item.viewedAt,
+          viewedAt: plexTimeToMs(item.viewedAt),
           accountId: eventAccountId,
         });
       } else if (item.type === "episode") {

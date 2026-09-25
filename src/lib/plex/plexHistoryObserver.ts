@@ -1,5 +1,5 @@
 import { loadPlexConfig } from "./store";
-import { getAccountHistoryPage, type PlexHistoryEntry, type PlexAccountHistoryPageOptions } from "./client";
+import { getAccountHistoryPage, plexTimeToMs, type PlexHistoryEntry, type PlexAccountHistoryPageOptions } from "./client";
 import type { PlexUserContext } from "./plexUserContext";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import fs from "node:fs";
@@ -168,7 +168,9 @@ export function setHistoryCursor(userId: string, machineIdentifier: string, last
 
 export function getHistoryCursor(userId: string, machineIdentifier: string): { lastViewedAt: number; historyKeyCount: number; updatedAt: number; seenEventKeysAtTimestamp?: string[] } | null {
   const cursors = readCursors();
-  return cursors[cursorKey(userId, machineIdentifier)] ?? null;
+  const cursor = cursors[cursorKey(userId, machineIdentifier)] ?? null;
+  // Cursors written before history dates were converted hold Unix seconds.
+  return cursor ? { ...cursor, lastViewedAt: plexTimeToMs(cursor.lastViewedAt) ?? 0 } : null;
 }
 
 export function clearHistoryCursor(userId: string, machineIdentifier: string): void {

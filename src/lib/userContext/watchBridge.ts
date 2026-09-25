@@ -104,6 +104,19 @@ export function getCurrentWatchState(input: Pick<WatchDecisionInput, "userId" | 
   }, "unknown");
 }
 
+/** Same as getCurrentWatchState, plus WHEN that state was decided (null
+ *  when unknown) — needed to place an imported view relative to it. */
+export function getCurrentWatchStateAt(input: Pick<WatchDecisionInput, "userId" | "tmdbId" | "mediaType" | "seasonNumber" | "episodeNumber">): { state: WatchCurrentState; updatedAt: number | null } {
+  const key = stateKeyFor(input);
+  return withUserContextDb((db) => {
+    const row = db.prepare(
+      "SELECT watched, watched_updated_at FROM user_media_state WHERE state_key = ?"
+    ).get(key) as CurrentWatchRow | undefined;
+    if (!row || row.watched_updated_at == null) return { state: "unknown" as const, updatedAt: null };
+    return { state: row.watched ? "watched" as const : "unwatched" as const, updatedAt: row.watched_updated_at };
+  }, { state: "unknown" as const, updatedAt: null });
+}
+
 export interface CanonicalWatchStatus {
   movies: number[];
   episodes: { tmdbId: number; season: number; episode: number; at: number | null }[];
@@ -315,4 +328,22 @@ function applyWatchDecisionTx(
       reason,
       revision: nextRevision,
     };
+}
+
+/** Plex history dates were stored in Unix SECONDS for shared accounts (see
+ *  watchStore.repairSecondTimestamps): repair the ledger and the current
+ *  state the same way — only values that cannot be real ms dates. */
+export function repairSecondTimestampsInContext(): number {
+  return withUserContextDb((db) => {
+    const events = db.prepare(
+      "UPDATE context_events SET occurred_at = occurred_at * 1000 WHERE occurred_at > 0 AND occurred_at < 10000000000"
+    ).run().changes;
+    const states = db.prepare(
+      "UPDATE user_media_state SET watched_updated_at = watched_updated_at * 1000 WHERE watched_updated_at > 0 AND watched_updated_at < 10000000000"
+    ).run().changes;
+    const watchedAt = db.prepare(
+      "UPDATE user_media_state SET watched_at = watched_at * 1000 WHERE watched_at > 0 AND watched_at < 10000000000"
+    ).run().changes;
+    return Number(events) + Number(states) + Number(watchedAt);
+  }, 0);
 }

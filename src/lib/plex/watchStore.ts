@@ -82,8 +82,12 @@ function findOrCreate(list: WatchStatus[], userId: string): WatchStatus {
 }
 
 function upsertRecent(status: WatchStatus, entry: RecentWatch) {
+  const existing = status.recent?.find((r) => r.tmdbId === entry.tmdbId && r.type === entry.type);
   const recent = [...(status.recent ?? [])].filter((r) => !(r.tmdbId === entry.tmdbId && r.type === entry.type));
-  recent.push(entry);
+  // The most recent date always wins: an older episode marked watched (a
+  // catch-up, an imported history) must never push a show the user is
+  // watching right now back down the « recently watched » list.
+  recent.push(existing && existing.at > entry.at ? { ...entry, at: existing.at } : entry);
   recent.sort((a, b) => b.at - a.at);
   status.recent = recent.slice(0, MAX_RECENT);
 }
@@ -324,4 +328,32 @@ export function mergePlexWatchedState(
   for (const movie of mirroredMovies) mirrorProgress(userId, movie.tmdbId, "movie", true, undefined, undefined, movie.watchedAt);
   for (const entry of mirroredEpisodes) mirrorProgress(userId, entry.tmdbId, "series", true, entry.season, entry.episode, entry.watchedAt);
   return status;
+}
+
+/** Before Plex history dates were converted, shared users' views were stored
+ *  in Unix SECONDS (a « vu le » in January 1970). A real view can never
+ *  predate April 1970, so any value below 10^10 is seconds: multiplied once,
+ *  idempotent afterwards. Returns how many dates were repaired. */
+export function repairSecondTimestamps(): number {
+  const toMs = (v: number | null | undefined) => (v != null && v > 0 && v < 10_000_000_000 ? v * 1000 : v);
+  const list = read();
+  let repaired = 0;
+  for (const status of list) {
+    for (const e of status.episodes) {
+      const next = toMs(e.at);
+      if (next !== e.at) { e.at = next as number; repaired++; }
+    }
+    for (const [id, at] of Object.entries(status.movieWatchedAt ?? {})) {
+      const next = toMs(at);
+      if (next !== at) { status.movieWatchedAt![id] = next as number; repaired++; }
+    }
+    let recentChanged = false;
+    for (const r of status.recent ?? []) {
+      const next = toMs(r.at);
+      if (next !== r.at) { r.at = next as number; repaired++; recentChanged = true; }
+    }
+    if (recentChanged) status.recent!.sort((a, b) => b.at - a.at);
+  }
+  if (repaired > 0) write(list);
+  return repaired;
 }

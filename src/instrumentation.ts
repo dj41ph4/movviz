@@ -101,6 +101,15 @@ export async function register() {
     }
     clearAllRateLimits();
 
+    // Dates of Plex views stored in seconds by the old history parsing
+    // (« vu le » in 1970): repaired once, before any sync runs. Idempotent.
+    await phase("dates des vues Plex", async () => {
+      const { repairSecondTimestamps } = await import("@/lib/plex/watchStore");
+      const { repairSecondTimestampsInContext } = await import("@/lib/userContext/watchBridge");
+      const repaired = repairSecondTimestamps() + repairSecondTimestampsInContext();
+      if (repaired > 0) logBootPhase("info", "plex.dates", `${repaired} dates de vues Plex converties de secondes en millisecondes`);
+    }).catch(() => {});
+
     const { startScheduler } = await import("@/lib/scheduler/engine");
     await phase("planificateur", () => startScheduler());
 

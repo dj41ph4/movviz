@@ -1,5 +1,5 @@
 import { loadPlexConfig } from "./store";
-import { batchTmdbIds } from "./client";
+import { batchTmdbIds, plexTimeToMs } from "./client";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import { getCurrentWatchState } from "@/lib/userContext/watchBridge";
@@ -532,7 +532,8 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         historyRes = firstPage;
         recordSearchLog("info", "plex.history", `plex.history bootstrap v2 start user=${user.username} sourceTotal=${firstPage.totalSize} upperBound=${bootstrapUpperBound ?? "none"} pageSize=100 sort=asc`);
       } else {
-        bootstrapUpperBound = bootstrapState.upperBoundViewedAt;
+        // Stored before history dates were converted: may still be seconds.
+        bootstrapUpperBound = plexTimeToMs(bootstrapState.upperBoundViewedAt) ?? null;
         historyRes = await pollHistory(ctx, { start: bootstrapState.currentStart, size: 100, sortDirection: "asc" });
       }
       bootstrapBatchStart = bootstrapState.currentStart;

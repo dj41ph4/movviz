@@ -1,3 +1,11 @@
+## v1.25.78 — September 2026
+
+### Dates des vues Plex corrigées, séries en cours qui restent en tête
+
+- Plex : pour tous les comptes partagés (tout le monde sauf le propriétaire du serveur), les dates des vues venant de Plex étaient enregistrées dans la mauvaise unité et apparaissaient en janvier 1970. Elles sont désormais justes, et les dates déjà enregistrées sont réparées automatiquement au démarrage du serveur. Les vues récentes retrouvent ainsi leur place dans l'historique et dans les suggestions.
+- Marquer comme vu un ancien épisode d'une série ne fait plus reculer cette série dans les titres vus récemment : la date la plus récente l'emporte toujours.
+- Administration : un diagnostic liste tous les comptes connus du serveur Plex, y compris un profil Plex Home supprimé, avec le nombre de lectures de chacun. Un outil permet de reprendre l'historique d'un tel profil dans un compte Movviz, sans jamais faire passer ces anciennes vues devant les vues récentes, sans toucher à ce qui est en cours de lecture et sans rien écrire dans Plex.
+
 ## v1.25.77 — September 2026
 
 ### Assistant IA plus pertinent et sur mobile, suppression de comptes, import des utilisateurs Plex réparé
