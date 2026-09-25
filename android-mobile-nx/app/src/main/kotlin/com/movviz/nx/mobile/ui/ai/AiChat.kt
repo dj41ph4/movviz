@@ -69,6 +69,8 @@ import com.movviz.nx.mobile.ui.theme.MovvizBackground
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizBrandGlow
+import com.movviz.nx.mobile.ui.theme.MovvizIconBookmark
+import com.movviz.nx.mobile.ui.theme.MovvizIconBookmarkFilled
 import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconClose
 import com.movviz.nx.mobile.ui.theme.MovvizIconEye
@@ -168,6 +170,12 @@ private fun AiChatScreen(
     val busy by viewModel.aiBusy.collectAsState()
     val swapping by viewModel.aiSwapping.collectAsState()
     val added by viewModel.aiAdded.collectAsState()
+    // « Ma liste » — la même watchlist que la fiche titre, rechargée à l'ouverture.
+    val profileMedia by viewModel.profileMedia.collectAsState()
+    val watchlist = remember(profileMedia) {
+        profileMedia?.watchlist.orEmpty().mapTo(HashSet()) { "${it.type}:${it.tmdbId}" }
+    }
+    LaunchedEffect(Unit) { viewModel.loadProfileMedia() }
     var input by rememberSaveable { mutableStateOf("") }
     // 👍 posés dans cette ouverture — affichage seulement, la vraie trace est côté serveur.
     val liked = remember { mutableStateMapOf<String, Boolean>() }
@@ -266,11 +274,15 @@ private fun AiChatScreen(
                             busy = busy,
                             swapping = swapping,
                             added = added,
+                            watchlist = watchlist,
                             liked = liked,
                             onOpenTitle = onOpenTitle,
                             onAdd = viewModel::aiAddCard,
                             onLike = { card -> liked["${card.type}:${card.tmdbId}"] = true; viewModel.aiLike(card) },
                             onSwap = viewModel::aiCardAction,
+                            onWatchlist = { card ->
+                                viewModel.toggleWatchlist(card.type, card.tmdbId, card.title, card.year, card.posterPath, card.rating ?: 0.0)
+                            },
                             onPick = send,
                         )
                     }
@@ -351,11 +363,13 @@ private fun AssistantBubble(
     busy: Boolean,
     swapping: String?,
     added: Set<String>,
+    watchlist: Set<String>,
     liked: Map<String, Boolean>,
     onOpenTitle: (String, Int) -> Unit,
     onAdd: (AiRecommendationDto) -> Unit,
     onLike: (AiRecommendationDto) -> Unit,
     onSwap: (AiRecommendationDto, String) -> Unit,
+    onWatchlist: (AiRecommendationDto) -> Unit,
     onPick: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
@@ -387,10 +401,12 @@ private fun AssistantBubble(
                         card = card,
                         busy = swapping == key,
                         justAdded = key in added,
+                        onList = key in watchlist,
                         liked = liked[key] == true,
                         onOpen = { onOpenTitle(card.type, card.tmdbId) },
                         onAdd = { onAdd(card) },
                         onLike = { onLike(card) },
+                        onWatchlist = { onWatchlist(card) },
                         onSeen = { onSwap(card, "seen") },
                         onDislike = { onSwap(card, "dislike") },
                     )
@@ -411,10 +427,12 @@ private fun RecommendationCard(
     card: AiRecommendationDto,
     busy: Boolean,
     justAdded: Boolean,
+    onList: Boolean,
     liked: Boolean,
     onOpen: () -> Unit,
     onAdd: () -> Unit,
     onLike: () -> Unit,
+    onWatchlist: () -> Unit,
     onSeen: () -> Unit,
     onDislike: () -> Unit,
 ) {
@@ -468,13 +486,26 @@ private fun RecommendationCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (justAdded) {
-                    CardChip(MovvizIconCheck, "Ajouté", tint = MovvizOk, background = MovvizOk.copy(alpha = .12f), onClick = onOpen)
-                } else if (card.inLibrary) {
-                    CardChip(MovvizIconCheck, "Dans la bibliothèque", tint = MovvizOk, background = MovvizOk.copy(alpha = .12f), onClick = onOpen)
+                // Déjà là (ou tout juste ajouté) : juste la coche verte, le libellé
+                // prenait la place des actions.
+                if (justAdded || card.inLibrary) {
+                    CardIcon(
+                        MovvizIconCheck,
+                        if (justAdded) "Ajouté" else "Dans la bibliothèque",
+                        tint = MovvizOk,
+                        background = MovvizOk.copy(alpha = .12f),
+                        onClick = onOpen,
+                    )
                 } else {
                     CardChip(MovvizIconPlus, "Ajouter", tint = Color.White, background = MovvizBrand, onClick = onAdd)
                 }
+                CardIcon(
+                    if (onList) MovvizIconBookmarkFilled else MovvizIconBookmark,
+                    if (onList) "Retirer de ma liste" else "Ajouter à ma liste",
+                    tint = if (onList) MovvizBrandGlow else MovvizInkDim,
+                    background = if (onList) MovvizBrandGlow.copy(alpha = .15f) else Color.Transparent,
+                    onClick = onWatchlist,
+                )
                 CardChip(MovvizIconEye, "Déjà vu", tint = MovvizInkSoft, background = Color.White.copy(alpha = .06f), onClick = onSeen)
                 CardIcon(MovvizIconThumbUp, "J'aime", tint = if (liked) MovvizOk else MovvizInkDim, onClick = onLike)
                 CardIcon(MovvizIconThumbDown, "Pas pour moi", tint = MovvizInkDim, onClick = onDislike)
@@ -501,9 +532,9 @@ private fun CardChip(icon: ImageVector, label: String, tint: Color, background: 
 }
 
 @Composable
-private fun CardIcon(icon: ImageVector, label: String, tint: Color, onClick: () -> Unit) {
+private fun CardIcon(icon: ImageVector, label: String, tint: Color, background: Color = Color.Transparent, onClick: () -> Unit) {
     Box(
-        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).hapticClickable(onClick = onClick),
+        Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(background).hapticClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(17.dp)) }
 }

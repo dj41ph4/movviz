@@ -1,3 +1,10 @@
+## v1.25.84 — September 2026
+
+### Assistant IA : bouton « Ma liste » sur les propositions
+
+- Assistant IA : un titre déjà dans la bibliothèque n'affiche plus que la coche verte, ce qui laisse de la place aux actions.
+- Assistant IA : nouveau bouton « Ajouter à ma liste » entre la coche et « Déjà vu », sur le web (ordinateur et navigateur mobile) comme dans l'application Android mobile. Il utilise la même liste que le reste de Movviz, et un second appui retire le titre de la liste.
+
 ## v1.25.83 — September 2026
 
 ### Assistant IA : plus d'erreur Gemini en pleine question, plusieurs utilisateurs servis en même temps

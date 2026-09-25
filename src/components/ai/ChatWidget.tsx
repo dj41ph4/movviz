@@ -10,7 +10,7 @@ import { getPageTitleContext } from "@/lib/ai/pageContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { AiActionOutcome, AiChatMessage, AiRecommendation } from "@/lib/ai/types";
 import {
-  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown, Eye,
+  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown, Eye, Bookmark,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<AiActionOutcome["status"], string> = {
@@ -98,7 +98,7 @@ function ActionList({
 }
 
 function RecommendationCards({
-  cards, adding, onAdd, votes, onVote, swapping, onSwap, t,
+  cards, adding, onAdd, votes, onVote, swapping, onSwap, onWatchlist, watchlist, t,
 }: {
   cards: AiRecommendation[];
   adding: Record<string, "adding" | "added">;
@@ -108,6 +108,9 @@ function RecommendationCards({
   /** Card being replaced after « Déjà vu » / « Pas pour moi ». */
   swapping: string | null;
   onSwap: (card: AiRecommendation, action: "seen" | "dislike") => void;
+  /** « type:tmdbId » of every title on the user's list. */
+  watchlist: Set<string>;
+  onWatchlist: (card: AiRecommendation, onList: boolean) => void;
   t: (k: string) => string;
 }) {
   return (
@@ -117,6 +120,7 @@ function RecommendationCards({
         const state = adding[key];
         const vote = votes[key];
         const busy = swapping === key;
+        const onList = watchlist.has(`${card.type}:${card.tmdbId}`);
         return (
           <div key={key} className={cn("transition-opacity", busy && "pointer-events-none opacity-40")}>
             <div className="flex gap-3 rounded-xl glass p-3">
@@ -166,12 +170,22 @@ function RecommendationCards({
               ) : null}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {card.inLibrary ? (
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/6 px-2 py-1 text-[11px] font-bold text-ink-soft">
-                    <Check className="h-3 w-3" /> {t("ai.inLibrary")}
+                  // Just the green check: « Dans la bibliothèque » took the
+                  // room the actions need (the label stays as a tooltip).
+                  <span
+                    title={t("ai.inLibrary")}
+                    aria-label={t("ai.inLibrary")}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-ok/12 text-ok"
+                  >
+                    <Check className="h-4 w-4" />
                   </span>
                 ) : state === "added" ? (
-                  <span className="inline-flex items-center gap-1 rounded-lg bg-ok/12 px-2 py-1 text-[11px] font-bold text-ok">
-                    <Check className="h-3 w-3" /> {t("ai.added")}
+                  <span
+                    title={t("ai.added")}
+                    aria-label={t("ai.added")}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-ok/12 text-ok"
+                  >
+                    <Check className="h-4 w-4" />
                   </span>
                 ) : (
                   <button
@@ -183,6 +197,18 @@ function RecommendationCards({
                     {t("ai.add")}
                   </button>
                 )}
+                <button
+                  onClick={() => onWatchlist(card, onList)}
+                  title={t(onList ? "ai.removeFromList" : "ai.addToList")}
+                  aria-label={t(onList ? "ai.removeFromList" : "ai.addToList")}
+                  aria-pressed={onList}
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                    onList ? "bg-brand-glow/15 text-brand-glow" : "text-ink-dim hover:bg-white/8 hover:text-ink-soft"
+                  )}
+                >
+                  <Bookmark className={cn("h-3.5 w-3.5", onList && "fill-current")} />
+                </button>
                 <button
                   onClick={() => onSwap(card, "seen")}
                   title={t("ai.markSeen")}
@@ -365,6 +391,26 @@ export function ChatWidget() {
     }).catch(() => {});
   }, []);
 
+  // « Ma liste » (watchlist) — the same list as everywhere else on Movviz.
+  const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{ items: { tmdbId: number; type: string }[] }>(open ? "/api/watchlist" : null);
+  const watchlist = new Set((watchlistData?.items ?? []).map((item) => `${item.type}:${item.tmdbId}`));
+  const toggleWatchlist = useCallback(async (card: AiRecommendation, onList: boolean) => {
+    try {
+      const r = onList
+        ? await fetch(`/api/watchlist/${card.type}/${card.tmdbId}`, { method: "DELETE" })
+        : await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ type: card.type, tmdbId: card.tmdbId, title: card.title, year: card.year, posterPath: card.posterPath, rating: card.rating }),
+        });
+      if (!r.ok) throw new Error("watchlist");
+      mutateWatchlist();
+      toast("success", t(onList ? "ai.removedFromList" : "ai.addedToList"));
+    } catch {
+      toast("error", t("ai.error"));
+    }
+  }, [mutateWatchlist, t]);
+
   // « Déjà vu » / « Pas pour moi »: the server records it and hands back the
   // next best-ranked card kept with the message, swapped in place.
   const [swapping, setSwapping] = useState<string | null>(null);
@@ -494,7 +540,7 @@ export function ChatWidget() {
                       />
                     ) : null}
                     {msg.recommendations && msg.recommendations.length ? (
-                      <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} votes={votes} onVote={voteCard} swapping={swapping} onSwap={swapCard} t={t} />
+                      <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} votes={votes} onVote={voteCard} swapping={swapping} onSwap={swapCard} watchlist={watchlist} onWatchlist={toggleWatchlist} t={t} />
                     ) : null}
                     {/* Quick replies — only under the latest message, one tap
                         sends the text as if typed. */}

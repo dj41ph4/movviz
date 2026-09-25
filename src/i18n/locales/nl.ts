@@ -2316,6 +2316,10 @@ export const nl: Dictionary = {
     feedbackLike: "Goede aanbeveling",
     feedbackDislike: "Niets voor mij",
     markSeen: "Al gezien",
+    addToList: "Toevoegen aan mijn lijst",
+    removeFromList: "Verwijderen uit mijn lijst",
+    addedToList: "Toegevoegd aan je lijst",
+    removedFromList: "Verwijderd uit je lijst",
     cardSwapped: "Genoteerd, hier is iets anders.",
     cardNoReserve: "Geen andere titel meer in reserve voor deze selectie.",
     distance: {

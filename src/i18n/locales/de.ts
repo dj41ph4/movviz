@@ -2315,6 +2315,10 @@ diskScan: {
     feedbackLike: "Gute Empfehlung",
     feedbackDislike: "Nichts für mich",
     markSeen: "Schon gesehen",
+    addToList: "Zu meiner Liste hinzufügen",
+    removeFromList: "Von meiner Liste entfernen",
+    addedToList: "Zu deiner Liste hinzugefügt",
+    removedFromList: "Von deiner Liste entfernt",
     cardSwapped: "Notiert, hier ist etwas anderes.",
     cardNoReserve: "Für diese Auswahl ist kein weiterer Titel mehr in Reserve.",
     distance: {

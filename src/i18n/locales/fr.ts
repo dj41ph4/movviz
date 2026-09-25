@@ -2314,6 +2314,10 @@ export const fr = {
     feedbackLike: "Bonne recommandation",
     feedbackDislike: "Pas pour moi",
     markSeen: "Déjà vu",
+    addToList: "Ajouter à ma liste",
+    removeFromList: "Retirer de ma liste",
+    addedToList: "Ajouté à ta liste",
+    removedFromList: "Retiré de ta liste",
     cardSwapped: "Noté, je te propose autre chose.",
     cardNoReserve: "Je n'ai plus d'autre titre en réserve pour cette sélection.",
     distance: {

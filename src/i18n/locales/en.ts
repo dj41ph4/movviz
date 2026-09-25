@@ -2316,6 +2316,10 @@ export const en: Dictionary = {
     feedbackLike: "Good recommendation",
     feedbackDislike: "Not for me",
     markSeen: "Already seen",
+    addToList: "Add to my list",
+    removeFromList: "Remove from my list",
+    addedToList: "Added to your list",
+    removedFromList: "Removed from your list",
     cardSwapped: "Got it, here's something else.",
     cardNoReserve: "No other title left in reserve for this selection.",
     distance: {
