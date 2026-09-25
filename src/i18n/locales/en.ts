@@ -2304,8 +2304,10 @@ export const en: Dictionary = {
     disabled: "AI is disabled",
     viaProvider: "via {provider}",
     provider: {
+      cerebras: "Cerebras",
+      cerebrasHint: "Fast, generous free quota — default primary",
       mistral: "Mistral",
-      mistralHint: "Fast and reliable — default primary",
+      mistralHint: "Fast and reliable — the only web search provider",
       openrouter: "OpenRouter",
       openrouterHint: "Many models through a single key",
       gemini: "Gemini",

@@ -1,4 +1,4 @@
-export type AiProviderId = "mistral" | "openrouter" | "gemini" | "opencode";
+export type AiProviderId = "cerebras" | "mistral" | "openrouter" | "gemini" | "opencode";
 
 /**
  * Fallback only, used while the live Zen catalogue cannot be reached.  The
@@ -49,14 +49,18 @@ export interface AiConfig {
   webSearchEnabled: boolean;
 }
 
-export const AI_PROVIDER_ORDER: AiProviderId[] = ["mistral", "openrouter", "gemini", "opencode"];
+// Cerebras first (demande explicite : « remplace Mistral par Cerebras ») —
+// gpt-oss-120b, fast and with a far roomier free tier. Mistral stays
+// available: it is the only provider behind the web search.
+export const AI_PROVIDER_ORDER: AiProviderId[] = ["cerebras", "mistral", "openrouter", "gemini", "opencode"];
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
   enabled: false,
-  primary: "mistral",
+  primary: "cerebras",
   priority: [...AI_PROVIDER_ORDER],
   fallback: true,
   providers: {
+    cerebras: { model: "gpt-oss-120b", keys: [] },
     mistral: { model: "mistral-small-latest", keys: [] },
     openrouter: { model: "openrouter/free", keys: [] },
     gemini: { model: "gemini-3.5-flash-lite", keys: [] },

@@ -19,6 +19,7 @@ function deepMerge(base: AiConfig, patch: unknown): AiConfig {
     fallback: p.fallback ?? base.fallback,
     webSearchEnabled: p.webSearchEnabled ?? base.webSearchEnabled,
     providers: {
+      cerebras: { model: p.providers?.cerebras?.model ?? base.providers.cerebras.model, keys: p.providers?.cerebras?.keys ?? base.providers.cerebras.keys },
       mistral: { model: p.providers?.mistral?.model ?? base.providers.mistral.model, keys: p.providers?.mistral?.keys ?? base.providers.mistral.keys },
       openrouter: { model: p.providers?.openrouter?.model ?? base.providers.openrouter.model, keys: p.providers?.openrouter?.keys ?? base.providers.openrouter.keys },
       gemini: { model: p.providers?.gemini?.model ?? base.providers.gemini.model, keys: p.providers?.gemini?.keys ?? base.providers.gemini.keys },
@@ -106,6 +107,18 @@ export function pushAiMessage(userId: string, message: AiChatSession["messages"]
   session.updatedAt = Date.now();
   scheduleSessionsFlush();
   return session;
+}
+
+/** Drops the user's last message when it got no answer (the model call
+ *  failed): otherwise it stayed in the history as an orphan question — shown
+ *  again on every reload, and fed to the model as if it had been answered. */
+export function dropUnansweredUserMessage(userId: string, content: string): void {
+  const session = loadAiSession(userId);
+  const last = session.messages[session.messages.length - 1];
+  if (last?.role !== "user" || last.content !== content) return;
+  session.messages.pop();
+  session.updatedAt = Date.now();
+  scheduleSessionsFlush();
 }
 
 /** « Déjà vu » / « Pas pour moi » on a card: the card leaves its message

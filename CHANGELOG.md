@@ -1,3 +1,11 @@
+## v1.25.81 — September 2026
+
+### Cerebras comme assistant IA principal
+
+- Assistant IA : nouveau fournisseur Cerebras (modèle GPT-OSS 120B, rapide, avec un quota gratuit généreux), placé en premier par défaut. Sa clé gratuite se crée sur cloud.cerebras.ai puis se colle dans Réglages → IA.
+- Assistant IA : un message resté sans réponse (fournisseur indisponible) ne reste plus orphelin dans la conversation.
+- Android mobile : dans la bibliothèque, le sélecteur Films / Séries est aligné sur le reste de la page.
+
 ## v1.25.80 — September 2026
 
 ### Assistant visible dès l'ouverture sur mobile, bibliothèque sur trois colonnes, clés Gemini enchaînées

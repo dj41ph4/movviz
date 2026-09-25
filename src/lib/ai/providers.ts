@@ -154,7 +154,8 @@ async function callWithKey(providerId: AiProviderId, url: string, headers: Recor
  * relance 6 s plus tard. Les appels d'un même fournisseur passent donc un par
  * un, espacés d'au moins MIN_INTERVAL_MS.
  */
-const MIN_INTERVAL_MS: Partial<Record<AiProviderId, number>> = { mistral: 1_100, gemini: 1_000 };
+// Cerebras free tier: 30 requests/minute → one every 2 s.
+const MIN_INTERVAL_MS: Partial<Record<AiProviderId, number>> = { cerebras: 2_000, mistral: 1_100, gemini: 1_000 };
 /** Après un refus persistant (429 même après la relance), le fournisseur est
  *  laissé tranquille ce temps-là : échec immédiat au lieu de le marteler. */
 const RATE_LIMIT_COOLDOWN_MS = 60_000;
@@ -276,6 +277,21 @@ async function callProviderNow(config: AiConfig, providerId: AiProviderId, syste
               ? { model, instructions: system, input: toOpenAiMessages(messages), max_output_tokens: MAX_RESPONSE_TOKENS }
               : { model, messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)], temperature: 0.2, max_tokens: MAX_RESPONSE_TOKENS };
             return await callWithKey(providerId, url, headers, body);
+          }
+          if (providerId === "cerebras") {
+            // OpenAI-compatible. gpt-oss is a reasoning model: « low » keeps
+            // the thinking short (latency) and its tokens count in the same
+            // completion budget, hence max_completion_tokens.
+            return await callWithKey(providerId, "https://api.cerebras.ai/v1/chat/completions", {
+              "content-type": "application/json",
+              authorization: `Bearer ${key}`,
+            }, {
+              model,
+              messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
+              temperature: 0.2,
+              max_completion_tokens: MAX_RESPONSE_TOKENS,
+              reasoning_effort: "low",
+            });
           }
           const url = providerId === "mistral"
             ? "https://api.mistral.ai/v1/chat/completions"

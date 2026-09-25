@@ -14,6 +14,7 @@ const PROVIDERS = AI_PROVIDER_ORDER;
 
 /** Where to grab a free key for each provider — plain URLs, no translation needed. */
 const PROVIDER_KEY_URL: Record<AiProviderId, string> = {
+  cerebras: "https://cloud.cerebras.ai",
   mistral: "https://console.mistral.ai/api-keys",
   openrouter: "https://openrouter.ai/keys",
   gemini: "https://aistudio.google.com/apikey",
@@ -364,7 +365,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                       </p>
                     ) : id === "gemini" && freeModels.gemini.length === 0 ? (
                       <p className="flex min-h-11 items-center text-sm text-ink-soft">{t("ai.settings.noWorkingModel")}</p>
-                    ) : id === "opencode" || id === "openrouter" || id === "gemini" ? (
+                    ) : id === "cerebras" || id === "opencode" || id === "openrouter" || id === "gemini" ? (
                       <select
                         value={p.model}
                         onChange={(e) => setModel(id, e.target.value)}

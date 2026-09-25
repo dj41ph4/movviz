@@ -129,3 +129,27 @@ test("a Gemini key with its quota spent hands over to the next key at once", asy
     globalThis.fetch = originalFetch;
   }
 });
+
+test("Cerebras is called OpenAI-style with gpt-oss-120b and a short reasoning", async () => {
+  const originalFetch = globalThis.fetch;
+  let url = "";
+  let body: Record<string, unknown> = {};
+  let auth = "";
+  globalThis.fetch = (async (input, init) => {
+    url = String(input);
+    body = JSON.parse(String(init?.body));
+    auth = String((init?.headers as Record<string, string>).authorization);
+    return new Response(JSON.stringify({ choices: [{ message: { content: "Salut !", reasoning: "internal thoughts" } }] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const result = await callAi(config("cerebras", "gpt-oss-120b"), "system", [{ role: "user", content: "Bonjour !" }]);
+    assert.equal(url, "https://api.cerebras.ai/v1/chat/completions");
+    assert.equal(auth, "Bearer test-key");
+    assert.equal(body.model, "gpt-oss-120b");
+    assert.equal(body.reasoning_effort, "low");
+    assert.ok(body.max_completion_tokens && !("max_tokens" in body), "never both token limits");
+    assert.deepEqual(result, { text: "Salut !", provider: "cerebras" }, "the reasoning never leaks into the answer");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

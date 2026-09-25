@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState } from "@/lib/ai/store";
+import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState, dropUnansweredUserMessage } from "@/lib/ai/store";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
@@ -563,6 +563,7 @@ export async function POST(req: NextRequest) {
       username: user.username, kind: "chat", provider: err.provider ?? null,
       success: false, durationMs: Date.now() - t0, error: err.message ?? "?", message,
     });
+    dropUnansweredUserMessage(user.id, message);
     return NextResponse.json({ error: "ai_call_failed", detail: (err.message ?? null)?.slice(0, 200) ?? null }, { status: 502 });
   }
   const latency = Date.now() - t0;

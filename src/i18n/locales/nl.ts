@@ -2304,8 +2304,10 @@ export const nl: Dictionary = {
     disabled: "AI is uitgeschakeld",
     viaProvider: "via {provider}",
     provider: {
+      cerebras: "Cerebras",
+      cerebrasHint: "Snel, ruim gratis quotum — standaard primair",
       mistral: "Mistral",
-      mistralHint: "Snel en betrouwbaar — standaard primair",
+      mistralHint: "Snel en betrouwbaar — enige aanbieder van de webzoekfunctie",
       openrouter: "OpenRouter",
       openrouterHint: "Veel modellen met één enkele sleutel",
       gemini: "Gemini",

@@ -2303,8 +2303,10 @@ diskScan: {
     disabled: "KI ist deaktiviert",
     viaProvider: "über {provider}",
     provider: {
+      cerebras: "Cerebras",
+      cerebrasHint: "Schnell, großzügiges Gratis-Kontingent — standardmäßig primär",
       mistral: "Mistral",
-      mistralHint: "Schnell und zuverlässig — Standard-Primär",
+      mistralHint: "Schnell und zuverlässig — einziger Anbieter der Websuche",
       openrouter: "OpenRouter",
       openrouterHint: "Viele Modelle mit einem einzigen Schlüssel",
       gemini: "Gemini",

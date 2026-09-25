@@ -2303,8 +2303,10 @@ export const it: Dictionary = {
     disabled: "IA disattivata",
     viaProvider: "tramite {provider}",
     provider: {
+      cerebras: "Cerebras",
+      cerebrasHint: "Veloce, quota gratuita generosa — principale predefinito",
       mistral: "Mistral",
-      mistralHint: "Veloce e affidabile — principale predefinito",
+      mistralHint: "Veloce e affidabile — unico fornitore della ricerca web",
       openrouter: "OpenRouter",
       openrouterHint: "Molti modelli con una sola chiave",
       gemini: "Gemini",

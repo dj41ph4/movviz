@@ -2302,8 +2302,10 @@ export const fr = {
     disabled: "L'IA est désactivée",
     viaProvider: "via {provider}",
     provider: {
+      cerebras: "Cerebras",
+      cerebrasHint: "Rapide, généreux quota gratuit — principal par défaut",
       mistral: "Mistral",
-      mistralHint: "Rapide et fiable — principal par défaut",
+      mistralHint: "Rapide et fiable — seul fournisseur de la recherche web",
       openrouter: "OpenRouter",
       openrouterHint: "Accès à de nombreux modèles via une seule clé",
       gemini: "Gemini",

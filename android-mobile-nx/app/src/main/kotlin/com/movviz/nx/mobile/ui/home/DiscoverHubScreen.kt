@@ -40,12 +40,14 @@ fun DiscoverHubScreen(
 ) {
     var mediaType by rememberSaveable { mutableStateOf(HomeTab.MOVIES) }
     var mode by rememberSaveable(mediaType) { mutableStateOf(MediaHubMode.SUGGESTIONS) }
-    val header: @Composable () -> Unit = {
+    // insetInParent : la Bibliothèque pose déjà 16 dp de marge autour de son
+    // en-tête — les rajouter ici rétrécissait Films/Séries par rapport au reste.
+    val header: @Composable (insetInParent: Boolean) -> Unit = { insetInParent ->
         MovvizSegmentedControl(
             options = listOf("Films", "Séries"),
             selectedIndex = if (mediaType == HomeTab.MOVIES) 0 else 1,
             onSelect = { mediaType = if (it == 0) HomeTab.MOVIES else HomeTab.SERIES },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = if (insetInParent) 0.dp else 16.dp, vertical = 12.dp),
         )
     }
     when (mode) {
@@ -58,7 +60,7 @@ fun DiscoverHubScreen(
             fixedType = mediaType,
             mode = mode,
             onModeChange = { mode = it },
-            contextHeader = header,
+            contextHeader = { header(false) },
             onScrollChanged = onScrollChanged,
         )
         MediaHubMode.LIBRARY -> CatalogScreen(
@@ -69,7 +71,7 @@ fun DiscoverHubScreen(
             mode = mode,
             onModeChange = { mode = it },
             onScrollChanged = onScrollChanged,
-            contextHeader = header,
+            contextHeader = { header(true) },
         )
     }
 }

@@ -7,6 +7,7 @@ export interface FreeModelOption {
 
 /** Safe local recovery choices. They are never paid models. */
 export const FREE_MODEL_FALLBACKS: Record<AiProviderId, readonly FreeModelOption[]> = {
+  cerebras: [{ id: "gpt-oss-120b", label: "GPT-OSS 120B — quota du plan gratuit" }],
   mistral: [{ id: "mistral-small-latest", label: "Mistral Small — quota du plan gratuit" }],
   openrouter: [{ id: "openrouter/free", label: "OpenRouter Free — sélection automatique" }],
   gemini: [
@@ -115,5 +116,6 @@ export function isAllowedFreeModel(provider: AiProviderId, id: string): boolean 
   if (provider === "opencode") return isOpenCodeFree(id);
   if (provider === "openrouter") return id === "openrouter/free" || id.endsWith(":free");
   if (provider === "gemini") return GEMINI_FREE_TEXT_IDS.has(id);
+  if (provider === "cerebras") return FREE_MODEL_FALLBACKS.cerebras.some((model) => model.id === id);
   return id === "mistral-small-latest";
 }
