@@ -30,6 +30,11 @@ export interface AiConfig {
   webSearchEnabled: boolean;
   /** Tavily API key for the web search (never sent to the browser). */
   webSearchKey?: string;
+  /** Voice (demande explicite, désactivés par défaut) : dictée au micro
+   *  (reconnaissance vocale de l'appareil) et lecture des réponses à voix
+   *  haute (voix de l'appareil). Off = aucun bouton vocal nulle part. */
+  voiceInputEnabled: boolean;
+  voiceOutputEnabled: boolean;
 }
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
@@ -39,6 +44,8 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
     gemini: { model: "gemini-3.5-flash-lite", keys: [] },
   },
   webSearchEnabled: false,
+  voiceInputEnabled: false,
+  voiceOutputEnabled: false,
 };
 
 export interface AiAddItem {

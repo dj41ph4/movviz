@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useT } from "@/i18n/provider";
+import { useI18n, useT } from "@/i18n/provider";
+import { useVoiceChat } from "@/lib/ai/useVoiceChat";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { getPageTitleContext } from "@/lib/ai/pageContext";
@@ -12,7 +13,7 @@ import type { AiActionOutcome, AiChatMessage, AiPlayTarget, AiRecommendation } f
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import {
-  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown, Eye, Bookmark, Play,
+  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown, Eye, Bookmark, Play, Mic, Volume2, VolumeX,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<AiActionOutcome["status"], string> = {
@@ -271,7 +272,7 @@ export function ChatWidget() {
   // admin flips the toggle in Settings — AiSettingsPanel calls the shared
   // `mutate("/api/ai/session")` after a successful save, which revalidates
   // this same key here without needing a page reload.
-  const { data: sessionData, mutate: mutateSession } = useSWR<{ messages: AiChatMessage[]; enabled: boolean; proactive?: boolean }>("/api/ai/session");
+  const { data: sessionData, mutate: mutateSession } = useSWR<{ messages: AiChatMessage[]; enabled: boolean; proactive?: boolean; voiceInput?: boolean; voiceOutput?: boolean }>("/api/ai/session");
   const enabled = sessionData?.enabled ?? null;
   const seededRef = useRef(false);
   const [pulse, setPulse] = useState(false);
@@ -329,6 +330,56 @@ export function ChatWidget() {
     });
   }, [play, betaPlayer]);
 
+  // Voice: microphone in, spoken replies out (device voices). « Talk mode »
+  // is a hands-free conversation: started from the mic, it listens again
+  // after each spoken reply, until the mic is pressed again.
+  const { locale } = useI18n();
+  const voice = useVoiceChat(locale);
+  const voiceRef = useRef(voice);
+  const [talkMode, setTalkMode] = useState(false);
+  const talkModeRef = useRef(false);
+  // Both off by default: the admin turns them on in the AI settings.
+  const voiceInput = !!sessionData?.voiceInput;
+  const voiceOutput = !!sessionData?.voiceOutput;
+  const voiceOutputRef = useRef(voiceOutput);
+  useEffect(() => { voiceRef.current = voice; talkModeRef.current = talkMode; voiceOutputRef.current = voiceOutput; });
+  const sendTextRef = useRef<(text: string) => void>(() => {});
+  const startListening = useCallback(() => {
+    voiceRef.current.listen(
+      (interim) => setInput(interim),
+      (final) => { setInput(""); sendTextRef.current(final); },
+      (error) => {
+        setTalkMode(false);
+        talkModeRef.current = false;
+        toast("error", t(`ai.voice.error.${error}`));
+      },
+    );
+  }, [t]);
+  const replyAloud = useCallback((text: string) => {
+    const v = voiceRef.current;
+    if (!voiceOutputRef.current) return;
+    if (!talkModeRef.current && !v.speakEnabled) return;
+    v.speak(text, () => { if (talkModeRef.current) startListening(); });
+  }, [startListening]);
+  const endVoice = useCallback(() => {
+    setTalkMode(false);
+    talkModeRef.current = false;
+    voiceRef.current.stopListening();
+    voiceRef.current.cancelSpeech();
+  }, []);
+  const toggleTalk = useCallback(() => {
+    if (talkModeRef.current || voiceRef.current.listening) {
+      setTalkMode(false);
+      talkModeRef.current = false;
+      voiceRef.current.stopListening();
+      voiceRef.current.cancelSpeech();
+      return;
+    }
+    setTalkMode(true);
+    talkModeRef.current = true;
+    startListening();
+  }, [startListening]);
+
   const sendText = useCallback(async (text: string) => {
     if (!text || busy) return;
     setMessages((m) => [...m, { role: "user", content: text }]);
@@ -348,13 +399,15 @@ export function ChatWidget() {
         setMessages((m) => [...m, data.message]);
         setProvider(data.provider ?? null);
         if (data.message.play) startPlayback(data.message.play);
+        replyAloud(data.message.content ?? "");
       }
     } catch {
       setMessages((m) => [...m, { role: "assistant", content: t("ai.error") }]);
     } finally {
       setBusy(false);
     }
-  }, [busy, t, mutateSession, startPlayback]);
+  }, [busy, t, mutateSession, startPlayback, replyAloud]);
+  useEffect(() => { sendTextRef.current = sendText; }, [sendText]);
 
   const send = useCallback(() => {
     const text = input.trim();
@@ -521,6 +574,19 @@ export function ChatWidget() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {voiceOutput && voice.ttsSupported ? (
+                <button
+                  onClick={() => voice.setSpeakEnabled(!voice.speakEnabled)}
+                  title={t(voice.speakEnabled ? "ai.voice.speakOff" : "ai.voice.speakOn")}
+                  aria-pressed={voice.speakEnabled}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                    voice.speakEnabled ? "bg-brand-glow/15 text-brand-glow" : "text-ink-soft hover:bg-white/8 hover:text-ink"
+                  )}
+                >
+                  {voice.speakEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </button>
+              ) : null}
               <button
                 onClick={clear}
                 title={t("ai.clear")}
@@ -529,7 +595,7 @@ export function ChatWidget() {
                 <Trash2 className="h-4 w-4" />
               </button>
               <button
-                onClick={() => setOpen(false)}
+                onClick={() => { endVoice(); setOpen(false); }}
                 title={t("ai.close")}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-white/8 hover:text-ink"
               >
@@ -537,6 +603,32 @@ export function ChatWidget() {
               </button>
             </div>
           </div>
+
+          {voiceOutput && (voice.speakEnabled || talkMode) && voice.voices.length > 1 ? (
+            <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2">
+              <span className="text-[11px] font-bold text-ink-soft">{t("ai.voice.voice")}</span>
+              <select
+                value={voice.voiceURI ?? voice.voices[0]?.voiceURI ?? ""}
+                onChange={(e) => {
+                  voice.setVoiceURI(e.target.value);
+                  const picked = voice.voices.find((v) => v.voiceURI === e.target.value);
+                  if (picked) {
+                    // A short sample in the chosen voice.
+                    window.speechSynthesis.cancel();
+                    const sample = new SpeechSynthesisUtterance(t("ai.voice.sample"));
+                    sample.voice = picked;
+                    sample.lang = picked.lang;
+                    window.speechSynthesis.speak(sample);
+                  }
+                }}
+                className="min-w-0 flex-1 rounded-lg glass px-2 py-1 text-xs text-ink outline-none"
+              >
+                {voice.voices.map((v) => (
+                  <option key={v.voiceURI} value={v.voiceURI}>{v.name.replace(/^Microsoft\s+|\s+-\s+.*$/g, "")}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.length === 0 && !busy ? (
@@ -618,7 +710,7 @@ export function ChatWidget() {
                   send();
                 }
               }}
-              placeholder={t("ai.placeholder")}
+              placeholder={voice.listening ? t("ai.voice.listening") : t("ai.placeholder")}
               // The placeholder text wraps onto two lines at this panel's
               // width in every locale — a 44px (1-line) box was clipping
               // the second line at the bottom edge instead of wrapping it
@@ -627,6 +719,21 @@ export function ChatWidget() {
               rows={2}
               className="max-h-24 min-h-[60px] flex-1 resize-none rounded-xl glass px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim placeholder:leading-snug"
             />
+            {voiceInput && voice.micBlock !== "unsupported" ? (
+              <button
+                onClick={toggleTalk}
+                disabled={voice.micBlock === "insecure"}
+                title={voice.micBlock === "insecure" ? t("ai.voice.insecure") : t(talkMode || voice.listening ? "ai.voice.stopTalk" : "ai.voice.talk")}
+                aria-pressed={talkMode || voice.listening}
+                className={cn(
+                  "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors",
+                  voice.listening ? "bg-down text-white" : talkMode ? "bg-brand-glow/20 text-brand-glow" : "glass text-ink-soft hover:text-ink disabled:opacity-40"
+                )}
+              >
+                {voice.listening ? <span className="absolute inset-0 animate-ping rounded-xl bg-down/40" /> : null}
+                <Mic className="relative h-4 w-4" />
+              </button>
+            ) : null}
             <button
               onClick={send}
               disabled={busy || !input.trim()}
@@ -640,6 +747,8 @@ export function ChatWidget() {
 
       <button
         onClick={() => {
+          // Closing the chat ends any voice conversation in progress.
+          if (open) endVoice();
           setOpen((o) => {
             const next = !o;
             if (next) setUnreadCount(0);

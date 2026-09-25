@@ -106,10 +106,14 @@ export async function GET(req: NextRequest) {
   }
   await Promise.race([nudging, new Promise<void>((resolve) => setTimeout(resolve, NUDGE_WAIT_MS))]);
   const proactive = pendingNudges.delete(user.id);
+  const config = loadAiConfig();
   return NextResponse.json({
     messages: loadAiSession(user.id).messages,
-    enabled: loadAiConfig().enabled,
+    enabled: config.enabled,
     proactive,
+    // What the chat may offer: the admin turns voice on in the AI settings.
+    voiceInput: config.enabled && config.voiceInputEnabled,
+    voiceOutput: config.enabled && config.voiceOutputEnabled,
   });
 }
 

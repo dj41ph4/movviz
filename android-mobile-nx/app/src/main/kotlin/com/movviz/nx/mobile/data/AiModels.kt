@@ -63,6 +63,9 @@ data class AiSessionResponseDto(
     val messages: List<AiChatMessageDto> = emptyList(),
     val enabled: Boolean = false,
     val proactive: Boolean = false,
+    // Réglages IA de l'admin (désactivés par défaut) : dictée et lecture à voix haute.
+    val voiceInput: Boolean = false,
+    val voiceOutput: Boolean = false,
 )
 
 @JsonClass(generateAdapter = true)

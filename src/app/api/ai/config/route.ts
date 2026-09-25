@@ -12,6 +12,8 @@ function redactConfig(config: AiConfig) {
     enabled: config.enabled,
     primary: config.primary,
     webSearchEnabled: config.webSearchEnabled,
+    voiceInputEnabled: config.voiceInputEnabled,
+    voiceOutputEnabled: config.voiceOutputEnabled,
     // Like provider keys: only whether one is stored, never the key itself.
     hasWebSearchKey: !!config.webSearchKey,
     providers: Object.fromEntries(
@@ -69,6 +71,8 @@ export async function PUT(req: NextRequest) {
     primary,
     providers,
     webSearchEnabled: typeof body.webSearchEnabled === "boolean" ? body.webSearchEnabled : current.webSearchEnabled,
+    voiceInputEnabled: typeof body.voiceInputEnabled === "boolean" ? body.voiceInputEnabled : current.voiceInputEnabled,
+    voiceOutputEnabled: typeof body.voiceOutputEnabled === "boolean" ? body.voiceOutputEnabled : current.voiceOutputEnabled,
     // A new key replaces the stored one; an empty field keeps it; « Supprimer » clears it.
     webSearchKey: typeof body.webSearchKey === "string" && body.webSearchKey.trim()
       ? body.webSearchKey.trim()

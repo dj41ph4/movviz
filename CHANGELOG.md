@@ -1,3 +1,13 @@
+## v1.25.97 — September 2026
+
+### Assistant IA : discuter à la voix
+
+- Assistant IA : deux nouveaux réglages dans Réglages → IA, désactivés par défaut, « Dictée vocale » et « Lecture à voix haute ». Tant qu'ils sont coupés, aucun bouton vocal n'apparaît.
+- Dictée vocale : un bouton micro à côté de l'envoi. On parle, le texte s'affiche en direct puis part tout seul. Lancé depuis le micro, l'assistant réécoute après chaque réponse pour une vraie conversation sans les mains, jusqu'au prochain appui sur le micro.
+- Lecture à voix haute : l'assistant lit ses réponses (sans les emojis) avec une voix de l'appareil, au choix parmi celles disponibles, les plus naturelles en premier. Un court essai permet d'entendre chaque voix. Sur Android, un appui long sur le haut-parleur rouvre le choix de la voix.
+- Web : tout passe par le navigateur, gratuit et sans quota. Le micro demande l'autorisation du navigateur, et sous Windows celle de Paramètres > Confidentialité > Microphone. Il ne fonctionne qu'en https ou sur localhost (règle des navigateurs). En http, le bouton micro l'indique, et la lecture à voix haute fonctionne quand même.
+- Android mobile : la dictée passe par la reconnaissance vocale de Google, sans autorisation micro pour Movviz, et la lecture par le moteur vocal du téléphone.
+
 ## v1.25.96 — September 2026
 
 ### Assistant IA : « lance-le » lance vraiment le film

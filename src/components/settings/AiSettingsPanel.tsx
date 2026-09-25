@@ -39,6 +39,8 @@ interface ConfigDraft {
   enabled: boolean;
   primary: AiProviderId;
   webSearchEnabled: boolean;
+  voiceInputEnabled: boolean;
+  voiceOutputEnabled: boolean;
   /** Whether a Tavily key is stored server-side (the key itself never comes back). */
   hasWebSearchKey: boolean;
   /** A newly typed Tavily key, sent on save; empty = keep the stored one. */
@@ -96,7 +98,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             };
           }
           const primary: AiProviderId = PROVIDERS.includes(d.primary) ? d.primary : PROVIDERS[0];
-          setDraft({ enabled: !!d.enabled, primary, webSearchEnabled: !!d.webSearchEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
+          setDraft({ enabled: !!d.enabled, primary, webSearchEnabled: !!d.webSearchEnabled, voiceInputEnabled: !!d.voiceInputEnabled, voiceOutputEnabled: !!d.voiceOutputEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
         }
       } catch { /* leave unloaded */ }
       setLoaded(true);
@@ -157,6 +159,8 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         enabled: draft.enabled,
         primary: draft.primary,
         webSearchEnabled: draft.webSearchEnabled,
+        voiceInputEnabled: draft.voiceInputEnabled,
+        voiceOutputEnabled: draft.voiceOutputEnabled,
         webSearchKey: draft.webSearchKeyInput.trim(),
         clearWebSearchKey: draft.clearWebSearchKey,
         providers: Object.fromEntries(
@@ -183,7 +187,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
           };
         }
-        setDraft({ enabled: d.enabled, primary: d.primary, webSearchEnabled: !!d.webSearchEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
+        setDraft({ enabled: d.enabled, primary: d.primary, webSearchEnabled: !!d.webSearchEnabled, voiceInputEnabled: !!d.voiceInputEnabled, voiceOutputEnabled: !!d.voiceOutputEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
         setTestResult(null);
         toast("success", t("ai.settings.saved"));
         // The floating chat button reads its own "enabled" via SWR on
@@ -275,6 +279,19 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
           onChange={(v) => setDraft({ ...draft, enabled: v })}
           label={t("ai.settings.enabled")}
           hint={t("ai.settings.enabledHint")}
+        />
+
+        <Switch
+          checked={draft.voiceInputEnabled}
+          onChange={(v) => setDraft({ ...draft, voiceInputEnabled: v })}
+          label={t("ai.settings.voiceInput")}
+          hint={t("ai.settings.voiceInputHint")}
+        />
+        <Switch
+          checked={draft.voiceOutputEnabled}
+          onChange={(v) => setDraft({ ...draft, voiceOutputEnabled: v })}
+          label={t("ai.settings.voiceOutput")}
+          hint={t("ai.settings.voiceOutputHint")}
         />
 
         <Switch

@@ -21,6 +21,8 @@ function deepMerge(base: AiConfig, patch: unknown): AiConfig {
     primary: p.primary && AI_PROVIDERS.includes(p.primary) ? p.primary : base.primary,
     providers: { gemini: provider("gemini") },
     webSearchEnabled: p.webSearchEnabled ?? base.webSearchEnabled,
+    voiceInputEnabled: p.voiceInputEnabled ?? base.voiceInputEnabled,
+    voiceOutputEnabled: p.voiceOutputEnabled ?? base.voiceOutputEnabled,
     webSearchKey: typeof p.webSearchKey === "string" && p.webSearchKey.trim() ? p.webSearchKey.trim() : undefined,
   };
 }

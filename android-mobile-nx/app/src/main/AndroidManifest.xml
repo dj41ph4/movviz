@@ -6,6 +6,21 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Voix de l'assistant (Android 11+ : visibilité des paquets). La dictée
+         passe par l'écran de reconnaissance de Google, la lecture par le moteur
+         de synthèse du téléphone : aucune autorisation micro pour Movviz. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Auto-update (variante AU uniquement) : demande l'autorisation
          "installer des applications inconnues" puis installe l'APK de la

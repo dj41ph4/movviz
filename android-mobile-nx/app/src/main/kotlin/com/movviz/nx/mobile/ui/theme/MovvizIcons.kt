@@ -653,3 +653,60 @@ val MovvizIconEye: ImageVector by lazy {
         }
     }
 }
+
+/** Micro — dictée vocale de l'assistant. */
+val MovvizIconMic: ImageVector by lazy {
+    movvizIcon("MovvizIconMic") {
+        stroke(width = 2.1f) {
+            moveTo(9f, 6f)
+            arcTo(3f, 3f, 0f, false, true, 15f, 6f)
+            lineTo(15f, 11f)
+            arcTo(3f, 3f, 0f, false, true, 9f, 11f)
+            close()
+        }
+        stroke(width = 2.1f) {
+            moveTo(5.5f, 11f)
+            arcTo(6.5f, 6.5f, 0f, false, false, 18.5f, 11f)
+            moveTo(12f, 17.5f)
+            lineTo(12f, 21f)
+        }
+    }
+}
+
+/** Haut-parleur — l'assistant lit ses réponses. */
+val MovvizIconVolume: ImageVector by lazy {
+    movvizIcon("MovvizIconVolume") {
+        stroke(width = 2.1f) {
+            moveTo(4f, 9.5f)
+            lineTo(7.5f, 9.5f)
+            lineTo(12f, 5.5f)
+            lineTo(12f, 18.5f)
+            lineTo(7.5f, 14.5f)
+            lineTo(4f, 14.5f)
+            close()
+            moveTo(15.5f, 9f)
+            arcTo(4.2f, 4.2f, 0f, false, true, 15.5f, 15f)
+            moveTo(18.2f, 6.2f)
+            arcTo(8f, 8f, 0f, false, true, 18.2f, 17.8f)
+        }
+    }
+}
+
+/** Haut-parleur barré — lecture à voix haute coupée. */
+val MovvizIconVolumeOff: ImageVector by lazy {
+    movvizIcon("MovvizIconVolumeOff") {
+        stroke(width = 2.1f) {
+            moveTo(4f, 9.5f)
+            lineTo(7.5f, 9.5f)
+            lineTo(12f, 5.5f)
+            lineTo(12f, 18.5f)
+            lineTo(7.5f, 14.5f)
+            lineTo(4f, 14.5f)
+            close()
+            moveTo(16f, 9.5f)
+            lineTo(21f, 14.5f)
+            moveTo(21f, 9.5f)
+            lineTo(16f, 14.5f)
+        }
+    }
+}

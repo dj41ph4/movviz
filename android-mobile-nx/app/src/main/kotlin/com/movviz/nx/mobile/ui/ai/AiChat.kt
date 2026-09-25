@@ -9,6 +9,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,6 +73,9 @@ import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizBrandGlow
 import com.movviz.nx.mobile.ui.theme.MovvizIconBookmark
+import com.movviz.nx.mobile.ui.theme.MovvizIconMic
+import com.movviz.nx.mobile.ui.theme.MovvizIconVolume
+import com.movviz.nx.mobile.ui.theme.MovvizIconVolumeOff
 import com.movviz.nx.mobile.ui.theme.MovvizIconBookmarkFilled
 import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconClose
@@ -219,6 +224,49 @@ private fun AiChatScreen(
             input = ""
         }
     }
+
+    // Voix (activée par l'admin) : dictée avec la reconnaissance vocale de
+    // Google — son propre écran, aucune autorisation micro pour Movviz — et
+    // réponses lues avec les voix du téléphone. « Mode conversation » : lancé
+    // depuis le micro, il réécoute après chaque réponse lue, jusqu'au prochain
+    // appui sur le micro.
+    val voiceInput by viewModel.aiVoiceInput.collectAsState()
+    val voiceOutput by viewModel.aiVoiceOutput.collectAsState()
+    val voice = remember(context) { AiVoice(context) }
+    DisposableEffect(voice) { onDispose { voice.shutdown() } }
+    var talkMode by remember { mutableStateOf(false) }
+    var voicePicker by remember { mutableStateOf(false) }
+    val speechLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val heard = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (result.resultCode == android.app.Activity.RESULT_OK && !heard.isNullOrBlank()) send(heard)
+        else talkMode = false // annulé ou rien entendu : fin de la conversation vocale
+    }
+    val listen: () -> Unit = {
+        voice.stop()
+        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Je t'écoute…")
+        try {
+            speechLauncher.launch(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            talkMode = false
+            android.widget.Toast.makeText(context, "Aucune reconnaissance vocale sur ce téléphone (installe l'application Google).", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    // Chaque nouvelle réponse : lue à voix haute si demandé, puis réécoute en mode conversation.
+    val spokenCount = remember { mutableStateOf(-1) }
+    LaunchedEffect(messages.size) {
+        if (spokenCount.value < 0) { spokenCount.value = messages.size; return@LaunchedEffect }
+        val fresh = messages.drop(spokenCount.value).lastOrNull { it.role == "assistant" }
+        spokenCount.value = messages.size
+        if (fresh == null) return@LaunchedEffect
+        val relisten = { if (talkMode && voiceInput) listen() }
+        if (voiceOutput && (voice.speakEnabled || talkMode)) voice.speak(fresh.content) { relisten() }
+        else relisten()
+    }
     LaunchedEffect(messages.size, busy) {
         val last = messages.size + (if (busy) 1 else 0) - 1
         if (last >= 0) listState.animateScrollToItem(last)
@@ -254,10 +302,44 @@ private fun AiChatScreen(
                     Text("Movviz AI", color = MovvizInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
                     Text("Conseils selon tout ce que tu as vu", color = MovvizInkSoft, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                if (voiceOutput) {
+                    HeaderButton(
+                        if (voice.speakEnabled) MovvizIconVolume else MovvizIconVolumeOff,
+                        if (voice.speakEnabled) "Ne plus lire les réponses" else "Lire les réponses à voix haute",
+                        tint = if (voice.speakEnabled) MovvizBrandGlow else MovvizInkSoft,
+                        onLongClick = { if (voice.voices.size > 1) voicePicker = true },
+                    ) {
+                        voice.toggleSpeak(!voice.speakEnabled)
+                        if (voice.speakEnabled && voice.voices.size > 1 && voice.voiceName == null) voicePicker = true
+                    }
+                }
                 HeaderButton(MovvizIconTrash, "Effacer la conversation") { viewModel.clearAiSession() }
-                HeaderButton(MovvizIconClose, "Fermer", onClose)
+                HeaderButton(MovvizIconClose, "Fermer", onClick = onClose)
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(MovvizLine))
+            // Choix de la voix : sous l'en-tête, une voix par ligne, la plus naturelle en tête.
+            if (voiceOutput && voicePicker && voice.voices.size > 1) {
+                Column(Modifier.fillMaxWidth().background(MovvizSurface).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Voix de l'assistant", color = MovvizInkSoft, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        HeaderButton(MovvizIconClose, "Fermer le choix de la voix") { voicePicker = false }
+                    }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        voice.voices.forEach { v ->
+                            val selected = v.name == (voice.voiceName ?: voice.voices.first().name)
+                            Box(
+                                Modifier
+                                    .height(36.dp)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(if (selected) MovvizBrandGlow.copy(alpha = .22f) else Color.White.copy(alpha = .06f))
+                                    .hapticClickable { voice.select(v) }
+                                    .padding(horizontal = 14.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { Text(voice.label(v), color = if (selected) MovvizBrandGlow else MovvizInk, fontSize = 13.sp, maxLines = 1) }
+                        }
+                    }
+                }
+            }
 
             LazyColumn(
                 state = listState,
@@ -334,6 +416,20 @@ private fun AiChatScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (voiceInput) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(if (talkMode) MovvizBrandGlow.copy(alpha = .25f) else MovvizSurface, CircleShape)
+                            .border(1.dp, if (talkMode) MovvizBrandGlow else MovvizInk.copy(alpha = .18f), CircleShape)
+                            .hapticClickable {
+                                if (talkMode) { talkMode = false; voice.stop() } else { talkMode = true; listen() }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(MovvizIconMic, contentDescription = if (talkMode) "Arrêter la conversation vocale" else "Parler à l'assistant", tint = if (talkMode) MovvizBrandGlow else MovvizInkSoft, modifier = Modifier.size(22.dp)) }
+                }
                 Spacer(Modifier.width(8.dp))
                 val canSend = input.isNotBlank() && !busy
                 Box(
@@ -351,11 +447,27 @@ private fun AiChatScreen(
 }
 
 @Composable
-private fun HeaderButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun HeaderButton(
+    icon: ImageVector,
+    label: String,
+    tint: Color = MovvizInkSoft,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    val view = LocalView.current
     Box(
-        Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).hapticClickable(onClick = onClick),
+        Modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .then(
+                if (onLongClick == null) Modifier.hapticClickable(onClick = onClick)
+                else Modifier.combinedClickable(
+                    onClick = { view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY); onClick() },
+                    onLongClick = { view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS); onLongClick() },
+                ),
+            ),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, contentDescription = label, tint = MovvizInkSoft, modifier = Modifier.size(20.dp)) }
+    ) { Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(20.dp)) }
 }
 
 @Composable

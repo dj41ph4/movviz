@@ -250,6 +250,11 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // ── Assistant IA : même conversation que le desktop (session par userId) ──
     private val _aiEnabled = MutableStateFlow(false)
     val aiEnabled: StateFlow<Boolean> = _aiEnabled.asStateFlow()
+    /** Voix de l'assistant, activée par l'admin (Réglages IA) : dictée / lecture. */
+    private val _aiVoiceInput = MutableStateFlow(false)
+    val aiVoiceInput: StateFlow<Boolean> = _aiVoiceInput.asStateFlow()
+    private val _aiVoiceOutput = MutableStateFlow(false)
+    val aiVoiceOutput: StateFlow<Boolean> = _aiVoiceOutput.asStateFlow()
     private val _aiMessages = MutableStateFlow<List<AiChatMessageDto>>(emptyList())
     val aiMessages: StateFlow<List<AiChatMessageDto>> = _aiMessages.asStateFlow()
     private val _aiBusy = MutableStateFlow(false)
@@ -268,6 +273,8 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
             val result = repository?.aiSession()
             if (result is ApiResult.Success) {
                 _aiEnabled.value = result.data.enabled
+                _aiVoiceInput.value = result.data.voiceInput
+                _aiVoiceOutput.value = result.data.voiceOutput
                 if (!_aiBusy.value) _aiMessages.value = result.data.messages
             }
         }
