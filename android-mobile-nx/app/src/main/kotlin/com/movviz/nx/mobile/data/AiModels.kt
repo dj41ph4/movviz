@@ -13,6 +13,22 @@ data class AiChatMessageDto(
     val alternates: List<AiRecommendationDto>? = null,
     // Réponses rapides sous le dernier message (un appui envoie le texte).
     val suggestions: List<String>? = null,
+    // « lance-le » : ce que l'assistant a démarré (ouvert dans le lecteur).
+    val play: AiPlayDto? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AiPlayDto(
+    val type: String,
+    val tmdbId: Int,
+    val title: String,
+    val posterPath: String? = null,
+    val ratingKey: String,
+    val movvizId: String,
+    val seriesId: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val episodeTitle: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

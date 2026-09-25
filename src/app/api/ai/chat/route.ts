@@ -6,6 +6,7 @@ import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallu
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { correctTypos } from "@/lib/ai/typoTolerance";
+import { isPlayRequest, resolvePlayTarget } from "@/lib/ai/playTarget";
 import { demandedTitles, scrubTitleAddress } from "@/lib/ai/addressTitles";
 import { analyzeDialogueTurn, selectDialogueCandidate, updateDialogueState } from "@/lib/ai/dialogueDirector";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -214,6 +215,19 @@ export async function POST(req: NextRequest) {
     } else {
       seenActionNote = "\n\nMARQUER COMME VU — tu ne sais pas de quel titre il parle (aucun titre en cours dans la conversation) : rien n'a été marqué. Demande-lui lequel en une phrase ; ne prétends surtout pas l'avoir fait.";
     }
+  }
+  // « lance-le » — the assistant starts the title itself: resolved here from
+  // the library (the film, or the episode in progress / next unseen), sent
+  // with the reply so the client opens its player. The model only reacts.
+  let playTarget: ReturnType<typeof resolvePlayTarget> = null;
+  if (!seenCommand && isPlayRequest(looseMessage)) {
+    const subject = pageContext ?? freshSubject;
+    playTarget = subject ? resolvePlayTarget(user.id, subject) : null;
+    seenActionNote += playTarget
+      ? `\n\nACTION RÉELLE EFFECTUÉE PAR MOVVIZ — la lecture de « ${playTarget.title} »${playTarget.seasonNumber != null ? ` (saison ${playTarget.seasonNumber}, épisode ${playTarget.episodeNumber})` : ""} démarre à l'instant sur son écran. Réagis en une phrase courte, dans ta personnalité (bon film / bonne séance), sans question ni proposition : il est en train de regarder. N'écris aucun JSON.`
+      : subject
+        ? `\n\nLECTURE IMPOSSIBLE — « ${subject.title} » n'a aucun fichier dans sa bibliothèque : rien ne peut démarrer. Dis-le simplement et propose de l'ajouter pour qu'il se télécharge. N'écris aucun JSON.`
+        : "\n\nLECTURE — tu ne sais pas quel titre lancer (aucun titre en cours dans la conversation) : demande lequel en une phrase. Ne prétends pas avoir lancé quoi que ce soit.";
   }
   // After a « c'est déjà vu », what follows is a request for something else.
   const capabilitiesQuestion = isCapabilitiesQuestion(looseMessage);
@@ -1092,7 +1106,11 @@ export async function POST(req: NextRequest) {
   }
   if (scrubTitles && finalCleaned) finalCleaned = scrubTitles(finalCleaned);
   const FALLBACK_TEXT = "J’ai raté ma réponse sur ce tour. Le contexte de la conversation est toujours là, je repars de ce qu’on vient de se dire.";
+  // Whatever the model wrote, a started title is never answered by « j'ai
+  // raté ma réponse ».
+  if (!finalCleaned && playTarget) finalCleaned = `C'est parti ▶ « ${playTarget.title} »${playTarget.seasonNumber != null ? ` — S${playTarget.seasonNumber}E${playTarget.episodeNumber}` : ""}. Bonne séance ! 🍿`;
   const assistant: AiChatMessage = { role: "assistant", content: finalCleaned || FALLBACK_TEXT };
+  if (playTarget) assistant.play = playTarget;
 
   let itemCount: number | undefined;
   if (intent.action === "add_media" && intent.items.length) {
@@ -1278,7 +1296,7 @@ export async function POST(req: NextRequest) {
   });
 
   assistant.content = stripQuickChoices(assistant.content);
-  const suggestions = capabilitiesQuestion && !assistant.recommendations?.length
+  const suggestions = playTarget ? [] : capabilitiesQuestion && !assistant.recommendations?.length
     ? ["Conseille-moi un film", "Une série pour ce soir", "Quoi de neuf dans Movviz ?"]
     : modelChoices.length && !assistant.recommendations?.length && !assistant.actions?.length
       ? modelChoices

@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -106,6 +107,7 @@ fun AiChatLauncher(
     showButton: Boolean,
     buttonBottomPadding: Dp,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onPlay: (com.movviz.nx.mobile.data.AiPlayDto) -> Unit,
 ) {
     val enabled by viewModel.aiEnabled.collectAsState()
     var open by rememberSaveable { mutableStateOf(false) }
@@ -140,6 +142,7 @@ fun AiChatLauncher(
                 open = false
                 onOpenTitle(type, tmdbId)
             },
+            onPlay = onPlay,
         )
     } else if (showButton) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
@@ -165,8 +168,18 @@ private fun AiChatScreen(
     viewModel: AppViewModel,
     onClose: () -> Unit,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onPlay: (com.movviz.nx.mobile.data.AiPlayDto) -> Unit,
 ) {
     val messages by viewModel.aiMessages.collectAsState()
+    // « lance-le » : seule une réponse arrivée pendant CETTE ouverture lance
+    // le lecteur — rouvrir le chat ne relance jamais un ancien titre.
+    val handledCount = remember { mutableStateOf(-1) }
+    LaunchedEffect(messages.size) {
+        if (handledCount.value < 0) { handledCount.value = messages.size; return@LaunchedEffect }
+        val fresh = messages.drop(handledCount.value)
+        handledCount.value = messages.size
+        fresh.lastOrNull { it.role == "assistant" && it.play != null }?.play?.let(onPlay)
+    }
     val busy by viewModel.aiBusy.collectAsState()
     val swapping by viewModel.aiSwapping.collectAsState()
     val added by viewModel.aiAdded.collectAsState()
@@ -277,6 +290,7 @@ private fun AiChatScreen(
                             watchlist = watchlist,
                             liked = liked,
                             onOpenTitle = onOpenTitle,
+                            onPlay = onPlay,
                             onAdd = viewModel::aiAddCard,
                             onLike = { card -> liked["${card.type}:${card.tmdbId}"] = true; viewModel.aiLike(card) },
                             onSwap = viewModel::aiCardAction,
@@ -366,6 +380,7 @@ private fun AssistantBubble(
     watchlist: Set<String>,
     liked: Map<String, Boolean>,
     onOpenTitle: (String, Int) -> Unit,
+    onPlay: (com.movviz.nx.mobile.data.AiPlayDto) -> Unit,
     onAdd: (AiRecommendationDto) -> Unit,
     onLike: (AiRecommendationDto) -> Unit,
     onSwap: (AiRecommendationDto, String) -> Unit,
@@ -389,6 +404,35 @@ private fun AssistantBubble(
                     color = MovvizInkSoft,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+                )
+            }
+        }
+        message.play?.let { target ->
+            Spacer(Modifier.height(8.dp))
+            // Gris au repos, blanc seulement à l'appui (règle des boutons).
+            val pressed = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            val isPressed by pressed.collectIsPressedAsState()
+            val view = androidx.compose.ui.platform.LocalView.current
+            Row(
+                modifier = Modifier
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isPressed) Color.White else Color.White.copy(alpha = .12f))
+                    .clickable(interactionSource = pressed, indication = null) {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                        onPlay(target)
+                    }
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("▶", color = if (isPressed) Color.Black else Color.White, fontSize = 13.sp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (target.seasonNumber != null) "${target.title} · S${target.seasonNumber}E${target.episodeNumber}" else target.title,
+                    color = if (isPressed) Color.Black else Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
                 )
             }
         }

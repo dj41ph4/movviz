@@ -107,3 +107,9 @@ test("un au revoir n'affiche aucun bouton, une vraie proposition si", async () =
   assert.deepEqual(buildQuickReplies({ role: "assistant", content: "Passe une excellente soirée, Seb ! Profite bien de ton film, et fais signe dès que tu veux qu'on se relance une session ciné. À plus ! 🍿🎬" }), []);
   assert.ok(buildQuickReplies({ role: "assistant", content: "Tu veux plutôt un film ou une série ce soir ? 🍿" }).length > 0);
 });
+
+test("« lance-le » est reconnu comme une demande de lecture, « mets-le en vu » non", async () => {
+  const { isPlayRequest } = await import("../src/lib/ai/playTarget.ts");
+  for (const msg of ["ouais vas y lance le", "lance-le", "démarre le film", "lance la lecture", "mets-le", "joue le"]) assert.ok(isPlayRequest(msg), msg);
+  for (const msg of ["mets-le en vu", "je l'ai déjà vu", "un film qui lance des idées ?", "conseille moi un film"]) assert.equal(isPlayRequest(msg), false, msg);
+});

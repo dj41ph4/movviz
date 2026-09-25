@@ -93,6 +93,9 @@ export interface AiChatMessage {
   alternates?: AiRecommendation[];
   /** Quick replies shown under the last message; one tap sends the text. */
   suggestions?: string[];
+  /** « lance-le »: what the assistant started playing (the client opens its
+   *  player on it, and shows a ▶ to start it again). */
+  play?: AiPlayTarget;
 }
 
 export interface AiChatSession {
@@ -308,3 +311,19 @@ export interface AiMoodProfile {
  *  is intentionally shared across everyone (AI.MD §2.P/§2.U: cache global
  *  Movie → MoodProfile only, never personal data here). Keyed "type:tmdbId". */
 export type AiTitleAnalysisStore = Record<string, AiMoodProfile>;
+
+/** A title the assistant can start in the player, resolved from the library. */
+export interface AiPlayTarget {
+  type: "movie" | "series";
+  tmdbId: number;
+  title: string;
+  posterPath: string | null;
+  /** Plex rating key, or the Movviz id when the file is Movviz-only. */
+  ratingKey: string;
+  /** Movie id, or « seriesId:sXeY » for an episode. */
+  movvizId: string;
+  seriesId?: string;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeTitle?: string;
+}

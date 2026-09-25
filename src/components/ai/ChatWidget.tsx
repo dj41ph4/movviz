@@ -8,9 +8,11 @@ import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { getPageTitleContext } from "@/lib/ai/pageContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import type { AiActionOutcome, AiChatMessage, AiRecommendation } from "@/lib/ai/types";
+import type { AiActionOutcome, AiChatMessage, AiPlayTarget, AiRecommendation } from "@/lib/ai/types";
+import { usePlayer } from "@/lib/player/PlayerProvider";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import {
-  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown, Eye, Bookmark,
+  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown, Eye, Bookmark, Play,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<AiActionOutcome["status"], string> = {
@@ -306,6 +308,27 @@ export function ChatWidget() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy, open]);
 
+  // « lance-le »: the reply carries what to play — the same player as the
+  // title page's « Lecture » button.
+  const { play } = usePlayer();
+  const { enabled: betaPlayer } = useBetaPlayer();
+  const startPlayback = useCallback((target: AiPlayTarget) => {
+    play({
+      ratingKey: target.ratingKey,
+      movvizId: target.movvizId,
+      seriesId: target.seriesId,
+      title: target.seasonNumber != null
+        ? `${target.title} — ${target.seasonNumber}x${String(target.episodeNumber).padStart(2, "0")}${target.episodeTitle ? ` · ${target.episodeTitle}` : ""}`
+        : target.title,
+      useTranscode: betaPlayer,
+      tmdbId: target.tmdbId,
+      type: target.type,
+      seasonNumber: target.seasonNumber,
+      episodeNumber: target.episodeNumber,
+      posterUrl: target.posterPath ? `https://image.tmdb.org/t/p/w500${target.posterPath}` : null,
+    });
+  }, [play, betaPlayer]);
+
   const sendText = useCallback(async (text: string) => {
     if (!text || busy) return;
     setMessages((m) => [...m, { role: "user", content: text }]);
@@ -324,13 +347,14 @@ export function ChatWidget() {
       } else if (data?.message) {
         setMessages((m) => [...m, data.message]);
         setProvider(data.provider ?? null);
+        if (data.message.play) startPlayback(data.message.play);
       }
     } catch {
       setMessages((m) => [...m, { role: "assistant", content: t("ai.error") }]);
     } finally {
       setBusy(false);
     }
-  }, [busy, t, mutateSession]);
+  }, [busy, t, mutateSession, startPlayback]);
 
   const send = useCallback(() => {
     const text = input.trim();
@@ -542,6 +566,15 @@ export function ChatWidget() {
                         onCancelDelete={cancelDeleteEntry}
                         t={t}
                       />
+                    ) : null}
+                    {msg.play ? (
+                      <button
+                        onClick={() => startPlayback(msg.play!)}
+                        className="mt-2 inline-flex h-9 items-center gap-2 rounded-xl bg-white/12 px-3 text-xs font-bold text-white transition-colors hover:bg-white hover:text-black focus-visible:bg-white focus-visible:text-black"
+                      >
+                        <Play className="h-3.5 w-3.5 fill-current" />
+                        {msg.play.seasonNumber != null ? `${msg.play.title} · S${msg.play.seasonNumber}E${msg.play.episodeNumber}` : msg.play.title}
+                      </button>
                     ) : null}
                     {msg.recommendations && msg.recommendations.length ? (
                       <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} votes={votes} onVote={voteCard} swapping={swapping} onSwap={swapCard} watchlist={watchlist} onWatchlist={toggleWatchlist} t={t} />

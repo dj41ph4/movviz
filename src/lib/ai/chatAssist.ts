@@ -275,6 +275,7 @@ export function buildCapabilitiesSection(webSearchEnabled: boolean): string {
   const items = [
     "te conseiller des films et des séries selon TES goûts (tout ce que tu as vu et noté), dans une ambiance, un genre, une durée, ou « comme X mais sans Y »",
     "ajouter un film ou une série à ta bibliothèque : il est cherché et téléchargé tout seul",
+    "lancer un film ou le prochain épisode d’une série tout de suite (« lance-le »), s’il est dans ta bibliothèque",
     "te dire si tu as déjà un titre, si tu l'as vu, qui joue dedans ou l'a réalisé, et si une série est terminée",
     "te dire ce qui te manque d'une saga, ou dans la filmographie d'un acteur ou d'un réalisateur, comparé à ta bibliothèque",
     "marquer un titre comme vu (« mets-le en vu », « j'ai déjà tout vu ») et retenir tes notes (« je mets 4/5 à X ») pour affiner les suggestions",

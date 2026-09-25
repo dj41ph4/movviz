@@ -1,3 +1,10 @@
+## v1.25.96 — September 2026
+
+### Assistant IA : « lance-le » lance vraiment le film
+
+- Assistant IA : il peut lancer la lecture. « Lance-le », « démarre le film » ou « vas-y lance » ouvrent le lecteur sur le titre dont vous parlez : le film lui-même, ou pour une série l'épisode en cours, sinon le prochain non vu. Un bouton ▶ reste dans la conversation pour le relancer. Sur le web comme dans l'application Android mobile.
+- Assistant IA : si le titre n'a pas encore de fichier dans la bibliothèque, il le dit et propose de l'ajouter. Avant, cette demande pouvait finir en « J'ai raté ma réponse sur ce tour ».
+
 ## v1.25.95 — September 2026
 
 ### Assistant IA : propositions fidèles à la demande, pas de boutons sur un au revoir

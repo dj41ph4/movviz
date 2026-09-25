@@ -791,11 +791,27 @@ composable(ROUTE_PROFILES) {
         // Assistant IA : bulle sur les onglets (au-dessus de la barre basse en
         // portrait), chat plein écran par-dessus tout le reste une fois ouvert.
         Box(Modifier.fillMaxSize().zIndex(20f)) {
+            val chatContext = androidx.compose.ui.platform.LocalContext.current
             com.movviz.nx.mobile.ui.ai.AiChatLauncher(
                 viewModel = viewModel,
                 showButton = currentRoute?.startsWith("home") == true && !searchOpen,
                 buttonBottomPadding = if (compactPortrait) 96.dp else 24.dp,
                 onOpenTitle = { type, tmdbId -> navController.navigate(detailRoute(type, tmdbId)) },
+                // « lance-le » : même lecteur que le bouton Lecture de la fiche.
+                onPlay = { target ->
+                    val url = viewModel.serverUrl.value ?: return@AiChatLauncher
+                    val episode = target.seasonNumber != null && target.episodeNumber != null
+                    val item = com.movviz.nx.mobile.ui.player.QueueItem(
+                        ratingKey = target.ratingKey,
+                        label = if (episode) "S${target.seasonNumber}E${target.episodeNumber}${target.episodeTitle?.let { " · $it" } ?: ""}" else null,
+                        seasonNumber = target.seasonNumber ?: -1,
+                        episodeNumber = target.episodeNumber ?: -1,
+                        localKey = if (episode) target.seriesId else target.movvizId,
+                    )
+                    chatContext.startActivity(
+                        PlayerActivity.forQueue(chatContext, url, target.type, target.tmdbId, target.title, listOf(item), 0, posterPath = target.posterPath, profileId = viewModel.currentUser.value?.id),
+                    )
+                },
             )
         }
         AutoUpdateOverlay(viewModel)
