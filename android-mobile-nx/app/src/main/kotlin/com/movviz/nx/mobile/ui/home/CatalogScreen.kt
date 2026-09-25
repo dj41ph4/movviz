@@ -222,12 +222,17 @@ fun CatalogScreen(
             ) {
                 Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
             }
-            else -> TvLazyVerticalGrid(
+            else -> {
+            // Portrait : 3 colonnes pleine largeur. Des colonnes fixes de
+            // 150 dp n'en laissaient tenir que 2, avec un grand vide à droite.
+            // Largeur de carte = (écran - 2×16 dp de marge - 2×10 dp d'écart) / 3.
+            val portraitCardWidth = ((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 32 - 20) / 3).dp
+            TvLazyVerticalGrid(
                 // 132dp donne 6 à 7 affiches lisibles en 1080p (et davantage
                 // en 4K) : assez dense pour une bibliothèque TV, sans devenir
                 // une mosaïque illisible à trois mètres. En déplié, 108.dp
                 // donne 3 colonnes dans la colonne centrale étroite.
-                columns = TvGridCells.FixedSize(if (compactPortrait) 150.dp else if (unfoldedOnly) 108.dp else 132.dp),
+                columns = if (compactPortrait) TvGridCells.Fixed(3) else TvGridCells.FixedSize(if (unfoldedOnly) 108.dp else 132.dp),
                 horizontalArrangement = Arrangement.spacedBy(if (narrow) 10.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(if (narrow) 14.dp else 18.dp),
                 modifier = Modifier.fillMaxSize(),
@@ -252,7 +257,7 @@ fun CatalogScreen(
                         // dessus au focus — mais la carte NE grandit PAS en
                         // paysage ici (grille verticale, pas de rangée : un
                         // agrandissement décalerait les cartes voisines).
-                        width = if (compactPortrait) 150.dp else if (unfoldedOnly) 108.dp else 132.dp,
+                        width = if (compactPortrait) portraitCardWidth else if (unfoldedOnly) 108.dp else 132.dp,
                         aspectRatio = 2f / 3f,
                         preferPosterArt = true,
                         // La bibliothèque n'est pas une rangée éditoriale :
@@ -265,6 +270,7 @@ fun CatalogScreen(
                         },
                     )
                 }
+            }
             }
         }
     }

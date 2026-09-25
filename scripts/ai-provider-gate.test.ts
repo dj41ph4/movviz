@@ -107,3 +107,25 @@ test("the settings probe keeps working models, drops refused ones, never caches 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("a Gemini key with its quota spent hands over to the next key at once", async () => {
+  const originalFetch = globalThis.fetch;
+  const keysUsed: string[] = [];
+  globalThis.fetch = (async (input) => {
+    const key = new URL(String(input)).searchParams.get("key") ?? "";
+    keysUsed.push(key);
+    if (key === "k1") return new Response(JSON.stringify({ error: { message: "You exceeded your current quota. Quota exceeded for metric: generate_content_free_tier_requests, limit: 500" } }), { status: 429 });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const cfg = config("gemini", "gemini-3.5-flash-lite");
+    cfg.providers.gemini.keys = [{ id: "a", key: "k1" }, { id: "b", key: "k2" }];
+    const t0 = Date.now();
+    const result = await callAi(cfg, "system", [{ role: "user", content: "a" }]);
+    assert.equal(result.text, "ok");
+    assert.deepEqual(keysUsed, ["k1", "k2"], "the spent key is not retried");
+    assert.ok(Date.now() - t0 < 2_000, "no 6 s wait before the next key");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -63,6 +63,12 @@ export function isModelUnavailable(err: AiCallError): boolean {
   return /no longer available|is not found|not supported for generatecontent|limit:\s*0\b/i.test(err.message);
 }
 
+/** The key's quota is used up (Gemini « Quota exceeded for metric… », «
+ *  You exceeded your current quota »), as opposed to a momentary burst. */
+function isQuotaSpent(err: AiCallError): boolean {
+  return /quota exceeded|exceeded your current quota/i.test(err.message);
+}
+
 /** Respects the provider's Retry-After (capped), else a short fixed pause. */
 export function rateLimitDelayMs(err: AiCallError): number {
   const asked = typeof err.retryAfterSec === "number" && Number.isFinite(err.retryAfterSec) ? err.retryAfterSec : NaN;
@@ -288,6 +294,10 @@ async function callProviderNow(config: AiConfig, providerId: AiProviderId, syste
         } catch (e) {
           lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);
           if (providerId === "gemini" && isModelUnavailable(lastError)) { modelUnavailable = true; break; }
+          // A spent daily/monthly quota won't come back in 6 s: go straight
+          // to the next key instead of waiting on this one (several Gemini
+          // keys then chain without a gap). A plain burst limit still retries.
+          if (isQuotaSpent(lastError)) break;
           if (attempt === 0 && isRateLimited(lastError)) {
             await sleep(rateLimitDelayMs(lastError));
             continue;

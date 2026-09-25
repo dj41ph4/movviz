@@ -118,11 +118,13 @@ fun AiChatLauncher(
     val serverUrl by viewModel.serverUrl.collectAsState()
     LaunchedEffect(user?.username, profile, serverUrl) {
         if (serverUrl == null) return@LaunchedEffect
+        viewModel.refreshAiSession()
+        // Surveillance continue plutôt qu'un seul succès : si l'état repasse
+        // à « désactivé » (réseau coupé, serveur redémarré), il est relu.
         var attempt = 0
         while (true) {
-            viewModel.refreshAiSession()
             kotlinx.coroutines.delay(if (attempt == 0) 5_000L else if (attempt == 1) 15_000L else 60_000L)
-            if (viewModel.aiEnabled.value) break
+            if (!viewModel.aiEnabled.value) viewModel.refreshAiSession()
             attempt++
         }
     }
@@ -165,6 +167,7 @@ private fun AiChatScreen(
     val messages by viewModel.aiMessages.collectAsState()
     val busy by viewModel.aiBusy.collectAsState()
     val swapping by viewModel.aiSwapping.collectAsState()
+    val added by viewModel.aiAdded.collectAsState()
     var input by rememberSaveable { mutableStateOf("") }
     // 👍 posés dans cette ouverture — affichage seulement, la vraie trace est côté serveur.
     val liked = remember { mutableStateMapOf<String, Boolean>() }
@@ -262,6 +265,7 @@ private fun AiChatScreen(
                             isLast = index == messages.lastIndex,
                             busy = busy,
                             swapping = swapping,
+                            added = added,
                             liked = liked,
                             onOpenTitle = onOpenTitle,
                             onAdd = viewModel::aiAddCard,
@@ -346,6 +350,7 @@ private fun AssistantBubble(
     isLast: Boolean,
     busy: Boolean,
     swapping: String?,
+    added: Set<String>,
     liked: Map<String, Boolean>,
     onOpenTitle: (String, Int) -> Unit,
     onAdd: (AiRecommendationDto) -> Unit,
@@ -381,6 +386,7 @@ private fun AssistantBubble(
                     RecommendationCard(
                         card = card,
                         busy = swapping == key,
+                        justAdded = key in added,
                         liked = liked[key] == true,
                         onOpen = { onOpenTitle(card.type, card.tmdbId) },
                         onAdd = { onAdd(card) },
@@ -404,6 +410,7 @@ private fun AssistantBubble(
 private fun RecommendationCard(
     card: AiRecommendationDto,
     busy: Boolean,
+    justAdded: Boolean,
     liked: Boolean,
     onOpen: () -> Unit,
     onAdd: () -> Unit,
@@ -461,7 +468,9 @@ private fun RecommendationCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (card.inLibrary) {
+                if (justAdded) {
+                    CardChip(MovvizIconCheck, "Ajouté", tint = MovvizOk, background = MovvizOk.copy(alpha = .12f), onClick = onOpen)
+                } else if (card.inLibrary) {
                     CardChip(MovvizIconCheck, "Dans la bibliothèque", tint = MovvizOk, background = MovvizOk.copy(alpha = .12f), onClick = onOpen)
                 } else {
                     CardChip(MovvizIconPlus, "Ajouter", tint = Color.White, background = MovvizBrand, onClick = onAdd)

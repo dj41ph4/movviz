@@ -2311,7 +2311,7 @@ export const fr = {
       opencode: "OpenCode Zen",
       opencodeHint: "Tous les modèles Zen gratuits, sans modèle payant",
     },
-    added: "Ajouté — recherche lancée",
+    added: "Ajouté",
     addFailed: "Échec de l'ajout",
     inLibrary: "Dans la bibliothèque",
     add: "Ajouter",

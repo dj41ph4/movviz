@@ -46,7 +46,7 @@ function summarizeAdd(outcomes: AiActionOutcome[]): string[] {
   }
   for (const o of outcomes) {
     const name = o.year ? `${o.title} (${o.year})` : o.title;
-    if (o.status === "added") lines.push(`• Ajouté, recherche lancée — ${name}`);
+    if (o.status === "added") lines.push(`• Ajouté — ${name}`);
     else if (o.status === "requested") lines.push(`• Demande envoyée — ${name}`);
     else if (o.status === "already") lines.push(`• Déjà dans la bibliothèque — ${name}`);
     else if (o.status === "not_found") lines.push(`• Introuvable ou pas de correspondance fiable sur TMDb — ${name} (essaie avec l'année ou le titre original si tu le connais)`);

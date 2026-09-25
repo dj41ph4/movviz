@@ -2312,7 +2312,7 @@ diskScan: {
       opencode: "OpenCode Zen",
       opencodeHint: "Alle kostenlosen Zen-Modelle, ohne kostenpflichtige Modelle",
     },
-    added: "Hinzugefügt — Suche gestartet",
+    added: "Hinzugefügt",
     addFailed: "Hinzufügen fehlgeschlagen",
     inLibrary: "In der Bibliothek",
     add: "Hinzufügen",

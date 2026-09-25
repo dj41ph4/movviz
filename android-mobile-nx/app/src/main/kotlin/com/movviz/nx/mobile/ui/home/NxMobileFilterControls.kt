@@ -2,6 +2,7 @@ package com.movviz.nx.mobile.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -143,7 +144,9 @@ fun FilterDropdownChip(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 12.dp),
+                // fillMaxHeight : sans lui, la ligne restait collée en haut de
+                // la pastille de 34 dp (texte décentré, vide en dessous).
+                modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp),
             ) {
                 Text(
                     text = selectedLabel ?: label,

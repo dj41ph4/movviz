@@ -255,6 +255,10 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _aiBusy = MutableStateFlow(false)
     val aiBusy: StateFlow<Boolean> = _aiBusy.asStateFlow()
     /** Carte en cours de remplacement (« type:tmdbId »), grisée le temps de l'appel. */
+    /** Titres ajoutés depuis une carte (« type:tmdbId ») : la carte affiche
+     *  simplement « Ajouté », plus court que « Dans la bibliothèque ». */
+    private val _aiAdded = MutableStateFlow<Set<String>>(emptySet())
+    val aiAdded: StateFlow<Set<String>> = _aiAdded.asStateFlow()
     private val _aiSwapping = MutableStateFlow<String?>(null)
     val aiSwapping: StateFlow<String?> = _aiSwapping.asStateFlow()
 
@@ -324,6 +328,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         val repo = repository ?: return
         viewModelScope.launch {
             if (repo.addToLibrary(card.type, card.tmdbId) is ApiResult.Success) {
+                _aiAdded.value = _aiAdded.value + "${card.type}:${card.tmdbId}"
                 _aiMessages.value = _aiMessages.value.map { message ->
                     val cards = message.recommendations ?: return@map message
                     if (cards.none { it.type == card.type && it.tmdbId == card.tmdbId }) return@map message
@@ -941,10 +946,14 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _seriesRows.value = emptyList()
         _movieLibraryRecommendations.value = emptyList()
         _rewatch.value = emptyList()
-        _aiEnabled.value = false
+        // Pas _aiEnabled : c'est un réglage du SERVEUR, identique pour tous
+        // les profils. Le remettre à false ici (appelé à chaque sélection de
+        // profil) faisait disparaître la bulle juste après son chargement —
+        // elle ne revenait qu'après une rotation (écran recréé).
         _aiMessages.value = emptyList()
         _aiBusy.value = false
         _aiSwapping.value = null
+        _aiAdded.value = emptySet()
         _seriesLibraryRecommendations.value = emptyList()
         _detail.value = null
         _detailError.value = null

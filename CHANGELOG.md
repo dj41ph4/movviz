@@ -1,3 +1,12 @@
+## v1.25.80 — September 2026
+
+### Assistant visible dès l'ouverture sur mobile, bibliothèque sur trois colonnes, clés Gemini enchaînées
+
+- Android mobile : la bulle de l'assistant IA apparaît dès l'ouverture de l'application, en portrait comme en paysage. Choisir son profil la faisait disparaître juste après son chargement, et elle ne revenait qu'après une rotation de l'écran.
+- Android mobile, portrait : la bibliothèque affiche trois affiches par ligne sur toute la largeur, au lieu de deux avec un grand vide à droite. Les filtres « Genres » et « Durée » ont leur texte bien centré.
+- Assistant IA (ordinateur, téléphone et application mobile) : un titre ajouté depuis une suggestion affiche simplement « Ajouté ».
+- Assistant IA : avec plusieurs clés Gemini, une clé dont le quota du jour est épuisé passe immédiatement la main à la suivante, sans temps d'attente.
+
 ## v1.25.79 — September 2026
 
 ### Android mobile : assistant visible en portrait, épisodes lisibles, retour haptique

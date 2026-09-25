@@ -2313,7 +2313,7 @@ export const en: Dictionary = {
       opencode: "OpenCode Zen",
       opencodeHint: "Every free Zen model, with no paid models",
     },
-    added: "Added — search started",
+    added: "Added",
     addFailed: "Add failed",
     inLibrary: "In library",
     add: "Add",
