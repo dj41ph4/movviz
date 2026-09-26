@@ -1,4 +1,5 @@
 import { pathFor } from "./renamePath";
+import { anthologyFor } from "@/lib/library/anthology";
 import { loadMovies, loadSeries } from "./store";
 import { getTitleInLanguage } from "@/lib/metadata/tmdb";
 import { loadNamingTemplates } from "@/lib/naming/store";
@@ -109,6 +110,12 @@ export async function scanRenames(
 
   for (const series of seriesList) {
     idx++;
+    // Anthologie Plex (Monster) : rangée exprès dans le dossier de
+    // l'anthologie (anthology.ts) — le renommage ne doit pas l'en sortir.
+    if (anthologyFor(series.tmdbId)) {
+      setProgress?.(idx, total);
+      continue;
+    }
     try {
       const translated = await getTitleInLanguage(series.tmdbId, "series", language);
       if (!translated) {

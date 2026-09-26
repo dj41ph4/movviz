@@ -482,6 +482,19 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
 
 // ---- public api ----
 
+/** Anthologie Plex (Monster) : rangée exprès dans le dossier de l'anthologie
+ *  (anthology.ts) — le renommage ne doit jamais l'en sortir. */
+async function renameSeriesUnlessAnthology(id: string, language: string, log: LogFn): Promise<RenameResult> {
+  const { getSeries } = await import("@/lib/library/store");
+  const { anthologyFor } = await import("@/lib/library/anthology");
+  const series = getSeries(id);
+  if (series && anthologyFor(series.tmdbId)) {
+    log(`[SERIES] ${series.title} — anthologie Plex, rangement conservé`);
+    return { success: true, id, type: "series", title: series.title, skipped: true };
+  }
+  return renameSeries(id, language, log);
+}
+
 export async function executeRenames(
   selections: { id: string; type: "movie" | "series" }[],
   language: string,
@@ -495,7 +508,7 @@ export async function executeRenames(
   for (const sel of selections) {
     const res = sel.type === "movie"
       ? await renameMovie(sel.id, language, log)
-      : await renameSeries(sel.id, language, log);
+      : await renameSeriesUnlessAnthology(sel.id, language, log);
     results.push(res);
     done++;
     setProgress?.(done, selections.length);

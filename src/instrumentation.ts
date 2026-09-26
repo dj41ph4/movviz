@@ -73,6 +73,19 @@ export async function register() {
     const { reconcileStaleSearches } = await import("@/lib/library/reconcileStaleSearches");
     await phase("recherches interrompues", () => reconcileStaleSearches());
 
+    // Anthologie Plex (Monster) : les fichiers importés avant la règle sont
+    // rangés une fois, une minute après le démarrage (hors du chemin critique).
+    setTimeout(() => {
+      void import("@/lib/library/anthology")
+        .then(async ({ relocateAllAnthologies }) => {
+          if (await relocateAllAnthologies()) {
+            const { refreshPlexLibraryFor } = await import("@/lib/plex/librarySync");
+            await refreshPlexLibraryFor("tv");
+          }
+        })
+        .catch(() => {});
+    }, 60_000).unref?.();
+
     const { bootstrapEngine } = await import("@/lib/engine/bootstrap");
     await phase("moteur de téléchargement", () => bootstrapEngine());
 

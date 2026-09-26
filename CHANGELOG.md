@@ -1,3 +1,11 @@
+## v1.25.121 — September 2026
+
+### Monster : les quatre volets rangés comme une seule série pour Plex
+
+- « Monstre : L'Histoire de Lizzie Borden » n'apparaissait nulle part dans Plex une fois téléchargé. TMDb présente chaque volet de l'anthologie Netflix Monster comme une série à part, alors que Plex n'en connaît qu'une, « Monster », dont ce sont les saisons. Rangée dans son propre dossier « Saison 1 », Lizzie Borden était fusionnée par Plex avec la saison 1 de Dahmer : ses épisodes y devenaient invisibles.
+- Movviz range désormais l'anthologie comme Plex l'attend, dans le dossier « Monster (2022) » : Dahmer en saison 1, les frères Menendez en saison 2, Ed Gein en saison 3 et Lizzie Borden en saison 4. Les fichiers déjà téléchargés (Lizzie Borden, Ed Gein) sont déplacés automatiquement une minute après la mise à jour, puis Plex est relancé. Dans Movviz, chaque volet reste une série à part, avec sa propre fiche.
+- Cette règle ne concerne que Monster ; le renommage en masse n'y touche pas.
+
 ## v1.25.120 — September 2026
 
 ### Assistant IA : contexte complet ou compact, au choix

@@ -385,7 +385,16 @@ function revertBlockedImport(ref: LibraryImportRef, infoHash: string | undefined
  */
 export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
   const lockKey = ref.kind === "movie" ? `movie:${ref.movieId}` : `series:${ref.seriesId}`;
-  return withKeyLock(lockKey, () => applyImportedFilesLocked(ref, files, infoHash));
+  return withKeyLock(lockKey, async () => {
+    const result = await applyImportedFilesLocked(ref, files, infoHash);
+    // Anthologie Plex (Monster) : ranger aussitôt les fichiers là où Plex les
+    // attend — voir anthology.ts.
+    if (ref.kind !== "movie") {
+      const { relocateAnthologyFiles } = await import("@/lib/library/anthology");
+      if (await relocateAnthologyFiles(ref.seriesId).catch(() => 0)) refreshLoose("tv");
+    }
+    return result;
+  });
 }
 
 async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
