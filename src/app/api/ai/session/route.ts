@@ -98,6 +98,11 @@ export async function GET(req: NextRequest) {
   // plus NUDGE_WAIT_MS pour figurer dans CETTE réponse ; au-delà elle finit
   // en arrière-plan et sera signalée au prochain GET (pendingNudges). La
   // mise à jour du contexte ne concerne pas cette réponse : jamais attendue.
+  // ?sync=1 : un autre appareil a changé la conversation, ce client ne fait
+  // que la relire — ni relance spontanée ni mise à jour du contexte.
+  if (req.nextUrl.searchParams.get("sync") === "1") {
+    return NextResponse.json({ messages: loadAiSession(user.id).messages });
+  }
   void triggerIncrementalContextIfDue(user.id);
   let nudging = nudgesInFlight.get(user.id);
   if (!nudging) {

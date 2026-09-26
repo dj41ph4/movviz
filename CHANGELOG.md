@@ -1,3 +1,11 @@
+## v1.25.107 — September 2026
+
+### Temps réel : la conversation avec Movviz AI suit sur tous tes écrans
+
+- Une conversation commencée sur le PC continue sur le téléphone, et inversement : chaque question et chaque réponse apparaissent aussitôt sur tes autres appareils, sans rouvrir le chat.
+- « Effacer » efface la conversation partout en même temps, et une carte remplacée (« Déjà vu », « Pas pour moi ») l'est aussi sur les autres écrans.
+- « Lance-le » ne démarre la lecture que sur l'appareil où tu l'as demandé, jamais sur un autre écran qui affiche la même conversation.
+
 ## v1.25.106 — September 2026
 
 ### Assistant IA : il connaît la date et l'heure

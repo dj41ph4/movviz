@@ -178,13 +178,16 @@ private fun AiChatScreen(
     val messages by viewModel.aiMessages.collectAsState()
     // « lance-le » : seule une réponse arrivée pendant CETTE ouverture lance
     // le lecteur — rouvrir le chat ne relance jamais un ancien titre.
-    val handledCount = remember { mutableStateOf(-1) }
-    LaunchedEffect(messages.size) {
-        if (handledCount.value < 0) { handledCount.value = messages.size; return@LaunchedEffect }
-        val fresh = messages.drop(handledCount.value)
-        handledCount.value = messages.size
-        fresh.lastOrNull { it.role == "assistant" && it.play != null }?.play?.let(onPlay)
+    // La conversation peut aussi arriver d'un autre appareil (chat partagé) :
+    // seule une réponse reçue ICI lance le lecteur.
+    val playRequest by viewModel.aiPlayRequest.collectAsState()
+    LaunchedEffect(playRequest) {
+        val target = playRequest ?: return@LaunchedEffect
+        viewModel.consumeAiPlayRequest()
+        onPlay(target)
     }
+    // Chat fermé avant la réponse : on ne lance rien à la réouverture.
+    DisposableEffect(Unit) { onDispose { viewModel.consumeAiPlayRequest() } }
     val busy by viewModel.aiBusy.collectAsState()
     val swapping by viewModel.aiSwapping.collectAsState()
     val added by viewModel.aiAdded.collectAsState()

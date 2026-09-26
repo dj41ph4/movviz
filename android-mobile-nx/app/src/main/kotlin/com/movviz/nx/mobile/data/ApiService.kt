@@ -314,7 +314,7 @@ interface MovvizApiService {
 
     // IA — même conversation que le desktop, hermétique par profil (userId)
     @GET("api/ai/session")
-    suspend fun aiSession(): Response<AiSessionResponseDto>
+    suspend fun aiSession(@Query("sync") sync: Int? = null): Response<AiSessionResponseDto>
 
     @POST("api/ai/chat")
     suspend fun aiChat(@Body body: AiChatRequestDto): Response<AiChatResponseDto>

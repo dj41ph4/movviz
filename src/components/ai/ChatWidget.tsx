@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
+import { AI_CHAT_CHANGED_EVENT } from "@/lib/events/useLibrarySSE";
 import { useI18n, useT } from "@/i18n/provider";
 import { useVoiceChat } from "@/lib/ai/useVoiceChat";
 import { toast } from "@/components/ui/Toast";
@@ -408,6 +409,24 @@ export function ChatWidget() {
     }
   }, [busy, t, mutateSession, startPlayback, replyAloud]);
   useEffect(() => { sendTextRef.current = sendText; }, [sendText]);
+
+  // Chat partagé : la conversation continue sur tous les appareils. Le serveur
+  // prévient quand elle change ailleurs (question, réponse, carte remplacée,
+  // « Effacer ») et on la relit. Pendant une question en cours ici, on ne
+  // touche à rien : sa réponse arrive par la requête elle-même.
+  const busyRef = useRef(false);
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+  useEffect(() => {
+    const onChanged = async () => {
+      if (busyRef.current) return;
+      const data = await fetch("/api/ai/session?sync=1").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (!Array.isArray(data?.messages) || busyRef.current) return;
+      setMessages(data.messages);
+      void mutateSession((current) => (current ? { ...current, messages: data.messages, proactive: false } : current), { revalidate: false });
+    };
+    window.addEventListener(AI_CHAT_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(AI_CHAT_CHANGED_EVENT, onChanged);
+  }, [mutateSession]);
 
   const send = useCallback(() => {
     const text = input.trim();

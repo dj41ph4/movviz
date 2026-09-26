@@ -31,3 +31,22 @@ test("pendant une lecture, la position n'est relayée qu'une fois par période",
     off();
   }
 });
+
+test("chat IA partagé : une question, sa réponse et « Effacer » préviennent les autres appareils du même utilisateur", async () => {
+  const { pushAiMessage, clearAiSession } = await import("@/lib/ai/store");
+  const seen: AppEvent[] = [];
+  const off = eventBus.on((e) => seen.push(e));
+  try {
+    pushAiMessage("chat-user", { role: "user", content: "salut" });
+    await new Promise((r) => setTimeout(r, 300));
+    pushAiMessage("chat-user", { role: "assistant", content: "salut !" });
+    await new Promise((r) => setTimeout(r, 300));
+    clearAiSession("chat-user");
+    await new Promise((r) => setTimeout(r, 300));
+    const ai = seen.filter((e) => e.type === "ai_chat_changed") as { type: "ai_chat_changed"; userId: string }[];
+    assert.equal(ai.length, 3);
+    assert.ok(ai.every((e) => e.userId === "chat-user"));
+  } finally {
+    off();
+  }
+});

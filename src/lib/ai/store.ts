@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import { emitAiChatChanged } from "@/lib/events/watchEvents";
 import { AI_PROVIDERS, DEFAULT_AI_CONFIG, type AiChatSession, type AiConfig, type AiProviderId, type AiRecommendation } from "./types";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
@@ -105,6 +106,7 @@ export function pushAiMessage(userId: string, message: AiChatSession["messages"]
   }
   session.updatedAt = Date.now();
   scheduleSessionsFlush();
+  emitAiChatChanged(userId);
   return session;
 }
 
@@ -134,6 +136,7 @@ export function dropUnansweredUserMessage(userId: string, content: string): void
   session.messages.pop();
   session.updatedAt = Date.now();
   scheduleSessionsFlush();
+  emitAiChatChanged(userId);
 }
 
 /** « Déjà vu » / « Pas pour moi » on a card: the card leaves its message
@@ -151,6 +154,7 @@ export function replaceRecommendationCard(userId: string, type: "movie" | "serie
     else message.recommendations!.splice(index, 1);
     session.updatedAt = Date.now();
     scheduleSessionsFlush();
+    emitAiChatChanged(userId);
     return replacement;
   }
   return null;
@@ -181,4 +185,5 @@ export function setDialogueState(userId: string, dialogueState: NonNullable<AiCh
 export function clearAiSession(userId: string): void {
   sessions.delete(userId);
   flushSessionsToDisk();
+  emitAiChatChanged(userId);
 }

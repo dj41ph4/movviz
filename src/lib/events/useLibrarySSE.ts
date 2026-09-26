@@ -26,6 +26,8 @@ const EVENT_MUTATIONS: Record<string, string[]> = {
  *  of it reloads at once, whatever its query string. */
 const WATCH_KEY_RE = /^\/api\/(?:plex\/on-deck|watch-status|watchlist|profile\/media|dashboard\/rewatch|playback\/items)/;
 
+export const AI_CHAT_CHANGED_EVENT = "movviz:ai-chat-changed";
+
 let globalRetryMs = BACKOFF_MIN_MS;
 let globalReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -72,6 +74,12 @@ export function useLibrarySSE(enabled = true) {
 
       es.addEventListener("watch", () => {
         void mutate((key) => typeof key === "string" && WATCH_KEY_RE.test(key));
+      });
+
+      // « ai »: this user's Movviz AI conversation changed on another device
+      // (or this one) — the chat widget re-reads it (see ChatWidget).
+      es.addEventListener("ai", () => {
+        window.dispatchEvent(new Event(AI_CHAT_CHANGED_EVENT));
       });
 
       es.onerror = () => {

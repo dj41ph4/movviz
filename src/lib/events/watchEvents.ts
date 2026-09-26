@@ -31,6 +31,22 @@ export function emitWatchChanged(userId: string): void {
   timers.set(userId, timer);
 }
 
+const aiTimers: Map<string, ReturnType<typeof setTimeout>> = ((g as typeof g & { __movvizAiChatEventTimers?: Map<string, ReturnType<typeof setTimeout>> }).__movvizAiChatEventTimers ??= new Map());
+/** Short: a question and its answer are two separate changes a few seconds
+ *  apart, each shown live on the user's other screens. */
+const AI_COALESCE_MS = 150;
+
+/** « Chat IA partagé » : the conversation continues on every device. */
+export function emitAiChatChanged(userId: string): void {
+  if (!userId || aiTimers.has(userId)) return;
+  const timer = setTimeout(() => {
+    aiTimers.delete(userId);
+    eventBus.emit({ type: "ai_chat_changed", userId });
+  }, AI_COALESCE_MS);
+  timer.unref?.();
+  aiTimers.set(userId, timer);
+}
+
 /** Position updates during playback: throttled (see PLAYBACK_MIN_INTERVAL_MS). */
 export function emitPlaybackProgress(userId: string): void {
   const now = Date.now();

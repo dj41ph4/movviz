@@ -158,6 +158,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 loadProfileMedia()
             }
             if ("library" in channels) onLibraryChanges()
+            if ("ai" in channels || ("resync" in channels && _aiEnabled.value)) syncAiConversation()
             if ("library" in channels && "watch" !in channels) loadContinueWatching()
 
         }
@@ -395,6 +396,25 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
     }
 
+    /** Chat partagé : la conversation a changé sur un autre appareil (ou ici)
+     *  — on la relit. Jamais pendant une question en cours ici : sa réponse
+     *  arrive par la requête elle-même. */
+    private fun syncAiConversation() {
+        val repo = repository ?: return
+        if (_aiBusy.value) return
+        val generation = aiClearGeneration
+        viewModelScope.launch {
+            val result = repo.aiSessionSync()
+            if (result is ApiResult.Success && !_aiBusy.value && generation == aiClearGeneration) _aiMessages.value = result.data.messages
+        }
+    }
+
+    /** « lance-le » : titre à lancer demandé par une réponse reçue par CET
+     *  appareil — jamais par une conversation relue depuis un autre écran. */
+    private val _aiPlayRequest = MutableStateFlow<com.movviz.nx.mobile.data.AiPlayDto?>(null)
+    val aiPlayRequest: StateFlow<com.movviz.nx.mobile.data.AiPlayDto?> = _aiPlayRequest.asStateFlow()
+    fun consumeAiPlayRequest() { _aiPlayRequest.value = null }
+
     fun sendAiMessage(text: String) {
         val message = text.trim()
         val repo = repository ?: return
@@ -411,6 +431,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
             }
             _aiMessages.value = _aiMessages.value + reply
             _aiBusy.value = false
+            reply.play?.let { _aiPlayRequest.value = it }
         }
     }
 

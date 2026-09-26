@@ -36,6 +36,7 @@ const EVENT_SSE_CHANNEL: Record<AppEvent["type"], string> = {
   user_updated: "user",
   activity_updated: "activity",
   watch_changed: "watch",
+  ai_chat_changed: "ai",
 };
 
 export async function GET(req: NextRequest) {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
     start(controller) {
       cleanup = eventBus.on((event) => {
         // A user's views and resume positions go to that user's devices only.
-        if (event.type === "watch_changed" && event.userId !== user.id) return;
+        if ((event.type === "watch_changed" || event.type === "ai_chat_changed") && event.userId !== user.id) return;
         const channel = EVENT_SSE_CHANNEL[event.type];
         const data = JSON.stringify(channel === "library" ? withTitleState(event) : event);
         try {
