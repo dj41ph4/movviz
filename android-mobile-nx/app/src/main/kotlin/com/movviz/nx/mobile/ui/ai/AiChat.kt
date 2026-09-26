@@ -263,13 +263,20 @@ private fun AiChatScreen(
     }
     // Chaque nouvelle réponse : lue à voix haute si demandé, puis réécoute en mode conversation.
     val spokenCount = remember { mutableStateOf(-1) }
+    // Seule une réponse attendue par CET appareil est lue : une conversation
+    // relue depuis un autre écran (chat partagé) reste silencieuse.
+    val awaitingReply = remember { mutableStateOf(false) }
+    LaunchedEffect(busy) { if (busy) awaitingReply.value = true }
     LaunchedEffect(messages.size) {
         if (spokenCount.value < 0) { spokenCount.value = messages.size; return@LaunchedEffect }
         val fresh = messages.drop(spokenCount.value).lastOrNull { it.role == "assistant" }
         spokenCount.value = messages.size
         if (fresh == null) return@LaunchedEffect
         val relisten = { if (talkMode && voiceInput) listen() }
-        if (voiceOutput && (voice.speakEnabled || talkMode)) voice.speak(fresh.content) { relisten() }
+        val mine = awaitingReply.value
+        awaitingReply.value = false
+        if (!mine) return@LaunchedEffect
+        if (voiceOutput && (voice.speakEnabled || talkMode)) voice.speak(AiVoice.spokenReply(fresh)) { relisten() }
         else relisten()
     }
     LaunchedEffect(messages.size, busy) {

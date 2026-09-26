@@ -1,3 +1,10 @@
+## v1.25.113 — September 2026
+
+### Assistant IA : il lit aussi les films qu'il propose
+
+- À voix haute, l'assistant ne lisait que son texte : les cartes restaient muettes, et une recommandation ne nommait aucun film. Il lit maintenant chaque titre proposé avec sa phrase, par exemple « Nobody : bourrin, jubilatoire et taillé dans le même bois que John Wick », sur le web comme sur le téléphone.
+- Téléphone : seule une réponse à une question posée sur cet appareil est lue. Une conversation qui arrive d'un autre écran reste silencieuse.
+
 ## v1.25.112 — September 2026
 
 ### Android mobile : des voix aussi naturelles que sur PC

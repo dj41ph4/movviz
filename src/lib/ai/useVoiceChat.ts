@@ -42,6 +42,17 @@ export function speakableText(text: string): string {
     .trim();
 }
 
+/** What the assistant says aloud for a reply: its text, then each suggested
+ *  title with its one-line pitch (« Nobody : bourrin, jubilatoire… ») — the
+ *  cards were silent, so a spoken recommendation named no film at all. */
+export function spokenReply(message: { content?: string | null; recommendations?: { title: string; reason?: string | null }[] | null }): string {
+  const cards = (message.recommendations ?? []).map((card) => {
+    const reason = card.reason?.trim().replace(/[.!…\s]+$/, "");
+    return reason ? `${card.title} : ${reason.charAt(0).toLowerCase()}${reason.slice(1)}.` : `${card.title}.`;
+  });
+  return [message.content ?? "", ...cards].filter((part) => part.trim()).join(" ");
+}
+
 /** Most natural first: Edge « Natural/Online », then Google, then the rest. */
 function voiceRank(voice: SpeechSynthesisVoice): number {
   const name = voice.name.toLowerCase();

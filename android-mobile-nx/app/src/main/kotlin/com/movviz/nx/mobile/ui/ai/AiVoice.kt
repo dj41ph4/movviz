@@ -119,6 +119,18 @@ class AiVoice(context: Context) : TextToSpeech.OnInitListener {
         }.getOrNull()
         private const val KEY_SPEAK = "speak"
 
+        /** Ce que l'assistant dit d'une réponse : son texte, puis chaque titre
+         *  proposé avec sa phrase (« Nobody : bourrin, jubilatoire… ») — les
+         *  cartes restaient muettes, une recommandation à voix haute ne
+         *  nommait aucun film. */
+        fun spokenReply(message: com.movviz.nx.mobile.data.AiChatMessageDto): String {
+            val cards = message.recommendations.orEmpty().map { card ->
+                val reason = card.reason?.trim()?.trimEnd('.', '!', '…', ' ')
+                if (reason.isNullOrEmpty()) "${card.title}." else "${card.title} : ${reason.replaceFirstChar { it.lowercase() }}."
+            }
+            return (listOf(message.content) + cards).filter { it.isNotBlank() }.joinToString(" ")
+        }
+
         /** Ce qui vaut la peine d'être dit : ni emojis, ni markdown, ni marqueurs. */
         fun speakable(text: String): String = text
             .replace(Regex("""\[\[[^\]]*]]"""), "")

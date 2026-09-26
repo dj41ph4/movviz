@@ -5,7 +5,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { AI_CHAT_CHANGED_EVENT } from "@/lib/events/useLibrarySSE";
 import { useI18n, useT } from "@/i18n/provider";
-import { useVoiceChat } from "@/lib/ai/useVoiceChat";
+import { spokenReply, useVoiceChat } from "@/lib/ai/useVoiceChat";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { getPageTitleContext } from "@/lib/ai/pageContext";
@@ -400,7 +400,7 @@ export function ChatWidget() {
         setMessages((m) => [...m, data.message]);
         setProvider(data.provider ?? null);
         if (data.message.play) startPlayback(data.message.play);
-        replyAloud(data.message.content ?? "");
+        replyAloud(spokenReply(data.message));
       }
     } catch {
       setMessages((m) => [...m, { role: "assistant", content: t("ai.error") }]);
