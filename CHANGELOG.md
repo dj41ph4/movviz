@@ -1,3 +1,10 @@
+## v1.25.125 — September 2026
+
+### Fiches : plus jamais « En attente de synchronisation Plex »
+
+- Une série disponible sans lien Plex (Plex éteint, pas encore synchronisé, ou fichiers tout juste rangés) affichait un bouton grisé « En attente de synchronisation Plex » et ne se lisait pas. Movviz sait où sont les fichiers : le bouton lit maintenant directement le prochain épisode présent sur le disque (le premier non vu), et chaque épisode de la liste se lit aussi. Plex se synchronise en arrière-plan, sans jamais bloquer.
+- Les séries déjà reliées à Plex gardent exactement le même comportement.
+
 ## v1.25.124 — September 2026
 
 ### Monster : rangement fiable sous Windows, et bouton pour le lancer

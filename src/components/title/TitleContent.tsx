@@ -279,6 +279,21 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   /* ── manual "watched" toggle (film / série complète) ─────────────────── */
 
   const watchedMovie = (watchData?.movies ?? []).includes(tmdbId);
+
+  // Série : le prochain épisode lisible SUR LE DISQUE — le premier non vu,
+  // sinon le premier. Movviz sait où sont les fichiers : une série sans
+  // lien Plex se lit directement, jamais « en attente de synchronisation ».
+  const seriesLocalNext = useMemo(() => {
+    if (type !== "series" || !libraryMatch?.id) return null;
+    const playable: { season: number; episode: number; ep: NonNullable<LibraryListItem["seasons"]>[number]["episodes"][number] }[] = [];
+    const seasons = [...(libraryMatch.seasons ?? [])].filter((s) => (s.seasonNumber ?? 0) > 0).sort((a, b) => (a.seasonNumber ?? 0) - (b.seasonNumber ?? 0));
+    for (const s of seasons) {
+      for (const e of [...s.episodes].sort((a, b) => (a.episodeNumber ?? 0) - (b.episodeNumber ?? 0))) {
+        if (e.file && e.episodeNumber != null && s.seasonNumber != null) playable.push({ season: s.seasonNumber, episode: e.episodeNumber, ep: e });
+      }
+    }
+    return playable.find((p) => !watchedEpisodes.has(`${p.season}.${p.episode}`)) ?? playable[0] ?? null;
+  }, [type, libraryMatch, watchedEpisodes]);
   const seriesEpisodes = useMemo(() => {
     if (type !== "series" || !libraryMatch) return [];
     const out: { season: number; episode: number }[] = [];
@@ -1337,29 +1352,17 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 </button>
               ) : (
                 <>
-                  {libraryStatus === "available" && !hasLocalPlayback && !libraryMatch?.plexUrl && (
-                    // It is incomplete only when neither Movviz nor Plex
-                    // can provide a source. A local file launches directly.
-                    <div className="flex items-center gap-2">
-                      <button
-                        disabled
-                        title={t("library.watchPendingPlexSync")}
-                        className="flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white/50 backdrop-blur disabled:opacity-50"
-                      >
-                        <Play className="h-4 w-4" />
-                        {t("library.watchPendingPlexSync")}
-                      </button>
-                      {user?.role === "admin" && (
-                        <button
-                          onClick={forcePlexSync}
-                          disabled={forcingPlexSync}
-                          title={t("library.forcePlexSync")}
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/70 backdrop-blur transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
-                        >
-                          {forcingPlexSync ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        </button>
-                      )}
-                    </div>
+                  {/* Série sans lien Plex : lecture directe du prochain épisode
+                      présent sur le disque. Plex, quand il est là, se
+                      synchronise en arrière-plan sans jamais bloquer. */}
+                  {type === "series" && seriesLocalNext && !libraryMatch?.plexUrl && (
+                    <button
+                      onClick={(e) => playEpisode(seriesLocalNext.season, seriesLocalNext.episode, seriesLocalNext.ep, e.currentTarget.getBoundingClientRect())}
+                      className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
+                    >
+                      <Play className="h-4 w-4 fill-white" />
+                      {usePlayLabelResult.label} · S{pad(seriesLocalNext.season)}E{pad(seriesLocalNext.episode)}
+                    </button>
                   )}
                   {/* Lecture dès que le fichier est déplacé + renommé au bon
                       endroit — sans attendre ni le flip de statut ni Plex.
@@ -1760,7 +1763,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     ? openManualSearchEpisode
                     : undefined
                 }
-                onPlayEpisode={betaPlayer ? playEpisode : undefined}
+                onPlayEpisode={betaPlayer || !libraryMatch?.plexUrl ? playEpisode : undefined}
                 searchingSeason={effectiveSearchingSeason}
                 searchingEpisodeKey={effectiveSearchingEpisode}
                 watchedEpisodes={watchedEpisodes}
