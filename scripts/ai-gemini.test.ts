@@ -111,3 +111,45 @@ test("a request Gemini rejects for what it is stops there instead of burning eve
     globalThis.fetch = originalFetch;
   }
 });
+
+test("a Gemini request that hangs is sent again on the next key, and the first answer wins", async () => {
+  const originalFetch = globalThis.fetch;
+  const used: string[] = [];
+  let slowAborted = false;
+  globalThis.fetch = (async (input, init) => {
+    used.push(new URL(String(input)).searchParams.get("key") ?? "");
+    if (used.length === 1) {
+      // Google hanging on this one (10-15 s seen in prod).
+      return new Promise<Response>((resolve, reject) => {
+        const timer = setTimeout(() => resolve(geminiOk("trop tard")), 12_000);
+        init?.signal?.addEventListener("abort", () => { slowAborted = true; clearTimeout(timer); reject(new Error("aborted")); });
+      });
+    }
+    return geminiOk("relance rapide");
+  }) as typeof fetch;
+  try {
+    const started = Date.now();
+    const result = await callAi(config(["a", "b"]), "s", [{ role: "user", content: "salut" }]);
+    const elapsed = Date.now() - started;
+    assert.equal(result.text, "relance rapide");
+    assert.ok(elapsed < 6_000, `answered in ${elapsed} ms`);
+    assert.equal(used.length, 2);
+    assert.notEqual(used[0], used[1]);
+    assert.ok(slowAborted, "the hanging request is cancelled");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a fast Gemini answer never costs a second request", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => { calls++; return geminiOk("vite"); }) as typeof fetch;
+  try {
+    await callAi(config(["a", "b"]), "s", [{ role: "user", content: "salut" }]);
+    await new Promise((r) => setTimeout(r, 4_500));
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

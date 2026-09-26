@@ -82,12 +82,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function jsonFetch(provider: AiProviderId, url: string, headers: Record<string, string>, body: unknown): Promise<unknown> {
+async function jsonFetch(provider: AiProviderId, url: string, headers: Record<string, string>, body: unknown, cancel?: AbortSignal): Promise<unknown> {
+  const timeout = AbortSignal.timeout(TIMEOUT_MS);
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: cancel ? AbortSignal.any([timeout, cancel]) : timeout,
     cache: "no-store",
   });
   const raw = await res.text();
@@ -117,12 +118,12 @@ function geminiUrl(model: string, key: string): string {
 }
 
 /** One call with one key and one model; throws AiCallError on failure. */
-async function generate(provider: AiProviderId, key: string, model: string, system: string, messages: AiChatMessage[]): Promise<string> {
+async function generate(provider: AiProviderId, key: string, model: string, system: string, messages: AiChatMessage[], cancel?: AbortSignal): Promise<string> {
   const json = await jsonFetch(provider, geminiUrl(model, key), {}, {
     systemInstruction: { parts: [{ text: system }] },
     contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
     generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
-  });
+  }, cancel);
   const candidates = (json as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates ?? [];
   return candidates.map((c) => (c.content?.parts ?? []).map((p) => p.text ?? "").join("")).join("").trim();
 }
@@ -244,22 +245,67 @@ export function keysInTurn(keys: string[]): string[] {
  *  (each has its own quota). A request Google rejects for what it IS (bad
  *  request, e.g. a malformed conversation) would fail on every model: it
  *  stops there instead of burning the other models' quota. */
+/** Gemini usually answers in 1-3 s, but now and then one request hangs 10-15 s
+ *  on Google's side (measured in prod: the same message took 10.3 s, then
+ *  1.2 s four times in a row). Past this delay the same request also goes to
+ *  the next key/model, and the first answer wins — the slow one is cancelled.
+ *  Only a late request costs a second call; a normal one never does. */
+export const GEMINI_HEDGE_MS = 4_000;
+/** At most this many requests in flight for one message. */
+const GEMINI_MAX_IN_FLIGHT = 2;
+
 async function callGemini(keys: string[], models: string[], system: string, messages: AiChatMessage[]): Promise<string> {
-  let lastError: AiCallError | null = null;
   const ordered = keysInTurn(keys);
-  for (const modelId of models) {
-    for (const key of ordered) {
-      try {
-        return await generate("gemini", key, modelId, system, messages);
-      } catch (e) {
-        lastError = e instanceof AiCallError ? e : new AiCallError("gemini", (e as Error).message, false);
-        if (!isModelUnavailable(lastError) && !isGeminiModelBusy(lastError) && !isQuotaSpent(lastError) && lastError.status !== 403) {
-          throw lastError;
-        }
+  const attempts = models.flatMap((model) => ordered.map((key) => ({ model, key })));
+  return new Promise<string>((resolve, reject) => {
+    let next = 0;
+    let inFlight = 0;
+    let settled = false;
+    let lastError: AiCallError | null = null;
+    let hedgeTimer: ReturnType<typeof setTimeout> | null = null;
+    const controllers = new Set<AbortController>();
+    const finish = (outcome: () => void) => {
+      settled = true;
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      for (const controller of controllers) controller.abort();
+      outcome();
+    };
+    const launch = () => {
+      if (settled) return;
+      if (next >= attempts.length) {
+        if (inFlight === 0) finish(() => reject(lastError ?? new AiCallError("gemini", "Échec inconnu", false)));
+        return;
       }
-    }
-  }
-  throw lastError ?? new AiCallError("gemini", "Échec inconnu", false);
+      const { model, key } = attempts[next++];
+      const controller = new AbortController();
+      controllers.add(controller);
+      inFlight++;
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      hedgeTimer = setTimeout(() => { if (inFlight < GEMINI_MAX_IN_FLIGHT) launch(); }, GEMINI_HEDGE_MS);
+      hedgeTimer.unref?.();
+      generate("gemini", key, model, system, messages, controller.signal).then(
+        (text) => {
+          inFlight--;
+          controllers.delete(controller);
+          if (!settled) finish(() => resolve(text));
+        },
+        (e) => {
+          inFlight--;
+          controllers.delete(controller);
+          if (settled) return;
+          lastError = e instanceof AiCallError ? e : new AiCallError("gemini", (e as Error).message, false);
+          // A request Google rejects for what it IS would fail everywhere.
+          if (!isModelUnavailable(lastError) && !isGeminiModelBusy(lastError) && !isQuotaSpent(lastError) && lastError.status !== 403) {
+            const error = lastError;
+            finish(() => reject(error));
+            return;
+          }
+          launch();
+        },
+      );
+    };
+    launch();
+  });
 }
 
 /** Asks the AI; returns the text and the provider that answered. */

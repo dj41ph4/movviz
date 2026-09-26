@@ -1,3 +1,10 @@
+## v1.25.111 — September 2026
+
+### Assistant IA : fini les réponses qui traînent 10 secondes
+
+- De temps en temps, Gemini met 10 à 15 secondes à répondre à une demande qu'il traite d'habitude en une seconde : le même message, renvoyé juste après, répond en 1,2 seconde. Si la réponse n'est pas arrivée au bout de 4 secondes, Movviz envoie maintenant la même demande avec la clé suivante et garde la première réponse qui arrive ; l'autre est annulée.
+- Une réponse normale ne coûte jamais de demande en plus : la relance ne part que pour une demande en retard.
+
 ## v1.25.110 — September 2026
 
 ### Android TV : fin des chargements infinis sur le compte propriétaire de Plex
