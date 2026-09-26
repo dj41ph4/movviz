@@ -177,7 +177,9 @@ fun TitleDetailScreen(
     // Avant ce verrou, une fiche ouverte depuis Reprendre pouvait afficher
     // brièvement « Ajouter à la bibliothèque » alors que l'index local n'avait
     // pas encore répondu. Ce n'est jamais une action valide à proposer.
-    var libraryResolved by remember(type, tmdbId) { mutableStateOf(false) }
+    // Déjà connu dans la bibliothèque chargée : pas de « Vérification du
+    // fichier… » à chaque ouverture, la vérification fraîche passe derrière.
+    var libraryResolved by remember(type, tmdbId) { mutableStateOf(viewModel.isInLibrary(type, tmdbId)) }
     // Même cible à l'ouverture, en erreur et une fois les données chargées :
     // le D-pad ne se perd jamais pendant une réponse réseau lente.
     val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
@@ -211,11 +213,17 @@ fun TitleDetailScreen(
             .associateBy { "${it.media.season}.${it.media.episode}" }
     }
 
+    // Tout part en même temps : la fiche n'attend plus la vérification de la
+    // bibliothèque, ni « Reprendre » et les coches « vu » l'arrivée du logo
+    // (jusqu'à 1 s de plus quand il fallait réessayer). Chaque réponse
+    // s'affiche dès qu'elle arrive, au lieu de l'une après l'autre.
     LaunchedEffect(type, tmdbId) {
-        viewModel.resolveTitleLibraryEntry(type, tmdbId)
-        libraryResolved = true
         viewModel.loadDetail(type, tmdbId)
-        viewModel.loadHeroLogo(type, tmdbId)
+        launch {
+            viewModel.resolveTitleLibraryEntry(type, tmdbId)
+            libraryResolved = true
+        }
+        launch { viewModel.loadHeroLogo(type, tmdbId) }
         // On-deck chargé pour les DEUX types : le libellé « S1 · Ép 3 — titre »
         // + le CTA « Reprendre » d'une série en cours dépendent de
         // continueWatching (il n'était chargé que pour les films — une série

@@ -567,12 +567,17 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
      * réinitialisé toutes les 3 secondes). */
     private var seasonsTmdbId: Int? = null
 
+    private val seasonsCache = object : LinkedHashMap<Int, List<com.movviz.nx.mobile.data.SeriesSeasonDto>>(24, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<com.movviz.nx.mobile.data.SeriesSeasonDto>>?): Boolean = size > 20
+    }
+
     fun loadSeriesSeasons(tmdbId: Int) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
         if (seasonsTmdbId != tmdbId) {
             seasonsTmdbId = tmdbId
-            _seriesSeasons.value = emptyList()
+            // Saisons déjà vues pour cette série : tout de suite à l'écran.
+            _seriesSeasons.value = seasonsCache[tmdbId] ?: emptyList()
         }
         viewModelScope.launch {
             when (val s = repo.seriesSeasons(seriesId)) {
@@ -581,7 +586,10 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
                 // les saisons de A venaient écraser celles de B à l'écran
                 // (« la saison n'est pas celle de la série choisie »,
                 // constaté en direct).
-                is ApiResult.Success -> if (seasonsTmdbId == tmdbId) _seriesSeasons.value = s.data
+                is ApiResult.Success -> {
+                    seasonsCache[tmdbId] = s.data
+                    if (seasonsTmdbId == tmdbId) _seriesSeasons.value = s.data
+                }
                 else -> Unit
             }
         }
@@ -623,15 +631,32 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
     }
 
+    /** Fiches déjà ouvertes (les 40 dernières) : rouvrir une fiche l'affiche
+     *  à l'instant, puis la réponse fraîche la remplace en silence. Avant,
+     *  chaque ouverture repartait d'un écran de chargement plein écran. */
+    private val detailCache = object : LinkedHashMap<String, MetaDetailDto>(48, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, MetaDetailDto>?): Boolean = size > 40
+    }
+    /** Fiche actuellement demandée : ouvrir A puis B très vite ne doit
+     *  jamais afficher la réponse de A sur B. */
+    private var detailKey: String? = null
+
     fun loadDetail(type: String, tmdbId: Int) {
         val repo = repository ?: return
-        _detail.value = null
+        val key = "$type:$tmdbId"
+        detailKey = key
+        val cached = detailCache[key]
+        _detail.value = cached
         _detailError.value = null
         viewModelScope.launch {
             when (val d = repo.detail(type, tmdbId)) {
-                is ApiResult.Success -> _detail.value = d.data
+                is ApiResult.Success -> {
+                    detailCache[key] = d.data
+                    if (detailKey == key) _detail.value = d.data
+                }
                 ApiResult.Unauthorized -> _sessionExpired.value = true
-                is ApiResult.Failure -> _detailError.value = d.message
+                // Une fiche déjà affichée depuis le cache reste affichée.
+                is ApiResult.Failure -> if (detailKey == key && _detail.value == null) _detailError.value = d.message
             }
         }
     }

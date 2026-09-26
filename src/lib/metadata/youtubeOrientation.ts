@@ -41,8 +41,17 @@ function load(): Store {
   return readJsonCached<Store>(FILE, {});
 }
 
-const g = globalThis as typeof globalThis & { __movvizYtOrientationInFlight?: Map<string, Promise<boolean>> };
+const g = globalThis as typeof globalThis & { __movvizYtOrientationInFlight?: Map<string, Promise<boolean>>; __movvizYtOrientationFailedAt?: Map<string, number> };
 const inFlight: Map<string, Promise<boolean>> = (g.__movvizYtOrientationInFlight ??= new Map());
+/** Keys whose check failed (network, timeout, 5xx) — not retried for an
+ *  hour. Failures used to be forgotten at once, so every fiche opening
+ *  queried the same unanswerable videos again and waited up to 3 s each. */
+const failedAt: Map<string, number> = (g.__movvizYtOrientationFailedAt ??= new Map());
+const RETRY_FAILED_AFTER_MS = 60 * 60 * 1000;
+/** excludePortrait never holds a response longer than this: a check still
+ *  running is kept (fail-open, same as a failure) and finishes in the
+ *  background for next time. */
+const CHECK_BUDGET_MS = 400;
 
 /** Fails OPEN (false = "treat as landscape, let it play") on any network or
  *  parse error — a broken orientation check must never block an otherwise
@@ -53,17 +62,27 @@ export async function isPortraitYouTubeVideo(key: string): Promise<boolean> {
 
   const pending = inFlight.get(key);
   if (pending) return pending;
+  const failed = failedAt.get(key);
+  if (failed != null && Date.now() - failed < RETRY_FAILED_AFTER_MS) return false;
 
   const check = (async () => {
     try {
       const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/shorts/${key}`)}&format=json`;
       const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(OEMBED_TIMEOUT_MS) });
-      if (!response.ok) return false;
+      if (!response.ok) {
+        // 4xx: YouTube has no Short under this id (private, removed, not
+        // embeddable) — a definite answer, kept like any other. 5xx: a
+        // passing failure, retried later.
+        if (response.status >= 400 && response.status < 500) writeJsonCached(FILE, { ...load(), [key]: false });
+        else failedAt.set(key, Date.now());
+        return false;
+      }
       const data = (await response.json()) as { width?: number; height?: number };
       const portrait = !!data.width && !!data.height && data.height > data.width;
       writeJsonCached(FILE, { ...load(), [key]: portrait });
       return portrait;
     } catch {
+      failedAt.set(key, Date.now());
       return false;
     } finally {
       inFlight.delete(key);
@@ -78,7 +97,8 @@ export async function isPortraitYouTubeVideo(key: string): Promise<boolean> {
  *  the portrait ones, preserving the original rank order. */
 export async function excludePortrait(keys: string[]): Promise<string[]> {
   if (keys.length === 0) return keys;
-  const flags = await Promise.all(keys.map((key) => isPortraitYouTubeVideo(key)));
+  const budget = new Promise<false>((resolve) => setTimeout(() => resolve(false), CHECK_BUDGET_MS));
+  const flags = await Promise.all(keys.map((key) => Promise.race([isPortraitYouTubeVideo(key), budget])));
   return keys.filter((_, i) => !flags[i]);
 }
 

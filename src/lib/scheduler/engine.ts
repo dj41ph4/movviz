@@ -4,6 +4,7 @@ import { enqueueJob, isSourceActive } from "@/lib/jobs/queue";
 import type { JobType } from "@/lib/jobs/types";
 import { openBlockWindow } from "@/lib/blockProbe";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { runBackground } from "@/lib/priority/lane";
 
 /** Effective interval for a task — persisted override or hardcoded default. */
 export function getEffectiveInterval(id: string, defaultMs: number): number {
@@ -46,7 +47,9 @@ export async function runTaskNow(id: string): Promise<{ ok: true } | { ok: false
   // Mesure seule (blockProbe.ts) : quelle tâche fige le serveur, et combien.
   const probe = openBlockWindow(`tâche ${id}`);
   try {
-    await task.run();
+    // Every scheduled task runs in the « background » lane: shared limited
+    // resources (the TMDb queue…) serve a user's request before it.
+    await runBackground(() => task.run());
   } finally {
     const { maxBlockMs, overlapping } = probe.end();
     recordTaskRun(id, Date.now() - start, maxBlockMs);

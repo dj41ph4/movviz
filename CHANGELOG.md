@@ -1,3 +1,13 @@
+## v1.25.99 — September 2026
+
+### Fiches beaucoup plus rapides à ouvrir
+
+- Fiches : une fiche jamais ouverte mettait 3 à 4 secondes côté serveur, jusqu'à une dizaine sur mobile. Trois causes, corrigées :
+  - pour écarter les bandes-annonces verticales, le serveur interrogeait YouTube pour chaque vidéo, et chaque échec était oublié : on réessayait à chaque ouverture en attendant jusqu'à 3 secondes. Il n'attend plus que 0,4 seconde au plus, retient les réponses définitives et ne réessaie pas une vérification en panne avant une heure ;
+  - les tâches de fond (films manquants, rafraîchissement des métadonnées…) occupaient toutes les places de la file vers TMDb : une fiche ouverte faisait la queue derrière elles. Les demandes des utilisateurs passent désormais devant, avec des places réservées ;
+  - les notes IMDb et Rotten Tomatoes sont récupérées en même temps que la bande-annonce, et non plus après.
+- Android mobile : la fiche charge tout en même temps au lieu d'une étape après l'autre (vérification bibliothèque, puis fiche, puis logo, puis reprise). Une fiche déjà ouverte réapparaît à l'instant, saisons comprises, puis se met à jour en silence. « Vérification du fichier… » ne s'affiche plus pour un titre qu'on sait déjà dans la bibliothèque.
+
 ## v1.25.98 — September 2026
 
 ### Android TV : bouton « Épisode suivant » à la place du bandeau

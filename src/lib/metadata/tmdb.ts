@@ -14,6 +14,7 @@ import { getCache } from "@/lib/cache/registry";
 import { omdbConfigured, getOmdbRatings } from "./omdb";
 import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
 import { excludePortrait, excludeUnknownOrPortrait } from "./youtubeOrientation";
+import { currentLane } from "@/lib/priority/lane";
 import { translateStatus } from "./statusTranslations";
 import { STREAMING_PLATFORMS } from "./curated";
 import { LOCALES } from "@/i18n/config";
@@ -96,6 +97,10 @@ const refreshing: Set<string> = (gRefresh.__movvizTmdbRefreshing ??= new Set());
 // dashboard movie rows, series rows and provider rows could collectively
 // open hundreds of TMDb sockets. Keep one process-wide queue instead.
 const TMDB_MAX_CONCURRENT_REQUESTS = 6;
+/** Extra slots only a user's request may take: a fiche opened while the
+ *  scheduled tasks (missing movies, metadata refresh…) fill the queue used
+ *  to wait behind all of them — 3-4 s for a single title. */
+const TMDB_USER_EXTRA_SLOTS = 4;
 type TmdbQueueState = { active: number; waiters: Array<() => void> };
 const gTmdbQueue = globalThis as typeof globalThis & {
   __movvizTmdbQueue?: TmdbQueueState;
@@ -105,8 +110,12 @@ const tmdbQueue: TmdbQueueState = (gTmdbQueue.__movvizTmdbQueue ??= { active: 0,
 const tmdbInFlight: Map<string, Promise<unknown>> = (gTmdbQueue.__movvizTmdbInFlight ??= new Map());
 
 async function withTmdbRequestSlot<T>(fn: () => Promise<T>): Promise<T> {
-  if (tmdbQueue.active >= TMDB_MAX_CONCURRENT_REQUESTS) {
-    await new Promise<void>((resolve) => tmdbQueue.waiters.push(resolve));
+  // A user's request goes to the front of the line and may use the extra
+  // slots; background work keeps the original limit.
+  const user = currentLane() === "user";
+  const limit = TMDB_MAX_CONCURRENT_REQUESTS + (user ? TMDB_USER_EXTRA_SLOTS : 0);
+  if (tmdbQueue.active >= limit) {
+    await new Promise<void>((resolve) => (user ? tmdbQueue.waiters.unshift(resolve) : tmdbQueue.waiters.push(resolve)));
   }
   tmdbQueue.active++;
   try {
@@ -1077,16 +1086,20 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
   ]);
   if (!data) return null;
   const imdbId = data.external_ids?.imdb_id ?? null;
-  const omdb = imdbId && omdbConfigured() ? await getOmdbRatings(imdbId) : null;
   const keywords = type === "movie" ? data.keywords?.keywords : data.keywords?.results;
-  const { trailerKeys, ambientVideoKeys } = await selectVideoCandidates(
-    data.videos?.results,
-    preferLanguage,
-    data.original_language ?? null,
-    data.title ?? data.name ?? "",
-    yearOf(data.release_date ?? data.first_air_date),
-    !!opts?.youtubeTrailerSearch
-  );
+  // Ratings and trailer choice do not depend on each other: side by side,
+  // not one after the other.
+  const [omdb, { trailerKeys, ambientVideoKeys }] = await Promise.all([
+    imdbId && omdbConfigured() ? getOmdbRatings(imdbId) : Promise.resolve(null),
+    selectVideoCandidates(
+      data.videos?.results,
+      preferLanguage,
+      data.original_language ?? null,
+      data.title ?? data.name ?? "",
+      yearOf(data.release_date ?? data.first_air_date),
+      !!opts?.youtubeTrailerSearch
+    ),
+  ]);
   return {
     tmdbId: data.id,
     type,
