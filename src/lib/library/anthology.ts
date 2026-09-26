@@ -6,6 +6,8 @@ import { parseRelease } from "@/lib/naming/parser";
 import { buildContext, renderSegment } from "@/lib/naming/render";
 import type { ReleaseInfo } from "@/lib/naming/types";
 import { pathFor } from "@/lib/library/renamePath";
+import { withKeyLock } from "@/lib/library/locks";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 /**
  * Anthologies Plex — l'exception « Monster » (demandée le 2026-09-26).
@@ -75,9 +77,40 @@ async function removeIfEmpty(dir: string): Promise<void> {
   } catch { /* absent ou non vide : rien à faire */ }
 }
 
+export interface AnthologyMoveReport {
+  series: string;
+  episode: string;
+  from: string;
+  to: string;
+  result: "moved" | "copied" | "occupied" | "error";
+  error?: string;
+}
+
+/** rename, or — when the NAS refuses it across mounts (EXDEV) or for any
+ *  other reason — copy, check the size, then delete the original. The
+ *  original is never removed before an identical copy exists. */
+async function moveFile(source: string, target: string): Promise<"moved" | "copied"> {
+  try {
+    await fsp.rename(source, target);
+    return "moved";
+  } catch (renameError) {
+    const { size } = await fsp.stat(source);
+    try {
+      await fsp.copyFile(source, target);
+      const copied = await fsp.stat(target);
+      if (copied.size !== size) throw new Error(`copie incomplète (${copied.size}/${size} octets)`);
+    } catch (copyError) {
+      await fsp.rm(target, { force: true }).catch(() => {});
+      throw new Error(`renommage : ${(renameError as Error).message} ; copie : ${(copyError as Error).message}`);
+    }
+    await fsp.rm(source);
+    return "copied";
+  }
+}
+
 /** Moves the files of one anthology series where Plex expects them, and
- *  records the new paths. Idempotent. Returns how many files moved. */
-export async function relocateAnthologyFiles(seriesId: string): Promise<number> {
+ *  records the new paths. Idempotent. The caller holds the series lock. */
+export async function relocateAnthologyFiles(seriesId: string, report: AnthologyMoveReport[] = []): Promise<number> {
   const series = getSeries(seriesId);
   if (!series || !anthologyFor(series.tmdbId)) return 0;
   const templates = loadNamingTemplates();
@@ -92,20 +125,24 @@ export async function relocateAnthologyFiles(seriesId: string): Promise<number> 
       const source = file ? file.diskPath ?? file.path : null;
       const target = source ? anthologyTargetPath(source, series.tmdbId, season.seasonNumber, ep.episodeNumber, templates) : null;
       if (!file || !source || !target) { episodes.push(ep); continue; }
+      const line: AnthologyMoveReport = { series: series.title, episode: `S${season.seasonNumber}E${ep.episodeNumber}`, from: source, to: target, result: "error" };
+      report.push(line);
       try {
         await fsp.access(source);
         await fsp.mkdir(path.dirname(target), { recursive: true });
-        try {
-          await fsp.access(target);
-          episodes.push(ep); // un fichier occupe déjà la place : on ne l'écrase jamais
+        const occupied = await fsp.access(target).then(() => true, () => false);
+        if (occupied) {
+          line.result = "occupied"; // un fichier occupe déjà la place : on ne l'écrase jamais
+          episodes.push(ep);
           continue;
-        } catch { /* place libre */ }
-        await fsp.rename(source, target);
+        }
+        line.result = await moveFile(source, target);
         oldDirs.add(path.dirname(source));
         episodes.push({ ...ep, file: { ...file, path: target, diskPath: undefined }, plexRatingKey: null });
         moved++;
       } catch (error) {
-        console.warn(`[anthology] ${series.title} S${season.seasonNumber}E${ep.episodeNumber} : déplacement impossible (${(error as Error).message})`);
+        line.error = (error as Error).message;
+        recordSearchLog("warn", "library.anthology", `${series.title} ${line.episode} : déplacement impossible vers « ${target} » — ${line.error}`);
         episodes.push(ep);
       }
     }
@@ -117,16 +154,17 @@ export async function relocateAnthologyFiles(seriesId: string): Promise<number> 
     await removeIfEmpty(dir);
     await removeIfEmpty(path.dirname(dir));
   }
-  console.log(`[anthology] ${series.title} : ${moved} fichier(s) rangé(s) dans l'anthologie`);
+  recordSearchLog("info", "library.anthology", `${series.title} : ${moved} fichier(s) rangé(s) dans l'anthologie`);
   return moved;
 }
 
-/** Every anthology series already in the library — run once at start-up so
- *  files imported before this rule existed move too. */
-export async function relocateAllAnthologies(): Promise<number> {
+/** Every anthology series already in the library — at start-up (files
+ *  imported before this rule existed) and on demand from the admin route. */
+export async function relocateAllAnthologies(report: AnthologyMoveReport[] = []): Promise<number> {
   let moved = 0;
   for (const series of loadSeries()) {
-    if (anthologyFor(series.tmdbId)) moved += await relocateAnthologyFiles(series.id);
+    if (!anthologyFor(series.tmdbId)) continue;
+    moved += await withKeyLock(`series:${series.id}`, () => relocateAnthologyFiles(series.id, report));
   }
   return moved;
 }
