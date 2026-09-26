@@ -7,6 +7,7 @@ import { X, Loader2, FolderOpen, Save } from "lucide-react";
 import { QualityProfileSelect } from "@/components/library/QualityProfileSelect";
 import { RepairFileBrowserModal } from "@/components/settings/RepairFileBrowserModal";
 import { AliasEditor } from "@/components/library/AliasEditor";
+import { CopyablePath, SeriesFolders } from "@/components/title/FilePathDisplay";
 import { ArtworkFields } from "@/components/title/ArtworkFields";
 
 /**
@@ -151,10 +152,10 @@ export function EditTitleModal({
                 {type === "movie" && (
                   <div>
                     <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.location")}</p>
-                    <div className="flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate rounded-xl border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-ink-soft">
-                        {filePath || t("title.edit.noFile")}
-                      </code>
+                    <div className="space-y-2">
+                      {filePath
+                        ? <CopyablePath path={filePath} />
+                        : <p className="text-xs text-ink-dim">{t("title.edit.noFile")}</p>}
                       <button
                         onClick={openBrowser}
                         disabled={locationBusy}
@@ -165,6 +166,13 @@ export function EditTitleModal({
                       </button>
                     </div>
                     {locationError && <p className="mt-1.5 text-xs text-down">{t("title.edit.locationError")}</p>}
+                  </div>
+                )}
+
+                {type === "series" && (
+                  <div>
+                    <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.seriesLocation")}</p>
+                    <SeriesFolders seriesId={id} />
                   </div>
                 )}
 

@@ -1,3 +1,11 @@
+## v1.25.122 — September 2026
+
+### Fiches : le chemin des fichiers en entier
+
+- « Modifier la fiche » (le crayon) affiche maintenant le chemin complet des fichiers, sur plusieurs lignes au lieu d'être coupé, avec un bouton pour le copier.
+- Pour une série, qui n'en montrait aucun : le dossier de la série, puis celui de chaque saison.
+- Les chemins Windows (D:\…) s'affichent comme ceux du NAS.
+
 ## v1.25.121 — September 2026
 
 ### Monster : les quatre volets rangés comme une seule série pour Plex
