@@ -564,6 +564,11 @@ fun TitleDetailScreen(
     val lazyListState = rememberTvLazyListState().withTvPrefetchDisabled()
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
     var hasRequestedPrimaryActionFocus by remember(type, tmdbId) { mutableStateOf(false) }
+    // L'utilisateur s'est déjà déplacé dans la fiche : un chargement qui se
+    // termine ensuite (reprise, saisons) ne doit plus déplacer son focus —
+    // il se retrouvait renvoyé en haut, ou sur un bouton caché sous l'écran
+    // saison, et le focus disparaissait complètement.
+    var userMoved by remember(type, tmdbId) { mutableStateOf(false) }
     LaunchedEffect(detail) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
         if (detail == null) return@LaunchedEffect
@@ -617,6 +622,7 @@ fun TitleDetailScreen(
         ((episodeResume?.seasonNumber != null && episodeResume.episodeNumber != null) || nextEpisode != null)
     LaunchedEffect(moviePrimaryActionReady, seriesPrimaryActionReady) {
         if (!(moviePrimaryActionReady || seriesPrimaryActionReady) || hasRequestedPrimaryActionFocus) return@LaunchedEffect
+        if (userMoved || anyOverlayOpen) return@LaunchedEffect
         repeat(10) { attempt ->
             if (runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false)) {
                 hasRequestedPrimaryActionFocus = true
@@ -655,7 +661,17 @@ fun TitleDetailScreen(
         ambientPreview = viewModel.loadTvPreview(type, tmdbId)
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            // Première touche directionnelle de l'utilisateur sur cette fiche :
+            // à partir de là, plus aucun placement automatique du focus.
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key in DPAD_MOVE_KEYS) userMoved = true
+                false
+            },
+    ) {
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
             Image(
@@ -1834,7 +1850,13 @@ private fun SeasonPageOverlay(
         season.episodes.firstOrNull { playable(it) && !watchedEpisodeKeys.contains("${season.seasonNumber}.${it.episodeNumber}") }
             ?: season.episodes.firstOrNull { playable(it) }
     }
+    // Atterrissage UNE fois à l'ouverture de la saison : relancé à chaque
+    // mise à jour de l'épisode d'atterrissage (état « vu » relu, épisodes
+    // arrivés), il reprenait le focus à l'utilisateur déjà en train de
+    // naviguer dans la grille.
+    var seasonLanded by remember(season.seasonNumber) { mutableStateOf(false) }
     LaunchedEffect(season.seasonNumber, landingEpisode?.episodeNumber) {
+        if (seasonLanded || focusLocked) return@LaunchedEffect
         // Plusieurs cibles, sur plusieurs frames : la carte visée vit dans
         // une grille paresseuse et peut n'être composée que bien après
         // l'en-tête. Quand elle manquait, l'écran s'ouvrait sans AUCUN
@@ -1845,7 +1867,7 @@ private fun SeasonPageOverlay(
                 primaryActionFocus,
                 backFocus,
             )
-            if (targets.any { runCatching { it.requestFocus() }.getOrDefault(false) }) return@LaunchedEffect
+            if (targets.any { runCatching { it.requestFocus() }.getOrDefault(false) }) { seasonLanded = true; return@LaunchedEffect }
             if (attempt < 19) withFrameNanos { }
         }
     }
@@ -1875,6 +1897,10 @@ private fun SeasonPageOverlay(
                     // fiche bascule sur la barre de navigation dès qu'un
                     // moveFocus(Up) échoue, ce qui enverrait le focus
                     // derrière cet écran opaque.
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key in DPAD_MOVE_KEYS) seasonLanded = true
+                        false
+                    }
                     .onKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
                             focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
@@ -2861,3 +2887,6 @@ private fun friendlyAddError(raw: String): String = when {
     raw.contains("duplicateRequest") -> "Demande déjà envoyée pour ce titre"
     else -> "Échec de l'ajout : $raw"
 }
+
+/** Touches de déplacement : leur premier appui met fin aux placements automatiques du focus. */
+private val DPAD_MOVE_KEYS = setOf(Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight)

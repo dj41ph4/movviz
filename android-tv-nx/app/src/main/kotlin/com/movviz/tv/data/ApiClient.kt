@@ -35,6 +35,10 @@ object ApiClient {
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cookieJar(cookieJar)
+            // 10 requêtes simultanées vers le serveur au lieu des 5 d’OkHttp : une
+            // requête lente ne fait plus attendre toutes les autres (fiches,
+            // images) derrière elle.
+            .dispatcher(okhttp3.Dispatcher().apply { maxRequestsPerHost = 10 })
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .callTimeout(20, TimeUnit.SECONDS)

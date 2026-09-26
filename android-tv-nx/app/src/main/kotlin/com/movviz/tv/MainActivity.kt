@@ -38,6 +38,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -644,6 +647,9 @@ composable(ROUTE_PROFILES) {
     }
 }
 
+/** Une perte de focus moins de 600 ms après une touche vient de l'utilisateur. */
+private const val USER_FOCUS_MOVE_WINDOW_MS = 600L
+
 /** Conteneur des écrans HORS MainScreen (fiche titre, fiche acteur,
  * grille « voir tout »). La NavRail vit à GAUCHE : Compose garde le contrôle
  * de UP/DOWN/RIGHT à l'intérieur du contenu et seule une sortie LEFT du
@@ -655,8 +661,38 @@ private fun DetailFocusToNavHandler(
     navRailFocusRequester: FocusRequester,
     content: @Composable () -> Unit,
 ) {
+    // Focus perdu SANS touche pressée = l'élément sélectionné vient de
+    // disparaître pendant un chargement (bouton remplacé, liste relue) :
+    // Android le donnait alors à la barre latérale, et l'utilisateur au
+    // centre de la fiche s'y retrouvait tout seul. On le rend au contenu,
+    // sur le dernier élément choisi (focusRestorer) ou le haut de la fiche.
+    // Une sortie voulue (GAUCHE, RETOUR, OK qui ouvre autre chose) suit
+    // toujours une touche : jamais interceptée, aucune touche consommée.
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val contentFocus = remember { FocusRequester() }
+    var hadFocus by remember { mutableStateOf(false) }
+    var lastKeyAt by remember { mutableStateOf(0L) }
     Box(
         modifier = Modifier.fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) lastKeyAt = android.os.SystemClock.uptimeMillis()
+                false
+            }
+            .onFocusChanged { state ->
+                if (state.hasFocus) { hadFocus = true; return@onFocusChanged }
+                if (!hadFocus) return@onFocusChanged
+                hadFocus = false
+                if (android.os.SystemClock.uptimeMillis() - lastKeyAt < USER_FOCUS_MOVE_WINDOW_MS) return@onFocusChanged
+                scope.launch {
+                    repeat(10) {
+                        withFrameNanos { }
+                        if (hadFocus) return@launch
+                        if (runCatching { contentFocus.requestFocus() }.getOrDefault(false)) return@launch
+                    }
+                }
+            }
+            .focusRequester(contentFocus)
+            .focusRestorer()
             .focusProperties {
                 exit = { focusDirection ->
                     if (focusDirection == FocusDirection.Left) {

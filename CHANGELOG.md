@@ -1,3 +1,12 @@
+## v1.25.116 — September 2026
+
+### Android TV : le focus reste où tu es, et les fiches s'ouvrent plus vite
+
+- Plus de retour tout seul sur la barre latérale, ni de saut vers « Lire » pendant que tu navigues. Quand la fin d'un chargement (reprise, saisons, état « vu ») modifiait la fiche, l'app replaçait le focus d'office, parfois sur un bouton caché sous l'écran saison : il disparaissait alors complètement. Ces placements automatiques n'ont plus lieu dès que tu t'es déplacé, et jamais sous un écran ouvert par-dessus.
+- Si un élément sélectionné disparaît pendant un chargement, le focus revient dans la fiche, sur ton dernier choix, au lieu de filer vers la barre latérale. GAUCHE, RETOUR et OK fonctionnent comme avant.
+- « Reprendre » répond tout de suite au lieu d'interroger Plex pendant 2 à 5 secondes à chaque ouverture de fiche. La liste est rafraîchie en arrière-plan et relue dès qu'un « vu » ou une reprise change.
+- TV et téléphone : jusqu'à 10 demandes simultanées vers le serveur au lieu de 5. Une demande lente ne fait plus attendre la fiche et les images derrière elle.
+
 ## v1.25.115 — September 2026
 
 ### Android TV : les fiches du compte propriétaire de Plex s'ouvrent à nouveau
