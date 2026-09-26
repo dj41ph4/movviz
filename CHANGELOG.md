@@ -2,8 +2,8 @@
 
 ### Android TV : fin des chargements infinis sur le compte propriétaire de Plex
 
-- Seul le compte propriétaire du serveur Plex vérifie, à chaque ouverture de fiche, l'état « vu » de chaque épisode directement auprès de Plex. Pour une série dont des épisodes n'avaient jamais été vus, Movviz prenait « jamais vu » et « non vu » pour une différence : il réécrivait ces épisodes à chaque vérification, prévenait tes appareils, qui relisaient la fiche, ce qui relançait la vérification, une fois par seconde, sans fin. C'est pour ça que seul ce compte était bloqué.
-- « Jamais vu » et « non vu » sont désormais traités comme un seul et même état : plus aucune réécriture inutile, plus de boucle. Une vraie différence (vu dans Movviz, non vu dans Plex, ou l'inverse) est toujours corrigée comme avant.
+- Seul le compte propriétaire du serveur Plex vérifie, à chaque ouverture de fiche, l'état « vu » de chaque épisode directement auprès de Plex. Pour un épisode jamais regardé, Plex ne donne aucune date, et Movviz n'en avait aucune trace non plus. Movviz y voyait pourtant une différence et enregistrait un « non vu » daté de l'instant de la vérification : un nouveau à chaque vérification, prévenait tes appareils, qui relisaient la fiche, ce qui relançait la vérification, une fois par seconde, sans fin. C'est pour ça que seul ce compte était bloqué.
+- Un épisode jamais vu des deux côtés reste « jamais vu » : Movviz ne lui invente plus de date de « non vu ». Plus de réécriture inutile, plus de boucle, et plus de fausse date récente qui aurait pu l'emporter sur un vrai « vu » plus ancien arrivé ensuite (un import par exemple). Un vrai « non vu » est toujours enregistré : un épisode repassé à « non vu » dans Plex, ou vu dans Movviz mais non vu dans Plex.
 - Par sécurité, tes appareils ne sont plus prévenus que lorsqu’un « vu » ou « Reprendre » change vraiment : une synchronisation Plex qui réaffirme un « vu » déjà connu ne déclenche plus rien. Le temps réel entre appareils fonctionne comme avant.
 
 ## v1.25.108 — September 2026

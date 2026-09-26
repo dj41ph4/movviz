@@ -179,10 +179,15 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
     // Movviz state was missed by an earlier write.  A stable Plex state must
     // still repair that divergence; otherwise a targeted sync can report a
     // successful WATCHED observation forever without updating the UI.
-    // « unknown » = Movviz has never recorded this media: it already shows as
-    // not seen, exactly like a stable Plex UNWATCHED. Repairing it rewrote the
-    // same « not seen » on every sync of the Plex owner's open title page
-    // (once a second, forever): never a divergence worth writing.
+    // « Never seen » is not « unseen »: an unseen state carries the time it was
+    // decided, a never-seen one has none. A stable Plex UNWATCHED on a media
+    // Movviz never recorded (canonical « unknown ») is a never-seen on both
+    // sides — Plex gives no viewCount and no lastViewedAt for it. Repairing it
+    // invented an « unseen » dated by the observation instant: a new one on
+    // every sync of the Plex owner's open title page (once a second, forever),
+    // and a fake recent date that would beat a real older « seen » arriving
+    // later (an import). Nothing to write. A real « unseen » still gets through:
+    // a Plex watched → unwatched transition, or a canonical « watched ».
     const noDivergence = curState === "unwatched" && currentCanonicalState === "unknown";
     if (curState !== currentCanonicalState && !noDivergence) {
       return curState === "watched"
