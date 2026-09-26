@@ -1212,6 +1212,22 @@ export async function getShowEpisodesAtomic(cfg: PlexServerConfig, showRatingKey
   }
 }
 
+/** Diagnostic: every episode of a show with ALL its files — several files on
+ *  one episode means Plex merged them as versions of the same episode. */
+export async function getShowEpisodeFiles(cfg: PlexServerConfig, showRatingKey: string, token: string): Promise<{ season: number; episode: number; title: string; ratingKey: string; files: string[] }[]> {
+  const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}/allLeaves`, { headers: serverHeaders(cfg, token), cache: "no-store" });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const raw: { parentIndex?: number; index?: number; title?: string; ratingKey: string; Media?: { Part?: { file?: string }[] }[] }[] = data?.MediaContainer?.Metadata ?? [];
+  return raw.map((e) => ({
+    season: e.parentIndex ?? -1,
+    episode: e.index ?? -1,
+    title: e.title ?? "",
+    ratingKey: e.ratingKey,
+    files: (e.Media ?? []).flatMap((m) => (m.Part ?? []).map((p) => p.file ?? "")),
+  }));
+}
+
 /** Every episode of a show, flattened with season/episode numbers — one call, no per-season walk needed. */
 export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: string, token: string, managedUserId?: string): Promise<PlexEpisodeItem[]> {
   try {

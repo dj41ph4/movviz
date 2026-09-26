@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
-import { getLibrarySections, getRawItemDetail, getSectionRawItems, resolveTmdbIdForDebug } from "@/lib/plex/client";
+import { getLibrarySections, getRawItemDetail, getSectionRawItems, resolveTmdbIdForDebug, getShowEpisodeFiles } from "@/lib/plex/client";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
  * n'est pas liée par la synchronisation.
  *
  * GET /api/plex/diagnostic?title=Le%20coeur%20a%20ses%20raisons
+ * GET /api/plex/diagnostic?showKey=648636 — chaque épisode d’une série Plex
+ *   avec TOUS ses fichiers (plusieurs = Plex a fusionné des versions).
  */
 export async function GET(req: NextRequest) {
   const admin = requireAdmin(req);
@@ -18,6 +20,9 @@ export async function GET(req: NextRequest) {
 
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return NextResponse.json({ error: "plex_not_connected" }, { status: 400 });
+
+  const showKey = req.nextUrl.searchParams.get("showKey");
+  if (showKey) return NextResponse.json({ episodes: await getShowEpisodeFiles(cfg, showKey, cfg.adminToken) });
 
   const title = (req.nextUrl.searchParams.get("title") ?? "").toLowerCase().trim();
   if (!title) return NextResponse.json({ error: "missing_title" }, { status: 400 });
