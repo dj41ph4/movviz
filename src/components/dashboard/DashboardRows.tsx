@@ -392,7 +392,7 @@ export function DashboardRows({
           return (
             <div key={id} className="space-y-8">
               {recentEpisodes.length > 0 && <PosterRow title={t("dashboard.recentEpisodes")}>
-                {recentEpisodes.map((episode) => {
+                {recentEpisodes.slice(0, 24).map((episode) => {
                 const artwork = resolveArtwork("series", episode.tmdbId, episode.backdropPath);
                 const playback = episode.plexRatingKey && episode.plexUrl
                   ? {

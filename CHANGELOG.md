@@ -1,3 +1,10 @@
+## v1.25.114 — September 2026
+
+### Android TV : les ajouts récents ne se limitent plus à une seule série
+
+- Quand une série arrive d'un coup (Regular Show, 15 épisodes le même jour), elle occupait presque toute la liste des derniers épisodes envoyée aux appareils. Une fois regroupée par série sur la TV, la rangée ne montrait plus qu'elle. La liste va maintenant jusqu'à couvrir vingt séries différentes : le bloc Regular Show avec ses 15 épisodes reste en tête, suivi des autres ajouts récents.
+- Web et téléphone : la rangée qui montre chaque épisode reste limitée aux 24 derniers.
+
 ## v1.25.113 — September 2026
 
 ### Assistant IA : il lit aussi les films qu'il propose

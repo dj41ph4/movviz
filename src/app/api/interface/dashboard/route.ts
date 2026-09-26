@@ -1,3 +1,4 @@
+import { recentEpisodesAcrossSeries } from "@/lib/library/recentEpisodes";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import type { DashboardWidgetId } from "@/lib/dashboard/types";
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
       // shelf is not enough when a long-running show gains one new episode.
       // Sorting on file.addedAt makes Plex imports and Movviz downloads share
       // the same, real arrival chronology.
-      const recentEpisodes = series.flatMap((show) =>
+      const recentEpisodes = recentEpisodesAcrossSeries(series.flatMap((show) =>
         show.seasons.flatMap((season) => season.episodes
           .filter((episode) => episode.status === "available" && episode.file)
           .map((episode) => ({
@@ -102,9 +103,7 @@ export async function GET(req: NextRequest) {
             file: technical(episode.file),
           }))
         )
-      )
-        .sort((a, b) => b.addedAt - a.addedAt)
-        .slice(0, 24);
+      ));
 
       const compactMovies = movies.map((movie) => ({
         id: movie.id,
