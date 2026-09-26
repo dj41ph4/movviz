@@ -1,3 +1,10 @@
+## v1.25.109 — September 2026
+
+### Android TV : fin des chargements infinis sur les profils liés à Plex
+
+- Sur un profil lié à Plex, l'app TV pouvait ne plus rien charger : pages vides, chargements sans fin, photo d'une page restée sur la suivante. Chaque synchronisation avec Plex réenregistrait des « vus » déjà connus et prévenait tous les appareils d'un changement qui n'en était pas un. Les appareils relisaient alors leurs « vus », ce qui relançait la synchronisation : une boucle sans fin qui saturait le serveur pour ce profil.
+- Les appareils ne sont désormais prévenus que lorsqu'un « vu » ou « Reprendre » change vraiment. Le temps réel entre appareils fonctionne comme avant.
+
 ## v1.25.108 — September 2026
 
 ### Android mobile : la saisie du chat colle au clavier

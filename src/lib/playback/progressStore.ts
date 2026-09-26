@@ -194,6 +194,9 @@ export function syncProgressWatched(
   const bucket = store().byUser[userId];
   if (!bucket) return;
   let changed = false;
+  // « Reprendre » or a checkmark shown elsewhere changes: tell the devices.
+  // A date-only bump (a Plex re-sync re-affirming a view) is not announced.
+  let visible = false;
   for (const p of Object.values(bucket)) {
     if (ref.tmdbId != null && p.tmdbId !== ref.tmdbId) continue;
     if (p.mediaType === "movie" && ref.type !== "movie") continue;
@@ -202,6 +205,7 @@ export function syncProgressWatched(
     if (ref.episode != null && p.episodeNumber !== ref.episode) continue;
     if (watched) {
       if (!p.watched || p.resumeOffsetMs != null || p.eligibleForResume || (watchedAt != null && watchedAt > (p.watchedAt ?? 0))) {
+        if (!p.watched || p.resumeOffsetMs != null || p.eligibleForResume) visible = true;
         p.watched = true;
         p.watchedAt = Math.max(p.watchedAt ?? 0, watchedAt ?? Date.now());
         p.resumeOffsetMs = null;
@@ -212,6 +216,7 @@ export function syncProgressWatched(
       }
     } else if (p.watched || p.resumeOffsetMs != null || p.eligibleForResume) {
       // Non vu = on recommence à zéro : ni flag périmé ni reprise fossile.
+      visible = true;
       p.watched = false;
       p.watchedAt = null;
       p.resumeOffsetMs = null;
@@ -223,6 +228,7 @@ export function syncProgressWatched(
     }
   }
   if (changed) persist();
+  if (visible) emitWatchChanged(userId);
 }
 
 /** Une seule reprise active par série et par profil (§23-24, §58) : quand un

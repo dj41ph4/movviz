@@ -50,3 +50,25 @@ test("chat IA partagé : une question, sa réponse et « Effacer » préviennent
     off();
   }
 });
+
+test("une resynchro Plex qui réaffirme un « vu » identique ne prévient pas les appareils (pas de boucle)", async () => {
+  const { setWatchedMovies } = await import("@/lib/plex/watchStore");
+  const user = `loop-${Date.now()}`;
+  const tmdbId = 990000 + Math.floor(Math.random() * 9000);
+  setWatchedMovies(user, [tmdbId], true, "Loop", 1_000_000, "plex_history");
+  await new Promise((r) => setTimeout(r, 600));
+  const seen: AppEvent[] = [];
+  const off = eventBus.on((e) => seen.push(e));
+  try {
+    // The same view seen again by a later sync, with a fresher date.
+    setWatchedMovies(user, [tmdbId], true, "Loop", 2_000_000, "plex_history");
+    await new Promise((r) => setTimeout(r, 600));
+    assert.equal(seen.filter((e) => e.type === "watch_changed").length, 0);
+    // A real change is still announced.
+    setWatchedMovies(user, [tmdbId], false, "Loop", 3_000_000, "movviz_manual");
+    await new Promise((r) => setTimeout(r, 600));
+    assert.equal(seen.filter((e) => e.type === "watch_changed").length, 1);
+  } finally {
+    off();
+  }
+});
