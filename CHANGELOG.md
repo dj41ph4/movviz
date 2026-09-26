@@ -1,3 +1,9 @@
+## v1.25.98 — September 2026
+
+### Android TV : bouton « Épisode suivant » à la place du bandeau
+
+- Android TV : le gros bandeau « Épisode suivant » de fin d'épisode est supprimé. À la place, le bouton habituel « Passer le générique » devient « Épisode suivant » quand une suite existe : même style, même endroit, et il apparaît pendant le générique de fin fourni par Plex, à ses horaires exacts. Pour un épisode dont Plex ne connaît pas le générique, le même bouton apparaît dans les 45 dernières secondes.
+
 ## v1.25.97 — September 2026
 
 ### Assistant IA : discuter à la voix

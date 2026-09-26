@@ -304,6 +304,8 @@ private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
 )
 
 private const val TAG = "MovvizPlayer"
+/** Sans générique connu : « Épisode suivant » sur les dernières secondes. */
+private const val NEXT_FALLBACK_MS = 45_000L
 private const val SEEK_STEP_MS = 10_000L
 /** Silence après le dernier appui ⏩/⏪ avant le vrai saut d'une rafale. */
 private const val SEEK_COMMIT_DELAY_MS = 700L
@@ -508,8 +510,6 @@ private fun PlayerScreen(
     // Panneau "Épisode suivant" en fin d'épisode — visible ~45s avant la fin,
     // même comportement que Netflix : carte avec libellé, compte à rebours
     // et bouton "⏭". Toujours visible, pas dans l'overlay auto-masquant.
-    var showNextEpisodeTeaser by remember { mutableStateOf(false) }
-    var nextEpisodeCountdown by remember { mutableStateOf(0L) }
     // Repli direct-play → transcodage serveur, en deux niveaux : 1 = ffmpeg
     // audio seul (vidéo copiée en bitstream, seul le son est ré-encodé —
     // x264/x265 passent presque partout, inutile de ré-encoder l'image),
@@ -1096,25 +1096,6 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         pendingSeekTarget?.let { seekAbs(it) }
     }
 
-    // Surveillance de la position pour afficher le panneau "Épisode suivant"
-    // en fin d'épisode — même UX que Netflix : la carte apparaît ~45s avant
-    // la fin, avec le libellé du prochain épisode et un compte à rebours.
-    LaunchedEffect(current.ratingKey, hasNext) {
-        showNextEpisodeTeaser = false
-        while (true) {
-            delay(1_000L)
-            if (!hasNext) { showNextEpisodeTeaser = false; continue }
-            val pos = timelinePos()
-            val dur = timelineDur()
-            if (dur > 0 && pos > dur - 45_000L) {
-                showNextEpisodeTeaser = true
-                nextEpisodeCountdown = ((dur - pos) / 1000L).coerceAtLeast(0)
-            } else {
-                showNextEpisodeTeaser = false
-            }
-        }
-    }
-
     // Détection du marker actif (intro/credits) — même cadence que la
     // position du player (500 ms), aucun timer haute fréquence. Timeline
     // décide : si la position est dans [startMs, endMs) → bouton visible ;
@@ -1123,11 +1104,21 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     // "consumed"). Fonctionne en reprise, en seek manuel et dans tous les
     // modes playback (direct, ffmpeg, DASH, HLS) sans conversion de
     // timeline — Plex envoie déjà des ms alignés sur ExoPlayer.
-    LaunchedEffect(current, markers) {
+    // « Épisode suivant » (demande 2026-09-26) : plus de bandeau en fin
+    // d'épisode — le bouton « Passer le générique » devient « Épisode
+    // suivant », aux mêmes instants que le générique (c'est justement là
+    // qu'on veut passer). Un épisode dont Plex ne connaît pas le générique
+    // l'affiche quand même sur ses NEXT_FALLBACK_MS dernières millisecondes.
+    LaunchedEffect(current, markers, hasNext) {
+        val hasCreditsMarker = markers.any { it.type == "credits" }
         while (true) {
             delay(500L)
             val pos = timelinePos()
+            val dur = timelineDur()
             activeMarker = markers.firstOrNull { pos >= it.startMs && pos < it.endMs }
+                ?: if (hasNext && !hasCreditsMarker && dur > NEXT_FALLBACK_MS && pos >= dur - NEXT_FALLBACK_MS && pos < dur) {
+                    com.movviz.tv.data.PlaybackMarkerDto(id = "next-fallback", type = "credits", startMs = dur - NEXT_FALLBACK_MS, endMs = dur)
+                } else null
         }
     }
 
@@ -1612,12 +1603,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // Next") — le marqueur est toujours au-dessus du dock de contrôle
         // et du teaser d'épisode. Les deux actions ne se superposent jamais,
         // y compris si l'intro se termine tout près du prochain épisode.
-        val skipBottom = when {
-            showNextEpisodeTeaser && hasNext && showControls -> 225.dp
-            showNextEpisodeTeaser && hasNext -> 158.dp
-            showControls -> 143.dp
-            else -> 42.dp
-        }
+        val skipBottom = if (showControls) 143.dp else 42.dp
         // "Passer l'intro / générique" — bottom-right, au-dessus du
         // panneau "Épisode suivant" s'il existe ; visible même quand les
         // contrôles sont masqués, mais ne vole jamais le focus d'un menu
@@ -1630,32 +1616,17 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 .align(Alignment.BottomEnd)
                 .padding(end = 42.dp, bottom = skipBottom),
         ) {
-            val label = if (activeMarker?.type == "intro") "Passer l'intro" else "Passer le générique"
+            val label = when {
+                activeMarker?.type == "intro" -> "Passer l'intro"
+                hasNext -> "Épisode suivant"
+                else -> "Passer le générique"
+            }
             SkipMarkerButton(
                 label = label,
                 focusRequester = skipMarkerFocus,
                 onSkip = { skipMarkerAction() },
                 onFocusChange = { skipMarkerFocused = it },
                 onWakeControls = { poke() },
-            )
-        }
-
-        // Panneau "Épisode suivant" en bas à droite — visible dans les
-        // ~45 dernières secondes d'un épisode, même pattern Netflix :
-        // carte avec le libellé du prochain épisode, compte à rebours et
-        // bouton "⏭". Toujours visible (pas dans l'overlay auto-masquant).
-        AnimatedVisibility(
-            visible = showNextEpisodeTeaser && hasNext,
-            enter = fadeIn(tween(300)),
-            exit = fadeOut(tween(200)),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 42.dp, bottom = 98.dp),
-        ) {
-            NextEpisodeTeaser(
-                label = queue.getOrNull(currentIndex + 1)?.label,
-                countdown = nextEpisodeCountdown,
-                onNextEpisode = { nextEpisodeAction() },
             )
         }
 
@@ -2291,79 +2262,6 @@ private fun ErrorActionButton(
             color = Color.White,
             modifier = Modifier.padding(horizontal = 21.dp, vertical = 9.dp),
         )
-    }
-}
-
-/** Carte "Épisode suivant" en fin d'épisode — visible en bas à droite
- *  pendant les ~45 dernières secondes, comme Netflix. Compte à rebours
- *  en cours, même langage visuel que les autres boutons du lecteur
- *  (Surface, lift au focus, bordure accent). Pas dans la chaîne de
- *  focus D-pad pour ne pas perturber la navigation de l'overlay —
- *  cliquable/tactile et déclenchable via la touche NEXT de la
- *  télécommande. */
-@Composable
-private fun NextEpisodeTeaser(
-    label: String?,
-    countdown: Long,
-    onNextEpisode: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var focused by remember { mutableStateOf(false) }
-    val titleShadow = Shadow(color = Color.Black.copy(alpha = 0.8f), offset = Offset(0f, 2f), blurRadius = 8f)
-    val shape = RoundedCornerShape(9.dp)
-    Surface(
-        onClick = onNextEpisode,
-        modifier = modifier
-            .tvFocusLift(focused, shape = shape)
-            .onFocusChanged { focused = it.isFocused }
-            .tvPointerClick(onNextEpisode),
-        shape = ClickableSurfaceDefaults.shape(shape = shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = MovvizSurface.copy(alpha = 0.92f),
-            contentColor = Color.White,
-        ),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand),
-                shape = shape,
-            ),
-        ),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 15.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Épisode suivant",
-                    style = MaterialTheme.typography.labelLarge.copy(shadow = titleShadow),
-                    color = MovvizInkSoft,
-                )
-                if (!label.isNullOrBlank()) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodyMedium.copy(shadow = titleShadow),
-                        color = MovvizInk,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (countdown > 0) {
-                    Text(
-                        text = "dans ${countdown}s",
-                        style = MaterialTheme.typography.labelSmall.copy(shadow = titleShadow),
-                        color = MovvizInkDim,
-                    )
-                }
-            }
-            Icon(
-                imageVector = MovvizIconSkipNext,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(21.dp),
-            )
-        }
     }
 }
 
