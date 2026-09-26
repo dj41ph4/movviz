@@ -20,6 +20,8 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+        <!-- Moteur de synthèse de Google (voix neuronales), choisi en priorité. -->
+        <package android:name="com.google.android.tts" />
     </queries>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Auto-update (variante AU uniquement) : demande l'autorisation

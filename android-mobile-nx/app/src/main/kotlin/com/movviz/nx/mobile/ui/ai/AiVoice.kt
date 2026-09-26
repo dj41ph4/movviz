@@ -20,7 +20,10 @@ import java.util.Locale
 class AiVoice(context: Context) : TextToSpeech.OnInitListener {
     private val prefs = context.getSharedPreferences("movviz_ai_voice", Context.MODE_PRIVATE)
     private val main = Handler(Looper.getMainLooper())
-    private val tts = TextToSpeech(context.applicationContext, this)
+    // Le moteur de Google s'il est installé : c'est lui qui a les voix
+    // neuronales (celles que Chrome utilise sur PC). Le moteur par défaut du
+    // téléphone (Samsung TTS sur un Galaxy…) n'a que des voix plus robotiques.
+    private val tts = TextToSpeech(context.applicationContext, this, googleEngine(context))
     private var afterSpeech: (() -> Unit)? = null
 
     var ready by mutableStateOf(false)
@@ -39,8 +42,13 @@ class AiVoice(context: Context) : TextToSpeech.OnInitListener {
         tts.language = Locale.FRANCE
         voices = runCatching { tts.voices.orEmpty() }.getOrDefault(emptySet())
             .filter { it.locale.language == "fr" && !it.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) }
-            .sortedWith(compareByDescending<Voice> { it.quality }.thenBy { it.isNetworkConnectionRequired }.thenBy { it.name })
-        voices.firstOrNull { it.name == voiceName }?.let { tts.voice = it }
+            // Les voix « en ligne » de Google sont les plus naturelles (même
+            // famille que sur PC) : en tête, à qualité égale. Hors connexion,
+            // le moteur de Google retombe seul sur sa voix locale.
+            .sortedWith(compareByDescending<Voice> { it.quality }.thenByDescending { it.isNetworkConnectionRequired }.thenBy { it.name })
+        // Sans choix enregistré, la meilleure voix d'office — sinon Android
+        // gardait sa voix par défaut, souvent la plus robotique.
+        (voices.firstOrNull { it.name == voiceName } ?: voices.firstOrNull())?.let { tts.voice = it }
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) { main.post { speaking = true } }
             override fun onDone(utteranceId: String?) { main.post { finished() } }
@@ -60,7 +68,7 @@ class AiVoice(context: Context) : TextToSpeech.OnInitListener {
     /** Libellé lisible : « Voix 2 · naturelle », jamais « fr-fr-x-frd-local ». */
     fun label(voice: Voice): String {
         val index = voices.indexOf(voice) + 1
-        val natural = voice.quality >= Voice.QUALITY_HIGH
+        val natural = voice.quality >= Voice.QUALITY_HIGH || voice.isNetworkConnectionRequired
         return buildString {
             append("Voix ").append(index)
             if (natural) append(" · naturelle")
@@ -102,6 +110,13 @@ class AiVoice(context: Context) : TextToSpeech.OnInitListener {
 
     companion object {
         private const val KEY_VOICE = "voice"
+        private const val GOOGLE_TTS = "com.google.android.tts"
+
+        /** Le moteur de synthèse de Google s'il est présent, sinon null (moteur par défaut). */
+        fun googleEngine(context: Context): String? = runCatching {
+            context.packageManager.getPackageInfo(GOOGLE_TTS, 0)
+            GOOGLE_TTS
+        }.getOrNull()
         private const val KEY_SPEAK = "speak"
 
         /** Ce qui vaut la peine d'être dit : ni emojis, ni markdown, ni marqueurs. */

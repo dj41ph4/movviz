@@ -1,3 +1,10 @@
+## v1.25.112 — September 2026
+
+### Android mobile : des voix aussi naturelles que sur PC
+
+- L'assistant parle avec le moteur de synthèse de Google quand il est installé, la même famille de voix que Chrome sur PC, au lieu du moteur du téléphone (celui de Samsung sur un Galaxy, bien plus robotique).
+- Les voix en ligne, les plus naturelles, passent en tête, et la meilleure est choisie d'office tant que tu n'en as pas choisi une autre. Hors connexion, le téléphone repasse tout seul sur sa voix locale.
+
 ## v1.25.111 — September 2026
 
 ### Assistant IA : fini les réponses qui traînent 10 secondes
