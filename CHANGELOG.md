@@ -1,3 +1,10 @@
+## v1.25.118 — September 2026
+
+### Android TV : retour sur l'accueil sans D-pad bloqué ni barre latérale
+
+- Après être revenu d'une fiche ouverte depuis « Continuer à regarder », BAS depuis le bouton « Lire » du hero ne faisait plus rien. Le passage vers la rangée du dessous visait sa toute première carte, qui n'était plus affichée une fois la rangée défilée ou réordonnée. Les rangées de l'accueil s'ouvrent maintenant par la rangée elle-même : BAS arrive sur la dernière carte choisie, ou la première visible.
+- Au retour d'une fiche, le focus revient dans l'accueil au lieu de rester sur la barre latérale, même quand tu étais descendu plus bas dans la page.
+
 ## v1.25.117 — September 2026
 
 ### Assistant IA : plus de films « dans la lignée » d'un titre qu'il avait mal compris

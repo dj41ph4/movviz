@@ -208,8 +208,15 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // l'utilisateur : aucun repli vers la sidebar quand la cible n'est pas
     // encore attachée, on réessaie sur quelques images en respectant le
     // booléen réellement renvoyé par requestFocus().
+    // Accueil : d'abord la rangée et la carte d'où l'on venait (la liste
+    // les restaure) — le hero seul échouait dès qu'on était descendu plus
+    // bas, puisqu'il n'est alors plus composé, et le focus restait sur la
+    // barre latérale où Android l'avait posé.
+    val homeRestoreFocus = remember { FocusRequester() }
     suspend fun enterContent() {
         repeat(30) { attempt ->
+            val home = currentRoute?.startsWith("home") == true
+            if (home && runCatching { homeRestoreFocus.requestFocus() }.getOrDefault(false)) return
             if (runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)) return
             if (attempt < 29) withFrameNanos { }
         }
@@ -517,6 +524,7 @@ composable(ROUTE_PROFILES) {
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
                 contentFocusRequester = contentFocusRequester,
+                homeRestoreFocusRequester = homeRestoreFocus,
                 navRailFocusRequester = navRailFocusRequester,
                 onHomeScrollChanged = { headerHasScrolled = it },
                 libraryTab = libraryTab,

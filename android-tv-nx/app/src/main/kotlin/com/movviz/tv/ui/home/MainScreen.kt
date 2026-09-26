@@ -51,6 +51,7 @@ internal fun MainScreen(
     // barre reçoit le focus quand l'utilisateur appuie sur HAUT alors que
     // plus rien ne se trouve au-dessus dans le contenu.
     navRailFocusRequester: FocusRequester? = null,
+    homeRestoreFocusRequester: FocusRequester? = null,
     onHomeScrollChanged: (Boolean) -> Unit = {},
     // Filtre Films/Séries de la Bibliothèque et de Découverte, hoistés
     // jusqu'à MovvizNavHost : ouvrir une fiche depuis Bibliothèque > Séries
@@ -100,7 +101,7 @@ internal fun MainScreen(
                 showSearchField = true,
                 resultFocusRequester = contentFocusRequester,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged, restoreFocusRequester = homeRestoreFocusRequester)
             // Découverte redevient un onglet de nav à part entière (refonte
             // sidebar) : DiscoverScreen(fixedType = null) affiche déjà, sans
             // aucun changement de son côté, son propre sélecteur Films/Séries

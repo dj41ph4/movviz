@@ -273,6 +273,9 @@ fun HomeScreen(
     // entièrement géré par les listes TV natives.
     navRailFocusRequester: FocusRequester? = null,
     onScrollChanged: (Boolean) -> Unit = {},
+    // Retour d'une fiche : la liste rend la rangée d'où l'on venait, dont le
+    // propre focusRestorer rend la carte (voir MainActivity.enterContent).
+    restoreFocusRequester: FocusRequester? = null,
 ) {
     val streamedMovies by viewModel.movies.collectAsState()
     val streamedSeries by viewModel.series.collectAsState()
@@ -617,7 +620,10 @@ fun HomeScreen(
             .focusGroup(),
     ) {
         TvLazyColumn(
-            modifier = Modifier.fillMaxSize().focusGroup(),
+            modifier = Modifier.fillMaxSize()
+                .let { if (restoreFocusRequester != null) it.focusRequester(restoreFocusRequester) else it }
+                .focusRestorer()
+                .focusGroup(),
             state = listState,
             // Le rail possède désormais sa propre colonne hors de cet écran.
             // Le hero peut donc occuper toute la largeur de la zone contenu,
@@ -1705,7 +1711,14 @@ internal fun TitleRow(
         RowHeading(heading)
         TvLazyRow(
             state = rememberTvLazyListState().withTvPrefetchDisabled(),
-            modifier = Modifier.focusRestorer(),
+            // Entrée par la RANGÉE, pas par sa carte n°0 : défilée ou
+            // réordonnée, la rangée n’a plus forcément cette carte composée,
+            // et BAS depuis le hero (ou l’entrée initiale) visait alors un
+            // élément absent — le D-pad restait bloqué. focusRestorer rend
+            // la dernière carte choisie, sinon la première visible.
+            modifier = Modifier
+                .let { if (firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it }
+                .focusRestorer(),
             contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
             horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
@@ -1725,7 +1738,6 @@ internal fun TitleRow(
                 PosterCard(
                     card = renderedCard,
                     onClick = { onClick(card) },
-                    focusRequester = if (index == 0) firstItemFocusRequester else null,
                     navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
                     onFocusedChange = { focused ->
                         focusedCardState.value = if (focused) card else null
@@ -1929,7 +1941,11 @@ internal fun ContinueWatchingRow(
         RowHeading("Continuer à regarder")
         TvLazyRow(
             state = rememberTvLazyListState().withTvPrefetchDisabled(),
-            modifier = Modifier.focusRestorer(),
+            // Entrée par la rangée (voir TitleRow) : la carte n°0 d’une
+            // reprise réordonnée n’est plus forcément composée.
+            modifier = Modifier
+                .let { if (firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it }
+                .focusRestorer(),
             contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -1937,7 +1953,6 @@ internal fun ContinueWatchingRow(
                 ResumeCard(
                     card = card,
                     onClick = { onClick(card) },
-                    focusRequester = if (index == 0) firstItemFocusRequester else null,
                     navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                 )
