@@ -4,13 +4,7 @@
 
 - Seul le compte propriétaire du serveur Plex vérifie, à chaque ouverture de fiche, l'état « vu » de chaque épisode directement auprès de Plex. Pour une série dont des épisodes n'avaient jamais été vus, Movviz prenait « jamais vu » et « non vu » pour une différence : il réécrivait ces épisodes à chaque vérification, prévenait tes appareils, qui relisaient la fiche, ce qui relançait la vérification, une fois par seconde, sans fin. C'est pour ça que seul ce compte était bloqué.
 - « Jamais vu » et « non vu » sont désormais traités comme un seul et même état : plus aucune réécriture inutile, plus de boucle. Une vraie différence (vu dans Movviz, non vu dans Plex, ou l'inverse) est toujours corrigée comme avant.
-
-## v1.25.109 — September 2026
-
-### Android TV : fin des chargements infinis sur les profils liés à Plex
-
-- Sur un profil lié à Plex, l'app TV pouvait ne plus rien charger : pages vides, chargements sans fin, photo d'une page restée sur la suivante. Chaque synchronisation avec Plex réenregistrait des « vus » déjà connus et prévenait tous les appareils d'un changement qui n'en était pas un. Les appareils relisaient alors leurs « vus », ce qui relançait la synchronisation : une boucle sans fin qui saturait le serveur pour ce profil.
-- Les appareils ne sont désormais prévenus que lorsqu'un « vu » ou « Reprendre » change vraiment. Le temps réel entre appareils fonctionne comme avant.
+- Par sécurité, tes appareils ne sont plus prévenus que lorsqu’un « vu » ou « Reprendre » change vraiment : une synchronisation Plex qui réaffirme un « vu » déjà connu ne déclenche plus rien. Le temps réel entre appareils fonctionne comme avant.
 
 ## v1.25.108 — September 2026
 
