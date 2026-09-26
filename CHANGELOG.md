@@ -1,3 +1,12 @@
+## v1.25.103 — September 2026
+
+### Assistant IA : il agit au lieu de poser des questions, et « Effacer » efface pour de bon
+
+- Assistant IA : « Effacer la conversation » efface vraiment. Sur Android, une relecture de la conversation partie juste avant ou pendant l'effacement pouvait la faire réapparaître. Sur le web, une copie locale la réaffichait au rechargement suivant.
+- Assistant IA : il lance ce qu'on lui demande. « Lance Silent Night » démarre ce titre de la bibliothèque. « Lance un film au hasard » ou « lance un film d'action / d'horreur / une comédie… » choisit lui-même un film de ta bibliothèque, pas encore vu, du genre demandé, et le lance.
+- Assistant IA : « j'ai envie de regarder quelque chose ce soir », « des pépites moins connues », « un film d'action », « quelque chose de court »… donnent directement des propositions, au lieu d'une question en retour.
+- Assistant IA : les boutons « Un film / Une série » n'apparaissent plus sous une question qui porte sur autre chose (par exemple « une comédie ou un thriller ? »).
+
 ## v1.25.102 — September 2026
 
 ### Serveur : tâches de fond allégées

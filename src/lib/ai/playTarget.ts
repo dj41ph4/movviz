@@ -1,4 +1,4 @@
-import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
+import { getMovieByTmdbId, getSeriesByTmdbId, loadMovies, loadSeries } from "@/lib/library/store";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
 import type { AiPlayTarget } from "./types";
@@ -53,4 +53,66 @@ export function resolvePlayTarget(userId: string, subject: { tmdbId: number; typ
     ratingKey: pick.ep.plexRatingKey ?? movvizId, movvizId, seriesId: series.id,
     seasonNumber: pick.season, episodeNumber: pick.ep.episodeNumber, episodeTitle: pick.ep.title || undefined,
   };
+}
+
+// ── « lance Silent Night », « lance un film d'action au hasard » ─────────
+
+const PLAY_VERB_RE = /\b(?:lance[sz]?|lancer|d[ée]marre[sz]?|d[ée]marrer|joue[sz]?|jouer|mets)(?:[- ]moi)?\s+(.+)$/i;
+// « lance un film », « mets n'importe quel film », « lance quelque chose »
+const PLAY_ANY_RE = /\b(?:lance[sz]?|lancer|d[ée]marre[sz]?|joue[sz]?|mets)(?:[- ]moi)?\s+(?:un|une|n['’]importe quel(?:le)?|quelque chose|un truc)\b/i;
+
+/** Genre words a user says → TMDb genre names (fr-FR, as the library stores them). */
+const GENRES: [RegExp, string[]][] = [
+  [/\baction\b/i, ["Action"]],
+  [/\baventures?\b/i, ["Aventure"]],
+  [/\banim(?:ation|[ée]s?)\b|dessins? anim[ée]s?/i, ["Animation"]],
+  [/\bcom[ée]die|\bdr[ôo]le|\brire\b|marrant/i, ["Comédie"]],
+  [/\bpolar|\bpolicier|\bcrime|gangsters?/i, ["Crime"]],
+  [/\bdocumentaire|\bdocu\b/i, ["Documentaire"]],
+  [/\bdrame|\bdramatique/i, ["Drame"]],
+  [/\bfamil(?:le|ial)|\benfants?\b/i, ["Familial"]],
+  [/\bfantastique|\bfantasy/i, ["Fantastique"]],
+  [/\bhorreur|\bflippant|\bpeur\b|\bpour flipper/i, ["Horreur"]],
+  [/\bmyst[èe]re|\benqu[êe]te/i, ["Mystère"]],
+  [/\bromance|\bromantique|\bamour\b/i, ["Romance"]],
+  [/\bscience[- ]fiction|\bsf\b|\bsci[- ]?fi|\bspatial/i, ["Science-Fiction"]],
+  [/\bthriller|\bsuspense/i, ["Thriller"]],
+  [/\bguerre\b/i, ["Guerre"]],
+  [/\bwestern/i, ["Western"]],
+];
+
+const strip = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** « vas-y lance Silent Night » → Silent Night, found in THIS library
+ *  (films first, then series) — nothing is invented: no match, no play. */
+export function findNamedPlayTarget(userId: string, message: string): AiPlayTarget | null {
+  const asked = message.match(PLAY_VERB_RE)?.[1];
+  if (!asked) return null;
+  const wanted = strip(asked.replace(/^(?:le film|la s[ée]rie|l['’]?[ée]pisode|le|la|les)\s+/i, "")).replace(/\s+(?:stp|s il te plait|merci)$/, "");
+  if (wanted.length < 2) return null;
+  const movie = loadMovies().find((m) => (m.file || m.plexRatingKey) && strip(m.title) === wanted);
+  if (movie) return resolvePlayTarget(userId, { tmdbId: movie.tmdbId, type: "movie" });
+  const series = loadSeries().find((s) => strip(s.title) === wanted);
+  if (series) return resolvePlayTarget(userId, { tmdbId: series.tmdbId, type: "series" });
+  return null;
+}
+
+export function isPlayAnyRequest(message: string): boolean {
+  return PLAY_ANY_RE.test(message);
+}
+
+/** « lance un film d'action » : a film of THIS library, with a file, not
+ *  seen yet, of the genre asked if any — the better rated ones more likely. */
+export function pickRandomPlayTarget(userId: string, message: string): { target: AiPlayTarget; genre: string | null } | null {
+  const genre = GENRES.find(([re]) => re.test(message))?.[1] ?? null;
+  const watched = new Set(getWatchStatus(userId)?.movies ?? []);
+  const candidates = loadMovies().filter((m) =>
+    (m.file || m.plexRatingKey) && !watched.has(m.tmdbId) && (!genre || m.genres.some((g) => genre.includes(g))));
+  if (!candidates.length) return null;
+  // Weighted draw: a 8/10 film is about twice as likely as a 4/10 one.
+  const weights = candidates.map((m) => Math.max(1, (m.rating ?? 0) - 3));
+  let roll = Math.random() * weights.reduce((sum, w) => sum + w, 0);
+  const pick = candidates.find((_, i) => (roll -= weights[i]) <= 0) ?? candidates[candidates.length - 1];
+  const target = resolvePlayTarget(userId, { tmdbId: pick.tmdbId, type: "movie" });
+  return target ? { target, genre: genre?.[0] ?? null } : null;
 }

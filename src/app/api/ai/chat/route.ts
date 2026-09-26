@@ -6,7 +6,7 @@ import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallu
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { correctTypos } from "@/lib/ai/typoTolerance";
-import { isPlayRequest, resolvePlayTarget } from "@/lib/ai/playTarget";
+import { findNamedPlayTarget, isPlayAnyRequest, isPlayRequest, pickRandomPlayTarget, resolvePlayTarget } from "@/lib/ai/playTarget";
 import { demandedTitles, scrubTitleAddress } from "@/lib/ai/addressTitles";
 import { analyzeDialogueTurn, selectDialogueCandidate, updateDialogueState } from "@/lib/ai/dialogueDirector";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -58,6 +58,9 @@ function summarizeAdd(outcomes: AiActionOutcome[]): string[] {
   }
   return lines;
 }
+
+/** « de ce genre » in the no-film message, when a genre was asked. */
+const GENRE_HINT = (message: string) => (/\b(?:action|horreur|com[ée]die|thriller|drame|aventure|animation|science[- ]fiction|romance|western|guerre|policier|fantastique)\b/i.test(message) ? " de ce genre" : "");
 
 export async function POST(req: NextRequest) {
   const user = requireUser(req);
@@ -220,7 +223,21 @@ export async function POST(req: NextRequest) {
   // the library (the film, or the episode in progress / next unseen), sent
   // with the reply so the client opens its player. The model only reacts.
   let playTarget: ReturnType<typeof resolvePlayTarget> = null;
-  if (!seenCommand && isPlayRequest(looseMessage)) {
+  // « lance Silent Night » — a title named outright, found in the library.
+  const namedPlay = seenCommand ? null : findNamedPlayTarget(user.id, message) ?? findNamedPlayTarget(user.id, looseMessage);
+  if (namedPlay) {
+    playTarget = namedPlay;
+    seenActionNote += `\n\nACTION RÉELLE EFFECTUÉE PAR MOVVIZ — la lecture de « ${namedPlay.title} »${namedPlay.seasonNumber != null ? ` (saison ${namedPlay.seasonNumber}, épisode ${namedPlay.episodeNumber})` : ""} démarre à l'instant sur son écran. Réagis en une phrase courte, dans ta personnalité, sans question ni proposition. N'écris aucun JSON.`;
+  } else if (!seenCommand && !isPlayRequest(looseMessage) && isPlayAnyRequest(looseMessage)) {
+    // « lance un film d'action / au hasard » — Movviz picks it itself.
+    const picked = pickRandomPlayTarget(user.id, looseMessage);
+    if (picked) {
+      playTarget = picked.target;
+      seenActionNote += `\n\nACTION RÉELLE EFFECTUÉE PAR MOVVIZ — il voulait un film${picked.genre ? ` (${picked.genre})` : ""} sans préciser lequel : Movviz a choisi « ${picked.target.title} » parmi SES films pas encore vus, et la lecture démarre à l'instant. Annonce ce choix en une ou deux phrases, dans ta personnalité (pourquoi il va lui plaire), sans question ni autre proposition. N'écris aucun JSON.`;
+    } else {
+      seenActionNote += `\n\nLECTURE IMPOSSIBLE — aucun film${GENRE_HINT(looseMessage)} pas encore vu n'a de fichier dans sa bibliothèque : dis-le simplement et propose-lui des idées à ajouter. N'écris aucun JSON.`;
+    }
+  } else if (!seenCommand && isPlayRequest(looseMessage)) {
     const subject = pageContext ?? freshSubject;
     playTarget = subject ? resolvePlayTarget(user.id, subject) : null;
     seenActionNote += playTarget
@@ -231,7 +248,7 @@ export async function POST(req: NextRequest) {
   }
   // After a « c'est déjà vu », what follows is a request for something else.
   const capabilitiesQuestion = isCapabilitiesQuestion(looseMessage);
-  const directRecommendation = !recommendationContinuation && !capabilitiesQuestion && isDirectRecommendationRequest(looseMessage, previousAssistantText);
+  const directRecommendation = !playTarget && !recommendationContinuation && !capabilitiesQuestion && isDirectRecommendationRequest(looseMessage, previousAssistantText);
 
   const userContext = buildUserContext(user.id);
   const memoryContext = buildMemoryContext(user.id);

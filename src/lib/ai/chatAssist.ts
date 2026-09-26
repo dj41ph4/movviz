@@ -72,7 +72,7 @@ export function proposedKeys(messages: AiChatMessage[]): Set<string> {
 
 // ── Act instead of asking ───────────────────────────────────────────────
 
-const RECO_REQUEST_RE = /\b(?:conseill\w*|recommand\w*|propos(?:e|es|ez|er)\b|sugg[èée]r\w*|surprends|fais[- ]moi d[ée]couvrir)|\b(?:m[êe]me|dans le|dans ce)\s+(?:genre|style|d[ée]lire|trip|mood|ambiance)\b|\btu sais ce que j['’]?aime\b|\b(?:quoi|un truc|quelque chose)\s+(?:à|a)\s+(?:regarder|voir|mater)\b|\bj['’]?ai (?:d[ée]j[aà] )?tout vu\b/i;
+const RECO_REQUEST_RE = /\benvie (?:de|d['’])\s*(?:regarder|voir|mater|un\b|une\b|quelque)|\bp[ée]pites?\b|\bmoins connu|\b(?:un|une|des)\s+(?:films?|s[ée]ries?|animes?|documentaires?)\s+(?:d['’]|de\s|qui\s|pour\s|avec\s|court|dr[ôo]le|flippant|sympa|l[ée]ger|sombre|romantique|action|horreur|com[ée]die)|\b(?:quelque chose|un truc)\s+(?:de|d['’]|pour|ce soir|à regarder|a regarder)|\b(?:conseill\w*|recommand\w*|propos(?:e|es|ez|er)\b|sugg[èée]r\w*|surprends|fais[- ]moi d[ée]couvrir)|\b(?:m[êe]me|dans le|dans ce)\s+(?:genre|style|d[ée]lire|trip|mood|ambiance)\b|\btu sais ce que j['’]?aime\b|\b(?:quoi|un truc|quelque chose)\s+(?:à|a)\s+(?:regarder|voir|mater)\b|\bj['’]?ai (?:d[ée]j[aà] )?tout vu\b/i;
 const PAST_RECO_RE = /\b(?:m['’]?as|m['’]?avais|as|avais|a|avait)\s+(?:conseill|recommand|propos|sugg[ée]r)\w*/i;
 // No \b: JavaScript's \b ignores accented letters (« ça », « plutôt »).
 const OFFER_QUESTION_RE = /tu veux|ça te tente|ça te dit|on part sur|on reste sur|on cherche|plutôt|ou bien|tu as envie|t['’]as envie|je te sors|je t['’]envoie|je te propose/i;
@@ -204,6 +204,11 @@ export function buildQuickReplies(assistant: AiChatMessage): string[] {
   // Buttons answer a question: a goodbye (« Passe une excellente soirée… »)
   // mentioning films asks nothing.
   if (!/\?[\s\p{Extended_Pictographic}‍️]*$/u.test(text.trim())) return [];
+  // A choice between other things (« une comédie ou un thriller ? ») is not
+  // answered by « Vas-y / Un film / Une série »: no buttons then.
+  const question = text.slice(text.lastIndexOf("\n") + 1);
+  const filmOrSeries = /\bfilms?\b/i.test(question) && /\bs[ée]ries?\b/i.test(question);
+  if (/\sou\s/i.test(question) && !filmOrSeries) return [];
   if (OFFER_QUESTION_RE.test(text) && OFFER_TOPIC_RE.test(text)) {
     return ["Vas-y", "Un film", "Une série", "Surprends-moi"];
   }

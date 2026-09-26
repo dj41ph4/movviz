@@ -268,14 +268,21 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     val aiSwapping: StateFlow<String?> = _aiSwapping.asStateFlow()
 
     /** Relit la session (bulle visible seulement si l'IA est activée côté serveur). */
+    /** Bumped by clearAiSession(): a session read started before an
+     *  « Effacer » must never put the erased conversation back. */
+    private var aiClearGeneration = 0
+    /** A message was sent after the last « Effacer » (see clearAiSession). */
+    private var aiSentSinceClear = false
+
     fun refreshAiSession() {
+        val generation = aiClearGeneration
         viewModelScope.launch {
             val result = repository?.aiSession()
             if (result is ApiResult.Success) {
                 _aiEnabled.value = result.data.enabled
                 _aiVoiceInput.value = result.data.voiceInput
                 _aiVoiceOutput.value = result.data.voiceOutput
-                if (!_aiBusy.value) _aiMessages.value = result.data.messages
+                if (!_aiBusy.value && generation == aiClearGeneration) _aiMessages.value = result.data.messages
             }
         }
     }
@@ -284,6 +291,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         val message = text.trim()
         val repo = repository ?: return
         if (message.isEmpty() || _aiBusy.value) return
+        aiSentSinceClear = true
         _aiMessages.value = _aiMessages.value + AiChatMessageDto(role = "user", content = message)
         _aiBusy.value = true
         viewModelScope.launch {
@@ -347,8 +355,16 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     fun clearAiSession() {
         val repo = repository ?: return
+        aiClearGeneration++
+        aiSentSinceClear = false
         _aiMessages.value = emptyList()
-        viewModelScope.launch { repo.aiClearSession() }
+        viewModelScope.launch {
+            repo.aiClearSession()
+            // A session read sent while the erase was travelling may have
+            // reached the server first, with the old conversation: void it too.
+            aiClearGeneration++
+            if (!aiSentSinceClear) _aiMessages.value = emptyList()
+        }
     }
 
     private val _seriesLibraryRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList())

@@ -419,6 +419,9 @@ export function ChatWidget() {
   const clear = useCallback(async () => {
     setMessages([]);
     setProvider(null);
+    // The widget seeds itself from this cached copy when it mounts again:
+    // left untouched, the erased conversation came back on the next page.
+    void mutateSession((current) => (current ? { ...current, messages: [], proactive: false } : current), { revalidate: false });
     try {
       await fetch("/api/ai/session", {
         method: "POST",
@@ -426,7 +429,7 @@ export function ChatWidget() {
         body: JSON.stringify({ clear: true }),
       });
     } catch { /* local reset is enough */ }
-  }, []);
+  }, [mutateSession]);
 
   const addCard = useCallback(async (card: AiRecommendation) => {
     const key = `${card.type}-${card.tmdbId}`;

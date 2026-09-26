@@ -113,3 +113,28 @@ test("« lance-le » est reconnu comme une demande de lecture, « mets-le en vu 
   for (const msg of ["ouais vas y lance le", "lance-le", "démarre le film", "lance la lecture", "mets-le", "joue le"]) assert.ok(isPlayRequest(msg), msg);
   for (const msg of ["mets-le en vu", "je l'ai déjà vu", "un film qui lance des idées ?", "conseille moi un film"]) assert.equal(isPlayRequest(msg), false, msg);
 });
+
+test("les demandes naturelles donnent des propositions tout de suite, les autres phrases non", async () => {
+  const { isDirectRecommendationRequest } = await import("../src/lib/ai/chatAssist.ts");
+  for (const msg of ["J'ai envie de regarder quelque chose ce soir, mais pas trop long", "Des pépites moins connues", "un film d'action", "une série drôle", "quelque chose de court"]) {
+    assert.ok(isDirectRecommendationRequest(msg), msg);
+  }
+  for (const msg of ["tu sais me dire l'heure ?", "j'adore", "c'est quoi la musique d'Interstellar ?", "salut", "tu m'as recommandé un film nul"]) {
+    assert.equal(isDirectRecommendationRequest(msg), false, msg);
+  }
+});
+
+test("« lance un film au hasard / d'action » est une demande de lecture sans titre", async () => {
+  const { isPlayAnyRequest, isPlayRequest } = await import("../src/lib/ai/playTarget.ts");
+  for (const msg of ["Lance un film au hasard", "Lance un film d'action", "mets n'importe quel film", "lance quelque chose"]) {
+    assert.ok(isPlayAnyRequest(msg), msg);
+    assert.equal(isPlayRequest(msg), false, msg);
+  }
+  assert.equal(isPlayAnyRequest("un film qui lance des idées ?"), false);
+});
+
+test("les boutons « Un film / Une série » n'apparaissent que si la question porte sur ce choix", async () => {
+  const { buildQuickReplies } = await import("../src/lib/ai/chatAssist.ts");
+  assert.deepEqual(buildQuickReplies({ role: "assistant", content: "Tu veux qu'on tente une comédie bien lourde ou un thriller ? 🍿" }), []);
+  assert.ok(buildQuickReplies({ role: "assistant", content: "Tu veux plutôt un film ou une série ce soir ?" }).length > 0);
+});
