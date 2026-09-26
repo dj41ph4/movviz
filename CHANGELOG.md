@@ -1,3 +1,10 @@
+## v1.25.115 — September 2026
+
+### Android TV : les fiches du compte propriétaire de Plex s'ouvrent à nouveau
+
+- Pour le compte propriétaire du serveur Plex, ouvrir une fiche de série faisait vérifier chaque épisode auprès de Plex, par lots de 50 envoyés l'un après l'autre, avant de répondre : de 10 à 50 secondes sur une longue série. L'app TV abandonnait au bout de 20 secondes pendant que le serveur continuait, chaque fiche ouverte relançait une vérification complète, et les demandes de la TV s'empilaient derrière : fiches qui ne venaient jamais, images de la page précédente restées affichées.
+- La fiche reçoit maintenant tout de suite l'état « vu » connu. La vérification auprès de Plex se fait en arrière-plan, une seule à la fois par titre et pas plus d'une fois toutes les deux minutes. Si Plex signale un vrai changement, la fiche se met à jour en direct sur tous tes appareils.
+
 ## v1.25.114 — September 2026
 
 ### Android TV : les ajouts récents ne se limitent plus à une seule série
