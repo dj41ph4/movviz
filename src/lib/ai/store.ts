@@ -24,6 +24,7 @@ function deepMerge(base: AiConfig, patch: unknown): AiConfig {
     webSearchEnabled: p.webSearchEnabled ?? base.webSearchEnabled,
     voiceInputEnabled: p.voiceInputEnabled ?? base.voiceInputEnabled,
     voiceOutputEnabled: p.voiceOutputEnabled ?? base.voiceOutputEnabled,
+    promptVariant: p.promptVariant === "compact" ? "compact" : "full",
     webSearchKey: typeof p.webSearchKey === "string" && p.webSearchKey.trim() ? p.webSearchKey.trim() : undefined,
   };
 }

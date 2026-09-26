@@ -41,6 +41,8 @@ interface ConfigDraft {
   webSearchEnabled: boolean;
   voiceInputEnabled: boolean;
   voiceOutputEnabled: boolean;
+  /** Which system prompt the chat uses — full by default. */
+  promptVariant: "full" | "compact";
   /** Whether a Tavily key is stored server-side (the key itself never comes back). */
   hasWebSearchKey: boolean;
   /** A newly typed Tavily key, sent on save; empty = keep the stored one. */
@@ -98,7 +100,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             };
           }
           const primary: AiProviderId = PROVIDERS.includes(d.primary) ? d.primary : PROVIDERS[0];
-          setDraft({ enabled: !!d.enabled, primary, webSearchEnabled: !!d.webSearchEnabled, voiceInputEnabled: !!d.voiceInputEnabled, voiceOutputEnabled: !!d.voiceOutputEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
+          setDraft({ enabled: !!d.enabled, primary, webSearchEnabled: !!d.webSearchEnabled, voiceInputEnabled: !!d.voiceInputEnabled, voiceOutputEnabled: !!d.voiceOutputEnabled, promptVariant: d.promptVariant === "compact" ? "compact" : "full", hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
         }
       } catch { /* leave unloaded */ }
       setLoaded(true);
@@ -161,6 +163,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         webSearchEnabled: draft.webSearchEnabled,
         voiceInputEnabled: draft.voiceInputEnabled,
         voiceOutputEnabled: draft.voiceOutputEnabled,
+        promptVariant: draft.promptVariant,
         webSearchKey: draft.webSearchKeyInput.trim(),
         clearWebSearchKey: draft.clearWebSearchKey,
         providers: Object.fromEntries(
@@ -187,7 +190,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
           };
         }
-        setDraft({ enabled: d.enabled, primary: d.primary, webSearchEnabled: !!d.webSearchEnabled, voiceInputEnabled: !!d.voiceInputEnabled, voiceOutputEnabled: !!d.voiceOutputEnabled, hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
+        setDraft({ enabled: d.enabled, primary: d.primary, webSearchEnabled: !!d.webSearchEnabled, voiceInputEnabled: !!d.voiceInputEnabled, voiceOutputEnabled: !!d.voiceOutputEnabled, promptVariant: d.promptVariant === "compact" ? "compact" : "full", hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
         setTestResult(null);
         toast("success", t("ai.settings.saved"));
         // The floating chat button reads its own "enabled" via SWR on
@@ -280,6 +283,28 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
           label={t("ai.settings.enabled")}
           hint={t("ai.settings.enabledHint")}
         />
+
+        <div className="space-y-2">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t("ai.settings.promptVariant")}</p>
+            <p className="mt-0.5 text-xs text-ink-dim">{t("ai.settings.promptVariantHint")}</p>
+          </div>
+          <div className="flex gap-1 rounded-xl glass p-0.5">
+            {(["full", "compact"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setDraft({ ...draft, promptVariant: v })}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  draft.promptVariant === v ? "brand-gradient text-white shadow" : "text-ink-dim hover:text-ink"
+                )}
+              >
+                {v === "full" ? t("ai.settings.promptFull") : t("ai.settings.promptCompact")}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <Switch
           checked={draft.voiceInputEnabled}

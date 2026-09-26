@@ -1,3 +1,10 @@
+## v1.25.120 — September 2026
+
+### Assistant IA : contexte complet ou compact, au choix
+
+- Réglages → Assistant IA : nouveau choix « Contexte de l'assistant ». Complet (par défaut) garde toutes les consignes détaillées ; Compact garde les mêmes règles et la même personnalité en environ 40 % plus court, pour des réponses un peu plus rapides.
+- Dans les deux cas, l'assistant parle de façon plus humaine : phrases de longueurs variées, tournures naturelles, pas de liste quand une phrase suffit, pas de conclusion toute faite, et il peut hésiter, changer d'avis ou reconnaître simplement une erreur. Sa personnalité reste exactement la même.
+
 ## v1.25.119 — September 2026
 
 ### Assistant IA : il sait qui l'a créé
