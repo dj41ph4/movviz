@@ -1,3 +1,9 @@
+## v1.25.101 — September 2026
+
+### Serveur : fin des réécritures géantes du cache TMDb
+
+- Serveur : le cache des données TMDb, enregistré sur disque (plusieurs centaines de Mo), était réécrit en entier dès qu'une seule donnée changeait, jusqu'à toutes les 30 secondes pendant les tâches de fond. Cela coûtait plusieurs secondes de calcul par passage, et le disque, saturé, faisait attendre tout le reste. Désormais seules les données modifiées sont ajoutées. La réécriture complète n'a lieu qu'une fois par jour, ou quand le fichier contient plus de versions périmées que de données utiles. Au démarrage, la version la plus récente de chaque donnée est bien celle qui est relue.
+
 ## v1.25.100 — September 2026
 
 ### Diagnostic : mesure précise des ralentissements du serveur

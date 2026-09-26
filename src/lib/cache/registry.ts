@@ -118,6 +118,14 @@ const SAVE_DEBOUNCE_MS = 30_000;
 const WRITE_CHUNK_CHARS = 1 << 20;
 /** Persisted caches up to this size still load synchronously at construction (OMDb, small ones). */
 const SYNC_LOAD_MAX_BYTES = 8 * 1024 * 1024;
+/** The file is rewritten in full only once it holds this many times more
+ *  lines than live entries (older versions of re-fetched entries piling up)
+ *  — or once a day. In between, a save only APPENDS the entries that
+ *  changed: rewriting the whole TMDb cache (hundreds of MB) every 30 s while
+ *  background tasks fetched metadata cost seconds of CPU per pass and kept
+ *  the NAS disk busy, which is where the server freezes came from. */
+const COMPACT_WHEN_LINES_PER_ENTRY = 2;
+const COMPACT_EVERY_MS = 24 * 60 * 60 * 1000;
 
 class NamedCache {
   private store = new Map<string, Entry<unknown>>();
@@ -134,6 +142,15 @@ class NamedCache {
   private loaded = true;
   /** Bumped by clear() so a load still streaming in can't resurrect cleared entries. */
   private loadGeneration = 0;
+  /** Keys set since the last save — what the next append writes. */
+  private dirty = new Set<string>();
+  /** Keys set while the file was still streaming in: their disk line is older. */
+  private setDuringLoad = new Set<string>();
+  /** Lines currently in the file (live entries + superseded versions). */
+  private fileLines = 0;
+  /** No line-per-entry file yet, or clear(): the next save writes it whole. */
+  private needFullRewrite = false;
+  private lastFullWriteAt = Date.now();
   private readonly loadedPromise: Promise<void>;
 
   constructor(
@@ -168,6 +185,7 @@ class NamedCache {
     if (!this.persistFile || !this.linesFile) return Promise.resolve();
     let size = -1;
     try { size = fs.statSync(this.linesFile).size; } catch { /* not migrated yet */ }
+    if (size < 0) this.needFullRewrite = true;
     if (size < 0) {
       // Legacy single-object file: parsed in one go, one last time, then
       // rewritten line-per-entry by the next save.
@@ -184,6 +202,7 @@ class NamedCache {
       try {
         for (const line of fs.readFileSync(this.linesFile, "utf8").split("\n")) this.loadLine(line);
       } catch { /* unreadable — start empty */ }
+      this.afterLoad();
       return Promise.resolve();
     }
     // Hundreds of MB (the TMDb cache in production): parsing it in one shot
@@ -203,6 +222,7 @@ class NamedCache {
       } finally {
         lines.close();
         this.loaded = true;
+        this.afterLoad();
         // Durée réelle du rechargement au démarrage : pendant cette phase, une
         // lecture absente de la mémoire attend (plafonné) — à connaître.
         recordSearchLog("info", "cache.loaded", `${this.name} : ${this.store.size} entrées relues en ${Date.now() - loadStartedAt} ms (${Math.round(size / 1e6)} Mo)`, Date.now() - loadStartedAt);
@@ -216,12 +236,27 @@ class NamedCache {
 
   private loadLine(line: string) {
     if (!line) return;
+    this.fileLines++;
     try {
       const [key, entry] = JSON.parse(line) as [string, Entry<unknown>];
       // A fresher entry fetched while the file was still streaming in wins.
-      if (!this.store.has(key)) this.store.set(key, entry);
+      if (this.setDuringLoad.has(key)) return;
+      // Appended saves write a newer version of an entry further down the
+      // file: the last line for a key is the current one (re-inserted at the
+      // end, as set() does, so it also counts as freshest for eviction).
+      this.store.delete(key);
+      this.store.set(key, entry);
     } catch {
-      // Truncated/corrupt line — skip it, keep the rest.
+      // Truncated/corrupt line (a save cut short by a crash) — skip it.
+    }
+  }
+
+  private afterLoad() {
+    this.setDuringLoad.clear();
+    while (this.store.size > this.maxEntries) {
+      const oldest = this.store.keys().next().value;
+      if (oldest === undefined) break;
+      this.store.delete(oldest);
     }
   }
 
@@ -246,8 +281,22 @@ class NamedCache {
     }
     this.writeInFlight = true;
     const legacyFile = this.persistFile;
-    this.writeStreamed(this.linesFile)
-      .then(() => fs.promises.rm(legacyFile, { force: true }))
+    const linesFile = this.linesFile;
+    const compact = this.needFullRewrite
+      || this.fileLines > this.store.size * COMPACT_WHEN_LINES_PER_ENTRY + 1000
+      || Date.now() - this.lastFullWriteAt > COMPACT_EVERY_MS;
+    const pass = compact
+      ? (() => {
+          this.dirty.clear();
+          this.needFullRewrite = false;
+          return this.writeStreamed(linesFile).then((lines) => {
+            this.fileLines = lines;
+            this.lastFullWriteAt = Date.now();
+            return fs.promises.rm(legacyFile, { force: true });
+          }).catch(() => { this.needFullRewrite = true; });
+        })()
+      : this.appendDirty(linesFile);
+    pass
       .catch(() => {
         // Best-effort — losing the persisted cache just means a cold start next time.
       })
@@ -260,7 +309,37 @@ class NamedCache {
       });
   }
 
-  private async writeStreamed(file: string) {
+  /** Appends the entries changed since the last save (a few KB, not the
+   *  whole cache). A line cut short by a crash is skipped at the next load. */
+  private async appendDirty(file: string) {
+    const keys = [...this.dirty];
+    this.dirty.clear();
+    if (keys.length === 0) return;
+    let chunk = "";
+    let written = 0;
+    const handle = await fs.promises.open(file, "a");
+    try {
+      for (const key of keys) {
+        const entry = this.store.get(key);
+        if (!entry) continue; // evicted or cleared since: nothing to keep
+        chunk += `${JSON.stringify([key, entry])}\n`;
+        written++;
+        if (chunk.length >= WRITE_CHUNK_CHARS) {
+          await handle.write(chunk, null, "utf8");
+          chunk = "";
+        }
+      }
+      if (chunk) await handle.write(chunk, null, "utf8");
+      this.fileLines += written;
+    } catch (e) {
+      for (const key of keys) this.dirty.add(key); // retried next save
+      throw e;
+    } finally {
+      await handle.close();
+    }
+  }
+
+  private async writeStreamed(file: string): Promise<number> {
     // Snapshot of references only: set() swaps entries rather than mutating
     // them, so later writes to the map can't tear this pass.
     const entries = [...this.store];
@@ -282,6 +361,7 @@ class NamedCache {
       await handle.close();
     }
     await fs.promises.rename(tmp, file);
+    return entries.length;
   }
 
   /** Debounced so a burst of writes (e.g. a cache-warm pass) doesn't re-serialize the whole map every call. */
@@ -328,6 +408,8 @@ class NamedCache {
     this.store.delete(key); // re-insert at the end so it counts as freshest for eviction order
     // No size measurement here on purpose — stats() does it lazily. See Entry.sizeBytes.
     this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
+    this.dirty.add(key);
+    if (!this.loaded) this.setDuringLoad.add(key);
     while (this.store.size > this.maxEntries) {
       const oldest = this.store.keys().next().value;
       if (oldest === undefined) break;
@@ -351,6 +433,9 @@ class NamedCache {
   clear() {
     this.loadGeneration++;
     this.store.clear();
+    this.dirty.clear();
+    this.setDuringLoad.clear();
+    this.needFullRewrite = true;
     this.hits = 0;
     this.misses = 0;
     this.saveToDisk();

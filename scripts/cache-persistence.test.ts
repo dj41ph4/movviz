@@ -77,8 +77,50 @@ test("gros cache : chargé en flux sans figer la boucle, entrées récentes prio
   assert.ok(maxGap < 150, `boucle figée ${Math.round(maxGap)} ms pendant le chargement`);
   await new Promise((r) => setTimeout(r, 50));
   while ((c as unknown as { writeInFlight: boolean }).writeInFlight) await new Promise((r) => setTimeout(r, 5));
+  // The fresh value was appended (not the whole cache rewritten): 800 + 1
+  // lines, and a new start reads back all 800 entries with the fresh one.
   const written = fs.readFileSync(path.join(dir, "big.ndjson"), "utf8").trim().split("\n");
-  assert.equal(written.length, 800);
+  assert.equal(written.length, 801);
+  const reread = getCache(`big-reread-${Date.now()}`, 60_000, file);
+  await reread.whenLoaded();
+  assert.equal(reread.stats().keys, 800);
+  assert.equal(reread.getStale("k5")?.value, "frais");
+});
+
+test("une sauvegarde n'ajoute que les entrées modifiées, la dernière version gagne à la relecture", async () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "app.json");
+  const c = getCache(`app-${Date.now()}`, 60_000, file);
+  await c.whenLoaded();
+  for (let i = 0; i < 50; i++) c.set(`k${i}`, i);
+  await waitWritten(c); // first save: the whole file
+  const ndjson = path.join(dir, "app.ndjson");
+  assert.equal(fs.readFileSync(ndjson, "utf8").trim().split("\n").length, 50);
+  c.set("k7", "nouveau");
+  c.set("k60", "ajout");
+  await waitWritten(c); // only the two changes are appended
+  assert.equal(fs.readFileSync(ndjson, "utf8").trim().split("\n").length, 52);
+  const reread = getCache(`app-reread-${Date.now()}`, 60_000, file);
+  await reread.whenLoaded();
+  assert.equal(reread.stats().keys, 51);
+  assert.equal(reread.getStale("k7")?.value, "nouveau");
+  assert.equal(reread.getStale("k60")?.value, "ajout");
+});
+
+test("trop de versions périmées dans le fichier : réécrit en entier, compact", async () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "cmp.json");
+  const c = getCache(`cmp-${Date.now()}`, 60_000, file);
+  await c.whenLoaded();
+  c.set("seul", 0);
+  await waitWritten(c);
+  // Far more versions of one key than live entries: a save compacts.
+  for (let round = 1; round <= 1100; round++) { c.set("seul", round); await waitWritten(c); }
+  const lines = fs.readFileSync(path.join(dir, "cmp.ndjson"), "utf8").trim().split("\n");
+  assert.ok(lines.length < 1100, `${lines.length} lines`);
+  const reread = getCache(`cmp-reread-${Date.now()}`, 60_000, file);
+  await reread.whenLoaded();
+  assert.equal(reread.getStale("seul")?.value, 1100);
 });
 
 test("clear() pendant le chargement : rien ne ressuscite", async () => {
