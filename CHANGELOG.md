@@ -1,3 +1,9 @@
+## v1.25.108 — September 2026
+
+### Android mobile : la saisie du chat colle au clavier
+
+- Sur certains téléphones, la zone de saisie de Movviz AI flottait au milieu de l'écran quand le clavier s'ouvrait : Android avait déjà remonté l'écran et la hauteur du clavier était comptée une deuxième fois. La marge se calcule maintenant à partir de la position réelle du clavier, et la saisie reste collée juste au-dessus, comme dans toute messagerie.
+
 ## v1.25.107 — September 2026
 
 ### Temps réel : la conversation avec Movviz AI suit sur tous tes écrans

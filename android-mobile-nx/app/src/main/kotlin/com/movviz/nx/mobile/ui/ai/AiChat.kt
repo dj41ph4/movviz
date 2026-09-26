@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -288,8 +290,7 @@ private fun AiChatScreen(
                 .fillMaxSize()
                 .widthIn(max = 720.dp)
                 .statusBarsPadding()
-                .navigationBarsPadding()
-                .imePadding(),
+                .padding(bottom = keyboardBottomPadding()),
         ) {
             // En-tête
             Row(
@@ -717,4 +718,45 @@ private fun QuickReplies(options: List<String>, onPick: (String) -> Unit) {
             ) { Text(option, color = MovvizBrandGlow, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
         }
     }
+}
+
+/**
+ * Marge basse de la saisie : le haut RÉEL du clavier, mesuré à l'écran.
+ * imePadding() ajoutait la hauteur du clavier même sur les téléphones où
+ * Android avait déjà remonté ou rétréci la fenêtre (constaté sur un Galaxy
+ * à écran étroit) : le décalage comptait deux fois et la saisie flottait au
+ * milieu de l'écran. Ici on compare le bas de la vue à la zone visible
+ * laissée par le clavier : ce qui est déjà remonté n'est jamais recompté.
+ * Sans clavier, la marge est celle de la barre de navigation.
+ */
+@Composable
+private fun keyboardBottomPadding(): androidx.compose.ui.unit.Dp {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val navBar = WindowInsets.navigationBars.getBottom(density)
+    var overlap by remember { mutableStateOf(0) }
+    DisposableEffect(view) {
+        val visible = android.graphics.Rect()
+        val location = IntArray(2)
+        val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            view.getWindowVisibleDisplayFrame(visible)
+            view.getLocationOnScreen(location)
+            val viewBottom = location[1] + view.height
+            overlap = (viewBottom - visible.bottom).coerceAtLeast(0)
+        }
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        listener.onGlobalLayout()
+        onDispose { view.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
+    }
+    // Le clavier peut apparaître sans que la vue soit remise en page (fenêtre
+    // bord à bord) : on remesure aussi à chaque changement de sa hauteur.
+    val ime = WindowInsets.ime.getBottom(density)
+    LaunchedEffect(ime) {
+        val visible = android.graphics.Rect()
+        val location = IntArray(2)
+        view.getWindowVisibleDisplayFrame(visible)
+        view.getLocationOnScreen(location)
+        overlap = (location[1] + view.height - visible.bottom).coerceAtLeast(0)
+    }
+    return with(density) { maxOf(overlap, navBar).toDp() }
 }
