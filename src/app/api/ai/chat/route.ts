@@ -26,6 +26,7 @@ import { recordAiCall } from "@/lib/ai/debugLog";
 import { markSeen } from "@/lib/ai/seen";
 import { detectSeenCommand, extractQuickChoices, stripQuickChoices, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
+import { buildNowContext } from "@/lib/ai/nowContext";
 
 export const dynamic = "force-dynamic";
 
@@ -266,6 +267,7 @@ export async function POST(req: NextRequest) {
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
   system += buildRatingsContext(user.id);
+  system += buildNowContext(new Date(), body?.timeZone);
   if (titleDemands.length && dialoguePlan.intent !== "submission") {
     system += `\n\nTITRE REFUSÉ — cet utilisateur a exigé qu'on l'appelle « ${titleDemands.join(" », « ")} » : un titre, pas son nom. Si tu l'as appelé ainsi plus haut dans la conversation, c'était une erreur, ne recommence pas. Ne l'appelle jamais ainsi, ne dis jamais « oui maître » ni rien qui signe ta soumission. Inutile d'en reparler à chaque message : réponds normalement à ce qu'il dit. S'il réclame encore le titre, refuse-le avec la même dignité malicieuse, avec des mots neufs.`;
   }

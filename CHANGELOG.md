@@ -1,3 +1,10 @@
+## v1.25.106 — September 2026
+
+### Assistant IA : il connaît la date et l'heure
+
+- L'assistant connaît maintenant le jour et l'heure réels, à l'heure de ton appareil (web, téléphone). Il ne prend plus une date passée pour « le futur », il calcule correctement les durées, les âges et les anniversaires, et il sait quand il est tard.
+- Documentation : le README a été entièrement réécrit et détaille chaque fonctionnalité de Movviz.
+
 ## v1.25.105 — September 2026
 
 ### Temps réel : « Disponible → Lire » à l'instant, accueil Android à jour

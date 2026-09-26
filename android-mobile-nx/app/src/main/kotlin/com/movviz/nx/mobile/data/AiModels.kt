@@ -72,6 +72,8 @@ data class AiSessionResponseDto(
 data class AiChatRequestDto(
     val message: String,
     val pageContext: AiPageContextDto? = null,
+    /** Fuseau de l'appareil, pour que l'assistant connaisse l'heure locale. */
+    val timeZone: String? = java.util.TimeZone.getDefault().id,
 )
 
 @JsonClass(generateAdapter = true)

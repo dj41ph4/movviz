@@ -388,7 +388,7 @@ export function ChatWidget() {
       const r = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: text, pageContext: getPageTitleContext() }),
+        body: JSON.stringify({ message: text, pageContext: getPageTitleContext(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       });
       const data = await r.json().catch(() => null);
       if (!r.ok) {
