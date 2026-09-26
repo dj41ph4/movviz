@@ -1,3 +1,11 @@
+## v1.25.124 — September 2026
+
+### Monster : rangement fiable sous Windows, et bouton pour le lancer
+
+- Sous Windows, le dossier « Monster (2022)\Saison 04 » était créé mais restait vide : le système refusait de déplacer un fichier encore ouvert par un autre programme (Plex, un antivirus…). Le fichier est maintenant copié, sa taille vérifiée, et la bibliothèque utilise la copie tout de suite. L'original est supprimé dès qu'il est libéré.
+- Fiche des séries Monster → Modifier : nouveau bouton « Ranger comme dans Plex » qui range les fichiers tout de suite et affiche le résultat de chaque épisode, avec l'erreur exacte si le système refuse.
+- Fiches : le chemin affiché est celui du NAS (celui que voit Plex), et non plus celui de l'intérieur du conteneur Movviz, quand Movviz connaît la correspondance entre les deux.
+
 ## v1.25.123 — September 2026
 
 ### Monster : les quatre volets rangés comme une seule série pour Plex

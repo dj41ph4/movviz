@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { getSeries, loadSeries, updateSeries } from "@/lib/library/store";
 import { loadNamingTemplates } from "@/lib/naming/store";
@@ -21,25 +22,8 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
  * comme les saisons de l'anthologie, là où Plex les attend ; dans Movviz,
  * chacune reste une série à part, avec sa propre numérotation.
  */
-export interface Anthology {
-  /** Dossier de la série sur le disque — celui que Plex associe déjà à l'anthologie. */
-  folder: string;
-  /** TMDb id de chaque série → numéro de saison dans l'anthologie. */
-  seasons: Record<number, number>;
-}
-
-export const ANTHOLOGIES: Anthology[] = [
-  // « /data/série/Monster » existe déjà : c'est l'anime Monster (2004).
-  { folder: "Monster (2022)", seasons: { 113988: 1, 225634: 2, 286801: 3, 299939: 4 } },
-];
-
-export function anthologyFor(tmdbId: number): { anthology: Anthology; season: number } | null {
-  for (const anthology of ANTHOLOGIES) {
-    const season = anthology.seasons[tmdbId];
-    if (season != null) return { anthology, season };
-  }
-  return null;
-}
+export { ANTHOLOGIES, anthologyFor, type Anthology } from "@/lib/library/anthologyIds";
+import { anthologyFor } from "@/lib/library/anthologyIds";
 
 /**
  * Where an episode file of an anthology series belongs on disk, or null when
@@ -77,19 +61,51 @@ async function removeIfEmpty(dir: string): Promise<void> {
   } catch { /* absent ou non vide : rien à faire */ }
 }
 
+const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
+const PENDING_FILE = path.join(CONFIG_DIR, "anthology-pending-deletions.json");
+
+function readPending(): string[] {
+  try { return JSON.parse(fs.readFileSync(PENDING_FILE, "utf8")) as string[]; } catch { return []; }
+}
+function writePending(list: string[]): void {
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.writeFileSync(PENDING_FILE, JSON.stringify([...new Set(list)], null, 2));
+}
+
+/** Originals already copied into the anthology but still locked when the
+ *  copy was made: deleted as soon as they can be. */
+export async function purgePendingAnthologyDeletions(): Promise<number> {
+  const pending = readPending();
+  if (pending.length === 0) return 0;
+  const left: string[] = [];
+  let purged = 0;
+  for (const file of pending) {
+    try {
+      await fsp.rm(file, { force: true });
+      await removeIfEmpty(path.dirname(file));
+      await removeIfEmpty(path.dirname(path.dirname(file)));
+      purged++;
+    } catch {
+      left.push(file);
+    }
+  }
+  writePending(left);
+  return purged;
+}
+
 export interface AnthologyMoveReport {
   series: string;
   episode: string;
   from: string;
   to: string;
-  result: "moved" | "copied" | "occupied" | "error";
+  result: "moved" | "copied" | "copied_original_locked" | "occupied" | "error";
   error?: string;
 }
 
 /** rename, or — when the NAS refuses it across mounts (EXDEV) or for any
  *  other reason — copy, check the size, then delete the original. The
  *  original is never removed before an identical copy exists. */
-async function moveFile(source: string, target: string): Promise<"moved" | "copied"> {
+async function moveFile(source: string, target: string): Promise<"moved" | "copied" | "copied_original_locked"> {
   try {
     await fsp.rename(source, target);
     return "moved";
@@ -103,8 +119,15 @@ async function moveFile(source: string, target: string): Promise<"moved" | "copi
       await fsp.rm(target, { force: true }).catch(() => {});
       throw new Error(`renommage : ${(renameError as Error).message} ; copie : ${(copyError as Error).message}`);
     }
-    await fsp.rm(source);
-    return "copied";
+    try {
+      await fsp.rm(source);
+      return "copied";
+    } catch {
+      // The copy is complete and verified: the library now uses it; the
+      // locked original goes once it is released.
+      writePending([...readPending(), source]);
+      return "copied_original_locked";
+    }
   }
 }
 
@@ -161,6 +184,7 @@ export async function relocateAnthologyFiles(seriesId: string, report: Anthology
 /** Every anthology series already in the library — at start-up (files
  *  imported before this rule existed) and on demand from the admin route. */
 export async function relocateAllAnthologies(report: AnthologyMoveReport[] = []): Promise<number> {
+  await purgePendingAnthologyDeletions();
   let moved = 0;
   for (const series of loadSeries()) {
     if (!anthologyFor(series.tmdbId)) continue;

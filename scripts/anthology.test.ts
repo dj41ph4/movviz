@@ -32,3 +32,10 @@ test("un fichier déjà à sa place n'est jamais déplacé ni renommé (Dahmer, 
   assert.equal(anthologyTargetPath("/data/série/Monster (2022)/Saison 4/Monster (2022) - S04E03.mp4", 299939, 1, 3, prodTemplates), null);
   assert.equal(anthologyTargetPath("/data/série/Monster/Saison 1/Monster - S01E01.mkv", 30981, 1, 1, prodTemplates), null);
 });
+
+test("Windows : Lizzie Borden passe de E:\serie\… à E:\serie\Monster (2022)\Saison 04", () => {
+  const win = { ...prodTemplates, seasonFolder: "Saison {season:00}" };
+  const from = String.raw`E:\serie\Monstre L'Histoire de Lizzie Borden\Saison 01\Monstre L'Histoire de Lizzie Borden - S01E02.mp4`;
+  assert.equal(anthologyTargetPath(from, 299939, 1, 2, win), String.raw`E:\serie\Monster (2022)\Saison 04\Monster (2022) - S04E02.mp4`);
+  assert.equal(anthologyTargetPath(String.raw`E:\serie\Monster (2022)\Saison 04\Monster (2022) - S04E02.mp4`, 299939, 1, 2, win), null);
+});

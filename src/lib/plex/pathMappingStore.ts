@@ -85,3 +85,29 @@ export function applyLearnedPathMapping(plexPath: string): string {
   const movvizSep = pathFor(best.movvizPrefix).sep;
   return best.movvizPrefix + rest.split(sep).join(movvizSep);
 }
+
+/**
+ * The reverse of applyLearnedPathMapping: Movviz's own path (inside its
+ * container, e.g. /data/série/…) → the path the NAS and Plex see
+ * (/volume1/docker/plex/série/…). Shown on the title pages so the file can
+ * actually be found on the disk. No learned mapping → unchanged.
+ */
+export function toPlexSidePath(movvizPath: string): string {
+  const mappings = loadPathMappings();
+  if (mappings.length === 0) return movvizPath;
+  const sep = pathFor(movvizPath).sep;
+  const normalized = movvizPath.replace(/[\/]/g, sep);
+  let best: PathMapping | null = null;
+  for (const m of mappings) {
+    const prefix = m.movvizPrefix.replace(/[\/]/g, sep);
+    const lower = normalized.toLowerCase();
+    const prefixLower = prefix.toLowerCase();
+    if (lower === prefixLower || lower.startsWith(prefixLower.endsWith(sep) ? prefixLower : prefixLower + sep)) {
+      if (!best || m.movvizPrefix.length > best.movvizPrefix.length) best = m;
+    }
+  }
+  if (!best) return movvizPath;
+  const rest = normalized.slice(best.movvizPrefix.replace(/[\/]/g, sep).length);
+  const plexSep = pathFor(best.plexPrefix).sep;
+  return best.plexPrefix + rest.split(sep).join(plexSep);
+}

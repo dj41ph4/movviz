@@ -8,6 +8,7 @@ import { QualityProfileSelect } from "@/components/library/QualityProfileSelect"
 import { RepairFileBrowserModal } from "@/components/settings/RepairFileBrowserModal";
 import { AliasEditor } from "@/components/library/AliasEditor";
 import { CopyablePath, SeriesFolders } from "@/components/title/FilePathDisplay";
+import { AnthologyRelocate } from "@/components/title/AnthologyRelocate";
 import { ArtworkFields } from "@/components/title/ArtworkFields";
 
 /**
@@ -173,6 +174,9 @@ export function EditTitleModal({
                   <div>
                     <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.seriesLocation")}</p>
                     <SeriesFolders seriesId={id} />
+                    <div className="mt-3">
+                      <AnthologyRelocate tmdbId={tmdbId} seriesId={id} />
+                    </div>
                   </div>
                 )}
 

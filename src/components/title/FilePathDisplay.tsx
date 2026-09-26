@@ -8,9 +8,13 @@ import { toast } from "@/components/ui/Toast";
 
 /** A path shown in full (wrapped, never truncated) with a copy button — the
  *  point is to find the file on the disk, from any machine (Windows included). */
-export function CopyablePath({ path }: { path: string }) {
+export function CopyablePath({ path: movvizPath }: { path: string }) {
   const t = useT();
   const [copied, setCopied] = useState(false);
+  // Movviz's own path (/data/… inside its container) → the one the NAS and
+  // Plex see (/volume1/…), when Movviz has learned the correspondence.
+  const { data: mapped } = useSWR<{ paths?: Record<string, string> }>(`/api/library/nas-paths?p=${encodeURIComponent(movvizPath)}`);
+  const path = mapped?.paths?.[movvizPath] ?? movvizPath;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(path);
