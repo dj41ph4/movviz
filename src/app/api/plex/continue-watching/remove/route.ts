@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { removeFromContinueWatchingOnPlex } from "@/lib/plex/watchWrite";
 import { clearPlaybackProgress } from "@/lib/playback/progressStore";
+import { emitWatchChanged } from "@/lib/events/watchEvents";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,10 @@ export async function POST(req: NextRequest) {
   if (!plexRatingKey) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
 
   clearPlaybackProgress(user.id, plexRatingKey, movvizId);
-  removeFromContinueWatchingOnPlex(user, plexRatingKey).catch(() => {});
+  // The user's other devices reload Reprendre once Plex has dropped it too
+  // (reloading before would still find it there).
+  removeFromContinueWatchingOnPlex(user, plexRatingKey)
+    .catch(() => {})
+    .finally(() => emitWatchChanged(user.id));
   return NextResponse.json({ ok: true });
 }

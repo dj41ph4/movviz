@@ -3,6 +3,7 @@ import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJs
 import path from "node:path";
 import { applyWatchDecision, getCurrentWatchState, type WatchSource } from "@/lib/userContext/watchBridge";
 import { markPlexWatchedOutboxPending, shouldPropagateWatchedToPlex } from "./watchWrite";
+import { emitWatchChanged } from "@/lib/events/watchEvents";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -152,6 +153,7 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
   status.updatedAt = Date.now();
   if (write(list)) {
     for (const tmdbId of accepted) mirrorProgress(userId, tmdbId, "movie", watched, undefined, undefined, at);
+    emitWatchChanged(userId);
     return true;
   }
   return false;
@@ -217,6 +219,7 @@ export function setWatchedEpisodes(
   status.updatedAt = now;
   if (write(list)) {
     for (const e of accepted) mirrorProgress(userId, e.tmdbId, "series", watched, e.season, e.episode, e.at);
+    emitWatchChanged(userId);
     return true;
   }
   return false;

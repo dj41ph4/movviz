@@ -4,6 +4,7 @@ import { completionBoundaryMs, canComplete, isPlausiblePlaybackAdvance, MIN_REAL
 import { getPlaybackMarkers } from "./markers/store";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, syncPlaybackContext } from "@/lib/userContext/ingest";
+import { emitPlaybackProgress, emitWatchChanged } from "@/lib/events/watchEvents";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "playback-progress.json");
@@ -263,6 +264,7 @@ export function clearPlaybackProgress(userId: string, ratingKey: string, mediaId
   p.revision++;
   persist();
   syncPlaybackContext(p, { force: true });
+  emitWatchChanged(userId);
   return p;
 }
 
@@ -336,6 +338,8 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
   if (!p.watched && canComplete(p.actualPlayedMs, p.lastPositionMs, p.completionBoundaryMs)) markPlaybackWatched(p, p.boundarySource);
   persist();
   syncPlaybackContext(p);
+  // Reprendre on the other devices follows the playing position.
+  if (p.eligibleForResume || p.watched) emitPlaybackProgress(p.userId);
   return p;
 }
 
@@ -383,5 +387,5 @@ export function stopPlayback(sessionId: string, positionMs?: number): PlaybackPr
     }
   }
   if (!completedHere) { p.updatedAt = Date.now(); p.revision++; }
-  recordPlaybackStopped(sessionId, p); sessions().delete(sessionId); delete store().sessions?.[sessionId]; persist(); return p;
+  recordPlaybackStopped(sessionId, p); sessions().delete(sessionId); delete store().sessions?.[sessionId]; persist(); emitWatchChanged(p.userId); return p;
 }

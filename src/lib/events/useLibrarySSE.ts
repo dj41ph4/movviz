@@ -21,6 +21,11 @@ const EVENT_MUTATIONS: Record<string, string[]> = {
   activity: ["/api/activity", "/api/activity/v2?tab=history", "/api/activity/v2?tab=failures", "/api/activity/v2?tab=unlinked"],
 };
 
+/** « watch »: this user's seen/unseen, resume positions or « Ma liste »
+ *  changed — on this device or another one (the phone, the TV). Every view
+ *  of it reloads at once, whatever its query string. */
+const WATCH_KEY_RE = /^\/api\/(?:plex\/on-deck|watch-status|watchlist|profile\/media|dashboard\/rewatch|playback\/items)/;
+
 let globalRetryMs = BACKOFF_MIN_MS;
 let globalReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -64,6 +69,10 @@ export function useLibrarySSE(enabled = true) {
           for (const key of keys) mutate(key);
         });
       }
+
+      es.addEventListener("watch", () => {
+        void mutate((key) => typeof key === "string" && WATCH_KEY_RE.test(key));
+      });
 
       es.onerror = () => {
         es.close();

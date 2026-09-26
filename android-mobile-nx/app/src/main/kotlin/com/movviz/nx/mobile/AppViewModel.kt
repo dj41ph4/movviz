@@ -112,8 +112,65 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (!visible) {
             queuePollingJob?.cancel()
             queuePollingJob = null
+            liveRefreshJob?.cancel()
+            liveRefreshJob = null
+            liveEvents?.stop()
         } else if (queuePollingWanted) {
             startQueuePolling()
+        }
+    }
+
+    private var liveRefreshJob: Job? = null
+
+    /** « Reprendre » et les coches « vu » toujours à jour (mot d'ordre :
+     *  dynamique et rapide). Ils n'étaient chargés qu'au démarrage ou à
+     *  l'ouverture d'une fiche : revenir du lecteur, ou voir un épisode
+     *  ailleurs (Plex, web, autre appareil), laissait l'accueil figé.
+     *  Aucune minuterie : le serveur PRÉVIENT (flux temps réel, voir
+     *  LiveEvents) et seulement alors l'app relit. Une seule relecture au
+     *  retour à l'écran — les événements survenus app en arrière-plan n'ont
+     *  pas été reçus. */
+    private var liveEvents: com.movviz.nx.mobile.data.LiveEvents? = null
+    private var liveEventsDebounce: Job? = null
+    /** Réveille la boucle de file quand le serveur signale un téléchargement. */
+    private val downloadSignal = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    private val pendingLiveChannels = mutableSetOf<String>()
+
+    /** Un changement fait ailleurs (PC, autre appareil) arrive par le flux
+     *  temps réel : regroupé 400 ms (un import massif = un seul rechargement). */
+    private fun onLiveEvent(channel: String) {
+        pendingLiveChannels += channel
+        if (liveEventsDebounce?.isActive == true) return
+        liveEventsDebounce = viewModelScope.launch {
+            delay(400L)
+            val channels = pendingLiveChannels.toSet()
+            pendingLiveChannels.clear()
+            if ("download" in channels || "resync" in channels) downloadSignal.trySend(Unit)
+            if ("watch" in channels || "resync" in channels) {
+                loadContinueWatching()
+                loadWatchStatus()
+                loadProfileMedia()
+            }
+            if ("library" in channels && "watch" !in channels) loadContinueWatching()
+
+        }
+    }
+
+    private fun startLiveEvents() {
+        val url = _serverUrl.value ?: return
+        val current = liveEvents
+        if (current != null && current.baseUrl != url) current.stop()
+        val events = if (current?.baseUrl == url) current else com.movviz.nx.mobile.data.LiveEvents(url) { onLiveEvent(it) }
+        liveEvents = events
+        events.start(viewModelScope)
+    }
+
+    private fun startLiveRefresh() {
+        startLiveEvents()
+        if (!appVisible || liveRefreshJob?.isActive == true) return
+        liveRefreshJob = viewModelScope.launch {
+            loadContinueWatching()
+            loadWatchStatus()
         }
     }
     private var homeBootstrapStartedAt: Long = 0L
@@ -978,6 +1035,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         queuePollingJob?.cancel()
         queuePollingJob = null
         queuePollingWanted = false
+        liveRefreshJob?.cancel()
+        liveRefreshJob = null
+        liveEvents?.stop()
+        liveEvents = null
         _currentUser.value = null
         _activeProfile.value = null
         _movies.value = emptyList()
@@ -1479,12 +1540,16 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     private fun startQueuePolling() {
         queuePollingWanted = true
         if (!appVisible) return
+        startLiveRefresh()
         if (queuePollingJob?.isActive == true) return
         val repo = repository ?: return
         queuePollingJob = viewModelScope.launch {
+            // Aucune minuterie : le serveur signale chaque changement (nouveau
+            // téléchargement, fin, progression d'au moins 1 %) par le flux
+            // temps réel — la file ne se relit qu'à ce moment-là.
             while (isActive) {
                 refreshQueue(repo)
-                delay(8_000L)
+                downloadSignal.receive()
             }
         }
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { eventBus } from "@/lib/events/EventBus";
 import type { AppEvent } from "@/lib/events/EventBus";
+import { ensureDownloadWatcher } from "@/lib/events/downloadWatcher";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,6 +17,7 @@ const EVENT_SSE_CHANNEL: Record<AppEvent["type"], string> = {
   notification_added: "notification",
   user_updated: "user",
   activity_updated: "activity",
+  watch_changed: "watch",
 };
 
 export async function GET(req: NextRequest) {
@@ -28,6 +30,8 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     start(controller) {
       cleanup = eventBus.on((event) => {
+        // A user's views and resume positions go to that user's devices only.
+        if (event.type === "watch_changed" && event.userId !== user.id) return;
         const channel = EVENT_SSE_CHANNEL[event.type];
         const data = JSON.stringify(event);
         try {
@@ -36,6 +40,8 @@ export async function GET(req: NextRequest) {
           // client disconnected
         }
       });
+      // A device is listening: the server now reports download changes itself.
+      ensureDownloadWatcher();
       keepAlive = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));

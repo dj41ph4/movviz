@@ -10,7 +10,7 @@ import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 /** The dedicated right-hand resume rail of the fixed NX home composition. */
 export function DashboardContinuePanel() {
   const t = useT();
-  const { data } = useSWR<{ items: OnDeckEntry[] }>("/api/plex/on-deck", { revalidateOnFocus: false, refreshInterval: 30_000 });
+  const { data } = useSWR<{ items: OnDeckEntry[] }>("/api/plex/on-deck", { revalidateOnFocus: false });
   const items = data?.items.slice(0, 3) ?? [];
 
   return (

@@ -1,3 +1,11 @@
+## v1.25.104 — September 2026
+
+### Temps réel : un changement sur un appareil apparaît aussitôt sur les autres
+
+- Temps réel : marquer vu ou non vu, avancer une lecture, retirer un titre de « Reprendre » ou modifier « Ma liste » sur le PC se répercute aussitôt sur Android TV et le téléphone, et inversement. Le serveur prévient les appareils du même utilisateur au moment du changement, et seulement à ce moment-là : plus aucun rafraîchissement inutile quand rien ne bouge. Cela fonctionne même Plex éteint.
+- Téléchargements : les applications Android ne relisent plus la file toutes les 8 secondes. Le serveur signale lui-même un nouveau téléchargement, y compris ceux lancés automatiquement, la fin d'un téléchargement ou une progression d'au moins 1 %, et seulement quand un appareil est connecté.
+- Android TV et téléphone : au retour dans l'application (fin de lecture, retour d'une autre application), « Reprendre » et les vus sont relus une fois, pour rattraper ce qui a changé pendant l'absence. Même chose après une coupure réseau.
+
 ## v1.25.103 — September 2026
 
 ### Assistant IA : il agit au lieu de poser des questions, et « Effacer » efface pour de bon
