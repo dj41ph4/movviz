@@ -69,6 +69,12 @@ const nextConfig: NextConfig = {
   // `/tmdb/:size/:path*` is served by the App Router route, which persists
   // the immutable image bytes under the Movviz config directory and gives
   // browsers a one-year cache lifetime.
+  experimental: {
+    // Server code keeps its real function names: a CPU profile of a server
+    // freeze (/api/perf/profile) must say WHICH function holds the thread.
+    // Browser code stays minified.
+    serverMinification: false,
+  },
 };
 
 export default nextConfig;

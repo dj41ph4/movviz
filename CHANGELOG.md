@@ -1,3 +1,9 @@
+## v1.25.100 — September 2026
+
+### Diagnostic : mesure précise des ralentissements du serveur
+
+- Diagnostic (administrateurs) : un profil de l'activité du serveur sur quelques dizaines de secondes indique quelles opérations l'occupent le plus. Il sert à cibler les tâches de fond qui figent le serveur plusieurs secondes, sans deviner.
+
 ## v1.25.99 — September 2026
 
 ### Fiches beaucoup plus rapides à ouvrir
