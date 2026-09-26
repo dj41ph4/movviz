@@ -179,7 +179,12 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
     // Movviz state was missed by an earlier write.  A stable Plex state must
     // still repair that divergence; otherwise a targeted sync can report a
     // successful WATCHED observation forever without updating the UI.
-    if (curState !== currentCanonicalState) {
+    // « unknown » = Movviz has never recorded this media: it already shows as
+    // not seen, exactly like a stable Plex UNWATCHED. Repairing it rewrote the
+    // same « not seen » on every sync of the Plex owner's open title page
+    // (once a second, forever): never a divergence worth writing.
+    const noDivergence = curState === "unwatched" && currentCanonicalState === "unknown";
+    if (curState !== currentCanonicalState && !noDivergence) {
       return curState === "watched"
         ? {
             decision: "REMOTE_WATCHED",

@@ -136,7 +136,9 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
     });
     if (!result.accepted) continue;
     accepted.push(tmdbId);
-    if (result.changed || status.movies.includes(tmdbId) !== watched) stateChanged = true;
+    // What devices show (the list), not result.changed: without the SQLite
+    // engine every decision reports « changed ».
+    if (status.movies.includes(tmdbId) !== watched) stateChanged = true;
     // Outbox durable (phase 6 du plan de finalisation) : PENDING créé ICI,
     // AVANT toute tentative réseau, pour la même décision acceptée que
     // celle qui vient de gagner en base — pas après un push fire-and-forget
@@ -199,7 +201,7 @@ export function setWatchedEpisodes(
       if (!result.accepted) continue;
       if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", e.tmdbId, e.season, e.episode, result.revision, result.effectiveState as "watched" | "unwatched");
       const prev = existing.get(key(e));
-      if (result.changed || !prev) stateChanged = true;
+      if (!prev) stateChanged = true;
       if (!prev) {
         status.episodes.push({ tmdbId: e.tmdbId, season: e.season, episode: e.episode, at });
         existing.set(key(e), status.episodes[status.episodes.length - 1]);
@@ -221,7 +223,7 @@ export function setWatchedEpisodes(
       });
       if (!result.accepted) continue;
       if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", entry.tmdbId, entry.season, entry.episode, result.revision, result.effectiveState as "watched" | "unwatched");
-      if (result.changed || status.episodes.some((episode) => key(episode) === key(entry))) stateChanged = true;
+      if (status.episodes.some((episode) => key(episode) === key(entry))) stateChanged = true;
       status.episodes = status.episodes.filter((episode) => key(episode) !== key(entry));
       accepted.push({ ...entry, at });
     }

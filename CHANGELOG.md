@@ -1,3 +1,10 @@
+## v1.25.110 — September 2026
+
+### Android TV : la cause exacte des chargements infinis du compte propriétaire de Plex
+
+- Seul le compte propriétaire du serveur Plex vérifie, à chaque ouverture de fiche, l'état « vu » de chaque épisode directement auprès de Plex. Pour une série dont des épisodes n'avaient jamais été vus, Movviz prenait « jamais vu » et « non vu » pour une différence : il réécrivait ces épisodes à chaque vérification, prévenait tes appareils, qui relisaient la fiche, ce qui relançait la vérification, une fois par seconde, sans fin. C'est pour ça que seul ce compte était bloqué.
+- « Jamais vu » et « non vu » sont désormais traités comme un seul et même état : plus aucune réécriture inutile, plus de boucle. Une vraie différence (vu dans Movviz, non vu dans Plex, ou l'inverse) est toujours corrigée comme avant.
+
 ## v1.25.109 — September 2026
 
 ### Android TV : fin des chargements infinis sur les profils liés à Plex

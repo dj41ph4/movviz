@@ -100,3 +100,18 @@ test("la vérification ciblée ne remplace pas un non-vu local plus récent", ()
   assert.equal(result.decision, "STALE_OBSERVATION");
   assert.equal(result.shouldApply, false);
 });
+
+test("un épisode jamais vu, stable « non vu » dans Plex, n'est pas réécrit à chaque synchro de la fiche", () => {
+  const observed = { userId, machineIdentifier, ratingKey, state: "UNWATCHED" as const, viewCount: 0, observedAt: 5_000 };
+  const result = reconcile({
+    userId,
+    canonicalIdentity: { type: "episode", tmdbShowId: 37854, seasonNumber: 1, episodeNumber: 1 },
+    ratingKey,
+    machineIdentifier,
+    currentCanonicalState: "unknown",
+    currentCanonicalAt: null,
+    previousPlexObserved: { ...observed, observedAt: 4_000 },
+    currentPlexObserved: observed,
+  });
+  assert.equal(result.shouldApply, false);
+});
