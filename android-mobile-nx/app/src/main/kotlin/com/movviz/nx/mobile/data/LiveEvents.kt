@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
  * Après une RECONNEXION, il signale « resync » : les événements manqués
  * pendant la coupure sont rattrapés par une seule relecture.
  */
-class LiveEvents(val baseUrl: String, private val onEvent: (String) -> Unit) {
+class LiveEvents(val baseUrl: String, private val onEvent: (channel: String, data: String) -> Unit) {
     private var job: Job? = null
     @Volatile private var call: Call? = null
 
@@ -53,18 +53,22 @@ class LiveEvents(val baseUrl: String, private val onEvent: (String) -> Unit) {
                     current.execute().use { response ->
                         if (!response.isSuccessful) return@use
                         backoff = 1_000L
-                        if (connectedBefore) withContext(Dispatchers.Main) { onEvent("resync") }
+                        if (connectedBefore) withContext(Dispatchers.Main) { onEvent("resync", "") }
                         connectedBefore = true
                         val source = response.body?.source() ?: return@use
                         var channel: String? = null
+                        val data = StringBuilder()
                         while (isActive) {
                             val line = source.readUtf8Line() ?: break
                             when {
                                 line.startsWith("event:") -> channel = line.substring(6).trim()
+                                line.startsWith("data:") -> data.append(line.substring(5).trim())
                                 line.isEmpty() -> {
                                     val done = channel
+                                    val payload = data.toString()
                                     channel = null
-                                    if (done != null) withContext(Dispatchers.Main) { onEvent(done) }
+                                    data.setLength(0)
+                                    if (done != null) withContext(Dispatchers.Main) { onEvent(done, payload) }
                                 }
                             }
                         }

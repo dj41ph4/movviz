@@ -138,8 +138,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Un changement fait ailleurs (PC, autre appareil) arrive par le flux
      *  temps réel : regroupé 400 ms (un import massif = un seul rechargement). */
-    private fun onLiveEvent(channel: String) {
+    /** Titres touchés par un événement « library » en attente de traitement. */
+    private val pendingLibraryChanges = mutableListOf<org.json.JSONObject>()
+    /** Épisodes disponibles par série, tels que le dernier événement les a donnés. */
+    private val knownAvailableEpisodes = mutableMapOf<Int, Int>()
+
+    private fun onLiveEvent(channel: String, data: String) {
         pendingLiveChannels += channel
+        if (channel == "library") runCatching { org.json.JSONObject(data) }.getOrNull()?.let { pendingLibraryChanges += it }
         if (liveEventsDebounce?.isActive == true) return
         liveEventsDebounce = viewModelScope.launch {
             delay(400L)
@@ -151,8 +157,53 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 loadWatchStatus()
                 loadProfileMedia()
             }
+            if ("library" in channels) onLibraryChanges()
             if ("library" in channels && "watch" !in channels) loadContinueWatching()
 
+        }
+    }
+
+    /** « Disponible → Lire à l'instant » : un téléchargement fini rend le titre
+     *  lisible sur la fiche ouverte et l'ajoute aux épisodes récents, sans
+     *  relire toute la bibliothèque — seulement les titres qui deviennent
+     *  disponibles (et la fiche affichée, quoi qu'il lui arrive). */
+    private fun onLibraryChanges() {
+        val changes = pendingLibraryChanges.toList()
+        pendingLibraryChanges.clear()
+        val open = _detail.value
+        var recentChanged = false
+        val refresh = mutableSetOf<Pair<String, Int>>()
+        for (change in changes) {
+            val tmdbId = change.optInt("tmdbId", 0).takeIf { it > 0 } ?: continue
+            val type = change.optString("mediaType", "")
+            val isOpen = open != null && open.tmdbId == tmdbId && open.type == type
+            if (type == "movie") {
+                val nowAvailable = change.optString("status") == "available"
+                val wasAvailable = _movies.value.firstOrNull { it.tmdbId == tmdbId }?.status == "available"
+                if (isOpen || (nowAvailable && !wasAvailable)) refresh += type to tmdbId
+            } else if (type == "series") {
+                val available = change.optInt("availableEpisodes", -1)
+                val before = knownAvailableEpisodes[tmdbId]
+                if (available >= 0) knownAvailableEpisodes[tmdbId] = available
+                val gained = before != null && available > before
+                if (gained) recentChanged = true
+                if (isOpen || gained) refresh += type to tmdbId
+            }
+        }
+        val repo = repository ?: return
+        viewModelScope.launch {
+            for ((type, tmdbId) in refresh) {
+                val isOpen = _detail.value?.let { it.tmdbId == tmdbId && it.type == type } == true
+                // La fiche affichée relit tout (saisons comprises) ; un autre
+                // titre ne met à jour que son entrée, sans toucher aux saisons
+                // de la fiche ouverte.
+                if (isOpen) resolveTitleLibraryEntry(type, tmdbId)
+                else if (type == "movie") (repo.movieByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { m -> _movies.value = _movies.value.replaceOrAppend(m) { it.tmdbId } }
+                else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppend(s) { it.tmdbId } }
+            }
+            if (recentChanged) (repo.interfaceRecentEpisodes() as? ApiResult.Success)?.data?.recentEpisodes?.let { raw ->
+                _recentEpisodes.value = raw.mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
+            }
         }
     }
 
@@ -160,7 +211,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val url = _serverUrl.value ?: return
         val current = liveEvents
         if (current != null && current.baseUrl != url) current.stop()
-        val events = if (current?.baseUrl == url) current else com.movviz.tv.data.LiveEvents(url) { onLiveEvent(it) }
+        val events = if (current?.baseUrl == url) current else com.movviz.tv.data.LiveEvents(url) { channel, data -> onLiveEvent(channel, data) }
         liveEvents = events
         events.start(viewModelScope)
     }
@@ -656,6 +707,30 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
                 rating = d?.rating ?: 0.0,
                 genres = d?.genres ?: emptyList(),
             )
+        }
+    }
+
+    /** L'accueil lit un instantané unique (voir publishHomeSnapshot) : sans
+     *  ce lien, « Reprendre », les épisodes récents et la bibliothèque
+     *  rafraîchis en temps réel (ou une carte retirée au « vu ») n'arrivaient
+     *  jamais jusqu'à l'accueil. Chaque changement de ces listes est reporté
+     *  dans l'instantané affiché. */
+    private val homeSnapshotSync = viewModelScope.launch {
+        kotlinx.coroutines.flow.combine(_continueWatching, _recentEpisodes, _movies, _series) { cw, recent, movies, series ->
+            listOf(cw, recent, movies, series)
+        }.collect { lists ->
+            @Suppress("UNCHECKED_CAST")
+            val cw = lists[0] as List<OnDeckEntryDto>
+            @Suppress("UNCHECKED_CAST")
+            val recent = lists[1] as List<RecentEpisodeDto>
+            @Suppress("UNCHECKED_CAST")
+            val movies = lists[2] as List<LibraryMovieDto>
+            @Suppress("UNCHECKED_CAST")
+            val series = lists[3] as List<LibrarySeriesDto>
+            val state = _homeUiState.value
+            val snapshot = state.snapshot ?: return@collect
+            if (snapshot.continueWatching === cw && snapshot.recentEpisodes === recent && snapshot.movies === movies && snapshot.series === series) return@collect
+            _homeUiState.value = state.copy(snapshot = snapshot.copy(continueWatching = cw, recentEpisodes = recent, movies = movies, series = series))
         }
     }
 

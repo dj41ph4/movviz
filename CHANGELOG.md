@@ -1,3 +1,12 @@
+## v1.25.105 — September 2026
+
+### Temps réel : « Disponible → Lire » à l'instant, accueil Android à jour
+
+- Android TV et téléphone : l'accueil reflète enfin les changements en direct. « Reprendre », les épisodes récents et la bibliothèque rafraîchis en temps réel n'atteignaient pas l'écran d'accueil, qui lisait une copie figée. Même chose pour la carte retirée de « Reprendre » quand on marque un titre vu.
+- Temps réel : quand un téléchargement se termine, la fiche ouverte passe aussitôt à « Lire » et l'épisode apparaît dans « Épisodes récemment ajoutés », sans relire toute la bibliothèque : seul le titre concerné est relu.
+- Fiches Android : plus aucune relecture en boucle pendant un téléchargement. La fiche est lue à l'ouverture, puis seulement quand le serveur signale un changement.
+- Web : pas de changement, il réagissait déjà à ces événements.
+
 ## v1.25.104 — September 2026
 
 ### Temps réel : un changement sur un appareil apparaît aussitôt sur les autres

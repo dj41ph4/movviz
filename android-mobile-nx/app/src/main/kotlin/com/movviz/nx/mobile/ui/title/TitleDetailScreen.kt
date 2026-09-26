@@ -264,28 +264,23 @@ fun TitleDetailScreen(
     // (repeatOnLifecycle STARTED) : téléphone verrouillé, autre app ou
     // lecteur par-dessus = plus aucune requête. Au retour, l'observateur
     // ON_RESUME ci-dessus rafraîchit tout une fois, puis elles reprennent.
+    // Temps réel : plus de relecture en boucle. La fiche est lue une fois à
+    // l'ouverture ; ensuite le serveur PRÉVIENT (téléchargement fini, titre
+    // devenu disponible…) et AppViewModel.onLibraryChanges relit alors CE
+    // titre, saisons comprises.
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
         viewModel.refreshTitleLibraryEntry(type, tmdbId)
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                delay(if (activeDownload != null) 4_000 else 8_000)
-                viewModel.refreshTitleLibraryEntry(type, tmdbId)
-            }
-        }
     }
 
     // Polling de la file partagée pendant que la fiche est ouverte —
     // alimente progression % / vitesse / ETA en direct (même source que la
     // rangée "Téléchargements en cours" de l'accueil).
+    // Progression % / vitesse / ETA : la file est relue par l'app à chaque
+    // changement signalé par le serveur (voir downloadWatcher côté serveur).
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                viewModel.loadQueue()
-                delay(3_000)
-            }
-        }
+        viewModel.loadQueue()
     }
 
     // Saisons : chargées à l'ajout PUIS rafraîchies en boucle tant que la
@@ -299,13 +294,6 @@ fun TitleDetailScreen(
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (type != "series" || !inLibrary) return@LaunchedEffect
         viewModel.loadSeriesSeasons(tmdbId)
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                val active = viewModel.seriesSeasons.value.any { s -> s.episodes.any { it.status == "downloading" || it.status == "searching" } }
-                delay(if (active) 4_000 else 10_000)
-                viewModel.loadSeriesSeasons(tmdbId)
-            }
-        }
     }
 
     val plexRatingKey by remember(type, tmdbId, movies) {

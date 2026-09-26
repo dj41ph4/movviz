@@ -96,6 +96,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun interfaceDashboard(): ApiResult<InterfaceDashboardDto> =
         safeCall { api.interfaceDashboard() }
 
+    suspend fun interfaceRecentEpisodes(): ApiResult<InterfaceDashboardDto> =
+        safeCall { api.interfaceRecentEpisodes() }
+
     suspend fun metadataImages(type: String, tmdbId: Int): ApiResult<MetadataImagesDto> =
         safeCall { api.metadataImages(tmdbId, type) }
 

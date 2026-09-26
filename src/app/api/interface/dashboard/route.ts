@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const cfg = loadPlexConfig();
+  const onlyRecent = req.nextUrl.searchParams.get("only") === "recent";
   const payload = memoizeByFileMtimes<DashboardInterfaceData>(
     `interface-dashboard:${cfg.machineIdentifier ?? "none"}`,
     libraryFilePaths(),
@@ -153,5 +154,8 @@ export async function GET(req: NextRequest) {
   );
   // « À revoir » dépend de l'utilisateur : calculé à chaque requête, hors
   // du cache partagé ci-dessus (données locales seulement, aucun appel TMDb).
+  // ?only=recent — a device told that an episode became available reloads
+  // just this row, not the whole library (same memoized computation).
+  if (onlyRecent) return NextResponse.json({ recentEpisodes: payload.recentEpisodes }, { headers: { "Cache-Control": "private, no-cache" } });
   return NextResponse.json({ ...payload, rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
 }

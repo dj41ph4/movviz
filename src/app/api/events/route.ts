@@ -3,6 +3,24 @@ import { requireUser } from "@/lib/auth/guard";
 import { eventBus } from "@/lib/events/EventBus";
 import type { AppEvent } from "@/lib/events/EventBus";
 import { ensureDownloadWatcher } from "@/lib/events/downloadWatcher";
+import { getMovie, getSeries } from "@/lib/library/store";
+
+/** What a device needs to act on a library change without re-reading the
+ *  whole library: which title (TMDb id) and whether it is playable now. */
+function withTitleState(event: AppEvent): object {
+  if (event.type === "movie_updated") {
+    const movie = getMovie(event.movieId);
+    return movie ? { ...event, mediaType: "movie", tmdbId: movie.tmdbId, status: movie.status } : event;
+  }
+  if (event.type === "series_updated") {
+    const series = getSeries(event.seriesId);
+    if (!series) return event;
+    let availableEpisodes = 0;
+    for (const season of series.seasons) for (const episode of season.episodes) if (episode.status === "available") availableEpisodes++;
+    return { ...event, mediaType: "series", tmdbId: series.tmdbId, availableEpisodes };
+  }
+  return event;
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,7 +51,7 @@ export async function GET(req: NextRequest) {
         // A user's views and resume positions go to that user's devices only.
         if (event.type === "watch_changed" && event.userId !== user.id) return;
         const channel = EVENT_SSE_CHANNEL[event.type];
-        const data = JSON.stringify(event);
+        const data = JSON.stringify(channel === "library" ? withTitleState(event) : event);
         try {
           controller.enqueue(encoder.encode(`event: ${channel}\ndata: ${data}\n\n`));
         } catch {
