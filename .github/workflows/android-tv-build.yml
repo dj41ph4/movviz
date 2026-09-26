@@ -108,12 +108,14 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4 5; do
+          # Plusieurs workflows créent la même release au même moment : GitHub
+          # peut mettre plus de 15 s à la rendre visible (v1.25.123 perdue ainsi).
+          for attempt in $(seq 1 20); do
             if gh release view "$TAG" >/dev/null 2>&1; then
               break
             fi
             gh release create "$TAG" --title "$TAG" --generate-notes >/dev/null 2>&1 || true
-            sleep 3
+            sleep 5
           done
           gh release view "$TAG" >/dev/null
           gh release upload "$TAG" \
