@@ -292,3 +292,23 @@ export function buildCapabilitiesSection(webSearchEnabled: boolean): string {
   ];
   return `\n\nCE QUE TU SAIS VRAIMENT FAIRE — l'utilisateur te demande ce que tu peux faire pour lui. Réponds en MODE 3 par une courte liste à puces en langage courant (une ligne par point, pas de jargon, pas de noms techniques), avec ta personnalité, tirée UNIQUEMENT de cette liste — n'invente aucune autre capacité. Termine par une idée concrète adaptée à ses goûts pour démarrer :\n${items.map((item) => `- ${item}`).join("\n")}`;
 }
+
+/** « dans le même genre », « comme celui-là », « dans la lignée »… : the user
+ *  asks for titles like the one being talked about. Only then does that
+ *  title become the model for extra « similar » picks — a plain « fais comme
+ *  tu veux » used to get a whole list « Dans la lignée de » a title the
+ *  assistant had misread in « rien d'autre » a few messages earlier. */
+const SIMILAR_REQUEST_RE = /\b(?:m[eê]me (?:genre|style|type|ambiance|vibe|univers|registre|trip)|dans (?:la|cette) lign[ée]e|similaires?|qui ressembl|ressemblant|dans le genre de|du m[eê]me acabit|(?:un|d'?)autres? (?:film|s[ée]rie|titre)?s? comme|comme (?:celui|celle|ceux|celles)(?:-(?:l[aà]|ci))?|comme [cç]a\b|comme lui|comme elle|pareil)/i;
+
+export function asksForSimilar(text: string): boolean {
+  return SIMILAR_REQUEST_RE.test(text);
+}
+
+/** The user says the assistant misunderstood (« je t'ai demandé… », « c'est
+ *  pas ça », « tu as mal compris »): whatever title it had latched on to is
+ *  no longer the subject of the conversation. */
+const MISUNDERSTOOD_RE = /\b(?:je t['’]?ai (?:demand|dit|parl)|c['’]?est pas (?:[cç]a|ce que|un film|un titre|de [cç]a)|ce n['’]?est pas (?:[cç]a|ce que|un film|un titre)|j['’]?ai (?:jamais|pas) (?:dit|parl|demand)|je n['’]?ai (?:jamais|pas) (?:dit|parl|demand)|(?:tu as|t['’]?as|tu a) mal compris|je (?:ne )?parlais pas|rien [aà] voir|pas ce film|pas ce titre|mais non)/i;
+
+export function saysMisunderstood(text: string): boolean {
+  return MISUNDERSTOOD_RE.test(text);
+}

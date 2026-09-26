@@ -1,3 +1,11 @@
+## v1.25.117 — September 2026
+
+### Assistant IA : plus de films « dans la lignée » d'un titre qu'il avait mal compris
+
+- Quand l'assistant proposait des films, il ajoutait d'office des titres « Dans la lignée de » celui dont vous parliez, même si tu n'avais rien demandé de tel. Il avait pris « rien d'autre » pour le film « Papa et rien d'autre » ; malgré ta correction, un simple « fais comme tu veux » donnait ensuite toute une liste dans la lignée de ce film.
+- Les titres similaires ne sont ajoutés que si tu le demandes (« dans le même genre », « comme celui-là », « dans la lignée »…) ou pour la fiche que tu regardes.
+- Quand tu le corriges (« je t'ai demandé… », « c'est pas ça », « tu as mal compris »), l'assistant oublie le titre qu'il avait cru reconnaître.
+
 ## v1.25.116 — September 2026
 
 ### Android TV : le focus reste où tu es, et les fiches s'ouvrent plus vite

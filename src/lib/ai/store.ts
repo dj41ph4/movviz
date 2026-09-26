@@ -170,6 +170,14 @@ export function setActiveSubject(userId: string, subject: { tmdbId: number; type
   scheduleSessionsFlush();
 }
 
+/** The subject was a misreading the user just corrected: forget it. */
+export function clearActiveSubject(userId: string): void {
+  const session = loadAiSession(userId);
+  if (!session.activeSubject) return;
+  session.activeSubject = undefined;
+  scheduleSessionsFlush();
+}
+
 export function setDialogueState(userId: string, dialogueState: NonNullable<AiChatSession["dialogueState"]>): void {
   const session = loadAiSession(userId);
   session.dialogueState = dialogueState;

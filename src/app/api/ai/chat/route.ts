@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState, dropUnansweredUserMessage, markChatActive } from "@/lib/ai/store";
+import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState, dropUnansweredUserMessage, markChatActive, clearActiveSubject } from "@/lib/ai/store";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
@@ -24,7 +24,7 @@ import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getOrFetchScene } from "@/lib/ai/sceneCache";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import { markSeen } from "@/lib/ai/seen";
-import { detectSeenCommand, extractQuickChoices, stripQuickChoices, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
+import { asksForSimilar, saysMisunderstood, detectSeenCommand, extractQuickChoices, stripQuickChoices, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 import { buildNowContext } from "@/lib/ai/nowContext";
 
@@ -113,6 +113,9 @@ export async function POST(req: NextRequest) {
   // « deja vu », « recomande »…); title extractors try it as typed first.
   const looseMessage = correctTypos(message);
   const dialoguePlan = analyzeDialogueTurn(looseMessage, session.messages, session.dialogueState);
+  // Corrected (« je t'ai demandé s'il y avait rien d'autre… »): the title the
+  // assistant had read into the previous message stops being the subject.
+  if (dialoguePlan.intent === "correction" || saysMisunderstood(looseMessage)) clearActiveSubject(user.id);
   // Someone who demanded a title (« appelle-moi maître ») — now or sessions
   // ago: the model kept answering « oui maître » because its own past
   // replies in the history said so. Those are scrubbed from what it reads,
@@ -1156,7 +1159,7 @@ export async function POST(req: NextRequest) {
     // pick, just names the mechanism honestly.
     // Anchor: the page being looked at, else the title the conversation is
     // about (« dans le même genre » right after talking about a show).
-    const anchor = pageContext ?? freshSubject;
+    const anchor = pageContext ?? (freshSubject && session.activeSubject && asksForSimilar(looseMessage) ? freshSubject : null);
     const alreadyProposed = proposedKeys(session.messages);
     const addSimilar = async (from: { type: "movie" | "series"; tmdbId: number; title: string }, limit: number) => {
       const exclude = new Set([...allItems.map((i) => `${i.type}:${i.tmdbId}`), ...alreadyProposed, `${from.type}:${from.tmdbId}`]);
