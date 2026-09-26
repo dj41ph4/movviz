@@ -1,3 +1,12 @@
+## v1.25.102 — September 2026
+
+### Serveur : tâches de fond allégées
+
+- Serveur : les recherches automatiques (films manquants, sorties du jour, flux RSS) comparaient sans cesse les mêmes noms de releases aux mêmes titres de la bibliothèque, soit environ 5 secondes de calcul par passage. Ces comparaisons sont maintenant mémorisées, avec des résultats strictement identiques.
+- Serveur : chaque lecture de données interrogeait le disque pour savoir si le fichier avait changé, des centaines de fois par passage, un appel bloquant et lent sur un disque de NAS chargé. Cette vérification est maintenant faite au plus une fois par seconde et par fichier. Les écritures ne sont pas retardées, aucune donnée n'est concernée.
+- Serveur : la construction des liens « Ouvrir dans Plex » pour chaque épisode de la bibliothèque est plus rapide, avec des liens identiques.
+- Serveur : lors d'un arrêt propre, les dernières modifications encore en attente d'écriture sont enregistrées immédiatement.
+
 ## v1.25.101 — September 2026
 
 ### Serveur : fin des réécritures géantes du cache TMDb

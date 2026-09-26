@@ -136,6 +136,12 @@ export async function register() {
           stopAllRemuxSessions();
         } catch { /* module not loaded yet — nothing to stop */ }
         console.log(`[shutdown] ${signal} reçu — sessions ffmpeg actives arrêtées`);
+        try {
+          // Data first: every JSON store change still waiting to be written.
+          const { flushPendingJsonWritesSync } = await import("@/lib/fsJsonCache");
+          const flushed = flushPendingJsonWritesSync();
+          if (flushed) console.log(`[shutdown] ${flushed} fichier(s) de données enregistrés avant l'arrêt`);
+        } catch { /* nothing pending */ }
       };
       process.on("SIGTERM", () => void shutdown("SIGTERM"));
       process.on("SIGINT", () => void shutdown("SIGINT"));

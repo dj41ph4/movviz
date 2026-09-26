@@ -25,7 +25,16 @@ interface CacheEntry {
   value: unknown;
   /** Set while this value hasn't been confirmed on disk yet — reads trust it as-is instead of re-validating against a stat() that wouldn't reflect it yet. */
   pending?: boolean;
+  /** When the file was last stat()-ed against this value (see STAT_REVALIDATE_MS). */
+  checkedAt?: number;
 }
+
+/** A read re-checks the file on disk at most this often. Every read used to
+ *  stat() it — hundreds of blocking calls per background pass, each one
+ *  slow on a busy NAS disk (a measured ~0.7 s of frozen server per profile).
+ *  This process writes these files itself and updates its copy on every
+ *  write, so only an outside edit is seen up to this much later. */
+const STAT_REVALIDATE_MS = 1_000;
 
 const g = globalThis as typeof globalThis & {
   __movvizFsJsonCache?: Map<string, CacheEntry>;
@@ -103,6 +112,11 @@ export function readJsonCached<T>(file: string, fallback: T): T {
     readFailures.delete(file);
     return hit.value as T;
   }
+  const now = Date.now();
+  if (hit && hit.checkedAt != null && now - hit.checkedAt < STAT_REVALIDATE_MS) {
+    readFailures.delete(file);
+    return hit.value as T;
+  }
   let stat: fs.Stats;
   try {
     stat = fs.statSync(file);
@@ -110,6 +124,7 @@ export function readJsonCached<T>(file: string, fallback: T): T {
     return fallback;
   }
   if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) {
+    hit.checkedAt = now;
     readFailures.delete(file);
     return hit.value as T;
   }
@@ -123,7 +138,7 @@ export function readJsonCached<T>(file: string, fallback: T): T {
     if (parseMs >= 200) {
       recordSearchLog("info", "perf.json_parse", `${path.basename(file)} : ${Math.round(stat.size / 1e6)} Mo lus et décodés en ${parseMs} ms (serveur figé pendant ce temps)`, parseMs);
     }
-    cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value });
+    cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value, checkedAt: now });
     lastKnownSize.set(file, stat.size);
     readFailures.delete(file);
     return value;
@@ -205,6 +220,40 @@ export function writeJsonCached(file: string, value: unknown): void {
   }, WRITE_COALESCE_MS);
 
   pendingWrites.set(file, { value, timer });
+}
+
+/**
+ * Graceful shutdown (SIGTERM, SIGINT): writes every value still waiting —
+ * in its coalescing window or queued behind a write in flight —
+ * synchronously, straight away. A bonus only: an automatic Docker update
+ * usually kills the process outright, which no handler sees, so write
+ * delays are NEVER lengthened on the strength of this flush.
+ */
+export function flushPendingJsonWritesSync(): number {
+  let flushed = 0;
+  const values = new Map<string, unknown>();
+  for (const [file, pending] of pendingWrites) {
+    clearTimeout(pending.timer);
+    values.set(file, pending.value);
+  }
+  pendingWrites.clear();
+  // A value queued behind an in-flight write is older than one still in its
+  // coalescing window for the same file: the window's value wins.
+  for (const [file, value] of pendingFileWrites) if (!values.has(file)) values.set(file, value);
+  pendingFileWrites.clear();
+  for (const [file, value] of values) {
+    try {
+      const compact = JSON.stringify(value);
+      const json = compact.length <= PRETTY_MAX_BYTES ? JSON.stringify(value, null, 2) : compact;
+      const tmp = `${file}.shutdown.tmp`;
+      fs.writeFileSync(tmp, json, "utf8");
+      fs.renameSync(tmp, file);
+      flushed++;
+    } catch (err) {
+      console.error(`[fsJsonCache] shutdown flush failed for ${file}:`, err);
+    }
+  }
+  return flushed;
 }
 
 /**

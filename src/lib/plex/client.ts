@@ -772,7 +772,12 @@ function mapItem(item: RawLibraryItem, info: BatchItemInfo | null): PlexLibraryI
 
 /** The Plex web app deep link that opens this item straight from a browser tab. */
 export function buildPlexWebUrl(machineIdentifier: string, ratingKey: string): string {
-  const key = encodeURIComponent(`/library/metadata/${ratingKey}`);
+  // Called for every episode of the library by the library/dashboard routes
+  // (tens of thousands per response): a plain rating key has nothing to
+  // encode, so the encoded prefix is spliced in as-is — same URL.
+  const key = /^[A-Za-z0-9_.~-]+$/.test(ratingKey)
+    ? `%2Flibrary%2Fmetadata%2F${ratingKey}`
+    : encodeURIComponent(`/library/metadata/${ratingKey}`);
   return `https://app.plex.tv/desktop/#!/server/${machineIdentifier}/details?key=${key}`;
 }
 

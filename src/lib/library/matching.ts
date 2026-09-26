@@ -44,7 +44,27 @@ export function pickSearchTitle(title: string, originalTitle: string | null | un
   return originalTitle;
 }
 
+// The background searches (missing movies, release day, RSS) compare the
+// same release names against the same library titles on every pass: these
+// pure functions were a measured ~5 s of CPU per pass (profile 2026-09-26).
+// Their results are remembered — same input, same output, bounded memory.
+const MEMO_MAX = 20_000;
+function remember<V>(memo: Map<string, V>, key: string, compute: () => V): V {
+  const known = memo.get(key);
+  if (known !== undefined) return known;
+  const value = compute();
+  if (memo.size >= MEMO_MAX) memo.clear();
+  memo.set(key, value);
+  return value;
+}
+const gMemo = globalThis as typeof globalThis & { __movvizTitleMemo?: { normalized: Map<string, string>; similarity: Map<string, number> } };
+const titleMemo = (gMemo.__movvizTitleMemo ??= { normalized: new Map(), similarity: new Map() });
+
 export function normalizeTitle(s: string): string {
+  return remember(titleMemo.normalized, s, () => normalizeTitleUncached(s));
+}
+
+function normalizeTitleUncached(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFKD")
@@ -62,8 +82,8 @@ function levenshtein(a: string, b: string): number {
   const n = b.length;
   if (m === 0) return n;
   if (n === 0) return m;
-  let prev = new Array(n + 1);
-  let curr = new Array(n + 1);
+  let prev = new Uint16Array(n + 1);
+  let curr = new Uint16Array(n + 1);
   for (let j = 0; j <= n; j++) prev[j] = j;
   for (let i = 1; i <= m; i++) {
     curr[0] = i;
@@ -84,8 +104,10 @@ function levenshtein(a: string, b: string): number {
  * word) can't silently swallow unrelated longer ones.
  */
 function containsAsWords(haystack: string, needle: string): boolean {
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`).test(haystack);
+  // Both sides come out of normalizeTitle — [a-z0-9] words, single spaces,
+  // trimmed — so the word-boundary regex (compiled on every call) is exactly
+  // a search for the needle between spaces.
+  return ` ${haystack} `.includes(` ${needle} `);
 }
 
 /**
@@ -123,6 +145,15 @@ function hasWholesaleWordSubstitution(na: string, nb: string): boolean {
  *  without it (other callers) the bonus applies whenever the title is fully
  *  contained — they enforce the year themselves right after this call. */
 export function titleSimilarity(
+  a: string,
+  b: string,
+  yearInfo?: { year: string | null; targetYear: number | null }
+): number {
+  const key = `${a}\u0000${b}\u0000${yearInfo ? `${yearInfo.year ?? ""}\u0000${yearInfo.targetYear ?? ""}` : "-"}`;
+  return remember(titleMemo.similarity, key, () => titleSimilarityUncached(a, b, yearInfo));
+}
+
+function titleSimilarityUncached(
   a: string,
   b: string,
   yearInfo?: { year: string | null; targetYear: number | null }
