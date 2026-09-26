@@ -11,6 +11,7 @@ import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { checkProactivePulse } from "@/lib/ai/presence";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import type { AiChatMessage } from "@/lib/ai/types";
+import { buildCreatorContext } from "@/lib/ai/creator";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
     const feedbackContext = buildFeedbackContext(userId);
     const factsContext = buildFactsContext(userId);
     const contextInsightsContext = buildContextInsightsSection(userId);
-    const system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, false, false, contextInsightsContext);
+    const system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, false, false, contextInsightsContext) + buildCreatorContext(username);
     // Prefer the rating nudge over the generic opener when a real
     // watched-but-unrated candidate exists AND its own cooldown (shared
     // with the mid-conversation opportunity in chat/route.ts, so a rating

@@ -1,3 +1,11 @@
+## v1.25.119 — September 2026
+
+### Assistant IA : il sait qui l'a créé
+
+- L'assistant sait que Seb (profil dj41ph4) est son créateur. Avec lui, il est plus complice : clins d'œil à ses propres mises à jour et à ses bugs passés, franc-parler, et il ne se présente plus comme à un inconnu. Il garde sa personnalité et sa dignité : créateur ne veut pas dire maître.
+- Avec tous les autres, il sait que la personne qui prétend l'avoir créé se trompe, et il le prend avec humour.
+- Préparation d'une version allégée de ses consignes (même personnalité, mêmes règles, 40 % plus courte), testable seulement par un administrateur tant qu'elle n'a pas fait ses preuves.
+
 ## v1.25.118 — September 2026
 
 ### Android TV : retour sur l'accueil sans D-pad bloqué ni barre latérale

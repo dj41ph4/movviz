@@ -27,6 +27,8 @@ import { markSeen } from "@/lib/ai/seen";
 import { asksForSimilar, saysMisunderstood, detectSeenCommand, extractQuickChoices, stripQuickChoices, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 import { buildNowContext } from "@/lib/ai/nowContext";
+import { buildSystemPromptCompact } from "@/lib/ai/promptCompact";
+import { buildCreatorContext } from "@/lib/ai/creator";
 
 export const dynamic = "force-dynamic";
 
@@ -268,7 +270,12 @@ export async function POST(req: NextRequest) {
   // Checked AFTER the introName capture above, so telling it your name IN
   // THIS message already counts — no double-ask in the same reply.
   const needsName = !hasKnownName(user.id);
-  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
+  // Compact prompt: opt-in (config) or tried by an admin on one message —
+  // the full prompt stays the default until the compact one is proven.
+  const promptVariant = config.promptVariant === "compact" || (user.role === "admin" && body?.promptVariant === "compact") ? "compact" : "full";
+  const buildPrompt = promptVariant === "compact" ? buildSystemPromptCompact : buildSystemPrompt;
+  let system = buildPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
+  system += buildCreatorContext(user.username);
   system += buildRatingsContext(user.id);
   system += buildNowContext(new Date(), body?.timeZone);
   if (titleDemands.length && dialoguePlan.intent !== "submission") {

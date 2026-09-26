@@ -35,6 +35,10 @@ export interface AiConfig {
    *  haute (voix de l'appareil). Off = aucun bouton vocal nulle part. */
   voiceInputEnabled: boolean;
   voiceOutputEnabled: boolean;
+  /** Which system prompt the chat uses: "full" (default) or "compact"
+   *  (same rules and the same personality, ~40 % shorter). An admin can also
+   *  try "compact" message by message (promptVariant in the chat request). */
+  promptVariant?: "full" | "compact";
 }
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
