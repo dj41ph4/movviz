@@ -165,7 +165,7 @@ export async function probeAllLibrarySeries(
 export function probeEpisodeInBackground(seriesId: string, seasonNumber: number, episodeNumber: number, filePath: string | null | undefined): void {
   if (!filePath) return;
   const mediaId = episodeMediaId(seriesId, seasonNumber, episodeNumber);
-  void getOrProbeMediaDescriptor(mediaId, filePath)
+  void getOrProbeMediaDescriptor(mediaId, filePath, false, { priority: "background" })
     .then((descriptor) => {
       if (descriptor) enrichEpisodeFromDescriptor(seriesId, seasonNumber, episodeNumber, descriptor);
     })
@@ -223,7 +223,7 @@ export async function probeAllLibraryMovies(
  */
 export function probeMovieInBackground(movieId: string, filePath: string | null | undefined): void {
   if (!filePath) return;
-  void getOrProbeMediaDescriptor(movieId, filePath)
+  void getOrProbeMediaDescriptor(movieId, filePath, false, { priority: "background" })
     .then((descriptor) => {
       if (descriptor) enrichMovieFromDescriptor(movieId, descriptor);
     })

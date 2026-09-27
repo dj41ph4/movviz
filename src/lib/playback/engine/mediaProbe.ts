@@ -122,7 +122,9 @@ function runFfprobe(input: string, headers?: Record<string, string>): Promise<Ff
       // needs in one call — no per-stream follow-up probes.  Plex raw HTTP
       // sources use the same probe with auth headers, so local and remote
       // media produce the exact same MediaDescriptor contract.
-      const args: string[] = ["-v", "quiet"];
+      // "error", not "quiet": a failing probe's reason lands in stderr and
+      // from there in the rejection message below.
+      const args: string[] = ["-v", "error"];
       if (headers && Object.keys(headers).length > 0) {
         const rawHeaders = Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join("");
         args.push("-headers", rawHeaders);

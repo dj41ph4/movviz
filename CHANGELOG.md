@@ -1,3 +1,13 @@
+## v1.25.126 — September 2026
+
+### Plus de gel du serveur pendant la réconciliation Plex quotidienne
+
+- Chaque nuit, la réconciliation complète avec Plex relançait l'analyse technique de tous les films en même temps, près de 2 000 d'un coup. Le NAS saturait, toutes les analyses échouaient, Movviz ne répondait plus et, faute de résultat enregistré, la même vague revenait le lendemain.
+- Movviz analyse maintenant au plus deux fichiers à la fois, et une lecture qui démarre passe toujours devant les analyses en arrière-plan.
+- Un film n'est ré-analysé après une synchro Plex que si son fichier a changé, ou s'il n'a encore jamais été analysé.
+- Un fichier dont l'analyse échoue n'est plus réessayé à chaque synchro tant qu'il ne change pas. La lecture, elle, le réessaie toujours.
+- En cas d'échec, les journaux indiquent maintenant la raison exacte donnée par l'outil d'analyse.
+
 ## v1.25.125 — September 2026
 
 ### Fiches : plus jamais « En attente de synchronisation Plex »

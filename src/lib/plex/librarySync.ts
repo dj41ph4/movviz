@@ -14,6 +14,7 @@ import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
+import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { registerMarkerCandidate } from "./markerSync";
@@ -236,6 +237,19 @@ export function reconcileFilePath(existingPath: string | null | undefined, plexP
   const mapped = applyLearnedPathMapping(plexPath);
   if (mapped !== plexPath && fs.existsSync(mapped)) return mapped;
   return plexPath;
+}
+
+/**
+ * A Plex sync re-sends `file` for every movie it touches, and the daily full
+ * reconcile touches all of them — probing on every one of those launched a
+ * wave of ~2 000 ffprobe at once. Only probe when the file really changed,
+ * or when this movie has never been probed successfully (fills cache gaps
+ * gradually, through the global probe limiter).
+ */
+function fileNeedsProbe(movieId: string, before: LibraryFile | null | undefined, after: LibraryFile): boolean {
+  if ((before?.diskPath ?? before?.path) !== (after.diskPath ?? after.path)) return true;
+  if (before?.size !== after.size) return true;
+  return !hasCachedMediaDescriptor(movieId);
 }
 
 function toLibraryFileReconciled(plex: PlexLibraryItem, existingPath: string | null | undefined): LibraryFile | null {
@@ -512,7 +526,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
         matched++;
         // TODO_POST_MOTEUR_LECTURE.md item 1 — only when the file itself
         // actually changed, not on every metadata-only touch of this movie.
-        if (patch.file) probeMovieInBackground(existing.id, patch.file.diskPath ?? patch.file.path);
+        if (patch.file && fileNeedsProbe(existing.id, existing.file, patch.file)) probeMovieInBackground(existing.id, patch.file.diskPath ?? patch.file.path);
       }
       continue;
     }
@@ -540,7 +554,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
         if (item.mediaDetail) patch.plexMediaInfo = item.mediaDetail;
         updateMovie(byPath.id, patch);
         matched++;
-        if (patch.file) probeMovieInBackground(byPath.id, patch.file.diskPath ?? patch.file.path);
+        if (patch.file && fileNeedsProbe(byPath.id, byPath.file, patch.file)) probeMovieInBackground(byPath.id, patch.file.diskPath ?? patch.file.path);
         continue;
       }
     }
@@ -567,7 +581,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       if (item.mediaDetail) patch.plexMediaInfo = item.mediaDetail;
       if (Object.keys(patch).length > 0) {
         updateMovie(rechecked.id, patch);
-        if (patch.file) probeMovieInBackground(rechecked.id, patch.file.diskPath ?? patch.file.path);
+        if (patch.file && fileNeedsProbe(rechecked.id, rechecked.file, patch.file)) probeMovieInBackground(rechecked.id, patch.file.diskPath ?? patch.file.path);
       }
       matched++;
       continue;
