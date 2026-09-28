@@ -251,6 +251,20 @@ export function keysInTurn(keys: string[]): string[] {
  *  the next key/model, and the first answer wins — the slow one is cancelled.
  *  Only a late request costs a second call; a normal one never does. */
 export const GEMINI_HEDGE_MS = 4_000;
+
+/** Every Gemini attempt (model, key number, outcome, Google's own message) —
+ *  the chat log only keeps the LAST error of a message, which hid why every
+ *  model was failing (the admin reads this in Réglages → Assistant IA). */
+export interface GeminiAttempt { at: number; model: string; key: number; ok: boolean; status?: number; message?: string; ms: number }
+const gAttempts = globalThis as typeof globalThis & { __movvizGeminiAttempts?: GeminiAttempt[] };
+const attemptsLog: GeminiAttempt[] = (gAttempts.__movvizGeminiAttempts ??= []);
+function recordAttempt(attempt: GeminiAttempt): void {
+  attemptsLog.unshift(attempt);
+  if (attemptsLog.length > 200) attemptsLog.length = 200;
+}
+export function getGeminiAttempts(): GeminiAttempt[] {
+  return attemptsLog;
+}
 /** At most this many requests in flight for one message. */
 const GEMINI_MAX_IN_FLIGHT = 2;
 
@@ -283,13 +297,20 @@ async function callGemini(keys: string[], models: string[], system: string, mess
       if (hedgeTimer) clearTimeout(hedgeTimer);
       hedgeTimer = setTimeout(() => { if (inFlight < GEMINI_MAX_IN_FLIGHT) launch(); }, GEMINI_HEDGE_MS);
       hedgeTimer.unref?.();
+      const startedAt = Date.now();
+      const keyNumber = keys.indexOf(key) + 1;
       generate("gemini", key, model, system, messages, controller.signal).then(
         (text) => {
+          recordAttempt({ at: startedAt, model, key: keyNumber, ok: true, ms: Date.now() - startedAt });
           inFlight--;
           controllers.delete(controller);
           if (!settled) finish(() => resolve(text));
         },
         (e) => {
+          if (!controller.signal.aborted) {
+            const err = e as AiCallError;
+            recordAttempt({ at: startedAt, model, key: keyNumber, ok: false, status: err.status, message: String(err.message ?? e).slice(0, 300), ms: Date.now() - startedAt });
+          }
           inFlight--;
           controllers.delete(controller);
           if (settled) return;
