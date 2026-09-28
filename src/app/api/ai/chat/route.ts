@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setActivePerson, setDialogueState, dropUnansweredUserMessage, markChatActive, clearActiveSubject } from "@/lib/ai/store";
+import { asksToAddToWatchlist, pickShownCards, watchlistReply } from "@/lib/ai/watchlistAction";
+import { addWatchlistItem } from "@/lib/watchlist/store";
+import { addPlexWatchlistItem } from "@/lib/plex/client";
 import { extractPersonListFollowUp, buildPersonListCards, personListIntro, type PersonCredit } from "@/lib/ai/personList";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
@@ -1179,13 +1182,58 @@ export async function POST(req: NextRequest) {
   if (playTarget) assistant.play = playTarget;
 
   let itemCount: number | undefined;
+  // « ajoute à ma liste » = the user's own list (Ma liste), never a download.
+  // The titles are picked by code: the cards just shown (a title named, « le
+  // deuxième », « les 3 premiers », « ajoute-les »), this message's person
+  // list, the model's own items, then the title being talked about.
+  const watchlistRequest = !playTarget && asksToAddToWatchlist(looseMessage);
+  let watchlistTargets: AiRecommendation[] | null = null;
+  if (watchlistRequest) {
+    const shown = previousAssistant?.role === "assistant" ? previousAssistant.recommendations ?? [] : [];
+    let targets: AiRecommendation[] = personCards?.length ? personCards : pickShownCards(looseMessage, shown);
+    if (!targets.length && intent.items.length) {
+      const resolved = await mapWithConcurrency(intent.items, 4, resolveAiItem);
+      targets = resolved.filter((item): item is NonNullable<typeof item> => !!item)
+        .map(({ title, year, type, tmdbId, overview, posterPath, rating, inLibrary }) => ({ title, year, type, tmdbId, overview, posterPath, rating, inLibrary }));
+    }
+    if (!targets.length && freshSubject) {
+      const detail = await getDetail(freshSubject.type, freshSubject.tmdbId).catch(() => null);
+      if (detail) targets = [{ title: detail.title, year: detail.year ?? undefined, type: detail.type, tmdbId: detail.tmdbId, overview: detail.overview, posterPath: detail.posterPath, rating: detail.rating, inLibrary: detail.type === "movie" ? !!getMovieByTmdbId(detail.tmdbId) : !!getSeriesByTmdbId(detail.tmdbId) }];
+    }
+    if (!targets.length && shown.length === 1) targets = shown;
+    for (const target of targets) {
+      const item = addWatchlistItem({
+        userId: user.id,
+        type: target.type,
+        tmdbId: target.tmdbId,
+        seasonNumber: null,
+        episodeNumber: null,
+        title: target.title,
+        parentTitle: null,
+        year: target.year ?? null,
+        posterPath: target.posterPath,
+        stillPath: null,
+        rating: target.rating,
+        addedAt: Date.now(),
+      });
+      if (item.plexDiscoverRatingKey && user.plexToken) addPlexWatchlistItem(user.plexToken, item.plexDiscoverRatingKey).catch(() => {});
+    }
+    console.log(`[ai] watchlist add=${targets.length} user=${user.username}`);
+    watchlistTargets = targets;
+    // Never a download, and never the model's own cards on top.
+    intent = { ...intent, action: null };
+  }
   // Adding downloads something: never on the model's own reading of a
   // message that did not ask for it — those titles become cards instead.
   if (intent.action === "add_media" && !asksToAddMedia(looseMessage, previousAssistantText)) {
     console.log(`[ai] add_media without an add request -> cards user=${user.username}`);
     intent = { ...intent, action: "recommend" };
   }
-  if (personCards?.length && providerName === "tmdb") {
+  if (watchlistTargets) {
+    assistant.content = watchlistReply(watchlistTargets);
+    if (watchlistTargets.length) assistant.recommendations = watchlistTargets;
+    itemCount = watchlistTargets.length;
+  } else if (personCards?.length && providerName === "tmdb") {
     assistant.content = groundedAnswer ?? assistant.content;
     assistant.recommendations = personCards;
     itemCount = personCards.length;

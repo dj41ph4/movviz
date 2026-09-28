@@ -1,3 +1,11 @@
+## v1.25.131 — September 2026
+
+### Assistant IA : « ajoute à ma liste » range dans Ma liste
+
+- « Ajoute à ma liste », « mets-le dans ma watchlist » ou « garde-le dans mes favoris » ajoutent maintenant le titre à la liste de l'utilisateur (Ma liste), comme le bouton des fiches. Ça ne lance jamais de téléchargement.
+- L'assistant comprend quels titres sont visés parmi les cartes qu'il vient de montrer : un titre cité, « le deuxième », « le dernier », « les 3 premiers » ou « ajoute-les ». Sinon, il prend le titre dont on parle.
+- Il confirme ce qui a vraiment été rangé et réaffiche les cartes des titres ajoutés. La liste se met à jour tout de suite sur le web et sur Android.
+
 ## v1.25.130 — September 2026
 
 ### Assistant IA : les filmographies en cartes, et plus jamais d'ajout non demandé
