@@ -45,22 +45,17 @@ test("two users at once: starts are spaced for the free tier, but the second nev
   }
 });
 
-test("a Gemini model Google refuses is skipped for the next free one", async () => {
+test("a Gemini model Google refuses is never swapped for another model", async () => {
   const originalFetch = globalThis.fetch;
   const urls: string[] = [];
   globalThis.fetch = (async (input) => {
-    const url = String(input);
-    urls.push(url);
-    if (url.includes("gemini-2.5-flash-lite")) {
-      return new Response(JSON.stringify({ error: { message: "This model models/gemini-2.5-flash-lite is no longer available to new users." } }), { status: 400 });
-    }
-    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }), { status: 200 });
+    urls.push(String(input));
+    return new Response(JSON.stringify({ error: { message: "This model models/gemini-2.5-flash-lite is no longer available to new users." } }), { status: 400 });
   }) as typeof fetch;
   try {
-    const result = await callAi(config("gemini", "gemini-2.5-flash-lite"), "system", [{ role: "user", content: "a" }]);
-    assert.equal(result.text, "ok");
-    assert.equal(urls.length, 2, "one refusal, no pointless retry of the refused model");
-    assert.match(urls[1], /models\/gemini-3\.5-flash-lite:generateContent/);
+    await assert.rejects(callAi(config("gemini", "gemini-2.5-flash-lite"), "system", [{ role: "user", content: "a" }]));
+    assert.equal(urls.length, 1, "one refusal, no pointless retry of the refused model");
+    assert.ok(urls.every((u) => u.includes("models/gemini-2.5-flash-lite:")), "the chosen model is the only one ever called");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -121,8 +116,8 @@ test("a provider still refusing on every model is left alone instead of hammered
   try {
     const cfg = config("gemini", "gemini-3.5-flash-lite");
     await assert.rejects(callAi(cfg, "system", [{ role: "user", content: "a" }]), (e: { status?: number }) => e.status === 429);
-    const tried = calls; // each free model once
-    assert.ok(tried >= 2);
+    const tried = calls; // the chosen model, once per key
+    assert.ok(tried >= 1);
     const t0 = Date.now();
     await assert.rejects(callAi(cfg, "system", [{ role: "user", content: "b" }]), (e: { quota?: boolean }) => e.quota === true);
     assert.equal(calls, tried, "no request may be sent during the cooldown");

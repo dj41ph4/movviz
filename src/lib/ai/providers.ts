@@ -1,6 +1,6 @@
 import type { AiChatMessage, AiConfig, AiProviderId } from "./types";
 import { AI_PROVIDERS } from "./types";
-import { GEMINI_RECOMMENDED_MODELS, defaultModel, isFreeModel } from "./freeModels";
+import { defaultModel, isFreeModel } from "./freeModels";
 
 /**
  * AI client — Gemini. Safety nets that keep the assistant answering on free
@@ -218,14 +218,15 @@ export async function probeGeminiModel(key: string, model: string, keyTag: strin
   return result;
 }
 
-/** The configured model first, then the other free ones. */
+/** Only the model chosen in the settings — never another one (demande
+ *  explicite, 2026-09-28 : « le modèle sélectionné doit jamais changer »). */
 async function callProvider(config: AiConfig, provider: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
   const configured = config.providers[provider].model.trim();
   // An old or forged config must never quietly reach a paid model.
   const model = isFreeModel(provider, configured) ? configured : defaultModel(provider);
   const keys = config.providers[provider].keys.map((k) => k.key.trim()).filter(Boolean);
   if (keys.length === 0) throw new AiCallError(provider, "Aucune clé configurée", false);
-  return callGemini(keys, [model, ...GEMINI_RECOMMENDED_MODELS.map((m) => m.id).filter((id) => id !== model)], system, messages);
+  return callGemini(keys, model, system, messages);
 }
 
 const gRotation = globalThis as typeof globalThis & { __movvizAiKeyTurn?: { next: number } };
@@ -240,18 +241,6 @@ export function keysInTurn(keys: string[]): string[] {
   return [...keys.slice(start), ...keys.slice(0, start)];
 }
 
-/** Every key of a model (in turn order), then the next model — at once, no pause:
- *  a busy, rate-limited or refused model hands over to the next free one
- *  (each has its own quota). A request Google rejects for what it IS (bad
- *  request, e.g. a malformed conversation) would fail on every model: it
- *  stops there instead of burning the other models' quota. */
-/** Gemini usually answers in 1-3 s, but now and then one request hangs 10-15 s
- *  on Google's side (measured in prod: the same message took 10.3 s, then
- *  1.2 s four times in a row). Past this delay the same request also goes to
- *  the next key/model, and the first answer wins — the slow one is cancelled.
- *  Only a late request costs a second call; a normal one never does. */
-export const GEMINI_HEDGE_MS = 4_000;
-
 /** Every Gemini attempt (model, key number, outcome, Google's own message) —
  *  the chat log only keeps the LAST error of a message, which hid why every
  *  model was failing (the admin reads this in Réglages → Assistant IA). */
@@ -265,90 +254,44 @@ function recordAttempt(attempt: GeminiAttempt): void {
 export function getGeminiAttempts(): GeminiAttempt[] {
   return attemptsLog;
 }
-/** At most this many requests in flight for one message. */
-const GEMINI_MAX_IN_FLIGHT = 2;
 
-/** When Google answers « high demand » (503) or not at all, every model can
- *  fail within a few seconds — then the fallbacks burn their tiny 20/day
- *  quota for nothing (measured 2026-09-28: flash-lite 503 on all three keys,
- *  the flash fallbacks all 429). One more round on the high-quota lite models
- *  after a short pause, as Google itself suggests, while time is left (the
- *  proxy cuts a request at 60 s). */
+/** When Google answers « high demand » (503) or not at all, every key can fail
+ *  within a few seconds. One more round after a short pause, as Google itself
+ *  suggests, while time is left (the proxy cuts a request at 60 s). */
 const GEMINI_RETRY_PAUSE_MS = 2_000;
 const GEMINI_RETRY_IF_UNDER_MS = 20_000;
 
-async function callGemini(keys: string[], models: string[], system: string, messages: AiChatMessage[]): Promise<string> {
+async function callGemini(keys: string[], model: string, system: string, messages: AiChatMessage[]): Promise<string> {
   const startedAt = Date.now();
   try {
-    return await callGeminiRound(keys, models, system, messages);
+    return await callGeminiRound(keys, model, system, messages);
   } catch (error) {
-    const overloaded = attemptsLog.some((a) => a.at >= startedAt && !a.ok && /lite/.test(a.model) && (a.status === 503 || a.status === 500 || /timeout|timed out|aborted|high demand/i.test(a.message ?? "")));
-    const lite = models.filter((model) => /lite/.test(model));
-    if (!overloaded || lite.length === 0 || Date.now() - startedAt > GEMINI_RETRY_IF_UNDER_MS) throw error;
+    const overloaded = attemptsLog.some((a) => a.at >= startedAt && !a.ok && (a.status === 503 || a.status === 500 || /timeout|timed out|aborted|high demand/i.test(a.message ?? "")));
+    if (!overloaded || Date.now() - startedAt > GEMINI_RETRY_IF_UNDER_MS) throw error;
     await sleep(GEMINI_RETRY_PAUSE_MS);
-    return callGeminiRound(keys, lite, system, messages);
+    return callGeminiRound(keys, model, system, messages);
   }
 }
 
-async function callGeminiRound(keys: string[], models: string[], system: string, messages: AiChatMessage[]): Promise<string> {
-  const ordered = keysInTurn(keys);
-  const attempts = models.flatMap((model) => ordered.map((key) => ({ model, key })));
-  return new Promise<string>((resolve, reject) => {
-    let next = 0;
-    let inFlight = 0;
-    let settled = false;
-    let lastError: AiCallError | null = null;
-    let hedgeTimer: ReturnType<typeof setTimeout> | null = null;
-    const controllers = new Set<AbortController>();
-    const finish = (outcome: () => void) => {
-      settled = true;
-      if (hedgeTimer) clearTimeout(hedgeTimer);
-      for (const controller of controllers) controller.abort();
-      outcome();
-    };
-    const launch = () => {
-      if (settled) return;
-      if (next >= attempts.length) {
-        if (inFlight === 0) finish(() => reject(lastError ?? new AiCallError("gemini", "Échec inconnu", false)));
-        return;
-      }
-      const { model, key } = attempts[next++];
-      const controller = new AbortController();
-      controllers.add(controller);
-      inFlight++;
-      if (hedgeTimer) clearTimeout(hedgeTimer);
-      hedgeTimer = setTimeout(() => { if (inFlight < GEMINI_MAX_IN_FLIGHT) launch(); }, GEMINI_HEDGE_MS);
-      hedgeTimer.unref?.();
-      const startedAt = Date.now();
-      const keyNumber = keys.indexOf(key) + 1;
-      generate("gemini", key, model, system, messages, controller.signal).then(
-        (text) => {
-          recordAttempt({ at: startedAt, model, key: keyNumber, ok: true, ms: Date.now() - startedAt });
-          inFlight--;
-          controllers.delete(controller);
-          if (!settled) finish(() => resolve(text));
-        },
-        (e) => {
-          if (!controller.signal.aborted) {
-            const err = e as AiCallError;
-            recordAttempt({ at: startedAt, model, key: keyNumber, ok: false, status: err.status, message: String(err.message ?? e).slice(0, 300), ms: Date.now() - startedAt });
-          }
-          inFlight--;
-          controllers.delete(controller);
-          if (settled) return;
-          lastError = e instanceof AiCallError ? e : new AiCallError("gemini", (e as Error).message, false);
-          // A request Google rejects for what it IS would fail everywhere.
-          if (!isModelUnavailable(lastError) && !isGeminiModelBusy(lastError) && !isQuotaSpent(lastError) && lastError.status !== 403) {
-            const error = lastError;
-            finish(() => reject(error));
-            return;
-          }
-          launch();
-        },
-      );
-    };
-    launch();
-  });
+/** One request at a time: one message out, one answer in. Only a key that
+ *  fails hands over to the next key (same model); a request Google rejects
+ *  for what it IS (bad request) would fail on every key — it stops there. */
+async function callGeminiRound(keys: string[], model: string, system: string, messages: AiChatMessage[]): Promise<string> {
+  let lastError: AiCallError | null = null;
+  for (const key of keysInTurn(keys)) {
+    const startedAt = Date.now();
+    const keyNumber = keys.indexOf(key) + 1;
+    try {
+      const text = await generate("gemini", key, model, system, messages);
+      recordAttempt({ at: startedAt, model, key: keyNumber, ok: true, ms: Date.now() - startedAt });
+      return text;
+    } catch (e) {
+      lastError = e instanceof AiCallError ? e : new AiCallError("gemini", (e as Error).message, false);
+      recordAttempt({ at: startedAt, model, key: keyNumber, ok: false, status: lastError.status, message: String(lastError.message).slice(0, 300), ms: Date.now() - startedAt });
+      if (!isModelUnavailable(lastError) && !isGeminiModelBusy(lastError) && !isQuotaSpent(lastError) && lastError.status !== 403) throw lastError;
+    }
+  }
+  throw lastError ?? new AiCallError("gemini", "Échec inconnu", false);
 }
 
 /** Asks the AI; returns the text and the provider that answered. */

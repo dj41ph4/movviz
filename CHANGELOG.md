@@ -1,3 +1,11 @@
+## v1.25.128 — September 2026
+
+### Assistant IA : toujours le modèle choisi, une demande à la fois
+
+- L'assistant utilise uniquement le modèle choisi dans les réglages IA. Il ne bascule plus jamais sur un autre modèle, en particulier pas sur les modèles limités à 20 demandes par jour.
+- Un message envoyé, une seule demande à Google : chaque message part sur la clé suivante. Si une clé échoue, la même demande passe à la clé d'après, sans jamais doubler les envois.
+- Si Google est surchargé sur toutes les clés, l'assistant attend 2 secondes et retente une fois, toujours avec le même modèle.
+
 ## v1.25.127 — September 2026
 
 ### Assistant IA : il tient le coup quand Google est surchargé

@@ -76,28 +76,44 @@ test("the model always answers the user: a conversation ending with its own mess
   }
 });
 
-test("a Gemini model overloaded or out of per-minute quota hands over to the next model at once", async () => {
+const modelOf = (input: unknown) => decodeURIComponent(String(input).match(/models\/([^:]+):/)?.[1] ?? "");
+
+test("le modèle choisi ne change jamais : un modèle surchargé passe à la clé suivante, pas à un autre modèle", async () => {
   const originalFetch = globalThis.fetch;
   const models: string[] = [];
   globalThis.fetch = (async (input) => {
-    const model = decodeURIComponent(String(input).match(/models\/([^:]+):/)?.[1] ?? "");
-    models.push(model);
-    if (model === "gemini-3.5-flash-lite") return new Response(JSON.stringify({ error: { message: "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later." } }), { status: 503 });
-    if (model === "gemini-3.1-flash-lite") return new Response(JSON.stringify({ error: { message: "You exceeded your current quota. Quota exceeded for metric: generate_content_free_tier_requests, limit: 15, model: gemini-3.1-flash-lite" } }), { status: 429 });
-    return geminiOk("Réponse du modèle suivant");
+    models.push(modelOf(input));
+    if (models.length === 1) return new Response(JSON.stringify({ error: { message: "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later." } }), { status: 503 });
+    return geminiOk("Réponse de la clé suivante");
   }) as typeof fetch;
   try {
     const t0 = Date.now();
-    const result = await callAi(config(["AIza-test"]), "system", [{ role: "user", content: "salut ça va ?" }]);
-    assert.deepEqual(result, { text: "Réponse du modèle suivant", provider: "gemini" });
-    assert.deepEqual(models, ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]);
-    assert.ok(Date.now() - t0 < 5000, "no pause between models");
+    const result = await callAi(config(["a", "b"]), "system", [{ role: "user", content: "salut ça va ?" }]);
+    assert.deepEqual(result, { text: "Réponse de la clé suivante", provider: "gemini" });
+    assert.deepEqual(models, ["gemini-3.5-flash-lite", "gemini-3.5-flash-lite"]);
+    assert.ok(Date.now() - t0 < 5000, "no pause between keys");
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("a request Gemini rejects for what it is stops there instead of burning every model's quota", async () => {
+test("même quand toutes les clés échouent, aucun autre modèle n'est jamais essayé", async () => {
+  const originalFetch = globalThis.fetch;
+  const models: string[] = [];
+  globalThis.fetch = (async (input) => {
+    models.push(modelOf(input));
+    return new Response(JSON.stringify({ error: { message: "You exceeded your current quota. Quota exceeded for metric: generate_content_free_tier_requests" } }), { status: 429 });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(callAi(config(["a", "b"]), "system", [{ role: "user", content: "salut" }]));
+    assert.equal(models.length, 2, "une tentative par clé, pas plus");
+    assert.ok(models.every((m) => m === "gemini-3.5-flash-lite"), models.join(", "));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a request Gemini rejects for what it is stops there instead of burning every key's quota", async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = (async () => {
@@ -105,66 +121,37 @@ test("a request Gemini rejects for what it is stops there instead of burning eve
     return new Response(JSON.stringify({ error: { message: "Request contains an invalid argument." } }), { status: 400 });
   }) as typeof fetch;
   try {
-    await assert.rejects(callAi(config(["AIza-test"]), "system", [{ role: "user", content: "a" }]));
+    await assert.rejects(callAi(config(["a", "b"]), "system", [{ role: "user", content: "a" }]));
     assert.equal(calls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("a Gemini request that hangs is sent again on the next key, and the first answer wins", async () => {
+test("un message sorti, une réponse entrée : jamais deux requêtes en parallèle, même quand Google traîne", async () => {
   const originalFetch = globalThis.fetch;
-  const used: string[] = [];
-  let slowAborted = false;
-  globalThis.fetch = (async (input, init) => {
-    used.push(new URL(String(input)).searchParams.get("key") ?? "");
-    if (used.length === 1) {
-      // Google hanging on this one (10-15 s seen in prod).
-      return new Promise<Response>((resolve, reject) => {
-        const timer = setTimeout(() => resolve(geminiOk("trop tard")), 12_000);
-        init?.signal?.addEventListener("abort", () => { slowAborted = true; clearTimeout(timer); reject(new Error("aborted")); });
-      });
-    }
-    return geminiOk("relance rapide");
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    await new Promise((r) => setTimeout(r, 5_000));
+    return geminiOk("lent mais seul");
   }) as typeof fetch;
   try {
-    const started = Date.now();
     const result = await callAi(config(["a", "b"]), "s", [{ role: "user", content: "salut" }]);
-    const elapsed = Date.now() - started;
-    assert.equal(result.text, "relance rapide");
-    assert.ok(elapsed < 6_000, `answered in ${elapsed} ms`);
-    assert.equal(used.length, 2);
-    assert.notEqual(used[0], used[1]);
-    assert.ok(slowAborted, "the hanging request is cancelled");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("a fast Gemini answer never costs a second request", async () => {
-  const originalFetch = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = (async () => { calls++; return geminiOk("vite"); }) as typeof fetch;
-  try {
-    await callAi(config(["a", "b"]), "s", [{ role: "user", content: "salut" }]);
-    await new Promise((r) => setTimeout(r, 4_500));
+    assert.equal(result.text, "lent mais seul");
     assert.equal(calls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("Google surchargé (503 sur les modèles lite, secours à quota épuisé) : une seconde chance après une courte pause", async () => {
+test("Google surchargé (503 sur toutes les clés) : une seconde chance après une courte pause, sur le même modèle", async () => {
   const originalFetch = globalThis.fetch;
   let round = 1;
-  let calls = 0;
+  const models: string[] = [];
   globalThis.fetch = (async (input) => {
-    calls++;
-    const model = String(input).match(/models\/([^:]+):/)?.[1] ?? "";
-    if (round === 1) {
-      if (/lite/.test(model)) return new Response(JSON.stringify({ error: { message: "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later." } }), { status: 503 });
-      return new Response(JSON.stringify({ error: { message: "You exceeded your current quota" } }), { status: 429 });
-    }
+    models.push(modelOf(input));
+    if (round === 1) return new Response(JSON.stringify({ error: { message: "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later." } }), { status: 503 });
     return geminiOk("de retour");
   }) as typeof fetch;
   try {
@@ -172,7 +159,8 @@ test("Google surchargé (503 sur les modèles lite, secours à quota épuisé) :
     setTimeout(() => { round = 2; }, 1_000); // Google revient pendant la pause
     const result = await pending;
     assert.equal(result.text, "de retour");
-    assert.ok(calls > 12, "tous les modèles essayés, puis la seconde chance");
+    assert.equal(models.length, 4, "les trois clés, puis la seconde chance");
+    assert.ok(models.every((m) => m === "gemini-3.5-flash-lite"));
   } finally {
     globalThis.fetch = originalFetch;
   }
