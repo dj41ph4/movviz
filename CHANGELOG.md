@@ -1,3 +1,9 @@
+## v1.25.134 — September 2026
+
+### Assistant IA : « ajoute à ma liste » instantané
+
+- Quand on désigne une carte qu'il vient de montrer (« ajoute le deuxième à ma liste », « ajoute Mandibules à ma liste », « ajoute-les à ma liste »), l'assistant la range tout de suite dans Ma liste, sans attendre le modèle : moins d'une seconde au lieu d'une vingtaine.
+
 ## v1.25.133 — September 2026
 
 ### Assistant IA : « ajoute le deuxième à ma liste » n'ajoute que le deuxième

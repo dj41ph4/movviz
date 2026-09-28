@@ -661,6 +661,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // « ajoute le deuxième à ma liste » right after cards: the code already
+  // knows which card — no model call (it cost ~20 s for a fixed reply).
+  const shownBefore = previousAssistant?.role === "assistant" ? previousAssistant.recommendations ?? [] : [];
+  const quickWatchlist = !playTarget && !groundedAnswer && asksToAddToWatchlist(looseMessage) ? pickShownCards(looseMessage, shownBefore) : [];
+  if (quickWatchlist.length) groundedAnswer = watchlistReply(quickWatchlist);
   const t0 = Date.now();
   let providerName = "";
   let text: string;
@@ -701,7 +706,7 @@ export async function POST(req: NextRequest) {
     // A person's list is built by code from TMDb: there is no model reply to
     // correct, and each retry cost a slow Gemini call (the cards waited up to
     // a minute behind replies that were thrown away anyway).
-    if (personCards?.length && providerName === "tmdb") {
+    if ((personCards?.length || quickWatchlist.length) && providerName === "tmdb") {
       return Promise.reject(new Error("grounded_person_list"));
     }
     if (correctionsLeft <= 0 || Date.now() - t0 > CORRECTION_TIME_BUDGET_MS) {
@@ -1214,8 +1219,8 @@ export async function POST(req: NextRequest) {
   const watchlistRequest = !playTarget && asksToAddToWatchlist(looseMessage);
   let watchlistTargets: AiRecommendation[] | null = null;
   if (watchlistRequest) {
-    const shown = previousAssistant?.role === "assistant" ? previousAssistant.recommendations ?? [] : [];
-    let targets: AiRecommendation[] = personCards?.length ? personCards : pickShownCards(looseMessage, shown);
+    const shown = shownBefore;
+    let targets: AiRecommendation[] = personCards?.length ? personCards : quickWatchlist.length ? quickWatchlist : pickShownCards(looseMessage, shown);
     if (!targets.length && intent.items.length) {
       const resolved = await mapWithConcurrency(intent.items, 4, resolveAiItem);
       targets = resolved.filter((item): item is NonNullable<typeof item> => !!item)
