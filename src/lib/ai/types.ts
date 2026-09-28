@@ -119,6 +119,10 @@ export interface AiChatSession {
    *  suivant pour que "j'adore", "le top c'est contre X", "celui-là" se
    *  résolvent contre CE titre au lieu de partir en recherche TMDb. */
   activeSubject?: { tmdbId: number; type: "movie" | "series"; title: string; at: number };
+  /** Dernière personne (réalisateur, acteur…) dont la filmographie a été
+   *  réellement résolue sur TMDb : « ses films », « les 10 meilleurs »,
+   *  « montre en 8 » se résolvent contre elle, en cartes. */
+  activePerson?: { id: number; name: string; department: string | null; at: number };
   /** Petit état conversationnel déterministe. Il ne remplace ni l'historique
    *  ni la personnalité du modèle : il évite seulement qu'une critique soit
    *  prise pour une insulte et qu'une mini-scène (Ghostface) saute des étapes. */

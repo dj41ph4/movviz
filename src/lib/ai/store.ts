@@ -171,6 +171,13 @@ export function setActiveSubject(userId: string, subject: { tmdbId: number; type
   scheduleSessionsFlush();
 }
 
+/** The person whose filmography was just really resolved on TMDb. */
+export function setActivePerson(userId: string, person: { id: number; name: string; department: string | null }): void {
+  const session = loadAiSession(userId);
+  session.activePerson = { ...person, at: Date.now() };
+  scheduleSessionsFlush();
+}
+
 /** The subject was a misreading the user just corrected: forget it. */
 export function clearActiveSubject(userId: string): void {
   const session = loadAiSession(userId);

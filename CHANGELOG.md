@@ -1,3 +1,11 @@
+## v1.25.130 — September 2026
+
+### Assistant IA : les filmographies en cartes, et plus jamais d'ajout non demandé
+
+- « Montre-moi tous les films de Quentin Dupieux » affiche maintenant des cartes cliquables, comme une recommandation par genre, au lieu d'une longue liste en texte. Chaque carte indique si le titre est déjà dans ta bibliothèque.
+- Les relances sur la même personne fonctionnent : « montre-moi ses films », « les 10 meilleurs », « montre en 8 », « une liste de 3 films de Dupieux ». L'assistant reprend la personne dont on vient de parler et affiche le bon nombre de cartes, triées par note quand on demande les meilleurs. Avant, il répondait de mémoire, sans cartes, et prétendait même ne pas avoir accès au catalogue en ligne.
+- L'assistant n'ajoute plus rien au téléchargement sans qu'on le lui demande. Une demande de liste avait lancé le téléchargement de trois films. Un ajout ne part désormais que sur une vraie demande (« ajoute », « télécharge », « récupère »…) ou sur un « oui » à sa propre proposition d'ajout. Sinon, les titres s'affichent en cartes, à ajouter d'un clic.
+
 ## v1.25.129 — September 2026
 
 ### Réglages IA : un test pour chaque clé

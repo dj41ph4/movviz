@@ -84,6 +84,25 @@ const OFFER_TOPIC_RE = /\b(?:films?|s[ée]ries?|anim\w*|s[ée]lections?|listes?|
  *  (« vas-y », « animation », « oui ») — the moment to give cards now, not
  *  another clarifying question. Seen live: three confirmation round-trips
  *  before the first card. */
+// ── Adding is never a guess ─────────────────────────────────────────────
+
+// No \b before accented words: JavaScript's \b ignores accented letters.
+const STRONG_ADD_RE = /\b(?:ajout\w*|rajout\w*|dl\b|download\w*|chop\w*|grab\w*)|t[ée]l[ée]charg\w*|r[ée]cup[èée]r\w*/i;
+const WEAK_ADD_RE = /\b(?:mets?|mettre|prends?|prendre|demande|commande)\b/i;
+const LIST_WORDS_RE = /\b(?:listes?|montr\w*|affich\w*|propos\w*|conseill\w*|recommand\w*|cliquable|clicable|cartes?)\b/i;
+const CONFIRM_RE = /^\s*(?:oui|ouais|ouep|yes|ok|okay|vas[- ]y|go|fonce|carr[ée]ment|d['’]accord|dac|let['’]?s go|avec plaisir|volontiers)\b/i;
+const ADD_OFFER_RE = /ajout|t[ée]l[ée]charg|r[ée]cup[èée]r|dans ta biblioth[èe]que/i;
+
+/** True only when the user really asked to add/download (or said yes to the
+ *  assistant's own offer to). Seen live: « fais-moi une liste cliquable de 3
+ *  films de Dupieux » came back as an add — three films sent to download
+ *  that nobody asked for. Anything else becomes cards the user can add. */
+export function asksToAddMedia(message: string, previousAssistant?: string): boolean {
+  if (STRONG_ADD_RE.test(message)) return true;
+  if (WEAK_ADD_RE.test(message) && !LIST_WORDS_RE.test(message)) return true;
+  return CONFIRM_RE.test(message) && !!previousAssistant && ADD_OFFER_RE.test(previousAssistant);
+}
+
 export function isDirectRecommendationRequest(message: string, previousAssistant?: string): boolean {
   // « tu m'as recommandé X, c'était nul » is a reaction, not a request.
   if (PAST_RECO_RE.test(message)) return false;

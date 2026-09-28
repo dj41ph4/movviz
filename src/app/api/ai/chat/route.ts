@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState, dropUnansweredUserMessage, markChatActive, clearActiveSubject } from "@/lib/ai/store";
+import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setActivePerson, setDialogueState, dropUnansweredUserMessage, markChatActive, clearActiveSubject } from "@/lib/ai/store";
+import { extractPersonListFollowUp, buildPersonListCards, personListIntro, type PersonCredit } from "@/lib/ai/personList";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
@@ -24,8 +25,8 @@ import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getOrFetchScene } from "@/lib/ai/sceneCache";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import { markSeen } from "@/lib/ai/seen";
-import { asksForSimilar, saysMisunderstood, detectSeenCommand, extractQuickChoices, stripQuickChoices, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
-import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
+import { asksToAddMedia, asksForSimilar, saysMisunderstood, detectSeenCommand, extractQuickChoices, stripQuickChoices, historyForModel, lastRecommendations, proposedKeys, isDirectRecommendationRequest, buildTasteProfileSection, buildSeenListSection, buildMovvizSelfSection, buildQuickReplies, recommendationIntro, extractSuggestedTitle, isCapabilitiesQuestion, buildCapabilitiesSection } from "@/lib/ai/chatAssist";
+import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories, AiRecommendation } from "@/lib/ai/types";
 import { buildNowContext } from "@/lib/ai/nowContext";
 import { buildSystemPromptCompact } from "@/lib/ai/promptCompact";
 import { buildCreatorContext } from "@/lib/ai/creator";
@@ -365,6 +366,17 @@ export async function POST(req: NextRequest) {
   // "Brad Pitt" matched nothing. searchPerson keeps exactly those results.
   const filmographyRequest = extractFilmographyRequest(message) ?? extractFilmographyRequest(looseMessage);
   const filmographyQuery = filmographyRequest?.person ?? null;
+  // A person's list is shown as cards, exactly like a genre recommendation.
+  let personCards: AiRecommendation[] | null = null;
+  const selectPersonCredits = (full: NonNullable<Awaited<ReturnType<typeof getPerson>>>, scope: "movie" | "series" | "all", directorOnly: boolean, knownForActing: boolean) => full.credits
+    .filter((credit) => !credit.genreIds?.includes(99))
+    .filter((credit) => scope === "all" || credit.type === scope)
+    .filter((credit) => !directorOnly || credit.isDirector)
+    .filter((credit) => directorOnly || !knownForActing || credit.isCast);
+  const toPersonCredit = (c: { tmdbId: number; type: "movie" | "series"; title: string; year?: number | null; overview: string; posterPath: string | null; rating: number }): PersonCredit => ({
+    ...c,
+    inLibrary: c.type === "movie" ? !!getMovieByTmdbId(c.tmdbId) : !!getSeriesByTmdbId(c.tmdbId),
+  });
   if (filmographyRequest) {
     try {
       const personQuery = filmographyRequest.person;
@@ -374,11 +386,8 @@ export async function POST(req: NextRequest) {
         if (full) {
           const effectiveDirectorOnly = filmographyRequest.directorOnly
             || person.knownForDepartment === "Directing";
-          const selectedCredits = full.credits
-            .filter((credit) => !credit.genreIds?.includes(99))
-            .filter((credit) => filmographyRequest.scope === "all" || credit.type === filmographyRequest.scope)
-            .filter((credit) => !effectiveDirectorOnly || credit.isDirector)
-            .filter((credit) => effectiveDirectorOnly || person.knownForDepartment !== "Acting" || credit.isCast);
+          setActivePerson(user.id, { id: full.id, name: full.name, department: person.knownForDepartment });
+          const selectedCredits = selectPersonCredits(full, filmographyRequest.scope, effectiveDirectorOnly, person.knownForDepartment === "Acting");
           const hits: FranchiseSearchHit[] = selectedCredits.map((c) => ({
             title: c.title,
             year: c.year ?? undefined,
@@ -387,11 +396,17 @@ export async function POST(req: NextRequest) {
             inLibrary: c.type === "movie" ? !!getMovieByTmdbId(c.tmdbId) : !!getSeriesByTmdbId(c.tmdbId),
             isDirector: c.isDirector,
           }));
-          groundedAnswer = buildCompleteFilmographyAnswer(full.name, hits, {
-            scope: filmographyRequest.scope,
-            countOnly: filmographyRequest.countOnly,
-            directorOnly: effectiveDirectorOnly,
-          });
+          if (filmographyRequest.countOnly) {
+            groundedAnswer = buildCompleteFilmographyAnswer(full.name, hits, {
+              scope: filmographyRequest.scope,
+              countOnly: true,
+              directorOnly: effectiveDirectorOnly,
+            });
+          } else {
+            const listOptions = { best: false, scope: filmographyRequest.scope, directorOnly: effectiveDirectorOnly };
+            personCards = buildPersonListCards(selectedCredits.map(toPersonCredit), listOptions);
+            groundedAnswer = personListIntro(full.name, personCards, selectedCredits.length, listOptions);
+          }
         }
       }
       // TMDb reste prioritaire car lui seul permet la comparaison exacte
@@ -402,6 +417,28 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // Best-effort, same safety net as the franchise-search block above.
+    }
+  }
+
+  // « ses films », « les 10 meilleurs », « montre en 8 » right after a
+  // filmography: the same person, as cards — never the model's memory.
+  const freshPerson = session.activePerson && Date.now() - session.activePerson.at < 45 * 60 * 1000 ? session.activePerson : null;
+  const personFollowUp = !filmographyRequest && freshPerson ? extractPersonListFollowUp(looseMessage) : null;
+  const lastName = freshPerson?.name.split(/\s+/).pop()?.toLowerCase() ?? "";
+  const namesPerson = lastName.length > 1 && (looseMessage.toLowerCase().includes(lastName) || (previousAssistantText ?? "").toLowerCase().includes(lastName));
+  if (personFollowUp && freshPerson && (personFollowUp.pronoun || namesPerson)) {
+    try {
+      const full = await getPerson(freshPerson.id);
+      if (full) {
+        const directing = freshPerson.department === "Directing";
+        const selected = selectPersonCredits(full, personFollowUp.scope, directing, freshPerson.department === "Acting");
+        const listOptions = { count: personFollowUp.count, best: personFollowUp.best, scope: personFollowUp.scope, directorOnly: directing };
+        personCards = buildPersonListCards(selected.map(toPersonCredit), listOptions);
+        groundedAnswer = personListIntro(full.name, personCards, selected.length, listOptions);
+        setActivePerson(user.id, { id: full.id, name: full.name, department: freshPerson.department });
+      }
+    } catch {
+      // Best-effort: the model answers as before.
     }
   }
 
@@ -1142,7 +1179,17 @@ export async function POST(req: NextRequest) {
   if (playTarget) assistant.play = playTarget;
 
   let itemCount: number | undefined;
-  if (intent.action === "add_media" && intent.items.length) {
+  // Adding downloads something: never on the model's own reading of a
+  // message that did not ask for it — those titles become cards instead.
+  if (intent.action === "add_media" && !asksToAddMedia(looseMessage, previousAssistantText)) {
+    console.log(`[ai] add_media without an add request -> cards user=${user.username}`);
+    intent = { ...intent, action: "recommend" };
+  }
+  if (personCards?.length && providerName === "tmdb") {
+    assistant.content = groundedAnswer ?? assistant.content;
+    assistant.recommendations = personCards;
+    itemCount = personCards.length;
+  } else if (intent.action === "add_media" && intent.items.length) {
     const outcomes = await addMedia(user, intent.items as AiAddItem[]);
     assistant.actions = outcomes;
     const summary = summarizeAdd(outcomes);
