@@ -268,7 +268,29 @@ export function getGeminiAttempts(): GeminiAttempt[] {
 /** At most this many requests in flight for one message. */
 const GEMINI_MAX_IN_FLIGHT = 2;
 
+/** When Google answers « high demand » (503) or not at all, every model can
+ *  fail within a few seconds — then the fallbacks burn their tiny 20/day
+ *  quota for nothing (measured 2026-09-28: flash-lite 503 on all three keys,
+ *  the flash fallbacks all 429). One more round on the high-quota lite models
+ *  after a short pause, as Google itself suggests, while time is left (the
+ *  proxy cuts a request at 60 s). */
+const GEMINI_RETRY_PAUSE_MS = 2_000;
+const GEMINI_RETRY_IF_UNDER_MS = 20_000;
+
 async function callGemini(keys: string[], models: string[], system: string, messages: AiChatMessage[]): Promise<string> {
+  const startedAt = Date.now();
+  try {
+    return await callGeminiRound(keys, models, system, messages);
+  } catch (error) {
+    const overloaded = attemptsLog.some((a) => a.at >= startedAt && !a.ok && /lite/.test(a.model) && (a.status === 503 || a.status === 500 || /timeout|timed out|aborted|high demand/i.test(a.message ?? "")));
+    const lite = models.filter((model) => /lite/.test(model));
+    if (!overloaded || lite.length === 0 || Date.now() - startedAt > GEMINI_RETRY_IF_UNDER_MS) throw error;
+    await sleep(GEMINI_RETRY_PAUSE_MS);
+    return callGeminiRound(keys, lite, system, messages);
+  }
+}
+
+async function callGeminiRound(keys: string[], models: string[], system: string, messages: AiChatMessage[]): Promise<string> {
   const ordered = keysInTurn(keys);
   const attempts = models.flatMap((model) => ordered.map((key) => ({ model, key })));
   return new Promise<string>((resolve, reject) => {

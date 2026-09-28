@@ -1,3 +1,11 @@
+## v1.25.127 — September 2026
+
+### Assistant IA : il tient le coup quand Google est surchargé
+
+- Depuis deux jours, les modèles Gemini gratuits principaux (Flash Lite) sont souvent saturés chez Google : réponse « trop de demande » ou aucune réponse, sur toutes les clés à la fois. L'assistant retombait alors sur les modèles de secours, limités à 20 demandes par jour et vite épuisés : réponses ratées, et plus de cartes de films avec leurs boutons.
+- Quand Google répond qu'il est surchargé, l'assistant attend maintenant 2 secondes et retente une fois les modèles principaux, au lieu d'abandonner.
+- Réglages IA : le journal montre le détail de chaque tentative (modèle, clé, réponse exacte de Google), pour voir tout de suite d'où vient un échec.
+
 ## v1.25.126 — September 2026
 
 ### Plus de gel du serveur pendant la réconciliation Plex quotidienne

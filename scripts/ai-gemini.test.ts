@@ -153,3 +153,27 @@ test("a fast Gemini answer never costs a second request", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("Google surchargé (503 sur les modèles lite, secours à quota épuisé) : une seconde chance après une courte pause", async () => {
+  const originalFetch = globalThis.fetch;
+  let round = 1;
+  let calls = 0;
+  globalThis.fetch = (async (input) => {
+    calls++;
+    const model = String(input).match(/models\/([^:]+):/)?.[1] ?? "";
+    if (round === 1) {
+      if (/lite/.test(model)) return new Response(JSON.stringify({ error: { message: "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later." } }), { status: 503 });
+      return new Response(JSON.stringify({ error: { message: "You exceeded your current quota" } }), { status: 429 });
+    }
+    return geminiOk("de retour");
+  }) as typeof fetch;
+  try {
+    const pending = callAi(config(["a", "b", "c"]), "s", [{ role: "user", content: "salut" }]);
+    setTimeout(() => { round = 2; }, 1_000); // Google revient pendant la pause
+    const result = await pending;
+    assert.equal(result.text, "de retour");
+    assert.ok(calls > 12, "tous les modèles essayés, puis la seconde chance");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
