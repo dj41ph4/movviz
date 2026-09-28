@@ -34,3 +34,12 @@ test("la réponse dit ce qui est vraiment dans la liste", () => {
   assert.equal(watchlistReply([{ title: "Le Daim" }, { title: "Rubber", year: 2010 }]), "C'est dans ta liste ✅ Le Daim, Rubber (2010).");
   assert.match(watchlistReply([]), /Dis-moi lequel/);
 });
+
+test("« ajoute le deuxième à ma liste » vise une carte, jamais toute une filmographie", async () => {
+  const { extractPersonListFollowUp } = await import("@/lib/ai/personList");
+  for (const m of ["ajoute le deuxième à ma liste", "mets-les dans ma liste", "ajoute ça à ma watchlist", "ajoute ses films à ma liste"]) {
+    assert.equal(extractPersonListFollowUp(m), null, m);
+  }
+  const previous = [card(10, "Yannick"), card(11, "Réalité"), card(12, "Au poste !")];
+  assert.deepEqual(pickShownCards("ajoute le deuxième à ma liste", previous).map((c) => c.title), ["Réalité"]);
+});

@@ -1,3 +1,9 @@
+## v1.25.133 — September 2026
+
+### Assistant IA : « ajoute le deuxième à ma liste » n'ajoute que le deuxième
+
+- « Ajoute le deuxième à ma liste » ajoutait toute la filmographie de la personne dont on parlait au lieu du seul titre visé. « Ma liste » était pris pour une demande de liste de films. L'assistant ajoute maintenant uniquement la carte désignée.
+
 ## v1.25.132 — September 2026
 
 ### Assistant IA : listes de films d'une personne, instantanées et fiables

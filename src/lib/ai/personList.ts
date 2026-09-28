@@ -16,7 +16,10 @@ export interface PersonListFollowUp {
 
 const PRONOUN_RE = /\b(?:ses|leurs?)\s+(?:films?|s[ée]ries?|[œo]e?uvres?|r[ée]alisations?)\b|\bsa\s+filmographie\b/i;
 const SHOW_LIST_RE = /\b(?:re)?montr\w*(?:[- ]?moi)?[- ](?:les\b|en\s+\d|tous\b|toutes\b|\d)|\bles\s+\d{1,2}\s+(?:meilleur|plus|premier|derni)|\b(?:liste|top\s*\d{1,2})\b/i;
-const NOT_A_LIST_RE = /bande[- ]?annonce|trailer|\bfiche\b|\blance\b|\bjoue\b|\bnote\b/i;
+// « ma liste » is the user's own list (watchlistAction.ts), never a request
+// for a list of titles — seen live: « ajoute le deuxième à ma liste » put a
+// whole filmography in the user's list.
+const NOT_A_LIST_RE = /bande[- ]?annonce|trailer|\bfiche\b|\blance\b|\bjoue\b|\bnote\b|\b(?:ma|mes)\s+(?:liste|watch\s?list|favoris)\b|\bwatch\s?list\b/i;
 const MAX_WORDS = 12;
 
 export function extractPersonListFollowUp(message: string): PersonListFollowUp | null {
