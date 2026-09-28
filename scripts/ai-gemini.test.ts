@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { callAi } from "@/lib/ai/providers";
+import { callAi, testGeminiKey } from "@/lib/ai/providers";
 import { DEFAULT_AI_CONFIG, type AiConfig } from "@/lib/ai/types";
 
 function config(keys: string[]): AiConfig {
@@ -161,6 +161,24 @@ test("Google surchargé (503 sur toutes les clés) : une seconde chance après u
     assert.equal(result.text, "de retour");
     assert.equal(models.length, 4, "les trois clés, puis la seconde chance");
     assert.ok(models.every((m) => m === "gemini-3.5-flash-lite"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("tester une clé : cette clé seule, avec le temps de Google et les tokens de réflexion", async () => {
+  const originalFetch = globalThis.fetch;
+  const used: string[] = [];
+  globalThis.fetch = (async (input) => {
+    used.push(new URL(String(input)).searchParams.get("key") ?? "");
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "OK" }] } }], usageMetadata: { promptTokenCount: 20, thoughtsTokenCount: 812, candidatesTokenCount: 1 } }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const result = await testGeminiKey(config(["k1", "k2", "k3"]), "k2");
+    assert.equal(result.ok, true);
+    assert.equal(result.reply, "OK");
+    assert.deepEqual(result.usage, { prompt: 20, thoughts: 812, output: 1 });
+    assert.deepEqual(used, ["k2"]);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -1,3 +1,11 @@
+## v1.25.129 — September 2026
+
+### Réglages IA : un test pour chaque clé
+
+- Chaque clé Gemini a maintenant son propre bouton « Tester ». Le test passe uniquement par cette clé, avec le modèle choisi, sans qu'une autre clé prenne le relais : on voit tout de suite quelle clé répond, laquelle échoue et avec quel message de Google.
+- Le résultat indique le temps de réponse de Google et le nombre de tokens de « réflexion » du modèle, pour comprendre d'où vient une réponse lente.
+- Le bouton « Tester » du fournisseur teste désormais toutes les clés une par une et affiche un résultat sous chacune.
+
 ## v1.25.128 — September 2026
 
 ### Assistant IA : toujours le modèle choisi, une demande à la fois

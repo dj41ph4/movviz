@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadAiConfig } from "@/lib/ai/store";
-import { callAi } from "@/lib/ai/providers";
+import { callAi, testGeminiKey } from "@/lib/ai/providers";
 import { AI_PROVIDERS, type AiConfig, type AiProviderId } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,16 @@ export async function POST(req: NextRequest) {
   const provider: AiProviderId = AI_PROVIDERS.includes(requested as AiProviderId)
     ? (requested as AiProviderId)
     : stored.primary;
+
+  // One key alone (Réglages → « Tester » on a key row): its own health and
+  // speed, with no other key taking over behind it.
+  if (provider === "gemini" && typeof body?.keyId === "string") {
+    const keys = stored.providers.gemini.keys;
+    const index = keys.findIndex((k) => k.id === body.keyId && k.key.trim());
+    if (index < 0) return NextResponse.json({ ok: false, detail: "no_keys" }, { status: 404 });
+    const result = await testGeminiKey(stored, keys[index].key.trim());
+    return NextResponse.json({ ...result, provider, keyNumber: index + 1, detail: result.ok ? undefined : result.quota ? "quota" : "error" }, { status: result.ok ? 200 : 502 });
+  }
 
   const testConfig: AiConfig = { ...stored, primary: provider };
   if (testConfig.providers[provider].keys.filter((k) => k.key.trim()).length === 0) {

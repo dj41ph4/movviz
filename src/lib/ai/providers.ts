@@ -117,13 +117,19 @@ function geminiUrl(model: string, key: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
 }
 
+/** Tokens Google counted for one answer — « thoughts » is the model's hidden
+ *  reasoning, the usual reason a short answer still takes several seconds. */
+export interface GeminiUsage { prompt?: number; thoughts?: number; output?: number }
+
 /** One call with one key and one model; throws AiCallError on failure. */
-async function generate(provider: AiProviderId, key: string, model: string, system: string, messages: AiChatMessage[], cancel?: AbortSignal): Promise<string> {
+async function generate(provider: AiProviderId, key: string, model: string, system: string, messages: AiChatMessage[], cancel?: AbortSignal, usage?: GeminiUsage): Promise<string> {
   const json = await jsonFetch(provider, geminiUrl(model, key), {}, {
     systemInstruction: { parts: [{ text: system }] },
     contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
     generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
   }, cancel);
+  const meta = (json as { usageMetadata?: { promptTokenCount?: number; thoughtsTokenCount?: number; candidatesTokenCount?: number } })?.usageMetadata;
+  if (usage && meta) Object.assign(usage, { prompt: meta.promptTokenCount, thoughts: meta.thoughtsTokenCount ?? 0, output: meta.candidatesTokenCount });
   const candidates = (json as { candidates?: { content?: { parts?: { text?: string }[] } }[] })?.candidates ?? [];
   return candidates.map((c) => (c.content?.parts ?? []).map((p) => p.text ?? "").join("")).join("").trim();
 }
@@ -244,7 +250,7 @@ export function keysInTurn(keys: string[]): string[] {
 /** Every Gemini attempt (model, key number, outcome, Google's own message) —
  *  the chat log only keeps the LAST error of a message, which hid why every
  *  model was failing (the admin reads this in Réglages → Assistant IA). */
-export interface GeminiAttempt { at: number; model: string; key: number; ok: boolean; status?: number; message?: string; ms: number }
+export interface GeminiAttempt { at: number; model: string; key: number; ok: boolean; status?: number; message?: string; ms: number; usage?: GeminiUsage }
 const gAttempts = globalThis as typeof globalThis & { __movvizGeminiAttempts?: GeminiAttempt[] };
 const attemptsLog: GeminiAttempt[] = (gAttempts.__movvizGeminiAttempts ??= []);
 function recordAttempt(attempt: GeminiAttempt): void {
@@ -282,8 +288,9 @@ async function callGeminiRound(keys: string[], model: string, system: string, me
     const startedAt = Date.now();
     const keyNumber = keys.indexOf(key) + 1;
     try {
-      const text = await generate("gemini", key, model, system, messages);
-      recordAttempt({ at: startedAt, model, key: keyNumber, ok: true, ms: Date.now() - startedAt });
+      const usage: GeminiUsage = {};
+      const text = await generate("gemini", key, model, system, messages, undefined, usage);
+      recordAttempt({ at: startedAt, model, key: keyNumber, ok: true, ms: Date.now() - startedAt, usage });
       return text;
     } catch (e) {
       lastError = e instanceof AiCallError ? e : new AiCallError("gemini", (e as Error).message, false);
@@ -292,6 +299,29 @@ async function callGeminiRound(keys: string[], model: string, system: string, me
     }
   }
   throw lastError ?? new AiCallError("gemini", "Échec inconnu", false);
+}
+
+export interface GeminiKeyTest { ok: boolean; model: string; latency: number; reply?: string; usage?: GeminiUsage; quota?: boolean; message?: string }
+
+/** Settings → « Tester » on ONE key: the chosen model, this key only, no
+ *  other key taking over — so each key's own health and speed show. */
+export async function testGeminiKey(config: AiConfig, key: string): Promise<GeminiKeyTest> {
+  const configured = config.providers.gemini.model.trim();
+  const model = isFreeModel("gemini", configured) ? configured : defaultModel("gemini");
+  const usage: GeminiUsage = {};
+  const startedAt = Date.now();
+  let sentAt = startedAt;
+  try {
+    // Latency = Google's own time, not the wait for a start slot in the queue.
+    const reply = await withProviderGate("gemini", () => {
+      sentAt = Date.now();
+      return generate("gemini", key, model, "Tu réponds exactement par le mot OK, rien d'autre.", [{ role: "user", content: "Test de connexion" }], undefined, usage);
+    }, false);
+    return { ok: true, model, latency: Date.now() - sentAt, reply: reply.slice(0, 200), usage };
+  } catch (e) {
+    const err = e instanceof AiCallError ? e : new AiCallError("gemini", (e as Error).message, false);
+    return { ok: false, model, latency: Date.now() - sentAt, quota: err.quota, message: String(err.message ?? "").slice(0, 300) };
+  }
 }
 
 /** Asks the AI; returns the text and the provider that answered. */

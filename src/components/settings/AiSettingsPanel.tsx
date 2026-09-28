@@ -22,6 +22,14 @@ const BUILTIN_MODELS: Record<AiProviderId, { id: string; label: string }[]> = {
   gemini: [...GEMINI_RECOMMENDED_MODELS],
 };
 
+interface KeyTestResult {
+  ok: boolean;
+  detail?: string;
+  latency?: number;
+  usage?: { prompt?: number; thoughts?: number; output?: number };
+  message?: string;
+}
+
 interface KeyRow {
   id: string;
   /** When false, the stored key is kept on save (never shown again). */
@@ -78,6 +86,8 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<AiProviderId | null>(null);
   const [testResult, setTestResult] = useState<{ provider: AiProviderId; ok: boolean; detail?: string; latency?: number; message?: string } | null>(null);
+  // Per-key test results (Gemini): one line under each key.
+  const [keyTests, setKeyTests] = useState<Record<string, KeyTestResult | "testing">>({});
   const [modelsChecked, setModelsChecked] = useState(false);
   const [freeModels, setFreeModels] = useState<Record<AiProviderId, { id: string; label: string }[]>>(BUILTIN_MODELS);
 
@@ -192,6 +202,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         }
         setDraft({ enabled: d.enabled, primary: d.primary, webSearchEnabled: !!d.webSearchEnabled, voiceInputEnabled: !!d.voiceInputEnabled, voiceOutputEnabled: !!d.voiceOutputEnabled, promptVariant: d.promptVariant === "compact" ? "compact" : "full", hasWebSearchKey: !!d.hasWebSearchKey, webSearchKeyInput: "", clearWebSearchKey: false, providers });
         setTestResult(null);
+        setKeyTests({});
         toast("success", t("ai.settings.saved"));
         // The floating chat button reads its own "enabled" via SWR on
         // /api/ai/session — without this, toggling AI on/off here would
@@ -205,7 +216,36 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
     }
   };
 
+  const testKey = async (keyId: string) => {
+    setKeyTests((prev) => ({ ...prev, [keyId]: "testing" }));
+    let result: KeyTestResult;
+    try {
+      const r = await fetch("/api/ai/config/test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider: "gemini", keyId }),
+      });
+      const d = await r.json().catch(() => null);
+      result = { ok: !!d?.ok, detail: d?.detail, latency: d?.latency, usage: d?.usage, message: typeof d?.message === "string" && d.message ? d.message : undefined };
+    } catch {
+      result = { ok: false, detail: "network" };
+    }
+    setKeyTests((prev) => ({ ...prev, [keyId]: result }));
+  };
+
   const test = async (provider: AiProviderId) => {
+    // Gemini: every saved key on its own, one after the other — a global
+    // « OK » hid which key was slow or failing.
+    if (provider === "gemini") {
+      setTesting(provider);
+      setTestResult(null);
+      try {
+        for (const k of draft?.providers.gemini.keys ?? []) if (!k.isNew) await testKey(k.id);
+      } finally {
+        setTesting(null);
+      }
+      return;
+    }
     setTesting(provider);
     setTestResult(null);
     try {
@@ -416,8 +456,11 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                       {t("ai.settings.keys")}
                     </label>
                     <div className="space-y-1.5">
-                      {p.keys.map((k) => (
-                        <div key={k.id} className="flex items-center gap-2">
+                      {p.keys.map((k, index) => {
+                        const keyTest = keyTests[k.id];
+                        return (
+                        <div key={k.id}>
+                        <div className="flex items-center gap-2">
                           {k.isNew ? (
                             <input
                               value={k.value}
@@ -429,9 +472,20 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                             />
                           ) : (
                             <span className="min-w-0 flex-1 break-all rounded-lg bg-white/4 px-3 py-2 text-sm font-mono text-ink-soft">
-                              ••••••••••••••••
+                              <span className="mr-2 font-sans text-xs font-bold text-ink-dim">{index + 1}</span>••••••••••••••••
                             </span>
                           )}
+                          {id === "gemini" ? (
+                            <button
+                              onClick={() => testKey(k.id)}
+                              disabled={k.isNew || keyTest === "testing"}
+                              title={k.isNew ? t("ai.settings.keyTestSaveFirst") : undefined}
+                              className="glass-strong flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
+                            >
+                              {keyTest === "testing" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              {t("ai.settings.test")}
+                            </button>
+                          ) : null}
                           <button
                             onClick={() => removeKey(id, k.id)}
                             title={t("ai.settings.removeKey")}
@@ -440,7 +494,19 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                      ))}
+                        {keyTest && keyTest !== "testing" ? (
+                          <p className={cn("mt-1 pl-1 text-xs font-semibold", keyTest.ok ? "text-ok" : "text-down")}>
+                            {keyTest.ok
+                              ? <>
+                                  {t("ai.settings.keyTestOk", { latency: String(keyTest.latency ?? 0) })}
+                                  {keyTest.usage ? <span className="font-normal text-ink-dim"> — {t("ai.settings.keyTestTokens", { thoughts: String(keyTest.usage.thoughts ?? 0), output: String(keyTest.usage.output ?? 0) })}</span> : null}
+                                </>
+                              : <>{keyTest.detail === "quota" ? t("ai.settings.testQuota") : t("ai.settings.testFail")}{keyTest.message ? <span className="font-mono opacity-80"> — {keyTest.message}</span> : null}</>}
+                          </p>
+                        ) : null}
+                        </div>
+                        );
+                      })}
                       {p.keys.length === 0 ? (
                         <p className="rounded-lg bg-amber/10 px-3 py-2 text-xs text-amber">{t("ai.settings.noKeys")}</p>
                       ) : null}
