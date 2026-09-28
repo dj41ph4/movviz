@@ -1,3 +1,10 @@
+## v1.25.132 — September 2026
+
+### Assistant IA : listes de films d'une personne, instantanées et fiables
+
+- Les listes de cartes d'une personne (« tous les films de Dupieux », « les 3 meilleurs », « montre en 5 ») s'affichent tout de suite. Elles pouvaient attendre jusqu'à une minute : l'assistant redemandait au modèle des titres dont il n'avait plus besoin.
+- « 10 films de Dupieux », « les 5 meilleurs films de Nolan » ou « 3 films des Dupieux » affichent maintenant le bon nombre de cartes des films de cette personne. Avant, l'assistant proposait des films sans rapport, comme Détour mortel. Le nom est d'abord vérifié sur TMDb : « 10 films d'horreur » reste une recommandation par genre.
+
 ## v1.25.131 — September 2026
 
 ### Assistant IA : « ajoute à ma liste » range dans Ma liste

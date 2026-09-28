@@ -36,6 +36,33 @@ export function extractPersonListFollowUp(message: string): PersonListFollowUp |
   };
 }
 
+/** « 10 films de Dupieux », « 3 films des Dupieux », « les 5 meilleurs films
+ *  de Nolan » — a counted list naming the person. Seen live: « 10 film de
+ *  dupieux » matched no filmography phrasing and the model recommended
+ *  Détour mortel. The caller must confirm the name against TMDb
+ *  (personNameMatches), so « 10 films d'horreur » never becomes a person. */
+export function extractCountedPersonRequest(message: string): { count: number; best: boolean; scope: "movie" | "series"; entity: string } | null {
+  const m = message.replace(/[’‘]/g, "'").trim();
+  if (m.split(/\s+/).length > MAX_WORDS) return null;
+  const match = m.match(/\b(\d{1,2})\s+(?:meilleur(?:e)?s?\s+)?(films?|s[ée]ries?)\s+(?:de\s+la\s+|de\s+|des\s+|du\s+|d')([^.!?\n]{2,40})$/i);
+  if (!match) return null;
+  const entity = match[3].trim().replace(/\s+(?:stp|s'il te pla[iî]t|please)$/i, "").trim();
+  if (entity.length < 2) return null;
+  return { count: Number(match[1]), best: /meilleur|mieux not|\btop\b/i.test(m), scope: /^s/i.test(match[2]) ? "series" : "movie", entity };
+}
+
+function normalizeName(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Every word the user typed is in the TMDb name (« dupieux » ⊂ « quentin
+ *  dupieux »; « horreur » is in no one's name). */
+export function personNameMatches(entity: string, personName: string): boolean {
+  const name = ` ${normalizeName(personName)} `;
+  const words = normalizeName(entity).split(" ").filter((w) => w.length > 1);
+  return words.length > 0 && words.every((w) => name.includes(` ${w} `));
+}
+
 /** One person credit, as getPerson() returns it (already sorted by popularity). */
 export interface PersonCredit {
   tmdbId: number;

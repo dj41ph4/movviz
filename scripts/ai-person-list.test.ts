@@ -61,3 +61,15 @@ test("un ajout ne part que sur une vraie demande d'ajout ou un oui à une propos
     assert.equal(asksToAddMedia(m, "Tu veux qu'on en tente un ?"), false, m);
   }
 });
+
+test("« 10 film de dupieux » : une liste comptée qui nomme la personne", async () => {
+  const { extractCountedPersonRequest, personNameMatches } = await import("@/lib/ai/personList");
+  assert.deepEqual(extractCountedPersonRequest("10 film de dupieux"), { count: 10, best: false, scope: "movie", entity: "dupieux" });
+  assert.deepEqual(extractCountedPersonRequest("donne moi les 5 meilleurs films de Nolan"), { count: 5, best: true, scope: "movie", entity: "Nolan" });
+  assert.equal(extractCountedPersonRequest("3 film des dupieux")?.entity, "dupieux");
+  assert.equal(personNameMatches("dupieux", "Quentin Dupieux"), true);
+  assert.equal(personNameMatches("quentin dupieux", "Quentin Dupieux"), true);
+  // « 10 films d'horreur » peut être extrait, mais aucun nom TMDb ne le confirmera.
+  assert.equal(personNameMatches("horreur", "Horror Hernández"), false);
+  assert.equal(personNameMatches("guerre", "Quentin Dupieux"), false);
+});

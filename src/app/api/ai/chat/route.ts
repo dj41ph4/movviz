@@ -4,7 +4,7 @@ import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setActive
 import { asksToAddToWatchlist, pickShownCards, watchlistReply } from "@/lib/ai/watchlistAction";
 import { addWatchlistItem } from "@/lib/watchlist/store";
 import { addPlexWatchlistItem } from "@/lib/plex/client";
-import { extractPersonListFollowUp, buildPersonListCards, personListIntro, type PersonCredit } from "@/lib/ai/personList";
+import { extractPersonListFollowUp, extractCountedPersonRequest, personNameMatches, buildPersonListCards, personListIntro, type PersonCredit } from "@/lib/ai/personList";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
@@ -428,8 +428,27 @@ export async function POST(req: NextRequest) {
   const freshPerson = session.activePerson && Date.now() - session.activePerson.at < 45 * 60 * 1000 ? session.activePerson : null;
   const personFollowUp = !filmographyRequest && freshPerson ? extractPersonListFollowUp(looseMessage) : null;
   const lastName = freshPerson?.name.split(/\s+/).pop()?.toLowerCase() ?? "";
+  const countedPerson = !filmographyRequest ? extractCountedPersonRequest(looseMessage) : null;
+  if (countedPerson) {
+    try {
+      const person = await searchPerson(countedPerson.entity);
+      if (person && personNameMatches(countedPerson.entity, person.name)) {
+        const full = await getPerson(person.id);
+        if (full) {
+          const directing = person.knownForDepartment === "Directing";
+          const selected = selectPersonCredits(full, countedPerson.scope, directing, person.knownForDepartment === "Acting");
+          const listOptions = { count: countedPerson.count, best: countedPerson.best, scope: countedPerson.scope, directorOnly: directing };
+          personCards = buildPersonListCards(selected.map(toPersonCredit), listOptions);
+          groundedAnswer = personListIntro(full.name, personCards, selected.length, listOptions);
+          setActivePerson(user.id, { id: full.id, name: full.name, department: person.knownForDepartment });
+        }
+      }
+    } catch {
+      // Best-effort: the model answers as before.
+    }
+  }
   const namesPerson = lastName.length > 1 && (looseMessage.toLowerCase().includes(lastName) || (previousAssistantText ?? "").toLowerCase().includes(lastName));
-  if (personFollowUp && freshPerson && (personFollowUp.pronoun || namesPerson)) {
+  if (!personCards && personFollowUp && freshPerson && (personFollowUp.pronoun || namesPerson)) {
     try {
       const full = await getPerson(freshPerson.id);
       if (full) {
@@ -679,6 +698,12 @@ export async function POST(req: NextRequest) {
   // fou retombe sur sa réponse de secours déterministe (ses catch le gèrent).
   let correctionsLeft = MAX_CORRECTION_CALLS;
   const callCorrection = (retrySystem: string) => {
+    // A person's list is built by code from TMDb: there is no model reply to
+    // correct, and each retry cost a slow Gemini call (the cards waited up to
+    // a minute behind replies that were thrown away anyway).
+    if (personCards?.length && providerName === "tmdb") {
+      return Promise.reject(new Error("grounded_person_list"));
+    }
     if (correctionsLeft <= 0 || Date.now() - t0 > CORRECTION_TIME_BUDGET_MS) {
       return Promise.reject(new Error("correction_budget_exhausted"));
     }
