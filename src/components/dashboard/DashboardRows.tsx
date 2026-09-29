@@ -298,7 +298,7 @@ export function DashboardRows({
     };
   };
 
-  const sectionOrder: DashboardSectionId[] = ["continueWatching", "becauseYouLike", "rewatch", "shortSessions", "discover", "availableNow", "comingSoon", "upgradesAvailable"];
+  const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "rewatch", "discover", "shortSessions", "comingSoon", "upgradesAvailable"];
 
   return (
     <div className="space-y-8">
@@ -391,6 +391,30 @@ export function DashboardRows({
         if (id === "availableNow" && (recentEpisodes.length > 0 || recentlyAdded.length > 0)) {
           return (
             <div key={id} className="space-y-8">
+              {recentlyAdded.length > 0 && <PosterRow title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
+                {recentlyAdded.map(({ type, item }) => {
+                  const artwork = resolveArtwork(type, item.tmdbId, item.backdropPath);
+                  return (
+                    <CardErrorBoundary key={`${type}:${item.id}`}>
+                      <DashboardPosterCard
+                        tmdbId={item.tmdbId}
+                        type={type}
+                        title={item.title}
+                        posterPath={item.posterPath}
+                        backdropPath={artwork.backdropPath}
+                        logoPath={artwork.logoPath}
+                        titleEmbedded={artwork.titleEmbedded}
+                        rating={item.rating}
+                        year={item.year}
+                        runtime={type === "movie" ? item.runtime : undefined}
+                        genres={item.genres}
+                        inLibrary={true}
+                        playback={type === "movie" ? moviePlayback(item) : undefined}
+                      />
+                    </CardErrorBoundary>
+                  );
+                })}
+              </PosterRow>}
               {recentEpisodes.length > 0 && <PosterRow title={t("dashboard.recentEpisodes")}>
                 {recentEpisodes.slice(0, 24).map((episode) => {
                 const artwork = resolveArtwork("series", episode.tmdbId, episode.backdropPath);
@@ -423,30 +447,6 @@ export function DashboardRows({
                     />
                   </CardErrorBoundary>
                 );
-                })}
-              </PosterRow>}
-              {recentlyAdded.length > 0 && <PosterRow title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
-                {recentlyAdded.map(({ type, item }) => {
-                  const artwork = resolveArtwork(type, item.tmdbId, item.backdropPath);
-                  return (
-                    <CardErrorBoundary key={`${type}:${item.id}`}>
-                      <DashboardPosterCard
-                        tmdbId={item.tmdbId}
-                        type={type}
-                        title={item.title}
-                        posterPath={item.posterPath}
-                        backdropPath={artwork.backdropPath}
-                        logoPath={artwork.logoPath}
-                        titleEmbedded={artwork.titleEmbedded}
-                        rating={item.rating}
-                        year={item.year}
-                        runtime={type === "movie" ? item.runtime : undefined}
-                        genres={item.genres}
-                        inLibrary={true}
-                        playback={type === "movie" ? moviePlayback(item) : undefined}
-                      />
-                    </CardErrorBoundary>
-                  );
                 })}
               </PosterRow>}
             </div>

@@ -500,7 +500,7 @@ fun HomeScreen(
     val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
 
     val visibleSections = remember(
-        dashboardLayout.sections, continueCards, recentEpisodeCards, recommendationCards, shortSessionCards,
+        dashboardLayout.sections, continueCards, recentEpisodeCards, recommendationCards, rewatchCards, shortSessionCards,
         trendingCards, availableNowCards, comingSoonCards,
     ) {
         val configured = dashboardLayout.sections.filter { it.visible }.mapNotNull { section ->
@@ -516,14 +516,22 @@ fun HomeScreen(
             }
             section.id.takeIf { hasContent }
         }
-        // La reprise est une promesse fonctionnelle, pas une option de mise
-        // en page : si le compte a un média à reprendre, cette rangée reste
-        // systématiquement la première, même si une ancienne disposition de
-        // dashboard l'avait masquée ou déplacée.
+        // L'accueil garde un ordre éditorial stable sur tous les clients :
+        // Reprendre, Ajouts récents, recommandations, puis Tendances et les
+        // sessions courtes. Les réglages conservent seulement la visibilité.
+        val canonicalOrder = listOf(
+            "continueWatching", "availableNow", "becauseYouLike", "rewatch",
+            "discover", "shortSessions", "comingSoon", "upgradesAvailable",
+        )
+        val ordered = canonicalOrder.filter { id ->
+            id in configured || (id == "continueWatching" && continueCards.isNotEmpty())
+        }
         buildList {
-            if (continueCards.isNotEmpty()) add("continueWatching")
-            if (recentEpisodeCards.isNotEmpty()) add("recentEpisodes")
-            addAll(configured.filter { it != "continueWatching" })
+            ordered.forEach { id ->
+                add(id)
+                if (id == "availableNow" && recentEpisodeCards.isNotEmpty()) add("recentEpisodes")
+            }
+            if (recentEpisodeCards.isNotEmpty() && "availableNow" !in ordered) add("recentEpisodes")
         }
     }
     val firstVisibleSection = visibleSections.firstOrNull()

@@ -357,6 +357,8 @@ Résultats :
 - les titres similaires sur chaque fiche ;
 - les mêmes recommandations sur Android TV et mobile.
 
+Depuis la v1.25.136, l'accueil place les ajouts récents juste après Reprendre, et les titres de moins de 40 minutes juste après Tendances Movviz, sur le web, Android TV et Android mobile.
+
 ### 13. Movviz AI, l'assistant
 
 Une bulle de discussion présente sur le web et sur Android mobile, qui comprend le **langage naturel** :

@@ -17,13 +17,13 @@ export type DashboardMode = (typeof DASHBOARD_MODES)[number];
 
 export const DASHBOARD_SECTION_IDS = [
   "continueWatching",
+  "availableNow",
   "becauseYouLike",
   "rewatch",
+  "discover",
   "shortSessions",
-  "availableNow",
   "comingSoon",
   "upgradesAvailable",
-  "discover",
 ] as const;
 export type DashboardSectionId = (typeof DASHBOARD_SECTION_IDS)[number];
 

@@ -39,11 +39,11 @@ data class DashboardSectionDto(
 
 fun defaultDashboardSections(): List<DashboardSectionDto> = listOf(
     "continueWatching",
+    "availableNow",
     "becauseYouLike",
     "rewatch",
+    "discover",
     "shortSessions",
-    "availableNow",
     "comingSoon",
     "upgradesAvailable",
-    "discover",
 ).map { DashboardSectionDto(it, true) }

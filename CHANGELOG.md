@@ -1,3 +1,11 @@
+## v1.25.136 — September 2026
+
+### Accueil : rangées dans le même ordre sur web, Android TV et Android mobile
+
+- Les ajouts récents suivent immédiatement Reprendre. Sur Android TV, les ajouts Films et Séries TV restent deux rangées successives.
+- « Moins de 40 minutes » apparaît juste après « Tendances Movviz ».
+- L'ordre reste correct avec les anciennes configurations du dashboard ; Reprendre reste en tête sur Android dès qu'un média est à reprendre.
+
 ## v1.25.135 — September 2026
 
 ### Assistant IA : réponses lisibles et cliquables sur le web et Android mobile
