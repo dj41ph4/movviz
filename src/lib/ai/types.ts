@@ -104,6 +104,8 @@ export interface AiChatMessage {
   alternates?: AiRecommendation[];
   /** Quick replies shown under the last message; one tap sends the text. */
   suggestions?: string[];
+  /** Verified title mentions in the prose, used as links by web and mobile. */
+  linkedTitles?: { title: string; type: "movie" | "series"; tmdbId: number; year?: number; posterPath?: string | null }[];
   /** « lance-le »: what the assistant started playing (the client opens its
    *  player on it, and shows a ▶ to start it again). */
   play?: AiPlayTarget;

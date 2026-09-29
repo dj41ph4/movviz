@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cleanAiReply } from "@/lib/ai/replyPresentation";
 
 /**
  * Talking with the assistant, with the device's own voices (demande
@@ -34,7 +35,7 @@ const write = (key: string, value: string) => { try { localStorage.setItem(key, 
 
 /** What is worth saying out loud: no emojis, no markdown, no hidden markers. */
 export function speakableText(text: string): string {
-  return text
+  return cleanAiReply(text)
     .replace(/\[\[[^\]]*\]\]/g, "")
     .replace(/[*_`#>]+/g, "")
     .replace(/\p{Extended_Pictographic}|‍|️/gu, "")

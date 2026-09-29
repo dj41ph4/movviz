@@ -1,3 +1,10 @@
+## v1.25.135 — September 2026
+
+### Assistant IA : réponses lisibles et cliquables sur le web et Android mobile
+
+- Les marqueurs internes de notes, faits et choix ne s'affichent plus dans la discussion, y compris dans les anciennes réponses et quand le modèle les échappe. Une simple question sur la note d'un film n'enregistre plus une note inventée.
+- Les paragraphes, listes et mots mis en valeur sont rendus proprement. Les titres reconnus dans les réponses ouvrent leur fiche, et les réponses proposées deviennent des boutons faciles à toucher.
+
 ## v1.25.134 — September 2026
 
 ### Assistant IA : « ajoute à ma liste » instantané

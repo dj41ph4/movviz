@@ -133,6 +133,7 @@ class AiVoice(context: Context) : TextToSpeech.OnInitListener {
 
         /** Ce qui vaut la peine d'être dit : ni emojis, ni markdown, ni marqueurs. */
         fun speakable(text: String): String = text
+            .replace(Regex("""\\([\[\]*_`])"""), "$1")
             .replace(Regex("""\[\[[^\]]*]]"""), "")
             .replace(Regex("""[*_`#>]+"""), "")
             .replace(Regex("""[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE0F}\x{200D}]"""), "")

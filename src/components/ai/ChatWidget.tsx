@@ -9,6 +9,7 @@ import { spokenReply, useVoiceChat } from "@/lib/ai/useVoiceChat";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { getPageTitleContext } from "@/lib/ai/pageContext";
+import { cleanAiReply } from "@/lib/ai/replyPresentation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { AiActionOutcome, AiChatMessage, AiPlayTarget, AiRecommendation } from "@/lib/ai/types";
 import { usePlayer } from "@/lib/player/PlayerProvider";
@@ -35,6 +36,32 @@ const DISTANCE_STYLES: Record<NonNullable<AiRecommendation["distance"]>, string>
   conceptual_match: "border-purple/30 bg-purple/12 text-purple",
   discovery: "border-amber/30 bg-amber/12 text-amber",
 };
+
+/** Small, safe chat formatter: prose stays prose; lists, emphasis and verified titles get real UI. */
+function AiReply({ message }: { message: AiChatMessage }) {
+  const content = cleanAiReply(message.content);
+  const titles = message.linkedTitles ?? [];
+  const inline = (line: string) => line.split(/(\*\*[^*\n]+\*\*|\*[^*\n]+\*|__[^_\n]+__|_[^_\n]+_|`[^`\n]+`)/g).map((part, index) => {
+    const value = part.replace(/^(?:\*\*|__|\*|_|`)|(?:\*\*|__|\*|_|`)$/g, "");
+    if (part === value) return part;
+    const title = titles.find((item) => item.title.toLocaleLowerCase() === value.toLocaleLowerCase());
+    if (title) return <Link key={index} href={`/title/${title.type}/${title.tmdbId}`} className="font-semibold text-brand-glow underline decoration-brand-glow/40 underline-offset-2 hover:decoration-brand-glow">{value}</Link>;
+    if (part.startsWith("**") || part.startsWith("__")) return <strong key={index}>{value}</strong>;
+    return <em key={index}>{value}</em>;
+  });
+  return <div className="space-y-2 leading-relaxed">{content.split(/\n\s*\n/).map((paragraph, index) => {
+    const lines = paragraph.split("\n").filter(Boolean);
+    if (lines.every((line) => /^\s*(?:[-•*]|\d+[.)])\s+/.test(line))) {
+      return <ul key={index} className="space-y-1.5 pl-4">{lines.map((line, i) => <li key={i} className="list-disc pl-0.5">{inline(line.replace(/^\s*(?:[-•*]|\d+[.)])\s+/, ""))}</li>)}</ul>;
+    }
+    return <p key={index}>{lines.map((line, i) => <span key={i}>{i > 0 && <br />}{inline(line.replace(/^#{1,3}\s+/, ""))}</span>)}</p>;
+  })}{titles.length > 0 && <div className="flex flex-wrap gap-2 pt-1">{titles.map((title) => (
+    <Link key={`${title.type}:${title.tmdbId}`} href={`/title/${title.type}/${title.tmdbId}`} className="flex min-h-14 max-w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 pr-3 text-xs text-ink transition-colors hover:border-brand-glow/40 hover:bg-brand-glow/10">
+      {title.posterPath ? <img src={`https://image.tmdb.org/t/p/w92${title.posterPath}`} alt="" className="h-14 w-10 rounded-l-xl object-cover" /> : <span className="flex h-14 w-10 items-center justify-center rounded-l-xl bg-white/5"><Film className="h-4 w-4" /></span>}
+      <span className="min-w-0"><strong className="block truncate">{title.title}</strong>{title.year && <span className="text-ink-soft">{title.year}</span>}</span>
+    </Link>
+  ))}</div>}</div>;
+}
 
 function ActionList({
   actions, isAdmin, deleteState, onRequestDelete, onConfirmDelete, onCancelDelete, t,
@@ -669,7 +696,7 @@ export function ChatWidget() {
               ) : (
                 <div key={i} className="flex justify-start">
                   <div className="max-w-[92%] rounded-2xl rounded-bl-md glass px-3.5 py-2.5 text-sm text-ink">
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <AiReply message={msg} />
                     {msg.actions && msg.actions.length ? (
                       <ActionList
                         actions={msg.actions}
@@ -701,7 +728,7 @@ export function ChatWidget() {
                           <button
                             key={suggestion}
                             onClick={() => sendText(suggestion)}
-                            className="h-8 rounded-full border border-brand-glow/30 bg-brand-glow/12 px-3 text-xs font-semibold text-brand-glow transition-colors hover:bg-brand-glow/20"
+                            className="min-h-11 rounded-full border border-brand-glow/30 bg-brand-glow/12 px-3 py-2 text-xs font-semibold text-brand-glow transition-colors hover:bg-brand-glow/20"
                           >
                             {suggestion}
                           </button>

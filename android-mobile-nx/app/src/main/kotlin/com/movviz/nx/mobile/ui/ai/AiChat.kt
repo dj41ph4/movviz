@@ -37,6 +37,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +59,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +74,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.data.AiChatMessageDto
 import com.movviz.nx.mobile.data.AiRecommendationDto
+import com.movviz.nx.mobile.data.AiLinkedTitleDto
 import com.movviz.nx.mobile.ui.theme.MovvizBackground
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
@@ -514,10 +519,39 @@ private fun AssistantBubble(
         if (message.content.isNotBlank()) {
             Box(
                 Modifier
-                    .widthIn(max = 340.dp)
+                    .widthIn(max = 520.dp)
                     .background(MovvizSurfaceStrong, RoundedCornerShape(18.dp, 18.dp, 18.dp, 6.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
-            ) { Text(message.content, color = MovvizInk, fontSize = 15.sp, lineHeight = 21.sp) }
+            ) { AiFormattedText(message.content, message.linkedTitles.orEmpty(), onOpenTitle) }
+        }
+        message.linkedTitles?.takeIf { it.isNotEmpty() }?.let { titles ->
+            Spacer(Modifier.height(8.dp))
+            titles.forEach { title ->
+                Row(
+                    Modifier
+                        .widthIn(max = 340.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MovvizSurfaceStrong)
+                        .hapticClickable { onOpenTitle(title.type, title.tmdbId) }
+                        .padding(end = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(width = 42.dp, height = 60.dp).background(MovvizSurface), contentAlignment = Alignment.Center) {
+                        if (title.posterPath != null) Image(
+                            painter = rememberAsyncImagePainter("$POSTER_BASE${title.posterPath}"),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        ) else Icon(MovvizIconFilm, contentDescription = null, tint = MovvizInkSoft, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(title.title, color = MovvizInk, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        title.year?.let { Text("$it", color = MovvizInkSoft, fontSize = 11.sp) }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+            }
         }
         message.actions?.takeIf { it.isNotEmpty() }?.let { actions ->
             Spacer(Modifier.height(6.dp))
@@ -587,6 +621,52 @@ private fun AssistantBubble(
             }
         }
     }
+}
+
+@Composable
+private fun AiFormattedText(content: String, titles: List<AiLinkedTitleDto>, onOpenTitle: (String, Int) -> Unit) {
+    // Also cleans older conversations saved before the server-side cleanup.
+    val clean = content
+        .replace(Regex("""\\([\[\]*_`])"""), "$1")
+        .replace(Regex("""\[\[[\s\S]*?]]"""), "")
+        .trim()
+    val display = clean.lines().joinToString("\n") { line ->
+        line.replace(Regex("""^\s*(?:[-*•]|\d+[.)])\s+"""), "• ").replace(Regex("""^#{1,3}\s+"""), "")
+    }
+    val formatted = remember(display, titles) {
+        buildAnnotatedString {
+            val tokens = Regex("""\*\*[^*\n]+\*\*|\*[^*\n]+\*|__[^_\n]+__|_[^_\n]+_|`[^`\n]+`""")
+            var cursor = 0
+            tokens.findAll(display).forEach { match ->
+                append(display.substring(cursor, match.range.first))
+                val raw = match.value
+                val value = raw.trim('*', '_', '`')
+                val title = titles.firstOrNull { it.title.equals(value, ignoreCase = true) }
+                when {
+                    title != null -> {
+                        pushStringAnnotation("title", "${title.type}:${title.tmdbId}")
+                        withStyle(SpanStyle(color = MovvizBrandGlow, fontWeight = FontWeight.SemiBold)) { append(value) }
+                        pop()
+                    }
+                    raw.startsWith("**") || raw.startsWith("__") -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(value) }
+                    else -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(value) }
+                }
+                cursor = match.range.last + 1
+            }
+            append(display.substring(cursor))
+        }
+    }
+    ClickableText(
+        text = formatted,
+        style = TextStyle(color = MovvizInk, fontSize = 15.sp, lineHeight = 22.sp),
+        onClick = { offset ->
+            formatted.getStringAnnotations("title", offset, offset).firstOrNull()?.item?.let { target ->
+                val type = target.substringBefore(':')
+                val id = target.substringAfter(':').toIntOrNull()
+                if (id != null) onOpenTitle(type, id)
+            }
+        },
+    )
 }
 
 @Composable
@@ -715,7 +795,7 @@ private fun QuickReplies(options: List<String>, onPick: (String) -> Unit) {
         options.forEach { option ->
             Box(
                 Modifier
-                    .height(36.dp)
+                    .height(44.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(MovvizBrandGlow.copy(alpha = .14f))
                     .border(1.dp, MovvizBrandGlow.copy(alpha = .35f), RoundedCornerShape(18.dp))

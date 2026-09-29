@@ -22,6 +22,7 @@ import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
 import { getMovie, getSeries, getDetail, getCollection, searchMulti, searchPerson, getPerson, getGenres } from "@/lib/metadata/tmdb";
 import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
 import { resolveTitleAgainstTmdb } from "@/lib/metadata/resolveTitle";
+import { cleanAiReply, emphasizedTitles, userExpressedRating } from "@/lib/ai/replyPresentation";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
@@ -716,6 +717,8 @@ export async function POST(req: NextRequest) {
     return callAi(config, retrySystem, historyForModel(session.messages, scrubTitles));
   };
   // The model's own quick replies ([[CHOIX: …]]), taken out of the text first.
+  // Some models escape marker brackets as Markdown; normalize before parsing.
+  text = text.replace(/\\([\[\]])/g, "$1");
   const modelChoices = extractQuickChoices(text);
   text = stripQuickChoices(text);
   let intent = parseIntent(text);
@@ -998,7 +1001,7 @@ export async function POST(req: NextRequest) {
   // (confirmed live: a 15-item Dragon Ball batch). Runs on whatever text
   // extractRatings left behind, then both sources merge into one apply loop.
   const { ratings: actionRatings, cleaned } = extractHallucinatedRatingAction(afterMarkerRatings);
-  const ratings = [...markerRatings, ...actionRatings];
+  const ratings = userExpressedRating(message) ? [...markerRatings, ...actionRatings] : [];
   // Titres dont la note a RÉELLEMENT été enregistrée (résolus + écrits) —
   // sert à construire une confirmation honnête si le modèle n'a produit
   // aucune phrase autour de ses marqueurs (voir plus bas).
@@ -1135,7 +1138,8 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-        const { ratings: retryRatings, cleaned: retryCleaned } = extractRatings(retryAfterWatched);
+        const { ratings: extractedRetryRatings, cleaned: retryCleaned } = extractRatings(retryAfterWatched);
+        const retryRatings = userExpressedRating(message) ? extractedRetryRatings : [];
         if (retryRatings.length) {
           for (const r of retryRatings) {
             try {
@@ -1450,6 +1454,19 @@ export async function POST(req: NextRequest) {
   });
 
   assistant.content = stripQuickChoices(assistant.content);
+  assistant.content = cleanAiReply(assistant.content);
+  if (!assistant.recommendations?.length) {
+    const titles = emphasizedTitles(assistant.content);
+    if (titles.length) {
+      const resolved = await mapWithConcurrency(titles, 2, async (title) => {
+        try {
+          const item = await resolveAiItem({ title });
+          return item ? { title, type: item.type, tmdbId: item.tmdbId, year: item.year, posterPath: item.posterPath } : null;
+        } catch { return null; }
+      });
+      assistant.linkedTitles = resolved.filter((item): item is NonNullable<typeof item> => item !== null);
+    }
+  }
   const suggestions = playTarget ? [] : capabilitiesQuestion && !assistant.recommendations?.length
     ? ["Conseille-moi un film", "Une série pour ce soir", "Quoi de neuf dans Movviz ?"]
     : modelChoices.length && !assistant.recommendations?.length && !assistant.actions?.length

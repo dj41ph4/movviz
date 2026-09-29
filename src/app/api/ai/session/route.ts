@@ -12,6 +12,8 @@ import { checkProactivePulse } from "@/lib/ai/presence";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import type { AiChatMessage } from "@/lib/ai/types";
 import { buildCreatorContext } from "@/lib/ai/creator";
+import { cleanAiReply } from "@/lib/ai/replyPresentation";
+import { extractQuickChoices, stripQuickChoices } from "@/lib/ai/chatAssist";
 
 export const dynamic = "force-dynamic";
 
@@ -51,9 +53,11 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
     // otherwise — this is still just an opportunity, never forced.
     const RATING_NUDGE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
     let triggerText = buildProactiveNudgeTrigger();
+    let ratingCandidate: ReturnType<typeof pickProactiveRatingCandidate> = null;
     if (Date.now() - getLastProactiveRatingAskAt(userId) > RATING_NUDGE_COOLDOWN_MS) {
       const candidate = pickProactiveRatingCandidate(userId);
       if (candidate) {
+        ratingCandidate = candidate;
         triggerText = buildProactiveRatingNudgeTrigger(candidate);
         markProactiveRatingAsked(userId);
       }
@@ -64,10 +68,15 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
     if (intent.action) return; // a stray JSON reply here would be a worse UX than no nudge at all
     const { facts, cleaned } = extractFacts(intent.rawText);
     for (const fact of facts) rememberFact(userId, fact);
-    if (!cleaned) return;
+    const normalized = cleaned.replace(/\\([\[\]])/g, "$1");
+    const suggestions = extractQuickChoices(normalized);
+    const visible = cleanAiReply(stripQuickChoices(normalized));
+    if (!visible) return;
     // A question may have arrived while this nudge was being written.
     if (isChatActive(userId)) return;
-    pushAiMessage(userId, { role: "assistant", content: cleaned });
+    const linkedTitles = ratingCandidate && visible.includes(ratingCandidate.title)
+      ? [ratingCandidate] : [];
+    pushAiMessage(userId, { role: "assistant", content: visible, ...(suggestions.length ? { suggestions } : {}), ...(linkedTitles.length ? { linkedTitles } : {}) });
     pendingNudges.add(userId);
     console.log(`[ai] proactive nudge sent user=${username} provider=${res.provider}`);
   } catch {
