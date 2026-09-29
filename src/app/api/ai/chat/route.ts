@@ -33,7 +33,7 @@ import { asksToAddMedia, asksForSimilar, saysMisunderstood, detectSeenCommand, e
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories, AiRecommendation } from "@/lib/ai/types";
 import { buildNowContext } from "@/lib/ai/nowContext";
 import { buildSystemPromptCompact } from "@/lib/ai/promptCompact";
-import { buildCreatorContext } from "@/lib/ai/creator";
+import { buildCreatorContext, creatorBoundaryReply, creatorSafeHistory, guardCreatorReply } from "@/lib/ai/creator";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +116,13 @@ export async function POST(req: NextRequest) {
 
   markChatActive(user.id);
   pushAiMessage(user.id, { role: "user", content: message });
+  const previousAssistantReply = [...session.messages].reverse().find((entry) => entry.role === "assistant")?.content;
+  const creatorReply = creatorBoundaryReply(user, message, previousAssistantReply);
+  if (creatorReply) {
+    const assistant: AiChatMessage = { role: "assistant", content: creatorReply };
+    pushAiMessage(user.id, assistant);
+    return NextResponse.json({ message: assistant, provider: null });
+  }
   // Detectors read the message with its typos corrected (« apelle moi »,
   // « deja vu », « recomande »…); title extractors try it as typed first.
   const looseMessage = correctTypos(message);
@@ -280,7 +287,7 @@ export async function POST(req: NextRequest) {
   const promptVariant = config.promptVariant === "compact" || (user.role === "admin" && body?.promptVariant === "compact") ? "compact" : "full";
   const buildPrompt = promptVariant === "compact" ? buildSystemPromptCompact : buildSystemPrompt;
   let system = buildPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
-  system += buildCreatorContext(user.username);
+  system += buildCreatorContext(user);
   system += buildRatingsContext(user.id);
   system += buildNowContext(new Date(), body?.timeZone);
   if (titleDemands.length && dialoguePlan.intent !== "submission") {
@@ -675,11 +682,11 @@ export async function POST(req: NextRequest) {
       text = groundedAnswer;
       providerName = "tmdb";
     } else if (dialoguePlan.useDualCandidates) {
-      const candidates = await callAiCandidates(config, system, historyForModel(session.messages, scrubTitles));
+      const candidates = await callAiCandidates(config, system, historyForModel(creatorSafeHistory(user, session.messages), scrubTitles));
       text = selectDialogueCandidate(candidates.map((candidate) => candidate.text), dialoguePlan, recentConversationReplies, message);
       providerName = candidates[0]?.provider ?? config.primary;
     } else {
-      const res = await callAi(config, system, historyForModel(session.messages, scrubTitles));
+      const res = await callAi(config, system, historyForModel(creatorSafeHistory(user, session.messages), scrubTitles));
       text = res.text;
       providerName = res.provider;
     }
@@ -714,11 +721,12 @@ export async function POST(req: NextRequest) {
       return Promise.reject(new Error("correction_budget_exhausted"));
     }
     correctionsLeft--;
-    return callAi(config, retrySystem, historyForModel(session.messages, scrubTitles));
+    return callAi(config, retrySystem, historyForModel(creatorSafeHistory(user, session.messages), scrubTitles))
+      .then((res) => ({ ...res, text: guardCreatorReply(user, res.text) }));
   };
   // The model's own quick replies ([[CHOIX: …]]), taken out of the text first.
   // Some models escape marker brackets as Markdown; normalize before parsing.
-  text = text.replace(/\\([\[\]])/g, "$1");
+  text = guardCreatorReply(user, text).replace(/\\([\[\]])/g, "$1");
   const modelChoices = extractQuickChoices(text);
   text = stripQuickChoices(text);
   let intent = parseIntent(text);
@@ -1455,6 +1463,7 @@ export async function POST(req: NextRequest) {
 
   assistant.content = stripQuickChoices(assistant.content);
   assistant.content = cleanAiReply(assistant.content);
+  assistant.content = guardCreatorReply(user, assistant.content);
   if (!assistant.recommendations?.length) {
     const titles = emphasizedTitles(assistant.content);
     if (titles.length) {

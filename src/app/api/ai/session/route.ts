@@ -11,7 +11,8 @@ import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { checkProactivePulse } from "@/lib/ai/presence";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import type { AiChatMessage } from "@/lib/ai/types";
-import { buildCreatorContext } from "@/lib/ai/creator";
+import { buildCreatorContext, creatorSafeHistory, guardCreatorReply } from "@/lib/ai/creator";
+import type { User } from "@/lib/auth/types";
 import { cleanAiReply } from "@/lib/ai/replyPresentation";
 import { extractQuickChoices, stripQuickChoices } from "@/lib/ai/chatAssist";
 
@@ -26,7 +27,9 @@ export const dynamic = "force-dynamic";
  * the request itself — no background timer, no daemon, exactly one LLM
  * call gated by a real per-user cooldown.
  */
-async function maybeSendProactiveNudge(userId: string, username: string): Promise<void> {
+async function maybeSendProactiveNudge(user: User): Promise<void> {
+  const userId = user.id;
+  const username = user.username;
   const config = loadAiConfig();
   if (!config.enabled) return;
   const session = loadAiSession(userId);
@@ -44,7 +47,7 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
     const feedbackContext = buildFeedbackContext(userId);
     const factsContext = buildFactsContext(userId);
     const contextInsightsContext = buildContextInsightsSection(userId);
-    const system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, false, false, contextInsightsContext) + buildCreatorContext(username);
+    const system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, false, false, contextInsightsContext) + buildCreatorContext(user);
     // Prefer the rating nudge over the generic opener when a real
     // watched-but-unrated candidate exists AND its own cooldown (shared
     // with the mid-conversation opportunity in chat/route.ts, so a rating
@@ -63,14 +66,14 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
       }
     }
     const trigger: AiChatMessage = { role: "user", content: triggerText };
-    const res = await callAi(config, system, [...session.messages, trigger]);
-    const intent = parseIntent(res.text);
+    const res = await callAi(config, system, [...creatorSafeHistory(user, session.messages), trigger]);
+    const intent = parseIntent(guardCreatorReply(user, res.text));
     if (intent.action) return; // a stray JSON reply here would be a worse UX than no nudge at all
     const { facts, cleaned } = extractFacts(intent.rawText);
     for (const fact of facts) rememberFact(userId, fact);
     const normalized = cleaned.replace(/\\([\[\]])/g, "$1");
     const suggestions = extractQuickChoices(normalized);
-    const visible = cleanAiReply(stripQuickChoices(normalized));
+    const visible = guardCreatorReply(user, cleanAiReply(stripQuickChoices(normalized)));
     if (!visible) return;
     // A question may have arrived while this nudge was being written.
     if (isChatActive(userId)) return;
@@ -116,7 +119,7 @@ export async function GET(req: NextRequest) {
   void triggerIncrementalContextIfDue(user.id);
   let nudging = nudgesInFlight.get(user.id);
   if (!nudging) {
-    nudging = maybeSendProactiveNudge(user.id, user.username).finally(() => nudgesInFlight.delete(user.id));
+    nudging = maybeSendProactiveNudge(user).finally(() => nudgesInFlight.delete(user.id));
     nudgesInFlight.set(user.id, nudging);
   }
   await Promise.race([nudging, new Promise<void>((resolve) => setTimeout(resolve, NUDGE_WAIT_MS))]);
