@@ -3,6 +3,7 @@ import { getEngineToken } from "@/lib/engine/token";
 import fsp from "node:fs/promises";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
+import { alreadyAppliedEpisodeImport } from "@/lib/library/importRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,14 @@ export async function POST(req: NextRequest) {
   // keep retrying the callback, so this heals itself when the files show up.
   const missing = await missingDestinationFiles(files);
   if (missing.length > 0) {
+    // Un callback HTTP peut avoir réussi côté Movviz puis perdre sa réponse.
+    // L'import a alors renommé le chemin envoyé par le moteur : acquitter
+    // ce rejeu uniquement si le même torrent a bien installé cet épisode.
+    if (ref.kind === "episode" && infoHash && files.length === 1) {
+      if (await alreadyAppliedEpisodeImport(ref.seriesId, ref.season, ref.episode, infoHash, files[0])) {
+        return NextResponse.json({ ok: true, updated: "episode", id: ref.seriesId, alreadyApplied: true });
+      }
+    }
     const refId = "movieId" in ref ? ref.movieId : ref.seriesId;
     console.error(`[import] ${missing.length} fichier(s) introuvable(s) à destination — callback retenté par le moteur (${ref.kind}:${refId})`);
     return NextResponse.json({ error: "destination_missing", count: missing.length }, { status: 503 });

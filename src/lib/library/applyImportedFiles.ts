@@ -10,6 +10,7 @@ import { takePendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import { takeManualGrab } from "@/lib/library/manualGrab";
 import { addVersion, setPrimaryFile } from "@/lib/library/versions";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
+import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
 import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
 import { recordDecision } from "@/lib/library/decisionLog";
 import { withKeyLock } from "@/lib/library/locks";
@@ -17,6 +18,8 @@ import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback
 import { resolveImportedSeasonAssociation } from "@/lib/library/importAssociation";
 import path from "node:path";
 import fsp from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
 
 export interface ImportedFile {
   path: string;
@@ -130,15 +133,18 @@ async function engineLibraryRoots(): Promise<string[]> {
       headers: engineHeaders(),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) return [];
+    if (!res.ok) throw new Error(`engine instances: ${res.status}`);
     const { instances } = await res.json() as { instances?: Array<{ completedPath?: string }> };
-    return (instances ?? [])
+    const roots = (instances ?? [])
       .map((i) => i.completedPath ?? "")
       .filter(Boolean)
       .map((p) => pathFor(p).resolve(p));
+    if (roots.length > 0) return roots;
   } catch {
-    return [];
+    // L'état local du moteur conserve les racines quand son API est
+    // temporairement indisponible pendant le callback d'import.
   }
+  return offlineInstancesSnapshot().map((i) => i.completedPath).filter(Boolean).map((p) => pathFor(p).resolve(p));
 }
 
 /** Vrai si `resolved` (déjà résolu) vit sous l'une des racines — comparaison
@@ -159,12 +165,21 @@ function isUnderLibraryRoot(resolved: string, sep: string, roots: string[], case
 async function deleteLibraryFile(filePath: string, roots: string[]): Promise<void> {
   const p = pathFor(filePath);
   const resolved = p.resolve(filePath);
-  if (!isUnderLibraryRoot(resolved, p.sep, roots, process.platform !== "win32")) return;
+  // Un ancien fichier déjà absent ne bloque pas un callback rejoué.
+  const stat = await fsp.lstat(resolved).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  });
+  if (!stat) return;
+  if (!stat.isFile()) throw new Error(`Remplacement refusé : ancien chemin non régulier (${resolved})`);
+  if (!isUnderLibraryRoot(resolved, p.sep, roots, process.platform !== "win32")) {
+    throw new Error(`Remplacement refusé : ancien fichier hors bibliothèque du moteur (${resolved})`);
+  }
   const depth = resolved.split(p.sep).filter(Boolean).length;
-  if (depth < 2) return;
+  if (depth < 2) throw new Error(`Remplacement refusé : chemin trop court (${resolved})`);
   const name = p.basename(resolved).replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
-  if (!name || name === "." || name === "..") return;
-  await fsp.unlink(resolved).catch(() => {});
+  if (!name || name === "." || name === "..") throw new Error(`Remplacement refusé : nom invalide (${resolved})`);
+  await fsp.unlink(resolved);
 }
 
 /** Suffixe de collision ajouté par le moteur (AbstractBackend.avoidCollision) :
@@ -274,6 +289,92 @@ async function finalizeEpisodeReplacements(oldPaths: string[], files: ImportedFi
   return finalizeReplacedFiles(oldPaths, newPaths, await engineLibraryRoots());
 }
 
+/** Un épisode connu garde son nom canonique même si le moteur a interprété
+ *  autrement le nom de la release (ex. S04E15 téléchargé sous S04E16 (2)).
+ *  L'ancien reste récupérable jusqu'à ce que le nouveau soit installé.
+ *  Aucun fichier tiers n'est écrasé et les deux chemins restent sous les
+ *  racines de bibliothèque validées. */
+async function replaceOneEpisodeFile(oldPath: string, newPath: string, expectedSize: number, roots: string[]): Promise<string> {
+  const incomingPath = pathFor(newPath);
+  const incoming = incomingPath.resolve(newPath);
+  const valid = (candidate: string) => isUnderLibraryRoot(candidate, pathFor(candidate).sep, roots, process.platform !== "win32");
+  if (!valid(incoming)) throw new Error(`Remplacement refusé : nouveau fichier hors bibliothèque du moteur (${incoming})`);
+  const incomingStat = await fsp.lstat(incoming);
+  if (!incomingStat.isFile() || incomingStat.size === 0) throw new Error(`Remplacement refusé : nouveau fichier invalide (${incoming})`);
+  if (expectedSize > 0 && incomingStat.size !== expectedSize) throw new Error(`Remplacement refusé : nouveau fichier incomplet (${incoming})`);
+  const storedOld = pathFor(oldPath).resolve(oldPath);
+  // Plex peut enregistrer le même fichier sous un autre mount. Dans ce cas,
+  // le nom d'épisode demeure fiable, mais son chemin Plex n'est pas celui
+  // du moteur : le chercher dans le dossier où le moteur vient d'importer.
+  const old = valid(storedOld) ? storedOld : incomingPath.join(incomingPath.dirname(incoming), pathFor(oldPath).basename(storedOld));
+  if (!valid(old)) throw new Error(`Remplacement refusé : ancien chemin hors bibliothèque du moteur (${storedOld})`);
+  if (!valid(storedOld)) {
+    const external = await fsp.lstat(storedOld).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === "ENOENT") return null;
+      throw err;
+    });
+    if (external) throw new Error(`Remplacement refusé : ancien fichier encore présent hors bibliothèque du moteur (${storedOld})`);
+  }
+  const p = pathFor(old);
+  const destination = p.join(p.dirname(old), p.basename(old, p.extname(old)) + incomingPath.extname(incoming));
+  if (!valid(destination)) throw new Error(`Remplacement refusé : destination hors bibliothèque du moteur (${destination})`);
+  if (samePath(incoming, destination)) {
+    if (!samePath(old, incoming)) await deleteLibraryFile(old, roots);
+    return destination;
+  }
+  const occupied = await fsp.lstat(destination).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  });
+  if (occupied && !samePath(destination, old)) throw new Error(`Remplacement refusé : destination occupée (${destination})`);
+  const oldStat = await fsp.lstat(old).catch((err: NodeJS.ErrnoException) => {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  });
+  if (oldStat && !oldStat.isFile()) throw new Error(`Remplacement refusé : ancien chemin non régulier (${old})`);
+  const pending = `${destination}.movviz-pending-${randomUUID()}`;
+  let copied = false;
+  try {
+    await fsp.rename(incoming, pending);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
+    await fsp.copyFile(incoming, pending, fsConstants.COPYFILE_EXCL);
+    copied = true;
+  }
+  try {
+    const pendingStat = await fsp.lstat(pending);
+    if (!pendingStat.isFile() || pendingStat.size !== incomingStat.size) throw new Error(`Remplacement refusé : fichier en attente incomplet (${pending})`);
+  } catch (err) {
+    if (!copied) await fsp.rename(pending, incoming);
+    else await fsp.unlink(pending);
+    throw err;
+  }
+  const backup = `${old}.movviz-replace-${randomUUID()}`;
+  let oldStaged = false;
+  try {
+    if (oldStat) {
+      await fsp.rename(old, backup);
+      oldStaged = true;
+    }
+    await fsp.rename(pending, destination);
+  } catch (err) {
+    if (oldStaged) {
+      try { await fsp.rename(backup, old); }
+      catch (restoreError) {
+        throw new Error(`Remplacement interrompu : ancien épisode conservé dans ${backup}; restauration impossible : ${(restoreError as Error).message}`, { cause: err });
+      }
+    }
+    if (!copied) await fsp.rename(pending, incoming);
+    else await fsp.unlink(pending);
+    throw err;
+  }
+  // Le nouveau est maintenant au chemin canonique. Un échec de nettoyage ne
+  // doit pas faire retenter le callback avec un chemin entrant déjà déplacé.
+  if (oldStaged) await fsp.unlink(backup).catch((err) => console.error(`[import] ancien épisode installé mais sauvegarde temporaire non supprimée (${backup}): ${(err as Error).message}`));
+  if (copied) await fsp.unlink(incoming).catch((err) => console.error(`[import] épisode installé mais copie d'arrivée non supprimée (${incoming}): ${(err as Error).message}`));
+  return destination;
+}
+
 /**
  * Pré-passe commune aux trois branches séries : rejoue l'association
  * fichier → épisode AVANT de construire le nouvel état, pour connaître les
@@ -284,18 +385,29 @@ async function prepareEpisodeReplacements(
   series: { seasons: Array<{ seasonNumber: number; episodes: Array<{ episodeNumber: number; file: LibraryFile | null }> }> },
   matchFor: (seasonNumber: number, episodeNumber: number) => ImportedFile | null,
 ): Promise<Map<string, string>> {
-  const replaced: string[] = [];
-  const matched: ImportedFile[] = [];
+  const byFile = new Map<ImportedFile, string[]>();
   for (const season of series.seasons) {
     for (const ep of season.episodes) {
       const match = matchFor(season.seasonNumber, ep.episodeNumber);
       if (!match) continue;
-      if (!matched.includes(match)) matched.push(match);
+      const replaced = byFile.get(match) ?? [];
       const old = diskPathOf(ep.file);
       if (old) replaced.push(old);
+      byFile.set(match, replaced);
     }
   }
-  return finalizeEpisodeReplacements(replaced, matched);
+  const renamed = new Map<string, string>();
+  for (const [file, oldPaths] of byFile) {
+    if (oldPaths.length === 1) {
+      const roots = await engineLibraryRoots();
+      const finalPath = await replaceOneEpisodeFile(oldPaths[0], file.path, file.size, roots);
+      if (!samePath(finalPath, file.path)) renamed.set(file.path, finalPath);
+    } else {
+      const fallback = await finalizeEpisodeReplacements(oldPaths, [file]);
+      for (const [from, to] of fallback) renamed.set(from, to);
+    }
+  }
+  return renamed;
 }
 
 /** Same root-validated deletion pattern as deleteLibraryFile — never an
@@ -541,6 +653,8 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
           ...ep,
           status: "available" as const,
           activeInfoHash: null,
+          playbackSource: "movviz" as const,
+          lastImportedInfoHash: infoHash ?? ep.lastImportedInfoHash,
           file: {
             path: filePath,
             quality: match.quality ?? "—",
@@ -600,6 +714,8 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
           ...ep,
           status: "available" as const,
           activeInfoHash: null,
+          playbackSource: "movviz" as const,
+          lastImportedInfoHash: infoHash ?? ep.lastImportedInfoHash,
           file: {
             path: filePath,
             quality: match.quality ?? "—",
@@ -676,6 +792,8 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
           ...ep,
           status: "available" as const,
           activeInfoHash: null,
+          playbackSource: "movviz" as const,
+          lastImportedInfoHash: infoHash ?? ep.lastImportedInfoHash,
           file: {
             path: filePath,
             quality: singleFile.quality ?? "—",
@@ -697,6 +815,8 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
         ...ep,
         status: "available" as const,
         activeInfoHash: null,
+        playbackSource: "movviz" as const,
+        lastImportedInfoHash: infoHash ?? ep.lastImportedInfoHash,
         file: {
           path: filePath,
           quality: match.quality ?? "—",

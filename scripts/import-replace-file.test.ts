@@ -67,7 +67,7 @@ test("un ré-import sur le même chemin ne se supprime pas lui-même", async () 
   await fsp.rm(root, { recursive: true, force: true });
 });
 
-test("un fichier hors racine bibliothèque n'est ni supprimé ni renommé", async () => {
+test("un ancien fichier hors racine bibliothèque bloque le remplacement sans mentir sur le succès", async () => {
   const { root, season } = await makeLibrary();
   const outside = await fsp.mkdtemp(path.join(os.tmpdir(), "movviz-hors-"));
   const outsideOld = path.join(outside, "ailleurs - S01E01.mkv");
@@ -75,13 +75,25 @@ test("un fichier hors racine bibliothèque n'est ni supprimé ni renommé", asyn
   await fsp.writeFile(outsideOld, "hors bibliothèque");
   await fsp.writeFile(outsideNew, "hors bibliothèque aussi");
 
-  const renamed = await finalizeReplacedFiles([outsideOld], [outsideNew], [root, season]);
+  await assert.rejects(finalizeReplacedFiles([outsideOld], [outsideNew], [root, season]), /hors bibliothèque du moteur/);
 
   assert.equal(await exists(outsideOld), true);
   assert.equal(await exists(outsideNew), true);
-  assert.equal(renamed.size, 0);
   await fsp.rm(root, { recursive: true, force: true });
   await fsp.rm(outside, { recursive: true, force: true });
+});
+
+test("un ancien fichier déjà absent permet de finaliser un callback rejoué", async () => {
+  const { root, season } = await makeLibrary();
+  const oldFile = path.join(season, "Une menace plane - S01E01.mkv");
+  const newFile = path.join(season, "Une menace plane - S01E01 (2).mkv");
+  await fsp.writeFile(newFile, "nouvelle release");
+
+  const renamed = await finalizeReplacedFiles([oldFile], [newFile], [root]);
+
+  assert.equal(await fsp.readFile(oldFile, "utf8"), "nouvelle release");
+  assert.equal(renamed.get(newFile), oldFile);
+  await fsp.rm(root, { recursive: true, force: true });
 });
 
 test("un fichier revu au même endroit garde sa date d'ajout, un vrai nouveau fichier prend la date du jour", () => {

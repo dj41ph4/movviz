@@ -167,6 +167,8 @@ export interface LibraryEpisode {
   status: LibraryStatus;
   file: LibraryFile | null;
   activeInfoHash: string | null;
+  /** Dernier torrent effectivement installé, pour acquitter un callback rejoué après un renommage. */
+  lastImportedInfoHash?: string | null;
   /** Plex library item id for this exact episode — set by the Plex library sync, powers "Watch on Plex". */
   plexRatingKey: string | null;
   playbackSource?: "movviz" | "plex" | null;

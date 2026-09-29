@@ -1,3 +1,11 @@
+## v1.25.138 — September 2026
+
+### Épisodes retéléchargés : remplacement fiable du fichier
+
+- Un nouvel épisode prend le nom et la place de l'ancien, même si le moteur l'avait provisoirement nommé comme un autre épisode. Le remplacement de S04E15 ne laisse plus S04E15 absent ni une copie « (2) » à côté de S04E16.
+- Le nouveau fichier est vérifié et placé en attente avant le basculement. Si celui-ci échoue, l'ancien reste disponible et le moteur peut retenter l'import.
+- Movviz TV, mobile et web lisent immédiatement le nouveau fichier local. L'analyse ffprobe continue en arrière-plan ; un callback d'import rejoué après le renommage est acquitté sans créer de doublon.
+
 ## v1.25.137 — September 2026
 
 ### Assistant IA : identité du créateur protégée

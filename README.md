@@ -305,6 +305,7 @@ L'accueil est pensé comme celui d'une plateforme de streaming, mais nourri par 
   - **politique de taille** (plus petit, équilibré, meilleure qualité) qui tient compte de l'efficacité réelle du codec.
 - **Profils de qualité** par titre, et profil de départ selon ton matériel.
 - **Mises à niveau automatiques** : dès qu'une meilleure version apparaît, Movviz la récupère et remplace l'ancienne.
+- **Épisodes retéléchargés** : le nouveau fichier vérifié reprend le nom de l'ancien ; la lecture Movviz utilise aussitôt la nouvelle version, pendant que l'analyse du média se termine en arrière-plan.
 - **Rechercher et remplacer** : suggestions de remplacement expliquées, par exemple langue cible, meilleur codec ou fichier plus léger à qualité égale.
 - **Recherche des sorties du jour**, **relance des films manquants**, **scan RSS** des indexeurs.
 - **Anime** :
