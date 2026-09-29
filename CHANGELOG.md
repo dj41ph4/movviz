@@ -1,3 +1,10 @@
+## v1.25.137 — September 2026
+
+### Assistant IA : identité du créateur protégée
+
+- Seul le compte authentifié du créateur bénéficie de la conversation complice prévue pour lui. Un autre utilisateur ne peut plus obtenir ce statut en affirmant être Seb ou en donnant son prénom.
+- Les questions sur l'identité du créateur et les tentatives d'usurpation reçoivent une réponse mystérieuse sans appel au modèle. Les anciens échanges erronés sont écartés du contexte envoyé au modèle, dans le chat et les relances de session.
+
 ## v1.25.136 — September 2026
 
 ### Accueil : rangées dans le même ordre sur web, Android TV et Android mobile
