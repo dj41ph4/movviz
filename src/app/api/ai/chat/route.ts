@@ -22,7 +22,7 @@ import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
 import { getMovie, getSeries, getDetail, getCollection, searchMulti, searchPerson, getPerson, getGenres } from "@/lib/metadata/tmdb";
 import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
 import { resolveTitleAgainstTmdb } from "@/lib/metadata/resolveTitle";
-import { cleanAiReply, emphasizedTitles, userExpressedRating } from "@/lib/ai/replyPresentation";
+import { cleanAiReply, emphasizedTitles, userExpressedRating, extractListedRecommendations, matchHistoryRecommendationCards } from "@/lib/ai/replyPresentation";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
@@ -746,6 +746,19 @@ export async function POST(req: NextRequest) {
       // fails during this single corrective call.
     }
   }
+  // A provider can still answer with the numbered list it was given in the
+  // conversation history instead of emitting the requested JSON. Recover it
+  // deterministically so the titles become the same cards as a normal turn.
+  let recoveredHistoryCards: AiRecommendation[] = [];
+  if ((directRecommendation || recommendationContinuation) && intent.action !== "recommend") {
+    const listed = extractListedRecommendations(text);
+    if (listed) {
+      intent = { action: "recommend", items: listed.items, rawText: listed.intro, intro: listed.intro };
+      if (listed.fromHistory) {
+        recoveredHistoryCards = matchHistoryRecommendationCards(listed.items, session.messages);
+      }
+    }
+  }
   // Confirmed live, repeatedly (twice with different strong insults, same
   // failure both times): the prompt-only rule in actions.ts ("no
   // recommendation list during an insult exchange, unless 3-4 rounds in")
@@ -1286,6 +1299,12 @@ export async function POST(req: NextRequest) {
     assistant.content = [cleaned, ...summary].filter(Boolean).join("\n\n");
     itemCount = outcomes.length;
     console.log(`[ai] action=add_media items=${outcomes.length} user=${user.username}`);
+  } else if (intent.action === "recommend" && recoveredHistoryCards.length) {
+    // The provider echoed titles from our own history. Those cards already
+    // have verified TMDb identities; show them immediately in the same order.
+    assistant.recommendations = recoveredHistoryCards.slice(0, SHOWN_CARDS);
+    assistant.content = cleaned || recommendationIntro(intent.intro, recentConversationReplies);
+    itemCount = assistant.recommendations.length;
   } else if (intent.action === "recommend" && intent.items.length) {
     const pairs = await recommendMedia(intent.items);
     // The LLM is prompted to over-generate candidates (buildSystemPrompt) —

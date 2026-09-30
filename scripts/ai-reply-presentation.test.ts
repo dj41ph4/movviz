@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanAiReply, emphasizedTitles, userExpressedRating } from "@/lib/ai/replyPresentation";
+import { cleanAiReply, emphasizedTitles, userExpressedRating, extractListedRecommendations, matchHistoryRecommendationCards } from "@/lib/ai/replyPresentation";
 import { extractQuickChoices, stripQuickChoices } from "@/lib/ai/chatAssist";
 
 test("an escaped rating prompt shows prose and clickable choices without saving a guessed rating", () => {
@@ -17,4 +17,16 @@ test("an escaped rating prompt shows prose and clickable choices without saving 
 
 test("unknown internal markers never become visible prose", () => {
   assert.equal(cleanAiReply("Oui. [[FAIT: préfère les thrillers]] [[VU: Alien|movie]]"), "Oui.");
+});
+
+test("a numbered recommendation history block becomes card items and stays hidden from prose", () => {
+  const raw = "Un bon polar sombre :\n[Cartes proposées dans ce message :\n1. Se7en (1995), film\n2. Zodiac (2007), film\n3. Prisoners (2013), film]";
+  const recovered = extractListedRecommendations(raw);
+  assert.ok(recovered);
+  assert.equal(recovered.fromHistory, true);
+  assert.deepEqual(recovered.items.map((item) => item.title), ["Se7en", "Zodiac", "Prisoners"]);
+  assert.equal(cleanAiReply(raw), "Un bon polar sombre :");
+  const cards = recovered.items.map((item, index) => ({ ...item, type: item.type!, tmdbId: index + 1, overview: "", posterPath: null, rating: 8, inLibrary: false }));
+  const history = [{ role: "assistant" as const, content: "Voici les cartes", recommendations: cards }];
+  assert.deepEqual(matchHistoryRecommendationCards(recovered.items, history).map((card) => card.tmdbId), [1, 2, 3]);
 });

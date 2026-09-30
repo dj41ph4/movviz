@@ -19,6 +19,7 @@ test("a request for titles, or a short answer to an offer, means cards now", () 
   assert.equal(isDirectRecommendationRequest("tu me conseillerai quoi ?"), true);
   assert.equal(isDirectRecommendationRequest("dans le meme genre"), true);
   assert.equal(isDirectRecommendationRequest("tu sais ce que j'aime ^^"), true);
+  assert.equal(isDirectRecommendationRequest("Un bon polar sombre"), true);
   assert.equal(isDirectRecommendationRequest("vas y", "Tu veux que je t'envoie une liste de suggestions dans ce style pour que tu pioches dedans ? 🔥"), true);
   assert.equal(isDirectRecommendationRequest("animation", "On reste sur de l'animation bien sauvage avec des combats qui envoient du lourd, ou tu veux tenter une grosse surprise sombre sur un format différent ? 😉"), true);
   assert.equal(isDirectRecommendationRequest("oui", "Ça te tente, ou tu cherches plutôt un film ce soir ? 👀"), true);
@@ -28,6 +29,7 @@ test("reactions, refusals and small talk are not recommendation requests", () =>
   assert.equal(isDirectRecommendationRequest("tu m'as recommandé Dune, c'était nul"), false);
   assert.equal(isDirectRecommendationRequest("à propos de ce film, qui joue dedans ?"), false);
   assert.equal(isDirectRecommendationRequest("j'aime pas ce genre de truc"), false);
+  assert.equal(isDirectRecommendationRequest("j'ai vu un bon polar sombre"), false);
   assert.equal(isDirectRecommendationRequest("non merci", "Tu veux que je te sorte une sélection de films ?"), false);
   assert.equal(isDirectRecommendationRequest("biensur", "Tu testes mes réflexes après la mise à jour ou tu as une vraie idée de film en tête pour ce soir, Seb ? 🎬"), false);
   assert.equal(isDirectRecommendationRequest("haha ok", "Tu as vu quel film récemment ?"), false);

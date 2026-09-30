@@ -1,3 +1,10 @@
+## v1.25.139 — September 2026
+
+### Assistant IA : les demandes de polar affichent des cartes
+
+- « Un bon polar sombre » est reconnu comme une demande de recommandations et produit des cartes cliquables sur le web et Android mobile.
+- Si le modèle renvoie une liste de titres au lieu du format attendu, Movviz la convertit en cartes. Les cartes déjà proposées sont réutilisées directement quand le modèle recopie l'historique ; le bloc technique « Cartes proposées » ne s'affiche plus dans la discussion.
+
 ## v1.25.138 — September 2026
 
 ### Épisodes retéléchargés : remplacement fiable du fichier

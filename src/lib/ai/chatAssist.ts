@@ -73,6 +73,7 @@ export function proposedKeys(messages: AiChatMessage[]): Set<string> {
 // ── Act instead of asking ───────────────────────────────────────────────
 
 const RECO_REQUEST_RE = /\benvie (?:de|d['’])\s*(?:regarder|voir|mater|un\b|une\b|quelque)|\bp[ée]pites?\b|\bmoins connu|\b(?:un|une|des)\s+(?:films?|s[ée]ries?|animes?|documentaires?)\s+(?:d['’]|de\s|qui\s|pour\s|avec\s|court|dr[ôo]le|flippant|sympa|l[ée]ger|sombre|romantique|action|horreur|com[ée]die)|\b(?:quelque chose|un truc)\s+(?:de|d['’]|pour|ce soir|à regarder|a regarder)|\b(?:conseill\w*|recommand\w*|propos(?:e|es|ez|er)\b|sugg[èée]r\w*|surprends|fais[- ]moi d[ée]couvrir)|\b(?:m[êe]me|dans le|dans ce)\s+(?:genre|style|d[ée]lire|trip|mood|ambiance)\b|\btu sais ce que j['’]?aime\b|\b(?:quoi|un truc|quelque chose)\s+(?:à|a)\s+(?:regarder|voir|mater)\b|\bj['’]?ai (?:d[ée]j[aà] )?tout vu\b/i;
+const BARE_GENRE_REQUEST_RE = /^\s*(?:(?:je (?:veux|cherche|voudrais)|j['’]ai envie d['’]?)\s+)?(?:un|une|des|du|de la)\s+(?:(?:bon|bonne|bons|bonnes|petit|petite|vrai|vraie)\s+)?(?:polar|thriller|film noir|com[ée]die|western|drame|documentaire|anime|horreur)(?:\s+(?:bien|tr[èe]s|plut[oô]t|vraiment|assez|un peu))?(?:\s+(?:sombre|flippant|dr[ôo]le|l[ée]ger|romantique|poisseux|psychologique|r[ée]cent|vieux|fran[çc]ais|japonais|ce soir))*\s*[!?.,…]*\s*$/i;
 const PAST_RECO_RE = /\b(?:m['’]?as|m['’]?avais|as|avais|a|avait)\s+(?:conseill|recommand|propos|sugg[ée]r)\w*/i;
 // No \b: JavaScript's \b ignores accented letters (« ça », « plutôt »).
 const OFFER_QUESTION_RE = /tu veux|ça te tente|ça te dit|on part sur|on reste sur|on cherche|plutôt|ou bien|tu as envie|t['’]as envie|je te sors|je t['’]envoie|je te propose/i;
@@ -106,7 +107,7 @@ export function asksToAddMedia(message: string, previousAssistant?: string): boo
 export function isDirectRecommendationRequest(message: string, previousAssistant?: string): boolean {
   // « tu m'as recommandé X, c'était nul » is a reaction, not a request.
   if (PAST_RECO_RE.test(message)) return false;
-  if (RECO_REQUEST_RE.test(message)) return true;
+  if (RECO_REQUEST_RE.test(message) || BARE_GENRE_REQUEST_RE.test(message)) return true;
   if (!previousAssistant) return false;
   if (DECLINE_RE.test(message)) return false;
   const words = message.trim().split(/\s+/).filter(Boolean);

@@ -366,7 +366,7 @@ Une bulle de discussion présente sur le web et sur Android mobile, qui comprend
 
 Depuis la v1.25.135, ses réponses affichent des paragraphes et des listes lisibles, des titres de films et séries ouvrables, ainsi que des réponses suggérées en boutons sur le web et Android mobile.
 
-- **Conseiller** selon tes goûts réels : « un film d'horreur pour débutant », « une série courte et drôle », « comme X mais sans Y ». Les propositions arrivent sous forme de **cartes** : pourquoi ce titre te plaira, distance à tes goûts habituels, note.
+- **Conseiller** selon tes goûts réels : « un film d'horreur pour débutant », « une série courte et drôle », « un bon polar sombre », « comme X mais sans Y ». Les propositions arrivent sous forme de **cartes** cliquables : pourquoi ce titre te plaira, distance à tes goûts habituels, note.
 - Sur chaque carte :
   - **Ajouter** à la bibliothèque (téléchargement automatique) ;
   - **Ma liste** ;
