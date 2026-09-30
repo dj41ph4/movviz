@@ -1,3 +1,9 @@
+## v1.25.141 — September 2026
+
+### Liste mobile : favoris conservés au-delà de 20 titres
+
+- Le profil transmet jusqu'à 500 éléments de la watchlist à Android mobile. Le bouton favori d'un film ajouté après le 20e reste coché lors du rafraîchissement du profil.
+
 ## v1.25.140 — September 2026
 
 ### Lecture conservée après remplacement d'un épisode
