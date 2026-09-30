@@ -48,7 +48,7 @@ function titleFor(tmdbId: number, type: "movie" | "series", fallback?: string | 
     : getSeriesByTmdbId(tmdbId)?.title ?? `#${tmdbId}`;
 }
 
-function fromLedger(userId: string, max: number): UserWatchHistoryItem[] {
+function fromLedger(userId: string, max: number, until?: number): UserWatchHistoryItem[] {
   return withUserContextDb((db) => {
     const rows = db.prepare(`
       SELECT tmdb_id, media_type, season_number, episode_number, title_snapshot, occurred_at
@@ -57,9 +57,10 @@ function fromLedger(userId: string, max: number): UserWatchHistoryItem[] {
         AND tmdb_id IS NOT NULL
         AND (event_type IN ('movie_completed', 'episode_completed', 'watched_marked')
           OR (event_type = 'playback_stopped' AND COALESCE(position_ms, 0) >= 60000))
+        ${until == null ? "" : "AND occurred_at <= ?"}
       ORDER BY occurred_at DESC
       LIMIT ?
-    `).all(userId, max) as unknown as HistoryRow[];
+    `).all(...(until == null ? [userId, max] : [userId, until, max])) as unknown as HistoryRow[];
 
     return rows.flatMap((row): UserWatchHistoryItem[] => {
       const type: "movie" | "series" = row.media_type === "movie" ? "movie" : "series";
@@ -118,9 +119,9 @@ function nearDuplicate(a: UserWatchHistoryItem, b: UserWatchHistoryItem): boolea
  * real ledger events are never collapsed together.
  */
 export function getUserWatchHistory(query: UserWatchHistoryQuery): UserWatchHistoryItem[] {
-  const requested = Math.max(1, Math.min(200, Math.round(query.limit ?? 30)));
+  const requested = Math.max(1, Math.min(201, Math.round(query.limit ?? 30)));
   const scanLimit = Math.min(1000, Math.max(requested * 5, 100));
-  const combined = [...fromLedger(query.userId, scanLimit), ...fromLegacy(query.userId)]
+  const combined = [...fromLedger(query.userId, scanLimit, query.until), ...fromLegacy(query.userId)]
     .filter((item) => query.mediaType == null || item.mediaType === query.mediaType)
     .filter((item) => query.since == null || item.watchedAt >= query.since)
     .filter((item) => query.until == null || item.watchedAt <= query.until)

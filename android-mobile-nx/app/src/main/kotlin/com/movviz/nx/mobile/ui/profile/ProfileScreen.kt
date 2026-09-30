@@ -363,8 +363,8 @@ private fun ProfileSettingsRow(
             ProfileMetric("Séries vues", seriesSeen, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ProfileMetric("Dans ma liste", data.watchlist.size, Modifier.weight(1f))
-            ProfileMetric("Notes données", data.ratings.size, Modifier.weight(1f))
+            ProfileMetric("Dans ma liste", data.counts.watchlist ?: data.watchlist.size, Modifier.weight(1f))
+            ProfileMetric("Notes données", data.counts.ratings ?: data.ratings.size, Modifier.weight(1f))
         }
     }
 }

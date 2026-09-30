@@ -951,6 +951,8 @@ data class ProfileMediaResponseDto(
 data class ProfileMediaCountsDto(
     val watchedMovies: Int = 0,
     val watchedSeries: Int = 0,
+    val watchlist: Int? = null,
+    val ratings: Int? = null,
 )
 
 // Miroir de POST /api/watchlist (src/app/api/watchlist/route.ts) — seuls les

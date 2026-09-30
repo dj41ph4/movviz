@@ -1,3 +1,10 @@
+## v1.25.142 — September 2026
+
+### Statistiques du profil et pagination de l'historique
+
+- Android mobile affiche les vrais totaux de la watchlist et des notes fournis par le serveur, même lorsque les rangées du profil n'en montrent qu'une partie. Le compteur de liste réagit immédiatement à l'appui.
+- La page d'historique à 200 entrées conserve un élément de contrôle pour détecter la suite ; le curseur filtre directement la base afin de retrouver les pages anciennes sans charger davantage de cartes.
+
 ## v1.25.141 — September 2026
 
 ### Liste mobile : favoris conservés au-delà de 20 titres

@@ -87,3 +87,31 @@ test("Movviz and Plex views share one per-user timeline ordered by their real ti
     .filter((item) => events.some((event) => event.tmdbId === item.tmdbId));
   assert.deepEqual(timeline.map((item) => item.tmdbId), [999_100_003, 999_100_002, 999_100_001]);
 });
+
+test("history keeps the 201st event to expose a next page without loading more cards", (t) => {
+  if (getUserContextHealth().database !== "ok") {
+    t.skip("node:sqlite unavailable or Context Engine disabled");
+    return;
+  }
+  const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const userId = `ctx-history-page-${nonce}`;
+  const now = Date.now();
+  for (let index = 0; index < 201; index++) {
+    assert.equal(recordUserContextEvent({
+      userId,
+      eventType: "movie_completed",
+      source: "context_test",
+      sourceEventId: `${nonce}:${index}`,
+      tmdbId: 999_200_001,
+      mediaType: "movie",
+      title: "Context History Page Test Movie",
+      occurredAt: now - index * 1000,
+    }), true);
+  }
+  const firstPageWithLookahead = getUserWatchHistory({ userId, limit: 201 });
+  assert.equal(firstPageWithLookahead.length, 201);
+  assert.equal(firstPageWithLookahead[199].watchedAt, now - 199_000);
+  assert.equal(firstPageWithLookahead[200].watchedAt, now - 200_000);
+  const nextPage = getUserWatchHistory({ userId, limit: 201, until: firstPageWithLookahead[199].watchedAt - 1 });
+  assert.deepEqual(nextPage.map((item) => item.watchedAt), [now - 200_000]);
+});

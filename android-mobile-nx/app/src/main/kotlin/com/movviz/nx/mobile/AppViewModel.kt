@@ -615,11 +615,13 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     fun toggleWatchlist(type: String, tmdbId: Int, title: String, year: Int?, posterPath: String?, rating: Double) {
         val current = _profileMedia.value ?: com.movviz.nx.mobile.data.ProfileMediaResponseDto()
         val inWatchlist = current.watchlist.any { it.tmdbId == tmdbId && it.type == type }
-        _profileMedia.value = if (inWatchlist) {
-            current.copy(watchlist = current.watchlist.filterNot { it.tmdbId == tmdbId && it.type == type })
+        val nextWatchlist = if (inWatchlist) {
+            current.watchlist.filterNot { it.tmdbId == tmdbId && it.type == type }
         } else {
-            current.copy(watchlist = current.watchlist + com.movviz.nx.mobile.data.ProfileMediaCardDto(tmdbId = tmdbId, type = type, title = title, posterPath = posterPath))
+            current.watchlist + com.movviz.nx.mobile.data.ProfileMediaCardDto(tmdbId = tmdbId, type = type, title = title, posterPath = posterPath)
         }
+        val nextCount = current.counts.watchlist?.let { (it + (if (inWatchlist) -1 else 1)).coerceAtLeast(0) }
+        _profileMedia.value = current.copy(watchlist = nextWatchlist, counts = current.counts.copy(watchlist = nextCount))
         viewModelScope.launch {
             val result = if (inWatchlist) repository?.removeFromWatchlist(type, tmdbId) else repository?.addToWatchlist(type, tmdbId, title, year, posterPath, rating)
             if (result !is ApiResult.Success) _profileMedia.value = current // repli si le serveur refuse
