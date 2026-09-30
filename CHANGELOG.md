@@ -1,3 +1,11 @@
+## v1.25.140 — September 2026
+
+### Lecture conservée après remplacement d'un épisode
+
+- La TV garde « Lecture » dans la fiche épisode et la fiche saison dès que Movviz possède le fichier local ou une source de lecture valide.
+- Plex enrichit les métadonnées sans pouvoir masquer la disponibilité locale.
+- À l'ouverture d'une série ciblée, Movviz vérifie rapidement les chemins locaux puis les épisodes ambigus de cette seule série, sans scan global ni redémarrage de l'application.
+
 ## v1.25.139 — September 2026
 
 ### Assistant IA : les demandes de polar affichent des cartes

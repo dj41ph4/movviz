@@ -18,20 +18,20 @@ import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache"
 import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { registerMarkerCandidate } from "./markerSync";
-import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
 import path from "node:path";
 
-/** A Plex outage/removal must not erase a file that Movviz still owns locally. */
+/**
+ * Plex enrichit les médias ; il n'est pas l'autorité de présence locale.
+ * Une synchronisation Plex incomplète ou un remplacement de fichier peut
+ * supprimer temporairement la clé Plex alors que Movviz connaît toujours le
+ * chemin réel. Dans ce cas, le fichier reste lisible et doit rester
+ * `available`, quel que soit le volume déclaré par l'engine.
+ */
 function hasValidLocalFile(file: LibraryFile | null | undefined): boolean {
   const candidate = file?.diskPath ?? file?.path;
   if (!candidate || !path.isAbsolute(candidate)) return false;
   const resolved = path.resolve(candidate);
-  return offlineInstancesSnapshot().some((instance) => {
-    const root = path.resolve(instance.completedPath);
-    const relative = path.relative(root, resolved);
-    if (!relative || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return false;
-    try { return fs.statSync(resolved).isFile(); } catch { return false; }
-  });
+  try { return fs.statSync(resolved).isFile(); } catch { return false; }
 }
 
 // Next.js compiles routes into separate bundles — module-level state would
@@ -769,6 +769,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey) { changed = true; break; }
+            if (ep.file && hasValidLocalFile(ep.file) && ep.playbackSource !== "movviz") { changed = true; break; }
             if (ep.file && ep.file.language === undefined) needsLanguageBackfill = true;
           } else {
             if (ep.status === "available" || ep.file || ep.plexRatingKey) { changed = true; break; }
@@ -789,13 +790,23 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
               const nextFile = toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file;
+              const localPlayable = hasValidLocalFile(nextFile);
               // Only worth a fresh probe when the file actually changed (new
               // path, first time it exists) — same "only on real file change,
               // not metadata-only touch" rule as the movie sync path above.
               if (nextFile && nextFile.path !== ep.file?.path) {
                 probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: nextFile.diskPath ?? nextFile.path });
               }
-              return { ...ep, status: "available" as const, file: nextFile, plexRatingKey: plexEp.ratingKey };
+              return {
+                ...ep,
+                status: "available" as const,
+                file: nextFile,
+                playbackSource: localPlayable ? "movviz" as const : "plex" as const,
+                plexRatingKey: plexEp.ratingKey,
+              };
+            }
+            if (ep.file && hasValidLocalFile(ep.file) && ep.playbackSource !== "movviz") {
+              return { ...ep, playbackSource: "movviz" as const };
             }
             return ep;
           }
@@ -824,6 +835,74 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
   }
 
   return { added, matched };
+}
+
+/**
+ * Vérification chirurgicale appelée par une fiche série quand un épisode est
+ * ambigu. On valide d'abord les chemins que Movviz connaît déjà, puis on ne
+ * consulte Plex que pour cette série (et, si fourni, cette saison/épisode).
+ * Aucun autre titre n'est parcouru et aucune recherche torrent n'est lancée.
+ */
+export async function reconcileSeriesPlayback(
+  seriesId: string,
+  opts?: { seasonNumber?: number; episodeNumber?: number },
+): Promise<LibrarySeries | null> {
+  const series = loadSeries().find((item) => item.id === seriesId);
+  if (!series) return null;
+  const matches = (ep: LibraryEpisode) =>
+    (opts?.seasonNumber == null || ep.seasonNumber === opts.seasonNumber) &&
+    (opts?.episodeNumber == null || ep.episodeNumber === opts.episodeNumber);
+
+  let changed = false;
+  let needsPlex = false;
+  let seasons = series.seasons.map((season) => ({
+    ...season,
+    episodes: season.episodes.map((ep) => {
+      if (!matches(ep)) return ep;
+      if (hasValidLocalFile(ep.file)) {
+        if (ep.status !== "available" || ep.playbackSource !== "movviz") {
+          changed = true;
+          return {
+            ...ep,
+            status: "available" as const,
+            playbackSource: "movviz" as const,
+            lastLocalValidationAt: Date.now(),
+          };
+        }
+        return ep;
+      }
+      if (ep.status === "missing" && !ep.plexRatingKey) needsPlex = true;
+      return ep;
+    }),
+  }));
+
+  const cfg = loadPlexConfig();
+  if (needsPlex && cfg.hostname && cfg.adminToken && series.plexRatingKey) {
+    const plexEpisodes = await getShowEpisodes(cfg, series.plexRatingKey, cfg.adminToken);
+    seasons = seasons.map((season) => ({
+      ...season,
+      episodes: season.episodes.map((ep) => {
+        if (!matches(ep)) return ep;
+        const plexEp = plexEpisodes.find(
+          (candidate) => candidate.seasonNumber === ep.seasonNumber && candidate.episodeNumber === ep.episodeNumber,
+        );
+        if (!plexEp) return ep;
+        const nextFile = toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file;
+        changed = true;
+        return {
+          ...ep,
+          status: "available" as const,
+          file: nextFile,
+          playbackSource: hasValidLocalFile(nextFile) ? "movviz" as const : "plex" as const,
+          plexRatingKey: plexEp.ratingKey,
+          lastPlexSyncAt: Date.now(),
+        };
+      }),
+    }));
+  }
+
+  if (!changed) return series;
+  return updateSeries(series.id, { seasons });
 }
 
 /**

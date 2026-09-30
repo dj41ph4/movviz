@@ -5,6 +5,7 @@ import { requestMedia } from "@/lib/requests/requestMedia";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { loadTrash } from "@/lib/library/trashStore";
+import { reconcileSeriesPlayback } from "@/lib/plex/librarySync";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,13 @@ export async function GET(req: NextRequest) {
   // callers that need it (the Bibliothèque page itself).
   const tmdbIdParam = req.nextUrl.searchParams.get("tmdbId");
   const tmdbId = tmdbIdParam ? Number(tmdbIdParam) : null;
+  if (tmdbId) {
+    // À l'ouverture d'une cible, vérifier uniquement cette série avant de
+    // répondre. Cela répare un épisode remplacé sans lancer de réconciliation
+    // globale ni demander à l'utilisateur de redémarrer l'application.
+    const target = loadSeries().find((s) => s.tmdbId === tmdbId);
+    if (target) await reconcileSeriesPlayback(target.id);
+  }
   const all = tmdbId ? loadSeries().filter((s) => s.tmdbId === tmdbId) : loadSeries();
   const series = all.map((s) => ({
     ...s,

@@ -140,6 +140,18 @@ private data class EpisodeSelection(
 )
 
 /**
+ * Lecture est déterminée par une preuve de média, pas par le statut de
+ * synchronisation seul. Après le remplacement d'un fichier par un autre de
+ * même nom, Plex peut garder une ancienne valeur (`missing`) pendant un
+ * cycle ; masquer Lecture dans cet intervalle rendrait l'épisode inutilisable
+ * alors que sa clé Plex ou son fichier local est bien présent.
+ */
+private fun episodeIsPlayable(episode: SeriesEpisodeDto): Boolean =
+    episode.plexRatingKey != null ||
+        episode.playbackSource == "movviz" ||
+        episode.file != null
+
+/**
  * Fiche titre — même composition que le hero desktop (TitleContent.tsx) :
  * backdrop plein écran + dégradé, pastille de statut, titre, ligne méta
  * (étoile/année/durée/genres), tagline, synopsis, puis une rangée d'actions
@@ -421,7 +433,12 @@ fun TitleDetailScreen(
         seasons.flatMap { season ->
             season.episodes
                 .mapNotNull { ep ->
-                    if (ep.status != "available") return@mapNotNull null
+                    // La synchronisation Plex peut conserver un statut
+                    // temporairement ancien après le remplacement d'un
+                    // fichier. Une clé Plex ou un fichier local suffit à
+                    // établir que l'épisode est lisible : le statut ne doit
+                    // jamais faire disparaître « Lecture ».
+                    if (!episodeIsPlayable(ep)) return@mapNotNull null
                     val target = episodePlaybackTarget(
                         seriesId = localSeriesId,
                         plexRatingKey = ep.plexRatingKey,
@@ -1844,8 +1861,7 @@ private fun SeasonPageOverlay(
             if (attempt < 19) withFrameNanos { }
         }
     }
-    fun playable(ep: SeriesEpisodeDto) =
-        (ep.plexRatingKey != null || ep.playbackSource == "movviz") && ep.status == "available"
+    fun playable(ep: SeriesEpisodeDto) = episodeIsPlayable(ep)
     val landingEpisode = remember(season, watchedEpisodeKeys) {
         season.episodes.firstOrNull { playable(it) && !watchedEpisodeKeys.contains("${season.seasonNumber}.${it.episodeNumber}") }
             ?: season.episodes.firstOrNull { playable(it) }
@@ -1983,7 +1999,7 @@ private fun SeasonPageHeader(
     val watchable = season.episodes.filter { it.status != "upcoming" }
     val watchedCount = watchable.count { watchedEpisodeKeys.contains("${season.seasonNumber}.${it.episodeNumber}") }
     val allWatched = watchable.isNotEmpty() && watchedCount == watchable.size
-    val missingCount = season.episodes.count { it.status == "missing" }
+    val missingCount = season.episodes.count { it.status == "missing" && !episodeIsPlayable(it) }
     val seasonLabel = season.name.ifBlank {
         if (season.seasonNumber == 0) "Spéciaux" else "Saison ${season.seasonNumber}"
     }
@@ -2108,8 +2124,7 @@ private fun EpisodeGridCard(
     onOpenDetails: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
-        episode.status == "available"
+    val available = episodeIsPlayable(episode)
     val shape = RoundedCornerShape(8.dp)
     val downloading = queueItem != null && (episode.status == "downloading" || episode.status == "searching")
     val resumeFraction = progress?.let {
@@ -2380,8 +2395,7 @@ private fun EpisodeDetailOverlay(
 ) {
     BackHandler(onBack = onDismiss)
     val episode = selection.episode
-    val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
-        episode.status == "available"
+    val available = episodeIsPlayable(episode)
     val resumeOffset = progress?.resumeOffsetMs?.takeIf { it > 5_000L && !watched }
     // Focus initial sur l'action principale, retenté sur quelques frames : le
     // nœud n'est pas encore attaché à la première composition et
