@@ -1,3 +1,20 @@
+## v1.25.144 — October 2026
+
+### Ajustements de la sidebar desktop
+
+- Le bouton du rail compact occupe sa propre ligne sous le logo ; les icônes restent alignées verticalement entre les deux modes.
+- Gestion n'affiche plus de titre en double et son flyout compact ne s'ouvre que sur demande, même depuis une page Gestion.
+- Les badges du rail compact affichent les nombres jusqu'à 99, puis « 99+ ».
+
+## v1.25.143 — October 2026
+
+### Sidebar desktop stable et compacte
+
+- La sidebar desktop mémorise désormais son état étendu ou compact (240 px / 76 px) et ne s'ouvre plus au passage de la souris.
+- Les entrées gardent une géométrie de 44 px et un axe d'icône stable ; la navigation est organisée en Accueil, Bibliothèque, Activité et Gestion.
+- Gestion dispose d'un badge agrégé, d'un flyout clavier dans le rail compact et la recherche torrent y est déplacée pour laisser la recherche globale à la Topbar.
+- Les mises à jour ne créent plus de bruit permanent : Réglages affiche uniquement un indicateur lorsqu'une mise à jour est disponible.
+
 ## v1.25.142 — September 2026
 
 ### Statistiques du profil et pagination de l'historique
@@ -5534,12 +5551,4 @@ In-app player with automatic Plex transcode fallback, third-party request import
 ## v1.1.50 – v1.1.66 — July 2026
 
 Initial public release: TMDb discovery, Torznab/Newznab indexer search, unified movie/series library, multi-user requests, the built-in BitTorrent engine, and Plex sync — plus early stability and security fixes (session handling, library deduplication, dependency upgrades).
-## v1.25.143 — October 2026
-
-### Sidebar desktop stable et compacte
-
-- La sidebar desktop mémorise désormais son état étendu ou compact (240 px / 76 px) et ne s'ouvre plus au passage de la souris.
-- Les entrées gardent une géométrie de 44 px et un axe d'icône stable ; la navigation est organisée en Accueil, Bibliothèque, Activité et Gestion.
-- Gestion dispose d'un badge agrégé, d'un flyout clavier dans le rail compact et la recherche torrent y est déplacée pour laisser la recherche globale à la Topbar.
-- Les mises à jour ne créent plus de bruit permanent : Réglages affiche uniquement un indicateur lorsqu'une mise à jour est disponible.
 
