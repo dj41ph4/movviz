@@ -285,8 +285,8 @@ class MovvizRepository(private val baseUrl: String) {
         runCatching { api.streamStop(plexRatingKey) }
     }
 
-    suspend fun openPlaybackSession(ratingKey: String, durationMs: Long, tmdbId: Int, title: String, mediaType: String = "movie"): PlaybackSessionResponse? =
-        runCatching { api.playbackSession(PlaybackSessionRequest(ratingKey, mediaType, durationMs.coerceAtLeast(1), tmdbId, title)) }.getOrNull()?.body()
+    suspend fun openPlaybackSession(ratingKey: String, durationMs: Long, tmdbId: Int, title: String, mediaType: String = "movie", seasonNumber: Int? = null, episodeNumber: Int? = null): PlaybackSessionResponse? =
+        runCatching { api.playbackSession(PlaybackSessionRequest(ratingKey, mediaType, durationMs.coerceAtLeast(1), tmdbId, title, seasonNumber, episodeNumber)) }.getOrNull()?.body()
 
     suspend fun playbackHeartbeat(sessionId: String, sequence: Long, positionMs: Long, isPlaying: Boolean) {
         runCatching { api.playbackHeartbeat(sessionId, PlaybackHeartbeatRequest(sequence, positionMs.coerceAtLeast(0), isPlaying)) }

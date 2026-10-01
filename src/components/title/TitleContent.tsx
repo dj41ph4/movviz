@@ -35,6 +35,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
+import type { OnDeckEntry } from "@/lib/plex/onDeckService";
 import { setPageTitleContext } from "@/lib/ai/pageContext";
 import { toast } from "@/components/ui/Toast";
 import {
@@ -275,13 +276,28 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       .filter((e) => e.tmdbId === tmdbId)
       .map((e) => `${e.season}.${e.episode}`),
   );
+  const { data: seriesOnDeck, mutate: mutateSeriesOnDeck } = useSWR<{ items: OnDeckEntry[] }>(
+    type === "series" ? "/api/plex/on-deck" : null, fetcher,
+  );
+  useEffect(() => {
+    if (playerRequest) return;
+    const timer = setTimeout(() => {
+      void mutateWatch();
+      void mutateSeriesOnDeck();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [playerRequest, mutateWatch, mutateSeriesOnDeck]);
+  const seriesResume = seriesOnDeck?.items.find((item) => item.type === "episode" && item.tmdbId === tmdbId &&
+    item.seasonNumber != null && item.episodeNumber != null && item.offsetMs > 0 &&
+    !watchedEpisodes.has(`${item.seasonNumber}.${item.episodeNumber}`) &&
+    (!item.durationMs || item.offsetMs < item.durationMs * 0.80));
 
   /* ── manual "watched" toggle (film / série complète) ─────────────────── */
 
   const watchedMovie = (watchData?.movies ?? []).includes(tmdbId);
 
   // Série : le prochain épisode lisible SUR LE DISQUE — le premier non vu,
-  // sinon le premier. Movviz sait où sont les fichiers : une série sans
+  // sans relancer automatiquement un épisode vu. Une série sans
   // lien Plex se lit directement, jamais « en attente de synchronisation ».
   const seriesLocalNext = useMemo(() => {
     if (type !== "series" || !libraryMatch?.id) return null;
@@ -289,11 +305,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     const seasons = [...(libraryMatch.seasons ?? [])].filter((s) => (s.seasonNumber ?? 0) > 0).sort((a, b) => (a.seasonNumber ?? 0) - (b.seasonNumber ?? 0));
     for (const s of seasons) {
       for (const e of [...s.episodes].sort((a, b) => (a.episodeNumber ?? 0) - (b.episodeNumber ?? 0))) {
-        if (e.file && e.episodeNumber != null && s.seasonNumber != null) playable.push({ season: s.seasonNumber, episode: e.episodeNumber, ep: e });
+        if ((e.file || e.plexRatingKey) && e.episodeNumber != null && s.seasonNumber != null) playable.push({ season: s.seasonNumber, episode: e.episodeNumber, ep: e });
       }
     }
-    return playable.find((p) => !watchedEpisodes.has(`${p.season}.${p.episode}`)) ?? playable[0] ?? null;
-  }, [type, libraryMatch, watchedEpisodes]);
+    return (seriesResume && playable.find((p) => p.season === seriesResume.seasonNumber && p.episode === seriesResume.episodeNumber)) ||
+      playable.find((p) => !watchedEpisodes.has(`${p.season}.${p.episode}`)) || null;
+  }, [type, libraryMatch, watchedEpisodes, seriesResume]);
   const seriesEpisodes = useMemo(() => {
     if (type !== "series" || !libraryMatch) return [];
     const out: { season: number; episode: number }[] = [];
@@ -639,6 +656,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       episodeNumber: number,
       episode: { file?: LibraryFile | null; plexRatingKey?: string | null; plexUrl?: string | null; title?: string },
       originRect: DOMRect,
+      resumeFromSeconds?: number,
     ) => {
       if (!libraryMatch?.id || (!episode.file && !episode.plexRatingKey)) return;
       play({
@@ -654,6 +672,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         type: "series",
         seasonNumber,
         episodeNumber,
+        resumeFromSeconds,
         originRect,
         backdropUrl: backdrop,
         posterUrl: poster,
@@ -1352,16 +1371,16 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 </button>
               ) : (
                 <>
-                  {/* Série sans lien Plex : lecture directe du prochain épisode
+                  {/* Reprise en cours ou prochain épisode non vu : lecture directe
                       présent sur le disque. Plex, quand il est là, se
                       synchronise en arrière-plan sans jamais bloquer. */}
-                  {type === "series" && seriesLocalNext && !libraryMatch?.plexUrl && (
+                  {type === "series" && seriesLocalNext && (
                     <button
-                      onClick={(e) => playEpisode(seriesLocalNext.season, seriesLocalNext.episode, seriesLocalNext.ep, e.currentTarget.getBoundingClientRect())}
+                      onClick={(e) => playEpisode(seriesLocalNext.season, seriesLocalNext.episode, seriesLocalNext.ep, e.currentTarget.getBoundingClientRect(), seriesResume?.offsetMs != null ? seriesResume.offsetMs / 1000 : undefined)}
                       className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
                     >
                       <Play className="h-4 w-4 fill-white" />
-                      {usePlayLabelResult.label} · S{pad(seriesLocalNext.season)}E{pad(seriesLocalNext.episode)}
+                      {seriesResume ? `${t("player.betaResumeFrom")} ${formatResumeTime(seriesResume.offsetMs / 1000)}` : usePlayLabelResult.label} · S{pad(seriesLocalNext.season)}E{pad(seriesLocalNext.episode)}
                     </button>
                   )}
                   {/* Lecture dès que le fichier est déplacé + renommé au bon
@@ -1372,7 +1391,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       une version lisible, callback d'import en retard), le
                       bouton apparaît quand même. Plex n'est qu'un
                       enrichissement async (badges, URL de secours). */}
-                  {(hasLocalPlayback || (libraryStatus === "available" && libraryMatch?.plexUrl)) && (
+                  {type === "movie" && (hasLocalPlayback || (libraryStatus === "available" && libraryMatch?.plexUrl)) && (
                     playbackRatingKey && (betaPlayer || hasLocalPlayback) ? (
                       resumeSeconds != null ? (
                         // Resume pill (Netflix-style) — same play() call as the

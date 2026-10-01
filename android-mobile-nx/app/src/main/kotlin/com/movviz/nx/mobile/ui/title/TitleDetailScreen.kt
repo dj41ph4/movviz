@@ -333,10 +333,7 @@ fun TitleDetailScreen(
     // comportait comme si de rien n'était, aucune indication de l'épisode
     // en cours ni moyen direct de le reprendre (signalé en direct : "il
     // réagit comme un film" au lieu de proposer l'épisode en cours).
-    val episodeResume = remember(continueWatching, type, tmdbId) {
-        if (type != "series") null
-        else continueWatching.firstOrNull { it.type == "episode" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
-    }
+
 
     // Statut "vu" manuel par utilisateur — /api/watch-status, distinct de
     // LibraryStatus (qui dit si le FICHIER existe, pas si on l'a regardé).
@@ -359,13 +356,22 @@ fun TitleDetailScreen(
             ?.toSet()
             ?: emptySet()
     }
+    val episodeResume = remember(continueWatching, type, tmdbId, watchedEpisodeKeys) {
+        if (type != "series") null
+        else continueWatching.firstOrNull {
+            it.type == "episode" && it.tmdbId == tmdbId && it.offsetMs > 5_000L &&
+                !watchedEpisodeKeys.contains("${it.seasonNumber}.${it.episodeNumber}") &&
+                (it.durationMs == null || it.offsetMs < (it.durationMs * 0.80).toLong())
+        }
+    }
+
 
     // File de lecture épisode par épisode — à plat sur toutes les saisons,
     // dans l'ordre d'affichage, pour que suivant/précédent dans le lecteur
     // puisse traverser une frontière de saison naturellement (S1E10 → S2E1).
     val playableEpisodes = remember(seasons, localSeriesId) {
-        seasons.flatMap { season ->
-            season.episodes
+        seasons.sortedBy { it.seasonNumber }.flatMap { season ->
+            season.episodes.sortedBy { it.episodeNumber }
                 .mapNotNull { ep ->
                     if (ep.status != "available") return@mapNotNull null
                     val target = episodePlaybackTarget(
@@ -385,6 +391,13 @@ fun TitleDetailScreen(
                 }
         }
     }
+
+    val nextEpisodeIndex = remember(playableEpisodes, watchedEpisodeKeys) {
+        playableEpisodes.indexOfFirst {
+            it.seasonNumber > 0 && !watchedEpisodeKeys.contains("${it.seasonNumber}.${it.episodeNumber}")
+        }
+    }
+    val nextEpisode = playableEpisodes.getOrNull(nextEpisodeIndex)
 
     // Comme Netflix : une seule saison développée à la fois. Dès que les
     // saisons Plex arrivent, S1 est la valeur stable par défaut, sans jamais
@@ -1009,23 +1022,25 @@ fun TitleDetailScreen(
                         }
                     }
                 }
-            } else if (episodeResume != null) {
+            } else if (type == "series" && (episodeResume != null || nextEpisode != null)) {
                 // Série en bibliothèque avec un épisode en cours : même
                 // traitement que "Reprendre" côté film (CTA + libellé de
                 // l'épisode juste en dessous du titre), pour que l'ouverture
                 // depuis "Continuer à regarder" mène droit à la reprise au
                 // lieu de laisser deviner où chercher plus bas dans la liste
                 // des saisons.
+                val ctaSeason = episodeResume?.seasonNumber ?: nextEpisode!!.seasonNumber
+                val ctaEpisode = episodeResume?.episodeNumber ?: nextEpisode!!.episodeNumber
                 Column {
                     Text(
-                        text = "S${episodeResume.seasonNumber} · Ép ${episodeResume.episodeNumber}" +
-                            (episodeResume.episodeTitle?.let { " — $it" } ?: ""),
+                        text = "S${ctaSeason} · Ép ${ctaEpisode}" +
+                            (episodeResume?.episodeTitle?.let { " — $it" } ?: ""),
                         style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Row {
                         PrimaryPill(
-                            text = "Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
+                            text = episodeResume?.let { "Reprendre à ${formatResumeTime(it.offsetMs)}" } ?: "Lire cet épisode",
                             brush = null,
                             solidWhite = true,
                             icon = MovvizIconPlay,
@@ -1033,7 +1048,7 @@ fun TitleDetailScreen(
                             fillWidth = compactPortrait,
                         ) {
                             val index = playableEpisodes.indexOfFirst {
-                                it.seasonNumber == episodeResume.seasonNumber && it.episodeNumber == episodeResume.episodeNumber
+                                it.seasonNumber == ctaSeason && it.episodeNumber == ctaEpisode
                             }
                             if (index >= 0) onPlay(d.title, playableEpisodes, index, d.posterPath)
                         }

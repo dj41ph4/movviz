@@ -5,6 +5,7 @@ import { getPlaybackMarkers } from "./markers/store";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, syncPlaybackContext } from "@/lib/userContext/ingest";
 import { emitPlaybackProgress, emitWatchChanged } from "@/lib/events/watchEvents";
+import { resolvePlaybackEpisode } from "./episodeIdentity";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "playback-progress.json");
@@ -66,6 +67,7 @@ interface PlaybackProgressStore {
   byUser: Record<string, Record<string, PlaybackProgress>>;
   /** Une seule fois par installation : voir backfillMostlyWatchedOnFirstLoad. */
   backfilledQuitWatchedV1?: boolean;
+  backfilledEpisodeWatchedV2?: boolean;
   /** Open player sessions, kept on disk so they survive a server restart. */
   sessions?: Record<string, PlaybackSession>;
 }
@@ -133,6 +135,31 @@ function backfillMostlyWatchedOnFirstLoad(s: PlaybackProgressStore): void {
 function store(): PlaybackProgressStore {
   if (g.__movvizPlaybackProgress) return g.__movvizPlaybackProgress;
   const loaded = readJsonCached<PlaybackProgressStore>(FILE, { version: 1, byUser: {} });
+  g.__movvizPlaybackProgress = loaded;
+  if (!loaded.backfilledEpisodeWatchedV2) {
+    loaded.backfilledEpisodeWatchedV2 = true;
+    for (const bucket of Object.values(loaded.byUser)) for (const p of Object.values(bucket)) {
+      if (p.mediaType !== "episode") continue;
+      const missingIdentity = p.seasonNumber == null || p.episodeNumber == null || p.tmdbId == null;
+      if (missingIdentity) {
+        const found = resolvePlaybackEpisode(p.ratingKey, p.mediaId);
+        if (found) {
+          p.tmdbId = found.series.tmdbId;
+          p.seasonNumber = found.season.seasonNumber;
+          p.episodeNumber = found.episode.episodeNumber;
+        }
+      }
+      const boundary = completionBoundaryMs(p.durationMs, [], "episode");
+      p.completionBoundaryMs = boundary.boundaryMs;
+      if (missingIdentity && p.watched && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) {
+        // Keep the original date: a later manual "unwatched" must win.
+        setWatchedEpisodes(p.userId, [{ tmdbId: p.tmdbId, season: p.seasonNumber, episode: p.episodeNumber, watchedAt: p.watchedAt ?? p.updatedAt }], true, p.title ?? "", "movviz_playback");
+      } else if (!p.watched && p.resumeOffsetMs != null && canComplete(p.actualPlayedMs, p.resumeOffsetMs, boundary.boundaryMs)) {
+        markPlaybackWatched(p, boundary.source);
+      }
+    }
+    writeJsonCached(FILE, loaded);
+  }
   backfillMostlyWatchedOnFirstLoad(loaded);
   return (g.__movvizPlaybackProgress = loaded);
 }
@@ -144,6 +171,10 @@ function get(userId: string, ratingKey: string, mediaId?: string): PlaybackProgr
 }
 
 function ensure(userId: string, ratingKey: string, input: { mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string }): PlaybackProgress {
+  if (input.mediaType === "episode" && (input.tmdbId == null || input.seasonNumber == null || input.episodeNumber == null)) {
+    const found = resolvePlaybackEpisode(ratingKey, input.mediaId);
+    if (found) input = { ...input, tmdbId: found.series.tmdbId, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber };
+  }
   const key = input.mediaId ?? ratingKey;
   const prior = get(userId, ratingKey, input.mediaId);
   const markers = getPlaybackMarkers(ratingKey);

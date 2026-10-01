@@ -736,6 +736,8 @@ data class PlaybackSessionRequest(
     val durationMs: Long,
     val tmdbId: Int? = null,
     val title: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -771,6 +773,7 @@ data class OnDeckEntryDto(
     val rating: Double = 0.0,
     val progressPercent: Int = 0,
     val offsetMs: Long = 0L,
+    val durationMs: Long? = null,
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val episodeTitle: String? = null,

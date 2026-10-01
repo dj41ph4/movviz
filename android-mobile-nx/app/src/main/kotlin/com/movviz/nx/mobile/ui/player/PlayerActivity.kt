@@ -261,7 +261,7 @@ fun forQueue(
 /** Part de l'épisode sortant au-delà de laquelle un passage au suivant
  *  le marque VU. Règle produit, pas une constante technique : enchaîner
  *  sur l'épisode suivant est en soi le signal que le précédent est fini. */
-private const val EPISODE_ADVANCE_WATCHED_RATIO = 0.70
+private const val PLAYBACK_QUIT_WATCHED_RATIO = 0.80
 
 data class QueueItem(
     val ratingKey: String,
@@ -687,7 +687,8 @@ ExoPlayer.Builder(context)
         val creditStart = markers
             .filter { it.type == "credits" && it.startMs >= 0 && it.startMs < duration }
             .maxOfOrNull { it.startMs }
-        return position >= (creditStart ?: (duration * 0.90).toLong())
+        val boundary = (duration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
+        return position >= if (type == "series") boundary else (creditStart ?: boundary)
     }
 
     /**
@@ -707,13 +708,13 @@ ExoPlayer.Builder(context)
         // Lue AVANT stop() : ExoPlayer rend la durée indisponible une fois
         // arrêté, et c'est elle qui décide de la règle ci-dessous.
         val outgoingDuration = exoPlayer.duration.takeIf { it > 0L }
-        // Passer à l'épisode suivant alors que le précédent dépasse 70 %
+        // Passer à l'épisode suivant alors que le précédent dépasse 80 %
         // vaut « terminé » : enchaîner EST le signal que l'épisode est fini
         // pour l'utilisateur, générique sauté ou fin coupée comprises. Même
         // règle que sur le client TV, pour que les deux apps n'aient jamais
         // deux notions différentes de « vu ».
         val outgoingMostlyWatched = outgoingDuration != null &&
-            outgoingPosition >= (outgoingDuration * EPISODE_ADVANCE_WATCHED_RATIO).toLong()
+            outgoingPosition >= (outgoingDuration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
         val markWatched = markOutgoingWatched || outgoingMostlyWatched
         playbackSessionId = null
         completeCurrentOnDispose = false
@@ -782,6 +783,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 tmdbId = tmdbId,
                 title = current.label ?: mainTitle,
                 mediaType = if (type == "series") "episode" else "movie",
+                seasonNumber = current.seasonNumber.takeIf { type == "series" },
+                episodeNumber = current.episodeNumber.takeIf { type == "series" },
             )
         }
         playbackSessionId = playbackSession?.sessionId
@@ -999,6 +1002,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         tmdbId = tmdbId,
                         title = current.label ?: mainTitle,
                         mediaType = if (type == "series") "episode" else "movie",
+                        seasonNumber = current.seasonNumber.takeIf { type == "series" },
+                        episodeNumber = current.episodeNumber.takeIf { type == "series" },
                     )
                     playbackSessionId = opened?.sessionId
                 }
@@ -1116,7 +1121,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         poke()
         // An explicit Next is an intentional skip: never leave the outgoing
         // episode in Reprendre, even if the viewer pressed it before credits.
-        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = true)
+        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = isInEndingCredits())
     }
     fun skipMarkerAction() {
         val m = activeMarker ?: return

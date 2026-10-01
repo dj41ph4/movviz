@@ -2,8 +2,10 @@ import { loadPlexConfig } from "./store";
 import { batchTmdbIds, buildPlexWebUrl } from "./client";
 import { getVerifiedOnDeck, resolvePlexServerAuth } from "./watchWrite";
 import { isEarlierEpisode } from "./onDeckPolicy";
-import { getMovieByPlexRatingKey, findEpisodeByPlexLocator } from "@/lib/library/store";
+import { getMovieByPlexRatingKey, findEpisodeByPlexLocator, getSeriesByTmdbId } from "@/lib/library/store";
+import { resolvePlaybackEpisode } from "@/lib/playback/episodeIdentity";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
+import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 import { getWatchStatus } from "./watchStore";
 import { completionBoundaryMs } from "@/lib/playback/progressPolicy";
 import { getMovie, getSeason, getSeries } from "@/lib/metadata/tmdb";
@@ -14,8 +16,7 @@ import type { User } from "@/lib/auth/types";
  *  compter comme « terminé » — même règle pour toute source de progression
  *  (Movviz local ou Plex on-deck), jamais deux seuils différents. Sans repère
  *  « générique » par item (coûterait un appel Plex par entrée de la liste),
- *  retombe sur le même seuil de repli que le lecteur lui-même : 5 min pour
- *  un film, 2 min pour un épisode, 10 % pour un média court. */
+ *  retombe sur le même seuil que le lecteur : 80 % pour un épisode. */
 function isNearEnd(offsetMs: number, durationMs: number, type: "movie" | "episode"): boolean {
   const { boundaryMs } = completionBoundaryMs(durationMs, [], type);
   return boundaryMs != null && offsetMs >= boundaryMs;
@@ -73,6 +74,10 @@ function technical(file: { resolution: string | null; videoCodec: string | null;
 export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
   const cfg = loadPlexConfig();
   const local = listPlaybackProgress(user.id);
+  const watchStatus = getWatchStatus(user.id);
+  const watchedEpisodes = (getCanonicalWatchStatus(user.id) ?? watchStatus)?.episodes ?? [];
+  const episodeIsWatched = (tmdbId: number, season: number, episode: number) =>
+    watchedEpisodes.some((e) => e.tmdbId === tmdbId && e.season === season && e.episode === episode);
   const items: OnDeckEntry[] = [];
   const plexUrlFor = (key: string | null) => key && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, key) : null;
   for (const p of local) {
@@ -84,20 +89,43 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
       items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, durationMs: p.durationMs, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: movie.id, technical: technical(movie.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
       continue;
     }
-    const found = findEpisodeByPlexLocator(p.ratingKey);
+    const found = resolvePlaybackEpisode(p.ratingKey, p.mediaId);
     if (!found) continue;
+    if (episodeIsWatched(found.series.tmdbId, found.season.seasonNumber, found.episode.episodeNumber)) continue;
     if (isNearEnd(p.resumeOffsetMs, p.durationMs, "episode")) continue;
     const key = found.episode.plexRatingKey ?? p.ratingKey;
     items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, durationMs: p.durationMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`, seriesId: found.series.id, technical: technical(found.episode.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
   }
-  if (!cfg.hostname) return (await attachEpisodeStills(items)).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
+  // A finished local episode must expose the next unwatched episode even
+  // before Plex acknowledges its scrobble (or when Plex is unavailable).
+  const addLocalNextEpisodes = () => {
+    const startedSeries = new Set(watchedEpisodes.map((e) => e.tmdbId));
+    for (const tmdbId of startedSeries) {
+      if (items.some((item) => item.type === "episode" && item.tmdbId === tmdbId)) continue;
+      const series = getSeriesByTmdbId(tmdbId);
+      if (!series) continue;
+      const candidates = [...series.seasons].filter((s) => s.seasonNumber > 0)
+        .sort((a, b) => a.seasonNumber - b.seasonNumber)
+        .flatMap((season) => [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber)
+          .map((episode) => ({ season, episode })));
+      const next = candidates.find(({ season, episode }) => !episodeIsWatched(tmdbId, season.seasonNumber, episode.episodeNumber));
+      // Do not jump over a missing episode into a later season.
+      if (!next || (!next.episode.file && !next.episode.plexRatingKey)) continue;
+      const key = next.episode.plexRatingKey;
+      const lastPlayedAt = Math.max(0, ...watchedEpisodes.filter((e) => e.tmdbId === tmdbId).map((e) => e.at ?? 0));
+      items.push({ type: "episode", tmdbId, title: series.title, posterPath: series.posterPath, year: series.year, rating: series.rating, progressPercent: 0, offsetMs: 0, seasonNumber: next.season.seasonNumber, episodeNumber: next.episode.episodeNumber, episodeTitle: next.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${series.id}:s${next.season.seasonNumber}e${next.episode.episodeNumber}`, seriesId: series.id, technical: technical(next.episode.file), lastPlayedAt });
+    }
+  };
+  if (!cfg.hostname) {
+    addLocalNextEpisodes();
+    return (await attachEpisodeStills(items)).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
+  }
 
   const onDeck = await getVerifiedOnDeck(user, cfg);
   // Marked « vu » in Movviz after Plex last saw it played: the Plex resume
   // is stale (Plex catches up on the « vu » a moment later), so the title
   // leaves « Reprendre » at once. A later Plex play (a rewatch) still wins,
   // and a view without a date never hides anything.
-  const watchStatus = getWatchStatus(user.id);
   const watchedInMovvizAfter = (at: number | undefined, playedAt: number): boolean => at != null && at > 0 && at >= playedAt;
   const movieWatchedAfter = (tmdbId: number, playedAt: number) =>
     !!watchStatus?.movies.includes(tmdbId) && watchedInMovvizAfter(watchStatus.movieWatchedAt?.[String(tmdbId)], playedAt);
@@ -122,6 +150,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const season = found?.season.seasonNumber ?? d.seasonNumber;
     const episode = found?.episode.episodeNumber ?? d.episodeNumber;
     if (tmdbId == null || season == null || episode == null) continue;
+    if (episodeIsWatched(tmdbId, season, episode)) continue;
     const c = { tmdbId, season, episode };
     // Plex /library/onDeck is already the per-profile continuation source.
     // Do not require a prior asynchronous history import here: that made a
@@ -147,6 +176,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const season = found?.season.seasonNumber ?? d.seasonNumber;
     const episode = found?.episode.episodeNumber ?? d.episodeNumber;
     if (tmdbId == null || season == null || episode == null) continue;
+    if (episodeIsWatched(tmdbId, season, episode)) continue;
     const c = { tmdbId, season, episode };
     const first = firstBySeries.get(c.tmdbId);
     if (d.viewOffset <= 0 && (first?.season !== c.season || first?.episode !== c.episode)) continue;
@@ -159,11 +189,13 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
   // Exactly one current action per logical media — and a single active
   // resume per series (§23-24, §58 : E03+E04 ne coexistent jamais, le plus
   // récent gagne, l'historique des deux reste). Position size never decides.
+  addLocalNextEpisodes();
   const newest = new Map<string, OnDeckEntry>();
   for (const item of items) {
     const identity = item.type === "movie" ? `movie:${item.tmdbId}` : `series:${item.tmdbId}`;
     const current = newest.get(identity);
-    if (!current || item.lastPlayedAt > current.lastPlayedAt) newest.set(identity, item);
+    if (!current || (item.offsetMs > 0 && current.offsetMs === 0) ||
+      ((item.offsetMs > 0) === (current.offsetMs > 0) && item.lastPlayedAt > current.lastPlayedAt)) newest.set(identity, item);
   }
   return (await attachEpisodeStills([...newest.values()])).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
 }

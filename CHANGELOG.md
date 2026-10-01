@@ -1,3 +1,11 @@
+## v1.25.146 — Octobre 2026
+
+### Suivi des épisodes et reprise cohérente
+
+- Un épisode est marqué vu dès 80 % de lecture ; la progression et la reprise utilisent le même seuil.
+- Les lecteurs TV et mobile transmettent la saison et le numéro d’épisode afin d’enregistrer le statut vu sur le bon épisode. Les anciennes progressions identifiables sont réconciliées.
+- Une série propose l’épisode en cours ou le prochain épisode non vu dans l’ordre des saisons, sans reprendre un épisode déjà terminé. La suite locale reste disponible pendant la synchronisation Plex.
+
 ## v1.25.145 — October 2026
 
 ### Navigation desktop continue

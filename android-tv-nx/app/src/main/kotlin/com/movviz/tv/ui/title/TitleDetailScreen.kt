@@ -399,10 +399,7 @@ fun TitleDetailScreen(
     // comportait comme si de rien n'était, aucune indication de l'épisode
     // en cours ni moyen direct de le reprendre (signalé en direct : "il
     // réagit comme un film" au lieu de proposer l'épisode en cours).
-    val episodeResume = remember(continueWatching, type, tmdbId) {
-        if (type != "series") null
-        else continueWatching.firstOrNull { it.type == "episode" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
-    }
+
 
     // Statut "vu" manuel par utilisateur — /api/watch-status, distinct de
     // LibraryStatus (qui dit si le FICHIER existe, pas si on l'a regardé).
@@ -425,13 +422,22 @@ fun TitleDetailScreen(
             ?.toSet()
             ?: emptySet()
     }
+    val episodeResume = remember(continueWatching, type, tmdbId, watchedEpisodeKeys) {
+        if (type != "series") null
+        else continueWatching.firstOrNull {
+            it.type == "episode" && it.tmdbId == tmdbId && it.offsetMs > 5_000L &&
+                !watchedEpisodeKeys.contains("${it.seasonNumber}.${it.episodeNumber}") &&
+                (it.durationMs == null || it.offsetMs < (it.durationMs * 0.80).toLong())
+        }
+    }
+
 
     // File de lecture épisode par épisode — à plat sur toutes les saisons,
     // dans l'ordre d'affichage, pour que suivant/précédent dans le lecteur
     // puisse traverser une frontière de saison naturellement (S1E10 → S2E1).
     val playableEpisodes = remember(seasons, localSeriesId) {
-        seasons.flatMap { season ->
-            season.episodes
+        seasons.sortedBy { it.seasonNumber }.flatMap { season ->
+            season.episodes.sortedBy { it.episodeNumber }
                 .mapNotNull { ep ->
                     // La synchronisation Plex peut conserver un statut
                     // temporairement ancien après le remplacement d'un
@@ -521,14 +527,13 @@ fun TitleDetailScreen(
         watchedEpisodeKeys.contains("${it.season}.${it.episode}")
     }
     // Prochain épisode à lire — le premier non vu de l'histoire principale,
-    // et à défaut le tout premier épisode disponible (série entièrement vue :
-    // le bouton relance depuis le début plutôt que de disparaître). Les
+    // une série entièrement vue ne propose plus de reprise automatique. Les
     // bonus/spéciaux n'entrent jamais dans ce choix, ils ne sont pas la
     // continuité de la série. -1 = rien de lisible du tout.
     val nextEpisodeIndex = remember(playableEpisodes, watchedEpisodeKeys) {
         val main = playableEpisodes.withIndex().filter { it.value.seasonNumber > 0 }
         val next = main.firstOrNull { !watchedEpisodeKeys.contains("${it.value.seasonNumber}.${it.value.episodeNumber}") }
-        (next ?: main.firstOrNull())?.index ?: -1
+        next?.index ?: -1
     }
     val nextEpisode = playableEpisodes.getOrNull(nextEpisodeIndex)
     LaunchedEffect(visibleSeasons) {

@@ -739,7 +739,8 @@ ExoPlayer.Builder(context)
         val creditStart = markers
             .filter { it.type == "credits" && it.startMs >= 0 && it.startMs < duration }
             .maxOfOrNull { it.startMs }
-        return position >= (creditStart ?: (duration * 0.90).toLong())
+        val boundary = (duration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
+        return position >= if (type == "series") boundary else (creditStart ?: boundary)
     }
 
     /** Clear ExoPlayer before changing the Compose queue index: otherwise
@@ -755,7 +756,7 @@ ExoPlayer.Builder(context)
         // Lue AVANT stop() : ExoPlayer rend la durée indisponible une fois
         // arrêté, et c'est elle qui décide de la règle ci-dessous.
         val outgoingDuration = timelineDur().takeIf { it > 0L }
-        // Passer à l'épisode suivant alors que le précédent dépasse 70 %
+        // Passer à l'épisode suivant alors que le précédent dépasse 80 %
         // vaut « terminé » : enchaîner EST le signal que l'épisode est fini
         // pour l'utilisateur, générique sauté ou fin coupée comprises. Sans
         // ça, des épisodes réellement regardés restaient « en cours » et
@@ -828,6 +829,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 tmdbId = tmdbId,
                 title = current.label ?: mainTitle,
                 mediaType = if (type == "series") "episode" else "movie",
+                seasonNumber = current.seasonNumber.takeIf { type == "series" },
+                episodeNumber = current.episodeNumber.takeIf { type == "series" },
             )
         }
         playbackSessionId = playbackSession?.sessionId
@@ -1013,7 +1016,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     val id = playbackSessionId
                     // Quitter (Retour, fermeture système) au-delà du même
                     // seuil que "passer au suivant" doit marquer VU pour la
-                    // même raison : au-delà de 70%, s'arrêter là EST le signal
+                    // même raison : au-delà de 80%, s'arrêter là EST le signal
                     // que c'est fini pour l'utilisateur — générique atteint ou
                     // non. Avant, seul isInEndingCredits() (marqueur explicite
                     // ou 90% sans marqueur) déclenchait ce cas : un film ou un
@@ -1062,6 +1065,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         tmdbId = tmdbId,
                         title = current.label ?: mainTitle,
                         mediaType = if (type == "series") "episode" else "movie",
+                        seasonNumber = current.seasonNumber.takeIf { type == "series" },
+                        episodeNumber = current.episodeNumber.takeIf { type == "series" },
                     )
                     playbackSessionId = opened?.sessionId
                 }
@@ -1172,7 +1177,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     fun nextEpisodeAction() {
         poke()
         // Explicit Next is intentional: do not leave the skipped episode in Reprendre.
-        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = true)
+        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = isInEndingCredits())
     }
     fun skipMarkerAction() {
         val m = activeMarker ?: return

@@ -1,4 +1,5 @@
 export const MIN_REAL_PLAYBACK_MS = 60_000;
+export const EPISODE_WATCHED_RATIO = 0.80;
 export const MAX_HEARTBEAT_INTERVAL_MS = 30_000;
 export const MOVIE_FALLBACK_REMAINING_MS = 5 * 60_000;
 export const EPISODE_FALLBACK_REMAINING_MS = 2 * 60_000;
@@ -12,6 +13,8 @@ export function completionBoundaryMs(
   mediaType: "movie" | "episode",
 ): { boundaryMs: number | null; source: CompletionBoundarySource } {
   if (!Number.isFinite(durationMs) || durationMs <= 0) return { boundaryMs: null, source: "fallback" };
+  // Episodes become watched at 80%, independently of credit indexing.
+  if (mediaType === "episode") return { boundaryMs: Math.ceil(durationMs * EPISODE_WATCHED_RATIO), source: "fallback" };
   const credits = markers
     .filter((m) => m.type === "credits" && Number.isFinite(m.startMs) && Number.isFinite(m.endMs))
     .filter((m) => m.startMs >= 0 && m.endMs > m.startMs && m.startMs < durationMs)
@@ -26,7 +29,7 @@ export function completionBoundaryMs(
   }
   const remaining = durationMs <= 10 * 60_000
     ? Math.max(SHORT_MEDIA_MIN_REMAINING_MS, Math.round(durationMs * 0.1))
-    : mediaType === "episode" ? EPISODE_FALLBACK_REMAINING_MS : MOVIE_FALLBACK_REMAINING_MS;
+    : MOVIE_FALLBACK_REMAINING_MS;
   return { boundaryMs: Math.max(1_000, durationMs - Math.min(remaining, durationMs - 1_000)), source: "fallback" };
 }
 

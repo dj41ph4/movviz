@@ -26,3 +26,12 @@ test("completion requires one minute of actual playback", () => {
   assert.equal(canComplete(MIN_REAL_PLAYBACK_MS - 1, 6_900_000, 6_900_000), false);
   assert.equal(canComplete(MIN_REAL_PLAYBACK_MS, 6_900_000, 6_900_000), true);
 });
+
+test("episodes become watched at exactly 80%, even with later Plex credits", () => {
+  const { boundaryMs } = completionBoundaryMs(1_440_000, [
+    { type: "credits", startMs: 1_380_000, endMs: 1_440_000, final: true },
+  ], "episode");
+  assert.equal(boundaryMs, 1_152_000);
+  assert.equal(canComplete(MIN_REAL_PLAYBACK_MS, 1_151_999, boundaryMs), false);
+  assert.equal(canComplete(MIN_REAL_PLAYBACK_MS, 1_152_000, boundaryMs), true);
+});

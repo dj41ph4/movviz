@@ -748,6 +748,8 @@ data class PlaybackSessionRequest(
     val durationMs: Long,
     val tmdbId: Int? = null,
     val title: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)
