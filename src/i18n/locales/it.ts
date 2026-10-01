@@ -1511,6 +1511,7 @@ export const it: Dictionary = {
     url: "URL API",
     urlHint: "Endpoint Torznab/Newznab (es. https://mio-indexer/api)",
     apiKey: "Chiave API",
+    getApiKey: "Ottieni la tua chiave API",
     xApiKey: "X-API-Key",
     apiKeyOptional: "Chiave API (se richiesta)",
     categories: "Categorie",

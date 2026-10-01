@@ -103,6 +103,8 @@ export interface CatalogEntry {
   protocol: IndexerProtocol;
   authType: IndexerAuthType;
   siteUrl?: string;
+  /** Account page where the user can retrieve their API key. */
+  apiKeyUrl?: string;
   description: string;
   /** Default categories to request. */
   categories: number[];

@@ -42,6 +42,18 @@ export const INDEXER_CATALOG: CatalogEntry[] = [
     categories: [2000, 5000],
   },
   {
+    key: "v3x",
+    name: "V3x",
+    kind: "torznab",
+    protocol: "torrent",
+    authType: "apikey",
+    siteUrl: "https://v3x.club",
+    apiKeyUrl: "https://v3x.club/settings?tab=integrations",
+    baseUrl: "https://api.v3x.club/torznab",
+    description: "Torznab API with an API key available in account integrations.",
+    categories: [2000, 5000],
+  },
+  {
     key: "torr9",
     name: "Torr9",
     kind: "torznab",

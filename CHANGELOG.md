@@ -1,3 +1,10 @@
+## v1.25.147 — Octobre 2026
+
+### Indexeur V3x
+
+- V3x est disponible dans le catalogue des indexeurs avec son URL Torznab préremplie et une authentification par clé API.
+- Le formulaire d’ajout et de modification propose un lien vers les intégrations V3x pour récupérer la clé API.
+
 ## v1.25.146 — Octobre 2026
 
 ### Suivi des épisodes et reprise cohérente

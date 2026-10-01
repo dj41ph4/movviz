@@ -1510,6 +1510,7 @@ export const fr = {
     url: "URL de l'API",
     urlHint: "Point de terminaison Torznab/Newznab (ex : https://mon-indexeur/api)",
     apiKey: "Clé API",
+    getApiKey: "Récupérer votre clé API",
     xApiKey: "X-API-Key",
     apiKeyOptional: "Clé API (si requise)",
     categories: "Catégories",

@@ -410,6 +410,7 @@ function entryFromRow(r: Row): CatalogEntry {
   // it by matching the stored base URL against the catalog, so catalog-only
   // fields (C411 site login, lists toggle) still show up when editing them.
   const known = INDEXER_CATALOG.find((c) => c.baseUrl && r.baseUrl === c.baseUrl);
+  const definition = INDEXER_CATALOG.find((c) => c.key === r.key) ?? known;
   return {
     key: r.key ?? known?.key ?? r.kind,
     name: r.name,
@@ -420,6 +421,7 @@ function entryFromRow(r: Row): CatalogEntry {
     categories: r.categories,
     // Leave baseUrl empty for generic entries so the auth-mode selector stays visible.
     baseUrl: generic ? undefined : r.baseUrl,
+    apiKeyUrl: definition?.apiKeyUrl,
   };
 }
 
@@ -574,6 +576,11 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.apiKey")}</label>
           <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder={isEdit ? "••••••••" : ""} autoComplete="off" className={field} />
+          {entry.apiKeyUrl && (
+            <a href={entry.apiKeyUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-brand-glow underline underline-offset-4 hover:text-ink">
+              {t("indexerMgr.getApiKey")}
+            </a>
+          )}
         </div>
       ) : (
         <>
