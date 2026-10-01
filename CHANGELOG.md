@@ -1,3 +1,9 @@
+## v1.25.145 — October 2026
+
+### Navigation desktop continue
+
+- Les titres Accueil, Bibliothèque et Activité et leurs espacements sont retirés de la sidebar. Toutes les entrées principales suivent une cadence uniforme de 44 px avec 4 px entre les lignes.
+
 ## v1.25.144 — October 2026
 
 ### Ajustements de la sidebar desktop
