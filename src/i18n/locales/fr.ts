@@ -5,9 +5,12 @@ export const fr = {
   sidebar: {
     storage: "Bibliothèque",
     importsInProgress: "{n} imports en cours",
+    collapse: "Réduire la barre latérale",
+    expand: "Développer la barre latérale",
   },
 
   nav: {
+    home: "Accueil",
     dashboard: "Tableau de bord",
     discover: "Découverte",
     library: "Bibliothèque",
@@ -42,6 +45,7 @@ export const fr = {
     moviesHint: "Tes films",
     seriesHint: "Tes séries",
     torrent: "Torrent",
+    torrentSearch: "Recherche torrent",
     torrentHint: "Interroger tous les indexeurs",
     management: "Gestion",
     blockedTorrents: "Torrents bloqués",

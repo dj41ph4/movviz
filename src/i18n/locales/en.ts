@@ -7,9 +7,12 @@ export const en: Dictionary = {
   sidebar: {
     storage: "Library",
     importsInProgress: "{n} imports in progress",
+    collapse: "Collapse sidebar",
+    expand: "Expand sidebar",
   },
 
   nav: {
+    home: "Home",
     dashboard: "Dashboard",
     discover: "Discover",
     library: "Library",
@@ -44,6 +47,7 @@ export const en: Dictionary = {
     moviesHint: "Your movies",
     seriesHint: "Your series",
     torrent: "Torrent",
+    torrentSearch: "Torrent search",
     torrentHint: "Search every indexer",
     management: "Management",
     blockedTorrents: "Blocked torrents",

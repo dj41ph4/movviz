@@ -7,9 +7,12 @@ export const nl: Dictionary = {
   sidebar: {
     storage: "Bibliotheek",
     importsInProgress: "{n} importen bezig",
+    collapse: "Zijbalk inklappen",
+    expand: "Zijbalk uitklappen",
   },
 
   nav: {
+    home: "Start",
     dashboard: "Dashboard",
     discover: "Ontdekken",
     library: "Bibliotheek",
@@ -44,6 +47,7 @@ export const nl: Dictionary = {
     moviesHint: "Jouw films",
     seriesHint: "Jouw series",
     torrent: "Torrent",
+    torrentSearch: "Torrent zoeken",
     torrentHint: "Doorzoek alle indexers",
     management: "Beheer",
     blockedTorrents: "Geblokkeerde torrents",

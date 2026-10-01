@@ -5534,3 +5534,12 @@ In-app player with automatic Plex transcode fallback, third-party request import
 ## v1.1.50 – v1.1.66 — July 2026
 
 Initial public release: TMDb discovery, Torznab/Newznab indexer search, unified movie/series library, multi-user requests, the built-in BitTorrent engine, and Plex sync — plus early stability and security fixes (session handling, library deduplication, dependency upgrades).
+## v1.25.143 — October 2026
+
+### Sidebar desktop stable et compacte
+
+- La sidebar desktop mémorise désormais son état étendu ou compact (240 px / 76 px) et ne s'ouvre plus au passage de la souris.
+- Les entrées gardent une géométrie de 44 px et un axe d'icône stable ; la navigation est organisée en Accueil, Bibliothèque, Activité et Gestion.
+- Gestion dispose d'un badge agrégé, d'un flyout clavier dans le rail compact et la recherche torrent y est déplacée pour laisser la recherche globale à la Topbar.
+- Les mises à jour ne créent plus de bruit permanent : Réglages affiche uniquement un indicateur lorsqu'une mise à jour est disponible.
+
