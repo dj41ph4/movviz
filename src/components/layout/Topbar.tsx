@@ -62,6 +62,8 @@ export function Topbar() {
         <input
           value={navSearch.value}
           onChange={(e) => navSearch.onChange(e.target.value)}
+          onFocus={navSearch.onFocus}
+          onBlur={navSearch.onBlur}
           placeholder={t("discover.searchPlaceholder")}
           aria-label={t("common.searchEverything")}
           // type="search" + autoComplete="off" — the ONLY visible text input

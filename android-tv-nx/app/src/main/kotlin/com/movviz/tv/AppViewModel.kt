@@ -324,6 +324,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     val searchState: StateFlow<SearchState> = _searchState.asStateFlow()
     private var searchJob: Job? = null
     private var searchRequestId = 0L
+    private var activeSearchKey: String? = null
 
     // File de téléchargement en cours (moteur BitTorrent intégré) — le cœur
     // de Movviz n'est pas que la lecture mais aussi le téléchargement, donc
@@ -1626,21 +1627,28 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     fun streamUrl(plexRatingKey: String): String? =
         repository?.streamUrl(plexRatingKey)
 
-    /** Recherche déclenchée explicitement (validation clavier), pas en
-     *  live-typing — le clavier virtuel Android TV rend la saisie lente et
-     *  saccadée, une requête par caractère serait à la fois inutile et
-     *  visuellement agaçante (résultats qui sautent en permanence). */
+    /** Cancel an obsolete request immediately, before the UI debounce. */
+    fun invalidateSearch() {
+        searchJob?.cancel()
+        searchRequestId++
+        activeSearchKey = null
+        _searchResults.value = emptyList()
+        _searchState.value = SearchState.Idle
+        _searching.value = false
+    }
+
+    /** Search starts after the UI debounce or on explicit IME submission. */
     fun search(query: String, type: String? = null) {
         val repo = repository
         if (repo == null || query.isBlank()) {
-            searchJob?.cancel()
-            searchRequestId++
-            _searchResults.value = emptyList()
-            _searchState.value = SearchState.Idle
-            _searching.value = false
+            invalidateSearch()
             return
         }
         val normalizedQuery = query.trim()
+        val searchKey = "$normalizedQuery:${type.orEmpty()}"
+        if (activeSearchKey == searchKey &&
+            (_searchState.value is SearchState.Loading || _searchState.value is SearchState.Success || _searchState.value is SearchState.Empty)) return
+        activeSearchKey = searchKey
         val requestId = ++searchRequestId
         searchJob?.cancel()
         _searching.value = true

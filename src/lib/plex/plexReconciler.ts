@@ -229,8 +229,8 @@ export function applyReconcileDecision(input: ReconcileInput, result: ReconcileR
   const canon = input.canonicalIdentity;
   const at = input.currentPlexObserved?.lastViewedAt ?? input.currentPlexObserved?.observedAt ?? Date.now();
   const source: WatchSource = "plex_history"; // observer-sourced, but represents watch state – use plex_history for compatibility with existing LWW
-  // Use a deterministic sourceEventId for de-duplication: plex:<machine>:<ratingKey>:<observedState>
-  const sourceEventId = `plex:state:${input.machineIdentifier}:${input.ratingKey}:${result.newCanonicalState}:${at}`;
+  // The ledger deduplicates globally: personal observations must include userId.
+  const sourceEventId = `plex:state:${input.userId}:${input.machineIdentifier}:${input.ratingKey}:${result.newCanonicalState}:${at}`;
 
   const res = applyWatchDecision({
     userId: input.userId,

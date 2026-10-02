@@ -239,12 +239,30 @@ function applyWatchDecisionTx(
       title: input.title ?? null,
       occurredAt: input.occurredAt,
     });
-    if (!inserted) return duplicate;
-
     const key = stateKeyFor(input);
     const row = db.prepare(
       "SELECT watched, watched_updated_at, watched_source, watched_event_id, watched_revision FROM user_media_state WHERE state_key = ?"
     ).get(key) as CurrentWatchRow | undefined;
+    if (!inserted) {
+      // Older imports could leave an event in the ledger without its current
+      // watched projection. A retry must repair that exact event, otherwise
+      // the import reports success forever while the title stays unwatched.
+      // Never replay another person's event or overrule a newer decision.
+      const recorded = db.prepare(`
+        SELECT user_id, event_type, tmdb_id, media_type, season_number, episode_number, occurred_at
+        FROM context_events WHERE source = ? AND source_event_id = ?
+      `).get(input.source, sourceEventId) as {
+        user_id: string; event_type: string; tmdb_id: number; media_type: string;
+        season_number: number | null; episode_number: number | null; occurred_at: number;
+      } | undefined;
+      if (!recorded || recorded.user_id !== input.userId || recorded.tmdb_id !== input.tmdbId ||
+          recorded.media_type !== input.mediaType || recorded.season_number !== (input.seasonNumber ?? null) ||
+          recorded.episode_number !== (input.episodeNumber ?? null) || recorded.occurred_at !== input.occurredAt ||
+          recorded.event_type !== (input.state === "watched" ? "watched_marked" : "watched_unmarked") ||
+          (row?.watched_updated_at != null && row.watched_updated_at >= input.occurredAt)) {
+        return duplicate;
+      }
+    }
 
     const previousState: WatchCurrentState = !row || row.watched_updated_at == null
       ? "unknown"

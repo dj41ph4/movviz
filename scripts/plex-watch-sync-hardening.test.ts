@@ -1,7 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatCanonical } from "@/lib/plex/mediaIdentityMap";
-import { resolvedEpisodeCanonical } from "@/lib/plex/episodeResolver";
+import { resolvedEpisodeCanonical, resolveMovie } from "@/lib/plex/episodeResolver";
+import type { PlexUserContext } from "@/lib/plex/plexUserContext";
+
+test("deleted movie history retains its exact TMDB identity without owner viewCount", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new Error("must_not_read_owner_state"); }) as typeof fetch;
+  try {
+    const result = await resolveMovie({ serverToken: "personal-token", machineIdentifier: "machine" } as PlexUserContext,
+      { type: "movie", Guid: [{ id: "tmdb://42" }] });
+    assert.deepEqual(result.canonical, { type: "movie", tmdbId: 42 });
+    assert.equal(result.reason, "RESOLVED_GUID");
+  } finally { globalThis.fetch = originalFetch; }
+});
 
 test("un résultat épisode UNRESOLVED ne fournit jamais de canonical", () => {
   const result = resolvedEpisodeCanonical({

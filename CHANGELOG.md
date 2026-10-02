@@ -1,3 +1,12 @@
+## v1.25.149 — Octobre 2026
+
+### Vues Plex et recherche
+
+- Les observations Plex sont dédupliquées par utilisateur et les anciens événements sans état vu peuvent être réparés sans écraser une décision plus récente.
+- Les associations de comptes refusent les noms ambigus et le compte de liaison ne sert jamais de repli pour un profil partagé. Les historiques complets sont repris une fois puis rattrapés par pages, sans plafond total de vues.
+- L'import d'un ancien compte vérifie désormais les états réellement enregistrés avant d'annoncer sa réussite.
+- La recherche web conserve la frappe pendant les navigations et annule les réponses obsolètes. Android mobile et TV protègent aussi les recherches de titres et de personnes contre les réponses tardives et les appels redondants.
+
 ## v1.25.148 — Octobre 2026
 
 ### Indexeur YGGReborn

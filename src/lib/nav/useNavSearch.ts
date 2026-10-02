@@ -17,6 +17,7 @@ export function useNavSearch() {
   const router = useRouter();
   const [value, setValue] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusedRef = useRef(false);
 
   // Keeps the box empty once the user has left Découverte (a stale leftover
   // query would be confusing back on the dashboard), picks up a bookmarked/
@@ -24,22 +25,17 @@ export function useNavSearch() {
   // sync with Découverte's own resets (Réinitialiser, switching Films/
   // Séries) that clear `q` without a pathname change of their own.
   useEffect(() => {
-    setValue(pathname === "/discover" ? (searchParams.get("q") ?? "") : "");
-    // Cancel any debounced router.push still pending from a keystroke typed
-    // just before this navigation (Topbar/Sidebar — and this hook with them
-    // — never unmount on a route change, since AppShell only swaps the
-    // `children` under the persistent chrome). Without this, clicking
-    // straight to another page (e.g. the profile menu item) right after
-    // typing in the search box lets that stale timer fire up to 300ms
-    // later and silently router.push("/discover?q=...") the user right
-    // back, overriding the navigation they just made (confirmed live:
-    // reported as "going to profile types my username in search and
-    // returns me to /discover?q=<username>").
-    if (debounceRef.current) {
+    // An older router.push may settle while the user is still typing. Never
+    // copy that older URL into the controlled input and discard new letters.
+    if (pathname !== "/discover" || !focusedRef.current) {
+      setValue(pathname === "/discover" ? (searchParams.get("q") ?? "") : "");
+    }
+    // Leaving Découverte cancels a pending search navigation. URL changes
+    // while staying on Découverte must not cancel the user's next keystroke.
+    if (debounceRef.current && pathname !== "/discover") {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams]);
 
   const onChange = (next: string) => {
@@ -50,5 +46,10 @@ export function useNavSearch() {
     }, 300);
   };
 
-  return { value, onChange };
+  return {
+    value,
+    onChange,
+    onFocus: () => { focusedRef.current = true; },
+    onBlur: () => { focusedRef.current = false; },
+  };
 }

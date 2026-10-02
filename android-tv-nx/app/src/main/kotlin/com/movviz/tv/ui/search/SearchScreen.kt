@@ -135,11 +135,12 @@ fun SearchScreen(
     }
 
     var typeFilter by remember { mutableStateOf(SearchTypeFilter.ALL) }
-    LaunchedEffect(query, typeFilter) {
+    LaunchedEffect(query) {
+        viewModel.invalidateSearch()
         if (query.isBlank()) {
             focusedTmdbId = null
             focusedType = null
-        } else { delay(350); viewModel.search(query, typeFilter.apiType) }
+        } else { delay(350); viewModel.search(query) }
     }
 
     val filteredResults = remember(results, typeFilter) {
@@ -197,7 +198,7 @@ fun SearchScreen(
                     fieldFocused,
                     { fieldFocused = it },
                     onQueryChange,
-                    { viewModel.search(query, typeFilter.apiType) },
+                    { viewModel.search(query) },
                     Modifier.width(323.dp),
                     resultFocusRequester,
                     if (mergedResults.isNotEmpty()) firstResultFocusRequester else null,

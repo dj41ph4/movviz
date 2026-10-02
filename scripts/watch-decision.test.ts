@@ -6,7 +6,26 @@ import os from "node:os";
 import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import { getUserContextHealth } from "@/lib/userContext/database";
-import { applyWatchDecision } from "@/lib/userContext/watchBridge";
+import { applyWatchDecision, getCurrentWatchStateAt } from "@/lib/userContext/watchBridge";
+import { recordUserContextEvent } from "@/lib/userContext/ingest";
+import { applyReconcileDecision, type ReconcileInput } from "@/lib/plex/plexReconciler";
+
+test("identical Plex observations are projected independently for two users", (t) => {
+  if (skipIfNoDb(t)) return;
+  const first = freshUserId();
+  const second = freshUserId();
+  for (const userId of [first, second]) {
+    const input = {
+      userId, canonicalIdentity: { type: "movie", tmdbId: 912 },
+      machineIdentifier: "shared-machine", ratingKey: "shared-rating-key",
+      currentCanonicalState: "unknown", currentCanonicalAt: null,
+      previousPlexObserved: null, isBaseline: true,
+      currentPlexObserved: { userId, machineIdentifier: "shared-machine", ratingKey: "shared-rating-key", state: "WATCHED", viewCount: 1, lastViewedAt: 1_700_000_000_000, observedAt: 1_700_000_000_000 },
+    } satisfies ReconcileInput;
+    assert.equal(applyReconcileDecision(input, { decision: "REMOTE_WATCHED", shouldApply: true, newCanonicalState: "watched", reason: "test" }), true);
+    assert.equal(getCurrentWatchStateAt({ userId, tmdbId: 912, mediaType: "movie" }).state, "watched");
+  }
+});
 
 let counter = 0;
 function freshUserId(): string {
@@ -96,6 +115,40 @@ test("le même événement Plex reçu 10 fois ne produit qu'une seule décision 
     else assert.equal(result.reason, "duplicate");
   }
   assert.equal(acceptedCount, 1, "une seule des 10 tentatives doit être acceptée comme nouvelle");
+});
+
+test("un ancien événement importé sans projection watched est réparé au rejeu exact", (t) => {
+  if (skipIfNoDb(t)) return;
+  const userId = freshUserId();
+  const sourceEventId = `orphan:${userId}`;
+  const occurredAt = 1_700_000_000_000;
+  assert.equal(recordUserContextEvent({
+    userId, eventType: "watched_marked", source: "plex_history", sourceEventId,
+    tmdbId: 456, mediaType: "episode", seasonNumber: 2, episodeNumber: 3, occurredAt,
+  }), true);
+  const input = { userId, tmdbId: 456, mediaType: "episode" as const, seasonNumber: 2,
+    episodeNumber: 3, state: "watched" as const, occurredAt, source: "plex_history" as const, sourceEventId };
+  assert.equal(getCurrentWatchStateAt(input).state, "unknown");
+  assert.equal(applyWatchDecision(input).accepted, true);
+  assert.equal(getCurrentWatchStateAt(input).state, "watched");
+  assert.equal(applyWatchDecision(input).reason, "duplicate");
+});
+
+test("un événement journalisé pour un autre utilisateur n'est jamais rejoué", (t) => {
+  if (skipIfNoDb(t)) return;
+  const userA = freshUserId();
+  const userB = freshUserId();
+  const sourceEventId = `cross-user:${userA}`;
+  assert.equal(recordUserContextEvent({
+    userId: userA, eventType: "watched_marked", source: "plex_history", sourceEventId,
+    tmdbId: 457, mediaType: "movie", occurredAt: 1_700_000_000_000,
+  }), true);
+  const attempt = applyWatchDecision({
+    userId: userB, tmdbId: 457, mediaType: "movie", state: "watched", occurredAt: 1_700_000_000_000,
+    source: "plex_history", sourceEventId,
+  });
+  assert.equal(attempt.accepted, false);
+  assert.equal(getCurrentWatchStateAt({ userId: userB, tmdbId: 457, mediaType: "movie" }).state, "unknown");
 });
 
 test("isolation multi-utilisateur : l'état de l'utilisateur A n'a aucun impact sur B", (t) => {

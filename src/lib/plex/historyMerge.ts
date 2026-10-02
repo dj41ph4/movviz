@@ -26,6 +26,9 @@ export interface HistoryMergeReport {
   overriddenUnwatched: number;
   /** In progress for the target (« Reprendre »): left untouched. */
   skippedInProgress: number;
+  /** Actual persisted watched states, populated only for an applied run. */
+  confirmedWatched: number | null;
+  notApplied: number | null;
   examples: string[];
 }
 
@@ -106,7 +109,8 @@ export async function mergePlexAccountHistory(input: { fromLocalAccountId: numbe
   );
   const report: HistoryMergeReport = {
     dryRun: input.dryRun, target: user.username, sourceEntries: entries.length, unresolved,
-    titles: latest.size, added: 0, alreadyWatched: 0, overriddenUnwatched: 0, skippedInProgress: 0, examples: [],
+    titles: latest.size, added: 0, alreadyWatched: 0, overriddenUnwatched: 0, skippedInProgress: 0,
+    confirmedWatched: null, notApplied: null, examples: [],
   };
   const movieWrites: { tmdbId: number; title: string; at: number }[] = [];
   const episodeWrites = new Map<number, { title: string; entries: { tmdbId: number; season: number; episode: number; watchedAt: number }[] }>();
@@ -135,15 +139,27 @@ export async function mergePlexAccountHistory(input: { fromLocalAccountId: numbe
   }
   if (input.dryRun) return report;
 
+  report.confirmedWatched = 0;
+  report.notApplied = 0;
+  const confirm = (canonical: Canonical): void => {
+    const current = getCurrentWatchStateAt(canonical.type === "movie"
+      ? { userId: user.id, tmdbId: canonical.tmdbId, mediaType: "movie" }
+      : { userId: user.id, tmdbId: canonical.tmdbShowId, mediaType: "episode", seasonNumber: canonical.seasonNumber, episodeNumber: canonical.episodeNumber });
+    if (current.state === "watched") report.confirmedWatched = (report.confirmedWatched ?? 0) + 1;
+    else report.notApplied = (report.notApplied ?? 0) + 1;
+  };
+
   // 4) Write — source "plex_history": never propagated back to Plex. One
   // call per series (not per episode), yielding between them so a large
   // history never freezes the server.
   for (const movie of movieWrites) {
     setWatchedMovies(user.id, [movie.tmdbId], true, movie.title, movie.at, "plex_history");
+    confirm({ type: "movie", tmdbId: movie.tmdbId });
     await new Promise((resolve) => setImmediate(resolve));
   }
   for (const group of episodeWrites.values()) {
     setWatchedEpisodes(user.id, group.entries, true, group.title, "plex_history");
+    for (const episode of group.entries) confirm({ type: "episode", tmdbShowId: episode.tmdbId, seasonNumber: episode.season, episodeNumber: episode.episode });
     await new Promise((resolve) => setImmediate(resolve));
   }
   return report;

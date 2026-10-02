@@ -5,7 +5,7 @@ import { getPlexAccount, getPlexHomeUsers, getLocalAccounts, getPlexServerAccess
 import type { PlexServerConfig } from "./types";
 import { getUserById, updateUser } from "@/lib/auth/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { getBinding, upsertBinding, type BindingSource } from "./plexBindingStore";
+import { getAllBindings, getBinding, upsertBinding, type BindingSource, type PlexAccountBinding } from "./plexBindingStore";
 
 /**
  * Runtime context for ONE Movviz user against ONE Plex Media Server.
@@ -61,6 +61,35 @@ function ctxLocks(): Map<string, Promise<ResolveResult>> {
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** Match a shared Plex account to a PMS history account without using a
+ * display name alone when that name is duplicated (renamed/deleted profiles
+ * can both remain in /accounts). A matching numeric id is accepted only when
+ * it does not contradict an unambiguous name or an existing binding. */
+export function selectSharedLocalAccount(
+  accounts: { id: number; name: string }[],
+  cloudId: string,
+  shareUsername: string,
+  binding: PlexAccountBinding | null,
+): { id: number; name: string } | null {
+  const cloudNumber = Number(cloudId);
+  const byId = Number.isSafeInteger(cloudNumber) && cloudNumber > 1
+    ? accounts.find((account) => account.id === cloudNumber) ?? null
+    : null;
+  const byName = accounts.filter((account) => account.id > 1 && account.name.trim().localeCompare(shareUsername.trim(), undefined, { sensitivity: "base" }) === 0);
+  const uniqueName = byName.length === 1 ? byName[0] : null;
+  const bound = binding?.plexAccountId === cloudId
+    ? accounts.find((account) => account.id > 1 && account.id === binding.localAccountId) ?? null
+    : null;
+  if (byId && uniqueName && byId.id !== uniqueName.id) return null;
+  if (byId && bound && byId.id !== bound.id) return null;
+  if (byId) return byId;
+  if (uniqueName && bound && uniqueName.id !== bound.id) return null;
+  if (uniqueName) return uniqueName;
+  // A deliberate admin-confirmed binding survives a Plex display-name
+  // change; an old automatic binding must not silently win an ambiguity.
+  return binding?.bindingSource === "MANUAL_CONFIRMED" ? bound : null;
+}
 
 export function fingerprintToken(token: string): string {
   return createHash("sha256").update(token).digest("hex").slice(0, 8);
@@ -123,7 +152,7 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
 
   // Check existing binding first (§6)
   const existingBinding = getBinding(user.id, machineIdentifier);
-  if (existingBinding) {
+  if (existingBinding && (isOwnerAccount(user, cfg) || (!!user.plexManagedUserId && existingBinding.localAccountId > 1 && existingBinding.plexManagedUserId === user.plexManagedUserId))) {
     // Validate that binding's localAccount still exists and token still works
     const localAccounts = await getLocalAccounts(cfg, cfg.adminToken);
     const stillExists = localAccounts.find((a) => a.id === existingBinding.localAccountId);
@@ -195,9 +224,10 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
     }
 
     const localAccounts = await getLocalAccounts(cfg, cfg.adminToken);
-    const local = plexTitle
-      ? localAccounts.find((a) => a.name.trim().localeCompare(plexTitle!.trim(), undefined, { sensitivity: "base" }) === 0)
-      : undefined;
+    const localMatches = plexTitle
+      ? localAccounts.filter((a) => a.id > 1 && a.name.trim().localeCompare(plexTitle.trim(), undefined, { sensitivity: "base" }) === 0)
+      : [];
+    const local = localMatches.length === 1 ? localMatches[0] : undefined;
     if (!local) {
       recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexManagedUserId=${user.plexManagedUserId} title=${plexTitle ?? "-"} status=unresolved reason=local_account_missing server=${machineIdentifier.slice(0,8)} localAccounts=${localAccounts.map((a)=>a.name).join(",")}`);
       return { ok: false, reason: `${user.username} (managed ${user.plexManagedUserId}): local account not found for title ${plexTitle ?? "?"}`, code: "NO_LOCAL_BINDING" };
@@ -288,23 +318,25 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
     }
     // RÈGLE ABSOLUE : un share valide + accessToken valide = RESOLVED, même
     // sans localAccountId. Le local n'est résolu qu'en second temps, dans
-    // l'ordre : 1. binding existant confirmé, 2. EXACT share.username ==
-    // PMS /accounts name, 3. sinon null (history indisponible, snapshot OK).
+    // par identifiant concordant ou nom exact unique, sans contradiction
+    // avec le binding. Sinon history indisponible, jamais de snapshot partagé.
     // Jamais de fuzzy, de first-account, d'owner ou d'id 1 par défaut.
     const existingShareBinding = getBinding(user.id, machineIdentifier);
     const localAccounts = await getLocalAccounts(cfg, cfg.adminToken);
-    const confirmedLocal = existingShareBinding
-      ? localAccounts.find((a) => a.id === existingShareBinding.localAccountId) ?? null
-      : null;
-    const exactLocal = localAccounts.find((a) => a.name.trim().localeCompare(share.username.trim(), undefined, { sensitivity: "base" }) === 0) ?? null;
-    const local = confirmedLocal ?? exactLocal;
+    const selected = selectSharedLocalAccount(localAccounts, user.plexId, share.username, existingShareBinding);
+    // A PMS-local history account may be bound to only one active Movviz
+    // identity. This also prevents a deleted/recreated profile sharing a name
+    // with the live account from leaking its old views into the new user.
+    const occupied = selected != null && getAllBindings().some((b) =>
+      b.machineIdentifier === machineIdentifier && b.movvizUserId !== user.id && b.localAccountId === selected.id);
+    const local = occupied ? null : selected;
     if (!local) {
       recordSearchLog("info", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} username=${share.username} status=resolved_no_local localAccounts=${localAccounts.map((a) => a.name).join(",")} historyAvailable=false`);
     }
     // Share accessToken first (it IS this user's PMS credential); cached
     // plexServerToken (previously persisted from a share) as fallback.
     let serverToken = share.accessToken ?? user.plexServerToken ?? null;
-    if (!serverToken) {
+    if (!serverToken || serverToken === cfg.adminToken) {
       recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} share=${share.shareId} accepted=${share.accepted} status=unresolved reason=no_share_access_token`);
       return { ok: false, reason: `${user.username}: share has no access token (invite pending?) and no cached server token`, code: "NO_SERVER_ACCESS" };
     }
@@ -315,7 +347,7 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
       invalidatePlexUserContext(user.id);
       const fresh = await getSharedServers(cfg.clientId, cfg.adminToken, machineIdentifier);
       const freshToken = fresh?.find((s) => s.userId === user.plexId)?.accessToken ?? null;
-      if (!freshToken || !(await validatePlexServerToken(cfg, freshToken))) {
+      if (!freshToken || freshToken === cfg.adminToken || !(await validatePlexServerToken(cfg, freshToken))) {
         recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexId=${user.plexId} status=unresolved reason=share_token_invalid`);
         return { ok: false, reason: `${user.username}: share access token invalid`, code: "TOKEN_FAILED" };
       }

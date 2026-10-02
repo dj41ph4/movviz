@@ -93,6 +93,13 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   // Rebuild Plex path. Catch-all may split "video" / ":" / "transcode" / ...
   const plexPath = "/" + path.map((p) => decodeURIComponent(p)).join("/");
+  // This endpoint injects the liaison token for playback. Never expose its
+  // personal history/account or state-changing API to another Movviz user.
+  const normalizedPath = new URL(plexPath, "http://plex.invalid").pathname;
+  if (user.role !== "admin" && !/^\/(?:video|library\/parts|photo)\//.test(normalizedPath)
+    && !/^\/library\/metadata\/[^/]+\/(?:thumb|art)(?:\/|$)/.test(normalizedPath)) {
+    return NextResponse.json({ error: "plex_proxy_path_forbidden" }, { status: 403 });
+  }
   const qs = new URLSearchParams(req.nextUrl.searchParams);
   // Never trust client-supplied token — always inject ours
   qs.delete("X-Plex-Token");

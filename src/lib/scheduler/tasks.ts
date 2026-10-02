@@ -11,6 +11,7 @@ import { purgeExpiredSessions, loadUsers } from "@/lib/auth/store";
 import { emitNotification } from "@/lib/notifications/store";
 import { syncPlexLibrary } from "@/lib/plex/librarySync";
 import { syncUserWatchStatus } from "@/lib/plex/watchSync";
+import { getBootstrapState } from "@/lib/plex/plexHistoryBootstrap";
 import { loadPlexConfig, plexConfigured } from "@/lib/plex/store";
 import { refreshLibraryMetadata } from "@/lib/library/metadataRefresh";
 import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
@@ -228,6 +229,25 @@ export const TASKS: ScheduledTask[] = [
       // Full history bootstrap can involve thousands of events per user and must
       // not monopolize the process with 15 parallel full scans. Keep at most
       // one full bootstrap at a time (owner snapshot is cheap, history is not).
+      await mapWithConcurrency(users, 1, (user) => syncUserWatchStatus(user));
+    },
+  },
+  {
+    id: "plex-watch-bootstrap",
+    name: "Rattrapage de l'historique Plex complet",
+    intervalMs: 5 * 60 * 1000,
+    run: async () => {
+      if (!plexConfigured()) return;
+      const machineIdentifier = loadPlexConfig().machineIdentifier;
+      if (!machineIdentifier) return;
+      // A page is a resource budget, not a history cutoff. Resume unfinished
+      // accounts frequently while leaving regular completed-account polling
+      // at its existing two-hour cadence.
+      const users = loadUsers().filter((user) => {
+        if (!user.plexId && !user.plexManagedUserId) return false;
+        const state = getBootstrapState(user.id, machineIdentifier);
+          return state == null || state.status !== "COMPLETED";
+      });
       await mapWithConcurrency(users, 1, (user) => syncUserWatchStatus(user));
     },
   },

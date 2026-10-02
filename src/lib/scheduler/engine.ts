@@ -73,6 +73,7 @@ const TASK_JOB_TYPE: Record<string, JobType> = {
   "plex-watchlist-sync": "plexWatchlistSync",
   "plex-library-sync": "plexLibrarySync",
   "plex-watch-sync": "plexWatchlistSync",
+  "plex-watch-bootstrap": "plexWatchlistSync",
   "plex-full-reconcile": "plexLibrarySync",
   "release-day-search": "rssScan",
   "metadata-refresh": "metadataRefresh",

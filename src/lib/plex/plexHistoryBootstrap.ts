@@ -9,7 +9,7 @@ const CONFIG_DIR =
 const FILE = path.join(CONFIG_DIR, "plex-history-bootstrap.json");
 
 export type PlexHistoryBootstrapState = {
-  version: 2;
+  version: 3;
   status: "PENDING" | "RUNNING" | "COMPLETED" | "ERROR";
   startedAt: number | null;
   completedAt: number | null;
@@ -39,15 +39,15 @@ function migrateIfNeeded(raw: Record<string, unknown>): Shape {
   for (const [k, v] of Object.entries(raw)) {
     if (!v || typeof v !== "object") continue;
     const o = v as Record<string, unknown>;
-    // V2 is the only compatible shape: V1 currentStart indexed a local
-    // deduplicated array, V2 indexes the Plex source directly.
-    if (o.version === 2 && "status" in o) {
+    // V3 replays historical observations once after user-scoped ledger IDs
+    // and orphan projection repair. It resets only cursors, never watch state.
+    if (o.version === 3 && "status" in o) {
       out[k] = o as unknown as PlexHistoryBootstrapState;
       continue;
     }
-    // V1 offsets are incompatible and are intentionally reset once.
+    // Older runs may have completed without projecting their personal views.
     out[k] = {
-      version: 2,
+      version: 3,
       status: "PENDING",
       startedAt: null,
       completedAt: null,
@@ -99,7 +99,7 @@ export function ensureBootstrapPending(userId: string, machineIdentifier: string
   const k = key(userId, machineIdentifier);
   if (!shape[k]) {
     shape[k] = {
-      version: 2,
+      version: 3,
       status: "PENDING",
       startedAt: null,
       completedAt: null,
@@ -125,7 +125,7 @@ export function startBootstrap(userId: string, machineIdentifier: string, totalE
   const k = key(userId, machineIdentifier);
   const now = Date.now();
   shape[k] = {
-    version: 2,
+    version: 3,
     status: "RUNNING",
     startedAt: shape[k]?.startedAt ?? now,
     completedAt: null,
@@ -204,7 +204,7 @@ export function resetBootstrapForUser(userId: string, machineIdentifier: string)
   const shape = readStore();
   const k = key(userId, machineIdentifier);
   shape[k] = {
-    version: 2,
+    version: 3,
     status: "PENDING",
     startedAt: null,
     completedAt: null,

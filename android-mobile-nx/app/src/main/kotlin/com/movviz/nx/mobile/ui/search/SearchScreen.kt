@@ -147,6 +147,7 @@ fun SearchScreen(
     }
 
     LaunchedEffect(query) {
+        viewModel.invalidateSearch()
         if (query.isBlank()) {
             focusedTmdbId = null
             focusedType = null
@@ -399,8 +400,9 @@ private fun PortraitSearchScreen(
         recentSearches = (listOf(term) + recentSearches.filterNot { it.equals(term, ignoreCase = true) }).take(8)
     }
 
-    LaunchedEffect(Unit) { viewModel.loadDiscovery() }
-    LaunchedEffect(query, typeFilter) {
+    LaunchedEffect(Unit) { viewModel.loadSearchTrending() }
+    LaunchedEffect(query, typeFilter == PortraitSearchTypeFilter.ACTOR) {
+        viewModel.invalidateSearch()
         if (query.isBlank()) return@LaunchedEffect
         delay(350)
         if (typeFilter == PortraitSearchTypeFilter.ACTOR) viewModel.searchPeople(query) else viewModel.search(query)
@@ -444,7 +446,10 @@ private fun PortraitSearchScreen(
                             textStyle = TextStyle(fontSize = 14.sp, color = Color.White),
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { commitSearch(query); viewModel.search(query) }),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                commitSearch(query)
+                                if (typeFilter == PortraitSearchTypeFilter.ACTOR) viewModel.searchPeople(query) else viewModel.search(query)
+                            }),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

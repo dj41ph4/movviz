@@ -48,7 +48,11 @@ export async function POST(req: NextRequest) {
   const job: MergeJob = { id: `merge_${Date.now().toString(36)}`, fromLocalAccountId, toUsername, apply, status: "running", startedAt: Date.now() };
   jobs.set(job.id, job);
   mergePlexAccountHistory({ fromLocalAccountId, toUserId: target.id, dryRun: !apply })
-    .then((report) => { job.status = "done"; job.report = report; })
+    .then((report) => {
+      job.report = report;
+      job.status = report.notApplied ? "failed" : "done";
+      if (report.notApplied) job.error = `import_incomplete:${report.notApplied}_not_watched`;
+    })
     .catch((e: unknown) => { job.status = "failed"; job.error = (e as Error).message; })
     .finally(() => { job.finishedAt = Date.now(); });
   return NextResponse.json({ id: job.id, status: job.status }, { status: 202 });

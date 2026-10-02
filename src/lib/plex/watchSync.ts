@@ -76,6 +76,9 @@ function lastSnapshotMap(): Map<string, number> {
   return (gSnapshot.__movvizPlexLastSnapshot ??= new Map());
 }
 const SNAPSHOT_MIN_INTERVAL_MS = 30 * 60 * 1000; // 30 min – full snapshot stays infrequent (§5)
+// A page is a resumable unit, never a lifetime limit. The scheduler's
+// bootstrap catch-up task keeps requesting pages until the full source is done.
+const BOOTSTRAP_PAGE_SIZE = 200;
 const HISTORY_TARGETED_VERIFY_LIMIT = 20; // max targeted verifies per history poll to avoid spike
 const QUICK_VERIFY_MIN_INTERVAL_MS = 2 * 60 * 1000; // 2 min – recent/known media re-check (§5)
 const QUICK_VERIFY_LIMIT = 30; // one batched call, cheap
@@ -526,15 +529,15 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
     if (bootstrapNeeded && bootstrapState) {
       if (bootstrapState.status === "PENDING") {
         const newest = await pollHistory(ctx, { start: 0, size: 1, sortDirection: "desc" });
-        const firstPage = await pollHistory(ctx, { start: 0, size: 100, sortDirection: "asc" });
+        const firstPage = await pollHistory(ctx, { start: 0, size: BOOTSTRAP_PAGE_SIZE, sortDirection: "asc" });
         bootstrapUpperBound = newest.entries[0]?.viewedAt ?? null;
         bootstrapState = startBootstrap(user.id, ctx.machineIdentifier, firstPage.totalSize, bootstrapUpperBound);
         historyRes = firstPage;
-        recordSearchLog("info", "plex.history", `plex.history bootstrap v2 start user=${user.username} sourceTotal=${firstPage.totalSize} upperBound=${bootstrapUpperBound ?? "none"} pageSize=100 sort=asc`);
+        recordSearchLog("info", "plex.history", `plex.history bootstrap v3 start user=${user.username} sourceTotal=${firstPage.totalSize} upperBound=${bootstrapUpperBound ?? "none"} pageSize=${BOOTSTRAP_PAGE_SIZE} sort=asc`);
       } else {
         // Stored before history dates were converted: may still be seconds.
         bootstrapUpperBound = plexTimeToMs(bootstrapState.upperBoundViewedAt) ?? null;
-        historyRes = await pollHistory(ctx, { start: bootstrapState.currentStart, size: 100, sortDirection: "asc" });
+        historyRes = await pollHistory(ctx, { start: bootstrapState.currentStart, size: BOOTSTRAP_PAGE_SIZE, sortDirection: "asc" });
       }
       bootstrapBatchStart = bootstrapState.currentStart;
       bootstrapBatchCount = historyRes.rawPageCount;
@@ -638,12 +641,13 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
             guid: entry.guid,
             Guid: entry.Guid,
           });
-          if (movieResolved.status !== "RESOLVED" || !movieResolved.canonical || !movieResolved.ratingKey) {
+          if (movieResolved.status !== "RESOLVED" || !movieResolved.canonical || (ctx.authSource === "owner" && !movieResolved.ratingKey)) {
             historyUnresolved++;
             recordSearchLog("warn", "plex.watchSync", `plex.watchSync movie unresolved user=${user.username} ratingKey=${entry.ratingKey ?? "none"} title=${entry.title ?? "?"} reason=${movieResolved.reason}`);
             continue;
           }
           canonical = movieResolved.canonical;
+          verifyKey = movieResolved.ratingKey;
           title = entry.title ?? null;
         } else if (entry.type === "episode") {
           const raw = {
@@ -659,7 +663,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
             grandparentKey: entry.grandparentRatingKey ? `/library/metadata/${entry.grandparentRatingKey}` : undefined,
             accountID: entry.accountId,
           };
-          const resolved = await resolveEpisode(ctx, raw, { requireRatingKey: true });
+          const resolved = await resolveEpisode(ctx, raw, { requireRatingKey: ctx.authSource === "owner" });
           if (resolved.status !== "RESOLVED" || !resolved.canonical) {
             historyUnresolved++;
             recordSearchLog("warn", "plex.watchSync", `plex.watchSync episode unresolved user=${user.username} ratingKey=${entry.ratingKey ?? "none"} show=${entry.grandparentTitle ?? "?"} S${entry.season ?? "?"}E${entry.episode ?? "?"} reason=${resolved.reason} sample=${JSON.stringify(resolved.sample ?? raw).slice(0,500)}`);
@@ -683,6 +687,14 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         } else continue;
 
         if (!canonical) continue;
+        // Personal history remains valid when the original Plex item was
+        // removed. The synthetic key is only an observer identity, never an
+        // endpoint for reading another account's current watch state.
+        if (!verifyKey && ctx.authSource !== "owner") {
+          verifyKey = canonical.type === "movie"
+            ? `history:movie:${canonical.tmdbId}`
+            : `history:episode:${canonical.tmdbShowId}:${canonical.seasonNumber}:${canonical.episodeNumber}`;
+        }
         historyResolved++;
         if (!verifyKey) {
           recordSearchLog("warn", "plex.watchSync", `plex.watchSync no verifyKey user=${user.username} show=${entry.grandparentTitle ?? "?"} S${entry.season ?? "?"}E${entry.episode ?? "?"} – cannot verify, skipping`);
@@ -799,6 +811,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
       if (bootstrapNeeded && bootstrapState) {
         const eligibleTotal = bootstrapState.expectedTotal ?? bootstrapEligibleTotal;
         const nextCursor = bootstrapBatchStart + bootstrapBatchCount;
+        updateBootstrapProgress(user.id, ctx.machineIdentifier, bootstrapState.processedEvents + bootstrapBatchCount, bootstrapState.resolvedEvents + historyResolved, bootstrapState.unresolvedEvents + historyUnresolved, nextCursor, bootstrapState.errorEvents + historyErrors, eligibleTotal);
         if (bootstrapBatchCount === 0 || nextCursor >= eligibleTotal) {
           completeBootstrap(user.id, ctx.machineIdentifier);
           bootstrapCompletedThisRun = true;
@@ -807,7 +820,6 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           }
           recordSearchLog("info", "plex.history", `plex.history bootstrap completed user=${user.username} total=${dedupedAll.length} eligible=${eligibleTotal} upperBound=${bootstrapUpperBound}`);
         } else {
-          updateBootstrapProgress(user.id, ctx.machineIdentifier, bootstrapState.processedEvents + bootstrapBatchCount, bootstrapState.resolvedEvents + historyResolved, bootstrapState.unresolvedEvents + historyUnresolved, nextCursor, bootstrapState.errorEvents + historyErrors, eligibleTotal);
           recordSearchLog("info", "plex.history", `plex.history bootstrap page user=${user.username} sourceStart=${bootstrapBatchStart} rawFetched=${bootstrapBatchCount} processed=${bootstrapBatchCount} resolved=${historyResolved} unresolved=${historyUnresolved} errors=${historyErrors} nextStart=${nextCursor} progress=${nextCursor}/${eligibleTotal}`);
         }
       }

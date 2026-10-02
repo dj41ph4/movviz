@@ -435,6 +435,12 @@ export async function resolveMovie(
     } catch { /* fall through */ }
   }
 
+  // A removed movie can still carry its exact TMDB identity in history.
+  // This is media identity only, not the liaison account's watch state.
+  const historyTmdb = tmdbIdFromGuids([...(raw.Guid ?? []), ...(raw.guid ? [{ id: raw.guid }] : [])]);
+  if (historyTmdb != null) {
+    return { status: "RESOLVED", canonical: { type: "movie", tmdbId: historyTmdb }, ratingKey: ratingKey || undefined, reason: "RESOLVED_GUID" };
+  }
   const title = raw.title?.trim();
   if (!title) {
     return { status: "UNRESOLVED", reason: "UNRESOLVED_MISSING_TITLE", sample: raw as Record<string, unknown> };

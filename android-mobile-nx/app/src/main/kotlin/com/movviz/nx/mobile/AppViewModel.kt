@@ -316,6 +316,11 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     val searchState: StateFlow<SearchState> = _searchState.asStateFlow()
     private var searchJob: Job? = null
     private var searchRequestId = 0L
+    private var activeSearchQuery: String? = null
+    private var personSearchJob: Job? = null
+    private var personSearchRequestId = 0L
+    private var activePersonQuery: String? = null
+    private var personSearchSucceeded = false
 
     // File de téléchargement en cours (moteur BitTorrent intégré) — le cœur
     // de Movviz n'est pas que la lecture mais aussi le téléchargement, donc
@@ -661,13 +666,26 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
      *  /api/metadata/search, pas une donnée simulée. */
     fun searchPeople(query: String) {
         if (query.isBlank()) {
+            personSearchJob?.cancel()
+            personSearchRequestId++
+            activePersonQuery = null
+            personSearchSucceeded = false
             _personSearchResults.value = emptyList()
             return
         }
-        viewModelScope.launch {
-            when (val result = repository?.searchPeople(query)) {
-                is ApiResult.Success -> _personSearchResults.value = result.data
-                else -> _personSearchResults.value = emptyList()
+        val normalizedQuery = query.trim()
+        if (activePersonQuery == normalizedQuery && (personSearchJob?.isActive == true || personSearchSucceeded)) return
+        activePersonQuery = normalizedQuery
+        personSearchSucceeded = false
+        val requestId = ++personSearchRequestId
+        personSearchJob?.cancel()
+        personSearchJob = viewModelScope.launch {
+            when (val result = repository?.searchPeople(normalizedQuery)) {
+                is ApiResult.Success -> if (requestId == personSearchRequestId) {
+                    _personSearchResults.value = result.data
+                    personSearchSucceeded = true
+                }
+                else -> if (requestId == personSearchRequestId) _personSearchResults.value = emptyList()
             }
         }
     }
@@ -1796,24 +1814,49 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         }
     }
 
+    /** Search empty state needs trends, not the four heavier editorial feeds. */
+    fun loadSearchTrending() {
+        if (_trendingMovies.value.isNotEmpty() && _trendingSeries.value.isNotEmpty()) return
+        val repo = repository ?: return
+        viewModelScope.launch {
+            coroutineScope {
+                val movies = async { repo.trending("movie") }
+                val series = async { repo.trending("series") }
+                when (val result = movies.await()) { is ApiResult.Success -> _trendingMovies.value = result.data; else -> Unit }
+                when (val result = series.await()) { is ApiResult.Success -> _trendingSeries.value = result.data; else -> Unit }
+            }
+        }
+    }
+
     fun streamUrl(plexRatingKey: String): String? =
         repository?.streamUrl(plexRatingKey)
 
-    /** Recherche déclenchée explicitement (validation clavier), pas en
-     *  live-typing — le clavier virtuel Android TV rend la saisie lente et
-     *  saccadée, une requête par caractère serait à la fois inutile et
-     *  visuellement agaçante (résultats qui sautent en permanence). */
+    /** Called immediately when the text changes, before the UI debounce. */
+    fun invalidateSearch() {
+        searchJob?.cancel()
+        searchRequestId++
+        activeSearchQuery = null
+        personSearchJob?.cancel()
+        personSearchRequestId++
+        activePersonQuery = null
+        personSearchSucceeded = false
+        _searchResults.value = emptyList()
+        _personSearchResults.value = emptyList()
+        _searchState.value = SearchState.Idle
+        _searching.value = false
+    }
+
+    /** Search starts after the UI debounce or on explicit IME submission. */
     fun search(query: String) {
         val repo = repository
         if (repo == null || query.isBlank()) {
-            searchJob?.cancel()
-            searchRequestId++
-            _searchResults.value = emptyList()
-            _searchState.value = SearchState.Idle
-            _searching.value = false
+            invalidateSearch()
             return
         }
         val normalizedQuery = query.trim()
+        if (activeSearchQuery == normalizedQuery &&
+            (_searchState.value is SearchState.Loading || _searchState.value is SearchState.Success || _searchState.value is SearchState.Empty)) return
+        activeSearchQuery = normalizedQuery
         val requestId = ++searchRequestId
         searchJob?.cancel()
         _searching.value = true

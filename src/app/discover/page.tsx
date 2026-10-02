@@ -101,6 +101,7 @@ function DiscoverPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState(() => searchParams.get("q") ?? "");
+  const clearingQueryRef = useRef(false);
   const [mediaType, setMediaType] = useState<"movie" | "series">(() => (searchParams.get("type") as "series" | null) ?? "movie");
   // "Pour vous" is a real mixed editorial feed, not a movie tab wearing a
   // different label.  The selected movie/series type remains available for
@@ -162,6 +163,7 @@ function DiscoverPageInner() {
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const browseRequestId = useRef(0);
 
   // Filtre post-search Tout/Films/Séries + tri connu/récent
   const [searchFilter, setSearchFilter] = useState<"all" | "movie" | "series">("all");
@@ -180,10 +182,11 @@ function DiscoverPageInner() {
   // avec Bibliothèque/Collection/Calendrier via useTitlePanel().
   const { titlePanel } = useTitlePanel();
 
-  // Sync filter states to URL for back-button support (immediate for non-q filters, q cleanup).
+  // The topbar owns `q` in the URL. Only the non-text filters are written here;
+  // echoing an older local q back during a route transition loses keystrokes.
   useEffect(() => {
     const p = new URLSearchParams(searchParams.toString());
-    if (!q.trim()) p.delete("q");
+    if (clearingQueryRef.current) p.delete("q");
     if (mediaType !== "movie") p.set("type", mediaType); else p.delete("type");
     if (genre) p.set("genre", genre); else p.delete("genre");
     if (year) p.set("year", year); else p.delete("year");
@@ -197,7 +200,7 @@ function DiscoverPageInner() {
       router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory, router, pathname]);
+  }, [mediaType, genre, year, sort, company, watchProvider, duration, rowCategory, router, pathname]);
 
   // The search box now lives in the nav rail (Sidebar), not on this page —
   // typing there pushes a new `?q=` while this page is already mounted
@@ -208,6 +211,7 @@ function DiscoverPageInner() {
   // false once this effect has caught local state up to the URL.
   useEffect(() => {
     const urlQ = searchParams.get("q") ?? "";
+    if (!urlQ) clearingQueryRef.current = false;
     if (urlQ !== q) setQ(urlQ);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -268,9 +272,19 @@ function DiscoverPageInner() {
   );
   const watchedSet = new Set(watchStatusData?.movies ?? []);
 
+  const clearSearchQuery = () => {
+    setQ("");
+    const p = new URLSearchParams(searchParams.toString());
+    if (!p.has("q")) return;
+    clearingQueryRef.current = true;
+    p.delete("q");
+    const qs = p.toString();
+    router.push(pathname + (qs ? `?${qs}` : ""), { scroll: false });
+  };
+
   const clearFilters = () => {
     setForYou(true);
-    setQ("");
+    clearSearchQuery();
     setGenre("");
     setYear("");
     setSort("popularity.desc");
@@ -294,7 +308,7 @@ function DiscoverPageInner() {
   };
 
   const seeAllRow = (key: string, meta?: RowMeta) => {
-    setQ("");
+    clearSearchQuery();
     setGenre("");
     setYear("");
     setSort("popularity.desc");
@@ -324,7 +338,7 @@ function DiscoverPageInner() {
   // the tab switch instead of being silently dropped.
   const switchMediaType = (mt: "movie" | "series") => {
     setForYou(false);
-    setQ("");
+    clearSearchQuery();
     setGenre("");
     setYear("");
     setSort("popularity.desc");
@@ -370,20 +384,18 @@ function DiscoverPageInner() {
   const minYear = layoutData?.layout?.hero?.minYear ?? null;
   const afterMinYear = (r: { year?: number | null }) => (minYear ? (r.year ?? 0) >= minYear : true);
 
-  // Browse grid — search (debounced) or any filter/tile/row selection, page 1.
+  // The nav input already debounces typing. Cancel obsolete requests as soon
+  // as the URL query changes; another 350 ms here only delays the answer.
   useEffect(() => {
+    const requestId = ++browseRequestId.current;
     if (!configured || !isBrowsing) return;
+    const controller = new AbortController();
     const id = setTimeout(() => {
-      loadPage(1);
-      // Sync q to URL after debounce.
-      const p = new URLSearchParams(searchParams.toString());
-      if (q.trim()) p.set("q", q.trim()); else p.delete("q");
-      const qs = p.toString();
-      if (qs !== searchParams.toString()) {
-        router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
-      }
-    }, q.trim() ? 350 : 0);
-    return () => clearTimeout(id);
+      setResults([]);
+      setPage(1);
+      void loadPage(1, controller.signal, requestId);
+    }, 0);
+    return () => { clearTimeout(id); controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory]);
 
@@ -392,13 +404,15 @@ function DiscoverPageInner() {
   useEffect(() => {
     if (!configured || !q.trim()) { setPersonResults([]); return; }
     const query = q.trim();
+    const controller = new AbortController();
     const id = setTimeout(() => {
-      fetch(`/api/metadata/search?q=${encodeURIComponent(query)}&type=person`, { cache: "no-store" })
+      setPersonResults([]);
+      fetch(`/api/metadata/search?q=${encodeURIComponent(query)}&type=person`, { cache: "no-store", signal: controller.signal })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { results?: MetaPersonSearchResult[] } | null) => setPersonResults(d?.results?.slice(0, 8) ?? []))
-        .catch(() => setPersonResults([]));
-    }, 350);
-    return () => clearTimeout(id);
+        .then((d: { results?: MetaPersonSearchResult[] } | null) => { if (!controller.signal.aborted) setPersonResults(d?.results?.slice(0, 8) ?? []); })
+        .catch(() => { if (!controller.signal.aborted) setPersonResults([]); });
+    }, 0);
+    return () => { clearTimeout(id); controller.abort(); };
   }, [configured, q]);
 
   // When the query is clearly a real person's exact name, replace the
@@ -422,10 +436,11 @@ function DiscoverPageInner() {
     // Heuristique simple : si q est un seul mot et correspond à un docu peu voté, on préfère le titre populaire — on vérifie via un fetch synchrone rapide si besoin, sinon on skip la filmo
     // Ici on skip juste le cas mono-mot peu populaire qui masquerait un titre culte
     if (qLower.split(/\s+/).length === 1 && (exactMatch.popularity ?? 0) < 10) return;
-    fetch(`/api/metadata/person?id=${exactMatch.tmdbId}`, { cache: "no-store" })
+    const controller = new AbortController();
+    fetch(`/api/metadata/person?id=${exactMatch.tmdbId}`, { cache: "no-store", signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { credits?: (MetaSearchResult & { isDirector?: boolean })[] } | null) => {
-        if (!d?.credits) return;
+        if (!d?.credits || controller.signal.aborted) return;
         const sorted = [...d.credits].sort(
           (a, b) => Number(!!b.isDirector) - Number(!!a.isDirector) || b.rating - a.rating
         );
@@ -435,9 +450,10 @@ function DiscoverPageInner() {
         setLoading(false);
       })
       .catch(() => {});
+    return () => controller.abort();
   }, [q, personResults]);
 
-  const loadPage = async (targetPage: number) => {
+  const loadPage = async (targetPage: number, signal?: AbortSignal, requestId = browseRequestId.current) => {
     if (targetPage === 1) setLoading(true); else setLoadingMore(true);
     try {
       let url: string;
@@ -464,8 +480,9 @@ function DiscoverPageInner() {
         }
         url = `/api/metadata/discover?${params.toString()}`;
       }
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, { cache: "no-store", signal });
       const d = res.ok ? await res.json() : { results: [] };
+      if (signal?.aborted || requestId !== browseRequestId.current) return;
       const raw: MetaSearchResult[] = Array.isArray(d.results) ? d.results : [];
       // "See all" of a home carousel (rowCategory) shows the exact same
       // content as the carousel — honor minYear there too. Explicit searches
@@ -478,9 +495,15 @@ function DiscoverPageInner() {
       // Direct/bookmarked "?row=becauseYouWatched:..." load — no click ever
       // set rowCategoryMeta, so the "voir tout" label recovers it here.
       if (targetPage === 1 && d.meta) setRowCategoryMeta(d.meta);
+    } catch (error) {
+      if (signal?.aborted || requestId !== browseRequestId.current) return;
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (targetPage === 1) setResults([]);
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (!signal?.aborted && requestId === browseRequestId.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   };
 
