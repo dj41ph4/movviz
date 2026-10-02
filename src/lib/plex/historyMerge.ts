@@ -1,7 +1,7 @@
 import { getUserById } from "@/lib/auth/store";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
-import { getCurrentWatchStateAt } from "@/lib/userContext/watchBridge";
-import { setWatchedEpisodes, setWatchedMovies } from "./watchStore";
+import { getCanonicalWatchStatus, getCurrentWatchStateAt } from "@/lib/userContext/watchBridge";
+import { getWatchStatus, setWatchedEpisodes, setWatchedMovies } from "./watchStore";
 import { getAccountHistoryPage, type PlexHistoryEntry } from "./client";
 import { resolveEpisode, resolveMovie } from "./episodeResolver";
 import { resolvePlexUserContext } from "./plexUserContext";
@@ -12,6 +12,7 @@ import { getAllBindings } from "./plexBindingStore";
 const SERVER_OWNER_LOCAL_ACCOUNT_ID = 1;
 
 export interface HistoryMergeReport {
+  storage: "sqlite" | "json";
   dryRun: boolean;
   target: string;
   sourceEntries: number;
@@ -48,6 +49,22 @@ type Canonical =
  *   of the recent ones), never marks anything unwatched.
  * dryRun computes the exact same report without writing anything.
  */
+export function getImportWatchState(userId: string, canonical: Canonical, canonicalAvailable: boolean): { state: "watched" | "unwatched" | "unknown"; updatedAt: number | null } {
+  if (canonicalAvailable) return getCurrentWatchStateAt(canonical.type === "movie"
+    ? { userId, tmdbId: canonical.tmdbId, mediaType: "movie" }
+    : { userId, tmdbId: canonical.tmdbShowId, mediaType: "episode", seasonNumber: canonical.seasonNumber, episodeNumber: canonical.episodeNumber });
+  // Match /api/watch-status: JSON is authoritative only when SQLite is
+  // unavailable, never when a healthy canonical store says unknown/unwatched.
+  const legacy = getWatchStatus(userId);
+  if (canonical.type === "movie") {
+    return legacy?.movies.includes(canonical.tmdbId)
+      ? { state: "watched", updatedAt: legacy.movieWatchedAt?.[String(canonical.tmdbId)] ?? null }
+      : { state: "unknown", updatedAt: null };
+  }
+  const episode = legacy?.episodes.find((e) => e.tmdbId === canonical.tmdbShowId && e.season === canonical.seasonNumber && e.episode === canonical.episodeNumber);
+  return episode ? { state: "watched", updatedAt: episode.at ?? null } : { state: "unknown", updatedAt: null };
+}
+
 export async function mergePlexAccountHistory(input: { fromLocalAccountId: number; toUserId: string; dryRun: boolean }): Promise<HistoryMergeReport> {
   const cfg = loadPlexConfig();
   if (!cfg.adminToken) throw new Error("plex_not_connected");
@@ -56,6 +73,7 @@ export async function mergePlexAccountHistory(input: { fromLocalAccountId: numbe
   const ctxRes = await resolvePlexUserContext(user.id);
   if (!ctxRes.ok) throw new Error(`plex_context_unresolved:${ctxRes.reason}`);
   const ctx = ctxRes.ctx;
+  const canonicalAvailable = getCanonicalWatchStatus(user.id) != null;
 
   // Only an orphan account's views may move: never the server owner's (the
   // admin account linking Movviz to Plex), never an account a Movviz user
@@ -108,6 +126,7 @@ export async function mergePlexAccountHistory(input: { fromLocalAccountId: numbe
     listPlaybackProgress(user.id).map((p) => (p.mediaType === "movie" ? `movie:${p.tmdbId}` : `ep:${p.tmdbId}:${p.seasonNumber}:${p.episodeNumber}`)),
   );
   const report: HistoryMergeReport = {
+    storage: canonicalAvailable ? "sqlite" : "json",
     dryRun: input.dryRun, target: user.username, sourceEntries: entries.length, unresolved,
     titles: latest.size, added: 0, alreadyWatched: 0, overriddenUnwatched: 0, skippedInProgress: 0,
     confirmedWatched: null, notApplied: null, examples: [],
@@ -117,9 +136,7 @@ export async function mergePlexAccountHistory(input: { fromLocalAccountId: numbe
   for (const [key, item] of latest) {
     if (inProgress.has(key)) { report.skippedInProgress++; continue; }
     const c = item.canonical;
-    const current = getCurrentWatchStateAt(c.type === "movie"
-      ? { userId: user.id, tmdbId: c.tmdbId, mediaType: "movie" }
-      : { userId: user.id, tmdbId: c.tmdbShowId, mediaType: "episode", seasonNumber: c.seasonNumber, episodeNumber: c.episodeNumber });
+    const current = getImportWatchState(user.id, c, canonicalAvailable);
     let at = item.viewedAt;
     if (current.state === "watched") {
       report.alreadyWatched++; // same call below: rejected as older, only joins the history
@@ -142,9 +159,7 @@ export async function mergePlexAccountHistory(input: { fromLocalAccountId: numbe
   report.confirmedWatched = 0;
   report.notApplied = 0;
   const confirm = (canonical: Canonical): void => {
-    const current = getCurrentWatchStateAt(canonical.type === "movie"
-      ? { userId: user.id, tmdbId: canonical.tmdbId, mediaType: "movie" }
-      : { userId: user.id, tmdbId: canonical.tmdbShowId, mediaType: "episode", seasonNumber: canonical.seasonNumber, episodeNumber: canonical.episodeNumber });
+    const current = getImportWatchState(user.id, canonical, canonicalAvailable);
     if (current.state === "watched") report.confirmedWatched = (report.confirmedWatched ?? 0) + 1;
     else report.notApplied = (report.notApplied ?? 0) + 1;
   };

@@ -1,3 +1,10 @@
+## v1.25.150 — Octobre 2026
+
+### Vérification de l'import Plex
+
+- L'import d'un ancien profil vérifie les vues dans le stockage effectivement utilisé par les clients : SQLite lorsqu'il est disponible, sinon le repli JSON. Il ne confond plus l'absence du moteur SQLite avec l'absence de toutes les vues.
+- Le rapport précise le stockage utilisé et les diagnostics Plex indiquent la disponibilité du moteur de contexte. Le repli JSON reste limité au même utilisateur et n'écrase pas les décisions d'un moteur SQLite disponible.
+
 ## v1.25.149 — Octobre 2026
 
 ### Vues Plex et recherche

@@ -8,6 +8,7 @@ import { getCircuitState } from "@/lib/plex/plexCircuitBreaker";
 import { getHistoryCursor } from "@/lib/plex/plexHistoryObserver";
 import { getBootstrapState } from "@/lib/plex/plexHistoryBootstrap";
 import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
+import { getUserContextHealth } from "@/lib/userContext/database";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getPendingSyncStates } from "@/lib/userContext/syncState";
 import { getSearchLog } from "@/lib/diagnostic/searchLog";
@@ -89,6 +90,9 @@ export async function GET(req: NextRequest) {
   // Global snapshot stats
   const allObserved = getAllObservedStates();
   const global = {
+    watchStorage: getUserContextHealth().database === "ok" ? "sqlite" : "json",
+    contextDatabase: getUserContextHealth().database,
+    contextDatabaseError: getUserContextHealth().lastError,
     machineIdentifier,
     totalObservedEntries: allObserved.length,
     totalUsersWithPlex: users.filter((u) => u.plexId || u.plexManagedUserId).length,
