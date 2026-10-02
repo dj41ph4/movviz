@@ -13,7 +13,8 @@ export type AppEvent =
   | { type: "watch_changed"; userId: string }
   /** The Movviz AI conversation of ONE user changed (new message, card
    *  swapped, « Effacer ») — that user's other devices show it at once. */
-  | { type: "ai_chat_changed"; userId: string };
+  | { type: "ai_chat_changed"; userId: string }
+  | { type: "recommendations_changed"; userId: string };
 
 const BUS_KEY = "__movviz_event_bus__";
 

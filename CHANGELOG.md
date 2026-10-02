@@ -1,3 +1,12 @@
+## v1.25.154 — Octobre 2026
+
+### Suggestions fondées sur tout l'historique
+
+- Tous les titres vus du profil contribuent au bassin de suggestions, sans plafond de 20 titres ni mélange entre utilisateurs. Le classement conserve les notes, les préférences, le consensus entre titres et la diversité.
+- Les suggestions du dashboard, des films et des séries utilisent le même bassin ; Netflix, Disney+ et Prime Video filtrent ce bassin complet selon la disponibilité dans le pays du profil, au lieu de classer un catalogue indépendant.
+- Les relations et les disponibilités publiques sont mises en cache progressivement avec une concurrence limitée. Les rangées web, smartphone et Android TV se rafraîchissent automatiquement à mesure de leur préparation, sans changer les DTO existants.
+- Les titres vus ou rejetés restent exclus. Les nouveautés, les tendances et les rangées éditoriales conservent leur fonctionnement ; les suggestions personnelles ne sont plus complétées artificiellement par les mieux notés génériques.
+
 ## v1.25.153 — Octobre 2026
 
 ### Pause réelle et export d'historique Plex

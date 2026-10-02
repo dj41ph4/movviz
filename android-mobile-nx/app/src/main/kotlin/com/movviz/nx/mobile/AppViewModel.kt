@@ -151,6 +151,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             delay(400L)
             val channels = pendingLiveChannels.toSet()
             pendingLiveChannels.clear()
+            if ("recommendations" in channels || "watch" in channels) refreshPersonalizedRows()
             if ("download" in channels || "resync" in channels) downloadSignal.trySend(Unit)
             if ("watch" in channels || "resync" in channels) {
                 loadContinueWatching()
@@ -204,6 +205,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             if (recentChanged) (repo.interfaceRecentEpisodes() as? ApiResult.Success)?.data?.recentEpisodes?.let { raw ->
                 _recentEpisodes.value = raw.mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
+            }
+        }
+    }
+
+    private var recommendationRefresh: Job? = null
+
+    private fun refreshPersonalizedRows() {
+        if (recommendationRefresh?.isActive == true) return
+        val repo = repository ?: return
+        val profileId = _activeProfile.value?.id
+        recommendationRefresh = viewModelScope.launch {
+            coroutineScope {
+                val movies = async { repo.metadataRows("movie") }
+                val series = async { repo.metadataRows("series") }
+                val movieRecs = async { repo.metadataRecommendations("movie") }
+                val seriesRecs = async { repo.metadataRecommendations("series") }
+                val m = movies.await(); val s = series.await()
+                val mr = movieRecs.await(); val sr = seriesRecs.await()
+                if (repository !== repo || _activeProfile.value?.id != profileId) return@coroutineScope
+                if (m is ApiResult.Success) _movieRows.value = m.data
+                if (s is ApiResult.Success) _seriesRows.value = s.data
+                if (mr is ApiResult.Success) _movieLibraryRecommendations.value = mr.data
+                if (sr is ApiResult.Success) _seriesLibraryRecommendations.value = sr.data
             }
         }
     }

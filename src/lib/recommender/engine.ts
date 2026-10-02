@@ -1,5 +1,4 @@
-import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres, getPerson, getDetail, getGenreProfile, discoverByFilters } from "@/lib/metadata/tmdb";
-import { crossTypeBridgeFilters } from "@/lib/recommender/crossType";
+import { getGenres, getPerson, getDetail } from "@/lib/metadata/tmdb";
 import { getWatchedTitles } from "@/lib/recommender/watchedTitles";
 import { diversifyBySeed } from "@/lib/recommender/diversify";
 import { mapWithConcurrency } from "@/lib/concurrency";
@@ -13,6 +12,7 @@ import { audienceSignal } from "@/lib/recommender/audienceSignal";
 import { buildSeeds } from "@/lib/recommender/seedBuilder";
 import { aggregateCandidateEvidence, type CandidateEvidence, type RelationSource } from "@/lib/recommender/evidence";
 import { scoreCandidate } from "@/lib/recommender/scorer";
+import { readHistoryRelations, historyRelations } from "./historyRelations";
 
 // Strictly per-account: this row is built ONLY from the target account's own
 // Plex watch history — never blended with what any other account has
@@ -22,9 +22,8 @@ import { scoreCandidate } from "@/lib/recommender/scorer";
 // watched title of one's own is used as a real (if narrow) personal seed
 // rather than falling back to a generic list once there's at least one.
 /** Titres vus de l'autre type traduits en registre (films ↔ séries). */
-const CROSS_TYPE_SEEDS = 6;
 
-export async function getRecommendations(
+async function buildRecommendations(
   userId: string,
   type: "movie" | "series"
 ): Promise<MetaSearchResult[]> {
@@ -36,7 +35,7 @@ export async function getRecommendations(
   // aussi cette rangée — voir crossType.ts. Quelqu'un qui ne regarde que des
   // séries reçoit donc aussi des films choisis à partir de ses séries.
   const crossType = type === "movie" ? "series" : "movie";
-  const crossSeeds = buildSeeds(userId, crossType).slice(0, CROSS_TYPE_SEEDS);
+  const crossSeeds = buildSeeds(userId, crossType);
 
   if (watched.length === 0 && crossSeeds.length === 0) return [];
 
@@ -65,7 +64,6 @@ export async function getRecommendations(
   const seeds = buildSeeds(userId, type);
   if (seeds.length === 0 && crossSeeds.length === 0) return [];
 
-  const fetchFn = type === "movie" ? getMovieRecommendations : getTvRecommendations;
   // TMDb's TV /recommendations dataset (derived from OTHER users' viewing
   // overlap) is noticeably sparser than movies' — confirmed live: this row
   // ran out of replacements after a couple of 👎 for séries, while films
@@ -77,39 +75,22 @@ export async function getRecommendations(
   // slightly lower per-source weight, see evidence.ts) rather than kept
   // fully separate, so a title both engines agree on still ranks higher
   // than one only one of them suggested.
-  const similarFn = type === "movie" ? getMovieSimilar : getTvSimilar;
-  const [recommendationHits, similarHits, bridgeHits] = await Promise.all([
-    mapWithConcurrency(seeds, 5, async (seed) => {
-      try { return { seed, page: await fetchFn(seed.tmdbId) }; } catch { return null; }
-    }),
-    mapWithConcurrency(seeds, 5, async (seed) => {
-      try { return { seed, page: await similarFn(seed.tmdbId) }; } catch { return null; }
-    }),
-    mapWithConcurrency(crossSeeds, 3, async (seed) => {
-      try {
-        const profile = await getGenreProfile(crossType, seed.tmdbId);
-        const filters = profile ? crossTypeBridgeFilters(crossType, profile) : null;
-        // vote_average.desc impose déjà ≥200 votes (discoverByFilters) : des
-        // titres reconnus du même registre, pas le premier titre populaire venu.
-        return filters ? { seed, page: await discoverByFilters(type, { ...filters, sort: "vote_average.desc" }) } : null;
-      } catch { return null; }
-    }),
+  const [ownHits, crossHits] = await Promise.all([
+    readHistoryRelations(type, seeds, userId), readHistoryRelations(crossType, crossSeeds, userId),
   ]);
 
   const hits: Array<{ item: MetaSearchResult; source: RelationSource }> = [];
   for (const kind of ["tmdb_recommendation", "tmdb_similar"] as const) {
-    const pages = kind === "tmdb_recommendation" ? recommendationHits : similarHits;
-    for (const entry of pages) {
-      if (!entry?.page) continue;
-      entry.page.results.forEach((item, sourceRank) => {
+    for (const entry of ownHits) {
+      const items = kind === "tmdb_recommendation" ? entry.relations.recommendations : entry.relations.similar;
+      items.forEach((item, sourceRank) => {
         if (excluded.has(item.tmdbId)) return;
         hits.push({ item, source: { kind, seedTmdbId: entry.seed.tmdbId, seedWeight: entry.seed.weight, sourceRank } });
       });
     }
   }
-  for (const entry of bridgeHits) {
-    if (!entry?.page) continue;
-    entry.page.results.forEach((item, sourceRank) => {
+  for (const entry of crossHits) {
+    entry.relations.bridge.forEach((item, sourceRank) => {
       if (excluded.has(item.tmdbId)) return;
       // Identifiant négatif : un film et une série peuvent partager le même
       // tmdbId, et deux titres vus distincts doivent compter comme deux voix.
@@ -119,22 +100,14 @@ export async function getRecommendations(
 
   const evidenceById = aggregateCandidateEvidence(hits);
 
-  // "j'adore Jim Carrey" / plusieurs films avec le même acteur regardés =
-  // c'est ça les suggestions : le reste de la filmographie d'un acteur ou
-  // réalisateur favori (userContext/taste.ts — étoiles, pouces, ET simple
-  // récurrence de visionnage, pas seulement le chat IA) doit apparaître ICI,
-  // pas juste dans les réponses du chat. TMDb /recommendations et /similar
-  // ne suffisent pas : ils sont basés sur "les autres spectateurs de ce
-  // titre ont aussi aimé", pas sur "cet acteur précis". On va donc chercher
-  // sa filmographie complète via getPerson() et on l'injecte dans le même
-  // pool de candidats (comme une évidence à part, sans relation de seed —
-  // le terme "people" du scorer porte ce signal, pas relation/consensus).
-  const favoritePeople = await getFavoritePeople(userId, 3);
+  // Favorite people refine the history-related pool, without injecting an
+  // independent filmography into personalized suggestions.
+  const favoritePeople = await withinBudget(getFavoritePeople(userId, 3), []);
   const personAffinity = new Map<number, number>();
   if (favoritePeople.length) {
-    const people = await mapWithConcurrency(favoritePeople, 3, async (person) => {
+    const people = await withinBudget(mapWithConcurrency(favoritePeople, 3, async (person) => {
       try { return { person, detail: await getPerson(person.id) }; } catch { return null; }
-    });
+    }), []);
     for (const entry of people) {
       if (!entry?.detail) continue;
       const { person, detail } = entry;
@@ -145,7 +118,7 @@ export async function getRecommendations(
         if (person.role === "director" && !credit.isDirector) continue;
         if (excluded.has(credit.tmdbId)) continue;
         if (!evidenceById.has(credit.tmdbId)) {
-          evidenceById.set(credit.tmdbId, { item: credit, sources: [], distinctSeedCount: 0 });
+          continue; // People refine the shared history pool, never inject an unrelated catalogue.
         }
         const prior = personAffinity.get(credit.tmdbId) ?? 0;
         if (strength > prior) personAffinity.set(credit.tmdbId, strength);
@@ -175,9 +148,9 @@ export async function getRecommendations(
   // the one row most people actually look at — "Suggestions pour vous".
   const genreTraits = new Map(getComputedGenreTraits(userId, 10).map((t) => [t.key, t] as const));
   const genreNameById = genreTraits.size
-    ? new Map((await getGenres(type)).map((g) => [g.id, g.name] as const))
+    ? new Map((await withinBudget(getGenres(type), [])).map((g) => [g.id, g.name] as const))
     : new Map<number, string>();
-  const favoriteKeywords = await getFavoriteKeywords(userId);
+  const favoriteKeywords = await withinBudget(getFavoriteKeywords(userId), new Map<string, number>());
   const keywordDetails = new Map<number, string[]>();
   // Only the titles that can realistically reach the visible rail need a
   // detail request for keyword scoring. Going fifty deep multiplied every
@@ -185,10 +158,10 @@ export async function getRecommendations(
   const detailCandidates = [...entries]
     .sort((a, b) => audienceSignal(b.item) - audienceSignal(a.item) || b.distinctSeedCount - a.distinctSeedCount)
     .slice(0, 20);
-  await mapWithConcurrency(detailCandidates, 4, async ({ item }) => {
+  await withinBudget(mapWithConcurrency(detailCandidates, 4, async ({ item }) => {
     const detail = await getDetail(type, item.tmdbId).catch(() => null);
     if (detail) keywordDetails.set(item.tmdbId, detail.keywords);
-  });
+  }), []);
 
   const ranked = entries
     .map((evidence: CandidateEvidence) => {
@@ -222,5 +195,47 @@ export async function getRecommendations(
     .sort((a, b) => b.score - a.score);
 
   // Then no single watched title may fill the row on its own (diversify.ts).
-  return filterSuggestable(diversifyBySeed(ranked).slice(0, 200).map((s) => s.item));
+  return filterSuggestable(diversifyBySeed(ranked).map((s) => s.item));
+}
+
+const globals = globalThis as typeof globalThis & {
+  __movvizRecommendationPools?: Map<string, { signature: string; at: number; inFlight: boolean; promise: Promise<MetaSearchResult[]> }>;
+};
+async function withinBudget<T>(work: Promise<T>, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work.catch(() => fallback), new Promise<T>((resolve) => {
+      timer = setTimeout(() => resolve(fallback), 1200);
+    })]);
+  } finally { if (timer) clearTimeout(timer); }
+}
+/** One per-profile ranking reused by desktop/mobile/TV and provider rails.
+ * Public title relations are shared, never another profile's watched list. */
+export async function getRecommendationPool(userId: string, type: "movie" | "series"): Promise<MetaSearchResult[]> {
+  const cache = globals.__movvizRecommendationPools ??= new Map();
+  const key = `${userId}:${type}`;
+  const signature = JSON.stringify([buildSeeds(userId, "movie"), buildSeeds(userId, "series"), getFeedback(userId), historyRelations.generation]);
+  let entry = cache.get(key);
+  if (!entry || (!entry.inFlight && (entry.signature !== signature || Date.now() - entry.at > 30_000))) {
+    entry = { signature, at: Date.now(), inFlight: true, promise: buildRecommendations(userId, type) };
+    cache.set(key, entry);
+    const created = entry;
+    entry.promise.finally(() => { created.inFlight = false; }).catch(() => {});
+    entry.promise.catch(() => { if (cache.get(key) === entry) cache.delete(key); });
+  }
+  const results: MetaSearchResult[] = await entry.promise;
+  // A watched/rejected decision made during a fetch wins immediately.
+  const excluded = new Set([...getWatchedTitles(userId, type).keys(),
+    ...getFeedback(userId).filter((f) => !f.liked && f.type === type).map((f) => f.tmdbId)]);
+  return results.filter((item) => !excluded.has(item.tmdbId));
+}
+
+export async function getRecommendations(userId: string, type: "movie" | "series"): Promise<MetaSearchResult[]> {
+  // Presentation limit only; provider filtering and pagination use the FULL pool.
+  return (await getRecommendationPool(userId, type)).slice(0, 200);
+}
+
+export function recommendationsPending(userId: string): boolean {
+  return (["movie", "series"] as const).some((type) =>
+    historyRelations.hasPending(buildSeeds(userId, type).map((seed) => `${type}:${seed.tmdbId}`)));
 }

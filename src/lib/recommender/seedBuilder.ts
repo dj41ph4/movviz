@@ -22,7 +22,6 @@ const RECENT_WATCH_WINDOW_MS = 45 * 24 * 60 * 60 * 1000; // 45 jours
 // mieux qu'un titre juste coché "vu" — un moteur qui pondère les deux
 // pareil (état actuel avant cette refonte) laisse un film détesté-mais-vu
 // peser aussi lourd qu'un 5★ dans le choix des candidats.
-const MAX_SEEDS = 20;
 
 /**
  * Construit les seeds pondérés d'un utilisateur : chaque titre vu ne
@@ -121,5 +120,7 @@ export function buildSeeds(userId: string, type: "movie" | "series"): Seed[] {
     seeds.push({ tmdbId, weight: Math.min(1, weight), reasons });
   }
 
-  return seeds.sort((a, b) => b.weight - a.weight).slice(0, MAX_SEEDS);
+  // Coverage is all watched titles. Transport is progressively bounded in
+  // historyRelations.ts, not by permanently discarding weaker/older seeds.
+  return seeds.sort((a, b) => b.weight - a.weight);
 }

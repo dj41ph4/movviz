@@ -36,18 +36,19 @@ export function diversifyBySeed<T extends { score: number; evidence: CandidateEv
   const remaining = [...sorted];
   const picked: T[] = [];
   const perSeed = new Map<number, number>();
+  const seeds = new Map(sorted.map((candidate) => [candidate, dominantSeed(candidate.evidence)]));
   const depth = Math.min(DIVERSIFY_DEPTH, remaining.length);
   while (picked.length < depth) {
     let bestIndex = 0;
     let bestAdjusted = -Infinity;
     for (let i = 0; i < remaining.length; i++) {
-      const seed = dominantSeed(remaining[i].evidence);
+      const seed = seeds.get(remaining[i])!;
       const already = perSeed.get(seed) ?? 0;
       const adjusted = remaining[i].score * Math.pow(DECAY, already);
       if (adjusted > bestAdjusted) { bestAdjusted = adjusted; bestIndex = i; }
     }
     const [chosen] = remaining.splice(bestIndex, 1);
-    const seed = dominantSeed(chosen.evidence);
+    const seed = seeds.get(chosen)!;
     perSeed.set(seed, (perSeed.get(seed) ?? 0) + 1);
     picked.push(chosen);
   }

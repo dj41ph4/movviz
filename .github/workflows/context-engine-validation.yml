@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths:
       - 'src/lib/userContext/**'
+      - 'src/lib/recommender/**'
+      - 'src/lib/events/**'
+      - 'src/app/api/metadata/**'
+      - 'src/app/api/events/**'
+      - 'src/lib/metadata/tmdb.ts'
+      - 'scripts/full-history-recommendations.test.ts'
       - 'src/lib/playback/progressStore.ts'
       - 'src/lib/plex/watchStore.ts'
       - 'src/lib/plex/historyExport.ts'

@@ -115,7 +115,7 @@ async function buildEditorialExtras(
  * in parallel, so the discover home isn't a single flat list.
  *
  * Two row layouts, same TMDb-backed data either way:
- * - "movviz" (default): "recommendedTop" (suggestions ∪ best rated),
+ * - "movviz" (default): "recommendedTop" (personal suggestions),
  *   "trendingPopular" (trending ∪ popular), upcoming/on-air.
  * - "allocine": mirrors the actual section ORDER on allocine.fr/film —
  *   "recommendedTop" first, then "nowPlayingBoxOffice" ("Films à l'affiche" +
@@ -155,13 +155,12 @@ export async function GET(req: NextRequest) {
 
   if (layout === "allocine") {
     if (type === "movie") {
-      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcomingResults, kids, extras, becauseRow, providers] = await Promise.all([
+      const [rec, newVod, nowPlaying, boxOffice, trend, upcomingResults, kids, extras, becauseRow, providers] = await Promise.all([
         recommended,
         getAllocineNewVod(),
         browseCategory("movie", "now_playing", 1, originCountries),
         getBoxOffice(1, originCountries),
         trending("movie", 1, originCountries),
-        browseCategory("movie", "top_rated", 1, originCountries),
         buildUpcomingRow(user, originCountries),
         getKidsRow("movie", 1, originCountries),
         buildEditorialExtras("movie", originCountries),
@@ -169,7 +168,7 @@ export async function GET(req: NextRequest) {
         providerRows,
       ]);
       const rows = [
-        { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+        { key: "recommendedTop", results: rec },
         ...(becauseRow ? [becauseRow] : []),
         ...providers,
         { key: "nowPlayingBoxOffice", results: filterSuggestable(dedupe([...nowPlaying.results, ...boxOffice.results])) },
@@ -182,18 +181,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ configured: true, layout, rows });
     }
 
-    const [rec, newSeries, renewed, trend, topRated, extras, becauseRow, providers] = await Promise.all([
+    const [rec, newSeries, renewed, trend, extras, becauseRow, providers] = await Promise.all([
       recommended,
       getNewSeries(1, originCountries),
       browseCategory("series", "on_the_air", 1, originCountries),
       getAllocineTrendingSeries(),
-      browseCategory("series", "top_rated", 1, originCountries),
       buildEditorialExtras("series", originCountries),
       because,
       providerRows,
     ]);
     const rows = [
-      { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+      { key: "recommendedTop", results: rec },
       ...(becauseRow ? [becauseRow] : []),
       ...providers,
       { key: "newSeriesRenewed", results: filterSuggestable(dedupe([...newSeries.results, ...renewed.results])) },
@@ -203,11 +201,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ configured: true, layout, rows });
   }
 
-  const [rec, trend, popular, topRated, upcomingResults, extras, becauseRow, providers] = await Promise.all([
+  const [rec, trend, popular, upcomingResults, extras, becauseRow, providers] = await Promise.all([
     recommended,
     trending(type, 1, originCountries),
     browseCategory(type, "popular", 1, originCountries),
-    browseCategory(type, "top_rated", 1, originCountries),
     type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results),
     buildEditorialExtras(type, originCountries),
     because,
@@ -215,7 +212,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   const rows = [
-    { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+    { key: "recommendedTop", results: rec },
     ...(becauseRow ? [becauseRow] : []),
     ...providers,
     { key: "trendingPopular", results: filterSuggestable(dedupe([...trend.results, ...popular.results])).slice(0, 10) },

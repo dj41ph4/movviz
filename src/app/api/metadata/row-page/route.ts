@@ -5,7 +5,7 @@ import { getC411RowPage } from "@/lib/c411/catalog";
 import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
 import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
-import { getRecommendations } from "@/lib/recommender/engine";
+import { getRecommendationPool, recommendationsPending } from "@/lib/recommender/engine";
 import { getBecauseYouWatchedPage } from "@/lib/recommender/becauseYouWatched";
 import { getProviderNewPage, getProviderSuggestedPage } from "@/lib/recommender/providerPersonalized";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
@@ -99,38 +99,10 @@ export async function GET(req: NextRequest) {
         const genreId = type === "movie" ? row.movie : row.series;
         return genreId === null ? null : discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, page);
       }
-      case "recommended": {
-        const cache = getRecCache();
-        const cacheKey = `${user?.id ?? ""}:${type}`;
-        const cached = cache.get(cacheKey);
-        let all: MetaSearchResult[];
-        if (cached && Date.now() - cached.ts < REC_CACHE_TTL) {
-          all = cached.data;
-        } else {
-          all = await getRecommendations(user?.id ?? "", type);
-          cache.set(cacheKey, { data: all, ts: Date.now() });
-        }
-        const totalPages = Math.max(1, Math.ceil(all.length / PER_PAGE));
-        const results = all.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-        return { results, page, totalPages };
-      }
+      case "recommended":
       case "recommendedTop": {
-        const cache = getRecCache();
-        const cacheKey = `recommendedTop:${user?.id ?? ""}:${type}`;
-        const cached = cache.get(cacheKey);
-        let all: MetaSearchResult[];
-        if (cached && Date.now() - cached.ts < REC_CACHE_TTL) {
-          all = cached.data;
-        } else {
-          const [rec, top1, top2] = await Promise.all([
-            getRecommendations(user?.id ?? "", type),
-            browseCategory(type, "top_rated", 1, originCountries),
-            browseCategory(type, "top_rated", 2, originCountries),
-          ]);
-          all = dedupe([...rec, ...top1.results, ...top2.results]);
-          cache.set(cacheKey, { data: all, ts: Date.now() });
-        }
-        const totalPages = Math.max(1, Math.ceil(all.length / PER_PAGE));
+        const all = await getRecommendationPool(user?.id ?? "", type);
+        const totalPages = Math.max(1, Math.ceil(all.length / PER_PAGE), recommendationsPending(user?.id ?? "") ? page + 1 : 1);
         const results = all.slice((page - 1) * PER_PAGE, page * PER_PAGE);
         return { results, page, totalPages };
       }

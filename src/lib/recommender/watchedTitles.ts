@@ -1,5 +1,6 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getUserWatchHistory } from "@/lib/userContext/history";
+import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 
 /**
  * « Vu », une seule définition pour les suggestions et « À revoir » : les
@@ -18,9 +19,10 @@ export function getWatchedTitles(userId: string, type: "movie" | "series"): Map<
     watched.set(tmdbId, Math.max(prev, at ?? 0));
   };
 
-  const status = getWatchStatus(userId);
+  const status = getCanonicalWatchStatus(userId) ?? getWatchStatus(userId);
+  const legacy = getWatchStatus(userId);
   if (type === "movie") {
-    for (const tmdbId of status?.movies ?? []) bump(tmdbId, status?.movieWatchedAt?.[String(tmdbId)]);
+    for (const tmdbId of status?.movies ?? []) bump(tmdbId, legacy?.movieWatchedAt?.[String(tmdbId)]);
   } else {
     for (const ep of status?.episodes ?? []) bump(ep.tmdbId, ep.at);
   }

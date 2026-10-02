@@ -620,6 +620,15 @@ export async function getMovie(tmdbId: number): Promise<MetaMovie | null> {
  * vein, and vice versa). Same request — same cache entry — as getMovie() /
  * getSeries(): no extra TMDb call for a title already fetched.
  */
+/** ISO countries for preserving Discover's continent preference in a
+ * history-related pool. Language is never used as a proxy for country. */
+export async function getTitleOriginCountries(type: "movie" | "series", tmdbId: number): Promise<string[]> {
+  const data = await tmdbGet<{ origin_country?: string[]; production_countries?: { iso_3166_1: string }[] }>(
+    `/${type === "movie" ? "movie" : "tv"}/${tmdbId}`);
+  if (!data) throw new Error("origin_country_metadata_unavailable");
+  return type === "series" ? data.origin_country ?? [] : (data.production_countries ?? []).map((c) => c.iso_3166_1);
+}
+
 export async function getGenreProfile(type: "movie" | "series", tmdbId: number): Promise<{ genreIds: number[]; originalLanguage: string | null } | null> {
   const data = type === "movie"
     ? await tmdbGet<RawMovie>(`/movie/${tmdbId}`, { append_to_response: "external_ids,release_dates" })
@@ -1445,13 +1454,14 @@ interface RawProvider {
  * "available on" badges usually mean. Tries France first, falls back to the
  * US since TMDb's provider coverage is much better there.
  */
-export async function getWatchProviders(type: "movie" | "series", tmdbId: number, watchRegion = DEFAULT_WATCH_REGION): Promise<MetaWatchProvider[]> {
+export async function getWatchProviders(type: "movie" | "series", tmdbId: number, watchRegion = DEFAULT_WATCH_REGION, fallbackToUs = true): Promise<MetaWatchProvider[]> {
   const kind = type === "movie" ? "movie" : "tv";
   const data = await tmdbGet<RawWatchProviders>(`/${kind}/${tmdbId}/watch/providers`);
+  if (!data && !fallbackToUs) throw new Error("watch_provider_metadata_unavailable");
   const byRegion = data?.results?.[watchRegion];
   const region = byRegion?.flatrate?.length || byRegion?.ads?.length || byRegion?.free?.length
     ? byRegion
-    : data?.results?.US;
+    : fallbackToUs ? data?.results?.US : undefined;
   if (!region) return [];
   const providers = [...(region.flatrate ?? []), ...(region.ads ?? []), ...(region.free ?? [])];
   const seen = new Set<number>();
