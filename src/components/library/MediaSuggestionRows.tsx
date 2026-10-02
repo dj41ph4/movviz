@@ -30,7 +30,7 @@ function rowTitle(key: string, type: MediaType, t: ReturnType<typeof useT>, prov
 export function MediaSuggestionRows({ type }: { type: MediaType }) {
   const t = useT();
   const { locale } = useI18n();
-  const { data: rowsData } = useSWR<{ configured?: boolean; rows: EditorialRow[] }>(`/api/metadata/rows?type=${type}`);
+  const { data: rowsData } = useSWR<{ configured?: boolean; pending?: boolean; rows: EditorialRow[] }>(`/api/metadata/rows?type=${type}`, { refreshInterval: (data) => data?.pending ? 2_000 : 0 });
   const { data: dashboard } = useSWR<DashboardInterfaceData>("/api/interface/dashboard");
 
   const rows = useMemo(() => (rowsData?.rows ?? []).filter((row) => row.results.length > 0), [rowsData]);
@@ -47,7 +47,7 @@ export function MediaSuggestionRows({ type }: { type: MediaType }) {
   }, [rows, type]);
   const artwork = useTitleArtworkBatch(artworkRefs, locale);
 
-  if (!rowsData) return <div className="h-52 animate-pulse rounded-xl border border-brand/20 bg-surface/45" />;
+  if (!rowsData || (rows.length === 0 && rowsData.pending)) return <div className="h-52 animate-pulse rounded-xl border border-brand/20 bg-surface/45" />;
   if (rows.length === 0) return <p className="rounded-xl border border-brand/20 bg-surface/45 p-6 text-sm text-ink-dim">{t("library.empty")}</p>;
 
   return (

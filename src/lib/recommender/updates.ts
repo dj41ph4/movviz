@@ -26,12 +26,16 @@ export function recommendationKeyReady(key: string) {
   if (!users) return;
   for (const [userId, at] of users) {
     if (Date.now() - at > 5 * 60_000) { users.delete(userId); continue; }
-    if (timers.has(userId)) continue;
-    const timer = setTimeout(() => {
-      timers.delete(userId);
-      eventBus.emit({ type: "recommendations_changed", userId });
-    }, 10_000);
-    timer.unref?.(); timers.set(userId, timer);
+    notifyRecommendationsChanged(userId);
   }
   if (users.size === 0) subscriptions.delete(key);
+}
+
+export function notifyRecommendationsChanged(userId: string) {
+  if (!userId || timers.has(userId)) return;
+  const timer = setTimeout(() => {
+    timers.delete(userId);
+    eventBus.emit({ type: "recommendations_changed", userId });
+  }, 2_000);
+  timer.unref?.(); timers.set(userId, timer);
 }

@@ -1,7 +1,7 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getAllRatings } from "@/lib/ai/tasteProfile";
 import { loadMovies, loadSeries } from "@/lib/library/store";
-import { getMovie, getSeries, getMovieRecommendations, getTvRecommendations, getDetail } from "@/lib/metadata/tmdb";
+import { getMovie, getSeries, getMovieRecommendations, getTvRecommendations, getTasteMetadata as getDetail } from "@/lib/metadata/tmdb";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, getOrAnalyzeMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
 import { loadAiConfig } from "@/lib/ai/store";

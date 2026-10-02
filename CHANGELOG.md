@@ -1,3 +1,12 @@
+## v1.25.155 — Octobre 2026
+
+### Réactivité du premier chargement
+
+- Les sources de Découverte et des pages Films/Séries répondent indépendamment : une source lente ne retient plus toutes les rangées. Les rangées déjà calculées restent disponibles immédiatement pendant une actualisation, et sont conservées si celle-ci échoue.
+- Les suggestions gardent tout l'historique, le classement et les filtres par profil. Les états vus et les rejets sont vérifiés aussi sur les données servies depuis le cache.
+- Le remplissage progressif utilise la voie de basse priorité et n'ajoute plus d'attente réseau au premier passage. Les appareils sont prévenus lorsque les rangées deviennent disponibles ; le web dispose d'un rattrapage limité au temps de préparation.
+- Le calcul des acteurs et mots-clés ne charge plus de bandes-annonces, de notes externes ni de plateformes inutiles. Les calculs simultanés d'un même profil sont mutualisés ; les vraies fiches conservent leur fonctionnement.
+
 ## v1.25.154 — Octobre 2026
 
 ### Suggestions fondées sur tout l'historique

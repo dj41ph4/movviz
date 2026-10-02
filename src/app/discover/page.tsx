@@ -354,13 +354,15 @@ function DiscoverPageInner() {
   };
 
   // Home rows — fetched whenever no filter/search is active.
-  const { data: rowsData, isLoading: rowsLoading } = useSWR<{ rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
-    configured && !isBrowsing ? `/api/metadata/rows?type=${mediaType}` : null
+  const { data: rowsData, isLoading: rowsLoading } = useSWR<{ pending?: boolean; rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
+    configured && !isBrowsing ? `/api/metadata/rows?type=${mediaType}` : null,
+    { refreshInterval: (data) => data?.pending ? 2_000 : 0 }
   );
   const rows = rowsData?.rows ?? [];
   const otherMediaType = mediaType === "movie" ? "series" : "movie";
-  const { data: otherRowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
-    configured && forYou && !isBrowsing ? `/api/metadata/rows?type=${otherMediaType}` : null
+  const { data: otherRowsData } = useSWR<{ pending?: boolean; rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
+    configured && forYou && !isBrowsing ? `/api/metadata/rows?type=${otherMediaType}` : null,
+    { refreshInterval: (data) => data?.pending ? 2_000 : 0 }
   );
   const editorialRows = useMemo(() => {
     if (!forYou) return rows;
@@ -964,7 +966,7 @@ function DiscoverPageInner() {
             <HomeRows
               rows={homeRows}
               artwork={titleArtwork}
-              loading={rowsLoading}
+              loading={rowsLoading || !!rowsData?.pending}
               companyTiles={companyTiles}
               watchProviderTiles={watchProviderTiles}
               libStatus={libStatus}

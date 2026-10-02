@@ -1070,6 +1070,18 @@ export function pickEditorialArtwork(images: { backdrops: TitleImageOption[]; lo
 /** Overview + cast + similar titles + franchise collection, for a detail page. */
 const KEY_CREW_JOBS = new Set(["Director", "Writer", "Screenplay", "Producer", "Editor", "Creator"]);
 
+/** Ranking needs credits and themes, never trailers, OMDb or providers. */
+export async function getTasteMetadata(type: "movie" | "series", tmdbId: number): Promise<Pick<MetaDetail, "keywords" | "cast" | "crew"> | null> {
+  const data = await tmdbGet<RawDetail>(`/${type === "movie" ? "movie" : "tv"}/${tmdbId}`, { append_to_response: "credits,keywords" });
+  if (!data) return null;
+  const keywords = type === "movie" ? data.keywords?.keywords : data.keywords?.results;
+  return {
+    keywords: (keywords ?? []).map((k) => k.name),
+    cast: (data.credits?.cast ?? []).map((c) => ({ id: c.id, name: c.name, character: c.character, profilePath: c.profile_path })),
+    crew: (data.credits?.crew ?? []).filter((c) => KEY_CREW_JOBS.has(c.job)).map((c) => ({ id: c.id, name: c.name, job: c.job })),
+  };
+}
+
 export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string, opts?: { youtubeTrailerSearch?: boolean }): Promise<MetaDetail | null> {
   const kind = type === "movie" ? "movie" : "tv";
   const [data, watchProviders] = await Promise.all([

@@ -9,7 +9,11 @@ import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
 import { buildBecauseYouWatchedRow } from "@/lib/recommender/becauseYouWatched";
-import { buildProviderPersonalizedRows } from "@/lib/recommender/providerPersonalized";
+import { buildProviderSuggestedRow, buildProviderNewRow, PERSONALIZED_DISCOVER_PROVIDERS } from "@/lib/recommender/providerPersonalized";
+import { responsiveRows } from "@/lib/recommender/responsiveCache";
+import { notifyRecommendationsChanged } from "@/lib/recommender/updates";
+import { getWatchedTitles } from "@/lib/recommender/watchedTitles";
+import { resolveWatchRegion } from "@/lib/metadata/tmdb";
 import { loadMovies } from "@/lib/library/store";
 import { loadRequests } from "@/lib/requests/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
@@ -84,20 +88,22 @@ async function buildUpcomingRow(user: User | null, originCountries?: string[]): 
  */
 async function buildEditorialExtras(
   type: "movie" | "series",
-  originCountries?: string[]
+  originCountries: string[] | undefined,
+  part: <T>(name: string, build: () => Promise<T>, fallback: T) => Promise<T>
 ): Promise<{ key: string; results: MetaSearchResult[] }[]> {
+  const empty = { results: [] as MetaSearchResult[], page: 1, totalPages: 1 };
   const [acclaimed, animeRow, teenRow, shortFormat, ...genreResults] = await Promise.all([
-    discoverByFilters(type, { sort: "vote_average.desc", originCountries }, 1),
+    part("acclaimed", () => discoverByFilters(type, { sort: "vote_average.desc", originCountries }, 1), empty),
     // Anime remains a global discovery row: filtering by production-country
     // would hide Japanese titles when a user selects another continent.
-    getAnimeRow(type, 20),
-    getTeenRow(type, 20, originCountries),
-    type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, 1) : Promise.resolve({ results: [], page: 1, totalPages: 1 }),
+    part("anime", () => getAnimeRow(type, 20), empty),
+    part("teen", () => getTeenRow(type, 20, originCountries), empty),
+    type === "movie" ? part("shortFormat", () => discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, 1), empty) : Promise.resolve(empty),
     ...GENRE_ROWS.map((g) => {
       const genreId = type === "movie" ? g.movie : g.series;
       return genreId === null
         ? Promise.resolve({ results: [], page: 1, totalPages: 1 })
-        : discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, 1);
+        : part(g.key, () => discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, 1), empty);
     }),
   ]);
 
@@ -139,31 +145,46 @@ export async function GET(req: NextRequest) {
   const user = requireUser(req);
   const originCountries = countriesForContinents(user?.discoverContinents ?? []);
   const disliked = dislikedKeysFor(user?.id);
+  const userId = user?.id ?? "";
+  const scope = JSON.stringify([userId, type, layout, originCountries, resolveWatchRegion(userId)]) + ":";
+  const empty = { results: [] as MetaSearchResult[], page: 1, totalPages: 1 };
+  const part = <T,>(name: string, build: () => Promise<T>, fallback: T, personal = false) =>
+    responsiveRows.read(scope + name, build, fallback, () => notifyRecommendationsChanged(userId), personal ? 30_000 : 300_000);
+  const finish = (rows: { key: string; results: MetaSearchResult[] }[]) => {
+    const watched = new Set(getWatchedTitles(userId, type).keys());
+    const filtered = rows.map((row) => ({ ...row, results: excludeDisliked(row.results, type, disliked)
+      .filter((item) => !((row.key === "recommendedTop" || row.key.startsWith("becauseYouWatched:") || row.key.startsWith("provider")) && watched.has(item.tmdbId))) }))
+      .filter((row) => row.results.length > 0);
+    return NextResponse.json({ configured: true, layout, rows: filtered, pending: responsiveRows.pending(scope) });
+  };
 
-  const recommended = getRecommendations(user?.id ?? "", type);
+  const recommended = part("recommended", () => getRecommendations(userId, type), [] as MetaSearchResult[], true);
   // Anchored on a single title (the user's own most-watched/most-liked),
   // never blended like `recommended` above — see becauseYouWatched.ts.
   // Computed once, spliced right after "recommendedTop" on every layout,
   // since it doesn't belong to any one layout's identity (buildEditorialExtras
   // below is the wrong place for it: that one is always appended at the end).
-  const because = buildBecauseYouWatchedRow(user?.id ?? "", type);
+  const because = part("because", () => buildBecauseYouWatchedRow(userId, type), null, true);
   // "Nouveautés {provider} pour vous" — same TV/movie-agnostic slot as
   // `because` above: computed once, spliced right after it on every layout,
   // since which providers exist doesn't depend on the editorial layout
   // choice (see providerPersonalized.ts for how candidates are ranked).
-  const providerRows = buildProviderPersonalizedRows(user?.id ?? "", type, originCountries);
+  const providerRows = Promise.all(PERSONALIZED_DISCOVER_PROVIDERS.flatMap((provider) => [
+    part(`providerSuggested:${provider.id}`, () => buildProviderSuggestedRow(userId, type, provider.id, originCountries), null, true),
+    part(`providerNew:${provider.id}`, () => buildProviderNewRow(userId, type, provider.id, originCountries), null),
+  ])).then((rows) => rows.filter((row) => row !== null));
 
   if (layout === "allocine") {
     if (type === "movie") {
       const [rec, newVod, nowPlaying, boxOffice, trend, upcomingResults, kids, extras, becauseRow, providers] = await Promise.all([
         recommended,
-        getAllocineNewVod(),
-        browseCategory("movie", "now_playing", 1, originCountries),
-        getBoxOffice(1, originCountries),
-        trending("movie", 1, originCountries),
-        buildUpcomingRow(user, originCountries),
-        getKidsRow("movie", 1, originCountries),
-        buildEditorialExtras("movie", originCountries),
+        part("newVod", () => getAllocineNewVod(), empty),
+        part("nowPlaying", () => browseCategory("movie", "now_playing", 1, originCountries), empty),
+        part("boxOffice", () => getBoxOffice(1, originCountries), empty),
+        part("trending", () => trending("movie", 1, originCountries), empty),
+        part("upcoming", () => buildUpcomingRow(user, originCountries), [] as MetaSearchResult[]),
+        part("kids", () => getKidsRow("movie", 1, originCountries), empty),
+        buildEditorialExtras("movie", originCountries, part),
         because,
         providerRows,
       ]);
@@ -178,15 +199,15 @@ export async function GET(req: NextRequest) {
         { key: "kids", results: filterSuggestable(kids.results) },
         ...extras,
       ].map((r) => ({ ...r, results: excludeDisliked(r.results, "movie", disliked) })).filter((r) => r.results.length > 0);
-      return NextResponse.json({ configured: true, layout, rows });
+      return finish(rows);
     }
 
     const [rec, newSeries, renewed, trend, extras, becauseRow, providers] = await Promise.all([
       recommended,
-      getNewSeries(1, originCountries),
-      browseCategory("series", "on_the_air", 1, originCountries),
-      getAllocineTrendingSeries(),
-      buildEditorialExtras("series", originCountries),
+      part("newSeries", () => getNewSeries(1, originCountries), empty),
+      part("renewed", () => browseCategory("series", "on_the_air", 1, originCountries), empty),
+      part("trending", () => getAllocineTrendingSeries(), empty),
+      buildEditorialExtras("series", originCountries, part),
       because,
       providerRows,
     ]);
@@ -198,15 +219,15 @@ export async function GET(req: NextRequest) {
       { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
       ...extras,
     ].map((r) => ({ ...r, results: excludeDisliked(r.results, "series", disliked) })).filter((r) => r.results.length > 0);
-    return NextResponse.json({ configured: true, layout, rows });
+    return finish(rows);
   }
 
   const [rec, trend, popular, upcomingResults, extras, becauseRow, providers] = await Promise.all([
     recommended,
-    trending(type, 1, originCountries),
-    browseCategory(type, "popular", 1, originCountries),
-    type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results),
-    buildEditorialExtras(type, originCountries),
+    part("trending", () => trending(type, 1, originCountries), empty),
+    part("popular", () => browseCategory(type, "popular", 1, originCountries), empty),
+    part("upcoming", () => type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results), [] as MetaSearchResult[]),
+    buildEditorialExtras(type, originCountries, part),
     because,
     providerRows,
   ]);
@@ -223,7 +244,7 @@ export async function GET(req: NextRequest) {
     ...extras,
   ].map((r) => ({ ...r, results: excludeDisliked(r.results, type, disliked) })).filter((r) => r.results.length > 0);
 
-  return NextResponse.json({ configured: true, layout, rows });
+  return finish(rows);
 }
 
 function dedupe(list: MetaSearchResult[]): MetaSearchResult[] {

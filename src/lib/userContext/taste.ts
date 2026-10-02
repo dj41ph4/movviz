@@ -1,6 +1,6 @@
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getWatchStatus } from "@/lib/plex/watchStore";
-import { getDetail } from "@/lib/metadata/tmdb";
+import { getTasteMetadata as getDetail } from "@/lib/metadata/tmdb";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { getUnifiedUserKnowledge } from "./knowledge";
 import { getRecentViewedTitles } from "./query";
@@ -219,7 +219,11 @@ const PERSON_CAST_TOP_N = 6;
 const PERSON_DETAIL_FETCH_LIMIT = 70;
 const PERSON_CACHE_TTL_MS = 60 * 60 * 1000;
 
-const favoritePeopleCache = new Map<string, { people: FavoritePerson[]; expiresAt: number }>();
+const traitCaches = globalThis as typeof globalThis & {
+  __movvizPeopleTraits?: Map<string, { people: FavoritePerson[]; expiresAt: number }>;
+  __movvizKeywordTraits?: Map<string, { values: Map<string, number>; expiresAt: number }>;
+};
+const favoritePeopleCache = traitCaches.__movvizPeopleTraits ??= new Map();
 
 /** Called right after a new rating/feedback is recorded (tasteProfile.ts) —
  *  without this, a stale cache computed BEFORE a "j'adore Jim Carrey"-style
@@ -245,7 +249,19 @@ export function invalidatePersonTraitCache(userId: string): void {
  * (raw id/name, for recommender/engine.ts to actually fetch each person's
  * filmography and inject it as candidates — a label alone can't do that).
  */
+const tasteWork = globalThis as typeof globalThis & {
+  __movvizPeopleWork?: Map<string, Promise<FavoritePerson[]>>;
+  __movvizKeywordsWork?: Map<string, Promise<Map<string, number>>>;
+};
 async function computeFavoritePeople(userId: string): Promise<FavoritePerson[]> {
+  const work = tasteWork.__movvizPeopleWork ??= new Map();
+  const pending = work.get(userId);
+  if (pending) return pending;
+  const promise = computeFavoritePeopleFresh(userId);
+  work.set(userId, promise);
+  try { return await promise; } finally { work.delete(userId); }
+}
+async function computeFavoritePeopleFresh(userId: string): Promise<FavoritePerson[]> {
   const cached = favoritePeopleCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) return cached.people;
 
@@ -329,12 +345,20 @@ export async function getFavoritePeople(userId: string, limit = 3): Promise<Favo
   return (await computeFavoritePeople(userId)).slice(0, limit);
 }
 
-const keywordTasteCache = new Map<string, { values: Map<string, number>; expiresAt: number }>();
+const keywordTasteCache = traitCaches.__movvizKeywordTraits ??= new Map();
 
 /** Theme-level taste learned from real watches and explicit reactions. This
  * is deliberately finer than genres: TMDb keywords describe topics,
  * settings, narrative devices and sub-genres. */
 export async function getFavoriteKeywords(userId: string): Promise<Map<string, number>> {
+  const work = tasteWork.__movvizKeywordsWork ??= new Map();
+  const pending = work.get(userId);
+  if (pending) return pending;
+  const promise = getFavoriteKeywordsFresh(userId);
+  work.set(userId, promise);
+  try { return await promise; } finally { work.delete(userId); }
+}
+async function getFavoriteKeywordsFresh(userId: string): Promise<Map<string, number>> {
   const cached = keywordTasteCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) return cached.values;
   const knowledge = getUnifiedUserKnowledge(userId);

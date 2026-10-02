@@ -1,5 +1,7 @@
 /** Bounded transport concurrency, never a lifetime coverage limit. Public
  * metadata may be shared; callers only read keys belonging to their profile. */
+import { runBackground } from "@/lib/priority/lane";
+
 export class ProgressiveCache<T> {
   private queue: string[] = [];
   private pending = new Map<string, Promise<void>>();
@@ -11,7 +13,7 @@ export class ProgressiveCache<T> {
     private writeCached: (key: string, value: T) => void,
     private fetchValue: (key: string) => Promise<T | null>, private concurrency = 2) {}
 
-  async read(keys: string[], budgetMs = 1200): Promise<Map<string, T>> {
+  async read(keys: string[], budgetMs = 0): Promise<Map<string, T>> {
     const unique = [...new Set(keys)];
     for (const key of unique) {
       if (this.readCached(key) !== undefined || this.pending.has(key) || (this.retryAt.get(key) ?? 0) > Date.now()) continue;
@@ -40,7 +42,7 @@ export class ProgressiveCache<T> {
     while (this.active < this.concurrency && this.queue.length) {
       const key = this.queue.shift()!;
       this.active++;
-      void this.fetchValue(key).then((value) => {
+      void runBackground(() => this.fetchValue(key)).then((value) => {
         if (value !== null) { this.writeCached(key, value); this.generation++; }
         else this.retryAt.set(key, Date.now() + 60_000);
       }).catch(() => { this.retryAt.set(key, Date.now() + 60_000); }).finally(() => {

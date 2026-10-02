@@ -1,4 +1,4 @@
-import { getGenres, getPerson, getDetail } from "@/lib/metadata/tmdb";
+import { getGenres, getPerson, getTasteMetadata as getDetail } from "@/lib/metadata/tmdb";
 import { getWatchedTitles } from "@/lib/recommender/watchedTitles";
 import { diversifyBySeed } from "@/lib/recommender/diversify";
 import { mapWithConcurrency } from "@/lib/concurrency";

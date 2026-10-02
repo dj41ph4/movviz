@@ -16,6 +16,7 @@ function resolveWithExtensions(base) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  if (specifier === "next/server") return nextResolve("next/server.js", context);
   if (typeof specifier === "string" && specifier.startsWith("@/")) {
     const base = join(root, "src", specifier.slice(2));
     const candidate = resolveWithExtensions(base) ?? base;
