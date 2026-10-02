@@ -1,3 +1,9 @@
+## v1.25.148 — Octobre 2026
+
+### Indexeur YGGReborn
+
+- YGGReborn est proposé dans le catalogue Torznab avec son URL API officielle. Le formulaire donne accès au guide officiel pour obtenir la clé API.
+
 ## v1.25.147 — Octobre 2026
 
 ### Indexeur V3x

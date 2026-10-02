@@ -65,6 +65,18 @@ export const INDEXER_CATALOG: CatalogEntry[] = [
     categories: [2000, 5000],
   },
   {
+    key: "yggreborn",
+    name: "YGGReborn",
+    kind: "torznab",
+    protocol: "torrent",
+    authType: "apikey",
+    siteUrl: "https://www.yggreborn.org",
+    baseUrl: "https://www.yggreborn.org/api",
+    apiKeyUrl: "https://www.yggreborn.org/guide-api",
+    description: "Tracker francophone privé avec API Torznab et clé API personnelle.",
+    categories: [2000, 5000],
+  },
+  {
     key: "nzbgeek",
     name: "NZBgeek",
     kind: "newznab",
