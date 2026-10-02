@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
-import { applyWatchDecision, getCurrentWatchState, type WatchSource } from "@/lib/userContext/watchBridge";
+import { applyWatchDecision, getCanonicalWatchStatus, getCurrentWatchState, getCurrentWatchStateAt, type WatchSource } from "@/lib/userContext/watchBridge";
 import { markPlexWatchedOutboxPending, shouldPropagateWatchedToPlex } from "./watchWrite";
 import { emitWatchChanged } from "@/lib/events/watchEvents";
 
@@ -259,6 +259,42 @@ function write(list: WatchStatus[]): boolean {
 
 export function getWatchStatus(userId: string): WatchStatus | null {
   return read().find((w) => w.userId === userId) ?? null;
+}
+
+/** Repair the compatibility mirror from THIS user's canonical decisions.
+ * No new decisions, Plex writes or history deletion; unknown legacy entries
+ * are preserved. A missing/erroring canonical store never empties the JSON. */
+export function syncLegacyWatchProjection(userId: string): boolean {
+  const canonical = getCanonicalWatchStatus(userId);
+  if (!canonical) return false;
+  const list = read();
+  const status = findOrCreate(list, userId);
+  const before = JSON.stringify([status.movies, status.episodes, status.movieWatchedAt]);
+  status.movies = status.movies.filter((tmdbId) => getCurrentWatchState({ userId, tmdbId, mediaType: "movie" }) !== "unwatched");
+  status.episodes = status.episodes.filter((e) => getCurrentWatchState({ userId, tmdbId: e.tmdbId, mediaType: "episode", seasonNumber: e.season, episodeNumber: e.episode }) !== "unwatched");
+  const movies = new Set(status.movies);
+  const episodes = new Map(status.episodes.map((e) => [episodeKey(e), e]));
+  for (const tmdbId of canonical.movies) {
+    const at = getCurrentWatchStateAt({ userId, tmdbId, mediaType: "movie" }).updatedAt ?? 0;
+    if (!movies.has(tmdbId)) { status.movies.push(tmdbId); movies.add(tmdbId); }
+    status.movieWatchedAt ??= {};
+    status.movieWatchedAt[String(tmdbId)] = Math.max(status.movieWatchedAt[String(tmdbId)] ?? 0, at);
+  }
+  for (const e of canonical.episodes) {
+    const key = episodeKey(e);
+    const existing = episodes.get(key);
+    if (!existing) {
+      const next = { tmdbId: e.tmdbId, season: e.season, episode: e.episode, at: e.at };
+      status.episodes.push(next); episodes.set(key, next);
+    } else if (e.at != null) existing.at = Math.max(existing.at ?? 0, e.at);
+  }
+  if (JSON.stringify([status.movies, status.episodes, status.movieWatchedAt]) === before) return true;
+  status.updatedAt = Date.now();
+  if (!write(list)) return false;
+  // Repair only the compatibility flags. Never clear a newer playback/resume
+  // merely because an older canonical view was missing from this mirror.
+  emitWatchChanged(userId);
+  return true;
 }
 
 /**

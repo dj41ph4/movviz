@@ -74,7 +74,7 @@ export function upsertUserMediaState(input: Omit<ContextMediaState, "stateKey"> 
         watched_updated_at, watched_source, rating_value, rating_updated_at,
         rating_source, watchlist_present, watchlist_updated_at, watchlist_source,
         watchlist_added_at, watchlist_removed_at, plex_guid, plex_discover_rating_key
-      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(state_key) DO UPDATE SET
         user_id = excluded.user_id,
         tmdb_id = excluded.tmdb_id,

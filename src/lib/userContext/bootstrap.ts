@@ -1,6 +1,6 @@
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { listAllPlaybackProgress } from "@/lib/playback/progressStore";
-import { getWatchStatus } from "@/lib/plex/watchStore";
+import { getWatchStatus, syncLegacyWatchProjection } from "@/lib/plex/watchStore";
 import { getFeedback, getAllRatings } from "@/lib/ai/tasteProfile";
 import { loadRequests } from "@/lib/requests/store";
 import { withUserContextDb } from "./database";
@@ -202,6 +202,7 @@ export function refreshLegacyUserContext(userId: string, force = false): void {
     for (const progress of listAllPlaybackProgress(userId)) {
       syncPlaybackContext(progress, { force: true });
     }
+    syncLegacyWatchProjection(userId);
     markRefresh(userId, null);
   } catch (error) {
     markRefresh(userId, error instanceof Error ? error.message : String(error));

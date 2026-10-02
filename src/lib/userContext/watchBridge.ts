@@ -14,7 +14,9 @@ function hydrateLegacyWatchProjection(userId: string): boolean {
   const ready = projectionGlobal.__movvizLegacyWatchProjectionReady ??= new Set();
   if (ready.has(userId)) return true;
   const rows = readJsonCached<{ userId: string; movies: number[]; movieWatchedAt?: Record<string, number>; recent?: { tmdbId: number; type: string; at: number }[]; episodes: { tmdbId: number; season: number; episode: number; at?: number | null }[] }[]>(legacyWatchFile, []);
-  if (jsonCacheReadFailed(legacyWatchFile)) return false;
+  // A corrupt legacy mirror must not hide healthy canonical decisions.
+  // Do not mark hydration ready: retry if that mirror becomes readable.
+  if (jsonCacheReadFailed(legacyWatchFile)) return true;
   const legacy = rows.find((row) => row.userId === userId);
   const candidates = [
     ...(legacy?.movies ?? []).map((tmdbId) => ({ userId, tmdbId, mediaType: "movie" as const, occurredAt: legacy?.movieWatchedAt?.[String(tmdbId)] ?? legacy?.recent?.find((e) => e.type === "movie" && e.tmdbId === tmdbId)?.at ?? 0 })),

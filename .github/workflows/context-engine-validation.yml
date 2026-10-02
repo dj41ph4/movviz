@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
-          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test --test-concurrency=1 $FILES
       - name: Production build
         run: npm run build
       - name: SQLite and watched state in the production bundle

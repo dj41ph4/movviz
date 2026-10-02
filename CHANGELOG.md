@@ -1,3 +1,11 @@
+## v1.25.152 — Octobre 2026
+
+### Progression SQLite et cohérence des vues
+
+- L'écriture de progression SQLite utilise le bon nombre de paramètres ; elle ne peut plus échouer sur « 34 values for 33 columns ».
+- Après synchronisation, le miroir JSON reprend les décisions canoniques du même utilisateur, sans nouvelle décision ni propagation Plex, en conservant les dates et les états inconnus. Cette réparation ne réinitialise aucune lecture en cours.
+- Un miroir JSON illisible ne masque plus les décisions SQLite valides. Le contrôle du bundle vérifie aussi une vraie écriture de progression et la réparation du miroir sans ajouter d'événement d'historique.
+
 ## v1.25.151 — Octobre 2026
 
 ### Moteur SQLite en production
