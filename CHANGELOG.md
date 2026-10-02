@@ -1,3 +1,11 @@
+## v1.25.151 — Octobre 2026
+
+### Moteur SQLite en production
+
+- Le chargement du module SQLite reste fonctionnel dans le bundle Webpack de production, au lieu d'être remplacé par un chargeur inexistant.
+- À la remise en service, les vues JSON de chaque utilisateur complètent uniquement les états canoniques inconnus, avec leurs dates d'origine. Une décision canonique existante, notamment « non vu », n'est jamais écrasée ; aucune vue n'est envoyée vers Plex par cette récupération.
+- Un contrôle exécuté sur le vrai bundle de production vérifie SQLite, la conservation des vues et des dates, l'isolation des utilisateurs et le respect des décisions « non vu ».
+
 ## v1.25.150 — Octobre 2026
 
 ### Vérification de l'import Plex

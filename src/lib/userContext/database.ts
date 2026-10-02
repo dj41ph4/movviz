@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
 import type { DatabaseSync } from "node:sqlite";
 import type { UserContextHealth } from "./types";
 
@@ -29,9 +28,10 @@ function setError(error: unknown): void {
 
 function loadDatabaseSync(): (new (path: string) => DatabaseSync) | null {
   try {
-    const runtimeRequire = createRequire(path.join(process.cwd(), "package.json"));
-    const sqlite = runtimeRequire("node:sqlite") as { DatabaseSync?: new (path: string) => DatabaseSync };
-    return typeof sqlite.DatabaseSync === "function" ? sqlite.DatabaseSync : null;
+    // Webpack rewrites createRequire(dynamicPath) to undefined. Load the
+    // optional builtin directly from Node without involving its parser.
+    const sqlite = process.getBuiltinModule?.("node:sqlite") as { DatabaseSync?: new (path: string) => DatabaseSync } | undefined;
+    return typeof sqlite?.DatabaseSync === "function" ? sqlite.DatabaseSync : null;
   } catch (error) {
     setError(error);
     return null;

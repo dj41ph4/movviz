@@ -1,6 +1,35 @@
 import type { DatabaseSync } from "node:sqlite";
 import { withUserContextDb } from "./database";
 import { recordUserContextEvent } from "./ingest";
+import path from "node:path";
+import { jsonCacheReadFailed, readJsonCached } from "@/lib/fsJsonCache";
+
+const legacyWatchFile = path.join(process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"), "plex-watch-status.json");
+const projectionGlobal = globalThis as typeof globalThis & { __movvizLegacyWatchProjectionReady?: Set<string> };
+
+/** Restore only UNKNOWN projections after a JSON-only runtime. Existing
+ * canonical decisions, including explicit UNWATCHED, always remain intact.
+ * No network calls, cross-user merge, outbox writes or invented recent date. */
+function hydrateLegacyWatchProjection(userId: string): boolean {
+  const ready = projectionGlobal.__movvizLegacyWatchProjectionReady ??= new Set();
+  if (ready.has(userId)) return true;
+  const rows = readJsonCached<{ userId: string; movies: number[]; movieWatchedAt?: Record<string, number>; recent?: { tmdbId: number; type: string; at: number }[]; episodes: { tmdbId: number; season: number; episode: number; at?: number | null }[] }[]>(legacyWatchFile, []);
+  if (jsonCacheReadFailed(legacyWatchFile)) return false;
+  const legacy = rows.find((row) => row.userId === userId);
+  const candidates = [
+    ...(legacy?.movies ?? []).map((tmdbId) => ({ userId, tmdbId, mediaType: "movie" as const, occurredAt: legacy?.movieWatchedAt?.[String(tmdbId)] ?? legacy?.recent?.find((e) => e.type === "movie" && e.tmdbId === tmdbId)?.at ?? 0 })),
+    ...(legacy?.episodes ?? []).map((episode) => ({ userId, tmdbId: episode.tmdbId, mediaType: "episode" as const, seasonNumber: episode.season, episodeNumber: episode.episode, occurredAt: episode.at ?? 0 })),
+  ];
+  for (const candidate of candidates) {
+    if (!Number.isSafeInteger(candidate.tmdbId) || candidate.tmdbId <= 0 || !Number.isFinite(candidate.occurredAt) || candidate.occurredAt < 0) continue;
+    if (candidate.mediaType === "episode" && (!Number.isSafeInteger(candidate.seasonNumber) || candidate.seasonNumber < 0 || !Number.isSafeInteger(candidate.episodeNumber) || candidate.episodeNumber <= 0)) continue;
+    if (getCurrentWatchState(candidate) !== "unknown") continue;
+    applyWatchDecision({ ...candidate, state: "watched", source: "legacy_migration" });
+    if (getCurrentWatchState(candidate) === "unknown") return false;
+  }
+  ready.add(userId);
+  return true;
+}
 
 function movieStateKey(userId: string, tmdbId: number): string {
   return `${userId}:movie:${tmdbId}`;
@@ -134,6 +163,7 @@ export interface CanonicalWatchStatus {
  */
 export function getCanonicalWatchStatus(userId: string): CanonicalWatchStatus | null {
   return withUserContextDb((db) => {
+    if (!hydrateLegacyWatchProjection(userId)) return null;
     const movieRows = db.prepare(
       "SELECT tmdb_id FROM user_media_state WHERE user_id = ? AND media_type = 'movie' AND watched = 1 AND watched_updated_at IS NOT NULL"
     ).all(userId) as { tmdb_id: number }[];

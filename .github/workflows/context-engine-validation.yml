@@ -39,3 +39,5 @@ jobs:
           node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
       - name: Production build
         run: npm run build
+      - name: SQLite and watched state in the production bundle
+        run: node scripts/check-context-production-bundle.mjs
