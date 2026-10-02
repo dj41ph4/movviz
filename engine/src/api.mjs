@@ -145,10 +145,12 @@ export function createApiServer(engine) {
             return send(res, ok ? 200 : 404, { removed: ok });
           }
           if (method === "POST" && parts[2] === "pause") {
-            return send(res, 200, { ok: engine.pause(infoHash) });
+            const ok = await engine.pause(infoHash);
+            return send(res, ok ? 200 : 409, { ok });
           }
           if (method === "POST" && parts[2] === "resume") {
-            return send(res, 200, { ok: engine.resume(infoHash) });
+            const ok = await engine.resume(infoHash);
+            return send(res, ok ? 200 : 409, { ok });
           }
           if (method === "POST" && parts[2] === "restart") {
             return send(res, 200, { ok: await engine.restart(infoHash) });

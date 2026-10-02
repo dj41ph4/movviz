@@ -103,12 +103,14 @@ export class WebTorrentBackend extends AbstractBackend {
       const t = this.client.add(torrentId, {
         path: this.cfg.downloadPath,
         deselect: !!(opts.episodeTarget || opts.episodeTargets),
+        paused: !!opts.paused,
       });
+      this._installPauseGuard(t);
       t.on("error", reject);
       let waited = 0;
       const settle = () => {
         if (t.infoHash) {
-          if (opts.paused) t.pause();
+          if (opts.paused) this._clientPause(t.infoHash);
           return resolve(this._wtHandle(t));
         }
         if ((waited += 25) > 8000) {
@@ -167,7 +169,14 @@ export class WebTorrentBackend extends AbstractBackend {
   _clientPause(infoHash) {
     const lower = infoHash.toLowerCase();
     const t = this.client?.torrents?.find((t2) => t2.infoHash.toLowerCase() === lower);
-    if (t) { t.pause(); return true; }
+    if (t) {
+      this._installPauseGuard(t);
+      t.pause();
+      // WT pause stops outbound discovery, not existing/incoming traffic.
+      // Keep the torrent/store/selection intact but close every data wire.
+      for (const wire of [...(t.wires ?? [])]) wire.destroy();
+      return true;
+    }
     return false;
   }
 
@@ -176,6 +185,14 @@ export class WebTorrentBackend extends AbstractBackend {
     const t = this.client?.torrents?.find((t2) => t2.infoHash.toLowerCase() === lower);
     if (t) { t.resume(); return true; }
     return false;
+  }
+
+  _installPauseGuard(t) {
+    if (t.__movvizPauseGuard) return;
+    t.__movvizPauseGuard = true;
+    t.on("wire", (wire) => {
+      if (t.paused) wire.destroy();
+    });
   }
 
   _clientSetSequential(infoHash, on) {
@@ -396,6 +413,7 @@ export class WebTorrentBackend extends AbstractBackend {
         clearInterval(stallTimer);
         return;
       }
+      if (t.paused) { lastDownloaded = -1; return; }
       const downloaded = stage >= 2 ? t.downloaded : targets.reduce((s, f) => s + f.downloaded, 0);
       if (downloaded !== lastDownloaded) { lastDownloaded = downloaded; return; }
       const targetSize = targets.reduce((s, f) => s + f.length, 0);
@@ -447,6 +465,7 @@ export class WebTorrentBackend extends AbstractBackend {
 
     const stallTimer = setInterval(() => {
       if (t.destroyed || t.done) { clearInterval(stallTimer); return; }
+      if (t.paused) { lastDownloaded = -1; return; }
       const downloaded = t.downloaded;
       if (downloaded > 0) everProgressed = true;
       if (downloaded !== lastDownloaded) { lastDownloaded = downloaded; return; }

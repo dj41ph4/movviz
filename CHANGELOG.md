@@ -1,3 +1,11 @@
+## v1.25.153 — Octobre 2026
+
+### Pause réelle et export d'historique Plex
+
+- La pause WebTorrent ferme les connexions de transfert existantes et rejette leurs reconnexions pendant la pause, sans supprimer les fichiers ni perdre leur sélection. Les récupérations automatiques ne s'exécutent plus sur un torrent pausé.
+- Les commandes pause/reprise attendent la réponse du moteur ; un échec ne retourne plus un succès trompeur et l'état manuel est persisté.
+- Un export explicite permet de transmettre les vues historiques d'un profil Movviz à son propre compte Plex via la file durable existante. Les autres profils, les dates Movviz et les lectures en cours restent inchangés ; les imports ordinaires ne créent toujours aucune boucle.
+
 ## v1.25.152 — Octobre 2026
 
 ### Progression SQLite et cohérence des vues

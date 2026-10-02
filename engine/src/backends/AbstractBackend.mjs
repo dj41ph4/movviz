@@ -555,21 +555,29 @@ export class AbstractBackend {
     return true;
   }
 
-  pause(infoHash) {
+  async pause(infoHash) {
     const key = infoHash.toLowerCase();
     const m = this.meta.get(key) ?? this.meta.get(infoHash);
+    const previouslyPaused = m?.userPaused;
     if (m) m.userPaused = true;
     // Ensure the persisted meta key is lowercased for future lookups
     if (m && this.meta.has(infoHash) && infoHash !== key) {
       this.meta.set(key, m);
       this.meta.delete(infoHash);
     }
-    return this._clientPause(key);
+    let ok = false;
+    try { ok = await this._clientPause(key); } catch { /* reported to caller */ }
+    if (!ok && m) m.userPaused = previouslyPaused;
+    this.onChange();
+    return ok;
   }
 
-  resume(infoHash) {
+  async resume(infoHash) {
     const key = infoHash.toLowerCase();
     const m = this.meta.get(key) ?? this.meta.get(infoHash);
+    let ok = false;
+    try { ok = await this._clientResume(key); } catch { /* reported to caller */ }
+    if (!ok) return false;
     if (m) {
       m.userPaused = false;
       m.stalled = false;
@@ -581,7 +589,8 @@ export class AbstractBackend {
       this.meta.set(key, m);
       this.meta.delete(infoHash);
     }
-    return this._clientResume(key);
+    this.onChange();
+    return true;
   }
 
   /**

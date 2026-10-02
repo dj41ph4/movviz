@@ -7,6 +7,9 @@ on:
       - 'src/lib/userContext/**'
       - 'src/lib/playback/progressStore.ts'
       - 'src/lib/plex/watchStore.ts'
+      - 'src/lib/plex/historyExport.ts'
+      - 'src/app/api/plex/export-history/**'
+      - 'engine/src/**'
       - 'src/lib/ai/profile.ts'
       - 'scripts/user-context.test.ts'
       - '.github/workflows/context-engine-validation.yml'
@@ -39,5 +42,7 @@ jobs:
           node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test --test-concurrency=1 $FILES
       - name: Production build
         run: npm run build
+      - name: Download pause tests
+        run: node --test scripts/engine-pause.test.mjs
       - name: SQLite and watched state in the production bundle
         run: node scripts/check-context-production-bundle.mjs
