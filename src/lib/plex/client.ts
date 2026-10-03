@@ -555,6 +555,7 @@ interface RawStream {
   forced?: boolean;
 }
 interface RawMediaPart {
+  key?: string;
   file?: string;
   size?: number;
   Stream?: RawStream[];
@@ -795,6 +796,8 @@ export async function getServerIdentity(cfg: PlexServerConfig): Promise<string |
 
 interface BatchItemInfo {
   tmdbId: number | null;
+  /** Real episode coordinates and media presence, from the same metadata call. */
+  episode?: { season: number; episode: number; hasMedia: boolean };
   videoCodec: string | null;
   audioCodec: string | null;
   hdr: string | null;
@@ -829,6 +832,10 @@ export async function batchTmdbIds(cfg: PlexServerConfig, token: string, ratingK
         const mediaVersions = parseAllMediaVersions(item);
         result.set(item.ratingKey, {
           tmdbId: await resolveTmdbId(item.Guid, item.guid, item.type === "show" ? "series" : "movie"),
+          ...(item.type === "episode" && item.parentIndex != null && item.index != null ? {
+            episode: { season: item.parentIndex, episode: item.index,
+              hasMedia: !!item.Media?.some((media) => media.Part?.some((part) => part.key || part.file)) },
+          } : {}),
           ...info,
           mediaDetail: parseMediaDetail(item),
           mediaVersions: mediaVersions.length > 1 ? mediaVersions : [],

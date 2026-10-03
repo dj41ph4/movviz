@@ -1,7 +1,7 @@
 import { loadPlexConfig } from "./store";
 import { batchTmdbIds, buildPlexWebUrl } from "./client";
 import { getVerifiedOnDeck, resolvePlexServerAuth } from "./watchWrite";
-import { isEarlierEpisode } from "./onDeckPolicy";
+import { isEarlierEpisode, hasEpisodeSource, nextAvailableEpisode, availableEpisode } from "./onDeckPolicy";
 import { getMovieByPlexRatingKey, findEpisodeByPlexLocator, getSeriesByTmdbId } from "@/lib/library/store";
 import { resolvePlaybackEpisode } from "@/lib/playback/episodeIdentity";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
@@ -11,6 +11,7 @@ import { completionBoundaryMs } from "@/lib/playback/progressPolicy";
 import { getMovie, getSeason, getSeries } from "@/lib/metadata/tmdb";
 import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
 import type { User } from "@/lib/auth/types";
+import type { PlexOnDeckItem } from "./client";
 
 /** Vrai si offsetMs est déjà assez proche de la fin de durationMs pour
  *  compter comme « terminé » — même règle pour toute source de progression
@@ -90,7 +91,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
       continue;
     }
     const found = resolvePlaybackEpisode(p.ratingKey, p.mediaId);
-    if (!found) continue;
+    if (!found || !hasEpisodeSource(found.episode)) continue;
     if (episodeIsWatched(found.series.tmdbId, found.season.seasonNumber, found.episode.episodeNumber)) continue;
     if (isNearEnd(p.resumeOffsetMs, p.durationMs, "episode")) continue;
     const key = found.episode.plexRatingKey ?? p.ratingKey;
@@ -104,13 +105,8 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
       if (items.some((item) => item.type === "episode" && item.tmdbId === tmdbId)) continue;
       const series = getSeriesByTmdbId(tmdbId);
       if (!series) continue;
-      const candidates = [...series.seasons].filter((s) => s.seasonNumber > 0)
-        .sort((a, b) => a.seasonNumber - b.seasonNumber)
-        .flatMap((season) => [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber)
-          .map((episode) => ({ season, episode })));
-      const next = candidates.find(({ season, episode }) => !episodeIsWatched(tmdbId, season.seasonNumber, episode.episodeNumber));
-      // Do not jump over a missing episode into a later season.
-      if (!next || (!next.episode.file && !next.episode.plexRatingKey)) continue;
+      const next = nextAvailableEpisode(series.seasons, (season, episode) => episodeIsWatched(tmdbId, season, episode));
+      if (!next) continue;
       const key = next.episode.plexRatingKey;
       const lastPlayedAt = Math.max(0, ...watchedEpisodes.filter((e) => e.tmdbId === tmdbId).map((e) => e.at ?? 0));
       items.push({ type: "episode", tmdbId, title: series.title, posterPath: series.posterPath, year: series.year, rating: series.rating, progressPercent: 0, offsetMs: 0, seasonNumber: next.season.seasonNumber, episodeNumber: next.episode.episodeNumber, episodeTitle: next.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${series.id}:s${next.season.seasonNumber}e${next.episode.episodeNumber}`, seriesId: series.id, technical: technical(next.episode.file), lastPlayedAt });
@@ -121,7 +117,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     return (await attachEpisodeStills(items)).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
   }
 
-  const onDeck = await getVerifiedOnDeck(user, cfg);
+  const plexOnDeck = await getVerifiedOnDeck(user, cfg);
   // Marked « vu » in Movviz after Plex last saw it played: the Plex resume
   // is stale (Plex catches up on the « vu » a moment later), so the title
   // leaves « Reprendre » at once. A later Plex play (a rewatch) still wins,
@@ -135,13 +131,39 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
   // external IDs directly from Plex so a perfectly valid Plex resume is not
   // silently dropped merely because the title was never added to Movviz.
   const auth = await resolvePlexServerAuth(user, cfg);
-  const metadataByKey = auth
-    ? await batchTmdbIds(cfg, auth.token, onDeck.flatMap((item) => item.type === "episode" && item.grandparentRatingKey ? [item.ratingKey, item.grandparentRatingKey] : [item.ratingKey]))
-    : new Map<string, { tmdbId: number | null }>();
+  const metadataByKey: Awaited<ReturnType<typeof batchTmdbIds>> = auth
+    ? await batchTmdbIds(cfg, auth.token, plexOnDeck.flatMap((item) => item.type === "episode" && item.grandparentRatingKey ? [item.ratingKey, item.grandparentRatingKey] : [item.ratingKey]))
+    : new Map();
   const movieMeta = new Map<number, ReturnType<typeof getMovie>>();
   const seriesMeta = new Map<number, ReturnType<typeof getSeries>>();
   const resolveMovieMeta = (tmdbId: number) => movieMeta.get(tmdbId) ?? movieMeta.set(tmdbId, getMovie(tmdbId)).get(tmdbId)!;
   const resolveSeriesMeta = (tmdbId: number) => seriesMeta.get(tmdbId) ?? seriesMeta.set(tmdbId, getSeries(tmdbId)).get(tmdbId)!;
+  // Validate before choosing a per-series winner: an invalid Plex entry must
+  // neither appear nor hide a valid local successor. History stays untouched.
+  const onDeck: PlexOnDeckItem[] = [];
+  for (const d of plexOnDeck) {
+    if (d.type === "movie") { onDeck.push(d); continue; }
+    const found = findEpisodeByPlexLocator(d.ratingKey, d.grandparentRatingKey, d.seasonNumber, d.episodeNumber);
+    const tmdbId = found?.series.tmdbId ?? (d.grandparentRatingKey ? metadataByKey.get(d.grandparentRatingKey)?.tmdbId : null);
+    const seasonNumber = found?.season.seasonNumber ?? d.seasonNumber;
+    const episodeNumber = found?.episode.episodeNumber ?? d.episodeNumber;
+    if (tmdbId == null || seasonNumber == null || episodeNumber == null) continue;
+    const librarySeries = found?.series ?? getSeriesByTmdbId(tmdbId);
+    if (librarySeries) {
+      if (!availableEpisode(librarySeries.seasons, seasonNumber, episodeNumber)) continue;
+      // Active episodes still win; zero-offset successors cannot bypass a gap.
+      if (d.viewOffset <= 0 && watchedEpisodes.some((entry) => entry.tmdbId === tmdbId)) {
+        const next = nextAvailableEpisode(librarySeries.seasons, (season, episode) => episodeIsWatched(tmdbId, season, episode));
+        if (!next || next.season.seasonNumber !== seasonNumber || next.episode.episodeNumber !== episodeNumber) continue;
+      }
+    } else {
+      // Plex-only titles remain supported. Reuse the scoped metadata already
+      // fetched above: no new TMDb dependency or extra request per episode.
+      const actual = metadataByKey.get(d.ratingKey)?.episode;
+      if (!actual?.hasMedia || actual.season !== seasonNumber || actual.episode !== episodeNumber) continue;
+    }
+    onDeck.push(d);
+  }
   const firstBySeries = new Map<number, { season: number; episode: number }>();
   for (const d of onDeck) {
     if (d.type !== "episode" || d.viewOffset > 0 || !d.duration) continue;
@@ -184,7 +206,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const meta = found ? null : await resolveSeriesMeta(tmdbId);
     if (!found && !meta) continue;
     const key = found?.episode.plexRatingKey ?? d.ratingKey;
-    items.push({ type: "episode", tmdbId, title: found?.series.title ?? meta!.title, posterPath: found?.series.posterPath ?? meta!.posterPath, year: found?.series.year ?? meta!.year, rating: found?.series.rating ?? meta!.rating, progressPercent: percent, offsetMs: d.viewOffset, durationMs: d.duration, seasonNumber: season, episodeNumber: episode, episodeTitle: found?.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: found ? `${found.series.id}:s${season}e${episode}` : undefined, seriesId: found?.series.id, technical: technical(found?.episode.file ?? null), lastPlayedAt: d.lastViewedAt ?? d.updatedAt ?? 0 });
+    items.push({ type: "episode", tmdbId, title: found ? found.series.title : meta!.title, posterPath: found ? found.series.posterPath : meta!.posterPath, year: found ? found.series.year : meta!.year, rating: found ? found.series.rating : meta!.rating, progressPercent: percent, offsetMs: d.viewOffset, durationMs: d.duration, seasonNumber: season, episodeNumber: episode, episodeTitle: found?.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: found ? `${found.series.id}:s${season}e${episode}` : undefined, seriesId: found?.series.id, technical: technical(found?.episode.file ?? null), lastPlayedAt: d.lastViewedAt ?? d.updatedAt ?? 0 });
   }
   // Exactly one current action per logical media — and a single active
   // resume per series (§23-24, §58 : E03+E04 ne coexistent jamais, le plus

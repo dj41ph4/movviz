@@ -19,14 +19,15 @@ const FRESH_MS = 15_000;
 const MAX_AGE_MS = 10 * 60_000;
 
 const g = globalThis as typeof globalThis & {
-  __movvizOnDeckCache?: Map<string, { items: OnDeckEntry[]; at: number }>;
-  __movvizOnDeckInFlight?: Map<string, Promise<OnDeckEntry[]>>;
-  __movvizOnDeckInvalidation?: boolean;
+  __movvizOnDeckValidatedCache?: Map<string, { items: OnDeckEntry[]; at: number }>;
+  __movvizOnDeckValidatedInFlight?: Map<string, Promise<OnDeckEntry[]>>;
+  __movvizOnDeckValidatedInvalidation?: boolean;
 };
-const cache = (g.__movvizOnDeckCache ??= new Map());
-const inFlight = (g.__movvizOnDeckInFlight ??= new Map());
-if (!g.__movvizOnDeckInvalidation) {
-  g.__movvizOnDeckInvalidation = true;
+// Do not retain entries from the previous unvalidated policy on a hot upgrade.
+const cache = (g.__movvizOnDeckValidatedCache ??= new Map());
+const inFlight = (g.__movvizOnDeckValidatedInFlight ??= new Map());
+if (!g.__movvizOnDeckValidatedInvalidation) {
+  g.__movvizOnDeckValidatedInvalidation = true;
   eventBus.on((event) => {
     if (event.type === "watch_changed") cache.delete(event.userId);
   });
