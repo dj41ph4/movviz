@@ -156,7 +156,9 @@ export function saveReleaseRules(patch: Partial<ReleaseRules>): ReleaseRules {
 /**
  * Plain substring match (case-insensitive) — "must not contain" release
  * terms. A blocked match is cancelled when the title also contains one of
- * `rules.allowedWords` (e.g. "VOSTFR+FRENCH" with FRENCH whitelisted).
+ * `rules.allowedWords` as a standalone term (e.g. "VOSTFR+FRENCH" with
+ * FRENCH whitelisted, but not SUBFRENCH). Release separators such as dots,
+ * underscores and plus signs delimit terms; letters and digits do not.
  */
 export function matchesBlockedWord(title: string, rules: ReleaseRules = read()): string | null {
   const t = title.toLowerCase();
@@ -165,7 +167,9 @@ export function matchesBlockedWord(title: string, rules: ReleaseRules = read()):
     if (!w || !t.includes(w)) continue;
     const cancelled = rules.allowedWords.some((a) => {
       const aw = a.trim().toLowerCase();
-      return aw && t.includes(aw);
+      if (!aw) return false;
+      const escaped = aw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(?:^|[^\\p{L}\\p{N}\\p{M}])${escaped}(?=$|[^\\p{L}\\p{N}\\p{M}])`, "u").test(t);
     });
     if (!cancelled) return word;
   }

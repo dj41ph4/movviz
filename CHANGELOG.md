@@ -1,3 +1,10 @@
+## v1.25.157 — Octobre 2026
+
+### Termes autorisés de release
+
+- Un terme autorisé doit être distinct : FRENCH ne contourne plus un interdit lorsqu'il est seulement contenu dans SUBFRENCH ou TRUEFRENCH.
+- Les séparateurs habituels des releases restent acceptés, notamment VOSTFR+FRENCH. La règle commune couvre la sélection automatique et le contrôle après import, sans changer les exceptions manuelles.
+
 ## v1.25.156 — Octobre 2026
 
 ### Taille des cartes Découverte sur desktop

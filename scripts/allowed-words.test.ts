@@ -37,3 +37,29 @@ test("liste vide de mots autorises ne casse rien", () => {
   const got = matchesBlockedWord("Arrow.S01E01.VOSTFR.1080p.mkv", rulesEmpty as never);
   assert.equal(got, "VOSTFR");
 });
+
+test("FRENCH dans SUBFRENCH ou TRUEFRENCH ne constitue pas une autorisation", () => {
+  for (const word of ["SUBFRENCH", "TRUEFRENCH"]) {
+    assert.equal(matchesBlockedWord(`Movie.${word}.1080p`, {
+      blockedWords: [word], allowedWords: ["FRENCH"],
+    } as never), word);
+  }
+});
+
+test("une partie de mot autorise ne contourne aucun interdit", () => {
+  for (const token of ["SUBFRENCH", "TRUEFRENCH", "FRENCH2", "2FRENCH", "éFRENCH", "FRENCHé", "FRENCH\u0301", "MULTILINGUAL"]) {
+    assert.equal(matchesBlockedWord(`Movie.CAM.${token}.1080p`, rules as never), "CAM");
+  }
+});
+
+test("mots autorises distincts acceptes entre separateurs de release", () => {
+  for (const title of ["FRENCH.CAM", "CAM.FRENCH", "CAM_FRENCH_1080p", "CAM+french+1080p", "CAM (FRENCH)", "CAM MULTI"]) {
+    assert.equal(matchesBlockedWord(title, rules as never), null);
+  }
+});
+
+test("termes autorises sont litteraux et les entrees vides sont ignorees", () => {
+  const special = { blockedWords: ["CAM"], allowedWords: ["  ", " A+B "] };
+  assert.equal(matchesBlockedWord("Movie.CAM.A+B.1080p", special as never), null);
+  assert.equal(matchesBlockedWord("Movie.CAM.AAB.1080p", special as never), "CAM");
+});
