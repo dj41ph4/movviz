@@ -16,9 +16,9 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
+import { SidebarReleaseFooter, type SidebarUpdateInfo } from "./SidebarReleaseFooter";
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 
-interface UpdateInfo { latestVersion: string | null; updateAvailable: boolean; platform: string; }
 type LiveBadge = NonNullable<NavItem["liveBadge"]>;
 const SIDEBAR_STORAGE_KEY = "movviz.sidebar.collapsed";
 
@@ -162,7 +162,7 @@ function GestionNavItem({ pathname, searchParams, counts, pulseBadge, isAdmin, c
   </div>;
 }
 
-export function Sidebar({ version: _version }: { version: string }) {
+export function Sidebar({ version }: { version: string }) {
   const pathname = usePathname(); const searchParams = useSearchParams(); const t = useT(); const user = useCurrentUser();
   const pendingRequests = usePendingRequests(); const pendingUsers = usePendingUsers(); const activeDownloads = useActiveDownloads();
   const [collapsed, setCollapsed] = useState(false); const [transitionEnabled, setTransitionEnabled] = useState(false);
@@ -183,10 +183,24 @@ export function Sidebar({ version: _version }: { version: string }) {
     if (increased) setPulseBadge(increased); previousCounts.current = next;
   }, [pendingRequests, pendingUsers, activeDownloads]);
   useEffect(() => { if (!pulseBadge) return; const timeout = window.setTimeout(() => setPulseBadge(null), 2000); return () => window.clearTimeout(timeout); }, [pulseBadge]);
-  const { data: updateInfo } = useSWR<UpdateInfo>(user?.role === "admin" ? "/api/system/update" : null, fetcher, { refreshInterval: 60 * 60 * 1000, revalidateOnFocus: false });
+  const { data: updateInfo } = useSWR<SidebarUpdateInfo>(user?.role === "admin" ? "/api/system/update" : null, fetcher, { refreshInterval: 60 * 60 * 1000, revalidateOnFocus: false });
+  const [installing, setInstalling] = useState(false);
+  const installingRef = useRef(false);
   const autoUpdate = useAutoUpdate(); const globalState = globalThis as typeof globalThis & { __movvizAutoUpdateTriggered?: boolean };
   if (globalState.__movvizAutoUpdateTriggered === undefined) globalState.__movvizAutoUpdateTriggered = false;
-  const triggerUpdate = async () => { try { const response = await fetch("/api/system/update", { method: "POST" }); if (!response.ok) { const error = await response.json().catch(() => ({})); toast("error", t("update.failed", { error: error.error ?? "unknown" })); } } catch { toast("error", t("update.failed", { error: "network" })); } };
+  const triggerUpdate = async () => {
+    if (installingRef.current) return;
+    installingRef.current = true;
+    setInstalling(true);
+    try {
+      const response = await fetch("/api/system/update", { method: "POST" });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        toast("error", t("update.failed", { error: error.error ?? "unknown" }));
+      }
+    } catch { toast("error", t("update.failed", { error: "network" })); }
+    finally { installingRef.current = false; setInstalling(false); }
+  };
   useEffect(() => {
     if (updateInfo?.updateAvailable && updateInfo.platform === "win32" && autoUpdate.enabled && !globalState.__movvizAutoUpdateTriggered) { globalState.__movvizAutoUpdateTriggered = true; const timeout = window.setTimeout(() => void triggerUpdate(), 2000); return () => window.clearTimeout(timeout); }
   // triggerUpdate deliberately stays out: it is recreated every render.
@@ -207,6 +221,12 @@ export function Sidebar({ version: _version }: { version: string }) {
     </nav>
     <footer className="mt-2 shrink-0">
       {user && <div className="mt-2 border-t border-white/10 pt-2"><Link href="/profile" aria-label={user.username} className={cn("group flex h-11 items-center rounded-lg ring-focus transition-colors duration-150 hover:bg-white/[0.04]", collapsed ? "justify-center" : "gap-2.5 px-2")}><span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full brand-gradient text-xs font-black text-white">{effectiveAvatar(user) ? <img src={effectiveAvatar(user)!} alt="" className="h-full w-full object-cover" /> : user.username.slice(0, 2).toUpperCase()}</span>{!collapsed && <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-semibold text-ink">{user.username}</span><span className="block truncate text-[11px] font-medium text-ink-dim">{user.role === "admin" ? t("auth.admin") : t("auth.user")}</span></span>}</Link></div>}
+      <SidebarReleaseFooter version={version} collapsed={collapsed} updateInfo={user?.role === "admin" ? updateInfo : undefined} installing={installing} onInstall={() => void triggerUpdate()} labels={{
+        currentVersion: t("update.currentVersion", { version }),
+        available: t("update.available", { version: updateInfo?.latestVersion ?? "..." }),
+        install: t("update.installNow", { version: updateInfo?.latestVersion ?? "..." }),
+        inProgress: t("update.inProgress"), upToDate: t("update.upToDate"),
+      }} />
     </footer>
   </aside>;
 }
