@@ -699,7 +699,8 @@ body {
    application shell: phone and tablet keep their larger touch-first layout. */
 @media (min-width: 1024px) {
   .nx-desktop-shell .nx-discover-page {
-    max-width: 1600px;
+    width: 100%;
+    max-width: 2000px;
   }
 
   .nx-desktop-shell .nx-discover-page > [data-nx-page-header] {

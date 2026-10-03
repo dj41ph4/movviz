@@ -1,3 +1,10 @@
+## v1.25.156 — Octobre 2026
+
+### Taille des cartes Découverte sur desktop
+
+- Découverte utilise la même largeur de contenu et la même taille responsive de cartes que le tableau de bord sur desktop, dans les rangées et les grilles de résultats.
+- Les placeholders suivent les mêmes dimensions ; les tailles sur téléphone et tablette restent inchangées.
+
 ## v1.25.155 — Octobre 2026
 
 ### Réactivité du premier chargement

@@ -985,7 +985,7 @@ function DiscoverPageInner() {
           {isBrowsing && (
             <>
               {loading && page === 1 && (
-                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                   {[...Array(12)].map((_, i) => (
                     <div key={i}>
                       <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
@@ -1026,7 +1026,7 @@ function DiscoverPageInner() {
                       </select>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                     {(() => {
                       const filteredByType = searchFilter === "all" ? results : results.filter((r) => r.type === searchFilter);
                       const displayResults = [...filteredByType].sort((a, b) => {
@@ -1338,7 +1338,7 @@ function HomeRows({
             <div className="h-6 w-48 animate-pulse rounded-lg bg-white/8" />
             <div className="flex gap-4 overflow-hidden">
               {[...Array(6)].map((_, j) => (
-                <div key={j} className="w-[375px] shrink-0 lg:w-[400px] xl:w-[425px] 2xl:w-[450px]">
+                <div key={j} className="w-[375px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
                   <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
                 </div>
               ))}
@@ -1479,7 +1479,7 @@ function PosterRow({
   return (
     <SharedPosterRow title={title} onSeeAll={onSeeAll}>
       {results.map((r, i) => (
-        <div key={`${r.type}:${r.tmdbId}`} className="w-[275px] shrink-0">
+        <div key={`${r.type}:${r.tmdbId}`} className="w-[275px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
           <DiscoverCard
             index={i}
             result={r}
