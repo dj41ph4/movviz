@@ -1466,6 +1466,8 @@ export const nl: Dictionary = {
     speedLimit: "Snelheidslimiet",
     quickDownloadSettings: "Snelle instellingen",
     manageDownloadClients: "Downloadclients beheren",
+    restartTorrentClient: "Torrentclient herstarten",
+    restartingTorrentClient: "Herstarten…",
     seedRatio: "Seedratio",
     autoStart: "Automatisch starten bij opstarten",
     instanceMovies: "Instantie films",

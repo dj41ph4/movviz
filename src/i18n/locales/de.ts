@@ -1483,6 +1483,8 @@ export const de: Dictionary = {
     speedLimit: "Geschwindigkeitsbegrenzung",
     quickDownloadSettings: "Schnelleinstellungen",
     manageDownloadClients: "Download-Clients verwalten",
+    restartTorrentClient: "Torrent-Client neu starten",
+    restartingTorrentClient: "Neustart läuft…",
     seedRatio: "Seed-Verhältnis",
     autoStart: "Automatischer Start beim Booten",
     instanceMovies: "Instanz Filme",

@@ -38,6 +38,7 @@ export class MovvizEngine {
       : [];
     this.started = false;
     this._clientType = resolveClientType(this.state);
+    this.clientRestart = { restarting: false, error: null };
   }
 
   configs() {
@@ -77,6 +78,7 @@ export class MovvizEngine {
     }
     await this.resumeTorrents();
     this.ticker = setInterval(() => {
+      if (this._preserveRestartState) return;
       for (const inst of this.instances.values()) inst.tick();
       this._recordStats();
     }, 5000);
@@ -88,14 +90,17 @@ export class MovvizEngine {
     );
   }
 
-  async resumeTorrents() {
+  async resumeTorrents(strict = false) {
     const saved = this.state.torrents ?? [];
     let resumed = 0;
     let restored = 0;
     const failuresByReason = new Map();
     for (const rec of saved) {
       const inst = this.instances.get(rec.instanceId);
-      if (!inst) continue;
+      if (!inst) {
+        if (strict) throw new Error(`Cannot restore instance ${rec.instanceId}`);
+        continue;
+      }
       if (rec.movedTo) {
         inst.restoreImported(rec);
         restored++;
@@ -107,7 +112,10 @@ export class MovvizEngine {
       } catch {
         torrentId = rec.magnetURI ?? null;
       }
-      if (!torrentId) continue;
+      if (!torrentId) {
+        if (strict) throw new Error(`Cannot restore torrent ${rec.infoHash}`);
+        continue;
+      }
       try {
         await inst.add(torrentId, {
           infoHash: rec.infoHash,
@@ -136,6 +144,7 @@ export class MovvizEngine {
     for (const [reason, count] of failuresByReason) {
       console.error(`[engine] resume failed for ${count} torrent(s): ${reason}`);
     }
+    if (strict && failuresByReason.size) throw new Error("Some torrents could not be restored");
   }
 
   // ---- Routing -----------------------------------------------------------
@@ -233,16 +242,44 @@ export class MovvizEngine {
 
   /** Switch client type and restart instances. */
   async setClientType(clientType) {
+    if (this._preserveRestartState) throw new Error("Torrent client restart pending");
     if (clientType !== "webtorrent" && clientType !== "native" && clientType !== "libtorrent") {
       throw new Error(`invalid client type: ${clientType}`);
     }
     this._clientType = clientType;
     this.state.clientType = clientType;
     this.persist();
-    await this._recreateInstances();
+    this._changingClientType = true;
+    try {
+      await this._recreateInstances();
+    } finally {
+      this._changingClientType = false;
+    }
   }
 
-  async _recreateInstances() {
+  /** Recreate the actual clients, retaining the durable queue even on failure. */
+  restartClients() {
+    if (this._changingClientType) throw new Error("Client type change in progress");
+    if (this.clientRestart.restarting) return;
+    this.clientRestart = { restarting: true, error: null };
+    this._restartTask = (async () => {
+      try {
+        if (!this._preserveRestartState) this.persist();
+        this._preserveRestartState = true;
+        await writeState(this.state);
+        await this._recreateInstances(createBackend, true);
+        this._preserveRestartState = false;
+        this.persist();
+      } catch (e) {
+        this.clientRestart.error = e.message ?? String(e);
+        console.error("[engine] client restart failed:", this.clientRestart.error);
+      } finally {
+        this.clientRestart.restarting = false;
+      }
+    })();
+  }
+
+  async _recreateInstances(factory = createBackend, strict = false) {
     for (const inst of this.instances.values()) {
       await inst.destroy();
     }
@@ -253,14 +290,19 @@ export class MovvizEngine {
     };
     for (const cfg of this.configs()) {
       try {
-        const inst = createBackend(cfg, deps, this._clientType);
+        const inst = factory(cfg, deps, this._clientType);
         await inst.init();
         this.instances.set(cfg.id, inst);
+        if (strict && (this._clientType === "webtorrent" ? !inst.client || inst.client.destroyed : !inst._available)) {
+          throw new Error(`Client ${cfg.id} is offline`);
+        }
       } catch (e) {
         console.error(`[engine] failed to recreate instance ${cfg.id}: ${e.message}`);
+        if (strict) throw e;
       }
     }
-    await this.resumeTorrents();
+    await this.resumeTorrents(strict);
+    this._torrentsCache = null;
   }
 
   // ---- Activity logging --------------------------------------------------
@@ -337,6 +379,9 @@ export class MovvizEngine {
   // ---- Persistence -------------------------------------------------------
 
   persist() {
+    // Callbacks during destruction/restoration cannot overwrite the saved queue.
+    // Failed restarts retain this snapshot for a safe retry.
+    if (this._preserveRestartState) return;
     const instances = {};
     const torrents = [];
     for (const inst of this.instances.values()) {

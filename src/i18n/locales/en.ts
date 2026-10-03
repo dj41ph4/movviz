@@ -1466,6 +1466,8 @@ export const en: Dictionary = {
     speedLimit: "Speed limit",
     quickDownloadSettings: "Quick settings",
     manageDownloadClients: "Manage download clients",
+    restartTorrentClient: "Restart torrent client",
+    restartingTorrentClient: "Restarting…",
     seedRatio: "Seed ratio",
     autoStart: "Auto-start at boot",
     instanceMovies: "Movies instance",

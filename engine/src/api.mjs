@@ -45,6 +45,17 @@ export function createApiServer(engine) {
       const parts = url.pathname.split("/").filter(Boolean);
       const method = req.method;
 
+      if (parts[0] === "client-restart" && parts.length === 1) {
+        if (method === "POST") {
+          engine.restartClients();
+          return send(res, 202, engine.clientRestart);
+        }
+        if (method === "GET") return send(res, 200, engine.clientRestart);
+      }
+      if (method !== "GET" && engine._preserveRestartState) {
+        return send(res, 503, { error: "client_restart_pending" });
+      }
+
       // GET /health
       if (method === "GET" && parts[0] === "health") {
         const cpu = process.cpuUsage();

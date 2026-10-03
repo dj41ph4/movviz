@@ -1,3 +1,11 @@
+## v1.25.159 — Octobre 2026
+
+### Redémarrage du client torrent
+
+- Bouton administrateur dans les paramètres rapides des téléchargements, avec « Redémarrage en cours… » et protection contre les doubles clics.
+- Arrêt réel et recréation des clients torrent, puis restauration de la file, des pauses et de l'historique importé sans suppression des fichiers. Les processus natifs doivent être arrêtés avant leur remplacement.
+- État consultable pendant l'opération ; en cas d'échec, la sauvegarde est conservée pour une nouvelle tentative au lieu d'écraser la file avec un état partiel.
+
 ## v1.25.158 — Octobre 2026
 
 ### Cartes Films et Séries sur desktop

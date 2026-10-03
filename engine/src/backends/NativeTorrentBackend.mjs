@@ -7,6 +7,7 @@ import net from "node:net";
 import crypto from "node:crypto";
 import { AbstractBackend } from "./AbstractBackend.mjs";
 import { CONFIG_DIR } from "../config.mjs";
+import { stopClientProcess } from "../processLifecycle.mjs";
 
 const BIN_NAME = process.platform === "win32" ? "aria2c.exe" : "aria2c";
 
@@ -24,6 +25,7 @@ export class NativeTorrentBackend extends AbstractBackend {
     this._rpcPort = 0;
     this._rpcSecret = crypto.randomUUID().slice(0, 16);
     this._process = null;
+    this._available = false;
     this._gidToInfoHash = new Map();   // gid → infoHash
     this._infoHashToGid = new Map();   // infoHash → gid
     this._requestId = 0;
@@ -164,10 +166,12 @@ export class NativeTorrentBackend extends AbstractBackend {
     this._process.on("exit", (code, signal) => {
       console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] aria2c exited (code=${code}, signal=${signal})`);
       this._process = null;
+      this._available = false;
     });
 
     // Wait for the RPC port to be ready (up to 5s)
     await this._waitForRpc();
+    this._available = true;
     console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}] aria2c ready on 127.0.0.1:${this._rpcPort}`);
   }
 
@@ -181,21 +185,10 @@ export class NativeTorrentBackend extends AbstractBackend {
     this._cachedHandles.clear();
     this._completedGids.clear();
     if (this._process) {
-      // Graceful shutdown via RPC first
-      try { await this._rpcCall("aria2.shutdown"); } catch {}
-      // Force kill after 2s
-      setTimeout(() => {
-        if (this._process) {
-          try {
-            if (process.platform === "win32") {
-              this._process.kill(); // SIGTERM is the default on Windows
-            } else {
-              this._process.kill("SIGKILL");
-            }
-          } catch {}
-        }
-      }, 2000);
+      await stopClientProcess(this._process, () => this._rpcCall("aria2.shutdown"));
+      this._process = null;
     }
+    this._available = false;
   }
 
   // ─── RPC helpers ───────────────────────────────────────────────────────

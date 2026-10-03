@@ -1464,6 +1464,8 @@ export const fr = {
     speedLimit: "Limite de débit",
     quickDownloadSettings: "Paramètres rapides",
     manageDownloadClients: "Gérer les clients de téléchargement",
+    restartTorrentClient: "Redémarrer le client torrent",
+    restartingTorrentClient: "Redémarrage en cours…",
     seedRatio: "Ratio de seed",
     autoStart: "Démarrage auto au boot",
     instanceMovies: "Instance Films",

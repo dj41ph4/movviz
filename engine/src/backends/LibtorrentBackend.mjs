@@ -5,6 +5,7 @@ import fsp from "node:fs/promises";
 import net from "node:net";
 import { AbstractBackend } from "./AbstractBackend.mjs";
 import { CONFIG_DIR } from "../config.mjs";
+import { stopClientProcess } from "../processLifecycle.mjs";
 
 const BIN_NAME = process.platform === "win32" ? "rtorrent.exe" : "rtorrent";
 
@@ -141,23 +142,7 @@ export class LibtorrentBackend extends AbstractBackend {
     this._cachedHandles.clear();
     this._completedIds.clear();
     if (this._process) {
-      try {
-        // Graceful shutdown via SCGI
-        await this._scgiCall("system.shutdown.normal").catch(() => {});
-        // Wait up to 3s then force kill
-        await new Promise((r) => setTimeout(r, 3000));
-        if (this._process) {
-          try {
-            if (process.platform === "win32") this._process.kill();
-            else this._process.kill("SIGKILL");
-          } catch {}
-        }
-      } catch {
-        try {
-          if (process.platform === "win32") this._process.kill();
-          else this._process.kill("SIGKILL");
-        } catch {}
-      }
+      await stopClientProcess(this._process, () => this._scgiCall("system.shutdown.normal"), 3000);
       this._process = null;
     }
     this._available = false;
