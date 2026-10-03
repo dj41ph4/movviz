@@ -5,8 +5,9 @@ export interface RegionalWatchProvider {
   logo_path?: string | null;
 }
 
-/** Keep the curated order, but never advertise a provider absent from the
- * selected country's catalogues. TV-only providers must remain available. */
+/** Keep every curated platform visible in its deliberate order. Regional
+ * metadata only supplies the current TMDb logo; a regional zero-result must
+ * never silently remove a user-selected platform such as OCS or YouTube. */
 export function selectWatchProviderTiles(
   movieProviders: RegionalWatchProvider[],
   seriesProviders: RegionalWatchProvider[],
@@ -16,8 +17,8 @@ export function selectWatchProviderTiles(
     const previous = byId.get(provider.provider_id);
     if (!previous || (!previous.logo_path && provider.logo_path)) byId.set(provider.provider_id, provider);
   }
-  return STREAMING_PLATFORMS.flatMap((platform) => {
+  return STREAMING_PLATFORMS.map((platform) => {
     const match = byId.get(platform.id);
-    return match ? [{ id: platform.id, name: platform.name, logoPath: match.logo_path ?? null }] : [];
+    return { id: platform.id, name: platform.name, logoPath: match?.logo_path ?? null };
   });
 }

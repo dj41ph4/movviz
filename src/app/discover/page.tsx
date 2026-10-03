@@ -55,7 +55,9 @@ const MOOD_TILES = [
   { key: "inspire", label: "Inspiration", icon: Sparkles, names: ["Documentaire"], colorVar: "--color-brand" },
 ] as const;
 
-const SORT_OPTIONS = ["popularity.desc", "vote_average.desc", "primary_release_date.desc"] as const;
+// Display order is deliberate: fresh releases first, then what is trending,
+// then the best rated. "Pour vous" remains the separate editorial mode tab.
+const SORT_OPTIONS = ["primary_release_date.desc", "popularity.desc", "vote_average.desc"] as const;
 
 /** "Durée" filter — real TMDb `with_runtime.gte/lte` params (discoverByFilters
  *  in tmdb.ts), movies only: TMDb's TV discover endpoint has no runtime
@@ -869,9 +871,9 @@ function DiscoverPageInner() {
           <label className="nx-discover-sort shrink-0">
             <span>{t("activity.sortBy")}</span>
             <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("discover.trending")}>
+              <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
               <option value="popularity.desc">{t("discover.trending")}</option>
               <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
-              <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
             </select>
           </label>
         </div>

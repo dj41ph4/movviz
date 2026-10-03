@@ -740,15 +740,25 @@ export interface DiscoverFilters {
   /** with_runtime.gte — movies only, same caveat as maxRuntime. Used for the "plus de 2h" duration filter. */
   minRuntime?: number;
   /** ISO-3166-1 alpha-2 région pour watch_region (catalogue provider réel de
-   *  l'utilisateur) — résoudre via resolveWatchRegion(userId), jamais
-   *  hardcoder : un utilisateur belge ne doit pas recevoir le catalogue
-   *  français juste parce que watchProvider est renseigné. */
+   *  l'utilisateur). Belgium falls back to France only when TMDb returns an
+   *  empty provider catalogue, so OCS/YouTube remain usable by choice. */
   region?: string;
   /** with_original_language — ISO 639-1 ("ja" for anime, "ko"…). */
   originalLanguage?: string;
 }
 
 const DEFAULT_WATCH_REGION = "FR";
+
+/** Belgium has no TMDb catalogue for some deliberately exposed platforms
+ * (notably OCS and YouTube). In that exact empty-result case, use France as
+ * the requested fallback; errors and ordinary Belgian results stay Belgian. */
+export function shouldFallbackProviderCatalogToFrance(
+  region: string | undefined,
+  watchProvider: string | undefined,
+  rawResultCount: number | undefined,
+): boolean {
+  return region === "BE" && !!watchProvider && rawResultCount === 0;
+}
 
 /**
  * Région TMDb à utiliser pour les catalogues provider et "où regarder" —
@@ -809,6 +819,12 @@ export async function discoverByFilters(
     `/discover/${kind}`,
     params
   );
+  if (shouldFallbackProviderCatalogToFrance(filters.region, filters.watchProvider, data?.results?.length)) {
+    return mapPaged(await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>(
+      `/discover/${kind}`,
+      { ...params, watch_region: "FR" }
+    ), type);
+  }
   return mapPaged(data, type);
 }
 

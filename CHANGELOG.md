@@ -1,3 +1,11 @@
+## v1.25.162 — Octobre 2026
+
+### OCS et YouTube
+
+- OCS et YouTube restent toujours visibles dans Découverte, y compris si TMDb ne les liste pas pour la Belgique.
+- Lorsqu'un catalogue fournisseur belge est vide, la recherche utilise automatiquement le catalogue France pour cette plateforme ; les résultats belges existants restent prioritaires.
+- Le tri Découverte est ordonné Nouveautés, Tendances, Meilleur ; « Pour vous » reste accessible quel que soit le fournisseur.
+
 ## v1.25.161 — Octobre 2026
 
 ### Movviz AI plus vivant
