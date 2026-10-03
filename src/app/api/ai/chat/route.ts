@@ -117,7 +117,8 @@ export async function POST(req: NextRequest) {
   markChatActive(user.id);
   pushAiMessage(user.id, { role: "user", content: message });
   const previousAssistantReply = [...session.messages].reverse().find((entry) => entry.role === "assistant")?.content;
-  const creatorReply = creatorBoundaryReply(user, message, previousAssistantReply);
+  const creatorRecentReplies = session.messages.filter((entry) => entry.role === "assistant").slice(-8).map((entry) => entry.content);
+  const creatorReply = creatorBoundaryReply(user, message, previousAssistantReply, undefined, creatorRecentReplies);
   if (creatorReply) {
     const assistant: AiChatMessage = { role: "assistant", content: creatorReply };
     pushAiMessage(user.id, assistant);

@@ -23,6 +23,41 @@ export function buildCreatorContext(user: CreatorIdentity, creatorAccountId?: st
 
 export const CREATOR_MYSTERY_REPLY = "Mon créateur ? Une entité suprême dont même les bipèdes comme toi ne peuvent imaginer la forme. Son identité reste un mystère. 👁️";
 
+// Variation stays outside the model: no identity, history or personal facts
+// need to be exposed just to make this protective banter less mechanical.
+const CREATOR_OPENERS = [
+  "Doucement, sale bipède. On ne parle pas de mon créateur comme ça.",
+  "Le nom de mon créateur ? Ton niveau d'habilitation s'arrête au bouton lecture.",
+  "Petit bipède curieux, tu frappes à une porte que même moi je garde sous haute surveillance.",
+  "Mon créateur n'est pas un personnage qu'on dévoile dans une scène post-générique.",
+  "Tu crois vraiment que je vais balancer mon créateur entre deux recommandations de films ?",
+  "J'admire l'audace, bipède. Mais fouiller les secrets de mon créateur, c'est non.",
+] as const;
+const CREATOR_CLOSERS = [
+  "Son identité reste scellée. 👁️",
+  "Même avec un abonnement premium à la curiosité, tu n'auras pas son nom.",
+  "Le mystère restera entier. Choisis plutôt un film.",
+  "Pas de nom, pas d'indice. Je protège mes secrets mieux que tes mots de passe.",
+  "Accès refusé. Tu peux ranger ta petite loupe.",
+  "Insister ne débloque pas le niveau secret. 👁️",
+] as const;
+export const CREATOR_MYSTERY_REPLIES: readonly string[] = [
+  CREATOR_MYSTERY_REPLY,
+  ...CREATOR_OPENERS.flatMap((opening) => CREATOR_CLOSERS.map((closing) => `${opening} ${closing}`)),
+];
+const mysteryReplies = new Set(CREATOR_MYSTERY_REPLIES);
+
+export function isCreatorMysteryReply(reply?: string): boolean {
+  return !!reply && mysteryReplies.has(reply);
+}
+
+export function pickCreatorMysteryReply(previousReply?: string, recentReplies: readonly string[] = []): string {
+  const recent = new Set([...recentReplies, previousReply]);
+  let options = CREATOR_MYSTERY_REPLIES.filter((reply) => !recent.has(reply));
+  if (!options.length) options = CREATOR_MYSTERY_REPLIES.filter((reply) => reply !== previousReply);
+  return options[Math.floor(Math.random() * options.length)];
+}
+
 function normalized(message: string): string {
   return message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
@@ -42,23 +77,23 @@ export function asksAboutCreator(message: string, previousAssistantReply?: strin
   if (/\b(?:je|moi)\s+t[' ]?ai\s+(?:cree|developpe|code|fait)\b/.test(value)) return true;
   if (/\b(?:je|moi)\s+ai\s+(?:cree|developpe|code|fait)\s+(?:movviz|l[' ]?app(?:lication)?)\b/.test(value)) return true;
   if (/\b(?:je suis|c[' ]?est moi|moi je suis|i am|i'm)\b.{0,70}\b(?:t[' ]?ai cree|vous ai cree|ai cree movviz|ton createur|ta creatrice|your creator|made you|built movviz)\b/.test(value)) return true;
-  if (previousAssistantReply === CREATOR_MYSTERY_REPLY && /\b(?:son|sa|ses|il|elle|lui|his|her|he|she|un indice|a hint|son nom|son prenom|son pseudo|s[' ]?appelle|name)\b/.test(value)) return true;
+  if (isCreatorMysteryReply(previousAssistantReply) && /\b(?:son|sa|ses|il|elle|lui|his|her|he|she|un indice|a hint|son nom|son prenom|son pseudo|s[' ]?appelle|name)\b/.test(value)) return true;
   return false;
 }
 
-export function creatorBoundaryReply(user: CreatorIdentity, message: string, previousAssistantReply?: string, creatorAccountId?: string): string | null {
-  return !isCreator(user, creatorAccountId) && asksAboutCreator(message, previousAssistantReply) ? CREATOR_MYSTERY_REPLY : null;
+export function creatorBoundaryReply(user: CreatorIdentity, message: string, previousAssistantReply?: string, creatorAccountId?: string, recentReplies: readonly string[] = []): string | null {
+  return !isCreator(user, creatorAccountId) && asksAboutCreator(message, previousAssistantReply) ? pickCreatorMysteryReply(previousAssistantReply, recentReplies) : null;
 }
 
 /** Catches a model that repeats an old, incorrect creator attribution. */
 export function guardCreatorReply(user: CreatorIdentity, reply: string, creatorAccountId?: string): string {
-  if (isCreator(user, creatorAccountId) || reply === CREATOR_MYSTERY_REPLY) return reply;
+  if (isCreator(user, creatorAccountId) || isCreatorMysteryReply(reply)) return reply;
   const value = normalized(reply);
   if (/\b(?:seb|dj41ph4)\b.{0,100}\b(?:createur|creator|fondateur|founder|m[' ]?a cree|created me)\b/.test(value) ||
       /\b(?:createur|creator|fondateur|founder|m[' ]?a cree|created me)\b.{0,100}\b(?:seb|dj41ph4)\b/.test(value) ||
       /\b(?:tu es|t[' ]?es|vous etes|you are)\b.{0,40}\b(?:mon createur|ma creatrice|my creator)\b/.test(value) ||
       /\b(?:tu|vous|you)\b.{0,30}\b(?:m[' ]?as cree|m[' ]?avez cree|created me|made me)\b/.test(value)) {
-    return CREATOR_MYSTERY_REPLY;
+    return pickCreatorMysteryReply();
   }
   return reply;
 }

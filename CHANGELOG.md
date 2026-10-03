@@ -1,3 +1,10 @@
+## v1.25.161 — Octobre 2026
+
+### Movviz AI plus vivant
+
+- Les questions et tentatives d'usurpation sur le créateur reçoivent désormais des réponses mystérieuses variées, sans divulguer d'identité ni recycler la même phrase.
+- Movviz AI peut taquiner avec insolence les choix réellement vus, et répondre à une insulte avec une légère pointe de mépris théâtral, sans escalade ni attaque gratuite.
+
 ## v1.25.160 — Octobre 2026
 
 ### Plateformes Découverte et téléchargements inactifs
