@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
+import { createRowImagePreloader } from "./rowImagePreloader";
 
 /**
  * Shared "title + horizontal scroll + See all" shell — extracted from
@@ -31,19 +32,21 @@ export function PosterRow({
 }) {
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrollState, setScrollState] = useState({ overflowing: false, atStart: true, atEnd: true, progress: 0 });
+  const [scrollState, setScrollState] = useState({ overflowing: false, atStart: true, atEnd: true });
 
   const measure = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const { scrollLeft, scrollWidth, clientWidth } = el;
     const max = scrollWidth - clientWidth;
-    setScrollState({
+    const next = {
       overflowing: max > 4,
       atStart: scrollLeft <= 4,
       atEnd: scrollLeft >= max - 4,
-      progress: max > 4 ? scrollLeft / max : 0,
-    });
+    };
+    setScrollState((previous) => previous.overflowing === next.overflowing
+      && previous.atStart === next.atStart && previous.atEnd === next.atEnd
+      ? previous : next);
   }, []);
 
   useEffect(() => {
@@ -56,6 +59,11 @@ export function PosterRow({
     ro.observe(el);
     return () => ro.disconnect();
   }, [measure, children]);
+
+  useEffect(() => {
+    const row = scrollRef.current;
+    if (row) return createRowImagePreloader(row);
+  }, []);
 
   const scrollByPage = (dir: 1 | -1) => {
     const el = scrollRef.current;
