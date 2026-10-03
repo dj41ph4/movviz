@@ -1,3 +1,10 @@
+## v1.25.158 — Octobre 2026
+
+### Cartes Films et Séries sur desktop
+
+- Les pages Films et Séries reprennent la largeur desktop du tableau de bord et de Découverte. Leurs rangées utilisent déjà le même composant et les mêmes dimensions responsive de cartes.
+- Le rendu téléphone et tablette reste inchangé.
+
 ## v1.25.157 — Octobre 2026
 
 ### Termes autorisés de release

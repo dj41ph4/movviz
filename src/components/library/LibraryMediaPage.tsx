@@ -19,7 +19,7 @@ export function LibraryMediaPage({ type }: { type: "movie" | "series" }) {
   const title = type === "movie" ? t("common.movies") : t("common.series");
 
   return (
-    <div className="mx-auto max-w-[1500px]">
+    <div className="nx-media-page mx-auto max-w-[1500px]">
       <PageHeader eyebrow={t("library.eyebrow")} title={title} description={t("library.description")} />
       <div className="mb-7 flex items-center justify-between gap-3 border-b border-brand/25 pb-3">
         {libraryOpen ? (
