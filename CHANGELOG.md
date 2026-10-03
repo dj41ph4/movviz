@@ -1,3 +1,12 @@
+## v1.25.160 — Octobre 2026
+
+### Plateformes Découverte et téléchargements inactifs
+
+- Cliquer une plateforme (tuile ou menu) ouvre son catalogue sans conserver l'ancienne recherche ou les filtres incompatibles ; le type Films/Séries reste inchangé.
+- Les plateformes disponibles sont tirées des listes films et séries du pays choisi. OCS et YouTube ne sont plus proposés dans un pays où TMDb ne fournit aucun catalogue, sans bascule silencieuse vers la France.
+- Un téléchargement sous 20 octets/s pendant deux minutes passe en « bloqué », même avec des pairs connectés ou un filet de données. Une reprise significative peut le remettre en fin de file.
+- Les pauses, l'attente d'un créneau et les vérifications restent exclues du délai d'inactivité ; une reprise manuelle reçoit un nouveau délai complet.
+
 ## v1.25.159 — Octobre 2026
 
 ### Redémarrage du client torrent

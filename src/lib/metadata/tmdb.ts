@@ -16,7 +16,7 @@ import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
 import { excludePortrait, excludeUnknownOrPortrait } from "./youtubeOrientation";
 import { currentLane } from "@/lib/priority/lane";
 import { translateStatus } from "./statusTranslations";
-import { STREAMING_PLATFORMS } from "./curated";
+import { selectWatchProviderTiles } from "./watchProviderTiles";
 import { LOCALES } from "@/i18n/config";
 import { matchesAnimeByIds, matchesTeenByIds } from "./genreTaxonomy";
 import { loadUserPrefs } from "@/lib/userPrefs/store";
@@ -1494,16 +1494,15 @@ interface RawWatchProviderListEntry {
  *  bare substring like "Max" or "OCS" against TMDb's live FR list matches
  *  obscure Amazon-channel add-ons, not the real service). Unlike company/
  *  network ids, a watch-provider id is the SAME for movies and series, so
- *  this list (fetched once from the movie catalog) is valid for filtering
- *  either type. Order follows STREAMING_PLATFORMS, not the API response. */
+ *  this list uses the union of movie and TV catalogues for the selected
+ *  region. Missing providers are not advertised, and there is no silent
+ *  fallback to another country. Order follows STREAMING_PLATFORMS. */
 export async function getWatchProviderTiles(watchRegion = DEFAULT_WATCH_REGION): Promise<{ id: number; name: string; logoPath: string | null }[]> {
-  const data = await tmdbGet<{ results: RawWatchProviderListEntry[] }>("/watch/providers/movie", { watch_region: watchRegion });
-  const results = data?.results ?? [];
-  const byId = new Map(results.map((p) => [p.provider_id, p]));
-  return STREAMING_PLATFORMS.map((platform) => {
-    const match = byId.get(platform.id);
-    return { id: platform.id, name: platform.name, logoPath: match?.logo_path ?? null };
-  });
+  const [movies, series] = await Promise.all([
+    tmdbGet<{ results: RawWatchProviderListEntry[] }>("/watch/providers/movie", { watch_region: watchRegion }),
+    tmdbGet<{ results: RawWatchProviderListEntry[] }>("/watch/providers/tv", { watch_region: watchRegion }),
+  ]);
+  return selectWatchProviderTiles(movies?.results ?? [], series?.results ?? []);
 }
 
 interface RawCollection {

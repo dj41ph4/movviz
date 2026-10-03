@@ -16,8 +16,9 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 // never meaningful as an import target on their own (see _import below).
 const JUNK_EXT_RE = /\.(nfo|txt|url|torrent|tmp|sfv|md5|jpg|jpeg|png|gif|db)$/i;
 
-/** Règle produit : un torrent sans activité (0 octets reçus, 0 pairs) pendant 2 minutes passe "blocked". */
+/** Below 20 bytes/s for 2 minutes is stalled, even with connected peers. */
 const STALL_MS = 120_000;
+const MIN_ACTIVE_BYTES_PER_SECOND = 20;
 
 /** After this many consecutive import failures for the same torrent, stop retrying automatically — see onComplete's `err` branch. */
 const IMPORT_MAX_RETRIES = 5;
@@ -162,6 +163,7 @@ export class AbstractBackend {
       stalledAt: opts.stalledAt ?? null,
       dequeuedAt: opts.dequeuedAt ?? null,
       lastActivityAt: null,
+      lastActivitySampleAt: null,
       lastDownloaded: 0,
       priority: opts.priority ?? "medium",
       sequential: !!opts.sequential,
@@ -584,6 +586,8 @@ export class AbstractBackend {
       m.stalledAt = null;
       m.dequeuedAt = null;
       m.queued = false;
+      m.lastActivityAt = Date.now();
+      m.lastActivitySampleAt = null;
     }
     if (m && this.meta.has(infoHash) && infoHash !== key) {
       this.meta.set(key, m);
@@ -1312,21 +1316,30 @@ export class AbstractBackend {
    * catégorie "blocked" — il ne consomme plus de slot dans la file (ne bloque
    * plus les autres). S'il se débloque, il se remet EN DERNIER dans la file.
    * Détection pilotée par tick() (5 s, tous backends — WT, aria2, rtorrent) :
-   * `lastActivityAt` est réarmé par construction dès qu'une activité reprend,
+   * `lastActivityAt` est réarmé uniquement à partir de 20 octets/s,
    * ce qui couvre aussi le cycle stall → recovery → re-stall.
    */
   _checkStall(t) {
     const m = this.meta.get(t.infoHash);
-    if (!m || m.completed || m.userPaused || m.finishing || this._isDone(t)) return;
-    // Hash verification after a restart shows no download activity — not a
-    // stall, never flag it as blocked.
-    if (t.verifying || m.verifying) return;
+    if (!m) return;
     const now = Date.now();
-    const speed = t.downloadSpeed ?? 0;
-    const peers = t.numPeers ?? 0;
     const downloaded = t.downloaded ?? 0;
-    if (speed > 0 || peers > 0 || downloaded > (m.lastDownloaded ?? 0)) {
+    // Hash verification after a restart shows no download activity — not a
+    // stall. Time paused, queued or verifying must not count as inactivity.
+    if (m.completed || m.userPaused || m.finishing || this._isDone(t) || t.verifying || m.verifying || (m.queued && !m.stalled)) {
+      m.lastActivityAt = now;
+      m.lastActivitySampleAt = now;
       m.lastDownloaded = downloaded;
+      return;
+    }
+    const speed = t.downloadSpeed ?? 0;
+    const elapsed = now - (m.lastActivitySampleAt ?? now);
+    const measuredSpeed = elapsed > 0 ? Math.max(0, downloaded - (m.lastDownloaded ?? downloaded)) * 1000 / elapsed : 0;
+    // Update every sample, including trickle traffic: accumulating tiny
+    // deltas until they exceed 20 bytes would falsely count them as progress.
+    m.lastDownloaded = downloaded;
+    m.lastActivitySampleAt = now;
+    if (speed >= MIN_ACTIVE_BYTES_PER_SECOND || measuredSpeed >= MIN_ACTIVE_BYTES_PER_SECOND) {
       if (m.stalled) {
         this._recoverFromStall(t.infoHash);
         return;

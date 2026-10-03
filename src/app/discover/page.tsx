@@ -300,11 +300,22 @@ function DiscoverPageInner() {
   // filter, just two entry points to it. No forced media-type switch: the
   // same TMDb provider id is valid for movies and series, so it stays active
   // whichever tab the user is already on.
-  const handleWatchProviderClick = (tile: LogoTile) => {
+  const handleWatchProviderClick = (tile: LogoTile, toggle = true) => {
+    // A platform is a catalogue navigation, not a cosmetic chip over a text
+    // search or a "see all" row (both take precedence in loadPage).
+    clearSearchQuery();
+    setGenre("");
+    setYear("");
+    setSort("popularity.desc");
+    setCompany(null);
+    setDuration("");
+    setRowCategory(null);
+    setRowCategoryMeta(undefined);
+    setOpenMenu(null);
     // Clicking the already-active platform again clears the filter instead
     // of just re-selecting it — otherwise there was no way to get back to
     // the unfiltered view except leaving the tab entirely.
-    setWatchProvider((current) => current?.id === String(tile.id) ? null : { id: String(tile.id), name: tile.name });
+    setWatchProvider((current) => toggle && current?.id === String(tile.id) ? null : { id: String(tile.id), name: tile.name });
   };
 
   const seeAllRow = (key: string, meta?: RowMeta) => {
@@ -788,7 +799,7 @@ function DiscoverPageInner() {
                       <button
                         type="button"
                         key={tile.id}
-                        onClick={() => { setWatchProvider({ id: String(tile.id), name: tile.name }); setOpenMenu(null); }}
+                        onClick={() => handleWatchProviderClick(tile, false)}
                         className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", String(tile.id) === watchProvider?.id ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
                       >
                         {tile.name}
