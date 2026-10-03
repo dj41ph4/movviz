@@ -85,7 +85,9 @@ function NavRow({ item, pathname, searchParams, collapsed, counts, pulseBadge, u
         <LiveBadge count={count} compact={collapsed} pulse={pulseBadge === item.liveBadge} />
       </span>
       {!collapsed && <span className="flex-1 truncate">{t(item.labelKey)}</span>}
-      {!collapsed && <LiveBadge count={count} pulse={pulseBadge === item.liveBadge} />}
+      {/* The download count is already anchored to its icon.  Rendering it at
+          the row end as well produced two identical desktop badges. */}
+      {!collapsed && item.liveBadge !== "activeDownloads" && <LiveBadge count={count} pulse={pulseBadge === item.liveBadge} />}
       {!collapsed && updateAvailable && <span aria-label={t("update.available", { version: "" })} className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-glow" />}
     </Link>
   );
