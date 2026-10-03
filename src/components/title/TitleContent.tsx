@@ -31,6 +31,7 @@ import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
@@ -141,7 +142,7 @@ function StudiosRow({
   );
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const titleFetcher = (url: string) => fetch(url).then((r) => r.json());
 
 /* ─────────────────────────────────────────────────── types ──────────── */
 
@@ -190,6 +191,7 @@ export interface TitleContentProps {
 /* ─────────────────────────────────────────────────── component ─────── */
 
 export function TitleContent({ tmdbId, type }: TitleContentProps) {
+  const fetcher = useForegroundFetcher(titleFetcher);
   const { locale, t } = useI18n();
   const router = useRouter();
   const user = useCurrentUser();

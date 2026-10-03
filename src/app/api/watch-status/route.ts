@@ -4,6 +4,7 @@ import type { User } from "@/lib/auth/types";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { syncUserWatchStatusForMedia, syncUserWatchStatusForSeries, syncUserWatchStatusIfDue } from "@/lib/plex/watchSync";
 import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
+import { runBackground } from "@/lib/priority/lane";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ function checkInBackground(key: string, run: () => Promise<unknown>): void {
   if (entry?.running) return;
   if (entry && Date.now() - entry.doneAt < TARGETED_COOLDOWN_MS) return;
   checks.set(key, { running: true, doneAt: entry?.doneAt ?? 0 });
-  void run()
+  void runBackground(run)
     .catch(() => { /* best effort: the next page visit after the cooldown retries */ })
     .finally(() => checks.set(key, { running: false, doneAt: Date.now() }));
 }
@@ -43,7 +44,7 @@ function startPlexCheck(user: User, type: string | null, tmdbId: number): void {
     checkInBackground(`${user.id}:series:${tmdbId}`, () => syncUserWatchStatusForSeries(user, tmdbId));
   } else {
     // The per-user gate inside prevents every card from triggering a full scan.
-    void syncUserWatchStatusIfDue(user).catch(() => {});
+    void runBackground(() => syncUserWatchStatusIfDue(user)).catch(() => {});
   }
 }
 

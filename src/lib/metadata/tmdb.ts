@@ -14,7 +14,8 @@ import { getCache } from "@/lib/cache/registry";
 import { omdbConfigured, getOmdbRatings } from "./omdb";
 import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
 import { excludePortrait, excludeUnknownOrPortrait } from "./youtubeOrientation";
-import { currentLane } from "@/lib/priority/lane";
+import { currentLane, runBackground } from "@/lib/priority/lane";
+import { createTmdbRequestSlots, type TmdbRequestQueueState } from "./tmdbRequestSlots";
 import { translateStatus } from "./statusTranslations";
 import { selectWatchProviderTiles } from "./watchProviderTiles";
 import { LOCALES } from "@/i18n/config";
@@ -101,29 +102,16 @@ const TMDB_MAX_CONCURRENT_REQUESTS = 6;
  *  scheduled tasks (missing movies, metadata refresh…) fill the queue used
  *  to wait behind all of them — 3-4 s for a single title. */
 const TMDB_USER_EXTRA_SLOTS = 4;
-type TmdbQueueState = { active: number; waiters: Array<() => void> };
 const gTmdbQueue = globalThis as typeof globalThis & {
-  __movvizTmdbQueue?: TmdbQueueState;
+  __movvizTmdbRequestQueue?: TmdbRequestQueueState;
   __movvizTmdbInFlight?: Map<string, Promise<unknown>>;
 };
-const tmdbQueue: TmdbQueueState = (gTmdbQueue.__movvizTmdbQueue ??= { active: 0, waiters: [] });
+const tmdbQueue = (gTmdbQueue.__movvizTmdbRequestQueue ??= { active: 0, waiters: [] });
+const withTmdbSlot = createTmdbRequestSlots(tmdbQueue, TMDB_MAX_CONCURRENT_REQUESTS, TMDB_USER_EXTRA_SLOTS);
 const tmdbInFlight: Map<string, Promise<unknown>> = (gTmdbQueue.__movvizTmdbInFlight ??= new Map());
 
-async function withTmdbRequestSlot<T>(fn: () => Promise<T>): Promise<T> {
-  // A user's request goes to the front of the line and may use the extra
-  // slots; background work keeps the original limit.
-  const user = currentLane() === "user";
-  const limit = TMDB_MAX_CONCURRENT_REQUESTS + (user ? TMDB_USER_EXTRA_SLOTS : 0);
-  if (tmdbQueue.active >= limit) {
-    await new Promise<void>((resolve) => (user ? tmdbQueue.waiters.unshift(resolve) : tmdbQueue.waiters.push(resolve)));
-  }
-  tmdbQueue.active++;
-  try {
-    return await fn();
-  } finally {
-    tmdbQueue.active--;
-    tmdbQueue.waiters.shift()?.();
-  }
+function withTmdbRequestSlot<T>(fn: () => Promise<T>): Promise<T> {
+  return withTmdbSlot(currentLane(), fn);
 }
 
 const TMDb_FETCH_MAX_ATTEMPTS = 3;
@@ -198,7 +186,7 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, lan
     // scenes — the response the user is waiting on never blocks on TMDb.
     if (!cached.fresh && !refreshing.has(cacheKey)) {
       refreshing.add(cacheKey);
-      fetchAndCache<T>(cacheKey).finally(() => refreshing.delete(cacheKey));
+      void runBackground(() => fetchAndCache<T>(cacheKey)).finally(() => refreshing.delete(cacheKey));
     }
     return cached.value;
   }

@@ -24,6 +24,7 @@ import { GpuProvider } from "@/lib/gpu/GpuProvider";
 import { PlayerProvider } from "@/lib/player/PlayerProvider";
 import { AppErrorBoundary } from "@/components/ui/AppErrorBoundary";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
+import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 
 /**
  * Shared data-fetch cache for the whole session. SWR keeps its cache keyed
@@ -47,7 +48,7 @@ const swrConfig = {
       err.status = r.status;
       throw err;
     }
-    return r.json();
+    return await r.json();
   },
   revalidateOnFocus: true,
   dedupingInterval: 2000,
@@ -55,11 +56,12 @@ const swrConfig = {
 
 function InterfaceSWRPolicy({ children }: { children: React.ReactNode }) {
   const { optimized } = useInterfaceDataMode();
+  const fetcher = useForegroundFetcher(swrConfig.fetcher);
   const policy = useMemo(
     () => optimized
-      ? { revalidateOnFocus: false, revalidateOnReconnect: true, dedupingInterval: 15_000 }
-      : { revalidateOnFocus: true, dedupingInterval: 2_000 },
-    [optimized],
+      ? { fetcher, revalidateOnFocus: false, revalidateOnReconnect: true, dedupingInterval: 15_000 }
+      : { fetcher, revalidateOnFocus: true, dedupingInterval: 2_000 },
+    [optimized, fetcher],
   );
   return <SWRConfig value={policy}>{children}</SWRConfig>;
 }

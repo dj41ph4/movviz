@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { createRowImagePreloader } from "./rowImagePreloader";
+import { CarouselImageContext } from "./CarouselImageContext";
+import { usePlaybackActive } from "@/lib/player/PlayerProvider";
 
 /**
  * Shared "title + horizontal scroll + See all" shell — extracted from
@@ -31,6 +33,7 @@ export function PosterRow({
   children: React.ReactNode;
 }) {
   const t = useT();
+  const playbackActive = usePlaybackActive();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState({ overflowing: false, atStart: true, atEnd: true });
 
@@ -62,8 +65,8 @@ export function PosterRow({
 
   useEffect(() => {
     const row = scrollRef.current;
-    if (row) return createRowImagePreloader(row);
-  }, []);
+    if (row) return createRowImagePreloader(row, { playbackActive });
+  }, [playbackActive]);
 
   const scrollByPage = (dir: 1 | -1) => {
     const el = scrollRef.current;
@@ -102,7 +105,7 @@ export function PosterRow({
           </button>
         )}
         <div ref={scrollRef} onScroll={measure} className={cn("flex gap-4 overflow-x-auto pb-2")}>
-          {children}
+          <CarouselImageContext.Provider value={true}>{children}</CarouselImageContext.Provider>
         </div>
       </div>
     </section>

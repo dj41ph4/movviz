@@ -1,6 +1,7 @@
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { getTitleImages, pickEditorialArtwork } from "@/lib/metadata/tmdb";
 import { prefetchTmdbImage } from "@/lib/metadata/tmdbImageCache";
+import { runBackground } from "@/lib/priority/lane";
 import {
   cacheTitleArtwork,
   loadCachedTitleArtwork,
@@ -128,6 +129,6 @@ export async function runArtworkCacheWarm(
 }
 
 export function startArtworkCacheWarm(mode: ArtworkWarmMode): ArtworkWarmState {
-  if (!state.running) void runArtworkCacheWarm(mode);
+  if (!state.running) void runBackground(() => runArtworkCacheWarm(mode));
   return getArtworkWarmState();
 }

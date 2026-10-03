@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { markUserActivity } from "@/lib/priority/userActivity";
+import { markForegroundActivity, markUserActivity } from "@/lib/priority/userActivity";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,10 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  markUserActivity(user);
+  // Older web/Android callers send no body and keep the existing contract.
+  const body = req.headers.get("content-type")?.includes("application/json")
+    ? await req.json().catch(() => null) : null;
+  if (body?.kind === "foreground") markForegroundActivity(user);
+  else markUserActivity(user);
   return new NextResponse(null, { status: 204 });
 }

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import { beginForegroundRequest, withForegroundRequest } from "@/lib/priority/foregroundRequests";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
@@ -422,8 +423,8 @@ function DiscoverPageInner() {
     const controller = new AbortController();
     const id = setTimeout(() => {
       setPersonResults([]);
-      fetch(`/api/metadata/search?q=${encodeURIComponent(query)}&type=person`, { cache: "no-store", signal: controller.signal })
-        .then((r) => (r.ok ? r.json() : null))
+      withForegroundRequest(() => fetch(`/api/metadata/search?q=${encodeURIComponent(query)}&type=person`, { cache: "no-store", signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : null)))
         .then((d: { results?: MetaPersonSearchResult[] } | null) => { if (!controller.signal.aborted) setPersonResults(d?.results?.slice(0, 8) ?? []); })
         .catch(() => { if (!controller.signal.aborted) setPersonResults([]); });
     }, 0);
@@ -452,8 +453,8 @@ function DiscoverPageInner() {
     // Ici on skip juste le cas mono-mot peu populaire qui masquerait un titre culte
     if (qLower.split(/\s+/).length === 1 && (exactMatch.popularity ?? 0) < 10) return;
     const controller = new AbortController();
-    fetch(`/api/metadata/person?id=${exactMatch.tmdbId}`, { cache: "no-store", signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : null))
+    withForegroundRequest(() => fetch(`/api/metadata/person?id=${exactMatch.tmdbId}`, { cache: "no-store", signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null)))
       .then((d: { credits?: (MetaSearchResult & { isDirector?: boolean })[] } | null) => {
         if (!d?.credits || controller.signal.aborted) return;
         const sorted = [...d.credits].sort(
@@ -469,6 +470,7 @@ function DiscoverPageInner() {
   }, [q, personResults]);
 
   const loadPage = async (targetPage: number, signal?: AbortSignal, requestId = browseRequestId.current) => {
+    const endForeground = beginForegroundRequest();
     if (targetPage === 1) setLoading(true); else setLoadingMore(true);
     try {
       let url: string;
@@ -515,6 +517,7 @@ function DiscoverPageInner() {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (targetPage === 1) setResults([]);
     } finally {
+      endForeground();
       if (!signal?.aborted && requestId === browseRequestId.current) {
         setLoading(false);
         setLoadingMore(false);

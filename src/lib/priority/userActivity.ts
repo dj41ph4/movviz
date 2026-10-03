@@ -42,7 +42,26 @@ interface UserActivity {
   user: { id: string; username: string } | null;
 }
 
-const g = globalThis as typeof globalThis & { __movvizLastUserActivity?: UserActivity };
+const g = globalThis as typeof globalThis & {
+  __movvizLastUserActivity?: UserActivity;
+  __movvizForegroundLeases?: Map<string, number>;
+};
+const foregroundLeases = (g.__movvizForegroundLeases ??= new Map());
+const FOREGROUND_LEASE_MS = 5_000;
+
+/** Short renewable lease. A closed tab or failed ping cannot pause work forever. */
+export function markForegroundActivity(user: { id: string; username: string }) {
+  foregroundLeases.set(user.id, Date.now() + FOREGROUND_LEASE_MS);
+  markUserActivity(user);
+}
+
+export function hasForegroundActivity(): boolean {
+  const now = Date.now();
+  for (const [userId, until] of foregroundLeases) {
+    if (until <= now) foregroundLeases.delete(userId);
+  }
+  return foregroundLeases.size > 0;
+}
 
 /**
  * Endpoints interrogés en boucle par le frontend (SWR refreshInterval,
@@ -177,17 +196,17 @@ function formatDuration(ms: number): string {
  */
 export async function yieldToUser(context?: string): Promise<void> {
   const last = g.__movvizLastUserActivity;
-  if (last == null || Date.now() - last.at >= IDLE_RESUME_MS) return;
+  if (!hasForegroundActivity() && (last == null || Date.now() - last.at >= IDLE_RESUME_MS)) return;
   const start = Date.now();
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const now = Date.now();
-    if (now - g.__movvizLastUserActivity!.at >= IDLE_RESUME_MS) break;
+    if (!hasForegroundActivity() && now - (g.__movvizLastUserActivity?.at ?? 0) >= IDLE_RESUME_MS) break;
     if (now - start >= MAX_YIELD_MS) break;
     await new Promise<void>((resolve) => setTimeout(resolve, YIELD_STEP_MS));
   }
   const waited = Date.now() - start;
-  const who = last.user ? `${last.user.username} (id:${last.user.id})` : "inconnu";
+  const who = last?.user ? `${last.user.username} (id:${last.user.id})` : "inconnu";
   recordSearchLog(
     "info",
     "priority.yield",

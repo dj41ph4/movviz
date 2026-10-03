@@ -17,6 +17,7 @@ import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback
 import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
+import { runBackground } from "@/lib/priority/lane";
 import { registerMarkerCandidate } from "./markerSync";
 import path from "node:path";
 
@@ -90,7 +91,7 @@ export function scheduleLibrarySyncSoon(): void {
   if (gSync.__movvizPlexSyncSoonTimer) return;
   gSync.__movvizPlexSyncSoonTimer = setTimeout(() => {
     gSync.__movvizPlexSyncSoonTimer = null;
-    syncPlexLibrary().catch(() => { /* best-effort — the 5-minute scheduled sync still covers it */ });
+    void runBackground(() => syncPlexLibrary()).catch(() => { /* best-effort — the 5-minute scheduled sync still covers it */ });
   }, SYNC_SOON_DELAY_MS);
 }
 

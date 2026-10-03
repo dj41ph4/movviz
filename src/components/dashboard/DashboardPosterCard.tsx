@@ -20,6 +20,7 @@ import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
+import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 
 /** How long the mouse must stay over the expanded popover before the static
  *  backdrop is swapped for the ambient trailer video. The iframe now mounts
@@ -31,7 +32,7 @@ import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
  *  appears once the popover itself is already showing. */
 const CARD_VIDEO_DELAY_MS = 0;
 
-const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
+const previewFetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
 
 export type DashboardCardPlayback = {
   ratingKey: string;
@@ -193,6 +194,7 @@ export function DashboardPosterCard({
   onRemoveFromResume?: () => void | Promise<void>;
 }) {
   const { t, locale } = useI18n();
+  const fetcher = useForegroundFetcher(previewFetcher);
   const { mutate } = useSWRConfig();
   const { enabled: betaPlayer } = useBetaPlayer();
   const { enabled: videoPreviewEnabled } = useTitlePageVideo();
@@ -659,7 +661,7 @@ export function DashboardPosterCard({
             )}
             <div className="absolute inset-x-4 bottom-3 min-w-0">
               {logoPath ? (
-                <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+                <AdaptiveTitleLogo path={logoPath} size="w500" loading="eager" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
               ) : !titleEmbedded ? (
                 <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
               ) : null}

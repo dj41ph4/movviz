@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { CarouselImageContext } from "./CarouselImageContext";
 import { cn } from "@/lib/utils";
 import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
 import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
@@ -20,7 +21,8 @@ const logoScaleCache = new Map<string, number>();
  * visible alpha bounds once, then bring only undersized marks up to 40% of
  * their card width. A naturally broad/tight logo is never reduced.
  */
-export function AdaptiveTitleLogo({ path, size, className }: { path: string; size: TmdbImageSize; className?: string }) {
+export function AdaptiveTitleLogo({ path, size, className, loading }: { path: string; size: TmdbImageSize; className?: string; loading?: "lazy" | "eager" }) {
+  const inCarousel = useContext(CarouselImageContext);
   const useCdn = useShouldUseCdn();
   const [fellBack, setFellBack] = useState(false);
   const [layout, setLayout] = useState(() => {
@@ -112,7 +114,7 @@ export function AdaptiveTitleLogo({ path, size, className }: { path: string; siz
     <img
       src={src}
       alt=""
-      loading="eager"
+      loading={loading ?? (inCarousel ? "lazy" : "eager")}
       decoding="async"
       onLoad={(event) => inspectAlphaBounds(event.currentTarget)}
       onError={onError}

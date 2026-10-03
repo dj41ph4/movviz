@@ -49,6 +49,11 @@ interface PlayerContextValue {
 
 const PlayerCtx = createContext<PlayerContextValue | null>(null);
 
+/** Optional for shared shelves rendered outside the application player shell. */
+export function usePlaybackActive(): boolean {
+  return useContext(PlayerCtx)?.request != null;
+}
+
 export function usePlayer(): PlayerContextValue {
   const ctx = useContext(PlayerCtx);
   if (!ctx) throw new Error("usePlayer() must be used within PlayerProvider");
