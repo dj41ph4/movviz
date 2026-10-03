@@ -23,7 +23,7 @@ if (!fs.existsSync(standalone)) {
 }
 
 const resolvedStandalone = path.resolve(standalone);
-const keep = new Set([".next", "node_modules", "server.js", "package.json"]);
+const keep = new Set([".next", "node_modules", "server.js", "package.json", "CHANGELOG.md"]);
 const workersSource = path.join(root, "src", "lib", "workers");
 const workersDestination = path.join(resolvedStandalone, "workers");
 
@@ -53,4 +53,6 @@ for (const file of workerFiles) {
   fs.copyFileSync(path.join(workersSource, file), path.join(workersDestination, file));
 }
 
-console.log(`clean-standalone: removed ${removed} entry(ies); staged ${workerFiles.length} worker asset(s)`);
+// The popup reads this at runtime; native Linux also ships standalone directly.
+fs.copyFileSync(path.join(root, "CHANGELOG.md"), path.join(resolvedStandalone, "CHANGELOG.md"));
+console.log(`clean-standalone: removed ${removed} entry(ies); staged ${workerFiles.length} worker asset(s) and CHANGELOG.md`);

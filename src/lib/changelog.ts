@@ -152,6 +152,7 @@ export function readRange(FILE: string): { version: string; date: string | null;
  */
 export function getChangelogRange(since: string | null, upTo: string): ChangelogEntry[] {
   const all = readRange(DEFAULT_FILE).filter((e) => e.sections.length > 0);
+  if (since === null) return all.filter((entry) => entry.version === upTo);
 
   const entries: ChangelogEntry[] = [];
   for (const e of all) {

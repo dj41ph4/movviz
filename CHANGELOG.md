@@ -1,3 +1,47 @@
+## v1.25.167 — Octobre 2026
+
+### Changelog après mise à jour
+
+- La fenêtre Nouveautés ne marque plus une version comme lue en cas d'erreur, de notes absentes ou tant que le splash la masque. La validation intervient à sa fermeture.
+- Les chargements interrompus sont annulés et les erreurs transitoires disposent de deux nouvelles tentatives. Les anciennes validations non fiables ne masquent plus les notes.
+- Les notes des versions 163 à 166 sont rétablies. Le changelog est inclus dans le serveur autonome et le build vérifie désormais les notes ainsi que les versions du README et du lockfile.
+
+### Rattrapage des nouveautés récentes
+
+- Les carrousels préparent deux écrans d'avance, avec une anticipation limitée et priorité aux images visibles, recherches et fiches demandées.
+- La reprise d'une série ne propose plus d'épisode inexistant ou absent ; les vues, l'historique importé et la séparation des comptes Plex sont préservés.
+- La version installée et le bloc mise à jour sont de retour en bas de la sidebar, en modes ouvert et compact.
+
+## v1.25.166 — Octobre 2026
+
+### Version et mise à jour dans la sidebar
+
+- La version installée est à nouveau visible sous le profil, y compris en mode compact.
+- Le bloc mise à jour revient pour les administrateurs : installation sur Windows et Linux natif, accès aux informations sur Docker/NAS. La navigation reste inchangée.
+
+## v1.25.165 — Octobre 2026
+
+### Priorité à la navigation
+
+- La détection d'activité couvre clavier, tactile, défilement et navigation. La priorité est renouvelée pendant les chargements utiles, pas par les rafraîchissements déjà en cache.
+- Les images visibles ne patientent pas derrière l'anticipation. Les carrousels proches préparent deux écrans d'avance, avec deux préchargements spéculatifs et un décodage à la fois pour l'ensemble des rangées.
+- Les tâches de fond sont correctement classées ; les demandes utilisateur TMDb restent prioritaires, avec ordre stable et limites de concurrence conservées.
+
+## v1.25.164 — Octobre 2026
+
+### Reprises valides uniquement
+
+- Le prochain épisode vient du catalogue réel, ordonné par saison et épisode. Une série terminée ne fabrique plus un épisode supplémentaire.
+- Un épisode suivant absent empêche la reprise sans sauter vers un épisode ultérieur ; un épisode en cours disponible garde la priorité.
+- La vérification s'applique aux reprises locales et Plex, sans modifier les vues, l'historique importé ni les règles de synchronisation des profils.
+
+## v1.25.163 — Octobre 2026
+
+### Réactivité des carrousels
+
+- Les rangées préchargent deux largeurs d'avance et évitent les rendus inutiles pendant le défilement.
+- Le compteur de téléchargements ne s'affiche plus deux fois dans la sidebar ouverte.
+
 ## v1.25.162 — Octobre 2026
 
 ### OCS et YouTube

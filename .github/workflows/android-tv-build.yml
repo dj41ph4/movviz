@@ -26,6 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/extract-changelog.mjs --check
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:

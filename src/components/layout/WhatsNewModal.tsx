@@ -6,6 +6,7 @@ import { Sparkles, X } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { useVersion } from "@/lib/version/VersionContext";
 import { useSplashActive } from "@/lib/dashboard/splashCoordinator";
+import { CHANGELOG_SEEN_KEY, loadWhatsNew } from "@/lib/updates/whatsNew";
 
 interface ChangelogSection {
   heading: string;
@@ -16,8 +17,6 @@ interface ChangelogEntry {
   date: string | null;
   sections: ChangelogSection[];
 }
-
-const STORAGE_KEY = "movviz_last_seen_version";
 
 /** CHANGELOG.md bullets use `**bold**` for emphasis (e.g. "**Sécurité :**") — no markdown lib in this project, so just handle that one case. */
 function renderBold(text: string) {
@@ -46,13 +45,14 @@ export function WhatsNewModal() {
   // Bug fix: this modal used to appear on top of the dashboard's cold-start
   // splash (DashboardSplash) instead of waiting for it to finish — the two
   // are unrelated siblings (see splashCoordinator.ts). `splashActive` only
-  // gates *when* an already-fetched "what's new" is displayed; it never
-  // affects whether it's fetched or marked seen.
+  // gates *when* an already-fetched "what's new" is displayed. Seen state
+  // is written only when the user closes the displayed notes.
   const splashActive = useSplashActive();
 
   useEffect(() => {
     if (!version || version === "0.0.0") return;
-    const lastSeen = localStorage.getItem(STORAGE_KEY);
+    let lastSeen: string | null = null;
+    try { lastSeen = localStorage.getItem(CHANGELOG_SEEN_KEY); } catch { /* Private/restricted storage does not hide the notes. */ }
     if (lastSeen === version) return;
     // Deliberately no "first-ever launch, skip it" branch: this feature only
     // just shipped, so every existing browser starts with lastSeen === null —
@@ -62,21 +62,31 @@ export function WhatsNewModal() {
     // releases sees the full story, not only the newest entry.
     const params = new URLSearchParams();
     if (lastSeen) params.set("since", lastSeen);
-    fetch(`/api/system/changelog?${params}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { entries: ChangelogEntry[] } | null) => {
-        if (d?.entries && d.entries.length > 0) {
-          setEntries(d.entries);
+    const controller = new AbortController();
+    let cancelled = false;
+    void loadWhatsNew(version, async () => {
+      const response = await fetch(`/api/system/changelog?${params}`, { cache: "no-store", signal: controller.signal });
+      return response.ok ? response.json() : null;
+    }, (ms) => new Promise<void>((resolve) => {
+      const done = () => { window.clearTimeout(timer); controller.signal.removeEventListener("abort", done); resolve(); };
+      const timer = window.setTimeout(done, ms);
+      controller.signal.addEventListener("abort", done, { once: true });
+    }), () => cancelled).then((notes) => {
+        if (!cancelled && notes.length > 0) {
+          setEntries(notes);
           setVisible(true);
         }
-        localStorage.setItem(STORAGE_KEY, version);
-      })
-      .catch(() => {
-        localStorage.setItem(STORAGE_KEY, version);
       });
+    return () => { cancelled = true; controller.abort(); };
   }, [version]);
 
-  const close = () => setVisible(false);
+  const close = () => {
+    // No acknowledgement while loading, on error, or behind the splash.
+    if (visible && !splashActive && entries.length) {
+      try { localStorage.setItem(CHANGELOG_SEEN_KEY, entries[0].version); } catch { /* Keep the popup usable without storage. */ }
+    }
+    setVisible(false);
+  };
 
   return (
     <AnimatePresence>

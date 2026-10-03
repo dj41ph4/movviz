@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "u
 const version = pkg.version;
 
 const lines = readFileSync(path.join(process.cwd(), "CHANGELOG.md"), "utf8").split("\n");
-const headerRe = /^##\s+\[([\d.]+)\]/;
+const headerRe = /^##\s+(?:v|\[)?([\d.]+)(?:\])?(?:\s|$)/;
 
 let start = -1;
 for (let i = 0; i < lines.length; i++) {
@@ -21,7 +21,7 @@ for (let i = 0; i < lines.length; i++) {
 
 let notes;
 if (start === -1) {
-  notes = `Version ${version}.`;
+  throw new Error(`CHANGELOG.md : notes manquantes pour la version ${version}`);
 } else {
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
@@ -31,6 +31,15 @@ if (start === -1) {
     }
   }
   notes = lines.slice(start + 1, end).join("\n").trim();
+}
+
+if (!/^###\s+.+/m.test(notes) || !/^-\s+\S/m.test(notes)) throw new Error(`CHANGELOG.md : notes vides pour ${version}`);
+const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+if (lock.version !== version || lock.packages?.[""]?.version !== version) throw new Error("Version du lockfile incohérente");
+if (!readFileSync("README.md", "utf8").includes(`Version actuelle : v${version}</strong>`)) throw new Error("Version du README incohérente");
+if (process.argv.includes("--check")) {
+  console.log(`Notes et versions vérifiées : ${version}`);
+  process.exit(0);
 }
 
 mkdirSync("dist", { recursive: true });
