@@ -12,6 +12,24 @@ test("TV input invalidates the search screen, not the whole navigation host", ()
   assert.ok(source("ui/home/MainScreen.kt").includes("searchQuery: State<String>"));
 });
 
+test("TV search return restores one card target after lazy composition", () => {
+  const screen = source("ui/search/SearchScreen.kt");
+  assert.ok(screen.includes("rememberSaveable(query) { mutableStateOf<String?>(null) }"));
+  assert.ok(screen.includes("if (!returningFromTitle) return@LaunchedEffect"));
+  assert.ok(screen.includes("gridState.scrollToItem(index)"));
+  assert.ok(screen.includes("if (index == 0) firstResultFocusRequester else returnResultFocusRequester"));
+  assert.ok(screen.includes("if (returnResultKey != null) return@LaunchedEffect"));
+});
+
+test("TV season initially focuses header while retaining episode-return priority", () => {
+  const detail = source("ui/title/TitleDetailScreen.kt");
+  const initial = detail.slice(detail.indexOf("LaunchedEffect(season.seasonNumber, landingEpisode?.episodeNumber)"), detail.indexOf("val focusManager =", detail.indexOf("LaunchedEffect(season.seasonNumber, landingEpisode?.episodeNumber)")));
+  assert.ok(initial.includes("seasonGridState.scrollToItem(0)"));
+  assert.ok(initial.indexOf("primaryActionFocus,") < initial.indexOf("firstEpisodeFocus.requestFocus()"));
+  assert.ok(detail.includes("lastOpenedEpisode?.let { episodeCardFocus[it] }"));
+  assert.ok(detail.includes(".focusRestorer { lastOpenedEpisode?.let { episodeCardFocus[it] } ?: primaryActionFocus }"));
+});
+
 test("TV library matching runs off the UI thread and guards obsolete results", () => {
   const screen = source("ui/search/SearchScreen.kt");
   assert.ok(screen.includes("emptyList(), libraryMovies, librarySeries)"));

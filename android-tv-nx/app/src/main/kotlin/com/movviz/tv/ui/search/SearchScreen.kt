@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -114,6 +115,10 @@ fun SearchScreen(
     // carte, pour que BAS depuis le champ sorte toujours du clavier vers les
     // résultats réels.
     val firstResultFocusRequester = remember { FocusRequester() }
+    val returnResultFocusRequester = remember { FocusRequester() }
+    var returnResultKey by rememberSaveable(query) { mutableStateOf<String?>(null) }
+    val returningFromTitle = remember { returnResultKey != null }
+    val gridState = rememberTvLazyGridState().withTvPrefetchDisabled()
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
@@ -134,13 +139,14 @@ fun SearchScreen(
     // le focus, avec les mêmes garanties que les autres écrans TV.
     LaunchedEffect(showSearchField) {
         if (!showSearchField || resultFocusRequester == null) return@LaunchedEffect
+        if (returnResultKey != null) return@LaunchedEffect
         repeat(4) { attempt ->
             if (runCatching { resultFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
             if (attempt < 3) withFrameNanos { }
         }
     }
 
-    var typeFilter by remember { mutableStateOf(SearchTypeFilter.ALL) }
+    var typeFilter by rememberSaveable { mutableStateOf(SearchTypeFilter.ALL) }
     LaunchedEffect(query) {
         viewModel.invalidateSearch()
         if (query.isBlank()) {
@@ -187,6 +193,27 @@ fun SearchScreen(
         for (item in libraryMatches) if (seen.add("${item.type}-${item.tmdbId}")) combined.add(item)
         for (item in filteredResults) if (seen.add("${item.type}-${item.tmdbId}")) combined.add(item)
         combined
+    }
+    // Navigation saves the clicked identity, never a Compose focus node.
+    // Scroll lazy content into composition before requesting its single target.
+    LaunchedEffect(mergedResults, returnResultKey, searching, matchedLibrary) {
+        if (!returningFromTitle) return@LaunchedEffect
+        val key = returnResultKey ?: return@LaunchedEffect
+        val index = mergedResults.indexOfFirst { "${it.type}-${it.tmdbId}" == key }
+        if (index >= 0) {
+            gridState.scrollToItem(index)
+            repeat(20) {
+                withFrameNanos { }
+                val target = if (index == 0) firstResultFocusRequester else returnResultFocusRequester
+                if (runCatching { target.requestFocus() }.getOrDefault(false)) {
+                    returnResultKey = null
+                    return@LaunchedEffect
+                }
+            }
+        } else if (!searching && (searchState is SearchState.Success || searchState is SearchState.Empty || searchState is SearchState.Error || searchState is SearchState.Unauthorized) && matchedLibrary.first == query) {
+            // Removed/unavailable result: keep a reachable field as fallback.
+            if (runCatching { resultFocusRequester?.requestFocus() }.getOrDefault(false) == true) returnResultKey = null
+        }
     }
     // Prise UNE fois par changement de résultats : l'ancien code appelait
     // results.take(8) à chaque itération de la boucle (sous-liste recréée à
@@ -244,7 +271,7 @@ fun SearchScreen(
             // frappe, sans attendre le debounce ni la réponse TMDb — la
             // grille reste ensuite à jour au fil de l'arrivée des résultats
             // distants (mergedResults se recompose).
-            mergedResults.isNotEmpty() -> TvLazyVerticalGrid(state = rememberTvLazyGridState().withTvPrefetchDisabled(), columns = TvGridCells.FixedSize(116.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(17.dp), modifier = Modifier.fillMaxSize()) {
+            mergedResults.isNotEmpty() -> TvLazyVerticalGrid(state = gridState, columns = TvGridCells.FixedSize(116.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(17.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
@@ -259,9 +286,12 @@ fun SearchScreen(
                         // premier résultat est ensuite atteint naturellement
                         // par BAS. L'ancienne double attache rendait la
                         // recherche muette au D-pad sur certains appareils.
-                        focusRequester = if (index == 0) firstResultFocusRequester else null,
+                        focusRequester = if (index == 0) firstResultFocusRequester else if ("${result.type}-${result.tmdbId}" == returnResultKey) returnResultFocusRequester else null,
                         watched = result.type == "movie" && result.tmdbId in searchWatchedMovieIds,
-                    ) { onOpenTitle(result.type, result.tmdbId) }
+                    ) {
+                        returnResultKey = "${result.type}-${result.tmdbId}"
+                        onOpenTitle(result.type, result.tmdbId)
+                    }
                 }
             }
             searchState is SearchState.Loading -> SearchFocusMessage(

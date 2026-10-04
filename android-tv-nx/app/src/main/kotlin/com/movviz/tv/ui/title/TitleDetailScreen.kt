@@ -1876,20 +1876,25 @@ private fun SeasonPageOverlay(
     // arrivés), il reprenait le focus à l'utilisateur déjà en train de
     // naviguer dans la grille.
     var seasonLanded by remember(season.seasonNumber) { mutableStateOf(false) }
+    val seasonGridState = rememberTvLazyGridState().withTvPrefetchDisabled()
     LaunchedEffect(season.seasonNumber, landingEpisode?.episodeNumber) {
         if (seasonLanded || focusLocked) return@LaunchedEffect
-        // Plusieurs cibles, sur plusieurs frames : la carte visée vit dans
-        // une grille paresseuse et peut n'être composée que bien après
-        // l'en-tête. Quand elle manquait, l'écran s'ouvrait sans AUCUN
-        // élément focalisé et le D-pad paraissait mort.
+        seasonGridState.scrollToItem(0)
+        // Attendre les actions de l'en-tête avant le secours sur une carte :
+        // celle-ci pouvait être attachée plus tôt et faire défiler l'en-tête
+        // hors écran. Un déplacement manuel garde toujours la priorité.
         repeat(20) { attempt ->
+            if (seasonLanded) return@LaunchedEffect
+            withFrameNanos { }
             val targets = listOfNotNull(
-                landingEpisode?.let { firstEpisodeFocus },
                 primaryActionFocus,
                 backFocus,
             )
             if (targets.any { runCatching { it.requestFocus() }.getOrDefault(false) }) { seasonLanded = true; return@LaunchedEffect }
             if (attempt < 19) withFrameNanos { }
+        }
+        if (!seasonLanded && landingEpisode != null) {
+            seasonLanded = runCatching { firstEpisodeFocus.requestFocus() }.getOrDefault(false)
         }
     }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -1911,7 +1916,7 @@ private fun SeasonPageOverlay(
         CompositionLocalProvider(LocalBringIntoViewSpec provides object : BringIntoViewSpec {}) {
             TvLazyVerticalGrid(
                 columns = androidx.tv.foundation.lazy.grid.TvGridCells.Fixed(4),
-                state = rememberTvLazyGridState().withTvPrefetchDisabled(),
+                state = seasonGridState,
                 modifier = Modifier
                     .fillMaxSize()
                     // HAUT est CONSOMMÉ ici, toujours : le conteneur de la
@@ -1933,7 +1938,7 @@ private fun SeasonPageOverlay(
                         if (railEntryFocusRequester != null) Modifier.focusRequester(railEntryFocusRequester)
                         else Modifier,
                     )
-                    .focusRestorer { firstEpisodeFocus }
+                    .focusRestorer { lastOpenedEpisode?.let { episodeCardFocus[it] } ?: primaryActionFocus }
                     .focusGroup(),
                 contentPadding = PaddingValues(start = 42.dp, end = 42.dp, top = 96.dp, bottom = 40.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),

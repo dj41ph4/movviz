@@ -1,3 +1,10 @@
+## v1.25.177 — Octobre 2026
+
+### Android TV : retours et ouverture de saison au D-pad
+
+- Au retour d'une fiche ouverte depuis la recherche, le focus revient sur la carte choisie, avec restauration du filtre et de la grille.
+- Une saison s'ouvre sur l'action de lecture de son en-tête, sans masquer celui-ci. Le retour d'une fiche épisode conserve la priorité à sa carte d'origine ; les déplacements Compose et les règles de lecture restent inchangés.
+
 ## v1.25.176 — Octobre 2026
 
 ### Android TV : saisie de recherche allégée
