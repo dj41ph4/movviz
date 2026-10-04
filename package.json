@@ -1,9 +1,11 @@
 {
   "name": "movviz",
-  "version": "1.25.177",
+  "version": "1.25.178",
   "private": true,
   "description": "Movviz — centre de commande média unifié. Découvrez, demandez, indexez et gérez films et séries depuis une interface unique et cinématographique.",
   "scripts": {
+    "tizen:build": "node tizen-tv/scripts/build.mjs",
+    "tizen:preview": "node tizen-tv/scripts/preview.mjs",
     "dev": "next dev -p 9810",
     "build": "node scripts/extract-changelog.mjs --check && next build --webpack && node scripts/clean-standalone.mjs",
     "start": "next start -p 9810",
@@ -35,6 +37,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.5",
     "postcss": "^8.5.22",
+    "qrcode-generator": "^2.0.4",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3"
   },

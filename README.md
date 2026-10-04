@@ -6,7 +6,7 @@
 
 <h1>Movviz</h1>
 <p><strong>Ton catalogue. Ton serveur. Tes règles.</strong></p>
-<p><strong>Version actuelle : v1.25.177</strong></p>
+<p><strong>Version actuelle : v1.25.178</strong></p>
 
 <p>
 Movviz réunit en <strong>une seule application auto-hébergée</strong> tout ce qu'il faut pour vivre ses films et séries :
@@ -26,6 +26,9 @@ le tout synchronisé en temps réel entre tous tes écrans.
 </a>
 <a href="android-tv-nx/">
   <img src="https://img.shields.io/badge/Android_TV-3DDC84?style=for-the-badge&logo=androidtv&logoColor=white&labelColor=1a1a2e" alt="Android TV"/>
+</a>
+<a href="tizen-tv/">
+  <img src="https://img.shields.io/badge/Samsung_Tizen-B%C3%AAta-8B2FFF?style=for-the-badge&logo=samsung&logoColor=white&labelColor=1a1a2e" alt="Samsung Tizen — bêta"/>
 </a>
 <a href="android-mobile-nx/">
   <img src="https://img.shields.io/badge/Android_mobile-3DDC84?style=for-the-badge&logo=android&logoColor=white&labelColor=1a1a2e" alt="Android mobile"/>

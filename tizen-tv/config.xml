@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="https://movviz.app/tv" version="1.0.0" viewmodes="maximized">
+  <tizen:application id="MovvizTvNx.Movviz" package="MovvizTvNx" required_version="6.0"/>
+  <content src="index.html"/>
+  <name>Movviz</name>
+  <icon src="icon.png"/>
+  <access origin="*" subdomains="true"/>
+  <tizen:profile name="tv-samsung"/>
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+  <tizen:privilege name="http://developer.samsung.com/privilege/drmplay"/>
+  <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

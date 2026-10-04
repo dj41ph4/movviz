@@ -15,6 +15,7 @@ function isValidSessionCookie(value: string | undefined): boolean {
 }
 
 const PUBLIC_API_PREFIXES = [
+  "/api/tv/client", // Explicit device authentication inside this cookie-free bridge.
   "/api/auth/login",
   "/api/auth/register",
   "/api/auth/logout",

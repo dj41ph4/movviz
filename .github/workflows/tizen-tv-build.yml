@@ -1,0 +1,107 @@
+name: Build Movviz Samsung Tizen TV
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: ["tizen-tv/**", "src/app/api/tv/client/**", "src/i18n/locales/**", ".github/workflows/tizen-tv-build.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: samsung-tizen-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Verify release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          node scripts/extract-changelog.mjs --check
+          node scripts/extract-changelog.mjs
+      - name: Typecheck server and client
+        run: npm run typecheck
+      - name: Verify device bridge
+        run: node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test scripts/tizen-client.test.ts
+      - name: Build Samsung widget
+        run: npm run tizen:build
+      - name: Detect signing configuration
+        id: signing
+        env:
+          AUTHOR: ${{ secrets.MOVVIZ_TIZEN_AUTHOR_P12_B64 }}
+          DISTRIBUTOR: ${{ secrets.MOVVIZ_TIZEN_DISTRIBUTOR_P12_B64 }}
+          AUTHOR_PASSWORD: ${{ secrets.MOVVIZ_TIZEN_AUTHOR_PASSWORD }}
+          DISTRIBUTOR_PASSWORD: ${{ secrets.MOVVIZ_TIZEN_DISTRIBUTOR_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$AUTHOR" && -n "$DISTRIBUTOR" && -n "$AUTHOR_PASSWORD" && -n "$DISTRIBUTOR_PASSWORD" ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          elif [[ -n "$AUTHOR$DISTRIBUTOR$AUTHOR_PASSWORD$DISTRIBUTOR_PASSWORD" ]]; then
+            echo '::error::Configuration de signature Samsung incomplète'; exit 1
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Paquet non signé : certificats Samsung non configurés. Une signature Samsung est nécessaire pour installer sur TV.'
+          fi
+      - name: Install official Tizen CLI
+        if: steps.signing.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://download.tizen.org/sdk/Installer/tizen-studio_6.1/web-cli_Tizen_Studio_6.1_ubuntu-64.bin -o "$RUNNER_TEMP/tizen-cli.bin"
+          chmod +x "$RUNNER_TEMP/tizen-cli.bin"
+          "$RUNNER_TEMP/tizen-cli.bin" --accept-license --no-java-check "$RUNNER_TEMP/tizen-studio"
+          echo "$RUNNER_TEMP/tizen-studio/tools/ide/bin" >> "$GITHUB_PATH"
+      - name: Sign Samsung widget
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          AUTHOR: ${{ secrets.MOVVIZ_TIZEN_AUTHOR_P12_B64 }}
+          DISTRIBUTOR: ${{ secrets.MOVVIZ_TIZEN_DISTRIBUTOR_P12_B64 }}
+          AUTHOR_PASSWORD: ${{ secrets.MOVVIZ_TIZEN_AUTHOR_PASSWORD }}
+          DISTRIBUTOR_PASSWORD: ${{ secrets.MOVVIZ_TIZEN_DISTRIBUTOR_PASSWORD }}
+        run: |
+          set -euo pipefail
+          key_dir="$RUNNER_TEMP/tizen-signing"
+          mkdir -p "$key_dir"
+          printf '%s' "$AUTHOR" | base64 --decode > "$key_dir/author.p12"
+          printf '%s' "$DISTRIBUTOR" | base64 --decode > "$key_dir/distributor.p12"
+          tizen security-profiles add -n movviz-tv -a "$key_dir/author.p12" -p "$AUTHOR_PASSWORD" -d "$key_dir/distributor.p12" -dp "$DISTRIBUTOR_PASSWORD"
+          tizen package -t wgt -s movviz-tv -o "$key_dir/output" -- tizen-tv/build
+          package="$(find "$key_dir/output" -maxdepth 1 -name '*.wgt' -print -quit)"
+          test -n "$package"
+          unzip -l "$package" | grep -q 'author-signature.xml'
+          unzip -l "$package" | grep -q 'signature1.xml'
+          cp "$package" tizen-tv/dist/Movviz-Samsung-Tizen-client.wgt
+          cd tizen-tv/dist
+          sha256sum Movviz-Samsung-Tizen-client.wgt > Movviz-Samsung-Tizen-client.wgt.sha256
+      - name: Check widget archive
+        run: |
+          unzip -t tizen-tv/dist/Movviz-Samsung-Tizen-client-unsigned.wgt
+          cd tizen-tv/dist
+          sha256sum --check Movviz-Samsung-Tizen-client-unsigned.wgt.sha256
+      - name: Publish Samsung widget to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            if gh release view "$TAG" >/dev/null 2>&1; then break; fi
+            gh release create "$TAG" --title "$TAG" --notes-file dist/release-notes.md >/dev/null 2>&1 || true
+            sleep 5
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" tizen-tv/dist/*.wgt tizen-tv/dist/*.sha256 --clobber
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Movviz-Samsung-Tizen-client
+          path: tizen-tv/dist/*

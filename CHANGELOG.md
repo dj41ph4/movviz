@@ -1,3 +1,12 @@
+## v1.25.178 — Octobre 2026
+
+### Samsung Tizen : premier client NX en bêta et release GitHub
+
+- Ajout d’un client Samsung TV packagé en `.wgt`, avec les couleurs, la police Roboto, le logo, le rail au focus et les dimensions issus d’Android TV NX. Écrans serveur, connexion Movviz/Plex par code et QR, sélection de profils, accueil avec hero, bibliothèque, découverte, recherche et fiche titre unique avec saisons/épisodes et distribution.
+- Réutilisation des routes et règles serveur pour les comptes, reprises, historiques, statuts vus, listes personnelles, demandes de titres, recherches de téléchargements et IA lorsque celle-ci est activée. Les profils restaurent chacun leur session authentifiée ; aucun jeton Plex n’est envoyé au client.
+- Adaptateur AVPlay avec lecture authentifiée, reprise, pause, déplacement dans le flux, choix audio/sous-titres par replanification serveur, progression et épisode suivant. Capacités déclarées limitées à H.264/AAC SDR 1080p en attendant les essais matériels ; la lecture sur TV physique et la parité complète Android TV ne sont pas encore validées.
+- Workflow Samsung sur les mêmes tags `v*` que les autres plateformes : vérification des types/tests, archive et SHA-256 joints à la release. Sans certificats Samsung configurés, le paquet porte explicitement le nom `client-unsigned.wgt` et doit être signé avant installation. HEVC/HDR/4K, bandes-annonces, marqueurs et réglages avancés restent à finaliser et à vérifier sur le modèle cible.
+
 ## v1.25.177 — Octobre 2026
 
 ### Android TV : retours et ouverture de saison au D-pad

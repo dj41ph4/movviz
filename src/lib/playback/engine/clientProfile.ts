@@ -7,7 +7,7 @@
 
 import type { HdrType } from "./mediaDescriptor";
 
-export type ClientType = "desktop-web" | "android-mobile" | "android-tv" | "cast";
+export type ClientType = "desktop-web" | "android-mobile" | "android-tv" | "samsung-tizen" | "cast";
 
 /**
  * Deliberately more than a boolean per codec: a client can decode HEVC in

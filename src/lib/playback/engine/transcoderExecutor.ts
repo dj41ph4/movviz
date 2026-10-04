@@ -511,6 +511,13 @@ export function stopTranscoderSession(key: string): void {
   }, 3000);
 }
 
+/** Stop only the process recorded by an owned playback-engine session. */
+export function stopTranscoderForPid(pid: number): void {
+  for (const [key, session] of registry()) {
+    if (session.proc.pid === pid) { stopTranscoderSession(key); return; }
+  }
+}
+
 export function stopAllForMedia(mediaId: string, userId: string): void {
   const prefix = `${mediaId}:${userId}:`;
   for (const key of Array.from(registry().keys())) {
