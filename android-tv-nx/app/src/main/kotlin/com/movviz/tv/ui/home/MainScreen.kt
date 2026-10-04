@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,7 +45,7 @@ internal fun MainScreen(
     onLoggedOut: () -> Unit,
     tab: HomeTab,
     searchOpen: Boolean,
-    searchQuery: String,
+    searchQuery: State<String>,
     onSearchQueryChange: (String) -> Unit,
     contentFocusRequester: FocusRequester,
     // Cible GAUCHE depuis le contenu → NavRail : onglet sélectionné de la
@@ -96,7 +97,7 @@ internal fun MainScreen(
             searchOpen -> SearchScreen(
                 viewModel = viewModel,
                 onOpenTitle = onOpenTitle,
-                query = searchQuery,
+                query = searchQuery.value,
                 onQueryChange = onSearchQueryChange,
                 showSearchField = true,
                 resultFocusRequester = contentFocusRequester,

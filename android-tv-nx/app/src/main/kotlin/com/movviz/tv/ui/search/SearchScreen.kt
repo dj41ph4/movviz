@@ -60,6 +60,9 @@ import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 // w342, PAS w500 : les cartes de résultats font 154dp de large (~310px
 // physiques en 1080p) — w342 couvre avec marge pour les TV 4K sans
@@ -70,11 +73,14 @@ private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
 /** Insensible aux accents/casse — même principe que normalizedGenre côté
  *  Bibliothèque (CatalogScreen.kt) : "drag" doit matcher "Dragon Ball" et
  *  "Élise" doit matcher "elise". */
+private val SEARCH_ACCENTS = "\\p{M}+".toRegex()
 private fun normalizedSearchText(value: String): String =
     java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
-        .replace("\\p{M}+".toRegex(), "")
+        .replace(SEARCH_ACCENTS, "")
         .trim()
-        .lowercase()
+        .lowercase(Locale.ROOT)
+
+private data class IndexedSearchTitle(val result: SearchResultDto, val normalizedTitle: String)
 
 // Porté depuis android-mobile-nx (même écran de recherche, demandé
 // explicitement identique entre TV et mobile) : filtre Tout/Films/Séries
@@ -146,32 +152,33 @@ fun SearchScreen(
     val filteredResults = remember(results, typeFilter) {
         typeFilter.apiType?.let { type -> results.filter { it.type == type } } ?: results
     }
-    // Correspondances DANS LA BIBLIOTHÈQUE, calculées localement à chaque
-    // frappe — pas de debounce, pas de réseau : "drag" doit faire apparaître
-    // "Dragon Ball" tout de suite s'il est déjà dans Movviz, sans attendre
-    // ni la fin de la saisie ni la réponse TMDb (recherche floue par
-    // popularité, qui peut classer d'autres titres "Drag…" avant lui).
-    val libraryMatches = remember(query, libraryMovies, librarySeries, typeFilter) {
-        val q = normalizedSearchText(query)
-        if (q.isBlank()) {
-            emptyList()
-        } else {
-            val movieMatches = if (typeFilter.apiType != "series") {
-                libraryMovies.filter { normalizedSearchText(it.title).contains(q) }
-                    .map { SearchResultDto(it.tmdbId, "movie", it.title, it.year, it.posterPath, it.backdropPath, it.rating) }
-            } else emptyList()
-            val seriesMatches = if (typeFilter.apiType != "movie") {
-                librarySeries.filter { normalizedSearchText(it.title).contains(q) }
-                    .map { SearchResultDto(it.tmdbId, "series", it.title, it.year, it.posterPath, it.backdropPath, it.rating) }
-            } else emptyList()
-            // Un titre qui COMMENCE par la saisie passe avant un titre qui la
-            // contient seulement plus loin, puis les titres les plus courts
-            // (correspondance la plus proche) d'abord.
-            (movieMatches + seriesMatches).sortedWith(
-                compareBy({ !normalizedSearchText(it.title).startsWith(q) }, { it.title.length }),
-            )
+    // Normalize once per library update, never the entire catalogue on the
+    // UI thread for every IME character. Keep local matches ahead of TMDb.
+    val libraryIndex by produceState<List<IndexedSearchTitle>>(emptyList(), libraryMovies, librarySeries) {
+        value = withContext(Dispatchers.Default) {
+            libraryMovies.map {
+                IndexedSearchTitle(SearchResultDto(it.tmdbId, "movie", it.title, it.year, it.posterPath, it.backdropPath, it.rating), normalizedSearchText(it.title))
+            } + librarySeries.map {
+                IndexedSearchTitle(SearchResultDto(it.tmdbId, "series", it.title, it.year, it.posterPath, it.backdropPath, it.rating), normalizedSearchText(it.title))
+            }
         }
     }
+    val matchedLibrary by produceState(Triple("", SearchTypeFilter.ALL, emptyList<SearchResultDto>()), query, libraryIndex, typeFilter) {
+        val q = normalizedSearchText(query)
+        val matches = if (q.isBlank()) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.Default) {
+                libraryIndex.filter {
+                    (typeFilter.apiType == null || it.result.type == typeFilter.apiType) && it.normalizedTitle.contains(q)
+                }.sortedWith(compareBy({ !it.normalizedTitle.startsWith(q) }, { it.result.title.length }))
+                    .map { it.result }
+            }
+        }
+        value = Triple(query, typeFilter, matches)
+    }
+    // A cancelled worker must never paint matches for an older query/filter.
+    val libraryMatches = if (matchedLibrary.first == query && matchedLibrary.second == typeFilter) matchedLibrary.third else emptyList()
     // La bibliothèque passe devant TMDb, sans doublon (même titre déjà en
     // bibliothèque ET dans les résultats distants).
     val mergedResults = remember(libraryMatches, filteredResults) {

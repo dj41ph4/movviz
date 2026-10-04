@@ -1,3 +1,10 @@
+## v1.25.176 — Octobre 2026
+
+### Android TV : saisie de recherche allégée
+
+- La saisie n'invalide plus tout le conteneur de navigation à chaque lettre. La normalisation des titres de bibliothèque est calculée une fois par actualisation, et les correspondances et leur tri sont calculés hors du thread d'affichage.
+- Les calculs obsolètes sont annulés et leurs résultats ne peuvent pas remplacer ceux de la nouvelle saisie. Priorité à la bibliothèque, tri, filtres, dédoublonnage, pastilles vues, temporisation réseau et navigation à la télécommande sont conservés.
+
 ## v1.25.175 — Octobre 2026
 
 ### Bêta : reflet lumineux sur le contour des cartes

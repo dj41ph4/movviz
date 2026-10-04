@@ -156,7 +156,9 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // après le premier jet qui la masquait sur la fiche, façon Netflix).
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
+    // Pass the state holder down without reading it here: typing must not
+    // invalidate the entire navigation host/sidebar on every character.
+    val searchQuery = remember { mutableStateOf("") }
     var headerHasScrolled by remember { mutableStateOf(false) }
     // Filtre Films/Séries de la Bibliothèque et de Découverte, hoistés ici
     // pour la même raison que `tab` : ROUTE_HOME quitte entièrement la
@@ -378,7 +380,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     }
                     tab = newTab
                     searchOpen = newTab == HomeTab.SEARCH
-                    if (newTab != HomeTab.SEARCH) searchQuery = ""
+                    if (newTab != HomeTab.SEARCH) searchQuery.value = ""
                     headerHasScrolled = false
                 },
                 profiles = viewModel.profiles.collectAsState().value,
@@ -522,7 +524,7 @@ composable(ROUTE_PROFILES) {
                 tab = tab,
                 searchOpen = searchOpen,
                 searchQuery = searchQuery,
-                onSearchQueryChange = { searchQuery = it },
+                onSearchQueryChange = { searchQuery.value = it },
                 contentFocusRequester = contentFocusRequester,
                 homeRestoreFocusRequester = homeRestoreFocus,
                 navRailFocusRequester = navRailFocusRequester,
