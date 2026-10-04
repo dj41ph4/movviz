@@ -183,7 +183,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       onIndexChange={setIndex}
       intervalMs={settings.slideshowSpeedSec * 1000}
       paused={manuallyPaused}
-      className="-mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
+      className="nx-premium-hero -mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
     >
       <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:aspect-[18/9] lg:h-auto lg:min-h-0">
         <ErrorBoundary key={`${active.detail.type}:${active.detail.tmdbId}`} fallback={trailerFallback}>

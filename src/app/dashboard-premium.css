@@ -1,0 +1,60 @@
+/* Isolated desktop pilot: decoration only, no new requests, timers or layout
+   changes to cards. Keep existing artwork, video and light provider tiles. */
+@media (min-width: 1024px) {
+  .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero {
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 20px;
+    box-shadow: 0 16px 42px -24px rgba(0, 0, 0, .75),
+      inset 0 1px 0 rgba(255, 255, 255, .06);
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium .nx-hero-play {
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px -12px rgba(192, 75, 255, .8);
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium :is(.nx-hero-more, .nx-hero-watchlist) {
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 12px;
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium :is(.nx-poster-row, .nx-home-providers) > div:first-child > h2,
+  .nx-desktop-shell .nx-dashboard-premium .nx-home-providers > h2 {
+    color: var(--color-ink);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -.025em;
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium .nx-poster-row > div:first-child {
+    align-items: center;
+    gap: 16px;
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium .nx-provider-tile {
+    border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium .nx-provider-tile:not(.nx-provider-tile-light) {
+    background: linear-gradient(150deg, rgba(24, 29, 49, .82), rgba(9, 13, 27, .9));
+    border-color: rgba(255, 255, 255, .11);
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium .nx-provider-tile:not(.nx-provider-tile-light):hover {
+    background: linear-gradient(150deg, rgba(42, 31, 68, .9), rgba(16, 20, 38, .94));
+    border-color: rgba(192, 75, 255, .55);
+  }
+
+  .nx-desktop-shell .nx-dashboard-premium :is(button, a):focus-visible {
+    outline: 2px solid var(--color-brand-glow);
+    outline-offset: 4px;
+  }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .nx-desktop-shell .nx-dashboard-premium :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist):hover {
+    transform: none;
+  }
+}

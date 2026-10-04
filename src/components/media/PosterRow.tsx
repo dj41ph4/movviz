@@ -75,7 +75,7 @@ export function PosterRow({
   };
 
   return (
-    <section className="group/row space-y-3">
+    <section className="nx-poster-row group/row space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
         {onSeeAll && (

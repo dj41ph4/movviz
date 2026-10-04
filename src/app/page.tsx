@@ -1,5 +1,7 @@
 "use client";
 
+import "./dashboard-premium.css";
+
 import useSWR from "swr";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -312,7 +314,7 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardSplash show={showSplash} progress={splashProgress} />
-      <div className="nx-dashboard-content w-full max-w-[2000px] space-y-8">
+      <div className="nx-dashboard-premium nx-dashboard-content w-full max-w-[2000px] space-y-8">
       {layout.mode === "cinema" && (
         <div className="nx-home-hero-grid">
           <CardErrorBoundary>
