@@ -101,3 +101,20 @@ test("Beta leaves the page and sidebar backgrounds to the original theme", () =>
   assert.ok(css.includes("var(--mv-light-x"), "Keep the pointer spotlight");
   assert.ok(css.includes("var(--mv-tilt-x"), "Keep the pointer tilt");
 });
+
+test("Beta card reflection is restricted to the rim and never adds zoom", () => {
+  const css = readFileSync(new URL("../src/components/appearance/premium.css", import.meta.url), "utf8");
+  const rules = postcss.parse(css);
+  const rim = rules.nodes.flatMap(node => node.type === "atrule" ? node.nodes ?? [] : [])
+    .find(node => node.type === "rule" && node.selector === 'html[data-movviz-appearance="beta"] [data-premium-card]::after');
+  assert.ok(rim && rim.type === "rule");
+  assert.ok(rim.nodes.some(node => node.type === "decl" && node.prop === "mask-composite" && node.value === "exclude"));
+  assert.ok(rim.nodes.some(node => node.type === "decl" && node.prop === "pointer-events" && node.value === "none"));
+  rules.walkRules(rule => {
+    if (!rule.selector.includes("[data-premium-card]")) return;
+    rule.walkDecls(decl => {
+      if (decl.prop === "transform") assert.ok(!/scale\(/.test(decl.value));
+      if (decl.prop === "scale") assert.equal(decl.value, "1");
+    });
+  });
+});

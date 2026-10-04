@@ -1,3 +1,10 @@
+## v1.25.175 — Octobre 2026
+
+### Bêta : reflet lumineux sur le contour des cartes
+
+- Au survol desktop, un reflet fin blanc-violet suit la souris sur le bord des cartes. Le centre est masqué pour préserver les couleurs et la lisibilité des affiches, avec un halo extérieur discret.
+- Aucun zoom ou agrandissement ajouté : le suivi souris existant est conservé. Aucun changement du fond, du mode Stable, des contenus ou de la lecture ; aucune bibliothèque supplémentaire ni animation permanente.
+
 ## v1.25.174 — Octobre 2026
 
 ### Ajouts récents : ne pas confondre changement de vue et arrivée de fichier
