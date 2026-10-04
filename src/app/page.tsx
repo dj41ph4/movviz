@@ -25,6 +25,7 @@ import type { EngineTorrent } from "@/lib/types";
 import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySeries, DashboardRecentEpisode } from "@/lib/dashboard/interfaceTypes";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
+import { mergeNxDashboardLayout } from "@/lib/dashboard/homeLayout";
 import {
   Film, Tv, HardDriveDownload, Download, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
   Pencil, Check, Plus, X, type LucideIcon,
@@ -56,32 +57,6 @@ const WIDGET_ACCENTS: Record<DashboardWidgetId, "brand" | "cyan" | "magenta" | "
 
 const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)]";
 
-// The NX desktop home has one deliberate editorial composition: mode,
-// widget order and stats/downloads visibility no longer come from the
-// user's saved layout. Everything the user can still actually tune from
-// Réglages → Tableau de bord (hero video/speed/content-mix, row visibility,
-// the YouTube-search fallback) must keep coming from their saved layout —
-// see mergeNxDashboardLayout below — or that whole settings panel becomes a
-// no-op.
-const FIXED_NX_DASHBOARD_LAYOUT: DashboardLayout = {
-  ...DEFAULT_DASHBOARD_LAYOUT,
-  mode: "cinema",
-  showStats: true,
-  showDownloads: false,
-  widgets: [...DASHBOARD_WIDGET_IDS],
-};
-
-function mergeNxDashboardLayout(saved: DashboardLayout | undefined): DashboardLayout {
-  if (!saved) return FIXED_NX_DASHBOARD_LAYOUT;
-  return {
-    ...FIXED_NX_DASHBOARD_LAYOUT,
-    hero: saved.hero,
-    sections: saved.sections,
-    showTasks: saved.showTasks,
-    youtubeTrailerSearch: saved.youtubeTrailerSearch,
-  };
-}
-
 export default function DashboardPage() {
   const t = useT();
   const { optimized, ready: interfaceModeReady } = useInterfaceDataMode();
@@ -97,7 +72,7 @@ export default function DashboardPage() {
   const { data: layoutData } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
   const layout = mergeNxDashboardLayout(layoutData?.layout);
   const { data: torrentsData, error: torrentsError } = useSWR<{ torrents: EngineTorrent[] }>(
-    interfaceModeReady && (!optimized || layout.mode === "compact") ? "/api/engine/torrents" : null
+    interfaceModeReady && !optimized ? "/api/engine/torrents" : null
   );
   const { titlePanel } = useTitlePanel();
   const { data: providerData } = useSWR<{ tiles: { id: number; name: string; logoPath: string | null }[] }>("/api/metadata/logos?kind=watchProvider");
@@ -201,7 +176,7 @@ export default function DashboardPage() {
     episodesAvailable: t("dashboard.stats.episodesAvailable"),
   };
 
-  const order = FIXED_NX_DASHBOARD_LAYOUT.widgets;
+  const order = layout.widgets;
   const [showSplash, setShowSplash] = useState(false);
   const [splashProgress, setSplashProgress] = useState(14);
   // Bug fix: WhatsNewModal (mounted in AppShell, no shared parent state with
@@ -300,10 +275,8 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [loading, showSplash, optimized]);
 
-  // Classic reuses cinema's whole layout (compact stat pills, carousel rows)
-  // minus the hero — only "compact" keeps the older flat stat-grid + simple
-  // recently-added grid.
-  const richMode = layout.mode === "cinema" || layout.mode === "classic";
+  // Stable and Beta share content and behavior; Beta only opts into styling.
+  const richMode = layout.mode === "cinema" || layout.mode === "beta";
 
   // Si pas de rangées à attendre (classic ou biblio vide), ne bloque pas le splash
   useEffect(() => {
@@ -314,8 +287,8 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardSplash show={showSplash} progress={splashProgress} />
-      <div className="nx-dashboard-premium nx-dashboard-content w-full max-w-[2000px] space-y-8">
-      {layout.mode === "cinema" && (
+      <div data-dashboard-mode={layout.mode === "beta" ? "beta" : "stable"} className={cn("nx-dashboard-content w-full max-w-[2000px] space-y-8", layout.mode === "beta" && "nx-dashboard-premium")}>
+      {richMode && (
         <div className="nx-home-hero-grid">
           <CardErrorBoundary>
             <DashboardHero settings={layout.hero} />
@@ -323,7 +296,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {layout.mode === "cinema" && (providerData?.tiles?.length ?? 0) > 0 && (
+      {richMode && (providerData?.tiles?.length ?? 0) > 0 && (
         <section className="nx-home-providers" aria-label={t("discover.watchProviders")}>
           <h2 className="text-sm font-black tracking-tight text-ink">{t("discover.watchProviders")}</h2>
           <div className="mt-2 grid w-full grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">

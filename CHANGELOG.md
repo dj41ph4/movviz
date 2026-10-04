@@ -1,3 +1,12 @@
+## v1.25.170 — Octobre 2026
+
+### Affichage Stable et Bêta
+
+- Le sélecteur Accueil et carrousels propose désormais Stable (l'interface actuelle, par défaut) et Bêta (la nouvelle finition premium desktop). Le tableau de bord applique réellement le mode enregistré et permet de revenir à Stable.
+- Les anciens modes Cinéma, Classique et Compact deviennent Stable. Les réglages de vidéos, de contenu et de carrousels restent conservés et communs aux deux apparences.
+- Bêta affine le cadre du hero, les boutons, les titres et les plateformes, sans changer la lecture ou les données. Les styles premium restent exclusivement activés en Bêta.
+- Le choix reste propre à chaque profil ; une erreur de sauvegarde ne laisse plus croire que le nouveau mode est enregistré.
+
 ## v1.25.169 — Octobre 2026
 
 ### Correction de publication Docker

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSWRConfig } from "swr";
+import { toast } from "@/components/ui/Toast";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
@@ -11,7 +13,6 @@ import {
   DEFAULT_DASHBOARD_LAYOUT,
   HERO_SLIDESHOW_SPEEDS,
   type DashboardLayout,
-  type DashboardMode,
   type DashboardSectionId,
 } from "@/lib/dashboard/types";
 
@@ -35,26 +36,36 @@ function previewModeOf(hero: DashboardLayout["hero"]): PreviewMode {
 
 export function DashboardExperiencePanel() {
   const t = useT();
+  const { mutate } = useSWRConfig();
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/dashboard/layout", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setLayout(d?.layout ?? DEFAULT_DASHBOARD_LAYOUT));
+      .then((d) => setLayout(d?.layout ?? DEFAULT_DASHBOARD_LAYOUT))
+      .catch(() => setLayout(DEFAULT_DASHBOARD_LAYOUT));
   }, []);
 
   const save = async (patch: Partial<DashboardLayout>) => {
-    if (!layout) return;
+    if (!layout || saving) return;
+    const previous = layout;
     const next = { ...layout, ...patch };
     setLayout(next);
     setSaving(true);
     try {
-      await fetch("/api/dashboard/layout", {
+      const response = await fetch("/api/dashboard/layout", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(next),
       });
+      if (!response.ok) throw new Error("dashboard layout save failed");
+      const saved = await response.json();
+      setLayout(saved.layout);
+      await mutate("/api/dashboard/layout", saved, { revalidate: false });
+    } catch {
+      setLayout(previous);
+      toast("error", t("settings.dashboardExperience.saveError"));
     } finally {
       setSaving(false);
     }
@@ -84,10 +95,13 @@ export function DashboardExperiencePanel() {
       <div className="rounded-2xl glass p-5">
         <h3 className="mb-1 font-bold text-ink">{t("settings.dashboardExperience.modeTitle")}</h3>
         <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.modeHint")}</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {DASHBOARD_MODES.map((mode) => (
             <button
               key={mode}
+              type="button"
+              disabled={saving}
+              aria-pressed={layout.mode === mode}
               onClick={() => save({ mode })}
               className={cn(
                 "relative rounded-xl border p-4 text-left transition-colors",
@@ -129,7 +143,7 @@ export function DashboardExperiencePanel() {
         </div>
       </div>
 
-      {layout.mode === "cinema" && (
+      {(layout.mode === "cinema" || layout.mode === "beta") && (
         <>
           <div className="rounded-2xl glass p-5">
             <h3 className="mb-4 font-bold text-ink">{t("settings.dashboardExperience.heroTitle")}</h3>
@@ -224,7 +238,7 @@ export function DashboardExperiencePanel() {
         </>
       )}
 
-      {(layout.mode === "cinema" || layout.mode === "classic") && (
+      {(layout.mode === "cinema" || layout.mode === "beta") && (
         <div className="rounded-2xl glass p-5">
           <h3 className="mb-4 font-bold text-ink">{t("settings.dashboardExperience.rowsTitle")}</h3>
           <div className="space-y-3">

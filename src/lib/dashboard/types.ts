@@ -12,7 +12,8 @@ export const DASHBOARD_WIDGET_IDS = [
 
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
-export const DASHBOARD_MODES = ["cinema", "classic", "compact"] as const;
+// Keep "cinema" as the persisted Stable key for backward compatibility.
+export const DASHBOARD_MODES = ["cinema", "beta"] as const;
 export type DashboardMode = (typeof DASHBOARD_MODES)[number];
 
 export const DASHBOARD_SECTION_IDS = [
@@ -81,7 +82,7 @@ const DEFAULT_SECTIONS: DashboardLayout["sections"] = DASHBOARD_SECTION_IDS.map(
  * Cinéma is the default for brand-new installs (the wizard can point new
  * users at the immersive experience) — but an EXISTING install migrating
  * from the pre-v2 schema (see sanitizeDashboardLayout) always lands on
- * "classic" instead, so nothing visually changes for someone who never
+ * Stable instead, so nothing visually changes for someone who never
  * touched this setting.
  */
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
@@ -165,16 +166,15 @@ function sanitizeSections(raw: unknown): DashboardLayout["sections"] {
  * Drops unknown/duplicate values from a client-supplied layout — never trust
  * stored/posted JSON as-is. Also the single migration point for the pre-v2
  * schema (`{ widgets: [...] }` with no `version`): read-time upgrade to v2
- * defaults in "classic" mode, preserving only the widget order/set the user
+ * defaults in Stable mode, preserving the widget order/set the user
  * already had — never a one-shot migration script, never destructive.
  */
 export function sanitizeDashboardLayout(input: unknown): DashboardLayout {
   const obj = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
-  const isLegacy = obj.version !== 2;
 
   return {
     version: 2,
-    mode: isDashboardMode(obj.mode) ? obj.mode : isLegacy ? "classic" : DEFAULT_DASHBOARD_LAYOUT.mode,
+    mode: isDashboardMode(obj.mode) ? obj.mode : DEFAULT_DASHBOARD_LAYOUT.mode,
     showStats: typeof obj.showStats === "boolean" ? obj.showStats : DEFAULT_DASHBOARD_LAYOUT.showStats,
     showDownloads: typeof obj.showDownloads === "boolean" ? obj.showDownloads : DEFAULT_DASHBOARD_LAYOUT.showDownloads,
     showTasks: typeof obj.showTasks === "boolean" ? obj.showTasks : DEFAULT_DASHBOARD_LAYOUT.showTasks,

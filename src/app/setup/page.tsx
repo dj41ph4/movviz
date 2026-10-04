@@ -681,7 +681,7 @@ function PersonalizationStep() {
         {layout && (
           <div>
             <p className="mb-2 text-sm font-semibold text-ink">{t("setup.dashboardModeQuestion")}</p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {DASHBOARD_MODES.map((mode) => (
                 <button
                   key={mode}
