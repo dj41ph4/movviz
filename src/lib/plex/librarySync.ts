@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { plexArrivalDate } from "./arrivalDate";
 import { loadPlexConfig, savePlexConfig } from "./store";
 import { loadSyncState, saveSyncState } from "./syncState";
 import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds } from "./client";
@@ -193,7 +194,7 @@ function toLibraryFile(plex: PlexLibraryItem): LibraryFile | null {
     hdr: plex.hdr,
     source: null,
     size: plex.file.size,
-    addedAt: Date.now(),
+    addedAt: plexArrivalDate(plex.addedAt),
   };
   raw.language = detectFileLanguage(raw, plex.mediaDetail);
   return raw;
@@ -253,10 +254,15 @@ function fileNeedsProbe(movieId: string, before: LibraryFile | null | undefined,
   return !hasCachedMediaDescriptor(movieId);
 }
 
-function toLibraryFileReconciled(plex: PlexLibraryItem, existingPath: string | null | undefined): LibraryFile | null {
+export function toLibraryFileReconciled(plex: PlexLibraryItem, existingFile: LibraryFile | null | undefined): LibraryFile | null {
   const file = toLibraryFile(plex);
   if (!file) return null;
-  file.path = reconcileFilePath(existingPath, file.path);
+  file.path = reconcileFilePath(existingFile?.path, file.path);
+  if (existingFile) {
+    const sameFile = existingFile.size === file.size &&
+      isSamePhysicalFileCached(existingFile.path, file.path, 2, loadPathMappings());
+    file.addedAt = sameFile ? (existingFile.addedAt > 0 ? existingFile.addedAt : file.addedAt) : Date.now();
+  }
   return file;
 }
 
@@ -508,7 +514,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     // passage quotidien. Gratuit : profite de cette synchro existante.
     registerMarkerCandidate(item.ratingKey, item.updatedAt);
     const existing = getMovieByTmdbId(item.tmdbId);
-    const file = toLibraryFileReconciled(item, existing?.file?.path);
+    const file = toLibraryFileReconciled(item, existing?.file);
 
     if (existing) {
       const patch: Partial<LibraryMovie> = {};
@@ -681,7 +687,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           episodes: season.episodes.map((ep) => {
             const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
             if (plexEp && ep.status !== "available") {
-              return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file, plexRatingKey: plexEp.ratingKey };
+              return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file) ?? ep.file, plexRatingKey: plexEp.ratingKey };
             }
             return ep;
           }),
@@ -790,7 +796,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
-              const nextFile = toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file;
+              const nextFile = toLibraryFileReconciled(plexEp, ep.file) ?? ep.file;
               const localPlayable = hasValidLocalFile(nextFile);
               // Only worth a fresh probe when the file actually changed (new
               // path, first time it exists) — same "only on real file change,
@@ -888,7 +894,7 @@ export async function reconcileSeriesPlayback(
           (candidate) => candidate.seasonNumber === ep.seasonNumber && candidate.episodeNumber === ep.episodeNumber,
         );
         if (!plexEp) return ep;
-        const nextFile = toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file;
+        const nextFile = toLibraryFileReconciled(plexEp, ep.file) ?? ep.file;
         changed = true;
         return {
           ...ep,

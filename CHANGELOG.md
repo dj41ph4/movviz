@@ -1,3 +1,11 @@
+## v1.25.174 — Octobre 2026
+
+### Ajouts récents : ne pas confondre changement de vue et arrivée de fichier
+
+- La synchronisation et la réconciliation Plex conservent la date d'arrivée d'un fichier déjà connu. Passer des épisodes en vus ou non vus, ou rafraîchir leurs métadonnées, ne leur redonne plus artificiellement la date de synchronisation dans les ajouts récents.
+- Un premier import utilise la date d'ajout réelle fournie par Plex ; un vrai remplacement de fichier conserve son comportement de nouvelle arrivée. Les dates d'acquisitions locales déjà enregistrées sont préservées.
+- Correction dans la source partagée des données, sans modifier les vues, les historiques, les comptes Plex ni les règles de reprise.
+
 ## v1.25.173 — Octobre 2026
 
 ### Réglages utiles, saisons spéciales et Découverte
