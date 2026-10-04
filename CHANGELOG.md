@@ -1,3 +1,12 @@
+## v1.25.172 — Octobre 2026
+
+### Bêta : fond original et interactions affinées
+
+- Le fond de page et celui de la sidebar retrouvent le thème original : aucun fond décoratif ajouté en Bêta. Le suivi souris et le relief des tuiles sont conservés.
+- Les badges de notes et d'épisodes sont plus lisibles, les barres de reprise mieux définies et la plateforme sélectionnée dans Découverte dispose d'un repère discret.
+- Les boutons du hero et les flèches des carrousels donnent un retour visuel plus net au survol, au clic et au clavier, sans déplacer la mise en page.
+- Ces finitions restent réservées à Bêta sur desktop, respectent la réduction des animations et ne modifient ni la lecture, ni les données, ni les préchargements.
+
 ## v1.25.171 — Octobre 2026
 
 ### Bêta : finition cinéma premium desktop

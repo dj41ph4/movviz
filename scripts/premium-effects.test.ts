@@ -89,3 +89,15 @@ test("every premium style rule is scoped to Beta and desktop", () => {
   assert.ok(source.includes("if (!beta || reduceMotion || playbackActive) return;"));
   assert.ok(source.includes("pointer.reset();"));
 });
+
+test("Beta leaves the page and sidebar backgrounds to the original theme", () => {
+  const css = readFileSync(new URL("../src/components/appearance/premium.css", import.meta.url), "utf8");
+  postcss.parse(css).walkRules((rule) => {
+    if (!rule.selector.endsWith(" .nx-desktop-shell") && !rule.selector.endsWith(" .nx-sidebar")) return;
+    rule.walkDecls((declaration) => {
+      assert.ok(!declaration.prop.startsWith("background"), declaration.toString());
+    });
+  });
+  assert.ok(css.includes("var(--mv-light-x"), "Keep the pointer spotlight");
+  assert.ok(css.includes("var(--mv-tilt-x"), "Keep the pointer tilt");
+});

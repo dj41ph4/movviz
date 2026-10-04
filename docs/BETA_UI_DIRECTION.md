@@ -58,3 +58,16 @@ Les motifs retenus sont implémentés par du code original (pas un copier-coller
 Le contrôleur de pointeur possède au maximum une frame en attente et une géométrie mémorisée pour la carte active. Il nettoie les propriétés à la sortie, au scroll, au redimensionnement, à la déconnexion ou au retour à Stable. Il n'est pas actif pendant la lecture ou lorsque les animations sont réduites. Aucun coût de particules, WebGL, scène 3D ou animation permanente n'est ajouté.
 
 Les patterns de Command/Skeleton sont adaptés à la recherche et aux chargements existants ; aucun moteur de recherche ni contrat de lecture n'est remplacé. Les variantes marketing comme Progressive Blur sur la vidéo, les shaders et les carrousels 3D ne sont pas intégrées : la sélection est adaptée au contexte réel de Movviz.
+
+## Révision v1.25.172 : contenu et retours d'interaction
+
+Retour utilisateur : conserver le suivi souris mais supprimer le fond ajouté. Les déclarations de fond Bêta du shell et de la sidebar sont retirées, pas remplacées par un autre décor. Les surfaces des contrôles restent indépendantes du fond de page.
+
+Nouvelle consultation des pages officielles (4 octobre 2026) :
+
+- [Apple Cards Carousel](https://ui.aceternity.com/components/apple-cards-carousel) et [Expandable Cards](https://ui.aceternity.com/components/expandable-card) : images dominantes, contrôles explicites, continuité entre carte et contenu. Movviz possède déjà le carrousel et le morphing de fiche ; remplacer leurs moteurs n'est pas nécessaire pour améliorer leur finition.
+- [Animated Background](https://motion-primitives.com/docs/animated-background) : état sélectionné nettement identifiable. Adaptation originale plus légère pour les plateformes : un repère sous la sélection, sans fond global ni moteur d'animation partagé ajouté.
+- [Interactive Hover Button](https://magicui.design/docs/components/interactive-hover-button) : retour visuel local au survol. Adaptation aux boutons du hero et aux flèches existantes ; labels et cibles restent fixes, sans texte qui disparaît ni changement de comportement.
+- [Magic Card](https://magicui.design/docs/components/magic-card) : lumière locale guidée par le pointeur. Le contrôleur existant est conservé, sans multiplier les écouteurs ou les animations.
+
+Les badges de note/épisode et la progression bénéficient de détails lisibles plutôt que d'animations d'entrée de toute la page. Pas de déplacement de grille, de requête supplémentaire, de délai avant interaction ou d'effet qui concurrence la vidéo. Les nouveaux retours animés respectent les préférences de réduction du mouvement. La validation automatique ne remplace pas la vérification visuelle sur les périphériques de l'utilisateur.

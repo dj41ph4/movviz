@@ -578,22 +578,22 @@ export function DashboardPosterCard({
           )}
 
           {typeof rating === "number" && rating > 0 && (
-            <div className={cn(BADGE_SHAPE, "absolute left-2 top-2 z-10 border-white/15 bg-black/55 text-amber")}>
+            <div data-premium-badge className={cn(BADGE_SHAPE, "absolute left-2 top-2 z-10 border-white/15 bg-black/55 text-amber")}>
               <Star className="h-3 w-3 fill-amber" /> {rating.toFixed(1)}
             </div>
           )}
           {badge && (
-            <div className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 z-10 border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
+            <div data-premium-badge className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 z-10 border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
               {badge}
             </div>
           )}
           {typeof progressPercent === "number" && (
-            <div className="absolute inset-x-0 bottom-0 z-20 h-1 bg-white/8">
+            <div data-premium-progress className="absolute inset-x-0 bottom-0 z-20 h-1 bg-white/8">
               <div className="h-full brand-gradient" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
             </div>
           )}
           {!showRank && episodeBadge && (
-            <div className={cn(BADGE_SHAPE, "pointer-events-none absolute bottom-2 right-2 z-10 border border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
+            <div data-premium-badge className={cn(BADGE_SHAPE, "pointer-events-none absolute bottom-2 right-2 z-10 border border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
               {episodeBadge}
             </div>
           )}
