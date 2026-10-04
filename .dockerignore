@@ -7,4 +7,3 @@ npm-debug.log*
 *.tsbuildinfo
 .env*.local
 Dockerfile
-README.md

@@ -13,6 +13,12 @@ const version: string = pkg.version;
 const entry = { version, date: null, sections: [{ heading: "Corrections", items: ["Notes visibles."] }] };
 const payload = { version, entries: [entry] };
 
+test("Docker build context includes the README required by the release guard", () => {
+  const ignored = readFileSync(new URL("../.dockerignore", import.meta.url), "utf8").split(/\r?\n/).map((line) => line.trim());
+  assert.ok(!ignored.includes("README.md"), "root README must reach COPY . . before npm run build");
+  assert.ok(!ignored.includes("CHANGELOG.md"), "release notes must reach the Docker builder");
+});
+
 test("new acknowledgement key cannot inherit versions falsely marked seen by the old popup", () => {
   assert.notEqual(CHANGELOG_SEEN_KEY, "movviz_last_seen_version");
   const source = readFileSync(new URL("../src/components/layout/WhatsNewModal.tsx", import.meta.url), "utf8");

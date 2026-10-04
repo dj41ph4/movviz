@@ -1,3 +1,10 @@
+## v1.25.169 — Octobre 2026
+
+### Correction de publication Docker
+
+- Le README est inclus dans le contexte de build Docker pour permettre la validation des versions et du changelog. Le contrôle reste actif ; aucun comportement utilisateur n'est modifié.
+- Cette publication reprend les corrections de vues et de reprises de la version 1.25.168 dont le build Docker avait échoué.
+
 ## v1.25.168 — Octobre 2026
 
 ### Vues et reprises cohérentes sur tous les appareils
