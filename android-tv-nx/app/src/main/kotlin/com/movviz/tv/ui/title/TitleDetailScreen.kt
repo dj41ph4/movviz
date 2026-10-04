@@ -511,7 +511,7 @@ fun TitleDetailScreen(
     // épisodes inatteignables depuis la TV. Elle est donc reléguée en fin de
     // rangée, exactement comme Plex la place après les saisons numérotées.
     val visibleSeasons = remember(seasons) {
-        seasons.filter { it.seasonNumber > 0 } + seasons.filter { it.seasonNumber == 0 && it.episodes.isNotEmpty() }
+        seasons.filter { it.seasonNumber > 0 }
     }
     // Saisons réellement "histoire principale" — base de tous les calculs de
     // complétion : un lot de bonus jamais regardé ne doit pas empêcher une

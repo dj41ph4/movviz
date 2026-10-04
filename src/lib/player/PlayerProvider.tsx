@@ -5,6 +5,8 @@ import { AnimatePresence } from "framer-motion";
 import { PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
 import { TheaterModePlayer } from "@/components/player/TheaterModePlayer";
 import { stopAllAmbientVideo } from "./ambientVideoRegistry";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { playerDestination } from "@/lib/settings/playerPreference";
 
 export interface OriginRect {
   top: number;
@@ -72,11 +74,18 @@ export function usePlayer(): PlayerContextValue {
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [request, setRequest] = useState<PlayNowRequest | null>(null);
   const advancingEpisodeRef = useRef(false);
+  const { enabled, loaded, userEnabled } = useBetaPlayer();
 
   const play = useCallback((req: PlayNowRequest) => {
+    const destination = playerDestination(enabled || (!loaded && userEnabled), req.plexUrl);
+    if (destination !== "movviz") {
+      if (window.innerWidth < 640) window.location.assign(destination);
+      else window.open(destination, "_blank", "noopener,noreferrer");
+      return;
+    }
     stopAllAmbientVideo();
     setRequest(req);
-  }, []);
+  }, [enabled, loaded, userEnabled]);
 
   const close = useCallback(() => setRequest(null), []);
 

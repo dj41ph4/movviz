@@ -307,8 +307,8 @@ export default function ProfilePage() {
 
       {betaPlayerLoaded && betaPlayerAvailable && (
         <div className="mb-6 rounded-2xl glass p-5">
-          <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("player.betaUserToggle")}</h3>
-          <p className="mb-4 text-xs text-ink-dim">{t("player.betaUserToggleHint")}</p>
+          <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("player.useMovviz")}</h3>
+          <p className="mb-4 text-xs text-ink-dim">{t("player.useMovvizHint")}</p>
           <Toggle on={betaPlayerOn} onChange={() => setBetaPlayerOn(!betaPlayerOn)} />
         </div>
       )}

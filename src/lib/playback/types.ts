@@ -8,20 +8,8 @@
 
 export type PlaybackEngineKind = "direct" | "webcodecs" | "mse" | "ffmpeg" | "transcode";
 
-/**
- * "beta" (formerly "engine-v2") — the decidePlayback()-driven leg
- * (src/lib/playback/engine/*). Already live for local (non-Plex) files: both
- * "auto" and "beta" reach VideoPlayer's tryStartLocalEngine whenever
- * localPlayback is true, falling back to the legacy ffmpeg/HLS leg
- * otherwise — the two are functionally identical today. "beta" exists as a
- * separate, explicit value so it can diverge from "auto" later without a
- * silent behavior change for anyone who picked it manually.
- *
- * "stable" pins today's "auto" resolution byte-for-byte (see every
- * `engine === "auto"` check across orchestrator.ts/VideoPlayer.tsx — each
- * now also accepts "stable") so a future change to what "auto" points at
- * can never silently change anyone's behavior who explicitly chose "stable".
- */
+/** Legacy engine identifiers retained for protocol compatibility.
+ * Settings no longer expose a selector: the deployed engine is automatic. */
 export type EngineConfig = "auto" | "stable" | "native" | "mse" | "ffmpeg" | "hls" | "beta";
 
 export interface MediaTrackInfo {

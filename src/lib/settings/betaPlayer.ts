@@ -18,14 +18,7 @@ interface BetaPlayerConfig {
    * conversion HDR10/HDR10+/HLG/Dolby Vision vers SDR, sur aucun client.
    */
   hdrDvToSdrEnabled: boolean;
-  /**
-   * Moteur de lecture : "auto" (décision automatique — alias de "stable"
-   * aujourd'hui, repointable plus tard), "stable" (fige le comportement
-   * actuel d'"auto", ne change jamais même si "auto" est repointé), "native"
-   * (moteurs existants uniquement), "mse" (tente MSE en priorité, fallback
-   * automatique), "ffmpeg" (tente le remux local en priorité), "beta"
-   * (moteur decidePlayback() explicitement). Défaut: "auto".
-   */
+  /** Automatic engine; old persisted values are ignored for compatibility. */
   playbackEngine: EngineConfig;
   /** Affiche le panneau debug playback (mode, codecs, buffer, réseau...). */
   debug: boolean;
@@ -44,17 +37,7 @@ const DEFAULT: BetaPlayerConfig = {
   unifiedPlayerMigrated: true,
 };
 
-/**
- * Migration ponctuelle (une seule fois, à cette version précise) : introduire
- * "stable"/"beta" renomme "engine-v2" en "beta" et n'a plus le même sens
- * qu'avant — quiconque avait sélectionné "engine-v2" manuellement en pensant
- * (à raison, jusqu'ici) "ça ne fait rien, c'est un stub expérimental" se
- * retrouverait sinon silencieusement sur le moteur réel. Un fichier existant
- * sans `engineTierMigrated` est réinitialisé sur "auto" une fois, puis le
- * flag est écrit — jamais répété ensuite, même si l'utilisateur change à
- * nouveau son choix plus tard. Une install neuve n'a jamais besoin de ce
- * chemin : DEFAULT porte déjà le flag à true.
- */
+/** Preserve the one-time migrations of legacy installations. */
 function load(): BetaPlayerConfig {
   const raw = readJsonCached<Partial<BetaPlayerConfig>>(FILE, {});
   const cfg = { ...DEFAULT, ...raw };
@@ -102,21 +85,8 @@ export function setHdrDvToSdrEnabled(enabled: boolean): void {
   save({ ...cfg, hdrDvToSdrEnabled: !!enabled });
 }
 
-function isKnownEngine(v: unknown): v is EngineConfig {
-  return v === "auto" || v === "stable" || v === "native" || v === "mse" || v === "ffmpeg" || v === "hls" || v === "beta";
-}
-
 export function getPlaybackEngine(): EngineConfig {
-  const cfg = load();
-  if (cfg.playbackEngine !== "auto") {
-    save({ ...cfg, playbackEngine: "auto" });
-  }
   return "auto";
-}
-
-export function setPlaybackEngine(_engine: EngineConfig): void {
-  const cfg = load();
-  save({ ...cfg, playbackEngine: "auto" });
 }
 
 export function isPlaybackDebugEnabled(): boolean {

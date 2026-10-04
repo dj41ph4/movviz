@@ -29,6 +29,13 @@
     box-shadow: 0 0 0 3px rgba(161, 96, 231, .12);
   }
 
+  /* The enclosing pill already indicates focus. Never draw a second,
+     rectangular outline around its text input. */
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-search-pill input:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
   html[data-movviz-appearance="beta"] .nx-dashboard-premium .nx-premium-hero {
     position: relative;
     isolation: isolate;

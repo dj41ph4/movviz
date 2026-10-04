@@ -2,35 +2,25 @@
 
 import useSWR from "swr";
 
-interface PreferencesData {
-  prefs?: { specialEpisodesEnabled?: boolean };
-}
+interface PreferencesData { prefs?: { specialEpisodesEnabled?: boolean }; }
 
-/**
- * Season-0 "specials" in the watched-completion tracking — absent (never
- * touched) defaults to false: specials are EXCLUDED from "is this series
- * fully watched" by default, confirmed live as the actual expectation (a
- * series with every real season watched should read as complete even if a
- * special was never released or watched).
- */
+/** Personal visibility of season 0 on the web; disabled by default. */
 export function useSpecialEpisodes() {
   const { data, mutate } = useSWR<PreferencesData>("/api/settings/preferences");
-
   const enabled = data?.prefs?.specialEpisodesEnabled ?? false;
-  const loaded = data !== undefined;
-
   const setEnabled = async (next: boolean) => {
+    const previous = data;
     mutate({ prefs: { ...data?.prefs, specialEpisodesEnabled: next } }, { revalidate: false });
     try {
-      await fetch("/api/settings/preferences", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
+      const response = await fetch("/api/settings/preferences", {
+        method: "PATCH", headers: { "content-type": "application/json" },
         body: JSON.stringify({ specialEpisodesEnabled: next }),
       });
-    } finally {
-      mutate();
+      if (!response.ok) throw new Error("Unable to save specials visibility");
+      await mutate(await response.json(), { revalidate: false });
+    } catch {
+      await mutate(previous, { revalidate: true });
     }
   };
-
-  return { enabled, loaded, setEnabled };
+  return { enabled, loaded: data !== undefined, setEnabled };
 }

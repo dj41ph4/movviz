@@ -34,6 +34,8 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
+import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
+import { isVisibleSeason } from "@/lib/settings/seasonVisibility";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
 import type { OnDeckEntry } from "@/lib/plex/onDeckService";
@@ -436,6 +438,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   }, [showTrailer]);
   const usePlayLabelResult = usePlayLabel(playbackRatingKey, hasLocalPlayback);
   const { enabled: titlePageVideoEnabled } = useTitlePageVideo();
+  const { enabled: includeSpecials } = useSpecialEpisodes();
   const enhancedTrailerSources = useTrailerSources(type, detail?.tmdbId ?? null, detail?.title ?? null, detail?.originalTitle, detail?.year ?? null, detail?.imdbId ?? null);
 
   // Resume position for the primary CTA (Netflix-style "Reprendre à
@@ -1335,7 +1338,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               ) : null}
               {type === "series" && detail.seasons && (
                 <span>
-                  {detail.seasons.length} {t("title.seasonsCount")}
+                  {detail.seasons.filter((season) => isVisibleSeason(season.seasonNumber, includeSpecials)).length} {t("title.seasonsCount")}
                 </span>
               )}
               <span className="max-w-xs truncate sm:max-w-md">{detail.genres.join(", ")}</span>
@@ -1700,7 +1703,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           )}
 
           {/* ── Seasons accordion ──────────────────────────────────────── */}
-          {type === "series" && detail.seasons && detail.seasons.length > 0 && (
+          {type === "series" && detail.seasons && detail.seasons.some((season) => isVisibleSeason(season.seasonNumber, includeSpecials)) && (
             <div>
               {resyncResult && (
                 <p className="mb-3 rounded-lg bg-brand/10 px-3 py-2 text-xs font-semibold text-brand-glow">

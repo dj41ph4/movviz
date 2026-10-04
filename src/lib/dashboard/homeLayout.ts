@@ -8,6 +8,7 @@ export function mergeNxDashboardLayout(saved: DashboardLayout | undefined): Dash
     ...clean,
     showStats: true,
     showDownloads: false,
+    showTasks: false,
     widgets: [...DASHBOARD_WIDGET_IDS],
   };
 }

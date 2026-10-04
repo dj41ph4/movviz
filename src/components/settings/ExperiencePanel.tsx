@@ -8,8 +8,8 @@ import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 /**
  * General viewing-experience preferences — cross-page personal toggles that
  * don't belong under "Tableau de bord" (dashboard layout/content) since
- * they affect other parts of the app entirely (title pages, series
- * watched-tracking everywhere). Split out from DashboardExperiencePanel,
+ * they affect title pages and the visibility of special seasons.
+ * Split out from DashboardExperiencePanel,
  * which had been accumulating unrelated toggles under a name that only
  * ever meant "dashboard" — this tab is where anything in that same
  * "how Movviz behaves for me, not what admins configure" spirit belongs

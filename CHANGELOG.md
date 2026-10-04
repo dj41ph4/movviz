@@ -1,3 +1,14 @@
+## v1.25.173 — Octobre 2026
+
+### Réglages utiles, saisons spéciales et Découverte
+
+- Suppression des options d'accueil neutralisées (statistiques, file de téléchargements et tâches) et des profils de qualité graphique. La composition actuelle et le rendu graphique standard restent fixes ; couper les animations et choisir Stable/Bêta restent disponibles. Les textes des choix retirés sont nettoyés ; le wizard conserve uniquement ses choix encore utiles.
+- Le lecteur intégré s'appelle Movviz player, activé par défaut. Le choix personnel désactivé ouvre Plex, y compris lorsqu'une source locale aurait autrement contourné ce choix. Les préférences explicites des comptes existants restent conservées ; le moteur reste automatique.
+- Sur desktop, l'option existante des épisodes spéciaux pilote désormais réellement l'affichage de la saison 0. Elle est désactivée une seule fois pour tous les profils après cette mise à jour, puis chacun peut la réactiver. Sur Android TV, les spéciaux sont masqués comme ils le sont déjà sur smartphone. Aucun fichier, historique ou statut vu n'est supprimé.
+- Découverte propose Nouveautés, Tendance, Meilleur et Pour vous dans le même sélecteur, pour toutes les plateformes. Le tri est conservé au changement de plateforme ou de type ; Pour vous utilise les recommandations du compte, filtrées par la plateforme choisie. Avec des filtres supplémentaires, les résultats filtrés sont réordonnés sans changer leur pagination.
+- Dans Films et Séries, les rangées de plateformes distinguent maintenant les suggestions pour vous et les nouveautés, avec les mêmes libellés que Découverte.
+- Suppression du cadre rectangulaire ajouté dans le champ de recherche Bêta ; seul son contour arrondi indique le focus.
+
 ## v1.25.172 — Octobre 2026
 
 ### Bêta : fond original et interactions affinées

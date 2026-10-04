@@ -117,24 +117,6 @@ export function DashboardExperiencePanel() {
       </div>
 
       <div className="rounded-2xl glass p-5">
-        <h3 className="mb-4 font-bold text-ink">{t("settings.dashboardExperience.sectionsTitle")}</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-ink">{t("settings.dashboardExperience.showStats")}</span>
-            <Toggle on={layout.showStats} onChange={() => save({ showStats: !layout.showStats })} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-ink">{t("settings.dashboardExperience.showDownloads")}</span>
-            <Toggle on={layout.showDownloads} onChange={() => save({ showDownloads: !layout.showDownloads })} />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-ink">{t("settings.dashboardExperience.showTasks")}</span>
-            <Toggle on={layout.showTasks} onChange={() => save({ showTasks: !layout.showTasks })} />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl glass p-5">
         <h3 className="mb-1 font-bold text-ink">{t("settings.dashboardExperience.trailerSearchTitle")}</h3>
         <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.trailerSearchHint")}</p>
         <div className="flex items-center justify-between">

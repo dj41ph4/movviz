@@ -8,7 +8,6 @@ import {
   isHdrDvToSdrEnabled,
   setHdrDvToSdrEnabled,
   getPlaybackEngine,
-  setPlaybackEngine,
   isPlaybackDebugEnabled,
   setPlaybackDebugEnabled,
 } from "@/lib/settings/betaPlayer";
@@ -33,7 +32,6 @@ export async function PUT(req: NextRequest) {
   if (typeof body.enabled === "boolean") setBetaPlayerEnabled(body.enabled);
   if (typeof body.streamCacheTtl === "number") setStreamCacheTtl(body.streamCacheTtl);
   if (typeof body.hdrDvToSdrEnabled === "boolean") setHdrDvToSdrEnabled(body.hdrDvToSdrEnabled);
-  if (typeof body.playbackEngine === "string") setPlaybackEngine(body.playbackEngine);
   if (typeof body.debug === "boolean") setPlaybackDebugEnabled(body.debug);
   return NextResponse.json({
     enabled: isBetaPlayerEnabled(),

@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/languages";
-import type { GpuTier } from "@/lib/gpu/GpuProvider";
 import type { Locale } from "@/i18n/config";
 
 const CONFIG_DIR =
@@ -14,8 +13,8 @@ const FILE = path.join(CONFIG_DIR, "user-preferences.json");
 export type LibraryViewMode = "large" | "small" | "list";
 
 /**
- * Per-user personalization that used to live in localStorage only — GPU
- * tier/animations, interface language, and library view density all reset
+ * Per-user personalization that used to live in localStorage only —
+ * animations, interface language, and library view density all reset
  * to defaults on any new browser or device, since none of them were ever
  * tied to the account itself. Every field is optional: a user who never
  * touched a given setting has no entry for it here at all, and the client
@@ -26,15 +25,10 @@ export type LibraryViewMode = "large" | "small" | "list";
  */
 export interface UserPrefs {
   locale?: Locale;
-  gpuTier?: GpuTier;
   reduceAnimations?: boolean;
   libraryViewMode?: LibraryViewMode;
-  /** Personal opt-in for the Beta video player — independent of (and gated
-   *  by) the admin's own global "is this feature available at all" toggle in
-   *  beta-player.json. Confirmed live: previously a single global flag meant
-   *  one admin turning it on silently switched playback behavior for every
-   *  account on the instance. Defaults to false/absent for every user
-   *  regardless of the admin flag, so each person has to knowingly opt in. */
+  /** Movviz player is on by default; explicit false opens Plex instead.
+   * The persisted key is retained for existing profiles. */
   betaPlayerEnabled?: boolean;
   /** Langue audio préférée pour le choix de piste par défaut du lecteur —
    *  distincte de la langue d'interface (`locale`) : un utilisateur peut lire
@@ -50,12 +44,7 @@ export interface UserPrefs {
    *  trailerAutoplay (dashboard-layout.json) — two different screens, two
    *  different toggles, same "video vs static image" idea. */
   titlePageVideoEnabled?: boolean;
-  /** Season-0 "specials" episodes in the completion/watched-tracking logic —
-   *  absent/false (default) EXCLUDES them: a series with every real season
-   *  watched counts as fully watched even if a special was never released/
-   *  watched. Confirmed live: most series never showed as "fully watched"
-   *  because a missing/unwatched special always blocked it. true opts back
-   *  into counting specials like any other episode. */
+  /** Desktop season-0 visibility. Android always hides specials. */
   specialEpisodesEnabled?: boolean;
   /** Région TMDb (ISO-3166-1 alpha-2, ex. "BE", "FR") utilisée pour filtrer
    *  les catalogues provider (Netflix/Disney+/Prime) et "où regarder" —
@@ -66,15 +55,25 @@ export interface UserPrefs {
   watchRegion?: string;
 }
 
-const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
 const VALID_VIEW_MODES: LibraryViewMode[] = ["large", "small", "list"];
 const VALID_LOCALES = ["fr", "en", "it", "nl", "de"] as const;
 const ISO_3166_1_ALPHA_2 = /^[A-Z]{2}$/;
 
-type Store = Record<string, UserPrefs>;
+type Store = Record<string, UserPrefs & { specialsVisibilityVersion?: 1 }>;
 
 function read(): Store {
-  return readJsonCached<Store>(FILE, {});
+  const data = readJsonCached<Store>(FILE, {});
+  let changed = false;
+  for (const [id, prefs] of Object.entries(data)) {
+    if (prefs && prefs.specialsVisibilityVersion !== 1) {
+      data[id] = { ...prefs, specialEpisodesEnabled: false, specialsVisibilityVersion: 1 };
+      changed = true;
+    }
+  }
+  // One-time reset of the formerly ineffective preference for every profile.
+  // Never reset an explicit choice made after this release.
+  if (changed) write(data);
+  return data;
 }
 
 function write(data: Store) {
@@ -88,7 +87,6 @@ function sanitize(prefs: unknown): UserPrefs {
   const p = (prefs ?? {}) as Partial<Record<keyof UserPrefs, unknown>>;
   const clean: UserPrefs = {};
   if (typeof p.locale === "string" && (VALID_LOCALES as readonly string[]).includes(p.locale)) clean.locale = p.locale as Locale;
-  if (typeof p.gpuTier === "string" && VALID_TIERS.includes(p.gpuTier as GpuTier)) clean.gpuTier = p.gpuTier as GpuTier;
   if (typeof p.reduceAnimations === "boolean") clean.reduceAnimations = p.reduceAnimations;
   if (typeof p.libraryViewMode === "string" && VALID_VIEW_MODES.includes(p.libraryViewMode as LibraryViewMode)) clean.libraryViewMode = p.libraryViewMode as LibraryViewMode;
   if (typeof p.betaPlayerEnabled === "boolean") clean.betaPlayerEnabled = p.betaPlayerEnabled;
@@ -103,16 +101,16 @@ function sanitize(prefs: unknown): UserPrefs {
 
 export function loadUserPrefs(userId: string): UserPrefs {
   const data = read();
-  return data[userId] ? sanitize(data[userId]) : {};
+  return { betaPlayerEnabled: true, specialEpisodesEnabled: false, ...sanitize(data[userId]) };
 }
 
 /** Merges — never overwrites fields the caller didn't include, since each
- *  provider (GPU, i18n, library view) saves independently and only
+ *  provider (animations, i18n, library view) saves independently and only
  *  knows about its own field. */
 export function saveUserPrefs(userId: string, patch: unknown): UserPrefs {
   const cleanPatch = sanitize(patch);
   const data = read();
-  data[userId] = { ...(data[userId] ?? {}), ...cleanPatch };
+  data[userId] = { ...(data[userId] ?? {}), ...cleanPatch, specialsVisibilityVersion: 1 };
   write(data);
-  return data[userId];
+  return { betaPlayerEnabled: true, specialEpisodesEnabled: false, ...sanitize(data[userId]) };
 }

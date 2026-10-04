@@ -5,7 +5,7 @@ import { loadUserPrefs, saveUserPrefs } from "@/lib/userPrefs/store";
 export const dynamic = "force-dynamic";
 
 /**
- * Per-user personalization (GPU tier/animations, interface language,
+ * Per-user personalization (animations, interface language,
  * library view mode) — previously localStorage-only, so it reset on every
  * new browser/device. Each field is saved independently by whichever
  * provider owns it (GpuProvider, I18nProvider, library page) via a

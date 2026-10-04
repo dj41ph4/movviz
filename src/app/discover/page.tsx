@@ -57,8 +57,8 @@ const MOOD_TILES = [
 ] as const;
 
 // Display order is deliberate: fresh releases first, then what is trending,
-// then the best rated. "Pour vous" remains the separate editorial mode tab.
-const SORT_OPTIONS = ["primary_release_date.desc", "popularity.desc", "vote_average.desc"] as const;
+// The same four choices apply to every streaming platform.
+const SORT_OPTIONS = ["primary_release_date.desc", "popularity.desc", "vote_average.desc", "for_you"] as const;
 
 /** "Durée" filter — real TMDb `with_runtime.gte/lte` params (discoverByFilters
  *  in tmdb.ts), movies only: TMDb's TV discover endpoint has no runtime
@@ -309,7 +309,6 @@ function DiscoverPageInner() {
     clearSearchQuery();
     setGenre("");
     setYear("");
-    setSort("popularity.desc");
     setCompany(null);
     setDuration("");
     setRowCategory(null);
@@ -355,7 +354,6 @@ function DiscoverPageInner() {
     clearSearchQuery();
     setGenre("");
     setYear("");
-    setSort("popularity.desc");
     setCompany(null);
     setRowCategory(null);
     setRowCategoryMeta(undefined);
@@ -828,7 +826,7 @@ function DiscoverPageInner() {
                 onClick={() => kind === "all" ? clearFilters() : switchMediaType(kind)}
                 className={cn("rounded-lg px-6 text-sm font-bold transition-colors", (kind === "all" ? forYou : !forYou && mediaType === kind) ? "brand-gradient text-white" : "text-ink-soft hover:bg-white/8 hover:text-ink")}
               >
-                {kind === "all" ? "Pour vous" : kind === "movie" ? t("common.movies") : t("common.series")}
+                {kind === "all" ? t("common.all") : kind === "movie" ? t("common.movies") : t("common.series")}
               </button>
             ))}
           </div>
@@ -873,10 +871,11 @@ function DiscoverPageInner() {
           </div>
           <label className="nx-discover-sort shrink-0">
             <span>{t("activity.sortBy")}</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={t("discover.trending")}>
+            <select value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); setRowCategory(null); setRowCategoryMeta(undefined); }} aria-label={t("activity.sortBy")}>
               <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
               <option value="popularity.desc">{t("discover.trending")}</option>
               <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
+              <option value="for_you">{t("discover.sortForYou")}</option>
             </select>
           </label>
         </div>
@@ -949,12 +948,13 @@ function DiscoverPageInner() {
             />
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value as typeof sort)}
+              onChange={(e) => { setSort(e.target.value as typeof sort); setRowCategory(null); setRowCategoryMeta(undefined); }}
               className="h-10 rounded-xl glass px-3 text-sm text-ink outline-none"
             >
+              <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
               <option value="popularity.desc">{t("discover.trending")}</option>
               <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
-              <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
+              <option value="for_you">{t("discover.sortForYou")}</option>
             </select>
             {company && (
               <FilterChip label={company.name} onClear={() => setCompany(null)} />

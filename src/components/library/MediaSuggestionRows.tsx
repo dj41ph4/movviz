@@ -17,6 +17,8 @@ function rowTitle(key: string, type: MediaType, t: ReturnType<typeof useT>, prov
   if (key === "recommendedTop" || key.startsWith("because")) return t("dashboard.rowRecommended");
   if (key === "trendingPopular" || key === "trending") return t("dashboard.rowTrending");
   if (key === "upcoming" || key === "upcomingVod") return t("dashboard.rowUpcoming");
+  if (key.startsWith("providerNew:") && providerName) return t("discover.rowProviderNew", { provider: providerName });
+  if (key.startsWith("providerSuggested:") && providerName) return t("discover.rowProviderSuggested", { provider: providerName });
   if (key.startsWith("provider")) return providerName ?? t("discover.watchProviders");
   return type === "movie" ? t("common.movies") : t("common.series");
 }

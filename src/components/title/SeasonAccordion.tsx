@@ -10,6 +10,8 @@ import { TmdbImage } from "@/components/media/TmdbImage";
 import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar, Info, Heart } from "lucide-react";
 import type { LibraryStatus, LibraryFile } from "@/lib/library/types";
 import { MediaBadges } from "@/components/library/MediaBadges";
+import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
+import { isVisibleSeason } from "@/lib/settings/seasonVisibility";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -548,6 +550,7 @@ export function SeasonAccordion({
 }) {
   const { t, locale } = useI18n();
   const [expanded, setExpanded] = useState<number | null>(null);
+  const { enabled: includeSpecials } = useSpecialEpisodes();
 
   // TMDb supplies the canonical season list while the library can contain
   // additional seasons after an anime/TVDB resync. Merge both sources rather
@@ -578,9 +581,9 @@ export function SeasonAccordion({
       }
     }
     return [...byNumber.values()].filter(
-      (season) => season.seasonNumber !== 0 || season.episodeCount > 0,
+      (season) => isVisibleSeason(season.seasonNumber, includeSpecials) && (season.seasonNumber !== 0 || season.episodeCount > 0),
     );
-  }, [seasons, librarySeasons, t]);
+  }, [seasons, librarySeasons, t, includeSpecials]);
 
   const sorted = [...effectiveSeasons].sort((a, b) => b.seasonNumber - a.seasonNumber);
 
