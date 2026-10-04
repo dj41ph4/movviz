@@ -28,7 +28,7 @@ test("Beta is honored by the home composition with identical content settings", 
   assert.equal(beta.mode, "beta");
   assert.deepEqual({ ...beta, mode: "cinema" }, stable);
   const page = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
-  assert.ok(page.includes('layout.mode === "beta" && "nx-dashboard-premium"'), "premium styles must remain opt-in");
+  assert.ok(page.includes('premiumAppearance && "nx-dashboard-premium"'), "premium styles must remain opt-in and owned by the active profile");
 });
 
 test("mode survives save/load, switching back, and stays isolated per user", () => {

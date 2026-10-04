@@ -26,6 +26,7 @@ import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySer
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
 import { mergeNxDashboardLayout } from "@/lib/dashboard/homeLayout";
+import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 import {
   Film, Tv, HardDriveDownload, Download, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
   Pencil, Check, Plus, X, type LucideIcon,
@@ -59,6 +60,7 @@ const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[cal
 
 export default function DashboardPage() {
   const t = useT();
+  const premiumAppearance = usePremiumAppearance();
   const { optimized, ready: interfaceModeReady } = useInterfaceDataMode();
   const { data: optimizedData, error: optimizedError, mutate: mutateOptimized } = useSWR<DashboardInterfaceData>(
     interfaceModeReady && optimized ? "/api/interface/dashboard" : null,
@@ -287,7 +289,7 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardSplash show={showSplash} progress={splashProgress} />
-      <div data-dashboard-mode={layout.mode === "beta" ? "beta" : "stable"} className={cn("nx-dashboard-content w-full max-w-[2000px] space-y-8", layout.mode === "beta" && "nx-dashboard-premium")}>
+      <div data-dashboard-mode={premiumAppearance ? "beta" : "stable"} className={cn("nx-dashboard-content w-full max-w-[2000px] space-y-8", premiumAppearance && "nx-dashboard-premium")}>
       {richMode && (
         <div className="nx-home-hero-grid">
           <CardErrorBoundary>
@@ -303,7 +305,7 @@ export default function DashboardPage() {
             {providerData!.tiles.slice(0, 8).map((provider) => {
               const localSvg = PROVIDER_SVG[provider.id];
               return (
-                <Link key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className={cn("nx-provider-tile", localSvg && PROVIDER_LIGHT_TILE.has(provider.id) && "nx-provider-tile-light")} title={provider.name}>
+                <Link data-premium-card key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className={cn("nx-provider-tile", localSvg && PROVIDER_LIGHT_TILE.has(provider.id) && "nx-provider-tile-light")} title={provider.name}>
                   {localSvg ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={localSvg} alt={provider.name} className="max-h-[64%] max-w-[84%] object-contain" />

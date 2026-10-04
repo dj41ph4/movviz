@@ -529,7 +529,7 @@ export function DashboardPosterCard({
         </span>
       )}
       <div className={cn("shrink-0", showRank ? "w-[188px] sm:w-[213px]" : "w-full")}>
-        <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[188px] sm:w-[213px]" : posterVariant ? "aspect-[2/3] w-full" : "aspect-video w-full")}>
+        <div data-premium-card className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[188px] sm:w-[213px]" : posterVariant ? "aspect-[2/3] w-full" : "aspect-video w-full")}>
           {showRank ? (
             poster ? (
               <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="h-full w-full object-cover" />
@@ -616,6 +616,7 @@ export function DashboardPosterCard({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+        data-premium-preview
         className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 backdrop-blur-xl sm:block"
         style={{
           left: popover.left,

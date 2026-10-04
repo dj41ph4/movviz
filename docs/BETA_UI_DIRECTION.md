@@ -31,7 +31,7 @@ Valider le rendu et la réactivité à chaque étape. Ne pas recopier un templat
 
 ## Comparaison élargie — sélection pour Movviz
 
-Cette sélection est une appréciation de pertinence pour Movviz, pas un classement universel. Les bibliothèques ne sont pas encore installées.
+Cette sélection est une appréciation de pertinence pour Movviz, pas un classement universel. Les bibliothèques ne sont pas installées en bloc : les motifs retenus sont adaptés par du code original Movviz, avec les dépendances déjà présentes.
 
 | Source | Ce que je retiens | Usage Movviz | Décision |
 | --- | --- | --- | --- |
@@ -48,3 +48,13 @@ Cette sélection est une appréciation de pertinence pour Movviz, pas un classem
 Une identité « cinéma premium » : images en premier, panneaux sombres nets, typographie éditoriale, lumière localisée magenta/violet, transition continue entre vignette et fiche. React Bits et Aceternity fournissent les références distinctives ; Motion Primitives assure la cohérence des transitions ; shadcn/Origin assurent les contrôles.
 
 Ne pas empiler sept bibliothèques : sélectionner les composants gratuits nécessaires, vérifier leurs licences et leurs dépendances, puis les intégrer ponctuellement côté Bêta. Écarter les murs 3D, curseurs personnalisés, WebGL et particules permanentes qui peuvent gêner la navigation et concurrencer le décodage vidéo. Mesurer avant toute promesse de performance.
+
+## Intégration v1.25.171
+
+Les motifs retenus sont implémentés par du code original (pas un copier-coller des composants fournisseurs) : spotlight local et inclinaison bornée à ±1,5°, surfaces et bordures au survol, contrôles éditoriaux de carrousel, thème de recherche/filtres/réglages/AI, prévisualisations et finition des fiches. Le morphing affiche → fiche existant est conservé, avec un timing Bêta harmonisé ; pas de second moteur de transition.
+
+`AppearanceProvider` vérifie que la réponse du cache porte l'identité du profil actif, puis active l'attribut `data-movviz-appearance="beta"`. Chaque règle de `premium.css` est conditionnée à cet attribut et au viewport desktop. Le provider partage la requête SWR des réglages et ne bloque pas le rendu en attendant leur chargement.
+
+Le contrôleur de pointeur possède au maximum une frame en attente et une géométrie mémorisée pour la carte active. Il nettoie les propriétés à la sortie, au scroll, au redimensionnement, à la déconnexion ou au retour à Stable. Il n'est pas actif pendant la lecture ou lorsque les animations sont réduites. Aucun coût de particules, WebGL, scène 3D ou animation permanente n'est ajouté.
+
+Les patterns de Command/Skeleton sont adaptés à la recherche et aux chargements existants ; aucun moteur de recherche ni contrat de lecture n'est remplacé. Les variantes marketing comme Progressive Blur sur la vidéo, les shaders et les carrousels 3D ne sont pas intégrées : la sélection est adaptée au contexte réel de Movviz.

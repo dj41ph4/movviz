@@ -1,3 +1,13 @@
+## v1.25.171 — Octobre 2026
+
+### Bêta : finition cinéma premium desktop
+
+- Bêta applique désormais une apparence cohérente au dashboard, aux cartes de films et séries, à Découverte, aux fiches, à la recherche, aux réglages et au panneau Movviz AI. Stable garde son apparence existante.
+- Les affiches et plateformes disposent d'une lumière au survol et d'un léger relief. Les contrôles, fenêtres de prévisualisation et fiches sont harmonisés ; les transitions de fiches sont affinées sans remplacer leur comportement.
+- Les effets de pointeur partagent une seule tâche par frame, sans recomposition React ni animation permanente. Ils sont coupés pendant la lecture, sur les écrans tactiles et lorsque les animations sont réduites.
+- Les réglages et le cache d'apparence sont vérifiés contre le profil connecté. Les données, la recherche, les carrousels, les préchargements et les règles de lecture ne sont pas modifiés.
+- Les effets sélectionnés dans les bibliothèques gratuites sont adaptés à Movviz sans empiler leurs moteurs ni ajouter de dépendance de production.
+
 ## v1.25.170 — Octobre 2026
 
 ### Affichage Stable et Bêta

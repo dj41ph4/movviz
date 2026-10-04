@@ -609,7 +609,7 @@ export function ChatWidget() {
   return (
     <div className="fixed right-4 bottom-20 z-[90] flex flex-col items-end gap-3 md:right-6 md:bottom-6">
       {open && (
-        <div className="flex h-[min(560px,70vh)] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl glass-strong shadow-2xl">
+        <div data-premium-ai className="flex h-[min(560px,70vh)] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl glass-strong shadow-2xl">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand/15 text-brand-glow">

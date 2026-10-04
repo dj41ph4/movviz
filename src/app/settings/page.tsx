@@ -207,7 +207,7 @@ function SettingsPageInner() {
   );
 
   return (
-    <div className="mx-auto max-w-[1280px]">
+    <div className="nx-settings-page mx-auto max-w-[1280px]">
       <PageHeader
         eyebrow={t("settings.eyebrow")}
         title={t("settings.title")}

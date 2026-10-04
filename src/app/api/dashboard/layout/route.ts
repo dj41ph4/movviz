@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-  return NextResponse.json({ layout: loadDashboardLayout(user.id) });
+  return NextResponse.json({ userId: user.id, layout: loadDashboardLayout(user.id) });
 }
 
 export async function POST(req: NextRequest) {
@@ -17,5 +17,5 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const saved = saveDashboardLayout(user.id, body);
-  return NextResponse.json({ layout: saved });
+  return NextResponse.json({ userId: user.id, layout: saved });
 }
