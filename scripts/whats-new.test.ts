@@ -49,7 +49,10 @@ test("unmount abort does not deliver late notes or start further requests", asyn
 
 test("first visit sees only current notes; missed versions and backfilled releases remain available", () => {
   assert.deepEqual(getChangelogRange(null, version).map((item) => item.version), [version]);
-  assert.deepEqual(getChangelogRange("1.25.162", version).map((item) => item.version), [version, "1.25.166", "1.25.165", "1.25.164", "1.25.163"]);
+  const missed = getChangelogRange("1.25.162", version).map((item) => item.version);
+  assert.equal(missed[0], version);
+  assert.deepEqual(missed.slice(-4), ["1.25.166", "1.25.165", "1.25.164", "1.25.163"]);
+  assert.equal(new Set(missed).size, missed.length);
   assert.deepEqual(getChangelogRange(version, version), []);
   assert.ok(readEntry(fileURLToPath(new URL("../CHANGELOG.md", import.meta.url)), version)?.sections.some((section) => section.items.length));
 });

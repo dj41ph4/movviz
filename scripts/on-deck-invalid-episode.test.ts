@@ -83,3 +83,28 @@ test("Plex phantom successor disappears; imported history and other profiles are
     globalThis.fetch = originalFetch;
   }
 });
+
+test("incomplete imported history never manufactures a zero-progress pilot", async () => {
+  const user = { id: "incomplete-import", username: "incomplete-import", role: "user", plexServerToken: "pilot-profile" } as User;
+  setWatchedEpisodes(user.id, [{ tmdbId: 241372, season: 1, episode: 8 }], true);
+  const before = JSON.stringify(getWatchStatus(user.id));
+  const originalFetch = globalThis.fetch;
+  let offset = 0;
+  globalThis.fetch = (async (input, init) => {
+    if (String(input).includes("/library/onDeck")) return Response.json({ MediaContainer: { Metadata: new Headers(init?.headers).get("x-plex-token") === user.plexServerToken ? [{
+      ratingKey: "56-1", type: "episode", grandparentRatingKey: "show-56",
+      parentIndex: 1, index: 1, viewOffset: offset, duration: 2_400_000,
+    }] : [] } });
+    return Response.json({ MediaContainer: { Metadata: [{ ratingKey: "show-56", type: "show", Guid: [{ id: "tmdb://241372" }] }] } });
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await listOnDeckEntries(user), [], "neither Plex nor local fallback may offer S01E01 at zero");
+    offset = 90_000;
+    const resumed = await listOnDeckEntries(user);
+    assert.equal(resumed[0]?.episodeNumber, 1, "a genuinely started pilot is preserved");
+    assert.equal(resumed[0]?.offsetMs, offset);
+    assert.equal(JSON.stringify(getWatchStatus(user.id)), before, "imported views remain untouched");
+    savePlexConfig({ hostname: "", port: 32400, useSsl: false, adminToken: "", clientId: "fixture", machineIdentifier: "fixture", syncLibrary: false, watchlistSyncEnabled: false, markerSyncEnabled: false });
+    assert.deepEqual(await listOnDeckEntries(user), [], "offline local fallback also rejects a never-started pilot");
+  } finally { globalThis.fetch = originalFetch; }
+});

@@ -258,11 +258,6 @@ fun forQueue(
     }
 }
 
-/** Part de l'épisode sortant au-delà de laquelle un passage au suivant
- *  le marque VU. Règle produit, pas une constante technique : enchaîner
- *  sur l'épisode suivant est en soi le signal que le précédent est fini. */
-private const val PLAYBACK_QUIT_WATCHED_RATIO = 0.80
-
 data class QueueItem(
     val ratingKey: String,
     val label: String?,
@@ -676,22 +671,6 @@ ExoPlayer.Builder(context)
     }
 
     /**
-     * Netflix-style completion boundary for an exit. Plex credit markers are
-     * authoritative when available; when a marker has not been indexed yet,
-     * the last 10% is deliberately conservative and prevents end credits
-     * from polluting "Reprendre".
-     */
-    fun isInEndingCredits(): Boolean {
-        val duration = exoPlayer.duration.takeIf { it > 0 } ?: return false
-        val position = exoPlayer.currentPosition.coerceAtLeast(0)
-        val creditStart = markers
-            .filter { it.type == "credits" && it.startMs >= 0 && it.startMs < duration }
-            .maxOfOrNull { it.startMs }
-        val boundary = (duration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
-        return position >= if (type == "series") boundary else (creditStart ?: boundary)
-    }
-
-    /**
      * Atomically abandons the visible media before changing Compose state.
      * Changing only currentIndex updates the overlay title immediately, while
      * the previous ExoPlayer item can keep rendering until stream-info
@@ -705,23 +684,13 @@ ExoPlayer.Builder(context)
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
         val outgoingPosition = exoPlayer.currentPosition.coerceAtLeast(0)
-        // Lue AVANT stop() : ExoPlayer rend la durée indisponible une fois
-        // arrêté, et c'est elle qui décide de la règle ci-dessous.
-        val outgoingDuration = exoPlayer.duration.takeIf { it > 0L }
-        // Passer à l'épisode suivant alors que le précédent dépasse 80 %
-        // vaut « terminé » : enchaîner EST le signal que l'épisode est fini
-        // pour l'utilisateur, générique sauté ou fin coupée comprises. Même
-        // règle que sur le client TV, pour que les deux apps n'aient jamais
-        // deux notions différentes de « vu ».
-        val outgoingMostlyWatched = outgoingDuration != null &&
-            outgoingPosition >= (outgoingDuration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
-        val markWatched = markOutgoingWatched || outgoingMostlyWatched
+        // Manual transitions use the server's shared completion policy.
         playbackSessionId = null
         completeCurrentOnDispose = false
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         scope.launch {
-            if (markWatched) {
+            if (markOutgoingWatched) {
                 outgoingSession?.let { repository.playbackEnded(it) }
             } else {
                 outgoingSession?.let { repository.playbackStop(it, outgoingPosition) }
@@ -732,9 +701,8 @@ ExoPlayer.Builder(context)
     }
 
     fun exitPlayerAction(forceCompleted: Boolean = false) {
-        // Do not leave a card in Continue Watching when the user leaves in
-        // the credits. We retain ordinary mid-episode resumes unchanged.
-        completeCurrentOnDispose = forceCompleted || isInEndingCredits()
+        // Natural end is explicit; manual exits use playbackStop.
+        completeCurrentOnDispose = forceCompleted
         onExit()
     }
 
@@ -967,7 +935,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     // Covers system-initiated Activity teardown too (not only
                     // our Back/Retour callback): credits must not resurrect a
                     // Continue Watching card.
-                    val shouldComplete = completeCurrentOnDispose || isInEndingCredits()
+                    val shouldComplete = completeCurrentOnDispose
                     if (id != null) {
                         if (shouldComplete) repository.playbackEnded(id)
                         else repository.playbackStop(id, exoPlayer.currentPosition)
@@ -1115,13 +1083,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
     fun prevEpisodeAction() {
         poke()
-        if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = isInEndingCredits())
+        if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = false)
     }
     fun nextEpisodeAction() {
         poke()
-        // An explicit Next is an intentional skip: never leave the outgoing
-        // episode in Reprendre, even if the viewer pressed it before credits.
-        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = isInEndingCredits())
+        // The server decides whether the outgoing episode is complete.
+        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = false)
     }
     fun skipMarkerAction() {
         val m = activeMarker ?: return

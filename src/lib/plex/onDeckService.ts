@@ -106,7 +106,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
       const series = getSeriesByTmdbId(tmdbId);
       if (!series) continue;
       const next = nextAvailableEpisode(series.seasons, (season, episode) => episodeIsWatched(tmdbId, season, episode));
-      if (!next) continue;
+      if (!next || (next.season.seasonNumber === 1 && next.episode.episodeNumber === 1)) continue;
       const key = next.episode.plexRatingKey;
       const lastPlayedAt = Math.max(0, ...watchedEpisodes.filter((e) => e.tmdbId === tmdbId).map((e) => e.at ?? 0));
       items.push({ type: "episode", tmdbId, title: series.title, posterPath: series.posterPath, year: series.year, rating: series.rating, progressPercent: 0, offsetMs: 0, seasonNumber: next.season.seasonNumber, episodeNumber: next.episode.episodeNumber, episodeTitle: next.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${series.id}:s${next.season.seasonNumber}e${next.episode.episodeNumber}`, seriesId: series.id, technical: technical(next.episode.file), lastPlayedAt });
@@ -172,6 +172,8 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const season = found?.season.seasonNumber ?? d.seasonNumber;
     const episode = found?.episode.episodeNumber ?? d.episodeNumber;
     if (tmdbId == null || season == null || episode == null) continue;
+    // A never-started pilot is not a continuation, including incomplete imports.
+    if (d.viewOffset <= 0 && season === 1 && episode === 1) continue;
     if (episodeIsWatched(tmdbId, season, episode)) continue;
     const c = { tmdbId, season, episode };
     // Plex /library/onDeck is already the per-profile continuation source.

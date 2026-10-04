@@ -73,6 +73,23 @@ test.after(async () => {
   }
 });
 
+test("manual exit and Next share the server boundary and cannot bypass actual viewing", () => {
+  for (const [type, duration, position, expected] of [
+    ["episode", 2_400_000, 1_919_999, false],
+    ["episode", 2_400_000, 1_920_000, true],
+    ["movie", 7_200_000, 5_760_000, false],
+    ["movie", 7_200_000, 6_900_000, true],
+  ] as const) {
+    const { session } = openPlaybackSession(`policy-${type}-${position}`, { ratingKey: `key-${position}`, mediaType: type, durationMs: duration });
+    applyHeartbeat(session.id, { sequence: 1, positionMs: 30_000, isPlaying: true, nowMs: session.startedAt + 30_000 });
+    applyHeartbeat(session.id, { sequence: 2, positionMs: 60_000, isPlaying: true, nowMs: session.startedAt + 60_000 });
+    assert.equal(stopPlayback(session.id, position).watched, expected);
+  }
+  const { session } = openPlaybackSession("seek-only", { ratingKey: "seek-only", mediaType: "episode", durationMs: 2_400_000 });
+  applySeek(session.id, 1_920_000);
+  assert.equal(stopPlayback(session.id, 1_920_000).watched, false, "seeking alone is not real viewing");
+});
+
 test("a player session survives a server restart: progress and « terminé » are still recorded", async () => {
   const { session } = openPlaybackSession("restart-user", { ratingKey: "plex-restart", mediaType: "movie", durationMs: 3_600_000 });
   // Wait for the store to reach the disk, as it would before an update restarts the server.

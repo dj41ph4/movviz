@@ -1,3 +1,11 @@
+## v1.25.168 — Octobre 2026
+
+### Vues et reprises cohérentes sur tous les appareils
+
+- Android TV et smartphone utilisent désormais la même décision serveur que le web à la fermeture et au changement d'épisode : épisodes à 80 %, films selon leur générique ou la marge de fin existante, avec la protection de temps de lecture réel. La fin naturelle reste une validation explicite.
+- Les reprises S01E01 sans progression sont retirées des sources locale et Plex, notamment après un import incomplet. Un premier épisode réellement commencé et les passages à une saison suivante restent disponibles.
+- Aucune suppression de vues ou d'historique importé ; la séparation des profils Plex et la synchronisation existante sont conservées.
+
 ## v1.25.167 — Octobre 2026
 
 ### Changelog après mise à jour

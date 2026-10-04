@@ -263,14 +263,6 @@ fun forQueue(
     }
 }
 
-/** Part de la lecture au-delà de laquelle quitter (Retour, passage au
- *  suivant, ou fermeture système de l'Activity) marque VU. Règle produit,
- *  pas une constante technique : dépasser ce seuil ET s'arrêter là est en
- *  soi le signal que l'utilisateur en a fini avec ce film ou cet épisode,
- *  générique sauté ou coupure avant la toute fin comprise. S'applique aux
- *  films comme aux épisodes — le calcul est purement position/durée. */
-private const val PLAYBACK_QUIT_WATCHED_RATIO = 0.80
-
 /** Hauteur vidéo réellement décodée (ExoPlayer) → même palier que côté
  *  bibliothèque (resolutionLabelForCatalog, CatalogScreen.kt) : 4K/1080p/
  *  720p, sinon la hauteur brute. Reflète un éventuel transcodage à la
@@ -731,18 +723,6 @@ ExoPlayer.Builder(context)
         else exoPlayer.seekTo(target)
     }
 
-    /** Plex credit markers are authoritative; without one, last 10% is the
-     * safe credits boundary so end credits never remain in Reprendre. */
-    fun isInEndingCredits(): Boolean {
-        val duration = timelineDur().takeIf { it > 0 } ?: return false
-        val position = timelinePos()
-        val creditStart = markers
-            .filter { it.type == "credits" && it.startMs >= 0 && it.startMs < duration }
-            .maxOfOrNull { it.startMs }
-        val boundary = (duration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
-        return position >= if (type == "series") boundary else (creditStart ?: boundary)
-    }
-
     /** Clear ExoPlayer before changing the Compose queue index: otherwise
      * only the overlay title changes while the previous media keeps playing. */
     fun advanceTo(nextIndex: Int, markOutgoingWatched: Boolean) {
@@ -753,25 +733,13 @@ ExoPlayer.Builder(context)
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
         val outgoingPosition = timelinePos()
-        // Lue AVANT stop() : ExoPlayer rend la durée indisponible une fois
-        // arrêté, et c'est elle qui décide de la règle ci-dessous.
-        val outgoingDuration = timelineDur().takeIf { it > 0L }
-        // Passer à l'épisode suivant alors que le précédent dépasse 80 %
-        // vaut « terminé » : enchaîner EST le signal que l'épisode est fini
-        // pour l'utilisateur, générique sauté ou fin coupée comprises. Sans
-        // ça, des épisodes réellement regardés restaient « en cours » et
-        // revenaient encombrer Continuer à regarder. Seuil distinct de celui
-        // du lecteur (« proche de la fin »), qui lui se déclenche à
-        // l'approche du générique et non au changement d'épisode.
-        val outgoingMostlyWatched = outgoingDuration != null &&
-            outgoingPosition >= (outgoingDuration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
-        val markWatched = markOutgoingWatched || outgoingMostlyWatched
+        // Manual transitions use the server's shared completion policy.
         playbackSessionId = null
         completeCurrentOnDispose = false
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         scope.launch {
-            if (markWatched) outgoingSession?.let { repository.playbackEnded(it) }
+            if (markOutgoingWatched) outgoingSession?.let { repository.playbackEnded(it) }
             else {
                 outgoingSession?.let { repository.playbackStop(it, outgoingPosition) }
                 repository.reportStop(outgoing.ratingKey)
@@ -781,7 +749,7 @@ ExoPlayer.Builder(context)
     }
 
     fun exitPlayerAction(forceCompleted: Boolean = false) {
-        completeCurrentOnDispose = forceCompleted || isInEndingCredits()
+        completeCurrentOnDispose = forceCompleted
         onExit()
     }
 
@@ -1014,22 +982,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             runCatching {
                 kotlinx.coroutines.runBlocking {
                     val id = playbackSessionId
-                    // Quitter (Retour, fermeture système) au-delà du même
-                    // seuil que "passer au suivant" doit marquer VU pour la
-                    // même raison : au-delà de 80%, s'arrêter là EST le signal
-                    // que c'est fini pour l'utilisateur — générique atteint ou
-                    // non. Avant, seul isInEndingCredits() (marqueur explicite
-                    // ou 90% sans marqueur) déclenchait ce cas : un film ou un
-                    // épisode quitté à 80% restait "en cours" indéfiniment et
-                    // polluait Continuer à regarder malgré un visionnage jugé
-                    // terminé par l'utilisateur.
-                    val duration = timelineDur().takeIf { it > 0L }
-                    val mostlyWatched = duration != null &&
-                        timelinePos() >= (duration * PLAYBACK_QUIT_WATCHED_RATIO).toLong()
-                    // Covers system-initiated Activity teardown too (not only
-                    // our Back/Retour callback): credits must not resurrect a
-                    // Continue Watching card.
-                    val shouldComplete = completeCurrentOnDispose || isInEndingCredits() || mostlyWatched
+                    // Only a natural end bypasses the shared server stop policy.
+                    val shouldComplete = completeCurrentOnDispose
                     if (id != null) {
                         if (shouldComplete) repository.playbackEnded(id)
                         else repository.playbackStop(id, timelinePos())
@@ -1172,12 +1126,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
     fun prevEpisodeAction() {
         poke()
-        if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = isInEndingCredits())
+        if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = false)
     }
     fun nextEpisodeAction() {
         poke()
-        // Explicit Next is intentional: do not leave the skipped episode in Reprendre.
-        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = isInEndingCredits())
+        // The server decides whether the outgoing episode is complete.
+        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = false)
     }
     fun skipMarkerAction() {
         val m = activeMarker ?: return
