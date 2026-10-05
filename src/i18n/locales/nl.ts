@@ -3,6 +3,17 @@ import type { Dictionary } from "../types";
 /** Nederlands woordenboek — weerspiegelt de Franse/Engelse sleutelstructuur. */
 export const nl: Dictionary = {
   tizen: {
+    missingOne: "{count} ontbreekt",
+    account: "Account",
+    playback: "Afspelen",
+    about: "Over",
+    role: "Rol",
+    application: "Applicatie",
+    unwatched: "Niet bekeken",
+    watchedCount: "{watched}/{total} bekeken",
+    missingCount: "{count} ontbreken",
+    resumeAt: "Hervatten vanaf {time}",
+    fromStart: "Vanaf het begin",
     serverQuestion: "Wat is je serveradres?",
     continue: "Doorgaan",
     changeServer: "Server wijzigen",

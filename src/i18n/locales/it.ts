@@ -3,6 +3,17 @@ import type { Dictionary } from "../types";
 /** Dizionario italiano — rispecchia la struttura delle chiavi francese/inglese. */
 export const it: Dictionary = {
   tizen: {
+    missingOne: "{count} mancante",
+    account: "Account",
+    playback: "Riproduzione",
+    about: "Informazioni",
+    role: "Ruolo",
+    application: "Applicazione",
+    unwatched: "Non visto",
+    watchedCount: "{watched}/{total} visti",
+    missingCount: "{count} mancanti",
+    resumeAt: "Riprendi da {time}",
+    fromStart: "Dall’inizio",
     serverQuestion: "Qual è l’indirizzo del tuo server?",
     continue: "Continua",
     changeServer: "Cambia server",

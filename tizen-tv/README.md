@@ -8,7 +8,7 @@ Premier jalon du portage du client Android TV. Cible provisoire : Samsung géné
 - Sélection et changement de profils déjà connectés, chacun avec sa propre session vérifiée par le serveur ; aucun changement de compte fondé sur un identifiant seul.
 - Accueil avec Reprendre et ajouts récents, bibliothèque films/séries, découverte, recherche et fiche titre unique dans ce client.
 - Saisons/épisodes disponibles avec vignettes, distribution et filmographies, statut vu/non vu, ajout/demande de titres et recherche automatique, profil et listes personnelles, file des téléchargements.
-- Assistant IA si activé côté serveur, conversation personnelle, contexte de fiche et recommandations ouvrables ; filtres texte/tri de bibliothèque conservés.
+- Filtres texte/tri de bibliothèque conservés. Le client Samsung suit l'interface NX TV : aucun assistant IA, bouton flottant ni accès au chat.
 - Navigation directionnelle, retour avec restauration du focus et du scroll, touches multimédias.
 - Intégration AVPlay : ouverture authentifiée, pause, seek, arrêt, fin, reprise et heartbeats de progression ; choix audio/sous-titres replanifié par le serveur, épisode suivant manuel et automatique. Profil SDR H.264/AAC 1080p conservateur ; seek des flux remux/transcodés via redémarrage serveur et maintien d’une horloge globale.
 - Traductions françaises, anglaises, allemandes, italiennes et néerlandaises issues des dictionnaires Movviz.

@@ -3,6 +3,17 @@ import type { Dictionary } from "../types";
 /** Deutsches Wörterbuch — spiegelt die französische/englische Schlüsselstruktur. */
 export const de: Dictionary = {
   tizen: {
+    missingOne: "{count} fehlt",
+    account: "Konto",
+    playback: "Wiedergabe",
+    about: "Über",
+    role: "Rolle",
+    application: "Anwendung",
+    unwatched: "Nicht angesehen",
+    watchedCount: "{watched}/{total} angesehen",
+    missingCount: "{count} fehlen",
+    resumeAt: "Fortsetzen bei {time}",
+    fromStart: "Von Anfang an",
     serverQuestion: "Wie lautet deine Serveradresse?",
     continue: "Weiter",
     changeServer: "Server wechseln",

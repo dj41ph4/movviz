@@ -68,6 +68,12 @@ test("Tizen bridge rejects pending accounts, unsafe paths, unsupported and destr
   assert.equal((await POST(request({ path: "/api/library/movies", method: "DELETE" }, session))).status, 405);
   assert.equal((await POST(request({ path: "/api/users" }, session))).status, 404);
 });
+
+test("NX TV Samsung bridge has no chat or AI session access", async () => {
+  for (const [path, method] of [["/api/ai/session", "GET"], ["/api/ai/session", "POST"], ["/api/ai/chat", "POST"]]) {
+    assert.equal((await POST(request({ path, method, ...(method === "POST" ? { body: {} } : {}) }, session))).status, 404);
+  }
+});
 test("Tizen cannot touch or stop another user's engine session", async () => {
   const plan = { mode: "DIRECT_PLAY" as const, containerAction: "COPY" as const, videoAction: "COPY" as const, audioAction: "COPY" as const, subtitleAction: "NONE" as const, reasons: [] };
   const mine = engineSession({ userId: user.id, deviceId: "tv", clientType: "samsung-tizen", mediaId: "film", mode: "DIRECT_PLAY", videoAction: "COPY", audioAction: "COPY", subtitleAction: "NONE", plan });
@@ -102,11 +108,30 @@ test("Device preferences and watchlist keep authenticated account separation", a
     assert.equal((await POST(request({ path: "/api/settings/preferences", method: "PATCH", body: { locale: "de", userId: "tizen-second" } }, session))).status, 200);
     assert.equal((await (await POST(request({ path: "/api/settings/preferences" }, session))).json()).prefs.locale, "de");
     assert.notEqual((await (await POST(request({ path: "/api/settings/preferences" }, second))).json()).prefs.locale, "de");
+    assert.equal((await POST(request({ path: "/api/settings/preferences", method: "PATCH", body: { preferredAudioLanguage: "en" } }, session))).status, 200);
+    const prefs = (await (await POST(request({ path: "/api/settings/preferences" }, session))).json()).prefs;
+    assert.equal(prefs.preferredAudioLanguage, "en"); assert.equal(prefs.locale, "de");
+    assert.notEqual((await (await POST(request({ path: "/api/settings/preferences" }, second))).json()).prefs.preferredAudioLanguage, "en");
     assert.equal((await POST(request({ path: "/api/watchlist", method: "POST", body: { tmdbId: 27205, type: "movie", title: "Inception", userId: "tizen-second" } }, session))).status, 201);
     assert.equal((await (await POST(request({ path: "/api/watchlist" }, session))).json()).items.length, 1);
     assert.equal((await (await POST(request({ path: "/api/watchlist" }, second))).json()).items.length, 0);
     assert.equal((await POST(request({ path: "/api/library/movies", method: "PATCH", body: {} }, session))).status, 404);
   } finally { destroySession(second); }
+});
+
+test("Device episode and season watched actions preserve coordinates and account isolation", async () => {
+  const { getWatchStatus } = await import("../src/lib/plex/watchStore.ts");
+  const episodesFor = (id: string) => getWatchStatus(id)?.episodes || [];
+  const target = { tmdbId: 82684, type: "series", title: "Slime" };
+  const toggle = async (watched: boolean, episodes: { season: number; episode: number }[]) => POST(request({ path: "/api/watch/toggle", method: "POST", body: { ...target, watched, episodes, userId: "tizen-second" } }, session));
+  assert.equal((await toggle(true, [{ season: 1, episode: 1 }])).status, 200);
+  assert.ok(episodesFor(user.id).some(e => e.tmdbId === 82684 && e.season === 1 && e.episode === 1));
+  assert.equal(episodesFor("tizen-second").some(e => e.tmdbId === 82684), false);
+  // Exact watchable list: an upcoming E03 and the next season must stay untouched.
+  assert.equal((await toggle(true, [{ season: 1, episode: 1 }, { season: 1, episode: 2 }])).status, 200);
+  assert.equal(episodesFor(user.id).filter(e => e.tmdbId === 82684).length, 2);
+  assert.equal((await toggle(false, [{ season: 1, episode: 1 }])).status, 200);
+  assert.deepEqual(episodesFor(user.id).filter(e => e.tmdbId === 82684).map(e => [e.season, e.episode]), [[1, 2]]);
 });
 
 test("Device progress uses owned sessions from open to seek, stop and resume", async () => {

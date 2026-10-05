@@ -147,7 +147,6 @@ export async function POST(req: NextRequest) {
         case "/api/metadata/logos": response = await (await import("@/app/api/metadata/logos/route")).GET(delegated); break;
         case "/api/metadata/recommendations": response = await (await import("@/app/api/metadata/recommendations/route")).GET(delegated); break;
         case "/api/tv/preview": response = await (await import("@/app/api/tv/preview/route")).GET(delegated); break;
-        case "/api/ai/session": response = await (await import("@/app/api/ai/session/route")).GET(delegated); break;
         case "/api/library/movies": response = await (await import("@/app/api/library/movies/route")).GET(delegated); break;
         case "/api/library/series": response = await (await import("@/app/api/library/series/route")).GET(delegated); break;
         case "/api/metadata/detail": response = await (await import("@/app/api/metadata/detail/route")).GET(delegated); break;
@@ -167,8 +166,6 @@ export async function POST(req: NextRequest) {
       if (path === "/api/library/movies") response = await (await import("@/app/api/library/movies/route")).POST(delegated);
       else if (path === "/api/library/series") response = await (await import("@/app/api/library/series/route")).POST(delegated);
       else if (path === "/api/watchlist") response = await (await import("@/app/api/watchlist/route")).POST(delegated);
-      else if (path === "/api/ai/chat") response = await (await import("@/app/api/ai/chat/route")).POST(delegated);
-      else if (path === "/api/ai/session") response = await (await import("@/app/api/ai/session/route")).POST(delegated);
       else if (path === "/api/watch/toggle") response = await (await import("@/app/api/watch/toggle/route")).POST(delegated);
       else if (path === "/api/playback/prepare") response = await (await import("@/app/api/playback/prepare/route")).POST(delegated);
       else if (path === "/api/playback/sessions") response = await (await import("@/app/api/playback/sessions/route")).POST(delegated);

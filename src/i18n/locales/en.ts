@@ -3,6 +3,17 @@ import type { Dictionary } from "../types";
 /** English dictionary — mirrors the French key structure. */
 export const en: Dictionary = {
   tizen: {
+    missingOne: "{count} missing",
+    account: "Account",
+    playback: "Playback",
+    about: "About",
+    role: "Role",
+    application: "Application",
+    unwatched: "Not watched",
+    watchedCount: "{watched}/{total} watched",
+    missingCount: "{count} missing",
+    resumeAt: "Resume at {time}",
+    fromStart: "From the beginning",
     serverQuestion: "What is your server address?",
     continue: "Continue",
     changeServer: "Change server",

@@ -1,6 +1,17 @@
 /** Dictionnaire français — langue principale et source de vérité des clés. */
 export const fr = {
   tizen: {
+    missingOne: "{count} manquant",
+    account: "Compte",
+    playback: "Lecture",
+    about: "À propos",
+    role: "Rôle",
+    application: "Application",
+    unwatched: "Non regardé",
+    watchedCount: "{watched}/{total} vus",
+    missingCount: "{count} manquants",
+    resumeAt: "Reprendre à {time}",
+    fromStart: "Du début",
     serverQuestion: "À quelle adresse se trouve ton serveur ?",
     continue: "Continuer",
     changeServer: "Changer de serveur",

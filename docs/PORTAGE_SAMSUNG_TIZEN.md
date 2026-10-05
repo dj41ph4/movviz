@@ -34,7 +34,6 @@ La référence fonctionnelle est le code Android TV actuel, pas une ancienne cap
 | Ajout / recherche de fichiers | POST bibliothèque, routes `.../search` et `.../season/{season}/search` | Actions identiques, erreurs, permissions et suivi serveur |
 | Téléchargements | `DownloadsScreen.kt`, `/api/activity/v2?tab=queue` | Affichage et rafraîchissement de la file ; téléchargements exécutés côté serveur |
 | Profil et historique | `ProfileScreen.kt`, `/api/profile/media`, `/api/playback/continue-watching` | Compteurs serveur, vus/en cours, ouverture du bon épisode |
-| IA | méthodes IA de `MovvizRepository.kt`, `/api/ai/session`, `/api/ai/chat` | Conversation par utilisateur, recommandations ouvrables et contexte de page |
 | Paramètres | `SettingsScreen.kt`, `/api/settings/preferences`, `/api/auth/logout` | Préférences de lecture, langues, connexion et déconnexion réelle |
 | Lecteur | `PlayerActivity.kt`, routes stream / playback | AVPlay, reprise, pause/seek, pistes audio/sous-titres, qualité, marqueurs et épisode suivant |
 | Mise à jour / cycle de vie | `UpdateOverlay.kt`, `UpdateReceiver.kt`, `MainActivity.kt` | Remplacer le mécanisme APK par une procédure Samsung ; gérer veille, reprise et sortie |
@@ -82,7 +81,7 @@ Les noms de films et épisodes de validation doivent être choisis dans la bibli
 2. Créer le module isolé, manifeste, build et aperçu navigateur ; connexion réelle, profils et télécommande.
 3. Porter accueil/bibliothèque/découverte/recherche, fiche unique, saisons, personnes et collections avec conservation de navigation.
 4. Intégrer AVPlay et le transport média authentifié ; sessions, reprise, pistes, qualité, marqueurs et lecture suivante.
-5. Porter profil, IA, téléchargements, préférences et actions de bibliothèque.
+5. Porter profil, téléchargements, préférences et actions de bibliothèque. Aucun assistant IA dans le client Samsung, conformément à l'interface NX TV demandée.
 6. Vérifier les cinq langues, échecs réseau, permissions, veille/reprise et changements de profil.
 7. Générer un `.wgt` signé, installer sur Samsung, effectuer les scénarios réels et compléter la matrice de parité ; ajouter le pipeline de release une fois la signature maîtrisée.
 

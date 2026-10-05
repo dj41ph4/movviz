@@ -27,14 +27,14 @@ interface Window {
     seasons?: { seasonNumber: number; name: string; posterPath?: string; episodeCount?: number }[];
     progress?: number; positionMs?: number; durationMs?: number; episodeTitle?: string;
   }
-  interface Episode { seasonNumber: number; episodeNumber: number; title: string; status: string; file?: unknown; playbackSource?: string; plexRatingKey?: string; stillPath?: string; runtime?: number; overview?: string }
+  interface Episode { seasonNumber: number; episodeNumber: number; title: string; status: string; file?: { resolution?: string; hdr?: string; videoCodec?: string; audioCodec?: string; source?: string }; playbackSource?: string; plexRatingKey?: string; stillPath?: string; runtime?: number; overview?: string; rating?: number; airDate?: string }
   interface Series extends Media { seasons: { seasonNumber: number; name: string; episodes: Episode[] }[] }
   interface Track { index: number; language?: string; title?: string; codec: string }
   interface Prepared { sessionId: string; media: { durationMs?: number }; plan: { mode: string }; stream: { url: string; protocol: string }; tracks: { audio: Track[]; subtitle: Track[] } }
   interface Session { sessionId: string; resumeOffsetMs: number | null }
   interface PublicUser { id: string; username: string; role: string }
   interface Saved { server: string; session: string; cookieName: string; user: PublicUser; locale: string }
-  interface Page { title: string; content: HTMLElement; focusId: string; scroll: number; context?: { tmdbId: number; type: MediaType; title: string } }
+  interface Page { title: string; content: HTMLElement; focusId: string; scroll: number }
   interface DeckEntry extends Omit<Media, "type"> { type: "movie" | "episode"; progressPercent: number; offsetMs: number; episodeStillPath?: string; movvizId?: string }
   function normalizeDeck(entries: DeckEntry[]): Media[] { return entries.map(e => ({ ...e, type: e.type === "episode" ? "series" : "movie", id: e.movvizId, backdropPath: e.episodeStillPath || e.backdropPath, progress: e.progressPercent, positionMs: e.offsetMs })); }
   const app = document.getElementById("app")!;
@@ -48,7 +48,6 @@ interface Window {
   const history: Page[] = [];
   let activePlayer: { position: number; duration: number; progressId: string; engineId: string; sequence: number; timer: number; closing: boolean; page: Page; frame: Node[]; prepared: Prepared; base: number; media: Media; type: MediaType; episode?: Episode; audio?: number; subtitle: number | null; changing: boolean } | null = null;
   let startingPlayer = false;
-  let pageContext: { tmdbId: number; type: MediaType; title: string } | undefined;
   let libraryType: MediaType = "movie";
   const libraryFilters = { movie: { query: "", sort: "title" }, series: { query: "", sort: "title" } };
   let progressQueue: Promise<unknown> = Promise.resolve();
@@ -97,7 +96,7 @@ interface Window {
   }
   async function call<T>(path: string, body?: unknown, method?: "GET" | "POST" | "PATCH"): Promise<T> {
     if (!saved) throw new Error(t("tizen.signIn"));
-    const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), path.includes("prepare") || path === "/api/ai/chat" ? 90000 : 30000);
+    const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), path.includes("prepare") ? 90000 : 30000);
     try {
       const response = await fetch(`${saved.server}/api/tv/client`, {
         method: "POST", credentials: "omit", signal: controller.signal,
@@ -120,18 +119,8 @@ interface Window {
     image.onerror = () => { image.onerror = null; image.src = "icon.png"; };
     node.append(image, el("span", item.title || String(item.tmdbId), "card-caption"));
     if (landscape) {
-      const progress = el("progress"); progress.max = 100; progress.value = item.durationMs ? (item.positionMs || 0) / item.durationMs * 100 : (item.progress || 0); node.append(progress);
-    } else {
-      const preview = el("div", "", "focus-preview"); preview.style.backgroundImage = `linear-gradient(0deg,#05070ff2,transparent),url("${imageUrl(item.backdropPath || item.posterPath)}")`;
-      preview.append(el("strong", item.title), el("p", [item.year, item.rating ? `★ ${item.rating.toFixed(1)}` : ""].filter(Boolean).join(" · ")));
-      node.append(preview); let timer = 0;
-      node.onfocus = () => { timer = window.setTimeout(() => {
-        void call<Media>(`/api/tv/preview?type=${type}&tmdbId=${item.tmdbId}`).then(detail => {
-          if (document.activeElement !== node) return;
-          if (detail.backdropPath) preview.style.backgroundImage = `linear-gradient(0deg,#05070ff2,transparent),url("${imageUrl(detail.backdropPath)}")`;
-        }).catch(() => {});
-      }, 300); };
-      node.onblur = () => window.clearTimeout(timer);
+      const percent = item.durationMs ? (item.positionMs || 0) / item.durationMs * 100 : (item.progress || 0);
+      const progress = el("progress"); progress.max = 100; progress.value = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0; node.append(progress);
     }
     return node;
   }
@@ -141,17 +130,15 @@ interface Window {
     items.filter(Boolean).forEach(item => list.append(card(item, type || item.type || "movie", label === t("tizen.continueWatching")))); section.append(list); content.append(section);
   }
   function focusFirst() { content?.querySelector<HTMLElement>("button:not(:disabled), input, select")?.focus(); }
-  function snapshot(): Page { return { title: heading.textContent || "", content, focusId: (document.activeElement as HTMLElement)?.dataset.focusId || "", scroll: window.scrollY, context: pageContext }; }
+  function snapshot(): Page { return { title: heading.textContent || "", content, focusId: (document.activeElement as HTMLElement)?.dataset.focusId || "", scroll: window.scrollY }; }
   function restore(page: Page) {
     generation++; content.replaceWith(page.content); content = page.content; heading.textContent = page.title;
-    pageContext = page.context;
-    heading.style.display = content.classList.contains("detail-page") ? "none" : "";
+    heading.style.display = content.classList.contains("detail-page") || content.classList.contains("season-page") ? "none" : "";
     document.querySelector(".shell")?.classList.toggle("home-shell", content.classList.contains("home-page"));
     window.scrollTo(0, page.scroll); content.querySelector<HTMLElement>(`[data-focus-id="${page.focusId}"]`)?.focus();
   }
   function begin(label: string, push = false): number {
     if (push) history.push(snapshot());
-    pageContext = undefined;
     const next = el("div", "", "page-content"); content.replaceWith(next); content = next; heading.textContent = label; window.scrollTo(0, 0);
     heading.style.display = "";
     document.querySelector(".shell")?.classList.remove("home-shell");
@@ -165,6 +152,14 @@ interface Window {
     else if (document.querySelector(".login")) void setup();
     else document.querySelector<HTMLElement>("nav button.active")?.focus();
   }
+  function episodePlayable(episode: Episode) { return episode.status === "available" && Boolean(episode.file || episode.plexRatingKey); }
+  function episodeStatus(episode: Episode) {
+    if (episodePlayable(episode)) return t("status.available");
+    if (episode.status === "downloading") return t("status.downloading");
+    if (episode.status === "searching") return t("status.searching");
+    return t(episode.status === "upcoming" ? "status.upcoming" : "status.missing");
+  }
+  function timeLabel(ms: number) { const seconds = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }
   function brand(size = "") {
     const node = el("div", "", `brand ${size}`); const mark = el("img"); mark.src = "icon.png"; mark.alt = "";
     node.append(mark, el("span", "Movviz", "wordmark")); return node;
@@ -265,9 +260,6 @@ interface Window {
     const footer = el("div", "", "nav-footer"); const profileButton = button("", profilesScreen, "nav-profile"); profileButton.setAttribute("aria-label", t("tizen.profile")); profileButton.append(el("div", saved!.user.username.slice(0, 1).toUpperCase(), "avatar"), el("span", saved!.user.username)); footer.append(profileButton, el("small", `v${window.MOVVIZ_VERSION}`)); nav.append(footer);
     nav.querySelector("button")?.classList.add("active");
     await home();
-    void call<{ enabled: boolean }>("/api/ai/session").then(data => {
-      if (data.enabled && frame.isConnected) { const chat = button("✦", aiChat, "ai-fab"); chat.setAttribute("aria-label", t("ai.title")); frame.append(chat); }
-    }).catch(() => {});
   }
   function svgIcon(name: string) {
     const paths: Record<string, string> = { home: "M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1Z", compass: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM16 8l-3 5-5 3 3-5Z", library: "M4 3v18M9 3v18M14 3v18M18 4l4 16", search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z", settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 2h6l1 3 3 1 3 3v6l-3 1-1 3-3 3H9l-1-3-3-1-3-3V9l3-1 1-3Z" };
@@ -320,32 +312,47 @@ interface Window {
     movies = m.movies || []; series = s.series || [];
   }
   async function library() {
-    const version = begin(t("nav.library")); await loadLibrary(); if (version !== generation) return;
+    const version = begin(t("nav.library")); const loading = el("p", t("tizen.loading"), "muted"); content.append(loading); await loadLibrary(); if (version !== generation) return; loading.remove();
     const actions = el("div", "", "actions"), grid = el("div", "", "grid");
     const query = field(t("common.filterTitles"), "search", libraryFilters[libraryType].query), sort = el("select"); sort.setAttribute("aria-label", t("library.sortTitle")); sort.dataset.focusId = String(++focusCounter);
     [["title", "library.sortTitle"], ["recent", "library.sortRecent"], ["rating", "library.sortRating"]].forEach(([value, key]) => { const option = el("option", t(key)); option.value = value; sort.append(option); }); sort.value = libraryFilters[libraryType].sort;
+    let filtered: Media[] = [], rendered = 0;
+    const more = button(t("discover.loadMore"), () => { const previous = rendered; appendPage(); grid.querySelectorAll<HTMLButtonElement>(".card")[previous]?.focus(); });
+    function appendPage() {
+      const end = Math.min(rendered + 72, filtered.length);
+      for (; rendered < end; rendered++) grid.append(card(filtered[rendered], libraryType));
+      more.hidden = rendered >= filtered.length;
+    }
     function render() {
       const filters = libraryFilters[libraryType]; grid.replaceChildren();
-      const items = (libraryType === "movie" ? movies : series).filter(item => item.title.toLocaleLowerCase(locale).includes(filters.query.toLocaleLowerCase(locale))).sort((a, b) => filters.sort === "recent" ? (b.addedAt || 0) - (a.addedAt || 0) : filters.sort === "rating" ? (b.rating || 0) - (a.rating || 0) : a.title.localeCompare(b.title, locale));
-      items.forEach(item => grid.append(card(item, libraryType)));
+      filtered = (libraryType === "movie" ? movies : series).filter(item => item.title.toLocaleLowerCase(locale).includes(filters.query.toLocaleLowerCase(locale))).sort((a, b) => filters.sort === "recent" ? (b.addedAt || 0) - (a.addedAt || 0) : filters.sort === "rating" ? (b.rating || 0) - (a.rating || 0) : a.title.localeCompare(b.title, locale));
+      rendered = 0; appendPage(); if (!filtered.length) grid.append(el("p", t("tizen.empty"), "muted"));
     }
-    function select(type: MediaType) { libraryType = type; query.input.value = libraryFilters[type].query; sort.value = libraryFilters[type].sort; render(); }
+    function select(type: MediaType) { libraryType = type; query.input.value = libraryFilters[type].query; sort.value = libraryFilters[type].sort; tabs.forEach((tab, i) => { const selected = type === (i === 0 ? "movie" : "series"); tab.classList.toggle("selected", selected); tab.setAttribute("aria-pressed", String(selected)); }); render(); }
     query.input.oninput = () => { libraryFilters[libraryType].query = query.input.value; render(); }; sort.onchange = () => { libraryFilters[libraryType].sort = sort.value; render(); };
-    actions.append(button(t("tizen.movies"), () => select("movie")), button(t("tizen.series"), () => select("series")), query.wrapper, sort);
-    content.append(actions, grid); render(); focusFirst();
+    const tabs = [button(t("tizen.movies"), () => select("movie")), button(t("tizen.series"), () => select("series"))];
+    actions.append(...tabs, query.wrapper, sort);
+    content.append(actions, grid, more); select(libraryType); tabs[libraryType === "movie" ? 0 : 1].focus();
   }
   async function discover() {
     const version = begin(t("nav.discover")); const actions = el("div", "", "actions");
-    actions.append(button(t("tizen.movies"), () => show("movie")), button(t("tizen.series"), () => show("series"))); content.append(actions);
+    const tabs = [button(t("tizen.movies"), () => show("movie")), button(t("tizen.series"), () => show("series"))];
+    actions.append(...tabs); content.append(actions);
     const rows = el("div"); content.append(rows);
     let request = 0;
     async function show(type: MediaType) {
-      const id = ++request; const data = await call<{ rows: { key: string; results: Media[] }[] }>(`/api/metadata/rows?type=${type}`);
+      tabs.forEach((tab, i) => { const selected = type === (i === 0 ? "movie" : "series"); tab.classList.toggle("selected", selected); tab.setAttribute("aria-pressed", String(selected)); });
+      const id = ++request; const data = await call<{ rows: { key: string; results: Media[]; meta?: { anchorTitle?: string; verb?: string; providerName?: string } }[] }>(`/api/metadata/rows?type=${type}&locale=${locale}`);
       if (version !== generation || id !== request) return;
       rows.replaceChildren();
       for (const item of data.rows || []) {
         const labels: Record<string, string> = { recommendedTop: "tizen.recommended", "for-you": "tizen.recommended", trendingPopular: "tizen.trending", trending: "tizen.trending", upcoming: "tizen.upcoming", upcomingVod: "tizen.upcoming", shortFormat: "tizen.shortFormat", onAir: "discover.rowOnAir", newSeriesRenewed: "discover.rowNewSeriesRenewed", nowPlayingBoxOffice: "discover.rowNowPlayingBoxOffice", acclaimed: "discover.rowAcclaimed", anime: "discover.rowAnime", teen: "discover.rowTeen", genreAction: "discover.rowGenreAction", genreComedy: "discover.rowGenreComedy", genreHorror: "discover.rowGenreHorror", genreSciFi: "discover.rowGenreSciFi", popular: "discover.rowPopular", topRated: "discover.rowTopRated", newVod: "discover.rowNewVod", kids: "discover.rowKids" };
-        rows.append(el("h2", labels[item.key] ? t(labels[item.key]) : t("tizen.suggestions"))); const list = el("div", "", "row");
+        if (!item.results?.length) continue;
+        let label = labels[item.key] ? t(labels[item.key]) : t("tizen.suggestions");
+        if (item.key.startsWith("becauseYouWatched:") && item.meta?.anchorTitle) label = t(item.meta.verb === "liked" ? "discover.rowBecauseYouLiked" : "discover.rowBecauseYouWatched").replace("{title}", item.meta.anchorTitle);
+        if (item.meta?.providerName && item.key.startsWith("providerSuggested:")) label = t("discover.rowProviderSuggested").replace("{provider}", item.meta.providerName);
+        if (item.meta?.providerName && item.key.startsWith("providerNew:")) label = t("discover.rowProviderNew").replace("{provider}", item.meta.providerName);
+        rows.append(el("h2", label)); const list = el("div", "", "row");
         (item.results || []).forEach(media => list.append(card(media, type))); rows.append(list);
       }
     }
@@ -367,7 +374,6 @@ interface Window {
   }
   async function title(item: Media, type: MediaType) {
     const version = begin(item.title, true);
-    pageContext = { tmdbId: item.tmdbId, type, title: item.title };
     const detail = await call<Media>(`/api/metadata/detail?type=${type}&tmdbId=${item.tmdbId}`);
     if (version !== generation) return;
     content.classList.add("detail-page"); heading.style.display = "none";
@@ -423,27 +429,6 @@ interface Window {
     const person = await call<{ name: string; biography: string; profilePath?: string; credits: Media[] }>(`/api/metadata/person?id=${id}`); if (version !== generation) return;
     content.append(el("h1", person.name), el("p", person.biography, "muted"), button(t("tizen.back"), back)); row(t("tizen.movies"), person.credits.filter(m => m.type === "movie"), "movie"); row(t("tizen.series"), person.credits.filter(m => m.type === "series"), "series"); focusFirst();
   }
-  async function aiChat() {
-    if (closeModal) return;
-    interface Message { role: string; content: string; recommendations?: Media[]; suggestions?: string[]; linkedTitles?: Media[] }
-    const data = await call<{ messages: Message[]; enabled: boolean }>("/api/ai/session"); if (!data.enabled) return;
-    const overlay = el("div", "", "modal"), box = el("section", "", "chat-dialog"), messages = el("div", "", "chat-messages"), form = el("form"), query = field(t("ai.placeholder"), "text");
-    const cancel = () => { overlay.remove(); closeModal = null; document.querySelector<HTMLElement>(".ai-fab")?.focus(); }; closeModal = cancel;
-    box.append(el("h2", t("ai.title")), button(t("tizen.back"), cancel), messages, form); overlay.append(box); app.append(overlay);
-    function render(message: Message) {
-      const bubble = el("article", "", `chat-message ${message.role}`); bubble.append(el("p", message.content.replace(/\[\[(?:NOTE|FAIT|CHOIX):[^\]]*\]\]/g, "")));
-      const cards = el("div", "", "row"); (message.recommendations || []).forEach(item => { const tile = card(item, item.type || "movie"); tile.onclick = () => { cancel(); void title(item, item.type || "movie").catch(report); }; cards.append(tile); }); bubble.append(cards);
-      (message.linkedTitles || []).forEach(item => bubble.append(button(item.title, () => { cancel(); return title(item, item.type || "movie"); })));
-      (message.suggestions || []).forEach(text => bubble.append(button(text, () => send(text)))); messages.append(bubble);
-    }
-    let busy = false; const submit = button(t("ai.send"), () => {}, "primary"); submit.type = "submit"; form.append(query.wrapper, submit);
-    async function send(text: string) {
-      if (busy || !text.trim()) return; busy = true; submit.disabled = true; render({ role: "user", content: text }); query.input.value = "";
-      try { const response = await call<{ message: Message }>("/api/ai/chat", { message: text.trim(), pageContext }); if (box.isConnected) { render(response.message); messages.scrollTop = messages.scrollHeight; } }
-      finally { busy = false; submit.disabled = false; }
-    }
-    form.onsubmit = event => { event.preventDefault(); void send(query.input.value).catch(report); }; data.messages.slice(-20).forEach(render); query.input.focus();
-  }
   async function seasonScreen(local: Media, detail: Media, season: Series["seasons"][number]) {
     const version = begin(`${detail.title} · ${t("tizen.season")} ${season.seasonNumber}`, true);
     const [metadata, watched, deck] = await Promise.all([
@@ -452,21 +437,86 @@ interface Window {
       call<{ items: DeckEntry[] }>("/api/plex/on-deck"),
     ]);
     if (version !== generation) return;
+    content.classList.add("season-page"); heading.style.display = "none";
+    const watchedKeys = new Set(watched.episodes.filter(e => e.tmdbId === detail.tmdbId).map(e => `${e.season}.${e.episode}`));
+    const watchable = season.episodes.filter(e => e.status !== "upcoming");
+    const episodeKey = (e: Episode) => `${e.seasonNumber}.${e.episodeNumber}`;
+    const states = new Map<string, { tile: HTMLButtonElement; badge: HTMLElement }>();
+    const counts = el("p", "", "season-meta muted");
     const hero = el("div", "", "season-hero"), poster = el("img"); poster.src = imageUrl(metadata.posterPath || detail.posterPath); poster.alt = "";
-    const text = el("div"); text.append(el("h1", detail.title), el("p", `${t("tizen.season")} ${season.seasonNumber} · ${season.episodes.length}`, "muted"), button(t("tizen.back"), back), button(t("library.searchSeason"), async () => { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, {}); toast(t("discover.searchingRelease")); })); hero.append(poster, text); content.append(hero);
-    const available = [...season.episodes].filter(e => e.status === "available" && (e.file || e.plexRatingKey)).sort((a, b) => a.episodeNumber - b.episodeNumber);
+    const text = el("div"); const actions = el("div", "", "actions"); actions.append(button(t("tizen.back"), back), button(t("library.searchSeason"), async () => { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, {}); toast(t("discover.searchingRelease")); })); text.append(el("p", detail.title, "season-series muted"), el("h1", season.name || `${t("tizen.season")} ${season.seasonNumber}`), counts, actions); hero.append(poster, text); content.append(hero);
+    const available = [...season.episodes].filter(episodePlayable).sort((a, b) => a.episodeNumber - b.episodeNumber);
     const resume = deck.items.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === season.seasonNumber);
-    const next = available.find(e => e.episodeNumber === resume?.episodeNumber) || available.find(e => !watched.episodes.some(w => w.tmdbId === detail.tmdbId && w.season === e.seasonNumber && w.episode === e.episodeNumber)) || available[0];
-    const playButton = next ? button(`▶ ${t(resume ? "tizen.continueWatching" : "tizen.play")} · E${next.episodeNumber}`, () => play(local, "series", next), "primary") : null;
-    if (playButton) text.insertBefore(playButton, text.querySelector("button"));
+    let next = available.find(e => e.episodeNumber === resume?.episodeNumber && !watchedKeys.has(episodeKey(e))) || available.find(e => !watchedKeys.has(episodeKey(e))) || available[0];
+    const playButton = next ? button("", () => play(local, "series", next), "primary") : null;
+    if (playButton) actions.prepend(playButton);
+    const watchedButton = button("", async () => {
+      const allWatched = watchable.every(e => watchedKeys.has(episodeKey(e)));
+      watchedButton.disabled = true;
+      try {
+        await call("/api/watch/toggle", { tmdbId: detail.tmdbId, type: "series", title: detail.title, watched: !allWatched, episodes: watchable.map(e => ({ season: e.seasonNumber, episode: e.episodeNumber })) });
+        watchable.forEach(e => { if (allWatched) watchedKeys.delete(episodeKey(e)); else watchedKeys.add(episodeKey(e)); }); renderStates();
+      } finally { watchedButton.disabled = false; if (watchedButton.isConnected && document.activeElement === document.body) watchedButton.focus(); }
+    });
+    if (watchable.length && season.seasonNumber > 0) actions.append(watchedButton);
+    function renderStates() {
+      const seen = watchable.filter(e => watchedKeys.has(episodeKey(e))).length;
+      const missing = season.episodes.filter(e => e.status === "missing" && !episodePlayable(e)).length;
+      counts.textContent = [`${season.episodes.length} ${t("title.episodes")}`, watchable.length ? t("tizen.watchedCount").replace("{watched}", String(seen)).replace("{total}", String(watchable.length)) : "", missing ? t(missing === 1 ? "tizen.missingOne" : "tizen.missingCount").replace("{count}", String(missing)) : ""].filter(Boolean).join(" · ");
+      watchedButton.textContent = t(watchable.length && seen === watchable.length ? "tizen.markUnwatched" : "tizen.markWatched");
+      next = available.find(e => e.episodeNumber === resume?.episodeNumber && !watchedKeys.has(episodeKey(e))) || available.find(e => !watchedKeys.has(episodeKey(e))) || available[0];
+      if (playButton && next) playButton.textContent = `▶ ${t(resume?.offsetMs && resume.episodeNumber === next.episodeNumber && !watchedKeys.has(episodeKey(next)) ? "tizen.continueWatching" : "tizen.play")} · E${next.episodeNumber}`;
+      for (const episode of season.episodes) {
+        const state = states.get(episodeKey(episode)); if (!state) continue;
+        const seen = watchedKeys.has(episodeKey(episode)); state.badge.textContent = seen ? `✓ ${t("watch.watched")}` : episodeStatus(episode);
+        state.tile.classList.toggle("unavailable", !episodePlayable(episode)); state.badge.classList.toggle("watched", seen);
+        state.tile.querySelector("progress")?.toggleAttribute("hidden", seen);
+      }
+    }
     const grid = el("div", "", "episode-grid");
     for (const episode of [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber)) {
       const meta = metadata.episodes.find(e => e.episodeNumber === episode.episodeNumber);
-      const tile = button("", () => play(local, "series", episode), "episode"); const still = el("img"); still.src = imageUrl(meta?.stillPath || detail.backdropPath); still.alt = "";
-      tile.append(still, el("strong", `${episode.episodeNumber}. ${meta?.title || episode.title}`), el("p", [meta?.runtime ? `${meta.runtime} min` : "", meta?.overview].filter(Boolean).join(" · ")));
-      tile.disabled = episode.status !== "available" || !(episode.file || episode.plexRatingKey); grid.append(tile);
+      const tile = button("", () => episodeDialog(local, detail, season, episode, meta, deck.items, watchedKeys, renderStates), "episode");
+      const artwork = el("div", "", "episode-artwork"), still = el("img"); still.src = imageUrl(meta?.stillPath || detail.backdropPath); still.alt = "";
+      const badge = el("span", "", "episode-badge"); artwork.append(still, badge);
+      const progress = deck.items.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === episode.seasonNumber && e.episodeNumber === episode.episodeNumber);
+      if (progress?.offsetMs) { const bar = el("progress"); bar.max = 100; bar.value = Math.min(100, Math.max(0, progress.progressPercent || 0)); artwork.append(bar); }
+      tile.append(artwork, el("strong", `${episode.episodeNumber}. ${meta?.title || episode.title}`), el("p", [meta?.runtime ? `${meta.runtime} min` : "", episode.file?.resolution, episode.file?.hdr].filter(Boolean).join(" · ")));
+      states.set(episodeKey(episode), { tile, badge }); grid.append(tile);
     }
-    content.append(grid); if (playButton) playButton.focus(); else focusFirst();
+    content.append(grid); renderStates(); if (playButton) playButton.focus(); else focusFirst();
+  }
+  function episodeDialog(local: Media, detail: Media, season: Series["seasons"][number], episode: Episode, metadata: Episode | undefined, deck: DeckEntry[], watchedKeys: Set<string>, updateSeason: () => void) {
+    if (closeModal) return;
+    const returnFocus = document.activeElement as HTMLElement;
+    const overlay = el("div", "", "modal episode-overlay"), box = el("section", "", "episode-dialog"); box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-label", `${detail.title} · ${metadata?.title || episode.title}`);
+    const stillPath = metadata?.stillPath || detail.backdropPath;
+    if (stillPath) overlay.style.backgroundImage = `linear-gradient(90deg,#05070fe8,#05070fd9),url("${imageUrl(stillPath)}")`;
+    const cancel = () => { overlay.remove(); closeModal = null; if (returnFocus.isConnected) returnFocus.focus({ preventScroll: true }); }; closeModal = cancel;
+    const art = el("div", "", "episode-dialog-art"), image = el("img"); image.src = imageUrl(stillPath); image.alt = ""; art.append(image);
+    const progress = deck.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === episode.seasonNumber && e.episodeNumber === episode.episodeNumber);
+    if (progress?.offsetMs) { const bar = el("progress"); bar.max = 100; bar.value = Math.min(100, Math.max(0, progress.progressPercent || 0)); art.append(bar); }
+    const key = `${episode.seasonNumber}.${episode.episodeNumber}`; const state = el("p", "", "episode-watch-state"); art.append(state);
+    const info = el("div", "", "episode-dialog-info"); info.append(el("h1", detail.title), el("h2", metadata?.title || episode.title), el("p", `${t("tizen.season")} ${season.seasonNumber} · ${t("title.episode")} ${episode.episodeNumber} · ${episodeStatus(episode)}`, "episode-detail-meta"));
+    info.append(el("p", [episode.file?.resolution, episode.file?.hdr, metadata?.runtime ? `${metadata.runtime} min` : "", metadata?.rating ? `★ ${metadata.rating.toFixed(1)}` : "", metadata?.airDate ? new Date(metadata.airDate).toLocaleDateString(locale) : ""].filter(Boolean).join(" · "), "episode-detail-meta"));
+    const actions = el("div", "", "actions");
+    if (episodePlayable(episode)) {
+      actions.append(button(progress?.offsetMs && !watchedKeys.has(key) ? t("tizen.resumeAt").replace("{time}", timeLabel(progress.offsetMs)) : t("tizen.play"), () => { cancel(); return play(local, "series", episode); }, "primary"));
+      if (progress?.offsetMs && !watchedKeys.has(key)) actions.append(button(t("tizen.fromStart"), () => { cancel(); return play(local, "series", episode, true); }));
+    } else {
+      const search = button(t("library.searchSeason"), async () => { search.disabled = true; try { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, {}); toast(t("discover.searchingRelease")); } finally { search.disabled = false; } }, "primary");
+      search.disabled = ["searching", "downloading", "upcoming"].includes(episode.status); actions.append(search);
+    }
+    const toggle = button("", async () => {
+      const seen = watchedKeys.has(key); toggle.disabled = true;
+      try { await call("/api/watch/toggle", { tmdbId: detail.tmdbId, type: "series", title: detail.title, watched: !seen, episodes: [{ season: episode.seasonNumber, episode: episode.episodeNumber }] }); if (seen) watchedKeys.delete(key); else watchedKeys.add(key); refreshState(); updateSeason(); }
+      finally { toggle.disabled = false; if (toggle.isConnected && document.activeElement === document.body) toggle.focus(); }
+    });
+    function refreshState() { const seen = watchedKeys.has(key); toggle.textContent = t(seen ? "tizen.markUnwatched" : "tizen.markWatched"); state.textContent = seen ? `✓ ${t("watch.watched")}` : progress?.offsetMs ? t("tizen.resumeAt").replace("{time}", timeLabel(progress.offsetMs)) : t("tizen.unwatched"); art.querySelector("progress")?.toggleAttribute("hidden", seen); }
+    if (episode.status !== "upcoming" && episode.seasonNumber > 0) actions.append(toggle); actions.append(button(t("tizen.back"), cancel)); info.append(actions);
+    info.append(el("p", metadata?.overview || episode.overview || t("title.noSynopsis"), "episode-synopsis"));
+    if (episode.file) info.append(el("p", [episode.file.videoCodec, episode.file.audioCodec, episode.file.source].filter(Boolean).join(" · "), "episode-detail-meta"));
+    refreshState(); box.append(art, info); overlay.append(box); app.append(overlay); box.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
   }
   async function downloads() {
     const version = begin(t("nav.downloads")); content.append(button(t("tizen.back"), settings)); const list = el("div"); content.append(list);
@@ -484,21 +534,35 @@ interface Window {
   }
   async function profile() {
     const version = begin(saved?.user.username || t("tizen.profile"));
-    const data = await call<{ continueWatching: Media[]; watchHistory: Media[]; watchlist: Media[] }>("/api/profile/media");
+    interface ProfileMedia extends Omit<Media, "type" | "progress"> { type: "movie" | "series" | "episode"; progress?: { ratio: number } | null; stillPath?: string; subtitle?: string }
+    const data = await call<{ continueWatching: ProfileMedia[]; watchHistory: ProfileMedia[]; watchlist: ProfileMedia[] }>("/api/profile/media");
     if (version !== generation) return;
-    function normalize(items: Media[]) { return items.map(item => ({ ...item, type: String(item.type) === "episode" ? "series" as const : item.type })); }
+    function normalize(items: ProfileMedia[]): Media[] { return items.map(item => ({ ...item, type: item.type === "episode" ? "series" : item.type, progress: (item.progress?.ratio || 0) * 100, backdropPath: item.stillPath || item.backdropPath, episodeTitle: item.subtitle })); }
     row(t("tizen.continueWatching"), normalize(data.continueWatching || [])); row(t("tizen.history"), normalize(data.watchHistory || [])); row(t("tizen.watchlist"), normalize(data.watchlist || [])); focusFirst();
   }
   async function settings() {
-    begin(t("nav.settings")); content.append(el("p", `Movviz ${window.MOVVIZ_VERSION} · Samsung Tizen`, "muted"), el("p", saved?.server || "", "muted"));
+    const version = begin(t("nav.settings")); content.classList.add("settings-page"); const loading = el("p", t("tizen.loading"), "muted"); content.append(loading);
+    const response = await call<{ prefs: { preferredAudioLanguage?: string } }>("/api/settings/preferences"); if (version !== generation) return; loading.remove();
+    function section(label: string) { const node = el("section", "", "settings-section"); node.append(el("h2", label)); content.append(node); return node; }
+    function info(parent: HTMLElement, label: string, value: string) { const row = el("p", "", "settings-info"); row.append(el("span", label), el("span", value)); parent.append(row); }
+    const account = section(t("tizen.account")); info(account, t("tizen.username"), saved!.user.username); info(account, t("tizen.role"), saved!.user.role); info(account, t("tizen.server"), saved!.server);
+    const playback = section(t("tizen.playback")); playback.append(el("p", t("player.preferredAudioLanguage"), "muted")); const languages = el("div", "", "audio-languages"); playback.append(languages);
+    let selected = response.prefs.preferredAudioLanguage || "auto", busy = false;
+    const languageLabels: Record<string, string> = { auto: t("player.audioLang.auto"), fr: t("player.audioLang.fr"), en: t("player.audioLang.en"), es: t("player.audioLang.es"), de: t("player.audioLang.de"), it: t("player.audioLang.it"), nl: t("player.audioLang.nl") };
+    const chips = Object.entries(languageLabels).map(([code, label]) => {
+      const chip = button(label, async () => {
+        if (busy || selected === code) return; busy = true; chips.forEach(node => { node.disabled = true; });
+        try { const result = await call<{ prefs: { preferredAudioLanguage?: string } }>("/api/settings/preferences", { preferredAudioLanguage: code }, "PATCH"); if (result.prefs.preferredAudioLanguage !== code) throw new Error(t("tizen.requestFailed")); selected = code; renderSelection(); }
+        finally { busy = false; chips.forEach(node => { node.disabled = false; }); if (chip.isConnected) chip.focus(); }
+      }); chip.dataset.language = code; languages.append(chip); return chip;
+    });
+    function renderSelection() { chips.forEach(chip => { const chosen = chip.dataset.language === selected; chip.classList.toggle("selected", chosen); chip.setAttribute("aria-pressed", String(chosen)); }); } renderSelection();
+    const about = section(t("tizen.about")); info(about, t("tizen.application"), "Movviz NX · Samsung Tizen"); info(about, t("settings.aboutVersion").replace("{version}", "").trim(), window.MOVVIZ_VERSION);
+    const links = el("div", "", "settings-links"); links.append(button(t("nav.downloads"), downloads), button(t("tizen.profile"), profile), button(t("tizen.whoWatching"), profilesScreen)); content.append(links);
     content.append(button(t("tizen.signOut"), async () => {
       await call("/api/auth/logout", {}); const id = saved?.user.id;
       localStorage.setItem("movviz.tv.profiles", JSON.stringify(readProfiles().filter(p => !(p.server === loginServer && p.user.id === id)))); saved = null; movies = []; series = []; localStorage.removeItem("movviz.tv.connection"); await loginScreen();
-    })); focusFirst();
-    content.append(button(t("nav.downloads"), downloads), button(t("tizen.profile"), profile), button(t("tizen.whoWatching"), profilesScreen));
-    const language = el("select"); language.setAttribute("aria-label", t("tizen.language")); language.dataset.focusId = String(++focusCounter);
-    ["fr", "en", "de", "it", "nl"].forEach(code => { const option = el("option", code.toUpperCase()); option.value = code; language.append(option); }); language.value = locale;
-    language.onchange = () => { locale = language.value; saved!.locale = locale; remember(); void call("/api/settings/preferences", { locale }, "PATCH").catch(report); }; content.append(language);
+    }, "danger")); (chips.find(chip => chip.dataset.language === selected) || chips[0]).focus();
   }
 
   function playbackProfile() {
@@ -513,7 +577,7 @@ interface Window {
       subtitleCapabilities: [], maxWidth: 1920, maxHeight: 1080,
     };
   }
-  async function play(media: Media, type: MediaType, episode?: Episode) {
+  async function play(media: Media, type: MediaType, episode?: Episode, fromStart = false) {
     if (startingPlayer || activePlayer) return;
     const av = window.webapis?.avplay; if (!av) throw new Error(t("tizen.devicePlayerOnly"));
     const startGeneration = generation;
@@ -549,7 +613,8 @@ interface Window {
       const overlay = el("div", "", "player-overlay"); overlay.append(el("h1", episode ? `${media.title} · ${episode.title}` : media.title));
       const progress = el("progress"); progress.id = "timeline"; progress.max = duration; overlay.append(progress, el("div", "", "player-time"));
       const controls = el("div", "", "actions"); controls.append(button(t("tizen.pausePlay"), togglePlay), button("−30 s", () => seek(-30000)), button("+30 s", () => seek(30000)), button(t("tizen.audio"), () => trackPicker("audio")), button(t("tizen.subtitles"), () => trackPicker("subtitle")), button(t("tizen.stop"), () => stopPlayer(false))); if (episode) controls.append(button(t("tizen.nextEpisode"), nextEpisode)); overlay.append(controls); app.append(overlay);
-      if (session.resumeOffsetMs && session.resumeOffsetMs > 0) await reposition(session.resumeOffsetMs, false);
+      if (!fromStart && session.resumeOffsetMs && session.resumeOffsetMs > 0) await reposition(session.resumeOffsetMs, false);
+      if (fromStart && session.resumeOffsetMs) await progressCall(`/api/playback/sessions/${session.sessionId}/seek`, { toMs: 0 });
       if (av.getState() === "READY" || av.getState() === "PAUSED") av.play(); controls.querySelector("button")?.focus();
       if (activePlayer) activePlayer.timer = window.setInterval(() => { void heartbeat().catch(report); }, 10000);
     } catch (error) {
