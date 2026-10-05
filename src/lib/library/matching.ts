@@ -140,6 +140,22 @@ function hasWholesaleWordSubstitution(na: string, nb: string): boolean {
   return false;
 }
 
+/** Country/region words that turn a title into a distinct national edition of
+ *  the same format. Deliberately excludes "us"/"uk" — releases routinely tag
+ *  the original show that way ("The Office US"). Mirrored in
+ *  workers/releaseMatchWorker.mjs — keep in sync. */
+const EDITION_MARKERS = new Set([
+  "quebec", "canada", "france", "belgique", "belgium", "suisse", "switzerland",
+  "germany", "deutschland", "italia", "espana", "australia", "brasil", "india",
+  "japan", "korea", "mexico", "latam",
+]);
+
+/** True when `longer` has an edition marker among the words `shorter` lacks. */
+function hasEditionMarker(longer: string, shorter: string): boolean {
+  const have = new Set(shorter.split(" "));
+  return longer.split(" ").some((w) => EDITION_MARKERS.has(w) && !have.has(w));
+}
+
 /** 0..1 similarity — 1 is identical, accent/case/punctuation-insensitive.
  *  Optional `yearInfo` gates the containment bonus on the release year:
  *  without it (other callers) the bonus applies whenever the title is fully
@@ -175,6 +191,9 @@ function titleSimilarityUncached(
     // a distinct spin-off series, not a variant release title of the same
     // show. Scale the score down as that extra tail grows.
     const extraWords = longer.split(" ").filter(Boolean).length - shorter.split(" ").filter(Boolean).length;
+    // A national edition of a format ("Hot Ones Quebec" vs "Hot Ones") is a
+    // different show with its own seasons — never a variant name of the base.
+    if (hasEditionMarker(longer, shorter)) return Math.min(0.5, 0.9 - extraWords * 0.15);
     // Single-word short titles matched by containment are extremely likely
     // false positives ("Lucky" inside "Lucky Luke"), since nearly every
     // multi-word series shares its first word with something else. Penalise

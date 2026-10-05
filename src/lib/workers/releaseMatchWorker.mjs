@@ -245,6 +245,18 @@ function hasWholesaleWordSubstitution(na, nb) {
   return false;
 }
 
+// Mirrors matching.ts's EDITION_MARKERS / hasEditionMarker().
+const EDITION_MARKERS = new Set([
+  "quebec", "canada", "france", "belgique", "belgium", "suisse", "switzerland",
+  "germany", "deutschland", "italia", "espana", "australia", "brasil", "india",
+  "japan", "korea", "mexico", "latam",
+]);
+
+function hasEditionMarker(longer, shorter) {
+  const have = new Set(shorter.split(" "));
+  return longer.split(" ").some((w) => EDITION_MARKERS.has(w) && !have.has(w));
+}
+
 function titleSimilarity(a, b, yearInfo = null) {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
@@ -254,6 +266,7 @@ function titleSimilarity(a, b, yearInfo = null) {
   const longer = na.length <= nb.length ? nb : na;
   if (shorter.length >= 4 && containsAsWords(longer, shorter)) {
     const extraWords = longer.split(" ").filter(Boolean).length - shorter.split(" ").filter(Boolean).length;
+    if (hasEditionMarker(longer, shorter)) return Math.min(0.5, 0.9 - extraWords * 0.15);
     const shortWords = shorter.split(" ").filter(Boolean).length;
     const singleWordPenalty = shortWords <= 1 && extraWords > 0 ? 0.15 : 0;
     const base = Math.max(0.5, 0.9 - extraWords * 0.15 - singleWordPenalty);

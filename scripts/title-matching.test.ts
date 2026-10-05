@@ -79,3 +79,11 @@ test("sanitizeQuery préserve le + comme mot (recherche manuelle) — confirmé 
   assert.equal(sanitizeQuery("Blood+"), "Blood.plus");
   assert.equal(sanitizeQuery("Fear & Loathing"), "Fear.and.Loathing");
 });
+
+test("édition nationale : « Hot Ones Quebec » n'est pas « Hot Ones » (émission distincte, saisons propres)", () => {
+  assert.equal(releaseTitleMatches("Hot Ones Quebec", "Hot Ones"), false);
+  assert.equal(releaseTitleMatches("Hot Ones", "Hot Ones"), true);
+  assert.equal(releaseTitleMatches("Hot Ones Quebec", "Hot Ones Québec"), true);
+  // un tag « US » reste une variante du même titre
+  assert.equal(releaseTitleMatches("The Office US", "The Office"), true);
+});

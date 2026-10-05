@@ -370,6 +370,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
         try {
           const p = new URLSearchParams({ q: queueItemSearchQuery(item.media), category: item.media.type });
           p.set("refTitle", item.media.title);
+          p.set("autoPick", "1");
           if (item.media.tmdbId) p.set("tmdbId", String(item.media.tmdbId));
           const searchData = await api(`/api/indexers/search?${p.toString()}`);
           const best: IndexerRelease | undefined = (searchData.releases ?? [])[0];

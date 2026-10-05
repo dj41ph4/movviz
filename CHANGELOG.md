@@ -1,3 +1,10 @@
+## v1.25.179 — Octobre 2026
+
+### Téléchargements : fin des mauvaises éditions et des mots interdits contournés
+
+- Une release d'une édition nationale d'une émission n'est plus prise pour la série de base : « Hot Ones Quebec » n'est plus téléchargée pour « Hot Ones » (même chose pour Canada, France, Belgique, Australie, etc.).
+- « Remplacer les bloqués » respecte désormais les mots interdits : une release contenant un terme interdit (par exemple VFQ) n'est plus choisie automatiquement, quel que soit son score. La recherche manuelle continue de tout afficher.
+
 ## v1.25.178 — Octobre 2026
 
 ### Samsung Tizen : premier client NX en bêta et release GitHub

@@ -6,6 +6,7 @@ import { loadIndexers } from "@/lib/indexers/store";
 import { countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { searchIndexer, searchMovie, sanitizeQuery, rescoreRelease } from "@/lib/indexers/torznab";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { loadReleaseRules, matchesBlockedWord } from "@/lib/library/releaseRules";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
 
@@ -229,6 +230,15 @@ export async function GET(req: NextRequest) {
     } else {
       recordSearchLog("warn", "manual_search.no_indexers_available", `"${searchQuery}" — aucun indexeur torrent configuré`);
     }
+  }
+
+  // autoPick=1 : l'appelant prend la première release sans intervention
+  // humaine (« Remplacer les bloqués »). Même veto sur les mots interdits que
+  // l'auto-grab, là où la recherche manuelle montre tout et laisse l'humain
+  // trancher.
+  if (req.nextUrl.searchParams.get("autoPick") === "1") {
+    const rules = loadReleaseRules();
+    filtered = filtered.filter((r) => !matchesBlockedWord(r.title, rules));
   }
 
   return NextResponse.json({
