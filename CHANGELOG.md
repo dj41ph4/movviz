@@ -1,3 +1,11 @@
+## v1.25.180 — Octobre 2026
+
+### Samsung Tizen : parcours plus proche d'Android TV NX
+
+- Réglages, fiche titre, saisons et épisodes revus : état vu/non vu, compteur d'épisodes vus et manquants, reprise à l'endroit exact ou depuis le début.
+- Accueil cohérent quand l'IA n'est pas activée : aucune zone vide ni élément IA visible.
+- Nouveaux libellés traduits dans les cinq langues, et audit UX de la version Samsung ajouté à la documentation de portage.
+
 ## v1.25.179 — Octobre 2026
 
 ### Téléchargements : fin des mauvaises éditions et des mots interdits contournés
