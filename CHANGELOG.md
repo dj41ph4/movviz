@@ -1,3 +1,9 @@
+## v1.25.184 — Octobre 2026
+
+### Movviz Companion : logo net
+
+- L’icône de l’extension reprend le logo Movviz en PNG transparent, sans le contour sombre qui apparaissait sur les bords.
+
 ## v1.25.183 — Octobre 2026
 
 ### Movviz Companion : demande tes films et séries depuis les sites de cinéma
