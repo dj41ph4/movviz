@@ -111,6 +111,7 @@ fun LibraryHubScreen(
         when (tabIndex) {
             0 -> {
                 val watchlist = profileData?.watchlist.orEmpty()
+                    .distinctBy { "${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }
                 if (watchlist.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Votre watchlist est vide.", "Ajoutez des films ou séries pour les retrouver ici.") }
                 } else {
@@ -123,7 +124,12 @@ fun LibraryHubScreen(
                 }
             }
             1 -> {
+                // L'historique est un journal : un film revu ou un épisode
+                // relancé y figure plusieurs fois. Deux clés identiques dans
+                // la grille font planter Compose (« Key was already used ») :
+                // on garde l'entrée la plus récente de chaque titre.
                 val history = profileData?.watchHistory.orEmpty()
+                    .distinctBy { "${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }
                 if (history.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Aucun historique pour le moment.", "Vos films et épisodes vus apparaîtront ici.") }
                 } else {

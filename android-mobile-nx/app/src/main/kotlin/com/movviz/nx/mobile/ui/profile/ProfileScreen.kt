@@ -394,6 +394,9 @@ internal fun LazyListScope.profileRail(
     onSeeAll: (() -> Unit)? = null,
 ) {
     if (cards.isEmpty()) return
+    // Même garde que la Bibliothèque : l'historique peut contenir deux fois
+    // le même titre, et une clé en double fait planter la rangée.
+    val cards = cards.distinctBy { "${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }
     item {
         Column(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 14.dp)) {

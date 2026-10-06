@@ -1,3 +1,9 @@
+## v1.25.196 — Octobre 2026
+
+### Android mobile : correctif
+
+- L'Historique de Mon espace ne fait plus planter l'application quand un même film ou épisode y figure plusieurs fois (revu ou relancé) : chaque titre n'apparaît qu'une fois, à sa date la plus récente.
+
 ## v1.25.195 — Octobre 2026
 
 ### Apparence Bêta : accueil plein cadre sur ordinateur
