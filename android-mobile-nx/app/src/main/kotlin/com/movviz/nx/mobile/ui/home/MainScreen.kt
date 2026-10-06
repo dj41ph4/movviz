@@ -131,6 +131,7 @@ fun MainScreen(
                         navRailFocusRequester = navRailFocusRequester,
                         onHomeScrollChanged = onHomeScrollChanged,
                         onSwitchProfile = onSwitchProfile,
+                        onOpenPerson = onOpenPerson,
                     )
                 }
                 if (!searchOpen) {
@@ -169,6 +170,7 @@ fun MainScreen(
         navRailFocusRequester = navRailFocusRequester,
         onHomeScrollChanged = onHomeScrollChanged,
         onSwitchProfile = onSwitchProfile,
+        onOpenPerson = onOpenPerson,
     )
 }
 
@@ -192,6 +194,7 @@ private fun MainContent(
     navRailFocusRequester: FocusRequester?,
     onHomeScrollChanged: (Boolean) -> Unit,
     onSwitchProfile: () -> Unit,
+    onOpenPerson: (personId: Int) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     Box(
