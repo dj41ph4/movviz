@@ -30,6 +30,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -157,6 +161,14 @@ fun TitleDetailScreen(
     // flottants car le rail ne revient pas en arrière).
     val unfoldedDetail = com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
     val narrowDetail = compactPortrait || unfoldedDetail
+    // Refonte premium : deux volets (visuel fixe à gauche, fiche défilante à
+    // droite) quand l'écran est plus large que haut et assez bas pour que le
+    // hero empilé mange tout l'écran (téléphone tourné, Fold ouvert à plat).
+    // Le Fold ouvert tenu droit reprend la fiche portrait, en plus grand.
+    val detailWindowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
+    val twoPane = detailWindowClass == com.movviz.nx.mobile.ui.theme.MovvizWindowClass.LANDSCAPE_SHORT ||
+        detailWindowClass == com.movviz.nx.mobile.ui.theme.MovvizWindowClass.FOLD_FLAT
+    val portraitLike = compactPortrait || detailWindowClass == com.movviz.nx.mobile.ui.theme.MovvizWindowClass.FOLD_UPRIGHT
     val detail by viewModel.detail.collectAsState()
     val detailError by viewModel.detailError.collectAsState()
     // Même artwork de titre que TitleContent sur desktop : le logo officiel
@@ -515,24 +527,47 @@ fun TitleDetailScreen(
         ambientPreview = viewModel.loadTvPreview(type, tmdbId)
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    // Ambiance tirée de l'affiche (refonte premium) : le fond de la fiche
+    // prend la teinte dominante du titre au lieu d'un noir identique partout.
+    // La TV garde son fond neutre.
+    val pageBackground = MaterialTheme.colorScheme.background
+    val posterAmbient = com.movviz.nx.mobile.ui.theme.rememberPosterAmbient(
+        detail?.posterPath?.takeIf { detailWindowClass != com.movviz.nx.mobile.ui.theme.MovvizWindowClass.TV }?.let { "https://image.tmdb.org/t/p/w185$it" },
+    )
+    val pageTop by androidx.compose.animation.animateColorAsState(
+        targetValue = posterAmbient?.let { androidx.compose.ui.graphics.lerp(pageBackground, it, 0.42f) } ?: pageBackground,
+        animationSpec = androidx.compose.animation.core.tween(600),
+        label = "detail-ambient",
+    )
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var screenWidth by remember { mutableStateOf(0.dp) }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(0f to pageTop, 0.55f to pageTop, 1f to pageBackground))
+            .onSizeChanged { screenWidth = with(density) { it.width.toDp() } },
+    ) {
         // Hero réduit en déplié (paysage parfois bas) : contenu + CTA restent
         // visibles sans scroller, comme la maquette fiche dépliée.
-        val heroHeight = if (compactPortrait) 460.dp else if (unfoldedDetail) 340.dp else 560.dp
-        val heroMediaHeight = if (compactPortrait) 460.dp else if (unfoldedDetail) 340.dp else 640.dp
+        val heroHeight = if (compactPortrait) 460.dp else if (portraitLike) 520.dp else if (unfoldedDetail) 340.dp else 560.dp
+        val heroMediaHeight = if (compactPortrait) 460.dp else if (portraitLike) 520.dp else if (unfoldedDetail) 340.dp else 640.dp
+        // En deux volets, le visuel occupe la moitié gauche sur toute la
+        // hauteur et ne défile pas : pas de parallax.
+        val heroMediaModifier = if (twoPane) {
+            Modifier.fillMaxWidth(0.5f).fillMaxHeight()
+        } else {
+            Modifier.fillMaxWidth().height(heroMediaHeight).graphicsLayer { translationY = parallaxOffset }
+        }
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
             Image(
                 painter = rememberAsyncImagePainter(model = backdropUrl, contentScale = ContentScale.Crop),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heroMediaHeight)
-                    .graphicsLayer { translationY = parallaxOffset },
+                modifier = heroMediaModifier,
             )
         } else {
-            Box(modifier = Modifier.fillMaxWidth().height(heroHeight).background(MaterialTheme.colorScheme.surface))
+            Box(modifier = heroMediaModifier.background(MaterialTheme.colorScheme.surface))
         }
 
         // L'aperçu est placé AU-DESSUS de l'image mais SOUS les dégradés : le
@@ -545,10 +580,7 @@ fun TitleDetailScreen(
                 directSources = preview?.directSources.orEmpty(),
                 trailerKeys = previewKeys,
                 title = preview?.title ?: detail?.title.orEmpty(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heroMediaHeight)
-                    .graphicsLayer { translationY = parallaxOffset },
+                modifier = heroMediaModifier,
             )
         }
 
@@ -558,24 +590,39 @@ fun TitleDetailScreen(
         // s'assombrit désormais surtout dans le dernier tiers (retour
         // utilisateur : le hero précédent, plus court et assombri dès la
         // moitié, "coupait" l'image trop tôt et paraissait peu immersif).
+        if (twoPane) {
+            // Fondu vers la droite (où commence la fiche) et vers le bas.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.5f)
+                    .fillMaxHeight()
+                    .background(Brush.horizontalGradient(0f to Color.Transparent, 0.55f to Color.Transparent, 1f to pageTop)),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.5f)
+                    .fillMaxHeight()
+                    .background(Brush.verticalGradient(0f to Color.Transparent, 0.6f to Color.Transparent, 1f to pageTop.copy(alpha = 0.9f))),
+            )
+        } else {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(heroHeight)
                 .background(
-                    if (compactPortrait) {
+                    if (portraitLike) {
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.55f),
-                                MaterialTheme.colorScheme.background,
+                                pageTop.copy(alpha = 0.55f),
+                                pageTop,
                             ),
                             startY = 0f,
                         )
                     } else {
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.75f), MaterialTheme.colorScheme.background),
+                            colors = listOf(Color.Transparent, pageTop.copy(alpha = 0.75f), pageTop),
                         )
                     },
                 ),
@@ -583,13 +630,14 @@ fun TitleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (compactPortrait) 460.dp else 560.dp)
+                .height(if (portraitLike) heroHeight else 560.dp)
                 .background(
                     Brush.horizontalGradient(
-                        colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.55f), Color.Transparent),
+                        colors = listOf(pageTop.copy(alpha = 0.55f), Color.Transparent),
                     ),
                 ),
         )
+        }
 
         // Retour + watchlist flottants sur le hero (esquisse mobile section
         // 7) — jamais de barre haute classique sur la fiche média portrait.
@@ -699,12 +747,16 @@ fun TitleDetailScreen(
         TvLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = if (narrowDetail) 16.dp else 56.dp, end = if (narrowDetail) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
+                .padding(
+                    start = if (twoPane) (screenWidth * 0.5f - 8.dp).coerceAtLeast(16.dp) else if (portraitLike) (if (compactPortrait) 16.dp else 32.dp) else if (narrowDetail) 16.dp else 56.dp,
+                    end = if (twoPane) 24.dp else if (portraitLike && !compactPortrait) 32.dp else if (narrowDetail) 16.dp else 56.dp,
+                    bottom = if (compactPortrait) 24.dp else 40.dp,
+                ),
             state = lazyListState,
             // La barre supérieure flotte au-dessus du backdrop : une zone
             // sûre explicite empêche logo, titre et première ligne de passer
             // sous elle, en 1080p comme en 4K. En déplié, pas de barre : 16dp.
-            contentPadding = PaddingValues(top = if (compactPortrait) 300.dp else if (unfoldedDetail) 16.dp else 112.dp),
+            contentPadding = PaddingValues(top = if (compactPortrait) 300.dp else if (portraitLike) 360.dp else if (twoPane) 64.dp else if (unfoldedDetail) 16.dp else 112.dp),
         ) {
             item {
             // Première cible D-pad = la zone VISUELLE du logo/titre, jamais
@@ -716,8 +768,8 @@ fun TitleDetailScreen(
             }
             Box(
                 modifier = Modifier
-                    .width(if (compactPortrait) 358.dp else 720.dp)
-                    .heightIn(min = if (compactPortrait) 76.dp else 116.dp)
+                    .then(if (narrowDetail) Modifier.fillMaxWidth() else Modifier.width(720.dp))
+                    .heightIn(min = if (compactPortrait || twoPane) 76.dp else 116.dp)
                     .focusRequester(initialFocusRequester)
                     .focusable()
                     .onFocusChanged { topAnchorFocused = it.isFocused }
@@ -736,8 +788,8 @@ fun TitleDetailScreen(
                         contentScale = ContentScale.Fit,
                         alignment = Alignment.CenterStart,
                         modifier = Modifier
-                            .heightIn(max = if (compactPortrait) 76.dp else 116.dp)
-                            .width(if (compactPortrait) 250.dp else 620.dp),
+                            .heightIn(max = if (compactPortrait || twoPane) 76.dp else 116.dp)
+                            .then(if (narrowDetail) Modifier.fillMaxWidth(0.72f) else Modifier.width(620.dp)),
                     )
                 } else if (showTitleFallback) {
                     Text(
@@ -885,12 +937,16 @@ fun TitleDetailScreen(
                         val playKey = plexKey ?: localPlayableId
                         if (playKey != null) {
                             val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
+                            // Refonte premium : « Lire » est blanc partout (le
+                            // dégradé reste réservé à « Ajouter »), et la
+                            // progression de reprise se lit dans le bouton.
                             PrimaryPill(
                                 text = ctaText,
-                                brush = if (fillWidth) Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)) else null,
-                                solidWhite = !fillWidth,
+                                brush = null,
+                                solidWhite = true,
                                 icon = MovvizIconPlay,
                                 fillWidth = fillWidth,
+                                progress = movieResume?.let { (it.progressPercent / 100f).coerceIn(0f, 1f) },
                             ) {
                                 onPlay(d.title, listOf(QueueItem(playKey, null, -1, -1, localMovieId ?: localPlayableId)), 0, d.posterPath)
                             }
@@ -933,21 +989,22 @@ fun TitleDetailScreen(
                     }
                     if (compactPortrait) {
                         primaryCta(true)
-                        if (movieResume != null && plexRatingKey != null) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay, fillWidth = true) {
-                                onPlayFromStart(d.title, listOf(QueueItem(plexRatingKey!!, null, -1, -1, localMovieId)), 0, d.posterPath)
+                        // Actions secondaires en boutons ronds légendés : une
+                        // seule rangée au lieu de trois pilules empilées.
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                            if (movieResume != null && plexRatingKey != null) {
+                                RoundAction(icon = MovvizIconReplay, label = "Depuis le début") {
+                                    onPlayFromStart(d.title, listOf(QueueItem(plexRatingKey!!, null, -1, -1, localMovieId)), 0, d.posterPath)
+                                }
                             }
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        PrimaryPill(
-                            text = if (movieWatched) "Marquer non vu" else "Marquer vu",
-                            brush = null,
-                            solidWhite = false,
-                            icon = MovvizIconCheck,
-                            fillWidth = true,
-                        ) {
-                            viewModel.toggleMovieWatched(tmdbId, d.title, !movieWatched)
+                            RoundAction(
+                                icon = MovvizIconCheck,
+                                label = if (movieWatched) "Vu" else "Marquer vu",
+                                active = movieWatched,
+                            ) {
+                                viewModel.toggleMovieWatched(tmdbId, d.title, !movieWatched)
+                            }
                         }
                     } else {
                     Row {
@@ -973,7 +1030,7 @@ fun TitleDetailScreen(
                     // esprit que le hero de l'accueil (progressPercent sur
                     // PosterCard), juste sous un bouton plutôt que sur un
                     // poster ici.
-                    movieResume?.let { resume ->
+                    if (!compactPortrait) movieResume?.let { resume ->
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier
@@ -1046,6 +1103,7 @@ fun TitleDetailScreen(
                             icon = MovvizIconPlay,
                             // Pleine largeur en portrait, comme « Lire » côté film.
                             fillWidth = compactPortrait,
+                            progress = episodeResume?.let { (it.progressPercent / 100f).coerceIn(0f, 1f) },
                         ) {
                             val index = playableEpisodes.indexOfFirst {
                                 it.seasonNumber == ctaSeason && it.episodeNumber == ctaEpisode
@@ -1277,12 +1335,48 @@ private fun SeasonSelector(
     // Portrait : cartes compactes — elles ne portent que du texte, la grande
     // carte TV laissait un rectangle vide sous « 12 épisodes ».
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    // Refonte premium : sur téléphone et Fold, les saisons sont des puces
+    // compactes « Saison 2 · 10 ép. » ; la TV garde ses cartes D-pad.
+    val chips = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
     Column(modifier = Modifier.padding(bottom = 20.dp)) {
-        Text(text = "Saisons", style = TextStyle(fontSize = if (compactPortrait) 22.sp else 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+        Text(text = "Saisons", style = TextStyle(fontSize = if (chips) 20.sp else 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(12.dp))
-        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(if (chips) 8.dp else 10.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
                 val selected = season.seasonNumber == selectedSeasonNumber
+                if (chips) {
+                    val chipShape = RoundedCornerShape(20.dp)
+                    Surface(
+                        onClick = { onSelect(season.seasonNumber) },
+                        modifier = Modifier.height(40.dp).tvPointerClick { onSelect(season.seasonNumber) },
+                        shape = ClickableSurfaceDefaults.shape(chipShape),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (selected) Color.White else Color.White.copy(alpha = 0.08f),
+                            focusedContainerColor = if (selected) Color.White else Color.White.copy(alpha = 0.16f),
+                            contentColor = if (selected) Color.Black else MovvizInk,
+                            focusedContentColor = if (selected) Color.Black else MovvizInk,
+                        ),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxHeight().padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
+                                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = "  ·  ${season.episodes.size} ép.",
+                                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                                color = if (selected) Color.Black.copy(alpha = 0.6f) else MovvizInkSoft,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                    return@items
+                }
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
@@ -1860,14 +1954,36 @@ private fun EpisodeDetailOverlay(
     // côte, « Retour » n'avait plus la place et s'écrivait lettre par lettre.
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = !compactPortrait)) {
+        // Refonte premium : en portrait, l'épisode s'ouvre en feuille montant
+        // du bas (poignée, coins hauts arrondis), à portée du pouce. Un appui
+        // au-dessus de la feuille la referme, comme Retour.
+        Box(
+            modifier = if (compactPortrait) {
+                Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { onDismiss() } }
+            } else {
+                Modifier
+            },
+            contentAlignment = Alignment.BottomCenter,
+        ) {
         Box(
             modifier = Modifier
                 .widthIn(max = 920.dp)
-                .fillMaxWidth(if (compactPortrait) 0.94f else 0.82f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MovvizSurfaceStrong),
+                .fillMaxWidth(if (compactPortrait) 1f else 0.82f)
+                .clip(if (compactPortrait) RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp) else RoundedCornerShape(16.dp))
+                .background(MovvizSurfaceStrong)
+                .then(if (compactPortrait) Modifier.pointerInput(Unit) { detectTapGestures { } }.navigationBarsPadding() else Modifier),
         ) {
             Column(modifier = Modifier.padding(if (compactPortrait) 20.dp else 28.dp)) {
+                if (compactPortrait) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .width(36.dp)
+                            .height(4.dp)
+                            .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(2.dp)),
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
                 selection.metadata?.stillPath?.let { still ->
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still", contentScale = ContentScale.Crop),
@@ -1916,6 +2032,7 @@ private fun EpisodeDetailOverlay(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -1968,10 +2085,12 @@ private fun PrimaryPill(
     // pleine largeur en portrait, pas une pilule qui s'ajuste à son texte
     // comme sur TV/paysage — jamais utilisé hors compactPortrait.
     fillWidth: Boolean = false,
+    // Progression de reprise (0..1) dessinée en bas du bouton lui-même.
+    progress: Float? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(14.dp)
     Surface(
         onClick = onClick,
         enabled = enabled,
@@ -2002,6 +2121,7 @@ private fun PrimaryPill(
             ),
         ),
     ) {
+        Box(modifier = Modifier.let { if (fillWidth) it.fillMaxWidth() else it }) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = if (fillWidth) Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally) else Arrangement.spacedBy(8.dp),
@@ -2020,6 +2140,52 @@ private fun PrimaryPill(
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold),
             )
         }
+        if (progress != null && progress > 0f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth(progress)
+                    .height(3.dp)
+                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+            )
+        }
+        }
+    }
+}
+
+/** Action secondaire ronde et légendée (refonte premium, fiche portrait) :
+ *  48 dp de cible, même verre que les boutons flottants du hero. */
+@Composable
+private fun RoundAction(
+    icon: ImageVector,
+    label: String,
+    active: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp)) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.size(48.dp).tvPointerClick(onClick),
+            shape = ClickableSurfaceDefaults.shape(CircleShape),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = if (active) MovvizBrand.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.10f),
+                focusedContainerColor = Color.White.copy(alpha = 0.18f),
+                contentColor = if (active) Color(0xFFE2C9FF) else Color.White,
+                focusedContentColor = Color.White,
+            ),
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

@@ -5,7 +5,17 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.drawable.toBitmap
+import coil.imageLoader
+import coil.request.ImageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -65,4 +75,50 @@ object MovvizRadius {
     val small = RoundedCornerShape(8.dp)
     val medium = RoundedCornerShape(14.dp)
     val large = RoundedCornerShape(24.dp)
+}
+
+/**
+ * Couleur d'ambiance tirée de l'affiche : moyenne des pixels pondérée par
+ * leur saturation (les gris et noirs des bandes ne comptent presque pas),
+ * puis ramenée à une teinte sombre et lisible sous du texte blanc. Calculée
+ * sur une vignette 32 px déjà en cache Coil, hors du thread UI ; null tant
+ * qu'elle n'est pas prête, l'écran garde alors le fond par défaut.
+ */
+@Composable
+fun rememberPosterAmbient(url: String?): Color? {
+    val context = LocalContext.current
+    var color by remember(url) { mutableStateOf<Color?>(null) }
+    LaunchedEffect(url) {
+        if (url == null) return@LaunchedEffect
+        val request = ImageRequest.Builder(context).data(url).size(32).allowHardware(false).build()
+        val drawable = runCatching { context.imageLoader.execute(request).drawable }.getOrNull() ?: return@LaunchedEffect
+        color = withContext(Dispatchers.Default) {
+            runCatching { ambientFrom(drawable.toBitmap(32, 32)) }.getOrNull()
+        }
+    }
+    return color
+}
+
+private fun ambientFrom(bitmap: android.graphics.Bitmap): Color {
+    var r = 0.0
+    var g = 0.0
+    var b = 0.0
+    var weight = 0.0
+    val hsv = FloatArray(3)
+    for (x in 0 until bitmap.width) {
+        for (y in 0 until bitmap.height) {
+            val pixel = bitmap.getPixel(x, y)
+            android.graphics.Color.colorToHSV(pixel, hsv)
+            val w = 0.05 + hsv[1] * hsv[2]
+            r += android.graphics.Color.red(pixel) * w
+            g += android.graphics.Color.green(pixel) * w
+            b += android.graphics.Color.blue(pixel) * w
+            weight += w
+        }
+    }
+    val avg = android.graphics.Color.rgb((r / weight).toInt(), (g / weight).toInt(), (b / weight).toInt())
+    android.graphics.Color.colorToHSV(avg, hsv)
+    hsv[1] = hsv[1].coerceIn(0.35f, 0.75f)
+    hsv[2] = hsv[2].coerceIn(0.28f, 0.42f)
+    return Color(android.graphics.Color.HSVToColor(hsv))
 }

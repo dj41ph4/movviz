@@ -1,3 +1,15 @@
+## v1.25.192 — Octobre 2026
+
+### Android mobile : refonte premium de la fiche film et série
+
+- La fiche prend la couleur de l'affiche : le fond se teinte doucement selon le titre au lieu d'un noir identique partout.
+- En paysage et sur Fold ouvert à plat, la fiche s'affiche en deux volets : l'image reste fixe à gauche et les informations défilent à droite.
+- Sur Fold ouvert tenu droit, la fiche reprend la mise en page portrait avec plus d'espace.
+- Le bouton Lire est blanc partout, et la progression de reprise s'affiche directement dans le bouton.
+- En portrait, « Lire depuis le début » et « Marquer vu » deviennent des boutons ronds sur une seule ligne.
+- Les saisons se choisissent avec des puces compactes « Saison 2 · 10 ép. » sur téléphone et Fold.
+- En portrait, un épisode s'ouvre dans une feuille qui monte du bas, refermable d'un appui au-dessus.
+
 ## v1.25.191 — Octobre 2026
 
 ### Android mobile : refonte premium, première étape (châssis)
