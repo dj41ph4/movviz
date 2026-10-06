@@ -1,3 +1,16 @@
+## v1.25.197 — Octobre 2026
+
+### Apparence Bêta : Téléchargements fidèle à la maquette, fiche titre en onglets
+
+- Téléchargements : sous le titre, un résumé en direct (téléchargements actifs, débit, espace libre) remplace le texte d'explication.
+- Chaque ligne de la file est alignée en colonnes : contenu, progression, débit, temps restant, sources. Les actions restent discrètes (pause, recherche, suppression, détails).
+- La progression change de couleur selon l'état : violet en cours, gris en attente, vert terminé, rouge bloqué.
+- La colonne « Sources » affiche maintenant le vrai nombre de pairs, au lieu de flèches vides.
+- La colonne de droite s'organise en « Débit en direct », avec une courbe remplie, et en « État ». Les boutons groupés ne sont plus rouges, sauf au survol.
+- Fiche d'un titre sur ordinateur : Épisodes, Distribution, Similaires et Détails passent en onglets sous le résumé.
+- Correction : l'infobulle « Détails » affichait un texte technique au lieu du mot traduit.
+- Les reprises de lecture ne changent pas. Stable, le mobile et les applications TV non plus.
+
 ## v1.25.196 — Octobre 2026
 
 ### Android mobile : correctif

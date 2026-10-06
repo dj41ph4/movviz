@@ -139,6 +139,15 @@ export const nl: Dictionary = {
   },
 
   downloads: {
+    liveRate: "Live doorvoer",
+    stateTitle: "Status",
+    colContent: "Inhoud",
+    colProgress: "Voortgang",
+    colRate: "Snelheid",
+    colEta: "Resterend",
+    colSources: "Bronnen",
+    summaryActive: "{count} actief",
+    summaryFree: "{size} vrij",
     eyebrow: "Ingebouwde engine",
     title: "Downloads",
     description:
@@ -229,6 +238,7 @@ export const nl: Dictionary = {
   },
 
   common: {
+    details: "Details",
     play: "Afspelen",
     open: "Openen",
     inLibrary: "in je bibliotheek",
@@ -316,6 +326,10 @@ export const nl: Dictionary = {
   },
 
   title: {
+    tabEpisodes: "Afleveringen",
+    tabCast: "Cast",
+    tabSimilar: "Vergelijkbaar",
+    tabDetails: "Details",
     cast: "Cast",
     crew: "Crew",
     keywords: "Trefwoorden",

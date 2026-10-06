@@ -137,6 +137,15 @@ export const fr = {
   },
 
   downloads: {
+    liveRate: "Débit en direct",
+    stateTitle: "État",
+    colContent: "Contenu",
+    colProgress: "Progression",
+    colRate: "Débit",
+    colEta: "Reste",
+    colSources: "Sources",
+    summaryActive: "{count} actifs",
+    summaryFree: "{size} libres",
     eyebrow: "Moteur intégré",
     title: "Téléchargements",
     description:
@@ -227,6 +236,7 @@ export const fr = {
   },
 
   common: {
+    details: "Détails",
     play: "Lecture",
     open: "Ouvrir",
     inLibrary: "dans ta bibliothèque",
@@ -314,6 +324,10 @@ export const fr = {
   },
 
   title: {
+    tabEpisodes: "Épisodes",
+    tabCast: "Distribution",
+    tabSimilar: "Similaires",
+    tabDetails: "Détails",
     cast: "Distribution",
     crew: "Équipe",
     keywords: "Mots-clés",

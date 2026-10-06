@@ -31,9 +31,9 @@ du projet.
 | 0 | Tokens `--so-*`, polices embarquées, fond neutre | v1.25.190 (partiel : hex en dur et tailles < 11px restent à migrer) |
 | 1 | Barre du haut allégée, palette Ctrl K, focus unifié, en-têtes de page | v1.25.190 |
 | 2 | Accueil : bouton Lire clair, cartes plateformes intactes | v1.25.193, héros plein cadre en v1.25.195 |
-| 3 | Fiche titre : action principale claire, actions secondaires en icônes avec infobulle | v1.25.193 (onglets et panneau Fichier à suivre) |
+| 3 | Fiche titre : action principale claire, actions secondaires en icônes avec infobulle | v1.25.193, onglets du corps en v1.25.197 |
 | 4 | Bibliothèque, Découvrir, Calendrier : couleurs unifiées, doublon type/tri retiré de la bibliothèque | v1.25.193 |
-| 5 | Téléchargements (onglets, puces d'état, file, colonne live), accueil des réglages | v1.25.193 ; lecteur, profil et login à suivre |
+| 5 | Téléchargements (onglets, puces d'état, file, colonne live), accueil des réglages | v1.25.193, file alignée sur la maquette en v1.25.197 ; lecteur, profil et login suivent les couleurs unifiées |
 
 La sidebar rétractable garde sa structure (entrées, ordre, Gestion, profil en pied) : seules sa couleur et la forme de l'entrée active suivent Salle obscure (choix de Seb, 6 octobre 2026, pas de sections Regarder / Bibliothèque / Activité).
 

@@ -165,7 +165,7 @@
     border-bottom: 1px solid var(--so-line);
   }
 
-  html[data-movviz-appearance="beta"] .nx-dl-tab {
+  html[data-movviz-appearance="beta"] .nx-dl-tabs .nx-dl-tab {
     padding: .7rem 0;
     border: 0;
     border-radius: 0;
@@ -175,11 +175,11 @@
     color: var(--so-fg-3);
   }
 
-  html[data-movviz-appearance="beta"] .nx-dl-tab:hover {
+  html[data-movviz-appearance="beta"] .nx-dl-tabs .nx-dl-tab:hover {
     color: var(--so-fg-2);
   }
 
-  html[data-movviz-appearance="beta"] .nx-dl-tab[aria-selected="true"] {
+  html[data-movviz-appearance="beta"] .nx-dl-tabs .nx-dl-tab[aria-selected="true"] {
     color: var(--so-fg);
     box-shadow: inset 0 -2px 0 var(--so-fg);
   }
@@ -396,17 +396,17 @@
     --so-accent-strong: #7458e8;
   }
 
-  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.glass, .glass-strong):not(.nx-provider-tile, .nx-discover-provider-tab) {
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.glass, .glass-strong):not(.nx-provider-tile, .nx-discover-provider-tab, .nx-dl-tab, .nx-dl-filter, .nx-dl-empty) {
     border-color: var(--so-line);
     background: rgba(13, 15, 26, .78);
     box-shadow: none;
   }
 
-  html[data-movviz-appearance="beta"] .nx-desktop-shell .glass-strong:not(.nx-provider-tile, .nx-discover-provider-tab) {
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .glass-strong:not(.nx-provider-tile, .nx-discover-provider-tab, .nx-dl-tab, .nx-dl-filter, .nx-dl-empty) {
     background: rgba(20, 23, 41, .9);
   }
 
-  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.glass, .glass-strong):not(.nx-provider-tile, .nx-discover-provider-tab):is(:hover, :focus-within) {
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.glass, .glass-strong):not(.nx-provider-tile, .nx-discover-provider-tab, .nx-dl-tab, .nx-dl-filter, .nx-dl-empty):is(:hover, :focus-within) {
     border-color: var(--so-line-2);
     box-shadow: none;
   }
@@ -480,6 +480,149 @@
     background: var(--so-ink-2);
   }
 
+  /* Ligne de file Bêta (maquette « 5 · Téléchargements ») */
+  html[data-movviz-appearance="beta"] .nx-downloads-page > [data-nx-page-header] p {
+    font-family: var(--so-font-mono);
+    font-size: 12px;
+    color: var(--so-fg-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-dl-head, .nx-dl-row) {
+    grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1.2fr) 92px 72px 60px 132px;
+    gap: 14px;
+    align-items: center;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dl-head {
+    padding: 0 11px;
+    font: 500 10.5px/1 var(--so-font-mono);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dl-row {
+    min-height: 0;
+    padding: 10px;
+    cursor: pointer;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dl-row[data-status="completed"],
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dl-row[data-status="seeding"] {
+    background: transparent;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dl-row .nx-download-poster {
+    width: 34px;
+    height: auto;
+    aspect-ratio: 2 / 3;
+    border-radius: 5px;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-title {
+    display: grid;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--so-fg);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-title a:hover {
+    color: #fff;
+    text-decoration: underline;
+    text-decoration-color: var(--so-line-2);
+    text-underline-offset: 3px;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-meta {
+    font: 500 11px/1.2 var(--so-font-mono);
+    color: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-row .nx-dl-progress {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 84px;
+    gap: 10px;
+    align-items: center;
+    font: 500 11.5px/1 var(--so-font-mono);
+    color: var(--so-fg-2);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-bar {
+    height: 4px;
+    overflow: hidden;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .08);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-bar > div {
+    height: 100%;
+    border-radius: 9px;
+    background: var(--so-accent);
+    transition: width .4s linear;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-row:is([data-status="queued"], [data-status="paused"]) .nx-dl-bar > div { background: var(--so-fg-3); }
+  html[data-movviz-appearance="beta"] .nx-dl-row:is([data-status="completed"], [data-status="seeding"]) .nx-dl-bar > div { background: var(--color-ok); }
+  html[data-movviz-appearance="beta"] .nx-dl-row[data-status="stalled"] .nx-dl-bar > div { background: var(--color-down); }
+  html[data-movviz-appearance="beta"] .nx-dl-row:is([data-status="completed"], [data-status="seeding"]) .nx-dl-state { color: var(--color-ok); }
+  html[data-movviz-appearance="beta"] .nx-dl-row[data-status="stalled"] .nx-dl-state { color: var(--color-down); }
+  html[data-movviz-appearance="beta"] .nx-dl-row:is([data-status="queued"], [data-status="paused"]) .nx-dl-state { color: var(--so-fg-3); }
+
+  html[data-movviz-appearance="beta"] .nx-dl-num {
+    font: 500 12px/1 var(--so-font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--so-fg);
+    white-space: nowrap;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-actions {
+    gap: 2px;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-actions button {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border-radius: var(--so-r-ctl);
+    color: var(--so-fg-2);
+    transition: background var(--so-t-fast), color var(--so-t-fast);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-actions button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, .07);
+    color: var(--so-fg);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-actions button[data-danger] { color: var(--color-down); }
+  html[data-movviz-appearance="beta"] .nx-dl-actions button[data-remove]:hover:not(:disabled) { color: var(--color-down); background: rgba(255, 91, 120, .1); }
+  html[data-movviz-appearance="beta"] .nx-dl-actions button:disabled { opacity: .4; }
+
+  /* Actions groupées : neutres, le rouge n'apparaît qu'au survol. */
+  html[data-movviz-appearance="beta"] .nx-dl-bulk > button {
+    border: 1px solid var(--so-line-2);
+    border-radius: var(--so-r-ctl);
+    background: none;
+    box-shadow: none;
+    color: var(--so-fg-2);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-bulk > button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, .05);
+    color: var(--so-fg);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-bulk > button.text-down:hover:not(:disabled) {
+    border-color: rgba(255, 91, 120, .4);
+    color: var(--color-down);
+  }
+
+  /* Graphique : aire violette + point final, envoi en trait discret. */
+  html[data-movviz-appearance="beta"] [data-nx-dl-chart] .nx-dl-area { fill: rgba(167, 123, 255, .16); stroke: none; }
+  html[data-movviz-appearance="beta"] [data-nx-dl-chart] .nx-dl-dot { fill: #fff; }
+
   /* ── Accueil et fiche titre : une action principale claire ─────────────
      Le bouton principal (Lire, Reprendre, Ajouter) passe en clair, comme
      sur le héros ; les actions secondaires restent des icônes avec
@@ -544,6 +687,28 @@
     padding: 0 2rem 3rem;
     max-width: 920px;
     gap: .75rem;
+  }
+
+  /* Fiche titre : onglets du corps, même trait que Téléchargements. */
+  html[data-movviz-appearance="beta"] .nx-title-tabs {
+    gap: 1.5rem;
+    margin-top: -1rem;
+    border-bottom: 1px solid var(--so-line);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-title-tabs button {
+    padding: .7rem 0;
+    color: var(--so-fg-3);
+    font-size: .875rem;
+    font-weight: 600;
+    transition: color var(--so-t-fast);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-title-tabs button:hover { color: var(--so-fg-2); }
+
+  html[data-movviz-appearance="beta"] .nx-title-tabs button[aria-selected="true"] {
+    color: var(--so-fg);
+    box-shadow: inset 0 -2px 0 var(--so-fg);
   }
 
   /* ── Focus : un seul anneau, identique souris et clavier ──────────────── */

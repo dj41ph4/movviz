@@ -139,6 +139,15 @@ export const it: Dictionary = {
   },
 
   downloads: {
+    liveRate: "Velocità in tempo reale",
+    stateTitle: "Stato",
+    colContent: "Contenuto",
+    colProgress: "Avanzamento",
+    colRate: "Velocità",
+    colEta: "Restante",
+    colSources: "Fonti",
+    summaryActive: "{count} attivi",
+    summaryFree: "{size} liberi",
     eyebrow: "Motore integrato",
     title: "Download",
     description:
@@ -229,6 +238,7 @@ export const it: Dictionary = {
   },
 
   common: {
+    details: "Dettagli",
     play: "Riproduci",
     open: "Apri",
     inLibrary: "nella tua libreria",
@@ -316,6 +326,10 @@ export const it: Dictionary = {
   },
 
   title: {
+    tabEpisodes: "Episodi",
+    tabCast: "Cast",
+    tabSimilar: "Simili",
+    tabDetails: "Dettagli",
     cast: "Cast",
     crew: "Troupe",
     keywords: "Parole chiave",

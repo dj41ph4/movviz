@@ -11,6 +11,7 @@ import { useSmoothProgress } from "@/lib/media/useSmoothProgress";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
@@ -79,6 +80,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const { locale } = useI18n();
   const router = useRouter();
   const user = useCurrentUser();
+  const premium = usePremiumAppearance();
   const reduceMotion = useShouldReduceMotion();
   const { optimized } = useInterfaceDataMode();
   const btnSpring = reduceMotion ? {} : {
@@ -445,7 +447,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="nx-dl-bulk flex shrink-0 items-center gap-2">
           {user?.role === "admin" && (pausableItems.length > 0 || pausedItems.length > 0) && (
             <motion.button
               {...btnSpring}
@@ -526,9 +528,15 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="space-y-3">
-        <div className="nx-download-table-head hidden lg:grid" aria-hidden="true">
-          <span>Contenu</span><span>Progression</span><span>Vitesse</span><span>Sources</span><span>Statut</span><span>Actions</span>
-        </div>
+        {premium ? (
+          <div className="nx-download-table-head nx-dl-head hidden lg:grid" aria-hidden="true">
+            <span /><span>{t("downloads.colContent")}</span><span>{t("downloads.colProgress")}</span><span>{t("downloads.colRate")}</span><span>{t("downloads.colEta")}</span><span>{t("downloads.colSources")}</span><span />
+          </div>
+        ) : (
+          <div className="nx-download-table-head hidden lg:grid" aria-hidden="true">
+            <span>Contenu</span><span>Progression</span><span>Vitesse</span><span>Sources</span><span>Statut</span><span>Actions</span>
+          </div>
+        )}
         {(() => {
           let lastSection: string | null = null;
           const rows: React.ReactNode[] = [];
@@ -652,6 +660,7 @@ const QueueItemRow = memo(function QueueItemRow({
   onToggleExpand, onAction, onSetPriority, onToggleSeed, onRemove, canManage,
 }: QueueItemRowProps) {
   const reduceMotion = useShouldReduceMotion();
+  const premium = usePremiumAppearance();
   const displayProgress = useSmoothProgress(item.download.progress, item.release.size, item.download.downloadSpeed);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const priorityRef = useRef<HTMLDivElement>(null);
@@ -686,6 +695,60 @@ const QueueItemRow = memo(function QueueItemRow({
 
   return (
     <>
+    {premium ? (
+    /* Bêta desktop (Salle obscure) : une ligne alignée sur la maquette —
+       contenu, progression, débit, reste, sources, actions discrètes. */
+    <div className="nx-download-desktop-row nx-dl-row hidden lg:grid" data-status={item.status} onClick={() => onToggleExpand(item.id)}>
+      {item.media.linked === false ? (
+        <span className="nx-download-poster flex shrink-0 items-center justify-center overflow-hidden" title={t("activity.queueUnlinkedHint")}>
+          {item.media.posterPath ? <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" /> : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+        </span>
+      ) : (
+        <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="nx-download-poster flex shrink-0 items-center justify-center overflow-hidden">
+          {item.media.posterPath ? <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" /> : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+        </Link>
+      )}
+      <div className="nx-dl-title min-w-0">
+        {item.media.linked === false ? (
+          <p className="truncate" title={t("activity.queueUnlinkedHint")}>{item.media.title}</p>
+        ) : (
+          <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="block truncate">{item.media.title}</Link>
+        )}
+        <p className="nx-dl-meta truncate">
+          {item.media.season != null && <>{item.media.episode != null ? `S${pad(item.media.season)}E${pad(item.media.episode)}` : `S${pad(item.media.season)}`} · </>}
+          {detailText} · {formatBytes(item.release.size)}
+          {item.release.indexer && item.release.indexer !== "Inconnu" && ` · ${item.release.indexer}`}
+        </p>
+      </div>
+      <div className="nx-dl-progress min-w-0">
+        <div className="nx-dl-bar"><div style={{ width: `${Math.round(displayProgress * 100)}%` }} /></div>
+        <span className="nx-dl-state">
+          {isActive && item.status === "downloading" ? `${Math.round(displayProgress * 100)} %` : item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}
+        </span>
+      </div>
+      <span className="nx-dl-num">{item.download.downloadSpeed > 0 ? formatSpeed(item.download.downloadSpeed) : "—"}</span>
+      <span className="nx-dl-num">{item.status === "downloading" && item.download.eta > 0 ? formatEta(Math.round(item.download.eta / 60)) : "—"}</span>
+      <span className="nx-dl-num">{item.download.peers > 0 ? item.download.peers : "—"}</span>
+      <div className="nx-dl-actions flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+        {(item.status === "downloading" || item.status === "paused" || item.status === "queued") && (
+          <button type="button" onClick={() => onAction(item.id, item.status === "downloading" ? "pause" : "resume")} disabled={actionLoading !== null} title={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")} aria-label={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")}>
+            {actionLoading === `pause_${item.id}` || actionLoading === `resume_${item.id}` ? <Loader className="h-3.5 w-3.5 animate-spin" /> : item.status === "downloading" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          </button>
+        )}
+        {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
+          <button type="button" onClick={() => onAction(item.id, "search")} disabled={actionLoading !== null} data-danger={item.status === "stalled" || undefined} title={item.status === "stalled" ? t("downloads.replace") : t("downloads.manual")} aria-label={item.status === "stalled" ? t("downloads.replace") : t("downloads.manual")}>
+            <Search className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button type="button" onClick={() => onRemove(item.id, false)} disabled={actionLoading !== null} data-remove title={t("downloads.remove")} aria-label={t("downloads.remove")}>
+          {actionLoading === `remove_${item.id}` ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </button>
+        <button type="button" onClick={() => onToggleExpand(item.id)} aria-expanded={isExpanded} title={t("common.details")} aria-label={t("common.details")}>
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
+        </button>
+      </div>
+    </div>
+    ) : (
     <div className="nx-download-desktop-row hidden lg:grid" onClick={() => onToggleExpand(item.id)}>
       <div className="flex min-w-0 items-center gap-2.5">
         {item.media.linked === false ? (
@@ -751,6 +814,7 @@ const QueueItemRow = memo(function QueueItemRow({
         <button type="button" onClick={() => onToggleExpand(item.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-ink-soft hover:bg-white/8" title={t("common.details")}><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} /></button>
       </div>
     </div>
+    )}
     {isExpanded && (
       <div className="nx-download-desktop-details hidden lg:flex">
         <span>{item.release.releaseTitle}</span>

@@ -9,6 +9,7 @@ import { formatBytes, formatSpeed } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import { Toggle } from "@/components/ui/Toggle";
+import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 import type { EngineInstance } from "@/lib/types";
 
 type SpeedSample = { at: number; downloadSpeed: number; uploadSpeed: number; active: number };
@@ -28,6 +29,7 @@ function linePoints(history: SpeedSample[], key: "downloadSpeed" | "uploadSpeed"
 /** Real engine samples, shared by every browser through /api/engine/stats. */
 export function DownloadLiveStats() {
   const t = useT();
+  const premium = usePremiumAppearance();
   const user = useCurrentUser();
   const [requestingRestart, setRequestingRestart] = useState(false);
   const { data: restartStatus, mutate: mutateRestart } = useSWR<{ restarting: boolean; error: string | null }>(
@@ -56,6 +58,7 @@ export function DownloadLiveStats() {
   const history = data?.history?.slice(-60) ?? [];
   const down = linePoints(history, "downloadSpeed");
   const up = linePoints(history, "uploadSpeed");
+  const downEnd = down ? down.split(" ").at(-1)?.split(",").map(Number) : undefined;
   const primary = instanceData?.instances?.[0];
   const updatePrimary = async (patch: Partial<Pick<EngineInstance, "autoStart" | "sequential">>) => {
     if (!primary || !instanceData) return;
@@ -83,7 +86,7 @@ export function DownloadLiveStats() {
     <aside className="space-y-4">
       <section className="rounded-xl glass p-4">
         <div className="mb-4 flex items-center gap-2 text-sm font-bold text-ink">
-          <Activity className="h-4 w-4 text-brand-glow" /> {t("activity.title")}
+          <Activity className="h-4 w-4 text-brand-glow" /> {premium ? t("downloads.liveRate") : t("activity.title")}
         </div>
         <svg viewBox="0 0 260 72" role="img" data-nx-dl-chart aria-label={t("downloads.down")} className="h-[72px] w-full overflow-visible">
           <defs>
@@ -93,8 +96,10 @@ export function DownloadLiveStats() {
             </linearGradient>
           </defs>
           <path d="M0 68H260" stroke="rgba(174,180,214,0.16)" />
+          {premium && down && <polygon className="nx-dl-area" points={`0,72 ${down} 260,72`} />}
           {down && <polyline fill="none" stroke="url(#nxDownloadSpeed)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={down} />}
           {up && <polyline fill="none" stroke="var(--color-cyan)" strokeOpacity="0.65" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={up} />}
+          {premium && downEnd && <circle className="nx-dl-dot" cx={downEnd[0]} cy={downEnd[1]} r="3.5" />}
         </svg>
         <div className="nx-dl-rates mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-brand/25 bg-brand/10 p-2.5">
@@ -108,12 +113,12 @@ export function DownloadLiveStats() {
         </div>
       </section>
       <section className="rounded-xl glass p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Download className="h-4 w-4 text-cyan" /> {t("downloads.title")}</div>
+        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Download className="h-4 w-4 text-cyan" /> {premium ? t("downloads.stateTitle") : t("downloads.title")}</div>
         <dl className="nx-dl-stats grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
           <div><dt className="text-ink-dim">{t("activity.status.downloading")}</dt><dd className="mt-0.5 text-lg font-black text-cyan">{data?.downloading ?? 0}</dd></div>
-          <div><dt className="text-ink-dim">{t("activity.status.completed")}</dt><dd className="mt-0.5 text-lg font-black text-ok">{data?.completed ?? 0}</dd></div>
+          {!premium && <div><dt className="text-ink-dim">{t("activity.status.completed")}</dt><dd className="mt-0.5 text-lg font-black text-ok">{data?.completed ?? 0}</dd></div>}
           <div><dt className="text-ink-dim">{t("activity.status.seeding")}</dt><dd className="mt-0.5 text-lg font-black text-brand-glow">{data?.seeding ?? 0}</dd></div>
-          <div><dt className="text-ink-dim">{t("common.all")}</dt><dd className="mt-0.5 text-lg font-black text-ink">{data?.torrents ?? 0}</dd></div>
+          {!premium && <div><dt className="text-ink-dim">{t("common.all")}</dt><dd className="mt-0.5 text-lg font-black text-ink">{data?.torrents ?? 0}</dd></div>}
           <div><dt className="text-ink-dim">{t("activity.status.queued")}</dt><dd className="mt-0.5 text-lg font-black text-brand-glow">{data?.queued ?? 0}</dd></div>
           <div><dt className="text-ink-dim">{t("stats.free")}</dt><dd className="mt-0.5 text-sm font-black text-ok">{systemStats?.disk ? formatBytes(systemStats.disk.free) : "—"}</dd></div>
         </dl>

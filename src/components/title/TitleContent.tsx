@@ -47,6 +47,7 @@ import {
   ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, RotateCcw, Pencil, Eye,
   type LucideIcon,
 } from "lucide-react";
+import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 
 /* ────────────────────────────────────────────── constants & helpers ─── */
 
@@ -405,6 +406,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     imdbId?: string;
   } | null>(null);
   const [showFullCrew, setShowFullCrew] = useState(false);
+  // Bêta desktop : le corps de la fiche se lit par onglets (Épisodes,
+  // Distribution, Similaires, Détails). Mobile et Stable gardent la page longue.
+  const premium = usePremiumAppearance();
+  const [titleTab, setTitleTab] = useState<"episodes" | "cast" | "similar" | "details" | null>(null);
   const [showTrailer, setShowTrailer] = useState(false);
   const trailerModalRef = useRef<HTMLDivElement>(null);
 
@@ -896,6 +901,17 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       </div>
     );
   }
+
+  const hasEpisodes = type === "series" && !!detail?.seasons?.some((season) => isVisibleSeason(season.seasonNumber, includeSpecials));
+  const bodyTabs = ([
+    hasEpisodes && { id: "episodes", label: t("title.tabEpisodes") },
+    (detail?.cast.length || detail?.crew.length) && { id: "cast", label: t("title.tabCast") },
+    detail?.similar.length && { id: "similar", label: t("title.tabSimilar") },
+    detail?.keywords.length && { id: "details", label: t("title.tabDetails") },
+  ].filter(Boolean) as { id: "episodes" | "cast" | "similar" | "details"; label: string }[]);
+  const activeBodyTab = bodyTabs.find((tab) => tab.id === titleTab)?.id ?? bodyTabs[0]?.id;
+  // Une section hors de l'onglet actif est masquée seulement en Bêta desktop.
+  const tabHidden = (id: "episodes" | "cast" | "similar" | "details") => premium && bodyTabs.length > 1 && activeBodyTab !== id && "lg:hidden";
 
   const StatusIcon = libraryStatus ? STATUS_ICON[libraryStatus] : null;
   // Same day-count treatment as the library card and dashboard row — "à
@@ -1608,9 +1624,19 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             </p>
           </div>
 
+          {premium && bodyTabs.length > 1 && (
+            <div className="nx-title-tabs hidden lg:flex" role="tablist">
+              {bodyTabs.map((tab) => (
+                <button key={tab.id} type="button" role="tab" aria-selected={activeBodyTab === tab.id} onClick={() => setTitleTab(tab.id)}>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* ── Cast ──────────────────────────────────────────────────── */}
           {detail.cast.length > 0 && (
-            <div>
+            <div className={cn(tabHidden("cast"))}>
               <h2 className="mb-3 text-lg font-bold text-ink">
                 {t("title.cast")}
               </h2>
@@ -1648,7 +1674,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
           {/* ── Crew ──────────────────────────────────────────────────── */}
           {detail.crew.length > 0 && (
-            <div>
+            <div className={cn(tabHidden("cast"))}>
               <h2 className="mb-3 text-lg font-bold text-ink">
                 {t("title.crew")}
               </h2>
@@ -1685,7 +1711,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
           {/* ── Keywords ──────────────────────────────────────────────── */}
           {detail.keywords.length > 0 && (
-            <div>
+            <div className={cn(tabHidden("details"))}>
               <h2 className="mb-3 text-lg font-bold text-ink">
                 {t("title.keywords")}
               </h2>
@@ -1704,7 +1730,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
           {/* ── Seasons accordion ──────────────────────────────────────── */}
           {type === "series" && detail.seasons && detail.seasons.some((season) => isVisibleSeason(season.seasonNumber, includeSpecials)) && (
-            <div>
+            <div className={cn(tabHidden("episodes"))}>
               {resyncResult && (
                 <p className="mb-3 rounded-lg bg-brand/10 px-3 py-2 text-xs font-semibold text-brand-glow">
                   {resyncResult}
@@ -1799,7 +1825,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
           {/* ── Similar titles ─────────────────────────────────────────── */}
           {detail.similar.length > 0 && (
-            <div>
+            <div className={cn(tabHidden("similar"))}>
               <h2 className="mb-3 text-lg font-bold text-ink">
                 {t("title.similar")}
               </h2>
