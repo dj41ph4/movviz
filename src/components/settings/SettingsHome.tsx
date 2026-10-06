@@ -152,7 +152,7 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
       ) : (
         <>
           {isAdmin && (
-            <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[#0d1022]/95 shadow-[0_30px_100px_rgba(0,0,0,.32)]">
+            <section className="nx-settings-readiness relative overflow-hidden rounded-[30px] border border-white/10 bg-[#0d1022]/95 shadow-[0_30px_100px_rgba(0,0,0,.32)]">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_15%,rgba(168,85,247,.19),transparent_34%),radial-gradient(circle_at_88%_80%,rgba(34,211,238,.10),transparent_32%)]" />
               <div className="relative grid lg:grid-cols-[1.05fr_.95fr]">
                 <div className="flex min-h-72 flex-col justify-between border-b border-white/8 p-6 sm:p-8 lg:border-b-0 lg:border-r">
@@ -202,7 +202,7 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
                 const accessible = journey.tabIds.some((id) => visibleTabs.some((tab) => tab.id === id));
                 if (!accessible) return null;
                 return (
-                  <motion.button key={journey.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .055 }} onClick={() => onOpenJourney(journey.id)} className="group relative min-h-44 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.035] p-5 text-left ring-focus transition duration-300 hover:-translate-y-1 hover:border-brand/35 hover:bg-white/[0.065] hover:shadow-[0_22px_55px_rgba(0,0,0,.24)]">
+                  <motion.button key={journey.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .055 }} onClick={() => onOpenJourney(journey.id)} className="nx-settings-journey group relative min-h-44 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.035] p-5 text-left ring-focus transition duration-300 hover:-translate-y-1 hover:border-brand/35 hover:bg-white/[0.065] hover:shadow-[0_22px_55px_rgba(0,0,0,.24)]">
                     <div className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br opacity-65 transition-opacity group-hover:opacity-100", journey.accent)} />
                     <div className="relative flex h-full flex-col">
                       <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/20 text-brand-glow"><Icon className="h-5 w-5" /></span>

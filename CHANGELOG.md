@@ -1,3 +1,15 @@
+## v1.25.193 — Octobre 2026
+
+### Apparence Bêta : « Salle obscure » s'étend à tout l'ordinateur
+
+- Toutes les couleurs sont unifiées : un noir profond, un seul violet pour les sélections et la progression. Le cyan, le bleu électrique et les dégradés rose disparaissent des boutons, filtres et panneaux.
+- Le vert, l'orange et le rouge gardent leur sens : terminé, attention, échec.
+- Page Téléchargements retravaillée : onglets soulignés, filtres en puces, lignes plus sobres, progression violette, vitesses lisibles en chiffres alignés, puces d'état colorées selon l'état, et colonne live (graphique, débits, compteurs) assortie au reste.
+- Le bouton principal (Lire, Reprendre, Ajouter à la bibliothèque) passe en clair sur l'accueil et sur la fiche d'un titre. Les autres actions restent des icônes, avec leur nom au survol.
+- Bibliothèque : les filtres Type et Tri n'apparaissent plus deux fois, ils restent dans la barre d'outils du haut.
+- L'accueil des réglages perd ses halos colorés et reprend les mêmes surfaces que le reste.
+- Les cartes des plateformes, leurs logos et leurs effets au survol ne changent pas. Stable, le mobile et les applications TV ne changent pas non plus.
+
 ## v1.25.192 — Octobre 2026
 
 ### Android mobile : refonte premium de la fiche film et série

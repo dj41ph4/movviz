@@ -150,6 +150,365 @@
     color: var(--so-accent);
   }
 
+  /* ── Téléchargements (lot 5, en avance à la demande de Seb) ────────────
+     Même violet que le reste de l'app : plus de cyan ni de dégradé sur la
+     progression, les compteurs et les onglets. Le vert reste réservé au
+     terminé, le rouge à l'échec. */
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-downloads-page > [data-nx-page-header] {
+    display: flex;
+    margin-bottom: 1.25rem;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-tabs {
+    gap: 1.5rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--so-line);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-tab {
+    padding: .7rem 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    color: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-tab:hover {
+    color: var(--so-fg-2);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-tab[aria-selected="true"] {
+    color: var(--so-fg);
+    box-shadow: inset 0 -2px 0 var(--so-fg);
+  }
+
+  /* États de la file : puces, sans panneau autour. */
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-queue > .flex:first-child {
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-filter {
+    gap: .4rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-filter > button {
+    border: 1px solid var(--so-line-2);
+    border-radius: 999px;
+    padding: .45rem .8rem;
+    background: none;
+    box-shadow: none;
+    color: var(--so-fg-2);
+    font-weight: 500;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-filter > button[aria-pressed="true"] {
+    border-color: rgba(167, 123, 255, .45);
+    background: var(--so-accent-soft);
+    color: #e5d9ff;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-download-queue .glass:not(.nx-dl-filter):not(.nx-dl-empty) {
+    border-color: var(--so-line);
+    border-radius: var(--so-r-ctl);
+    background: var(--so-ink-1);
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-section h3,
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-table-head {
+    font-family: var(--so-font-mono);
+    font-weight: 500;
+    letter-spacing: .1em;
+    color: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-desktop-row {
+    border-color: var(--so-line);
+    border-radius: var(--so-r-card);
+    background: var(--so-ink-1);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-desktop-row:hover {
+    border-color: var(--so-line-2);
+    background: #11131f;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-desktop-details {
+    border-color: var(--so-line);
+    background: #0a0c15;
+    border-radius: 0 0 var(--so-r-card) var(--so-r-card);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-poster {
+    border-radius: 6px;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-progress > div:first-child {
+    height: 4px;
+    background: rgba(255, 255, 255, .08);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-progress > div:first-child > div {
+    background: var(--so-accent);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-progress p,
+  html[data-movviz-appearance="beta"] .nx-dl-speed {
+    font-family: var(--so-font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-speed {
+    color: var(--so-fg);
+    font-weight: 500;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-status {
+    border-color: var(--so-line-2);
+    background: none;
+    color: var(--so-fg-2);
+    font-weight: 500;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-status:is([data-status="downloading"], [data-status="importing"]) {
+    border-color: rgba(167, 123, 255, .45);
+    color: #d6c3ff;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-status[data-status="completed"] {
+    border-color: rgba(67, 230, 160, .35);
+    color: var(--color-ok);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-status[data-status="stalled"] {
+    border-color: rgba(255, 91, 120, .35);
+    color: var(--color-down);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-empty {
+    border-color: var(--so-line);
+    background: var(--so-ink-1);
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-empty svg {
+    color: var(--so-fg-3);
+  }
+
+  /* Colonne live */
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-live-stats section {
+    border-color: var(--so-line);
+    border-radius: 14px;
+    background: var(--so-ink-1);
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-download-live-stats section > div:first-child svg {
+    color: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] [data-nx-dl-chart] polyline:first-of-type {
+    stroke: var(--so-accent);
+    stroke-width: 2;
+  }
+
+  html[data-movviz-appearance="beta"] [data-nx-dl-chart] polyline:nth-of-type(2) {
+    stroke: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] [data-nx-dl-chart] path {
+    stroke: var(--so-line);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-rates > div {
+    border-color: var(--so-line);
+    background: rgba(255, 255, 255, .02);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-rates svg {
+    color: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] :is(.nx-dl-rates strong, .nx-dl-stats dd) {
+    color: var(--so-fg);
+    font-family: var(--so-font-display);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-stats dt {
+    color: var(--so-fg-3);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-download-live-stats [role="switch"][aria-checked="true"] {
+    background: var(--so-accent);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-restart {
+    border-color: var(--so-line-2);
+    background: none;
+    color: var(--so-fg);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-dl-restart:hover {
+    background: rgba(255, 255, 255, .05);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-download-live-stats a {
+    color: var(--so-fg-2);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-download-live-stats a:hover {
+    color: var(--so-fg);
+  }
+
+  /* ── Couleurs unifiées (palette de Téléchargements partout) ───────────
+     Les jetons du thème sont redéfinis à la racine : chaque utilitaire
+     Tailwind (text-cyan, bg-brand/12, border-cyan/30…) bascule d'un coup sur
+     l'encre et le violet Salle obscure. Le bleu électrique, le cyan et le
+     magenta disparaissent ; vert, orange et rouge gardent leur sens
+     (terminé, attention, échec). Les tuiles plateformes ont leurs propres
+     couleurs codées en dur et ne bougent pas. */
+  html[data-movviz-appearance="beta"] {
+    --color-void: #07080f;
+    --color-abyss: #0a0c15;
+    --color-surface: #0d0f1a;
+    --color-surface-2: #141729;
+    --color-line: #1f2233;
+    --color-ink: #f2f0f7;
+    --color-ink-soft: #aaa7bd;
+    --color-ink-dim: #8a879f;
+    --color-brand: #7458e8;
+    --color-brand-2: #a77bff;
+    --color-brand-glow: #b892ff;
+    --color-cyan: #a77bff;
+    --color-magenta: #c9adff;
+    --so-accent-strong: #7458e8;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.glass, .glass-strong):not(.nx-provider-tile, .nx-discover-provider-tab) {
+    border-color: var(--so-line);
+    background: rgba(13, 15, 26, .78);
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .glass-strong:not(.nx-provider-tile, .nx-discover-provider-tab) {
+    background: rgba(20, 23, 41, .9);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.glass, .glass-strong):not(.nx-provider-tile, .nx-discover-provider-tab):is(:hover, :focus-within) {
+    border-color: var(--so-line-2);
+    box-shadow: none;
+  }
+
+  /* Le dégradé rose → violet devient un violet plein : un seul accent. */
+  html[data-movviz-appearance="beta"] .brand-gradient {
+    background: var(--so-accent-strong);
+  }
+
+  html[data-movviz-appearance="beta"] .text-gradient {
+    background: none;
+    color: var(--so-fg);
+  }
+
+  html[data-movviz-appearance="beta"] .glow-brand {
+    box-shadow: 0 0 0 1px rgba(167, 123, 255, .35);
+  }
+
+  /* Panneaux bleus hérités de la charte NX (bibliothèque, Découverte). */
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-library-toolbar, .nx-library-genres, .nx-library-grid > div:first-child, .nx-discover-mode-tabs, .nx-discover-filter-menu) {
+    border-color: var(--so-line);
+    background: var(--so-ink-1);
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-library-tool-active, .nx-library-sort-active) {
+    background: var(--so-ink-3);
+    box-shadow: inset 0 0 0 1px var(--so-line-2);
+    color: var(--so-fg);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-discover-filter-button, .nx-discover-sort select) {
+    border-color: var(--so-line-2);
+    background: var(--so-ink-1);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-discover-filter-button, .nx-discover-sort select):hover {
+    border-color: rgba(255, 255, 255, .24);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-discover-page > div.flex.flex-wrap.items-center.gap-2 {
+    background: var(--so-ink-1);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-row-card .aspect-video, .group\/row .relative .aspect-video) {
+    border-color: var(--so-line);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-row-card .aspect-video, .group\/row .relative .aspect-video):hover {
+    border-color: var(--so-line-2);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-download-poster {
+    background: var(--so-ink-2);
+    color: var(--so-fg-3);
+  }
+
+  /* Accueil des réglages : mêmes surfaces que le reste, sans halos colorés. */
+  html[data-movviz-appearance="beta"] :is(.nx-settings-readiness, .nx-settings-journey) {
+    border-color: var(--so-line);
+    background: var(--so-ink-1);
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] :is(.nx-settings-readiness, .nx-settings-journey) > div.pointer-events-none:first-child {
+    display: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-settings-journey:hover {
+    border-color: var(--so-line-2);
+    background: var(--so-ink-2);
+  }
+
+  /* ── Accueil et fiche titre : une action principale claire ─────────────
+     Le bouton principal (Lire, Reprendre, Ajouter) passe en clair, comme
+     sur le héros ; les actions secondaires restent des icônes avec
+     infobulle, sans libellé dessous. */
+  html[data-movviz-appearance="beta"] :is(.nx-dashboard-premium .nx-hero-play, .nx-title-actions > .brand-gradient) {
+    background: #f4f1fb;
+    color: #12101c;
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] :is(.nx-dashboard-premium .nx-hero-play, .nx-title-actions > .brand-gradient):hover {
+    background: #ffffff;
+    box-shadow: 0 6px 24px -14px rgba(255, 255, 255, .5);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-title-actions > .brand-gradient svg.fill-white {
+    fill: currentColor;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-title-actions > :is(button, a).rounded-full {
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .07);
+    box-shadow: inset 0 0 0 1px var(--so-line-2);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-title-actions > :is(button, a).rounded-full:hover {
+    background: rgba(255, 255, 255, .12);
+  }
+
   /* ── Focus : un seul anneau, identique souris et clavier ──────────────── */
   html[data-movviz-appearance="beta"] :is(.nx-desktop-shell, [data-premium-panel], .nx-command) :is(button, a, input, select, textarea, [tabindex]):focus-visible {
     outline: 2px solid var(--so-focus);

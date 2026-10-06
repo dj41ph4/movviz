@@ -85,7 +85,7 @@ export function DownloadLiveStats() {
         <div className="mb-4 flex items-center gap-2 text-sm font-bold text-ink">
           <Activity className="h-4 w-4 text-brand-glow" /> {t("activity.title")}
         </div>
-        <svg viewBox="0 0 260 72" role="img" aria-label={t("downloads.down")} className="h-[72px] w-full overflow-visible">
+        <svg viewBox="0 0 260 72" role="img" data-nx-dl-chart aria-label={t("downloads.down")} className="h-[72px] w-full overflow-visible">
           <defs>
             <linearGradient id="nxDownloadSpeed" x1="0" x2="1">
               <stop stopColor="var(--color-brand)" />
@@ -96,7 +96,7 @@ export function DownloadLiveStats() {
           {down && <polyline fill="none" stroke="url(#nxDownloadSpeed)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={down} />}
           {up && <polyline fill="none" stroke="var(--color-cyan)" strokeOpacity="0.65" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={up} />}
         </svg>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="nx-dl-rates mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-lg border border-brand/25 bg-brand/10 p-2.5">
             <span className="flex items-center gap-1 text-[11px] font-semibold text-ink-dim"><ArrowDown className="h-3 w-3 text-brand-glow" /> {t("downloads.down")}</span>
             <strong className="mt-1 block text-sm text-ink">{formatSpeed(data?.downloadSpeed ?? 0)}</strong>
@@ -109,7 +109,7 @@ export function DownloadLiveStats() {
       </section>
       <section className="rounded-xl glass p-4">
         <div className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Download className="h-4 w-4 text-cyan" /> {t("downloads.title")}</div>
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
+        <dl className="nx-dl-stats grid grid-cols-2 gap-x-3 gap-y-3 text-xs">
           <div><dt className="text-ink-dim">{t("activity.status.downloading")}</dt><dd className="mt-0.5 text-lg font-black text-cyan">{data?.downloading ?? 0}</dd></div>
           <div><dt className="text-ink-dim">{t("activity.status.completed")}</dt><dd className="mt-0.5 text-lg font-black text-ok">{data?.completed ?? 0}</dd></div>
           <div><dt className="text-ink-dim">{t("activity.status.seeding")}</dt><dd className="mt-0.5 text-lg font-black text-brand-glow">{data?.seeding ?? 0}</dd></div>
@@ -135,7 +135,7 @@ export function DownloadLiveStats() {
         ) : <p className="text-xs text-ink-dim">—</p>}
         {user?.role === "admin" && (
           <div className="mt-3" aria-live="polite">
-            <button type="button" onClick={restartClient} disabled={restarting} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/10 px-3 text-xs font-bold text-brand-glow hover:bg-brand/20 disabled:cursor-wait disabled:opacity-70">
+            <button type="button" onClick={restartClient} disabled={restarting} className="nx-dl-restart flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/10 px-3 text-xs font-bold text-brand-glow hover:bg-brand/20 disabled:cursor-wait disabled:opacity-70">
               <RotateCw className={`h-4 w-4 shrink-0 ${restarting ? "animate-spin" : ""}`} />
               {t(restarting ? "settings.restartingTorrentClient" : "settings.restartTorrentClient")}
             </button>

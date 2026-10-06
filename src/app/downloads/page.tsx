@@ -55,13 +55,15 @@ function DownloadsPageInner() {
         description={t("activity.description")}
       />
 
-      <div className="mb-6 flex flex-wrap gap-1.5">
+      <div className="nx-dl-tabs mb-6 flex flex-wrap gap-1.5" role="tablist">
         {visibleTabs.map((tb) => (
           <button
             key={tb.id}
             onClick={() => pushTab(tb.id)}
+            role="tab"
+            aria-selected={tab === tb.id}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+              "nx-dl-tab flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
               tab === tb.id ? "brand-gradient text-white shadow-lg" : "glass text-ink-soft hover:text-ink"
             )}
           >

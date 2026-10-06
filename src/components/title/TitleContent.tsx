@@ -1360,7 +1360,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             )}
             <StarRating tmdbId={tmdbId} type={type} title={detail?.title ?? ""} className="mt-1" />
             {/* Action row */}
-            <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div className="nx-title-actions mt-1 flex flex-wrap items-center gap-2">
               {!inLibrary ? (
                 <button
                   onClick={addToLibrary}

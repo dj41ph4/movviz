@@ -425,11 +425,12 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     <div className="nx-download-queue space-y-6">
       {/* Filter bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1 overflow-x-auto rounded-xl glass p-0.5">
+        <div className="nx-dl-filter flex gap-1 overflow-x-auto rounded-xl glass p-0.5">
           {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
+              aria-pressed={filter === f}
               className={cn(
                 "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                 filter === f ? "brand-gradient text-white shadow" : "text-ink-dim hover:text-ink"
@@ -535,7 +536,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
             const section = sectionOf(item.status);
             if (section !== lastSection) {
               rows.push(
-                <div key={`section-${section}`} className="flex items-center gap-2 pt-2 first:pt-0">
+                <div key={`section-${section}`} className="nx-dl-section flex items-center gap-2 pt-2 first:pt-0">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-ink-dim">
                     {t(`activity.section.${section}`)}
                   </h3>
@@ -578,7 +579,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       )}
 
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+        <div className="nx-dl-empty flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
           <Download className="h-8 w-8 text-brand-glow/50" />
           <p className="font-semibold text-ink">{t("activity.noQueue")}</p>
           <p className="max-w-md text-sm text-ink-dim">{t("activity.noQueueHint")}</p>
@@ -718,13 +719,13 @@ const QueueItemRow = memo(function QueueItemRow({
           </p>
         </div>
       </div>
-      <div className="min-w-0 self-center">
+      <div className="nx-dl-progress min-w-0 self-center">
         <div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full brand-gradient" style={{ width: `${Math.round(displayProgress * 100)}%` }} /></div>
         <p className="mt-1 text-[10px] text-ink-dim">{Math.round(displayProgress * 100)}% · {formatBytes(displayProgress * item.release.size)} / {formatBytes(item.release.size)}</p>
       </div>
-      <div className="self-center text-xs font-semibold text-cyan">{item.download.downloadSpeed > 0 ? `↓${formatSpeed(item.download.downloadSpeed)}` : "—"}</div>
+      <div className="nx-dl-speed self-center text-xs font-semibold text-cyan">{item.download.downloadSpeed > 0 ? `↓${formatSpeed(item.download.downloadSpeed)}` : "—"}</div>
       <div className="self-center text-[11px] text-ink-soft">{item.release.seeders}↑ · {item.release.leechers}↓</div>
-      <span className={cn("w-fit self-center rounded-full border px-2 py-1 text-[10px] font-bold", item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" : item.status === "stalled" ? "border-down/30 bg-down/12 text-down" : "border-white/15 bg-white/5 text-ink-soft")}>{item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}</span>
+      <span data-status={item.status} className={cn("nx-dl-status w-fit self-center rounded-full border px-2 py-1 text-[10px] font-bold", item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" : item.status === "stalled" ? "border-down/30 bg-down/12 text-down" : "border-white/15 bg-white/5 text-ink-soft")}>{item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}</span>
       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
         {(item.status === "downloading" || item.status === "paused" || item.status === "queued") && <button type="button" onClick={() => onAction(item.id, item.status === "downloading" ? "pause" : "resume")} disabled={actionLoading !== null} className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan/25 text-ink hover:bg-cyan/10 disabled:opacity-40" title={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")}>{item.status === "downloading" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}</button>}
         {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
