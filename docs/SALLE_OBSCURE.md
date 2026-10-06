@@ -30,7 +30,7 @@ du projet.
 | --- | --- | --- |
 | 0 | Tokens `--so-*`, polices embarquées, fond neutre | v1.25.190 (partiel : hex en dur et tailles < 11px restent à migrer) |
 | 1 | Barre du haut allégée, palette Ctrl K, focus unifié, en-têtes de page | v1.25.190 |
-| 2 | Accueil : bouton Lire clair, cartes plateformes intactes | v1.25.193 (hero plein cadre et Reprendre flottant à suivre) |
+| 2 | Accueil : bouton Lire clair, cartes plateformes intactes | v1.25.193, héros plein cadre en v1.25.195 |
 | 3 | Fiche titre : action principale claire, actions secondaires en icônes avec infobulle | v1.25.193 (onglets et panneau Fichier à suivre) |
 | 4 | Bibliothèque, Découvrir, Calendrier : couleurs unifiées, doublon type/tri retiré de la bibliothèque | v1.25.193 |
 | 5 | Téléchargements (onglets, puces d'état, file, colonne live), accueil des réglages | v1.25.193 ; lecteur, profil et login à suivre |

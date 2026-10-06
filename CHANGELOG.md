@@ -1,3 +1,11 @@
+## v1.25.195 — Octobre 2026
+
+### Apparence Bêta : accueil plein cadre sur ordinateur
+
+- La grande image de l'accueil sort de son cadre : elle occupe toute la largeur, passe sous la barre du haut et se fond dans le noir de la page.
+- Le titre, le résumé et les boutons sont alignés sur le reste de la page.
+- Le diaporama, le logo du titre, la bande-annonce en fond et les cartes des plateformes ne changent pas. Stable, le mobile et les applications TV ne changent pas non plus.
+
 ## v1.25.194 — Octobre 2026
 
 ### Android mobile : refonte premium, recherche, lecteur et réglages

@@ -509,6 +509,43 @@
     background: rgba(255, 255, 255, .12);
   }
 
+  /* ── Accueil : héros plein cadre ─────────────────────────────────────
+     Le héros sort de sa carte et file jusqu'aux bords du contenu, sous la
+     barre du haut (transparente tant qu'on n'a pas défilé), puis se fond
+     dans le noir de la page. Logo du titre, diaporama et boutons inchangés. */
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-home-hero-grid {
+    margin: calc(-2rem - 56px) -2rem 1rem;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero::after {
+    display: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .relative:has(> .absolute.inset-x-0.bottom-0) {
+    aspect-ratio: auto;
+    height: clamp(460px, 74vh, 860px);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-t {
+    background-image: linear-gradient(to top, var(--so-ink-0) 0%, rgba(7, 8, 15, .55) 38%, rgba(7, 8, 15, .05) 70%, rgba(7, 8, 15, .45) 100%);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-r {
+    background-image: linear-gradient(to right, rgba(7, 8, 15, .82) 0%, rgba(7, 8, 15, .35) 42%, transparent 70%);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .relative > .absolute.inset-x-0.bottom-0 {
+    padding: 0 2rem 3rem;
+    max-width: 920px;
+    gap: .75rem;
+  }
+
   /* ── Focus : un seul anneau, identique souris et clavier ──────────────── */
   html[data-movviz-appearance="beta"] :is(.nx-desktop-shell, [data-premium-panel], .nx-command) :is(button, a, input, select, textarea, [tabindex]):focus-visible {
     outline: 2px solid var(--so-focus);
