@@ -107,6 +107,11 @@ import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvCardFocusHalo
 import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.betaDp
+import com.movviz.tv.ui.theme.betaSp
+import com.movviz.tv.ui.theme.movvizFocusBorder
+import com.movviz.tv.ui.theme.movvizRowInset
 import kotlinx.coroutines.delay
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -550,12 +555,17 @@ fun HomeScreen(
         if (movieIds.isNotEmpty()) viewModel.loadHeroLogos("movie", movieIds)
         if (seriesIds.isNotEmpty()) viewModel.loadHeroLogos("series", seriesIds)
     }
+    // Bêta : la vedette ne tourne pas tant que le focus est dans le hero —
+    // elle ne change plus sous le doigt au moment de valider.
+    var heroHasFocus by remember { mutableStateOf(false) }
+    val betaUi by androidx.compose.runtime.rememberUpdatedState(LocalMovvizBeta.current)
     LaunchedEffect(heroItems, dashboardLayout.hero.slideshowSpeedSec) {
         if (heroItems.size < 2) return@LaunchedEffect
         val interval = dashboardLayout.hero.slideshowSpeedSec.coerceIn(5, 60) * 1_000L
         while (true) {
             delay(interval)
             if (heroItems.size < 2) return@LaunchedEffect
+            if (betaUi && heroHasFocus) continue
             heroIndex = (heroIndex + 1) % heroItems.size
         }
     }
@@ -677,6 +687,7 @@ fun HomeScreen(
                         trailerAutoplay = dashboardLayout.hero.trailerAutoplay && activeCardPreviewKey == null,
                         onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         navRailFocusRequester = navRailFocusRequester,
+                        onFocusWithinChanged = { heroHasFocus = it },
                     )
                 }
             }
@@ -935,7 +946,9 @@ internal fun HeroCarousel(
     trailerAutoplay: Boolean = true,
     onOpen: (TvTitleCard) -> Unit,
     navRailFocusRequester: FocusRequester? = null,
+    onFocusWithinChanged: (Boolean) -> Unit = {},
 ) {
+    val beta = LocalMovvizBeta.current
     val current = items[currentIndex.coerceIn(0, items.size - 1)]
     var showTitleFallback by remember(current.id, logoPath) { mutableStateOf(false) }
     LaunchedEffect(current.id, logoPath) {
@@ -1029,7 +1042,7 @@ internal fun HeroCarousel(
     // défilement devant une affiche géante.
     val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     val heroHeight = (screenHeightDp * 0.46f).coerceIn(340f, 500f)
-    Box(modifier = Modifier.fillMaxWidth().height(heroHeight.dp).clipToBounds()) {
+    Box(modifier = Modifier.fillMaxWidth().height(heroHeight.dp).clipToBounds().onFocusChanged { onFocusWithinChanged(it.hasFocus) }) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
             transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
@@ -1110,7 +1123,7 @@ internal fun HeroCarousel(
             ) {
             Text(
                 text = "À LA UNE  ·  " + if (current.isMovie) "FILM" else "SÉRIE",
-                style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f), letterSpacing = 2.4.sp),
+                style = TextStyle(fontSize = betaSp(8f, 11f), fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f), letterSpacing = 2.4.sp),
             )
             Spacer(modifier = Modifier.height(6.dp))
             if (logoPath != null) {
@@ -1187,21 +1200,21 @@ internal fun HeroCarousel(
                             tint = Color(0xFFF5C542),
                             modifier = Modifier.size(10.dp),
                         )
-                        Text(text = "%.1f".format(current.rating), style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
+                        Text(text = "%.1f".format(current.rating), style = TextStyle(fontSize = betaSp(11f, 13f), fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
                     }
                     HeroMetaDot()
                 }
                 current.year?.let {
-                    Text(text = "$it", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
+                    Text(text = "$it", style = TextStyle(fontSize = betaSp(11f, 13f), fontWeight = FontWeight.Medium, color = MovvizInkSoft))
                     HeroMetaDot()
                 }
                 current.runtime?.let {
-                    Text(text = "$it min", style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft))
+                    Text(text = "$it min", style = TextStyle(fontSize = betaSp(11f, 13f), color = MovvizInkSoft))
                     if (current.genres.isNotEmpty()) HeroMetaDot()
                 }
                 Text(
                     text = current.genres.take(3).joinToString("  •  "),
-                    style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft),
+                    style = TextStyle(fontSize = betaSp(11f, 13f), color = MovvizInkSoft),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1210,7 +1223,7 @@ internal fun HeroCarousel(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = current.overview,
-                    style = TextStyle(fontSize = 10.sp, color = MovvizInkSoft, lineHeight = 14.sp),
+                    style = TextStyle(fontSize = betaSp(10f, 15f), color = MovvizInkSoft, lineHeight = betaSp(14f, 21f)),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 435.dp),
@@ -1248,7 +1261,7 @@ internal fun HeroCarousel(
                         focusedContentColor = Color.White,
                     ),
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(5.dp)),
+                        focusedBorder = Border(border = movvizFocusBorder(RoundedCornerShape(5.dp), androidx.compose.foundation.BorderStroke(2.dp, Color.White)), shape = RoundedCornerShape(5.dp)),
                     ),
                 ) {
                     Row(
@@ -1260,17 +1273,31 @@ internal fun HeroCarousel(
                             )
                             .padding(horizontal = 15.dp, vertical = 8.dp),
                     ) {
-                        Icon(
-                            imageVector = MovvizIconPlay,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(11.dp),
+                        // Bêta : le bouton ouvre la fiche, son libellé le dit
+                        // (« Lire » annonçait une lecture qui n'avait pas lieu).
+                        if (!beta) {
+                            Icon(
+                                imageVector = MovvizIconPlay,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = when {
+                                beta -> "Voir la fiche"
+                                current.isResumeCard && (current.progressPercent ?: 0) > 0 -> "Reprendre"
+                                else -> "Lire"
+                            },
+                            style = TextStyle(fontSize = betaSp(11f, 13f), fontWeight = FontWeight.Bold, color = Color.White),
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = if (current.isResumeCard && (current.progressPercent ?: 0) > 0) "Reprendre" else "Lire", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White))
                     }
                 }
 
+                // Bêta : « Plus d'infos » faisait exactement la même chose que
+                // le bouton principal — un seul bouton suffit.
+                if (!beta) {
                 Spacer(modifier = Modifier.width(9.dp))
 
                 // "Plus d'infos" button — dark glass, secondary action.
@@ -1312,6 +1339,7 @@ internal fun HeroCarousel(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(text = "Plus d'infos", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White))
                     }
+                }
                 }
             }
         }
@@ -1739,8 +1767,8 @@ internal fun TitleRow(
             modifier = Modifier
                 .let { if (firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it }
                 .focusRestorer(),
-            contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset()),
+            horizontalArrangement = Arrangement.spacedBy(betaDp(9.dp, 12.dp)),
         ) {
             tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { index, _ -> if (index == 0) "featured" else "poster" }) { index, card ->
                 val preview = previewsByCardId[card.id]
@@ -1768,7 +1796,7 @@ internal fun TitleRow(
                     // Netflix : une affiche reste compacte au repos puis la
                     // carte active devient le seul aperçu 16:9 de sa rangée.
                     // Les autres éléments conservent leur gabarit portrait.
-                    width = 99.dp,
+                    width = betaDp(99.dp, 112.dp),
                     aspectRatio = 2f / 3f,
                     preferPosterArt = true,
                     // Le slot LazyRow ne bouge jamais. La mini-fiche est une
@@ -1832,7 +1860,7 @@ private fun RowHeading(text: String) {
             text = text,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 39.dp, bottom = 9.dp),
+            modifier = Modifier.padding(start = movvizRowInset(), bottom = betaDp(9.dp, 12.dp)),
         )
 }
 
@@ -1855,8 +1883,8 @@ internal fun PlatformRow(
         TvLazyRow(
             state = rememberTvLazyListState().withTvPrefetchDisabled(),
             modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
-            horizontalArrangement = Arrangement.spacedBy(11.dp),
+            contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset()),
+            horizontalArrangement = Arrangement.spacedBy(betaDp(11.dp, 12.dp)),
         ) {
             tvItemsIndexed(tiles, key = { _, tile -> "platform-${tile.id}" }) { index, tile ->
                 PlatformTile(tile = tile, onClick = { onSelect(tile) }, navRailFocusRequester = if (index == 0) navRailFocusRequester else null)
@@ -1891,7 +1919,7 @@ private fun PlatformTile(
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)),
+                border = movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f))),
                 shape = shape,
             ),
         ),
@@ -1966,8 +1994,8 @@ internal fun ContinueWatchingRow(
             modifier = Modifier
                 .let { if (firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it }
                 .focusRestorer(),
-            contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset()),
+            horizontalArrangement = Arrangement.spacedBy(betaDp(14.dp, 12.dp)),
         ) {
             tvItemsIndexed(items, key = { _, card -> card.id }) { index, card ->
                 ResumeCard(
@@ -2000,7 +2028,8 @@ private fun ResumeCard(
         ?: card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         ?: card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
     val meta = resumeCardMeta(card)
-    Column(modifier = Modifier.width(203.dp)) {
+    val beta = LocalMovvizBeta.current
+    Column(modifier = Modifier.width(betaDp(203.dp, 224.dp))) {
         Surface(
             onClick = onClick,
             modifier = Modifier
@@ -2011,7 +2040,7 @@ private fun ResumeCard(
                 // le zoom Ken Burns du hero) : seule la bordure + ce halo
                 // bougent au focus, la carte ne change jamais de taille.
                 .graphicsLayer {
-                    shadowElevation = if (focused) 14.dp.toPx() else 0f
+                    shadowElevation = if (focused && !beta) 14.dp.toPx() else 0f
                     shape = tileShape
                     ambientShadowColor = MovvizBrandGlow.copy(alpha = 0.55f)
                     spotShadowColor = Color.Black
@@ -2023,7 +2052,7 @@ private fun ResumeCard(
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
-                    border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrandGlow),
+                    border = movvizFocusBorder(tileShape, androidx.compose.foundation.BorderStroke(2.dp, MovvizBrandGlow)),
                     shape = tileShape,
                 ),
             ),
@@ -2074,7 +2103,7 @@ private fun ResumeCard(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .height(2.dp)
+                            .height(betaDp(2.dp, 4.dp))
                             .background(Color.White.copy(alpha = 0.25f)),
                     ) {
                         Box(
@@ -2090,14 +2119,14 @@ private fun ResumeCard(
         Spacer(modifier = Modifier.height(6.dp))
         if (titleLogoPath == null) Text(
             text = card.title,
-            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+            style = TextStyle(fontSize = betaSp(11f, 13f), fontWeight = FontWeight.SemiBold, color = MovvizInk),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         if (meta.isNotBlank()) {
             Text(
                 text = meta,
-                style = TextStyle(fontSize = 10.sp, color = MovvizInkDim),
+                style = TextStyle(fontSize = betaSp(10f, 12f), color = if (beta) MovvizInkSoft else MovvizInkDim),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -2139,7 +2168,7 @@ private fun SeeAllTile(onClick: () -> Unit) {
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizInk.copy(alpha = 0.08f)),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
-                    border = androidx.compose.foundation.BorderStroke(2.4.dp, Color.White.copy(alpha = 0.85f)),
+                    border = movvizFocusBorder(MovvizCardShape, androidx.compose.foundation.BorderStroke(2.4.dp, Color.White.copy(alpha = 0.85f))),
                     shape = MovvizCardShape,
                 ),
             ),
@@ -2221,7 +2250,7 @@ internal fun PosterCard(
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
-                    border = androidx.compose.foundation.BorderStroke(2.4.dp, Color.White.copy(alpha = 0.85f)),
+                    border = movvizFocusBorder(MovvizCardShape, androidx.compose.foundation.BorderStroke(2.4.dp, Color.White.copy(alpha = 0.85f))),
                     shape = MovvizCardShape,
                 ),
             ),
@@ -2254,7 +2283,7 @@ internal fun PosterCard(
                     ) {
                         Text(
                             text = typeLabel,
-                            style = TextStyle(fontSize = 7.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 0.5.sp),
+                            style = TextStyle(fontSize = betaSp(7f, 10f), fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 0.5.sp),
                             maxLines = 1,
                         )
                     }
@@ -2308,7 +2337,7 @@ internal fun PosterCard(
                 if (card.seasonLabel != null) {
                     Text(
                         text = card.seasonLabel,
-                        style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        style = TextStyle(fontSize = betaSp(8f, 11f), fontWeight = FontWeight.Bold, color = Color.White),
                         maxLines = 1,
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -2344,7 +2373,7 @@ internal fun PosterCard(
                 if (episodeBadge) {
                     Text(
                         text = "S${card.episodeSeasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
-                        style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        style = TextStyle(fontSize = betaSp(8f, 11f), fontWeight = FontWeight.Bold, color = Color.White),
                         maxLines = 1,
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -2422,7 +2451,7 @@ internal fun PosterCard(
                 if (showTechnicalBadges && focused && card.qualityLabel != null) {
                     Text(
                         text = if (card.hasHdr) "${card.qualityLabel} HDR" else card.qualityLabel,
-                        style = TextStyle(fontSize = 7.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                        style = TextStyle(fontSize = betaSp(7f, 11f), fontWeight = FontWeight.Bold, color = MovvizInk),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
@@ -2580,7 +2609,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
         border = androidx.tv.material3.ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)),
+                border = movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f))),
                 shape = shape,
             ),
         ),
@@ -2620,7 +2649,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = downloadSubtitle(item),
-                    style = TextStyle(fontSize = 9.sp, color = Color.White.copy(alpha = 0.72f)),
+                    style = TextStyle(fontSize = betaSp(9f, 12f), color = Color.White.copy(alpha = 0.72f)),
                     maxLines = 1,
                 )
                 Spacer(modifier = Modifier.height(5.dp))
@@ -2634,7 +2663,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
                 }
                 if (clickable) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "Ouvrir la fiche", style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan))
+                    Text(text = "Ouvrir la fiche", style = TextStyle(fontSize = betaSp(8f, 11f), fontWeight = FontWeight.SemiBold, color = MovvizCyan))
                 }
             }
         }
@@ -2667,7 +2696,7 @@ private fun QueueStatusPill(status: String, modifier: Modifier = Modifier) {
             .border(1.dp, color.copy(alpha = 0.3f), RoundedCornerShape(50))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
-        Text(text = label, style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = color))
+        Text(text = label, style = TextStyle(fontSize = betaSp(8f, 11f), fontWeight = FontWeight.Bold, color = color))
     }
 }
 

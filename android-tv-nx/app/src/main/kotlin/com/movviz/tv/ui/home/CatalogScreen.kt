@@ -214,7 +214,7 @@ internal fun CatalogScreen(
                 // 132dp donne 6 à 7 affiches lisibles en 1080p (et davantage
                 // en 4K) : assez dense pour une bibliothèque TV, sans devenir
                 // une mosaïque illisible à trois mètres.
-                columns = TvGridCells.FixedSize(99.dp),
+                columns = TvGridCells.FixedSize(com.movviz.tv.ui.theme.betaDp(99.dp, 112.dp)),
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.fillMaxSize(),
@@ -235,7 +235,7 @@ internal fun CatalogScreen(
                         // dessus au focus — mais la carte NE grandit PAS en
                         // paysage ici (grille verticale, pas de rangée : un
                         // agrandissement décalerait les cartes voisines).
-                        width = 99.dp,
+                        width = com.movviz.tv.ui.theme.betaDp(99.dp, 112.dp),
                         aspectRatio = 2f / 3f,
                         preferPosterArt = true,
                         // La bibliothèque n'est pas une rangée éditoriale :

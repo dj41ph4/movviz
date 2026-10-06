@@ -126,7 +126,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         pendingDeepLink = intent
         setContent {
-            MovvizTvTheme {
+            val betaUi by appViewModel.betaUiEnabled.collectAsState()
+            MovvizTvTheme(beta = betaUi) {
                 MovvizNavHost(appViewModel)
             }
         }

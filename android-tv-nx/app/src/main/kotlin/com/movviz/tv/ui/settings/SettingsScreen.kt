@@ -152,6 +152,22 @@ fun SettingsScreen(
             }
         }
 
+        item(contentType = "appearance") {
+            SettingsSection(title = "Apparence") {
+                val betaUi by viewModel.betaUiEnabled.collectAsState()
+                Text(
+                    text = "Nouvelle interface en test : textes plus grands, un seul cadre de sélection, marges alignées. Désactivez-la pour revenir à l'apparence actuelle.",
+                    style = TextStyle(fontSize = com.movviz.tv.ui.theme.betaSp(10f, 13f), color = MovvizInkSoft),
+                )
+                Spacer(modifier = Modifier.height(9.dp))
+                SettingsToggle(
+                    label = if (betaUi) "Interface Bêta : activée" else "Interface Bêta : désactivée",
+                    enabled = betaUi,
+                    onToggle = { viewModel.setBetaUiEnabled(!betaUi) },
+                )
+            }
+        }
+
         item(contentType = "about") {
             SettingsSection(title = "À propos") {
                 InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
@@ -183,14 +199,25 @@ fun SettingsScreen(
 @Composable
 private fun AutoUpdateToggle(viewModel: AppViewModel) {
     val enabled by viewModel.autoUpdateEnabled.collectAsState()
+    SettingsToggle(
+        label = if (enabled) "Auto-mise à jour : ON" else "Auto-mise à jour : OFF",
+        enabled = enabled,
+        onToggle = { viewModel.setAutoUpdateEnabled(!enabled) },
+    )
+}
+
+/** Interrupteur de réglage — même rendu pour l'auto-mise à jour et
+ *  l'interface Bêta. */
+@Composable
+private fun SettingsToggle(label: String, enabled: Boolean, onToggle: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     Surface(
-        onClick = { viewModel.setAutoUpdateEnabled(!enabled) },
+        onClick = onToggle,
         modifier = Modifier
             .tvFocusLift(focused = focused, shape = shape, maxElevation = 9.dp)
             .onFocusChanged { focused = it.isFocused }
-            .tvPointerClick { viewModel.setAutoUpdateEnabled(!enabled) },
+            .tvPointerClick(onToggle),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (enabled) MovvizBrand.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f),
@@ -209,8 +236,8 @@ private fun AutoUpdateToggle(viewModel: AppViewModel) {
             horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             Text(
-                text = if (enabled) "Auto-mise à jour : ON" else "Auto-mise à jour : OFF",
-                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                text = label,
+                style = TextStyle(fontSize = com.movviz.tv.ui.theme.betaSp(11f, 13f), fontWeight = FontWeight.Bold),
             )
             Box(
                 modifier = Modifier

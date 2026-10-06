@@ -47,7 +47,7 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
     val tone = statusTone(status)
     Text(
         text = tone.label,
-        style = TextStyle(fontSize = 7.sp, fontWeight = FontWeight.Bold, color = tone.color),
+        style = TextStyle(fontSize = betaSp(7f, 11f), fontWeight = FontWeight.Bold, color = tone.color),
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(3.dp))
             .padding(horizontal = 5.dp, vertical = 2.dp),
@@ -62,7 +62,7 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
 fun QualityPill(label: String, color: Color, modifier: Modifier = Modifier) {
     Text(
         text = label,
-        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color),
+        style = TextStyle(fontSize = betaSp(9f, 11f), fontWeight = FontWeight.Bold, color = color),
         modifier = modifier
             .background(color.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
             .border(1.dp, color.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
@@ -85,11 +85,11 @@ fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
             imageVector = MovvizIconStar,
             contentDescription = null,
             tint = Color(0xFFF5C542),
-            modifier = Modifier.size(8.dp),
+            modifier = Modifier.size(betaDp(8.dp, 11.dp)),
         )
         Text(
             text = "%.1f".format(rating),
-            style = TextStyle(fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
+            style = TextStyle(fontSize = betaSp(8f, 11f), fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
         )
     }
 }
