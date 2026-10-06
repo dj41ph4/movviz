@@ -294,17 +294,20 @@ export async function searchPerson(query: string): Promise<{ id: number; name: s
   return { id: people[0].id, name: people[0].name!, knownForDepartment: people[0].known_for_department ?? null };
 }
 
-/** Paginated person search (actors/réalisateurs/...) — same `/search/multi`
- *  call as searchPerson, but returns every match instead of collapsing to
- *  one, for a real search UI rather than a single confident chat lookup. */
+/** Paginated person search (actors/réalisateurs/...) for a real search UI
+ *  rather than a single confident chat lookup. Uses TMDb's dedicated
+ *  `/search/person`, not `/search/multi`: multi mixes films/séries/personnes
+ *  in its 20 results per page, so a name that also matches titles ("Jean",
+ *  "Moore", a partial surname...) often came back with zero people. Its
+ *  results carry no `media_type`, hence no filter on it here. */
 export async function searchPeople(query: string, page = 1): Promise<{ results: MetaPersonSearchResult[]; page: number; totalPages: number }> {
-  const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>("/search/multi", {
+  const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>("/search/person", {
     query,
     page: String(page),
   });
   if (!data) return { results: [], page: 1, totalPages: 0 };
   const results = data.results
-    .filter((r) => r.media_type === "person" && r.name)
+    .filter((r) => r.name)
     .map((r) => ({
       tmdbId: r.id,
       name: r.name!,

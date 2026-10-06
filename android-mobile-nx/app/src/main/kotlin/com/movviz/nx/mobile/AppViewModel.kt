@@ -686,6 +686,12 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _personSearchResults = MutableStateFlow<List<com.movviz.nx.mobile.data.PersonSearchResultDto>>(emptyList())
     val personSearchResults: StateFlow<List<com.movviz.nx.mobile.data.PersonSearchResultDto>> = _personSearchResults.asStateFlow()
 
+    // État de la recherche Acteurs, distinct de searchState : sans lui
+    // l'onglet affichait « Aucun acteur » pendant le chargement et sur une
+    // erreur réseau, impossible à distinguer d'une vraie absence de résultat.
+    private val _personSearchState = MutableStateFlow<SearchState>(SearchState.Idle)
+    val personSearchState: StateFlow<SearchState> = _personSearchState.asStateFlow()
+
     /** Chip "Acteurs" de la recherche portrait — mode dédié de
      *  /api/metadata/search, pas une donnée simulée. */
     fun searchPeople(query: String) {
@@ -695,6 +701,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
             activePersonQuery = null
             personSearchSucceeded = false
             _personSearchResults.value = emptyList()
+            _personSearchState.value = SearchState.Idle
             return
         }
         val normalizedQuery = query.trim()
@@ -703,13 +710,25 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         personSearchSucceeded = false
         val requestId = ++personSearchRequestId
         personSearchJob?.cancel()
+        _personSearchState.value = SearchState.Loading
         personSearchJob = viewModelScope.launch {
-            when (val result = repository?.searchPeople(normalizedQuery)) {
-                is ApiResult.Success -> if (requestId == personSearchRequestId) {
+            val result = repository?.searchPeople(normalizedQuery)
+            if (requestId != personSearchRequestId) return@launch
+            when (result) {
+                is ApiResult.Success -> {
                     _personSearchResults.value = result.data
                     personSearchSucceeded = true
+                    _personSearchState.value = if (result.data.isEmpty()) SearchState.Empty else SearchState.Idle
                 }
-                else -> if (requestId == personSearchRequestId) _personSearchResults.value = emptyList()
+                ApiResult.Unauthorized -> {
+                    _personSearchResults.value = emptyList()
+                    _personSearchState.value = SearchState.Unauthorized
+                    _sessionExpired.value = true
+                }
+                else -> {
+                    _personSearchResults.value = emptyList()
+                    _personSearchState.value = SearchState.Error("Recherche indisponible")
+                }
             }
         }
     }
@@ -1866,6 +1885,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         personSearchSucceeded = false
         _searchResults.value = emptyList()
         _personSearchResults.value = emptyList()
+        _personSearchState.value = SearchState.Idle
         _searchState.value = SearchState.Idle
         _searching.value = false
     }

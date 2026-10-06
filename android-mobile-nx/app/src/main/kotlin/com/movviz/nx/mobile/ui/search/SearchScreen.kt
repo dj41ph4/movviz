@@ -95,6 +95,8 @@ fun SearchScreen(
     // "Annuler" — portrait uniquement (voir PortraitSearchScreen). Sans
     // effet en paysage/TV, où il n'existe aucun lien "Annuler" dans la barre.
     onCancel: () -> Unit = {},
+    // Onglet Acteurs (portrait) : ouvre la fiche personne et sa filmographie.
+    onOpenPerson: (personId: Int) -> Unit = {},
 ) {
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
@@ -110,6 +112,7 @@ fun SearchScreen(
             query = query,
             onQueryChange = onQueryChange,
             onCancel = onCancel,
+            onOpenPerson = onOpenPerson,
         )
         return
     }
@@ -383,14 +386,17 @@ private fun PortraitSearchScreen(
     query: String,
     onQueryChange: (String) -> Unit,
     onCancel: () -> Unit,
+    onOpenPerson: (personId: Int) -> Unit,
 ) {
     val results by viewModel.searchResults.collectAsState()
     val personResults by viewModel.personSearchResults.collectAsState()
+    val personSearchState by viewModel.personSearchState.collectAsState()
     val searching by viewModel.searching.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val trendingSeries by viewModel.trendingSeries.collectAsState()
-    var typeFilter by remember { mutableStateOf(PortraitSearchTypeFilter.ALL) }
+    // Saveable : au retour de la fiche personne, l'onglet Acteurs reste actif.
+    var typeFilter by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(PortraitSearchTypeFilter.ALL) }
     var recentSearches by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(listOf<String>()) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -523,7 +529,13 @@ private fun PortraitSearchScreen(
             } else if (typeFilter == PortraitSearchTypeFilter.ACTOR) {
                 item {
                     Text(
-                        text = if (personResults.isEmpty()) "Aucun acteur pour « $query »" else "${personResults.size} résultat${if (personResults.size > 1) "s" else ""} pour « $query »",
+                        text = when {
+                            personSearchState is SearchState.Loading -> "Recherche…"
+                            personSearchState is SearchState.Unauthorized -> "Session expirée. Reconnectez-vous."
+                            personSearchState is SearchState.Error -> "Recherche indisponible — réessayer"
+                            personResults.isEmpty() -> "Aucun acteur pour « $query »"
+                            else -> "${personResults.size} résultat${if (personResults.size > 1) "s" else ""} pour « $query »"
+                        },
                         color = MovvizInkSoft,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -531,7 +543,7 @@ private fun PortraitSearchScreen(
                     )
                 }
                 items(personResults, key = { "person-${it.tmdbId}" }) { person ->
-                    SuggestionRow(title = person.name, onClick = { commitSearch(query) })
+                    PersonResultRow(person = person, onClick = { commitSearch(query); onOpenPerson(person.tmdbId) })
                 }
             } else {
                 if (suggestions.isNotEmpty()) {
@@ -628,6 +640,49 @@ private fun SuggestionRow(title: String, onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Text(title, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+}
+
+// Photos de profil : w185 suffit pour un avatar de 48dp.
+private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185"
+
+/** Ligne de l'onglet Acteurs — photo, nom et métier TMDb ; tape pour ouvrir
+ *  la fiche personne (même destination que la Distribution d'une fiche). */
+@Composable
+private fun PersonResultRow(person: com.movviz.nx.mobile.data.PersonSearchResultDto, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().tvPointerClick(onClick).padding(vertical = 8.dp),
+    ) {
+        Box(Modifier.size(48.dp).clip(CircleShape).background(MovvizSurfaceStrong), contentAlignment = Alignment.Center) {
+            val photoUrl = person.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
+            if (photoUrl != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(model = photoUrl),
+                    contentDescription = person.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Text(person.name.take(1).uppercase(), color = MovvizInkSoft, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(person.name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            departmentLabel(person.knownForDepartment)?.let {
+                Text(it, color = MovvizInkSoft, fontSize = 12.sp, maxLines = 1)
+            }
+        }
+    }
+}
+
+private fun departmentLabel(department: String?): String? = when (department) {
+    null, "" -> null
+    "Acting" -> "Acteur·rice"
+    "Directing" -> "Réalisation"
+    "Writing" -> "Scénario"
+    "Production" -> "Production"
+    else -> department
 }
 
 /** Ligne "Tendances du moment" — numérotée, texte seul (même contenu que

@@ -75,6 +75,9 @@ fun MainScreen(
     // Mode déplié : loupe du rail tactile (SearchScreen reste rendu par le
     // `when` ci-dessous via searchOpen) + pastille MAJ du rail.
     onOpenSearch: () -> Unit = {},
+    // Onglet Acteurs de la recherche → fiche personne (route gérée par
+    // MainActivity, comme la Distribution d'une fiche titre).
+    onOpenPerson: (personId: Int) -> Unit = {},
     updateTag: String? = null,
     onUpdateClick: () -> Unit = {},
 ) {
@@ -219,6 +222,7 @@ private fun MainContent(
                 showSearchField = true,
                 resultFocusRequester = contentFocusRequester,
                 onCancel = onSearchCancel,
+                onOpenPerson = onOpenPerson,
             )
             tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
             // Films et Séries sont désormais chacun un véritable hub : les

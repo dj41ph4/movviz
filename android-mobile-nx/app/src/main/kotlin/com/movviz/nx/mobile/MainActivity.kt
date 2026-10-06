@@ -646,6 +646,7 @@ composable(ROUTE_PROFILES) {
                 onHomeScrollChanged = { headerHasScrolled = it },
                 onSwitchProfile = { navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) } },
                 onOpenSearch = { searchOpen = true },
+                onOpenPerson = { personId -> navController.navigate(personRoute(personId)) },
                 updateTag = viewModel.availableUpdateTag.collectAsState().value,
                 onUpdateClick = { viewModel.requestUpdateInstall() },
             )
