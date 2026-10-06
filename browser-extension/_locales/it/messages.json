@@ -1,0 +1,85 @@
+{
+  "extName": {
+    "message": "Movviz Companion"
+  },
+  "extDescription": {
+    "message": "Aggiunge un pulsante Movviz su TMDb, IMDb, AlloCiné e altri siti di cinema per richiedere un film o una serie con un clic."
+  },
+  "btnRequest": {
+    "message": "Richiedi su Movviz"
+  },
+  "statusPending": {
+    "message": "In attesa"
+  },
+  "statusProcessing": {
+    "message": "In corso"
+  },
+  "statusAvailable": {
+    "message": "Disponibile"
+  },
+  "btnOpen": {
+    "message": "Apri in Movviz"
+  },
+  "notFound": {
+    "message": "Titolo non trovato"
+  },
+  "errUnauthorized": {
+    "message": "Token rifiutato"
+  },
+  "errNetwork": {
+    "message": "Server non raggiungibile"
+  },
+  "errBlocked": {
+    "message": "Titolo bloccato"
+  },
+  "errQuota": {
+    "message": "Quota raggiunta"
+  },
+  "errGeneric": {
+    "message": "Errore"
+  },
+  "btnSetup": {
+    "message": "Configura Movviz"
+  },
+  "optSubtitle": {
+    "message": "Richiedi film e serie da qualsiasi sito di cinema."
+  },
+  "optSetupTitle": {
+    "message": "Connessione al tuo server"
+  },
+  "optStep1": {
+    "message": "Inserisci l'indirizzo del tuo server Movviz."
+  },
+  "optStep2": {
+    "message": "Crea un token in Movviz, scheda Profilo, sezione Token API, poi incollalo qui."
+  },
+  "optServerUrl": {
+    "message": "Indirizzo del server"
+  },
+  "optToken": {
+    "message": "Token API"
+  },
+  "optSave": {
+    "message": "Salva e verifica"
+  },
+  "optTesting": {
+    "message": "Verifica in corso…"
+  },
+  "optConnected": {
+    "message": "Connesso come $USER$",
+    "placeholders": {
+      "user": {
+        "content": "$1"
+      }
+    }
+  },
+  "optBadUrl": {
+    "message": "Indirizzo non valido"
+  },
+  "optPermissionDenied": {
+    "message": "Autorizzazione negata per questo server"
+  },
+  "optSitesTitle": {
+    "message": "Siti supportati"
+  }
+}

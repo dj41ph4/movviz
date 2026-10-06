@@ -1,0 +1,85 @@
+{
+  "extName": {
+    "message": "Movviz Companion"
+  },
+  "extDescription": {
+    "message": "Fügt auf TMDb, IMDb, AlloCiné und weiteren Filmseiten einen Movviz-Button hinzu, um einen Film oder eine Serie mit einem Klick anzufragen."
+  },
+  "btnRequest": {
+    "message": "Auf Movviz anfragen"
+  },
+  "statusPending": {
+    "message": "Ausstehend"
+  },
+  "statusProcessing": {
+    "message": "In Bearbeitung"
+  },
+  "statusAvailable": {
+    "message": "Verfügbar"
+  },
+  "btnOpen": {
+    "message": "In Movviz öffnen"
+  },
+  "notFound": {
+    "message": "Titel nicht gefunden"
+  },
+  "errUnauthorized": {
+    "message": "Token abgelehnt"
+  },
+  "errNetwork": {
+    "message": "Server nicht erreichbar"
+  },
+  "errBlocked": {
+    "message": "Titel gesperrt"
+  },
+  "errQuota": {
+    "message": "Limit erreicht"
+  },
+  "errGeneric": {
+    "message": "Fehler"
+  },
+  "btnSetup": {
+    "message": "Movviz einrichten"
+  },
+  "optSubtitle": {
+    "message": "Frage Filme und Serien auf jeder Filmseite an."
+  },
+  "optSetupTitle": {
+    "message": "Mit deinem Server verbinden"
+  },
+  "optStep1": {
+    "message": "Gib die Adresse deines Movviz-Servers ein."
+  },
+  "optStep2": {
+    "message": "Erstelle in Movviz unter Profil, Abschnitt API-Tokens, ein Token und füge es hier ein."
+  },
+  "optServerUrl": {
+    "message": "Serveradresse"
+  },
+  "optToken": {
+    "message": "API-Token"
+  },
+  "optSave": {
+    "message": "Speichern und testen"
+  },
+  "optTesting": {
+    "message": "Test läuft…"
+  },
+  "optConnected": {
+    "message": "Verbunden als $USER$",
+    "placeholders": {
+      "user": {
+        "content": "$1"
+      }
+    }
+  },
+  "optBadUrl": {
+    "message": "Ungültige Adresse"
+  },
+  "optPermissionDenied": {
+    "message": "Berechtigung für diesen Server verweigert"
+  },
+  "optSitesTitle": {
+    "message": "Unterstützte Seiten"
+  }
+}

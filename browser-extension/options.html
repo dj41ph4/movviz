@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Movviz Companion</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img src="icons/icon128.png" alt="Movviz" class="logo">
+      <div>
+        <h1>Movviz <span class="grad">Companion</span></h1>
+        <p data-i18n="optSubtitle"></p>
+      </div>
+    </header>
+
+    <section class="glass-strong">
+      <h2 data-i18n="optSetupTitle"></h2>
+      <ol>
+        <li data-i18n="optStep1"></li>
+        <li data-i18n="optStep2"></li>
+      </ol>
+
+      <form id="form" novalidate>
+        <label>
+          <span data-i18n="optServerUrl"></span>
+          <input id="serverUrl" type="url" placeholder="http://192.168.1.10:9810" autocomplete="off" spellcheck="false">
+        </label>
+        <label>
+          <span data-i18n="optToken"></span>
+          <input id="token" type="password" placeholder="mvz_…" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="row">
+          <button id="save" type="submit" class="primary"><span data-i18n="optSave"></span></button>
+          <span id="status" class="pill" hidden></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="glass">
+      <h2 data-i18n="optSitesTitle"></h2>
+      <div class="chips">
+        <span>TMDb</span><span>IMDb</span><span>AlloCiné</span><span>SensCritique</span><span>TheTVDB</span>
+        <span>Letterboxd</span><span>Rotten Tomatoes</span><span>JustWatch</span><span>Trakt</span><span>Taste</span>
+      </div>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

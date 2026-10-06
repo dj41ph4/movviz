@@ -1,0 +1,85 @@
+{
+  "extName": {
+    "message": "Movviz Companion"
+  },
+  "extDescription": {
+    "message": "Voegt een Movviz-knop toe aan TMDb, IMDb, AlloCiné en andere filmsites om met één klik een film of serie aan te vragen."
+  },
+  "btnRequest": {
+    "message": "Aanvragen op Movviz"
+  },
+  "statusPending": {
+    "message": "In afwachting"
+  },
+  "statusProcessing": {
+    "message": "Bezig"
+  },
+  "statusAvailable": {
+    "message": "Beschikbaar"
+  },
+  "btnOpen": {
+    "message": "Openen in Movviz"
+  },
+  "notFound": {
+    "message": "Titel niet gevonden"
+  },
+  "errUnauthorized": {
+    "message": "Token geweigerd"
+  },
+  "errNetwork": {
+    "message": "Server onbereikbaar"
+  },
+  "errBlocked": {
+    "message": "Titel geblokkeerd"
+  },
+  "errQuota": {
+    "message": "Limiet bereikt"
+  },
+  "errGeneric": {
+    "message": "Fout"
+  },
+  "btnSetup": {
+    "message": "Movviz instellen"
+  },
+  "optSubtitle": {
+    "message": "Vraag films en series aan vanaf elke filmsite."
+  },
+  "optSetupTitle": {
+    "message": "Verbinden met je server"
+  },
+  "optStep1": {
+    "message": "Voer het adres van je Movviz-server in."
+  },
+  "optStep2": {
+    "message": "Maak een token aan in Movviz, tabblad Profiel, sectie API-tokens, en plak het hier."
+  },
+  "optServerUrl": {
+    "message": "Serveradres"
+  },
+  "optToken": {
+    "message": "API-token"
+  },
+  "optSave": {
+    "message": "Opslaan en testen"
+  },
+  "optTesting": {
+    "message": "Bezig met testen…"
+  },
+  "optConnected": {
+    "message": "Verbonden als $USER$",
+    "placeholders": {
+      "user": {
+        "content": "$1"
+      }
+    }
+  },
+  "optBadUrl": {
+    "message": "Ongeldig adres"
+  },
+  "optPermissionDenied": {
+    "message": "Toestemming geweigerd voor deze server"
+  },
+  "optSitesTitle": {
+    "message": "Ondersteunde sites"
+  }
+}

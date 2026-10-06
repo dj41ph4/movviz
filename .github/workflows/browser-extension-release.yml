@@ -1,0 +1,56 @@
+name: Publier l'extension navigateur Movviz Companion
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aligner la version de l'extension sur celle de Movviz
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = 'browser-extension/manifest.json';
+            const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+            m.version = require('./package.json').version;
+            fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
+          "
+
+      - name: Empaqueter l'extension
+        run: |
+          cd browser-extension
+          zip -r ../Movviz-Companion-extension.zip . -x "scripts/*" "README.md"
+
+      - name: Joindre l'archive à la release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Plusieurs workflows créent la même release au même moment : on
+          # attend qu'elle soit visible avant d'y joindre l'archive.
+          for attempt in $(seq 1 20); do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            gh release create "$TAG" --title "$TAG" --generate-notes >/dev/null 2>&1 || true
+            sleep 5
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" Movviz-Companion-extension.zip --clobber
+
+      - name: Conserver l'archive en artefact
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
+        with:
+          name: Movviz-Companion-extension
+          path: Movviz-Companion-extension.zip

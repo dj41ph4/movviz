@@ -26,6 +26,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/healthz",
   "/api/library/import",
   "/api/activity/log",
+  "/api/extension", // Extension navigateur : jeton Bearer vérifié dans la route, pas de cookie.
 ];
 
 function isPublicApi(pathname: string) {

@@ -1,0 +1,85 @@
+{
+  "extName": {
+    "message": "Movviz Companion"
+  },
+  "extDescription": {
+    "message": "Ajoute un bouton Movviz sur TMDb, IMDb, AlloCiné et d'autres sites de cinéma pour demander un film ou une série en un clic."
+  },
+  "btnRequest": {
+    "message": "Demander sur Movviz"
+  },
+  "statusPending": {
+    "message": "En attente"
+  },
+  "statusProcessing": {
+    "message": "En cours"
+  },
+  "statusAvailable": {
+    "message": "Disponible"
+  },
+  "btnOpen": {
+    "message": "Ouvrir dans Movviz"
+  },
+  "notFound": {
+    "message": "Titre introuvable"
+  },
+  "errUnauthorized": {
+    "message": "Jeton refusé"
+  },
+  "errNetwork": {
+    "message": "Serveur injoignable"
+  },
+  "errBlocked": {
+    "message": "Titre bloqué"
+  },
+  "errQuota": {
+    "message": "Quota atteint"
+  },
+  "errGeneric": {
+    "message": "Erreur"
+  },
+  "btnSetup": {
+    "message": "Configurer Movviz"
+  },
+  "optSubtitle": {
+    "message": "Demande tes films et séries depuis n'importe quel site de cinéma."
+  },
+  "optSetupTitle": {
+    "message": "Connexion à ton serveur"
+  },
+  "optStep1": {
+    "message": "Indique l'adresse de ton serveur Movviz."
+  },
+  "optStep2": {
+    "message": "Crée un jeton dans Movviz, onglet Profil, section Jetons API, puis colle-le ici."
+  },
+  "optServerUrl": {
+    "message": "Adresse du serveur"
+  },
+  "optToken": {
+    "message": "Jeton API"
+  },
+  "optSave": {
+    "message": "Enregistrer et tester"
+  },
+  "optTesting": {
+    "message": "Test en cours…"
+  },
+  "optConnected": {
+    "message": "Connecté en tant que $USER$",
+    "placeholders": {
+      "user": {
+        "content": "$1"
+      }
+    }
+  },
+  "optBadUrl": {
+    "message": "Adresse invalide"
+  },
+  "optPermissionDenied": {
+    "message": "Autorisation refusée pour ce serveur"
+  },
+  "optSitesTitle": {
+    "message": "Sites pris en charge"
+  }
+}

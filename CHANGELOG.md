@@ -1,3 +1,12 @@
+## v1.25.183 — Octobre 2026
+
+### Movviz Companion : demande tes films et séries depuis les sites de cinéma
+
+- Nouvelle extension navigateur (Chrome, Edge, Brave) : un bouton Movviz apparaît sur TMDb, IMDb, AlloCiné, SensCritique, TheTVDB, Letterboxd, Rotten Tomatoes, JustWatch, Trakt et Taste pour demander un film ou une série en un clic.
+- Le statut s’affiche en direct (en attente, en cours, disponible) avec un accès direct à la fiche dans Movviz. Si un site change sa mise en page, le bouton reste visible en bas à gauche.
+- Connexion avec un jeton API personnel (Profil, Jetons API) : la demande suit tes droits habituels, approuvée tout de suite pour un administrateur ou un utilisateur en approbation automatique.
+- L’archive de l’extension est jointe à chaque release, avec une page d’options aux couleurs de Movviz disponible dans les cinq langues.
+
 ## v1.25.182 — Octobre 2026
 
 ### Lecture : pause/reprise fiables et gros fichiers qui ne tournent plus dans le vide
