@@ -1,3 +1,11 @@
+## v1.25.188 — Octobre 2026
+
+### Android mobile : recherche par acteur
+
+- Dans l’onglet Acteurs de la recherche, toucher un acteur ouvre maintenant sa fiche avec sa filmographie.
+- Chaque résultat affiche la photo et le métier de la personne, et la recherche indique quand elle charge ou échoue au lieu d’afficher « Aucun acteur ».
+- La recherche d’acteurs (mobile et web) trouve beaucoup plus de personnes : elle utilise désormais la recherche TMDb dédiée aux personnes.
+
 ## v1.25.187 — Octobre 2026
 
 ### Movviz Companion : suivi en direct du téléchargement
