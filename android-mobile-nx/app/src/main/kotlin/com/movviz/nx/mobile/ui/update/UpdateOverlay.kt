@@ -279,10 +279,18 @@ fun UpdateOverlay(
             runCatching { rootFocusRequester.requestFocus() }
         }
     }
+    // Refonte premium : marges de téléphone en portrait (64 dp de chaque
+    // côté ne laissaient que quelques mots par ligne) et fond teinté marque.
+    val sidePadding = if (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600) 24.dp else 64.dp
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MovvizPage)
+            .background(
+                androidx.compose.ui.graphics.Brush.radialGradient(
+                    listOf(com.movviz.nx.mobile.ui.theme.MovvizBrand.copy(alpha = 0.22f), Color.Transparent),
+                ),
+            )
             .focusRequester(rootFocusRequester)
             .focusable(),
         contentAlignment = Alignment.Center,
@@ -291,6 +299,8 @@ fun UpdateOverlay(
             Text(
                 text = "Mise à jour, veuillez patienter…",
                 style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(horizontal = sidePadding),
             )
             Spacer(Modifier.height(12.dp))
             Text(
@@ -334,7 +344,8 @@ fun UpdateOverlay(
                     Text(
                         text = "Autorise l'installation d'applications inconnues pour pouvoir mettre à jour Movviz",
                         style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.85f)),
-                        modifier = Modifier.padding(horizontal = 64.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = sidePadding),
                     )
                     Spacer(Modifier.height(24.dp))
                     Row {
@@ -347,13 +358,15 @@ fun UpdateOverlay(
                     Text(
                         text = "L'installation automatique n'a pas abouti sur cet appareil",
                         style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.85f)),
-                        modifier = Modifier.padding(horizontal = 64.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = sidePadding),
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = "L'APK est téléchargé et vérifié : ouvre l'installeur système pour terminer.",
                         style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f)),
-                        modifier = Modifier.padding(horizontal = 64.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = sidePadding),
                     )
                     Spacer(Modifier.height(24.dp))
                     Row {

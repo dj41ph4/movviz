@@ -86,7 +86,9 @@ fun MovvizSegmentedControl(
                     .weight(1f)
                     .clip(RoundedCornerShape(50))
                     .then(
-                        if (active) Modifier.background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)))
+                        // Refonte premium : segment actif blanc, comme les
+                        // autres puces actives de l'app.
+                        if (active) Modifier.background(Color.White)
                         else Modifier,
                     )
                     .tvPointerClick { onSelect(index) },
@@ -94,7 +96,7 @@ fun MovvizSegmentedControl(
             ) {
                 Text(
                     text = label,
-                    color = if (active) Color.White else MovvizInkSoft,
+                    color = if (active) Color.Black else MovvizInkSoft,
                     fontSize = 14.sp,
                     fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                     maxLines = 1,

@@ -13,6 +13,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -78,7 +84,9 @@ fun MediaHubSegmentedPills(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(
-                            if (isActive) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, com.movviz.nx.mobile.ui.theme.MovvizBrand2)), RoundedCornerShape(26.dp))
+                            // Refonte premium : segment actif blanc, comme les
+                            // puces de saison et de recherche.
+                            if (isActive) Modifier.background(Color.White, RoundedCornerShape(26.dp))
                             else Modifier,
                         ),
                     contentAlignment = Alignment.Center,
@@ -87,7 +95,7 @@ fun MediaHubSegmentedPills(
                         text = label,
                         fontSize = 13.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                        color = Color.White,
+                        color = if (isActive) Color.Black else Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -166,7 +174,20 @@ fun FilterDropdownChip(
                 )
             }
         }
-        if (open) {
+        val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+        if (open && compactPortrait) {
+            // Refonte premium : en portrait, le filtre s'ouvre en feuille
+            // basse (à portée du pouce, liste défilante) au lieu d'un menu
+            // accroché à la puce qui débordait avec une longue liste de genres.
+            FilterBottomSheet(
+                title = label,
+                options = options,
+                selectedLabel = selectedLabel,
+                onClear = onClear,
+                onDismiss = { open = false },
+                onSelectOption = { open = false; onSelectOption(it) },
+            )
+        } else if (open) {
             Popup(
                 alignment = Alignment.TopStart,
                 properties = PopupProperties(focusable = true),
@@ -212,5 +233,64 @@ private fun FilterPopupItem(label: String, active: Boolean = false, onClick: () 
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
         )
+    }
+}
+
+@Composable
+private fun FilterBottomSheet(
+    title: String,
+    options: List<String>,
+    selectedLabel: String?,
+    onClear: (() -> Unit)?,
+    onDismiss: () -> Unit,
+    onSelectOption: (String) -> Unit,
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) { detectTapGestures { onDismiss() } },
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 520.dp)
+                    .background(MovvizSurfaceStrong, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .pointerInput(Unit) { detectTapGestures { } }
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(2.dp)),
+                )
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                    Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
+                    if (selectedLabel != null && onClear != null) {
+                        Text(
+                            "Réinitialiser",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MovvizInkSoft,
+                            modifier = Modifier.tvPointerClick { onDismiss(); onClear() }.padding(vertical = 6.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    options.forEach { opt ->
+                        FilterPopupItem(label = opt, active = opt == selectedLabel) { onSelectOption(opt) }
+                    }
+                }
+            }
+        }
     }
 }

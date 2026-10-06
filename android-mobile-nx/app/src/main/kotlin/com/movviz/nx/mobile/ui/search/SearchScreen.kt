@@ -411,7 +411,32 @@ private fun PortraitSearchScreen(
         viewModel.invalidateSearch()
         if (query.isBlank()) return@LaunchedEffect
         delay(350)
-        if (typeFilter == PortraitSearchTypeFilter.ACTOR) viewModel.searchPeople(query) else viewModel.search(query)
+        if (typeFilter == PortraitSearchTypeFilter.ACTOR) {
+            viewModel.searchPeople(query)
+        } else {
+            viewModel.search(query)
+            // Refonte premium : l'onglet Tout cherche aussi les personnes,
+            // affichées en tête (on tape souvent un nom d'acteur).
+            if (typeFilter == PortraitSearchTypeFilter.ALL) viewModel.searchPeople(query)
+        }
+    }
+    // Pastille d'état par résultat : déjà en bibliothèque (vert) ou en cours
+    // de téléchargement (cyan), lue dans les listes déjà chargées.
+    val libraryMovies by viewModel.movies.collectAsState()
+    val librarySeries by viewModel.series.collectAsState()
+    val downloadQueue by viewModel.queue.collectAsState()
+    val resultStatus = remember(libraryMovies, librarySeries, downloadQueue) {
+        val downloading = downloadQueue.filter { it.status != "completed" && it.status != "seeding" }.map { it.media.tmdbId }.toSet()
+        val movieIds = libraryMovies.map { it.tmdbId }.toSet()
+        val seriesIds = librarySeries.map { it.tmdbId }.toSet()
+        val lookup: (String, Int) -> SearchResultStatus? = { type, tmdbId ->
+            when {
+                tmdbId in downloading -> SearchResultStatus.DOWNLOADING
+                (if (type == "movie") movieIds else seriesIds).contains(tmdbId) -> SearchResultStatus.IN_LIBRARY
+                else -> null
+            }
+        }
+        lookup
     }
 
     val filteredResults = remember(results, typeFilter) {
@@ -546,6 +571,16 @@ private fun PortraitSearchScreen(
                     PersonResultRow(person = person, onClick = { commitSearch(query); onOpenPerson(person.tmdbId) })
                 }
             } else {
+                if (typeFilter == PortraitSearchTypeFilter.ALL && personResults.isNotEmpty()) {
+                    item { SearchSectionHeading("Personnes") }
+                    item {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(bottom = 14.dp)) {
+                            items(personResults.take(10), key = { "people-${it.tmdbId}" }) { person ->
+                                PersonAvatar(person = person, onClick = { commitSearch(query); onOpenPerson(person.tmdbId) })
+                            }
+                        }
+                    }
+                }
                 if (suggestions.isNotEmpty()) {
                     item { SearchSectionHeading("Suggestions") }
                     items(suggestions, key = { "sugg-${it.type}-${it.tmdbId}" }) { item ->
@@ -581,7 +616,11 @@ private fun PortraitSearchScreen(
                     }
                 }
                 items(filteredResults, key = { "res-${it.type}-${it.tmdbId}" }) { result ->
-                    SearchResultListRow(result = result, onClick = { commitSearch(query); onOpenTitle(result.type, result.tmdbId) })
+                    SearchResultListRow(
+                        result = result,
+                        status = resultStatus(result.type, result.tmdbId),
+                        onClick = { commitSearch(query); onOpenTitle(result.type, result.tmdbId) },
+                    )
                 }
             }
         }
@@ -602,7 +641,8 @@ private fun SearchTypePill(label: String, active: Boolean, onClick: () -> Unit) 
     ) {
         Box(
             modifier = Modifier.then(
-                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                // Refonte premium : puce active blanche, comme les saisons.
+                if (active) Modifier.background(Color.White, shape)
                 else Modifier.background(Color.White.copy(alpha = 0.07f), shape),
             ),
         ) {
@@ -610,7 +650,7 @@ private fun SearchTypePill(label: String, active: Boolean, onClick: () -> Unit) 
                 text = label,
                 fontSize = 13.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
-                color = Color.White,
+                color = if (active) Color.Black else Color.White,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             )
         }
@@ -710,7 +750,7 @@ private fun TrendingResultRow(index: Int, result: SearchResultDto, onClick: () -
  *  ne renvoie ni genres ni overview (voir SearchResultDto) — les ajouter
  *  aurait exigé d'inventer une donnée absente de l'API. */
 @Composable
-private fun SearchResultListRow(result: SearchResultDto, onClick: () -> Unit) {
+private fun SearchResultListRow(result: SearchResultDto, status: SearchResultStatus? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -733,6 +773,52 @@ private fun SearchResultListRow(result: SearchResultDto, onClick: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             val meta = listOfNotNull(result.year?.toString(), if (result.type == "series") "Série" else "Film").joinToString("  ·  ")
             Text(meta, color = MovvizInkDim, fontSize = 12.sp)
+            if (status != null) {
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(status.color))
+                    Spacer(Modifier.width(6.dp))
+                    Text(status.label, color = MovvizInkSoft, fontSize = 12.sp)
+                }
+            }
         }
+    }
+}
+
+private enum class SearchResultStatus(val label: String, val color: Color) {
+    IN_LIBRARY("Dans la bibliothèque", Color(0xFF3DDC97)),
+    DOWNLOADING("Téléchargement", Color(0xFF38D5F5)),
+}
+
+/** Personne en tête des résultats « Tout » : photo ronde et prénom. */
+@Composable
+private fun PersonAvatar(person: com.movviz.nx.mobile.data.PersonSearchResultDto, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(72.dp).tvPointerClick(onClick),
+    ) {
+        Box(Modifier.size(64.dp).clip(CircleShape).background(MovvizSurfaceStrong), contentAlignment = Alignment.Center) {
+            val photoUrl = person.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
+            if (photoUrl != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(model = photoUrl),
+                    contentDescription = person.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Text(person.name.take(1).uppercase(), color = MovvizInkSoft, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            person.name,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }

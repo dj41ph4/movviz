@@ -1,3 +1,16 @@
+## v1.25.194 — Octobre 2026
+
+### Android mobile : refonte premium, recherche, lecteur et réglages
+
+- Recherche : avec « Tout », les personnes trouvées apparaissent en tête, en photos rondes, avant les films et séries.
+- Chaque résultat indique s'il est déjà dans la bibliothèque ou en cours de téléchargement.
+- Les filtres (genres, durée, plateformes…) s'ouvrent en feuille depuis le bas en portrait, avec une liste qui défile.
+- Les onglets actifs (Films/Séries, En cours/Terminés, filtres de recherche) passent en blanc, comme les saisons.
+- Lecteur : un double appui à gauche ou à droite recule ou avance de 10 s, et un glissé vertical règle la luminosité (à gauche) ou le volume (à droite).
+- Téléchargements : un résumé en tête montre la progression globale, le débit total et la fin estimée.
+- Réglages : la mise à jour automatique devient une ligne claire avec un interrupteur.
+- L'écran de mise à jour est plus lisible sur téléphone.
+
 ## v1.25.193 — Octobre 2026
 
 ### Apparence Bêta : « Salle obscure » s'étend à tout l'ordinateur

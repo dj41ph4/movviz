@@ -96,6 +96,8 @@ fun DownloadsScreen(
         if (tabIndex == 0) {
             if (queue.isEmpty()) {
                 item { MovvizEmptyState("Aucun téléchargement en cours", "Les films et séries lancés apparaîtront ici.") }
+            } else {
+                item(key = "downloads-summary") { DownloadsSummaryCard(queue) }
             }
             items(queue, key = { it.id }) { item ->
                 DownloadRow(item, completed = false) { item.media.tmdbId?.let { onOpenTitle(item.media.type, it) } }
@@ -106,6 +108,52 @@ fun DownloadsScreen(
             }
             items(completedQueue, key = { "completed-${it.id}" }) { item ->
                 DownloadRow(item, completed = true) { item.media.tmdbId?.let { onOpenTitle(item.media.type, it) } }
+            }
+        }
+    }
+}
+
+/** Résumé en tête de « En cours » (refonte premium) : progression globale,
+ *  débit total et fin estimée du plus long, calculés sur la file déjà
+ *  chargée, sans requête de plus. */
+@Composable
+private fun DownloadsSummaryCard(queue: List<QueueItemDto>) {
+    val overall = queue.map { it.download.progress.coerceIn(0.0, 1.0) }.average().toFloat()
+    val totalSpeed = queue.sumOf { it.download.downloadSpeed.coerceAtLeast(0.0) }
+    val longestEta = queue.map { it.download.eta }.filter { it > 0 }.maxOrNull()
+    val active = queue.count { it.status == "downloading" }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                androidx.compose.ui.graphics.Brush.linearGradient(
+                    listOf(com.movviz.nx.mobile.ui.theme.MovvizBrand.copy(alpha = 0.22f), MovvizSurfaceStrong),
+                ),
+                RoundedCornerShape(24.dp),
+            )
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                drawArc(Color.White.copy(alpha = 0.10f), -90f, 360f, false, style = stroke)
+                drawArc(com.movviz.nx.mobile.ui.theme.MovvizCyan, -90f, 360f * overall, false, style = stroke)
+            }
+            Text("${(overall * 100).roundToInt()} %", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MovvizInk)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                "${queue.size} en cours" + if (active > 0 && active != queue.size) " · $active actif${if (active > 1) "s" else ""}" else "",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = MovvizInk,
+            )
+            val details = listOfNotNull(speedLabel(totalSpeed), longestEta?.let { etaLabel(it) }?.let { "fin dans $it".replace(" restantes", "").replace(" restante", "") })
+            if (details.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(details.joinToString(" · "), fontSize = 13.sp, color = MovvizInkSoft)
             }
         }
     }

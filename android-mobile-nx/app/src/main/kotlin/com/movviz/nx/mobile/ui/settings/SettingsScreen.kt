@@ -244,48 +244,64 @@ fun SettingsScreen(
 private fun AutoUpdateToggle(viewModel: AppViewModel) {
     val enabled by viewModel.autoUpdateEnabled.collectAsState()
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(14.dp)
+    // Refonte premium : vraie ligne de réglage (libellé, explication,
+    // interrupteur à droite) au lieu d'un bouton « ON/OFF » en toutes lettres.
+    val thumbOffset by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (enabled) 22.dp else 2.dp,
+        animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.7f, stiffness = 500f),
+        label = "auto-update-thumb",
+    )
     Surface(
         onClick = { viewModel.setAutoUpdateEnabled(!enabled) },
         modifier = Modifier
-            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.05f, maxElevation = 12.dp)
+            .fillMaxWidth()
+            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.02f, maxElevation = 8.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick { viewModel.setAutoUpdateEnabled(!enabled) },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (enabled) MovvizBrand.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f),
-            contentColor = if (enabled) MovvizBrand else MovvizInkSoft,
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.White.copy(alpha = 0.06f),
+            contentColor = MovvizInk,
+            focusedContentColor = MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, if (enabled) MovvizBrand else Color.White.copy(alpha = 0.4f)),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.4f)),
                 shape = shape,
             ),
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 4.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = if (enabled) "Auto-mise à jour : ON" else "Auto-mise à jour : OFF",
-                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "Mise à jour automatique",
+                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+                )
+                Text(
+                    text = if (enabled) "Les nouvelles versions s'installent d'elles-mêmes" else "Vous choisissez quand installer",
+                    style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+                )
+            }
             Box(
                 modifier = Modifier
-                    .width(44.dp)
-                    .height(24.dp)
+                    .width(46.dp)
+                    .height(26.dp)
                     .background(
                         if (enabled) MovvizBrand else Color.White.copy(alpha = 0.15f),
-                        RoundedCornerShape(12.dp),
+                        RoundedCornerShape(13.dp),
                     ),
             ) {
                 Box(
                     modifier = Modifier
-                        .size(20.dp)
-                        .offset(x = if (enabled) 22.dp else 2.dp, y = 2.dp)
-                        .background(Color.White, RoundedCornerShape(10.dp)),
+                        .size(22.dp)
+                        .offset(x = thumbOffset, y = 2.dp)
+                        .background(Color.White, RoundedCornerShape(11.dp)),
                 )
             }
         }

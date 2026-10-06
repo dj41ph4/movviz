@@ -25,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1096,6 +1097,35 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         poke()
         queueSeekBy(SEEK_STEP_MS)
     }
+    // Refonte premium : glissé vertical à gauche = luminosité de l'écran
+    // (fenêtre du lecteur seulement, rendue au système à la sortie), à
+    // droite = volume média. Le retour s'affiche dans la même pastille
+    // centrale que « +10 s ».
+    val gestureAudio = remember { context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager }
+    var volumeRemainder by remember { mutableStateOf(0f) }
+    fun changeLevelAction(left: Boolean, delta: Float) {
+        if (left) {
+            val window = (context as? android.app.Activity)?.window ?: return
+            val attrs = window.attributes
+            val current = attrs.screenBrightness.takeIf { it >= 0f } ?: 0.5f
+            val next = (current + delta).coerceIn(0.02f, 1f)
+            attrs.screenBrightness = next
+            window.attributes = attrs
+            seekIndicator = "Luminosité ${(next * 100).toInt()} %"
+        } else {
+            val audio = gestureAudio ?: return
+            val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+            volumeRemainder += delta * max * 1.5f
+            val steps = volumeRemainder.toInt()
+            val current = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+            val next = (current + steps).coerceIn(0, max)
+            if (steps != 0) {
+                volumeRemainder -= steps
+                audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, next, 0)
+            }
+            seekIndicator = "Volume ${next * 100 / max} %"
+        }
+    }
     fun prevEpisodeAction() {
         poke()
         if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = false)
@@ -1255,7 +1285,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         if (event.type == KeyEventType.KeyDown) poke()
                         false
                     }
-                    .tvPointerClick { poke() },
+                    .playerTouchGestures(
+                        onTap = { poke() },
+                        onSeekBack = { seekBackAction() },
+                        onSeekForward = { seekForwardAction() },
+                        onLevelChange = { left, delta -> changeLevelAction(left, delta) },
+                    ),
             )
         }
 
@@ -1426,6 +1461,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 onPlayPause = { playPauseAction() },
                 onSeekBack = { seekBackAction() },
                 onSeekForward = { seekForwardAction() },
+                onLevelChange = { left, delta -> changeLevelAction(left, delta) },
                 onPrevEpisode = { prevEpisodeAction() },
                 onNextEpisode = { nextEpisodeAction() },
                 onOpenAudio = { poke(); showAudioDialog = true },
@@ -1780,6 +1816,7 @@ private fun ControlsOverlay(
     onPlayPause: () -> Unit,
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
+    onLevelChange: (left: Boolean, delta: Float) -> Unit,
     onPrevEpisode: () -> Unit,
     onNextEpisode: () -> Unit,
     onOpenAudio: () -> Unit,
@@ -1794,7 +1831,14 @@ private fun ControlsOverlay(
             .fillMaxSize()
             // Un tap sur une zone vide de l'overlay relance juste le
             // minuteur d'auto-masquage (les boutons consomment leurs taps).
-            .tvPointerClick { onInteraction() },
+            // Double appui sur un côté et glissé vertical : voir
+            // playerTouchGestures.
+            .playerTouchGestures(
+                onTap = onInteraction,
+                onSeekBack = onSeekBack,
+                onSeekForward = onSeekForward,
+                onLevelChange = onLevelChange,
+            ),
     ) {
         // Zone haute : titre + libellé saison/épisode
         Column(
@@ -2286,3 +2330,36 @@ private fun formatTime(ms: Long): String {
     val s = totalSeconds % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
+
+/** Gestes tactiles du lecteur (refonte premium mobile) : double appui sur le
+ *  tiers gauche ou droit = -/+ 10 s, au centre = simple appui ; glissé
+ *  vertical sur la moitié gauche = luminosité, sur la droite = volume.
+ *  `delta` est la fraction de hauteur d'écran parcourue (vers le haut > 0). */
+private fun Modifier.playerTouchGestures(
+    onTap: () -> Unit,
+    onSeekBack: () -> Unit,
+    onSeekForward: () -> Unit,
+    onLevelChange: (left: Boolean, delta: Float) -> Unit,
+): Modifier = this
+    .pointerInput(Unit) {
+        detectTapGestures(
+            onTap = { onTap() },
+            onDoubleTap = { offset ->
+                when {
+                    offset.x < size.width / 3f -> onSeekBack()
+                    offset.x > size.width * 2f / 3f -> onSeekForward()
+                    else -> onTap()
+                }
+            },
+        )
+    }
+    .pointerInput(Unit) {
+        var leftSide = false
+        detectVerticalDragGestures(
+            onDragStart = { start -> leftSide = start.x < size.width / 2f },
+            onVerticalDrag = { change, dragAmount ->
+                change.consume()
+                if (size.height > 0) onLevelChange(leftSide, -dragAmount / size.height.toFloat())
+            },
+        )
+    }
