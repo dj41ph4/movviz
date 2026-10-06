@@ -514,7 +514,7 @@ private fun PlayerScreen(
     var completeCurrentOnDispose by remember { mutableStateOf(false) }
 
     val exoPlayer = remember {
-        val upstream = OkHttpDataSource.Factory(com.movviz.nx.mobile.data.ApiClient.httpClient())
+        val upstream = OkHttpDataSource.Factory(com.movviz.nx.mobile.data.ApiClient.streamingHttpClient())
         val dataSourceFactory = CacheDataSource.Factory()
             .setCache((context.applicationContext as com.movviz.nx.mobile.MovvizNxMobileApplication).videoCache())
             .setUpstreamDataSourceFactory(upstream)
@@ -593,7 +593,7 @@ ExoPlayer.Builder(context)
     // ".mpd"/".m3u8" (query string sur /transcode), DefaultMediaSourceFactory
     // ne peut donc pas l'inférer de l'extension et choisirait à tort
     // ProgressiveMediaSource au lieu de DashMediaSource/HlsMediaSource.
-    fun load(item: QueueItem, resumeMs: Long, level: Int = 0) {
+    fun load(item: QueueItem, resumeMs: Long, level: Int = 0, autoplay: Boolean = true) {
         pendingSeekTarget = null
         pendingSeekOrigin = null
         loading = true
@@ -667,7 +667,7 @@ ExoPlayer.Builder(context)
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
         if (resumeMs > 0) exoPlayer.seekTo(resumeMs)
-        exoPlayer.playWhenReady = true
+        exoPlayer.playWhenReady = autoplay
     }
 
     /**
@@ -707,7 +707,10 @@ ExoPlayer.Builder(context)
     }
 
     fun pauseForBackground() {
-        if (!exoPlayer.isPlaying) return
+        // playWhenReady et non isPlaying : en plein rebuffering isPlaying est
+        // faux alors que la lecture est bien demandée — la sortie d'écran ne
+        // la mettait alors jamais en pause et le flux continuait en arrière-plan.
+        if (!exoPlayer.playWhenReady) return
         exoPlayer.pause()
         isPlaying = false
         val id = playbackSessionId
@@ -811,8 +814,14 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
+            // « En lecture » = lecture demandée, pas seulement image en cours :
+            // pendant un rebuffering l'icône reste sur Pause et l'appui met bien
+            // en pause (isPlaying d'ExoPlayer, lui, est faux tant que ça charge).
             override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
+                isPlaying = exoPlayer.playWhenReady && exoPlayer.playbackState != Player.STATE_ENDED
+            }
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                isPlaying = playWhenReady && exoPlayer.playbackState != Player.STATE_ENDED
             }
             override fun onPlaybackStateChanged(state: Int) {
                 loading = state == Player.STATE_BUFFERING
@@ -840,6 +849,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             }
             override fun onPlayerError(error: PlaybackException) {
                 val kind = classifyError(error)
+                // Une erreur ne touche pas à playWhenReady : un lecteur en pause
+                // doit le rester après la reprise automatique.
+                val wasPlayWhenReady = exoPlayer.playWhenReady
                 lastError = error
                 Log.w(TAG, "onPlayerError code=${error.errorCode} kind=$kind fallbackLevel=$fallbackLevel", error)
                 if (kind == PlayerErrorKind.NETWORK && networkRetryCount < MAX_NETWORK_AUTO_RETRIES) {
@@ -854,7 +866,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         // parce que son audio n'est pas décodable doit y
                         // rester après un pépin réseau, pas retomber en
                         // direct-play pour reproduire la même erreur.
-                        load(item, resumePos, level = fallbackLevel)
+                        load(item, resumePos, level = fallbackLevel, autoplay = wasPlayWhenReady)
                     }
                     return
                 }
@@ -875,7 +887,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     val item = queue[currentIndex]
                     Log.i(TAG, "Repli transcodage niveau $fallbackLevel pour ${item.ratingKey} à ${resumePos}ms (direct-play non décodable)")
                     fallbackNotice = "Compatibilité optimisée…"
-                    load(item, resumePos, level = fallbackLevel)
+                    load(item, resumePos, level = fallbackLevel, autoplay = wasPlayWhenReady)
                     return
                 }
                 errorKind = kind
@@ -1062,7 +1074,10 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     // ci-dessous), qui ne passent jamais par un bouton à l'écran.
     fun playPauseAction() {
         poke()
-        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+        // playWhenReady et non isPlaying : pendant un chargement (gros fichier,
+        // réseau lent) isPlaying est faux, et l'appui appelait play() sur un
+        // lecteur déjà demandé en lecture — impossible de mettre en pause.
+        if (exoPlayer.playWhenReady) exoPlayer.pause() else exoPlayer.play()
     }
     fun queueSeekBy(deltaMs: Long) {
         val base = pendingSeekTarget ?: exoPlayer.currentPosition

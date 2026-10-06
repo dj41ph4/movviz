@@ -73,6 +73,22 @@ object ApiClient {
      *  d'auth. */
     fun httpClient(): OkHttpClient = okHttpClient
 
+    /** Client des flux vidéo : même cookie de session et même pool de
+     *  connexions, mais SANS plafond de durée d'appel. callTimeout(20 s) du
+     *  client API couvre aussi la lecture du corps de la réponse : appliqué
+     *  à un flux vidéo, il coupait toute connexion ouverte plus de 20 s —
+     *  donc une pause un peu longue, ou tout gros fichier lu en continu,
+     *  finissait en erreur réseau puis en rechargement. Seul le délai
+     *  d'inactivité (readTimeout) reste, élargi pour les Wi-Fi capricieux. */
+    fun streamingHttpClient(): OkHttpClient = streamingClient
+
+    private val streamingClient: OkHttpClient by lazy {
+        okHttpClient.newBuilder()
+            .callTimeout(0, TimeUnit.MILLISECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            .build()
+    }
+
     /** Déconnexion — vide le cookie persistant, jamais laissé sur un
      *  boîtier TV potentiellement partagé entre plusieurs personnes. */
     fun clearSession() {

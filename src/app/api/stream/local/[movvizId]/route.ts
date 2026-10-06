@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     "cache-control": "private, no-store",
   };
   if (partial) headers["content-range"] = `bytes ${bounds.start}-${bounds.end}/${stat.size}`;
-  const stream = fs.createReadStream(resolved.value.path, { start: bounds.start, end: bounds.end });
+  const stream = fs.createReadStream(resolved.value.path, { start: bounds.start, end: bounds.end, highWaterMark: 1024 * 1024 });
   return new NextResponse(stream as unknown as ReadableStream, { status: partial ? 206 : 200, headers });
 }
 

@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   const partial = start !== 0 || end !== size - 1;
   const headers: Record<string, string> = { "content-type": mime(resolved.value.path), "accept-ranges": "bytes", "content-length": String(end - start + 1), "cache-control": "private, no-store" };
   if (partial) headers["content-range"] = `bytes ${start}-${end}/${size}`;
-  return new NextResponse(fs.createReadStream(resolved.value.path, { start, end }) as unknown as ReadableStream, { status: partial ? 206 : 200, headers });
+  return new NextResponse(fs.createReadStream(resolved.value.path, { start, end, highWaterMark: 1024 * 1024 }) as unknown as ReadableStream, { status: partial ? 206 : 200, headers });
 }
 
 export async function HEAD(req: NextRequest, context: Ctx) {

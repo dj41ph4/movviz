@@ -77,11 +77,27 @@ export async function GET(req: NextRequest, context: Ctx) {
 
     const cacheTtl = getStreamCacheTtl();
 
-    const streamRes = await fetch(streamUrl, {
-      headers: plexHeaders,
-      cache: "no-store",
-      signal: AbortSignal.timeout(300000),
-    });
+    // Le délai ne porte que sur l'ouverture (réponse de Plex), jamais sur le
+    // corps : un AbortSignal.timeout() coupait toute lecture au bout de 5 min
+    // — pause un peu longue, ou gros fichier dont une seule connexion dure
+    // tout le film. Le flux ne s'arrête que si le client se déconnecte.
+    const upstream = new AbortController();
+    const openTimer = setTimeout(() => upstream.abort(), 30_000);
+    const onClientGone = () => upstream.abort();
+    req.signal.addEventListener("abort", onClientGone, { once: true });
+    let streamRes: Response;
+    try {
+      streamRes = await fetch(streamUrl, {
+        headers: plexHeaders,
+        cache: "no-store",
+        signal: upstream.signal,
+      });
+    } catch (e) {
+      req.signal.removeEventListener("abort", onClientGone);
+      throw e;
+    } finally {
+      clearTimeout(openTimer);
+    }
 
     if (!streamRes.ok && streamRes.status !== 206) {
       const body = await streamRes.text().catch(() => "");

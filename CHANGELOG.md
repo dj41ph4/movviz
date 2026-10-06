@@ -1,3 +1,12 @@
+## v1.25.182 — Octobre 2026
+
+### Lecture : pause/reprise fiables et gros fichiers qui ne tournent plus dans le vide
+
+- Une pause de plus de quelques secondes, ou la lecture d’un gros fichier, ne coupe plus la connexion vidéo : sur Android TV et mobile, le lecteur n’impose plus de durée maximale à un flux, et le serveur ne l’interrompt plus au bout de 5 minutes.
+- Il est de nouveau possible de mettre en pause pendant un chargement, et l’icône suit l’état réel. Un lecteur laissé en pause le reste après une reprise automatique, et la sortie de l’écran met bien la lecture en pause même pendant un chargement.
+- Moins de mémoire utilisée : la bande-annonce de l’accueil est libérée dès que le lecteur s’ouvre ou que l’application passe en arrière-plan.
+- Lecture des fichiers locaux plus fluide sur les gros fichiers.
+
 ## v1.25.181 — Octobre 2026
 
 ### Films et Séries : titres de rangées corrects et rangées personnalisables

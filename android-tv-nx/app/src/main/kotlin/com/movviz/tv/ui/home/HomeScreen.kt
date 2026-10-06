@@ -1416,7 +1416,19 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     // s'empilaient en mémoire (fuite visible sur Chromecast 4K) et chaque
     // rotation payait la création du moteur + le rechargement de l'iframe
     // API YouTube (jank au moment du changement).
-    if (ready) {
+    // Écran masqué (lecteur ouvert par-dessus, app en arrière-plan) : la
+    // WebView YouTube — un moteur Chromium complet — ne doit pas rester en
+    // mémoire à côté du décodeur vidéo du lecteur. On la détruit à l'arrêt
+    // de l'écran ; elle est recréée au retour.
+    val screenState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val screenVisible = screenState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+    LaunchedEffect(screenVisible) {
+        if (!screenVisible) {
+            playing = false
+            TrailerWebViewPool.clearAll()
+        }
+    }
+    if (ready && screenVisible) {
         AndroidView(
             factory = { TrailerWebViewPool.obtain(appContext) },
             update = { view -> TrailerWebViewPool.prepare(view, key, title, bridge) },
