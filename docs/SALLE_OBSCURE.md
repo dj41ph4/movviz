@@ -47,6 +47,5 @@ La sidebar rétractable garde sa structure (entrées, ordre, Gestion, profil en 
 - Chaque règle de `src/components/appearance/salle-obscure.css` exige Bêta ET
   desktop. Les composants qui changent de structure lisent
   `usePremiumAppearance()` et gardent leur rendu Stable/mobile intact.
-- La palette de commandes ne remplace aucun moteur : titres via
-  `/api/metadata/search`, « Rechercher dans Découverte » pousse `/discover?q=`
-  comme l'ancienne barre, la recherche torrent ouvre `/search?q=`.
+- Pas de palette de commandes Ctrl K : Seb l'a refusée (2026-10-06, retirée
+  en v1.25.198). La barre de recherche reste celle de Stable, à l'identique.

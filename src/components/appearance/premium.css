@@ -16,21 +16,13 @@
     border-bottom-color: rgba(211, 199, 241, .09);
   }
 
-  html[data-movviz-appearance="beta"] .nx-search-pill {
-    border: 1px solid rgba(211, 199, 241, .15);
-    background: linear-gradient(135deg, #181a2d, #111624);
-    border-radius: 15px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
-    transition: border-color .16s ease, box-shadow .16s ease;
-  }
-
+  /* Barre de recherche : rendu Stable à l'identique en Bêta (Seb,
+     2026-10-06 : pas de palette Ctrl K, pas de restyle). Le focus reste
+     visible par un halo autour de la pilule, jamais sur le champ. */
   html[data-movviz-appearance="beta"] .nx-search-pill:focus-within {
-    border-color: rgba(198, 151, 255, .65);
-    box-shadow: 0 0 0 3px rgba(161, 96, 231, .12);
+    box-shadow: 0 0 0 3px rgba(161, 96, 231, .22);
   }
 
-  /* The enclosing pill already indicates focus. Never draw a second,
-     rectangular outline around its text input. */
   html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-search-pill input:focus-visible {
     outline: none;
     box-shadow: none;

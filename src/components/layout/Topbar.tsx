@@ -11,7 +11,6 @@ import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
 import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
-import { openCommandPalette } from "./CommandPalette";
 
 export function Topbar() {
   const user = useCurrentUser();
@@ -20,9 +19,9 @@ export function Topbar() {
   // the screen, is what "navrail" refers to, not the left Sidebar). Typing
   // pushes to /discover?q=, whose own card grid replaces the dashboard.
   const navSearch = useNavSearch();
-  // Bêta desktop : la barre devient l'entrée de la palette de commandes
-  // (Ctrl K), la langue et Sponsor passent dans le menu profil. Mobile et
-  // tablette gardent la barre de recherche et les boutons d'aujourd'hui.
+  // Bêta desktop : la langue et Sponsor passent dans le menu profil. La
+  // recherche reste la barre Stable partout (Seb, 2026-10-06 : pas de
+  // palette Ctrl K).
   const premium = usePremiumAppearance();
 
   // Transparent at the very top of the page (reads seamlessly over a hero
@@ -64,20 +63,7 @@ export function Topbar() {
           strict (PortraitTopHeader) : pill 46px, bordure électrique, fond
           #131836, icône 17px + placeholder 13px #B3B3B3 — voir
           .nx-search-pill. */}
-      {premium && (
-        <button
-          type="button"
-          onClick={openCommandPalette}
-          aria-label={t("nav.commandOpen")}
-          aria-keyshortcuts="Control+K Meta+K"
-          className="nx-command-trigger hidden h-10 min-w-0 flex-1 items-center gap-2.5 px-3.5 text-left lg:flex lg:max-w-[420px]"
-        >
-          <Search className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-[13px]">{t("nav.commandPlaceholder")}</span>
-          <kbd className="nx-kbd">Ctrl K</kbd>
-        </button>
-      )}
-      <div className={cn("group nx-search-pill flex h-[46px] min-w-0 flex-1 items-center gap-[10px] rounded-[23px] px-4 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]", premium && "lg:hidden")}>
+      <div className="group nx-search-pill flex h-[46px] min-w-0 flex-1 items-center gap-[10px] rounded-[23px] px-4 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]">
         <Search className="h-[17px] w-[17px] shrink-0 text-[#B3B3B3]" />
         <input
           value={navSearch.value}

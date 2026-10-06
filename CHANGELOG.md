@@ -1,3 +1,10 @@
+## v1.25.198 — Octobre 2026
+
+### Apparence Bêta : retour de la barre de recherche habituelle
+
+- Sur ordinateur, l'apparence Bêta reprend la barre de recherche de l'apparence Stable, identique : on tape directement dans la barre du haut.
+- La palette `Ctrl K` est retirée.
+
 ## v1.25.197 — Octobre 2026
 
 ### Apparence Bêta : Téléchargements fidèle à la maquette, fiche titre en onglets

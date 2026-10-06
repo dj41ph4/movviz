@@ -11,7 +11,6 @@ import { Hourglass, LogOut } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { BottomNav } from "./BottomNav";
-import { CommandPalette } from "./CommandPalette";
 import { ChatWidget } from "@/components/ai/ChatWidget";
 import { WhatsNewModal } from "./WhatsNewModal";
 import { ToastContainer } from "@/components/ui/Toast";
@@ -185,7 +184,6 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                       <BottomNav />
                     </div>
                     <ChatWidget />
-                    <CommandPalette />
                     <WhatsNewModal />
                     <ToastContainer />
                     <ConfirmDialogHost />
