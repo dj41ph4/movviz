@@ -1,3 +1,12 @@
+## v1.25.189 — Octobre 2026
+
+### Android TV : nouvelle interface Bêta à essayer
+
+- Nouveau réglage Paramètres > Apparence > Interface Bêta. Il est désactivé par défaut : l'apparence actuelle ne change pas tant que vous ne l'activez pas.
+- Avec l'interface Bêta, les textes sont plus grands et lisibles depuis le canapé (badges, notes, synopsis, informations des fiches), et la sélection a partout le même cadre blanc.
+- Les rangées, affiches et cartes de reprise sont alignées sur une même marge et un peu plus grandes ; la barre de progression des reprises est plus visible.
+- La vedette de l'accueil ne change plus pendant que vous êtes sur son bouton, et ce bouton s'appelle désormais « Voir la fiche », ce qu'il fait réellement.
+
 ## v1.25.188 — Octobre 2026
 
 ### Android mobile : recherche par acteur
