@@ -38,6 +38,12 @@
   "errGeneric": {
     "message": "Fout"
   },
+  "errNoPermission": {
+    "message": "Servertoegang niet toegestaan"
+  },
+  "errOutdated": {
+    "message": "Server moet worden bijgewerkt"
+  },
   "btnSetup": {
     "message": "Movviz instellen"
   },

@@ -39,6 +39,11 @@
     svg { width: 16px; height: 16px; flex: none; }
     .spin { animation: spin .8s linear infinite; }
     .pulse { animation: pulse 1.6s ease-in-out infinite; }
+    .pill.progress { position: relative; overflow: hidden; }
+    .pill .bar {
+      position: absolute; left: 0; bottom: 0; height: 3px; border-radius: 999px;
+      background: linear-gradient(120deg, #ff4bd0, #c04bff, #7c3aed); transition: width .6s ease;
+    }
     .skeleton { width: 170px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, .08); animation: pulse 1.4s ease-in-out infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes pulse { 50% { opacity: .45; } }
@@ -61,6 +66,8 @@
     blocked: "errBlocked",
     quota: "errQuota",
     not_found: "notFound",
+    no_permission: "errNoPermission",
+    outdated: "errOutdated",
   };
 
   const send = (message) => new Promise((resolve) => {
@@ -77,6 +84,7 @@
 
   function unmount() {
     token++;
+    clearTimeout(pollTimer);
     if (host) host.remove();
     host = wrap = null;
   }
@@ -139,15 +147,43 @@
     render(pill(error === "not_found" ? "dim" : "down", ICONS.alert, t(ERRORS[error] || "errGeneric")));
   }
 
+  let pollTimer = null;
+
+  /** Tant que le titre n'est ni disponible ni inconnu, on suit son avancement. */
+  function schedulePoll(media, serverUrl) {
+    clearTimeout(pollTimer);
+    if (media.status !== "processing" && media.status !== "pending") return;
+    const mine = token;
+    const delay = media.status === "processing" ? 2500 : 15000;
+    pollTimer = setTimeout(async () => {
+      if (mine !== token) return;
+      if (document.hidden) return schedulePoll(media, serverUrl); // onglet masqué : on patiente
+      const res = await send({ type: "lookup", query: { type: media.type, tmdbId: media.tmdbId } });
+      if (mine !== token) return;
+      if (res.ok) return renderMedia(res.data.media, res.serverUrl || serverUrl);
+      schedulePoll(media, serverUrl); // erreur passagère : on réessaie
+    }, delay);
+  }
+
   function renderMedia(media, serverUrl) {
+    schedulePoll(media, serverUrl);
     const href = `${serverUrl}/title/${media.type}/${media.tmdbId}`;
     switch (media.status) {
       case "available":
         render(pill("ok", ICONS.check, t("statusAvailable")), link("btn", ICONS.play, t("btnOpen"), href));
         break;
-      case "processing":
-        render(pill("cyan pulse", ICONS.loader, t("statusProcessing"), href));
+      case "processing": {
+        const hasPct = typeof media.progress === "number";
+        const label = hasPct ? `${t("statusProcessing")} · ${media.progress} %` : t("statusProcessing");
+        const node = pill(hasPct ? "cyan progress" : "cyan pulse", ICONS.loader, label, href);
+        if (hasPct) {
+          const bar = el("i", "bar");
+          bar.style.width = `${media.progress}%`;
+          node.appendChild(bar);
+        }
+        render(node);
         break;
+      }
       case "pending":
         render(pill("amber", ICONS.clock, t("statusPending"), href));
         break;

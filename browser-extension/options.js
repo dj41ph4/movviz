@@ -23,7 +23,10 @@ async function testConnection() {
   show("dim", t("optTesting"));
   const res = await new Promise((resolve) => chrome.runtime.sendMessage({ type: "me" }, resolve));
   if (res && res.ok) return show("ok", t("optConnected", res.data.username));
-  const key = { unauthorized: "errUnauthorized", network: "errNetwork" }[res && res.error] || "errGeneric";
+  const key = {
+    unauthorized: "errUnauthorized", network: "errNetwork",
+    no_permission: "errNoPermission", outdated: "errOutdated",
+  }[res && res.error] || "errGeneric";
   show("down", t(key));
 }
 
@@ -41,7 +44,18 @@ $("form").addEventListener("submit", async (event) => {
 
   // L'autorisation d'appeler ce serveur précis est demandée ici (geste de
   // l'utilisateur) : l'extension n'a aucun accès réseau large par défaut.
-  const granted = await chrome.permissions.request({ origins: [`${new URL(serverUrl).origin}/*`] });
+  const origin = new URL(serverUrl).origin;
+  let granted = false;
+  try {
+    granted = await chrome.permissions.request({ origins: [`${origin}/*`] });
+  } catch {
+    // Certains navigateurs refusent un motif avec port : on retente sans.
+    try {
+      granted = await chrome.permissions.request({ origins: [`${new URL(serverUrl).protocol}//${new URL(serverUrl).hostname}/*`] });
+    } catch {
+      granted = false;
+    }
+  }
   if (!granted) return show("down", t("optPermissionDenied"));
 
   $("save").disabled = true;

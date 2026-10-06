@@ -8,6 +8,7 @@ import {
 } from "@/lib/metadata/tmdb";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { loadRequests } from "@/lib/requests/store";
+import { engineGet } from "@/lib/engine/server";
 import { resolveMovieStatus } from "@/lib/library/types";
 import type { LibrarySeries } from "@/lib/library/types";
 
@@ -22,6 +23,8 @@ export interface ExtensionMedia {
   posterUrl: string | null;
   status: ExtensionStatus;
   requestCount: number;
+  /** 0-100 pendant un téléchargement actif, sinon null (recherche en cours, import, etc.). */
+  progress: number | null;
 }
 
 export interface LookupQuery {
@@ -40,17 +43,45 @@ function seriesStatus(series: LibrarySeries): ExtensionStatus {
   return settled && episodes.some((e) => e.status === "available") ? "available" : "processing";
 }
 
-function statusOf(type: ExtensionType, tmdbId: number): { status: ExtensionStatus; requestCount: number } {
+interface EngineTorrentLite {
+  infoHash: string;
+  progress: number;
+  size: number;
+}
+
+/** Progression moyenne (pondérée par la taille) des torrents réellement actifs. */
+async function progressOf(hashes: string[]): Promise<number | null> {
+  if (hashes.length === 0) return null;
+  const engine = await engineGet<{ torrents?: EngineTorrentLite[] }>("torrents");
+  const active = (engine?.torrents ?? []).filter((t) => hashes.includes(t.infoHash) && t.size > 0);
+  if (active.length === 0) return null;
+  const total = active.reduce((sum, t) => sum + t.size, 0);
+  const done = active.reduce((sum, t) => sum + t.progress * t.size, 0);
+  return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+}
+
+async function statusOf(
+  type: ExtensionType,
+  tmdbId: number,
+): Promise<{ status: ExtensionStatus; requestCount: number; progress: number | null }> {
   const requests = loadRequests().filter((r) => r.type === type && r.tmdbId === tmdbId && r.status !== "declined");
   const requestCount = requests.length;
   if (type === "movie") {
     const movie = getMovieByTmdbId(tmdbId);
-    if (movie) return { status: resolveMovieStatus(movie) === "available" ? "available" : "processing", requestCount };
+    if (movie) {
+      if (resolveMovieStatus(movie) === "available") return { status: "available", requestCount, progress: null };
+      return { status: "processing", requestCount, progress: await progressOf(movie.activeInfoHash ? [movie.activeInfoHash] : []) };
+    }
   } else {
     const series = getSeriesByTmdbId(tmdbId);
-    if (series) return { status: seriesStatus(series), requestCount };
+    if (series) {
+      const status = seriesStatus(series);
+      if (status === "available") return { status, requestCount, progress: null };
+      const hashes = [...new Set(series.seasons.flatMap((s) => s.episodes).map((e) => e.activeInfoHash).filter((h): h is string => !!h))];
+      return { status, requestCount, progress: await progressOf(hashes) };
+    }
   }
-  return { status: requests.some((r) => r.status === "pending") ? "pending" : "none", requestCount };
+  return { status: requests.some((r) => r.status === "pending") ? "pending" : "none", requestCount, progress: null };
 }
 
 async function resolveId(q: LookupQuery): Promise<{ type: ExtensionType; tmdbId: number } | null> {
@@ -96,6 +127,6 @@ export async function lookupMedia(q: LookupQuery): Promise<ExtensionMedia | null
     title: meta.title,
     year: meta.year,
     posterUrl: tmdbImageUrl(meta.posterPath, "w342"),
-    ...statusOf(id.type, id.tmdbId),
+    ...(await statusOf(id.type, id.tmdbId)),
   };
 }

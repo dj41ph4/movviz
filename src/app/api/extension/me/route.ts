@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const user = requireExtensionUser(req);
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "unauthorized", source: "extension" }, { status: 401 });
   return NextResponse.json({
     username: user.username,
     isAdmin: user.role === "admin",

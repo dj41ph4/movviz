@@ -7,9 +7,25 @@ async function readConfig() {
   return { serverUrl: (serverUrl || "").replace(/\/+$/, ""), token: token || "" };
 }
 
+/** Autorisation accordée pour ce serveur, avec ou sans port dans le motif. */
+async function hasAccess(serverUrl) {
+  try {
+    const url = new URL(serverUrl);
+    const withPort = `${url.origin}/*`;
+    const withoutPort = `${url.protocol}//${url.hostname}/*`;
+    return (
+      (await chrome.permissions.contains({ origins: [withPort] })) ||
+      (await chrome.permissions.contains({ origins: [withoutPort] }))
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function call(path, init) {
   const { serverUrl, token } = await readConfig();
   if (!serverUrl || !token) return { ok: false, error: "not_configured" };
+  if (!(await hasAccess(serverUrl))) return { ok: false, error: "no_permission" };
   try {
     const res = await fetch(serverUrl + path, {
       ...init,
@@ -17,7 +33,11 @@ async function call(path, init) {
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return { ok: true, data, serverUrl };
-    const error = res.status === 401 ? "unauthorized" : data.error || "http_" + res.status;
+    // Un 401 sans la signature de nos routes vient du proxy de Movviz : le
+    // serveur ne connaît pas encore l'extension (version trop ancienne).
+    let error = data.error || "http_" + res.status;
+    if (res.status === 401) error = data.source === "extension" ? "unauthorized" : "outdated";
+    else if (res.status === 404 && !data.error) error = "outdated";
     return { ok: false, error, status: res.status, serverUrl };
   } catch {
     return { ok: false, error: "network" };

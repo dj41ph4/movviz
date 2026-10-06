@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const user = requireExtensionUser(req);
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "unauthorized", source: "extension" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const type = body.type === "series" ? "series" : body.type === "movie" ? "movie" : null;

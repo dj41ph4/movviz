@@ -1,3 +1,11 @@
+## v1.25.187 — Octobre 2026
+
+### Movviz Companion : suivi en direct du téléchargement
+
+- Le bouton affiche maintenant le pourcentage de téléchargement en temps réel, avec une fine barre de progression, et se met à jour tout seul : plus besoin d’actualiser la page.
+- Quand le téléchargement se termine, le bouton passe automatiquement en « Disponible » avec l’accès direct à la fiche dans Movviz.
+- Messages d’erreur plus précis quand la connexion au serveur échoue (accès non autorisé, serveur à mettre à jour, serveur injoignable), et demande d’autorisation plus fiable pour un serveur en HTTP.
+
 ## v1.25.186 — Octobre 2026
 
 ### Movviz Companion : installation corrigée

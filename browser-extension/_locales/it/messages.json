@@ -38,6 +38,12 @@
   "errGeneric": {
     "message": "Errore"
   },
+  "errNoPermission": {
+    "message": "Accesso al server non autorizzato"
+  },
+  "errOutdated": {
+    "message": "Server da aggiornare"
+  },
   "btnSetup": {
     "message": "Configura Movviz"
   },
