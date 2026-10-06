@@ -26,6 +26,9 @@ import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
 import { PROVIDER_LIGHT_TILE, PROVIDER_SVG } from "@/lib/metadata/providerSvg";
 import type { DashboardLayout } from "@/lib/dashboard/types";
+import { rowLabel as sharedRowLabel, type RowMeta } from "@/components/media/rowLabel";
+import { useRowLayout, type RowLayoutApi } from "@/components/media/useRowLayout";
+import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
   Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark, SlidersHorizontal,
@@ -81,14 +84,6 @@ interface LogoTile {
 /** Carried by a "becauseYouWatched:{id}" or "providerPersonalized:{id}" row
  *  so its label can be interpolated client-side — the API stays
  *  locale-agnostic, see becauseYouWatched.ts / providerPersonalized.ts. */
-interface RowMeta {
-  anchorTmdbId?: number;
-  anchorTitle?: string;
-  verb?: "watched" | "liked";
-  providerId?: number;
-  providerName?: string;
-}
-
 export default function DiscoverPage() {
   return (
     <Suspense fallback={null}>
@@ -538,51 +533,10 @@ function DiscoverPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isBrowsing, loading, loadingMore, page, totalPages]);
 
-  const rowLabel = (key: string, meta?: RowMeta) => {
-    if (key.startsWith("becauseYouWatched:") && meta) {
-      return meta.verb === "liked"
-        ? t("discover.rowBecauseYouLiked", { title: meta.anchorTitle ?? "" })
-        : t("discover.rowBecauseYouWatched", { title: meta.anchorTitle ?? "" });
-    }
-    if (key.startsWith("providerNew:") && meta?.providerName) {
-      return t("discover.rowProviderNew", { provider: meta.providerName });
-    }
-    if (key.startsWith("providerSuggested:") && meta?.providerName) {
-      return t("discover.rowProviderSuggested", { provider: meta.providerName });
-    }
-    switch (key) {
-      case "recommendedTop": return t("discover.rowRecommendedTop");
-      case "trendingPopular": return t("discover.rowTrendingPopular");
-      case "nowPlayingBoxOffice": return t("discover.rowNowPlayingBoxOffice");
-      case "upcomingVod": return t("discover.rowUpcomingVod");
-      case "newSeriesRenewed": return t("discover.rowNewSeriesRenewed");
-      case "recommended": return t("discover.rowRecommended");
-      case "trending": return t("discover.trending");
-      case "popular": return t("discover.rowPopular");
-      case "topRated": return t("discover.rowTopRated");
-      case "upcoming": return t("discover.rowUpcoming");
-      case "onAir": return t("discover.rowOnAir");
-      case "newVod": return t("discover.rowNewVod");
-      case "nowPlaying": return t("discover.rowNowPlaying");
-      case "boxOffice": return t("discover.rowBoxOffice");
-      case "kids": return t("discover.rowKids");
-      case "newSeries": return t("discover.rowNewSeries");
-      case "renewed": return t("discover.rowRenewed");
-      case "c411Popular": return t("discover.c411Popular");
-      case "c411Recent": return t("discover.c411Recent");
-      case "c411Today": return t("discover.c411Today");
-      case "acclaimed": return t("discover.rowAcclaimed");
-      case "anime": return t("discover.rowAnime");
-      case "teen": return t("discover.rowTeen");
-      case "shortFormat": return t("discover.rowShortFormat");
-      case "genreAction": return t("discover.rowGenreAction");
-      case "genreComedy": return t("discover.rowGenreComedy");
-      case "genreHorror": return t("discover.rowGenreHorror");
-      case "genreSciFi": return t("discover.rowGenreSciFi");
-      default: return key;
-    }
-  };
+  const rowLabel = (key: string, meta?: RowMeta) => sharedRowLabel(t, key, meta);
 
+  const rowLayout = useRowLayout(`discover:${forYou ? "all" : mediaType}`);
+  const { arrange } = rowLayout;
   const homeRows = useMemo(
     () => [
       ...editorialRows.map((row) => ({ ...row, results: row.results.filter(afterMinYear) })),
@@ -592,6 +546,7 @@ function DiscoverPageInner() {
     ],
     [editorialRows, c411Rows, mediaType, forYou, minYear]
   );
+  const homeRowsArranged = useMemo(() => arrange(homeRows), [arrange, homeRows]);
   const catalogHero = homeRows.find((row) => row.key === "recommendedTop")?.results[0] ?? homeRows[0]?.results[0] ?? null;
   const homeArtworkRefs = useMemo(
     () => homeRows.flatMap((row) => row.results.map((result) => ({ tmdbId: result.tmdbId, type: result.type }))),
@@ -968,6 +923,7 @@ function DiscoverPageInner() {
             {rowCategory && (
               <FilterChip label={rowLabel(rowCategory, rowCategoryMeta)} onClear={() => { setRowCategory(null); setRowCategoryMeta(undefined); }} />
             )}
+            {!isBrowsing && <div className="ml-auto"><RowLayoutToggle layout={rowLayout} /></div>}
             {isBrowsing && (
               <button
                 onClick={clearFilters}
@@ -980,7 +936,8 @@ function DiscoverPageInner() {
 
           {!isBrowsing && (
             <HomeRows
-              rows={homeRows}
+              rows={homeRowsArranged}
+              layout={rowLayout}
               artwork={titleArtwork}
               loading={rowsLoading || !!rowsData?.pending}
               companyTiles={companyTiles}
@@ -1317,8 +1274,9 @@ function PlatformsSection({ tiles, onClick }: { tiles: LogoTile[]; onClick: (til
 }
 
 function HomeRows({
-  rows, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick,
+  rows, layout, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick,
 }: {
+  layout: RowLayoutApi;
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[];
   artwork: TitleArtworkByKey;
   loading: boolean;
@@ -1367,8 +1325,9 @@ function HomeRows({
 
   return (
     <div className="space-y-9">
-      {rows.map((row) =>
-        row.ranked ? (
+      {rows.map((row) => (
+        <EditableRow key={row.key} rowKey={row.key} rows={rows} layout={layout}>
+        {row.ranked ? (
           <RankedList
             key={row.key}
             title={rowLabel(row.key, row.meta)}
@@ -1392,8 +1351,9 @@ function HomeRows({
             onSeeAll={() => onSeeAll(row.key, row.meta)}
             providerTile={providerTileFor(row)}
           />
-        )
-      )}
+        )}
+        </EditableRow>
+      ))}
 
       {companyTiles.length > 0 && (
         <LogoRow title={t("discover.studios")} tiles={companyTiles} onClick={onCompanyClick} />

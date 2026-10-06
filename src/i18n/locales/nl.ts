@@ -547,6 +547,17 @@ export const nl: Dictionary = {
     },
   },
 
+  rowLayout: {
+    allHidden: "Alle suggesties zijn verborgen. Gebruik het potlood om ze weer te tonen.",
+    edit: "Aanpassen",
+    done: "Klaar",
+    reset: "Herstellen",
+    moveUp: "Omhoog",
+    moveDown: "Omlaag",
+    moveTop: "Bovenaan zetten",
+    hide: "Verbergen",
+    show: "Tonen",
+  },
   discover: {
     eyebrow: "Rijke catalogus",
     title: "Ontdekken",

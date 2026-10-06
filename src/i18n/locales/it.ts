@@ -547,6 +547,17 @@ export const it: Dictionary = {
     },
   },
 
+  rowLayout: {
+    allHidden: "Tutti i suggerimenti sono nascosti. Usa la matita per mostrarli di nuovo.",
+    edit: "Personalizza",
+    done: "Fatto",
+    reset: "Ripristina",
+    moveUp: "Sposta su",
+    moveDown: "Sposta giù",
+    moveTop: "Metti in cima",
+    hide: "Nascondi",
+    show: "Mostra",
+  },
   discover: {
     eyebrow: "Catalogo ricco",
     title: "Scopri",

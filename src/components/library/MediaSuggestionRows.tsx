@@ -6,22 +6,15 @@ import { PosterRow } from "@/components/media/PosterRow";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useI18n, useT } from "@/i18n/provider";
+import { EditableRow } from "@/components/media/RowLayoutControls";
+import { rowLabel, type RowMeta } from "@/components/media/rowLabel";
+import type { RowLayoutApi } from "@/components/media/useRowLayout";
 import { useTitleArtworkBatch, type TitleArtworkRef } from "@/components/media/useTitleArtworkBatch";
 import type { DashboardInterfaceData } from "@/lib/dashboard/interfaceTypes";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 type MediaType = "movie" | "series";
-type EditorialRow = { key: string; results: MetaSearchResult[]; meta?: { providerName?: string } };
-
-function rowTitle(key: string, type: MediaType, t: ReturnType<typeof useT>, providerName?: string): string {
-  if (key === "recommendedTop" || key.startsWith("because")) return t("dashboard.rowRecommended");
-  if (key === "trendingPopular" || key === "trending") return t("dashboard.rowTrending");
-  if (key === "upcoming" || key === "upcomingVod") return t("dashboard.rowUpcoming");
-  if (key.startsWith("providerNew:") && providerName) return t("discover.rowProviderNew", { provider: providerName });
-  if (key.startsWith("providerSuggested:") && providerName) return t("discover.rowProviderSuggested", { provider: providerName });
-  if (key.startsWith("provider")) return providerName ?? t("discover.watchProviders");
-  return type === "movie" ? t("common.movies") : t("common.series");
-}
+type EditorialRow = { key: string; results: MetaSearchResult[]; meta?: RowMeta };
 
 /**
  * Films and Series are editorial recommendation destinations. The local
@@ -29,13 +22,15 @@ function rowTitle(key: string, type: MediaType, t: ReturnType<typeof useT>, prov
  * these shelves, so every visible card is a real suggestion that can be
  * added, excluded or opened in the shared title panel.
  */
-export function MediaSuggestionRows({ type }: { type: MediaType }) {
+export function MediaSuggestionRows({ type, layout }: { type: MediaType; layout: RowLayoutApi }) {
   const t = useT();
   const { locale } = useI18n();
   const { data: rowsData } = useSWR<{ configured?: boolean; pending?: boolean; rows: EditorialRow[] }>(`/api/metadata/rows?type=${type}`, { refreshInterval: (data) => data?.pending ? 2_000 : 0 });
   const { data: dashboard } = useSWR<DashboardInterfaceData>("/api/interface/dashboard");
 
-  const rows = useMemo(() => (rowsData?.rows ?? []).filter((row) => row.results.length > 0), [rowsData]);
+  const available = useMemo(() => (rowsData?.rows ?? []).filter((row) => row.results.length > 0), [rowsData]);
+  const { arrange } = layout;
+  const rows = useMemo(() => arrange(available), [arrange, available]);
   const libraryIds = useMemo(() => new Set(
     type === "movie" ? (dashboard?.movies ?? []).map((item) => item.tmdbId) : (dashboard?.series ?? []).map((item) => item.tmdbId)
   ), [dashboard, type]);
@@ -50,12 +45,14 @@ export function MediaSuggestionRows({ type }: { type: MediaType }) {
   const artwork = useTitleArtworkBatch(artworkRefs, locale);
 
   if (!rowsData || (rows.length === 0 && rowsData.pending)) return <div className="h-52 animate-pulse rounded-xl border border-brand/20 bg-surface/45" />;
+  if (available.length > 0 && rows.length === 0) return <p className="rounded-xl border border-brand/20 bg-surface/45 p-6 text-sm text-ink-dim">{t("rowLayout.allHidden")}</p>;
   if (rows.length === 0) return <p className="rounded-xl border border-brand/20 bg-surface/45 p-6 text-sm text-ink-dim">{t("library.empty")}</p>;
 
   return (
     <div className="space-y-8">
       {rows.map((row) => (
-        <PosterRow key={row.key} title={rowTitle(row.key, type, t, row.meta?.providerName)}>
+        <EditableRow key={row.key} rowKey={row.key} rows={rows} layout={layout}>
+        <PosterRow title={rowLabel(t, row.key, row.meta)}>
           {row.results.slice(0, 20).map((item) => {
             const resolved = artwork[`${type}:${item.tmdbId}`];
             return (
@@ -76,6 +73,7 @@ export function MediaSuggestionRows({ type }: { type: MediaType }) {
             );
           })}
         </PosterRow>
+        </EditableRow>
       ))}
     </div>
   );

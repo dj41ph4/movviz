@@ -547,6 +547,17 @@ export const de: Dictionary = {
     },
   },
 
+  rowLayout: {
+    allHidden: "Alle Vorschläge sind ausgeblendet. Mit dem Stift lassen sie sich wieder einblenden.",
+    edit: "Anpassen",
+    done: "Fertig",
+    reset: "Zurücksetzen",
+    moveUp: "Nach oben",
+    moveDown: "Nach unten",
+    moveTop: "Ganz nach oben",
+    hide: "Ausblenden",
+    show: "Einblenden",
+  },
   discover: {
     eyebrow: "Reichhaltiger Katalog",
     title: "Entdecken",

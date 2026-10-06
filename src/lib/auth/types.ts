@@ -57,6 +57,14 @@ export interface User {
   /** SHA-256 of the last Plex avatar bytes confirmed after a refresh/push. */
   plexAvatarFingerprint?: string;
   createdAt: number;
+  /** Organisation personnelle des rangées de suggestions, par page (clé = identifiant de page, voir @/lib/rowLayout). */
+  rowLayouts?: Record<string, RowLayoutPref>;
+}
+
+/** Ordre voulu + rangées masquées pour une page — absent = ordre par défaut du serveur. */
+export interface RowLayoutPref {
+  order: string[];
+  hidden: string[];
 }
 
 /** Photo effective d'un compte : choix Movviz d'abord, Plex ensuite.

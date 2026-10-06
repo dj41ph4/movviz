@@ -6,7 +6,8 @@ import { Compass, LibraryBig } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LibraryGrid } from "@/components/library/LibraryGrid";
 import { MediaSuggestionRows } from "@/components/library/MediaSuggestionRows";
-import { cn } from "@/lib/utils";
+import { RowLayoutToggle } from "@/components/media/RowLayoutControls";
+import { useRowLayout } from "@/components/media/useRowLayout";
 import { useT } from "@/i18n/provider";
 
 /** Films and Series are suggestion-first destinations. Their respective
@@ -17,6 +18,7 @@ export function LibraryMediaPage({ type }: { type: "movie" | "series" }) {
   const path = type === "movie" ? "/movies" : "/series";
   const libraryOpen = params.get("tab") === "library";
   const title = type === "movie" ? t("common.movies") : t("common.series");
+  const rowLayout = useRowLayout(type === "movie" ? "movies" : "series");
 
   return (
     <div className="nx-media-page mx-auto max-w-[1500px]">
@@ -31,16 +33,21 @@ export function LibraryMediaPage({ type }: { type: "movie" | "series" }) {
             <Compass className="h-4 w-4" /> {t("discover.rowRecommended")}
           </div>
         )}
-        {!libraryOpen && <Link
-          href={`${path}?tab=library`}
-          scroll={false}
-          aria-label={`${t("nav.library")} ${title}`}
-          className="nx-library-link flex min-h-11 items-center gap-2 rounded-lg border border-cyan/40 bg-surface/70 px-3 text-sm font-bold text-ink transition-colors hover:border-brand-glow hover:text-white"
-        >
-          <LibraryBig className="h-4 w-4" /> <span>{t("nav.library")}</span>
-        </Link>}
+        {!libraryOpen && (
+          <div className="flex items-center gap-2">
+            <RowLayoutToggle layout={rowLayout} />
+            <Link
+              href={`${path}?tab=library`}
+              scroll={false}
+              aria-label={`${t("nav.library")} ${title}`}
+              className="nx-library-link flex min-h-11 items-center gap-2 rounded-lg border border-cyan/40 bg-surface/70 px-3 text-sm font-bold text-ink transition-colors hover:border-brand-glow hover:text-white"
+            >
+              <LibraryBig className="h-4 w-4" /> <span>{t("nav.library")}</span>
+            </Link>
+          </div>
+        )}
       </div>
-      {libraryOpen ? <LibraryGrid fixedType={type} /> : <MediaSuggestionRows type={type} />}
+      {libraryOpen ? <LibraryGrid fixedType={type} /> : <MediaSuggestionRows type={type} layout={rowLayout} />}
     </div>
   );
 }

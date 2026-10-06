@@ -545,6 +545,17 @@ export const fr = {
     },
   },
 
+  rowLayout: {
+    allHidden: "Toutes les suggestions sont masquées. Utilisez le crayon pour les réafficher.",
+    edit: "Personnaliser",
+    done: "Terminé",
+    reset: "Réinitialiser",
+    moveUp: "Monter",
+    moveDown: "Descendre",
+    moveTop: "Placer en premier",
+    hide: "Masquer",
+    show: "Afficher",
+  },
   discover: {
     eyebrow: "Catalogue enrichi",
     title: "Découverte",

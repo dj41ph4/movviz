@@ -547,6 +547,17 @@ export const en: Dictionary = {
     requests: "Requests",
   },
 
+  rowLayout: {
+    allHidden: "All suggestions are hidden. Use the pencil to show them again.",
+    edit: "Customize",
+    done: "Done",
+    reset: "Reset",
+    moveUp: "Move up",
+    moveDown: "Move down",
+    moveTop: "Move to top",
+    hide: "Hide",
+    show: "Show",
+  },
   discover: {
     eyebrow: "Rich catalog",
     title: "Discover",

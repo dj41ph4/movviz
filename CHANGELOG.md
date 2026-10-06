@@ -1,3 +1,10 @@
+## v1.25.181 — Octobre 2026
+
+### Films et Séries : titres de rangées corrects et rangées personnalisables
+
+- Les rangées de suggestions des pages Films et Séries portent enfin leur vrai nom (Salués par la critique, Anime, Action, Comédie, etc.) au lieu de « Films » ou « Séries » partout.
+- Nouveau bouton crayon sur Films, Séries et Découvrir : chaque utilisateur peut monter, descendre, placer en premier ou masquer une rangée de suggestions, et la remettre à tout moment. L’organisation est enregistrée sur son compte, page par page, et un bouton permet de revenir à l’ordre par défaut.
+
 ## v1.25.180 — Octobre 2026
 
 ### Samsung Tizen : parcours plus proche d'Android TV NX
