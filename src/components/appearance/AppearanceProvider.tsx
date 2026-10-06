@@ -8,6 +8,7 @@ import { isPremiumAppearance } from "@/lib/appearance/policy";
 import { createPremiumPointerController } from "@/lib/appearance/premiumPointer";
 import { usePlaybackActive } from "@/lib/player/PlayerProvider";
 import "./premium.css";
+import "./salle-obscure.css";
 
 const AppearanceContext = createContext(false);
 export const usePremiumAppearance = () => useContext(AppearanceContext);

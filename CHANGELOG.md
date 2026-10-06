@@ -1,3 +1,13 @@
+## v1.25.190 — Octobre 2026
+
+### Apparence Bêta : premiers pas de « Salle obscure » sur ordinateur
+
+- Nouvelle palette de commandes : `Ctrl K` (ou un clic sur la barre du haut) cherche à la fois les films et séries, les pages et les réglages, et propose de lancer la recherche dans Découverte ou une recherche torrent.
+- La barre du haut s'allège : la langue et le lien Soutenir Movviz passent dans le menu du profil, et le cœur ne bat plus en continu.
+- Couleurs plus sombres et neutres, entrée active de la barre latérale en surface surélevée, polices dédiées à Movviz (embarquées, sans connexion), titres de page sans dégradé et un seul anneau de focus, identique à la souris et au clavier.
+- Un lien vers un réglage précis ouvre désormais le bon onglet même quand la page Réglages est déjà affichée.
+- L'apparence Stable, le mobile et les applications TV ne changent pas.
+
 ## v1.25.189 — Octobre 2026
 
 ### Android TV : nouvelle interface Bêta à essayer

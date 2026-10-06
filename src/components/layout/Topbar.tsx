@@ -10,6 +10,8 @@ import { NotificationBell } from "./NotificationBell";
 import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
+import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
+import { openCommandPalette } from "./CommandPalette";
 
 export function Topbar() {
   const user = useCurrentUser();
@@ -18,6 +20,10 @@ export function Topbar() {
   // the screen, is what "navrail" refers to, not the left Sidebar). Typing
   // pushes to /discover?q=, whose own card grid replaces the dashboard.
   const navSearch = useNavSearch();
+  // Bêta desktop : la barre devient l'entrée de la palette de commandes
+  // (Ctrl K), la langue et Sponsor passent dans le menu profil. Mobile et
+  // tablette gardent la barre de recherche et les boutons d'aujourd'hui.
+  const premium = usePremiumAppearance();
 
   // Transparent at the very top of the page (reads seamlessly over a hero
   // banner on pages that have one, and blends into the page's own dark
@@ -48,6 +54,7 @@ export function Topbar() {
 
   return (
     <header
+      data-scrolled={scrolled ? "true" : undefined}
       className={cn(
         "nx-topbar sticky top-0 z-30 flex h-15 items-center gap-2 border-b border-transparent px-4 transition-colors duration-300 sm:gap-4 sm:px-6 lg:h-14",
         scrolled ? "border-brand/15 bg-[#070d22]/88 backdrop-blur-xl" : "bg-transparent"
@@ -57,7 +64,20 @@ export function Topbar() {
           strict (PortraitTopHeader) : pill 46px, bordure électrique, fond
           #131836, icône 17px + placeholder 13px #B3B3B3 — voir
           .nx-search-pill. */}
-      <div className="group nx-search-pill flex h-[46px] min-w-0 flex-1 items-center gap-[10px] rounded-[23px] px-4 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]">
+      {premium && (
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          aria-label={t("nav.commandOpen")}
+          aria-keyshortcuts="Control+K Meta+K"
+          className="nx-command-trigger hidden h-10 min-w-0 flex-1 items-center gap-2.5 px-3.5 text-left lg:flex lg:max-w-[420px]"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate text-[13px]">{t("nav.commandPlaceholder")}</span>
+          <kbd className="nx-kbd">Ctrl K</kbd>
+        </button>
+      )}
+      <div className={cn("group nx-search-pill flex h-[46px] min-w-0 flex-1 items-center gap-[10px] rounded-[23px] px-4 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]", premium && "lg:hidden")}>
         <Search className="h-[17px] w-[17px] shrink-0 text-[#B3B3B3]" />
         <input
           value={navSearch.value}
@@ -88,12 +108,12 @@ export function Topbar() {
           target="_blank"
           rel="noreferrer"
           aria-label={t("settings.aboutSupportTitle")}
-          className="flex h-11 w-11 items-center justify-center rounded-full glass text-ink-soft transition-colors hover:border-magenta/30 hover:text-magenta"
+          className={cn("flex h-11 w-11 items-center justify-center rounded-full glass text-ink-soft transition-colors hover:border-magenta/30 hover:text-magenta", premium && "lg:hidden")}
         >
           <Heart className="h-4 w-4 animate-heartbeat fill-down text-down" />
         </a>
         {user?.role === "admin" && <ActivityMonitor />}
-        <LanguageSwitcher />
+        <div className={cn(premium && "lg:hidden")}><LanguageSwitcher /></div>
         <NotificationBell />
         <UserMenu />
       </div>

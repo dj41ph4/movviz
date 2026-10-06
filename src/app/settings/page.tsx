@@ -90,6 +90,16 @@ function SettingsPageInner() {
     if (saved === "expert" || saved === "essential") setMode(saved);
   }, []);
 
+  // Un lien vers ?tab=… alors que la page est déjà ouverte (palette de
+  // commandes, retour arrière) doit aussi changer l'onglet affiché.
+  const urlTab = params.get("tab");
+  const [seenUrlTab, setSeenUrlTab] = useState(urlTab);
+  if (urlTab !== seenUrlTab) {
+    setSeenUrlTab(urlTab);
+    const next = TABS.find((tb) => tb.id === urlTab)?.id;
+    if (next) setTab(next);
+  }
+
   const changeMode = (next: SettingsMode) => {
     setMode(next);
     window.localStorage.setItem("movviz-settings-mode", next);

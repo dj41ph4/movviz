@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { cookies } from "next/headers";
 import "./globals.css";
+import { fontVariables } from "./fonts";
 import { AppShell } from "@/components/layout/AppShell";
 import { ScrollRestoration } from "@/components/layout/ScrollRestoration";
 import { ServiceWorkerRegistration } from "@/components/layout/ServiceWorkerRegistration";
@@ -60,7 +61,7 @@ export default async function RootLayout({
     // Pré-rendu statique au build (pas de cookies) — sans conséquence.
   }
   return (
-    <html lang="fr" data-theme="dark" suppressHydrationWarning>
+    <html lang="fr" data-theme="dark" className={fontVariables} suppressHydrationWarning>
       {/* React ne monte le <img> du splash/sidebar qu'après l'hydratation JS —
           trop tard pour qu'il "apparaisse en premier". Ce preload démarre le
           téléchargement dès le HTML initial, en parallèle du JS, pour que le

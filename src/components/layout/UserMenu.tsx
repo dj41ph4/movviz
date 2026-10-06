@@ -4,15 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, ShieldCheck, UserCog } from "lucide-react";
+import { Heart, LogOut, ShieldCheck, UserCog } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { resetSwrCache } from "@/lib/swrCacheReset";
-import { useT } from "@/i18n/provider";
+import { useI18n, useT } from "@/i18n/provider";
+import { LOCALES, LOCALE_META } from "@/i18n/config";
+import { FlagIcon } from "@/components/ui/FlagIcon";
+import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
+import { cn } from "@/lib/utils";
 
 export function UserMenu() {
   const user = useCurrentUser();
   const router = useRouter();
   const t = useT();
+  const { locale, setLocale } = useI18n();
+  // Bêta desktop : la langue et Sponsor quittent la barre du haut et vivent ici.
+  const premium = usePremiumAppearance();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -85,6 +92,36 @@ export function UserMenu() {
             >
               <UserCog className="h-4 w-4" /> {t("profile.title")}
             </Link>
+            {premium && (
+              <div className="hidden lg:block">
+                <div className="my-1 border-t border-white/10" />
+                <p className="px-3 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-dim">{t("nav.menuLanguage")}</p>
+                <div role="group" aria-label={t("common.languageLabel")} className="grid grid-cols-5 gap-1 px-1.5 pb-1">
+                  {LOCALES.map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setLocale(l)}
+                      aria-pressed={l === locale}
+                      aria-label={LOCALE_META[l].label}
+                      title={LOCALE_META[l].label}
+                      className={cn("flex h-8 items-center justify-center rounded-md transition-colors", l === locale ? "bg-white/10 ring-1 ring-white/25" : "hover:bg-white/5")}
+                    >
+                      <FlagIcon locale={l} className="h-3.5 w-5 rounded-[2px]" />
+                    </button>
+                  ))}
+                </div>
+                <a
+                  href="https://github.com/sponsors/dj41ph4"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-ink-soft transition-colors hover:bg-white/5"
+                >
+                  <Heart className="h-4 w-4 fill-down text-down" /> {t("nav.menuSupport")}
+                </a>
+                <div className="my-1 border-t border-white/10" />
+              </div>
+            )}
             <button
               onClick={logout}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-down transition-colors hover:bg-down/10"

@@ -1,0 +1,181 @@
+/* « Salle obscure » — lots 0 et 1 de la refonte desktop (docs/SALLE_OBSCURE.md).
+   Même garde-fou que premium.css : chaque règle exige l'apparence Bêta ET le
+   viewport desktop. Stable, le mobile et les applications natives ne bougent
+   pas. Aucune animation permanente, aucun délai avant interaction. */
+
+@media (min-width: 1024px) {
+  html[data-movviz-appearance="beta"] {
+    /* Fondations : l'interface recule, l'image porte la couleur. */
+    --so-ink-0: #07080f;
+    --so-ink-1: #0d0f1a;
+    --so-ink-2: #141729;
+    --so-ink-3: #1c2036;
+    --so-line: rgba(255, 255, 255, .08);
+    --so-line-2: rgba(255, 255, 255, .14);
+    --so-fg: #f2f0f7;
+    --so-fg-2: #aaa7bd;
+    --so-fg-3: #8a879f;
+    --so-accent: #a77bff;
+    --so-accent-soft: rgba(167, 123, 255, .14);
+    --so-focus: #ffffff;
+    --so-r-ctl: 8px;
+    --so-r-card: 12px;
+    --so-r-panel: 18px;
+    --so-t-fast: 120ms;
+    --so-t-panel: 220ms;
+    --so-font-display: var(--font-mv-display), "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --so-font-ui: var(--font-mv-ui), "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --so-font-mono: var(--font-mv-mono), "Cascadia Mono", ui-monospace, monospace;
+  }
+
+  html[data-movviz-appearance="beta"],
+  html[data-movviz-appearance="beta"] body {
+    background: var(--so-ink-0);
+    font-family: var(--so-font-ui);
+    font-feature-settings: "ss01" 0;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell {
+    background: var(--so-ink-0);
+  }
+
+  html[data-movviz-appearance="beta"] :is(h1, h2, h3) {
+    font-family: var(--so-font-display);
+  }
+
+  html[data-movviz-appearance="beta"] :is(code, kbd, .font-mono) {
+    font-family: var(--so-font-mono);
+  }
+
+  /* ── Rail : couleur et forme Salle obscure, structure inchangée ──────── */
+  html[data-movviz-appearance="beta"] .nx-sidebar {
+    background: #090a12;
+    border-right-color: var(--so-line);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-sidebar a[aria-current="page"] {
+    background: var(--so-ink-2);
+    box-shadow: inset 0 0 0 1px var(--so-line);
+    color: var(--so-fg);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-sidebar a[aria-current="page"] svg {
+    color: var(--so-accent);
+  }
+
+  /* L'encoche verticale est remplacée par la surface élevée ci-dessus. */
+  html[data-movviz-appearance="beta"] .nx-sidebar a[aria-current="page"] > span[aria-hidden].absolute.left-0 {
+    display: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-sidebar :is(a, button):not([aria-current="page"]):hover {
+    background: rgba(255, 255, 255, .04);
+  }
+
+  /* ── Barre du haut ────────────────────────────────────────────────────── */
+  html[data-movviz-appearance="beta"] .nx-topbar {
+    border-bottom-color: transparent;
+    background: transparent;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-topbar[data-scrolled] {
+    border-bottom-color: var(--so-line);
+    background: rgba(7, 8, 15, .82);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-command-trigger {
+    border: 1px solid var(--so-line-2);
+    border-radius: 10px;
+    background: rgba(13, 15, 26, .62);
+    color: var(--so-fg-3);
+    transition: border-color var(--so-t-fast) ease, color var(--so-t-fast) ease;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-command-trigger:hover {
+    border-color: rgba(255, 255, 255, .24);
+    color: var(--so-fg-2);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-kbd {
+    flex: none;
+    border: 1px solid var(--so-line-2);
+    border-radius: 5px;
+    padding: 3px 6px;
+    font: 500 11px/1 var(--so-font-mono);
+    color: var(--so-fg-2);
+    background: rgba(255, 255, 255, .03);
+  }
+
+  /* Les boutons ronds « verre » de la barre deviennent des surfaces sobres. */
+  html[data-movviz-appearance="beta"] .nx-topbar .glass {
+    border-color: var(--so-line);
+    border-radius: 10px;
+    background: rgba(13, 15, 26, .55);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-topbar .glass:hover {
+    border-color: var(--so-line-2);
+  }
+
+  /* ── Palette de commandes ─────────────────────────────────────────────── */
+  html[data-movviz-appearance="beta"] .nx-command-panel {
+    border: 1px solid var(--so-line-2);
+    border-radius: var(--so-r-panel);
+    background: var(--so-ink-2);
+    box-shadow: 0 40px 90px -30px #000, inset 0 1px 0 rgba(255, 255, 255, .05);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-command-section {
+    font-family: var(--so-font-mono);
+  }
+
+  /* ── En-têtes de page ─────────────────────────────────────────────────── */
+  html[data-movviz-appearance="beta"] [data-nx-page-header] h1 {
+    background: none;
+    color: var(--so-fg);
+    font-weight: 800;
+    letter-spacing: -.03em;
+  }
+
+  html[data-movviz-appearance="beta"] [data-nx-page-header] h1 + p,
+  html[data-movviz-appearance="beta"] [data-nx-page-header] > div > p:last-child {
+    color: var(--so-fg-2);
+  }
+
+  html[data-movviz-appearance="beta"] [data-nx-page-header] > div > p:first-child:not(:last-child) {
+    font-family: var(--so-font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .14em;
+    color: var(--so-accent);
+  }
+
+  /* ── Focus : un seul anneau, identique souris et clavier ──────────────── */
+  html[data-movviz-appearance="beta"] :is(.nx-desktop-shell, [data-premium-panel], .nx-command) :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--so-focus);
+    outline-offset: 3px;
+  }
+
+  /* Le champ de la palette est déjà encadré par le panneau. */
+  html[data-movviz-appearance="beta"] .nx-command .nx-command-panel input[type="search"]:focus-visible {
+    outline: none;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-command input[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  /* ── Calme ────────────────────────────────────────────────────────────── */
+  html[data-movviz-appearance="beta"] .animate-heartbeat {
+    animation: none;
+  }
+
+  html[data-movviz-appearance="beta"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .16);
+    border-color: var(--so-ink-0);
+  }
+
+  html[data-movviz-appearance="beta"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, .28);
+  }
+}
