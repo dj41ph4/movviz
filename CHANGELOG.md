@@ -1,3 +1,10 @@
+## v1.25.185 — Octobre 2026
+
+### Movviz Companion : logo visible et bouton plus lisible
+
+- Le logo Movviz s’affiche enfin dans le bouton, sur tous les sites pris en charge.
+- Le bouton est désormais une carte sombre avec un halo violet, plus grande et lisible même sur les pages blanches. Quand un titre est disponible, « Ouvrir dans Movviz » devient le bouton principal.
+
 ## v1.25.184 — Octobre 2026
 
 ### Movviz Companion : logo net

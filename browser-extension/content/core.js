@@ -7,46 +7,39 @@
     :host { all: initial; display: block; }
     * { box-sizing: border-box; }
     .wrap {
-      display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      margin: 10px 0; font-family: Inter, "Segoe UI", system-ui, sans-serif;
-      font-size: 13px; line-height: 1.2; color: #eef1ff;
+      display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      margin: 12px 0; padding: 10px 14px; border-radius: 18px;
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+      font-size: 14px; line-height: 1.2; color: #eef1ff;
+      background: linear-gradient(135deg, #1a1f3d, #0e1330);
+      border: 1px solid color-mix(in oklab, #a06bff 55%, #fff 10%);
+      box-shadow: 0 0 0 1px rgba(124, 58, 237, .25), 0 12px 32px -10px rgba(124, 58, 237, .75);
     }
-    .wrap.float {
-      position: fixed; left: 16px; bottom: 16px; z-index: 2147483647; margin: 0;
-      padding: 8px 10px; border-radius: 16px;
-      background: color-mix(in oklab, #131836 88%, transparent);
-      border: 1px solid color-mix(in oklab, #a06bff 38%, #fff 13%);
-      box-shadow: 0 12px 30px -12px rgba(124, 58, 237, .6);
-      backdrop-filter: blur(14px);
-    }
-    .mark { width: 26px; height: 26px; border-radius: 8px; flex: none; }
+    .wrap.float { position: fixed; left: 16px; bottom: 16px; z-index: 2147483647; margin: 0; }
+    .mark { width: 34px; height: 34px; flex: none; }
     .btn, .pill {
-      display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
       font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer;
     }
     .btn {
-      padding: 9px 16px; border-radius: 12px; border: 0; color: #fff;
+      padding: 11px 20px; border-radius: 12px; border: 0; color: #fff; font-size: 14px;
       background: linear-gradient(120deg, #ff4bd0, #c04bff, #7c3aed);
-      box-shadow: 0 8px 22px -10px rgba(192, 75, 255, .8);
+      box-shadow: 0 8px 22px -8px rgba(192, 75, 255, .9);
       transition: transform .15s ease, filter .15s ease;
     }
-    .btn:hover { transform: scale(1.05); filter: brightness(1.1); }
+    .btn:hover { transform: scale(1.05); filter: brightness(1.12); }
     .btn:disabled { opacity: .6; cursor: default; transform: none; }
-    .btn.ghost {
-      background: color-mix(in oklab, #131836 62%, transparent); color: #eef1ff;
-      border: 1px solid color-mix(in oklab, #a06bff 28%, #fff 10%); box-shadow: none;
-    }
-    .pill { padding: 5px 11px; border-radius: 999px; border: 1px solid; font-size: 11px; cursor: default; }
+    .pill { padding: 7px 13px; border-radius: 999px; border: 1px solid; font-size: 12px; cursor: default; }
     a.pill { cursor: pointer; }
-    .ok { color: #43e6a0; background: rgba(67, 230, 160, .13); border-color: rgba(67, 230, 160, .3); }
-    .amber { color: #ffb84b; background: rgba(255, 184, 75, .13); border-color: rgba(255, 184, 75, .3); }
-    .cyan { color: #34e2ff; background: rgba(52, 226, 255, .13); border-color: rgba(52, 226, 255, .3); }
-    .down { color: #ff5b78; background: rgba(255, 91, 120, .13); border-color: rgba(255, 91, 120, .3); }
-    .dim { color: #aeb4d6; background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .14); }
-    svg { width: 14px; height: 14px; flex: none; }
+    .ok { color: #43e6a0; background: rgba(67, 230, 160, .15); border-color: rgba(67, 230, 160, .4); }
+    .amber { color: #ffb84b; background: rgba(255, 184, 75, .15); border-color: rgba(255, 184, 75, .4); }
+    .cyan { color: #34e2ff; background: rgba(52, 226, 255, .15); border-color: rgba(52, 226, 255, .4); }
+    .down { color: #ff5b78; background: rgba(255, 91, 120, .15); border-color: rgba(255, 91, 120, .4); }
+    .dim { color: #aeb4d6; background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .2); }
+    svg { width: 16px; height: 16px; flex: none; }
     .spin { animation: spin .8s linear infinite; }
     .pulse { animation: pulse 1.6s ease-in-out infinite; }
-    .skeleton { width: 150px; height: 34px; border-radius: 12px; background: rgba(255, 255, 255, .08); animation: pulse 1.4s ease-in-out infinite; }
+    .skeleton { width: 170px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, .08); animation: pulse 1.4s ease-in-out infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes pulse { 50% { opacity: .45; } }
     @media (max-width: 480px) { .wrap.float { left: 8px; right: 8px; bottom: 8px; } }
@@ -124,6 +117,13 @@
     return node;
   };
 
+  const link = (cls, icon, text, href) => {
+    const node = el("a", cls, `${icon}<span></span>`);
+    node.lastChild.textContent = text;
+    node.href = href; node.target = "_blank"; node.rel = "noopener";
+    return node;
+  };
+
   const button = (cls, icon, text) => {
     const node = el("button", `btn ${cls}`, `${icon}<span></span>`);
     node.type = "button";
@@ -143,7 +143,7 @@
     const href = `${serverUrl}/title/${media.type}/${media.tmdbId}`;
     switch (media.status) {
       case "available":
-        render(pill("ok", ICONS.check, t("statusAvailable")), pill("dim", ICONS.play, t("btnOpen"), href));
+        render(pill("ok", ICONS.check, t("statusAvailable")), link("btn", ICONS.play, t("btnOpen"), href));
         break;
       case "processing":
         render(pill("cyan pulse", ICONS.loader, t("statusProcessing"), href));
