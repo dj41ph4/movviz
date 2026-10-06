@@ -7,6 +7,13 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalView
@@ -48,22 +55,58 @@ fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier = composed {
     // manque cruellement de retour haptique »). Vibration « touche de
     // clavier » : discrète, et respecte le réglage système de l'utilisateur.
     val view = LocalView.current
-    pointerInput(onClick) {
-        detectTapGestures(onTap = {
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            onClick()
-        })
-    }
+    var pressed by remember { mutableStateOf(false) }
+    var large by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed && !large) PRESSED_SCALE else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "tvPointerPress",
+    )
+    this
+        // État pressé visible (refonte premium) : léger rétrécissement en
+        // plus de l'haptique. Jamais sur une grande zone (overlay lecteur,
+        // carte pleine largeur) où le mouvement deviendrait un tremblement.
+        .onSizeChanged { large = it.width > with(density) { PRESS_MAX_WIDTH.toPx() } }
+        .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+        .pointerInput(onClick) {
+            detectTapGestures(
+                onPress = {
+                    pressed = true
+                    tryAwaitRelease()
+                    pressed = false
+                },
+                onTap = {
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    onClick()
+                },
+            )
+        }
 }
 
-/** `clickable` + le même retour haptique que tvPointerClick. */
+/** `clickable` + le même retour haptique et le même état pressé que tvPointerClick. */
 fun Modifier.hapticClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {
     val view = LocalView.current
-    clickable(enabled = enabled) {
-        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-        onClick()
-    }
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    var large by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed && !large) PRESSED_SCALE else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "hapticPress",
+    )
+    this
+        .onSizeChanged { large = it.width > with(density) { PRESS_MAX_WIDTH.toPx() } }
+        .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+        .clickable(interactionSource = interaction, indication = null, enabled = enabled) {
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            onClick()
+        }
 }
+
+private const val PRESSED_SCALE = 0.97f
+private val PRESS_MAX_WIDTH = 420.dp
 
 /**
  * "Lift" Netflix-style : la carte au focus se détache visuellement avec un

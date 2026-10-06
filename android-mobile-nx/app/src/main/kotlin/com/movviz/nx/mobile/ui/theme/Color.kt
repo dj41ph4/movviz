@@ -43,9 +43,11 @@ val MovvizLine = Color(0xFF1E2440)
 val MovvizPage = Color(0xFF0F142F)
 
 // Text hierarchy — white for titles, progressively dimmer for secondary.
+// Secondaire et tertiaire teintés bleu-nuit comme le web (--color-ink-soft/
+// --color-ink-dim) : les gris neutres hérités de Netflix juraient avec le fond.
 val MovvizInk = Color(0xFFFFFFFF)
-val MovvizInkSoft = Color(0xFFB3B3B3)
-val MovvizInkDim = Color(0xFF6B6B6B)
+val MovvizInkSoft = Color(0xFFAEB4D6)
+val MovvizInkDim = Color(0xFF6B7099)
 
 // Semantic status pills — kept for functional indicators.
 val MovvizOk = Color(0xFF43E6A0)

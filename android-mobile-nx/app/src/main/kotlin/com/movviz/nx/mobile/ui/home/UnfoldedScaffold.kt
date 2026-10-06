@@ -54,6 +54,12 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconHome
 import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
 import com.movviz.nx.mobile.ui.theme.MovvizOk
+import com.movviz.nx.mobile.ui.theme.MovvizCyan
+import com.movviz.nx.mobile.ui.theme.MovvizPage
+import com.movviz.nx.mobile.ui.theme.MovvizRadius
+import com.movviz.nx.mobile.ui.theme.MovvizWindowClass
+import com.movviz.nx.mobile.ui.theme.isLargeTouch
+import com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass
 import com.movviz.nx.mobile.ui.theme.MovvizSurface
 import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
@@ -69,31 +75,21 @@ import com.movviz.nx.mobile.ui.theme.tvPointerClick
  * visuel) — seul le châssis change.
  */
 
-/** Seuil déplié : paysage avec au moins 700dp de large (Fold ouvert,
- *  tablette paysage, téléphone pivoté — les deux doivent fonctionner).
- *  TV réelle exclue (UiMode TV) : elle garde son interface 10-foot.
- *  En dessous du seuil, portrait compact ou interface existante. */
+/** Châssis tactile à rail : tout écran non compact hors TV — téléphone ou
+ *  Fold plié tourné, Fold ouvert tenu droit ou à plat, tablette. Le Fold
+ *  ouvert tenu droit (≈ 700 × 830 dp) y entre désormais au lieu de retomber
+ *  sur l'interface TV. En dessous, portrait compact. */
 @Composable
 fun rememberUnfoldedLandscape(): Boolean {
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    if (configuration.screenWidthDp < 700 ||
-        configuration.screenWidthDp <= configuration.screenHeightDp
-    ) {
-        return false
-    }
-    val uiMode = (androidx.compose.ui.platform.LocalContext.current.getSystemService(
-        android.content.Context.UI_MODE_SERVICE,
-    ) as? android.app.UiModeManager)?.currentModeType
-    return uiMode != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val windowClass = rememberMovvizWindowClass()
+    return windowClass == MovvizWindowClass.LANDSCAPE_SHORT || windowClass.isLargeTouch
 }
 
-/** Panneau latéral seulement si la colonne centrale garde ≥ 320dp
- *  (paysage smartphone étroit : rail + contenu, sans panneau). */
+/** Panneau Activité (téléchargements) : Fold ouvert à plat et tablettes
+ *  seulement. Sur un téléphone tourné il mangeait 28 % de la largeur. */
 @Composable
-fun rememberUnfoldedWithPanel(): Boolean {
-    if (!rememberUnfoldedLandscape()) return false
-    return androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 784
-}
+fun rememberUnfoldedWithPanel(): Boolean =
+    rememberMovvizWindowClass() == MovvizWindowClass.FOLD_FLAT
 
 /** Contenu étroit tactile : portrait compact OU colonne centrale dépliée.
  *  Partout où le code distinguait `compactPortrait` vs "TV grand écran"
@@ -103,26 +99,23 @@ fun rememberUnfoldedWithPanel(): Boolean {
 fun rememberNarrowContent(): Boolean =
     com.movviz.nx.mobile.ui.mobile.rememberCompactPortrait() || rememberUnfoldedLandscape()
 
-// Esquisse dépliée : rail ~13 %, téléchargements ~28 %. Les minimums
-// conservent les libellés lisibles ; le centre garde au moins 360 dp.
-internal fun unfoldedRailWidth(availableWidth: Float) =
-    (availableWidth * 0.133f).coerceIn(144f, 168f).dp
+/** Rail en verre de 60 dp posé dans une colonne de 76 dp en paysage bas ;
+ *  rail à libellés de 88 dp sur Fold ouvert et tablette. */
+internal fun unfoldedRailWidth(windowClass: MovvizWindowClass) =
+    if (windowClass.isLargeTouch) 100.dp else 76.dp
 
 internal fun unfoldedPanelWidth(availableWidth: Float) =
-    (availableWidth * 0.284f).coerceIn(224f, 320f).dp
-private val UnfoldedInactive = Color(0xFFC3C3CB)
+    (availableWidth * 0.3f).coerceIn(260f, 320f).dp
+
+private val UnfoldedInactive = Color(0xFFB7BCDC)
 private const val TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w200"
 
-// La barre est superposée au contenu central. Cet inset lui réserve sa hauteur
-// exacte, plus 3dp de respiration, sur toutes les pages qui l'affichent.
-internal val UnfoldedPersistentSearchBarHeight = 70.dp
-internal val UnfoldedPersistentSearchContentInset = UnfoldedPersistentSearchBarHeight + 3.dp
+private data class RailItem(val tab: HomeTab?, val label: String, val icon: ImageVector)
 
-private data class RailItem(val tab: HomeTab, val label: String, val icon: ImageVector)
-
-/** Rail tactile gauche — Accueil/Découvrir/Mon espace/Téléchargements/
- *  Réglages + recherche + avatar, comme la colonne de la maquette. Tactile
- *  d'abord (clickable simple), pas de chorégraphie D-pad TV. */
+/** Rail tactile : Accueil, Découverte, Mon espace, Téléchargements, Réglages,
+ *  puis Recherche, et en bas mise à jour + avatar. Verre teinté plutôt que
+ *  colonne opaque ; actif en violet discret plutôt qu'en pavé dégradé.
+ *  `downloadProgress` (0..1) dessine l'anneau cyan de la file en cours. */
 @Composable
 fun SlimRail(
     selected: HomeTab,
@@ -134,100 +127,63 @@ fun SlimRail(
     onUpdateClick: () -> Unit,
     // Même repli username que l'en-tête portrait (jamais "MO" anonyme).
     fallbackName: String? = null,
+    downloadProgress: Float? = null,
     modifier: Modifier = Modifier,
 ) {
+    val windowClass = rememberMovvizWindowClass()
+    val labelled = windowClass.isLargeTouch
     val railDisplayName = activeProfile?.name?.takeIf { it.isNotBlank() } ?: fallbackName
     val items = listOf(
         RailItem(HomeTab.HOME, "Accueil", MovvizIconHome),
-        RailItem(HomeTab.DISCOVER, "Découvrir", MovvizIconCompass),
+        RailItem(HomeTab.DISCOVER, "Découverte", MovvizIconCompass),
         RailItem(HomeTab.LIBRARY, "Mon espace", MovvizIconBookmark),
-        RailItem(HomeTab.DOWNLOADS, "Téléchargements", MovvizIconDownload),
+        RailItem(HomeTab.DOWNLOADS, "Télécharg.", MovvizIconDownload),
         RailItem(HomeTab.SETTINGS, "Réglages", MovvizIconSettings),
+        RailItem(null, "Rechercher", MovvizIconSearch),
     )
-    // Menu compact qui tient sans scroll sur les hauteurs paysage (~390dp+) :
-    // items 44dp, labels 12sp lisibles en entier ("Téléchargements" compris).
-    Column(
+    Box(
         modifier = modifier
             .fillMaxHeight()
-            .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
-            .padding(start = 6.dp, end = 6.dp, top = 10.dp, bottom = 8.dp)
-            .verticalScroll(rememberScrollState()),
+            .background(MovvizPage)
+            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(MovvizRadius.large)
+                .background(MovvizSurface.copy(alpha = 0.72f), MovvizRadius.large)
+                .border(1.dp, Color.White.copy(alpha = 0.07f), MovvizRadius.large)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (labelled) 6.dp else 2.dp),
+        ) {
             Image(
                 painter = painterResource(R.drawable.movviz_mark),
                 contentDescription = "Movviz",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.padding(bottom = 8.dp).size(if (labelled) 30.dp else 26.dp),
             )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "MOVVIZ NX",
-                style = TextStyle(
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White.copy(alpha = 0.90f),
-                    letterSpacing = 1.0.sp,
-                ),
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        items.forEach { item ->
-            val active = selected == item.tab
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .then(
-                        if (active) {
-                            Modifier.background(
-                                Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .85f), MovvizBrand2.copy(alpha = .85f))),
-                                RoundedCornerShape(12.dp),
-                            )
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .hapticClickable(onClick = { onSelectTab(item.tab) })
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                androidx.tv.material3.Icon(
-                    imageVector = item.icon,
-                    contentDescription = null,
-                    tint = if (active) Color.White else UnfoldedInactive,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = item.label,
-                    style = TextStyle(
-                        fontSize = 11.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        color = if (active) Color.White else UnfoldedInactive,
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            items.forEach { item ->
+                val active = item.tab != null && selected == item.tab
+                RailButton(
+                    item = item,
+                    active = active,
+                    labelled = labelled,
+                    progress = if (item.tab == HomeTab.DOWNLOADS) downloadProgress else null,
+                    onClick = { if (item.tab != null) onSelectTab(item.tab) else onOpenSearch() },
                 )
             }
-            Spacer(Modifier.height(2.dp))
-        }
-        Spacer(Modifier.weight(1f))
-        if (updateTag != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, MovvizElectricBorder, RoundedCornerShape(12.dp))
-                    .hapticClickable(onClick = onUpdateClick)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
+            Spacer(Modifier.weight(1f).height(12.dp))
+            if (updateTag != null) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .border(1.5.dp, MovvizElectricBorder, CircleShape)
+                        .hapticClickable(onClick = onUpdateClick),
+                    contentAlignment = Alignment.Center,
+                ) {
                     androidx.tv.material3.Icon(
                         imageVector = MovvizIconDownload,
                         contentDescription = "Mise à jour ${updateTag.removePrefix("v")} disponible",
@@ -237,31 +193,19 @@ fun SlimRail(
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
+                            .padding(top = 7.dp, end = 7.dp)
                             .size(7.dp)
                             .background(MovvizBrand2, CircleShape),
                     )
                 }
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = "Mise à jour",
-                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White),
-                    maxLines = 1,
-                )
+                Spacer(Modifier.height(6.dp))
             }
-            Spacer(Modifier.height(8.dp))
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .hapticClickable(onClick = onAvatarClick)
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
             Box(
-                modifier = Modifier.size(36.dp).clip(CircleShape)
-                    .border(1.5.dp, MovvizElectricBorder, CircleShape),
+                modifier = Modifier
+                    .size(if (labelled) 40.dp else 36.dp)
+                    .clip(CircleShape)
+                    .border(1.5.dp, MovvizElectricBorder, CircleShape)
+                    .hapticClickable(onClick = onAvatarClick),
                 contentAlignment = Alignment.Center,
             ) {
                 if (activeProfile != null) {
@@ -280,65 +224,67 @@ fun SlimRail(
                     )
                 }
             }
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = railDisplayName ?: "Mon profil",
-                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = UnfoldedInactive),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
         }
     }
 }
 
-/** Barre de recherche persistante du châssis déplié. Identique à celle du
- * portrait, mais opaque et dessinée APRÈS le contenu : hero et listes
- * défilent dessous sans jamais la recouvrir. */
 @Composable
-internal fun UnfoldedPersistentSearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(UnfoldedPersistentSearchBarHeight)
-            .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
-            .padding(horizontal = 12.dp, vertical = 12.dp)
+private fun RailButton(
+    item: RailItem,
+    active: Boolean,
+    labelled: Boolean,
+    progress: Float?,
+    onClick: () -> Unit,
+) {
+    val tint = if (active) Color(0xFFE2C9FF) else UnfoldedInactive
+    Column(
+        modifier = Modifier
+            .clip(MovvizRadius.medium)
+            .hapticClickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = if (labelled) 2.dp else 1.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        androidx.tv.material3.Surface(
-            onClick = onClick,
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .border(1.dp, MovvizElectricBorder, RoundedCornerShape(23.dp))
-                // androidx.tv Surface handles DPAD_CENTER but not touch taps.
-                // Landscape NX runs on a phone too, so it needs the same
-                // pointer path as the portrait persistent search bar.
-                .tvPointerClick(onClick),
-            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
-            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-                containerColor = MovvizSurface,
-                focusedContainerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong,
-                contentColor = Color.White,
-                focusedContentColor = Color.White,
-            ),
+                .size(width = if (labelled) 56.dp else 44.dp, height = if (labelled) 32.dp else 36.dp)
+                .clip(RoundedCornerShape(if (labelled) 16.dp else 13.dp))
+                .background(if (active) MovvizBrand.copy(alpha = 0.30f) else Color.Transparent),
+            contentAlignment = Alignment.Center,
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            ) {
-                androidx.tv.material3.Icon(
-                    imageVector = MovvizIconSearch,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.72f),
-                    modifier = Modifier.size(17.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = "Rechercher un film, une série, un acteur…",
-                    style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.72f)),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            androidx.tv.material3.Icon(
+                imageVector = item.icon,
+                contentDescription = if (labelled) null else item.label,
+                tint = tint,
+                modifier = Modifier.size(20.dp),
+            )
+            if (progress != null) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(30.dp)) {
+                    val stroke = 2.dp.toPx()
+                    drawArc(
+                        color = Color.White.copy(alpha = 0.12f),
+                        startAngle = 0f, sweepAngle = 360f, useCenter = false,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+                    )
+                    drawArc(
+                        color = MovvizCyan,
+                        startAngle = -90f, sweepAngle = 360f * progress.coerceIn(0f, 1f), useCenter = false,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                    )
+                }
             }
+        }
+        if (labelled) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = item.label,
+                style = TextStyle(
+                    fontSize = 11.sp,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                    color = if (active) Color.White else UnfoldedInactive,
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -362,8 +308,8 @@ fun UnfoldedRouteScaffold(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    androidx.compose.foundation.layout.BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-    val railWidth = unfoldedRailWidth(maxWidth.value)
+    val railWidth = unfoldedRailWidth(rememberMovvizWindowClass())
+    Box(modifier = modifier.fillMaxSize()) {
     Row(modifier = Modifier.fillMaxSize()) {
         SlimRail(
             selected = selected,
@@ -405,8 +351,10 @@ fun UnfoldedRightPanel(
         modifier = modifier
             .fillMaxHeight()
             .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
-            .border(width = 1.dp, color = Color.White.copy(alpha = 0.07f))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(top = 8.dp, end = 8.dp, bottom = 8.dp)
+            .clip(MovvizRadius.large)
+            .background(MovvizSurface.copy(alpha = 0.72f), MovvizRadius.large)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
@@ -501,8 +449,7 @@ private fun UnfoldedQueueRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(12.dp))
-            .border(1.5.dp, MovvizElectricBorder, RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp))
             .let { if (clickable) it.hapticClickable(onClick = onClick) else it }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,

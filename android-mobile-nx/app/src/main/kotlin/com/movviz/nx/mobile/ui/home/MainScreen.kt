@@ -87,10 +87,16 @@ fun MainScreen(
     if (rememberUnfoldedLandscape()) {
         val activeProfile by viewModel.activeProfile.collectAsState()
         val unfoldedUsername by viewModel.currentUser.collectAsState()
+        val unfoldedQueue by viewModel.queue.collectAsState()
+        // Anneau du rail : avancée moyenne de la file en cours (null = rien).
+        val railDownloadProgress = unfoldedQueue.takeIf { it.isNotEmpty() }
+            ?.map { it.download.progress.toFloat().coerceIn(0f, 1f) }?.average()?.toFloat()
+        val windowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
+        val panelAllowed = rememberUnfoldedWithPanel()
         androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val railWidth = unfoldedRailWidth(maxWidth.value)
+        val railWidth = unfoldedRailWidth(windowClass)
         val panelWidth = unfoldedPanelWidth(maxWidth.value)
-        val showPanel = maxWidth - railWidth - panelWidth >= 360.dp
+        val showPanel = panelAllowed && maxWidth - railWidth - panelWidth >= 420.dp
         Row(modifier = Modifier.fillMaxSize()) {
             SlimRail(
                 selected = tab,
@@ -101,18 +107,18 @@ fun MainScreen(
                 updateTag = updateTag,
                 onUpdateClick = onUpdateClick,
                 fallbackName = unfoldedUsername?.username,
+                downloadProgress = railDownloadProgress,
                 modifier = Modifier.width(railWidth),
             )
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                // La recherche persistante est un overlay. Réserver sa hauteur
-                // + 3dp systématiquement dans chaque écran
-                // central évite que le premier contenu soit caché au chargement
-                // ou après un changement d'onglet. La page Recherche n'a pas
-                // cette barre overlay : elle rend son champ dans son propre flux.
+                // Plus de barre de recherche fixe (elle prenait 73 dp sur un
+                // écran de 360) : la loupe vit dans le rail. L'accueil part
+                // du bord pour que son hero soit plein cadre ; les autres
+                // onglets gardent une courte respiration.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (!searchOpen) Modifier.padding(top = UnfoldedPersistentSearchContentInset) else Modifier),
+                        .then(if (!searchOpen && tab != HomeTab.HOME) Modifier.padding(top = 12.dp) else Modifier),
                 ) {
                     MainContent(
                         viewModel = viewModel,
@@ -132,12 +138,6 @@ fun MainScreen(
                         onHomeScrollChanged = onHomeScrollChanged,
                         onSwitchProfile = onSwitchProfile,
                         onOpenPerson = onOpenPerson,
-                    )
-                }
-                if (!searchOpen) {
-                    UnfoldedPersistentSearchBar(
-                        onClick = onOpenSearch,
-                        modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }
             }

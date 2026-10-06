@@ -107,6 +107,32 @@ fun PortraitTopHeader(
                 style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White),
             )
             Spacer(Modifier.weight(1f))
+            // Refonte premium : la recherche devient une loupe dans l'en-tête
+            // (même écran plein écran derrière) au lieu d'un champ qui
+            // occupait une ligne entière au-dessus de chaque onglet.
+            if (showSearchRow && title == null) {
+                Surface(
+                    onClick = onSearchClick,
+                    modifier = Modifier.size(40.dp).tvPointerClick(onSearchClick),
+                    shape = ClickableSurfaceDefaults.shape(CircleShape),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
+                        containerColor = Color.White.copy(alpha = 0.08f),
+                        focusedContainerColor = Color.White.copy(alpha = 0.14f),
+                        contentColor = Color.White,
+                        focusedContentColor = Color.White,
+                    ),
+                ) {
+                    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = MovvizIconSearch,
+                            contentDescription = "Rechercher un film, une série, un acteur",
+                            tint = Color.White,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+            }
             if (updateTag != null) {
                 PortraitUpdateButton(tag = updateTag, onClick = onUpdateClick)
                 Spacer(Modifier.width(10.dp))
@@ -147,41 +173,6 @@ fun PortraitTopHeader(
                 text = title,
                 style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White),
             )
-        } else if (showSearchRow) {
-            Spacer(Modifier.height(12.dp))
-        Surface(
-            onClick = onSearchClick,
-            modifier = Modifier.fillMaxWidth().height(46.dp)
-                .border(1.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder, RoundedCornerShape(23.dp))
-                .tvPointerClick(onSearchClick),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(23.dp)),
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-                    containerColor = MovvizSurface,
-                    focusedContainerColor = MovvizSurfaceStrong,
-                    contentColor = Color.White,
-                    focusedContentColor = Color.White,
-                ),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                ) {
-                    Icon(
-                        imageVector = MovvizIconSearch,
-                        contentDescription = null,
-                        tint = MovvizInkSoft,
-                        modifier = Modifier.size(17.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "Rechercher un film, une série, un acteur…",
-                        color = MovvizInkSoft,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
         }
     }
 }

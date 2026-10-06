@@ -846,13 +846,14 @@ private fun PortraitBottomNav(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
-            .shadow(14.dp, RoundedCornerShape(24.dp), clip = false)
-            // Dock teinté violet-nuit (MovvizSurfaceStrong), pas un gris
-            // neutre : cohérent avec le fond général de l'app et la charte
-            // mobile (esquisse fournie 2026-09).
-            .background(MovvizSurfaceStrong.copy(alpha = .96f), RoundedCornerShape(24.dp))
-            .border(1.dp, MovvizBrand.copy(alpha = .22f), RoundedCornerShape(24.dp))
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .shadow(18.dp, RoundedCornerShape(24.dp), clip = false)
+            // Dock verre (refonte premium 2026-10) : surface nuit translucide,
+            // filet blanc discret. L'onglet actif n'est plus une pilule dégradée
+            // (lourde, cassait la lecture du dock) mais une icône violette
+            // soulignée, comme sur le web.
+            .background(MovvizSurfaceStrong.copy(alpha = .90f), RoundedCornerShape(24.dp))
+            .border(1.dp, Color.White.copy(alpha = .07f), RoundedCornerShape(24.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -873,34 +874,38 @@ private fun PortraitBottomNav(
                 ),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (active) {
-                                Modifier.background(
-                                    Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .85f), MovvizBrand2.copy(alpha = .85f))),
-                                    RoundedCornerShape(16.dp),
-                                )
-                            } else {
-                                Modifier
-                            },
-                        ),
+                    modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Icon(
                         item.icon,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = if (active) Color.White else Color(0xFFC3C3CB),
+                        modifier = Modifier.size(22.dp),
+                        tint = if (active) Color(0xFFC9A6FF) else Color(0xFFAEB4D6),
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(
                         item.label,
                         fontSize = 10.sp,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = if (active) Color.White else Color(0xFFC3C3CB),
+                        color = if (active) Color.White else Color(0xFFAEB4D6),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        Modifier
+                            .width(18.dp)
+                            .height(3.dp)
+                            .background(
+                                if (active) {
+                                    Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))
+                                } else {
+                                    Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
+                                },
+                                RoundedCornerShape(2.dp),
+                            ),
                     )
                 }
             }

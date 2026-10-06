@@ -1,3 +1,16 @@
+## v1.25.191 — Octobre 2026
+
+### Android mobile : refonte premium, première étape (châssis)
+
+- Le Z Fold ouvert tenu droit n'affiche plus l'interface TV : il a maintenant sa propre mise en page tactile, avec un rail de navigation légendé à gauche.
+- Nouveau rail de navigation en verre dépoli en paysage et sur Fold. Il intègre la recherche, et l'onglet Téléchargements affiche un anneau de progression pendant un téléchargement.
+- Sur Fold ouvert à plat ou sur tablette, le panneau de droite garde sa place quand l'écran est assez large et adopte le même style verre.
+- La vedette de l'accueil passe en pleine largeur en paysage et sur Fold, avec son résumé et un bouton Lecture blanc plus lisible.
+- Le dock du bas est plus léger : l'onglet actif est marqué par une icône violette soulignée au lieu d'une pilule colorée.
+- La recherche de l'accueil en portrait devient une icône dans l'en-tête, ce qui laisse plus de place au contenu.
+- Les boutons et vignettes réagissent au toucher par un léger enfoncement, et les textes secondaires prennent une teinte plus douce.
+- Le bouton Movviz AI flottant ne change pas.
+
 ## v1.25.190 — Octobre 2026
 
 ### Apparence Bêta : premiers pas de « Salle obscure » sur ordinateur

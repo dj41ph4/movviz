@@ -86,6 +86,7 @@ import com.movviz.nx.mobile.data.TrailerSourceDto
 import com.movviz.nx.mobile.data.TvPreviewDto
 import com.movviz.nx.mobile.ui.theme.MovvizAmber
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.isLargeTouch
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizCardShape
@@ -1018,6 +1019,7 @@ internal fun HeroCarousel(
     // visibles dans un hero de ~213dp (mesuré : la pile complète fait ~262dp
     // et écrasait les boutons à 12px sur émulateur).
     val unfoldedHero = rememberUnfoldedLandscape()
+    val heroWindowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
     val mobileStyle = compactPortrait || unfoldedHero
     // Le hero paysage reste strictement inchangé. En portrait, la même
     // vedette ne doit pas consommer tout le premier écran ni recadrer le
@@ -1026,10 +1028,13 @@ internal fun HeroCarousel(
     // dans le viewport.
     val heroHeight = if (compactPortrait) {
         (configuration.screenHeightDp * 0.45f).coerceIn(300f, 420f)
-    } else if (rememberUnfoldedLandscape()) {
-        // Déplié (Fold ouvert comme smartphone pivoté, parfois bas ~360dp) :
-        // hero compact qui laisse greeting + amorce de rangée visibles.
-        (configuration.screenHeightDp * 0.52f).coerceIn(200f, 320f)
+    } else if (heroWindowClass == com.movviz.nx.mobile.ui.theme.MovvizWindowClass.LANDSCAPE_SHORT) {
+        // Refonte premium : téléphone tourné, hero plein cadre sur presque
+        // toute la hauteur ; la rangée suivante affleure en bas.
+        (configuration.screenHeightDp * 0.80f).coerceIn(250f, 380f)
+    } else if (unfoldedHero) {
+        // Fold ouvert / tablette : la moitié haute, comme une affiche.
+        (configuration.screenHeightDp * 0.52f).coerceIn(340f, 520f)
     } else {
         (configuration.screenHeightDp * 0.62f).coerceIn(390f, 600f)
     }
@@ -1039,14 +1044,13 @@ internal fun HeroCarousel(
     // Le paysage/TV garde le hero plein-écran existant, inchangé.
     val heroShape = when {
         compactPortrait -> RoundedCornerShape(20.dp)
-        unfoldedHero -> RoundedCornerShape(20.dp)
+        unfoldedHero -> androidx.compose.ui.graphics.RectangleShape
         else -> androidx.compose.ui.graphics.RectangleShape
     }
     Box(
         modifier = Modifier.fillMaxWidth()
             .then(when {
                 compactPortrait -> Modifier.padding(horizontal = 16.dp)
-                unfoldedHero -> Modifier.padding(horizontal = 12.dp)
                 else -> Modifier
             })
             .height(heroHeight.dp)
@@ -1130,9 +1134,9 @@ internal fun HeroCarousel(
                 // bottom = dépassement du hero sous le pli (40dp) + marge
                 // visuelle : le CTA reste ENTièrement au-dessus de l'écran.
                 .padding(
-                    start = if (compactPortrait) 20.dp else if (unfoldedHero) 16.dp else 52.dp,
-                    end = if (compactPortrait) 20.dp else if (unfoldedHero) 16.dp else 40.dp,
-                    bottom = if (compactPortrait) 24.dp else if (unfoldedHero) 20.dp else 46.dp,
+                    start = if (compactPortrait) 20.dp else if (unfoldedHero) 24.dp else 52.dp,
+                    end = if (compactPortrait) 20.dp else if (unfoldedHero) 24.dp else 40.dp,
+                    bottom = if (compactPortrait) 24.dp else if (unfoldedHero) 26.dp else 46.dp,
                 )
                 .widthIn(max = if (compactPortrait) (configuration.screenWidthDp - 40).dp else 620.dp),
         ) {
@@ -1227,7 +1231,7 @@ internal fun HeroCarousel(
             }
             // Pas de synopsis en déplié : la pile badge + logo + méta + CTA
             // remplit déjà le hero compact, le synopsis vit sur la fiche.
-            if (current.overview.isNotBlank() && !unfoldedHero) {
+            if (current.overview.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = current.overview,
@@ -1251,23 +1255,20 @@ internal fun HeroCarousel(
                         .tvFocusLift(focused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 14.dp else 6.dp)),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (mobileStyle) Color.Transparent else Color.White,
-                        focusedContainerColor = if (mobileStyle) Color.Transparent else Color.White,
-                        contentColor = if (mobileStyle) Color.White else Color.Black,
-                        focusedContentColor = if (mobileStyle) Color.White else Color.Black,
+                        // Refonte premium : le blanc lance, le violet reste
+                        // réservé à la marque et à la sélection.
+                        containerColor = Color.White,
+                        focusedContainerColor = Color.White,
+                        contentColor = com.movviz.nx.mobile.ui.theme.MovvizBackground,
+                        focusedContentColor = com.movviz.nx.mobile.ui.theme.MovvizBackground,
                     ),
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(if (mobileStyle) 14.dp else 6.dp)),
                     ),
                 ) {
-                    Box(
-                        modifier = Modifier.then(
-                            if (mobileStyle) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(24.dp))
-                            else Modifier,
-                        ),
-                    ) {
+                    Box {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
@@ -1277,13 +1278,13 @@ internal fun HeroCarousel(
                             Icon(
                                 imageVector = MovvizIconPlay,
                                 contentDescription = null,
-                                tint = if (mobileStyle) Color.White else Color.Black,
+                                tint = com.movviz.nx.mobile.ui.theme.MovvizBackground,
                                 modifier = Modifier.size(15.dp),
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (compactPortrait) "Voir" else "Lire",
-                                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (mobileStyle) Color.White else Color.Black),
+                                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = com.movviz.nx.mobile.ui.theme.MovvizBackground),
                             )
                         }
                     }
@@ -1300,19 +1301,18 @@ internal fun HeroCarousel(
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
-                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp), maxScale = 1.04f, maxElevation = 16.dp)
+                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(if (mobileStyle) 14.dp else 6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (mobileStyle) 14.dp else 6.dp)),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-                        containerColor = Color.White.copy(alpha = 0.15f),
+                        containerColor = Color.White.copy(alpha = 0.16f),
                         focusedContainerColor = Color.White.copy(alpha = 0.26f),
                         contentColor = Color.White,
                         focusedContentColor = Color.White,
                     ),
                     border = ClickableSurfaceDefaults.border(
-                        border = if (mobileStyle) Border(border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f)), shape = RoundedCornerShape(24.dp)) else Border.None,
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(if (mobileStyle) 24.dp else 6.dp)),
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(if (mobileStyle) 14.dp else 6.dp)),
                     ),
                 ) {
                     Row(
@@ -1765,6 +1765,7 @@ internal fun TitleRow(
     // l'écran) : même gabarit compact 3-cartes que le portrait, paddings
     // resserrés. TV/paysage large garde le gabarit 132.dp historique.
     val unfoldedNarrow = rememberUnfoldedLandscape()
+    val rowWindowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
     val narrowRow = compactPortrait || unfoldedNarrow
     // État de focus partagé par toutes les cartes — il vit ici (pas dans
     // PosterCard) pour survivre à la destruction des items par la
@@ -1807,8 +1808,13 @@ internal fun TitleRow(
         androidx.compose.foundation.layout.BoxWithConstraints(
             modifier = Modifier.fillMaxWidth(),
         ) {
-            val fitWidth = if (narrowRow) {
+            // Portrait : trois affiches pile. Paysage/Fold : largeur fixe, le
+            // nombre d'affiches suit la place (avant, toujours trois : jusqu'à
+            // 210 dp de large par affiche sur un Fold ouvert).
+            val fitWidth = if (compactPortrait) {
                 ((maxWidth - edge - 27.dp) / 3).coerceAtLeast(88.dp)
+            } else if (unfoldedNarrow) {
+                if (rowWindowClass.isLargeTouch) 128.dp else 112.dp
             } else {
                 132.dp
             }
