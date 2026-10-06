@@ -1,3 +1,9 @@
+## v1.25.186 — Octobre 2026
+
+### Movviz Companion : installation corrigée
+
+- L’extension se charge de nouveau dans Chrome et Edge : une déclaration invalide de l’icône l’empêchait de s’installer depuis la version précédente.
+
 ## v1.25.185 — Octobre 2026
 
 ### Movviz Companion : logo visible et bouton plus lisible

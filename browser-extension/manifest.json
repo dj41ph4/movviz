@@ -68,23 +68,16 @@
         "icons/icon48.png"
       ],
       "matches": [
-        "https://www.themoviedb.org/movie/*",
-        "https://www.themoviedb.org/tv/*",
-        "https://www.imdb.com/title/*",
-        "https://www.imdb.com/*/title/*",
-        "https://www.allocine.fr/film/*",
-        "https://www.allocine.fr/series/*",
+        "https://www.themoviedb.org/*",
+        "https://www.imdb.com/*",
+        "https://www.allocine.fr/*",
         "https://www.senscritique.com/*",
-        "https://thetvdb.com/movies/*",
-        "https://thetvdb.com/series/*",
-        "https://letterboxd.com/film/*",
-        "https://www.rottentomatoes.com/m/*",
-        "https://www.rottentomatoes.com/tv/*",
+        "https://thetvdb.com/*",
+        "https://letterboxd.com/*",
+        "https://www.rottentomatoes.com/*",
         "https://www.justwatch.com/*",
-        "https://trakt.tv/movies/*",
-        "https://trakt.tv/shows/*",
-        "https://www.taste.io/movies/*",
-        "https://www.taste.io/tv/*"
+        "https://trakt.tv/*",
+        "https://www.taste.io/*"
       ]
     }
   ]
