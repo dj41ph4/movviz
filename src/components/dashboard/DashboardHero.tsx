@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Info, Play, Pause, Plus, Loader2, Check, Heart } from "lucide-react";
@@ -31,6 +31,14 @@ type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string 
 // time bucket makes it stable within a window but genuinely advance to the
 // next candidate once that window has passed, regardless of session length.
 const ROTATION_PERIOD_MS = 3 * 60 * 60 * 1000;
+
+const desktopSnapshot = () => window.matchMedia("(min-width: 1024px)").matches;
+const serverDesktopSnapshot = () => false;
+const subscribeDesktop = (onChange: () => void) => {
+  const query = window.matchMedia("(min-width: 1024px)");
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
 
 function reasonLabel(t: ReturnType<typeof useT>, reason: HeroSlide["score"]["reasons"][number]): string {
   if (reason.key === "genreMatch" && reason.params?.genres) {
@@ -117,6 +125,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   // just a smaller version of the desktop crop, same idea confirmed live on
   // Netflix's own mobile hero.
   const [isMobile, setIsMobile] = useState(false);
+  const isDesktop = useSyncExternalStore(subscribeDesktop, desktopSnapshot, serverDesktopSnapshot);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
     setIsMobile(mq.matches);
@@ -202,7 +211,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
 
-        {active.libraryFile && (
+        {active.libraryFile && !isDesktop && (
           <div className="pointer-events-none absolute right-3 top-3 z-10 origin-top-right scale-90 opacity-80 sm:right-6 sm:top-6">
             <MediaBadges file={active.libraryFile} variant="overlay" />
           </div>
@@ -228,6 +237,11 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             {(active.detail.genres ?? []).slice(0, 3).map((g) => (
               <span key={g} className="rounded-full border border-white/20 px-2 py-0.5 text-xs">{g}</span>
             ))}
+            {active.libraryFile && isDesktop && (
+              <div className="pointer-events-none origin-left scale-90 opacity-80">
+                <MediaBadges file={active.libraryFile} variant="overlay" />
+              </div>
+            )}
           </div>
 
           <p className="line-clamp-2 max-w-xl text-sm text-white/70 sm:line-clamp-3">{active.detail.overview}</p>

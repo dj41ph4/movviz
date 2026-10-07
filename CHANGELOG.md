@@ -1,3 +1,10 @@
+## v1.26.003 — Octobre 2026
+
+### Desktop : badges techniques du hero à côté des genres
+
+- Sur ordinateur, les badges de résolution, HDR, langue et codecs du hero sont affichés immédiatement après les genres, sur la même ligne si l’espace le permet.
+- Leur présentation et leurs données restent identiques ; sur mobile et tablette, ils conservent leur emplacement en haut à droite.
+
 ## v1.26.002 — Octobre 2026
 
 ### Android mobile : timeline glissable et immersion
