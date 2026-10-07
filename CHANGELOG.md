@@ -1,3 +1,13 @@
+## v1.25.201 — Octobre 2026
+
+### Android mobile : lecteur discret et hauteur prioritaire
+
+- En lecture, aucun titre ni logo : les contrôles compacts et les actions d’épisode disparaissent après 2,5 secondes sans interaction.
+- En pause, un léger gradient accompagne le logo officiel du film ou de la série ; le titre sert de secours si le logo manque ou ne peut pas être chargé. Le logo disparaît dès la reprise.
+- Timeline de 4 dp, poignée de 18 dp et cibles tactiles d’au moins 44 dp. Le badge de mode de lecture est réduit.
+- Les formats vidéo et audio réellement lus sont affichés discrètement près des temps, sans inventer HDR ou Atmos ni reprendre les caractéristiques du fichier source après transcodage.
+- La vidéo remplit la hauteur de l’écran en conservant ses proportions ; un contenu moins large que le téléphone conserve des bandes noires latérales.
+
 ## v1.25.200 — Octobre 2026
 
 ### Android mobile paysage : placement de l’aperçu vidéo

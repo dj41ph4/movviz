@@ -41,6 +41,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -94,6 +95,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import android.graphics.Typeface
 import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.movviz.nx.mobile.data.ApiResult
 import com.movviz.nx.mobile.data.MovvizRepository
@@ -123,6 +125,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.tv.material3.Icon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import coil.compose.AsyncImage
 
 private const val EXTRA_BASE_URL = "extra_base_url"
 private const val EXTRA_TYPE = "extra_type"
@@ -290,7 +293,7 @@ private fun formatSeekShift(shiftMs: Long): String {
     val total = kotlin.math.abs(shiftMs) / 1_000L
     return if (total < 60) "$sign${total}s" else "$sign${total / 60}:${"%02d".format(total % 60)}"
 }
-private const val CONTROLS_TIMEOUT_MS = 5_000L
+private const val CONTROLS_TIMEOUT_MS = 2_500L
 private const val PROGRESS_REPORT_INTERVAL_MS = 10_000L
 private const val MAX_NETWORK_AUTO_RETRIES = 2
 private const val NETWORK_RETRY_DELAY_MS = 2_000L
@@ -431,6 +434,13 @@ private fun PlayerScreen(
     val scope = rememberCoroutineScope()
     val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
     val playbackPrefs = remember(baseUrl, profileId) { PlaybackPrefs(context, baseUrl, profileId) }
+    var pauseLogoPath by remember(type, tmdbId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(repository, type, tmdbId) {
+        if (tmdbId > 0) {
+            val images = repository.metadataImages(type, tmdbId)
+            pauseLogoPath = (images as? ApiResult.Success)?.data?.logos?.firstOrNull()?.filePath
+        }
+    }
 
     // Anti-veille : le flag window est posé pour TOUTE la vie de l'Activity
     // (pas seulement quand ExoPlayer est en lecture active). Le flag
@@ -1059,9 +1069,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
 
     // Auto-hide des contrôles — toute interaction relance le minuteur.
     var lastInteraction by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog) {
-        if (showAudioDialog || showSubtitleDialog) return@LaunchedEffect
+    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, isPlaying) {
         showControls = true
+        if (!isPlaying || showAudioDialog || showSubtitleDialog) return@LaunchedEffect
         delay(CONTROLS_TIMEOUT_MS)
         showControls = false
     }
@@ -1228,6 +1238,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false
+                    // Fill the phone's height while preserving the video's ratio.
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
                     // Sans ça, cette View native (focusable par défaut, y
                     // compris ses enfants type SurfaceView) capte le focus
                     // Android réel dès sa création et ne le rend jamais —
@@ -1450,6 +1462,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             ControlsOverlay(
                 title = mainTitle,
                 subtitle = current.label,
+                logoPath = pauseLogoPath,
+                onLogoError = { pauseLogoPath = null },
                 isPlaying = isPlaying,
                 player = exoPlayer,
                 hasNext = hasNext,
@@ -1500,15 +1514,14 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         val skipBottom = when {
             showNextEpisodeTeaser && hasNext && showControls -> 300.dp
             showNextEpisodeTeaser && hasNext -> 210.dp
-            showControls -> 190.dp
+            showControls -> 150.dp
             else -> 56.dp
         }
         // "Passer l'intro / générique" — bottom-right, au-dessus du
-        // panneau "Épisode suivant" s'il existe ; visible même quand les
-        // contrôles sont masqués, mais ne vole jamais le focus d'un menu
-        // ouvert (audio, sous-titres, contrôles, erreur).
+        // panneau "Épisode suivant" s'il existe. Toutes les actions s'effacent
+        // avec les contrôles pour laisser la vidéo seule en lecture.
         AnimatedVisibility(
-            visible = hasSkip && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
+            visible = showControls && hasSkip && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
             enter = fadeIn(tween(200)) + slideInVertically(tween(220)) { it / 2 },
             exit = fadeOut(tween(160)),
             modifier = Modifier
@@ -1526,9 +1539,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // Panneau "Épisode suivant" en bas à droite — visible dans les
         // ~45 dernières secondes d'un épisode, même pattern Netflix :
         // carte avec le libellé du prochain épisode, compte à rebours et
-        // bouton "⏭". Toujours visible (pas dans l'overlay auto-masquant).
+        // bouton "⏭". Suit l'auto-masquage des contrôles.
         AnimatedVisibility(
-            visible = showNextEpisodeTeaser && hasNext,
+            visible = showControls && showNextEpisodeTeaser && hasNext && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
             enter = fadeIn(tween(300)),
             exit = fadeOut(tween(200)),
             modifier = Modifier
@@ -1673,13 +1686,7 @@ private fun PlayerProgressBar(
     }
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
     val buffered = (bufferedPercent / 100f).coerceIn(0f, 1f)
-    // Même langage visuel que la barre desktop (VideoPlayer.tsx ~L2717-2733) :
-    // piste bg-white/14, tampon bg-white/20 posé PAR-DESSUS, remplissage
-    // dégradé de marque avec halo, poignée blanche cerclée d'un anneau sombre
-    // + halo de marque. Hauteur légèrement plus épaisse qu'en web (6dp au
-    // lieu de 1.5px≈6px CSS à l'échelle desktop, mais lu ici à plusieurs
-    // mètres) pour rester lisible depuis le canapé — seule adaptation
-    // délibérée à la distance TV, la palette/les formes ne changent pas.
+    // Piste visuelle de 4dp et poignée de 18dp, dans une cible tactile de 44dp.
     var focused by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
@@ -1723,7 +1730,7 @@ private fun PlayerProgressBar(
                 }
             }
         }, contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().height(4.dp)) {
             // Piste de fond — bg-white/14 desktop.
             Box(modifier = Modifier.fillMaxSize().background(if (focused) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(3.dp)))
             // Zone déjà tamponnée — bg-white/20 desktop, posée sur toute la
@@ -1747,12 +1754,6 @@ private fun PlayerProgressBar(
                 val core = size.height
                 if (w > 0f) {
                     drawRoundRect(
-                        brush = Brush.horizontalGradient(listOf(MovvizBrand.copy(alpha = 0.35f), MovvizBrand2.copy(alpha = 0.35f))),
-                        topLeft = Offset(0f, core / 2f - core * 1.6f),
-                        size = Size(w, core * 3.2f),
-                        cornerRadius = CornerRadius(core * 1.6f),
-                    )
-                    drawRoundRect(
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                         topLeft = Offset.Zero,
                         size = Size(w, core),
@@ -1765,29 +1766,48 @@ private fun PlayerProgressBar(
                 // desktop (cercle blanc + anneau sombre + halo de marque),
                 // juste toujours visible ici plutôt que conditionné au hover
                 // qui n'existe pas au D-pad.
-                val handleX = w.coerceIn(core, size.width - core)
+                val radius = 9.dp.toPx().coerceAtMost(size.width / 2f)
+                val handleX = w.coerceIn(radius, size.width - radius)
                 val handleCenter = Offset(handleX, core / 2f)
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        listOf(MovvizBrandGlow.copy(alpha = 0.55f), Color.Transparent),
-                        center = handleCenter,
-                        radius = core * 3.2f,
-                    ),
-                    radius = core * 3.2f,
-                    center = handleCenter,
-                )
-                drawCircle(color = Color(0xFF13131B), radius = core * 1.3f, center = handleCenter)
-                drawCircle(color = if (focused) MovvizBrand2 else Color.White, radius = if (focused) core * 1.25f else core * 1.0f, center = handleCenter)
+                drawCircle(color = Color(0xFF13131B), radius = radius + 1.dp.toPx(), center = handleCenter)
+                drawCircle(color = if (focused) MovvizBrand2 else Color.White, radius = radius, center = handleCenter)
             }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             // tabular-nums desktop : chiffres à chasse fixe pour que le
             // libellé ne "gigote" pas seconde par seconde.
             Text(text = formatTime(positionMs), style = timeLabelStyle())
+            StreamQualityLabels(player, Modifier.weight(1f).padding(horizontal = 12.dp))
             Text(text = formatTime(durationMs), style = timeLabelStyle())
         }
+    }
+}
+
+@Composable
+private fun StreamQualityLabels(player: ExoPlayer, modifier: Modifier = Modifier) {
+    var quality by remember(player) { mutableStateOf(PlayerStreamQuality(emptyList(), emptyList())) }
+    LaunchedEffect(player) {
+        while (true) {
+            val video = player.videoFormat
+            val audio = player.audioFormat
+            val hdr = when {
+                video?.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION -> "Dolby Vision"
+                video?.colorInfo?.colorTransfer == C.COLOR_TRANSFER_ST2084 -> "HDR10"
+                video?.colorInfo?.colorTransfer == C.COLOR_TRANSFER_HLG -> "HLG"
+                else -> null
+            }
+            quality = detectedStreamQuality(
+                width = video?.width ?: -1, height = video?.height ?: -1,
+                videoMime = video?.sampleMimeType, hdr = hdr,
+                audioMime = audio?.sampleMimeType, channels = audio?.channelCount ?: -1,
+            )
+            delay(1_000)
+        }
+    }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        if (quality.video.isNotEmpty()) Text(quality.video.joinToString(" · "), style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.65f)))
+        if (quality.audio.isNotEmpty()) Text(quality.audio.joinToString(" · "), style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.65f)))
     }
 }
 
@@ -1797,14 +1817,13 @@ private fun timeLabelStyle() = MaterialTheme.typography.labelSmall.copy(
     fontFeatureSettings = "tnum",
 )
 
-/** Overlay premium : un titre calme en haut, les gestes de lecture au centre
- * et un vrai dock en verre au bas. La hiérarchie reste Netflix (lecture
- * immédiate), la finition adopte le volume/les séparations d'Apple TV et
- * d'Infuse — sans cacher l'image sous trois barres opaques. */
+/** Compact mobile controls. Branding and the light scrim are pause-only. */
 @Composable
 private fun ControlsOverlay(
     title: String,
     subtitle: String?,
+    logoPath: String?,
+    onLogoError: () -> Unit,
     isPlaying: Boolean,
     player: ExoPlayer,
     hasNext: Boolean,
@@ -1840,22 +1859,36 @@ private fun ControlsOverlay(
                 onLevelChange = onLevelChange,
             ),
     ) {
-        // Zone haute : titre + libellé saison/épisode
+        // Branding is reserved for pause, with no exit animation on resume.
+        if (!isPlaying) {
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
+            listOf(Color.Black.copy(alpha = 0.32f), Color.Transparent, Color.Black.copy(alpha = 0.12f)),
+        )))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
-                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)))
-                .padding(horizontal = 56.dp)
-                .padding(top = 36.dp, bottom = 36.dp),
+                .padding(horizontal = 24.dp)
+                .padding(top = 20.dp, bottom = 16.dp),
         ) {
+            if (logoPath != null) {
+                AsyncImage(
+                    model = "https://image.tmdb.org/t/p/w500$logoPath",
+                    contentDescription = title,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart,
+                    modifier = Modifier.width(220.dp).height(76.dp),
+                    onError = { onLogoError() },
+                )
+            } else {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineMedium.copy(shadow = titleShadow),
+                style = MaterialTheme.typography.titleLarge.copy(shadow = titleShadow),
                 color = MovvizInk,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            }
             if (!subtitle.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -1867,6 +1900,7 @@ private fun ControlsOverlay(
                 )
             }
         }
+        }
 
         // Toutes les interactions sont volontairement dans le dock : aucune
         // capsule centrale concurrente ne peut voler le focus au D-pad.
@@ -1874,7 +1908,7 @@ private fun ControlsOverlay(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 48.dp, vertical = 28.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
                 // rounded-[22px] desktop (VideoPlayer.tsx ~L2680) — même rayon
                 // que le panneau flottant du player web. Le fond reste un
                 // dégradé opaque plutôt qu'un vrai backdrop-blur : Compose n'a
@@ -1883,13 +1917,12 @@ private fun ControlsOverlay(
                 // à éviter sur un boîtier TV bas de gamme (priorité perf de
                 // cette tâche) — le dégradé sombre approche déjà le rendu
                 // "glass" sans repasser la scène entière au shader.
-                .clip(RoundedCornerShape(22.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .background(
-                    Brush.verticalGradient(listOf(Color(0xE60E0E14), Color(0xF008080C))),
-                    RoundedCornerShape(22.dp),
+                    Brush.verticalGradient(listOf(Color(0x300E0E14), Color(0xC008080C))),
+                    RoundedCornerShape(14.dp),
                 )
-                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
-                .padding(horizontal = 28.dp, vertical = 20.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
             PlayerProgressBar(
                 player = player,
@@ -1897,11 +1930,11 @@ private fun ControlsOverlay(
                 onMoveToControls = { playPauseFocus.requestFocus() },
                 onInteraction = onInteraction,
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (hasPrev) ControlButton(icon = MovvizIconSkipPrev, contentDescription = "Épisode précédent", onClick = onPrevEpisode, onMoveToProgress = { progressFocus.requestFocus() })
                 ControlButton(icon = MovvizIconRewind, contentDescription = "Reculer de 10 secondes", onClick = onSeekBack, onMoveToProgress = { progressFocus.requestFocus() })
@@ -1940,7 +1973,7 @@ private fun ControlButton(
     onMoveToProgress: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val size = if (small) 44.dp else if (primary) 68.dp else 56.dp
+    val size = if (primary) 48.dp else 44.dp
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -2009,7 +2042,7 @@ private fun PlaybackModeBadge(fallbackLevel: Int) {
             .clip(RoundedCornerShape(50))
             .background(color.copy(alpha = 0.18f))
             .border(1.dp, color.copy(alpha = 0.65f), RoundedCornerShape(50))
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(horizontal = 7.dp, vertical = 3.dp),
     ) {
         Text(
             text = label,
