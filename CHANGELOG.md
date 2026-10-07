@@ -1,3 +1,11 @@
+## v1.25.199 — Octobre 2026
+
+### Android mobile paysage et couleurs du thème Bêta
+
+- Accueil Android mobile en paysage : balayage horizontal du hero pour afficher le titre précédent ou suivant ; le délai de rotation automatique repart après une sélection manuelle.
+- Fiche Android mobile en deux volets : le visuel et les dégradés couvrent toute la surface, avec un fondu continu vers le texte et le fond de page, sans coupure verticale.
+- Apparence Bêta sur ordinateur : la recherche et les cartes des plateformes de Découverte reprennent les couleurs de la palette, y compris au survol et à la sélection.
+
 ## v1.25.198 — Octobre 2026
 
 ### Apparence Bêta : retour de la barre de recherche habituelle

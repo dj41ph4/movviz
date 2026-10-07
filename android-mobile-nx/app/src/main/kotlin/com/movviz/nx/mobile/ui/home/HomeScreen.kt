@@ -19,6 +19,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
@@ -58,6 +59,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -489,7 +491,8 @@ fun HomeScreen(
         if (movieIds.isNotEmpty()) viewModel.loadHeroLogos("movie", movieIds)
         if (seriesIds.isNotEmpty()) viewModel.loadHeroLogos("series", seriesIds)
     }
-    LaunchedEffect(heroItems, dashboardLayout.hero.slideshowSpeedSec) {
+    // A manual selection gets a full interval before the next auto-rotation.
+    LaunchedEffect(heroItems, dashboardLayout.hero.slideshowSpeedSec, heroIndex) {
         if (heroItems.size < 2) return@LaunchedEffect
         val interval = dashboardLayout.hero.slideshowSpeedSec.coerceIn(5, 60) * 1_000L
         while (true) {
@@ -1021,6 +1024,41 @@ internal fun HeroCarousel(
     val unfoldedHero = rememberUnfoldedLandscape()
     val heroWindowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
     val mobileStyle = compactPortrait || unfoldedHero
+    val latestHeroIndex by rememberUpdatedState(currentIndex)
+    val latestSelectIndex by rememberUpdatedState(onSelectIndex)
+    val landscapeTouch = configuration.screenWidthDp > configuration.screenHeightDp &&
+        (configuration.uiMode and android.content.res.Configuration.UI_MODE_TYPE_MASK) !=
+        android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+    val heroSwipeModifier = if (landscapeTouch && items.size > 1) {
+        Modifier.pointerInput(items.size) {
+            val threshold = 48.dp.toPx()
+            var distance = 0f
+            var startIndex = 0
+            detectHorizontalDragGestures(
+                onDragStart = {
+                    distance = 0f
+                    startIndex = latestHeroIndex
+                },
+                onHorizontalDrag = { change, amount ->
+                    change.consume()
+                    distance += amount
+                },
+                onDragEnd = {
+                    // One title per completed swipe; short drags keep the title.
+                    val direction = when {
+                        distance <= -threshold -> 1
+                        distance >= threshold -> -1
+                        else -> 0
+                    }
+                    if (direction != 0) {
+                        latestSelectIndex((startIndex + direction + items.size) % items.size)
+                    }
+                    distance = 0f
+                },
+                onDragCancel = { distance = 0f },
+            )
+        }
+    } else Modifier
     // Le hero paysage reste strictement inchangé. En portrait, la même
     // vedette ne doit pas consommer tout le premier écran ni recadrer le
     // visage du film derrière une colonne de texte : une hauteur bornée
@@ -1055,7 +1093,8 @@ internal fun HeroCarousel(
             })
             .height(heroHeight.dp)
             .clip(heroShape)
-            .clipToBounds(),
+            .clipToBounds()
+            .then(heroSwipeModifier),
     ) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,

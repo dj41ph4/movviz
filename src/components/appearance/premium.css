@@ -3,9 +3,9 @@
    Every rule is opt-in AND desktop-only; no 3D scenes, shaders or idle loops. */
 @media (min-width: 1024px) {
   html[data-movviz-appearance="beta"] .nx-desktop-shell {
-    --premium-border: rgba(211, 199, 241, .16);
-    --premium-surface: #101321;
-    --premium-accent: #c8a4ff;
+    --premium-border: var(--so-line, rgba(211, 199, 241, .16));
+    --premium-surface: var(--so-ink-1, #101321);
+    --premium-accent: var(--so-accent, #c8a4ff);
   }
 
   html[data-movviz-appearance="beta"] .nx-sidebar {
@@ -16,11 +16,17 @@
     border-bottom-color: rgba(211, 199, 241, .09);
   }
 
-  /* Barre de recherche : rendu Stable à l'identique en Bêta (Seb,
-     2026-10-06 : pas de palette Ctrl K, pas de restyle). Le focus reste
-     visible par un halo autour de la pilule, jamais sur le champ. */
-  html[data-movviz-appearance="beta"] .nx-search-pill:focus-within {
-    box-shadow: 0 0 0 3px rgba(161, 96, 231, .22);
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-search-pill {
+    border: 1px solid var(--premium-border);
+    background: var(--premium-surface);
+    border-radius: 15px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
+    transition: border-color .16s ease, box-shadow .16s ease;
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-search-pill:focus-within {
+    border-color: rgba(198, 151, 255, .65);
+    box-shadow: 0 0 0 3px rgba(161, 96, 231, .12);
   }
 
   html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-search-pill input:focus-visible {
@@ -163,6 +169,24 @@
     position: relative;
     border-radius: 12px;
     transition: border-color .16s ease, box-shadow .16s ease;
+  }
+
+  /* Match the beta surfaces instead of inheriting the stable blue tiles.
+     Light logo tiles keep their contrast background. */
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-discover-mode-tabs, .nx-discover-filter-button, .nx-discover-sort select),
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-discover-filter-menu :is(input, select),
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-discover-provider-tab:not(.nx-discover-provider-tab-light) {
+    border-color: var(--premium-border);
+    background: var(--premium-surface);
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-discover-provider-tab:not(.nx-discover-provider-tab-light):is(:hover, .nx-discover-provider-tab-active) {
+    border-color: var(--premium-accent);
+    background: color-mix(in oklab, var(--premium-accent) 12%, var(--premium-surface));
+  }
+
+  html[data-movviz-appearance="beta"] .nx-desktop-shell .nx-discover-filter-button:hover {
+    border-color: var(--premium-accent);
   }
 
   html[data-movviz-appearance="beta"] .nx-discover-provider-tab::after {

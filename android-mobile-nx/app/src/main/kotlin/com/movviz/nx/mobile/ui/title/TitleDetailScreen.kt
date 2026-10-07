@@ -551,10 +551,11 @@ fun TitleDetailScreen(
         // visibles sans scroller, comme la maquette fiche dépliée.
         val heroHeight = if (compactPortrait) 460.dp else if (portraitLike) 520.dp else if (unfoldedDetail) 340.dp else 560.dp
         val heroMediaHeight = if (compactPortrait) 460.dp else if (portraitLike) 520.dp else if (unfoldedDetail) 340.dp else 640.dp
-        // En deux volets, le visuel occupe la moitié gauche sur toute la
-        // hauteur et ne défile pas : pas de parallax.
+        // En deux volets, la scène et ses voiles partagent toute la surface.
+        // Le fondu masque progressivement la scène derrière le texte sans
+        // bord de conteneur au milieu de l'image. Pas de parallax.
         val heroMediaModifier = if (twoPane) {
-            Modifier.fillMaxWidth(0.5f).fillMaxHeight()
+            Modifier.fillMaxSize()
         } else {
             Modifier.fillMaxWidth().height(heroMediaHeight).graphicsLayer { translationY = parallaxOffset }
         }
@@ -591,18 +592,26 @@ fun TitleDetailScreen(
         // utilisateur : le hero précédent, plus court et assombri dès la
         // moitié, "coupait" l'image trop tôt et paraissait peu immersif).
         if (twoPane) {
-            // Fondu vers la droite (où commence la fiche) et vers le bas.
+            // Voiles continus, indépendants de la largeur des deux colonnes.
+            // À droite, le fondu vertical rejoint exactement le fond de page.
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .fillMaxHeight()
-                    .background(Brush.horizontalGradient(0f to Color.Transparent, 0.55f to Color.Transparent, 1f to pageTop)),
+                    .fillMaxSize()
+                    .background(Brush.horizontalGradient(
+                        0f to Color.Transparent,
+                        0.275f to Color.Transparent,
+                        0.5f to pageTop,
+                        1f to pageTop,
+                    )),
             )
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .fillMaxHeight()
-                    .background(Brush.verticalGradient(0f to Color.Transparent, 0.6f to Color.Transparent, 1f to pageTop.copy(alpha = 0.9f))),
+                    .fillMaxSize()
+                    .background(Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.55f to Color.Transparent,
+                        1f to pageBackground,
+                    )),
             )
         } else {
         Box(
