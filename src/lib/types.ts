@@ -80,6 +80,7 @@ export interface DownloadInstance {
 
 /** Live torrent as reported by the download engine (port 9820). */
 export interface EngineTorrent {
+  replacementFailure?: import("@/lib/library/replacementRetry").ReplacementFailure;
   infoHash: string;
   name: string;
   magnetURI: string;

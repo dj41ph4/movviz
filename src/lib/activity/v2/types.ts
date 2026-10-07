@@ -123,6 +123,7 @@ export interface MediaTimeline {
 
 // État de la queue
 export interface QueueItem {
+  replacementFailure?: import("@/lib/library/replacementRetry").ReplacementFailure;
   id: string;
   media: ActivityMedia;
   release: ActivityRelease;

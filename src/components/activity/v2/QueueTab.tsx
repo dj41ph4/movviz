@@ -274,10 +274,10 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   /** Post-completion manual seed toggle — a fully separate action from
    *  pause/resume above (those target an active download; this targets an
    *  already-completed, already-imported item's continued upload activity).
-   *  Only ever called for item.status === "completed". */
+   *  Available for completed and seeding items. */
   const toggleSeed = async (itemId: string, turnOn: boolean) => {
     setActionLoading(`seed_${itemId}`);
-    patchLocal(itemId, (i) => ({ ...i, seeding: turnOn }));
+    patchLocal(itemId, (i) => ({ ...i, seeding: turnOn, status: turnOn ? "seeding" : "completed" }));
     try {
       await api(`${BASE}/torrents/${itemId}/seed`, { method: "POST", body: JSON.stringify({ on: turnOn }) });
     } catch (e) {
@@ -400,7 +400,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
               }),
             });
             if (grabRes.ok) {
-              await api(`${BASE}/torrents/${item.id}?deleteData=1`, { method: "DELETE" });
+              await api(`${BASE}/torrents/${item.id}?deleteData=0`, { method: "DELETE" });
               replaced++;
             }
           }
@@ -780,6 +780,7 @@ const QueueItemRow = memo(function QueueItemRow({
             {detailText}
             {item.release.indexer && item.release.indexer !== "Inconnu" && ` · ${item.release.indexer}`}
           </p>
+          {item.replacementFailure && <p className="mt-1 text-[11px] leading-snug text-down">{t(`downloads.replacement.${item.replacementFailure.reason}`)} · {item.replacementFailure.discarded ? t("downloads.replacement.discarded") : t("downloads.replacement.retry")}</p>}
         </div>
       </div>
       <div className="nx-dl-progress min-w-0 self-center">
@@ -788,7 +789,7 @@ const QueueItemRow = memo(function QueueItemRow({
       </div>
       <div className="nx-dl-speed self-center text-xs font-semibold text-cyan">{item.download.downloadSpeed > 0 ? `↓${formatSpeed(item.download.downloadSpeed)}` : "—"}</div>
       <div className="self-center text-[11px] text-ink-soft">{item.release.seeders}↑ · {item.release.leechers}↓</div>
-      <span data-status={item.status} className={cn("nx-dl-status w-fit self-center rounded-full border px-2 py-1 text-[10px] font-bold", item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" : item.status === "stalled" ? "border-down/30 bg-down/12 text-down" : "border-white/15 bg-white/5 text-ink-soft")}>{item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}</span>
+      <span data-status={item.status} className={cn("nx-dl-status w-fit self-center rounded-full border px-2 py-1 text-[10px] font-bold", item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" : item.status === "stalled" ? "border-down/30 bg-down/12 text-down" : item.status === "seeding" ? "border-ok/30 bg-ok/12 text-ok" : "border-white/15 bg-white/5 text-ink-soft")}>{item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}</span>
       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
         {(item.status === "downloading" || item.status === "paused" || item.status === "queued") && <button type="button" onClick={() => onAction(item.id, item.status === "downloading" ? "pause" : "resume")} disabled={actionLoading !== null} className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan/25 text-ink hover:bg-cyan/10 disabled:opacity-40" title={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")}>{item.status === "downloading" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}</button>}
         {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
@@ -941,6 +942,7 @@ const QueueItemRow = memo(function QueueItemRow({
               </div>
             )}
 
+            {item.replacementFailure && <p className="mt-1 text-[11px] leading-snug text-down">{t(`downloads.replacement.${item.replacementFailure.reason}`)} · {item.replacementFailure.discarded ? t("downloads.replacement.discarded") : t("downloads.replacement.retry")}</p>}
             {item.status === "seeding" && item.download.uploadSpeed > 0 && (
               <div className="mt-2 text-[11px] text-ink-dim">
                 <span>↑{formatSpeed(item.download.uploadSpeed)}</span>
@@ -1045,7 +1047,7 @@ const QueueItemRow = memo(function QueueItemRow({
               <Search className="h-4 w-4" />
             </motion.button>
           )}
-          {item.status === "completed" && (
+          {(item.status === "completed" || (item.status === "seeding" && item.seeding)) && (
             <motion.button
               {...btnSpring}
               onClick={(e) => { e.stopPropagation(); onToggleSeed(item.id, !item.seeding); }}

@@ -43,3 +43,8 @@ export function takeManualGrab(infoHash: string | undefined): boolean {
   if (Date.now() - entry.setAt > MAX_AGE_MS) return false;
   return true;
 }
+/** Keep the exemption alive across a refused import's retries. */
+export function peekManualGrab(infoHash: string | undefined): boolean {
+  const entry = infoHash ? manual.get(infoHash.toLowerCase()) : undefined;
+  return !!entry && Date.now() - entry.setAt <= MAX_AGE_MS;
+}

@@ -139,6 +139,14 @@ export const en: Dictionary = {
   },
 
   downloads: {
+    replacement: {
+      fileInUse: "Cannot replace: file in use",
+      nameOccupied: "Cannot replace: name already occupied",
+      incomplete: "Cannot replace: incomplete file",
+      unavailable: "Cannot replace: file unavailable",
+      retry: "Retry in 10 min (3 maximum)",
+      discarded: "After 3 retries: new file deleted, original kept",
+    },
     liveRate: "Live throughput",
     stateTitle: "Status",
     colContent: "Content",

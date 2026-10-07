@@ -159,7 +159,7 @@ export async function searchAndGrabMovie(movieId: string) {
   return withSearchLock(`movie:${movieId}`, async () => {
     const movie = getMovie(movieId);
     if (!movie) return { error: "movie not found" as const };
-    updateMovie(movie.id, { status: "searching" });
+    updateMovie(movie.id, { status: movie.file ? "available" : "searching" });
     try {
       return await searchAndGrabMovieInner(movie);
     } catch (error) {
@@ -172,7 +172,7 @@ export async function searchAndGrabMovie(movieId: string) {
     } finally {
       const fresh = getMovie(movieId);
       if (fresh?.status === "searching") {
-        updateMovie(movieId, { status: "missing" });
+        updateMovie(movieId, { status: fresh.file ? "available" : "missing" });
         recordSearchLog("warn", "search_movie.stale_search_restored", `${fresh.title} — remis à "manquant" (statut "recherche" laissé par une erreur en cours de recherche)`);
       }
     }
@@ -288,7 +288,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   }
 
   if (finalCandidates.length === 0) {
-    updateMovie(movie.id, { status: "missing" });
+    updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
     logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, error: "Aucune release ne correspond au profil de qualité" });
     logActivityV2({
       kind: "failed",
@@ -330,7 +330,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   }
 
   if (!best || !payload) {
-    updateMovie(movie.id, { status: "missing" });
+    updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
     recordSearchLog("error", "search_movie.grab_payload_failed", `${movie.title} — tous les candidats essayés ont échoué (dernière erreur: ${lastGrabError})`);
     logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, error: lastGrabError ?? "unknown" });
     logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("download_failed", `Impossible de récupérer le lien de téléchargement pour tous les candidats essayés : ${lastGrabError}`) });
@@ -371,7 +371,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
     });
     const torrent = await res.json();
     if (!res.ok) {
-      updateMovie(movie.id, { status: "missing" });
+      updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
       const detail = JSON.stringify(torrent);
       const hint = detail.includes("unauthorized") ? " — TOKEN MOTEUR INVALIDE : le moteur et le web doivent partager le même token (engine-token.json)" : "";
       recordSearchLog("error", "search_movie.engine_rejected", `${movie.title} — "${best.title}" refusé par le moteur (${detail})${hint}`);
@@ -379,14 +379,14 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
       logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("download_failed", `Le moteur de téléchargement a refusé la release "${best.title}".`) });
       return { error: "engine_rejected" as const, detail: torrent };
     }
-    updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
+    updateMovie(movie.id, { status: movie.file ? "available" : "downloading", activeInfoHash: torrent.infoHash });
     void notifySeerrProcessingOnce("movie", movie.tmdbId).catch(() => {});
     recordSearchLog("info", "search_movie.grabbed", `${movie.title} — ${best.title} (score:${best.score}, indexeur:${best.indexerId}, infoHash:${torrent.infoHash})`);
     logActivity("grabbed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, releaseTitle: best.title, indexer: best.indexerId, infoHash: torrent.infoHash });
     emitNotification("grab_movie", `${movie.title} — release récupérée, import en cours`, "/library", { title: movie.title });
     return { ok: true as const, release: best, torrent };
   } catch {
-    updateMovie(movie.id, { status: "missing" });
+    updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
     recordSearchLog("error", "search_movie.engine_unreachable", `${movie.title} — moteur de téléchargement injoignable`);
     logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, error: "Moteur de téléchargement inaccessible" });
     logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("timeout", "Le moteur de téléchargement est injoignable.") });
@@ -484,7 +484,7 @@ async function checkQualityUpgradesInner() {
       });
       const torrent = await res.json();
       if (!res.ok) continue;
-      updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
+      updateMovie(movie.id, { status: movie.file ? "available" : "downloading", activeInfoHash: torrent.infoHash });
       emitNotification(
         "grab_movie_upgrade",
         `${movie.title} — mise à niveau vers ${best.title.match(/\d{3,4}p/i)?.[0] ?? "meilleure qualité"}`,

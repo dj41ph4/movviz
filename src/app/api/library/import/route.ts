@@ -1,9 +1,11 @@
+import { getMovie } from "@/lib/library/store";
+import { ReplacementRefused } from "@/lib/library/replacementRetry";
 import { NextRequest, NextResponse } from "next/server";
 import { getEngineToken } from "@/lib/engine/token";
 import fsp from "node:fs/promises";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
-import { alreadyAppliedEpisodeImport } from "@/lib/library/importRetry";
+import { alreadyAppliedEpisodeImport, alreadyAppliedMovieImport } from "@/lib/library/importRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,7 @@ export async function POST(req: NextRequest) {
   // Post-import verification — refuse to mark anything available whose file
   // isn't actually at its reported destination. A non-2xx makes the engine
   // keep retrying the callback, so this heals itself when the files show up.
+  if (ref.kind === "movie" && infoHash && files.length === 1 && await alreadyAppliedMovieImport(ref.movieId, infoHash, files[0])) return NextResponse.json({ ok: true, updated: "movie", id: ref.movieId, alreadyApplied: true });
   const missing = await missingDestinationFiles(files);
   if (missing.length > 0) {
     // Un callback HTTP peut avoir réussi côté Movviz puis perdre sa réponse.
@@ -69,12 +72,17 @@ export async function POST(req: NextRequest) {
     }
     const refId = "movieId" in ref ? ref.movieId : ref.seriesId;
     console.error(`[import] ${missing.length} fichier(s) introuvable(s) à destination — callback retenté par le moteur (${ref.kind}:${refId})`);
-    return NextResponse.json({ error: "destination_missing", count: missing.length }, { status: 503 });
+    if (ref.kind !== "movie" || !getMovie(ref.movieId)?.file) return NextResponse.json({ error: "destination_missing", count: missing.length }, { status: 503 });
   }
 
   // Shared implementation — the recover-downloads fallback import goes
   // through the exact same code so both paths produce identical state.
-  const result = await applyImportedFiles(ref, files, infoHash);
+  let result;
+  try { result = await applyImportedFiles(ref, files, infoHash); }
+  catch (error) {
+    if (error instanceof ReplacementRefused) return NextResponse.json({ error: "replacement_refused", replacementFailure: error.failure }, { status: 409 });
+    throw error;
+  }
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.error === "movie not found" || result.error === "series not found" ? 404 : 500 });
   }

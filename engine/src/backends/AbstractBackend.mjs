@@ -232,6 +232,9 @@ export class AbstractBackend {
   }
 
   restoreImported(rec) {
+    if (rec.replacementFailure && !rec.replacementFailure.discarded && rec.movedFiles) {
+      this.meta.set(rec.infoHash, { ...rec, movedFiles: rec.movedFiles, completed: false, notifiedLibrary: false });
+    }
     this.importedHistory.set(rec.infoHash, {
       infoHash: rec.infoHash,
       magnetURI: rec.magnetURI ?? null,
@@ -241,6 +244,7 @@ export class AbstractBackend {
       addedAt: rec.addedAt ?? null,
       completedAt: rec.completedAt ?? null,
       libraryRef: rec.libraryRef ?? null,
+      replacementFailure: rec.replacementFailure,
       title: rec.title ?? null,
       year: rec.year ?? null,
     });
@@ -250,7 +254,7 @@ export class AbstractBackend {
 
   async onComplete(infoHash) {
     const m = this.meta.get(infoHash);
-    if (!m || m.completed || m.processing || m.importAbandoned) return;
+    if (!m || m.completed || m.processing || m.importAbandoned || m.replacementFailure) return;
     m.processing = true;
     try {
       m.completedAt ??= Date.now();
@@ -387,7 +391,7 @@ export class AbstractBackend {
           // folder regardless of match status, so an unmatched file must
           // never be swept away with the rest (see the [import-match] log
           // lines for what specifically didn't match and why).
-          if (this.cfg.autoMoveOnComplete && snap.name && !m.symlinkVerificationFailed && !m.hasUnmatchedFiles) {
+          if (!m.replacementFailure && this.cfg.autoMoveOnComplete && snap.name && !m.symlinkVerificationFailed && !m.hasUnmatchedFiles) {
             await this._cleanupDownloadFolder(snap);
           }
           if (!this.importedHistory.has(snap.infoHash)) {
@@ -469,12 +473,15 @@ export class AbstractBackend {
       // moved files to release orphaned episodes back to "missing") retry
       // on the same 15s cadence if the callback itself failed, instead of
       // silently never retrying because [] is falsy-length.
-      if (m?.libraryRef && m?.movedFiles && !m.notifiedLibrary
-          && (!m.lastNotifyAttempt || Date.now() - m.lastNotifyAttempt > 15_000)) {
+      if (m?.libraryRef && m?.movedFiles && !m.notifiedLibrary && !m.replacementFailure?.discarded
+          && (!m.replacementFailure?.retryAt || Date.now() >= m.replacementFailure.retryAt)
+          && !m.notifyInFlight && (!m.lastNotifyAttempt || Date.now() - m.lastNotifyAttempt > 15_000)) {
         m.lastNotifyAttempt = Date.now();
+        m.notifyInFlight = true;
         this._notifyLibrary(m.libraryRef, m.movedFiles, infoHash)
           .then((ok) => { if (ok) { m.notifiedLibrary = true; m.completed = true; } })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => { m.notifyInFlight = false; });
       }
     }
 
@@ -668,12 +675,13 @@ export class AbstractBackend {
 
   summary(t, detail = false) {
     const m = this.meta.get(t.infoHash);
-    const isSeeding = this._isDone(t) && !m?.completed;
+    const bytesComplete = Number(t.length) > 0 && Number(t.downloaded) >= Number(t.length);
+    const isSeeding = m?.seeding || this._isDone(t) || bytesComplete;
     // Re-hash phase after a restart (rtorrent "checking files") — reported by
     // the backend as t.verifying. Must win over stalled/queued so a torrent
     // mid-verification never shows as blocked or stuck in the queue.
     const verifying = !!t.verifying || !!m?.verifying;
-    const state = m?.completed ? "completed" : m?.importAbandoned ? "blocked" : isSeeding ? "seeding" : m?.userPaused ? "paused" : verifying ? "verifying" : m?.stalled ? "blocked" : m?.queued ? "queued" : "downloading";
+    const state = m?.replacementFailure ? "blocked" : m?.importAbandoned ? "blocked" : verifying ? "verifying" : m?.completed ? (m.seeding ? "seeding" : "completed") : m?.userPaused ? "paused" : isSeeding ? "seeding" : m?.stalled ? "blocked" : m?.queued ? "queued" : "downloading";
     const base = {
       infoHash: t.infoHash,
       name: t.name ?? t.infoHash,
@@ -697,10 +705,8 @@ export class AbstractBackend {
       userPaused: m?.userPaused ?? false,
       queued: m?.queued ?? false,
       stalled: m?.stalled ?? false,
-      // Manual post-completion seed toggle — distinct from `state`, which
-      // stays "completed" forever once m.completed is set regardless of
-      // actual seed activity (see CLAUDE.md gotcha). Only meaningful once
-      // state === "completed"; false everywhere else.
+      // Confirmed manual post-import sharing; the badge follows this flag.
+      replacementFailure: m?.replacementFailure,
       seeding: m?.seeding ?? false,
       category: this.cfg.category,
       instanceId: this.cfg.id,
@@ -714,6 +720,7 @@ export class AbstractBackend {
   importedSummary(rec) {
     return {
       infoHash: rec.infoHash,
+      replacementFailure: rec.replacementFailure,
       name: rec.name,
       length: rec.size,
       downloaded: rec.size,
@@ -722,7 +729,7 @@ export class AbstractBackend {
       uploadSpeed: 0,
       numPeers: 0,
       ratio: 0,
-      state: "completed",
+      state: rec.replacementFailure ? "blocked" : "completed",
       addedAt: rec.addedAt,
       completedAt: rec.completedAt,
       libraryRef: rec.libraryRef ?? null,
@@ -773,6 +780,8 @@ export class AbstractBackend {
         addedAt: m.addedAt,
         completedAt: m.completedAt,
         movedTo: m.movedTo,
+        movedFiles: m.movedFiles,
+        replacementFailure: m.replacementFailure,
         libraryRef: m.libraryRef ?? null,
         title: m.title ?? null,
         year: m.year ?? null,
@@ -794,6 +803,8 @@ export class AbstractBackend {
         name: rec.name,
         size: rec.size,
         movedTo: rec.movedTo,
+        replacementFailure: this.meta.get(rec.infoHash)?.replacementFailure ?? rec.replacementFailure,
+        movedFiles: this.meta.get(rec.infoHash)?.movedFiles,
         addedAt: rec.addedAt,
         completedAt: rec.completedAt,
         libraryRef: rec.libraryRef,
@@ -1083,6 +1094,22 @@ export class AbstractBackend {
     return linked;
   }
 
+  async _cleanupReplacementSource(snap, movedFiles = []) {
+    const root = path.resolve(this.cfg.downloadPath), library = path.resolve(this.cfg.completedPath);
+    for (const file of [...(snap?.files ?? []), ...movedFiles.map(file => ({ path: file.originalPath }))]) {
+      if (!file.path) continue;
+      const candidate = path.resolve(root, file.path), relative = path.relative(root, candidate), libraryRelative = path.relative(library, candidate);
+      if (!relative || relative.startsWith("..") || path.isAbsolute(relative) || !libraryRelative || (!libraryRelative.startsWith("..") && !path.isAbsolute(libraryRelative))) continue;
+      await fsp.unlink(candidate).catch(() => {});
+      // Remove only empty parents of this file, never the download root or other contents.
+      let folder = path.dirname(candidate);
+      while (folder !== root && folder.startsWith(root + path.sep)) {
+        try { await fsp.rmdir(folder); } catch { break; }
+        folder = path.dirname(folder);
+      }
+    }
+  }
+
   async _notifyLibrary(libraryRef, files, infoHash) {
     try {
       const res = await fetch(`${WEB_CALLBACK_URL}/api/library/import`, {
@@ -1090,10 +1117,44 @@ export class AbstractBackend {
         headers: { "content-type": "application/json", "x-movviz-token": ENGINE_TOKEN },
         body: JSON.stringify({ libraryRef, category: this.cfg.category, files, infoHash }),
       });
+      const m = this.meta.get(infoHash);
       if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (body.error === "replacement_refused" && body.replacementFailure && m) {
+          m.replacementFailure = body.replacementFailure;
+          m.seeding = false;
+          m.completed = false;
+          const history = this.importedHistory.get(infoHash);
+          if (history) history.replacementFailure = m.replacementFailure;
+          if (m.replacementFailure.discarded) {
+            const snap = (() => { try { return this._clientSnapshot(infoHash); } catch { return { files: (m.movedFiles ?? []).map(file => ({ path: file.originalPath })) }; } })();
+            // Stop sharing before removing only this download's uninstalled source files.
+            const removed = await this._clientRemove(infoHash, false).catch(() => false);
+            if (removed || !this._clientGet(infoHash)) {
+              await this._cleanupReplacementSource(snap, m.movedFiles);
+              await this._dropCachedTorrentFile?.(infoHash);
+            }
+            const record = this.importedHistory.get(infoHash) ?? { infoHash, name: m.title ?? snap?.name ?? infoHash, size: snap?.length ?? 0, libraryRef, addedAt: m.addedAt, completedAt: Date.now() };
+            this.importedHistory.set(infoHash, { ...record, replacementFailure: m.replacementFailure });
+            this.emitActivity("failed", {
+              media: { id: libraryRef.split(":")[1], title: m.title ?? snap?.name ?? infoHash, type: this.cfg.category, href: "#" },
+              failure: { code: "import_failed", message: `Remplacement impossible : ${{ fileInUse: "fichier utilisé", nameOccupied: "nom déjà occupé", incomplete: "fichier incomplet", unavailable: "fichier inaccessible" }[m.replacementFailure.reason] ?? "fichier inaccessible"}. Après 3 nouvelles tentatives : nouveau supprimé, ancien conservé.` },
+              metadata: { libraryRef },
+            });
+          }
+          this.onChange();
+        }
         console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] library import callback failed: HTTP ${res.status}`);
         return false;
       }
+      if (m?.replacementFailure) {
+        const snap = (() => { try { return this._clientSnapshot(infoHash); } catch { return { files: (m.movedFiles ?? []).map(file => ({ path: file.originalPath })) }; } })();
+        if (snap) await this._cleanupReplacementSource(snap, m.movedFiles);
+      }
+      if (m) delete m.replacementFailure;
+      const history = this.importedHistory.get(infoHash);
+      if (history) delete history.replacementFailure;
+      this.onChange();
       return true;
     } catch (e) {
       console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] library import callback unreachable:`, e.message);
@@ -1145,7 +1206,7 @@ export class AbstractBackend {
     // and for a retried linkOrCopy import (alreadyImported=true, where it
     // can be). ALSO gated on !m.hasUnmatchedFiles — see the matching guard
     // in onComplete() above for why.
-    if (importOk && this.cfg.autoMoveOnComplete && snap.name && !m.symlinkVerificationFailed && !m.hasUnmatchedFiles) {
+    if (importOk && !m.replacementFailure && this.cfg.autoMoveOnComplete && snap.name && !m.symlinkVerificationFailed && !m.hasUnmatchedFiles) {
       await this._cleanupDownloadFolder(snap);
     }
 
@@ -1324,9 +1385,17 @@ export class AbstractBackend {
     if (!m) return;
     const now = Date.now();
     const downloaded = t.downloaded ?? 0;
+    const complete = m.completed || m.seeding || this._isDone(t) || (Number(t.length) > 0 && Number(downloaded) >= Number(t.length));
+    if (complete && m.stalled) {
+      m.stalled = false;
+      m.stalledAt = null;
+      m.queued = false;
+      this.reconcileQueue();
+      this.onChange();
+    }
     // Hash verification after a restart shows no download activity — not a
     // stall. Time paused, queued or verifying must not count as inactivity.
-    if (m.completed || m.userPaused || m.finishing || this._isDone(t) || t.verifying || m.verifying || (m.queued && !m.stalled)) {
+    if (complete || m.userPaused || m.finishing || t.verifying || m.verifying || (m.queued && !m.stalled)) {
       m.lastActivityAt = now;
       m.lastActivitySampleAt = now;
       m.lastDownloaded = downloaded;

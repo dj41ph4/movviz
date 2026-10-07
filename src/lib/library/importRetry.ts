@@ -1,5 +1,5 @@
 import fsp from "node:fs/promises";
-import { getSeries } from "@/lib/library/store";
+import { getSeries, getMovie } from "@/lib/library/store";
 import type { ImportedFile } from "@/lib/library/applyImportedFiles";
 
 /** Le moteur peut rejouer un callback dont la réponse HTTP a été perdue.
@@ -16,4 +16,12 @@ export async function alreadyAppliedEpisodeImport(
   if (ep?.status !== "available" || ep.lastImportedInfoHash !== infoHash || !finalPath || ep.file?.size !== file.size) return false;
   const finalFile = await fsp.stat(finalPath).catch(() => null);
   return !!finalFile?.isFile() && finalFile.size === file.size;
+}
+
+export async function alreadyAppliedMovieImport(movieId: string, infoHash: string | undefined, file: ImportedFile | undefined): Promise<boolean> {
+  if (!infoHash || !file) return false;
+  const movie = getMovie(movieId), finalPath = movie?.file?.diskPath ?? movie?.file?.path;
+  if (movie?.lastImportedInfoHash !== infoHash || !finalPath || movie.file?.size !== file.size) return false;
+  const stat = await fsp.stat(finalPath).catch(() => null);
+  return !!stat?.isFile() && stat.size === file.size;
 }

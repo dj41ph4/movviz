@@ -27,7 +27,8 @@ function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replaci
   const eligible = (ep: { status: string; activeInfoHash: string | null }) =>
     ep.status === "missing" || (!!replacingInfoHash && ep.activeInfoHash === replacingInfoHash);
   if (ref.kind === "movie") {
-    if (getMovie(ref.movieId)) updateMovie(ref.movieId, { status: "downloading", activeInfoHash: infoHash });
+    const movie = getMovie(ref.movieId);
+    if (movie) updateMovie(ref.movieId, { status: movie.file ? "available" : "downloading", activeInfoHash: infoHash });
     return;
   }
   const series = getSeries(ref.seriesId);

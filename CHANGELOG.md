@@ -1,3 +1,15 @@
+## v1.26.004 — Octobre 2026
+
+### Téléchargements : remplacement sûr et statut seed
+
+- L'ancien film reste disponible et lisible pendant le téléchargement de son remplacement ; il est retiré uniquement après installation et validation du nouveau fichier au nom final, sans suffixe « (2) » ni sauvegarde résiduelle.
+- En cas de refus (fichier utilisé, nom occupé, fichier incomplet ou inaccessible), le nouveau est conservé pour trois nouvelles tentatives espacées de 10 minutes, y compris après redémarrage. Après le dernier échec, le nouveau est supprimé et l'ancien conservé ; Téléchargements affiche un message précis.
+- Un torrent terminé en partage affiche « En seed » et ne devient plus bloqué à cause d'une vitesse de téléchargement nulle.
+
+### Desktop : badges du hero
+
+- Les badges techniques reprennent la présentation et l'alignement des genres ; « FHD » devient « 1080P » dans le hero desktop.
+
 ## v1.26.003 — Octobre 2026
 
 ### Desktop : badges techniques du hero à côté des genres

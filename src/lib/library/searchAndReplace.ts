@@ -561,7 +561,7 @@ export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgrade
     });
     const torrent = await res.json();
     if (!res.ok) return { ok: false, error: "engine_unreachable" };
-    updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
+    updateMovie(movie.id, { status: movie.file ? "available" : "downloading", activeInfoHash: torrent.infoHash });
     emitNotification("grab_movie_upgrade", `${movie.title} — remplacement lancé`, "/library", { title: movie.title });
     return { ok: true, infoHash: torrent.infoHash };
   } catch {

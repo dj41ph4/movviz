@@ -139,6 +139,14 @@ export const nl: Dictionary = {
   },
 
   downloads: {
+    replacement: {
+      fileInUse: "Vervangen mislukt: bestand in gebruik",
+      nameOccupied: "Vervangen mislukt: naam al bezet",
+      incomplete: "Vervangen mislukt: onvolledig bestand",
+      unavailable: "Vervangen mislukt: bestand niet beschikbaar",
+      retry: "Nieuwe poging over 10 min (maximaal 3)",
+      discarded: "Na 3 pogingen: nieuw bestand verwijderd, origineel behouden",
+    },
     liveRate: "Live doorvoer",
     stateTitle: "Status",
     colContent: "Inhoud",

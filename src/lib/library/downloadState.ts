@@ -2,6 +2,7 @@ import path from "node:path";
 import { engineGet } from "@/lib/engine/server";
 import {
   getMovieByActiveHash,
+  getMovie,
   loadMovies,
   loadSeries,
   updateMovie,
@@ -45,7 +46,7 @@ function releasedStatus(file: LibraryFile | null): { status: LibraryStatus } {
 export function releaseAllDownloadClaims(infoHash: string) {
   // Release movie
   const movie = getMovieByActiveHash(infoHash);
-  if (movie && movie.status !== "available") {
+  if (movie) {
     const newStatus = movie.file ? "available" : "missing";
     updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
     if (newStatus === "available") {
@@ -119,11 +120,14 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
   // it stays claimed so the library badge isn't falsely released.
   const ACTIVE_STATES = new Set(["downloading", "metadata", "queued", "blocked"]);
   const torrentsByHash = new Map(data.torrents.map((t) => [t.infoHash, t]));
-  const isActivelyDownloading = (infoHash: string) => ACTIVE_STATES.has(torrentsByHash.get(infoHash)?.state ?? "");
+  const isActivelyDownloading = (infoHash: string) => {
+    const torrent = torrentsByHash.get(infoHash);
+    return !!torrent && (ACTIVE_STATES.has(torrent.state) || (!torrent.movedTo && ["paused", "verifying", "seeding"].includes(torrent.state)));
+  };
 
   let released = 0;
   for (const movie of loadMovies()) {
-    if (movie.status === "downloading" && movie.activeInfoHash) {
+    if ((movie.status === "downloading" || movie.status === "available") && movie.activeInfoHash) {
       const infoHash = movie.activeInfoHash;
       const t = torrentsByHash.get(infoHash);
       if (!isActivelyDownloading(infoHash)) {
@@ -139,7 +143,8 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
           // the same unlocked read-modify-write against the movies list.
           const newStatus = movie.file ? "available" : "missing";
           await withKeyLock(`movie:${movie.id}`, async () => {
-            updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
+            const current = getMovie(movie.id);
+            if (current?.activeInfoHash === infoHash) updateMovie(movie.id, { status: current.file ? "available" : "missing", activeInfoHash: null });
           });
           if (newStatus === "available") {
             void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});

@@ -134,3 +134,37 @@ test("manual resume grants a fresh two-minute activity window", async (t) => {
   f.backend._checkStall(f.torrent);
   assert.equal(f.meta.stalled, true);
 });
+
+test("completed bytes at zero download speed remain seeding and clear stale blocked state", t => {
+  const f = fixture(t);
+  f.torrent.length = f.torrent.downloaded = 1000;
+  f.meta.stalled = f.meta.queued = true;
+  f.backend._checkStall(f.torrent);
+  f.advance(600_000);
+  f.backend._checkStall(f.torrent);
+  assert.equal(f.meta.stalled, false);
+  assert.equal(f.meta.queued, false);
+  assert.equal(f.backend.summary(f.torrent).state, "seeding");
+});
+
+test("post-import seed toggling changes the badge without treating zero download speed as a stall", t => {
+  const f = fixture(t);
+  f.meta.completed = f.meta.seeding = true;
+  f.backend._checkStall(f.torrent);
+  f.advance(600_000);
+  f.backend._checkStall(f.torrent);
+  assert.equal(f.meta.stalled, false);
+  assert.equal(f.backend.summary(f.torrent).state, "seeding");
+  f.meta.seeding = false;
+  assert.equal(f.backend.summary(f.torrent).state, "completed");
+});
+
+test("verification and explicit pause remain visible for complete bytes", t => {
+  const f = fixture(t);
+  f.torrent.length = f.torrent.downloaded = 1000;
+  f.torrent.verifying = true;
+  assert.equal(f.backend.summary(f.torrent).state, "verifying");
+  f.torrent.verifying = false;
+  f.meta.userPaused = true;
+  assert.equal(f.backend.summary(f.torrent).state, "paused");
+});

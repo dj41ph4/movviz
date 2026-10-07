@@ -238,9 +238,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
               <span key={g} className="rounded-full border border-white/20 px-2 py-0.5 text-xs">{g}</span>
             ))}
             {active.libraryFile && isDesktop && (
-              <div className="pointer-events-none origin-left scale-90 opacity-80">
-                <MediaBadges file={active.libraryFile} variant="overlay" />
-              </div>
+              <MediaBadges file={active.libraryFile} variant="overlay" genreStyle />
             )}
           </div>
 

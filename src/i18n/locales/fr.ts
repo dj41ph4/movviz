@@ -137,6 +137,14 @@ export const fr = {
   },
 
   downloads: {
+    replacement: {
+      fileInUse: "Remplacement impossible : fichier utilisé",
+      nameOccupied: "Remplacement impossible : nom déjà occupé",
+      incomplete: "Remplacement impossible : fichier incomplet",
+      unavailable: "Remplacement impossible : fichier inaccessible",
+      retry: "Nouvelle tentative dans 10 min (3 maximum)",
+      discarded: "Après 3 nouvelles tentatives : nouveau supprimé, ancien conservé",
+    },
     liveRate: "Débit en direct",
     stateTitle: "État",
     colContent: "Contenu",

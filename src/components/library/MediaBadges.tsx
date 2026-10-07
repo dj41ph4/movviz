@@ -82,6 +82,7 @@ export function buildMediaBadgeItems(
   variant: "overlay" | "surface",
   compact = false,
   hideTypes?: string[],
+  genreStyle = false,
 ): React.ReactNode[] {
   // "overlay" badges sit directly on unpredictable poster artwork — a photo
   // can be bright or dark at any given corner, so their own backing must
@@ -106,6 +107,7 @@ export function buildMediaBadgeItems(
   // a poster in a 2-column mobile grid doesn't have room for 6 badges
   // wrapping across two rows on top of the artwork.
   const hiddenOnMobile = new Set(["year", "hdr", "audio", "video", "source"]);
+  const genreLabels = new Map<unknown, string>([[Logo4K, "4K"], [LogoFullHD, "1080P"], [LogoHD, "720P"], [LogoHDR, "HDR"], [LogoDolbyVision, "Dolby Vision"], [LogoDolbyAtmos, "Atmos"], [LogoDolbyDigital, "AC3"], [LogoDolbyDigitalPlus, "EAC3"], [LogoDTS, "DTS"], [LogoTrueHD, "TrueHD"]]);
   const tag = (type: string, key: string, node: React.ReactNode) => (
     <span
       key={key}
@@ -118,7 +120,7 @@ export function buildMediaBadgeItems(
             : "inline-block origin-left scale-90 sm:contents"
       }
     >
-      {node}
+      {genreStyle ? <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs">{(node as React.ReactElement<{ text?: string }>).props.text ?? genreLabels.get((node as React.ReactElement).type)}</span> : node}
     </span>
   );
 
@@ -246,6 +248,7 @@ export function MediaBadges({
   variant = "overlay",
   compactOnMobile = false,
   hideTypes,
+  genreStyle = false,
 }: {
   file: LibraryFile | null | undefined;
   /** Optional — when present, its audio/subtitle streams enrich/correct the filename-derived language badge. */
@@ -272,18 +275,20 @@ export function MediaBadges({
    */
   compactOnMobile?: boolean;
   hideTypes?: string[];
+  /** Match adjacent genre pills in the desktop hero. */
+  genreStyle?: boolean;
 }) {
   // No file means no data at all — showing "SDR" here would claim the
   // absence of an HDR tag on a release that doesn't exist, not a real signal.
   const { locale } = useI18n();
   if (!file) return null;
   const info = extractBadges(file, plexMediaInfo, locale);
-  const items = buildMediaBadgeItems({ ...info, year }, variant, compactOnMobile, hideTypes);
+  const items = buildMediaBadgeItems({ ...info, year }, variant, compactOnMobile, hideTypes, genreStyle);
 
   if (items.length === 0) return null;
 
   return (
-    <div className={cn("pointer-events-none flex flex-wrap items-center gap-1", className)}>
+    <div className={cn(genreStyle ? "contents" : "pointer-events-none flex flex-wrap items-center gap-1", className)}>
       {items}
     </div>
   );

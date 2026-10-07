@@ -139,6 +139,14 @@ export const it: Dictionary = {
   },
 
   downloads: {
+    replacement: {
+      fileInUse: "Sostituzione impossibile: file in uso",
+      nameOccupied: "Sostituzione impossibile: nome già occupato",
+      incomplete: "Sostituzione impossibile: file incompleto",
+      unavailable: "Sostituzione impossibile: file non accessibile",
+      retry: "Nuovo tentativo tra 10 min (massimo 3)",
+      discarded: "Dopo 3 tentativi: nuovo file eliminato, originale conservato",
+    },
     liveRate: "Velocità in tempo reale",
     stateTitle: "Stato",
     colContent: "Contenuto",

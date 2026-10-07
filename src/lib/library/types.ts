@@ -77,6 +77,7 @@ export interface LibraryFileVersion extends LibraryFile {
 }
 
 export interface LibraryMovie {
+  lastImportedInfoHash?: string | null;
   id: string; // movviz id, "mv_..."
   tmdbId: number;
   imdbId: string | null;

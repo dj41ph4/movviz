@@ -1,3 +1,4 @@
+import { torrentActivityStatus } from "@/lib/activity/v2/torrentStatus";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
@@ -301,9 +302,10 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
           eta,
           ratio: t.ratio ?? 0,
           peers: t.numPeers,
-          state: (t.state === "metadata" ? "downloading" : t.state === "blocked" ? "stalled" : t.state) as "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled" | "verifying"
+          state: torrentActivityStatus(t)
         },
-        status: t.state === "paused" ? "paused" : t.state === "blocked" || t.state === "stalled" ? "stalled" : t.state === "queued" ? "queued" : t.state === "seeding" ? "seeding" : t.state === "completed" ? "completed" : t.state === "verifying" ? "verifying" : "downloading",
+        status: torrentActivityStatus(t),
+        replacementFailure: t.replacementFailure,
         priority: t.priority ?? "medium",
         seeding: t.seeding ?? false,
         addedAt

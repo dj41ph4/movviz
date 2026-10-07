@@ -58,3 +58,9 @@ export function takePendingVersionIntent(infoHash: string | undefined): VersionG
   if (Date.now() - entry.setAt > MAX_AGE_MS) return null;
   return entry.mode;
 }
+
+/** Keep the selected mode until the import has actually succeeded. */
+export function peekPendingVersionIntent(infoHash: string | undefined): VersionGrabMode | null {
+  const entry = infoHash ? pending.get(infoHash.toLowerCase()) : undefined;
+  return entry && Date.now() - entry.setAt <= MAX_AGE_MS ? entry.mode : null;
+}

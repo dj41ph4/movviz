@@ -167,7 +167,7 @@ export async function grabAlternateVersion(movieId: string, candidate: VersionCa
     // User explicitly picked this release for an extra version — manual
     // choice, the blocklist rule doesn't veto it at import time.
     if (typeof torrent.infoHash === "string") markManualGrab(torrent.infoHash);
-    updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
+    updateMovie(movie.id, { status: movie.file ? "available" : "downloading", activeInfoHash: torrent.infoHash });
     recordSearchLog("info", "additional_version.grabbed", `${movie.title} — ${candidate.release.title} (version supplémentaire, infoHash:${torrent.infoHash})`);
     return { ok: true, release: candidate.release };
   } catch {

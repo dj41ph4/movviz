@@ -24,7 +24,7 @@ export function ManualSearchModal({
   title: string;
   tmdbId?: number;
   imdbId?: string;
-  /** When set, grabbing a release asks to cancel+delete this queue item (an existing download) first — the "replace a stuck/blocked download" flow. */
+  /** When set, grabbing a release asks to stop this queue item after acceptance, keeping its files until the replacement is installed — the "replace a stuck/blocked download" flow. */
   replaceItemId?: string;
   onReplaced?: () => void;
 }) {
@@ -107,7 +107,9 @@ export function ManualSearchModal({
       if (res.ok) {
         setGrabbed((s) => new Set(s).add(r.guid));
         if (replaceItemId) {
-          await fetch(`/api/engine/torrents/${replaceItemId}?deleteData=1`, { method: "DELETE" });
+          // Stop the previous torrent, but retain its files until the new
+          // download has been imported and installed successfully.
+          await fetch(`/api/engine/torrents/${replaceItemId}?deleteData=0`, { method: "DELETE" });
           onReplaced?.();
         }
       } else {

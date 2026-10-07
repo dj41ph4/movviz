@@ -139,6 +139,14 @@ export const de: Dictionary = {
   },
 
   downloads: {
+    replacement: {
+      fileInUse: "Ersetzen nicht möglich: Datei wird verwendet",
+      nameOccupied: "Ersetzen nicht möglich: Name bereits belegt",
+      incomplete: "Ersetzen nicht möglich: Datei unvollständig",
+      unavailable: "Ersetzen nicht möglich: Datei nicht zugänglich",
+      retry: "Neuer Versuch in 10 Min. (maximal 3)",
+      discarded: "Nach 3 Versuchen: neue Datei gelöscht, Original behalten",
+    },
     liveRate: "Live-Durchsatz",
     stateTitle: "Status",
     colContent: "Inhalt",

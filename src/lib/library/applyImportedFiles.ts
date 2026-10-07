@@ -1,4 +1,5 @@
-import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/store";
+import { runReplacementAttempt } from "@/lib/library/replacementRetry";
+import { getMovie, updateMovie, getSeries, updateSeries, loadMovies, loadSeries } from "@/lib/library/store";
 import { encodeLibraryRef, type LibraryFile } from "@/lib/library/types";
 import { pathFor } from "@/lib/library/renamePath";
 import { emitNotification } from "@/lib/notifications/store";
@@ -6,8 +7,8 @@ import { refreshPlexLibraryFor, scheduleLibrarySyncSoon } from "@/lib/plex/libra
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createReleaseRef, createImportRef } from "@/lib/activity/v2/store";
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
-import { takePendingVersionIntent } from "@/lib/library/pendingVersionIntent";
-import { takeManualGrab } from "@/lib/library/manualGrab";
+import { takePendingVersionIntent, peekPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
+import { takeManualGrab, peekManualGrab } from "@/lib/library/manualGrab";
 import { addVersion, setPrimaryFile } from "@/lib/library/versions";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
@@ -206,67 +207,90 @@ function samePath(a: string, b: string): boolean {
   return process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
-/**
- * Finalisation d'un import de REMPLACEMENT — partagée par les films et les
- * épisodes (tout sauf une « version supplémentaire » explicite, mode "add") :
- * 1. Les ANCIENS fichiers sont supprimés du disque (deleteLibraryFile, gardes
- *    de sécurité complètes) AVANT toute manipulation des nouveaux.
- * 2. Le moteur renomme les nouveaux fichiers AVANT de connaître l'intention
- *    (avoidCollision) : si le nom final attendu était occupé par l'ancien
- *    fichier, le nouveau a reçu un suffixe « (2) »/« (3) »…. Une fois
- *    l'ancien supprimé, le nouveau est ramené vers ce nom final — plus aucun
- *    « … (2).mkv » posé à côté du fichier remplacé. Le renommage n'écrase
- *    JAMAIS un fichier existant et ne touche que des fichiers vivant sous une
- *    racine bibliothèque du moteur.
- * Retourne l'association chemin importé → chemin final, pour les seuls
- * fichiers réellement renommés.
- */
-export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string[], roots: string[]): Promise<Map<string, string>> {
-  const renamed = new Map<string, string>();
-  const keep = newPaths.filter(Boolean).map((p) => pathFor(p).resolve(p));
-
-  for (const oldPath of oldPaths) {
-    if (!oldPath) continue;
-    const resolvedOld = pathFor(oldPath).resolve(oldPath);
-    // self-delete guard : l'« ancien » fichier EST le fichier fraîchement
-    // importé (ré-import du même chemin) — le supprimer viderait l'entrée.
-    if (keep.some((p) => samePath(p, resolvedOld))) continue;
-    await deleteLibraryFile(oldPath, roots);
+/** Installe et valide les nouveaux fichiers avant de retirer les anciens.
+ * Une sauvegarde permet de restaurer l'ancien si le renommage échoue. */
+export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string[], roots: string[], expectedSizes = new Map<string, number>()): Promise<Map<string, string>> {
+  const validate = (file: string) => {
+    if (!isUnderLibraryRoot(file, pathFor(file).sep, roots, process.platform !== "win32")) throw new Error(`Remplacement refusé : hors bibliothèque du moteur (${file})`);
+  };
+  const incoming = await Promise.all(newPaths.filter(Boolean).map(async original => {
+    const p = pathFor(original), source = p.resolve(original);
+    validate(source);
+    const stat = await fsp.lstat(source), expected = expectedSizes.get(original);
+    if (!stat.isFile() || !stat.size || (expected != null && expected > 0 && expected !== stat.size)) throw new Error(`Remplacement refusé : fichier incomplet (${source})`);
+    return { original, source, destination: p.join(p.dirname(source), stripCollisionSuffix(p.basename(source), p)), size: stat.size };
+  }));
+  if (!incoming.length) throw new Error("Remplacement refusé : aucun fichier importé");
+  const oldFiles: string[] = [];
+  for (const original of oldPaths.filter(Boolean)) {
+    const old = pathFor(original).resolve(original);
+    validate(old);
+    try {
+      const stat = await fsp.lstat(old);
+      if (!stat.isFile()) throw new Error(`Remplacement refusé : ancien fichier invalide (${old})`);
+      if (!oldFiles.some(file => samePath(file, old))) oldFiles.push(old);
+    } catch (err) { if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err; }
   }
-
-  for (const newPath of newPaths) {
-    if (!newPath) continue;
-    const np = pathFor(newPath);
-    const resolvedNew = np.resolve(newPath);
-    const base = np.basename(resolvedNew);
-    const stripped = stripCollisionSuffix(base, np);
-    if (stripped === base) continue; // pas de suffixe de collision — nom déjà final
-    if (!isUnderLibraryRoot(resolvedNew, np.sep, roots, process.platform !== "win32")) continue;
-    const expected = np.join(np.dirname(resolvedNew), stripped);
-    if (samePath(expected, resolvedNew)) continue;
+  for (const file of incoming) {
+    if (incoming.some(other => other !== file && samePath(other.destination, file.destination))) throw new Error("Remplacement refusé : noms finaux identiques");
+    if (samePath(file.source, file.destination)) continue;
     try {
-      await fsp.access(expected);
-      continue; // nom final occupé par un autre fichier — ne jamais écraser
-    } catch {
-      // libre — on peut renommer
+      await fsp.lstat(file.destination);
+      if (!oldFiles.some(old => samePath(old, file.destination))) throw new Error(`Remplacement refusé : nom final occupé (${file.destination})`);
+    } catch (err) { if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err; }
+  }
+  const backups = new Map<string, string>();
+  const installed: typeof incoming = [];
+  const renamed = new Map<string, string>();
+  try {
+    for (const old of oldFiles) {
+      if (incoming.some(file => samePath(file.source, old))) continue;
+      if (incoming.some(file => samePath(file.destination, old))) {
+        const backup = `${old}.movviz-replace-${randomUUID()}`;
+        await fsp.rename(old, backup);
+        backups.set(old, backup);
+      }
     }
-    try {
-      await fsp.rename(resolvedNew, expected);
-      renamed.set(newPath, expected);
-      console.log(`[import] version remplacée renommée vers le nom final: ${expected}`);
-    } catch (err) {
-      console.warn(`[import] renommage vers le nom final impossible (${(err as Error).message}) — nom actuel conservé`);
+    for (const file of incoming) {
+      if (!samePath(file.source, file.destination)) {
+        await fsp.rename(file.source, file.destination);
+        installed.push(file);
+        renamed.set(file.original, file.destination);
+      }
+      const stat = await fsp.lstat(file.destination);
+      if (!stat.isFile() || stat.size !== file.size) throw new Error(`Remplacement refusé : installation incomplète (${file.destination})`);
     }
+    for (const old of oldFiles) {
+      if (incoming.some(file => samePath(file.source, old))) continue;
+      const retired = backups.get(old) ?? old;
+      if (!backups.has(old) && incoming.some(file => samePath(file.destination, old))) continue;
+      await deleteLibraryFile(retired, roots);
+    }
+  } catch (err) {
+    const failures: string[] = [];
+    for (const file of installed.reverse()) {
+      try { await fsp.rename(file.destination, file.source); }
+      catch (rollback) { failures.push((rollback as Error).message); }
+    }
+    for (const [old, backup] of backups) {
+      try {
+        try { await fsp.lstat(old); throw new Error(`destination occupée (${old})`); }
+        catch (occupied) { if ((occupied as NodeJS.ErrnoException).code !== "ENOENT") throw occupied; }
+        await fsp.rename(backup, old);
+      } catch (rollback) { failures.push(`Sauvegarde conservée ${backup} : ${(rollback as Error).message}`); }
+    }
+    if (failures.length) throw new Error(`${(err as Error).message}; restauration : ${failures.join("; ")}`);
+    throw err;
   }
   return renamed;
 }
 
 /** Variante film : un seul ancien fichier, un seul nouveau. */
-async function finalizeReplacePath<T extends { path: string }>(movie: { file: LibraryFile | null }, newFile: T, roots: string[]): Promise<T> {
+async function finalizeReplacePath<T extends { path: string; size?: number }>(movie: { file: LibraryFile | null }, newFile: T, roots: string[]): Promise<T> {
   const oldPath = diskPathOf(movie.file);
-  const renamed = await finalizeReplacedFiles(oldPath ? [oldPath] : [], [newFile.path], roots);
+  const renamed = await finalizeReplacedFiles(oldPath ? [oldPath] : [], [newFile.path], roots, new Map([[newFile.path, newFile.size ?? 0]]));
   const finalPath = renamed.get(newFile.path);
-  return finalPath ? { ...newFile, path: finalPath } : newFile;
+  return finalPath ? { ...newFile, path: finalPath, diskPath: finalPath } : newFile;
 }
 
 /**
@@ -474,7 +498,7 @@ function revertBlockedImport(ref: LibraryImportRef, infoHash: string | undefined
     // manual re-grab) would get its own in-progress state stomped back to
     // "missing" by a check that's really about the OLD, blocked download.
     if (!infoHash || movie.activeInfoHash === infoHash) {
-      updateMovie(movie.id, { status: "missing", activeInfoHash: null });
+      updateMovie(movie.id, { status: movie.file ? "available" : "missing", activeInfoHash: null });
     }
     return movie.title;
   }
@@ -498,7 +522,25 @@ function revertBlockedImport(ref: LibraryImportRef, infoHash: string | undefined
 export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
   const lockKey = ref.kind === "movie" ? `movie:${ref.movieId}` : `series:${ref.seriesId}`;
   return withKeyLock(lockKey, async () => {
-    const result = await applyImportedFilesLocked(ref, files, infoHash);
+    const replacingMovie = ref.kind === "movie" && !!getMovie(ref.movieId)?.file && !!infoHash;
+    const result = replacingMovie
+      ? await runReplacementAttempt(infoHash!, () => applyImportedFilesLocked(ref, files, infoHash), async () => {
+          const protectedPaths = [
+            ...loadMovies().flatMap(movie => [movie.file, ...(movie.versions ?? [])]),
+            ...loadSeries().flatMap(series => series.seasons.flatMap(season => season.episodes.map(ep => ep.file))),
+          ].filter(Boolean).map(file => pathFor(diskPathOf(file)!).resolve(diskPathOf(file)!));
+          const roots = await engineLibraryRoots();
+          for (const file of files) {
+            if (!file.path || protectedPaths.some(protectedPath => samePath(protectedPath, pathFor(file.path).resolve(file.path)))) continue;
+            await deleteLibraryFile(file.path, roots);
+          }
+          if (ref.kind === "movie") {
+            const current = getMovie(ref.movieId);
+            if (current?.activeInfoHash === infoHash) updateMovie(current.id, { status: current.file ? "available" : "missing", activeInfoHash: null });
+          }
+        })
+      : await applyImportedFilesLocked(ref, files, infoHash);
+    if (result.ok) { takeManualGrab(infoHash); takePendingVersionIntent(infoHash); }
     // Anthologie Plex (Monster) : ranger aussitôt les fichiers là où Plex les
     // attend — voir anthology.ts.
     if (ref.kind !== "movie") {
@@ -515,7 +557,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   // user saw the name with the "forbidden word" and chose it anyway, so the
   // download must still be renamed/moved into the library instead of being
   // quarantined. Only AUTOMATIC grabs keep the blocked-word veto.
-  const manualGrab = takeManualGrab(infoHash);
+  const manualGrab = peekManualGrab(infoHash);
   const blockedTerm = manualGrab ? null : await checkPostImportBlockedWord(infoHash);
   if (blockedTerm) {
     for (const f of files) await deleteQuarantinedFile(f.path);
@@ -542,6 +584,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     const best = [...files].sort((a, b) => b.size - a.size)[0];
     const newFile = {
       path: best.path,
+      diskPath: best.path,
       quality: best.quality ?? "—",
       resolution: best.resolution,
       videoCodec: best.videoCodec,
@@ -558,7 +601,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // primary file is deleted from disk and the new file is brought back to
     // its final expected name (see finalizeReplacePath) so no " (2)"/" (3)"
     // collision duplicates ever accumulate in Plex.
-    const pendingMode = takePendingVersionIntent(infoHash);
+    const pendingMode = peekPendingVersionIntent(infoHash);
     let finalFile = newFile;
     if (pendingMode !== "add") {
       finalFile = await finalizeReplacePath(movie, newFile, await engineLibraryRoots());
@@ -572,6 +615,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       activeInfoHash: null,
       file: versioned.file,
       versions: versioned.versions,
+      lastImportedInfoHash: infoHash ?? null,
     });
     // TODO_POST_MOTEUR_LECTURE.md item 1 — fire-and-forget, never blocks import.
     probeMovieInBackground(movie.id, versioned.file?.diskPath ?? versioned.file?.path);
