@@ -22,6 +22,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -545,6 +546,7 @@ fun TitleDetailScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(0f to pageTop, 0.55f to pageTop, 1f to pageBackground))
+            .then(if (twoPane) Modifier.clipToBounds() else Modifier)
             .onSizeChanged { screenWidth = with(density) { it.width.toDp() } },
     ) {
         // Hero réduit en déplié (paysage parfois bas) : contenu + CTA restent
@@ -581,7 +583,11 @@ fun TitleDetailScreen(
                 directSources = preview?.directSources.orEmpty(),
                 trailerKeys = previewKeys,
                 title = preview?.title ?: detail?.title.orEmpty(),
-                modifier = heroMediaModifier,
+                // Move the preview only; keep its size, the artwork and scrims.
+                modifier = heroMediaModifier.then(
+                    if (twoPane) Modifier.graphicsLayer { translationX = -size.width * 0.33f }
+                    else Modifier,
+                ),
             )
         }
 

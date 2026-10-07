@@ -1,3 +1,10 @@
+## v1.25.200 — Octobre 2026
+
+### Android mobile paysage : placement de l’aperçu vidéo
+
+- Dans la fiche en deux volets, l’aperçu de la bande-annonce est décalé vers la gauche de 33 % de sa largeur, sans modifier sa taille ni son format.
+- Le fondu, le texte et l’image de fond restent en place ; la vidéo qui dépasse est masquée aux limites de l’écran.
+
 ## v1.25.199 — Octobre 2026
 
 ### Android mobile paysage et couleurs du thème Bêta
