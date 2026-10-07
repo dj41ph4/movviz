@@ -1,3 +1,12 @@
+## v1.26.001 — Octobre 2026
+
+### Accessibilité desktop par profil
+
+- Dans Mon profil, une section Accessibilité permet de choisir la taille du texte sur ordinateur : 100 %, 110 % ou 120 %, avec aperçu immédiat et retour au réglage standard.
+- La préférence est enregistrée dans le compte et retrouvée sur les autres ordinateurs. Elle ne modifie pas les applications Android ou TV.
+- L’agrandissement couvre les textes de l’interface, les menus et les panneaux, dans les apparences Stable et Bêta, avec adaptation des zones de navigation et des commandes.
+- À 100 %, les styles d’agrandissement sont entièrement désactivés ; les affiches, logos et vidéos conservent leurs dimensions.
+
 ## v1.25.201 — Octobre 2026
 
 ### Android mobile : lecteur discret et hauteur prioritaire

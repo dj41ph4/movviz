@@ -968,6 +968,18 @@ export const de: Dictionary = {
   },
 
   profile: {
+    accessibility: {
+      title: "Barrierefreiheit",
+      hint: "Ihre Leseeinstellung für den Computer wird in Ihrem Profil gespeichert und auf anderen Computern übernommen.",
+      textSize: "Textgröße am Computer",
+      standard: "Standard · 100 %",
+      large: "Groß · 110 %",
+      larger: "Sehr groß · 120 %",
+      preview: "Vorschau",
+      previewText: "Finden Sie Ihre Filme, Serien und Downloads mit besser lesbarem Text.",
+      reset: "Auf 100 % zurücksetzen",
+      saveError: "Die Textgröße konnte nicht gespeichert werden. Ihre vorherige Einstellung wurde wiederhergestellt.",
+    },
     title: "Profil",
     description: "Verwalte dein Konto und deinen Zugriff.",
     aiContext: {

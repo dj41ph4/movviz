@@ -968,6 +968,18 @@ export const it: Dictionary = {
   },
 
   profile: {
+    accessibility: {
+      title: "Accessibilità",
+      hint: "La preferenza di lettura sul computer viene salvata nel profilo ed è disponibile sugli altri computer.",
+      textSize: "Dimensione del testo sul computer",
+      standard: "Standard · 100%",
+      large: "Grande · 110%",
+      larger: "Molto grande · 120%",
+      preview: "Anteprima",
+      previewText: "Trova film, serie e download con un testo più facile da leggere.",
+      reset: "Ripristina il 100%",
+      saveError: "Impossibile salvare la dimensione del testo. È stata ripristinata l’impostazione precedente.",
+    },
     title: "Profilo",
     description: "Gestisci il tuo account e l'accesso.",
     aiContext: {

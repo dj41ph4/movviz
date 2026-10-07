@@ -968,6 +968,18 @@ export const nl: Dictionary = {
   },
 
   profile: {
+    accessibility: {
+      title: "Toegankelijkheid",
+      hint: "Je leesvoorkeur voor de computer wordt opgeslagen in je profiel en overgenomen op andere computers.",
+      textSize: "Tekstgrootte op de computer",
+      standard: "Standaard · 100%",
+      large: "Groot · 110%",
+      larger: "Extra groot · 120%",
+      preview: "Voorbeeld",
+      previewText: "Vind je films, series en downloads met beter leesbare tekst.",
+      reset: "Terug naar 100%",
+      saveError: "De tekstgrootte kon niet worden opgeslagen. Je vorige instelling is hersteld.",
+    },
     title: "Profiel",
     description: "Beheer je account en toegang.",
     aiContext: {

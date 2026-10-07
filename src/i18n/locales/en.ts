@@ -968,6 +968,18 @@ export const en: Dictionary = {
   },
 
   profile: {
+    accessibility: {
+      title: "Accessibility",
+      hint: "Your desktop reading preference is saved to your profile and available on your other computers.",
+      textSize: "Desktop text size",
+      standard: "Standard · 100%",
+      large: "Large · 110%",
+      larger: "Extra large · 120%",
+      preview: "Preview",
+      previewText: "Find your movies, series and downloads with text that is easier to read.",
+      reset: "Reset to 100%",
+      saveError: "Could not save text size. Your previous setting has been restored.",
+    },
     title: "Profile",
     description: "Manage your account and access.",
     aiContext: {

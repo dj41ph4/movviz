@@ -966,6 +966,18 @@ export const fr = {
   },
 
   profile: {
+    accessibility: {
+      title: "Accessibilité",
+      hint: "Votre préférence de lecture sur ordinateur est enregistrée dans votre profil et retrouvée sur vos autres ordinateurs.",
+      textSize: "Taille du texte sur ordinateur",
+      standard: "Standard · 100 %",
+      large: "Agrandi · 110 %",
+      larger: "Très agrandi · 120 %",
+      preview: "Aperçu",
+      previewText: "Retrouvez vos films, vos séries et vos téléchargements avec un texte plus facile à lire.",
+      reset: "Rétablir 100 %",
+      saveError: "Impossible d’enregistrer la taille du texte. Votre réglage précédent a été rétabli.",
+    },
     title: "Profil",
     description: "Gère ton compte et tes accès.",
     aiContext: {

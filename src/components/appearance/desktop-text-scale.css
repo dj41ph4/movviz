@@ -1,0 +1,40 @@
+/* No rule in this file is active at 100%. Root rems and media geometry stay
+   intact: the PostCSS companion scales font declarations only. */
+@media (min-width: 1024px) {
+  html[data-desktop-text-scale="110"] { --mv-desktop-text-factor: 1.1; }
+  html[data-desktop-text-scale="120"] { --mv-desktop-text-factor: 1.2; }
+
+  html:is([data-desktop-text-scale="110"], [data-desktop-text-scale="120"]) body {
+    font-size: calc(1rem * var(--mv-desktop-text-factor));
+  }
+
+  html:is([data-desktop-text-scale="110"], [data-desktop-text-scale="120"]) :is(h1, h2, h3, p, label, td, th) {
+    overflow-wrap: anywhere;
+  }
+
+  html:is([data-desktop-text-scale="110"], [data-desktop-text-scale="120"]) .nx-sidebar nav :is(a, button) {
+    height: auto;
+    min-height: 44px;
+    padding-block: .5rem;
+  }
+
+  html:is([data-desktop-text-scale="110"], [data-desktop-text-scale="120"]) .nx-sidebar .truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  html:is([data-desktop-text-scale="110"], [data-desktop-text-scale="120"]) .nx-discover-desktop-bar {
+    flex-wrap: wrap;
+    row-gap: .75rem;
+  }
+
+  html:is([data-desktop-text-scale="110"], [data-desktop-text-scale="120"]) .nx-discover-sort {
+    flex-wrap: wrap;
+  }
+
+  html:is([data-desktop-text-scale="110"], [data-desktop-text-scale="120"]) :is(.nx-library-grid, .nx-downloads-page) .truncate {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}

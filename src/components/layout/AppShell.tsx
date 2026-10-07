@@ -26,6 +26,7 @@ import { AppErrorBoundary } from "@/components/ui/AppErrorBoundary";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 import { AppearanceProvider } from "@/components/appearance/AppearanceProvider";
+import { DesktopTextScaleProvider } from "@/components/appearance/DesktopTextScaleProvider";
 
 /**
  * Shared data-fetch cache for the whole session. SWR keeps its cache keyed
@@ -162,6 +163,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
             <InterfaceSWRPolicy>
               <PlayerProvider>
                 <AppearanceProvider key={currentUser?.id ?? "anonymous"} userId={currentUser?.id ?? null}>
+                <DesktopTextScaleProvider />
                 <Suspense fallback={null}>
                   <PageLoaderProvider>
                     <div className="nx-desktop-shell relative z-10 flex min-h-screen">

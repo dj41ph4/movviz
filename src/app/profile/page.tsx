@@ -20,6 +20,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useWatchRegion, WATCH_REGION_OPTIONS } from "@/lib/settings/useWatchRegion";
 import { Toggle } from "@/components/ui/Toggle";
 import { AiContextPanel } from "@/components/profile/AiContextPanel";
+import { AccessibilityPanel } from "@/components/profile/AccessibilityPanel";
 
 interface TokenRecord {
   id: string;
@@ -364,6 +365,8 @@ export default function ProfilePage() {
         </button>
         {pwMessage && <p className="mt-2 text-xs text-ink-dim">{pwMessage}</p>}
       </div>
+
+      <AccessibilityPanel />
 
       <div className="mb-6 rounded-2xl glass p-5">
         <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.discover")}</h3>

@@ -53,15 +53,19 @@ export default async function RootLayout({
   // la navigation et reprend 4 s après la dernière interaction. Les routes
   // API marquent déjà via requireUser ; ce point couvre le RSC lui-même
   // (sinon une navigation pure restait invisible de l'arrière-plan).
+  let desktopTextScale: 110 | 120 | undefined;
   try {
     const token = (await cookies()).get(SESSION_COOKIE)?.value;
     const sessionUser = token ? resolveSession(token) : null;
+    if (sessionUser?.status !== "pending" && (sessionUser?.desktopTextScale === 110 || sessionUser?.desktopTextScale === 120)) {
+      desktopTextScale = sessionUser.desktopTextScale;
+    }
     if (sessionUser && sessionUser.status !== "pending") markUserActivity(sessionUser);
   } catch {
     // Pré-rendu statique au build (pas de cookies) — sans conséquence.
   }
   return (
-    <html lang="fr" data-theme="dark" className={fontVariables} suppressHydrationWarning>
+    <html lang="fr" data-theme="dark" className={fontVariables} data-desktop-text-scale={desktopTextScale} suppressHydrationWarning>
       {/* React ne monte le <img> du splash/sidebar qu'après l'hydratation JS —
           trop tard pour qu'il "apparaisse en premier". Ce preload démarre le
           téléchargement dès le HTML initial, en parallèle du JS, pour que le

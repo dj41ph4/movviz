@@ -59,6 +59,8 @@ export interface User {
   createdAt: number;
   /** Organisation personnelle des rangées de suggestions, par page (clé = identifiant de page, voir @/lib/rowLayout). */
   rowLayouts?: Record<string, RowLayoutPref>;
+  /** Personal desktop-web typography preference. Absent means the original 100% rendering. */
+  desktopTextScale?: 100 | 110 | 120;
 }
 
 /** Ordre voulu + rangées masquées pour une page — absent = ordre par défaut du serveur. */
