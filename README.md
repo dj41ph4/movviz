@@ -6,7 +6,7 @@
 
 <h1>Movviz</h1>
 <p><strong>Ton catalogue. Ton serveur. Tes règles.</strong></p>
-<p><strong>Version actuelle : v1.26.001</strong></p>
+<p><strong>Version actuelle : v1.26.002</strong></p>
 
 <p>
 Movviz réunit en <strong>une seule application auto-hébergée</strong> tout ce qu'il faut pour vivre ses films et séries :

@@ -1,3 +1,12 @@
+## v1.26.002 — Octobre 2026
+
+### Android mobile : timeline glissable et immersion
+
+- Le curseur, la progression et le temps affiché suivent le doigt sur la timeline. Le saut vidéo est effectué au relâchement, sans rechargements répétés pendant le glissé.
+- Le geste de timeline bloque la luminosité et le volume ; les contrôles restent visibles jusqu’au relâchement.
+- Le lecteur utilise toute la surface de l’écran, en masquant les barres système.
+- Les bandes noires intégrées dans un flux vidéo sont détectées sur plusieurs images claires concordantes et retirées par un zoom d’affichage progressif. Les scènes sombres ne déclenchent pas le zoom ; les vidéos natives en 21:9 sont exclues.
+
 ## v1.26.001 — Octobre 2026
 
 ### Accessibilité desktop par profil

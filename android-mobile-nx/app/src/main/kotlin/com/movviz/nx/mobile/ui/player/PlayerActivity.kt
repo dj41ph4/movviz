@@ -26,6 +26,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -170,6 +172,16 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
+            systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
 
         val baseUrl = intent.getStringExtra(EXTRA_BASE_URL) ?: run { finish(); return }
         val keys = intent.getStringArrayListExtra(EXTRA_KEYS)?.takeIf { it.isNotEmpty() } ?: run { finish(); return }
@@ -460,6 +472,8 @@ private fun PlayerScreen(
     val hasPrev = currentIndex > 0
 
     var showControls by remember { mutableStateOf(true) }
+    var nativePlayerView by remember { mutableStateOf<PlayerView?>(null) }
+    var timelineScrubbing by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(true) }
     var loading by remember { mutableStateOf(true) }
     // Dernière exception ExoPlayer — sert uniquement aux détails techniques
@@ -552,6 +566,8 @@ ExoPlayer.Builder(context)
     // et permettre le contrôle par la télécommande système. L'activité de
     // session (sessionActivity) fait que cliquer sur la carte du launcher
     // rouvre l'app. Relâchée quand l'Activity se ferme.
+    PlayerImmersion(exoPlayer, nativePlayerView, "${current.ratingKey}|${current.localKey}", hasRenderedFrame)
+
     val mediaSession = remember(exoPlayer) {
         val sessionActivity = PendingIntent.getActivity(
             context,
@@ -1069,9 +1085,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
 
     // Auto-hide des contrôles — toute interaction relance le minuteur.
     var lastInteraction by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, isPlaying) {
+    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, isPlaying, timelineScrubbing) {
         showControls = true
-        if (!isPlaying || showAudioDialog || showSubtitleDialog) return@LaunchedEffect
+        if (!isPlaying || timelineScrubbing || showAudioDialog || showSubtitleDialog) return@LaunchedEffect
         delay(CONTROLS_TIMEOUT_MS)
         showControls = false
     }
@@ -1114,6 +1130,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     val gestureAudio = remember { context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager }
     var volumeRemainder by remember { mutableStateOf(0f) }
     fun changeLevelAction(left: Boolean, delta: Float) {
+        if (timelineScrubbing) return
         if (left) {
             val window = (context as? android.app.Activity)?.window ?: return
             val attrs = window.attributes
@@ -1236,6 +1253,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
+                    nativePlayerView = this
                     player = exoPlayer
                     useController = false
                     // Fill the phone's height while preserving the video's ratio.
@@ -1472,6 +1490,20 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 playPauseFocus = playPauseFocus,
                 progressFocus = progressFocus,
                 onInteraction = { poke() },
+                onScrubbingChange = { active ->
+                    timelineScrubbing = active
+                    if (active) {
+                        pendingSeekTarget = null
+                        pendingSeekOrigin = null
+                        pendingSeekToken++
+                        seekIndicator = null
+                    }
+                    poke()
+                },
+                onSeekCommit = { target ->
+                    exoPlayer.seekTo(target)
+                    playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, target, "scrub") } }
+                },
                 onPlayPause = { playPauseAction() },
                 onSeekBack = { seekBackAction() },
                 onSeekForward = { seekForwardAction() },
@@ -1668,6 +1700,8 @@ private fun BufferingSpinner(size: Dp, modifier: Modifier = Modifier) {
 @Composable
 private fun PlayerProgressBar(
     player: ExoPlayer,
+    onScrubbingChange: (Boolean) -> Unit,
+    onSeekCommit: (Long) -> Unit,
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
     onMoveToControls: (() -> Unit)? = null,
@@ -1676,6 +1710,12 @@ private fun PlayerProgressBar(
     var positionMs by remember { mutableStateOf(0L) }
     var durationMs by remember { mutableStateOf(0L) }
     var bufferedPercent by remember { mutableStateOf(0) }
+    val mediaKey = player.currentMediaItem?.mediaId
+    var scrubPositionMs by remember(player, mediaKey) { mutableStateOf<Long?>(null) }
+    var scrubDurationMs by remember(player, mediaKey) { mutableStateOf<Long?>(null) }
+    val latestInteraction by rememberUpdatedState(onInteraction)
+    val latestScrubbingChange by rememberUpdatedState(onScrubbingChange)
+    val latestSeekCommit by rememberUpdatedState(onSeekCommit)
     LaunchedEffect(player) {
         while (true) {
             delay(250)
@@ -1684,7 +1724,9 @@ private fun PlayerProgressBar(
             bufferedPercent = player.bufferedPercentage
         }
     }
-    val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+    val displayedPosition = scrubPositionMs ?: positionMs
+    val displayedDuration = scrubDurationMs ?: durationMs
+    val progress = if (displayedDuration > 0) (displayedPosition.toFloat() / displayedDuration.toFloat()).coerceIn(0f, 1f) else 0f
     val buffered = (bufferedPercent / 100f).coerceIn(0f, 1f)
     // Piste visuelle de 4dp et poignée de 18dp, dans une cible tactile de 44dp.
     var focused by remember { mutableStateOf(false) }
@@ -1718,15 +1760,38 @@ private fun PlayerProgressBar(
                 }
             },
     ) {
-        // La piste est une cible tactile généreuse (44dp), même si son trait
-        // reste fin. Elle consomme son propre tap avant que l'overlay vidéo
-        // plein écran ne le voie, ce qui rend enfin le seek direct possible.
-        Box(modifier = Modifier.fillMaxWidth().height(44.dp).pointerInput(durationMs) {
-            detectTapGestures { offset ->
-                if (durationMs > 0L && size.width > 0) {
-                    val fraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                    player.seekTo((durationMs * fraction).toLong())
-                    onInteraction?.invoke()
+        // Own the entire gesture from down to up, including diagonal motion.
+        // The video brightness/volume detectors never receive a scrub movement.
+        Box(modifier = Modifier.fillMaxWidth().height(44.dp).pointerInput(player, mediaKey) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                down.consume()
+                latestScrubbingChange(true)
+                latestInteraction?.invoke()
+                val gestureDuration = player.duration
+                var target = timelineSeekPosition(down.position.x, size.width, gestureDuration)
+                var released = false
+                try {
+                    scrubDurationMs = gestureDuration.takeIf { it > 0 }
+                    scrubPositionMs = target
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pointer = event.changes.firstOrNull { it.id == down.id }
+                        event.changes.forEach { it.consume() }
+                        if (pointer == null) break
+                        target = timelineSeekPosition(pointer.position.x, size.width, gestureDuration)
+                        scrubPositionMs = target
+                        if (!pointer.pressed) { released = true; break }
+                    }
+                    if (released && target != null && player.currentMediaItem?.mediaId == mediaKey) {
+                        latestSeekCommit(target)
+                        positionMs = target
+                    }
+                } finally {
+                    scrubPositionMs = null
+                    scrubDurationMs = null
+                    latestScrubbingChange(false)
+                    latestInteraction?.invoke()
                 }
             }
         }, contentAlignment = Alignment.Center) {
@@ -1777,9 +1842,9 @@ private fun PlayerProgressBar(
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             // tabular-nums desktop : chiffres à chasse fixe pour que le
             // libellé ne "gigote" pas seconde par seconde.
-            Text(text = formatTime(positionMs), style = timeLabelStyle())
+            Text(text = formatTime(displayedPosition), style = timeLabelStyle())
             StreamQualityLabels(player, Modifier.weight(1f).padding(horizontal = 12.dp))
-            Text(text = formatTime(durationMs), style = timeLabelStyle())
+            Text(text = formatTime(displayedDuration), style = timeLabelStyle())
         }
     }
 }
@@ -1832,6 +1897,8 @@ private fun ControlsOverlay(
     playPauseFocus: FocusRequester,
     progressFocus: FocusRequester,
     onInteraction: () -> Unit,
+    onScrubbingChange: (Boolean) -> Unit,
+    onSeekCommit: (Long) -> Unit,
     onPlayPause: () -> Unit,
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
@@ -1926,6 +1993,8 @@ private fun ControlsOverlay(
         ) {
             PlayerProgressBar(
                 player = player,
+                onScrubbingChange = onScrubbingChange,
+                onSeekCommit = onSeekCommit,
                 focusRequester = progressFocus,
                 onMoveToControls = { playPauseFocus.requestFocus() },
                 onInteraction = onInteraction,
