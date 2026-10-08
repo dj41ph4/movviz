@@ -321,18 +321,18 @@ export const TASKS: ScheduledTask[] = [
     id: "rss-indexer-scan",
     name: "Scan RSS des indexeurs",
     intervalMs: 60 * 60 * 1000, // hourly
-    // 1. Refresh the in-memory RSS cache from every enabled indexer.
+    // 1. Reconcile release dates so a newly released title is eligible now,
+    //    without waiting for the separate six-hour release-day task.
+    // 2. Refresh the RSS cache from every enabled indexer.
     //    If an indexer is currently rate-limited (429 in the last 10 min)
     //    it is skipped — we don't hammer it.
-    // 2. Match the cached releases against everything currently missing.
-    //    Zero direct indexer calls during matching: 429 rate-limits in
-    //    this phase are impossible.
+    // 3. Match missing titles and use the normal quality-filtered grab path.
     run: async () => {
       // Admin kill switch (Réglages → Automatisation, explicit request):
-      // never search/grab anything unattended when off. The RSS cache
-      // itself is harmless to keep warm (no grab happens from refreshing
-      // it alone) — only the actual matching/grab step is gated.
+      // never search/grab anything unattended when off.
       if (!isAutoSearchMissingEnabled()) return;
+      transitionUpcomingMovies();
+      transitionUpcomingEpisodes();
       await refreshRssCache();
       await rssMatchIndexers();
     },

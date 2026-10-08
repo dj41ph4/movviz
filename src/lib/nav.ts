@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Compass, Film, Tv, LibraryBig, Search, Inbox, Download,
+  LayoutDashboard, Compass, LibraryBig, Search, Inbox, Download,
   Settings, AlertTriangle, Users, Clock, CalendarDays, Trash2, ClipboardList,
   Ban, CircleOff, type LucideIcon,
 } from "lucide-react";
@@ -20,9 +20,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: "/", labelKey: "nav.dashboard", hintKey: "nav.dashboardHint", icon: LayoutDashboard },
   { href: "/discover", labelKey: "nav.discover", hintKey: "nav.discoverHint", icon: Compass },
-  { href: "/movies", labelKey: "common.movies", hintKey: "nav.moviesHint", icon: Film },
-  { href: "/series", labelKey: "common.series", hintKey: "nav.seriesHint", icon: Tv },
-  { href: "/library?tab=collection", labelKey: "nav.collections", hintKey: "nav.collectionsHint", icon: LibraryBig },
+  { href: "/library", labelKey: "nav.library", hintKey: "nav.libraryHint", icon: LibraryBig },
   { href: "/downloads", labelKey: "nav.downloads", hintKey: "nav.activityHint", icon: Download, liveBadge: "activeDownloads" },
   { href: "/calendar", labelKey: "nav.calendar", hintKey: "nav.calendarHint", icon: CalendarDays },
   { href: "/settings", labelKey: "nav.settings", hintKey: "nav.settingsHint", icon: Settings },

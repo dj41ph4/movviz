@@ -24,6 +24,14 @@ export function movieHasReleased(vfReleaseDate: string | null, releaseDate: stri
   return t <= now;
 }
 
+/** Same date precedence as movieHasReleased, bounded to recent releases. */
+export function movieReleasedRecently(vfReleaseDate: string | null, releaseDate: string | null, now = Date.now()): boolean {
+  const date = vfReleaseDate ?? releaseDate;
+  if (!date) return false;
+  const releasedAt = new Date(date).getTime();
+  return Number.isFinite(releasedAt) && releasedAt <= now && now - releasedAt <= 14 * 86400000;
+}
+
 export function episodeHasAired(airDate: string | null, now = Date.now()): boolean {
   if (!airDate) return true;
   const t = new Date(airDate).getTime();

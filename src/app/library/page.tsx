@@ -39,15 +39,13 @@ function LibraryPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "library";
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
+  const tab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "library";
   // Mounted once at the page level (not per-tab) so the panel survives tab
   // switches, and every <Link href="/title/..."> rendered by any tab (movie/
   // series cards, collection posters) opens it instead of navigating away.
   const { titlePanel } = useTitlePanel();
 
   const pushTab = (id: (typeof TABS)[number]["id"]) => {
-    setTab(id);
     const p = new URLSearchParams(params.toString());
     if (id === "library") p.delete("tab");
     else p.set("tab", id);

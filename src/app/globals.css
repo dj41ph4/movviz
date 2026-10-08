@@ -896,26 +896,11 @@ body {
     padding: .75rem 1rem;
   }
 
-  .nx-desktop-shell .nx-library-grid > div:first-child {
-    border-color: color-mix(in oklab, var(--color-cyan) 27%, transparent);
-    border-radius: 12px;
-    background: linear-gradient(120deg, rgba(9,20,48,.94), rgba(20,25,67,.78));
-  }
-
   .nx-desktop-shell .nx-library-grid {
     display: grid;
-    grid-template-columns: 156px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 1rem;
     align-items: start;
-  }
-
-  .nx-desktop-shell .nx-library-genres {
-    position: sticky;
-    top: 1rem;
-    padding: .85rem .55rem;
-    border: 1px solid color-mix(in oklab, var(--color-cyan) 25%, transparent);
-    border-radius: 12px;
-    background: linear-gradient(145deg, rgba(9,20,48,.95), rgba(13,18,52,.82));
   }
 
   .nx-desktop-shell .nx-download-table-head {

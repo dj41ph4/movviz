@@ -14,7 +14,7 @@ import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/t
 import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
-import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X, Check, Clapperboard, Sparkles, Heart, Grid2X2, ListFilter } from "lucide-react";
+import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X, Clapperboard, Sparkles, Heart, Grid2X2, ListFilter } from "lucide-react";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
 export const RENDER_BATCH_INITIAL = 200;
@@ -40,8 +40,8 @@ const FILTERS: { id: "all" | LibraryStatus; key: string }[] = [
 ];
 const TYPES: { id: "all" | "movie" | "series"; key: string; href: string }[] = [
   { id: "all", key: "common.all", href: "/library" },
-  { id: "movie", key: "common.movies", href: "/movies" },
-  { id: "series", key: "common.series", href: "/series" },
+  { id: "movie", key: "common.movies", href: "/library?type=movie" },
+  { id: "series", key: "common.series", href: "/library?type=series" },
 ];
 const SORTS: { id: "title" | "recent" | "rating"; key: string }[] = [
   { id: "title", key: "library.sortTitle" },
@@ -67,10 +67,8 @@ function alphabetKeyOf(title: string): string {
 const ALPHABET_KEYS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
 /**
- * The library grid, shared by three fixed pages: /library (Tout, mixes both
- * types and keeps the type chips as links to the dedicated pages), /movies
- * (movies only) and /series (series only). On the fixed pages the type is
- * baked in — no type chips, no `type` URL param.
+ * The existing library grid: /library filters movies/series in place via
+ * its type URL param. A caller can still constrain it with fixedType.
  */
 export function LibraryGrid({ fixedType }: { fixedType: "all" | "movie" | "series" }) {
   return (
@@ -104,16 +102,8 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   const [searchAndReplaceOpen, setSearchAndReplaceOpen] = useState(false);
   const [starting, setStarting] = useState(false);
 
-  // The "Tout" page keeps accepting legacy ?type=movie|series links (old
-  // sidebar/bookmarks) — redirect them to the dedicated fixed pages.
   const typeParam = searchParams.get("type");
-  useEffect(() => {
-    if (fixedType !== "all") return;
-    if (typeParam === "movie") router.replace("/movies");
-    else if (typeParam === "series") router.replace("/series");
-  }, [typeParam, fixedType, router]);
-
-  const type = fixedType;
+  const type = fixedType === "all" && (typeParam === "movie" || typeParam === "series") ? typeParam : fixedType;
 
   // Sync library filters to URL for back-button support.
   useEffect(() => {
@@ -435,21 +425,10 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
   return (
     <div className="nx-library-grid">
-      <aside className="nx-library-genres hidden lg:block">
-        <p className="mb-3 text-xs font-black uppercase tracking-[.12em] text-ink-dim">{t("discover.genres")}</p>
-        <div className="space-y-1">
-          {[{ id: "", label: t("common.all") }, { id: ANIME_GENRE_ID, label: t("discover.genreAnime") }, { id: TEEN_GENRE_ID, label: t("discover.genreTeen") }, ...allGenres.map((label) => ({ id: label, label }))].map((genreItem) => (
-            <button key={genreItem.id || "all"} type="button" onClick={() => setGenreFilter(genreItem.id)} className={cn("flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors", genreFilter === genreItem.id ? "brand-gradient text-white" : "text-ink-soft hover:bg-white/8 hover:text-ink")}>
-              {genreItem.label}
-              {genreFilter === genreItem.id && <Check className="h-3.5 w-3.5" />}
-            </button>
-          ))}
-        </div>
-      </aside>
       <div className="nx-library-main min-w-0">
       <div className="nx-library-toolbar hidden lg:flex">
         <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-          {TYPES.map((item) => <Link key={item.id} href={item.href} className={cn("nx-library-tool", (item.id === fixedType || (item.id === "all" && fixedType === "all")) && "nx-library-tool-active")}>{item.id === "movie" ? <Film className="h-3.5 w-3.5" /> : item.id === "series" ? <Clapperboard className="h-3.5 w-3.5" /> : <Grid2X2 className="h-3.5 w-3.5" />}{t(item.key)}</Link>)}
+          {TYPES.map((item) => <Link key={item.id} href={item.href} className={cn("nx-library-tool", item.id === type && "nx-library-tool-active")}>{item.id === "movie" ? <Film className="h-3.5 w-3.5" /> : item.id === "series" ? <Clapperboard className="h-3.5 w-3.5" /> : <Grid2X2 className="h-3.5 w-3.5" />}{t(item.key)}</Link>)}
           <Link href="/library?tab=collection" className="nx-library-tool"><Grid2X2 className="h-3.5 w-3.5" />{t("nav.collections")}</Link>
           <button type="button" onClick={() => setTechnicalFilter((value) => value === "4k" ? "all" : "4k")} className={cn("nx-library-tool", technicalFilter === "4k" && "nx-library-tool-active")}>4K</button>
           <button type="button" onClick={() => setTechnicalFilter((value) => value === "hdr" ? "all" : "hdr")} className={cn("nx-library-tool", technicalFilter === "hdr" && "nx-library-tool-active")}>HDR</button>
@@ -462,6 +441,19 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       </div>
       <div className="mb-4 space-y-2.5 rounded-2xl glass p-3.5">
+        <label className="flex w-full max-w-[calc(100vw-2rem)] flex-col gap-1.5 sm:max-w-xs">
+          <span className="text-xs font-semibold text-ink-soft">{t("discover.genres")}</span>
+          <select
+            value={genreFilter}
+            onChange={(event) => setGenreFilter(event.target.value)}
+            className="h-11 w-full min-w-0 rounded-xl border border-white/15 bg-surface px-3 text-sm font-semibold text-ink outline-none focus:border-brand/60 focus:ring-2 focus:ring-brand/20"
+          >
+            <option value="">{t("common.all")}</option>
+            <option value={ANIME_GENRE_ID}>{t("discover.genreAnime")}</option>
+            <option value={TEEN_GENRE_ID}>{t("discover.genreTeen")}</option>
+            {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
+          </select>
+        </label>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-ink">
             <Film className="h-4 w-4 text-brand-glow" />
@@ -534,7 +526,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
           {fixedType === "all" ? (
             <div className="flex flex-wrap gap-1.5">
               {TYPES.map((tp) => {
-                const active = tp.id === "all" ? pathname === "/library" : pathname.startsWith(tp.href);
+                const active = tp.id === type;
                 return (
                   <Link
                     key={tp.id}
@@ -602,27 +594,6 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
           </div>
         )}
 
-        <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3 lg:hidden">
-          {[
-            { id: ANIME_GENRE_ID, label: t("discover.genreAnime") },
-            { id: TEEN_GENRE_ID, label: t("discover.genreTeen") },
-            ...allGenres.map((g) => ({ id: g, label: g })),
-          ].map((g) => (
-            <button
-              key={g.id}
-              onClick={() => setGenreFilter(genreFilter === g.id ? "" : g.id)}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                genreFilter === g.id
-                  ? "bg-brand/20 text-brand-glow shadow-lg"
-                  : "glass-strong text-ink-soft hover:text-ink"
-              )}
-            >
-              {g.label}
-              {genreFilter === g.id && <X className="ml-1 inline h-3 w-3" />}
-            </button>
-          ))}
-        </div>
       </div>
 
       {sort === "title" && total > RENDER_BATCH_INITIAL && (
@@ -651,7 +622,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       )}
 
-        <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-6">
+        <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {visibleItems.map((entry, i) => {
             const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[`series:${entry.series.tmdbId}`];
             return entry.kind === "movie" ? (
@@ -707,7 +678,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
 
       {loading && total === 0 && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {[...Array(12)].map((_, i) => (
             <div key={i}>
               <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />

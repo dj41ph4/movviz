@@ -1,3 +1,18 @@
+## v1.26.005 — 8 octobre 2026
+
+### Téléchargements automatiques
+
+- Réactivation par défaut de la recherche automatique des manquants, y compris pour les anciennes configurations désactivées ; une désactivation volontaire après cette mise à jour reste mémorisée.
+- Le scan RSS horaire actualise les statuts des nouvelles sorties et reconnaît les titres originaux des films. La recherche des sorties récentes utilise la date connue lorsque la date VF manque.
+- Les fréquences personnalisées des recherches automatiques sont plafonnées à huit heures pour prévoir au moins trois passages par jour, lorsque le serveur est actif.
+
+### Bibliothèque et personnalisation
+
+- Films, Séries et Collections sont regroupés dans la page Bibliothèque existante. Les anciennes adresses Films et Séries redirigent vers ses filtres.
+- Les genres passent dans un menu déroulant au-dessus du nombre de titres. La grille occupe toute la largeur et reprend les dimensions des cartes du tableau de bord.
+- La personnalisation des listes est accessible sur ordinateur dans Découverte et ajoutée au tableau de bord : ordre, masquage, réaffichage et réinitialisation, enregistrés par compte.
+- Dans Découverte, la pastille verte des titres disponibles est réduite de moitié ; « Vu » apparaît en bas à droite, indépendamment du statut de téléchargement.
+
 ## v1.26.004 — Octobre 2026
 
 ### Téléchargements : remplacement sûr et statut seed

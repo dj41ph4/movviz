@@ -14,6 +14,8 @@ import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
+import { useRowLayout } from "@/components/media/useRowLayout";
+import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
 
 interface UpgradeCandidate {
   movieId: string;
@@ -92,6 +94,7 @@ export function DashboardRows({
   const t = useT();
   const { locale } = useI18n();
   const router = useRouter();
+  const rowLayout = useRowLayout("dashboard");
   const visible = useMemo(
     () => new Set(sections.filter((s) => s.visible && !(excludeContinueWatching && s.id === "continueWatching")).map((s) => s.id)),
     [sections, excludeContinueWatching]
@@ -300,9 +303,7 @@ export function DashboardRows({
 
   const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "rewatch", "discover", "shortSessions", "comingSoon", "upgradesAvailable"];
 
-  return (
-    <div className="space-y-8">
-      {sectionOrder.map((id) => {
+  const renderSection = (id: DashboardSectionId) => {
         if (!visible.has(id)) return null;
 
         if (id === "continueWatching" && continueWatching.length > 0) {
@@ -589,7 +590,23 @@ export function DashboardRows({
         }
 
         return null;
-      })}
+  };
+  const availableRows = sectionOrder.map((id) => ({ key: id, content: renderSection(id) })).filter((row) => row.content != null);
+  const arrangedRows = rowLayout.arrange(availableRows);
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <RowLayoutToggle layout={rowLayout} />
+      </div>
+      {arrangedRows.map((row) => (
+        <EditableRow key={row.key} rowKey={row.key} rows={arrangedRows} layout={rowLayout}>
+          {row.content}
+        </EditableRow>
+      ))}
+      {availableRows.length > 0 && arrangedRows.length === 0 && (
+        <p className="rounded-xl border border-brand/20 bg-surface/45 p-6 text-sm text-ink-dim">{t("rowLayout.allHidden")}</p>
+      )}
     </div>
   );
 }

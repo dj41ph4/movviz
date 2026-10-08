@@ -26,7 +26,7 @@ import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
 import { normalizeTitle, pickSearchTitle } from "@/lib/library/matching";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
-import { movieHasReleased } from "@/lib/library/releaseSchedule";
+import { movieHasReleased, movieReleasedRecently } from "@/lib/library/releaseSchedule";
 import { withSearchLock } from "@/lib/library/autoGrabSeries";
 import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
@@ -533,8 +533,6 @@ async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number
   return { movies: movieCount, episodes: epCount };
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /**
  * Bidirectional status reconciliation against the release date:
  *  - "upcoming" → "missing" once the date has actually passed, making it
@@ -567,7 +565,7 @@ export function transitionUpcomingMovies() {
 
 /**
  * Retry every monitored movie still "missing" whose VF (France digital/
- * physical) release date has actually arrived — releases routinely land on
+ * physical) release date (or theatrical fallback) has arrived — releases routinely land on
  * indexers a few days late, so a single check on release day itself isn't
  * enough. Bounded to a two-week window so this doesn't degrade into an
  * unbounded retry of every old missing movie; the manual Wanted list already
@@ -584,9 +582,8 @@ async function searchReleasedMissingMoviesInner() {
   const searched: string[] = [];
   for (const movie of loadMovies()) {
     await yieldToUser("recherche films récents");
-    if (!movie.monitored || movie.status !== "missing" || !movie.vfReleaseDate) continue;
-    const releasedAt = new Date(movie.vfReleaseDate).getTime();
-    if (Number.isNaN(releasedAt) || releasedAt > now || now - releasedAt > 14 * DAY_MS) continue;
+    if (!movie.monitored || movie.status !== "missing") continue;
+    if (!movieReleasedRecently(movie.vfReleaseDate, movie.releaseDate, now)) continue;
     await searchAndGrabMovie(movie.id);
     searched.push(movie.id);
   }

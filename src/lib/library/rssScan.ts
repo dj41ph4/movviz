@@ -1,6 +1,6 @@
 import { readRssCache } from "@/lib/indexers/rssCache";
 import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches, yearIsCompatible, looksLikeSeriesRelease } from "@/lib/library/matching";
+import { releaseTitleMatches, yearIsCompatible, looksLikeSeriesRelease, pickSearchTitle } from "@/lib/library/matching";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
@@ -9,10 +9,9 @@ import { yieldToUser } from "@/lib/priority/userActivity";
 
 /**
  * RSS sync: matches cached RSS feed data against everything Movviz currently
- * considers missing. The cache is populated by `refreshRssCache()` — a
- * separate scheduled task (`rss-cache-refresh`) that runs every hour. Zero
- * direct indexer calls here, so 429 rate-limits during the matching phase
- * are impossible.
+ * considers missing. The cache is populated by `refreshRssCache()` as
+ * part of the hourly `rss-indexer-scan` task. Matching a release
+ * triggers the normal quality-filtered search/grab pipeline.
  */
 export async function rssMatchIndexers() {
   // Voie arrière-plan + cession à l'utilisateur : le match RSS est planifié,
@@ -62,7 +61,8 @@ async function rssMatchIndexersInner() {
     for (const movie of missingMovies) {
       if (grabbedMovies.has(movie.id)) continue;
       if (seriesLike.has(parsed)) continue;
-      if (!releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []) || !yearIsCompatible(parsed.year, movie.year)) continue;
+      const aliases = [...(movie.aliases ?? []), movie.title];
+      if (!releaseTitleMatches(parsed.title, pickSearchTitle(movie.title, movie.originalTitle), aliases) || !yearIsCompatible(parsed.year, movie.year)) continue;
       grabbedMovies.add(movie.id);
       await yieldToUser("match RSS films");
       const result = await searchAndGrabMovie(movie.id);

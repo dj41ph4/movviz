@@ -923,7 +923,6 @@ function DiscoverPageInner() {
             {rowCategory && (
               <FilterChip label={rowLabel(rowCategory, rowCategoryMeta)} onClear={() => { setRowCategory(null); setRowCategoryMeta(undefined); }} />
             )}
-            {!isBrowsing && <div className="ml-auto"><RowLayoutToggle layout={rowLayout} /></div>}
             {isBrowsing && (
               <button
                 onClick={clearFilters}
@@ -933,6 +932,12 @@ function DiscoverPageInner() {
               </button>
             )}
           </div>
+
+          {!isBrowsing && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <RowLayoutToggle layout={rowLayout} />
+            </div>
+          )}
 
           {!isBrowsing && (
             <HomeRows
@@ -1671,9 +1676,7 @@ function DiscoverCard({
         : status
           ? "bg-purple-500/95 text-white"
           : "brand-gradient text-white";
-  const cardBadge = watched
-    ? t("watch.watched")
-    : status === "upcoming" && daysToRelease != null
+  const cardBadge = status === "upcoming" && daysToRelease != null
       ? daysToRelease <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: daysToRelease })
       : undefined;
 
@@ -1693,6 +1696,7 @@ function DiscoverCard({
           year={result.year}
           overview={result.overview}
           inLibrary={!!status}
+          reserveBottomRight={watched || !!providerTile?.logoPath}
         />
         <button
           type="button"
@@ -1700,7 +1704,8 @@ function DiscoverCard({
           disabled={adding || !!status}
           title={status ? t("discover.added") : t("discover.addToLibrary")}
           className={cn(
-            "absolute right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-[opacity,transform] hover:scale-105 disabled:cursor-default disabled:opacity-100 lg:opacity-0 lg:group-hover/discover:opacity-100 lg:focus-visible:opacity-100",
+            "absolute right-2 z-20 flex items-center justify-center rounded-full shadow-lg transition-[opacity,transform] hover:scale-105 disabled:cursor-default disabled:opacity-100 lg:opacity-0 lg:group-hover/discover:opacity-100 lg:focus-visible:opacity-100",
+            status === "available" ? "h-[18px] w-[18px]" : "h-9 w-9",
             // The status pill (cardBadge, e.g. "Dans 7 jours") already sits
             // top-right inside DashboardPosterCard — stack this button below
             // it instead of overlapping when both are present.
@@ -1708,12 +1713,17 @@ function DiscoverCard({
             buttonTone,
           )}
         >
-          <ActionIcon className={cn("h-4 w-4", isBusy && "animate-spin")} />
+          <ActionIcon className={cn(status === "available" ? "h-2 w-2" : "h-4 w-4", isBusy && "animate-spin")} />
         </button>
+        {watched && (
+          <span className="pointer-events-none absolute bottom-2 right-2 z-20 rounded-full border border-white/15 bg-black/60 px-2 py-0.5 text-[11px] font-bold text-white/85 backdrop-blur-md">
+            {t("watch.watched")}
+          </span>
+        )}
         {providerTile?.logoPath && (
           <div
             title={providerTile.name}
-            className="pointer-events-none absolute bottom-2 right-2 z-20 flex h-7 w-7 items-center justify-center rounded-md p-1 sm:h-8 sm:w-8"
+            className={cn("pointer-events-none absolute right-2 z-20 flex h-7 w-7 items-center justify-center rounded-md p-1 sm:h-8 sm:w-8", watched ? "bottom-9" : "bottom-2")}
           >
             <TmdbImage path={providerTile.logoPath} size="w92" alt={providerTile.name} className="h-full w-full object-contain" />
           </div>

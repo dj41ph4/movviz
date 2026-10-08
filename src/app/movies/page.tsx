@@ -1,14 +1,5 @@
-"use client";
-
-import { LibraryMediaPage } from "@/components/library/LibraryMediaPage";
-import { useTitlePanel } from "@/components/title/useTitlePanel";
+import { redirect } from "next/navigation";
 
 export default function MoviesPage() {
-  const { titlePanel } = useTitlePanel();
-  return (
-    <>
-      <LibraryMediaPage type="movie" />
-      {titlePanel}
-    </>
-  );
+  redirect("/library?type=movie");
 }

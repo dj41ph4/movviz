@@ -28,7 +28,6 @@ function matchesRoute(item: NavItem, pathname: string, searchParams?: ReturnType
   const [hrefPath, hrefQuery] = item.href.split("?");
   const hrefParams = hrefQuery ? new URLSearchParams(hrefQuery) : null;
   if (item.href === "/") return pathname === "/";
-  if (item.href === "/series") return pathname.startsWith("/series") || pathname.startsWith("/library/series");
   if (hrefParams) return pathname === hrefPath && [...hrefParams.entries()].every(([key, value]) => searchParams?.get(key) === value);
   return pathname.startsWith(item.href);
 }

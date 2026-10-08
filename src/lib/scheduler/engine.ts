@@ -5,11 +5,12 @@ import type { JobType } from "@/lib/jobs/types";
 import { openBlockWindow } from "@/lib/blockProbe";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { runBackground } from "@/lib/priority/lane";
+import { acquisitionInterval } from "./interval";
 
 /** Effective interval for a task — persisted override or hardcoded default. */
 export function getEffectiveInterval(id: string, defaultMs: number): number {
   const cfg = getTaskConfig(id);
-  return cfg.intervalMs ?? defaultMs;
+  return acquisitionInterval(id, cfg.intervalMs ?? defaultMs);
 }
 
 export interface TaskStatus {
