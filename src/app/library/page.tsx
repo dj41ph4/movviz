@@ -53,7 +53,7 @@ function LibraryPageInner() {
   };
 
   return (
-    <div className="nx-library-page mx-auto max-w-[1500px]">
+    <div className="nx-library-page mx-auto w-full max-w-[2000px]">
       <PageHeader eyebrow={t("library.eyebrow")} title={t("library.title")} description={t("library.description")} />
 
       <div className="mb-6 flex flex-wrap gap-1.5">

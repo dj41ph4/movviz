@@ -441,24 +441,26 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       </div>
       <div className="mb-4 space-y-2.5 rounded-2xl glass p-3.5">
-        <label className="flex w-full max-w-[calc(100vw-2rem)] flex-col gap-1.5 sm:max-w-xs">
-          <span className="text-xs font-semibold text-ink-soft">{t("discover.genres")}</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-ink">
+            <Film className="h-4 w-4 text-brand-glow" />
+            <span className="text-sm font-semibold">{total} {t("common.titles")}</span>
+          </div>
+          <label className="flex w-full max-w-[calc(100vw-2rem)] items-center gap-2 sm:w-auto">
+            <span className="shrink-0 text-xs font-semibold text-ink-soft">{t("discover.genres")}</span>
           <select
             value={genreFilter}
             onChange={(event) => setGenreFilter(event.target.value)}
-            className="h-11 w-full min-w-0 rounded-xl border border-white/15 bg-surface px-3 text-sm font-semibold text-ink outline-none focus:border-brand/60 focus:ring-2 focus:ring-brand/20"
+            className="h-10 min-w-0 flex-1 rounded-xl border border-white/15 bg-surface px-3 text-sm font-semibold text-ink outline-none focus:border-brand/60 focus:ring-2 focus:ring-brand/20 sm:w-56 sm:flex-none"
           >
             <option value="">{t("common.all")}</option>
             <option value={ANIME_GENRE_ID}>{t("discover.genreAnime")}</option>
             <option value={TEEN_GENRE_ID}>{t("discover.genreTeen")}</option>
             {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
           </select>
-        </label>
+          </label>
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-ink">
-            <Film className="h-4 w-4 text-brand-glow" />
-            <span className="text-sm font-semibold">{total} {t("common.titles")}</span>
-          </div>
           {user?.role === "admin" && (
             <div className="flex flex-wrap items-center gap-1.5">
               <button

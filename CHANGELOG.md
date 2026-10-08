@@ -1,3 +1,10 @@
+## v1.26.006 — 8 octobre 2026
+
+### Bibliothèque : proportions et filtres
+
+- Le menu Genres est aligné à droite du compteur de titres.
+- La page utilise la même largeur utile que le tableau de bord afin de conserver les mêmes proportions de cartes et d’espacements sur grand écran.
+
 ## v1.26.005 — 8 octobre 2026
 
 ### Téléchargements automatiques
