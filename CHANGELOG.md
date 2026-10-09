@@ -1,3 +1,12 @@
+## v1.26.007 — 10 octobre 2026
+
+### Récupération automatique des blocages
+
+- Un worker de sauvegarde JSON bloqué est remplacé après deux minutes ; les sauvegardes échouées sont réessayées avec les données les plus récentes.
+- Dans Docker, un superviseur indépendant relance le serveur web après cinq minutes d'indisponibilité continue, avec dix minutes de grâce au démarrage, au moins quinze minutes entre les relances et au maximum trois relances par heure.
+- Les échecs prolongés de sauvegarde sont détectés par la sonde de santé. Les processus de téléchargement et du résolveur conservent leur sortie de logs lors d'une relance du serveur web.
+- L'arrêt tente d'enregistrer les changements en attente après l'arrêt des workers d'écriture. Les décisions de récupération apparaissent dans les logs sous `[watchdog]`.
+
 ## v1.26.006 — 8 octobre 2026
 
 ### Bibliothèque : proportions et filtres

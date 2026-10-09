@@ -15,6 +15,10 @@ const g = globalThis as typeof globalThis & {
   __movvizJsonWritePool?: WorkerPool<JsonWriteTaskInput, JsonWriteTaskOutput>;
 };
 
+export async function stopJsonWritePool(): Promise<void> {
+  await g.__movvizJsonWritePool?.close();
+}
+
 /** Lazily spawns the pool on first large write — routes never touching a
  *  large store never pay for worker startup. */
 export function getJsonWritePool(): WorkerPool<JsonWriteTaskInput, JsonWriteTaskOutput> {

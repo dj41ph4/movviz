@@ -41,7 +41,7 @@ services:
       # Plex's library already watches so new titles show up automatically.
       - /volume1/data:/data
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9810/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9810/api/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

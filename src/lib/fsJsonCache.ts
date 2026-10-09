@@ -2,7 +2,7 @@ import fs from "node:fs";
 import zlib from "node:zlib";
 import path from "node:path";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { getJsonWritePool } from "./workers/jsonWritePool";
+import { getJsonWritePool, stopJsonWritePool } from "./workers/jsonWritePool";
 
 /**
  * Process-wide cache for the JSON files that back every Movviz store.
@@ -47,6 +47,9 @@ const g = globalThis as typeof globalThis & {
   __movvizLastKnownSize?: Map<string, number>;
   __movvizJsonBodyMemo?: Map<string, { version: string; body: string; gzip: Buffer | null }>;
   __movvizJsonReadFailures?: Set<string>;
+  __movvizJsonWriteFailures?: Map<string, number>;
+  __movvizJsonWritesStopping?: boolean;
+  __movvizJsonWritePromises?: Map<string, Promise<void>>;
 };
 const cache: Map<string, CacheEntry> = (g.__movvizFsJsonCache ??= new Map());
 export const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
@@ -78,6 +81,19 @@ const lastKnownSize: Map<string, number> = (g.__movvizLastKnownSize ??= new Map(
  * any successful read or write.
  */
 const readFailures: Set<string> = (g.__movvizJsonReadFailures ??= new Set());
+const writeFailures = (g.__movvizJsonWriteFailures ??= new Map<string, number>());
+const writePromises = (g.__movvizJsonWritePromises ??= new Map<string, Promise<void>>());
+
+/** Only sustained persistence failures make liveness unhealthy. */
+export function jsonPersistenceHealthy(now = Date.now()): boolean {
+  return !Array.from(writeFailures.values()).some((since) => now - since >= 5 * 60_000);
+}
+
+export async function prepareJsonShutdown(): Promise<void> {
+  g.__movvizJsonWritesStopping = true;
+  await stopJsonWritePool();
+  await Promise.allSettled([...writePromises.values()]);
+}
 
 /** True if the last read of `file` hit a parse error instead of the file being absent. */
 export function jsonCacheReadFailed(file: string): boolean {
@@ -167,6 +183,7 @@ export function resetAllCaches(): void {
   writeInFlight.clear();
   pendingFileWrites.clear();
   lastKnownSize.clear();
+  writeFailures.clear();
 }
 
 /**
@@ -241,6 +258,9 @@ export function flushPendingJsonWritesSync(): number {
   // coalescing window for the same file: the window's value wins.
   for (const [file, value] of pendingFileWrites) if (!values.has(file)) values.set(file, value);
   pendingFileWrites.clear();
+  // The cache is authoritative: a retry timer may hold an older snapshot
+  // than a value queued behind the current writer.
+  for (const [file, entry] of cache) if (entry.pending) values.set(file, entry.value);
   for (const [file, value] of values) {
     try {
       const compact = JSON.stringify(value);
@@ -248,6 +268,10 @@ export function flushPendingJsonWritesSync(): number {
       const tmp = `${file}.shutdown.tmp`;
       fs.writeFileSync(tmp, json, "utf8");
       fs.renameSync(tmp, file);
+      const stat = fs.statSync(file);
+      cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value });
+      lastKnownSize.set(file, stat.size);
+      writeFailures.delete(file);
       flushed++;
     } catch (err) {
       console.error(`[fsJsonCache] shutdown flush failed for ${file}:`, err);
@@ -267,6 +291,10 @@ export function flushPendingJsonWritesSync(): number {
  * closure, growing until OOM.
  */
 function startFileWrite(file: string, val: unknown) {
+  if (g.__movvizJsonWritesStopping) {
+    pendingFileWrites.set(file, val);
+    return;
+  }
   if (writeInFlight.get(file)) {
     pendingFileWrites.set(file, val);
     return;
@@ -275,6 +303,7 @@ function startFileWrite(file: string, val: unknown) {
   writeInFlight.set(file, true);
 
   const applyResult = (stat: { mtimeMs: number; size: number }) => {
+    writeFailures.delete(file);
     lastKnownSize.set(file, stat.size);
     const current = cache.get(file);
     if (current?.value === val) {
@@ -287,7 +316,7 @@ function startFileWrite(file: string, val: unknown) {
   // Below it, the previous inline path stays exactly as it was — cheapest
   // for the many small stores that never come close to the threshold.
   const doWrite = ((lastKnownSize.get(file) ?? 0) >= LARGE_FILE_WORKER_THRESHOLD_BYTES
-    ? getJsonWritePool().run({ file, value: val }, 30_000).then(applyResult)
+    ? getJsonWritePool().run({ file, value: val }, 120_000).then(applyResult)
     : Promise.resolve().then(() => {
         const compact = JSON.stringify(val);
         const json = compact.length <= PRETTY_MAX_BYTES ? JSON.stringify(val, null, 2) : compact;
@@ -299,10 +328,24 @@ function startFileWrite(file: string, val: unknown) {
           .then(applyResult);
       })
   ).catch((err: unknown) => {
+    if (!writeFailures.has(file)) writeFailures.set(file, Date.now());
+    // Retain only the latest cached value and retry after a quiet interval.
+    // No unbounded promise chain, and no stale failed snapshot replay.
+    if (!pendingWrites.has(file)) {
+      const timer = setTimeout(() => {
+        pendingWrites.delete(file);
+        const latest = cache.get(file);
+        if (latest?.pending) startFileWrite(file, latest.value);
+      }, 30_000);
+      timer.unref();
+      pendingWrites.set(file, { value: cache.get(file)?.value ?? val, timer });
+    }
     console.error(`[fsJsonCache] background write failed for ${file}:`, err);
   });
 
+  writePromises.set(file, doWrite);
   doWrite.finally(() => {
+    writePromises.delete(file);
     writeInFlight.set(file, false);
     const next = pendingFileWrites.get(file);
     if (next !== undefined) {

@@ -68,6 +68,7 @@ RUN mkdir -p /config /data && chown movviz:movviz /config /data
 VOLUME ["/config", "/data"]
 
 COPY packaging/docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY packaging/docker/supervisor.mjs ./supervisor.mjs
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Stays root here on purpose — the entrypoint fixes ownership then drops to
 # movviz (remapped to PUID/PGID) via su-exec before actually running node.
@@ -81,4 +82,4 @@ EXPOSE 9810 9820 9830 55000-55001/tcp 55000-55001/udp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- http://127.0.0.1:9810/api/healthz || exit 1
 
-CMD ["node", "server.js"]
+CMD ["node", "supervisor.mjs"]

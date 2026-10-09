@@ -151,7 +151,8 @@ export async function register() {
         console.log(`[shutdown] ${signal} reçu — sessions ffmpeg actives arrêtées`);
         try {
           // Data first: every JSON store change still waiting to be written.
-          const { flushPendingJsonWritesSync } = await import("@/lib/fsJsonCache");
+          const { prepareJsonShutdown, flushPendingJsonWritesSync } = await import("@/lib/fsJsonCache");
+          await prepareJsonShutdown();
           const flushed = flushPendingJsonWritesSync();
           if (flushed) console.log(`[shutdown] ${flushed} fichier(s) de données enregistrés avant l'arrêt`);
         } catch { /* nothing pending */ }

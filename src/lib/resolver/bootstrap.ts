@@ -41,7 +41,7 @@ export async function bootstrapResolver() {
 
   const child = spawn(process.execPath, [entry], {
     detached: true,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: process.env.MOVVIZ_CONTAINER === "1" ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"],
     env: process.env,
   });
   child.stdout?.on("data", (d) => {

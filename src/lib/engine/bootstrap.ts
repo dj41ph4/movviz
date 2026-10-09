@@ -62,7 +62,10 @@ export async function bootstrapEngine() {
 
   const child = spawn(process.execPath, [entry], {
     detached: true,
-    stdio: ["ignore", "pipe", "pipe"],
+    // The Docker supervisor can restart the web process independently.
+    // Inherit its durable stdout/stderr so the surviving engine does not
+    // retain broken pipes belonging to the former web process.
+    stdio: process.env.MOVVIZ_CONTAINER === "1" ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"],
     env: { ...process.env, MOVVIZ_CONFIG_DIR: cfgDir, MOVVIZ_DATA_DIR: cfgDir },
   });
   child.stdout?.on("data", (d) => {
