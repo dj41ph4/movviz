@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest an improvement to the Movviz experience
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Movviz favors coherent end-to-end workflows over adding disconnected settings or screens, so start with the problem you want to solve.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What is difficult, missing or unnecessarily fragmented today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like to see.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Discovery / home
+        - Library / metadata
+        - Search / indexers
+        - Downloads / BitTorrent
+        - Quality / automation
+        - Playback / transcoding
+        - Recommendations / AI
+        - Requests / users
+        - Plex / imports / integrations
+        - Android TV
+        - Android mobile
+        - Docker / Linux / Windows packaging
+        - Diagnostics / performance
+        - Other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or existing tools
+      description: If another tool already solves this, explain what an integrated Movviz implementation would improve.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Mockups, examples and concrete workflows are welcome.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues before opening this request.
+          required: true
