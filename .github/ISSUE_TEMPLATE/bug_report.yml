@@ -1,0 +1,90 @@
+name: Bug report
+description: Report a reproducible problem in Movviz
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Movviz. Please remove API keys, tokens, credentials, private indexer URLs and other secrets before posting logs or screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: Movviz version
+      placeholder: "e.g. v1.26.x"
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation
+      options:
+        - Windows
+        - Linux
+        - Docker / NAS
+        - Development build
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client
+      options:
+        - Web browser / PWA
+        - Android TV
+        - Android mobile
+        - Samsung Tizen beta
+        - Server / background task
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, CPU architecture, relevant hardware/browser/device.
+      placeholder: "Debian 13, amd64, Intel i5-12500; Chrome 154"
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem clearly.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / Doctor output
+      description: Paste sanitized output only. Do not include secrets.
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: For playback include container/codecs/HDR and direct-play/remux/transcode decision when relevant.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+        - label: I removed credentials, API keys, tokens and private URLs from the information above.
+          required: true
