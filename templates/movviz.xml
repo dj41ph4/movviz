@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Container version="2">
+  <Name>Movviz</Name>
+  <Repository>dj41ph4/movviz:latest</Repository>
+  <Registry>https://hub.docker.com/r/dj41ph4/movviz</Registry>
+  <Network>bridge</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Icon>https://raw.githubusercontent.com/dj41ph4/movviz/main/public/brand/movviz-readme-icon.png</Icon>
+  <WebUI>http://[IP]:[PORT:9810]</WebUI>
+  <Overview>Movviz is an open-source self-hosted all-in-one media platform for discovery, requests, movie/TV automation, Torznab/Newznab search, built-in BitTorrent downloading, library management, playback, recommendations and multi-user viewing. Plex integration is optional.</Overview>
+  <Support>https://github.com/dj41ph4/movviz/issues</Support>
+  <Project>https://github.com/dj41ph4/movviz</Project>
+  <TemplateURL>https://raw.githubusercontent.com/dj41ph4/movviz/main/templates/movviz.xml</TemplateURL>
+  <ReadMe>https://raw.githubusercontent.com/dj41ph4/movviz/main/README.en.md</ReadMe>
+  <Category>MediaApp:Video MediaServer:Video</Category>
+  <ExtraSearchTerms>movviz plex seerr overseerr radarr sonarr prowlarr torznab newznab bittorrent torrent media automation media server</ExtraSearchTerms>
+  <Requires>Internet access is required for metadata/indexer access. Configure media and appdata paths before first use. Forward BitTorrent peer ports on your router/firewall if inbound peer connectivity is desired.</Requires>
+  <Changes>Initial official Unraid template.</Changes>
+  <Date>2026-10-10</Date>
+  <MinVer>6.12</MinVer>
+  <License>GPL-3.0</License>
+
+  <Config Name="WebUI" Target="9810" Default="9810" Mode="tcp" Description="Movviz web interface and API." Type="Port" Display="always" Required="true" Mask="false"/>
+  <Config Name="Engine" Target="9820" Default="9820" Mode="tcp" Description="Movviz BitTorrent download engine service." Type="Port" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="Resolver" Target="9830" Default="9830" Mode="tcp" Description="Movviz resolver service." Type="Port" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="Movie peer TCP" Target="55000" Default="55000" Mode="tcp" Description="BitTorrent peer port for movie downloads." Type="Port" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="Movie peer UDP" Target="55000" Default="55000" Mode="udp" Description="BitTorrent peer UDP port for movie downloads." Type="Port" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="Series peer TCP" Target="55001" Default="55001" Mode="tcp" Description="BitTorrent peer port for TV downloads." Type="Port" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="Series peer UDP" Target="55001" Default="55001" Mode="udp" Description="BitTorrent peer UDP port for TV downloads." Type="Port" Display="advanced" Required="true" Mask="false"/>
+
+  <Config Name="Appdata" Target="/config" Default="/mnt/user/appdata/movviz" Mode="rw" Description="Persistent Movviz configuration, database and engine state." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="Media & downloads" Target="/data" Default="/mnt/user/data" Mode="rw" Description="Shared media root. Movviz uses /data/torrents/{movies,tv} for downloads and /data/media/{movies,tv} for the finished library." Type="Path" Display="always" Required="true" Mask="false"/>
+
+  <Config Name="PUID" Target="PUID" Default="99" Description="Host user ID used for NAS share permissions." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Host group ID used for NAS share permissions." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Timezone" Target="TZ" Default="Europe/Brussels" Description="Container timezone." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="MOVVIZ_WEB_PORT" Target="MOVVIZ_WEB_PORT" Default="9810" Description="Internal Movviz web service port." Type="Variable" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="MOVVIZ_ENGINE_PORT" Target="MOVVIZ_ENGINE_PORT" Default="9820" Description="Internal Movviz download engine port." Type="Variable" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="MOVVIZ_RESOLVER_PORT" Target="MOVVIZ_RESOLVER_PORT" Default="9830" Description="Internal Movviz resolver port." Type="Variable" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="MOVVIZ_TORRENT_PORT" Target="MOVVIZ_TORRENT_PORT" Default="55000" Description="Internal movie BitTorrent peer port." Type="Variable" Display="advanced" Required="true" Mask="false"/>
+  <Config Name="MOVVIZ_TORRENT_PORT_SERIES" Target="MOVVIZ_TORRENT_PORT_SERIES" Default="55001" Description="Internal TV BitTorrent peer port." Type="Variable" Display="advanced" Required="true" Mask="false"/>
+</Container>
