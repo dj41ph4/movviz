@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CommunityApplications>
+  <Profile>
+Movviz is an open-source, self-hosted all-in-one media platform combining discovery, requests, movie/TV automation, Torznab/Newznab search, a built-in BitTorrent engine, library management, playback, recommendations and native Android clients. This repository maintains the official Movviz application and its Unraid Community Apps template. For support, documentation and issue reporting, use the GitHub repository.
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/dj41ph4/movviz/main/public/brand/movviz-readme-icon.png</Icon>
+  <WebPage>https://github.com/dj41ph4/movviz</WebPage>
+  <Forum>https://github.com/dj41ph4/movviz/issues</Forum>
+  <DonateLink>https://github.com/sponsors/dj41ph4</DonateLink>
+  <DonateText>Support Movviz development</DonateText>
+</CommunityApplications>
