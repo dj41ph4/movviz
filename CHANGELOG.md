@@ -1,3 +1,15 @@
+## v1.26.011 — 11 octobre 2026
+
+### Sécurité : clé TMDB réservée aux administrateurs
+
+- Changer, supprimer ou tester la clé TMDB demande désormais un compte administrateur, comme pour OMDb et TVDB. Avant, ces actions passaient sans vérifier la session.
+- Un test vérifie maintenant que chaque route qui modifie quelque chose contrôle elle-même qui l'appelle.
+
+### Tests
+
+- Les tests de Découverte suivent la disposition actuelle (tri conservé en changeant de plateforme, onglet « Tout »).
+- Les tests de détection ffmpeg ne supposent plus une carte NVIDIA sur la machine, et le test du cache ffprobe n'est plus instable.
+
 ## v1.26.010 — 11 octobre 2026
 
 ### Android TV et mobile : mise en veille en pause
