@@ -1,3 +1,9 @@
+## v1.26.009 — 11 octobre 2026
+
+### Android mobile : compléter une saison
+
+- Sur la page d'une saison, le téléchargement de la saison a son propre bouton, sur une ligne à part des actions de lecture. Il s'appelle « Compléter la saison » quand une partie des épisodes est déjà là, « Télécharger la saison » quand aucun ne l'est, et affiche le pourcentage en direct pendant le téléchargement.
+
 ## v1.26.008 — 11 octobre 2026
 
 ### Android TV et mobile : téléchargement d'un épisode
