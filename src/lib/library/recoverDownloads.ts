@@ -139,6 +139,22 @@ const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
  *  age — a longer quiet period than the engine-confirmed path's 30s. */
 const ORPHAN_MIN_AGE_MS = 5 * 60_000;
 
+// Chaque fichier orphelin est comparé à toute la bibliothèque (~2 350 titres) :
+// sans mémo, les titres étaient renormalisés à chaque fichier et la tâche
+// bloquait le serveur jusqu'à 11 s (prod, 2026-10-11). Résultat identique.
+const normCache = new Map<string, { text: string; words: string[] }>();
+
+function normalized(s: string): { text: string; words: string[] } {
+  let hit = normCache.get(s);
+  if (!hit) {
+    if (normCache.size > 20_000) normCache.clear();
+    const text = norm(s);
+    hit = { text, words: text.split(" ").filter((w) => w.length > 1) };
+    normCache.set(s, hit);
+  }
+  return hit;
+}
+
 function norm(s: string) {
   return s
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -148,11 +164,9 @@ function norm(s: string) {
 }
 
 function fuzzyMatch(parsedTitle: string, libTitle: string): boolean {
-  const p = norm(parsedTitle);
-  const l = norm(libTitle);
+  const { text: p, words: pWords } = normalized(parsedTitle);
+  const { text: l, words: lWords } = normalized(libTitle);
   if (l.includes(p) || p.includes(l)) return true;
-  const pWords = p.split(" ").filter((w) => w.length > 1);
-  const lWords = l.split(" ").filter((w) => w.length > 1);
   if (pWords.length === 0 || lWords.length === 0) return false;
   const overlap = pWords.filter((w) => lWords.includes(w)).length;
   return overlap / Math.max(pWords.length, lWords.length) >= 0.6;
@@ -450,6 +464,8 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
         // terminal state (recovered/duplicate/failed) are recorded, so a
         // too-young file stays eligible for the next batch.
         if (processed.has(fp)) continue;
+        // Rend la main entre deux fichiers : les clics restent fluides.
+        await new Promise<void>((resolve) => setImmediate(resolve));
         const engineConfirmed = allowed.has(fp);
         if (!engineConfirmed && (!filesSafeThisInstance || activeFiles.has(fp))) continue; // file of an active torrent or unconfirmed — never touch
 

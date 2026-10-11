@@ -1,3 +1,9 @@
+## v1.26.013 — 12 octobre 2026
+
+### Récupération des téléchargements : plus de gels du serveur
+
+- La tâche qui récupère les téléchargements terminés mais non importés compare toujours chaque fichier à la bibliothèque de la même façon, mais sans recalculer tous les titres à chaque fichier, et laisse respirer le serveur entre deux fichiers. Après un redémarrage, elle pouvait figer l'interface jusqu'à 11 secondes.
+
 ## v1.26.012 — 11 octobre 2026
 
 ### Plex : fin de la boucle de synchronisation des vues
