@@ -320,7 +320,11 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "rss-indexer-scan",
     name: "Scan RSS des indexeurs",
-    intervalMs: 60 * 60 * 1000, // hourly
+    // Every 15 min: indexers only expose their latest ~100 releases, so an
+    // hourly read let busy hours slip past the feed window unseen. A pass is
+    // one request per indexer (~1 s in prod) — the RSS feed, not the heavy
+    // missing-titles retry, is what should catch a missing title first.
+    intervalMs: 15 * 60 * 1000,
     // 1. Reconcile release dates so a newly released title is eligible now,
     //    without waiting for the separate six-hour release-day task.
     // 2. Refresh the RSS cache from every enabled indexer.
@@ -340,7 +344,11 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "retry-missing-movies",
     name: "Relance des films manquants",
-    intervalMs: 6 * 60 * 60 * 1000, // every 6 hours
+    // Every 8 h (was 6 h — 8 h is the acquisition floor, see interval.ts):
+    // the 15-min RSS scan catches new releases, and titles already searched
+    // in vain wait 1/3/7 days (missingSearchBackoff), so most passes only
+    // search titles that have never been tried or are due again.
+    intervalMs: 8 * 60 * 60 * 1000,
     // Movies that auto-search initially failed on (indexer had no results,
     // engine was down, etc.) stay "missing" unless the RSS scan picks them
     // up. RSS only catches releases in its feed window, so older releases

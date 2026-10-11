@@ -83,7 +83,7 @@ test("la tâche RSS active réconcilie les sorties avant refresh et grab, désac
       }
       const { TASKS } = await import('@/lib/scheduler/tasks');
       const rss = TASKS.find(t => t.id === 'rss-indexer-scan');
-      assert.equal(rss.intervalMs, 3600000);
+      assert.equal(rss.intervalMs, 900000);
       await rss.run();
       assert.deepEqual(calls, ['movies', 'episodes', 'refresh', 'grab']);
       enabled = false;

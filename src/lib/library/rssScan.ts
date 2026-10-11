@@ -10,7 +10,7 @@ import { yieldToUser } from "@/lib/priority/userActivity";
 /**
  * RSS sync: matches cached RSS feed data against everything Movviz currently
  * considers missing. The cache is populated by `refreshRssCache()` as
- * part of the hourly `rss-indexer-scan` task. Matching a release
+ * part of the 15-minute `rss-indexer-scan` task. Matching a release
  * triggers the normal quality-filtered search/grab pipeline.
  */
 export async function rssMatchIndexers() {

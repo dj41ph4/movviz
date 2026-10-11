@@ -1,3 +1,17 @@
+## v1.26.015 — 12 octobre 2026
+
+### Films et séries manquants : le RSS d'abord, la relance plus légère
+
+- Le scan RSS des indexeurs passe toutes les 15 minutes au lieu de toutes les heures. Un film ou une série manquante est téléchargé dès qu'il apparaît dans un flux, sans attendre la relance.
+- Quand des sorties ont été publiées entre deux passages sans apparaître dans le flux (trop de nouveautés d'un coup), Movviz s'en aperçoit, lit la page suivante de l'indexeur et le note dans le journal.
+- La relance des manquants passe toutes les 8 heures au lieu de 6. Un titre déjà cherché sans résultat attend 1 jour, puis 3, puis 7 avant d'être recherché à nouveau ; il revient au début dès qu'il est trouvé.
+- La relance des épisodes manquants couvre maintenant toute la bibliothèque. Avant, elle ne regardait que les premières séries de la liste.
+
+### Indexeurs : une clé refusée ne passe plus inaperçue
+
+- Le test d'un indexeur fait maintenant une vraie petite recherche : une clé API refusée apparaît en échec, même quand l'indexeur publie sa liste de capacités sans clé.
+- Une recherche refusée par un indexeur (clé invalide ou sans les droits nécessaires) est notée comme une erreur dans le journal, au lieu de passer pour « aucun résultat ».
+
 ## v1.26.014 — 12 octobre 2026
 
 ### Plex : synchronisation des vues plus légère

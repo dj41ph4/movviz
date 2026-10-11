@@ -30,6 +30,7 @@ import { movieHasReleased, movieReleasedRecently } from "@/lib/library/releaseSc
 import { withSearchLock } from "@/lib/library/autoGrabSeries";
 import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
+import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBackoff";
 
 const RESOLUTION_ORDER = ["480p", "720p", "1080p", "2160p"];
 const rank = (res: string | null) => (res ? RESOLUTION_ORDER.indexOf(res) : -1);
@@ -606,7 +607,10 @@ export async function searchMissingMovies(max = 100) {
 }
 
 async function searchMissingMoviesInner(max: number) {
-  const candidates = loadMovies().filter((m) => m.monitored && m.status === "missing");
+  const missing = loadMovies().filter((m) => m.monitored && m.status === "missing");
+  // Titles this retry already searched in vain wait 1/3/7 days (see
+  // missingSearchBackoff.ts) — the RSS scan still grabs them meanwhile.
+  const candidates = missing.filter((m) => isDueForRetry(`movie:${m.id}`));
   // Randomize to avoid re-searching the same movies every pass — every run
   // targets a different subset of the missing library.
   for (let i = candidates.length - 1; i > 0; i--) {
@@ -620,5 +624,7 @@ async function searchMissingMoviesInner(max: number) {
     await searchAndGrabMovie(movie.id);
     searched.push(movie.id);
   }
-  return { searched, total: candidates.length };
+  const stillMissing = searched.filter((id) => getMovie(id)?.status === "missing").map((id) => `movie:${id}`);
+  recordRetryPass("movie:", stillMissing, new Set(missing.map((m) => `movie:${m.id}`)));
+  return { searched, total: missing.length };
 }

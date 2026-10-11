@@ -180,6 +180,18 @@ async function fetchCaps(ix: ConfiguredIndexer): Promise<{ ok: boolean; detail: 
 /** Verify credentials and refresh the indexer's cached search capabilities. */
 export async function testIndexer(ix: ConfiguredIndexer) {
   const { ok, detail, caps } = await fetchCaps(ix);
+  if (!ok) return { ok, detail, caps };
+  // Some indexers serve t=caps without any key (V3x does), so a caps-only
+  // test reported « OK » for a refused key while every search failed. One
+  // tiny real search catches that; only an explicit refusal (401/403) fails
+  // the test — an empty or odd answer to a dummy query proves nothing.
+  try {
+    const r = await fetchXml(buildUrl(ix, { t: "search", q: "test", limit: "1" }), ix);
+    if (r.status === 401 || r.status === 403) {
+      const reason = extractIndexerError(r.text);
+      return { ok: false, detail: `HTTP ${r.status}${reason ? ` : ${reason}` : ""}`, caps };
+    }
+  } catch { /* unreachable on search but caps answered: keep the caps verdict */ }
   return { ok, detail, caps };
 }
 
@@ -622,6 +634,13 @@ async function runSearch(
     markRateLimited(ix.id);
     return [];
   }
+  // A refused key (401/403) is an indexer error, not « no results » — same
+  // path as an <error> answered with HTTP 200 below. Confirmed live: V3x
+  // refused every search with 401 "Invalid API Key" for days while the RSS
+  // log only ever showed « V3x:0 ».
+  if (r.status === 401 || r.status === 403) {
+    throw new Error(`HTTP ${r.status}${extractIndexerError(r.text) ? ` : ${extractIndexerError(r.text)}` : ""}`);
+  }
   if (!r.ok) return [];
   const indexerError = extractIndexerError(r.text);
   if (indexerError) throw new Error(indexerError);
@@ -645,6 +664,12 @@ export async function searchIndexer(
 ): Promise<IndexerRelease[]> {
   const q = sanitizeQuery(query);
   return runSearch(ix, { t: "search", q }, scopeCategories, matchQuery ?? q);
+}
+
+/** Query-less recent-releases feed, starting `offset` releases back — the RSS
+ *  refresh reads the next page with it when it detects a gap. */
+export async function searchIndexerRecent(ix: ConfiguredIndexer, offset: number): Promise<IndexerRelease[]> {
+  return runSearch(ix, { t: "search", q: "", offset: String(offset) }, undefined, "");
 }
 
 export interface MovieSearchCriteria {

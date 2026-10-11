@@ -1,7 +1,7 @@
 /**
  * File-backed RSS cache for indexers.
  *
- * The hourly RSS scan (`rss-indexer-scan`) fetches each indexer's recent
+ * The 15-minute RSS scan (`rss-indexer-scan`) fetches each indexer's recent
  * releases feed and caches the results here on disk. The matching logic
  * (`rssMatchIndexers`) reads from this file — zero direct indexer calls
  * during matching, so HTTP 429 rate-limits are impossible.
@@ -19,7 +19,7 @@ import path from "node:path";
 import fsp from "node:fs/promises";
 import type { IndexerRelease } from "./types";
 import { loadIndexers } from "./store";
-import { searchIndexer } from "./torznab";
+import { searchIndexer, searchIndexerRecent } from "./torznab";
 import { withoutRateLimited, clearRateLimit } from "./rateLimit";
 import { readJsonCached } from "@/lib/fsJsonCache";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
@@ -31,6 +31,12 @@ const CONFIG_DIR =
   path.join(process.cwd(), ".movviz-data");
 
 const CACHE_FILE = path.join(CONFIG_DIR, "rss-cache.json");
+
+/** Newest publish date seen per indexer on the previous refresh (gap check). */
+function lastNewestByIndexer(): Map<string, number> {
+  const g = globalThis as typeof globalThis & { __movvizRssLastNewest?: Map<string, number> };
+  return (g.__movvizRssLastNewest ??= new Map());
+}
 
 /** Read the cached RSS releases (empty array = no cache yet). */
 export function readRssCache(): IndexerRelease[] {
@@ -130,6 +136,24 @@ async function refreshRssCacheInner(): Promise<{ fetched: number }> {
         )
       )
     : [];
+  // Gap check: each indexer only exposes its latest page. When even the
+  // oldest release of this page is newer than the newest one seen last
+  // cycle, releases were published in between that neither page shows —
+  // read one more page so they still reach the matcher.
+  await Promise.all(indexers.map(async (ix, i) => {
+    const page = results[i];
+    if (!page?.length) return;
+    const times = page.map((r) => (r.publishDate ? Date.parse(r.publishDate) : NaN)).filter((t) => Number.isFinite(t));
+    const prevNewest = lastNewestByIndexer().get(ix.id);
+    if (times.length) lastNewestByIndexer().set(ix.id, Math.max(...times, prevNewest ?? 0));
+    if (prevNewest == null || times.length === 0 || Math.min(...times) <= prevNewest) return;
+    const extra = await searchIndexerRecent(ix, page.length).catch(() => [] as IndexerRelease[]);
+    const known = new Set(page.map((r) => r.guid));
+    const added = extra.filter((r) => !known.has(r.guid));
+    results[i] = [...page, ...added];
+    recordSearchLog("warn", "rss_refresh.gap", `${ix.name} — trou détecté depuis le dernier passage, page suivante lue : ${added.length} release(s) en plus`);
+  }));
+
   const all = results.flat();
   const fetchMs = Math.round(performance.now() - t0);
 

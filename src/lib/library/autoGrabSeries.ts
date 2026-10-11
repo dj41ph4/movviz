@@ -30,6 +30,7 @@ import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLi
 import { withKeyLock } from "@/lib/library/locks";
 import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
+import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBackoff";
 
 /**
  * Anime tends to have more reliable episode numbering/titles on TVDB than
@@ -1918,12 +1919,15 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
   // Group by series — RÈGLE ABSOLUE : l'intégrale est tentée UNE fois par
   // série (limitée aux saisons du budget), avant toute saison/épisode.
   const bySeries = new Map<string, { series: LibrarySeries; seasons: Map<number, number[]> }>();
-  let seasonCount = 0;
 
+  // Every season with a missing monitored episode, across the whole library.
+  // The season budget is applied AFTER the shuffle below: counting it during
+  // this walk (every season of every monitored series, complete or not, in
+  // library order) meant only the first few series of the library were ever
+  // retried.
   for (const series of loadSeries()) {
     if (!series.monitored) continue;
     for (const season of series.seasons) {
-      if (seasonCount >= maxSeasons) break;
       for (const ep of season.episodes) {
         if (ep.monitored && ep.status === "missing") {
           let entry = bySeries.get(series.id);
@@ -1936,15 +1940,26 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
           entry.seasons.set(season.seasonNumber, list);
         }
       }
-      seasonCount++;
     }
   }
+  const activeKeys = new Set([...bySeries.keys()].map((id) => `series:${id}`));
 
+  // Series this retry already searched in vain wait 1/3/7 days (see
+  // missingSearchBackoff.ts) — the RSS scan still grabs them meanwhile.
   // Randomize series order so the same shows don't get re-searched every pass.
-  const entries = [...bySeries.values()];
-  for (let i = entries.length - 1; i > 0; i--) {
+  const due = [...bySeries.values()].filter(({ series }) => isDueForRetry(`series:${series.id}`));
+  for (let i = due.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [entries[i], entries[j]] = [entries[j], entries[i]];
+    [due[i], due[j]] = [due[j], due[i]];
+  }
+  const entries: typeof due = [];
+  let seasonCount = 0;
+  for (const entry of due) {
+    if (seasonCount >= maxSeasons) break;
+    const budget = maxSeasons - seasonCount;
+    const seasons = new Map([...entry.seasons].slice(0, budget));
+    entries.push({ series: entry.series, seasons });
+    seasonCount += seasons.size;
   }
 
   for (const { series, seasons } of entries) {
@@ -1995,6 +2010,16 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
       }
     });
   }
+
+  // One more attempt for every series whose searched seasons are still
+  // missing something after this pass.
+  const stillMissing = entries
+    .filter(({ series, seasons }) => {
+      const fresh = getSeries(series.id);
+      return !!fresh?.seasons.some((s) => seasons.has(s.seasonNumber) && s.episodes.some((e) => e.monitored && e.status === "missing"));
+    })
+    .map(({ series }) => `series:${series.id}`);
+  recordRetryPass("series:", stillMissing, activeKeys);
 
   return { searched };
 }
