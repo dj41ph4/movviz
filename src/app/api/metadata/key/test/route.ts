@@ -1,11 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/guard";
 import { loadTmdbKey } from "@/lib/metadata/store";
 
 export const dynamic = "force-dynamic";
 
 const BASE = "https://api.themoviedb.org/3";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const key = process.env.MOVVIZ_TMDB_API_KEY ?? loadTmdbKey();
   if (!key) {
     return NextResponse.json({ ok: false, error: "no_key" });

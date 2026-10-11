@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadTmdbKey, saveTmdbKey, clearTmdbKey } from "@/lib/metadata/store";
 import { tmdbConfigured } from "@/lib/metadata/tmdb";
+import { requireAdmin, requireUser } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const configured = tmdbConfigured();
   const fromEnv = !!process.env.MOVVIZ_TMDB_API_KEY;
   const hasStoredKey = !!loadTmdbKey();
@@ -15,6 +17,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json();
   const key = String(body.apiKey ?? "").trim();
   if (!key) return NextResponse.json({ error: "apiKey required" }, { status: 400 });
@@ -24,7 +27,8 @@ export async function PUT(req: NextRequest) {
 }
 
 /** Drops the custom key, reverting to the bundled default. */
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   clearTmdbKey();
   return NextResponse.json({ ok: true });
 }

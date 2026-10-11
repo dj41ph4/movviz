@@ -37,10 +37,10 @@ test("empty regional metadata keeps the complete curated platform row", () => {
   assert.ok(tiles.length >= 8);
 });
 
-test("both provider entry points use the same catalogue reset without switching media type", () => {
+test("both provider entry points use the same catalogue reset without switching media type or sort", () => {
   const source = readFileSync(new URL("../src/app/discover/page.tsx", import.meta.url), "utf8");
   const handler = source.slice(source.indexOf("const handleWatchProviderClick ="), source.indexOf("const seeAllRow ="));
-  for (const reset of ["clearSearchQuery();", 'setGenre("");', 'setYear("");', 'setSort("popularity.desc");',
+  for (const reset of ["clearSearchQuery();", 'setGenre("");', 'setYear("");',
     "setCompany(null);", 'setDuration("");', "setRowCategory(null);", "setRowCategoryMeta(undefined);", "setOpenMenu(null);"]) {
     assert.ok(handler.includes(reset), `missing reset: ${reset}`);
   }
@@ -58,5 +58,5 @@ test("the Discover sort stays available for every platform: Nouveautés, Tendanc
   const best = sortControl.indexOf('value="vote_average.desc"');
   assert.ok(newest >= 0 && newest < trending && trending < best);
   assert.match(source, /if \(watchProvider\) params\.set\("watchProvider", watchProvider\.id\);/);
-  assert.match(source, /kind === "all" \? "Pour vous"/);
+  assert.match(source, /kind === "all" \? t\("common\.all"\)/);
 });

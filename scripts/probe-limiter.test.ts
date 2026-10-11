@@ -69,10 +69,18 @@ test("cache ffprobe : déduplication, limite globale, échecs mémorisés", { sk
 
   // 10 demandes du même fichier = un seul ffprobe.
   const same = Array.from({ length: 10 }, () => getOrProbeMediaDescriptor("mv_same", files[0], false, { priority: "background" }));
-  await wait(0);
-  const s1 = probeLimiter.stats();
-  assert.equal(s1.running + s1.queuedBackground + s1.queuedForeground, 1);
-  const results = await Promise.all(same);
+  // Le probe n'entre dans le limiteur qu'après quelques étapes asynchrones :
+  // on observe le pic jusqu'à la fin au lieu d'un seul instant (test instable).
+  let settled = false;
+  const all = Promise.all(same).finally(() => { settled = true; });
+  let peak = 0;
+  while (!settled) {
+    const s1 = probeLimiter.stats();
+    peak = Math.max(peak, s1.running + s1.queuedBackground + s1.queuedForeground);
+    await wait(1);
+  }
+  assert.equal(peak, 1);
+  const results = await all;
   assert.ok(results.every((r) => r && r === results[0]));
   assert.ok(hasCachedMediaDescriptor("mv_same"));
 

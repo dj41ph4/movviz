@@ -78,9 +78,10 @@ test("Discovery exposes four sorts and library provider headings distinguish the
   const discover = source("src/app/discover/page.tsx");
   assert.equal((discover.match(/<option value="for_you">/g) ?? []).length, 2);
   assert.ok(source("src/app/api/metadata/discover/route.ts").includes("getProviderRelationPool(userId, type, providerId, region)"));
-  const rows = source("src/components/library/MediaSuggestionRows.tsx");
-  assert.ok(rows.includes('t("discover.rowProviderNew", { provider: providerName })'));
-  assert.ok(rows.includes('t("discover.rowProviderSuggested", { provider: providerName })'));
+  // Les intitulés de rangées plateforme sont centralisés dans rowLabel.ts.
+  const rows = source("src/components/media/rowLabel.ts");
+  assert.ok(rows.includes('t("discover.rowProviderNew", { provider: meta.providerName })'));
+  assert.ok(rows.includes('t("discover.rowProviderSuggested", { provider: meta.providerName })'));
 });
 
 test("search focus uses the rounded enclosing pill, never the inner rectangle", () => {
