@@ -869,6 +869,9 @@ data class QueueMediaDto(
     val tmdbId: Int? = null,
     val season: Int? = null,
     val episode: Int? = null,
+    // > 1 : pack de saison (episode = premier épisode du pack), voir
+    // packEpisodeCount dans src/app/api/activity/v2/route.ts.
+    val packEpisodeCount: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)

@@ -337,6 +337,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun searchSeriesSeasonNow(libraryId: String, seasonNumber: Int): ApiResult<Unit> =
         safeCall { api.searchSeriesSeasonNow(libraryId, seasonNumber) }.map { }
 
+    suspend fun searchSeriesEpisodeNow(libraryId: String, seasonNumber: Int, episodeNumber: Int): ApiResult<Unit> =
+        safeCall { api.searchSeriesEpisodeNow(libraryId, seasonNumber, episodeNumber) }.map { }
+
     /** Statut "vu" manuel de l'utilisateur courant — voir WatchStatusDto. */
     suspend fun watchStatus(type: String? = null, tmdbId: Int? = null): ApiResult<WatchStatusDto> =
         safeCall { api.watchStatus(type, tmdbId) }

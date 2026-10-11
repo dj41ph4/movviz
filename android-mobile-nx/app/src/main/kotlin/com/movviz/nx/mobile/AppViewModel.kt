@@ -839,6 +839,43 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
     }
 
+    /** Épisodes demandés à l'instant, clé "tmdbId:saison.épisode". La route
+     *  répond dès la mise en file : la clé reste posée jusqu'à ce que le
+     *  serveur fasse passer l'épisode en recherche puis en téléchargement
+     *  (relecture des saisons), sinon le bouton redeviendrait cliquable le
+     *  temps que le job démarre. Retirée au bout de 2 min quoi qu'il arrive. */
+    private val _requestedEpisodes = MutableStateFlow<Set<String>>(emptySet())
+    val requestedEpisodes: StateFlow<Set<String>> = _requestedEpisodes.asStateFlow()
+
+    fun episodeRequestKey(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) = "$tmdbId:$seasonNumber.$episodeNumber"
+
+    /** L'épisode a quitté « manquant » (recherche, téléchargement…) : la
+     *  demande locale n'a plus lieu d'être. Un échec de recherche le ramène
+     *  ensuite à « manquant » et le bouton redevient disponible. */
+    fun clearEpisodeRequests(keys: Set<String>) {
+        if (keys.isNotEmpty()) _requestedEpisodes.value = _requestedEpisodes.value - keys
+    }
+
+    fun downloadEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+        val repo = repository ?: return
+        val seriesId = seriesLibraryId(tmdbId) ?: return
+        val key = episodeRequestKey(tmdbId, seasonNumber, episodeNumber)
+        if (key in _requestedEpisodes.value) return
+        _requestedEpisodes.value = _requestedEpisodes.value + key
+        viewModelScope.launch {
+            when (repo.searchSeriesEpisodeNow(seriesId, seasonNumber, episodeNumber)) {
+                is ApiResult.Success -> {
+                    loadSeriesSeasons(tmdbId)
+                    loadQueue()
+                    delay(120_000)
+                }
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> Unit
+            }
+            _requestedEpisodes.value = _requestedEpisodes.value - key
+        }
+    }
+
     /** Fiches déjà ouvertes (les 40 dernières) : rouvrir une fiche l'affiche
      *  à l'instant, puis la réponse fraîche la remplace en silence. Avant,
      *  chaque ouverture repartait d'un écran de chargement plein écran. */

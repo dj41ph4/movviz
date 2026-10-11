@@ -266,10 +266,22 @@ fun TitleDetailScreen(
     // au lieu d'un statut unique pour toute la série (parité avec le pill
     // par épisode du mobile, poussée jusqu'à la vraie progression puisque
     // la donnée queue est déjà chargée sur cette même fiche).
-    val episodeDownloads = remember(queue, type, tmdbId) {
+    // Un pack de saison arrive en UNE entrée (episode = premier du pack) :
+    // il est rattaché à chaque épisode de la saison en téléchargement, pas
+    // seulement au premier.
+    val episodeDownloads = remember(queue, type, tmdbId, seasons) {
         if (type != "series") emptyMap()
-        else queue.filter { it.media.tmdbId == tmdbId && it.media.season != null && it.media.episode != null }
-            .associateBy { "${it.media.season}.${it.media.episode}" }
+        else seriesEpisodeDownloads(queue.filter { it.media.tmdbId == tmdbId }, seasons)
+    }
+    val requestedEpisodes by viewModel.requestedEpisodes.collectAsState()
+    LaunchedEffect(seasons, requestedEpisodes) {
+        if (type != "series") return@LaunchedEffect
+        val settled = seasons.flatMap { season ->
+            season.episodes
+                .filter { it.status != "missing" }
+                .map { viewModel.episodeRequestKey(tmdbId, season.seasonNumber, it.episodeNumber) }
+        }.filter { it in requestedEpisodes }.toSet()
+        viewModel.clearEpisodeRequests(settled)
     }
 
     LaunchedEffect(type, tmdbId) {
@@ -1431,14 +1443,23 @@ fun TitleDetailScreen(
             // Fiche ouverte depuis « Continuer à regarder » : la sélection naît sans
             // métadonnées ; on les relit ici dès que la saison est chargée, pour que
             // capture, synopsis, durée et note apparaissent.
-            val liveSelection = if (selection.metadata != null) selection else selection.copy(
-                metadata = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, selection.season.seasonNumber)]
+            // Saison et épisode relus aussi : le statut de téléchargement
+            // (recherche, en cours, disponible) avance pendant que la fiche
+            // est ouverte, la sélection d'origine n'en est qu'un instantané.
+            val freshSeason = seasons.firstOrNull { it.seasonNumber == selection.season.seasonNumber } ?: selection.season
+            val freshEpisode = freshSeason.episodes.firstOrNull { it.episodeNumber == selection.episode.episodeNumber } ?: selection.episode
+            val liveSelection = selection.copy(
+                season = freshSeason,
+                episode = freshEpisode,
+                metadata = selection.metadata ?: seasonMetadata[viewModel.seasonMetadataKey(tmdbId, selection.season.seasonNumber)]
                     ?.episodes?.firstOrNull { it.episodeNumber == selection.episode.episodeNumber },
             )
             EpisodeDetailOverlay(
                 seriesTitle = d.title,
                 selection = liveSelection,
                 downloading = searchingSeason == selection.season.seasonNumber,
+                episodeRequested = viewModel.episodeRequestKey(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber) in requestedEpisodes,
+                episodeDownloads = episodeDownloads,
                 watched = watchedEpisodeKeys.contains(episodeKey),
                 progress = episodeProgress[episodeKey],
                 onDismiss = { selectedEpisode = null },
@@ -1461,6 +1482,9 @@ fun TitleDetailScreen(
                     )
                 },
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber) },
+                onDownloadEpisode = {
+                    viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber)
+                },
             )
         }
 
@@ -1957,6 +1981,7 @@ private fun SeasonPageOverlay(
                         watchedEpisodeKeys = watchedEpisodeKeys,
                         episodeProgress = episodeProgress,
                         downloading = downloading,
+                        seasonLive = liveDownloadOf(seasonQueueItems(episodeDownloads, season.seasonNumber)),
                         landingEpisode = landingEpisode,
                         primaryActionFocus = primaryActionFocus,
                         backFocus = backFocus,
@@ -2000,6 +2025,7 @@ private fun SeasonPageHeader(
     watchedEpisodeKeys: Set<String>,
     episodeProgress: Map<String, com.movviz.tv.data.PlaybackProgressDto>,
     downloading: Boolean,
+    seasonLive: LiveDownload?,
     landingEpisode: SeriesEpisodeDto?,
     primaryActionFocus: FocusRequester,
     backFocus: FocusRequester,
@@ -2087,12 +2113,15 @@ private fun SeasonPageHeader(
                             onClick = { onPlayEpisode(landingEpisode) },
                         )
                     }
-                    if (missingCount > 0) {
-                        PrimaryPill(
-                            text = if (downloading) "Recherche…" else "Compléter la saison",
-                            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                            enabled = !downloading,
-                            icon = if (downloading) null else MovvizIconDownload,
+                    // Aucun épisode présent : « Télécharger la saison ». Saison
+                    // entamée : « Compléter la saison ». Dans les deux cas, l'état
+                    // vivant (recherche, file, % en direct) remplace le bouton.
+                    val seasonSearching = downloading || season.episodes.any { it.status == "searching" }
+                    if (missingCount > 0 || seasonLive != null || seasonSearching) {
+                        DownloadAction(
+                            label = if (season.episodes.none { episodeIsPlayable(it) }) "Télécharger la saison" else "Compléter la saison",
+                            live = seasonLive,
+                            searching = seasonSearching,
                             focusRequester = if (landingEpisode == null) primaryActionFocus else null,
                             onClick = onDownloadSeason,
                         )
@@ -2397,6 +2426,8 @@ private fun EpisodeDetailOverlay(
     seriesTitle: String,
     selection: EpisodeSelection,
     downloading: Boolean,
+    episodeRequested: Boolean,
+    episodeDownloads: Map<String, QueueItemDto>,
     watched: Boolean,
     progress: com.movviz.tv.data.PlaybackProgressDto?,
     onDismiss: () -> Unit,
@@ -2404,6 +2435,7 @@ private fun EpisodeDetailOverlay(
     onPlayFromStart: () -> Unit,
     onToggleWatched: (Boolean) -> Unit,
     onDownloadSeason: () -> Unit,
+    onDownloadEpisode: () -> Unit,
 ) {
     BackHandler(onBack = onDismiss)
     val episode = selection.episode
@@ -2414,6 +2446,24 @@ private fun EpisodeDetailOverlay(
     // requestFocus() lève tant qu'il ne l'est pas.
     val primaryActionFocus = remember { FocusRequester() }
     LaunchedEffect(episode.seasonNumber, episode.episodeNumber) {
+        repeat(10) { attempt ->
+            if (runCatching { primaryActionFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            if (attempt < 9) withFrameNanos { }
+        }
+    }
+    // Le bouton « Télécharger l'épisode » cède la place à sa pilule d'état
+    // (puis à « Lecture ») : le nœud focalisé disparaît, le focus est reposé
+    // sur l'action principale à chaque changement d'état, pas à chaque %.
+    val actionKind = when {
+        available -> "play"
+        episodeDownloads.containsKey("${selection.season.seasonNumber}.${episode.episodeNumber}") -> "live"
+        episodeRequested && episode.status == "missing" -> "requested"
+        else -> episode.status
+    }
+    var lastActionKind by remember(episode.seasonNumber, episode.episodeNumber) { mutableStateOf(actionKind) }
+    LaunchedEffect(actionKind) {
+        if (actionKind == lastActionKind) return@LaunchedEffect
+        lastActionKind = actionKind
         repeat(10) { attempt ->
             if (runCatching { primaryActionFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
@@ -2577,15 +2627,37 @@ private fun EpisodeDetailOverlay(
                         if (resumeOffset != null) {
                             PrimaryPill(text = "Du début", brush = null, icon = MovvizIconReplay, onClick = onPlayFromStart)
                         }
-                    } else {
-                        PrimaryPill(
-                            text = if (downloading) "Recherche…" else "Télécharger la saison",
-                            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                            enabled = !downloading,
-                            icon = if (downloading) null else MovvizIconDownload,
+                    } else if (episode.status != "upcoming") {
+                        // L'épisode manquant se télécharge SEUL, avec son état
+                        // vivant : en file, recherche, % en direct, import.
+                        val episodeItem = episodeDownloads["${selection.season.seasonNumber}.${episode.episodeNumber}"]
+                        DownloadAction(
+                            label = "Télécharger l'épisode",
+                            live = liveDownloadOf(listOfNotNull(episodeItem)),
+                            searching = episode.status == "searching",
+                            statusLabel = when {
+                                episodeRequested && episode.status == "missing" -> "En file d'attente"
+                                episode.status == "downloading" -> "Téléchargement en cours…"
+                                episode.status == "available" -> "Téléchargé · import en cours…"
+                                else -> null
+                            },
                             focusRequester = primaryActionFocus,
-                            onClick = onDownloadSeason,
+                            onClick = onDownloadEpisode,
                         )
+                        // « Télécharger la saison » seulement pour une saison dont
+                        // aucun épisode n'est encore là, et sans doublonner la
+                        // pilule de l'épisode quand c'est le même pack.
+                        val season = selection.season
+                        val seasonItems = seasonQueueItems(episodeDownloads, season.seasonNumber)
+                        val samePack = seasonItems.size == 1 && seasonItems.first().id == episodeItem?.id
+                        if (season.episodes.size > 1 && season.episodes.none { episodeIsPlayable(it) } && !samePack) {
+                            DownloadAction(
+                                label = "Télécharger la saison",
+                                live = liveDownloadOf(seasonItems),
+                                searching = downloading,
+                                onClick = onDownloadSeason,
+                            )
+                        }
                     }
                     if (episode.status != "upcoming") {
                         WatchedToggle(
@@ -2594,7 +2666,12 @@ private fun EpisodeDetailOverlay(
                             onClick = { onToggleWatched(!watched) },
                         )
                     }
-                    PrimaryPill(text = "Retour", brush = null, onClick = onDismiss)
+                    PrimaryPill(
+                        text = "Retour",
+                        brush = null,
+                        focusRequester = if (!available && episode.status == "upcoming") primaryActionFocus else null,
+                        onClick = onDismiss,
+                    )
                 }
                 metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
                     Spacer(modifier = Modifier.height(22.dp))
@@ -2813,6 +2890,7 @@ private fun DownloadProgressPill(
     speedBytesPerSec: Double,
     etaSeconds: Long,
     searching: Boolean,
+    stateLabel: String? = null,
     focusRequester: FocusRequester? = null,
 ) {
     val shape = RoundedCornerShape(9.dp)
@@ -2841,6 +2919,8 @@ private fun DownloadProgressPill(
             Text(
                 text = if (searching) {
                     "Recherche en cours…"
+                } else if (stateLabel != null) {
+                    if (progress > 0.0 && progress < 1.0) "$stateLabel · $pct%" else stateLabel
                 } else {
                     val speed = formatSpeedShort(speedBytesPerSec)
                     val eta = formatEta(etaSeconds)
@@ -2852,7 +2932,7 @@ private fun DownloadProgressPill(
                 },
                 style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
             )
-            if (!searching) {
+            if (!searching && (stateLabel == null || progress > 0.0)) {
                 Spacer(modifier = Modifier.height(5.dp))
                 Box(
                     modifier = Modifier
@@ -2869,6 +2949,94 @@ private fun DownloadProgressPill(
                 }
             }
         }
+    }
+}
+
+/** Téléchargement vivant d'un épisode ou d'une saison, agrégé depuis la
+ *  file (plusieurs torrents pour une saison complétée épisode par épisode). */
+private data class LiveDownload(val progress: Double, val speed: Double, val eta: Long, val state: String)
+
+private fun liveDownloadOf(items: Collection<QueueItemDto>): LiveDownload? {
+    val distinct = items.distinctBy { it.id }
+    if (distinct.isEmpty()) return null
+    val state = when {
+        distinct.any { it.status == "downloading" } -> "downloading"
+        distinct.all { it.status == "queued" } -> "queued"
+        else -> distinct.first().status
+    }
+    return LiveDownload(
+        progress = distinct.map { it.download.progress.coerceIn(0.0, 1.0) }.average(),
+        speed = distinct.sumOf { it.download.downloadSpeed },
+        eta = distinct.maxOf { it.download.eta },
+        state = state,
+    )
+}
+
+/** Libellé d'un torrent qui n'avance pas (null = téléchargement normal). */
+private fun queueStateLabel(state: String): String? = when (state) {
+    "queued" -> "En file d'attente"
+    "paused" -> "En pause"
+    "stalled" -> "Bloqué"
+    "verifying" -> "Vérification"
+    else -> null
+}
+
+/** Entrées de file d'une série indexées "saison.épisode" ; un pack (saison
+ *  ou intégrale) est rattaché à chaque épisode en téléchargement qu'il couvre. */
+private fun seriesEpisodeDownloads(items: List<QueueItemDto>, seasons: List<SeriesSeasonDto>): Map<String, QueueItemDto> {
+    val withSeason = items.filter { it.media.season != null }
+    val packs = withSeason.filter { (it.media.packEpisodeCount ?: 1) > 1 || it.media.episode == null }
+    val out = withSeason.filter { it !in packs && it.media.episode != null }
+        .associateBy { "${it.media.season}.${it.media.episode}" }
+        .toMutableMap()
+    if (packs.isEmpty()) return out
+    seasons.forEach { season ->
+        val pack = packs.firstOrNull { it.media.season == season.seasonNumber } ?: packs.firstOrNull { it.media.season == 0 }
+        if (pack != null) {
+            season.episodes.forEach { episode ->
+                val key = "${season.seasonNumber}.${episode.episodeNumber}"
+                if (key !in out && (episode.status == "downloading" || episode.episodeNumber == pack.media.episode && pack.media.season == season.seasonNumber)) {
+                    out[key] = pack
+                }
+            }
+        }
+    }
+    return out
+}
+
+private fun seasonQueueItems(episodeDownloads: Map<String, QueueItemDto>, seasonNumber: Int): List<QueueItemDto> =
+    episodeDownloads.filterKeys { it.substringBefore('.') == seasonNumber.toString() }.values.distinctBy { it.id }
+
+/** Bouton de téléchargement d'un épisode ou d'une saison, remplacé par son
+ *  état vivant dès que la demande est partie : file d'attente, recherche,
+ *  progression % en direct, puis import. */
+@Composable
+private fun DownloadAction(
+    label: String,
+    live: LiveDownload?,
+    searching: Boolean,
+    statusLabel: String? = null,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit,
+) {
+    when {
+        live != null -> DownloadProgressPill(
+            progress = live.progress,
+            speedBytesPerSec = live.speed,
+            etaSeconds = live.eta,
+            searching = false,
+            stateLabel = queueStateLabel(live.state),
+            focusRequester = focusRequester,
+        )
+        searching -> DownloadProgressPill(0.0, 0.0, 0L, searching = true, focusRequester = focusRequester)
+        statusLabel != null -> DownloadProgressPill(0.0, 0.0, 0L, searching = false, stateLabel = statusLabel, focusRequester = focusRequester)
+        else -> PrimaryPill(
+            text = label,
+            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+            icon = MovvizIconDownload,
+            focusRequester = focusRequester,
+            onClick = onClick,
+        )
     }
 }
 

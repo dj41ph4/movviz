@@ -181,6 +181,15 @@ interface MovvizApiService {
         @Path("season") seasonNumber: Int,
     ): Response<SearchTriggerResponseDto>
 
+    // Un seul épisode manquant — même route que le bouton desktop
+    // (src/app/api/library/series/[id]/episode/[season]/[episode]/search).
+    @POST("api/library/series/{id}/episode/{season}/{episode}/search")
+    suspend fun searchSeriesEpisodeNow(
+        @Path("id") libraryId: String,
+        @Path("season") seasonNumber: Int,
+        @Path("episode") episodeNumber: Int,
+    ): Response<SearchTriggerResponseDto>
+
     // File de téléchargement en cours (moteur BitTorrent intégré) — même
     // route que l'onglet Activité desktop (QueueTab.tsx), juste le tab
     // "queue". Le cœur de Movviz n'est pas que la lecture mais aussi la
