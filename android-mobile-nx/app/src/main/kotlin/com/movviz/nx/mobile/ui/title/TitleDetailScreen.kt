@@ -1916,21 +1916,31 @@ private fun SeasonEpisodeHeader(
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.nx.mobile.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Text(text = "${season.episodes.size} épisodes", style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
-        Spacer(modifier = Modifier.weight(1f))
-        val hasReadyEpisode = season.episodes.any { (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available" }
-        // Saison sans aucun épisode : « Télécharger la saison », puis son
-        // état vivant (recherche, file, % en direct) à la place du bouton.
-        val seasonSearching = downloading || season.episodes.any { it.status == "searching" }
-        if (!hasReadyEpisode || seasonLive != null || seasonSearching) {
-            DownloadAction(label = "Télécharger la saison", live = seasonLive, searching = seasonSearching, onClick = onDownloadSeason)
+    val hasReadyEpisode = season.episodes.any { (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available" }
+    val missingCount = season.episodes.count { it.status == "missing" }
+    val seasonSearching = downloading || season.episodes.any { it.status == "searching" }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(text = "${season.episodes.size} épisodes", style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+            Spacer(modifier = Modifier.weight(1f))
+            val targets = season.episodes.filter { it.status != "upcoming" }.map { com.movviz.nx.mobile.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
+            val allWatched = targets.isNotEmpty() && targets.all { watchedEpisodeKeys.contains("${it.season}.${it.episode}") }
+            if (targets.isNotEmpty()) {
+                PrimaryPill(text = if (allWatched) "Saison non vue" else "Saison vue", brush = null, solidWhite = false, icon = MovvizIconCheck, onClick = { onToggleEpisodesWatched(targets, !allWatched) })
+            }
         }
-        val targets = season.episodes.filter { it.status != "upcoming" }.map { com.movviz.nx.mobile.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
-        val allWatched = targets.isNotEmpty() && targets.all { watchedEpisodeKeys.contains("${it.season}.${it.episode}") }
-        if (targets.isNotEmpty()) {
-            Spacer(modifier = Modifier.width(10.dp))
-            PrimaryPill(text = if (allWatched) "Saison non vue" else "Saison vue", brush = null, solidWhite = false, icon = MovvizIconCheck, onClick = { onToggleEpisodesWatched(targets, !allWatched) })
+        // Bouton de téléchargement de la saison, sur sa propre ligne et à
+        // part de la lecture : « Télécharger la saison » quand aucun épisode
+        // n'est là, « Compléter la saison » quand il en manque. Son état
+        // vivant (recherche, file, % en direct) remplace le bouton.
+        if (missingCount > 0 || seasonLive != null || seasonSearching) {
+            Spacer(modifier = Modifier.height(12.dp))
+            DownloadAction(
+                label = if (hasReadyEpisode) "Compléter la saison" else "Télécharger la saison",
+                live = seasonLive,
+                searching = seasonSearching,
+                onClick = onDownloadSeason,
+            )
         }
     }
 }
