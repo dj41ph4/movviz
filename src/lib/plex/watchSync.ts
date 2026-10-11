@@ -12,7 +12,7 @@ import { getObservedStatesForUser, setObservedStates, getObservedState, upsertOb
 import { reconcile, applyReconcileDecision } from "./plexReconciler";
 import { resolveEpisode, resolveMovie } from "./episodeResolver";
 import { isCircuitOpen, recordCircuitFailure, recordCircuitSuccess } from "./plexCircuitBreaker";
-import { getSeriesByTmdbId, getMovieByTmdbId, findEpisodeByPlexRatingKey } from "@/lib/library/store";
+import { getSeriesByTmdbId, getMovieByTmdbId, findEpisodeByPlexRatingKey, loadSeries } from "@/lib/library/store";
 import { withKeyLock } from "@/lib/library/locks";
 import { getUserMediaSyncStates, updateUserMediaSyncState } from "@/lib/userContext/syncState";
 import { mediaStateKey } from "@/lib/userContext/reconcile";
@@ -868,16 +868,41 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
         const diff = diffSnapshots(previousMap, snap.states);
         let snapReconciledWatched = 0;
         let snapReconciledUnwatched = 0;
+        // Index construits une fois : la boucle faisait un find() sur tout le
+        // snapshot, un includes() sur toutes les clés et un parcours de toute
+        // la bibliothèque séries pour CHAQUE transition (gels jusqu'à 8,8 s en
+        // prod, 2026-10-11). Mêmes résultats.
+        const statesByRk = new Map(snap.states.map((s) => [s.ratingKey, s] as const));
+        const movieRkSet = new Set(snap.movieRatingKeys);
+        const episodeRkSet = new Set(snap.episodeRatingKeys);
+        let episodeIndex: Map<string, NonNullable<ReturnType<typeof findEpisodeByPlexRatingKey>>> | null = null;
+        const episodeHit = (rk: string) => {
+          if (!episodeIndex) {
+            episodeIndex = new Map();
+            for (const series of loadSeries()) {
+              for (const season of series.seasons) {
+                for (const episode of season.episodes) {
+                  // Premier trouvé gagne, comme findEpisodeByPlexRatingKey.
+                  if (episode.plexRatingKey && !episodeIndex.has(episode.plexRatingKey)) episodeIndex.set(episode.plexRatingKey, { series, season, episode });
+                }
+              }
+            }
+          }
+          return episodeIndex.get(rk) ?? null;
+        };
+        let transitions = 0;
         // Need to reconcile each transition
         for (const rk of [...diff.newWatched, ...diff.newUnwatched]) {
-          const observed = snap.states.find((s) => s.ratingKey === rk);
+          // Rend la main régulièrement : les clics restent fluides.
+          if (++transitions % 50 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
+          const observed = statesByRk.get(rk);
           if (!observed) continue;
           const isWatched = diff.watchedNow.has(rk);
           // Resolve canonical for this rk – use movieMap/episode lookup
           let canonical: { type: "movie"; tmdbId: number } | { type: "episode"; tmdbShowId: number; seasonNumber: number; episodeNumber: number } | null = null;
           let title: string | null = null;
           // Try movie first
-          if (snap.movieRatingKeys.includes(rk)) {
+          if (movieRkSet.has(rk)) {
             const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [rk]);
             const tmdbId = tmdbMap.get(rk)?.tmdbId;
             if (tmdbId != null) {
@@ -886,8 +911,8 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
               title = movie?.title ?? null;
             }
           }
-          if (!canonical && snap.episodeRatingKeys.includes(rk)) {
-            const hit = findEpisodeByPlexRatingKey(rk);
+          if (!canonical && episodeRkSet.has(rk)) {
+            const hit = episodeHit(rk);
             if (hit) {
               canonical = { type: "episode", tmdbShowId: hit.series.tmdbId, seasonNumber: hit.season.seasonNumber, episodeNumber: hit.episode.episodeNumber };
               title = hit.series.title;

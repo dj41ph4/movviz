@@ -1,3 +1,9 @@
+## v1.26.014 — 12 octobre 2026
+
+### Plex : synchronisation des vues plus légère
+
+- La synchronisation des vues Plex compare l'état de Plex à celui de Movviz avec des index préparés une seule fois, au lieu de reparcourir toute la bibliothèque pour chaque épisode, et laisse respirer le serveur pendant le traitement. Les résultats sont identiques ; les petits gels de l'interface pendant cette tâche disparaissent.
+
 ## v1.26.013 — 12 octobre 2026
 
 ### Récupération des téléchargements : plus de gels du serveur
