@@ -497,6 +497,36 @@ async function backfillMissingMediaInfo(cfg: PlexServerConfig, token: string) {
   }
 }
 
+/**
+ * La réconciliation complète recopiait à chaque passage les infos fichier et
+ * média renvoyées par Plex, même identiques : toute la bibliothèque comptait
+ * comme « mise à jour » (notification « 2351 film(s) mis à jour » chaque jour)
+ * et chaque film réécrivait le fichier de la bibliothèque, ce qui figeait le
+ * serveur ~60 s. On retire du patch les champs dont la valeur ne change pas.
+ */
+export function dropUnchangedFields<T extends object>(current: T, patch: Partial<T>): Partial<T> {
+  for (const key of Object.keys(patch) as (keyof T)[]) {
+    if (sameValue(current[key], patch[key])) delete patch[key];
+  }
+  return patch;
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null || b == null || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const bb = b as unknown[];
+    return a.length === bb.length && a.every((v, i) => sameValue(v, bb[i]));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  // undefined et absent sont équivalents (une réécriture JSON les confond).
+  const keys = new Set([...Object.keys(ao), ...Object.keys(bo)]);
+  for (const k of keys) if (!sameValue(ao[k], bo[k])) return false;
+  return true;
+}
+
 async function syncMovieSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined, seenTmdbIds: Set<number>) {
   const items = await getSectionItems(cfg, section.key, token, { sinceUnixSeconds: since });
   let added = 0, matched = 0;
@@ -528,6 +558,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       }
       if (!existing.plexRatingKey) patch.plexRatingKey = item.ratingKey;
       if (item.mediaDetail) patch.plexMediaInfo = item.mediaDetail;
+      dropUnchangedFields(existing, patch);
       if (Object.keys(patch).length > 0) {
         updateMovie(existing.id, patch);
         matched++;
@@ -559,6 +590,8 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
         }
         if (!byPath.plexRatingKey) patch.plexRatingKey = item.ratingKey;
         if (item.mediaDetail) patch.plexMediaInfo = item.mediaDetail;
+        dropUnchangedFields(byPath, patch);
+        if (Object.keys(patch).length === 0) continue;
         updateMovie(byPath.id, patch);
         matched++;
         if (patch.file && fileNeedsProbe(byPath.id, byPath.file, patch.file)) probeMovieInBackground(byPath.id, patch.file.diskPath ?? patch.file.path);

@@ -305,15 +305,23 @@ export async function pushEpisodesWatchedToPlex(
     }
     let ok = 0;
     let fail = 0;
-    // Prepare context for targeted verification (best-effort)
+    let notInPlex = 0;
+    const findEpisode = (e: { season: number; episode: number }) =>
+      series.seasons.find((s) => s.seasonNumber === e.season)?.episodes.find((ep) => ep.episodeNumber === e.episode);
+    // Prepare context for targeted verification (best-effort). Inutile (et
+    // coûteux : appel plex.tv) quand aucun épisode du lot n'existe dans Plex.
     let verifyCtx: Awaited<ReturnType<typeof resolvePlexUserContext>> | null = null;
-    try { verifyCtx = await resolvePlexUserContext(user.id); } catch { verifyCtx = null; }
+    if (eps.some((e) => findEpisode(e)?.plexRatingKey)) {
+      try { verifyCtx = await resolvePlexUserContext(user.id); } catch { verifyCtx = null; }
+    }
     for (const e of eps) {
-      const season = series.seasons.find((s) => s.seasonNumber === e.season);
-      const episode = season?.episodes.find((ep) => ep.episodeNumber === e.episode);
+      const episode = findEpisode(e);
       const stateKey = mediaStateKey(user.id, "episode", tmdbId, e.season, e.episode);
       if (!episode?.plexRatingKey) {
-        fail++;
+        // Épisode absent du serveur Plex (ex. historique importé) : le statut
+        // reste vu dans Movviz ; l'outbox réessaie à paliers espacés au cas
+        // où l'épisode apparaîtrait un jour dans Plex. Pas un échec Plex.
+        notInPlex++;
         recordPlexWatchedSync(user.id, stateKey, false, "no plexRatingKey yet");
         continue;
       }
@@ -352,10 +360,11 @@ export async function pushEpisodesWatchedToPlex(
         ok++;
       }
     }
+    if (ok === 0 && fail === 0) continue; // rien d'envoyable : pas de bruit dans le journal
     recordSearchLog(
       fail === 0 ? "info" : "warn",
       "plex.watchWrite",
-      `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${series.title} » : ${ok} épisode(s) ${watched ? "marqué(s) vu(s)" : "marqué(s) non vu(s)"} sur Plex, ${fail} échec(s)/pas encore synchronisable(s)`
+      `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${series.title} » : ${ok} épisode(s) ${watched ? "marqué(s) vu(s)" : "marqué(s) non vu(s)"} sur Plex, ${fail} échec(s)${notInPlex ? `, ${notInPlex} absent(s) de Plex` : ""}`
     );
   }
 }
@@ -377,12 +386,27 @@ function parseWatchedStateKey(stateKey: string): { userId: string; mediaType: "m
   return null;
 }
 
-// Retry minimal (§52 du plan) : pas de retry_count dédié, juste un délai
-// minimum depuis la dernière tentative — le scheduler qui appelle ceci
-// toutes les minutes (plex-watchlist-sync) fournit déjà un backoff naturel
-// tant que l'entrée continue d'échouer.
+// Retry minimal (§52 du plan) : pas de retry_count dédié. Le scheduler appelle
+// ceci toutes les minutes (plex-watchlist-sync) ; le délai entre deux essais
+// d'une même entrée grandit avec l'ancienneté de la décision (paliers sur
+// lastObservedAt, posé à chaque nouvelle décision locale). Sans ces paliers,
+// une entrée qui échoue durablement (profil retiré des partages, épisode
+// absent de Plex) était retentée chaque minute pour toujours : en prod
+// (2026-10-11), 3 600 essais en 28 min pour 18 séries, avec un appel
+// plex.tv par épisode, et des gels du serveur.
 const OUTBOX_RETRY_MIN_AGE_MS = 60_000;
 const OUTBOX_RETRY_BATCH_LIMIT = 200;
+const OUTBOX_RETRY_SCAN_LIMIT = 5_000;
+
+/** Délai minimal avant de retenter une entrée, selon l'ancienneté de la décision. */
+export function plexOutboxRetryDue(entry: { lastObservedAt: number | null; updatedAt: number }, now = Date.now()): boolean {
+  const queuedFor = now - (entry.lastObservedAt ?? entry.updatedAt);
+  const wait = queuedFor < 10 * 60_000 ? OUTBOX_RETRY_MIN_AGE_MS
+    : queuedFor < 60 * 60_000 ? 5 * 60_000
+    : queuedFor < 24 * 60 * 60_000 ? 30 * 60_000
+    : 6 * 60 * 60_000;
+  return now - entry.updatedAt >= wait;
+}
 
 /**
  * Filet de sécurité de l'outbox durable (phase 7 du plan de finalisation) :
@@ -393,18 +417,21 @@ const OUTBOX_RETRY_BATCH_LIMIT = 200;
  * changé entre-temps, seule la dernière décision compte, pas un rejeu de
  * l'ancienne intention). Appelée depuis la tâche scheduler existante
  * plex-watchlist-sync plutôt que créer une nouvelle boucle (§53-54).
+ * Les épisodes d'une même série sont renvoyés en un seul lot (une résolution
+ * d'identité Plex et une ligne de log par série, plus une par épisode).
  */
 export async function retryPendingPlexWatchedState(): Promise<void> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname) return;
-  const before = Date.now() - OUTBOX_RETRY_MIN_AGE_MS;
+  const now = Date.now();
   const pending = getPendingSyncStates({
     target: PLEX_WATCHED_SYNC_TARGET, field: PLEX_WATCHED_SYNC_FIELD,
-    capabilities: ["PENDING", "ERROR"], before, limit: OUTBOX_RETRY_BATCH_LIMIT,
-  });
+    capabilities: ["PENDING", "ERROR"], before: now - OUTBOX_RETRY_MIN_AGE_MS, limit: OUTBOX_RETRY_SCAN_LIMIT,
+  }).filter((entry) => plexOutboxRetryDue(entry, now)).slice(0, OUTBOX_RETRY_BATCH_LIMIT);
   if (pending.length === 0) return;
 
   const usersById = new Map<string, User>();
+  const episodeBatches = new Map<string, { user: User; tmdbId: number; watched: boolean; entries: { tmdbId: number; season: number; episode: number }[] }>();
   for (const entry of pending) {
     const parsed = parseWatchedStateKey(entry.stateKey);
     if (!parsed || parsed.userId !== entry.userId) continue;
@@ -428,7 +455,13 @@ export async function retryPendingPlexWatchedState(): Promise<void> {
     if (parsed.mediaType === "movie") {
       await pushMovieWatchedToPlex(user, parsed.tmdbId, watched).catch(() => {});
     } else {
-      await pushEpisodesWatchedToPlex(user, [{ tmdbId: parsed.tmdbId, season: parsed.seasonNumber!, episode: parsed.episodeNumber! }], watched).catch(() => {});
+      const key = `${user.id}:${parsed.tmdbId}:${watched}`;
+      const batch = episodeBatches.get(key) ?? { user, tmdbId: parsed.tmdbId, watched, entries: [] };
+      batch.entries.push({ tmdbId: parsed.tmdbId, season: parsed.seasonNumber!, episode: parsed.episodeNumber! });
+      episodeBatches.set(key, batch);
     }
+  }
+  for (const batch of episodeBatches.values()) {
+    await pushEpisodesWatchedToPlex(batch.user, batch.entries, batch.watched).catch(() => {});
   }
 }

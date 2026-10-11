@@ -1,3 +1,15 @@
+## v1.26.012 — 11 octobre 2026
+
+### Plex : fin de la boucle de synchronisation des vues
+
+- Quand un « vu » ne peut pas être envoyé à Plex (profil retiré des partages du serveur, épisode absent de Plex…), Movviz réessaie d'abord chaque minute, puis de plus en plus rarement : toutes les 5 minutes après 10 minutes, toutes les 30 minutes après une heure, toutes les 6 heures après un jour. Avant, il réessayait chaque minute sans fin, ce qui pouvait figer le serveur plusieurs secondes et noyer le journal de recherche.
+- Les épisodes d'une même série sont renvoyés ensemble, avec une seule vérification du compte Plex et une seule ligne de journal par série.
+- Un épisode vu qui n'existe pas sur le serveur Plex (par exemple dans un historique importé) reste vu dans Movviz, sans appel à Plex ni avertissement dans le journal.
+
+### Plex : réconciliation quotidienne allégée
+
+- La réconciliation complète Plex ne réécrit plus un film quand rien n'a changé. Avant, toute la bibliothèque comptait comme « mise à jour » chaque jour (notification « 2351 film(s) mis à jour ») et le serveur pouvait se figer environ une minute pendant ce passage. La notification ne compte plus que les vrais changements.
+
 ## v1.26.011 — 11 octobre 2026
 
 ### Sécurité : clé TMDB réservée aux administrateurs

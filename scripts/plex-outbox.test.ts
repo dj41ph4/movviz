@@ -93,3 +93,19 @@ test("retryPendingPlexWatchedState() ne plante jamais quand Plex n'est pas confi
   // pour la procédure de test live).
   await assert.doesNotReject(() => retryPendingPlexWatchedState());
 });
+
+test("plexOutboxRetryDue() espace les essais d'une entrée qui échoue durablement", async () => {
+  const { plexOutboxRetryDue } = await import("@/lib/plex/watchWrite");
+  const now = 100 * 24 * 3_600_000;
+  const min = 60_000;
+  // Décision récente : retentée chaque minute, comme avant.
+  assert.equal(plexOutboxRetryDue({ lastObservedAt: now - 3 * min, updatedAt: now - min }, now), true);
+  // Au-delà de 10 min : 5 min entre deux essais.
+  assert.equal(plexOutboxRetryDue({ lastObservedAt: now - 20 * min, updatedAt: now - 2 * min }, now), false);
+  assert.equal(plexOutboxRetryDue({ lastObservedAt: now - 20 * min, updatedAt: now - 5 * min }, now), true);
+  // Au-delà d'une heure : 30 min ; au-delà d'un jour : 6 h.
+  assert.equal(plexOutboxRetryDue({ lastObservedAt: now - 3 * 60 * min, updatedAt: now - 10 * min }, now), false);
+  assert.equal(plexOutboxRetryDue({ lastObservedAt: now - 3 * 60 * min, updatedAt: now - 30 * min }, now), true);
+  assert.equal(plexOutboxRetryDue({ lastObservedAt: now - 3 * 24 * 60 * min, updatedAt: now - 60 * min }, now), false);
+  assert.equal(plexOutboxRetryDue({ lastObservedAt: null, updatedAt: now - 6 * 60 * min }, now), true);
+});
