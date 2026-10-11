@@ -454,17 +454,7 @@ private fun PlayerScreen(
         }
     }
 
-    // Anti-veille : le flag window est posé pour TOUTE la vie de l'Activity
-    // (pas seulement quand ExoPlayer est en lecture active). Le flag
-    // conditionnel de PlayerView se relâche dès qu'ExoPlayer bufferise, et un
-    // long re-buffering sur serveur distant suffisait à laisser l'Android TV
-    // s'endormir en plein film. Avec le flag permanent, le boîtier reste
-    // éveillé pendant la lecture comme avec Netflix.
     val view = androidx.compose.ui.platform.LocalView.current
-    DisposableEffect(Unit) {
-        view.keepScreenOn = true
-        onDispose { view.keepScreenOn = false }
-    }
 
     var currentIndex by remember { mutableStateOf(startIndex) }
     val current = queue[currentIndex]
@@ -475,6 +465,15 @@ private fun PlayerScreen(
     var nativePlayerView by remember { mutableStateOf<PlayerView?>(null) }
     var timelineScrubbing by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(true) }
+    // Anti-veille tant que la lecture est DEMANDÉE (isPlaying suit
+    // playWhenReady, donc reste vrai pendant un re-buffering : un long
+    // chargement sur serveur distant ne laisse pas la TV s'endormir en plein
+    // film). En pause, le flag est relâché : l'économiseur et la mise en
+    // veille du téléviseur reprennent leur délai normal, comme avec Plex.
+    DisposableEffect(isPlaying) {
+        view.keepScreenOn = isPlaying
+        onDispose { view.keepScreenOn = false }
+    }
     var loading by remember { mutableStateOf(true) }
     // Dernière exception ExoPlayer — sert uniquement aux détails techniques
     // de l'écran d'erreur (code ExoPlayer + codecs de la source) ; le
