@@ -24,7 +24,14 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   manifest: "/manifest.json",
-  icons: { icon: "/brand/movviz-logo.png", apple: "/brand/movviz-logo.png" },
+  // Small sizes for the tab and home-screen icons — the 512px logo is 470 KB.
+  icons: {
+    icon: [
+      { url: "/brand/movviz-icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/movviz-icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: { url: "/brand/movviz-icon-180.png", sizes: "180x180", type: "image/png" },
+  },
   openGraph: {
     title: "Movviz — Centre de commande média intelligent",
     description: DESCRIPTION,

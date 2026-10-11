@@ -10,6 +10,12 @@
 
 - La réconciliation complète Plex ne réécrit plus un film quand rien n'a changé. Avant, toute la bibliothèque comptait comme « mise à jour » chaque jour (notification « 2351 film(s) mis à jour ») et le serveur pouvait se figer environ une minute pendant ce passage. La notification ne compte plus que les vrais changements.
 
+### Diagnostic, icônes et bandes-annonces
+
+- Le diagnostic renvoie les compteurs par type et les 50 premiers exemples, au lieu de plusieurs dizaines de milliers de lignes.
+- Icônes d'onglet et d'application légères, et un favicon.ico.
+- Les bandes-annonces déjà trouvées restent en cache après un redémarrage du serveur.
+
 ## v1.26.011 — 11 octobre 2026
 
 ### Sécurité : clé TMDB réservée aux administrateurs

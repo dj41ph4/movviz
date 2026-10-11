@@ -1,3 +1,4 @@
+import path from "node:path";
 import { getCache } from "@/lib/cache/registry";
 import { resolveAppleTrailer } from "./providers/apple";
 import { resolveImdbTrailer } from "./providers/imdb";
@@ -11,7 +12,14 @@ import type { TrailerSource } from "./types";
 // changing shows up within a day, matching the plan's 24h-7d window without
 // needing a second, longer-lived negative-result cache.
 const TTL_MS = 24 * 60 * 60 * 1000;
-const cache = getCache("trailerResolver", TTL_MS);
+// Persisted so a server restart (every update) doesn't send every title back
+// through the ~5 s provider round-trip. Same 24h TTL, never served past it:
+// some provider stream URLs are signed and must not be reused once expired.
+const CACHE_FILE = path.join(
+  process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"),
+  "trailer-resolver-cache.json"
+);
+const cache = getCache("trailerResolver", TTL_MS, CACHE_FILE);
 
 /**
  * Apple → Netflix → Disney+ → Prime Video → IMDb → [] (existing YouTube

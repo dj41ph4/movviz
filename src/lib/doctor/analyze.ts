@@ -4,7 +4,7 @@ import { loadIndexers } from "@/lib/indexers/store";
 import { testIndexer } from "@/lib/indexers/torznab";
 import { loadReleaseRules } from "@/lib/library/releaseRules";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
-import { loadLibraryHealthReport } from "@/lib/library/libraryHealthCheck";
+import { loadLibraryHealthReport, type LibraryHealthIssue, type LibraryHealthReport } from "@/lib/library/libraryHealthCheck";
 import { getDecisionLog } from "@/lib/library/decisionLog";
 
 /**
@@ -30,9 +30,18 @@ export interface DoctorReport {
     codecScores: { x264: number; x265: number; av1: number };
     qualityProfiles: { name: string; minScore: number; allowedResolutions: string[] }[];
   };
-  libraryHealth: ReturnType<typeof loadLibraryHealthReport>;
+  /** Summary only: per-kind counts plus the first issues as examples — the
+   *  full list (tens of thousands on a large library, 6 MB in prod) is never
+   *  shown by the Doctor panel. */
+  libraryHealth: (Omit<LibraryHealthReport, "issues"> & {
+    issues: LibraryHealthIssue[];
+    issuesTotal: number;
+    issueCounts: Partial<Record<LibraryHealthIssue["kind"], number>>;
+  }) | null;
   recentDecisions: ReturnType<typeof getDecisionLog>;
 }
+
+const LIBRARY_HEALTH_EXAMPLES = 50;
 
 export async function runDoctorAnalysis(): Promise<DoctorReport> {
   const recommendations: DoctorRecommendation[] = [];
@@ -95,7 +104,17 @@ export async function runDoctorAnalysis(): Promise<DoctorReport> {
       codecScores: rules.codecScores,
       qualityProfiles: DEFAULT_QUALITY_PROFILES.map((p) => ({ name: p.name, minScore: p.minScore, allowedResolutions: p.allowedResolutions })),
     },
-    libraryHealth,
+    libraryHealth: libraryHealth
+      ? {
+          ...libraryHealth,
+          issues: libraryHealth.issues.slice(0, LIBRARY_HEALTH_EXAMPLES),
+          issuesTotal: libraryHealth.issues.length,
+          issueCounts: libraryHealth.issues.reduce<Partial<Record<LibraryHealthIssue["kind"], number>>>((acc, i) => {
+            acc[i.kind] = (acc[i.kind] ?? 0) + 1;
+            return acc;
+          }, {}),
+        }
+      : null,
     recentDecisions: getDecisionLog(15),
   };
 }
