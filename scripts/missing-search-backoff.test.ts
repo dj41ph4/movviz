@@ -9,12 +9,12 @@ const { backoffDelayMs, isDueForRetry, recordRetryPass } = await import("@/lib/l
 
 const DAY = 24 * 60 * 60 * 1000;
 
-test("relance des manquants : délai 1 j, puis 3 j, puis 7 j", () => {
+test("relance des manquants : délai 1 j, puis 3 j au maximum", () => {
   assert.equal(backoffDelayMs(0), 0);
   assert.equal(backoffDelayMs(1), DAY);
   assert.equal(backoffDelayMs(2), 3 * DAY);
-  assert.equal(backoffDelayMs(3), 7 * DAY);
-  assert.equal(backoffDelayMs(9), 7 * DAY);
+  assert.equal(backoffDelayMs(3), 3 * DAY);
+  assert.equal(backoffDelayMs(9), 3 * DAY);
 });
 
 test("relance des manquants : un titre cherché en vain attend, un titre jamais cherché passe", () => {

@@ -1,3 +1,9 @@
+## v1.26.016 — 12 octobre 2026
+
+### Relance des manquants : 3 jours d'attente au maximum
+
+- Un titre déjà cherché sans résultat attend 1 jour, puis 3 jours au maximum avant d'être recherché à nouveau (au lieu de 7). Le scan RSS, la recherche des sorties du jour et la recherche manuelle n'attendent jamais : un titre qui apparaît dans un flux est téléchargé tout de suite.
+
 ## v1.26.015 — 12 octobre 2026
 
 ### Films et séries manquants : le RSS d'abord, la relance plus légère

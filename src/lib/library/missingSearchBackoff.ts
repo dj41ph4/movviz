@@ -4,14 +4,16 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 /**
  * Per-title spacing for the scheduled « Relance des manquants » only — never
  * for a manual search, the RSS match or the release-day search. A title the
- * retry already searched without success waits 1, then 3, then 7 days before
+ * retry already searched without success waits 1 day, then 3 days (at most) before
  * the retry tries it again: an old missing title rarely appears overnight, and
- * the hourly RSS scan still grabs it the moment it shows up in a feed.
+ * the 15-minute RSS scan still grabs it the moment it shows up in a feed.
  */
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "missing-search-backoff.json");
 const DAY_MS = 24 * 60 * 60 * 1000;
-export const BACKOFF_STEPS_MS = [DAY_MS, 3 * DAY_MS, 7 * DAY_MS];
+// Capped at 3 days: an old title that appears outside every RSS feed must
+// never wait a week.
+export const BACKOFF_STEPS_MS = [DAY_MS, 3 * DAY_MS];
 
 interface Entry { lastAt: number; attempts: number }
 type Store = Record<string, Entry>;

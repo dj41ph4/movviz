@@ -608,7 +608,7 @@ export async function searchMissingMovies(max = 100) {
 
 async function searchMissingMoviesInner(max: number) {
   const missing = loadMovies().filter((m) => m.monitored && m.status === "missing");
-  // Titles this retry already searched in vain wait 1/3/7 days (see
+  // Titles this retry already searched in vain wait 1 then 3 days (see
   // missingSearchBackoff.ts) — the RSS scan still grabs them meanwhile.
   const candidates = missing.filter((m) => isDueForRetry(`movie:${m.id}`));
   // Randomize to avoid re-searching the same movies every pass — every run

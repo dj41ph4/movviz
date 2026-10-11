@@ -346,7 +346,7 @@ export const TASKS: ScheduledTask[] = [
     name: "Relance des films manquants",
     // Every 8 h (was 6 h — 8 h is the acquisition floor, see interval.ts):
     // the 15-min RSS scan catches new releases, and titles already searched
-    // in vain wait 1/3/7 days (missingSearchBackoff), so most passes only
+    // in vain wait 1 then 3 days (missingSearchBackoff), so most passes only
     // search titles that have never been tried or are due again.
     intervalMs: 8 * 60 * 60 * 1000,
     // Movies that auto-search initially failed on (indexer had no results,

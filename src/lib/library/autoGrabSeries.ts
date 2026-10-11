@@ -1944,7 +1944,7 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
   }
   const activeKeys = new Set([...bySeries.keys()].map((id) => `series:${id}`));
 
-  // Series this retry already searched in vain wait 1/3/7 days (see
+  // Series this retry already searched in vain wait 1 then 3 days (see
   // missingSearchBackoff.ts) — the RSS scan still grabs them meanwhile.
   // Randomize series order so the same shows don't get re-searched every pass.
   const due = [...bySeries.values()].filter(({ series }) => isDueForRetry(`series:${series.id}`));
