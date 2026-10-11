@@ -1,3 +1,9 @@
+## v1.26.010 — 11 octobre 2026
+
+### Android TV et mobile : mise en veille en pause
+
+- Quand la lecture est en pause, l'économiseur d'écran et la mise en veille du téléviseur se déclenchent de nouveau après leur délai habituel, comme avec Plex. Pendant la lecture, y compris pendant un chargement, l'écran reste allumé.
+
 ## v1.26.009 — 11 octobre 2026
 
 ### Android mobile : compléter une saison
