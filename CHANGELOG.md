@@ -1,3 +1,12 @@
+## v1.26.008 — 11 octobre 2026
+
+### Android TV et mobile : téléchargement d'un épisode
+
+- Sur la fiche d'un épisode manquant, le bouton devient « Télécharger l'épisode » au lieu de « Télécharger la saison ». Il affiche ensuite l'état en direct : en file d'attente, recherche, téléchargement avec pourcentage en temps réel, puis import, avant de passer à « Lecture ».
+- « Télécharger la saison » n'est proposé que pour une saison dont aucun épisode n'est présent, avec le même suivi en direct. Sur TV, une saison entamée garde « Compléter la saison », lui aussi suivi en direct.
+- Un pack de saison en cours affiche sa progression sur chacun de ses épisodes, plus seulement sur le premier.
+- Mobile : les épisodes manquants s'ouvrent désormais pour pouvoir être téléchargés (ils étaient inactifs).
+
 ## v1.26.007 — 10 octobre 2026
 
 ### Récupération automatique des blocages
