@@ -167,7 +167,7 @@ fun RowDetailScreen(
             }
             else -> TvLazyVerticalGrid(
                 state = rememberTvLazyGridState().withTvPrefetchDisabled(),
-                columns = TvGridCells.FixedSize(com.movviz.tv.ui.theme.betaDp(116.dp, 112.dp)),
+                columns = TvGridCells.FixedSize(112.dp),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(15.dp),
                 modifier = Modifier.fillMaxSize(),
@@ -177,7 +177,7 @@ fun RowDetailScreen(
                         card = card,
                         onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         focusRequester = if (index == 0) entryFocusRequester else null,
-                        width = com.movviz.tv.ui.theme.betaDp(116.dp, 112.dp),
+                        width = 112.dp,
                         // Même principe portrait sans logo / logo posé au
                         // focus que le catalogue — voir CatalogScreen.kt.
                         aspectRatio = 2f / 3f,

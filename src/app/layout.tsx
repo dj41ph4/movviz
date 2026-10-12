@@ -72,7 +72,7 @@ export default async function RootLayout({
     // Pré-rendu statique au build (pas de cookies) — sans conséquence.
   }
   return (
-    <html lang="fr" data-theme="dark" className={fontVariables} data-desktop-text-scale={desktopTextScale} suppressHydrationWarning>
+    <html lang="fr" data-theme="dark" data-movviz-appearance="beta" className={fontVariables} data-desktop-text-scale={desktopTextScale} suppressHydrationWarning>
       {/* React ne monte le <img> du splash/sidebar qu'après l'hydratation JS —
           trop tard pour qu'il "apparaisse en premier". Ce preload démarre le
           téléchargement dès le HTML initial, en parallèle du JS, pour que le

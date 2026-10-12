@@ -1,33 +1,20 @@
 "use client";
 
-import { createContext, useContext, useEffect, type ReactNode } from "react";
-import useSWR from "swr";
+import { useEffect, type ReactNode } from "react";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
-import type { DashboardLayout } from "@/lib/dashboard/types";
-import { isPremiumAppearance } from "@/lib/appearance/policy";
 import { createPremiumPointerController } from "@/lib/appearance/premiumPointer";
 import { usePlaybackActive } from "@/lib/player/PlayerProvider";
 import "./premium.css";
 import "./salle-obscure.css";
 
-const AppearanceContext = createContext(false);
-export const usePremiumAppearance = () => useContext(AppearanceContext);
-
-export function AppearanceProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
-  // Reuses the existing Settings/Home SWR request, including its mutation.
-  const { data } = useSWR<{ userId: string; layout: DashboardLayout }>(userId ? "/api/dashboard/layout" : null);
-  const beta = isPremiumAppearance(userId, data);
+/** Beta is the only appearance: `data-movviz-appearance="beta"` is set on
+ *  <html> by the root layout. This only drives the desktop pointer effects. */
+export function AppearanceProvider({ children }: { children: ReactNode }) {
   const reduceMotion = useShouldReduceMotion();
   const playbackActive = usePlaybackActive();
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.dataset.movvizAppearance = beta ? "beta" : "stable";
-    return () => { delete root.dataset.movvizAppearance; };
-  }, [beta, userId]);
-
-  useEffect(() => {
-    if (!beta || reduceMotion || playbackActive) return;
+    if (reduceMotion || playbackActive) return;
     const media = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
     const pointer = createPremiumPointerController(requestAnimationFrame, cancelAnimationFrame);
     const onMove = (event: PointerEvent) => {
@@ -55,7 +42,7 @@ export function AppearanceProvider({ userId, children }: { userId: string | null
       media.removeEventListener("change", reset);
       pointer.reset();
     };
-  }, [beta, reduceMotion, playbackActive]);
+  }, [reduceMotion, playbackActive]);
 
-  return <AppearanceContext.Provider value={beta}>{children}</AppearanceContext.Provider>;
+  return <>{children}</>;
 }

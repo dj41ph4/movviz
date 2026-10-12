@@ -2,16 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import postcss, { type Node, type AtRule } from "postcss";
-import { isPremiumAppearance } from "../src/lib/appearance/policy.ts";
 import { createPremiumPointerController, premiumPointerValues } from "../src/lib/appearance/premiumPointer.ts";
-
-test("premium appearance is opt-in and cannot inherit another profile's cached choice", () => {
-  assert.equal(isPremiumAppearance("cassy", { userId: "cassy", layout: { mode: "beta" } }), true);
-  assert.equal(isPremiumAppearance("friend", { userId: "cassy", layout: { mode: "beta" } }), false);
-  assert.equal(isPremiumAppearance(null, { userId: "cassy", layout: { mode: "beta" } }), false);
-  assert.equal(isPremiumAppearance("cassy", { userId: "cassy", layout: { mode: "cinema" } }), false);
-  assert.equal(isPremiumAppearance("cassy", undefined), false);
-});
 
 test("spotlight coordinates and tilt stay bounded, including outside the card", () => {
   const rect = { left: 10, top: 20, width: 200, height: 100 };
@@ -86,7 +77,7 @@ test("every premium style rule is scoped to Beta and desktop", () => {
     assert.ok(desktop, rule.selector);
   });
   const source = readFileSync(new URL("../src/components/appearance/AppearanceProvider.tsx", import.meta.url), "utf8");
-  assert.ok(source.includes("if (!beta || reduceMotion || playbackActive) return;"));
+  assert.ok(source.includes("if (reduceMotion || playbackActive) return;"));
   assert.ok(source.includes("pointer.reset();"));
 });
 

@@ -152,22 +152,6 @@ fun SettingsScreen(
             }
         }
 
-        item(contentType = "appearance") {
-            SettingsSection(title = "Apparence") {
-                val betaUi by viewModel.betaUiEnabled.collectAsState()
-                Text(
-                    text = "Nouvelle interface en test : textes plus grands, un seul cadre de sélection, marges alignées. Désactivez-la pour revenir à l'apparence actuelle.",
-                    style = TextStyle(fontSize = com.movviz.tv.ui.theme.betaSp(10f, 13f), color = MovvizInkSoft),
-                )
-                Spacer(modifier = Modifier.height(9.dp))
-                SettingsToggle(
-                    label = if (betaUi) "Interface Bêta : activée" else "Interface Bêta : désactivée",
-                    enabled = betaUi,
-                    onToggle = { viewModel.setBetaUiEnabled(!betaUi) },
-                )
-            }
-        }
-
         item(contentType = "about") {
             SettingsSection(title = "À propos") {
                 InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
@@ -206,8 +190,7 @@ private fun AutoUpdateToggle(viewModel: AppViewModel) {
     )
 }
 
-/** Interrupteur de réglage — même rendu pour l'auto-mise à jour et
- *  l'interface Bêta. */
+/** Interrupteur de réglage (auto-mise à jour). */
 @Composable
 private fun SettingsToggle(label: String, enabled: Boolean, onToggle: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
@@ -237,7 +220,7 @@ private fun SettingsToggle(label: String, enabled: Boolean, onToggle: () -> Unit
         ) {
             Text(
                 text = label,
-                style = TextStyle(fontSize = com.movviz.tv.ui.theme.betaSp(11f, 13f), fontWeight = FontWeight.Bold),
+                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold),
             )
             Box(
                 modifier = Modifier

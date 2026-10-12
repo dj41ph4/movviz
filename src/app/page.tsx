@@ -26,7 +26,6 @@ import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySer
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
 import { mergeNxDashboardLayout } from "@/lib/dashboard/homeLayout";
-import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 import {
   Film, Tv, HardDriveDownload, Download, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
   Pencil, Check, Plus, X, type LucideIcon,
@@ -60,7 +59,6 @@ const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[cal
 
 export default function DashboardPage() {
   const t = useT();
-  const premiumAppearance = usePremiumAppearance();
   const { optimized, ready: interfaceModeReady } = useInterfaceDataMode();
   const { data: optimizedData, error: optimizedError, mutate: mutateOptimized } = useSWR<DashboardInterfaceData>(
     interfaceModeReady && optimized ? "/api/interface/dashboard" : null,
@@ -277,8 +275,7 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [loading, showSplash, optimized]);
 
-  // Stable and Beta share content and behavior; Beta only opts into styling.
-  const richMode = layout.mode === "cinema" || layout.mode === "beta";
+  const richMode = layout.mode === "beta";
 
   // Si pas de rangées à attendre (classic ou biblio vide), ne bloque pas le splash
   useEffect(() => {
@@ -289,7 +286,7 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardSplash show={showSplash} progress={splashProgress} />
-      <div data-dashboard-mode={premiumAppearance ? "beta" : "stable"} className={cn("nx-dashboard-content w-full max-w-[2000px] space-y-8", premiumAppearance && "nx-dashboard-premium")}>
+      <div className="nx-dashboard-content nx-dashboard-premium w-full max-w-[2000px] space-y-8">
       {richMode && (
         <div className="nx-home-hero-grid">
           <CardErrorBoundary>

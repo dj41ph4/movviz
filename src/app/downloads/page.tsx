@@ -12,7 +12,6 @@ import { UnlinkedTab } from "@/components/activity/v2/UnlinkedTab";
 import { DownloadLiveStats } from "@/components/media/DownloadLiveStats";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import useSWR from "swr";
-import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 import { formatBytes, formatSpeed } from "@/lib/utils";
 import { Download, History, ListChecks, AlertCircle, Link2 } from "lucide-react";
 
@@ -38,10 +37,9 @@ function DownloadsPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const premium = usePremiumAppearance();
-  // Bêta : la description devient un résumé live (mêmes clés SWR que la colonne de droite, donc aucune requête en plus).
-  const { data: engine } = useSWR<{ downloading: number; downloadSpeed: number }>(premium ? "/api/engine/stats" : null, { refreshInterval: 5000, revalidateOnFocus: false });
-  const { data: system } = useSWR<{ disk: { free: number } | null }>(premium ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
+  // La description est un résumé live (mêmes clés SWR que la colonne de droite, donc aucune requête en plus).
+  const { data: engine } = useSWR<{ downloading: number; downloadSpeed: number }>("/api/engine/stats", { refreshInterval: 5000, revalidateOnFocus: false });
+  const { data: system } = useSWR<{ disk: { free: number } | null }>("/api/stats", { refreshInterval: 30_000, revalidateOnFocus: false });
   const summary = [
     t("downloads.summaryActive", { count: engine?.downloading ?? 0 }),
     formatSpeed(engine?.downloadSpeed ?? 0),
@@ -64,7 +62,7 @@ function DownloadsPageInner() {
       <PageHeader
         eyebrow={t("activity.eyebrow")}
         title={t("activity.title")}
-        description={premium ? summary : t("activity.description")}
+        description={summary}
       />
 
       <div className="nx-dl-tabs mb-6 flex flex-wrap gap-1.5" role="tablist">

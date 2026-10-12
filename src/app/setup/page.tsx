@@ -22,7 +22,6 @@ import {
   Check, Loader2, ArrowRight, ExternalLink, ChevronRight, MonitorSmartphone,
   Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot, UserPlus,
 } from "lucide-react";
-import { DASHBOARD_MODES, DEFAULT_DASHBOARD_LAYOUT, type DashboardLayout } from "@/lib/dashboard/types";
 import { DEVICE_TYPES, type DeviceType } from "@/lib/setup/deviceTypes";
 
 const STEPS = ["account", "language", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "plex", "done"] as const;
@@ -606,26 +605,19 @@ const DEVICE_ICON: Record<DeviceType, React.ElementType> = {
 };
 
 /**
- * LOT7 — two independent, purely-descriptive personalization questions:
+ * LOT7 — purely-descriptive personalization question:
  * which devices the household watches on (multi-select, stored via
  * devicePreferences.ts — no auto-selection logic wired to it yet, see LOT6
- * `versions[]` for the data a future version would use), and the Dashboard
- * Experience preferences already exposed in Réglages (LOT5.6) — surfaced
- * here too so a new install can pick its dashboard style up front instead
- * of only discovering the setting later.
+ * `versions[]` for the data a future version would use).
  */
 function PersonalizationStep() {
   const t = useT();
   const [devices, setDevices] = useState<Set<DeviceType>>(new Set());
-  const [layout, setLayout] = useState<DashboardLayout | null>(null);
 
   useEffect(() => {
     fetch("/api/setup/device-preferences", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setDevices(new Set(d.devices ?? [])));
-    fetch("/api/dashboard/layout", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setLayout(d.layout ?? DEFAULT_DASHBOARD_LAYOUT));
   }, []);
 
   const toggleDevice = (id: DeviceType) => {
@@ -637,17 +629,6 @@ function PersonalizationStep() {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ devices: [...next] }),
-    });
-  };
-
-  const saveLayout = (patch: Partial<DashboardLayout>) => {
-    if (!layout) return;
-    const next = { ...layout, ...patch };
-    setLayout(next);
-    fetch("/api/dashboard/layout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(next),
     });
   };
 
@@ -677,26 +658,6 @@ function PersonalizationStep() {
             })}
           </div>
         </div>
-
-        {layout && (
-          <div>
-            <p className="mb-2 text-sm font-semibold text-ink">{t("setup.dashboardModeQuestion")}</p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {DASHBOARD_MODES.map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => saveLayout({ mode })}
-                  className={cn(
-                    "rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors",
-                    layout.mode === mode ? "border-brand/40 bg-brand/12 text-brand-glow" : "border-white/8 bg-black/20 text-ink-soft hover:text-ink"
-                  )}
-                >
-                  {t(`settings.dashboardExperience.mode.${mode}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </StepShell>
   );

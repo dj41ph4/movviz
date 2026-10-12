@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X, Clapperboard, Sparkles, Heart, Grid2X2, ListFilter } from "lucide-react";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
@@ -82,7 +81,6 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   const t = useT();
   const { locale } = useI18n();
   const user = useCurrentUser();
-  const premium = usePremiumAppearance();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -524,7 +522,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
         {/* Bêta desktop : type et tri vivent déjà dans la barre d'outils du
             dessus, on ne garde ici que ce qu'elle n'a pas (les statuts). */}
-        <div className={cn("flex flex-wrap items-center justify-between gap-1.5", premium && fixedType === "all" && "lg:hidden")}>
+        <div className={cn("flex flex-wrap items-center justify-between gap-1.5", fixedType === "all" && "lg:hidden")}>
           {fixedType === "all" ? (
             <div className="flex flex-wrap gap-1.5">
               {TYPES.map((tp) => {
@@ -563,7 +561,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
               ))}
             </div>
           )}
-          <div className={cn("flex flex-wrap items-center gap-1 rounded-lg glass-strong p-1", premium && "lg:hidden")}>
+          <div className={"flex flex-wrap items-center gap-1 rounded-lg glass-strong p-1 lg:hidden"}>
             {SORTS.map((s) => (
               <button
                 key={s.id}

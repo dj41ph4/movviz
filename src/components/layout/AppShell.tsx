@@ -162,7 +162,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
           <VersionProvider version={version}>
             <InterfaceSWRPolicy>
               <PlayerProvider>
-                <AppearanceProvider key={currentUser?.id ?? "anonymous"} userId={currentUser?.id ?? null}>
+                <AppearanceProvider>
                 <DesktopTextScaleProvider />
                 <Suspense fallback={null}>
                   <PageLoaderProvider>

@@ -10,7 +10,6 @@ import { NotificationBell } from "./NotificationBell";
 import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
-import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 
 export function Topbar() {
   const user = useCurrentUser();
@@ -22,7 +21,6 @@ export function Topbar() {
   // Bêta desktop : la langue et Sponsor passent dans le menu profil. La
   // recherche reste la barre Stable partout (Seb, 2026-10-06 : pas de
   // palette Ctrl K).
-  const premium = usePremiumAppearance();
 
   // Transparent at the very top of the page (reads seamlessly over a hero
   // banner on pages that have one, and blends into the page's own dark
@@ -94,12 +92,12 @@ export function Topbar() {
           target="_blank"
           rel="noreferrer"
           aria-label={t("settings.aboutSupportTitle")}
-          className={cn("flex h-11 w-11 items-center justify-center rounded-full glass text-ink-soft transition-colors hover:border-magenta/30 hover:text-magenta", premium && "lg:hidden")}
+          className={cn("flex h-11 w-11 items-center justify-center rounded-full glass text-ink-soft transition-colors hover:border-magenta/30 hover:text-magenta lg:hidden")}
         >
           <Heart className="h-4 w-4 animate-heartbeat fill-down text-down" />
         </a>
         {user?.role === "admin" && <ActivityMonitor />}
-        <div className={cn(premium && "lg:hidden")}><LanguageSwitcher /></div>
+        <div className="lg:hidden"><LanguageSwitcher /></div>
         <NotificationBell />
         <UserMenu />
       </div>

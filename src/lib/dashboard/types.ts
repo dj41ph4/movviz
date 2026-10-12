@@ -12,8 +12,9 @@ export const DASHBOARD_WIDGET_IDS = [
 
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 
-// Keep "cinema" as the persisted Stable key for backward compatibility.
-export const DASHBOARD_MODES = ["cinema", "beta"] as const;
+// Single appearance since the Stable theme was removed. A stored "cinema"
+// (the old Stable key) is read back as "beta".
+export const DASHBOARD_MODES = ["beta"] as const;
 export type DashboardMode = (typeof DASHBOARD_MODES)[number];
 
 export const DASHBOARD_SECTION_IDS = [
@@ -78,16 +79,9 @@ const DEFAULT_HERO_SETTINGS: DashboardHeroSettings = {
 
 const DEFAULT_SECTIONS: DashboardLayout["sections"] = DASHBOARD_SECTION_IDS.map((id) => ({ id, visible: true }));
 
-/**
- * Cinéma is the default for brand-new installs (the wizard can point new
- * users at the immersive experience) — but an EXISTING install migrating
- * from the pre-v2 schema (see sanitizeDashboardLayout) always lands on
- * Stable instead, so nothing visually changes for someone who never
- * touched this setting.
- */
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   version: 2,
-  mode: "cinema",
+  mode: "beta",
   // Off by default on a fresh install — an existing install's own saved
   // `true` is never touched by this (sanitizeDashboardLayout only falls
   // back to these defaults for a field that was never actually saved).
@@ -102,10 +96,6 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
 
 function isWidgetId(value: unknown): value is DashboardWidgetId {
   return typeof value === "string" && (DASHBOARD_WIDGET_IDS as readonly string[]).includes(value);
-}
-
-function isDashboardMode(value: unknown): value is DashboardMode {
-  return typeof value === "string" && (DASHBOARD_MODES as readonly string[]).includes(value);
 }
 
 function isSectionId(value: unknown): value is DashboardSectionId {
@@ -166,7 +156,7 @@ function sanitizeSections(raw: unknown): DashboardLayout["sections"] {
  * Drops unknown/duplicate values from a client-supplied layout — never trust
  * stored/posted JSON as-is. Also the single migration point for the pre-v2
  * schema (`{ widgets: [...] }` with no `version`): read-time upgrade to v2
- * defaults in Stable mode, preserving the widget order/set the user
+ * defaults, preserving the widget order/set the user
  * already had — never a one-shot migration script, never destructive.
  */
 export function sanitizeDashboardLayout(input: unknown): DashboardLayout {
@@ -174,7 +164,7 @@ export function sanitizeDashboardLayout(input: unknown): DashboardLayout {
 
   return {
     version: 2,
-    mode: isDashboardMode(obj.mode) ? obj.mode : DEFAULT_DASHBOARD_LAYOUT.mode,
+    mode: "beta",
     showStats: typeof obj.showStats === "boolean" ? obj.showStats : DEFAULT_DASHBOARD_LAYOUT.showStats,
     showDownloads: typeof obj.showDownloads === "boolean" ? obj.showDownloads : DEFAULT_DASHBOARD_LAYOUT.showDownloads,
     showTasks: typeof obj.showTasks === "boolean" ? obj.showTasks : DEFAULT_DASHBOARD_LAYOUT.showTasks,

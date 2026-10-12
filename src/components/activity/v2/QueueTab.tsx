@@ -11,7 +11,6 @@ import { useSmoothProgress } from "@/lib/media/useSmoothProgress";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
@@ -80,7 +79,6 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const { locale } = useI18n();
   const router = useRouter();
   const user = useCurrentUser();
-  const premium = usePremiumAppearance();
   const reduceMotion = useShouldReduceMotion();
   const { optimized } = useInterfaceDataMode();
   const btnSpring = reduceMotion ? {} : {
@@ -528,15 +526,9 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="space-y-3">
-        {premium ? (
           <div className="nx-download-table-head nx-dl-head hidden lg:grid" aria-hidden="true">
             <span /><span>{t("downloads.colContent")}</span><span>{t("downloads.colProgress")}</span><span>{t("downloads.colRate")}</span><span>{t("downloads.colEta")}</span><span>{t("downloads.colSources")}</span><span />
           </div>
-        ) : (
-          <div className="nx-download-table-head hidden lg:grid" aria-hidden="true">
-            <span>Contenu</span><span>Progression</span><span>Vitesse</span><span>Sources</span><span>Statut</span><span>Actions</span>
-          </div>
-        )}
         {(() => {
           let lastSection: string | null = null;
           const rows: React.ReactNode[] = [];
@@ -660,7 +652,6 @@ const QueueItemRow = memo(function QueueItemRow({
   onToggleExpand, onAction, onSetPriority, onToggleSeed, onRemove, canManage,
 }: QueueItemRowProps) {
   const reduceMotion = useShouldReduceMotion();
-  const premium = usePremiumAppearance();
   const displayProgress = useSmoothProgress(item.download.progress, item.release.size, item.download.downloadSpeed);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const priorityRef = useRef<HTMLDivElement>(null);
@@ -695,9 +686,8 @@ const QueueItemRow = memo(function QueueItemRow({
 
   return (
     <>
-    {premium ? (
-    /* Bêta desktop (Salle obscure) : une ligne alignée sur la maquette —
-       contenu, progression, débit, reste, sources, actions discrètes. */
+    {/* Desktop (Salle obscure) : une ligne alignée sur la maquette —
+       contenu, progression, débit, reste, sources, actions discrètes. */}
     <div className="nx-download-desktop-row nx-dl-row hidden lg:grid" data-status={item.status} onClick={() => onToggleExpand(item.id)}>
       {item.media.linked === false ? (
         <span className="nx-download-poster flex shrink-0 items-center justify-center overflow-hidden" title={t("activity.queueUnlinkedHint")}>
@@ -748,74 +738,6 @@ const QueueItemRow = memo(function QueueItemRow({
         </button>
       </div>
     </div>
-    ) : (
-    <div className="nx-download-desktop-row hidden lg:grid" onClick={() => onToggleExpand(item.id)}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        {item.media.linked === false ? (
-          <span className={cn("nx-download-poster flex shrink-0 items-center justify-center overflow-hidden rounded-lg", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")} title={t("activity.queueUnlinkedHint")}>
-            {item.media.posterPath ? (
-              <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
-            ) : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
-          </span>
-        ) : (
-          <Link
-            href={item.media?.href ?? "#"}
-            onClick={(e) => e.stopPropagation()}
-            className={cn("nx-download-poster flex shrink-0 items-center justify-center overflow-hidden rounded-lg transition-opacity hover:opacity-80", item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}
-          >
-            {item.media.posterPath ? (
-              <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
-            ) : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
-          </Link>
-        )}
-        <div className="min-w-0">
-          {item.media.linked === false ? (
-            <p className="truncate text-xs font-bold text-ink" title={t("activity.queueUnlinkedHint")}>{item.media.title}</p>
-          ) : (
-            <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="truncate text-xs font-bold text-ink hover:text-brand-glow">
-              {item.media.title}
-            </Link>
-          )}
-          <p className="truncate text-[10px] text-ink-dim">
-            {detailText}
-            {item.release.indexer && item.release.indexer !== "Inconnu" && ` · ${item.release.indexer}`}
-          </p>
-          {item.replacementFailure && <p className="mt-1 text-[11px] leading-snug text-down">{t(`downloads.replacement.${item.replacementFailure.reason}`)} · {item.replacementFailure.discarded ? t("downloads.replacement.discarded") : t("downloads.replacement.retry")}</p>}
-        </div>
-      </div>
-      <div className="nx-dl-progress min-w-0 self-center">
-        <div className="h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full brand-gradient" style={{ width: `${Math.round(displayProgress * 100)}%` }} /></div>
-        <p className="mt-1 text-[10px] text-ink-dim">{Math.round(displayProgress * 100)}% · {formatBytes(displayProgress * item.release.size)} / {formatBytes(item.release.size)}</p>
-      </div>
-      <div className="nx-dl-speed self-center text-xs font-semibold text-cyan">{item.download.downloadSpeed > 0 ? `↓${formatSpeed(item.download.downloadSpeed)}` : "—"}</div>
-      <div className="self-center text-[11px] text-ink-soft">{item.release.seeders}↑ · {item.release.leechers}↓</div>
-      <span data-status={item.status} className={cn("nx-dl-status w-fit self-center rounded-full border px-2 py-1 text-[10px] font-bold", item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" : item.status === "stalled" ? "border-down/30 bg-down/12 text-down" : item.status === "seeding" ? "border-ok/30 bg-ok/12 text-ok" : "border-white/15 bg-white/5 text-ink-soft")}>{item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}</span>
-      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-        {(item.status === "downloading" || item.status === "paused" || item.status === "queued") && <button type="button" onClick={() => onAction(item.id, item.status === "downloading" ? "pause" : "resume")} disabled={actionLoading !== null} className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan/25 text-ink hover:bg-cyan/10 disabled:opacity-40" title={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")}>{item.status === "downloading" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}</button>}
-        {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
-          <button
-            type="button"
-            onClick={() => onAction(item.id, "search")}
-            disabled={actionLoading !== null}
-            className={cn("flex h-8 w-8 items-center justify-center rounded-lg border text-ink hover:bg-white/8 disabled:opacity-40", item.status === "stalled" ? "border-down/30 text-down hover:bg-down/10" : "border-white/10")}
-            title={item.status === "stalled" ? t("downloads.replace") : t("downloads.manual")}
-          >
-            <Search className="h-3.5 w-3.5" />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => onRemove(item.id, false)}
-          disabled={actionLoading !== null}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-ink-soft hover:border-down/30 hover:bg-down/10 hover:text-down disabled:opacity-40"
-          title={t("downloads.remove")}
-        >
-          {actionLoading === `remove_${item.id}` ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-        </button>
-        <button type="button" onClick={() => onToggleExpand(item.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-ink-soft hover:bg-white/8" title={t("common.details")}><ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} /></button>
-      </div>
-    </div>
-    )}
     {isExpanded && (
       <div className="nx-download-desktop-details hidden lg:flex">
         <span>{item.release.releaseTitle}</span>

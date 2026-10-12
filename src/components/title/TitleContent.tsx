@@ -47,7 +47,6 @@ import {
   ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, RotateCcw, Pencil, Eye,
   type LucideIcon,
 } from "lucide-react";
-import { usePremiumAppearance } from "@/components/appearance/AppearanceProvider";
 
 /* ────────────────────────────────────────────── constants & helpers ─── */
 
@@ -408,7 +407,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const [showFullCrew, setShowFullCrew] = useState(false);
   // Bêta desktop : le corps de la fiche se lit par onglets (Épisodes,
   // Distribution, Similaires, Détails). Mobile et Stable gardent la page longue.
-  const premium = usePremiumAppearance();
   const [titleTab, setTitleTab] = useState<"episodes" | "cast" | "similar" | "details" | null>(null);
   const [showTrailer, setShowTrailer] = useState(false);
   const trailerModalRef = useRef<HTMLDivElement>(null);
@@ -911,7 +909,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   ].filter(Boolean) as { id: "episodes" | "cast" | "similar" | "details"; label: string }[]);
   const activeBodyTab = bodyTabs.find((tab) => tab.id === titleTab)?.id ?? bodyTabs[0]?.id;
   // Une section hors de l'onglet actif est masquée seulement en Bêta desktop.
-  const tabHidden = (id: "episodes" | "cast" | "similar" | "details") => premium && bodyTabs.length > 1 && activeBodyTab !== id && "lg:hidden";
+  const tabHidden = (id: "episodes" | "cast" | "similar" | "details") => bodyTabs.length > 1 && activeBodyTab !== id && "lg:hidden";
 
   const StatusIcon = libraryStatus ? STATUS_ICON[libraryStatus] : null;
   // Same day-count treatment as the library card and dashboard row — "à
@@ -1624,7 +1622,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             </p>
           </div>
 
-          {premium && bodyTabs.length > 1 && (
+          {bodyTabs.length > 1 && (
             <div className="nx-title-tabs hidden lg:flex" role="tablist">
               {bodyTabs.map((tab) => (
                 <button key={tab.id} type="button" role="tab" aria-selected={activeBodyTab === tab.id} onClick={() => setTitleTab(tab.id)}>
