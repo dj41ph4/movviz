@@ -1,3 +1,30 @@
+## v1.26.024 — 12 octobre 2026
+
+### Tâches planifiées : plus légères, une tâche lourde à la fois
+
+- Jamais deux tâches lourdes en même temps (scan disque, relance des manquants, mises à niveau, métadonnées TMDb, réconciliations, diagnostic, benchmark). Les petites tâches fréquentes (état des téléchargements, RSS, Seerr, Plex) et tes propres actions continuent en parallèle.
+- Une recherche manuelle lourde (« Rechercher les manquants », analyse technique, resynchronisation des vues Plex ou TVDB, scan des sagas) passe devant : la tâche lourde automatique en cours se met en pause et reprend juste après.
+- Aucune tâche planifiée pendant les 3 premières minutes après un démarrage du serveur, sauf celles des téléchargements.
+- Nouveau bouton « Arrêter » sur chaque tâche en cours ou en attente, dans Réglages → Tâches planifiées et dans la file d'attente.
+- Réglages → Tâches planifiées affiche le « pire gel » de chaque tâche (combien de temps elle a figé le serveur), les tâches lourdes, et les noms des trois tâches qui s'affichaient mal.
+- Les intervalles des tâches sont remis aux valeurs par défaut une seule fois avec cette version. Ceux que tu règles ensuite sont conservés.
+
+### Moins de gels du serveur
+
+- Le scan disque ne fige plus le serveur toutes les heures : il lit le disque sans bloquer et ne compare plus que les fichiers pas encore rattachés.
+- Le scan RSS ne recompare plus tout le cache à chaque passage : une nouvelle release est comparée à tous les titres manquants, un titre ajouté à toutes les releases du cache, et un passage complet a lieu au démarrage puis une fois par jour. Une sortie du jour est toujours récupérée dans les 15 minutes qui suivent son arrivée sur les indexeurs.
+- La vérification des mises à niveau qualité suit le même principe.
+- Le rafraîchissement des métadonnées TMDb n'enregistre plus que les titres qui ont changé.
+- Quand la mise à niveau automatique est activée, la vérification des remplacements suggérés ne refait plus la même recherche. La mise à niveau automatique signale elle-même les remplacements qu'elle n'a pas pu télécharger. Désactivée, la vérification fonctionne comme avant.
+- La mise à niveau automatique ne compte plus comme « mis à niveau » un film dont le téléchargement a échoué.
+- Intervalles revus : mise à niveau automatique toutes les 12 h (au lieu de 6 h), liste de suivi Plex toutes les 5 min (au lieu de 1 min, sans une ligne de journal par utilisateur et par minute). La relance des films manquants passe devant les tâches de maintenance.
+
+### Points de priorité
+
+- Les curseurs n'envoient plus une requête à chaque pixel glissé et ne reviennent plus en arrière tout seuls.
+- Le curseur « Téléchargements » sert enfin à quelque chose : au-dessus de 50, un téléchargement actif réduit les autres tâches à 2 en parallèle. En dessous, il ne les ralentit pas.
+- Ajout du curseur des intros Plex, qui manquait.
+
 ## v1.26.023 — 12 octobre 2026
 
 ### Changements
