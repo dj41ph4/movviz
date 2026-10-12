@@ -1,3 +1,9 @@
+## v1.26.019 — 12 octobre 2026
+
+### Android : « Voir plus » ne fait plus planter l'application
+
+- Sur mobile et sur TV, ouvrir « Voir plus » d'une rangée de suggestions puis faire défiler pouvait fermer l'application d'un coup, quand la page suivante renvoyait un titre déjà affiché. Les doublons sont maintenant ignorés.
+
 ## v1.26.018 — 12 octobre 2026
 
 ### Recherche : tous les résultats TMDb s'affichent
