@@ -1,3 +1,5 @@
+import path from "node:path";
+import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import type { AiChatMessage, AiConfig, AiProviderId } from "./types";
 import { AI_PROVIDERS } from "./types";
 import { defaultModel, isFreeModel } from "./freeModels";
@@ -195,21 +197,31 @@ async function withProviderGate<T>(provider: AiProviderId, run: () => Promise<T>
 }
 
 export type GeminiProbe = "ok" | "unavailable" | "unknown";
-const PROBE_TTL_MS: Record<Exclude<GeminiProbe, "unknown">, number> = { ok: 6 * 60 * 60 * 1000, unavailable: 24 * 60 * 60 * 1000 };
-const gProbes = globalThis as typeof globalThis & { __movvizGeminiProbes?: Map<string, { result: GeminiProbe; at: number }> };
-const geminiProbes: Map<string, { result: GeminiProbe; at: number }> = (gProbes.__movvizGeminiProbes ??= new Map());
+/** Each probe is a real request counted against the free daily quota, and
+ *  Réglages → Assistant IA probed the whole catalogue at every opening. The
+ *  results are now kept on disk and renewed once a week (demande de Seb,
+ *  2026-10-12). An inconclusive probe (network, momentary rate limit) is
+ *  retried at most once a day. */
+const PROBE_TTL_MS: Record<GeminiProbe, number> = { ok: 7 * 24 * 60 * 60 * 1000, unavailable: 7 * 24 * 60 * 60 * 1000, unknown: 24 * 60 * 60 * 1000 };
+const PROBES_FILE = path.join(process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"), "ai-model-probes.json");
+type ProbeStore = Record<string, { result: GeminiProbe; at: number }>;
+
+function readProbes(): ProbeStore {
+  const raw = readJsonCached<ProbeStore | null>(PROBES_FILE, null);
+  return raw && typeof raw === "object" ? raw : {};
+}
 
 /**
  * Really asks one Gemini model for a one-word answer with this key. Google's
  * Models API lists models it then refuses (retired 2.5 models, models without
  * a free quota), so a listing proves nothing — only an actual call does.
- * "unknown" (network error, ordinary rate limit) is never cached: it says
- * nothing about the model itself.
+ * A model whose daily quota is spent (limit above 0) does exist for this key:
+ * it counts as "ok", it just has to wait for Google's daily reset.
  */
 export async function probeGeminiModel(key: string, model: string, keyTag: string): Promise<GeminiProbe> {
   const cacheKey = `${keyTag}:${model}`;
-  const cached = geminiProbes.get(cacheKey);
-  if (cached && cached.result !== "unknown" && Date.now() - cached.at < PROBE_TTL_MS[cached.result]) return cached.result;
+  const cached = readProbes()[cacheKey];
+  if (cached && PROBE_TTL_MS[cached.result] && Date.now() - cached.at < PROBE_TTL_MS[cached.result]) return cached.result;
   let result: GeminiProbe;
   try {
     await withProviderGate("gemini", () => jsonFetch("gemini", geminiUrl(model, key), {}, {
@@ -218,9 +230,9 @@ export async function probeGeminiModel(key: string, model: string, keyTag: strin
     }), false);
     result = "ok";
   } catch (e) {
-    result = e instanceof AiCallError && isModelUnavailable(e) ? "unavailable" : "unknown";
+    result = e instanceof AiCallError && isModelUnavailable(e) ? "unavailable" : e instanceof AiCallError && isQuotaSpent(e) ? "ok" : "unknown";
   }
-  if (result !== "unknown") geminiProbes.set(cacheKey, { result, at: Date.now() });
+  writeJsonCached(PROBES_FILE, { ...readProbes(), [cacheKey]: { result, at: Date.now() } });
   return result;
 }
 

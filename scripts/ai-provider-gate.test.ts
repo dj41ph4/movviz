@@ -61,23 +61,29 @@ test("a Gemini model Google refuses is never swapped for another model", async (
   }
 });
 
-test("the settings probe keeps working models, drops refused ones, never caches a hiccup", async () => {
+test("the settings probe keeps working models, drops refused ones, remembers every result", async () => {
   const originalFetch = globalThis.fetch;
-  let hiccups = 0;
+  const calls: string[] = [];
   globalThis.fetch = (async (input) => {
     const url = String(input);
+    calls.push(url);
     if (url.includes("gemini-2.5-flash:")) return new Response(JSON.stringify({ error: { message: "models/gemini-2.5-flash is not found" } }), { status: 404 });
     if (url.includes("gemini-3.8-flash:")) return new Response(JSON.stringify({ error: { message: "Quota exceeded for metric generate_content_free_tier_requests, limit: 0" } }), { status: 429 });
-    if (url.includes("gemini-3.5-flash:")) { hiccups++; return new Response(JSON.stringify({ error: { message: "Resource exhausted" } }), { status: 429 }); }
+    if (url.includes("gemini-3.6-flash:")) return new Response(JSON.stringify({ error: { message: "Quota exceeded for metric generate_content_free_tier_requests, limit: 20" } }), { status: 429 });
+    if (url.includes("gemini-3.5-flash:")) return new Response(JSON.stringify({ error: { message: "Resource exhausted" } }), { status: 429 });
     return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "OK" }] } }] }), { status: 200 });
   }) as typeof fetch;
+  // The results live on disk: a fresh tag keeps an earlier run's out of the way.
+  const tag = `test-${process.pid}-${Date.now()}`;
   try {
-    assert.equal(await probeGeminiModel("k", "gemini-3.5-flash-lite", "t"), "ok");
-    assert.equal(await probeGeminiModel("k", "gemini-2.5-flash", "t"), "unavailable");
-    assert.equal(await probeGeminiModel("k", "gemini-3.8-flash", "t"), "unavailable");
-    assert.equal(await probeGeminiModel("k", "gemini-3.5-flash", "t"), "unknown");
-    assert.equal(await probeGeminiModel("k", "gemini-3.5-flash", "t"), "unknown");
-    assert.equal(hiccups, 2, "an inconclusive probe is tried again next time");
+    assert.equal(await probeGeminiModel("k", "gemini-3.5-flash-lite", tag), "ok");
+    assert.equal(await probeGeminiModel("k", "gemini-2.5-flash", tag), "unavailable");
+    assert.equal(await probeGeminiModel("k", "gemini-3.8-flash", tag), "unavailable");
+    assert.equal(await probeGeminiModel("k", "gemini-3.6-flash", tag), "ok", "a spent daily quota still proves the model exists");
+    assert.equal(await probeGeminiModel("k", "gemini-3.5-flash", tag), "unknown");
+    const before = calls.length;
+    for (const model of ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash"]) await probeGeminiModel("k", model, tag);
+    assert.equal(calls.length, before, "a second opening of the settings sends no request to Google");
   } finally {
     globalThis.fetch = originalFetch;
   }

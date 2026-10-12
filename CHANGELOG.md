@@ -1,3 +1,11 @@
+## v1.26.028 — 12 octobre 2026
+
+### Assistant IA : les modèles ne sont plus testés à chaque ouverture des réglages
+
+- Réglages → Assistant IA testait chaque modèle Gemini par une vraie requête à chaque ouverture, ce qui consommait le quota gratuit du jour. Le résultat est maintenant gardé en mémoire et les tests sont refaits une fois par semaine.
+- Un modèle dont le quota du jour est épuisé est reconnu comme disponible, au lieu d'être marqué « non vérifié » et retesté.
+- Un test qui n'a pas pu aboutir (réseau, limite par minute) est refait au plus une fois par jour.
+
 ## v1.26.027 — 12 octobre 2026
 
 ### Une seule interface sur le web : le Bêta devient l'apparence de Movviz
