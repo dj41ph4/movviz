@@ -1,3 +1,8 @@
+## v1.26.023 — 12 octobre 2026
+
+### Changements
+- Republication du code exact de la v1.26.021 sous le numéro v1.26.023 : les correctifs des versions 1.26.017 à 1.26.021 sont de retour.
+
 ## v1.26.022 — 12 octobre 2026
 
 ### Retour au code de la 1.26.016
