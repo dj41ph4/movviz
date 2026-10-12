@@ -1,3 +1,9 @@
+## v1.26.018 — 12 octobre 2026
+
+### Recherche : tous les résultats TMDb s'affichent
+
+- La recherche ne masque plus aucun titre sans note sur TMDb : tout ce que TMDb trouve apparaît. Les lignes de Découvrir gardent leur tri des titres sans intérêt.
+
 ## v1.26.017 — 12 octobre 2026
 
 ### Recherche : les films tout récents se trouvent par leur titre
