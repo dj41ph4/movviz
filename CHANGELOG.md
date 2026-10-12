@@ -1,10 +1,10 @@
-## v1.26.026 — 12 octobre 2026
+## v1.26.027 — 12 octobre 2026
 
-### Une seule interface : le Bêta devient l'apparence de Movviz
+### Une seule interface sur le web : le Bêta devient l'apparence de Movviz
 
-- Le thème Stable est supprimé. L'interface Bêta s'applique désormais à tout le monde, sur le web (ordinateur et mobile) et sur Android TV, y compris pour les comptes qui avaient choisi Stable. Les autres réglages du tableau de bord (hero, vidéos, rangées) sont conservés.
-- Le choix Stable/Bêta disparaît des réglages du tableau de bord, de l'assistant d'installation et des paramètres d'Android TV.
-- L'application Android mobile et l'application Samsung n'avaient qu'une seule apparence : rien ne change pour elles.
+- Le thème Stable est supprimé du web (ordinateur et mobile). L'interface Bêta s'applique désormais à tout le monde, y compris aux comptes qui avaient choisi Stable. Les autres réglages du tableau de bord (hero, vidéos, rangées) sont conservés.
+- Le choix Stable/Bêta disparaît des réglages du tableau de bord et de l'assistant d'installation.
+- Android TV garde pour l'instant son propre choix Stable/Bêta. L'application Android mobile et l'application Samsung n'avaient qu'une seule apparence : rien ne change pour elles.
 
 ## v1.26.025 — 12 octobre 2026
 
