@@ -122,7 +122,10 @@ fun RowDetailScreen(
                 val newCards = result.results.map {
                     TvTitleCard("browse-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId, it.type == "movie", it.year, it.rating)
                 }.withWatchedMovies(watchedMovieIds)
-                cards = if (target == 1) newCards else cards + newCards
+                // Une rangée personnalisée peut renvoyer le même titre sur deux pages
+                // (ou la même page deux fois) : la grille plantait alors sur une clé
+                // en double (« Key was already used ») au « Voir plus ».
+                cards = (if (target == 1) newCards else cards + newCards).distinctBy { it.id }
                 page = result.page
                 totalPages = result.totalPages
                 result.meta?.let { m ->
