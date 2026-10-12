@@ -1,3 +1,10 @@
+## v1.26.025 — 12 octobre 2026
+
+### Synchro des vues Plex : beaucoup plus rapide après une grosse mise à jour de Plex
+
+- Après une grosse mise à jour de Plex, la synchro des vues pouvait tourner près de 9 minutes et figer le serveur jusqu'à 7 secondes : chaque film vu était revérifié par une requête séparée à Plex. Ces vérifications sont maintenant groupées par 50, et la synchro rend la main au serveur bien plus souvent.
+- Un tel lot inhabituel (plus de 500 changements de vue d'un coup) est signalé dans le journal, pour repérer un Plex qui a réattribué ses identifiants.
+
 ## v1.26.024 — 12 octobre 2026
 
 ### Tâches planifiées : plus légères, une tâche lourde à la fois
