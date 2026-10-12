@@ -1,3 +1,11 @@
+## v1.26.022 — 12 octobre 2026
+
+### Retour au code de la 1.26.016
+
+- Republication du code exact de la v1.26.016 sous le numéro v1.26.022 pour permettre sa mise à jour depuis les versions plus récentes.
+- Les changements introduits dans les versions 1.26.017 à 1.26.021 sont retirés de cette release.
+- Ce retour sert à vérifier le comportement des fiches Android TV ; la résolution du problème reste à confirmer sur le serveur et la TV.
+
 ## v1.26.021 — 12 octobre 2026
 
 ### Samsung : la rangée « Tendances Movviz » apparaît aussi

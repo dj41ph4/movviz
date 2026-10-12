@@ -223,23 +223,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val m = movies.await(); val s = series.await()
                 val mr = movieRecs.await(); val sr = seriesRecs.await()
                 if (repository !== repo || _activeProfile.value?.id != profileId) return@coroutineScope
-                // L'accueil lit le snapshot, pas ces flows : sans cette copie,
-                // une rangée arrivée après coup (Tendances Movviz calculées
-                // pendant que l'accueil s'affichait) n'apparaissait jamais.
-                val snapshot = _homeUiState.value.snapshot
-                if (snapshot != null) {
-                    val updated = snapshot.copy(
-                        movieRows = (m as? ApiResult.Success)?.data ?: snapshot.movieRows,
-                        seriesRows = (s as? ApiResult.Success)?.data ?: snapshot.seriesRows,
-                        movieRecommendations = (mr as? ApiResult.Success)?.data ?: snapshot.movieRecommendations,
-                        seriesRecommendations = (sr as? ApiResult.Success)?.data ?: snapshot.seriesRecommendations,
-                    )
-                    if (updated != snapshot) {
-                        publishHomeSnapshot(updated)
-                        persistHomeSnapshot(updated)
-                    }
-                    return@coroutineScope
-                }
                 if (m is ApiResult.Success) _movieRows.value = m.data
                 if (s is ApiResult.Success) _seriesRows.value = s.data
                 if (mr is ApiResult.Success) _movieLibraryRecommendations.value = mr.data

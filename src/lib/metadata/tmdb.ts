@@ -239,16 +239,13 @@ function isJunkRating(r: RawMultiResult): boolean {
 
 function mapPaged(
   data: { results: RawMultiResult[]; page?: number; total_pages?: number } | null,
-  type?: "movie" | "series",
-  /** Text search: every TMDb hit is kept, even a title with no votes yet
-   *  (festival film, release to come) — the junk filter is for browse rows. */
-  search = false
+  type?: "movie" | "series"
 ): PagedResults {
   if (!data) return { results: [], page: 1, totalPages: 0 };
   return {
     results: data.results
       .filter((r) => !type || r.media_type === undefined || r.media_type === (type === "movie" ? "movie" : "tv"))
-      .filter((r) => search || !isJunkRating(r))
+      .filter((r) => !isJunkRating(r))
       .map((r) => ({
         tmdbId: r.id,
         type: type ?? (r.media_type === "movie" ? "movie" : "series"),
@@ -279,7 +276,7 @@ export async function searchMulti(query: string, page = 1): Promise<PagedResults
   });
   if (!data) return { results: [], page: 1, totalPages: 0 };
   const filtered = { ...data, results: data.results.filter((r) => r.media_type === "movie" || r.media_type === "tv") };
-  return mapPaged(filtered, undefined, true);
+  return mapPaged(filtered);
 }
 
 /** Finds a real person (actor/director/etc.) by name — same `/search/multi`
@@ -335,7 +332,7 @@ export async function searchTv(query: string, page = 1): Promise<PagedResults> {
     query,
     page: String(page),
   });
-  return mapPaged(data, "series", true);
+  return mapPaged(data, "series");
 }
 
 export async function searchMovies(query: string, page = 1): Promise<{ results: MovieSearchHit[] }> {

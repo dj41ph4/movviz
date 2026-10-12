@@ -283,43 +283,12 @@ interface Window {
     row(t("tizen.recentSeries"), (dashboard.series || []).filter(Boolean).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 25), "series");
     if (!content.childElementCount) content.append(el("p", t("tizen.empty"), "muted")); focusFirst();
     for (const type of ["movie", "series"] as const) {
-      const shown = new Set<string>();
-      void editorialRows(type, () => version === generation, rows => {
-        for (const entry of rows) {
-          if (shown.has(entry.key) || !entry.results?.length) continue;
-          if (!["recommendedTop", "trendingPopular", "trending", "shortFormat"].includes(entry.key)) continue;
-          shown.add(entry.key);
-          row(t(entry.key === "recommendedTop" ? "tizen.recommended" : entry.key === "shortFormat" ? "tizen.shortFormat" : "tizen.trending"), entry.results, type);
-        }
+      void call<{ rows: { key: string; results: Media[] }[] }>(`/api/metadata/rows?type=${type}&locale=${locale}`).then(data => {
+        if (version !== generation) return;
+        for (const entry of data.rows || []) if (["recommendedTop", "trendingPopular", "trending", "shortFormat"].includes(entry.key)) row(t(entry.key === "recommendedTop" ? "tizen.recommended" : entry.key === "shortFormat" ? "tizen.shortFormat" : "tizen.trending"), entry.results, type);
       }).catch(() => {});
     }
   }
-  type EditorialRow = { key: string; results: Media[]; meta?: { anchorTitle?: string; verb?: string; providerName?: string } };
-  /** Rangées éditoriales. Le serveur ne laisse que 150 ms à chaque rangée et
-   *  renvoie les autres plus tard (pending) : après un redémarrage, les
-   *  Tendances Movviz manquaient. On relit toutes les 2 s tant que le serveur
-   *  calcule encore (12 s au plus), comme le site et les apps Android. */
-  function editorialRows(type: MediaType, current: () => boolean, onRows: (rows: EditorialRow[]) => void): Promise<void> {
-    const load = () => call<{ rows?: EditorialRow[]; pending?: boolean }>(`/api/metadata/rows?type=${type}&locale=${locale}`);
-    // Résolu dès la première réponse (focus et affichage n'attendent pas) ;
-    // les relectures continuent en arrière-plan.
-    return load().then(data => {
-      if (!current()) return;
-      onRows(data.rows || []);
-      if (!data.pending) return;
-      void (async () => {
-        for (let attempt = 0; attempt < 6; attempt++) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          if (!current()) return;
-          const next = await load().catch(() => null);
-          if (!next || !current()) return;
-          onRows(next.rows || []);
-          if (!next.pending) return;
-        }
-      })();
-    });
-  }
-
   function heroView(detail: Media, type: MediaType, featured = false) {
     const hero = el("section", "", featured ? "hero home-hero" : "hero detail-hero");
     hero.style.backgroundImage = `url("${imageUrl(detail.backdropPath)}")`;
@@ -373,24 +342,19 @@ interface Window {
     let request = 0;
     async function show(type: MediaType) {
       tabs.forEach((tab, i) => { const selected = type === (i === 0 ? "movie" : "series"); tab.classList.toggle("selected", selected); tab.setAttribute("aria-pressed", String(selected)); });
-      const id = ++request; const shown = new Set<string>(); let first = true;
-      await editorialRows(type, () => version === generation && id === request, list => {
-      // Première réponse : on remplace ; les relectures (serveur encore en
-      // calcul) n'ajoutent que les rangées arrivées entre-temps.
-      if (first) { rows.replaceChildren(); first = false; }
-      for (const item of list) {
-        if (shown.has(item.key)) continue;
+      const id = ++request; const data = await call<{ rows: { key: string; results: Media[]; meta?: { anchorTitle?: string; verb?: string; providerName?: string } }[] }>(`/api/metadata/rows?type=${type}&locale=${locale}`);
+      if (version !== generation || id !== request) return;
+      rows.replaceChildren();
+      for (const item of data.rows || []) {
         const labels: Record<string, string> = { recommendedTop: "tizen.recommended", "for-you": "tizen.recommended", trendingPopular: "tizen.trending", trending: "tizen.trending", upcoming: "tizen.upcoming", upcomingVod: "tizen.upcoming", shortFormat: "tizen.shortFormat", onAir: "discover.rowOnAir", newSeriesRenewed: "discover.rowNewSeriesRenewed", nowPlayingBoxOffice: "discover.rowNowPlayingBoxOffice", acclaimed: "discover.rowAcclaimed", anime: "discover.rowAnime", teen: "discover.rowTeen", genreAction: "discover.rowGenreAction", genreComedy: "discover.rowGenreComedy", genreHorror: "discover.rowGenreHorror", genreSciFi: "discover.rowGenreSciFi", popular: "discover.rowPopular", topRated: "discover.rowTopRated", newVod: "discover.rowNewVod", kids: "discover.rowKids" };
         if (!item.results?.length) continue;
         let label = labels[item.key] ? t(labels[item.key]) : t("tizen.suggestions");
         if (item.key.startsWith("becauseYouWatched:") && item.meta?.anchorTitle) label = t(item.meta.verb === "liked" ? "discover.rowBecauseYouLiked" : "discover.rowBecauseYouWatched").replace("{title}", item.meta.anchorTitle);
         if (item.meta?.providerName && item.key.startsWith("providerSuggested:")) label = t("discover.rowProviderSuggested").replace("{provider}", item.meta.providerName);
         if (item.meta?.providerName && item.key.startsWith("providerNew:")) label = t("discover.rowProviderNew").replace("{provider}", item.meta.providerName);
-        shown.add(item.key);
-        rows.append(el("h2", label)); const line = el("div", "", "row");
-        (item.results || []).forEach(media => line.append(card(media, type))); rows.append(line);
+        rows.append(el("h2", label)); const list = el("div", "", "row");
+        (item.results || []).forEach(media => list.append(card(media, type))); rows.append(list);
       }
-      });
     }
     await show("movie"); focusFirst();
   }

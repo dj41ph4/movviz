@@ -172,23 +172,8 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun trending(type: String): ApiResult<List<SearchResultDto>> =
         safeCall { api.trending(type) }.map { it.results }
 
-    /** Rangées éditoriales. Le serveur ne laisse que 150 ms à chaque rangée
-     *  et renvoie les autres plus tard (pending=true) : le web relit toutes
-     *  les 2 s, l'app relisait une seule fois et gardait un accueil sans
-     *  « Tendances Movviz » après chaque redémarrage du serveur. On relit
-     *  donc tant que le serveur calcule encore, 12 s au plus. */
-    suspend fun metadataRows(type: String): ApiResult<List<MetadataRowDto>> {
-        var result = safeCall { api.metadataRows(type) }
-        var attempts = 0
-        while (attempts < ROWS_PENDING_RETRIES && result.let { it is ApiResult.Success && it.data.pending }) {
-            kotlinx.coroutines.delay(ROWS_PENDING_RETRY_MS)
-            attempts++
-            val next = safeCall { api.metadataRows(type) }
-            if (next !is ApiResult.Success) break
-            result = next
-        }
-        return result.map { it.rows }
-    }
+    suspend fun metadataRows(type: String): ApiResult<List<MetadataRowDto>> =
+        safeCall { api.metadataRows(type) }.map { it.rows }
 
     /** Tuiles logo "Plateformes"/"Studios" — voir LogoTileDto. */
     suspend fun metadataLogos(kind: String): ApiResult<List<LogoTileDto>> =
@@ -492,6 +477,3 @@ class MovvizRepository(private val baseUrl: String) {
         return "Erreur serveur (${response.code()})"
     }
 }
-
-private const val ROWS_PENDING_RETRIES = 6
-private const val ROWS_PENDING_RETRY_MS = 2_000L

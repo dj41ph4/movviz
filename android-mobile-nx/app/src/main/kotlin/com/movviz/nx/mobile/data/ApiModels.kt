@@ -606,9 +606,6 @@ data class MetadataRowDto(
 @JsonClass(generateAdapter = true)
 data class MetadataRowsResponseDto(
     val rows: List<MetadataRowDto> = emptyList(),
-    // Serveur à froid : une rangée encore en calcul (Tendances Movviz après
-    // un redémarrage, par exemple) est absente de `rows` et pending vaut true.
-    val pending: Boolean = false,
 )
 
 /** Une tuile logo de GET /api/metadata/logos (plateformes de streaming ou
