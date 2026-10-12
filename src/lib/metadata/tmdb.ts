@@ -21,7 +21,6 @@ import { selectWatchProviderTiles } from "./watchProviderTiles";
 import { LOCALES } from "@/i18n/config";
 import { matchesAnimeByIds, matchesTeenByIds } from "./genreTaxonomy";
 import { loadUserPrefs } from "@/lib/userPrefs/store";
-import { titleMatchesQuery } from "./searchTitleMatch";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -241,14 +240,15 @@ function isJunkRating(r: RawMultiResult): boolean {
 function mapPaged(
   data: { results: RawMultiResult[]; page?: number; total_pages?: number } | null,
   type?: "movie" | "series",
-  /** Text search: a title matching what was typed stays even without votes. */
-  query?: string
+  /** Text search: every TMDb hit is kept, even a title with no votes yet
+   *  (festival film, release to come) — the junk filter is for browse rows. */
+  search = false
 ): PagedResults {
   if (!data) return { results: [], page: 1, totalPages: 0 };
   return {
     results: data.results
       .filter((r) => !type || r.media_type === undefined || r.media_type === (type === "movie" ? "movie" : "tv"))
-      .filter((r) => !isJunkRating(r) || (!!query && titleMatchesQuery([r.title, r.name, r.original_title, r.original_name], query)))
+      .filter((r) => search || !isJunkRating(r))
       .map((r) => ({
         tmdbId: r.id,
         type: type ?? (r.media_type === "movie" ? "movie" : "series"),
@@ -279,7 +279,7 @@ export async function searchMulti(query: string, page = 1): Promise<PagedResults
   });
   if (!data) return { results: [], page: 1, totalPages: 0 };
   const filtered = { ...data, results: data.results.filter((r) => r.media_type === "movie" || r.media_type === "tv") };
-  return mapPaged(filtered, undefined, query);
+  return mapPaged(filtered, undefined, true);
 }
 
 /** Finds a real person (actor/director/etc.) by name — same `/search/multi`
@@ -335,7 +335,7 @@ export async function searchTv(query: string, page = 1): Promise<PagedResults> {
     query,
     page: String(page),
   });
-  return mapPaged(data, "series", query);
+  return mapPaged(data, "series", true);
 }
 
 export async function searchMovies(query: string, page = 1): Promise<{ results: MovieSearchHit[] }> {
