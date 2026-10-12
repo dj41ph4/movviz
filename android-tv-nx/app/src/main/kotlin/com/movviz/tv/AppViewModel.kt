@@ -280,6 +280,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { prefs.setAutoUpdateEnabled(enabled) }
     }
 
+    val betaUiEnabled: StateFlow<Boolean> = prefs.betaUiEnabled.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    fun setBetaUiEnabled(enabled: Boolean) {
+        viewModelScope.launch { prefs.setBetaUiEnabled(enabled) }
+    }
+
     private val _currentUser = MutableStateFlow<MovvizUserDto?>(null)
     val currentUser: StateFlow<MovvizUserDto?> = _currentUser.asStateFlow()
 

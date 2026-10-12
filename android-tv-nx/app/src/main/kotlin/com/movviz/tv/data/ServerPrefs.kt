@@ -20,6 +20,7 @@ private val Context.dataStore by preferencesDataStore(name = "movviz_prefs")
 class ServerPrefs(private val context: Context) {
     private val serverUrlKey = stringPreferencesKey("server_url")
     private val autoUpdateEnabledKey = booleanPreferencesKey("auto_update_enabled")
+    private val betaUiKey = booleanPreferencesKey("beta_ui_enabled")
 
     val serverUrl: Flow<String?> = context.dataStore.data.map { it[serverUrlKey] }
 
@@ -29,6 +30,13 @@ class ServerPrefs(private val context: Context) {
         it[autoUpdateEnabledKey] ?: BuildConfig.AUTO_UPDATE
     }
 
+    // Interface Bêta « Projection » : désactivée par défaut, l'apparence
+    // Stable reste celle déployée tant que l'utilisateur ne l'active pas.
+    val betaUiEnabled: Flow<Boolean> = context.dataStore.data.map { it[betaUiKey] ?: false }
+
+    suspend fun setBetaUiEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[betaUiKey] = enabled }
+    }
 
     suspend fun setServerUrl(url: String) {
         val normalized = url.trim().trimEnd('/')

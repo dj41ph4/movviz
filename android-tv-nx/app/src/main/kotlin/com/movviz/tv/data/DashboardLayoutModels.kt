@@ -16,7 +16,7 @@ data class DashboardLayoutResponseDto(
 @JsonClass(generateAdapter = true)
 data class DashboardLayoutDto(
     val version: Int = 2,
-    val mode: String = "beta",
+    val mode: String = "cinema",
     val hero: DashboardHeroSettingsDto = DashboardHeroSettingsDto(),
     val sections: List<DashboardSectionDto> = defaultDashboardSections(),
 )

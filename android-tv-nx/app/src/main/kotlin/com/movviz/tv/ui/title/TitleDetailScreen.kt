@@ -83,6 +83,8 @@ import com.movviz.tv.ui.home.withWatchedMovies
 import com.movviz.tv.ui.home.AmbientPreview
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
+import com.movviz.tv.ui.theme.betaSp
+import com.movviz.tv.ui.theme.movvizFocusBorder
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizBrand3
 import com.movviz.tv.ui.theme.MovvizSurface
@@ -110,7 +112,6 @@ import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvCardFocusHalo
 import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
-import com.movviz.tv.ui.theme.MovvizFocusBorder
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.delay
@@ -1020,7 +1021,7 @@ fun TitleDetailScreen(
             if (!d.originalTitle.isNullOrBlank() && !d.originalTitle.equals(d.title, ignoreCase = true)) {
                 Text(
                     text = "Titre original : ${d.originalTitle}",
-                    style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
+                    style = TextStyle(fontSize = betaSp(10f, 12f), color = MovvizInkDim),
                 )
             }
 
@@ -1062,8 +1063,8 @@ fun TitleDetailScreen(
             d.crew.firstOrNull { it.job == "Director" }?.let { director ->
                 Spacer(modifier = Modifier.height(5.dp))
                 Row {
-                    Text(text = "Réalisation ", style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
-                    Text(text = director.name, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                    Text(text = "Réalisation ", style = TextStyle(fontSize = betaSp(10f, 12f), color = MovvizInkDim))
+                    Text(text = director.name, style = TextStyle(fontSize = betaSp(10f, 12f), fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                 }
             }
 
@@ -1073,8 +1074,8 @@ fun TitleDetailScreen(
             d.collection?.let { collection ->
                 Spacer(modifier = Modifier.height(5.dp))
                 Row {
-                    Text(text = "Fait partie de ", style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
-                    Text(text = collection.name, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                    Text(text = "Fait partie de ", style = TextStyle(fontSize = betaSp(10f, 12f), color = MovvizInkDim))
+                    Text(text = collection.name, style = TextStyle(fontSize = betaSp(10f, 12f), fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                 }
             }
 
@@ -1082,7 +1083,7 @@ fun TitleDetailScreen(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = d.tagline,
-                    style = TextStyle(fontSize = 13.sp, fontStyle = FontStyle.Italic, color = MovvizInkSoft),
+                    style = TextStyle(fontSize = betaSp(11f, 13f), fontStyle = FontStyle.Italic, color = MovvizInkSoft),
                     modifier = Modifier.widthIn(max = 480.dp),
                 )
             }
@@ -1090,7 +1091,7 @@ fun TitleDetailScreen(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = d.overview,
-                style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft, lineHeight = 21.sp),
+                style = TextStyle(fontSize = betaSp(11f, 15f), color = MovvizInkSoft, lineHeight = betaSp(15f, 21f)),
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 480.dp),
@@ -1330,7 +1331,7 @@ fun TitleDetailScreen(
 
             addError?.let {
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizDown))
+                Text(text = it, style = TextStyle(fontSize = betaSp(9f, 12f), color = MovvizDown))
             }
             } // item
 
@@ -1687,7 +1688,7 @@ private fun SeasonSelector(
                                 shape = shape,
                             ),
                             focusedBorder = Border(
-                                border = MovvizFocusBorder,
+                                border = movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2)),
                                 shape = shape,
                             ),
                         ),
@@ -1766,7 +1767,7 @@ private fun SeasonSelector(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = seasonLabel,
-                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (focused) Color.White else MovvizInkSoft),
+                        style = TextStyle(fontSize = betaSp(11f, 13f), fontWeight = FontWeight.Bold, color = if (focused) Color.White else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -2379,7 +2380,7 @@ private fun FileTechInfoRow(file: com.movviz.tv.data.LibraryFileDto) {
 }
 
 @Composable
-private fun metaStyle() = TextStyle(fontSize = 13.sp, color = MovvizInkSoft)
+private fun metaStyle() = TextStyle(fontSize = betaSp(11f, 13f), color = MovvizInkSoft)
 
 @Composable
 private fun StatusBadge(
@@ -2854,11 +2855,11 @@ private fun PrimaryPill(
                 // Sans tint explicite : Icon hérite de LocalContentColor de la
                 // Surface (noir sur pilule blanche, encre sinon) — le vecteur
                 // est entièrement recoloré par le tint.
-                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(com.movviz.tv.ui.theme.betaDp(12.dp, 14.dp)))
             }
             Text(
                 text = text,
-                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                style = TextStyle(fontSize = betaSp(11f, 13f), fontWeight = FontWeight.Bold),
             )
         }
     }

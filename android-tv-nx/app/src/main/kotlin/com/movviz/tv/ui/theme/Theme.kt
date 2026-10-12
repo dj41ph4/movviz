@@ -3,6 +3,8 @@ package com.movviz.tv.ui.theme
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -149,11 +151,17 @@ private val MovvizColorScheme = darkColorScheme(
 )
 
 // ────────────────────────────────────────────────────────────────
-// Interface « Projection » (unique depuis la suppression du thème Stable).
-// Échelle 10-foot : aucune information sous 12 sp, synopsis à 15 sp.
+// Interface Bêta « Projection » (Paramètres > Apparence). Tout ce qui suit
+// ne s'applique que lorsque l'utilisateur l'active : l'apparence Stable
+// reste strictement celle d'avant. Échelle 10-foot : aucune information
+// sous 12 sp, synopsis à 15 sp.
 // ────────────────────────────────────────────────────────────────
 
-private val MovvizProjectionTypography = Typography(
+/** Vrai quand l'interface Bêta est active — lu par les écrans pour choisir
+ *  tailles, marges et anneau de focus. */
+val LocalMovvizBeta = staticCompositionLocalOf { false }
+
+private val MovvizBetaTypography = Typography(
     displayLarge = MovvizTypography.displayLarge.copy(fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Black),
     headlineMedium = MovvizTypography.headlineMedium.copy(fontSize = 24.sp),
     titleLarge = MovvizTypography.titleLarge.copy(fontSize = 20.sp),
@@ -164,17 +172,41 @@ private val MovvizProjectionTypography = Typography(
     labelSmall = MovvizTypography.labelSmall.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
 )
 
-/** Anneau de focus unique : blanc, 3 dp, partout. */
-val MovvizFocusBorder = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFF4F6FF))
+/** Taille de texte Stable ou Bêta. */
+@Composable
+fun betaSp(stable: Float, beta: Float): androidx.compose.ui.unit.TextUnit =
+    if (LocalMovvizBeta.current) beta.sp else stable.sp
 
-/** Marge latérale des rangées : 48 dp (zone de sécurité 5 %). */
-val MovvizRowInset = 48.dp
+/** Dimension Stable ou Bêta. */
+@Composable
+fun betaDp(stable: androidx.compose.ui.unit.Dp, beta: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    if (LocalMovvizBeta.current) beta else stable
+
+/** Couleur et épaisseur uniques de l'anneau de focus Bêta. */
+val MovvizBetaFocusColor = Color(0xFFF4F6FF)
+val MovvizBetaFocusWidth = 3.dp
+
+/** Bordure de focus : en Bêta, le même anneau blanc 3 dp partout ; en
+ *  Stable, la bordure propre à chaque composant (passée en `stable`). */
+@Composable
+fun movvizFocusBorder(
+    shape: Shape,
+    stable: androidx.compose.foundation.BorderStroke,
+): androidx.compose.foundation.BorderStroke =
+    if (LocalMovvizBeta.current) androidx.compose.foundation.BorderStroke(MovvizBetaFocusWidth, MovvizBetaFocusColor) else stable
+
+/** Marge latérale des rangées : 39 dp en Stable, 48 dp (zone de sécurité
+ *  5 %) en Bêta. */
+@Composable
+fun movvizRowInset(): androidx.compose.ui.unit.Dp = betaDp(39.dp, 48.dp)
 
 @Composable
-fun MovvizTvTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = MovvizColorScheme,
-        typography = MovvizProjectionTypography,
-        content = content,
-    )
+fun MovvizTvTheme(beta: Boolean = false, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalMovvizBeta provides beta) {
+        MaterialTheme(
+            colorScheme = MovvizColorScheme,
+            typography = if (beta) MovvizBetaTypography else MovvizTypography,
+            content = content,
+        )
+    }
 }
