@@ -1,3 +1,10 @@
+## v1.26.020 — 12 octobre 2026
+
+### Movviz TV : la rangée « Tendances Movviz » apparaît
+
+- Après un redémarrage du serveur, les tendances sont calculées en quelques secondes. Le site attendait qu'elles arrivent, mais l'app TV prenait l'accueil tel quel et le gardait sans tendances. L'app TV (et l'app mobile) relit maintenant les rangées tant que le serveur les prépare encore.
+- Quand le serveur signale de nouvelles suggestions, l'accueil de l'app TV se met à jour tout de suite. Avant, la nouvelle rangée arrivait en coulisses sans jamais s'afficher.
+
 ## v1.26.019 — 12 octobre 2026
 
 ### Android : « Voir plus » ne fait plus planter l'application
