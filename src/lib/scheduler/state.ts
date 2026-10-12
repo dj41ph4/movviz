@@ -23,7 +23,17 @@ export interface TaskConfig {
 interface SchedulerData {
   runs: Record<string, TaskRun>;
   configs: Record<string, TaskConfig>;
+  /** Migrations ponctuelles déjà appliquées (une seule fois chacune). */
+  migrations?: string[];
 }
+
+/**
+ * Remise à zéro des intervalles personnalisés, UNE SEULE FOIS, avec la
+ * refonte des tâches planifiées (2026-10-12, demande de Seb) : les
+ * nouveaux intervalles par défaut s'appliquent à toute installation. Les
+ * réglages faits ensuite sont conservés aux mises à jour suivantes.
+ */
+const RESET_INTERVALS_MIGRATION = "reset-intervals-2026-10-12";
 
 function readJson<T>(file: string, fallback: T): T {
   return readJsonCached(file, fallback);
@@ -35,15 +45,21 @@ function writeJson(file: string, data: unknown) {
 
 function loadData(): SchedulerData {
   const raw = readJson<Record<string, unknown> | null>(FILE, null);
-  if (raw == null) return { runs: {}, configs: {} };
+  if (raw == null) return { runs: {}, configs: {}, migrations: [RESET_INTERVALS_MIGRATION] };
   // Migrate from the old flat format (v1.1.x) where the file was
   // { taskId: TaskRun, ... } instead of { runs: { ... }, configs: { ... } }.
   if (!("runs" in raw)) {
-    const migrated: SchedulerData = { runs: raw as Record<string, TaskRun>, configs: {} };
+    const migrated: SchedulerData = { runs: raw as Record<string, TaskRun>, configs: {}, migrations: [RESET_INTERVALS_MIGRATION] };
     saveData(migrated);
     return migrated;
   }
-  return raw as unknown as SchedulerData;
+  const data = raw as unknown as SchedulerData;
+  if (!data.migrations?.includes(RESET_INTERVALS_MIGRATION)) {
+    const reset: SchedulerData = { ...data, configs: {}, migrations: [...(data.migrations ?? []), RESET_INTERVALS_MIGRATION] };
+    saveData(reset);
+    return reset;
+  }
+  return data;
 }
 
 function saveData(data: SchedulerData) {

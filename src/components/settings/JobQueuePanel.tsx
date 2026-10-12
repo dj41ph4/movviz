@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered, Ban } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered, Ban, Square } from "lucide-react";
 
 type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 type JobType =
@@ -13,6 +13,7 @@ type JobType =
   | "reconcile"
   | "qualityUpgrade"
   | "plexLibrarySync"
+  | "plexMarkerSync"
   | "plexWatchlistSync"
   | "metadataRefresh"
   | "rssScan"
@@ -42,6 +43,7 @@ const JOB_TYPE_ORDER: JobType[] = [
   "reconcile",
   "plexWatchlistSync",
   "plexLibrarySync",
+  "plexMarkerSync",
   "rssScan",
   "seerrImport",
   "importLists",
@@ -91,22 +93,31 @@ export function JobQueuePanel() {
     return () => clearInterval(id);
   }, []);
 
-  const setPriority = async (type: JobType, value: number) => {
+  // Le curseur envoyait une requête à chaque pixel glissé, et la réponse
+  // d'une requête plus ancienne pouvait ramener le curseur en arrière.
+  // On n'enregistre plus qu'une fois le curseur immobile.
+  const saveTimers = useRef<Partial<Record<JobType, ReturnType<typeof setTimeout>>>>({});
+  const setPriority = (type: JobType, value: number) => {
     setPriorities((p) => (p ? { ...p, [type]: value } : p));
-    setSaving(type);
-    try {
-      const res = await fetch("/api/jobs/priorities", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ priorities: { [type]: value } }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        setPriorities(d.priorities);
+    const timers = saveTimers.current;
+    if (timers[type]) clearTimeout(timers[type]);
+    timers[type] = setTimeout(async () => {
+      setSaving(type);
+      try {
+        await fetch("/api/jobs/priorities", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ priorities: { [type]: value } }),
+        });
+      } finally {
+        setSaving(null);
       }
-    } finally {
-      setSaving(null);
-    }
+    }, 400);
+  };
+
+  const cancelJob = async (id: string) => {
+    await fetch(`/api/jobs/${id}/cancel`, { method: "POST" });
+    await loadJobs();
   };
 
   const active = jobs.filter((j) => j.status === "queued" || j.status === "running");
@@ -154,6 +165,14 @@ export function JobQueuePanel() {
                       <span className="shrink-0 text-xs text-ink-dim">
                         {job.status === "queued" ? t("jobs.statusQueued") : `${job.current}/${job.total}`}
                       </span>
+                      <button
+                        onClick={() => cancelJob(job.id)}
+                        title={t("jobs.cancel")}
+                        aria-label={t("jobs.cancel")}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-dim transition-colors hover:bg-white/10 hover:text-down"
+                      >
+                        <Square className="h-3 w-3 fill-current" />
+                      </button>
                     </div>
                     {job.status === "running" && job.total > 0 && (
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/40">

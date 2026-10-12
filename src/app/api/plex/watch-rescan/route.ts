@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       };
     },
     SOURCE_ID,
+    { heavy: true },
   );
   return NextResponse.json({ queued: true, jobId: job.id });
 }

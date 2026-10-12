@@ -74,7 +74,8 @@ export async function register() {
     await phase("recherches interrompues", () => reconcileStaleSearches());
 
     // Anthologie Plex (Monster) : les fichiers importés avant la règle sont
-    // rangés une fois, une minute après le démarrage (hors du chemin critique).
+    // rangés une fois, 3 minutes après le démarrage (hors du chemin critique ;
+    // aucune tâche pendant les 3 premières minutes, voir scheduler/engine.ts).
     setTimeout(() => {
       void import("@/lib/library/anthology")
         .then(async ({ relocateAllAnthologies }) => {
@@ -84,7 +85,7 @@ export async function register() {
           }
         })
         .catch(() => {});
-    }, 60_000).unref?.();
+    }, 3 * 60_000).unref?.();
 
     const { bootstrapEngine } = await import("@/lib/engine/bootstrap");
     await phase("moteur de téléchargement", () => bootstrapEngine());
@@ -181,13 +182,20 @@ export async function register() {
     // reading was contaminated by the container's own startup load (this
     // same boot sequence's other tasks, Next.js warming up, etc.), not a
     // real hardware number. A short wait lets that settle first.
-    const { shouldAutoRunBenchmark, runServerBenchmark } = await import("@/lib/playback/engine/serverBenchmark");
+    //
+    // 3 min (2026-10-12) : aucune tâche pendant les 3 premières minutes, et
+    // le benchmark passe par la file comme tâche lourde — jamais en même
+    // temps qu'une autre tâche lourde.
+    const { shouldAutoRunBenchmark } = await import("@/lib/playback/engine/serverBenchmark");
     if (shouldAutoRunBenchmark()) {
       setTimeout(() => {
-        runServerBenchmark()
-          .then((r) => console.log(`[benchmark] auto-run après mise à jour terminé (${r.profiles.length} profil(s))`))
+        void import("@/lib/scheduler/engine")
+          .then(({ queueTaskRun }) => {
+            queueTaskRun("server-benchmark");
+            console.log("[benchmark] auto-run après mise à jour mis en file");
+          })
           .catch((e: unknown) => console.error(`[benchmark] auto-run après mise à jour échoué: ${(e as Error)?.message ?? e}`));
-      }, 60_000).unref();
+      }, 3 * 60_000).unref();
     }
   }
 }

@@ -24,6 +24,7 @@
  * exactement le comportement voulu (personne n'est actif à froid).
  */
 
+import { throwIfJobCancelled } from "@/lib/jobs/cancelScope";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 // Fenêtre pendant laquelle une interaction utilisateur est considérée
@@ -195,6 +196,8 @@ function formatDuration(ms: number): string {
  * `context` est un libellé court et lisible (ex: "bulk manquants").
  */
 export async function yieldToUser(context?: string): Promise<void> {
+  // Point d'arrêt : le bouton « Arrêter » d'une tâche prend effet ici.
+  throwIfJobCancelled();
   const last = g.__movvizLastUserActivity;
   if (!hasForegroundActivity() && (last == null || Date.now() - last.at >= IDLE_RESUME_MS)) return;
   const start = Date.now();

@@ -407,8 +407,36 @@ export async function checkQualityUpgrades() {
   return runBackground(() => checkQualityUpgradesInner());
 }
 
+/**
+ * Passage incrémental (2026-10-12) : la tâche tourne toutes les heures mais
+ * le cache RSS ne change que toutes les 15 min — renvoyer tout le cache au
+ * matching pour chaque film refaisait le même travail à l'identique. Un
+ * film déjà examiné n'est plus comparé qu'aux releases arrivées depuis ; un
+ * film nouvellement concerné (ajout, fichier remplacé, profil changé) l'est
+ * à tout le cache. Passage complet au démarrage, si les règles de release
+ * changent, et une fois par jour.
+ */
+const QUALITY_FULL_PASS_EVERY_MS = 24 * 60 * 60 * 1000;
+interface QualityUpgradeState {
+  seenReleases: Set<string>;
+  knownTargets: Set<string>;
+  rulesSignature: string;
+  lastFullPassAt: number;
+}
+const gq = globalThis as typeof globalThis & { __movvizQualityUpgradeState?: QualityUpgradeState };
+
 async function checkQualityUpgradesInner() {
   const upgraded: string[] = [];
+  const allReleases = searchFromCache(MOVIE_CATEGORY_IDS);
+  const rules = loadReleaseRules();
+  const now = Date.now();
+  const rulesSignature = JSON.stringify(rules);
+  const prev = gq.__movvizQualityUpgradeState;
+  const fullPass = !prev || prev.rulesSignature !== rulesSignature || now - prev.lastFullPassAt >= QUALITY_FULL_PASS_EVERY_MS;
+  const releaseKey = (r: IndexerRelease) => r.guid || `${r.indexerId}|${r.title}`;
+  const newReleases = fullPass ? allReleases : allReleases.filter((r) => !prev.seenReleases.has(releaseKey(r)));
+  const targets = new Set<string>();
+
   for (const movie of loadMovies()) {
     await yieldToUser("upgrades qualité");
     if (movie.status !== "available" || !movie.file || !movie.monitored) continue;
@@ -416,8 +444,11 @@ async function checkQualityUpgradesInner() {
       DEFAULT_QUALITY_PROFILES.find((p) => p.id === movie.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
     if (rank(movie.file.resolution) >= rank(profile.cutoffResolution)) continue;
 
-    const releases = searchFromCache(MOVIE_CATEGORY_IDS);
-    const rules = loadReleaseRules();
+    const targetKey = `${movie.id}|${movie.file.path}|${movie.file.resolution}|${profile.id}`;
+    targets.add(targetKey);
+    const releases = fullPass || !prev.knownTargets.has(targetKey) ? allReleases : newReleases;
+    // Rien de nouveau pour ce film (le cache vide reste journalisé plus bas).
+    if (releases.length === 0 && allReleases.length > 0) continue;
 
     const matchedUpgrade = await getReleaseMatchPool().run({
       releases: releases.map((r) => ({ title: r.title })),
@@ -497,6 +528,12 @@ async function checkQualityUpgradesInner() {
       continue;
     }
   }
+  gq.__movvizQualityUpgradeState = {
+    seenReleases: new Set(allReleases.map(releaseKey)),
+    knownTargets: targets,
+    rulesSignature,
+    lastFullPassAt: fullPass ? now : prev!.lastFullPassAt,
+  };
   return { upgraded };
 }
 
@@ -505,22 +542,30 @@ async function checkQualityUpgradesInner() {
  * Auto-upgrade all eligible movies and episodes — run by the scheduler
  * every 6 hours when autoUpgradeEnabled is true in releaseRules.
  */
-export async function autoUpgradeAll(): Promise<{ movies: number; episodes: number }> {
+export async function autoUpgradeAll(): Promise<{ movies: number; episodes: number; notGrabbed: number }> {
   const rules = loadReleaseRules();
-  if (!rules.autoUpgradeEnabled) return { movies: 0, episodes: 0 };
+  if (!rules.autoUpgradeEnabled) return { movies: 0, episodes: 0, notGrabbed: 0 };
   // Voie arrière-plan + cession à l'utilisateur : tâche planifiée 6h, jamais
   // prioritaire sur une interaction utilisateur.
   return runBackground(() => autoUpgradeAllInner());
 }
 
-async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number }> {
+async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number; notGrabbed: number }> {
   const candidates = await findUpgradeCandidates();
   let movieCount = 0;
+  // Candidats trouvés mais pas téléchargés (le téléchargement a échoué) :
+  // la tâche « remplacements suggérés » est court-circuitée quand la mise à
+  // niveau auto est activée, c'est donc ici qu'ils sont signalés.
+  let notGrabbed = 0;
   for (const c of candidates) {
     await yieldToUser("auto-upgrade films");
     if (c.movieId && isUpgradeIgnored(c.movieId)) continue;
-    await grabUpgradeCandidate(c.movieId!);
-    movieCount++;
+    const result = await grabUpgradeCandidate(c.movieId!);
+    // Ne comptait avant que les tentatives, réussies ou non.
+    if (result.ok) movieCount++;
+    // « no_candidate » : la release a disparu entre la recherche et le
+    // téléchargement — plus rien à suggérer.
+    else if (result.error === "engine_unreachable") notGrabbed++;
   }
 
   const epCandidates = await findEpisodeUpgradeCandidates();
@@ -529,9 +574,10 @@ async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number
     await yieldToUser("auto-upgrade épisodes");
     const result = await grabEpisodeUpgradeCandidate(c.seriesId, c.seasonNumber, c.episodeNumber);
     if (result.ok) epCount++;
+    else if (result.error === "engine_unreachable") notGrabbed++;
   }
 
-  return { movies: movieCount, episodes: epCount };
+  return { movies: movieCount, episodes: epCount, notGrabbed };
 }
 
 /**

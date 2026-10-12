@@ -1,3 +1,4 @@
+import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
 import path from "node:path";
 import { loadMovies, updateMovie } from "@/lib/library/store";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
@@ -65,9 +66,8 @@ export function codecScore(videoCodec: string | null, rules: ReturnType<typeof l
  * timing out at 45-60s). Yielding once per movie costs effectively nothing
  * in wall-clock time but lets pending I/O and other requests interleave.
  */
-export function yieldToEventLoop(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
-}
+// Point d'arrêt inclus : le bouton « Arrêter » d'une tâche prend effet ici.
+export { yieldToEventLoop };
 
 function versionLabel(resolution: string | null, videoCodec: string | null, audioCodec: string | null): string {
   return [resolution, videoCodec, audioCodec].filter(Boolean).join(" · ") || "?";

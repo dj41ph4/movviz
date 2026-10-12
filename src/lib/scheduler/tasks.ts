@@ -25,6 +25,7 @@ import { seerrConfigured } from "@/lib/seerr/store";
 import { incrementalDiskScan } from "@/lib/library/diskScan";
 import { runLibraryHealthCheck } from "@/lib/library/libraryHealthCheck";
 import { findUpgradeCandidates } from "@/lib/library/searchAndReplace";
+import { loadReleaseRules } from "@/lib/library/releaseRules";
 import { findEpisodeUpgradeCandidates } from "@/lib/library/searchAndReplaceSeries";
 import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/languageDetectionTask";
 import { syncPlexMarkers } from "@/lib/plex/markerSync";
@@ -96,6 +97,13 @@ export const TASKS: ScheduledTask[] = [
     // library-reconcile above.
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
+      // Mise à niveau automatique activée : elle fait exactement la même
+      // recherche toutes les 6 h et télécharge chaque candidat trouvé, puis
+      // signale elle-même ceux qu'elle n'a pas pu télécharger. Refaire ce
+      // calcul ici (des centaines de requêtes aux indexeurs) n'apporterait
+      // aucune information de plus. Désactivée : cette tâche reste la seule
+      // à prévenir des remplacements possibles.
+      if (loadReleaseRules().autoUpgradeEnabled) return;
       // Sequential, not Promise.all — see the same comment on the API route:
       // each of these already runs its own sequential indexer fallback, so
       // running both at once would double the concurrent request stream.
@@ -124,7 +132,9 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "auto-upgrade-all",
     name: "Mise à niveau automatique (Rechercher et remplacer)",
-    intervalMs: 6 * 60 * 60 * 1000, // every 6 hours
+    // Toutes les 12 h (était 6 h) : jusqu'à ~300 requêtes aux indexeurs par
+    // passage pour améliorer des fichiers déjà présents — jamais urgent.
+    intervalMs: 12 * 60 * 60 * 1000,
     run: async () => {
       const result = await autoUpgradeAll();
       if (result.movies > 0 || result.episodes > 0) {
@@ -133,6 +143,14 @@ export const TASKS: ScheduledTask[] = [
           result.movies + " film(s) et " + result.episodes + " épisode(s) mis à niveau automatiquement",
           "/library",
           { count: result.movies + result.episodes }
+        );
+      }
+      if (result.notGrabbed > 0) {
+        emitNotification(
+          "upgrade_candidates_found",
+          `${result.notGrabbed} remplacement(s) suggéré(s) disponible(s)`,
+          "/library",
+          { count: result.notGrabbed }
         );
       }
     },
@@ -148,7 +166,9 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "plex-watchlist-sync",
     name: "Synchronisation de la liste de suivi Plex",
-    intervalMs: 60 * 1000, // every minute
+    // Toutes les 5 min (était 1 min) : un appel plex.tv par utilisateur à
+    // chaque passage pour une liste de suivi qui change rarement.
+    intervalMs: 5 * 60 * 1000,
     run: async () => {
       // Phase 7 du plan de finalisation (2026-09) : filet de sécurité de
       // l'outbox Movviz -> Plex (statut vu), réutilise cette tâche à la
@@ -430,6 +450,9 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "disk-scan",
     name: "Scan disque local",
+    // Reste à 1 h : c'est lui qui donne l'emplacement disque local d'un
+    // fichier arrivé par Plex (lecture directe). Désormais asynchrone et
+    // limité aux fichiers pas encore rattachés, il ne fige plus le serveur.
     intervalMs: 60 * 60 * 1000, // hourly
     run: async () => {
       await incrementalDiskScan();

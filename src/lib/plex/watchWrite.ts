@@ -387,7 +387,7 @@ function parseWatchedStateKey(stateKey: string): { userId: string; mediaType: "m
 }
 
 // Retry minimal (§52 du plan) : pas de retry_count dédié. Le scheduler appelle
-// ceci toutes les minutes (plex-watchlist-sync) ; le délai entre deux essais
+// ceci toutes les 5 minutes (plex-watchlist-sync) ; le délai entre deux essais
 // d'une même entrée grandit avec l'ancienneté de la décision (paliers sur
 // lastObservedAt, posé à chaque nouvelle décision locale). Sans ces paliers,
 // une entrée qui échoue durablement (profil retiré des partages, épisode

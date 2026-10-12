@@ -1,6 +1,10 @@
 import { engineGet } from "@/lib/engine/server";
 import { priorityOf } from "./priorities";
 import type { Job, JobType } from "./types";
+import { cancelledJobs, JobCancelledError, runInJobScope } from "./cancelScope";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+
+export { JobCancelledError };
 
 const MAX_CONCURRENT = 3;
 // Watchdog ceiling — confirmed live: a single stuck task (Plex watch-status
@@ -24,6 +28,17 @@ const JOB_TIMEOUT_MS = 10 * 60 * 1000;
 // whatever's already running instead of queuing behind it, while still
 // leaving well short of MAX_CONCURRENT during active downloads.
 const MAX_CONCURRENT_WHILE_DOWNLOADING = 2;
+// Le curseur « Téléchargements » des points de priorité : au-dessus de ce
+// seuil, un téléchargement actif réduit la file à
+// MAX_CONCURRENT_WHILE_DOWNLOADING ; en dessous, il ne la réduit pas.
+const DOWNLOAD_THROTTLE_THRESHOLD = 50;
+// Tâches lourdes (scan disque, relance des manquants, mises à niveau…) :
+// jamais deux en même temps, quelle que soit la place libre dans la file
+// (demande explicite de Seb, 2026-10-12). Leur place ne se libère qu'à la
+// vraie fin du runner — pas au délai de garde ci-dessus, qui libère la file
+// alors que la tâche continue de tourner. Au-delà de ce plafond, on demande
+// seulement son arrêt (coopératif).
+const HEAVY_SOFT_LIMIT_MS = 3 * 60 * 60 * 1000;
 const MAX_HISTORY = 100;
 
 export type ProgressFn = (current: number, total: number) => void;
@@ -32,35 +47,49 @@ export interface RunnerContext {
 }
 type Runner = (setProgress: ProgressFn, ctx: RunnerContext) => Promise<unknown>;
 
-/**
- * Throw from a runner to settle the job as "cancelled" (rather than
- * "completed" or "failed") when its cooperative cancellation flag was set —
- * used by the bulk "rechercher les manquants" job when it stops at a
- * checkpoint.
- */
-export class JobCancelledError extends Error {
-  constructor() {
-    super("Job annulé");
-    this.name = "JobCancelledError";
-  }
+export interface EnqueueOptions {
+  /** Tâche lourde : une seule à la fois (voir HEAVY_SOFT_LIMIT_MS). */
+  heavy?: boolean;
+  /** Lancée par le planificateur : passe après les actions de l'utilisateur. */
+  scheduled?: boolean;
+}
+
+// Tâches lourdes automatiques mises en pause par une action lourde de
+// l'utilisateur (ex. « Rechercher les manquants ») : elles s'arrêtent au
+// prochain point de cession et le planificateur les relance juste après,
+// sans attendre leur prochain intervalle.
+const g3 = globalThis as typeof globalThis & { __movvizPreemptedJobs?: Set<string> };
+const preempted: Set<string> = (g3.__movvizPreemptedJobs ??= new Set());
+
+/** Vrai si ce job a été arrêté pour laisser passer une action lourde de l'utilisateur. */
+export function wasPreempted(jobId: string): boolean {
+  return preempted.has(jobId);
 }
 
 interface QueueState {
   jobs: Job[]; // newest first, capped at MAX_HISTORY
   pending: Map<string, Runner>;
   runningCount: number;
+  /** Jobs dont le runner tourne encore réellement (même après le délai de garde). */
+  live?: Set<string>;
+  /** Jobs lourds dont le runner tourne encore réellement. */
+  heavyLive?: Set<string>;
+  /** Options de chaque job encore en file ou en cours. */
+  options?: Map<string, EnqueueOptions>;
 }
 
 const g = globalThis as typeof globalThis & { __movvizJobQueue?: QueueState };
 const state: QueueState = (g.__movvizJobQueue ??= { jobs: [], pending: new Map(), runningCount: 0 });
+const live: Set<string> = (state.live ??= new Set());
+const heavyLive: Set<string> = (state.heavyLive ??= new Set());
+const jobOptions: Map<string, EnqueueOptions> = (state.options ??= new Map());
 
 // Jobs whose cancellation was requested while running — cooperative: the
 // runner checks isJobCancelled(jobId) between items and stops. A running
 // job can't be preempted mid-await, but a bulk search checks every item
 // (~1.5 s), so cancellation lands within a few seconds. Cleared when the
 // job settles (runJob) so the set never grows unbounded.
-const g2 = globalThis as typeof globalThis & { __movvizJobCancellations?: Set<string> };
-const cancelled: Set<string> = (g2.__movvizJobCancellations ??= new Set());
+const cancelled: Set<string> = cancelledJobs;
 
 let lastDownloadCheck = 0;
 let lastDownloadActive = false;
@@ -78,7 +107,7 @@ function nextId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function enqueueJob(type: JobType, label: string, total: number, runner: Runner, sourceId?: string): Job {
+export function enqueueJob(type: JobType, label: string, total: number, runner: Runner, sourceId?: string, options: EnqueueOptions = {}): Job {
   const job: Job = {
     id: nextId(),
     type,
@@ -95,12 +124,25 @@ export function enqueueJob(type: JobType, label: string, total: number, runner: 
   state.jobs.unshift(job);
   if (state.jobs.length > MAX_HISTORY) state.jobs.length = MAX_HISTORY;
   state.pending.set(job.id, runner);
+  jobOptions.set(job.id, options);
+  // Une action lourde de l'utilisateur passe devant : la tâche lourde
+  // automatique en cours est mise en pause (jamais deux lourdes ensemble).
+  if (options.heavy && !options.scheduled) {
+    for (const id of heavyLive) {
+      if (!jobOptions.get(id)?.scheduled || cancelled.has(id)) continue;
+      preempted.add(id);
+      cancelled.add(id);
+      const running = state.jobs.find((j) => j.id === id);
+      recordSearchLog("info", "jobs.heavy_preempted", `« ${running?.label ?? id} » mise en pause pour laisser passer « ${label} »`);
+    }
+  }
   void dispatch();
   return job;
 }
 
 async function dispatch() {
-  const limit = (await isDownloadActive()) ? MAX_CONCURRENT_WHILE_DOWNLOADING : MAX_CONCURRENT;
+  const throttled = (await isDownloadActive()) && priorityOf("download") >= DOWNLOAD_THROTTLE_THRESHOLD;
+  const limit = throttled ? MAX_CONCURRENT_WHILE_DOWNLOADING : MAX_CONCURRENT;
   while (state.runningCount < limit) {
     const next = pickNextQueued();
     if (!next) return;
@@ -113,12 +155,19 @@ async function dispatch() {
   }
 }
 
+/** Ordre de passage : actions de l'utilisateur d'abord, puis points de priorité, puis ancienneté. */
+function rankOf(job: Job): number {
+  return (jobOptions.get(job.id)?.scheduled ? 0 : 1000) + priorityOf(job.type);
+}
+
 function pickNextQueued(): { job: Job; runner: Runner } | null {
   let best: Job | null = null;
+  const heavyBusy = heavyLive.size > 0;
   for (const job of state.jobs) {
     if (job.status !== "queued") continue;
-    if (!best || priorityOf(job.type) > priorityOf(best.type)) best = job;
-    else if (priorityOf(job.type) === priorityOf(best.type) && job.createdAt < best.createdAt) best = job;
+    if (heavyBusy && jobOptions.get(job.id)?.heavy) continue;
+    if (!best || rankOf(job) > rankOf(best)) best = job;
+    else if (rankOf(job) === rankOf(best) && job.createdAt < best.createdAt) best = job;
   }
   if (!best) return null;
   const runner = state.pending.get(best.id);
@@ -131,24 +180,46 @@ function runJob(job: Job, runner: Runner) {
     job.current = current;
     if (total) job.total = total;
   };
+  const heavy = !!jobOptions.get(job.id)?.heavy;
+  live.add(job.id);
+  if (heavy) heavyLive.add(job.id);
   let settled = false;
-  const timeoutTimer = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    clearCancellation(job.id);
-    job.status = "failed";
-    job.error = `Délai dépassé (>${Math.round(JOB_TIMEOUT_MS / 60000)} min) — la tâche est restée bloquée, libération de la file`;
-    job.completedAt = Date.now();
-    state.runningCount--;
-    void dispatch();
-  }, JOB_TIMEOUT_MS);
+  // Une tâche lourde n'est jamais « libérée » par le délai de garde : elle
+  // garde sa place lourde jusqu'à sa vraie fin. Au plafond, on demande
+  // seulement son arrêt.
+  const timeoutTimer = heavy
+    ? setTimeout(() => {
+        if (settled) return;
+        cancelled.add(job.id);
+        recordSearchLog("warn", "jobs.heavy_soft_limit", `${job.label} tourne depuis plus de ${Math.round(HEAVY_SOFT_LIMIT_MS / 3600000)} h — arrêt demandé`);
+      }, HEAVY_SOFT_LIMIT_MS)
+    : setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        job.status = "failed";
+        job.error = `Délai dépassé (>${Math.round(JOB_TIMEOUT_MS / 60000)} min) — la tâche est restée bloquée, libération de la file`;
+        job.completedAt = Date.now();
+        state.runningCount--;
+        void dispatch();
+      }, JOB_TIMEOUT_MS);
 
-  runner(setProgress, { jobId: job.id })
+  runInJobScope(job.id, () => runner(setProgress, { jobId: job.id }))
+    .finally(() => {
+      // Vraie fin du runner (même après le délai de garde) : seulement ici
+      // la place lourde se libère et la tâche peut être relancée.
+      live.delete(job.id);
+      heavyLive.delete(job.id);
+      jobOptions.delete(job.id);
+      clearCancellation(job.id);
+      // Lu par le planificateur dans le même tour (runTaskNow) — on le
+      // retire un peu plus tard pour que l'ensemble ne grossisse pas.
+      if (preempted.has(job.id)) setTimeout(() => preempted.delete(job.id), 60_000).unref?.();
+      if (heavy) void dispatch();
+    })
     .then((result) => {
       if (settled) return; // watchdog already freed this slot — a late result must not double-decrement runningCount
       settled = true;
       clearTimeout(timeoutTimer);
-      clearCancellation(job.id);
       job.status = "completed";
       job.result = result;
       job.completedAt = Date.now();
@@ -159,7 +230,6 @@ function runJob(job: Job, runner: Runner) {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutTimer);
-      clearCancellation(job.id);
       if (err instanceof JobCancelledError) {
         job.status = "cancelled";
       } else {
@@ -185,9 +255,20 @@ export function isTypeActive(type: JobType): boolean {
   return state.jobs.some((j) => j.type === type && (j.status === "queued" || j.status === "running"));
 }
 
-/** True if a job from this specific source (e.g. a scheduled task id) is queued or running. */
+/** True if a job from this specific source (e.g. a scheduled task id) is queued or running —
+ *  including a runner the watchdog released from the queue but that is still going. */
 export function isSourceActive(sourceId: string): boolean {
-  return state.jobs.some((j) => j.sourceId === sourceId && (j.status === "queued" || j.status === "running"));
+  return state.jobs.some((j) => j.sourceId === sourceId && (j.status === "queued" || j.status === "running" || live.has(j.id)));
+}
+
+/** The queued or running job of a source (e.g. a scheduled task id), if any. */
+export function activeJobForSource(sourceId: string): Job | null {
+  return state.jobs.find((j) => j.sourceId === sourceId && (j.status === "queued" || j.status === "running" || live.has(j.id))) ?? null;
+}
+
+/** True when the stop of this job was requested and its runner hasn't ended yet. */
+export function isStopRequested(jobId: string): boolean {
+  return cancelled.has(jobId) && live.has(jobId);
 }
 
 /**
@@ -200,11 +281,12 @@ export function requestCancelJob(jobId: string): boolean {
   if (!job) return false;
   if (job.status === "queued") {
     state.pending.delete(jobId);
+    jobOptions.delete(jobId);
     job.status = "cancelled";
     job.completedAt = Date.now();
     return true;
   }
-  if (job.status === "running") {
+  if (job.status === "running" || live.has(jobId)) {
     cancelled.add(jobId);
     return true;
   }

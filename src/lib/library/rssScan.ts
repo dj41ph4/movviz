@@ -6,6 +6,35 @@ import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
 import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
+import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
+import type { IndexerRelease } from "@/lib/indexers/types";
+
+/**
+ * Passage incrémental (2026-10-12) : comparer chaque release du cache à
+ * chaque titre manquant, tout le cache, toutes les 15 min, bloquait le
+ * serveur 1 à 2 s à chaque passage pour retrouver les mêmes résultats.
+ * Désormais :
+ *  - premier passage après le démarrage : complet ;
+ *  - ensuite, une release déjà vue n'est comparée qu'aux titres devenus
+ *    manquants depuis (un film ajouté est donc bien comparé à tout le cache),
+ *    et une release nouvelle est comparée à tous les titres ;
+ *  - un passage complet une fois par jour, en filet de sécurité.
+ * L'état est en mémoire : un redémarrage refait un passage complet.
+ */
+const FULL_PASS_EVERY_MS = 24 * 60 * 60 * 1000;
+/** Pause toutes les N comparaisons (boucle CPU synchrone sinon). */
+const COMPARE_YIELD_EVERY = 300;
+
+interface RssMatchState {
+  seenReleases: Set<string>;
+  knownTargets: Set<string>;
+  lastFullPassAt: number;
+}
+const gs = globalThis as typeof globalThis & { __movvizRssMatchState?: RssMatchState };
+
+function releaseKey(r: IndexerRelease): string {
+  return r.guid || `${r.indexerId}|${r.title}`;
+}
 
 /**
  * RSS sync: matches cached RSS feed data against everything Movviz currently
@@ -23,6 +52,14 @@ async function rssMatchIndexersInner() {
   const releases = readRssCache();
   if (releases.length === 0) return { grabbed: 0 };
 
+  const now = Date.now();
+  const prev = gs.__movvizRssMatchState;
+  const fullPass = !prev || now - prev.lastFullPassAt >= FULL_PASS_EVERY_MS;
+  const seenBefore = fullPass ? new Set<string>() : prev.seenReleases;
+  const knownBefore = fullPass ? new Set<string>() : prev.knownTargets;
+
+  const keys = releases.map(releaseKey);
+  const isNewRelease = keys.map((k) => !seenBefore.has(k));
   const parsedReleases = releases.map((r) => parseRelease(r.title));
   const seriesLike = new Set(parsedReleases.filter((_, i) => looksLikeSeriesRelease(releases[i].title)));
 
@@ -57,12 +94,27 @@ async function rssMatchIndexersInner() {
   // all grabbed for the same show in one scan.
   const seriesFullyGrabbed = new Set<string>();
 
-  for (const parsed of parsedReleases) {
-    for (const movie of missingMovies) {
+  const movieTargets = missingMovies.map((movie) => ({
+    movie,
+    isNew: !knownBefore.has(`movie:${movie.id}`),
+    searchTitle: pickSearchTitle(movie.title, movie.originalTitle),
+    aliases: [...(movie.aliases ?? []), movie.title],
+  }));
+  const anyNewMovie = movieTargets.some((t) => t.isNew);
+  const anyNewSeason = missingSeasons.some((s) => !knownBefore.has(`season:${s.seriesId}.${s.season}`));
+  let compared = 0;
+
+  for (let ri = 0; ri < parsedReleases.length; ri++) {
+    const parsed = parsedReleases[ri];
+    const releaseIsNew = isNewRelease[ri];
+    // Release déjà vue et aucun titre nouvellement manquant : rien à comparer.
+    if (!releaseIsNew && !anyNewMovie && !anyNewSeason) continue;
+    for (const { movie, isNew, searchTitle, aliases } of movieTargets) {
+      if (!releaseIsNew && !isNew) continue;
       if (grabbedMovies.has(movie.id)) continue;
       if (seriesLike.has(parsed)) continue;
-      const aliases = [...(movie.aliases ?? []), movie.title];
-      if (!releaseTitleMatches(parsed.title, pickSearchTitle(movie.title, movie.originalTitle), aliases) || !yearIsCompatible(parsed.year, movie.year)) continue;
+      if (++compared % COMPARE_YIELD_EVERY === 0) await yieldToEventLoop();
+      if (!releaseTitleMatches(parsed.title, searchTitle, aliases) || !yearIsCompatible(parsed.year, movie.year)) continue;
       grabbedMovies.add(movie.id);
       await yieldToUser("match RSS films");
       const result = await searchAndGrabMovie(movie.id);
@@ -73,7 +125,9 @@ async function rssMatchIndexersInner() {
     for (const s of missingSeasons) {
       if (seriesFullyGrabbed.has(s.seriesId)) continue;
       const key = `${s.seriesId}.${s.season}`;
+      if (!releaseIsNew && knownBefore.has(`season:${key}`)) continue;
       if (grabbedSeasons.has(key)) continue;
+      if (++compared % COMPARE_YIELD_EVERY === 0) await yieldToEventLoop();
       if (parsed.season !== s.season || !releaseTitleMatches(parsed.title, s.seriesTitle, s.seriesAliases)) continue;
       grabbedSeasons.add(key);
       // RSS just signals a release exists for this season — do a proper
@@ -95,6 +149,17 @@ async function rssMatchIndexersInner() {
       }
     }
   }
+
+  // Passage terminé (un arrêt en cours de route lance une exception avant
+  // d'arriver ici, l'état précédent reste donc valable).
+  gs.__movvizRssMatchState = {
+    seenReleases: new Set(keys),
+    knownTargets: new Set([
+      ...missingMovies.map((m) => `movie:${m.id}`),
+      ...missingSeasons.map((s) => `season:${s.seriesId}.${s.season}`),
+    ]),
+    lastFullPassAt: fullPass ? now : prev!.lastFullPassAt,
+  };
 
   return { grabbed };
 }

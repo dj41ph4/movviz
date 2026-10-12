@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
             shouldCancel: () => isJobCancelled(ctx.jobId),
             force,
           }),
-    sourceId
+    sourceId,
+    { heavy: true }
   );
   return NextResponse.json({ queued: true });
 }

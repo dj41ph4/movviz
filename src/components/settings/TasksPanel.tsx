@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import { useJobRunning } from "@/lib/jobs/useJobRunning";
-import { RotateCw, Loader2, Pencil, Check, X, ListTodo } from "lucide-react";
+import { RotateCw, Loader2, Pencil, Check, X, ListTodo, Square } from "lucide-react";
 
 interface TaskStatus {
   id: string;
@@ -12,7 +12,11 @@ interface TaskStatus {
   intervalMs: number;
   lastRunAt: number | null;
   lastDurationMs: number | null;
+  /** Pire gel du serveur pendant la dernière exécution (ms). */
+  lastMaxBlockMs: number | null;
   nextRunAt: number | null;
+  heavy: boolean;
+  state: "queued" | "running" | "stopping" | null;
 }
 
 function formatInterval(ms: number) {
@@ -44,6 +48,14 @@ function formatDuration(ms: number | null) {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/** Pire gel : vert sous 0,5 s, orange jusqu'à 2 s, rouge au-delà. */
+function formatBlock(ms: number | null): { text: string; tone: string } {
+  if (ms == null) return { text: "—", tone: "text-ink-dim" };
+  const text = ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`;
+  const tone = ms < 500 ? "text-ok" : ms < 2000 ? "text-warn" : "text-down";
+  return { text, tone };
+}
+
 function formatFuture(ts: number): string | null {
   const diff = ts - Date.now();
   const min = Math.round(diff / 60000);
@@ -71,6 +83,11 @@ export function TasksPanel() {
     const id = setInterval(load, 15000);
     return () => clearInterval(id);
   }, [load]);
+
+  const stop = async (id: string) => {
+    await fetch(`/api/tasks/${id}/stop`, { method: "POST" });
+    await load();
+  };
 
   const run = async (id: string) => {
     setRunning(id);
@@ -100,7 +117,7 @@ export function TasksPanel() {
         </span>
         <div>
           <h3 className="font-bold text-ink">{t("tasks.title")}</h3>
-          <p className="mt-0.5 text-xs text-ink-dim">{t("tasks.name")}</p>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("tasks.hint")}</p>
         </div>
       </div>
       {/* Table on sm+ — a data-dense grid works fine once there's room for
@@ -116,6 +133,7 @@ export function TasksPanel() {
             <th className="px-4 py-3">{t("tasks.interval")}</th>
             <th className="px-4 py-3">{t("tasks.lastRun")}</th>
             <th className="px-4 py-3">{t("tasks.lastDuration")}</th>
+            <th className="px-4 py-3">{t("tasks.maxBlock")}</th>
             <th className="px-4 py-3">{t("tasks.nextRun")}</th>
             <th className="px-4 py-3" />
           </tr>
@@ -135,6 +153,7 @@ export function TasksPanel() {
                 task={task}
                 localRunning={running === task.id}
                 onRun={() => run(task.id)}
+                onStop={() => stop(task.id)}
                 onEdit={() => setEditing(task.id)}
               />
             )
@@ -159,6 +178,7 @@ export function TasksPanel() {
               task={task}
               localRunning={running === task.id}
               onRun={() => run(task.id)}
+              onStop={() => stop(task.id)}
               onEdit={() => setEditing(task.id)}
             />
           )
@@ -188,7 +208,7 @@ function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: nu
           <span className="text-xs text-ink-dim">min</span>
         </div>
       </td>
-      <td className="px-4 py-3 text-ink-dim" colSpan={2}>
+      <td className="px-4 py-3 text-ink-dim" colSpan={3}>
         <p className="text-xs text-ink-dim">{formatInterval(parseInterval(d, h, m))}</p>
       </td>
       <td className="px-4 py-3 text-ink-dim" />
@@ -236,11 +256,64 @@ function EditCard({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: n
   );
 }
 
-function TaskCard({ task, localRunning, onRun, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onEdit: () => void }) {
+function TaskName({ task }: { task: TaskStatus }) {
+  const t = useT();
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span>{t("scheduler.task." + task.id)}</span>
+      {task.heavy && (
+        <span title={t("tasks.heavyHint")} className="rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-dim">
+          {t("tasks.heavy")}
+        </span>
+      )}
+      {task.state === "queued" && <span className="text-[11px] font-normal text-ink-dim">· {t("tasks.queued")}</span>}
+      {task.state === "stopping" && <span className="text-[11px] font-normal text-warn">· {t("tasks.stopping")}</span>}
+    </span>
+  );
+}
+
+/** Lancer maintenant, ou Arrêter quand la tâche est en file ou en cours. */
+function RunStopButton({ task, running, onRun, onStop }: { task: TaskStatus; running: boolean; onRun: () => void; onStop: () => void }) {
+  const t = useT();
+  if (running || task.state != null) {
+    const stopping = task.state === "stopping";
+    return (
+      <button
+        onClick={onStop}
+        disabled={stopping}
+        title={stopping ? t("tasks.stopping") : t("tasks.stop")}
+        aria-label={t("tasks.stop")}
+        className="group flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-down disabled:opacity-50"
+      >
+        {stopping ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin group-hover:hidden" />
+            <Square className="hidden h-3 w-3 fill-current group-hover:block" />
+          </>
+        )}
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={onRun}
+      title={t("tasks.runNow")}
+      aria-label={t("tasks.runNow")}
+      className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow"
+    >
+      <RotateCw className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function TaskCard({ task, localRunning, onRun, onStop, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onStop: () => void; onEdit: () => void }) {
   const t = useT();
   const { locale } = useI18n();
   const jobRunning = useJobRunning(task.id);
   const running = localRunning || jobRunning;
+  const block = formatBlock(task.lastMaxBlockMs);
   const nextRun = task.nextRunAt
     ? (() => {
         const remaining = formatFuture(task.nextRunAt);
@@ -251,18 +324,12 @@ function TaskCard({ task, localRunning, onRun, onEdit }: { task: TaskStatus; loc
   return (
     <div className="rounded-xl glass p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-ink">{t("scheduler.task." + task.id)}</p>
+        <p className="font-semibold text-ink"><TaskName task={task} /></p>
         <div className="flex shrink-0 items-center gap-1">
-          <button onClick={onEdit} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:bg-white/10 hover:text-ink">
+          <button onClick={onEdit} aria-label={t("tasks.edit")} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:bg-white/10 hover:text-ink">
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button
-            onClick={onRun}
-            disabled={running}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow disabled:opacity-50"
-          >
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-          </button>
+          <RunStopButton task={task} running={running} onRun={onRun} onStop={onStop} />
         </div>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-dim">
@@ -270,24 +337,27 @@ function TaskCard({ task, localRunning, onRun, onEdit }: { task: TaskStatus; loc
         <span>{t("tasks.lastDuration")} : {formatDuration(task.lastDurationMs)}</span>
         <span>{t("tasks.lastRun")} : {task.lastRunAt ? relativeTime(new Date(task.lastRunAt).toISOString(), locale) : t("tasks.never")}</span>
         <span>{t("tasks.nextRun")} : {nextRun}</span>
+        <span>{t("tasks.maxBlock")} : <span className={block.tone}>{block.text}</span></span>
       </div>
     </div>
   );
 }
 
-function TaskRow({ task, localRunning, onRun, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onEdit: () => void }) {
+function TaskRow({ task, localRunning, onRun, onStop, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onStop: () => void; onEdit: () => void }) {
   const t = useT();
   const { locale } = useI18n();
   const jobRunning = useJobRunning(task.id);
   const running = localRunning || jobRunning;
+  const block = formatBlock(task.lastMaxBlockMs);
   return (
     <tr className="border-b border-white/5 last:border-0">
-      <td className="px-4 py-3 font-semibold text-ink">{t("scheduler.task." + task.id)}</td>
+      <td className="px-4 py-3 font-semibold text-ink"><TaskName task={task} /></td>
       <td className="px-4 py-3 text-ink-soft">{formatInterval(task.intervalMs)}</td>
       <td className="px-4 py-3 text-ink-dim">
         {task.lastRunAt ? relativeTime(new Date(task.lastRunAt).toISOString(), locale) : t("tasks.never")}
       </td>
       <td className="px-4 py-3 text-ink-dim">{formatDuration(task.lastDurationMs)}</td>
+      <td className={`px-4 py-3 tabular-nums ${block.tone}`}>{block.text}</td>
       <td className="px-4 py-3 text-ink-dim">
         {task.nextRunAt
           ? (() => {
@@ -300,17 +370,12 @@ function TaskRow({ task, localRunning, onRun, onEdit }: { task: TaskStatus; loca
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={onEdit}
+            aria-label={t("tasks.edit")}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:bg-white/10 hover:text-ink"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button
-            onClick={onRun}
-            disabled={running}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow disabled:opacity-50"
-          >
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-          </button>
+          <RunStopButton task={task} running={running} onRun={onRun} onStop={onStop} />
         </div>
       </td>
     </tr>

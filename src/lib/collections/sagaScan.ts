@@ -47,7 +47,7 @@ export function startSagaScan(): Job {
     });
     flush();
     setProgress(scanned, pending.length);
-  });
+  }, "saga-scan", { heavy: true });
 }
 
 export function isSagaScanRunning(): boolean {

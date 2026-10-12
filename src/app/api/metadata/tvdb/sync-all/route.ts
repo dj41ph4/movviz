@@ -108,7 +108,8 @@ export async function POST(req: NextRequest) {
         details: results,
       };
     },
-    SOURCE_ID
+    SOURCE_ID,
+    { heavy: true }
   );
 
   return NextResponse.json({ queued: true, jobId: job.id });

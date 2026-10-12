@@ -94,3 +94,41 @@ test("la tâche RSS active réconcilie les sorties avant refresh et grab, désac
   ], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr + result.stdout);
 });
+
+test("RSS incrémental : une release déjà vue est comparée aux titres devenus manquants depuis", () => {
+  const result = spawnSync(process.execPath, [
+    "--experimental-transform-types", "--no-warnings", "--experimental-test-module-mocks",
+    "--import", "./scripts/movviz-test-loader.mjs", "--input-type=module", "-e", `
+      import { mock } from 'node:test';
+      import assert from 'node:assert/strict';
+      const hits = [];
+      const toronto = { id: 'toronto', title: 'The Man from Toronto', year: 2022, monitored: true, status: 'missing', aliases: [] };
+      const dune = { id: 'dune', title: 'Dune', year: 2021, monitored: true, status: 'missing', aliases: [] };
+      let movies = [];
+      const releases = [{ guid: 'g1', title: 'The.Man.from.Toronto.2022.MULTi.1080p.WEB-DL' }];
+      mock.module('@/lib/indexers/rssCache', { namedExports: { readRssCache: () => releases } });
+      mock.module('@/lib/library/store', { namedExports: { loadMovies: () => movies, loadSeries: () => [] } });
+      mock.module('@/lib/library/autoGrab', { namedExports: { searchAndGrabMovie: async id => { hits.push(id); return { ok: false }; } } });
+      mock.module('@/lib/library/autoGrabSeries', { namedExports: { searchAndGrabSeason: async () => ({}), withSearchLock: async (_k, fn) => fn() } });
+      mock.module('@/lib/priority/lane', { namedExports: { runBackground: fn => fn() } });
+      mock.module('@/lib/priority/userActivity', { namedExports: { yieldToUser: async () => {} } });
+      const { rssMatchIndexers } = await import('@/lib/library/rssScan');
+      // Passage complet : rien de manquant encore.
+      await rssMatchIndexers();
+      assert.deepEqual(hits, []);
+      // Le film devient manquant : la release déjà en cache le trouve.
+      movies = [toronto];
+      await rssMatchIndexers();
+      assert.deepEqual(hits, ['toronto']);
+      // Rien de nouveau : la même release n'est plus recomparée.
+      await rssMatchIndexers();
+      assert.deepEqual(hits, ['toronto']);
+      // Nouvelle release : comparée à tous les titres manquants.
+      movies = [toronto, dune];
+      releases.push({ guid: 'g2', title: 'Dune.2021.MULTi.2160p.WEB-DL' });
+      await rssMatchIndexers();
+      assert.deepEqual(hits, ['toronto', 'dune']);
+    `,
+  ], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+});

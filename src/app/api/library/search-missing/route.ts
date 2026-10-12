@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
         shouldCancel: () => isJobCancelled(ctx.jobId),
       });
     },
-    "search-all-missing"
+    "search-all-missing",
+    // Lourde : met en pause la tâche lourde automatique en cours et empêche
+    // toute autre de démarrer tant qu'elle tourne.
+    { heavy: true }
   );
   return NextResponse.json({ queued: true });
 }

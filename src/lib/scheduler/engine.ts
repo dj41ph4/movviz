@@ -1,6 +1,7 @@
 import { TASKS } from "./tasks";
 import { getTaskRun, recordTaskRun, getTaskConfig } from "./state";
-import { enqueueJob, isSourceActive } from "@/lib/jobs/queue";
+import { enqueueJob, isSourceActive, activeJobForSource, requestCancelJob, isStopRequested, wasPreempted } from "@/lib/jobs/queue";
+import { currentJobId } from "@/lib/jobs/cancelScope";
 import type { JobType } from "@/lib/jobs/types";
 import { openBlockWindow } from "@/lib/blockProbe";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
@@ -22,6 +23,10 @@ export interface TaskStatus {
   /** Pire gel du serveur pendant la dernière exécution (null = pas encore mesuré). */
   lastMaxBlockMs: number | null;
   nextRunAt: number | null;
+  /** Tâche lourde : une seule à la fois. */
+  heavy: boolean;
+  /** État dans la file : en attente, en cours, arrêt demandé, ou rien. */
+  state: "queued" | "running" | "stopping" | null;
 }
 
 export function listTaskStatus(): TaskStatus[] {
@@ -36,6 +41,8 @@ export function listTaskStatus(): TaskStatus[] {
       lastDurationMs: run.lastDurationMs,
       lastMaxBlockMs: run.lastMaxBlockMs ?? null,
       nextRunAt: run.lastRunAt != null ? run.lastRunAt + intervalMs : null,
+      heavy: HEAVY_TASKS.has(t.id),
+      state: taskQueueState(t.id),
     };
   });
 }
@@ -53,7 +60,10 @@ export async function runTaskNow(id: string): Promise<{ ok: true } | { ok: false
     await runBackground(() => task.run());
   } finally {
     const { maxBlockMs, overlapping } = probe.end();
-    recordTaskRun(id, Date.now() - start, maxBlockMs);
+    // Mise en pause par une action lourde de l'utilisateur : on n'enregistre
+    // pas de passage, le planificateur la relance juste après.
+    const jobId = currentJobId();
+    if (!(jobId && wasPreempted(jobId))) recordTaskRun(id, Date.now() - start, maxBlockMs);
     if (maxBlockMs >= 1_000) {
       recordSearchLog("warn", "perf.task_block", `tâche ${id} : serveur figé jusqu'à ${maxBlockMs} ms (durée ${Date.now() - start} ms)${overlapping.length ? ` — en parallèle : ${overlapping.join(", ")}` : ""}`, maxBlockMs);
     }
@@ -68,22 +78,87 @@ export async function runTaskNow(id: string): Promise<{ ok: true } | { ok: false
  */
 const TASK_JOB_TYPE: Record<string, JobType> = {
   "quality-upgrade-check": "qualityUpgrade",
+  "auto-upgrade-all": "qualityUpgrade",
+  "search-and-replace-check": "qualityUpgrade",
   "indexer-health-check": "maintenance",
   "library-reconcile": "reconcile",
+  "disk-scan": "reconcile",
+  "stuck-downloads-recover": "reconcile",
+  "library-health-check": "reconcile",
+  "trash-purge": "maintenance",
   "session-cleanup": "maintenance",
+  "server-benchmark": "maintenance",
   "plex-watchlist-sync": "plexWatchlistSync",
   "plex-library-sync": "plexLibrarySync",
+  "plex-marker-sync": "plexMarkerSync",
   "plex-watch-sync": "plexWatchlistSync",
   "plex-watch-bootstrap": "plexWatchlistSync",
   "plex-full-reconcile": "plexLibrarySync",
   "release-day-search": "rssScan",
+  // Était « maintenance » (le plus bas) faute d'entrée : la relance des
+  // manquants passait derrière tout le reste.
+  "retry-missing-movies": "rssScan",
   "metadata-refresh": "metadataRefresh",
   "artwork-cache-refresh": "metadataRefresh",
+  "language-detection": "metadataRefresh",
   "rss-indexer-scan": "rssScan",
   "download-state-reconcile": "reconcile",
   "anime-vf-calendar-refresh": "metadataRefresh",
   "seerr-import": "seerrImport",
 };
+
+/**
+ * Tâches lourdes (CPU, disque ou centaines de requêtes) : jamais deux en
+ * même temps (voir HEAVY_SOFT_LIMIT_MS dans queue.ts). Les petites tâches
+ * fréquentes (état des téléchargements, RSS, Seerr, Plex) et les actions de
+ * l'utilisateur ne sont pas concernées — elles ne doivent jamais attendre
+ * une relance des manquants de 30 min.
+ */
+export const HEAVY_TASKS = new Set<string>([
+  "disk-scan",
+  "retry-missing-movies",
+  "auto-upgrade-all",
+  "search-and-replace-check",
+  "quality-upgrade-check",
+  "metadata-refresh",
+  "library-reconcile",
+  "plex-full-reconcile",
+  "library-health-check",
+  "server-benchmark",
+]);
+
+/**
+ * Aucune tâche planifiée pendant les 3 premières minutes après le démarrage
+ * du serveur (demande de Seb, 2026-10-12) : le serveur finit de se préparer
+ * sans concurrence. Seules les tâches liées aux téléchargements passent
+ * tout de suite, pour qu'un fichier terminé devienne lisible sans attendre.
+ * Le bouton « lancer maintenant » n'est pas concerné.
+ */
+const BOOT_QUIET_MS = 3 * 60 * 1000;
+const BOOT_EXEMPT_TASKS = new Set<string>(["download-state-reconcile", "stuck-downloads-recover"]);
+const bootAt = Date.now();
+
+function enqueueTask(task: (typeof TASKS)[number]) {
+  const type = TASK_JOB_TYPE[task.id] ?? "maintenance";
+  enqueueJob(type, task.name, 1, async (setProgress) => {
+    await runTaskNow(task.id);
+    setProgress(1, 1);
+  }, task.id, { heavy: HEAVY_TASKS.has(task.id), scheduled: true });
+}
+
+function taskQueueState(id: string): TaskStatus["state"] {
+  const job = activeJobForSource(id);
+  if (!job) return null;
+  if (isStopRequested(job.id)) return "stopping";
+  return job.status === "queued" ? "queued" : "running";
+}
+
+/** Bouton « Arrêter » : retire la tâche de la file, ou demande son arrêt si elle tourne. */
+export function stopTask(id: string): { ok: true } | { ok: false; error: string } {
+  const job = activeJobForSource(id);
+  if (!job) return { ok: false, error: "not_running" };
+  return requestCancelJob(job.id) ? { ok: true } : { ok: false, error: "not_running" };
+}
 
 const TICK_MS = 30_000;
 
@@ -100,17 +175,15 @@ const TICK_MS = 30_000;
  */
 function tick() {
   const now = Date.now();
+  const quiet = now - bootAt < BOOT_QUIET_MS;
   for (const task of TASKS) {
+    if (quiet && !BOOT_EXEMPT_TASKS.has(task.id)) continue;
     if (isSourceActive(task.id)) continue;
     const run = getTaskRun(task.id);
     const intervalMs = getEffectiveInterval(task.id, task.intervalMs);
     const dueAt = run.lastRunAt == null ? 0 : run.lastRunAt + intervalMs;
     if (now < dueAt) continue;
-    const type = TASK_JOB_TYPE[task.id] ?? "maintenance";
-    enqueueJob(type, task.name, 1, async (setProgress) => {
-      await runTaskNow(task.id);
-      setProgress(1, 1);
-    }, task.id);
+    enqueueTask(task);
   }
 }
 
@@ -122,11 +195,7 @@ export function queueTaskRun(id: string): { ok: true } | { ok: false; error: str
   const task = TASKS.find((t) => t.id === id);
   if (!task) return { ok: false, error: "not_found" };
   if (isSourceActive(id)) return { ok: true };
-  const type = TASK_JOB_TYPE[id] ?? "maintenance";
-  enqueueJob(type, task.name, 1, async (setProgress) => {
-    await runTaskNow(id);
-    setProgress(1, 1);
-  }, id);
+  enqueueTask(task);
   return { ok: true };
 }
 
