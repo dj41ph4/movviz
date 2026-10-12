@@ -1,3 +1,9 @@
+## v1.26.021 — 12 octobre 2026
+
+### Samsung : la rangée « Tendances Movviz » apparaît aussi
+
+- Même correctif que la 1.26.020 sur l'app Samsung (Tizen) : après un redémarrage du serveur, l'accueil et Découvrir relisent les rangées tant que le serveur les prépare encore, au lieu de rester sans tendances.
+
 ## v1.26.020 — 12 octobre 2026
 
 ### Movviz TV : la rangée « Tendances Movviz » apparaît
