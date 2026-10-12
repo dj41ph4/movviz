@@ -1,3 +1,9 @@
+## v1.26.017 — 12 octobre 2026
+
+### Recherche : les films tout récents se trouvent par leur titre
+
+- Un film que personne n'a encore noté sur TMDb (film de festival, sortie française à venir, comme « Un bon avocat ») était caché de la recherche comme un résultat sans intérêt. Il apparaît maintenant quand on tape son titre. Les résultats sans note qui ne correspondent pas à la recherche restent masqués.
+
 ## v1.26.016 — 12 octobre 2026
 
 ### Relance des manquants : 3 jours d'attente au maximum
