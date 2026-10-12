@@ -891,10 +891,21 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           return episodeIndex.get(rk) ?? null;
         };
         let transitions = 0;
+        const allTransitions = [...diff.newWatched, ...diff.newUnwatched];
+        // Gros lot d'un coup (2026-10-12, 8,7 min et 6,9 s de gel en prod
+        // après une grosse mise à jour Plex) : typiquement des identifiants
+        // Plex (ratingKey) réattribués, chaque titre vu redevient « nouveau ».
+        if (allTransitions.length > 500) {
+          recordSearchLog("warn", "plex.snapshot", `plex.snapshot user=${user.username} ${allTransitions.length} changements de vue d'un coup (identifiants Plex réattribués après une mise à jour ?) — traitement par lots`);
+        }
+        // Un seul appel groupé pour les identifiants TMDb des films, au lieu
+        // d'une requête Plex par film dans la boucle.
+        const movieTmdbByRk = await batchTmdbIds(cfg, ctx.serverToken, allTransitions.filter((rk) => movieRkSet.has(rk)));
         // Need to reconcile each transition
-        for (const rk of [...diff.newWatched, ...diff.newUnwatched]) {
-          // Rend la main régulièrement : les clics restent fluides.
-          if (++transitions % 50 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
+        for (const rk of allTransitions) {
+          // Rend la main souvent : chaque transition fait des lectures et
+          // écritures synchrones (SQLite, JSON).
+          if (++transitions % 10 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
           const observed = statesByRk.get(rk);
           if (!observed) continue;
           const isWatched = diff.watchedNow.has(rk);
@@ -903,8 +914,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
           let title: string | null = null;
           // Try movie first
           if (movieRkSet.has(rk)) {
-            const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [rk]);
-            const tmdbId = tmdbMap.get(rk)?.tmdbId;
+            const tmdbId = movieTmdbByRk.get(rk)?.tmdbId;
             if (tmdbId != null) {
               canonical = { type: "movie", tmdbId };
               const movie = getMovieByTmdbId(tmdbId);
