@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { callAi, probeGeminiModel } from "@/lib/ai/providers";
+import { defaultModel, isFreeModel } from "@/lib/ai/freeModels";
 import { DEFAULT_AI_CONFIG, type AiConfig, type AiProviderId } from "@/lib/ai/types";
 
 function config(provider: AiProviderId, model: string): AiConfig {
@@ -131,4 +132,11 @@ test("a provider still refusing on every model is left alone instead of hammered
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("a config still set to a model Google retired moves to its replacement, not to the default", () => {
+  assert.equal(isFreeModel("gemini", "gemini-3.5-flash"), false);
+  assert.equal(defaultModel("gemini", "gemini-3.5-flash"), "gemini-3.6-flash");
+  assert.equal(defaultModel("gemini", "gemini-3.7-flash"), "gemini-3.8-flash");
+  assert.equal(defaultModel("gemini", "gemini-1.0-pro"), "gemini-3.5-flash-lite");
 });

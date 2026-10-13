@@ -241,7 +241,7 @@ export async function probeGeminiModel(key: string, model: string, keyTag: strin
 async function callProvider(config: AiConfig, provider: AiProviderId, system: string, messages: AiChatMessage[]): Promise<string> {
   const configured = config.providers[provider].model.trim();
   // An old or forged config must never quietly reach a paid model.
-  const model = isFreeModel(provider, configured) ? configured : defaultModel(provider);
+  const model = isFreeModel(provider, configured) ? configured : defaultModel(provider, configured);
   const keys = config.providers[provider].keys.map((k) => k.key.trim()).filter(Boolean);
   if (keys.length === 0) throw new AiCallError(provider, "Aucune clé configurée", false);
   return callGemini(keys, model, system, messages);
@@ -319,7 +319,7 @@ export interface GeminiKeyTest { ok: boolean; model: string; latency: number; re
  *  other key taking over — so each key's own health and speed show. */
 export async function testGeminiKey(config: AiConfig, key: string): Promise<GeminiKeyTest> {
   const configured = config.providers.gemini.model.trim();
-  const model = isFreeModel("gemini", configured) ? configured : defaultModel("gemini");
+  const model = isFreeModel("gemini", configured) ? configured : defaultModel("gemini", configured);
   const usage: GeminiUsage = {};
   const startedAt = Date.now();
   let sentAt = startedAt;

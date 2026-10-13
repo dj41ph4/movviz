@@ -60,7 +60,7 @@ export async function PUT(req: NextRequest) {
     const requestedModel = typeof inc.model === "string" ? inc.model.trim() : "";
     const currentModel = current.providers[id].model;
     // Free models only — never let a request pick a paid one.
-    const model = isFreeModel(id, requestedModel) ? requestedModel : isFreeModel(id, currentModel) ? currentModel : defaultModel(id);
+    const model = isFreeModel(id, requestedModel) ? requestedModel : isFreeModel(id, currentModel) ? currentModel : defaultModel(id, currentModel);
     providers[id] = {
       model,
       keys: mergeKeys(current.providers[id].keys, Array.isArray(inc.keys) ? inc.keys : []),

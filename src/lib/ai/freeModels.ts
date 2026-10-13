@@ -17,16 +17,22 @@ export const GEMINI_RECOMMENDED_MODELS: readonly FreeModelOption[] = [
   { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite — ~500 requêtes/jour" },
   { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite — ~500 requêtes/jour" },
   { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash — ~20 requêtes/jour" },
-  { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash — ~20 requêtes/jour" },
+  { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash — ~20 requêtes/jour" },
 ];
+
+/** Models Google retired (changelog, 2026-10-08): its API already answers
+ *  them with the replacement, so a config still set to one simply moves to
+ *  that replacement instead of the default. */
+const GEMINI_RETIRED: ReadonlyMap<string, string> = new Map([
+  ["gemini-3.5-flash", "gemini-3.6-flash"],
+  ["gemini-3.7-flash", "gemini-3.8-flash"],
+]);
 
 /** The rest of Google's free-tier text catalogue (ai.google.dev/gemini-api/
  *  docs/pricing, « Free of charge » rows). Being listed does not mean a given
  *  key can use a model: the settings list is filtered by a real call
  *  (probeGeminiModel). */
 const GEMINI_OTHER_FREE_MODELS: readonly FreeModelOption[] = [
-  { id: "gemini-3.7-flash", label: "Gemini 3.7 Flash — ~20 requêtes/jour" },
-  { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash — ~20 requêtes/jour" },
   { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview" },
   // Still free, but only for accounts that used them before Google closed
   // the 2.5 range to new users — the real-call filter keeps them or not.
@@ -76,7 +82,8 @@ export function isFreeModel(_provider: AiProviderId, id: string): boolean {
   return isFreeGeminiModel(id);
 }
 
-/** The model used when the configured one is not an allowed free model. */
-export function defaultModel(_provider: AiProviderId): string {
-  return GEMINI_RECOMMENDED_MODELS[0].id;
+/** The model used when the configured one is not an allowed free model:
+ *  a retired one's replacement, else the first recommended. */
+export function defaultModel(_provider: AiProviderId, configured?: string): string {
+  return (configured && GEMINI_RETIRED.get(configured)) || GEMINI_RECOMMENDED_MODELS[0].id;
 }

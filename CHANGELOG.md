@@ -1,3 +1,10 @@
+## v1.26.029 — 13 octobre 2026
+
+### Assistant IA : liste des modèles Gemini mise à jour
+
+- Google a retiré Gemini 3.5 Flash et Gemini 3.7 Flash le 8 octobre. Gemini 3.6 Flash remplace 3.5 Flash dans les modèles recommandés, et 3.7 Flash disparaît de la liste.
+- Si l'assistant était réglé sur un de ces deux modèles, il passe tout seul sur son remplaçant (3.6 Flash ou 3.8 Flash), comme Google le fait déjà de son côté.
+
 ## v1.26.028 — 12 octobre 2026
 
 ### Assistant IA : les modèles ne sont plus testés à chaque ouverture des réglages
