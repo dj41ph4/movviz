@@ -574,7 +574,54 @@ interface Window {
     const data = await call<{ continueWatching: ProfileMedia[]; watchHistory: ProfileMedia[]; watchlist: ProfileMedia[] }>("/api/profile/media");
     if (version !== generation) return;
     function normalize(items: ProfileMedia[]): Media[] { return items.map(item => ({ ...item, type: item.type === "episode" ? "series" : item.type, progress: (item.progress?.ratio || 0) * 100, backdropPath: item.stillPath || item.backdropPath, episodeTitle: item.subtitle })); }
-    row(t("tizen.continueWatching"), normalize(data.continueWatching || [])); row(t("tizen.history"), normalize(data.watchHistory || [])); row(t("tizen.watchlist"), normalize(data.watchlist || [])); focusFirst();
+    row(t("tizen.continueWatching"), normalize(data.continueWatching || [])); row(t("tizen.history"), normalize(data.watchHistory || [])); row(t("tizen.watchlist"), normalize(data.watchlist || []));
+    const reset = el("section", "", "settings-section"); reset.append(el("h2", t("profile.watchReset.title")), el("p", t("profile.watchReset.hint"), "muted"));
+    reset.append(button(t("profile.watchReset.button"), watchResetFirst, "danger")); content.append(reset); focusFirst();
+  }
+  /** « Effacer la lecture » du profil connecté : 1er avertissement, puis un
+   *  2e où il faut cocher « je comprends » avant que le bouton s'active (le
+   *  focus démarre sur Annuler). Le mot est revérifié par le serveur. */
+  function watchResetDialog(build: (box: HTMLElement, cancel: () => void) => HTMLElement) {
+    if (closeModal) return;
+    const returnFocus = document.activeElement as HTMLElement | null;
+    const overlay = el("div", "", "modal"), box = el("section", "", "plex-dialog"); box.setAttribute("role", "alertdialog"); box.setAttribute("aria-modal", "true");
+    const cancel = () => { overlay.remove(); closeModal = null; if (returnFocus?.isConnected) returnFocus.focus(); }; closeModal = cancel;
+    const first = build(box, cancel); overlay.append(box); app.append(overlay); first.focus();
+  }
+  function watchResetFirst() {
+    watchResetDialog((box, cancel) => {
+      box.append(el("h2", t("profile.watchReset.title")), el("p", t("profile.watchReset.confirm1")));
+      const actions = el("div", "", "actions"), no = button(t("profile.watchReset.cancel"), cancel);
+      actions.append(no, button(t("profile.watchReset.confirm1Button"), () => { cancel(); watchResetFinal(); }, "danger")); box.append(actions); return no;
+    });
+  }
+  function watchResetFinal() {
+    watchResetDialog((box, cancel) => {
+      box.append(el("h2", t("profile.watchReset.confirm2Title")));
+      let understood = false, busy = false;
+      const check = button("", () => { understood = !understood; render(); }, "watch-reset-check");
+      const go = button(t("profile.watchReset.confirm2Button"), async () => {
+        if (!understood || busy) return; busy = true; render(); go.textContent = t("profile.watchReset.running");
+        try {
+          const result = await call<{ plex?: { state?: string } }>("/api/profile/watch-reset", { confirm: "EFFACER" });
+          cancel(); toast(t("profile.watchReset.done") + (result.plex?.state === "running" ? ` ${t("profile.watchReset.plexRunning")}` : ""));
+          if (result.plex?.state === "running") void followWatchResetPlex();
+          void profile();
+        } catch (error) { busy = false; render(); go.textContent = t("profile.watchReset.confirm2Button"); report(error); }
+      }, "danger");
+      const no = button(t("profile.watchReset.cancel"), () => { if (!busy) cancel(); });
+      function render() { check.textContent = `${understood ? "☑" : "☐"}  ${t("profile.watchReset.confirm2Check")}`; check.setAttribute("aria-pressed", String(understood)); go.disabled = !understood || busy; }
+      render(); const actions = el("div", "", "actions"); actions.append(no, go); box.append(check, actions); return no;
+    });
+  }
+  async function followWatchResetPlex() {
+    for (let attempt = 0; attempt < 60; attempt++) {
+      await new Promise(resolve => window.setTimeout(resolve, 3000));
+      const status = await call<{ reset?: { plex?: { state?: string; reason?: string } } | null }>("/api/profile/watch-reset").catch(() => null);
+      const plex = status?.reset?.plex; if (!plex?.state || plex.state === "running") continue;
+      const key = plex.state === "done" ? "profile.watchReset.plexDone" : plex.state === "partial" ? "profile.watchReset.plexPartial" : plex.state === "skipped" ? "profile.watchReset.plexSkipped" : "profile.watchReset.plexFailed";
+      toast(t(key).replace("{reason}", plex.reason || "")); return;
+    }
   }
   async function settings() {
     const version = begin(t("nav.settings")); content.classList.add("settings-page"); const loading = el("p", t("tizen.loading"), "muted"); content.append(loading);

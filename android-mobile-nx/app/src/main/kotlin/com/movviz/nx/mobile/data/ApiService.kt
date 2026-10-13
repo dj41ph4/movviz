@@ -321,6 +321,14 @@ interface MovvizApiService {
     @DELETE("api/profile/avatar")
     suspend fun deleteAvatar(): Response<Map<String, Any?>>
 
+    /** « Effacer la lecture » du profil connecté (jamais un autre : aucun
+     *  identifiant de profil n'est envoyé). Corps : {"confirm":"EFFACER"}. */
+    @POST("api/profile/watch-reset")
+    suspend fun watchReset(@Body body: Map<String, String>): Response<Map<String, Any?>>
+
+    @GET("api/profile/watch-reset")
+    suspend fun watchResetStatus(): Response<Map<String, Any?>>
+
     // IA — même conversation que le desktop, hermétique par profil (userId)
     @GET("api/ai/session")
     suspend fun aiSession(@Query("sync") sync: Int? = null): Response<AiSessionResponseDto>

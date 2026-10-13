@@ -132,6 +132,35 @@ fun ProfileScreen(
             }
         }
     }
+    // « Effacer la lecture » : 1er avertissement, puis 2e où il faut
+    // retaper le mot (revérifié par le serveur). Toujours le profil connecté.
+    var watchResetStep by remember { mutableStateOf(0) }
+    var watchResetBusy by remember { mutableStateOf(false) }
+    val watchResetScope = rememberCoroutineScope()
+    when (watchResetStep) {
+        1 -> WatchResetFirstDialog(
+            onCancel = { watchResetStep = 0 },
+            onContinue = { watchResetStep = 2 },
+        )
+        2 -> WatchResetFinalDialog(
+            busy = watchResetBusy,
+            onCancel = { if (!watchResetBusy) watchResetStep = 0 },
+            onConfirm = {
+                watchResetScope.launch {
+                    watchResetBusy = true
+                    val message = try {
+                        viewModel.resetWatchActivity { plexMessage ->
+                            android.widget.Toast.makeText(context, plexMessage, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    } finally {
+                        watchResetBusy = false
+                    }
+                    watchResetStep = 0
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                }
+            },
+        )
+    }
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizPage)
@@ -176,6 +205,7 @@ fun ProfileScreen(
                 onRecommendations = { onSelectTab(HomeTab.DISCOVER) },
                 onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
                 onSwitchProfile = onSwitchProfile,
+                onResetWatch = { watchResetStep = 1 },
                 onLogout = { viewModel.logout(); onLoggedOut() },
             )
         }
@@ -191,6 +221,7 @@ private fun ProfileSettingsList(
     onRecommendations: () -> Unit,
     onOpenSettings: () -> Unit,
     onSwitchProfile: () -> Unit,
+    onResetWatch: () -> Unit,
     onLogout: () -> Unit,
 ) {
     Column(
@@ -207,7 +238,104 @@ private fun ProfileSettingsList(
         ProfileSettingsDivider()
         ProfileSettingsRow(icon = MovvizIconSwap, label = "Changer de profil", onClick = onSwitchProfile)
         ProfileSettingsDivider()
+        ProfileSettingsRow(icon = com.movviz.nx.mobile.ui.theme.MovvizIconTrash, label = "Effacer la lecture", onClick = onResetWatch, danger = true)
+        ProfileSettingsDivider()
         ProfileSettingsRow(icon = MovvizIconBack, label = "Se déconnecter", onClick = onLogout, danger = true)
+    }
+}
+
+private const val WATCH_RESET_WORD = "EFFACER"
+
+@Composable
+private fun WatchResetDialogFrame(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(20.dp))
+                .border(1.dp, Color(0xFFE87C7C).copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                .padding(20.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun WatchResetButton(label: String, danger: Boolean, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier = modifier
+            .height(46.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                when {
+                    !enabled -> Color.White.copy(alpha = 0.06f)
+                    danger -> Color(0xFFD9485F)
+                    else -> Color.White.copy(alpha = 0.10f)
+                },
+            )
+            .let { if (enabled) it.hapticClickable(onClick = onClick) else it },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = if (enabled) Color.White else Color.White.copy(alpha = 0.35f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** 1er avertissement : ce qui sera effacé, et pour qui. */
+@Composable
+private fun WatchResetFirstDialog(onCancel: () -> Unit, onContinue: () -> Unit) {
+    WatchResetDialogFrame(onDismiss = onCancel) {
+        Text("Effacer la lecture ?", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "Les titres vus, les reprises en cours et l'historique de lecture de ce profil seront supprimés, dans Movviz et dans Plex pour ce compte. Tes notes, ta liste et tes goûts restent. Les autres profils ne sont pas touchés.",
+            color = Color(0xFFD1D1D1), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 20.dp)) {
+            WatchResetButton("Annuler", danger = false, modifier = Modifier.weight(1f), onClick = onCancel)
+            WatchResetButton("Continuer", danger = true, modifier = Modifier.weight(1f), onClick = onContinue)
+        }
+    }
+}
+
+/** 2e avertissement : il faut retaper le mot pour débloquer l'effacement. */
+@Composable
+private fun WatchResetFinalDialog(busy: Boolean, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    var typed by remember { mutableStateOf("") }
+    val ready = typed.trim().uppercase() == WATCH_RESET_WORD
+    WatchResetDialogFrame(onDismiss = onCancel) {
+        Text("Dernier avertissement", color = Color(0xFFE87C7C), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "C'est définitif, rien ne pourra être récupéré. Tape $WATCH_RESET_WORD pour confirmer.",
+            color = Color(0xFFD1D1D1), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp),
+        )
+        Box(
+            modifier = Modifier
+                .padding(top = 14.dp)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp, vertical = 13.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            if (typed.isEmpty()) Text(WATCH_RESET_WORD, color = Color.White.copy(alpha = 0.3f), fontSize = 15.sp)
+            androidx.compose.foundation.text.BasicTextField(
+                value = typed,
+                onValueChange = { if (!busy) typed = it.take(20) },
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Characters,
+                    autoCorrectEnabled = false,
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Done,
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (ready && !busy) onConfirm() }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 20.dp)) {
+            WatchResetButton("Annuler", danger = false, enabled = !busy, modifier = Modifier.weight(1f), onClick = onCancel)
+            WatchResetButton(if (busy) "Effacement…" else "Tout effacer", danger = true, enabled = ready && !busy, modifier = Modifier.weight(1f), onClick = onConfirm)
+        }
     }
 }
 

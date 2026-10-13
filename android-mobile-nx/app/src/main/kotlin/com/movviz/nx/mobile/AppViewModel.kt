@@ -1123,6 +1123,47 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return ok
     }
 
+    /** « Effacer la lecture » du profil connecté. Movviz est effacé tout de
+     *  suite ; Plex (compte de ce profil uniquement) continue côté serveur,
+     *  on suit son état quelques instants pour l'annoncer. Renvoie le message
+     *  à afficher. */
+    suspend fun resetWatchActivity(onPlexResult: (String) -> Unit = {}): String {
+        val repo = repository ?: return "Serveur indisponible"
+        return when (val result = repo.resetWatchActivity()) {
+            is ApiResult.Success -> {
+                _continueWatching.value = emptyList()
+                _watchStatus.value = com.movviz.nx.mobile.data.WatchStatusDto()
+                loadProfileMedia()
+                loadContinueWatching()
+                loadWatchStatus()
+                if (result.data == "running") viewModelScope.launch {
+                    // Suivi borné : au-delà, l'effacement Plex continue
+                    // simplement sans annonce.
+                    repeat(60) {
+                        delay(3_000L)
+                        val status = repo.watchResetPlexStatus() as? ApiResult.Success ?: return@repeat
+                        val (state, reason) = status.data
+                        if (state == null || state == "running") return@repeat
+                        onPlexResult(watchResetPlexMessage(state, reason))
+                        loadProfileMedia()
+                        loadContinueWatching()
+                        return@launch
+                    }
+                }
+                "Lecture effacée dans Movviz" + if (result.data == "running") ". Effacement dans Plex en cours…" else "."
+            }
+            is ApiResult.Failure -> if (result.message == "already_running") "Un effacement est déjà en cours pour ce profil." else "L'effacement a échoué. Réessaie."
+            ApiResult.Unauthorized -> "Session expirée, reconnecte-toi."
+        }
+    }
+
+    private fun watchResetPlexMessage(state: String, reason: String?): String = when (state) {
+        "done" -> "Lecture effacée aussi dans Plex."
+        "partial" -> "Plex n'a pas pu tout effacer : ${reason.orEmpty()}"
+        "skipped" -> "Plex non modifié : ${reason.orEmpty()}"
+        else -> "L'effacement dans Plex a échoué : ${reason.orEmpty()}"
+    }
+
     private suspend fun refreshAvatarSync() {
         val url = _serverUrl.value ?: return
         val user = (MovvizRepository(url).me() as? ApiResult.Success)?.data ?: return

@@ -10,6 +10,7 @@ import { mediaStateKey } from "@/lib/userContext/reconcile";
 import { getCurrentWatchState } from "@/lib/userContext/watchBridge";
 import { resolvePlexUserContext } from "./plexUserContext";
 import { upsertObservedState } from "./plexObservedState";
+import { isBeforeWatchReset } from "@/lib/watch/resetFloor";
 
 const PLEX_WATCHED_SYNC_TARGET = "plex";
 const PLEX_WATCHED_SYNC_FIELD = "watched";
@@ -253,7 +254,9 @@ export async function deleteItemFromPlex(user: User, ratingKey: string): Promise
 export async function getVerifiedOnDeck(user: User, cfg: PlexServerConfig): Promise<PlexOnDeckItem[]> {
   const auth = await resolvePlexServerAuth(user, cfg);
   if (!auth) return [];
-  const items = await getPlexOnDeck(cfg, auth.token);
+  // « Effacer la lecture » : une reprise Plex d'avant la remise à zéro du
+  // profil (Plex n'a pas pu l'effacer) ne revient pas dans « Reprendre ».
+  const items = (await getPlexOnDeck(cfg, auth.token)).filter((i) => !isBeforeWatchReset(user.id, i.lastViewedAt ?? i.updatedAt));
   if (auth.source === "owner" || !cfg.adminToken) return items;
 
   const ownerItems = await getPlexOnDeck(cfg, cfg.adminToken);

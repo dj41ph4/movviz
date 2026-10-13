@@ -75,3 +75,4 @@ progress::-webkit-progress-bar{background:#ffffff26}progress::-webkit-progress-v
 .cast-card{padding:0;background:transparent}
 @media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important}}
 @media(max-width:1300px){.episode-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.watch-reset-check{display:block;width:100%;text-align:left;font-size:24px;margin:28px 0 0;white-space:normal}.watch-reset-check[aria-pressed="true"]{border-color:#e87c7c;color:#fff}

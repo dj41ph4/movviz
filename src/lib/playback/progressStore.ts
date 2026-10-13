@@ -305,6 +305,25 @@ export function clearPlaybackProgress(userId: string, ratingKey: string, mediaId
   return p;
 }
 
+/** « Effacer la lecture » : supprime toutes les positions de reprise et
+ *  l'état vu local de CE profil, et ferme ses sessions de lecture ouvertes
+ *  (un lecteur encore actif repartirait sinon de l'ancienne position). Les
+ *  autres profils ne sont jamais touchés. Retourne le nombre d'entrées. */
+export function resetPlaybackForUser(userId: string): number {
+  const s = store();
+  const cleared = Object.keys(s.byUser[userId] ?? {}).length;
+  delete s.byUser[userId];
+  const live = sessions();
+  for (const [key, session] of [...Object.entries(s.sessions ?? {}), ...live.entries()]) {
+    if (session.userId !== userId) continue;
+    delete s.sessions?.[key];
+    live.delete(key);
+  }
+  persist();
+  emitWatchChanged(userId);
+  return cleared;
+}
+
 export function openPlaybackSession(userId: string, input: { ratingKey: string; mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string }): { session: PlaybackSession; progress: PlaybackProgress } {
   const progress = ensure(userId, input.ratingKey, input);
   const now = Date.now();

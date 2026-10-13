@@ -21,6 +21,7 @@ import { useWatchRegion, WATCH_REGION_OPTIONS } from "@/lib/settings/useWatchReg
 import { Toggle } from "@/components/ui/Toggle";
 import { AiContextPanel } from "@/components/profile/AiContextPanel";
 import { AccessibilityPanel } from "@/components/profile/AccessibilityPanel";
+import { WatchResetPanel } from "@/components/profile/WatchResetPanel";
 
 interface TokenRecord {
   id: string;
@@ -439,6 +440,8 @@ export default function ProfilePage() {
         </div>
         {watchlistItems.length === 0 && <p className="py-6 text-center text-sm text-ink-dim">{t("watchlist.empty")}</p>}
       </div>
+
+      <WatchResetPanel />
 
       <div className="rounded-2xl glass p-5">
         <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.apiTokens")}</h3>

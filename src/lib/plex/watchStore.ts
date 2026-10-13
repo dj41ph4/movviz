@@ -4,6 +4,7 @@ import path from "node:path";
 import { applyWatchDecision, getCanonicalWatchStatus, getCurrentWatchState, getCurrentWatchStateAt, type WatchSource } from "@/lib/userContext/watchBridge";
 import { markPlexWatchedOutboxPending, shouldPropagateWatchedToPlex } from "./watchWrite";
 import { emitWatchChanged } from "@/lib/events/watchEvents";
+import { isBeforeWatchReset } from "@/lib/watch/resetFloor";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -100,6 +101,7 @@ function episodeKey(entry: { tmdbId: number; season: number; episode: number }) 
 /** Record one "watched" event (Plex history or direct Movviz playback),
  *  deduped by (tmdbId + type) keeping the most recent, newest first. */
 export function recordWatched(userId: string, entry: RecentWatch) {
+  if (isBeforeWatchReset(userId, entry.at)) return;
   const list = read();
   const status = findOrCreate(list, userId);
   upsertRecent(status, entry);
@@ -305,8 +307,9 @@ export function syncLegacyWatchProjection(userId: string): boolean {
  * un userId partagé entre deux personnes rend les événements du ledger
  * indissociables (§95 du plan — signaler l'ambiguïté, jamais l'inventer),
  * donc seule la resynchro Plex qui suit peut reconstruire une projection
- * propre pour CE compte. Utilisée exclusivement par
- * scripts/repair-watch-user-contamination.ts, jamais en chemin normal.
+ * propre pour CE compte. Utilisée par
+ * scripts/repair-watch-user-contamination.ts et par « Effacer la lecture »
+ * (lib/watch/watchReset.ts, qui remet aussi SQLite à zéro de son côté).
  */
 export function clearWatchStatusForUser(userId: string): { moviesCleared: number; episodesCleared: number } {
   const list = read();
@@ -349,6 +352,10 @@ export function mergePlexWatchedState(
   const mirroredMovies: PlexWatchedMovie[] = [];
   const mirroredEpisodes: PlexWatchedEpisode[] = [];
 
+  // « Effacer la lecture » : sans moteur SQL, l'état canonique répond
+  // « unknown » — la date de remise à zéro reste alors le seul garde-fou.
+  movies = movies.filter((movie) => !isBeforeWatchReset(userId, movie.watchedAt));
+  episodes = episodes.filter((entry) => !isBeforeWatchReset(userId, entry.watchedAt));
   for (const movie of movies) {
     if (getCurrentWatchState({ userId, tmdbId: movie.tmdbId, mediaType: "movie" }) === "unwatched") continue;
     const key = String(movie.tmdbId);

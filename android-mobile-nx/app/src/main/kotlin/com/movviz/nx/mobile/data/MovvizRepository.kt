@@ -446,6 +446,20 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun deleteAvatar(): ApiResult<Unit> =
         safeCall { api.deleteAvatar() }.map { }
 
+    /** « Effacer la lecture » : le mot de la 2e confirmation est revérifié
+     *  par le serveur. Renvoie l'état Plex annoncé (« running », « skipped »…). */
+    suspend fun resetWatchActivity(): ApiResult<String?> =
+        safeCall { api.watchReset(mapOf("confirm" to "EFFACER")) }.map { body ->
+            (body["plex"] as? Map<*, *>)?.get("state") as? String
+        }
+
+    /** Dernier effacement du profil : état Plex + raison lisible éventuelle. */
+    suspend fun watchResetPlexStatus(): ApiResult<Pair<String?, String?>> =
+        safeCall { api.watchResetStatus() }.map { body ->
+            val plex = (body["reset"] as? Map<*, *>)?.get("plex") as? Map<*, *>
+            (plex?.get("state") as? String) to (plex?.get("reason") as? String)
+        }
+
     // ── IA — identique au desktop, hermétique par userId (même session) ──
     suspend fun aiSession(): ApiResult<AiSessionResponseDto> = safeCall { api.aiSession() }
     /** Relecture seule de la conversation (changée sur un autre appareil). */

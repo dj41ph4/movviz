@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
         case "/api/plex/on-deck": response = await (await import("@/app/api/plex/on-deck/route")).GET(delegated); break;
         case "/api/profile/media": response = await (await import("@/app/api/profile/media/route")).GET(delegated); break;
         case "/api/watch-status": response = await (await import("@/app/api/watch-status/route")).GET(delegated); break;
+        case "/api/profile/watch-reset": response = await (await import("@/app/api/profile/watch-reset/route")).GET(delegated); break;
         case "/api/activity/v2": response = await (await import("@/app/api/activity/v2/route")).GET(delegated); break;
         default: {
           const series = /^\/api\/library\/series\/([^/]+)$/.exec(path);
@@ -167,6 +168,7 @@ export async function POST(req: NextRequest) {
       else if (path === "/api/library/series") response = await (await import("@/app/api/library/series/route")).POST(delegated);
       else if (path === "/api/watchlist") response = await (await import("@/app/api/watchlist/route")).POST(delegated);
       else if (path === "/api/watch/toggle") response = await (await import("@/app/api/watch/toggle/route")).POST(delegated);
+      else if (path === "/api/profile/watch-reset") response = await (await import("@/app/api/profile/watch-reset/route")).POST(delegated);
       else if (path === "/api/playback/prepare") response = await (await import("@/app/api/playback/prepare/route")).POST(delegated);
       else if (path === "/api/playback/sessions") response = await (await import("@/app/api/playback/sessions/route")).POST(delegated);
       else {

@@ -3,6 +3,7 @@ import { withUserContextDb } from "./database";
 import { recordUserContextEvent } from "./ingest";
 import path from "node:path";
 import { jsonCacheReadFailed, readJsonCached } from "@/lib/fsJsonCache";
+import { isBeforeWatchReset } from "@/lib/watch/resetFloor";
 
 const legacyWatchFile = path.join(process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"), "plex-watch-status.json");
 const projectionGlobal = globalThis as typeof globalThis & { __movvizLegacyWatchProjectionReady?: Set<string> };
@@ -198,6 +199,20 @@ export function getCanonicalWatchStatus(userId: string): CanonicalWatchStatus | 
  */
 export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResult {
   const sourceEventId = input.sourceEventId ?? defaultSourceEventId(input);
+
+  // « Effacer la lecture » : une vue datée d'avant la remise à zéro du
+  // profil (historique Plex resynchronisé, rattrapage legacy) ne revient
+  // jamais. Vérifié avant le journal, pour qu'elle ne réapparaisse pas non
+  // plus dans l'historique. Un import explicite relancé ensuite reste accepté.
+  if (input.state === "watched" && input.source !== "external_import" && isBeforeWatchReset(input.userId, input.occurredAt)) {
+    return {
+      changed: false, accepted: false,
+      previousState: "unknown", effectiveState: "unknown",
+      previousUpdatedAt: null, effectiveUpdatedAt: null,
+      reason: "older_event",
+      revision: null,
+    };
+  }
 
   // Moteur de contexte indisponible (MOVVIZ_CONTEXT_ENGINE_DISABLED, ou
   // node:sqlite absent du runtime — ex. Node sans --experimental-sqlite en

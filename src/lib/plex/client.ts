@@ -1652,6 +1652,8 @@ export interface PlexViewState {
   type?: string;
   guid?: string;
   Guid?: { id: string }[];
+  /** Shows/seasons only: episodes this account has watched. */
+  viewedLeafCount?: number;
 }
 
 /**
@@ -1693,6 +1695,7 @@ export async function batchPlexViewState(
         duration?: number;
         guid?: string;
         Guid?: { id: string }[];
+        viewedLeafCount?: number;
       }> = data?.MediaContainer?.Metadata ?? [];
       for (const item of raw) {
         result.set(item.ratingKey, {
@@ -1704,6 +1707,7 @@ export async function batchPlexViewState(
           type: item.type,
           guid: item.guid,
           Guid: item.Guid,
+          viewedLeafCount: item.viewedLeafCount,
         });
       }
     } catch (e) {
@@ -1763,6 +1767,67 @@ export async function getWatchedSnapshotViaScan(
     if (page.length === 0 || start >= total) break;
   }
   return watched;
+}
+
+export interface PlexWatchActivityItem {
+  ratingKey: string;
+  type?: string;
+  viewCount: number;
+  viewOffset: number;
+  /** Shows/seasons only: how many episodes this account has watched. */
+  viewedLeafCount: number;
+}
+
+/**
+ * « Effacer la lecture » : every item of a section this token's account has
+ * watched or started (viewCount, viewOffset, or watched episodes under a
+ * show). `plexType` 4 lists a show section's episodes instead of its shows.
+ * Paginated; returns null when a page fails, so a partial scan is never
+ * mistaken for « nothing left to clear ».
+ */
+export async function getSectionWatchActivity(
+  cfg: PlexServerConfig,
+  userToken: string,
+  sectionKey: string,
+  plexType?: number,
+): Promise<PlexWatchActivityItem[] | null> {
+  const found: PlexWatchActivityItem[] = [];
+  const pageSize = 200;
+  let start = 0;
+  for (;;) {
+    let page: Array<{ ratingKey: string; type?: string; viewCount?: number; viewOffset?: number; viewedLeafCount?: number }>;
+    let total: number;
+    try {
+      const url = new URL(`${serverBase(cfg)}/library/sections/${sectionKey}/all`);
+      if (plexType != null) url.searchParams.set("type", String(plexType));
+      url.searchParams.set("includeExternalMedia", "0");
+      const res = await fetchWithRetry(url.toString(), {
+        headers: {
+          ...serverHeaders(cfg, userToken),
+          "X-Plex-Container-Start": String(start),
+          "X-Plex-Container-Size": String(pageSize),
+        },
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      page = data?.MediaContainer?.Metadata ?? [];
+      total = data?.MediaContainer?.totalSize ?? page.length;
+    } catch {
+      return null;
+    }
+    for (const item of page) {
+      const viewCount = item.viewCount ?? 0;
+      const viewOffset = item.viewOffset ?? 0;
+      const viewedLeafCount = item.viewedLeafCount ?? 0;
+      if (viewCount > 0 || viewOffset > 0 || viewedLeafCount > 0) {
+        found.push({ ratingKey: item.ratingKey, type: item.type, viewCount, viewOffset, viewedLeafCount });
+      }
+    }
+    start += page.length;
+    if (page.length === 0 || start >= total) break;
+  }
+  return found;
 }
 
 /**
