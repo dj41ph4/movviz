@@ -1,3 +1,14 @@
+## v1.26.030 — 13 octobre 2026
+
+### Profil : nouveau bouton « Effacer la lecture »
+
+- Chaque profil peut repartir de zéro côté visionnage : les titres vus, les reprises en cours et l'historique de lecture sont effacés. Les notes, la liste et les goûts du profil restent.
+- Deux avertissements avant d'agir : une première confirmation, puis un dernier écran où il faut retaper « EFFACER » (web et Android mobile) ou cocher « je comprends » (Samsung).
+- Seul le profil connecté est effacé, jamais celui d'un autre, et tout utilisateur peut le faire pour son propre profil.
+- Si le profil est relié à Plex, son statut vu et ses reprises y sont aussi effacés, avec le compte Plex de ce profil uniquement : les vues des autres comptes Plex ne sont pas touchées. Le résultat côté Plex est affiché une fois terminé, et si Plex n'a pas pu tout effacer, c'est dit clairement.
+- Les anciennes vues ne reviennent pas à la synchro Plex suivante. Une vraie lecture faite après l'effacement compte normalement.
+- Disponible sur le web (page Profil), l'application Android mobile (menu du profil) et l'application Samsung (page Profil).
+
 ## v1.26.029 — 13 octobre 2026
 
 ### Assistant IA : liste des modèles Gemini mise à jour
