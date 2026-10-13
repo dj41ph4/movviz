@@ -1133,6 +1133,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             is ApiResult.Success -> {
                 _continueWatching.value = emptyList()
                 _watchStatus.value = com.movviz.nx.mobile.data.WatchStatusDto()
+                _profileMedia.value = com.movviz.nx.mobile.data.ProfileMediaResponseDto()
                 loadProfileMedia()
                 loadContinueWatching()
                 loadWatchStatus()
@@ -1150,7 +1151,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                         return@launch
                     }
                 }
-                "Lecture effacée dans Movviz" + if (result.data == "running") ". Effacement dans Plex en cours…" else "."
+                "Profil remis à zéro dans Movviz" + if (result.data == "running") ". Effacement dans Plex en cours…" else "."
             }
             is ApiResult.Failure -> if (result.message == "already_running") "Un effacement est déjà en cours pour ce profil." else "L'effacement a échoué. Réessaie."
             ApiResult.Unauthorized -> "Session expirée, reconnecte-toi."
@@ -1158,7 +1159,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     }
 
     private fun watchResetPlexMessage(state: String, reason: String?): String = when (state) {
-        "done" -> "Lecture effacée aussi dans Plex."
+        "done" -> "Profil remis à zéro aussi dans Plex."
         "partial" -> "Plex n'a pas pu tout effacer : ${reason.orEmpty()}"
         "skipped" -> "Plex non modifié : ${reason.orEmpty()}"
         else -> "L'effacement dans Plex a échoué : ${reason.orEmpty()}"

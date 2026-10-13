@@ -1041,9 +1041,9 @@ export const it: Dictionary = {
     confirmRevoke: "Revocare questo token? Qualsiasi script che lo utilizza smetterà di funzionare.",
     watchReset: {
       title: "Cancella la visione",
-      hint: "Azzera la visione di questo profilo: titoli visti, riprese in corso e cronologia. Voti, lista e gusti restano. Se il profilo è collegato a Plex, anche lo stato visto lì viene cancellato, solo per questo account.",
+      hint: "Il profilo torna vuoto: titoli visti, riprese, cronologia, lista, voti, gusti e memoria dell'assistente IA vengono cancellati. Il profilo stesso (nome, foto, password, impostazioni) resta. Se è collegato a Plex, anche lì vengono cancellati stato visto, riprese, voti e watchlist, solo per questo account.",
       button: "Cancella la visione",
-      confirm1: "Cancellare tutta la visione di questo profilo? Titoli visti, riprese in corso e cronologia verranno eliminati, in Movviz e in Plex per questo account. Gli altri profili non vengono toccati.",
+      confirm1: "Azzerare questo profilo? Titoli visti, riprese, cronologia, lista, voti e gusti IA verranno eliminati, in Movviz e in Plex per questo account. Il profilo stesso resta e gli altri profili non vengono toccati.",
       confirm1Button: "Continua",
       confirm2Title: "Ultimo avviso",
       confirm2Hint: "È definitivo, nulla potrà essere recuperato. Scrivi {word} per confermare.",

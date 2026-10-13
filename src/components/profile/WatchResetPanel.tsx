@@ -12,7 +12,8 @@ const CONFIRM_WORD = "EFFACER";
 type PlexState = "running" | "done" | "partial" | "skipped" | "failed";
 interface ResetStatus { resetAt: number; running?: boolean; plex?: { state: PlexState; reason?: string } }
 
-/** « Effacer la lecture » du profil connecté : 1er avertissement (dialogue),
+/** « Effacer la lecture » du profil connecté (profil vierge, le compte
+ *  reste) : 1er avertissement (dialogue),
  *  puis 2e étape où il faut retaper le mot, revérifié par le serveur. */
 export function WatchResetPanel() {
   const t = useT();
@@ -38,7 +39,8 @@ export function WatchResetPanel() {
   function refreshViews() {
     void mutate("/api/profile/media");
     void mutate("/api/watch-status");
-    void mutate((key) => typeof key === "string" && (key.startsWith("/api/plex/on-deck") || key.startsWith("/api/interface/dashboard")));
+    void mutate("/api/watchlist");
+    void mutate((key) => typeof key === "string" && (key.startsWith("/api/plex/on-deck") || key.startsWith("/api/interface/dashboard") || key.startsWith("/api/ai/") || key.startsWith("/api/profile/")));
   }
 
   async function start() {

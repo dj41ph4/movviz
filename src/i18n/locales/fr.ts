@@ -1039,9 +1039,9 @@ export const fr = {
     confirmRevoke: "Révoquer ce jeton ? Tout script qui l'utilise cessera de fonctionner.",
     watchReset: {
       title: "Effacer la lecture",
-      hint: "Remet ce profil à zéro côté visionnage : titres vus, reprises en cours et historique de lecture. Tes notes, ta liste et tes goûts restent. Si ce profil est relié à Plex, son statut vu y est effacé aussi, pour ce compte uniquement.",
+      hint: "Le profil redevient vierge : titres vus, reprises, historique, liste, notes, goûts et mémoire de l'assistant IA sont effacés. Le profil lui-même (nom, photo, mot de passe, réglages) reste. Si ce profil est relié à Plex, ses vus, reprises, notes et watchlist y sont effacés aussi, pour ce compte uniquement.",
       button: "Effacer la lecture",
-      confirm1: "Effacer toute la lecture de ce profil ? Les titres vus, les reprises en cours et l'historique de lecture seront supprimés, dans Movviz et dans Plex pour ce compte. Les autres profils ne sont pas touchés.",
+      confirm1: "Remettre ce profil à zéro ? Titres vus, reprises, historique, liste, notes et goûts IA seront supprimés, dans Movviz et dans Plex pour ce compte. Le profil lui-même reste, et les autres profils ne sont pas touchés.",
       confirm1Button: "Continuer",
       confirm2Title: "Dernier avertissement",
       confirm2Hint: "C'est définitif, rien ne pourra être récupéré. Tape {word} pour confirmer.",

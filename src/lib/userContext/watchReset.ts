@@ -1,41 +1,28 @@
 import { withUserContextDb } from "./database";
 
-/** Événements « visionnage » du journal : ce que « Effacer la lecture »
- *  retire. Notes, watchlist, recherches, faits IA et retours sur les
- *  recommandations restent : ce sont des goûts, pas du visionnage. */
-export const WATCH_RESET_EVENT_TYPES = [
-  "playback_started",
-  "playback_resumed",
-  "playback_stopped",
-  "movie_completed",
-  "episode_completed",
-  "watched_marked",
-  "watched_unmarked",
-  "netflix_history_imported",
-] as const;
-
 export interface WatchContextResetResult {
   events: number;
   states: number;
+  preferences: number;
 }
 
 /**
- * Remet à zéro le visionnage canonique d'UN profil (requêtes toutes bornées
- * par user_id) : historique de lecture effacé, chaque titre repasse « non vu »
- * sans reprise. L'état devient une décision explicite « non vu » datée de la
- * remise à zéro (pas « inconnu ») : une resynchro plus ancienne perd donc au
- * résolveur, en plus du garde-fou de date (lib/watch/resetFloor.ts). Les
- * exports Plex encore en attente pour ce profil sont abandonnés : ils
- * repousseraient d'anciens « vu » vers Plex.
+ * « Effacer la lecture » (profil vierge) : remet à zéro tout le contexte
+ * canonique d'UN profil (requêtes toutes bornées par user_id). Le journal
+ * (lectures, vues, notes, liste, recherches, retours IA) et les préférences
+ * apprises sont supprimés. Chaque titre connu repasse « non vu », sans
+ * reprise, sans note et hors de la liste : ce sont des décisions explicites
+ * datées de la remise à zéro (pas « inconnu »), pour qu'une resynchro plus
+ * ancienne perde au résolveur, en plus du garde-fou de date
+ * (lib/watch/resetFloor.ts). Les exports Plex encore en attente pour ce
+ * profil sont abandonnés : ils repousseraient l'ancien état vers Plex.
  */
 export function resetWatchContextForUser(userId: string, resetAt: number): WatchContextResetResult | null {
   return withUserContextDb((db) => {
     db.exec("BEGIN IMMEDIATE");
     try {
-      const placeholders = WATCH_RESET_EVENT_TYPES.map(() => "?").join(", ");
-      const events = db.prepare(
-        `DELETE FROM context_events WHERE user_id = ? AND event_type IN (${placeholders})`,
-      ).run(userId, ...WATCH_RESET_EVENT_TYPES).changes;
+      const events = db.prepare("DELETE FROM context_events WHERE user_id = ?").run(userId).changes;
+      const preferences = db.prepare("DELETE FROM user_preferences WHERE user_id = ?").run(userId).changes;
       const states = db.prepare(`
         UPDATE user_media_state SET
           watched = 0,
@@ -52,14 +39,19 @@ export function resetWatchContextForUser(userId: string, resetAt: number): Watch
           last_played_at = NULL,
           progress_updated_at = ?,
           progress_source = 'watch_reset',
+          rating_value = NULL,
+          rating_updated_at = ?,
+          rating_source = 'watch_reset',
+          watchlist_present = 0,
+          watchlist_updated_at = ?,
+          watchlist_source = 'watch_reset',
+          watchlist_removed_at = ?,
           updated_at = ?
         WHERE user_id = ?
-      `).run(resetAt, resetAt, resetAt, resetAt, userId).changes;
-      db.prepare(
-        "DELETE FROM user_media_sync_state WHERE user_id = ? AND target = 'plex' AND field = 'watched'",
-      ).run(userId);
+      `).run(resetAt, resetAt, resetAt, resetAt, resetAt, resetAt, resetAt, userId).changes;
+      db.prepare("DELETE FROM user_media_sync_state WHERE user_id = ? AND target = 'plex'").run(userId);
       db.exec("COMMIT");
-      return { events: Number(events), states: Number(states) };
+      return { events: Number(events), states: Number(states), preferences: Number(preferences) };
     } catch (error) {
       try { db.exec("ROLLBACK"); } catch { /* best-effort */ }
       throw error;

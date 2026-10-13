@@ -233,6 +233,12 @@ export function invalidatePersonTraitCache(userId: string): void {
   favoritePeopleCache.delete(userId);
 }
 
+/** « Effacer la lecture » (profil vierge) : oublie les affinités calculées. */
+export function invalidateTasteCachesForUser(userId: string): void {
+  favoritePeopleCache.delete(userId);
+  traitCaches.__movvizKeywordTraits?.delete(userId);
+}
+
 /**
  * Actor/director affinity core — the counterpart to getComputedGenreTraits
  * for "j'adore Jim Carrey" (confirmed live: rating two of his films 5/5 alone

@@ -1041,9 +1041,9 @@ export const nl: Dictionary = {
     confirmRevoke: "Deze token intrekken? Elk script dat hem gebruikt, stopt met werken.",
     watchReset: {
       title: "Kijkgeschiedenis wissen",
-      hint: "Zet het kijken van dit profiel terug op nul: bekeken titels, lopende hervattingen en kijkgeschiedenis. Beoordelingen, lijst en voorkeuren blijven. Is dit profiel gekoppeld aan Plex, dan wordt de bekeken-status daar ook gewist, alleen voor dit account.",
+      hint: "Het profiel wordt weer leeg: bekeken titels, hervattingen, geschiedenis, lijst, beoordelingen, voorkeuren en het geheugen van de AI-assistent worden gewist. Het profiel zelf (naam, foto, wachtwoord, instellingen) blijft. Is het gekoppeld aan Plex, dan worden daar bekeken-status, hervattingen, beoordelingen en watchlist ook gewist, alleen voor dit account.",
       button: "Kijkgeschiedenis wissen",
-      confirm1: "Alle kijkactiviteit van dit profiel wissen? Bekeken titels, lopende hervattingen en geschiedenis worden verwijderd, in Movviz en in Plex voor dit account. Andere profielen blijven ongemoeid.",
+      confirm1: "Dit profiel terugzetten? Bekeken titels, hervattingen, geschiedenis, lijst, beoordelingen en AI-voorkeuren worden verwijderd, in Movviz en in Plex voor dit account. Het profiel zelf blijft, andere profielen blijven ongemoeid.",
       confirm1Button: "Doorgaan",
       confirm2Title: "Laatste waarschuwing",
       confirm2Hint: "Dit is definitief, niets kan worden hersteld. Typ {word} om te bevestigen.",

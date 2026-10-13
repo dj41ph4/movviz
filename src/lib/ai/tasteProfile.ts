@@ -166,6 +166,24 @@ export function resetContextProfile(userId: string): void {
   write(store);
 }
 
+/** « Effacer la lecture » (profil vierge) : oublie TOUT le profil IA de ce
+ *  seul utilisateur — notes, 👍/👎, faits, corrections et contexte appris.
+ *  Contrairement à resetContextProfile, les actions de l'utilisateur partent
+ *  aussi : c'est une demande explicite de repartir de zéro. */
+export function resetAiProfileForUser(userId: string): { ratings: number; feedback: number; facts: number } {
+  const store = read();
+  const existing = store[userId];
+  if (!existing) return { ratings: 0, feedback: 0, facts: 0 };
+  const cleared = {
+    ratings: (existing.ratings ?? []).filter((rating) => rating.active !== false).length,
+    feedback: existing.feedback?.length ?? 0,
+    facts: existing.facts?.length ?? 0,
+  };
+  delete store[userId];
+  write(store);
+  return cleared;
+}
+
 /** Whether the user's first name is already known — checked loosely (any
  *  stored fact mentioning "prénom", not just the exact "Prénom : X" format
  *  extractSelfIntroName writes) since an LLM-tagged fact could phrase it

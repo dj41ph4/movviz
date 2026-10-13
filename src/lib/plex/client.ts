@@ -1776,12 +1776,14 @@ export interface PlexWatchActivityItem {
   viewOffset: number;
   /** Shows/seasons only: how many episodes this account has watched. */
   viewedLeafCount: number;
+  /** This account's own rating (0..10), 0 when unrated. */
+  userRating: number;
 }
 
 /**
  * « Effacer la lecture » : every item of a section this token's account has
- * watched or started (viewCount, viewOffset, or watched episodes under a
- * show). `plexType` 4 lists a show section's episodes instead of its shows.
+ * watched, started or rated (viewCount, viewOffset, watched episodes under a
+ * show, userRating). `plexType` 4 lists a show section's episodes instead of its shows.
  * Paginated; returns null when a page fails, so a partial scan is never
  * mistaken for « nothing left to clear ».
  */
@@ -1795,7 +1797,7 @@ export async function getSectionWatchActivity(
   const pageSize = 200;
   let start = 0;
   for (;;) {
-    let page: Array<{ ratingKey: string; type?: string; viewCount?: number; viewOffset?: number; viewedLeafCount?: number }>;
+    let page: Array<{ ratingKey: string; type?: string; viewCount?: number; viewOffset?: number; viewedLeafCount?: number; userRating?: number }>;
     let total: number;
     try {
       const url = new URL(`${serverBase(cfg)}/library/sections/${sectionKey}/all`);
@@ -1820,8 +1822,9 @@ export async function getSectionWatchActivity(
       const viewCount = item.viewCount ?? 0;
       const viewOffset = item.viewOffset ?? 0;
       const viewedLeafCount = item.viewedLeafCount ?? 0;
-      if (viewCount > 0 || viewOffset > 0 || viewedLeafCount > 0) {
-        found.push({ ratingKey: item.ratingKey, type: item.type, viewCount, viewOffset, viewedLeafCount });
+      const userRating = item.userRating ?? 0;
+      if (viewCount > 0 || viewOffset > 0 || viewedLeafCount > 0 || userRating > 0) {
+        found.push({ ratingKey: item.ratingKey, type: item.type, viewCount, viewOffset, viewedLeafCount, userRating });
       }
     }
     start += page.length;

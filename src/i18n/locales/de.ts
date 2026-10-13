@@ -1041,9 +1041,9 @@ export const de: Dictionary = {
     confirmRevoke: "Diesen Token widerrufen? Jedes Skript, das ihn verwendet, funktioniert nicht mehr.",
     watchReset: {
       title: "Wiedergabeverlauf löschen",
-      hint: "Setzt die Wiedergabe dieses Profils zurück: gesehene Titel, laufende Fortsetzungen und Verlauf. Bewertungen, Liste und Vorlieben bleiben. Ist das Profil mit Plex verknüpft, wird der Gesehen-Status dort ebenfalls gelöscht, nur für dieses Konto.",
+      hint: "Das Profil wird wieder leer: gesehene Titel, Fortsetzungen, Verlauf, Liste, Bewertungen, Vorlieben und das Gedächtnis des KI-Assistenten werden gelöscht. Das Profil selbst (Name, Foto, Passwort, Einstellungen) bleibt. Ist es mit Plex verknüpft, werden dort Gesehen-Status, Fortsetzungen, Bewertungen und Watchlist ebenfalls gelöscht, nur für dieses Konto.",
       button: "Wiedergabeverlauf löschen",
-      confirm1: "Die gesamte Wiedergabe dieses Profils löschen? Gesehene Titel, laufende Fortsetzungen und der Verlauf werden in Movviz und in Plex für dieses Konto gelöscht. Andere Profile bleiben unberührt.",
+      confirm1: "Dieses Profil zurücksetzen? Gesehene Titel, Fortsetzungen, Verlauf, Liste, Bewertungen und KI-Vorlieben werden in Movviz und in Plex für dieses Konto gelöscht. Das Profil selbst bleibt, andere Profile bleiben unberührt.",
       confirm1Button: "Weiter",
       confirm2Title: "Letzte Warnung",
       confirm2Hint: "Das ist endgültig, nichts kann wiederhergestellt werden. Gib {word} ein, um zu bestätigen.",

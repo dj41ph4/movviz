@@ -12,6 +12,8 @@ const { setWatchedMovies, setWatchedEpisodes, getWatchStatus, recordWatched } = 
 const { getUserWatchHistory } = await import("../src/lib/userContext/history.ts");
 const { openPlaybackSession, applyHeartbeat, listAllPlaybackProgress } = await import("../src/lib/playback/progressStore.ts");
 const { startWatchReset, getWatchResetStatus } = await import("../src/lib/watch/watchReset.ts");
+const { addWatchlistItem, loadWatchlist } = await import("../src/lib/watchlist/store.ts");
+const { setRating, getAllRatings, rememberFact, getFacts, recordFeedback, getFeedback } = await import("../src/lib/ai/tasteProfile.ts");
 
 function fakeUser(id: string): User {
   return { id, username: id, role: "user", status: "approved" } as unknown as User;
@@ -22,6 +24,10 @@ function seed(userId: string, at: number) {
   setWatchedEpisodes(userId, [{ tmdbId: 202, season: 1, episode: 1, watchedAt: at }], true, "Série", "plex_history");
   const { session } = openPlaybackSession(userId, { ratingKey: `rk-${userId}`, mediaType: "movie", durationMs: 7_200_000, tmdbId: 303, title: "En cours" });
   applyHeartbeat(session.id, { sequence: 1, positionMs: 600_000, isPlaying: true });
+  addWatchlistItem({ userId, type: "movie", tmdbId: 707, title: "À voir", year: null, posterPath: null, rating: 0, addedAt: at, updatedAt: at, source: "plex_watchlist" });
+  setRating(userId, { tmdbId: 101, type: "movie", title: "Film", rating: 4, source: "explicit", confidence: 1, at });
+  rememberFact(userId, "Aime les films de science-fiction");
+  recordFeedback(userId, { tmdbId: 808, type: "movie", title: "Reco", liked: true, at } as Parameters<typeof recordFeedback>[1]);
 }
 
 test("Effacer la lecture remet un seul profil à zéro et bloque le retour des anciennes vues", async (t) => {
@@ -41,6 +47,11 @@ test("Effacer la lecture remet un seul profil à zéro et bloque le retour des a
   assert.deepEqual(getWatchStatus(me)?.recent ?? [], []);
   assert.equal(listAllPlaybackProgress(me).length, 0);
   assert.equal(getUserWatchHistory({ userId: me }).length, 0);
+  // Profil vierge : liste, notes et goûts IA partent aussi.
+  assert.equal(loadWatchlist(me).length, 0);
+  assert.equal(getAllRatings(me).length, 0);
+  assert.equal(getFacts(me).length, 0);
+  assert.equal(getFeedback(me).length, 0);
   if (sqlite) {
     const canonical = getCanonicalWatchStatus(me);
     assert.deepEqual(canonical?.movies ?? [], []);
@@ -54,6 +65,10 @@ test("Effacer la lecture remet un seul profil à zéro et bloque le retour des a
   assert.ok(getWatchStatus(other)?.movies.includes(101));
   assert.equal(getWatchStatus(other)?.episodes.length, 1);
   assert.equal(listAllPlaybackProgress(other).length, 1);
+  assert.equal(loadWatchlist(other).length, 1);
+  assert.equal(getAllRatings(other).length, 1);
+  assert.ok(getFacts(other).length > 0);
+  assert.equal(getFeedback(other).length, 1);
   if (sqlite) {
     assert.ok(getCanonicalWatchStatus(other)?.movies.includes(101));
     assert.ok(getUserWatchHistory({ userId: other }).length > 0);
@@ -69,6 +84,11 @@ test("Effacer la lecture remet un seul profil à zéro et bloque le retour des a
   assert.deepEqual(getWatchStatus(me)?.movies ?? [], []);
   assert.deepEqual(getWatchStatus(me)?.recent ?? [], []);
   assert.equal(getUserWatchHistory({ userId: me }).length, 0);
+
+  // La watchlist Plex resynchronisée (ajouts d'avant l'effacement) ne revient pas.
+  addWatchlistItem({ userId: me, type: "movie", tmdbId: 707, title: "À voir", year: null, posterPath: null, rating: 0, addedAt: past, updatedAt: past, source: "plex_watchlist" });
+  addWatchlistItem({ userId: me, type: "movie", tmdbId: 909, title: "Autre", year: null, posterPath: null, rating: 0, addedAt: past, updatedAt: past, source: "plex_watchlist" });
+  assert.equal(loadWatchlist(me).length, 0);
 
   // Une vraie vue après l'effacement compte normalement.
   setWatchedMovies(me, [505], true, "Nouveau", Date.now() + 1000, "movviz_manual");

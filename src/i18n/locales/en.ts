@@ -1041,9 +1041,9 @@ export const en: Dictionary = {
     confirmRevoke: "Revoke this token? Any script using it will stop working.",
     watchReset: {
       title: "Clear watch activity",
-      hint: "Resets this profile's viewing: watched titles, in-progress resumes and watch history. Your ratings, list and tastes stay. If this profile is linked to Plex, its watched status there is cleared too, for this account only.",
+      hint: "The profile becomes blank: watched titles, resumes, history, list, ratings, tastes and AI assistant memory are cleared. The profile itself (name, photo, password, settings) stays. If this profile is linked to Plex, its watched status, resumes, ratings and watchlist there are cleared too, for this account only.",
       button: "Clear watch activity",
-      confirm1: "Clear all watch activity for this profile? Watched titles, in-progress resumes and watch history will be deleted, in Movviz and in Plex for this account. Other profiles are not affected.",
+      confirm1: "Reset this profile? Watched titles, resumes, history, list, ratings and AI tastes will be deleted, in Movviz and in Plex for this account. The profile itself stays, and other profiles are not affected.",
       confirm1Button: "Continue",
       confirm2Title: "Last warning",
       confirm2Hint: "This is permanent, nothing can be recovered. Type {word} to confirm.",

@@ -48,6 +48,15 @@ export function rememberAiEntry(userId: string, kind: "added" | "accepted", entr
   write(store);
 }
 
+/** « Effacer la lecture » (profil vierge) : oublie ce que l'assistant a
+ *  ajouté ou fait accepter à CE seul utilisateur. */
+export function clearAiMemoryForUser(userId: string): void {
+  const store = read();
+  if (!store[userId]) return;
+  delete store[userId];
+  write(store);
+}
+
 /** Readable long-term memory for the user — the visible "I remember you"
  *  chat panel that used to consume this was removed (users found it
  *  unsettling); this stays as the read API for GET /api/ai/memory and the

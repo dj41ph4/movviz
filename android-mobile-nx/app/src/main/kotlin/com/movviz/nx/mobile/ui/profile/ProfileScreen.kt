@@ -286,7 +286,7 @@ private fun WatchResetFirstDialog(onCancel: () -> Unit, onContinue: () -> Unit) 
     WatchResetDialogFrame(onDismiss = onCancel) {
         Text("Effacer la lecture ?", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Les titres vus, les reprises en cours et l'historique de lecture de ce profil seront supprimés, dans Movviz et dans Plex pour ce compte. Tes notes, ta liste et tes goûts restent. Les autres profils ne sont pas touchés.",
+            "Le profil redevient vierge : titres vus, reprises, historique, liste, notes et goûts IA seront supprimés, dans Movviz et dans Plex pour ce compte. Le profil lui-même (nom, photo, mot de passe, réglages) reste. Les autres profils ne sont pas touchés.",
             color = Color(0xFFD1D1D1), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 20.dp)) {

@@ -6,6 +6,7 @@ import { recordUserContextEvent, upsertUserMediaState } from "@/lib/userContext/
 import { mediaStateKey } from "@/lib/userContext/reconcile";
 import { updateUserMediaSyncState } from "@/lib/userContext/syncState";
 import { emitWatchChanged } from "@/lib/events/watchEvents";
+import { isBeforeWatchReset } from "@/lib/watch/resetFloor";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -54,6 +55,11 @@ export function addWatchlistItem(item: Omit<WatchlistItem, "present" | "updatedA
   const normalized = all.map(normalizeItem);
   const idx = normalized.findIndex((i) => i.userId === item.userId && sameItem(i, item));
   const next: WatchlistItem = { ...item, present: true, removedAt: null, updatedAt: mutationAt, source: item.source ?? "movviz" };
+  // « Effacer la lecture » : un ajout Plex daté d'avant la remise à zéro du
+  // profil (Plex n'a pas pu le retirer de sa watchlist) ne revient pas.
+  if (next.source === "plex_watchlist" && isBeforeWatchReset(item.userId, mutationAt)) {
+    return idx >= 0 ? normalized[idx] : { ...next, present: false, removedAt: mutationAt, source: "movviz" };
+  }
   if (idx >= 0 && normalized[idx].updatedAt > mutationAt) return normalized[idx];
   if (idx >= 0 && normalized[idx].updatedAt === mutationAt && normalized[idx].source >= next.source) return normalized[idx];
   if (idx >= 0) normalized[idx] = { ...normalized[idx], ...next };
@@ -79,4 +85,23 @@ export function removeWatchlistItem(userId: string, type: string, tmdbId: number
     updateUserMediaSyncState({ userId, stateKey: mediaStateKey(userId, type as "movie" | "series" | "episode", tmdbId, seasonNumber, episodeNumber), field: "watchlist", target: "plex", capability: type === "episode" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
     emitWatchChanged(userId);
   }
+}
+
+/** « Effacer la lecture » (profil vierge) : retire toute la liste de CE
+ *  profil. Les entrées restent comme retraits datés de `at` : une resynchro
+ *  de la watchlist Plex plus ancienne perd donc toujours. Retourne les
+ *  éléments retirés (pour les retirer aussi de la watchlist Plex). */
+export function clearWatchlistForUser(userId: string, at = Date.now()): WatchlistItem[] {
+  const normalized = readJson<WatchlistItem[]>(FILE, []).map(normalizeItem);
+  const removed: WatchlistItem[] = [];
+  const next = normalized.map((item) => {
+    if (item.userId !== userId || !item.present) return item;
+    removed.push(item);
+    return { ...item, present: false, removedAt: at, updatedAt: at, source: "movviz" };
+  });
+  if (removed.length > 0) {
+    writeJson(FILE, next);
+    emitWatchChanged(userId);
+  }
+  return removed;
 }
