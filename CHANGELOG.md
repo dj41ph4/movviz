@@ -1,3 +1,12 @@
+## v1.26.031 — 13 octobre 2026
+
+### « Effacer la lecture » : le profil redevient vierge
+
+- Le bouton efface maintenant aussi la liste, les notes, les goûts et la mémoire de l'assistant IA, ainsi que la conversation avec lui. Le profil lui-même (nom, photo, mot de passe, réglages) ne bouge pas.
+- Côté Plex, en plus des vus et des reprises, les notes et la watchlist du profil sont effacées, toujours avec le compte Plex de ce profil uniquement. Un profil géré sans compte Plex à lui garde sa watchlist Plex, et l'écran le signale.
+- Une ancienne watchlist Plex resynchronisée ne revient pas dans Movviz.
+- Les textes d'avertissement (web, Android mobile, Samsung) disent désormais exactement ce qui part et ce qui reste.
+
 ## v1.26.030 — 13 octobre 2026
 
 ### Profil : nouveau bouton « Effacer la lecture »
