@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_display_fit">Adatta</string>
+    <string name="player_display_fill">Riempi</string>
+    <string name="player_display_switch_fit">Mostra tutta l’immagine</string>
+    <string name="player_display_switch_fill">Riempi lo schermo (immagine ritagliata)</string>
+</resources>

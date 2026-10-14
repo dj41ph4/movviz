@@ -85,6 +85,16 @@ class PlaybackPrefs(
 ) {
     private val prefs = context.applicationContext.getSharedPreferences("movviz_playback_prefs", Context.MODE_PRIVATE)
 
+    /** Display choice belongs to this device's server/profile, across titles. */
+    fun fillsScreen(): Boolean = prefs.getBoolean(displayKey(), false)
+
+    fun saveFillsScreen(fill: Boolean) {
+        prefs.edit().putBoolean(displayKey(), fill).apply()
+    }
+
+    private fun displayKey(): String =
+        "${serverUrl.trim().trimEnd('/')}|$profileId|display|fill"
+
     fun subtitlePreference(mediaKey: String): SubtitlePreference {
         val prefix = key(mediaKey)
         val enabled = prefs.getBoolean("$prefix|enabled", false)

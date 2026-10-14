@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Movviz NX</string>
+    <string name="player_display_fit">Adapter</string>
+    <string name="player_display_fill">Remplir</string>
+    <string name="player_display_switch_fit">Afficher toute l’image</string>
+    <string name="player_display_switch_fill">Remplir l’écran (image recadrée)</string>
 </resources>

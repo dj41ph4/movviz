@@ -1,3 +1,12 @@
+## v1.26.032 — 14 octobre 2026
+
+### Android mobile : affichage adapté aux téléphones et tablettes
+
+- Le lecteur affiche par défaut toute l’image sans déformation, en adaptant la largeur ou la hauteur à la surface disponible. Un bouton permet de basculer entre « Adapter » et « Remplir » ; le choix est mémorisé sur l’appareil pour chaque serveur et profil.
+- Le détecteur de bandes noires intégrées est conservé. En mode Adapter, le zoom tient compte des dimensions du lecteur pour garder toute l’image utile visible, y compris sur tablette ; en mode Remplir, l’image est recadrée pour occuper l’écran.
+- Les changements de taille du lecteur et de mode sont pris en compte même en pause. Les commandes peuvent passer sur plusieurs lignes dans une fenêtre étroite.
+- Les gestes verticaux de luminosité et de volume sont supprimés. Les doubles appuis pour avancer ou reculer et le glissement sur la timeline sont conservés.
+
 ## v1.26.031 — 13 octobre 2026
 
 ### « Effacer la lecture » : le profil redevient vierge

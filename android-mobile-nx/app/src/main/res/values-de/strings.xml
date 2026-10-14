@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_display_fit">Einpassen</string>
+    <string name="player_display_fill">Füllen</string>
+    <string name="player_display_switch_fit">Das gesamte Bild anzeigen</string>
+    <string name="player_display_switch_fill">Bildschirm füllen (Bild zugeschnitten)</string>
+</resources>

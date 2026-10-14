@@ -4,6 +4,31 @@ internal data class VideoLetterbox(val top: Float, val bottom: Float) {
     val scale: Float get() = 1f / (1f - top - bottom)
 }
 
+internal data class VideoSurfaceTransform(val scale: Float, val shiftY: Float)
+
+/** The raw surface is fitted by Media3. Fit the useful image inside the actual
+ * viewport, or explicitly fill it, without ever stretching its proportions. */
+internal fun videoSurfaceTransform(
+    surfaceWidth: Int,
+    surfaceHeight: Int,
+    viewportWidth: Int,
+    viewportHeight: Int,
+    crop: VideoLetterbox?,
+    fillScreen: Boolean,
+): VideoSurfaceTransform {
+    if (surfaceWidth <= 0 || surfaceHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
+        return VideoSurfaceTransform(1f, 0f)
+    }
+    val top = crop?.top ?: 0f
+    val bottom = crop?.bottom ?: 0f
+    val usefulHeight = surfaceHeight * (1f - top - bottom)
+    if (!usefulHeight.isFinite() || usefulHeight <= 0f) return VideoSurfaceTransform(1f, 0f)
+    val widthScale = viewportWidth.toFloat() / surfaceWidth
+    val heightScale = viewportHeight / usefulHeight
+    val scale = if (fillScreen) maxOf(widthScale, heightScale) else minOf(widthScale, heightScale)
+    return VideoSurfaceTransform(scale, -surfaceHeight * scale * (top - bottom) / 2f)
+}
+
 // Native cinematic streams (including 21:9) are never auto-zoomed.
 internal fun canDetectVideoLetterbox(aspect: Float): Boolean = aspect.isFinite() && aspect in 1.25f..2.19f
 

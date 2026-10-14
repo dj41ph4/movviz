@@ -25,7 +25,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -63,6 +62,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -102,6 +104,7 @@ import androidx.media3.ui.PlayerView
 import com.movviz.nx.mobile.data.ApiResult
 import com.movviz.nx.mobile.data.MovvizRepository
 import com.movviz.nx.mobile.data.PlaybackPrefs
+import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizBrandGlow
@@ -446,6 +449,7 @@ private fun PlayerScreen(
     val scope = rememberCoroutineScope()
     val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
     val playbackPrefs = remember(baseUrl, profileId) { PlaybackPrefs(context, baseUrl, profileId) }
+    var fillScreen by remember(playbackPrefs) { mutableStateOf(playbackPrefs.fillsScreen()) }
     var pauseLogoPath by remember(type, tmdbId) { mutableStateOf<String?>(null) }
     LaunchedEffect(repository, type, tmdbId) {
         if (tmdbId > 0) {
@@ -565,7 +569,7 @@ ExoPlayer.Builder(context)
     // et permettre le contrôle par la télécommande système. L'activité de
     // session (sessionActivity) fait que cliquer sur la carte du launcher
     // rouvre l'app. Relâchée quand l'Activity se ferme.
-    PlayerImmersion(exoPlayer, nativePlayerView, "${current.ratingKey}|${current.localKey}", hasRenderedFrame)
+    PlayerImmersion(exoPlayer, nativePlayerView, "${current.ratingKey}|${current.localKey}", hasRenderedFrame, fillScreen)
 
     val mediaSession = remember(exoPlayer) {
         val sessionActivity = PendingIntent.getActivity(
@@ -1122,36 +1126,6 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         poke()
         queueSeekBy(SEEK_STEP_MS)
     }
-    // Refonte premium : glissé vertical à gauche = luminosité de l'écran
-    // (fenêtre du lecteur seulement, rendue au système à la sortie), à
-    // droite = volume média. Le retour s'affiche dans la même pastille
-    // centrale que « +10 s ».
-    val gestureAudio = remember { context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager }
-    var volumeRemainder by remember { mutableStateOf(0f) }
-    fun changeLevelAction(left: Boolean, delta: Float) {
-        if (timelineScrubbing) return
-        if (left) {
-            val window = (context as? android.app.Activity)?.window ?: return
-            val attrs = window.attributes
-            val current = attrs.screenBrightness.takeIf { it >= 0f } ?: 0.5f
-            val next = (current + delta).coerceIn(0.02f, 1f)
-            attrs.screenBrightness = next
-            window.attributes = attrs
-            seekIndicator = "Luminosité ${(next * 100).toInt()} %"
-        } else {
-            val audio = gestureAudio ?: return
-            val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-            volumeRemainder += delta * max * 1.5f
-            val steps = volumeRemainder.toInt()
-            val current = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-            val next = (current + steps).coerceIn(0, max)
-            if (steps != 0) {
-                volumeRemainder -= steps
-                audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, next, 0)
-            }
-            seekIndicator = "Volume ${next * 100 / max} %"
-        }
-    }
     fun prevEpisodeAction() {
         poke()
         if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = false)
@@ -1255,8 +1229,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     nativePlayerView = this
                     player = exoPlayer
                     useController = false
-                    // Fill the phone's height while preserving the video's ratio.
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
+                    // Fit the raw frame first. PlayerImmersion fits/fills its
+                    // useful image after confirmed black-bar detection.
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     // Sans ça, cette View native (focusable par défaut, y
                     // compris ses enfants type SurfaceView) capte le focus
                     // Android réel dès sa création et ne le rend jamais —
@@ -1318,7 +1293,6 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         onTap = { poke() },
                         onSeekBack = { seekBackAction() },
                         onSeekForward = { seekForwardAction() },
-                        onLevelChange = { left, delta -> changeLevelAction(left, delta) },
                     ),
             )
         }
@@ -1506,7 +1480,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 onPlayPause = { playPauseAction() },
                 onSeekBack = { seekBackAction() },
                 onSeekForward = { seekForwardAction() },
-                onLevelChange = { left, delta -> changeLevelAction(left, delta) },
+                fillScreen = fillScreen,
+                onToggleDisplayMode = {
+                    poke()
+                    fillScreen = !fillScreen
+                    playbackPrefs.saveFillsScreen(fillScreen)
+                },
                 onPrevEpisode = { prevEpisodeAction() },
                 onNextEpisode = { nextEpisodeAction() },
                 onOpenAudio = { poke(); showAudioDialog = true },
@@ -1760,7 +1739,7 @@ private fun PlayerProgressBar(
             },
     ) {
         // Own the entire gesture from down to up, including diagonal motion.
-        // The video brightness/volume detectors never receive a scrub movement.
+        // The video tap detectors never receive a scrub movement.
         Box(modifier = Modifier.fillMaxWidth().height(44.dp).pointerInput(player, mediaKey) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
@@ -1883,6 +1862,7 @@ private fun timeLabelStyle() = MaterialTheme.typography.labelSmall.copy(
 
 /** Compact mobile controls. Branding and the light scrim are pause-only. */
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun ControlsOverlay(
     title: String,
     subtitle: String?,
@@ -1901,7 +1881,8 @@ private fun ControlsOverlay(
     onPlayPause: () -> Unit,
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
-    onLevelChange: (left: Boolean, delta: Float) -> Unit,
+    fillScreen: Boolean,
+    onToggleDisplayMode: () -> Unit,
     onPrevEpisode: () -> Unit,
     onNextEpisode: () -> Unit,
     onOpenAudio: () -> Unit,
@@ -1916,13 +1897,11 @@ private fun ControlsOverlay(
             .fillMaxSize()
             // Un tap sur une zone vide de l'overlay relance juste le
             // minuteur d'auto-masquage (les boutons consomment leurs taps).
-            // Double appui sur un côté et glissé vertical : voir
-            // playerTouchGestures.
+            // Double appui sur un côté : voir playerTouchGestures.
             .playerTouchGestures(
                 onTap = onInteraction,
                 onSeekBack = onSeekBack,
                 onSeekForward = onSeekForward,
-                onLevelChange = onLevelChange,
             ),
     ) {
         // Branding is reserved for pause, with no exit animation on resume.
@@ -1999,10 +1978,11 @@ private fun ControlsOverlay(
                 onInteraction = onInteraction,
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
             ) {
                 if (hasPrev) ControlButton(icon = MovvizIconSkipPrev, contentDescription = "Épisode précédent", onClick = onPrevEpisode, onMoveToProgress = { progressFocus.requestFocus() })
                 ControlButton(icon = MovvizIconRewind, contentDescription = "Reculer de 10 secondes", onClick = onSeekBack, onMoveToProgress = { progressFocus.requestFocus() })
@@ -2018,6 +1998,13 @@ private fun ControlsOverlay(
                 if (hasNext) ControlButton(icon = MovvizIconSkipNext, contentDescription = "Épisode suivant", onClick = onNextEpisode, onMoveToProgress = { progressFocus.requestFocus() })
                 Spacer(modifier = Modifier.weight(1f))
                 PlaybackModeBadge(fallbackLevel)
+                ControlButton(
+                    label = stringResource(if (fillScreen) R.string.player_display_fill else R.string.player_display_fit),
+                    contentDescription = stringResource(if (fillScreen) R.string.player_display_switch_fit else R.string.player_display_switch_fill),
+                    onClick = onToggleDisplayMode,
+                    small = true,
+                    onMoveToProgress = { progressFocus.requestFocus() },
+                )
                 ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true, onMoveToProgress = { progressFocus.requestFocus() })
                 ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true, onMoveToProgress = { progressFocus.requestFocus() })
             }
@@ -2045,7 +2032,9 @@ private fun ControlButton(
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .size(size)
+            .height(size)
+            .width(if (label != null && label.length > 2) 84.dp else size)
+            .semantics { this.contentDescription = contentDescription }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             // tvFocusLift (Theme.kt) au lieu d'un scale() isolé — même lift
             // "profondeur" que les cartes posters, maxScale un peu plus
@@ -2432,15 +2421,12 @@ private fun formatTime(ms: Long): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
 
-/** Gestes tactiles du lecteur (refonte premium mobile) : double appui sur le
- *  tiers gauche ou droit = -/+ 10 s, au centre = simple appui ; glissé
- *  vertical sur la moitié gauche = luminosité, sur la droite = volume.
- *  `delta` est la fraction de hauteur d'écran parcourue (vers le haut > 0). */
+/** Double appui sur le tiers gauche ou droit = -/+ 10 s ; appui = contrôles.
+ * Les glissés sur la vidéo ne changent ni le volume ni la luminosité. */
 private fun Modifier.playerTouchGestures(
     onTap: () -> Unit,
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
-    onLevelChange: (left: Boolean, delta: Float) -> Unit,
 ): Modifier = this
     .pointerInput(Unit) {
         detectTapGestures(
@@ -2451,16 +2437,6 @@ private fun Modifier.playerTouchGestures(
                     offset.x > size.width * 2f / 3f -> onSeekForward()
                     else -> onTap()
                 }
-            },
-        )
-    }
-    .pointerInput(Unit) {
-        var leftSide = false
-        detectVerticalDragGestures(
-            onDragStart = { start -> leftSide = start.x < size.width / 2f },
-            onVerticalDrag = { change, dragAmount ->
-                change.consume()
-                if (size.height > 0) onLevelChange(leftSide, -dragAmount / size.height.toFloat())
             },
         )
     }

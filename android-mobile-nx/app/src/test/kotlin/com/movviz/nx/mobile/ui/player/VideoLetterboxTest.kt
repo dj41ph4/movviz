@@ -50,4 +50,51 @@ class VideoLetterboxTest {
         repeat(4) { detector.observe(crop) }
         repeat(6) { assertEquals(crop, detector.observe(VideoLetterbox(.13f, .13f))) }
     }
+
+    @Test fun tabletFitsTheEntireWidescreenImageButFillExplicitlyCropsIt() {
+        val fit = videoSurfaceTransform(1600, 900, 1600, 1200, null, false)
+        val fill = videoSurfaceTransform(1600, 900, 1600, 1200, null, true)
+        assertEquals(1f, fit.scale, 0.001f)
+        assertEquals(4f / 3f, fill.scale, 0.001f)
+    }
+
+    @Test fun cinemaBarsCannotZoomAwayTheSidesOnATablet() {
+        val crop = detectVideoLetterbox(frame(11, 11), 160, 90)!!
+        val fit = videoSurfaceTransform(1600, 900, 1600, 1200, crop, false)
+        val fill = videoSurfaceTransform(1600, 900, 1600, 1200, crop, true)
+        assertEquals(1f, fit.scale, 0.001f)
+        assertEquals(1200f / 680f, fill.scale, 0.001f)
+    }
+
+    @Test fun cinemaBarsStillEnlargeTheUsefulImageOnAWidePhone() {
+        val crop = detectVideoLetterbox(frame(11, 11), 160, 90)!!
+        val fit = videoSurfaceTransform(1920, 1080, 2520, 1080, crop, false)
+        assertEquals(2520f / 1920f, fit.scale, 0.001f)
+        assertTrue(1080 * (1f - crop.top - crop.bottom) * fit.scale <= 1080f)
+    }
+
+    @Test fun nativeCinemaAndPortraitViewportsFitWithoutCropping() {
+        assertEquals(1f, videoSurfaceTransform(1600, 670, 1600, 1200, null, false).scale, 0.001f)
+        assertEquals(1f, videoSurfaceTransform(1080, 608, 1080, 2400, null, false).scale, 0.001f)
+    }
+
+    @Test fun resizeUsesTheNewViewportEvenWhenTheBarsHaveNotChanged() {
+        val crop = VideoLetterbox(.125f, .125f)
+        val phone = videoSurfaceTransform(1600, 900, 2100, 900, crop, false)
+        val tablet = videoSurfaceTransform(1600, 900, 1600, 1200, crop, false)
+        assertEquals(1.3125f, phone.scale, 0.001f)
+        assertEquals(1f, tablet.scale, 0.001f)
+    }
+
+    @Test fun slightlyAsymmetricBarsCenterTheUsefulImage() {
+        val crop = VideoLetterbox(.12f, .13f)
+        val transform = videoSurfaceTransform(1600, 900, 2100, 900, crop, false)
+        val usefulCenter = 900f * (crop.top - crop.bottom) / 2f
+        assertEquals(0f, usefulCenter * transform.scale + transform.shiftY, 0.001f)
+    }
+
+    @Test fun anUnmeasuredViewportDoesNotIntroduceAnInvalidScale() {
+        assertEquals(VideoSurfaceTransform(1f, 0f), videoSurfaceTransform(0, 900, 1600, 1200, null, false))
+        assertEquals(VideoSurfaceTransform(1f, 0f), videoSurfaceTransform(1600, 900, 0, 0, null, true))
+    }
 }

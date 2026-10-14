@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_display_fit">Passend</string>
+    <string name="player_display_fill">Vullen</string>
+    <string name="player_display_switch_fit">Volledige afbeelding tonen</string>
+    <string name="player_display_switch_fill">Scherm vullen (bijgesneden beeld)</string>
+</resources>
