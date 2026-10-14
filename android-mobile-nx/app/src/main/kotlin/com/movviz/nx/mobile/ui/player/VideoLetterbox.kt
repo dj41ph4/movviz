@@ -6,8 +6,26 @@ internal data class VideoLetterbox(val top: Float, val bottom: Float) {
 
 internal data class VideoSurfaceTransform(val scale: Float, val shiftY: Float)
 
-/** The raw surface is fitted by Media3. Fit the useful image inside the actual
- * viewport, or explicitly fill it, without ever stretching its proportions. */
+internal data class VideoSurfaceLayout(val width: Int, val height: Int, val shiftY: Float)
+
+/** Resize the native surface itself: scaling a SurfaceView can remain clipped
+ * to its old bounds on Android, cutting the picture while leaving free space. */
+internal fun videoSurfaceLayout(
+    aspect: Float, viewportWidth: Int, viewportHeight: Int, crop: VideoLetterbox?, fillScreen: Boolean,
+): VideoSurfaceLayout? {
+    if (!aspect.isFinite() || aspect <= 0f || viewportWidth <= 0 || viewportHeight <= 0) return null
+    val rawWidth = minOf(viewportWidth.toFloat(), viewportHeight * aspect)
+    val rawHeight = rawWidth / aspect
+    val transform = videoSurfaceTransform(rawWidth.toInt(), rawHeight.toInt(), viewportWidth, viewportHeight, crop, fillScreen)
+    return VideoSurfaceLayout(
+        (rawWidth.toInt() * transform.scale).toInt().coerceAtLeast(1),
+        (rawHeight.toInt() * transform.scale).toInt().coerceAtLeast(1),
+        transform.shiftY,
+    )
+}
+
+/** Fit the useful image inside the actual viewport, or explicitly fill it,
+ * without ever stretching its proportions. */
 internal fun videoSurfaceTransform(
     surfaceWidth: Int,
     surfaceHeight: Int,

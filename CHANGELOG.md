@@ -1,3 +1,11 @@
+## v1.26.033 — 14 octobre 2026
+
+### Android mobile : zoom sans découpe dans l’ancien cadre
+
+- Le conteneur vidéo garde toute la surface disponible. Le zoom redimensionne la surface native en conservant les proportions, au lieu d’agrandir l’image dans un cadre 16:9 qui pouvait encore couper les côtés malgré l’espace libre.
+- Le cadrage est actualisé dès que le détecteur confirme les bandes noires intégrées, sans attendre une autre action sur le lecteur. Le détecteur et ses protections contre les scènes sombres sont conservés.
+- Deux boutons distincts « Adapter » et « Remplir » sont visibles dans les commandes ; le mode actif est mis en évidence et le choix reste mémorisé par profil sur l’appareil.
+
 ## v1.26.032 — 14 octobre 2026
 
 ### Android mobile : affichage adapté aux téléphones et tablettes

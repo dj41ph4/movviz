@@ -1229,9 +1229,10 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     nativePlayerView = this
                     player = exoPlayer
                     useController = false
-                    // Fit the raw frame first. PlayerImmersion fits/fills its
-                    // useful image after confirmed black-bar detection.
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    // Keep the native container as large as the viewport.
+                    // PlayerImmersion sizes the surface at the video's ratio;
+                    // a fitted 16:9 parent would clip its later enlargement.
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
                     // Sans ça, cette View native (focusable par défaut, y
                     // compris ses enfants type SurfaceView) capte le focus
                     // Android réel dès sa création et ne le rend jamais —
@@ -1481,9 +1482,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 onSeekBack = { seekBackAction() },
                 onSeekForward = { seekForwardAction() },
                 fillScreen = fillScreen,
-                onToggleDisplayMode = {
+                onSelectDisplayMode = { fill ->
                     poke()
-                    fillScreen = !fillScreen
+                    fillScreen = fill
                     playbackPrefs.saveFillsScreen(fillScreen)
                 },
                 onPrevEpisode = { prevEpisodeAction() },
@@ -1882,7 +1883,7 @@ private fun ControlsOverlay(
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
     fillScreen: Boolean,
-    onToggleDisplayMode: () -> Unit,
+    onSelectDisplayMode: (Boolean) -> Unit,
     onPrevEpisode: () -> Unit,
     onNextEpisode: () -> Unit,
     onOpenAudio: () -> Unit,
@@ -1999,9 +2000,18 @@ private fun ControlsOverlay(
                 Spacer(modifier = Modifier.weight(1f))
                 PlaybackModeBadge(fallbackLevel)
                 ControlButton(
-                    label = stringResource(if (fillScreen) R.string.player_display_fill else R.string.player_display_fit),
-                    contentDescription = stringResource(if (fillScreen) R.string.player_display_switch_fit else R.string.player_display_switch_fill),
-                    onClick = onToggleDisplayMode,
+                    label = stringResource(R.string.player_display_fit),
+                    contentDescription = stringResource(R.string.player_display_switch_fit),
+                    onClick = { onSelectDisplayMode(false) },
+                    selected = !fillScreen,
+                    small = true,
+                    onMoveToProgress = { progressFocus.requestFocus() },
+                )
+                ControlButton(
+                    label = stringResource(R.string.player_display_fill),
+                    contentDescription = stringResource(R.string.player_display_switch_fill),
+                    onClick = { onSelectDisplayMode(true) },
+                    selected = fillScreen,
                     small = true,
                     onMoveToProgress = { progressFocus.requestFocus() },
                 )
@@ -2023,6 +2033,7 @@ private fun ControlButton(
     contentDescription: String,
     onClick: () -> Unit,
     primary: Boolean = false,
+    selected: Boolean = false,
     small: Boolean = false,
     focusRequester: FocusRequester? = null,
     onMoveToProgress: (() -> Unit)? = null,
@@ -2051,8 +2062,8 @@ private fun ControlButton(
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.12f),
-            contentColor = if (primary) Color.Black else Color.White,
+            containerColor = if (primary || selected) Color.White else Color.White.copy(alpha = 0.12f),
+            contentColor = if (primary || selected) Color.Black else Color.White,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
@@ -2062,7 +2073,7 @@ private fun ControlButton(
         ),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            val tint = if (primary) Color.Black else Color.White
+            val tint = if (primary || selected) Color.Black else Color.White
             if (icon != null) {
                 Icon(
                     imageVector = icon,

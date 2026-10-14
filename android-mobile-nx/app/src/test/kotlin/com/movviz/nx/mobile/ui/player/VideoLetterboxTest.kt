@@ -97,4 +97,27 @@ class VideoLetterboxTest {
         assertEquals(VideoSurfaceTransform(1f, 0f), videoSurfaceTransform(0, 900, 1600, 1200, null, false))
         assertEquals(VideoSurfaceTransform(1f, 0f), videoSurfaceTransform(1600, 900, 0, 0, null, true))
     }
+
+    @Test fun nativeSurfaceExpandsIntoFreeSideSpaceInsteadOfCroppingInsideItsOldBounds() {
+        val layout = videoSurfaceLayout(16f / 9f, 2400, 1080, VideoLetterbox(68f / 540f, 68f / 540f), false)!!
+        assertEquals(2400, layout.width)
+        assertEquals(1350, layout.height)
+        assertTrue(layout.height * (1f - 136f / 540f) <= 1080f)
+    }
+
+    @Test fun resizedNativeSurfacePreservesAllFourUsefulEdgesOnATablet() {
+        val layout = videoSurfaceLayout(16f / 9f, 1600, 1200, VideoLetterbox(.125f, .125f), false)!!
+        assertEquals(1600, layout.width)
+        assertEquals(900, layout.height)
+        assertEquals(0f, layout.shiftY, 0.001f)
+    }
+
+    @Test fun nativeLayoutReturnsFromFillToFitWithoutKeepingTheLargerBounds() {
+        val bars = VideoLetterbox(.125f, .125f)
+        val fill = videoSurfaceLayout(16f / 9f, 1600, 1200, bars, true)!!
+        val fit = videoSurfaceLayout(16f / 9f, 1600, 1200, bars, false)!!
+        assertTrue(fill.width > fit.width)
+        assertEquals(1600, fit.width)
+        assertNull(videoSurfaceLayout(0f, 2400, 1080, bars, false))
+    }
 }
