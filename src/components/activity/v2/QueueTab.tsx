@@ -19,6 +19,7 @@ import { buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { toast } from "@/components/ui/Toast";
 import {
   Film, Tv, Download, Pause, Play, PauseCircle, PlayCircle, RotateCw, Search, Ban, Check,
   Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge, Wand2,
@@ -91,7 +92,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     clearingAll || !active ? null : SWR_KEY,
     {
       refreshInterval: optimized
-        ? (latest) => (latest?.items.some((item) => item.status === "downloading" || item.status === "importing") ? 1_000 : 10_000)
+        ? (latest) => (latest?.items.some((item) => item.status === "downloading" || item.status === "importing" || item.seedStatus?.state === "verifying") ? 1_000 : 10_000)
         : 500,
       dedupingInterval: optimized ? 750 : 250,
       revalidateOnFocus: !optimized,
@@ -275,11 +276,12 @@ export function QueueTab({ active = true }: { active?: boolean }) {
    *  Available for completed and seeding items. */
   const toggleSeed = async (itemId: string, turnOn: boolean) => {
     setActionLoading(`seed_${itemId}`);
-    patchLocal(itemId, (i) => ({ ...i, seeding: turnOn, status: turnOn ? "seeding" : "completed" }));
     try {
-      await api(`${BASE}/torrents/${itemId}/seed`, { method: "POST", body: JSON.stringify({ on: turnOn }) });
+      const result = await api(`${BASE}/torrents/${itemId}/seed`, { method: "POST", body: JSON.stringify({ on: turnOn }) });
+      if (!result.ok) throw new Error("seed_action_failed");
     } catch (e) {
       console.error(`[queue] seed toggle failed:`, e);
+      toast("error", t("downloads.seedResult.actionFailed"));
     } finally {
       setActionLoading(null);
       await mutate();
@@ -620,6 +622,7 @@ const areItemEqual = (prev: QueueItemRowProps, next: QueueItemRowProps) => {
   const b = next.item;
   if (a.status !== b.status) return false;
   if (a.seeding !== b.seeding) return false;
+  if (JSON.stringify(a.seedStatus) !== JSON.stringify(b.seedStatus)) return false;
   if (a.download.progress !== b.download.progress) return false;
   if (a.download.downloadSpeed !== b.download.downloadSpeed) return false;
   if (a.download.uploadSpeed !== b.download.uploadSpeed) return false;
@@ -865,6 +868,16 @@ const QueueItemRow = memo(function QueueItemRow({
             )}
 
             {item.replacementFailure && <p className="mt-1 text-[11px] leading-snug text-down">{t(`downloads.replacement.${item.replacementFailure.reason}`)} · {item.replacementFailure.discarded ? t("downloads.replacement.discarded") : t("downloads.replacement.retry")}</p>}
+            {item.seedStatus && (
+              <p className={cn("mt-1 text-[11px] leading-snug", item.seedStatus.state === "unavailable" ? "text-down" : "text-ink-dim")}>
+                {item.seedStatus.state === "unavailable"
+                  ? t(`downloads.seedResult.${item.seedStatus.reason ?? "unavailable"}`)
+                  : t(`downloads.seedResult.${item.seedStatus.state}`)}
+                {item.seedStatus.totalBytes > 0 && item.seedStatus.state !== "unavailable" && (
+                  <> · {formatBytes(item.seedStatus.verifiedBytes)} / {formatBytes(item.seedStatus.totalBytes)}</>
+                )}
+              </p>
+            )}
             {item.status === "seeding" && item.download.uploadSpeed > 0 && (
               <div className="mt-2 text-[11px] text-ink-dim">
                 <span>↑{formatSpeed(item.download.uploadSpeed)}</span>
@@ -969,12 +982,12 @@ const QueueItemRow = memo(function QueueItemRow({
               <Search className="h-4 w-4" />
             </motion.button>
           )}
-          {(item.status === "completed" || (item.status === "seeding" && item.seeding)) && (
+          {(item.status === "completed" || (item.status === "seeding" && item.seeding) || item.seedStatus?.state === "verifying") && canManage && (
             <motion.button
               {...btnSpring}
-              onClick={(e) => { e.stopPropagation(); onToggleSeed(item.id, !item.seeding); }}
+              onClick={(e) => { e.stopPropagation(); onToggleSeed(item.id, !item.seeding && item.seedStatus?.state !== "verifying"); }}
               disabled={actionLoading !== null}
-              title={item.seeding ? t("downloads.unseed") : t("downloads.seed")}
+              title={item.seeding || item.seedStatus?.state === "verifying" ? t("downloads.unseed") : t("downloads.seed")}
               className={cn(
                 "flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40",
                 item.seeding && "text-ok"

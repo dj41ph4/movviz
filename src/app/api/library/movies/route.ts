@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const tmdbId = Number(body.tmdbId);
   if (!tmdbId) return NextResponse.json({ error: "tmdbId required" }, { status: 400 });
 
-  const result = await requestMedia(user, "movie", tmdbId, body.qualityProfileId, undefined, { skipSearch: body.skipSearch === true });
+  const result = await requestMedia(user, "movie", tmdbId, body.qualityProfileId, undefined, { skipSearch: body.skipSearch === true, queueSearch: true });
   if ("blocked" in result) return NextResponse.json(result, { status: 403 });
   if ("quotaReached" in result) return NextResponse.json(result, { status: 429 });
   if ("error" in result) return NextResponse.json(result, { status: 404 });

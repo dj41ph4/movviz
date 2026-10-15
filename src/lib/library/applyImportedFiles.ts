@@ -633,7 +633,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     });
     refreshLoose("movie");
     void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
-    return { ok: true as const, updated: "movie", id: movie.id };
+    return { ok: true as const, updated: "movie", id: movie.id, seedPaths: [{ from: best.path, to: finalFile.path }] };
   }
 
   const series = getSeries(ref.seriesId);
@@ -737,7 +737,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       refreshLoose("tv");
       void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
     }
-    return { ok: true as const, updated: "season", id: series.id };
+    return { ok: true as const, updated: "season", id: series.id, seedPaths: [...renamedPaths].map(([from, to]) => ({ from, to })) };
   }
 
   if (ref.kind === "series") {
@@ -796,7 +796,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       refreshLoose("tv");
       void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
     }
-    return { ok: true as const, updated: "series", id: series.id, imported: importedCount };
+    return { ok: true as const, updated: "series", id: series.id, imported: importedCount, seedPaths: [...renamedPaths].map(([from, to]) => ({ from, to })) };
   }
 
   // ref.kind === "episode" — two very different situations land here:
@@ -897,5 +897,5 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     refreshLoose("tv");
     void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
   }
-  return { ok: true as const, updated: "episode", id: series.id };
+  return { ok: true as const, updated: "episode", id: series.id, seedPaths: [...renamedPaths].map(([from, to]) => ({ from, to })) };
 }

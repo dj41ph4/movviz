@@ -308,6 +308,7 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
         replacementFailure: t.replacementFailure,
         priority: t.priority ?? "medium",
         seeding: t.seeding ?? false,
+        seedStatus: t.seedStatus,
         addedAt
       };
     });

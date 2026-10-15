@@ -123,6 +123,7 @@ export interface MediaTimeline {
 
 // État de la queue
 export interface QueueItem {
+  seedStatus?: import("@/lib/types").ManualSeedStatus;
   replacementFailure?: import("@/lib/library/replacementRetry").ReplacementFailure;
   id: string;
   media: ActivityMedia;
@@ -130,9 +131,7 @@ export interface QueueItem {
   download: ActivityDownload;
   status: "queued" | "downloading" | "paused" | "importing" | "seeding" | "completed" | "failed" | "stalled" | "verifying";
   priority?: "high" | "medium" | "low";
-  /** Manual post-completion seed toggle — only meaningful when status === "completed";
-   *  distinct from the transitional "seeding" status above (torrent finished
-   *  downloading but not yet marked completed). Never true for anything else. */
+  /** Confirmed manual post-import sharing, after hash verification. */
   seeding?: boolean;
   addedAt: number;
   estimatedCompletion?: number;

@@ -5,6 +5,7 @@ import { addMovieToLibrary } from "@/lib/library/autoGrab";
 import { addSeriesToLibrary } from "@/lib/library/autoGrabSeries";
 import { emitNotification } from "@/lib/notifications/store";
 import { logActivity } from "@/lib/activity/store";
+import { queueAcquisition } from "@/lib/requests/queueAcquisition";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -20,12 +21,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (request.status !== "pending") return NextResponse.json({ error: "already_decided" }, { status: 400 });
 
   const result =
-    request.type === "series" ? await addSeriesToLibrary(request.tmdbId, undefined, request.seasonNumbers) : await addMovieToLibrary(request.tmdbId);
-  updateRequest(request.id, { status: "approved", decidedAt: Date.now(), decidedBy: admin.username });
+    request.type === "series" ? await addSeriesToLibrary(request.tmdbId, undefined, request.seasonNumbers, { skipSearch: true }) : await addMovieToLibrary(request.tmdbId, undefined, { skipSearch: true });
 
   if ("error" in result) return NextResponse.json(result, { status: 502 });
   const item = "movie" in result ? result.movie : result.series;
+  updateRequest(request.id, { status: "approved", decidedAt: Date.now(), decidedBy: admin.username });
+  const searchResult = queueAcquisition(request.type, item);
   emitNotification("request_approved", `${request.title} — demande approuvée`, "/requests", { title: request.title });
   logActivity("approved", admin.username, request.title, "/requests");
-  return NextResponse.json({ ok: true, item, searchResult: result.searchResult });
+  return NextResponse.json({ ok: true, item, searchResult });
 }

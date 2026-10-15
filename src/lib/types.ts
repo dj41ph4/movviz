@@ -80,6 +80,7 @@ export interface DownloadInstance {
 
 /** Live torrent as reported by the download engine (port 9820). */
 export interface EngineTorrent {
+  seedStatus?: ManualSeedStatus;
   replacementFailure?: import("@/lib/library/replacementRetry").ReplacementFailure;
   infoHash: string;
   name: string;
@@ -107,8 +108,15 @@ export interface EngineTorrent {
   libraryRef: string | null;
   /** True for a torrent restored from history after a restart — already imported, no live transfer behind it. */
   imported?: boolean;
-  /** Manual post-completion seed toggle — only meaningful once state === "completed"; see downloads.seed/unseed in QueueTab. */
+  /** Confirmed manual post-import sharing, after hash verification. */
   seeding?: boolean;
+}
+
+export interface ManualSeedStatus {
+  state: "verifying" | "full" | "partial" | "unavailable";
+  reason?: "metadata" | "paths" | "files" | "unavailable";
+  verifiedBytes: number;
+  totalBytes: number;
 }
 
 /** Live instance summary from the engine. */

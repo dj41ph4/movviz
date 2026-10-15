@@ -6,7 +6,7 @@
 
 <h1>Movviz</h1>
 <p><strong>Ton catalogue. Ton serveur. Tes règles.</strong></p>
-<p><strong>Version actuelle : v1.26.033</strong></p>
+<p><strong>Version actuelle : v1.26.034</strong></p>
 
 <p>
 Movviz réunit en <strong>une seule application auto-hébergée</strong> tout ce qu'il faut pour vivre ses films et séries :
@@ -296,6 +296,7 @@ L'accueil est pensé comme celui d'une plateforme de streaming, mais nourri par 
   - deux moteurs au choix : **stable** (JavaScript) ou **natif**, en bêta, très léger (quelques Mo de mémoire, des centaines de torrents).
 - **File de téléchargement** : progression, vitesse, temps restant, pause/reprise, redémarrage, retrait (avec ou sans les fichiers), ajout manuel par **lien magnet** ou **fichier .torrent**, jaquettes et titres cliquables.
 - **Import automatique** : à la fin du téléchargement, le fichier est déplacé et **renommé selon ton modèle**, la fiche passe à « Lire ». Un épisode re-téléchargé **remplace** l'ancien fichier au lieu de s'installer à côté.
+- **Remise en seed après import** : le bouton de partage des téléchargements terminés vérifie les fichiers renommés puis partage leurs données en lecture seule, sans copie ni retéléchargement. L'interface distingue vérification, seed complet, seed partiel et fichiers indisponibles. Le torrent et la correspondance des chemins sont conservés après redémarrage.
 - **Récupération des téléchargements orphelins** : un téléchargement terminé dont l'import n'a jamais eu lieu est retrouvé et importé automatiquement, avec des garde-fous (jamais un fichier déjà en place réimporté, jamais une série à la place d'un film).
 - **Historique** : récupéré, importé, mis à jour, échoué, bloqué ; onglets **Erreurs** et **Non liés** (un fichier importé sans titre associé se rattache en un clic).
 

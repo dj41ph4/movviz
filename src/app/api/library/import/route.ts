@@ -1,4 +1,4 @@
-import { getMovie } from "@/lib/library/store";
+import { getMovie, getSeries } from "@/lib/library/store";
 import { ReplacementRefused } from "@/lib/library/replacementRetry";
 import { NextRequest, NextResponse } from "next/server";
 import { getEngineToken } from "@/lib/engine/token";
@@ -59,7 +59,10 @@ export async function POST(req: NextRequest) {
   // Post-import verification — refuse to mark anything available whose file
   // isn't actually at its reported destination. A non-2xx makes the engine
   // keep retrying the callback, so this heals itself when the files show up.
-  if (ref.kind === "movie" && infoHash && files.length === 1 && await alreadyAppliedMovieImport(ref.movieId, infoHash, files[0])) return NextResponse.json({ ok: true, updated: "movie", id: ref.movieId, alreadyApplied: true });
+  if (ref.kind === "movie" && infoHash && files.length === 1 && await alreadyAppliedMovieImport(ref.movieId, infoHash, files[0])) {
+    const file = getMovie(ref.movieId)?.file;
+    return NextResponse.json({ ok: true, updated: "movie", id: ref.movieId, alreadyApplied: true, seedPaths: [{ from: files[0].path, to: file?.diskPath ?? file?.path }] });
+  }
   const missing = await missingDestinationFiles(files);
   if (missing.length > 0) {
     // Un callback HTTP peut avoir réussi côté Movviz puis perdre sa réponse.
@@ -67,7 +70,8 @@ export async function POST(req: NextRequest) {
     // ce rejeu uniquement si le même torrent a bien installé cet épisode.
     if (ref.kind === "episode" && infoHash && files.length === 1) {
       if (await alreadyAppliedEpisodeImport(ref.seriesId, ref.season, ref.episode, infoHash, files[0])) {
-        return NextResponse.json({ ok: true, updated: "episode", id: ref.seriesId, alreadyApplied: true });
+        const file = getSeries(ref.seriesId)?.seasons.find(s => s.seasonNumber === ref.season)?.episodes.find(ep => ep.episodeNumber === ref.episode)?.file;
+        return NextResponse.json({ ok: true, updated: "episode", id: ref.seriesId, alreadyApplied: true, seedPaths: [{ from: files[0].path, to: file?.diskPath ?? file?.path }] });
       }
     }
     const refId = "movieId" in ref ? ref.movieId : ref.seriesId;

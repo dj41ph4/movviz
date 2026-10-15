@@ -170,7 +170,7 @@ export function createApiServer(engine) {
             const body = await readBody(req);
             const on = body.on !== false;
             const ok = on ? await engine.startSeeding(infoHash) : await engine.stopSeeding(infoHash);
-            return send(res, 200, { ok });
+            return send(res, ok ? 200 : 409, { ok });
           }
           if (method === "POST" && parts[2] === "sequential") {
             const body = await readBody(req);

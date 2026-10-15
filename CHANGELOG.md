@@ -1,3 +1,17 @@
+## v1.26.034 — 15 octobre 2026
+
+### Recherche et téléchargement après une demande
+
+- L’ajout d’un film ou d’une série lance maintenant une tâche de recherche côté serveur, sans maintenir la requête du téléphone ouverte pendant les appels aux indexeurs. La recherche continue après la réponse et reste visible dans les tâches.
+- Une demande de téléchargement pour un titre déjà présent mais incomplet relance les éléments manquants. Les clics répétés partagent la même tâche ; les médias disponibles, les contenus non suivis, les ajouts sans recherche et les demandes en attente d’approbation restent protégés.
+- L’approbation d’une demande utilise également cette file ; une erreur d’ajout ne marque plus prématurément la demande comme approuvée.
+
+### Remise en seed et Android TV
+
+- Les torrents importés peuvent partager les fichiers renommés après vérification de leurs empreintes, en lecture seule. Les chemins et les métadonnées du torrent sont conservés après redémarrage ; l’interface distingue vérification, partage complet, partage partiel et fichiers indisponibles.
+- La validation continue exécute les tests du moteur de téléchargement, dont le partage après import.
+- Android TV utilise Media3 1.9.4.
+
 ## v1.26.033 — 14 octobre 2026
 
 ### Android mobile : zoom sans découpe dans l’ancien cadre

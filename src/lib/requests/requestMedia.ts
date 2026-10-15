@@ -8,6 +8,7 @@ import { isBlocked } from "@/lib/blocklist/store";
 import type { User } from "@/lib/auth/types";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { loadTrash, restoreFromTrash } from "@/lib/library/trashStore";
+import { queueAcquisition } from "@/lib/requests/queueAcquisition";
 
 function addApprovedRequest(
   user: User,
@@ -47,7 +48,7 @@ export async function requestMedia(
   tmdbId: number,
   qualityProfileId?: string,
   seasonNumbers?: number[],
-  options?: { skipSearch?: boolean }
+  options?: { skipSearch?: boolean; queueSearch?: boolean }
 ) {
   if (isBlocked(type, tmdbId)) return { blocked: true as const };
 
@@ -56,7 +57,12 @@ export async function requestMedia(
   // it already present can link to it right away — without re-fetching the
   // whole library and hoping the entry is there (the "Impossible d'ajouter ce
   // titre à la bibliothèque" failure in the link-before-download picker).
-  if (alreadyInLibrary) return { alreadyInLibrary: true as const, item: alreadyInLibrary };
+  if (alreadyInLibrary) {
+    const searchResult = options?.queueSearch && !options.skipSearch && (user.role === "admin" || user.autoApproveRequests)
+      ? queueAcquisition(type, alreadyInLibrary)
+      : null;
+    return { alreadyInLibrary: true as const, item: alreadyInLibrary, searchResult };
+  }
 
   // A removed title is not a brand-new acquisition.  Keep the normal add
   // pipeline (quality rules, blocklist, search locks and engine callbacks),
@@ -88,8 +94,8 @@ export async function requestMedia(
     };
     const result =
       type === "movie"
-        ? await addMovieToLibrary(tmdbId, qualityProfileId, { ...options, onAdded })
-        : await addSeriesToLibrary(tmdbId, qualityProfileId, seasonNumbers, { ...options, onAdded });
+        ? await addMovieToLibrary(tmdbId, qualityProfileId, { skipSearch: options?.skipSearch || options?.queueSearch, onAdded })
+        : await addSeriesToLibrary(tmdbId, qualityProfileId, seasonNumbers, { skipSearch: options?.skipSearch || options?.queueSearch, onAdded });
     if ("error" in result) return { error: result.error };
     const item = "movie" in result ? result.movie : result.series;
     const href = "movie" in result ? `/title/movie/${result.movie.tmdbId}` : `/title/series/${result.series.tmdbId}`;
@@ -100,7 +106,10 @@ export async function requestMedia(
     // still represent this explicit request and must appear in Requests.
     approvedRequest ??= addApprovedRequest(user, type, item, seasonNumbers);
     if (wasDeleted) restoreFromTrash(tmdbId, type);
-    return { added: item, searchResult: result.searchResult, readded: wasDeleted as true | false };
+    const searchResult = options?.queueSearch && !options.skipSearch
+      ? queueAcquisition(type, item)
+      : result.searchResult;
+    return { added: item, searchResult, readded: wasDeleted as true | false };
   }
 
   // Not just this user's own pending ask — anyone's. A title someone else

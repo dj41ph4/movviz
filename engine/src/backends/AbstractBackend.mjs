@@ -8,7 +8,8 @@ import {
   renderSegment,
   VIDEO_EXT_RE,
 } from "../naming.mjs";
-import { WEB_CALLBACK_URL, ENGINE_TOKEN } from "../config.mjs";
+import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR } from "../config.mjs";
+import { ManualSeed, cacheMetainfo, retainMetainfo, torrentPath } from "../manualSeed.mjs";
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
@@ -56,6 +57,7 @@ export class AbstractBackend {
     this.importedHistory = new Map();
     this.client = null;
     this.folderError = null;
+    this.manualSeed = new ManualSeed(cfg, () => this._manualSeedClient(), () => this.onChange());
     this.cfg.logTag = this.constructor.name === "NativeTorrentBackend" ? "beta" : this.constructor.name === "LibtorrentBackend" ? "alpha" : "stable";
   }
 
@@ -67,13 +69,9 @@ export class AbstractBackend {
   async _clientRemove(infoHash, deleteData) { throw new Error("_clientRemove not implemented"); }
   async _clientPause(infoHash) { throw new Error("_clientPause not implemented"); }
   async _clientResume(infoHash) { throw new Error("_clientResume not implemented"); }
-  /** Post-completion manual seed toggle — separate concept from pause/resume
-   *  (see startSeeding/stopSeeding below). Default reuses _clientResume/
-   *  _clientPause, which is correct for aria2 and rtorrent: both genuinely
-   *  halt/resume network I/O. WebTorrentBackend overrides both — its pause()
-   *  doesn't stop peers (see CLAUDE.md), so a real stop needs client.remove(). */
-  async _clientStartSeeding(infoHash) { return this._clientResume(infoHash); }
-  async _clientStopSeeding(infoHash) { return this._clientPause(infoHash); }
+  async _dropCachedTorrentFile(infoHash) {
+    if (/^[a-f0-9]{40}$/i.test(infoHash)) await fsp.unlink(path.join(TORRENT_CACHE_DIR, `${infoHash.toLowerCase()}.torrent`)).catch(() => {});
+  }
   _clientList() { throw new Error("_clientList not implemented"); }
   _clientGet(infoHash) { throw new Error("_clientGet not implemented"); }
   /** Return snapshot: { infoHash, name, length, files: [{name,path,length,selected}], magnetURI } */
@@ -118,11 +116,29 @@ export class AbstractBackend {
   }
 
   async destroy() {
+    this._shuttingDown = true;
     import("../upnp.mjs").then(({ removeMapping }) =>
       removeMapping(this.cfg.torrentPort)
     ).catch(() => {});
     clearInterval(this._pollTimer);
+    await this.manualSeed.destroy();
+    await this._seedClientPromise?.catch(() => {});
+    if (this._seedClient && !this._seedClient.destroyed) await new Promise((resolve) => this._seedClient.destroy(resolve));
     await this._clientDestroy();
+  }
+
+  async _manualSeedClient() {
+    // All download clients share the same read-only manual-seed transport.
+    // Native clients cannot safely resume after their original files were moved.
+    if (!this._seedClientPromise) this._seedClientPromise = (async () => {
+      const { default: WebTorrent } = await import("webtorrent");
+      if (this._shuttingDown) throw new Error("seed_client_stopped");
+      this._seedClient = new WebTorrent({ torrentPort: 0, utp: false, dht: this.cfg.dht !== false, tracker: { wrtc: false }, maxConns: this.cfg.maxPeers ?? 55 });
+      this._seedClient.on("error", () => {});
+      this._seedClient.throttleUpload((this.cfg.uploadLimitKbps || 0) * 1024 || -1);
+      return this._seedClient;
+    })().catch((error) => { this._seedClientPromise = null; throw error; });
+    return this._seedClientPromise;
   }
 
   // ─── Lookup ──────────────────────────────────────────────────────────────
@@ -153,6 +169,7 @@ export class AbstractBackend {
     }
 
     const handle = await this._clientAdd(torrentId, opts);
+    if (Buffer.isBuffer(torrentId)) await cacheMetainfo(handle.infoHash, torrentId).catch(() => {});
 
     this.meta.set(handle.infoHash, {
       addedAt: opts.addedAt ?? Date.now(),
@@ -170,6 +187,7 @@ export class AbstractBackend {
       completed: false,
       finishing: false,
       seeding: false,
+      magnetURI: handle.magnetURI ?? (typeof torrentId === "string" && torrentId.startsWith("magnet:") ? torrentId : null),
       movedTo: null,
       libraryRef: opts.libraryRef ?? null,
       title: opts.title ?? null,
@@ -241,6 +259,7 @@ export class AbstractBackend {
       name: rec.name ?? rec.title ?? rec.infoHash,
       size: rec.size ?? 0,
       movedTo: rec.movedTo,
+      movedFiles: rec.movedFiles,
       addedAt: rec.addedAt ?? null,
       completedAt: rec.completedAt ?? null,
       libraryRef: rec.libraryRef ?? null,
@@ -262,6 +281,8 @@ export class AbstractBackend {
       this.onChange();
 
       const snap = this._clientSnapshot(infoHash);
+      snap.magnetURI ??= m.magnetURI;
+      await retainMetainfo(this.cfg, infoHash, this._clientGet(infoHash)?.torrentFile).catch(() => {});
       const releaseInfo = parseRelease(snap.name ?? "");
       const mediaBase = {
         id: m.libraryRef?.split(":")[1] ?? snap.infoHash,
@@ -429,7 +450,7 @@ export class AbstractBackend {
     if (max <= 0) return;
     const all = this._clientList().filter((t) => {
       const m = this.meta.get(t.infoHash);
-      return m && !m.userPaused && !this._isDone(t);
+      return m && !m.completed && !m.userPaused && !this._isDone(t);
     });
     all.sort((a, b) => {
       const ma = this.meta.get(a.infoHash);
@@ -500,11 +521,14 @@ export class AbstractBackend {
   // ─── Commands ────────────────────────────────────────────────────────────
 
   async remove(infoHash, deleteData) {
+    infoHash = infoHash.toLowerCase();
+    if (this.manualSeed?.report(infoHash) && !(await this.manualSeed.stop(infoHash))) return false;
     const m = this.meta.get(infoHash);
     if (!m) {
       // Completed/imported torrent — clean history entry (no aria2 download to stop)
       if (this.importedHistory.has(infoHash)) {
         this.importedHistory.delete(infoHash);
+        await this._dropCachedTorrentFile?.(infoHash);
         this.onChange();
         return true;
       }
@@ -528,7 +552,7 @@ export class AbstractBackend {
       m.finishing = false;
       return false;
     }
-    if (deleteData && snap?.name) {
+    if (deleteData && !m.completed && snap?.name) {
       const safeName = snap.name.replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
       const cleanupTarget = path.join(this.cfg.downloadPath, safeName);
       const resolved = path.resolve(cleanupTarget);
@@ -558,6 +582,7 @@ export class AbstractBackend {
       } catch {}
     }
     await this._dropCachedTorrentFile?.(infoHash);
+    this.importedHistory.delete(infoHash);
     this.meta.delete(infoHash);
     this.reconcileQueue();
     this.onChange();
@@ -612,19 +637,23 @@ export class AbstractBackend {
    * stopped, and a failed start never claims seeding is active.
    */
   async startSeeding(infoHash) {
+    infoHash = infoHash.toLowerCase();
+    const rec = this.importedHistory.get(infoHash);
     const m = this.meta.get(infoHash);
-    if (!m || !m.completed) return false;
-    const ok = await this._clientStartSeeding(infoHash);
-    if (ok) { m.seeding = true; this.onChange(); }
-    return ok;
+    if (!rec || m?.replacementFailure || rec.replacementFailure || (m && (!m.completed || m.processing || (m.libraryRef && !m.notifiedLibrary)))) return false;
+    if (["verifying", "full", "partial"].includes(this.manualSeed.report(infoHash)?.state)) return true;
+    // Detach any remaining download handle before opening library data read-only.
+    if (this._clientGet(infoHash)) {
+      const removed = await this._clientRemove(infoHash, false).catch(() => false);
+      if (!removed && this._clientGet(infoHash)) return false;
+    }
+    return this.manualSeed.start(rec);
   }
 
   async stopSeeding(infoHash) {
-    const m = this.meta.get(infoHash);
-    if (!m || !m.completed) return false;
-    const ok = await this._clientStopSeeding(infoHash);
-    if (ok) { m.seeding = false; this.onChange(); }
-    return ok;
+    infoHash = infoHash.toLowerCase();
+    if (!this.importedHistory.has(infoHash)) return false;
+    return this.manualSeed.stop(infoHash);
   }
 
   setSequential(infoHash, on) {
@@ -675,6 +704,8 @@ export class AbstractBackend {
 
   summary(t, detail = false) {
     const m = this.meta.get(t.infoHash);
+    const imported = this.importedHistory?.get(t.infoHash);
+    if (!m && imported) return this.importedSummary(imported);
     const bytesComplete = Number(t.length) > 0 && Number(t.downloaded) >= Number(t.length);
     const isSeeding = m?.seeding || this._isDone(t) || bytesComplete;
     // Re-hash phase after a restart (rtorrent "checking files") — reported by
@@ -714,14 +745,23 @@ export class AbstractBackend {
     if (detail) base.files = (t.files ?? []).map((f) => ({
       name: f.name, path: f.path, length: f.length, downloaded: f.downloaded ?? 0,
     }));
-    return base;
+    return this._seedSummary(base);
+  }
+
+  _seedSummary(base) {
+    const seed = this.manualSeed?.report(base.infoHash);
+    if (!seed) return base;
+    const { uploadSpeed, numPeers, uploaded, ratio, ...seedStatus } = seed;
+    const seeding = seed.state === "full" || seed.state === "partial";
+    return { ...base, seedStatus, seeding, state: seed.state === "verifying" ? "verifying" : seeding ? "seeding" : "completed", downloadSpeed: 0, uploadSpeed, numPeers, uploaded, ratio };
   }
 
   importedSummary(rec) {
-    return {
+    return this._seedSummary({
       infoHash: rec.infoHash,
       replacementFailure: rec.replacementFailure,
       name: rec.name,
+      size: rec.size,
       length: rec.size,
       downloaded: rec.size,
       progress: 1,
@@ -749,7 +789,7 @@ export class AbstractBackend {
       category: this.cfg.category,
       instanceId: this.cfg.id,
       movedTo: rec.movedTo ?? null,
-    };
+    });
   }
 
   list() {
@@ -769,18 +809,20 @@ export class AbstractBackend {
 
   persistable() {
     const out = [];
+    const seen = new Set();
     for (const t of this._clientList()) {
       const m = this.meta.get(t.infoHash);
       if (!m) continue;
+      seen.add(t.infoHash);
       out.push({
         infoHash: t.infoHash,
-        magnetURI: t.magnetURI ?? null,
+        magnetURI: t.magnetURI ?? m.magnetURI ?? null,
         name: t.name ?? t.infoHash,
         size: t.length ?? 0,
         addedAt: m.addedAt,
         completedAt: m.completedAt,
         movedTo: m.movedTo,
-        movedFiles: m.movedFiles,
+        movedFiles: this.importedHistory.get(t.infoHash)?.movedFiles ?? m.movedFiles,
         replacementFailure: m.replacementFailure,
         libraryRef: m.libraryRef ?? null,
         title: m.title ?? null,
@@ -797,6 +839,7 @@ export class AbstractBackend {
       });
     }
     for (const rec of this.importedHistory.values()) {
+      if (seen.has(rec.infoHash)) continue;
       out.push({
         infoHash: rec.infoHash,
         magnetURI: rec.magnetURI,
@@ -804,7 +847,7 @@ export class AbstractBackend {
         size: rec.size,
         movedTo: rec.movedTo,
         replacementFailure: this.meta.get(rec.infoHash)?.replacementFailure ?? rec.replacementFailure,
-        movedFiles: this.meta.get(rec.infoHash)?.movedFiles,
+        movedFiles: rec.movedFiles ?? this.meta.get(rec.infoHash)?.movedFiles,
         addedAt: rec.addedAt,
         completedAt: rec.completedAt,
         libraryRef: rec.libraryRef,
@@ -824,6 +867,7 @@ export class AbstractBackend {
   applyConfig(patch) {
     Object.assign(this.cfg, patch);
     this._applyThrottle?.();
+    this._seedClient?.throttleUpload((this.cfg.uploadLimitKbps || 0) * 1024 || -1);
   }
 
   // ─── Import files (shared) ───────────────────────────────────────────────
@@ -895,12 +939,8 @@ export class AbstractBackend {
           if (!(await this._swapForSymlink(src, dest))) m.symlinkVerificationFailed = true;
         }
         firstDest ??= path.join(this.cfg.completedPath, snap.name);
-        // originalPath: the torrent-relative path this file had inside the
-        // download folder before the move — kept so a WebTorrent "start
-        // seeding" re-add can rebuild that exact layout as symlinks pointing
-        // at the (possibly renamed) library copy, without which WT can't
-        // hash-verify against renamed files and would try to redownload.
-        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length, originalPath: file.path });
+        // Keep the torrent's original identity independently of the library filename.
+        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length, originalPath: torrentPath(path.isAbsolute(file.path) ? path.relative(this.cfg.downloadPath, file.path) : file.path) });
       }
       m.movedTo = firstDest ?? this.cfg.completedPath;
     } else {
@@ -1010,7 +1050,7 @@ export class AbstractBackend {
           season: info.season ?? null, episode: info.episode ?? null,
           episodeEnd: info.episodeEnd ?? null,
           // See the equivalent comment in the !naming.enabled branch above.
-          originalPath: file.path,
+          originalPath: torrentPath(path.isAbsolute(file.path) ? path.relative(this.cfg.downloadPath, file.path) : file.path),
         });
       }
       m.movedTo = firstDest ?? this.cfg.completedPath;
@@ -1021,9 +1061,8 @@ export class AbstractBackend {
       size: snap.length, movedTo: m.movedTo, addedAt: m.addedAt,
       completedAt: m.completedAt, libraryRef: m.libraryRef ?? null,
       title: m.title ?? null, year: m.year ?? null,
-      // Kept only for "start seeding" (see originalPath comment above) — never
-      // used for import/library logic, which is done at this point.
-      movedFiles: movedFiles.map((f) => ({ path: f.path, originalPath: f.originalPath ?? null })),
+      // Original torrent paths survive import and process restarts for manual seed.
+      movedFiles: movedFiles.map((f) => ({ path: f.path, originalPath: f.originalPath ?? null, size: f.size })),
     });
 
     this.onChange();
@@ -1147,12 +1186,23 @@ export class AbstractBackend {
         console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] library import callback failed: HTTP ${res.status}`);
         return false;
       }
+      const result = await res.json().catch(() => ({}));
+      // The library may rename a collision file once replacement succeeds.
+      // Persist its final path, never the temporary pre-replacement location.
+      const history = this.importedHistory.get(infoHash);
+      for (const changed of result.seedPaths ?? []) {
+        if (typeof changed.from !== "string" || typeof changed.to !== "string") continue;
+        for (const list of [files, m?.movedFiles, history?.movedFiles]) {
+          for (const file of list ?? []) if (file.path === changed.from) file.path = changed.to;
+        }
+        if (history?.movedTo === changed.from) history.movedTo = changed.to;
+        if (m?.movedTo === changed.from) m.movedTo = changed.to;
+      }
       if (m?.replacementFailure) {
         const snap = (() => { try { return this._clientSnapshot(infoHash); } catch { return { files: (m.movedFiles ?? []).map(file => ({ path: file.originalPath })) }; } })();
         if (snap) await this._cleanupReplacementSource(snap, m.movedFiles);
       }
       if (m) delete m.replacementFailure;
-      const history = this.importedHistory.get(infoHash);
       if (history) delete history.replacementFailure;
       this.onChange();
       return true;
@@ -1219,7 +1269,7 @@ export class AbstractBackend {
       });
     }
 
-    await this._dropCachedTorrentFile?.(snap.infoHash);
+    // Metainfo is retained until the user removes the history entry, for reseeding.
     this.reconcileQueue();
     this.onChange();
   }
