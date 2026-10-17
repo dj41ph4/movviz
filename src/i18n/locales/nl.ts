@@ -516,6 +516,13 @@ export const nl: Dictionary = {
   },
 
   dashboard: {
+    cinema: {
+      eyebrow: "Cinema, bij jou thuis",
+      title: "Jouw volgende",
+      accent: "grote verhaal.",
+      explore: "Vind inspiratie",
+      featured: "Nu in de kijker",
+    },
     splash: {
       personalCinema: "Jouw persoonlijke bioscoop",
       headline: "Cinema komt tot leven.",
@@ -1553,7 +1560,7 @@ export const nl: Dictionary = {
       designStable: "Stabiel",
       designStableHint: "Behoudt de huidige interface met de vertrouwde lettertypen, kaarten en effecten.",
       designBeta: "Bèta",
-      designBetaHint: "Verfijnde typografie, rustigere kaarten, consistente afstanden en subtiele feedback bij indrukken. Ga met één klik terug naar Stabiel.",
+      designBetaHint: "Een filmische startpagina, contrasterende navigatie, grote beelden en een geanimeerde opening. Ga met één klik terug naar Stabiel.",
       designSaveError: "Het uiterlijk kon niet worden opgeslagen. De vorige modus is hersteld.",
       cdnImagesTitle: "Afbeeldingen via internet",
       cdnImagesHint: "Laadt posters en achtergronden rechtstreeks van TMDb in plaats van via je server — sneller bij beperkte uploadbandbreedte. Valt automatisch terug op je server als TMDb onbereikbaar is.",

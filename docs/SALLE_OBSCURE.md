@@ -3,9 +3,10 @@
 ## Expérimentation visuelle réversible
 
 Réglages → Mon expérience → Apparence et aperçus propose **Stable** (par défaut)
-et **Bêta**. Stable conserve l'interface actuelle Salle obscure ; Bêta ajoute
-la typographie affinée, les cartes sobres, les badges harmonisés et le retour
-d'appui de 120 ms. Le choix est personnel, enregistré dans
+et **Bêta**. Stable conserve l'interface actuelle Salle obscure ; Bêta propose
+une composition cinéma : ouverture éditoriale en grand corps, héros encadré,
+navigation ivoire sur graphite, recherche redessinée et rangées plus aérées.
+Le choix est personnel, enregistré dans
 `user-preferences.json` (`designMode`), et s'applique sans rechargement. Un
 échec de sauvegarde rétablit le choix précédent avec un toast.
 
@@ -17,14 +18,17 @@ l'API existante. Aucun stockage parallèle. Le marqueur historique
 désormais le rendu Stable de cette expérimentation ; le contenu du dashboard
 et les préférences du lecteur sont indépendants de ce nouveau choix.
 
-Les effets pointeur d'origine restent en Stable ; Bêta garde les cartes fixes.
+Les effets pointeur d'origine restent en Stable ; Bêta retire l'inclinaison
+et propose un léger rapprochement de l'image au survol (220 ms).
 Le retour d'appui est retiré avec la réduction des animations du compte ou
 du système. La fiche reste l'unique `TitleContent`, en page comme en panneau.
 
 Le splashscreen Bêta constitue l'exception responsive : sa composition cinéma
 est disponible sur tout le web, y compris à 375 et 768 px. Stable conserve
-le splash précédent. La révélation du logo et des faisceaux se joue une seule
-fois au démarrage, sans minuterie supplémentaire ni animation permanente ;
+le splash précédent. Au démarrage, les volets s'ouvrent, le logo se révèle
+depuis une fente lumineuse et deux orbites apparaissent. Les faisceaux et un
+reflet sur la progression restent animés pendant le chargement seulement.
+La sortie se rapproche légèrement en fondu. Aucune durée d'attente ajoutée :
 la progression et la fermeture restent pilotées par le chargement existant.
 Les préférences de réduction des mouvements suppriment les révélations.
 Le premier HTML contient déjà le mode du compte ; un chargement lent de

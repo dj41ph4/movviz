@@ -514,6 +514,13 @@ export const fr = {
   },
 
   dashboard: {
+    cinema: {
+      eyebrow: "Le cinéma, chez vous",
+      title: "Votre prochaine",
+      accent: "grande histoire.",
+      explore: "Trouver l’inspiration",
+      featured: "À l’affiche",
+    },
     splash: {
       personalCinema: "Ton cinéma personnel",
       headline: "Le cinéma prend vie.",
@@ -1550,7 +1557,7 @@ export const fr = {
       designStable: "Stable",
       designStableHint: "Conserve l’interface actuelle, avec ses polices, ses cartes et ses effets habituels.",
       designBeta: "Bêta",
-      designBetaHint: "Typographie affinée, cartes plus sobres, espacements harmonisés et retours d’appui discrets. Reviens à Stable en un clic.",
+      designBetaHint: "Accueil cinématographique, navigation contrastée, grands visuels et ouverture animée. Reviens à Stable en un clic.",
       designSaveError: "Impossible d’enregistrer l’apparence. Le mode précédent a été rétabli.",
       cdnImagesTitle: "Images depuis Internet",
       cdnImagesHint: "Charge les affiches et fonds directement depuis TMDb au lieu de passer par ton serveur — plus rapide si ta connexion montante est limitée. Repli automatique sur ton serveur si TMDb est indisponible.",

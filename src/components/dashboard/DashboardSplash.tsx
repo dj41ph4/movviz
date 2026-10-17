@@ -19,21 +19,27 @@ export function DashboardSplash({ show, progress }: { show: boolean; progress?: 
         <motion.div
           data-dashboard-splash
           data-splash-design={mode}
+          data-ready={pct >= 100 ? "true" : undefined}
           initial={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={beta ? { duration: reduceMotion ? 0.12 : 0.22, ease: [0.23, 1, 0.32, 1] } : { duration: 0.45, ease: "easeInOut" }}
+          exit={beta && !reduceMotion ? { opacity: 0, transform: "scale(1.06)" } : { opacity: 0 }}
+          transition={beta ? { duration: reduceMotion ? 0.12 : 0.5, ease: [0.23, 1, 0.32, 1] } : { duration: 0.45, ease: "easeInOut" }}
           className={beta ? "mv-cinema-splash fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden px-6" : "fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden bg-[#08080F] px-6"}
           aria-hidden={beta ? undefined : true}
         >
           {beta ? (
             <>
               <div className="mv-splash-atmosphere" aria-hidden="true">
+                <div className="mv-splash-projector" />
                 <div className="mv-splash-halo mv-splash-halo-violet" />
                 <div className="mv-splash-halo mv-splash-halo-cyan" />
                 <div className="mv-splash-beam mv-splash-beam-left" />
                 <div className="mv-splash-beam mv-splash-beam-right" />
                 <div className="mv-splash-aperture" />
+                <div className="mv-splash-orbit mv-splash-orbit-one" />
+                <div className="mv-splash-orbit mv-splash-orbit-two" />
                 <div className="mv-splash-horizon" />
+                <div className="mv-splash-shutter mv-splash-shutter-top" />
+                <div className="mv-splash-shutter mv-splash-shutter-bottom" />
               </div>
               <div className="mv-splash-stage">
                 <p className="mv-splash-eyebrow">{t("dashboard.splash.personalCinema")}</p>

@@ -1,9 +1,245 @@
-/* Opt-in polish on top of the current interface. Removing this attribute
+/* Opt-in cinema composition on top of the current interface. Removing this attribute
    restores Stable, including the existing Salle obscure styles. Every rule
    also requires desktop: mobile/tablet and native apps keep their layout. */
 @media (min-width: 1024px) {
   html[data-movviz-design="beta"] {
     --so-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --so-ink-0: #0b0c10;
+    --so-ink-1: #13151b;
+    --so-ink-2: #1b1e27;
+    --so-ink-3: #252935;
+    --so-fg: #f5f2eb;
+    --so-fg-2: #b7b5bf;
+    --so-fg-3: #94919f;
+    --so-accent: #c4b6ff;
+    --color-void: #0b0c10;
+    --color-surface: #13151b;
+    --color-surface-2: #1b1e27;
+    --color-ink: #f5f2eb;
+  }
+
+  /* The rail keeps its existing links, collapse behaviour and geometry. */
+  html[data-movviz-design="beta"] .nx-sidebar {
+    background: #101116;
+    border-right-color: #ffffff0d;
+  }
+  html[data-movviz-design="beta"] .nx-sidebar > header {
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #ffffff0d;
+  }
+  html[data-movviz-design="beta"] .nx-sidebar > header > div > span {
+    font-family: var(--so-font-display);
+    font-size: 1.375rem;
+    letter-spacing: -.055em;
+  }
+  html[data-movviz-design="beta"] .nx-sidebar nav { gap: .375rem; }
+  html[data-movviz-design="beta"] .nx-sidebar nav > a,
+  html[data-movviz-design="beta"] .nx-sidebar nav > span > a {
+    height: 48px;
+    border-radius: 12px;
+    font-size: .8125rem;
+    font-weight: 500;
+  }
+  html[data-movviz-design="beta"] .nx-sidebar a[aria-current="page"],
+  html[data-movviz-design="beta"] .nx-sidebar a[aria-current="page"]:hover {
+    background: #f1ede5;
+    color: #17151e;
+    box-shadow: 0 3px 16px #0002;
+  }
+  html[data-movviz-design="beta"] .nx-sidebar a[aria-current="page"] svg { color: #514177; }
+
+  html[data-movviz-design="beta"] .nx-topbar {
+    height: 76px;
+    padding-inline: 2rem;
+    background: #0b0c10;
+    border-bottom: 1px solid #ffffff08;
+  }
+  html[data-movviz-design="beta"] .nx-topbar[data-scrolled] { background: #0b0c10ed; }
+  html[data-movviz-design="beta"] .nx-search-pill {
+    height: 44px;
+    border: 1px solid #ffffff13;
+    border-radius: 12px;
+    background: #191b23;
+    box-shadow: none;
+  }
+  html[data-movviz-design="beta"] .nx-search-pill:focus-within {
+    border-color: #c4b6ff99;
+    box-shadow: 0 0 0 3px #c4b6ff12;
+  }
+  html[data-movviz-design="beta"] .nx-dashboard-premium {
+    margin-inline: auto;
+  }
+  html[data-movviz-design="beta"] .mv-beta-home-intro {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: .25rem 0 .5rem;
+  }
+  html[data-movviz-design="beta"] .mv-beta-home-intro > div > p {
+    margin-bottom: .75rem;
+    color: var(--so-fg-3);
+    font: 500 .625rem/1.5 var(--so-font-mono);
+    letter-spacing: .2em;
+    text-transform: uppercase;
+  }
+  html[data-movviz-design="beta"] .mv-beta-home-intro h1 {
+    max-width: 22ch;
+    font: 600 clamp(2rem, 3.6vw, 4rem)/1.04 var(--so-font-display);
+    letter-spacing: -.055em;
+    text-wrap: balance;
+  }
+  html[data-movviz-design="beta"] .mv-beta-home-intro h1 em {
+    display: block;
+    font-style: normal;
+    color: var(--so-accent);
+  }
+  html[data-movviz-design="beta"] .mv-beta-explore {
+    display: inline-flex;
+    min-height: 44px;
+    flex: none;
+    align-items: center;
+    gap: .75rem;
+    border-bottom: 1px solid #c4b6ff55;
+    color: #d5ccee;
+    font-size: .8125rem;
+  }
+
+  /* A framed projection replaces Stable's edge-to-edge background. */
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-home-hero-grid {
+    margin: 1.75rem 0 0;
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero {
+    border: 1px solid #ffffff1a;
+    border-radius: 24px;
+    background: #14151e;
+    box-shadow: 0 24px 60px -36px #000;
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .mv-hero-scene.relative:has(> .absolute.inset-x-0.bottom-0) {
+    height: clamp(510px, 58vh, 700px);
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-t {
+    background-image: linear-gradient(0deg, #11121b 0%, #11121b33 42%, #11121b0a 75%, #11121b22);
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-r {
+    background-image: linear-gradient(90deg, #11121bf5 0%, #11121bd9 26%, #11121b75 48%, #11121b00 78%);
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .relative > .mv-hero-copy.absolute.inset-x-0.bottom-0 {
+    inset: auto 0 0;
+    max-width: min(780px, 80%);
+    padding: 2.5rem 3rem 4rem;
+    gap: 1rem;
+  }
+  html[data-movviz-design="beta"] .mv-hero-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    font: 500 .625rem/1.5 var(--so-font-mono);
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    color: #d8cef1;
+  }
+  html[data-movviz-design="beta"] .mv-hero-eyebrow::before {
+    content: "";
+    width: 1.75rem;
+    height: 1px;
+    background: var(--so-accent);
+  }
+  html[data-movviz-design="beta"] .mv-hero-status {
+    border: 1px solid #ffffff30;
+    border-radius: 5px;
+    padding: .25rem .5rem;
+    font-size: .625rem;
+    background: #ffffff0d;
+    color: #d4cadd;
+  }
+  html[data-movviz-design="beta"] .nx-hero-title {
+    min-height: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: clamp(2.75rem, 4.2vw, 5rem);
+    letter-spacing: -.04em;
+    line-height: 1.02;
+  }
+  html[data-movviz-design="beta"] .nx-hero-title img {
+    max-height: 130px;
+    max-width: min(360px, 100%);
+  }
+  html[data-movviz-design="beta"] .mv-hero-actions { gap: .625rem; }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-home-hero-grid .nx-hero-more { order: -1; }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-home-hero-grid .nx-hero-watchlist { order: 0; }
+  html[data-movviz-design="beta"] .mv-hero-actions > :is(button, a) {
+    min-height: 44px;
+    border-radius: 9px;
+    font-size: .75rem;
+  }
+  html[data-movviz-design="beta"] .nx-dashboard-premium .nx-hero-play {
+    padding-inline: 1.5rem;
+    background: #e4d9ff;
+    color: #211830;
+  }
+  html[data-movviz-design="beta"] .mv-hero-reasons {
+    padding-inline: .25rem;
+    background: transparent;
+    color: #c6bdcd;
+    backdrop-filter: none;
+  }
+  html[data-movviz-design="beta"] .mv-hero-dots {
+    left: 3rem;
+    bottom: 1.5rem;
+    transform: none;
+    min-height: 24px;
+    align-items: center;
+    gap: .5rem;
+  }
+  html[data-movviz-design="beta"] :is(.mv-hero-previous, .mv-hero-next) {
+    top: auto;
+    bottom: 1rem;
+    left: auto;
+    transform: none;
+    border: 1px solid #ffffff26;
+    background: #ffffff0d;
+  }
+  html[data-movviz-design="beta"] .mv-hero-previous { right: 5.25rem; }
+  html[data-movviz-design="beta"] .mv-hero-next { right: 2rem; }
+
+  html[data-movviz-design="beta"] .nx-home-providers {
+    display: grid;
+    grid-template-columns: 155px minmax(0, 1fr);
+    align-items: center;
+    gap: 1.5rem;
+    padding-block: 1rem;
+    border-bottom: 1px solid #ffffff10;
+  }
+  html[data-movviz-design="beta"] .nx-home-providers > h2 {
+    max-width: 14ch;
+    color: var(--so-fg-2);
+    font: 500 .75rem/1.6 var(--so-font-ui);
+  }
+  html[data-movviz-design="beta"] .nx-home-providers > div { margin-top: 0; }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-provider-tile {
+    min-height: 52px;
+    border-radius: 10px;
+    background: #191b23;
+    border-color: #ffffff0a;
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-provider-tile-light {
+    background: #efedf2;
+  }
+  html[data-movviz-design="beta"] .nx-poster-row { padding-block: .75rem; }
+  html[data-movviz-design="beta"] .nx-poster-row > div:first-child {
+    margin-bottom: 1rem;
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-poster-row > div:first-child > h2 {
+    font: 600 clamp(1.35rem, 1.8vw, 1.8rem)/1.2 var(--so-font-display);
+    letter-spacing: -.035em;
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .group\/row > .relative > .flex { gap: 1.125rem; }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-row-card [data-premium-card] {
+    border-radius: 14px;
+    border-color: #ffffff12;
   }
 
   /* Geist carries functional headings; Bricolage keeps the editorial voice. */
@@ -33,7 +269,7 @@
   }
 
   html[data-movviz-design="beta"] .nx-hero-title {
-    font-size: clamp(2rem, 3vw, 3.25rem);
+    font-size: clamp(2.75rem, 4.2vw, 5rem);
   }
 
   html[data-movviz-design="beta"] :is(.nx-hero-meta, .nx-title-meta) {
@@ -60,7 +296,7 @@
   html[data-movviz-design="beta"] .nx-poster-row > div:first-child > h2,
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-poster-row > div:first-child > h2 {
     font-family: var(--so-font-ui);
-    font-size: 1.125rem;
+    font-size: clamp(1.35rem, 1.8vw, 1.8rem);
     font-weight: 600;
     letter-spacing: -.02em;
     line-height: 1.35;
@@ -131,10 +367,20 @@
     border-color: var(--so-line-2);
     box-shadow: 0 10px 28px -20px #000;
   }
+  html[data-movviz-design="beta"]:not(.reduce-motion) .nx-row-card [data-premium-card] > img {
+    transition: transform 220ms var(--so-ease-out);
+  }
+  html[data-movviz-design="beta"]:not(.reduce-motion) .nx-row-card:hover [data-premium-card] > img {
+    transform: scale(1.035);
+  }
 }
 
 @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
   html[data-movviz-design="beta"]:not(.reduce-motion) :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist, .nx-title-actions > button, .nx-title-actions > a, [data-premium-preview] button, [data-premium-preview] a[role="button"]):active:not(:disabled) {
     transform: none;
+  }
+  html[data-movviz-design="beta"]:not(.reduce-motion) .nx-row-card:hover [data-premium-card] > img {
+    transform: none;
+    transition: none;
   }
 }

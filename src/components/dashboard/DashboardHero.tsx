@@ -189,7 +189,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       paused={manuallyPaused}
       className="nx-premium-hero -mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
     >
-      <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:aspect-[18/9] lg:h-auto lg:min-h-0">
+      <div className="mv-hero-scene relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:aspect-[18/9] lg:h-auto lg:min-h-0">
         <ErrorBoundary key={`${active.detail.type}:${active.detail.tmdbId}`} fallback={trailerFallback}>
           <TrailerHeader
             backdropPath={heroBackdropPath}
@@ -212,8 +212,9 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:p-10 lg:gap-2 lg:p-6">
-          <span className="w-fit rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur">
+        <div className="mv-hero-copy absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:p-10 lg:gap-2 lg:p-6">
+          <p className="mv-hero-eyebrow hidden">{t("dashboard.cinema.featured")}</p>
+          <span className="mv-hero-status w-fit rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur">
             {statusLabel}
           </span>
 
@@ -240,7 +241,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
 
           <p className="nx-hero-overview line-clamp-2 max-w-xl text-sm text-white/70 sm:line-clamp-3">{active.detail.overview}</p>
 
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mv-hero-actions mt-2 flex flex-wrap items-center gap-2">
             <button type="button" onClick={toggleWatchlist} className={cn("nx-hero-watchlist flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105", onWatchlist ? "border border-brand-glow/50 bg-brand/25" : "bg-white/15")}>
               <Heart className={cn("h-4 w-4", onWatchlist && "fill-current")} /> {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
             </button>
@@ -301,7 +302,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             <button
               type="button"
               onClick={() => setShowReasons((v) => !v)}
-              className="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105"
+              className="mv-hero-reasons rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105"
             >
               {t("dashboard.hero.whyThisTitle")}
             </button>

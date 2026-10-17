@@ -66,7 +66,7 @@ export function HeroSlideshow({ count, index, onIndexChange, intervalMs, paused 
             type="button"
             onClick={() => goTo(index - 1)}
             aria-label={t("dashboard.hero.previousSlide")}
-            className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-transform hover:scale-110 sm:left-4"
+            className="mv-hero-previous absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-transform hover:scale-110 sm:left-4"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -74,12 +74,12 @@ export function HeroSlideshow({ count, index, onIndexChange, intervalMs, paused 
             type="button"
             onClick={() => goTo(index + 1)}
             aria-label={t("dashboard.hero.nextSlide")}
-            className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-transform hover:scale-110 sm:right-4"
+            className="mv-hero-next absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-transform hover:scale-110 sm:right-4"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
 
-          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 sm:bottom-4">
+          <div className="mv-hero-dots absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 sm:bottom-4">
             {Array.from({ length: count }).map((_, i) => (
               <button
                 key={i}

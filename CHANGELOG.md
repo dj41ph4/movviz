@@ -1,3 +1,11 @@
+## v1.26.036 — 17 octobre 2026
+
+### Une Bêta plus cinématographique
+
+- L’accueil Bêta adopte une composition éditoriale : grande ouverture typographique, héros encadré, images mises en avant et rangées plus aérées. La navigation passe à une sélection ivoire sur graphite et la recherche reçoit une nouvelle surface.
+- Le splash Bêta ouvre des volets de projection, révèle le logo depuis une fente lumineuse et déploie deux orbites. Les faisceaux et le reflet de progression accompagnent le chargement ; la sortie se fait en rapprochement et fondu, sans ajouter de délai d’attente.
+- Stable conserve son rendu, son ancien splash et sa géométrie. Le choix du compte reste appliqué dès le premier HTML ; les préférences de réduction des animations restent respectées.
+
 ## v1.26.035 — 17 octobre 2026
 
 ### Apparence Stable / Bêta

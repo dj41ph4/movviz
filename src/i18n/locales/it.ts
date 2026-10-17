@@ -516,6 +516,13 @@ export const it: Dictionary = {
   },
 
   dashboard: {
+    cinema: {
+      eyebrow: "Il cinema, a casa tua",
+      title: "La tua prossima",
+      accent: "grande storia.",
+      explore: "Trova l’ispirazione",
+      featured: "In primo piano",
+    },
     splash: {
       personalCinema: "Il tuo cinema personale",
       headline: "Il cinema prende vita.",
@@ -1552,7 +1559,7 @@ export const it: Dictionary = {
       designStable: "Stabile",
       designStableHint: "Mantiene l’interfaccia attuale, con i caratteri, le schede e gli effetti abituali.",
       designBeta: "Beta",
-      designBetaHint: "Tipografia curata, schede più sobrie, spaziature coerenti e riscontri discreti alla pressione. Torna a Stabile con un clic.",
+      designBetaHint: "Home cinematografica, navigazione a contrasto, grandi immagini e un’apertura animata. Torna a Stabile con un clic.",
       designSaveError: "Impossibile salvare l’aspetto. La modalità precedente è stata ripristinata.",
       cdnImagesTitle: "Immagini da Internet",
       cdnImagesHint: "Carica locandine e sfondi direttamente da TMDb invece di passare dal tuo server — più veloce se la tua banda in upload è limitata. Ripiego automatico sul tuo server se TMDb non è raggiungibile.",

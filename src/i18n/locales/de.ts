@@ -516,6 +516,13 @@ export const de: Dictionary = {
   },
 
   dashboard: {
+    cinema: {
+      eyebrow: "Kino für zu Hause",
+      title: "Deine nächste",
+      accent: "große Geschichte.",
+      explore: "Inspiration finden",
+      featured: "Jetzt im Programm",
+    },
     splash: {
       personalCinema: "Dein persönliches Kino",
       headline: "Kino wird lebendig.",
@@ -1570,7 +1577,7 @@ export const de: Dictionary = {
       designStable: "Stabil",
       designStableHint: "Behält die aktuelle Oberfläche mit ihren vertrauten Schriften, Karten und Effekten bei.",
       designBeta: "Beta",
-      designBetaHint: "Verfeinerte Typografie, ruhigere Karten, einheitliche Abstände und dezente Rückmeldung beim Drücken. Mit einem Klick zurück zu Stabil.",
+      designBetaHint: "Filmische Startseite, kontrastreiche Navigation, große Bilder und eine animierte Eröffnung. Mit einem Klick zurück zu Stabil.",
       designSaveError: "Die Darstellung konnte nicht gespeichert werden. Der vorherige Modus wurde wiederhergestellt.",
       cdnImagesTitle: "Bilder aus dem Internet",
       cdnImagesHint: "Lädt Poster und Hintergründe direkt von TMDb statt über deinen Server — schneller bei begrenzter Upload-Bandbreite. Fällt automatisch auf deinen Server zurück, wenn TMDb nicht erreichbar ist.",
