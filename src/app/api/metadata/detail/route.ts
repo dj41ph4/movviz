@@ -3,6 +3,8 @@ import { getDetail } from "@/lib/metadata/tmdb";
 import { requireUser } from "@/lib/auth/guard";
 import { loadDashboardLayout } from "@/lib/dashboard/store";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
+import { getSeriesByTmdbId } from "@/lib/library/store";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +18,11 @@ export async function GET(req: NextRequest) {
   if (!tmdbId) return NextResponse.json({ error: "tmdbId required" }, { status: 400 });
   const lang = searchParams.get("lang") ?? undefined;
   const { youtubeTrailerSearch } = loadDashboardLayout(user.id);
-  const detail = await getDetail(type, tmdbId, lang, { youtubeTrailerSearch });
+  const library = type === "series" && tmdbId === BLEACH_TMDB_ID ? getSeriesByTmdbId(tmdbId) : null;
+  const detail = await getDetail(type, tmdbId, lang, {
+    youtubeTrailerSearch,
+    ...(library && needsBleachRepair(library) ? { bleachOrder: "tmdb" as const } : {}),
+  });
   if (!detail) return NextResponse.json({ error: "not found" }, { status: 404 });
   // Every fiche open hits this route — hour-bucketed sourceEventId so
   // re-fetches (SWR revalidate, tab refocus) collapse into one row instead

@@ -2,6 +2,24 @@ import type { Dictionary } from "../types";
 
 /** English dictionary — mirrors the French key structure. */
 export const en: Dictionary = {
+  bleach: {
+    previewFailed: "The season check is unavailable. You can try again.",
+    retry: "Check again",
+    blockDownload: "A Bleach download is active. Wait until it finishes.",
+    blockPlayback: "Bleach is playing. Close the player before repairing.",
+    blockHistory: "Some tracking entries have ambiguous numbering or pending synchronization. Review is required to preserve them.",
+    blockInspection: "The data check is incomplete. The record remains unchanged.",
+    original: "Bleach — original series (2004–2012)",
+    sequel: "Bleach: Thousand-Year Blood War (from 2022)",
+    repairTitle: "Restore the correct Bleach season order",
+    repairHint: "The old record mixes Bleach and Thousand-Year Blood War episode orders. A preview checks files and tracking before reorganizing seasons. Acquisition is paused until then.",
+    repair: "Check and repair seasons",
+    repairConfirm: "Reorganize {episodes} episodes into 16 original seasons and one Thousand-Year Blood War season? The {files} files and {watched} verified tracking entries are preserved. A copy of the old record will be saved.",
+    repaired: "Bleach seasons have been reorganized.",
+    repairFailed: "The repair was not applied. Run the check again.",
+    repairBlocked: "The repair needs review: ambiguous tracking, an active download or active playback. No changes applied.",
+    adminRepair: "An administrator can check and repair the seasons.",
+  },
   tizen: {
     missingOne: "{count} missing",
     account: "Account",

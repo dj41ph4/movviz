@@ -537,6 +537,27 @@ export async function getRawItemDetail(
   }
 }
 
+/** Effective Plex aired order, including the library default when inherited. */
+export async function getPlexEpisodeOrdering(cfg: PlexServerConfig, showRatingKey: string, token: string, sectionKey?: string): Promise<{ title: string; order: string | null } | null> {
+  try {
+    const response = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}?includePreferences=1`, { headers: serverHeaders(cfg, token), cache: "no-store" });
+    if (!response.ok) return null;
+    const container = (await response.json()).MediaContainer;
+    const show = container?.Metadata?.[0];
+    if (!show) return null;
+    const setting = (show.Preferences?.Setting ?? []).find((entry: { id: string }) => entry.id === "showOrdering");
+    const override = show.episodeOrdering || show.showOrdering || setting?.value;
+    if (override) return { title: show.title ?? "Bleach", order: override };
+    const libraryKey = sectionKey ?? show.librarySectionID ?? container.librarySectionID;
+    if (!libraryKey) return { title: show.title ?? "Bleach", order: null };
+    const preferences = await fetchWithRetry(`${serverBase(cfg)}/library/sections/${encodeURIComponent(String(libraryKey))}/prefs`, { headers: serverHeaders(cfg, token), cache: "no-store" });
+    if (!preferences.ok) return null;
+    const data = (await preferences.json()).MediaContainer;
+    const librarySetting = (data?.Setting ?? []).find((entry: { id: string }) => entry.id === "showOrdering");
+    return { title: show.title ?? "Bleach", order: librarySetting?.value || librarySetting?.default || null };
+  } catch { return null; }
+}
+
 interface RawStream {
   streamType: number;
   codec?: string;

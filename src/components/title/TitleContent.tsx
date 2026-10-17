@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as mutateSWR } from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/provider";
@@ -11,6 +11,8 @@ import type { MetaDetail } from "@/lib/metadata/types";
 import type { LibraryStatus, LibraryFile, LibraryFileVersion } from "@/lib/library/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import { SeasonAccordion } from "@/components/title/SeasonAccordion";
+import { BleachRepairNotice } from "@/components/title/BleachRepairNotice";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
@@ -187,6 +189,7 @@ type LibraryListItem = {
       plexUrl?: string | null;
     }[];
   }[];
+  episodeOrder?: "tmdb" | "tvdb";
 };
 
 export interface TitleContentProps {
@@ -408,6 +411,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     title: string;
     tmdbId?: number;
     imdbId?: string;
+    refTitle?: string;
+    year?: number | null;
   } | null>(null);
   const [showFullCrew, setShowFullCrew] = useState(false);
   // Bêta desktop : le corps de la fiche se lit par onglets (Épisodes,
@@ -824,6 +829,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const openManualSearchEpisode = useCallback(
     (seasonNumber: number, episodeNumber: number) => {
       if (!libraryId) return;
+      const bleachSequel = tmdbId === BLEACH_TMDB_ID && seasonNumber === 17;
+      const part = episodeNumber <= 13 ? 1 : episodeNumber <= 26 ? 2 : episodeNumber <= 40 ? 3 : 4;
+      const offset = [0, 13, 26, 40][part - 1];
       setManualSearch({
         libraryRef: encodeLibraryRef({
           kind: "episode",
@@ -831,11 +839,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           season: seasonNumber,
           episode: episodeNumber,
         }),
-        query: `${detail?.title} S${pad(seasonNumber)}E${pad(episodeNumber)}`,
+        query: bleachSequel ? `Bleach Thousand-Year Blood War S${pad(part)}E${pad(episodeNumber - offset)}` : `${detail?.title} S${pad(seasonNumber)}E${pad(episodeNumber)}`,
         title: `${detail?.title} — ${seasonNumber}x${pad(episodeNumber)}`,
+        ...(bleachSequel ? { refTitle: "Bleach Thousand-Year Blood War", year: null } : {}),
       });
     },
-    [libraryId, detail?.title],
+    [libraryId, detail?.title, tmdbId],
   );
 
   const remove = useCallback(async () => {
@@ -1746,7 +1755,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 </h2>
                 {libraryMatch?.id && (
                   <div className="flex flex-wrap gap-2">
-                    {detail.isAnime && user?.role === "admin" && (
+                    {detail.isAnime && tmdbId !== BLEACH_TMDB_ID && user?.role === "admin" && (
                       <button
                         onClick={resyncAnime}
                         disabled={resyncingAnime}
@@ -1796,6 +1805,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   </div>
                 )}
               </div>
+              {tmdbId === BLEACH_TMDB_ID && libraryMatch?.id && needsBleachRepair({ tmdbId, episodeOrder: libraryMatch.episodeOrder, seasons: (libraryMatch.seasons ?? []).map((s) => ({ seasonNumber: s.seasonNumber ?? -1, episodes: s.episodes })) }) && (
+                <BleachRepairNotice seriesId={libraryMatch.id} admin={user?.role === "admin"} onRepaired={() => {
+                  void mutateLibrary();
+                  void mutateSWR((key) => typeof key === "string" && key.startsWith("/api/metadata/") && key.includes(`tmdbId=${tmdbId}`));
+                }} />
+              )}
               <SeasonAccordion
                 seriesId={libraryMatch?.id}
                 tmdbId={detail.tmdbId}
@@ -1921,8 +1936,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           libraryRef={manualSearch.libraryRef}
           query={manualSearch.query}
           category={type}
-          refTitle={detail.title}
-          year={detail.year ? String(detail.year) : undefined}
+          refTitle={manualSearch.refTitle ?? detail.title}
+          year={manualSearch.year === null ? undefined : manualSearch.year ? String(manualSearch.year) : detail.year ? String(detail.year) : undefined}
           title={manualSearch.title}
           tmdbId={manualSearch.tmdbId}
           imdbId={manualSearch.imdbId}

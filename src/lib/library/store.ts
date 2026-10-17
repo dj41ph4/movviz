@@ -5,6 +5,7 @@ import { eventBus } from "@/lib/events/EventBus";
 import { addToTrash } from "@/lib/library/trashStore";
 import { recordStatusTransition } from "@/lib/library/statusTransitions";
 import type { LibraryMovie, LibrarySeries, LibraryStatus, LibrarySeason, LibraryEpisode } from "./types";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -323,6 +324,9 @@ export function findEpisodeByPlexLocator(
   if (direct) return direct;
   if (!showRatingKey || seasonNumber == null || episodeNumber == null) return null;
   const series = loadSeries().find((candidate) => candidate.plexRatingKey === showRatingKey);
+  // A Plex S02E01 may mean historical episode 21 or TYBW episode 1.
+  // Bleach must resolve by an exact, reconciled episode ratingKey.
+  if (series?.tmdbId === BLEACH_TMDB_ID) return null;
   const season = series?.seasons.find((candidate) => candidate.seasonNumber === seasonNumber);
   const episode = season?.episodes.find((candidate) => candidate.episodeNumber === episodeNumber);
   return series && season && episode ? { series, season, episode } : null;

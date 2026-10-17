@@ -21,6 +21,7 @@ import { selectWatchProviderTiles } from "./watchProviderTiles";
 import { LOCALES } from "@/i18n/config";
 import { matchesAnimeByIds, matchesTeenByIds } from "./genreTaxonomy";
 import { loadUserPrefs } from "@/lib/userPrefs/store";
+import { BLEACH_TMDB_ID, bleachToTmdb, bleachFromTmdb, bleachSeasonSummaries, type BleachEpisodeOrder } from "./bleachEpisodeOrder";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -648,7 +649,10 @@ export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
     genres: (data.genres ?? []).map((g) => g.name),
     status: data.status ?? "",
     isAnime: !!data.origin_country?.includes("JP") && !!data.genres?.some((g) => g.name === "Animation"),
-    seasons: (data.seasons ?? [])
+    seasons: (data.id === BLEACH_TMDB_ID ? bleachSeasonSummaries((data.seasons ?? []).map((s) => ({
+      seasonNumber: s.season_number, name: s.name, episodeCount: s.episode_count,
+      airDate: s.air_date ?? null, posterPath: s.poster_path ?? null, episodes: [],
+    }))) : (data.seasons ?? [])
       .map((s) => ({
         seasonNumber: s.season_number,
         name: s.name,
@@ -656,23 +660,31 @@ export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
         airDate: s.air_date ?? null,
         posterPath: s.poster_path ?? null,
         episodes: [],
-      })),
+      }))),
     originalTitle: data.original_name || data.name,
   };
 }
 
-export async function getSeason(tmdbId: number, seasonNumber: number, preferLanguage?: string): Promise<MetaSeason | null> {
-  const data = await tmdbGet<RawSeasonDetail>(`/tv/${tmdbId}/season/${seasonNumber}`, {}, toTmdbLanguage(preferLanguage));
+export async function getSeason(tmdbId: number, seasonNumber: number, preferLanguage?: string, opts?: { bleachOrder?: BleachEpisodeOrder }): Promise<MetaSeason | null> {
+  const operationalBleach = tmdbId === BLEACH_TMDB_ID && opts?.bleachOrder !== "tmdb";
+  const mapped = operationalBleach ? bleachToTmdb(seasonNumber, 1) : null;
+  if (operationalBleach && !mapped) return null;
+  const sourceSeason = mapped?.seasonNumber ?? seasonNumber;
+  const data = await tmdbGet<RawSeasonDetail>(`/tv/${tmdbId}/season/${sourceSeason}`, {}, toTmdbLanguage(preferLanguage));
   if (!data) return null;
+  const episodes = operationalBleach
+    ? (data.episodes ?? []).filter((e) => bleachFromTmdb(e.season_number, e.episode_number)?.seasonNumber === seasonNumber)
+    : data.episodes ?? [];
   return {
-    seasonNumber: data.season_number,
-    name: data.name,
-    episodeCount: data.episodes?.length ?? 0,
-    airDate: data.air_date ?? null,
+    seasonNumber,
+    name: operationalBleach && seasonNumber > 0 ? (seasonNumber === 17 ? "Bleach: Thousand-Year Blood War" : `Bleach · ${seasonNumber}`) : data.name,
+    episodeCount: episodes.length,
+    airDate: episodes[0]?.air_date ?? data.air_date ?? null,
     posterPath: data.poster_path ?? null,
-    episodes: (data.episodes ?? []).map((e) => ({
-      seasonNumber: e.season_number,
-      episodeNumber: e.episode_number,
+    episodes: episodes.map((e) => ({
+      seasonNumber,
+      episodeNumber: operationalBleach ? bleachFromTmdb(e.season_number, e.episode_number)!.episodeNumber : e.episode_number,
+      ...(operationalBleach ? { tmdbSeasonNumber: e.season_number, tmdbEpisodeNumber: e.episode_number } : {}),
       title: e.name,
       airDate: e.air_date ?? null,
       overview: e.overview ?? "",
@@ -1092,7 +1104,7 @@ export async function getTasteMetadata(type: "movie" | "series", tmdbId: number)
   };
 }
 
-export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string, opts?: { youtubeTrailerSearch?: boolean }): Promise<MetaDetail | null> {
+export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string, opts?: { youtubeTrailerSearch?: boolean; bleachOrder?: BleachEpisodeOrder }): Promise<MetaDetail | null> {
   const kind = type === "movie" ? "movie" : "tv";
   const [data, watchProviders] = await Promise.all([
     // Previously always fetched in fr-FR regardless of the interface's own
@@ -1187,12 +1199,14 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     collection: data.belongs_to_collection
       ? { id: data.belongs_to_collection.id, name: data.belongs_to_collection.name, posterPath: data.belongs_to_collection.poster_path ?? null }
       : null,
-    seasons: type === "series" ? (data.seasons ?? []).map((s) => ({
+    seasons: type === "series" ? (tmdbId === BLEACH_TMDB_ID && opts?.bleachOrder !== "tmdb" ? bleachSeasonSummaries((data.seasons ?? []).map((s) => ({
+      seasonNumber: s.season_number, name: s.name, episodeCount: s.episode_count, airDate: s.air_date ?? null,
+    }))) : (data.seasons ?? []).map((s) => ({
       seasonNumber: s.season_number,
       name: s.name,
       episodeCount: s.episode_count,
       airDate: s.air_date,
-    })) : undefined,
+    }))) : undefined,
   };
 }
 

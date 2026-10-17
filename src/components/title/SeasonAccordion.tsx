@@ -12,6 +12,7 @@ import type { LibraryStatus, LibraryFile } from "@/lib/library/types";
 import { MediaBadges } from "@/components/library/MediaBadges";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { isVisibleSeason } from "@/lib/settings/seasonVisibility";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -548,7 +549,7 @@ export function SeasonAccordion({
   watchlistedEpisodes?: Set<string>;
   onToggleWatchlistEpisode?: (seasonNumber: number, episodeNumber: number, title: string, stillPath?: string | null) => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState<number | null>(null);
   const { enabled: includeSpecials } = useSpecialEpisodes();
 
@@ -585,16 +586,18 @@ export function SeasonAccordion({
     );
   }, [seasons, librarySeasons, t, includeSpecials]);
 
-  const sorted = [...effectiveSeasons].sort((a, b) => b.seasonNumber - a.seasonNumber);
+  const bleachAiredOrder = tmdbId === BLEACH_TMDB_ID && effectiveSeasons.some((s) => s.seasonNumber > 2);
+  const sorted = [...effectiveSeasons].sort((a, b) => bleachAiredOrder ? a.seasonNumber - b.seasonNumber : b.seasonNumber - a.seasonNumber);
 
   return (
     <div className="space-y-2">
       {sorted.map((season) => {
         const libSeason = librarySeasons?.find((s) => s.seasonNumber === season.seasonNumber);
         return (
+          <div key={season.seasonNumber}>
+            {bleachAiredOrder && (season.seasonNumber === 1 || season.seasonNumber === 17) && <h3 className="mb-3 mt-5 text-base font-semibold text-ink">{t(season.seasonNumber === 17 ? "bleach.sequel" : "bleach.original")}</h3>}
           <SeasonRow
-            key={season.seasonNumber}
-            season={season}
+            season={bleachAiredOrder && season.seasonNumber > 0 && season.seasonNumber < 17 ? { ...season, name: `${t("title.season")} ${season.seasonNumber}` } : season}
             libSeason={libSeason}
             seriesId={seriesId}
             tmdbId={tmdbId}
@@ -613,6 +616,7 @@ export function SeasonAccordion({
             watchlistedEpisodes={watchlistedEpisodes}
             onToggleWatchlistEpisode={onToggleWatchlistEpisode}
           />
+          </div>
         );
       })}
     </div>

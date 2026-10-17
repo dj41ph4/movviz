@@ -121,7 +121,8 @@ test("Gintama: real series creation and queued search fall back from integral to
     // rules. Replace I/O boundaries only; fixtures never touch user data/indexers.
     const keep = new Set(['@/lib/library/types', '@/lib/library/qualityProfiles', '@/lib/naming/parser', '@/lib/naming/types',
       '@/lib/library/matching', '@/lib/library/locks', '@/lib/library/releaseSchedule', '@/lib/indexers/categories',
-      '@/lib/library/autoGrabSeries', '@/lib/requests/queueAcquisition']);
+      '@/lib/library/autoGrabSeries', '@/lib/requests/queueAcquisition',
+      '@/lib/library/bleachEngine', '@/lib/library/bleachRelease', '@/lib/metadata/bleachEpisodeOrder']);
     const modules = new Map();
     for (const file of ['src/lib/library/autoGrabSeries.ts', 'src/lib/requests/requestMedia.ts', 'src/lib/requests/queueAcquisition.ts']) {
       for (const m of readFileSync(file, 'utf8').matchAll(/import \\{([^}]+)\\} from "([^"]+)";/g)) {
@@ -135,6 +136,7 @@ test("Gintama: real series creation and queued search fall back from integral to
     }
     modules.get('@/lib/metadata/tmdb').getSeries = async () => ({ tmdbId: 57041, title: 'Gintama', originalTitle: '銀魂', year: 2006,
       isAnime: true, seasons: [1, 2].map(seasonNumber => ({ seasonNumber, name: 'Saison ' + seasonNumber })) });
+    modules.get('@/lib/metadata/tmdb').findByExternalId = async () => { throw Error('unexpected external identity lookup for Gintama'); };
     for (const [name, namedExports] of modules) mock.module(name, { namedExports });
     globalThis.fetch = async (url, options) => {
       assert.equal(url, 'http://engine.fixture/torrents');

@@ -17,6 +17,8 @@ import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { languageSatisfies, MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN, MAX_LIVE_CODEC_SEARCHES_PER_RUN, yieldToEventLoop, codecScore, parseReleases } from "@/lib/library/searchAndReplace";
 import type { IndexerRelease } from "@/lib/indexers/types";
+import { needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
 
 /**
  * Episode-level counterpart to searchAndReplace.ts's language-upgrade path —
@@ -117,6 +119,7 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
   let liveCodecSearchesUsed = 0;
 
   for (const { series, seasonNumber, episodeNumber, file } of eligibleEpisodes(loadSeries())) {
+    if (needsBleachRepair(series)) continue;
     await yieldToEventLoop();
     const currentBasename = file.path.replace(/^.*[/\\]/, "");
     const currentLanguage = file.language ?? parseRelease(currentBasename).language;
@@ -261,6 +264,7 @@ export async function grabEpisodeUpgradeCandidate(seriesId: string, seasonNumber
   const season = series?.seasons.find((s) => s.seasonNumber === seasonNumber);
   const episode = season?.episodes.find((e) => e.episodeNumber === episodeNumber);
   if (!series || !episode?.file) return { ok: false, error: "not_found" };
+  if (needsBleachRepair(series)) return { ok: false, error: "no_candidate" };
 
   const rules = loadReleaseRules();
   const targetLanguage = rules.preferredLanguageUpgrade;
@@ -290,6 +294,7 @@ export async function grabEpisodeUpgradeCandidate(seriesId: string, seasonNumber
   if ("error" in payload) return { ok: false, error: "engine_unreachable" };
 
   try {
+    const planned = await prepareBleachGrab(encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }), best.release.title, { season: seasonNumber, episode: episodeNumber });
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
       headers: engineHeaders({ "content-type": "application/json" }),
@@ -298,14 +303,15 @@ export async function grabEpisodeUpgradeCandidate(seriesId: string, seasonNumber
         category: "series",
         libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
         title: series.title,
-        episodeTarget: { season: seasonNumber, episode: episodeNumber },
+        episodeTarget: planned.single,
       }),
       signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
     });
     const torrent = await res.json();
     if (!res.ok) return { ok: false, error: "engine_unreachable" };
+    if (planned.targets) markBleachGrabTargets(seriesId, torrent.infoHash, planned.targets);
 
-    const newSeasons = series.seasons.map((s) =>
+    const newSeasons = (getSeries(seriesId) ?? series).seasons.map((s) =>
       s.seasonNumber !== seasonNumber
         ? s
         : { ...s, episodes: s.episodes.map((e) => (e.episodeNumber === episodeNumber ? { ...e, status: "downloading" as const, activeInfoHash: torrent.infoHash } : e)) }

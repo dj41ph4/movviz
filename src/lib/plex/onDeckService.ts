@@ -12,6 +12,7 @@ import { getMovie, getSeason, getSeries } from "@/lib/metadata/tmdb";
 import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
 import type { User } from "@/lib/auth/types";
 import type { PlexOnDeckItem } from "./client";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 
 /** Vrai si offsetMs est déjà assez proche de la fin de durationMs pour
  *  compter comme « terminé » — même règle pour toute source de progression
@@ -145,6 +146,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     if (d.type === "movie") { onDeck.push(d); continue; }
     const found = findEpisodeByPlexLocator(d.ratingKey, d.grandparentRatingKey, d.seasonNumber, d.episodeNumber);
     const tmdbId = found?.series.tmdbId ?? (d.grandparentRatingKey ? metadataByKey.get(d.grandparentRatingKey)?.tmdbId : null);
+    if (tmdbId === BLEACH_TMDB_ID && !found) continue;
     const seasonNumber = found?.season.seasonNumber ?? d.seasonNumber;
     const episodeNumber = found?.episode.episodeNumber ?? d.episodeNumber;
     if (tmdbId == null || seasonNumber == null || episodeNumber == null) continue;
@@ -169,6 +171,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     if (d.type !== "episode" || d.viewOffset > 0 || !d.duration) continue;
     const found = findEpisodeByPlexLocator(d.ratingKey, d.grandparentRatingKey, d.seasonNumber, d.episodeNumber);
     const tmdbId = found?.series.tmdbId ?? (d.grandparentRatingKey ? metadataByKey.get(d.grandparentRatingKey)?.tmdbId : null);
+    if (tmdbId === BLEACH_TMDB_ID && !found) continue;
     const season = found?.season.seasonNumber ?? d.seasonNumber;
     const episode = found?.episode.episodeNumber ?? d.episodeNumber;
     if (tmdbId == null || season == null || episode == null) continue;

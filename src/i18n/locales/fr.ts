@@ -1,5 +1,23 @@
 /** Dictionnaire français — langue principale et source de vérité des clés. */
 export const fr = {
+  bleach: {
+    previewFailed: "La vérification des saisons est indisponible. Vous pouvez réessayer.",
+    retry: "Vérifier à nouveau",
+    blockDownload: "Un téléchargement Bleach est en cours. Attendez sa fin.",
+    blockPlayback: "Une lecture Bleach est en cours. Fermez le lecteur avant de réparer.",
+    blockHistory: "Certains états de suivi ont une numérotation ambiguë ou une synchronisation en attente. Un examen est nécessaire pour les préserver.",
+    blockInspection: "La vérification des données n’est pas complète. La fiche est conservée sans changement.",
+    original: "Bleach — série originale (2004–2012)",
+    sequel: "Bleach: Thousand-Year Blood War (depuis 2022)",
+    repairTitle: "Remettre les saisons de Bleach dans le bon ordre",
+    repairHint: "L’ancienne fiche mélange le découpage de Bleach et de Thousand-Year Blood War. Un aperçu vérifie les fichiers et le suivi avant de réorganiser les saisons. Les recherches restent suspendues jusque-là.",
+    repair: "Vérifier et réparer les saisons",
+    repairConfirm: "Réorganiser {episodes} épisodes en 16 saisons originales et une saison Thousand-Year Blood War ? Les {files} fichiers et {watched} états de suivi vérifiés sont conservés. Une copie de l’ancienne fiche sera sauvegardée.",
+    repaired: "Les saisons de Bleach sont réorganisées.",
+    repairFailed: "La réparation n’a pas été appliquée. Relancez la vérification.",
+    repairBlocked: "La réparation nécessite une vérification : suivi ambigu, téléchargement ou lecture en cours. Aucun changement appliqué.",
+    adminRepair: "Un administrateur peut vérifier et réparer les saisons.",
+  },
   tizen: {
     missingOne: "{count} manquant",
     account: "Compte",

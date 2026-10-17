@@ -1,9 +1,11 @@
-import { batchTmdbIds, getLibrarySections, getSectionRawItemsAtomic, getShowEpisodesAtomic } from "./client";
+import { batchTmdbIds, getLibrarySections, getSectionRawItemsAtomic, getShowEpisodesAtomic, getPlexEpisodeOrdering } from "./client";
 import { loadPlexConfig } from "./store";
 import type { PlexUserContext } from "./plexUserContext";
 import type { CanonicalMediaIdentity } from "./mediaIdentityMap";
 import { upsertMapping } from "./mediaIdentityMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { BLEACH_TMDB_ID, needsBleachRepair, projectBleachPlexEpisodes } from "@/lib/metadata/bleachEpisodeOrder";
+import { getSeriesByTmdbId } from "@/lib/library/store";
 
 export type EpisodeResolveReason =
   | "RESOLVED_RATING_KEY"
@@ -73,6 +75,36 @@ type RawEpisodeEvent = {
  * Never fuzzy match silently.
  */
 export async function resolveEpisode(
+  ctx: PlexUserContext,
+  raw: RawEpisodeEvent,
+  opts?: { strict?: boolean; requireRatingKey?: boolean }
+): Promise<EpisodeResolveResult> {
+  const result = await resolveEpisodeRaw(ctx, raw, opts);
+  if (result.canonical?.type !== "episode" || result.canonical.tmdbShowId !== BLEACH_TMDB_ID) return result;
+  const series = getSeriesByTmdbId(BLEACH_TMDB_ID);
+  // Do not add more ambiguous tracking while the old record awaits repair.
+  if (series && needsBleachRepair(series)) {
+    if (result.canonical.seasonNumber === 0 || (result.canonical.seasonNumber === 1 && result.canonical.episodeNumber <= 20)) return result;
+    return { status: "UNRESOLVED", reason: "UNRESOLVED_AMBIGUOUS_MATCH" };
+  }
+  const linked = result.ratingKey ? findEpisodeByPlexRatingKeyCached(result.ratingKey) : null;
+  if (linked) return { ...result, canonical: { type: "episode", tmdbShowId: BLEACH_TMDB_ID, seasonNumber: linked.season, episodeNumber: linked.episode } };
+  const showKey = raw.grandparentRatingKey ?? raw.grandparentKey?.split("/").pop();
+  if (!showKey || !result.ratingKey) return { status: "UNRESOLVED", reason: "UNRESOLVED_AMBIGUOUS_MATCH" };
+  const cfg = loadPlexConfig();
+  const snapshot = await getShowEpisodesAtomic(cfg, showKey, ctx.serverToken);
+  if (!snapshot.complete) return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND" };
+  const ordering = await getPlexEpisodeOrdering(cfg, showKey, ctx.serverToken);
+  if (!ordering) return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND" };
+  const normalized = projectBleachPlexEpisodes(ordering.title, snapshot.items, ordering.order).items;
+  const episode = normalized?.find((item) => item.ratingKey === result.ratingKey);
+  if (!episode) return { status: "UNRESOLVED", reason: "UNRESOLVED_AMBIGUOUS_MATCH" };
+  const canonical = { type: "episode", tmdbShowId: BLEACH_TMDB_ID, seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber } as const;
+  upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: result.ratingKey, canonical, updatedAt: Date.now() });
+  return { ...result, canonical };
+}
+
+async function resolveEpisodeRaw(
   ctx: PlexUserContext,
   raw: RawEpisodeEvent,
   opts?: { strict?: boolean; requireRatingKey?: boolean }
@@ -155,7 +187,7 @@ export async function resolveEpisode(
           if (tmdbShowId != null) {
             const realKey = match.ratingKey;
             const canonical = { type: "episode", tmdbShowId, seasonNumber: raw.parentIndex, episodeNumber: raw.index } as const;
-            if (realKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
+            if (realKey && tmdbShowId !== BLEACH_TMDB_ID) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
             return { status: "RESOLVED", canonical, ratingKey: realKey, reason: "RESOLVED_SXXEXX" };
           }
         } else {
@@ -176,7 +208,7 @@ export async function resolveEpisode(
                 // The title fallback finds the Plex key.  It must not silently
                 // renumber an already reliable Movviz episode identity.
                 const canonical = movvizCanonical ?? { type: "episode", tmdbShowId, seasonNumber: exact[0].seasonNumber, episodeNumber: exact[0].episodeNumber } as const;
-                if (realKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
+                if (realKey && tmdbShowId !== BLEACH_TMDB_ID) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
                 recordSearchLog("info", "plex.resolve.episode", `plex.resolve.episode titleFallback user=${ctx.movvizUserId} show=${raw.grandparentTitle ?? "?"} history S${raw.parentIndex}E${raw.index} title="${raw.title}" plex S${exact[0].seasonNumber}E${exact[0].episodeNumber} exactTitleMatches=1`);
                 return { status: "RESOLVED", canonical, ratingKey: realKey, reason: "RESOLVED_SXXEXX" };
               }
@@ -218,7 +250,7 @@ export async function resolveEpisode(
           if (m) {
             const realKey = m.ratingKey;
             const canonical = movvizCanonical;
-            if (realKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
+            if (realKey && tmdbShowId !== BLEACH_TMDB_ID) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realKey, canonical, updatedAt: Date.now() });
             return { status: "RESOLVED", canonical, ratingKey: realKey, reason: "RESOLVED_SXXEXX" };
           }
         }
@@ -361,8 +393,8 @@ async function resolveViaShowLookup(
   const realRatingKey = match.ratingKey || ratingKey || undefined;
   // Upsert mapping for future fast path on the REAL key (and legacy key if different)
   const canonical = { type: "episode", tmdbShowId, seasonNumber: season, episodeNumber: episode } as const;
-  if (realRatingKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realRatingKey, canonical, updatedAt: Date.now() });
-  if (ratingKey && ratingKey !== realRatingKey) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey, canonical, updatedAt: Date.now() });
+  if (realRatingKey && tmdbShowId !== BLEACH_TMDB_ID) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey: realRatingKey, canonical, updatedAt: Date.now() });
+  if (ratingKey && ratingKey !== realRatingKey && tmdbShowId !== BLEACH_TMDB_ID) upsertMapping({ machineIdentifier: ctx.machineIdentifier, ratingKey, canonical, updatedAt: Date.now() });
 
   return {
     status: "RESOLVED",

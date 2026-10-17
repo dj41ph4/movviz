@@ -13,6 +13,8 @@ import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeries, Libr
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { getBleachPlexSnapshot, type BleachPlexSnapshot } from "./bleachSnapshot";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
 import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
@@ -158,10 +160,12 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
 
   const seenSeriesTmdbIds = new Set<number>();
   const seriesSince = force ? undefined : state.seriesLastSyncedAt || undefined;
+  let bleachSnapshot: Promise<BleachPlexSnapshot | null> | undefined;
+  const bleachPass = { processed: false, snapshot: () => (bleachSnapshot ??= getBleachPlexSnapshot(cfg, adminToken)) };
   for (const section of sections.filter((s) => s.type === "show")) {
     await yieldToUser("sync Plex séries");
     setSyncStatus({ phase: "series", sectionTitle: section.title });
-    const r = await syncShowSection(cfg, adminToken, section, seriesSince, seenSeriesTmdbIds);
+    const r = await syncShowSection(cfg, adminToken, section, seriesSince, seenSeriesTmdbIds, bleachPass);
     seriesAdded += r.added;
     seriesMatched += r.matched;
     setSyncStatus({ seriesAdded });
@@ -689,7 +693,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
   return { added, matched };
 }
 
-async function syncShowSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined, seenTmdbIds: Set<number>) {
+async function syncShowSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined, seenTmdbIds: Set<number>, bleachPass: { processed: boolean; snapshot: () => Promise<BleachPlexSnapshot | null> }) {
   const shows = await getSectionItems(cfg, section.key, token, { sinceUnixSeconds: since });
   let added = 0, matched = 0;
 
@@ -699,13 +703,19 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     setSyncStatus({ seriesProcessed: getPlexSyncStatus().seriesProcessed + 1 });
     if (show.tmdbId == null) continue;
     seenTmdbIds.add(show.tmdbId);
-    const episodes = await getShowEpisodes(cfg, show.ratingKey, token);
+    if (show.tmdbId === BLEACH_TMDB_ID && bleachPass.processed) continue;
+    if (show.tmdbId === BLEACH_TMDB_ID) bleachPass.processed = true;
+    const bleach = show.tmdbId === BLEACH_TMDB_ID ? await bleachPass.snapshot() : null;
+    const normalized = show.tmdbId === BLEACH_TMDB_ID ? bleach?.items : await getShowEpisodes(cfg, show.ratingKey, token);
+    if (!normalized) continue;
+    const episodes = normalized;
     // Signal markers pour CHAQUE épisode présent chez Plex (même boucle
     // unique : couvre les séries nouvelles ET existantes en un seul endroit).
     for (const pe of episodes) {
       if (pe.ratingKey) registerMarkerCandidate(pe.ratingKey, pe.updatedAt);
     }
     const existing = getSeriesByTmdbId(show.tmdbId);
+    if (existing && needsBleachRepair(existing)) continue;
 
     if (!existing) {
       // Même chemin d'épisode = même série → on fusionne au lieu de créer un
@@ -769,6 +779,8 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
       addSeries({
         id: newSeriesId,
         tmdbId: meta.tmdbId,
+        ...(meta.tmdbId === BLEACH_TMDB_ID ? { episodeOrder: "tvdb" as const } : {}),
+        ...(meta.tmdbId === BLEACH_TMDB_ID ? { tvdbId: meta.tvdbId, isAnime: true } : {}),
         imdbId: meta.imdbId,
         title: meta.title,
         year: meta.year,
@@ -812,6 +824,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             if (ep.file && hasValidLocalFile(ep.file) && ep.playbackSource !== "movviz") { changed = true; break; }
             if (ep.file && ep.file.language === undefined) needsLanguageBackfill = true;
           } else {
+            if (bleach && !bleach.complete) continue;
             if (ep.status === "available" || ep.file || ep.plexRatingKey) { changed = true; break; }
           }
         }
@@ -850,6 +863,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             }
             return ep;
           }
+          if (bleach && !bleach.complete) return ep;
           if (ep.status === "available" || ep.file || ep.plexRatingKey) {
             if (hasValidLocalFile(ep.file)) {
               return {
@@ -889,6 +903,7 @@ export async function reconcileSeriesPlayback(
 ): Promise<LibrarySeries | null> {
   const series = loadSeries().find((item) => item.id === seriesId);
   if (!series) return null;
+  if (needsBleachRepair(series)) return series;
   const matches = (ep: LibraryEpisode) =>
     (opts?.seasonNumber == null || ep.seasonNumber === opts.seasonNumber) &&
     (opts?.episodeNumber == null || ep.episodeNumber === opts.episodeNumber);
@@ -918,7 +933,8 @@ export async function reconcileSeriesPlayback(
 
   const cfg = loadPlexConfig();
   if (needsPlex && cfg.hostname && cfg.adminToken && series.plexRatingKey) {
-    const plexEpisodes = await getShowEpisodes(cfg, series.plexRatingKey, cfg.adminToken);
+    const plexEpisodes = series.tmdbId === BLEACH_TMDB_ID ? (await getBleachPlexSnapshot(cfg, cfg.adminToken))?.items : await getShowEpisodes(cfg, series.plexRatingKey, cfg.adminToken);
+    if (!plexEpisodes) return series;
     seasons = seasons.map((season) => ({
       ...season,
       episodes: season.episodes.map((ep) => {
@@ -977,6 +993,7 @@ function markMissingFromPlex(seenMovieTmdbIds: Set<number>, seenSeriesTmdbIds: S
   }
 
   for (const series of loadSeries()) {
+    if (needsBleachRepair(series)) continue;
     if (series.plexRatingKey && !seenSeriesTmdbIds.has(series.tmdbId)) {
       const newSeasons = series.seasons.map((s) => ({
         ...s,

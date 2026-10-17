@@ -9,6 +9,9 @@ import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import { markManualGrab } from "@/lib/library/manualGrab";
 import { isBlockedRelease } from "@/lib/library/blockedReleases";
 import { parseRelease } from "@/lib/naming/parser";
+import { BLEACH_TMDB_ID, needsBleachRepair, bleachReleaseCoordinate } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachReleaseSource, isBleachSequelTitle } from "@/lib/library/bleachRelease";
+import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +24,7 @@ export const dynamic = "force-dynamic";
  * "missing" (wanted re-grabs, import misattribution). See setEpisodesStatus
  * in autoGrabSeries.ts for the same lesson.
  */
-function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replacingInfoHash?: string | null) {
+function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replacingInfoHash?: string | null, bleachSource?: { seasonNumber: number; episodeNumber: number } | null) {
   const ref = decodeLibraryRef(libraryRefStr);
   if (!ref) return;
   const eligible = (ep: { status: string; activeInfoHash: string | null }) =>
@@ -45,7 +48,7 @@ function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replaci
     const episodes = s.episodes.map((e) => {
       if (ref.kind === "episode" && e.episodeNumber !== ref.episode) return e;
       if (e.monitored && eligible(e)) {
-        return { ...e, status: "downloading" as const, activeInfoHash: infoHash };
+        return { ...e, status: "downloading" as const, activeInfoHash: infoHash, activeReleaseEpisode: bleachSource ?? undefined };
       }
       return e;
     });
@@ -67,6 +70,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const libraryRef = typeof body.libraryRef === "string" ? body.libraryRef : null;
   const decodedRef = libraryRef ? decodeLibraryRef(libraryRef) : null;
+  const linkedSeries = decodedRef && decodedRef.kind !== "movie" ? getSeries(decodedRef.seriesId) : null;
+  if (linkedSeries && needsBleachRepair(linkedSeries)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
 
   // The libraryRef (when present) is the source of truth for what this grab
   // actually is — it's what determines the download's destination folder, so
@@ -82,9 +87,15 @@ export async function POST(req: NextRequest) {
   // safety net for legacy clients and races, but the normal path must make the
   // mismatch visible rather than downloading a release under a false link.
   const releaseTitle = typeof body.releaseTitle === "string" ? body.releaseTitle : "";
+  const bleachSource = linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" ? bleachReleaseSource(releaseTitle, decodedRef.season, decodedRef.episode) : null;
+  if (linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" && isBleachSequelTitle(releaseTitle)) {
+    const parsed = parseRelease(releaseTitle);
+    const mapped = bleachReleaseCoordinate(releaseTitle, parsed.season, parsed.episode);
+    if (mapped?.seasonNumber !== decodedRef.season || mapped?.episodeNumber !== decodedRef.episode) return NextResponse.json({ error: "season_mismatch" }, { status: 422 });
+  }
   if (decodedRef?.kind === "season" && releaseTitle) {
     const parsedSeason = parseRelease(releaseTitle).season;
-    if (parsedSeason != null && parsedSeason !== decodedRef.season) {
+    if (parsedSeason != null && parsedSeason !== decodedRef.season && !(linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef.season === 17 && isBleachSequelTitle(releaseTitle))) {
       return NextResponse.json({
         error: "season_mismatch",
         expectedSeason: decodedRef.season,
@@ -129,7 +140,7 @@ export async function POST(req: NextRequest) {
   let episodeTarget: { season: number; episode: number } | undefined;
   let episodeTargets: { season: number; episode: number }[] | undefined;
   if (decodedRef?.kind === "episode") {
-    episodeTarget = { season: decodedRef.season, episode: decodedRef.episode };
+    episodeTarget = bleachSource ? { season: bleachSource.seasonNumber, episode: bleachSource.episodeNumber } : { season: decodedRef.season, episode: decodedRef.episode };
   } else if (decodedRef?.kind === "season" || decodedRef?.kind === "series") {
     const series = getSeries(decodedRef.seriesId);
     if (series) {
@@ -148,6 +159,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const planned = await prepareBleachGrab(libraryRef ?? "", releaseTitle, episodeTarget, episodeTargets);
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
       headers: engineHeaders({ "content-type": "application/json" }),
@@ -157,13 +169,16 @@ export async function POST(req: NextRequest) {
         libraryRef,
         title: body.title ?? null,
         year: body.year ?? null,
-        episodeTarget,
-        episodeTargets,
+        episodeTarget: planned.single,
+        episodeTargets: planned.multiple,
       }),
     });
     const data = await res.json();
     const replacingInfoHash = typeof body.replacingInfoHash === "string" ? body.replacingInfoHash : null;
-    if (res.ok && libraryRef && data.infoHash) applyDownloadingStatus(libraryRef, data.infoHash, replacingInfoHash);
+    if (res.ok && libraryRef && data.infoHash) {
+      if (planned.targets && linkedSeries) markBleachGrabTargets(linkedSeries.id, data.infoHash, planned.targets);
+      else applyDownloadingStatus(libraryRef, data.infoHash, replacingInfoHash, bleachSource);
+    }
 
     // Manual grab = user picked this release with their own eyes; the
     // blocklist ("mots interdits") is an AUTOMATIC-search rule and must not

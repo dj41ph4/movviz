@@ -1,0 +1,104 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fsp from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
+import type { LibrarySeries, LibraryEpisode } from "@/lib/library/types";
+
+test("real engine source selection → Plex physical name → operational library import, replacement and replay", async () => {
+  const sandbox = await fsp.mkdtemp(path.join(os.tmpdir(), "movviz-bleach-import-"));
+  const config = path.join(sandbox, "config"), root = path.join(sandbox, "library"), download = path.join(sandbox, "downloads");
+  await Promise.all([config, root, download].map(p => fsp.mkdir(p, { recursive: true })));
+  const previousConfig = process.env.MOVVIZ_CONFIG_DIR, previousFetch = globalThis.fetch;
+  process.env.MOVVIZ_CONFIG_DIR = config;
+  let flush = () => {};
+  try {
+    const store = await import("@/lib/library/store");
+    const { applyImportedFiles, validateBleachImportedFiles } = await import("@/lib/library/applyImportedFiles");
+    const { planBleachEngineTargets, markBleachGrabTargets, prepareBleachGrab } = await import("@/lib/library/bleachEngine");
+    const cache = await import("@/lib/fsJsonCache"); flush = cache.flushPendingJsonWritesSync;
+    const { inspectBleachRepairState } = await import("@/lib/library/bleachRepairState");
+    const { AbstractBackend } = await import("../engine/src/backends/AbstractBackend.mjs");
+    const { movePath } = await import("../engine/src/store.mjs");
+    const oldPath = path.join(root, "Bleach", "Season 17", "Bleach - S17E14.mkv");
+    await fsp.mkdir(path.dirname(oldPath), { recursive: true }); await fsp.writeFile(oldPath, "old TYBW copy");
+    const episode = (seasonNumber: number, episodeNumber: number): LibraryEpisode => ({ seasonNumber, episodeNumber, title: "fixture", airDate: null, monitored: true, status: "missing", activeInfoHash: null, file: null, plexRatingKey: null });
+    const original = episode(2, 1);
+    const sequel = episode(17, 14); sequel.file = { path: oldPath, size: 13, addedAt: 1, quality: "old", resolution: null, videoCodec: null, audioCodec: null, hdr: null, source: null }; sequel.status = "available";
+    store.addSeries({ id: "sr_bleach_test", tmdbId: 30984, tvdbId: 74796, title: "Bleach", year: 2004, episodeOrder: "tvdb", monitored: true, qualityProfileId: "default", addedAt: 1, seasons: [
+      { seasonNumber: 2, name: "Original", monitored: true, episodes: [original] },
+      { seasonNumber: 11, name: "Original", monitored: true, episodes: [episode(11, 1)] },
+      { seasonNumber: 17, name: "TYBW", monitored: true, episodes: Array.from({ length: 26 }, (_, i) => i === 13 ? sequel : episode(17, i + 1)) },
+    ] } as LibrarySeries);
+    const title = "Bleach.Thousand-Year.Blood.War.The.Separation.S02E01.1080p.WEB-DL.x265";
+    const targets = planBleachEngineTargets([{ season: 17, episode: 14 }], title, "tmdbAiring");
+    assert.deepEqual(targets[0], { season: 2, episode: 1, library: { season: 17, episode: 14 }, placement: { season: 2, episode: 14 } });
+    assert.deepEqual(planBleachEngineTargets([{ season: 11, episode: 1 }], "Bleach.S11.COMPLETE", "tmdbAiring")[0].placement, { season: 1, episode: 206 });
+    assert.equal(planBleachEngineTargets([{ season: 17, episode: 1 }], "Bleach.S02.COMPLETE", "tmdbAiring").length, 0);
+    const part = planBleachEngineTargets(Array.from({ length: 40 }, (_, i) => ({ season: 17, episode: i + 1 })), "Bleach.Thousand-Year.Blood.War.The.Separation.S02.COMPLETE", "tmdbAiring");
+    assert.equal(part.length, 13); assert.equal(part[0].library?.episode, 14); assert.equal(part.at(-1)?.library?.episode, 26);
+    let postCount = 0, outdated = false;
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/health")) return Response.json({ capabilities: outdated ? {} : { episodePlacementV1: true } });
+      if (url.includes("/api/library/import")) {
+        postCount++;
+        const body = JSON.parse(String(init?.body));
+        const result = await applyImportedFiles({ kind: "episode", seriesId: "sr_bleach_test", season: 17, episode: 14 }, body.files, body.infoHash);
+        return Response.json(result);
+      }
+      if (url.endsWith("/instances")) return Response.json({ instances: [{ completedPath: root }] });
+      return Response.json({});
+    };
+    outdated = true;
+    await assert.rejects(prepareBleachGrab("episode:sr_bleach_test:17:14", title, targets[0]), /bleach_engine_update_required/);
+    outdated = false;
+    markBleachGrabTargets("sr_bleach_test", "fixture-hash", targets);
+    const pending = store.getSeries("sr_bleach_test")!.seasons.find(s => s.seasonNumber === 17)!.episodes[13];
+    assert.deepEqual(pending.activeReleaseEpisode, { seasonNumber: 2, episodeNumber: 1 });
+    const sourceName = `${title}.mkv`, source = path.join(download, sourceName);
+    await fsp.writeFile(source, "actual fixture TYBW bytes");
+    const backend = new AbstractBackend({ id: "bleach-test", category: "series", completedPath: root, downloadPath: download, seedRatio: 0 });
+    backend.meta.set("fixture-hash", { title: "Bleach", libraryRef: "episode:sr_bleach_test:17:14", episodeTarget: targets[0], addedAt: 1 });
+    await backend._import({ infoHash: "fixture-hash", name: sourceName, files: [{ name: sourceName, path: sourceName, length: Buffer.byteLength("actual fixture TYBW bytes"), selected: true }] }, movePath);
+    assert.equal(postCount, 1);
+    const installed = store.getSeries("sr_bleach_test")!.seasons.find(s => s.seasonNumber === 17)!.episodes[13];
+    assert.equal(installed.status, "available"); assert.match(installed.file!.path, /Season 02.*S02E14/);
+    assert.equal(await fsp.readFile(installed.file!.path, "utf8"), "actual fixture TYBW bytes");
+    await assert.rejects(fsp.access(oldPath));
+    assert.equal(store.getSeries("sr_bleach_test")!.seasons[0].episodes[0].status, "missing");
+    const files = backend.meta.get("fixture-hash").movedFiles;
+    assert.equal(files[0].season, 17); assert.equal(files[0].episode, 14); assert.equal(files[0].originalPath, sourceName);
+    assert.equal(await backend._notifyLibrary("episode:sr_bleach_test:17:14", files, "fixture-hash"), true);
+    assert.equal(store.getSeries("sr_bleach_test")!.seasons.find(s => s.seasonNumber === 17)!.episodes[13].file!.path, installed.file!.path);
+    // A collision suffix stays on disk; the callback never moves a seeded target.
+    const collision = installed.file!.path.replace(/\.mkv$/, " (2).mkv");
+    await fsp.writeFile(collision, "upgraded fixture TYBW");
+    markBleachGrabTargets("sr_bleach_test", "upgrade-hash", targets);
+    const collisionFile = { ...files[0], path: collision, size: Buffer.byteLength("upgraded fixture TYBW") };
+    await applyImportedFiles({ kind: "episode", seriesId: "sr_bleach_test", season: 17, episode: 14 }, [collisionFile], "upgrade-hash");
+    assert.equal(store.getSeries("sr_bleach_test")!.seasons.find(s => s.seasonNumber === 17)!.episodes[13].file!.path, collision);
+    assert.equal(await fsp.readFile(collision, "utf8"), "upgraded fixture TYBW");
+    // Validate a contiguous combined episode callback, including the parser's
+    // terminal -E15 release-group edge case.
+    markBleachGrabTargets("sr_bleach_test", "range-hash", planBleachEngineTargets([{ season: 17, episode: 14 }, { season: 17, episode: 15 }], "Bleach.Thousand-Year.Blood.War.The.Separation.S02.COMPLETE", "tmdbAiring"));
+    const rangePath = path.join(root, "Bleach", "Season 02", "Bleach - S02E14-E15.mkv"); await fsp.writeFile(rangePath, "combined");
+    const range = { ...collisionFile, path: rangePath, size: 8, episodeEnd: 15, episodePlacement: { source: { season: 2, episode: 1, episodeEnd: 2 }, library: { season: 17, episode: 14, episodeEnd: 15 }, placement: { season: 2, episode: 14, episodeEnd: 15 } } };
+    const rangeResult = await applyImportedFiles({ kind: "season", seriesId: "sr_bleach_test", season: 17 }, [range], "range-hash");
+    assert.equal(rangeResult.ok, true);
+    assert.equal(store.getSeries("sr_bleach_test")!.seasons.find(s => s.seasonNumber === 17)!.episodes[14].file!.path, rangePath);
+    assert.throws(() => validateBleachImportedFiles(store.getSeries("sr_bleach_test")!, [{ ...range, episodePlacement: { ...range.episodePlacement, library: { season: 17, episode: 1, episodeEnd: Infinity } } }], "range-hash"), /identity_unverified/);
+    assert.throws(() => validateBleachImportedFiles(store.getSeries("sr_bleach_test")!, [{ ...range, episodePlacement: undefined }], "range-hash"), /identity_unverified/);
+    cache.writeJsonCached(path.join(config, "playback-progress.json"), { sessions: { stale: { mediaId: "sr_bleach_test:17:14", lastHeartbeatAt: Date.now() - 25 * 60 * 60_000 } } });
+    flush();
+    assert.equal(inspectBleachRepairState("sr_bleach_test").blockers.includes("active_playback"), false);
+    cache.writeJsonCached(path.join(config, "playback-progress.json"), { sessions: { active: { mediaId: "sr_bleach_test:17:14", lastHeartbeatAt: Date.now() } } });
+    assert.equal(inspectBleachRepairState("sr_bleach_test").blockers.includes("active_playback"), true);
+  } finally {
+    flush(); globalThis.fetch = previousFetch;
+    if (previousConfig == null) delete process.env.MOVVIZ_CONFIG_DIR; else process.env.MOVVIZ_CONFIG_DIR = previousConfig;
+    const target = path.resolve(sandbox), temp = path.resolve(os.tmpdir());
+    if (!target.startsWith(temp + path.sep) || path.dirname(target) !== temp || !path.basename(target).startsWith("movviz-bleach-import-")) throw new Error("unsafe test cleanup");
+    await fsp.rm(target, { recursive: true, force: true });
+  }
+});

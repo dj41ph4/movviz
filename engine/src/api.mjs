@@ -64,6 +64,7 @@ export function createApiServer(engine) {
           hostname: HOSTNAME,
           uptimeMs: Date.now() - started,
           started: engine.started,
+          capabilities: { episodePlacementV1: true },
           // Resource footprint, so the Diagnostics panel can show which
           // process (web vs engine) is actually eating the machine.
           rssBytes: process.memoryUsage().rss,
@@ -145,6 +146,10 @@ export function createApiServer(engine) {
         }
         const infoHash = parts[1];
         if (infoHash) {
+          if (method === "POST" && parts[2] === "retry-episode-placement") {
+            try { return send(res, 200, await engine.retryEpisodePlacementImport(infoHash)); }
+            catch (error) { return send(res, 409, { error: error.message }); }
+          }
           if (method === "GET" && parts.length === 2) {
             const d = engine.detail(infoHash);
             return d ? send(res, 200, d) : send(res, 404, { error: "not found" });

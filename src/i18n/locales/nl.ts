@@ -2,6 +2,24 @@ import type { Dictionary } from "../types";
 
 /** Nederlands woordenboek — weerspiegelt de Franse/Engelse sleutelstructuur. */
 export const nl: Dictionary = {
+  bleach: {
+    previewFailed: "De seizoenscontrole is niet beschikbaar. Je kunt het opnieuw proberen.",
+    retry: "Opnieuw controleren",
+    blockDownload: "Er is een Bleach-download actief. Wacht tot deze klaar is.",
+    blockPlayback: "Bleach wordt afgespeeld. Sluit de speler vóór het herstel.",
+    blockHistory: "Sommige kijkgegevens hebben een onduidelijke nummering of wachten op synchronisatie. Controle is nodig om ze te behouden.",
+    blockInspection: "De gegevenscontrole is onvolledig. De vermelding blijft ongewijzigd.",
+    original: "Bleach — oorspronkelijke serie (2004–2012)",
+    sequel: "Bleach: Thousand-Year Blood War (vanaf 2022)",
+    repairTitle: "Herstel de juiste Bleach-seizoensvolgorde",
+    repairHint: "De oude vermelding vermengt de volgordes van Bleach en Thousand-Year Blood War. Een voorbeeld controleert bestanden en kijkgegevens. Downloads blijven tot het herstel gepauzeerd.",
+    repair: "Seizoenen controleren en herstellen",
+    repairConfirm: "{episodes} afleveringen ordenen in 16 oorspronkelijke seizoenen en één Thousand-Year Blood War-seizoen? De {files} bestanden en {watched} gecontroleerde kijkgegevens blijven behouden. De oude vermelding wordt bewaard.",
+    repaired: "De Bleach-seizoenen zijn opnieuw ingedeeld.",
+    repairFailed: "Het herstel is niet toegepast. Voer de controle opnieuw uit.",
+    repairBlocked: "Controle nodig: onduidelijke kijkgegevens, een actieve download of afspelen. Geen wijzigingen toegepast.",
+    adminRepair: "Een beheerder kan de seizoenen controleren en herstellen.",
+  },
   tizen: {
     missingOne: "{count} ontbreekt",
     account: "Account",

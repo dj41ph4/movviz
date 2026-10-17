@@ -6,6 +6,7 @@ import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, syncPlaybackContext } from "@/lib/userContext/ingest";
 import { emitPlaybackProgress, emitWatchChanged } from "@/lib/events/watchEvents";
 import { resolvePlaybackEpisode } from "./episodeIdentity";
+import { PLAYBACK_ACTIVE_HEARTBEAT_MS } from "./sessionFreshness";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "playback-progress.json");
@@ -345,7 +346,7 @@ export function getPlaybackSession(sessionId: string): PlaybackSession | null { 
  * src/app/api/movviz/activity/route.ts) — the only consumer that needs to
  * list sessions across ALL users rather than one user's own progress.
  */
-export function listActiveHeartbeatSessions(freshWindowMs = 60_000): PlaybackSession[] {
+export function listActiveHeartbeatSessions(freshWindowMs = PLAYBACK_ACTIVE_HEARTBEAT_MS): PlaybackSession[] {
   const now = Date.now();
   return [...sessions().values()].filter((s) => now - s.lastHeartbeatAt <= freshWindowMs);
 }

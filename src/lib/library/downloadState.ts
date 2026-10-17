@@ -13,6 +13,7 @@ import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { parseRelease } from "@/lib/naming/parser";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
 import { withKeyLock } from "@/lib/library/locks";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 
 /**
  * Keeps library "downloading" badges honest. A movie/episode flips to
@@ -110,7 +111,7 @@ function importedFileFromMovedPath(movedTo: string, size: number): ImportedFile 
 }
 
 export async function reconcileDownloadingItems(): Promise<{ released: number }> {
-  const data = await engineGet<{ torrents: { infoHash: string; state: string; movedTo?: string; length?: number }[] }>("torrents");
+  const data = await engineGet<{ torrents: { infoHash: string; state: string; movedTo?: string; movedFiles?: ImportedFile[]; length?: number }[] }>("torrents");
   if (!data) return { released: 0 };
 
   // A torrent that exists but is completed/seeding/paused/stalled is NOT
@@ -155,6 +156,7 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
     }
   }
   for (const series of loadSeries()) {
+    const recoveredHashes = new Set<string>();
     for (const season of series.seasons) {
       for (const ep of season.episodes) {
         if (ep.status === "downloading" && ep.activeInfoHash) {
@@ -162,6 +164,13 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
           const t = torrentsByHash.get(infoHash);
           if (!isActivelyDownloading(infoHash)) {
             if (t?.movedTo) {
+              if (series.tmdbId === BLEACH_TMDB_ID) {
+                if (!recoveredHashes.has(infoHash) && t.movedFiles?.every(file => file.episodePlacement)) {
+                  recoveredHashes.add(infoHash);
+                  await applyImportedFiles({ kind: "series", seriesId: series.id }, t.movedFiles, infoHash);
+                }
+                continue;
+              }
               await applyImportedFiles(
                 { kind: "episode", seriesId: series.id, season: season.seasonNumber, episode: ep.episodeNumber },
                 [importedFileFromMovedPath(t.movedTo, t.length ?? 0)],

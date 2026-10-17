@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { searchAndGrabCompleteSeries } from "@/lib/library/autoGrabSeries";
 import { getSeries } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
+import { needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const series = getSeries(id);
   if (!series) return NextResponse.json({ error: "series not found" }, { status: 404 });
+  if (needsBleachRepair(series)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
 
   enqueueJob("qualityUpgrade", `Intégrale : ${series.title}`, 1, async (setProgress) => {
     await searchAndGrabCompleteSeries(id);

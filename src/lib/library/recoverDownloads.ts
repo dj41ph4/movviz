@@ -11,6 +11,7 @@ import { decodeLibraryRef } from "@/lib/library/types";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
 import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
 import { loadActivityV2, logActivityV2, createImportRef } from "@/lib/activity/v2/store";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 
 /**
  * Shared implementation of the "Récupérer les téléchargements" maintenance
@@ -406,6 +407,8 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
       // discarded here, forcing every file back through fuzzy title matching
       // even when the answer was already known with certainty.
       const allowed = new Map<string, string | null>();
+      const ownerHashes = new Map<string, string>();
+      const retriedPlacements = new Set<string>();
       for (const t of candidateTorrents) {
         let detail: { files?: TorrentDetailFile[] } | null = null;
         try {
@@ -418,7 +421,7 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
         for (const f of detail?.files ?? []) {
           if (!f.path) continue;
           const fp = resolveTorrentFile(inst.downloadPath, f);
-          if (isInside(inst.downloadPath, fp)) allowed.set(fp, t.libraryRef ?? null);
+          if (isInside(inst.downloadPath, fp)) { allowed.set(fp, t.libraryRef ?? null); ownerHashes.set(fp, t.infoHash); }
         }
       }
 
@@ -559,6 +562,20 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
               };
             }
           }
+        }
+        const bleach = refMatch?.kind === "series" ? refMatch.series : series.find(s => s.tmdbId === BLEACH_TMDB_ID && matchesTitle(parsedTitle, s));
+        if (bleach?.tmdbId === BLEACH_TMDB_ID) {
+          const hash = ownerHashes.get(fp);
+          if (!hash) { failed.push({ src: fp, size, reason: "Bleach : identité du téléchargement inconnue, fichier conservé" }); continue; }
+          if (retriedPlacements.has(hash)) continue;
+          retriedPlacements.add(hash);
+          try {
+            const response = await fetch(`${ENGINE_BASE}/torrents/${encodeURIComponent(hash)}/retry-episode-placement`, { method: "POST", headers: engineHeaders(), signal: AbortSignal.timeout(30_000) });
+            const result = await response.json() as { ok?: boolean; files?: Array<{ path: string; originalPath?: string; size: number; season?: number; episode?: number }> };
+            if (!response.ok || !result.ok) throw new Error("identity_unverified");
+            for (const file of result.files ?? []) recovered.push({ title: bleach.title, src: file.originalPath ? path.join(inst.downloadPath, file.originalPath) : fp, dest: file.path, size: file.size, season: file.season, episode: file.episode });
+          } catch { failed.push({ src: fp, size, reason: "Bleach : récupération explicite indisponible, fichiers conservés" }); }
+          continue;
         }
         if (refMatch?.kind === "series" && (refMatch.season != null || refMatch.episode != null)) {
           // Fills in a season/episode the file's own name didn't provide —

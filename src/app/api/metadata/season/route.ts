@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSeason, tmdbConfigured } from "@/lib/metadata/tmdb";
+import { getSeriesByTmdbId } from "@/lib/library/store";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,8 @@ export async function GET(req: NextRequest) {
   }
   const locale = req.nextUrl.searchParams.get("locale") ?? undefined;
 
-  const season = await getSeason(tmdbId, seasonNumber, locale);
+  const library = tmdbId === BLEACH_TMDB_ID ? getSeriesByTmdbId(tmdbId) : null;
+  const season = await getSeason(tmdbId, seasonNumber, locale, library && needsBleachRepair(library) ? { bleachOrder: "tmdb" } : undefined);
   if (!season) return NextResponse.json({ error: "not found" }, { status: 404 });
   return NextResponse.json(season);
 }

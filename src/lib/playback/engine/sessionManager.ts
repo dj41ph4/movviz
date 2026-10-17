@@ -79,11 +79,9 @@ export interface CreateSessionInput {
 // §36 — "aucune activité depuis 5 minutes" — configurable per that section's
 // own requirement, same MOVVIZ_* env-var convention as the ffmpeg path/probe
 // settings elsewhere in this engine.
-const DEFAULT_TTL_MS = 5 * 60 * 1000;
+import { playbackEngineSessionTtlMs } from "@/lib/playback/sessionFreshness";
 function sessionTtlMs(): number {
-  const raw = process.env.MOVVIZ_PLAYBACK_SESSION_TTL_MS;
-  const parsed = raw ? Number(raw) : NaN;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TTL_MS;
+  return playbackEngineSessionTtlMs();
 }
 
 type CleanupHook = (session: PlaybackSession) => void;

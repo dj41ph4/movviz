@@ -1,0 +1,110 @@
+/**
+ * Bleach keeps TMDb identity 30984, but uses TVDB's aired coordinates for
+ * operations (the same coordinates as the original 16 season releases).
+ * TMDb's default order is S1=366 original episodes, S2=TYBW. Never identify
+ * an episode by a coincident season/episode number from a different order.
+ * Source: TMDb episode group 663fb548c10d4be3e80b2f6d (TVDB Order).
+ */
+export const BLEACH_TMDB_ID = 30984;
+export const BLEACH_TVDB_ID = 74796;
+export const BLEACH_ORIGINAL_COUNTS = [20, 21, 22, 28, 18, 22, 20, 16, 22, 16, 7, 17, 36, 51, 26, 24] as const;
+export type BleachEpisodeOrder = "tmdb" | "tvdb";
+export interface EpisodeCoordinate { seasonNumber: number; episodeNumber: number }
+export function isBleachSequelTitle(title: string): boolean {
+  return /thousand[ ._-]*year|blood[ ._-]*war|sennen[ ._-]*kessen|tybw|guerre[ ._-]*(?:sanglante|sanguinaire)|千年血戦/i.test(title);
+}
+
+export function bleachToTmdb(seasonNumber: number, episodeNumber: number): EpisodeCoordinate | null {
+  if (!Number.isInteger(seasonNumber) || !Number.isInteger(episodeNumber) || episodeNumber < 1) return null;
+  if (seasonNumber === 0) return { seasonNumber: 0, episodeNumber };
+  if (seasonNumber === 17) return { seasonNumber: 2, episodeNumber };
+  const count = BLEACH_ORIGINAL_COUNTS[seasonNumber - 1];
+  if (count == null || episodeNumber > count) return null;
+  const offset = BLEACH_ORIGINAL_COUNTS.slice(0, seasonNumber - 1).reduce<number>((n, count) => n + count, 0);
+  return { seasonNumber: 1, episodeNumber: offset + episodeNumber };
+}
+
+export function bleachFromTmdb(seasonNumber: number, episodeNumber: number): EpisodeCoordinate | null {
+  if (!Number.isInteger(episodeNumber) || episodeNumber < 1) return null;
+  if (seasonNumber === 0) return { seasonNumber: 0, episodeNumber };
+  if (seasonNumber === 2) return { seasonNumber: 17, episodeNumber };
+  if (seasonNumber !== 1 || episodeNumber > 366) return null;
+  let remaining = episodeNumber;
+  for (const [index, count] of BLEACH_ORIGINAL_COUNTS.entries()) {
+    if (remaining <= count) return { seasonNumber: index + 1, episodeNumber: remaining };
+    remaining -= count;
+  }
+  return null;
+}
+
+export function bleachSeasonSummaries<T extends { seasonNumber: number; name: string; episodeCount: number }>(seasons: T[]): T[] {
+  const original = seasons.find((s) => s.seasonNumber === 1);
+  const sequel = seasons.find((s) => s.seasonNumber === 2);
+  return [
+    ...seasons.filter((s) => s.seasonNumber === 0),
+    ...(original ? BLEACH_ORIGINAL_COUNTS.map((episodeCount, index) => ({
+      ...original, seasonNumber: index + 1, name: `Bleach · ${index + 1}`, episodeCount,
+      // The aggregate S1 air date is not the premiere of arcs 2–16.
+      ...(index > 0 ? { airDate: null } : {}),
+    })) : []),
+    ...(sequel ? [{ ...sequel, seasonNumber: 17, name: "Bleach: Thousand-Year Blood War" }] : []),
+  ];
+}
+
+/** Legacy partial imports can be ambiguous. Never guess from S02E01 alone. */
+export function detectBleachLibraryOrder(series: {
+  tmdbId: number; episodeOrder?: BleachEpisodeOrder;
+  seasons: { seasonNumber: number; episodes: { episodeNumber?: number }[] }[];
+}): BleachEpisodeOrder | "ambiguous" | null {
+  if (series.tmdbId !== BLEACH_TMDB_ID) return null;
+  if (series.episodeOrder) return series.episodeOrder;
+  if (series.seasons.every(s => s.seasonNumber <= 2) && series.seasons.some((s) => s.seasonNumber === 1 && s.episodes.some((e) => (e.episodeNumber ?? 0) > 20))) return "tmdb";
+  return "ambiguous";
+}
+
+export function needsBleachRepair(series: Parameters<typeof detectBleachLibraryOrder>[0]): boolean {
+  const order = detectBleachLibraryOrder(series);
+  return order !== null && order !== "tvdb";
+}
+
+/** Standalone TYBW releases restart their part numbering; keep the library S17. */
+export function bleachReleaseCoordinate(title: string, seasonNumber: number | null | undefined, episodeNumber: number | null | undefined): EpisodeCoordinate | null {
+  if (episodeNumber == null || episodeNumber < 1) return null;
+  const sequel = isBleachSequelTitle(title);
+  if (!sequel) return seasonNumber != null ? { seasonNumber, episodeNumber } : null;
+  if (seasonNumber === 17) return { seasonNumber: 17, episodeNumber };
+  let part = seasonNumber ?? 1;
+  if (/the[ ._-]*separation|ketsubetsu|訣別/i.test(title)) part = 2;
+  if (/the[ ._-]*conflict|soukoku|相剋/i.test(title)) part = 3;
+  if (/the[ ._-]*calamity|kashin|禍進/i.test(title)) part = 4;
+  if (part < 1 || part > 4) return null;
+  const offsets = [0, 13, 26, 40];
+  // Japanese releases also retain the cumulative TYBW episode number.
+  const offset = offsets[part - 1];
+  return { seasonNumber: 17, episodeNumber: episodeNumber > offset ? episodeNumber : offset + episodeNumber };
+}
+
+/**
+ * Interpret the identity Plex assigns, not the physical content of a file.
+ * A stray S11 does NOT prove TVDB order: real Plex libraries can mix orders.
+ */
+export function projectBleachPlexEpisodes<T extends EpisodeCoordinate>(title: string, episodes: T[], explicitOrder?: string | null) {
+  const items: T[] = [];
+  const unresolved: T[] = [];
+  for (const episode of episodes) {
+    let coordinate: EpisodeCoordinate | null = null;
+    if (isBleachSequelTitle(title)) coordinate = bleachReleaseCoordinate(title, episode.seasonNumber, episode.episodeNumber);
+    else if (explicitOrder === "tmdbAiring") coordinate = bleachFromTmdb(episode.seasonNumber, episode.episodeNumber);
+    else if (explicitOrder === "tvdbAiring" || explicitOrder === "aired") coordinate = bleachToTmdb(episode.seasonNumber, episode.episodeNumber) ? episode : null;
+    else if (!explicitOrder && (episode.seasonNumber === 0 || (episode.seasonNumber === 1 && episode.episodeNumber >= 1 && episode.episodeNumber <= 20))) coordinate = episode;
+    if (coordinate) items.push({ ...episode, ...coordinate });
+    else unresolved.push(episode);
+  }
+  return { items, unresolved, complete: unresolved.length === 0 };
+}
+
+/** All-or-nothing adapter for callers that require a complete identity map. */
+export function normalizeBleachPlexEpisodes<T extends EpisodeCoordinate>(title: string, episodes: T[], explicitOrder?: string | null): T[] | null {
+  const result = projectBleachPlexEpisodes(title, episodes, explicitOrder);
+  return result.complete ? result.items : null;
+}

@@ -180,6 +180,11 @@ export class MovvizEngine {
   }
 
   pause(infoHash) { return this.findByInfoHash(infoHash)?.pause(infoHash) ?? false; }
+  async retryEpisodePlacementImport(infoHash) {
+    const instance = this.findByInfoHash(infoHash);
+    if (!instance) throw new Error("torrent_not_found");
+    return instance.retryEpisodePlacementImport(infoHash);
+  }
   resume(infoHash) { return this.findByInfoHash(infoHash)?.resume(infoHash) ?? false; }
   async restart(infoHash) {
     const inst = this.findByInfoHash(infoHash);

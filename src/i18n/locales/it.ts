@@ -2,6 +2,24 @@ import type { Dictionary } from "../types";
 
 /** Dizionario italiano — rispecchia la struttura delle chiavi francese/inglese. */
 export const it: Dictionary = {
+  bleach: {
+    previewFailed: "La verifica delle stagioni non è disponibile. Puoi riprovare.",
+    retry: "Verifica di nuovo",
+    blockDownload: "Un download di Bleach è in corso. Attendi il completamento.",
+    blockPlayback: "Bleach è in riproduzione. Chiudi il lettore prima della riparazione.",
+    blockHistory: "Alcuni stati hanno numerazione ambigua o sincronizzazione in attesa. Serve una verifica per conservarli.",
+    blockInspection: "La verifica dei dati è incompleta. La scheda rimane invariata.",
+    original: "Bleach — serie originale (2004–2012)",
+    sequel: "Bleach: Thousand-Year Blood War (dal 2022)",
+    repairTitle: "Ripristina l’ordine corretto delle stagioni di Bleach",
+    repairHint: "La vecchia scheda mescola gli ordini di Bleach e Thousand-Year Blood War. Un’anteprima verifica file e cronologia. Le acquisizioni restano sospese fino alla riparazione.",
+    repair: "Verifica e ripara le stagioni",
+    repairConfirm: "Riordinare {episodes} episodi in 16 stagioni originali e una stagione Thousand-Year Blood War? I {files} file e {watched} stati verificati vengono conservati. La vecchia scheda verrà salvata.",
+    repaired: "Le stagioni di Bleach sono state riordinate.",
+    repairFailed: "La riparazione non è stata applicata. Ripeti la verifica.",
+    repairBlocked: "Serve una verifica: cronologia ambigua, download o riproduzione in corso. Nessuna modifica applicata.",
+    adminRepair: "Un amministratore può verificare e riparare le stagioni.",
+  },
   tizen: {
     missingOne: "{count} mancante",
     account: "Account",

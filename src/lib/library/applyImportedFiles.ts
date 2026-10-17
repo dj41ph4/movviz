@@ -21,6 +21,10 @@ import path from "node:path";
 import fsp from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
+import { BLEACH_TMDB_ID, bleachToTmdb, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import type { EpisodePlacement } from "@/lib/engine/episodePlacement";
+import type { LibrarySeries } from "@/lib/library/types";
+import { parseRelease } from "@/lib/naming/parser";
 
 export interface ImportedFile {
   path: string;
@@ -35,6 +39,36 @@ export interface ImportedFile {
   episode?: number | null;
   /** Set when one file covers a combined range of episodes (e.g. S04E01E02) — see src/lib/naming/parser.ts. */
   episodeEnd?: number | null;
+  episodePlacement?: EpisodePlacement;
+}
+
+/** No post-import renaming: the engine must install the physical coordinates
+ * before callback, and those identities must match the persisted grab intent. */
+export function validateBleachImportedFiles(series: LibrarySeries, files: ImportedFile[], infoHash?: string): ImportedFile[] {
+  if (series.tmdbId !== BLEACH_TMDB_ID) return files;
+  return files.map(file => {
+    const mapping = file.episodePlacement;
+    if (!mapping || !infoHash) throw new Error("bleach_import_identity_unverified");
+    const { source, library, placement } = mapping;
+    const valid = (c: typeof library) => c && Number.isSafeInteger(c.season) && c.season >= 0 && c.season <= 17 && Number.isSafeInteger(c.episode) && c.episode >= 1 && c.episode <= 1000 && (c.episodeEnd == null || (Number.isSafeInteger(c.episodeEnd) && c.episodeEnd >= c.episode && c.episodeEnd <= 1000));
+    if (![source, library, placement].every(valid)) throw new Error("bleach_import_identity_unverified");
+    const end = library.episodeEnd ?? library.episode;
+    if (file.season !== library.season || file.episode !== library.episode || (file.episodeEnd ?? library.episode) !== end) throw new Error("bleach_import_identity_mismatch");
+    for (let episodeNumber = library.episode; episodeNumber <= end; episodeNumber++) {
+      const ep = series.seasons.find(s => s.seasonNumber === library.season)?.episodes.find(e => e.episodeNumber === episodeNumber);
+      const offset = episodeNumber - library.episode;
+      const expected = ep?.activeEpisodePlacement;
+      const replay = ep?.lastImportedInfoHash === infoHash && samePath(diskPathOf(ep.file) ?? "", file.path);
+      if (!ep || (!replay && (ep.activeInfoHash !== infoHash || !expected || expected.source.season !== source.season || expected.source.episode !== source.episode + offset || expected.placement.season !== placement.season || expected.placement.episode !== placement.episode + offset))) throw new Error("bleach_import_intent_unverified");
+      const tmdb = bleachToTmdb(library.season, episodeNumber);
+      if (!tmdb || !((placement.season === library.season && placement.episode + offset === episodeNumber) || (placement.season === tmdb.seasonNumber && placement.episode + offset === tmdb.episodeNumber))) throw new Error("bleach_import_placement_unverified");
+    }
+    const physical = parseRelease(pathFor(file.path).basename(file.path));
+    const rawRange = pathFor(file.path).basename(file.path).match(/S\d{1,2}E(\d{1,3})(?:-E?|E)(\d{1,3})(?=[^\d]|$)/i);
+    const physicalEnd = rawRange ? Number(rawRange[2]) : physical.episodeEnd ?? placement.episode;
+    if (physical.season !== placement.season || physical.episode !== placement.episode || physicalEnd !== (placement.episodeEnd ?? placement.episode)) throw new Error("bleach_physical_name_mismatch");
+    return file;
+  });
 }
 
 /** A file re-imported where it already is (same path, same size) is not a
@@ -209,7 +243,7 @@ function samePath(a: string, b: string): boolean {
 
 /** Installe et valide les nouveaux fichiers avant de retirer les anciens.
  * Une sauvegarde permet de restaurer l'ancien si le renommage échoue. */
-export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string[], roots: string[], expectedSizes = new Map<string, number>()): Promise<Map<string, string>> {
+export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string[], roots: string[], expectedSizes = new Map<string, number>(), preserveIncomingPath = false): Promise<Map<string, string>> {
   const validate = (file: string) => {
     if (!isUnderLibraryRoot(file, pathFor(file).sep, roots, process.platform !== "win32")) throw new Error(`Remplacement refusé : hors bibliothèque du moteur (${file})`);
   };
@@ -218,7 +252,7 @@ export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string
     validate(source);
     const stat = await fsp.lstat(source), expected = expectedSizes.get(original);
     if (!stat.isFile() || !stat.size || (expected != null && expected > 0 && expected !== stat.size)) throw new Error(`Remplacement refusé : fichier incomplet (${source})`);
-    return { original, source, destination: p.join(p.dirname(source), stripCollisionSuffix(p.basename(source), p)), size: stat.size };
+    return { original, source, destination: preserveIncomingPath ? source : p.join(p.dirname(source), stripCollisionSuffix(p.basename(source), p)), size: stat.size };
   }));
   if (!incoming.length) throw new Error("Remplacement refusé : aucun fichier importé");
   const oldFiles: string[] = [];
@@ -309,8 +343,9 @@ async function finalizeEpisodeReplacements(oldPaths: string[], files: ImportedFi
     const base = np.basename(np.resolve(p));
     return stripCollisionSuffix(base, np) !== base;
   });
-  if (oldPaths.length === 0 && !hasCollisionSuffix) return new Map();
-  return finalizeReplacedFiles(oldPaths, newPaths, await engineLibraryRoots());
+  const explicit = files.some(f => f.episodePlacement);
+  if (oldPaths.length === 0 && !hasCollisionSuffix && !explicit) return new Map();
+  return finalizeReplacedFiles(oldPaths, newPaths, await engineLibraryRoots(), new Map(files.map(f => [f.path, f.size])), explicit);
 }
 
 /** Un épisode connu garde son nom canonique même si le moteur a interprété
@@ -422,7 +457,8 @@ async function prepareEpisodeReplacements(
   }
   const renamed = new Map<string, string>();
   for (const [file, oldPaths] of byFile) {
-    if (oldPaths.length === 1) {
+    if (file.episodePlacement && oldPaths.some(old => series.seasons.some(s => s.episodes.some(ep => diskPathOf(ep.file) === old && matchFor(s.seasonNumber, ep.episodeNumber) !== file)))) throw new Error("bleach_shared_file_replacement_unverified");
+    if (oldPaths.length === 1 && !file.episodePlacement) {
       const roots = await engineLibraryRoots();
       const finalPath = await replaceOneEpisodeFile(oldPaths[0], file.path, file.size, roots);
       if (!samePath(finalPath, file.path)) renamed.set(file.path, finalPath);
@@ -638,10 +674,11 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
 
   const series = getSeries(ref.seriesId);
   if (!series) return { ok: false as const, error: "series not found" };
+  if (needsBleachRepair(series)) return { ok: false as const, error: "bleach_repair_required" };
 
   // Season-part normalization (single-season series only) — see
   // normalizePartFiles. Every branch below works on the normalized list.
-  const normalizedFiles = normalizePartFiles(series, files);
+  const normalizedFiles = normalizePartFiles(series, validateBleachImportedFiles(series, files, infoHash));
 
   // The association picked at grab time is normally authoritative, but it is
   // still client state: a stale modal or a manually selected S02 result from

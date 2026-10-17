@@ -4,6 +4,7 @@ import { getSeries, updateSeries } from "@/lib/library/store";
 import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import type { LibraryEpisode, LibrarySeason } from "@/lib/library/types";
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const id = (await params).id;
   const series = getSeries(id);
   if (!series) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (series.tmdbId === BLEACH_TMDB_ID) return NextResponse.json({ error: "use_bleach_identity_repair" }, { status: 409 });
 
   const body = await req.json().catch(() => null) as {
     episodeMap?: { oldSeason: number; oldEpisode: number; newSeason: number; newEpisode: number }[];

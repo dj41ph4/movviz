@@ -168,6 +168,9 @@ export interface LibraryEpisode {
   status: LibraryStatus;
   file: LibraryFile | null;
   activeInfoHash: string | null;
+  /** Explicit source numbering for a standalone TYBW download; survives restart. */
+  activeReleaseEpisode?: { seasonNumber: number; episodeNumber: number };
+  activeEpisodePlacement?: import("@/lib/engine/episodePlacement").EpisodePlacement;
   /** Dernier torrent effectivement installé, pour acquitter un callback rejoué après un renommage. */
   lastImportedInfoHash?: string | null;
   /** Plex library item id for this exact episode — set by the Plex library sync, powers "Watch on Plex". */
@@ -188,6 +191,8 @@ export interface LibrarySeason {
 export interface LibrarySeries {
   id: string; // "sr_..."
   tmdbId: number;
+  /** Explicit operational order for Bleach; legacy imports must be repaired before acquisition. */
+  episodeOrder?: "tmdb" | "tvdb";
   imdbId: string | null;
   /** TVDB id — needed for tvSearchTvdb-capable indexers (TR4KER only declares
    *  tvdb search, no tmdb): without it the indexer search falls back to a

@@ -10,6 +10,7 @@ import {
 } from "../naming.mjs";
 import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR } from "../config.mjs";
 import { ManualSeed, cacheMetainfo, retainMetainfo, torrentPath } from "../manualSeed.mjs";
+import { validateEpisodeTargets, resolveEpisodePlacement } from "../episodePlacement.mjs";
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
@@ -150,6 +151,7 @@ export class AbstractBackend {
   // ─── Adding ──────────────────────────────────────────────────────────────
 
   async add(torrentId, opts = {}) {
+    validateEpisodeTargets(opts.episodeTargets ?? (opts.episodeTarget ? [opts.episodeTarget] : []));
     if (this.folderError) {
       throw new Error(`download folder unavailable: ${this.folderError}`);
     }
@@ -250,7 +252,8 @@ export class AbstractBackend {
   }
 
   restoreImported(rec) {
-    if (rec.replacementFailure && !rec.replacementFailure.discarded && rec.movedFiles) {
+    if ((rec.replacementFailure && !rec.replacementFailure.discarded && rec.movedFiles) ||
+        (rec.notifiedLibrary === false && rec.movedFiles?.some(file => file.episodePlacement))) {
       this.meta.set(rec.infoHash, { ...rec, movedFiles: rec.movedFiles, completed: false, notifiedLibrary: false });
     }
     this.importedHistory.set(rec.infoHash, {
@@ -266,6 +269,9 @@ export class AbstractBackend {
       replacementFailure: rec.replacementFailure,
       title: rec.title ?? null,
       year: rec.year ?? null,
+      episodeTarget: rec.episodeTarget ?? null,
+      episodeTargets: rec.episodeTargets ?? null,
+      notifiedLibrary: rec.notifiedLibrary,
     });
   }
 
@@ -741,6 +747,7 @@ export class AbstractBackend {
       seeding: m?.seeding ?? false,
       category: this.cfg.category,
       instanceId: this.cfg.id,
+      ...(m?.movedFiles?.some(file => file.episodePlacement) ? { movedTo: m.movedTo, movedFiles: m.movedFiles } : {}),
     };
     if (detail) base.files = (t.files ?? []).map((f) => ({
       name: f.name, path: f.path, length: f.length, downloaded: f.downloaded ?? 0,
@@ -789,6 +796,7 @@ export class AbstractBackend {
       category: this.cfg.category,
       instanceId: this.cfg.id,
       movedTo: rec.movedTo ?? null,
+      ...(rec.movedFiles?.some(file => file.episodePlacement) ? { movedFiles: rec.movedFiles } : {}),
     });
   }
 
@@ -823,6 +831,7 @@ export class AbstractBackend {
         completedAt: m.completedAt,
         movedTo: m.movedTo,
         movedFiles: this.importedHistory.get(t.infoHash)?.movedFiles ?? m.movedFiles,
+        notifiedLibrary: m.notifiedLibrary ?? this.importedHistory.get(t.infoHash)?.notifiedLibrary,
         replacementFailure: m.replacementFailure,
         libraryRef: m.libraryRef ?? null,
         title: m.title ?? null,
@@ -848,13 +857,14 @@ export class AbstractBackend {
         movedTo: rec.movedTo,
         replacementFailure: this.meta.get(rec.infoHash)?.replacementFailure ?? rec.replacementFailure,
         movedFiles: rec.movedFiles ?? this.meta.get(rec.infoHash)?.movedFiles,
+        notifiedLibrary: rec.notifiedLibrary ?? this.meta.get(rec.infoHash)?.notifiedLibrary,
         addedAt: rec.addedAt,
         completedAt: rec.completedAt,
         libraryRef: rec.libraryRef,
         title: rec.title,
         year: rec.year,
-        episodeTarget: null,
-        episodeTargets: null,
+      episodeTarget: rec.episodeTarget ?? null,
+      episodeTargets: rec.episodeTargets ?? null,
         userPaused: false,
         sequential: false,
         priority: "medium",
@@ -872,6 +882,27 @@ export class AbstractBackend {
 
   // ─── Import files (shared) ───────────────────────────────────────────────
 
+  /** Recovery uses the same persisted selection/placement as first import.
+   * Never reconstruct an ambiguous anime episode from a leftover filename. */
+  async retryEpisodePlacementImport(infoHash) {
+    const m = this.meta.get(infoHash);
+    const targets = m?.episodeTargets ?? (m?.episodeTarget ? [m.episodeTarget] : []);
+    if (!m?.libraryRef || !targets.length || targets.some(t => !t.library || !t.placement)) throw new Error("episode_placement_recovery_unavailable");
+    if (m.movedTo && m.movedFiles) {
+      const ok = await this._notifyLibrary(m.libraryRef, m.movedFiles, infoHash);
+      if (!ok) throw new Error("episode_placement_callback_pending");
+      return { ok: true, files: m.movedFiles };
+    }
+    const handle = this._clientGet(infoHash);
+    if (!handle || !this._isDone(handle)) throw new Error("episode_placement_download_incomplete");
+    const snapshot = this._clientSnapshot(infoHash);
+    await this._import(snapshot, Number(this.cfg.seedRatio) > 0 ? linkOrCopy : movePath);
+    if (!m.notifiedLibrary) throw new Error("episode_placement_callback_pending");
+    m.completed = true;
+    this.onChange();
+    return { ok: true, files: m.movedFiles };
+  }
+
   async _import(snap, transfer) {
     const m = this.meta.get(snap.infoHash);
     if (!m || m.movedTo) return;
@@ -886,12 +917,18 @@ export class AbstractBackend {
     // file.name from scratch and would end up with season/episode both null
     // for exactly those files.
     const matchedTargetByFile = new Map();
+    const placementByFile = new Map();
+    validateEpisodeTargets(targetList ?? []);
     const availableFiles = snap.files.filter((f) => {
       if (f.selected === false) return false;
       if (!targetList) return true;
-      const t = targetList.find((t) => this._matchesEpisode(f, t));
-      if (t) matchedTargetByFile.set(f, t);
-      return t != null;
+      const matches = targetList.filter((t) => this._matchesEpisode(f, t));
+      if (matches.length) {
+        matchedTargetByFile.set(f, matches[0]);
+        const placement = resolveEpisodePlacement(matches, parseRelease(f.name), f.name);
+        if (placement) placementByFile.set(f, placement);
+      }
+      return matches.length > 0;
     });
 
     // Diagnostic: a video file that's actually part of this torrent but
@@ -927,7 +964,7 @@ export class AbstractBackend {
       }
     }
 
-    if (!naming.enabled) {
+    if (!naming.enabled && placementByFile.size === 0) {
       let firstDest = null;
       for (const file of availableFiles) {
         const src = path.isAbsolute(file.path) ? file.path : path.join(this.cfg.downloadPath, file.path);
@@ -1007,6 +1044,12 @@ export class AbstractBackend {
             if (pathSeason != null) info.season = pathSeason;
           }
         }
+        const explicit = placementByFile.get(file);
+        if (explicit) {
+          info.season = explicit.placement.season;
+          info.episode = explicit.placement.episode;
+          info.episodeEnd = explicit.placement.episodeEnd ?? null;
+        }
         const ctx = buildContext(info);
         const ext = path.extname(file.name);
         let dest;
@@ -1017,7 +1060,7 @@ export class AbstractBackend {
           // "Specials" or "Season 00", and there's no real reason to let the
           // naming template vary for this one folder the way it can for
           // regular seasons.
-          const seasonFolder = ctx.season === 0 ? "Specials" : renderSegment(naming.seasonFolder, ctx, naming.useDotsInsteadOfSpaces);
+          const seasonFolder = ctx.season === 0 ? "Specials" : explicit ? `Season ${String(ctx.season).padStart(2, "0")}` : renderSegment(naming.seasonFolder, ctx, naming.useDotsInsteadOfSpaces);
           // A series file whose episode number couldn't be resolved (no target
           // list on the torrent, filename/release name carrying none, no path
           // season) would render an EMPTY "S01E" placeholder in the episode
@@ -1027,10 +1070,17 @@ export class AbstractBackend {
           // single "Noblesse - S01E.mkv"). Keep the original basename instead:
           // unique per file, never overwritten, still discoverable by the
           // rename/rescan tooling once an episode can be identified.
-          const fileName =
+          let fileName =
             info.episode == null
               ? path.basename(file.name)
               : renderSegment(naming.episodeFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
+          if (explicit) {
+            const rendered = parseRelease(fileName);
+            if (rendered.season !== info.season || rendered.episode !== info.episode || (rendered.episodeEnd ?? null) !== (info.episodeEnd ?? null)) {
+              const range = explicit.placement.episodeEnd ? `-E${String(explicit.placement.episodeEnd).padStart(2, "0")}` : "";
+              fileName = renderSegment("{title} - S{season:00}E{episode:00}", ctx, naming.useDotsInsteadOfSpaces) + range + ext;
+            }
+          }
           dest = await avoidCollision(path.join(this.cfg.completedPath, seriesFolder, seasonFolder, fileName));
         } else {
           const movieFolder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
@@ -1047,8 +1097,9 @@ export class AbstractBackend {
           path: dest, quality: ctx.quality || null, resolution: ctx.resolution || null,
           videoCodec: ctx.videoCodec || null, audioCodec: ctx.audioCodec || null,
           hdr: ctx.hdr || null, source: ctx.source || null, size: file.length,
-          season: info.season ?? null, episode: info.episode ?? null,
-          episodeEnd: info.episodeEnd ?? null,
+          season: explicit?.library.season ?? info.season ?? null, episode: explicit?.library.episode ?? info.episode ?? null,
+          episodeEnd: explicit?.library.episodeEnd ?? info.episodeEnd ?? null,
+          ...(explicit ? { episodePlacement: explicit } : {}),
           // See the equivalent comment in the !naming.enabled branch above.
           originalPath: torrentPath(path.isAbsolute(file.path) ? path.relative(this.cfg.downloadPath, file.path) : file.path),
         });
@@ -1061,8 +1112,10 @@ export class AbstractBackend {
       size: snap.length, movedTo: m.movedTo, addedAt: m.addedAt,
       completedAt: m.completedAt, libraryRef: m.libraryRef ?? null,
       title: m.title ?? null, year: m.year ?? null,
+      episodeTarget: m.episodeTarget ?? null, episodeTargets: m.episodeTargets ?? null,
+      ...(movedFiles.some(file => file.episodePlacement) ? { notifiedLibrary: false } : {}),
       // Original torrent paths survive import and process restarts for manual seed.
-      movedFiles: movedFiles.map((f) => ({ path: f.path, originalPath: f.originalPath ?? null, size: f.size })),
+      movedFiles: movedFiles.map((f) => ({ ...f })),
     });
 
     this.onChange();
@@ -1190,6 +1243,8 @@ export class AbstractBackend {
       // The library may rename a collision file once replacement succeeds.
       // Persist its final path, never the temporary pre-replacement location.
       const history = this.importedHistory.get(infoHash);
+      if (m) m.notifiedLibrary = true;
+      if (history) history.notifiedLibrary = true;
       for (const changed of result.seedPaths ?? []) {
         if (typeof changed.from !== "string" || typeof changed.to !== "string") continue;
         for (const list of [files, m?.movedFiles, history?.movedFiles]) {
