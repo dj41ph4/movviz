@@ -289,10 +289,6 @@ export default function DashboardPage() {
       <div className="nx-dashboard-content nx-dashboard-premium w-full max-w-[2000px] space-y-8">
       {richMode && (
         <header className="mv-beta-home-intro hidden">
-          <div>
-            <p>{t("dashboard.cinema.eyebrow")}</p>
-            <h1>{t("dashboard.cinema.title")} <em>{t("dashboard.cinema.accent")}</em></h1>
-          </div>
           <Link href="/discover" className="mv-beta-explore">{t("dashboard.cinema.explore")} <Compass aria-hidden="true" className="h-4 w-4" /></Link>
         </header>
       )}
@@ -306,7 +302,6 @@ export default function DashboardPage() {
 
       {richMode && (providerData?.tiles?.length ?? 0) > 0 && (
         <section className="nx-home-providers" aria-label={t("discover.watchProviders")}>
-          <h2 className="text-sm font-black tracking-tight text-ink">{t("discover.watchProviders")}</h2>
           <div className="mt-2 grid w-full grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
             {providerData!.tiles.slice(0, 8).map((provider) => {
               const localSvg = PROVIDER_SVG[provider.id];

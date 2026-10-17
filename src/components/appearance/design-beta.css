@@ -71,28 +71,8 @@
   }
   html[data-movviz-design="beta"] .mv-beta-home-intro {
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 1.5rem;
+    justify-content: flex-end;
     padding: .25rem 0 .5rem;
-  }
-  html[data-movviz-design="beta"] .mv-beta-home-intro > div > p {
-    margin-bottom: .75rem;
-    color: var(--so-fg-3);
-    font: 500 .625rem/1.5 var(--so-font-mono);
-    letter-spacing: .2em;
-    text-transform: uppercase;
-  }
-  html[data-movviz-design="beta"] .mv-beta-home-intro h1 {
-    max-width: 22ch;
-    font: 600 clamp(2rem, 3.6vw, 4rem)/1.04 var(--so-font-display);
-    letter-spacing: -.055em;
-    text-wrap: balance;
-  }
-  html[data-movviz-design="beta"] .mv-beta-home-intro h1 em {
-    display: block;
-    font-style: normal;
-    color: var(--so-accent);
   }
   html[data-movviz-design="beta"] .mv-beta-explore {
     display: inline-flex;
@@ -206,17 +186,8 @@
   html[data-movviz-design="beta"] .mv-hero-next { right: 2rem; }
 
   html[data-movviz-design="beta"] .nx-home-providers {
-    display: grid;
-    grid-template-columns: 155px minmax(0, 1fr);
-    align-items: center;
-    gap: 1.5rem;
     padding-block: 1rem;
     border-bottom: 1px solid #ffffff10;
-  }
-  html[data-movviz-design="beta"] .nx-home-providers > h2 {
-    max-width: 14ch;
-    color: var(--so-fg-2);
-    font: 500 .75rem/1.6 var(--so-font-ui);
   }
   html[data-movviz-design="beta"] .nx-home-providers > div { margin-top: 0; }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-provider-tile {
