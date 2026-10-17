@@ -13,6 +13,8 @@ import { REDUCE_MOTION_INIT_SCRIPT } from "@/lib/gpu/reduceMotionInit";
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { resolveSession } from "@/lib/auth/store";
 import { markUserActivity } from "@/lib/priority/userActivity";
+import { loadUserPrefs } from "@/lib/userPrefs/store";
+import { designModeOrDefault, type DesignMode } from "@/lib/appearance/designMode";
 
 const DESCRIPTION =
   "Le centre de commande intelligent de vos films et séries — découverte, demandes et bibliothèque, orchestrés en un seul endroit.";
@@ -61,18 +63,22 @@ export default async function RootLayout({
   // API marquent déjà via requireUser ; ce point couvre le RSC lui-même
   // (sinon une navigation pure restait invisible de l'arrière-plan).
   let desktopTextScale: 110 | 120 | undefined;
+  let designMode: DesignMode = "stable";
   try {
     const token = (await cookies()).get(SESSION_COOKIE)?.value;
     const sessionUser = token ? resolveSession(token) : null;
     if (sessionUser?.status !== "pending" && (sessionUser?.desktopTextScale === 110 || sessionUser?.desktopTextScale === 120)) {
       desktopTextScale = sessionUser.desktopTextScale;
     }
-    if (sessionUser && sessionUser.status !== "pending") markUserActivity(sessionUser);
+    if (sessionUser && sessionUser.status !== "pending") {
+      markUserActivity(sessionUser);
+      designMode = designModeOrDefault(loadUserPrefs(sessionUser.id).designMode);
+    }
   } catch {
     // Pré-rendu statique au build (pas de cookies) — sans conséquence.
   }
   return (
-    <html lang="fr" data-theme="dark" data-movviz-appearance="beta" className={fontVariables} data-desktop-text-scale={desktopTextScale} suppressHydrationWarning>
+    <html lang="fr" data-theme="dark" data-movviz-appearance="beta" data-movviz-design={designMode} className={fontVariables} data-desktop-text-scale={desktopTextScale} suppressHydrationWarning>
       {/* React ne monte le <img> du splash/sidebar qu'après l'hydratation JS —
           trop tard pour qu'il "apparaisse en premier". Ce preload démarre le
           téléchargement dès le HTML initial, en parallèle du JS, pour que le
@@ -88,7 +94,7 @@ export default async function RootLayout({
             quand la navigation client ne re-rend pas le layout serveur. */}
         <UserActivityPing />
         <PerfReporter />
-        <AppShell version={getAppVersion()}>{children}</AppShell>
+        <AppShell version={getAppVersion()} initialDesignMode={designMode}>{children}</AppShell>
       </body>
     </html>
   );

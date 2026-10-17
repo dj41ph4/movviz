@@ -1,5 +1,37 @@
 # Movviz — direction « Salle obscure »
 
+## Expérimentation visuelle réversible
+
+Réglages → Mon expérience → Apparence et aperçus propose **Stable** (par défaut)
+et **Bêta**. Stable conserve l'interface actuelle Salle obscure ; Bêta ajoute
+la typographie affinée, les cartes sobres, les badges harmonisés et le retour
+d'appui de 120 ms. Le choix est personnel, enregistré dans
+`user-preferences.json` (`designMode`), et s'applique sans rechargement. Un
+échec de sauvegarde rétablit le choix précédent avec un toast.
+
+Les nouvelles règles de `design-beta.css` exigent **à la fois**
+`data-movviz-design="beta"` et un viewport ≥ 1024 px. Le serveur lit la
+préférence pour le premier rendu ; le provider la synchronise ensuite avec
+l'API existante. Aucun stockage parallèle. Le marqueur historique
+`data-movviz-appearance="beta"` reste celui de Salle obscure, qui constitue
+désormais le rendu Stable de cette expérimentation ; le contenu du dashboard
+et les préférences du lecteur sont indépendants de ce nouveau choix.
+
+Les effets pointeur d'origine restent en Stable ; Bêta garde les cartes fixes.
+Le retour d'appui est retiré avec la réduction des animations du compte ou
+du système. La fiche reste l'unique `TitleContent`, en page comme en panneau.
+
+Le splashscreen Bêta constitue l'exception responsive : sa composition cinéma
+est disponible sur tout le web, y compris à 375 et 768 px. Stable conserve
+le splash précédent. La révélation du logo et des faisceaux se joue une seule
+fois au démarrage, sans minuterie supplémentaire ni animation permanente ;
+la progression et la fermeture restent pilotées par le chargement existant.
+Les préférences de réduction des mouvements suppriment les révélations.
+Le premier HTML contient déjà le mode du compte ; un chargement lent de
+l'API des préférences ne déclenche jamais un passage intermédiaire par Stable.
+
+## Historique de la direction Salle obscure
+
 Refonte premium du desktop, livrée par lots dans l'apparence **Bêta**
 (`data-movviz-appearance="beta"`, viewport ≥ 1024px). Stable, le mobile et les
 applications natives ne changent pas. Proposition complète (analyse écran par

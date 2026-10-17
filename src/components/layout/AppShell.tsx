@@ -26,6 +26,7 @@ import { AppErrorBoundary } from "@/components/ui/AppErrorBoundary";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 import { AppearanceProvider } from "@/components/appearance/AppearanceProvider";
+import type { DesignMode } from "@/lib/appearance/designMode";
 import { DesktopTextScaleProvider } from "@/components/appearance/DesktopTextScaleProvider";
 
 /**
@@ -99,7 +100,7 @@ function PendingApprovalScreen({ username }: { username: string }) {
   );
 }
 
-export function AppShell({ children, version }: { children: React.ReactNode; version: string }) {
+export function AppShell({ children, version, initialDesignMode = "stable" }: { children: React.ReactNode; version: string; initialDesignMode?: DesignMode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isAuthPage = pathname === "/login" || pathname === "/setup";
@@ -162,7 +163,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
           <VersionProvider version={version}>
             <InterfaceSWRPolicy>
               <PlayerProvider>
-                <AppearanceProvider>
+                <AppearanceProvider initialDesignMode={initialDesignMode}>
                 <DesktopTextScaleProvider />
                 <Suspense fallback={null}>
                   <PageLoaderProvider>

@@ -516,6 +516,12 @@ export const it: Dictionary = {
   },
 
   dashboard: {
+    splash: {
+      personalCinema: "Il tuo cinema personale",
+      headline: "Il cinema prende vita.",
+      preparing: "Preparazione del tuo cinema…",
+      loading: "Caricamento della biblioteca",
+    },
     featuredFilm: "Film in evidenza",
     featuredSeries: "Serie in evidenza",
     stats: {
@@ -1455,7 +1461,7 @@ export const it: Dictionary = {
     openSettings: "Apri impostazioni",
     explore: "Esplora",
     tabDashboardHint: "Modalità di visualizzazione, Hero cinematografico, caroselli.",
-    tabExperienceHint: "Video sulle schede, episodi speciali.",
+    tabExperienceHint: "Aspetto Stabile o Beta, anteprime video ed episodi speciali.",
     tabGpuHint: "Attiva o disattiva le animazioni dell'interfaccia.",
     tabNetflix: "Netflix",
     tabNetflixHint: "Importa la tua cronologia Netflix per segnarla come vista.",
@@ -1541,6 +1547,13 @@ export const it: Dictionary = {
       minYearAll: "Tutti gli anni",
     },
     experience: {
+      designTitle: "Aspetto",
+      designHint: "Scelta personale salvata nel tuo account. Cambia modalità in qualsiasi momento senza ricaricare. Le novità visive riguardano il web sugli schermi più grandi.",
+      designStable: "Stabile",
+      designStableHint: "Mantiene l’interfaccia attuale, con i caratteri, le schede e gli effetti abituali.",
+      designBeta: "Beta",
+      designBetaHint: "Tipografia curata, schede più sobrie, spaziature coerenti e riscontri discreti alla pressione. Torna a Stabile con un clic.",
+      designSaveError: "Impossibile salvare l’aspetto. La modalità precedente è stata ripristinata.",
       cdnImagesTitle: "Immagini da Internet",
       cdnImagesHint: "Carica locandine e sfondi direttamente da TMDb invece di passare dal tuo server — più veloce se la tua banda in upload è limitata. Ripiego automatico sul tuo server se TMDb non è raggiungibile.",
       cdnImagesEnabled: "Attivo",

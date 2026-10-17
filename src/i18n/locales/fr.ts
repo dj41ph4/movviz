@@ -514,6 +514,12 @@ export const fr = {
   },
 
   dashboard: {
+    splash: {
+      personalCinema: "Ton cinéma personnel",
+      headline: "Le cinéma prend vie.",
+      preparing: "Préparation de ton cinéma…",
+      loading: "Chargement de la bibliothèque",
+    },
     featuredFilm: "Film à la une",
     featuredSeries: "Série à la une",
     stats: {
@@ -1406,7 +1412,7 @@ export const fr = {
     aboutCheckUpdate: "Rechercher une mise à jour",
     aboutUpToDate: "Movviz est à jour",
     tabDashboard: "Accueil et carrousels",
-    tabExperience: "Images et aperçus",
+    tabExperience: "Apparence et aperçus",
     tabGpu: "Animations",
     tabAi: "Assistant IA",
     tabAiHint: "Assistant IA : fournisseurs, clés, activation",
@@ -1453,7 +1459,7 @@ export const fr = {
     openSettings: "Ouvrir les réglages",
     explore: "Explorer",
     tabDashboardHint: "Mode d'affichage, Hero cinématique, carrousels.",
-    tabExperienceHint: "Vidéo sur les fiches, épisodes spéciaux.",
+    tabExperienceHint: "Mode Stable ou Bêta, aperçus vidéo et épisodes spéciaux.",
     tabGpuHint: "Activer ou couper les animations de l'interface.",
     tabNetflix: "Importer l'historique Netflix",
     tabNetflixHint: "Importer ton historique Netflix pour le marquer vu.",
@@ -1539,6 +1545,13 @@ export const fr = {
       minYearAll: "Toutes les années",
     },
     experience: {
+      designTitle: "Apparence",
+      designHint: "Choix personnel enregistré sur ton compte. Change de mode à tout moment, sans recharger la page. Les nouveautés visuelles concernent le web sur grand écran.",
+      designStable: "Stable",
+      designStableHint: "Conserve l’interface actuelle, avec ses polices, ses cartes et ses effets habituels.",
+      designBeta: "Bêta",
+      designBetaHint: "Typographie affinée, cartes plus sobres, espacements harmonisés et retours d’appui discrets. Reviens à Stable en un clic.",
+      designSaveError: "Impossible d’enregistrer l’apparence. Le mode précédent a été rétabli.",
       cdnImagesTitle: "Images depuis Internet",
       cdnImagesHint: "Charge les affiches et fonds directement depuis TMDb au lieu de passer par ton serveur — plus rapide si ta connexion montante est limitée. Repli automatique sur ton serveur si TMDb est indisponible.",
       cdnImagesEnabled: "Activé",

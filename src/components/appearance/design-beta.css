@@ -1,0 +1,140 @@
+/* Opt-in polish on top of the current interface. Removing this attribute
+   restores Stable, including the existing Salle obscure styles. Every rule
+   also requires desktop: mobile/tablet and native apps keep their layout. */
+@media (min-width: 1024px) {
+  html[data-movviz-design="beta"] {
+    --so-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  /* Geist carries functional headings; Bricolage keeps the editorial voice. */
+  html[data-movviz-design="beta"] :is(h2, h3) {
+    font-family: var(--so-font-ui);
+    font-weight: 600;
+    letter-spacing: -.015em;
+    line-height: 1.3;
+  }
+
+  html[data-movviz-design="beta"] :is([data-nx-page-header] h1, .nx-title-heading, .nx-hero-title) {
+    font-family: var(--so-font-display);
+    font-weight: 700;
+    letter-spacing: -.035em;
+    line-height: 1.08;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+    font-optical-sizing: auto;
+  }
+
+  html[data-movviz-design="beta"] [data-nx-page-header] h1 {
+    font-size: 2rem;
+  }
+
+  html[data-movviz-design="beta"] .nx-title-heading {
+    font-size: clamp(2.25rem, 3.5vw, 3.5rem);
+  }
+
+  html[data-movviz-design="beta"] .nx-hero-title {
+    font-size: clamp(2rem, 3vw, 3.25rem);
+  }
+
+  html[data-movviz-design="beta"] :is(.nx-hero-meta, .nx-title-meta) {
+    column-gap: .75rem;
+    row-gap: .5rem;
+    font-size: .875rem;
+    font-weight: 450;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+
+  html[data-movviz-design="beta"] .nx-hero-overview {
+    max-width: 58ch;
+    font-size: .9375rem;
+    line-height: 1.65;
+    color: rgba(255, 255, 255, .8);
+  }
+
+  html[data-movviz-design="beta"] .nx-poster-row > div:first-child {
+    align-items: center;
+    gap: 1rem;
+  }
+
+  html[data-movviz-design="beta"] .nx-poster-row > div:first-child > h2,
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-poster-row > div:first-child > h2 {
+    font-family: var(--so-font-ui);
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1.35;
+  }
+
+  /* Cards stay still. The artwork, rather than a moving rim, gets attention. */
+  html[data-movviz-design="beta"] .nx-desktop-shell [data-premium-card] {
+    border-radius: var(--so-r-card);
+    border-color: var(--so-line);
+    box-shadow: 0 8px 24px -20px #000;
+    transform: none;
+  }
+
+  html[data-movviz-design="beta"] [data-premium-card]::after {
+    display: none;
+  }
+
+  html[data-movviz-design="beta"] [data-premium-badge] {
+    font-family: var(--so-font-ui);
+    font-size: .6875rem;
+    font-weight: 550;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+    background: rgba(7, 8, 15, .88);
+    border-color: rgba(255, 255, 255, .18);
+    box-shadow: none;
+  }
+
+  html[data-movviz-design="beta"] [data-premium-progress] > div {
+    background: var(--so-accent);
+    box-shadow: none;
+  }
+
+  html[data-movviz-design="beta"] [data-premium-preview] {
+    border-radius: var(--so-r-panel);
+    border-color: var(--so-line-2);
+    background: var(--so-ink-1);
+    box-shadow: 0 24px 64px -20px rgba(0, 0, 0, .8);
+  }
+
+  html[data-movviz-design="beta"] [data-premium-panel] {
+    border-radius: var(--so-r-panel);
+    border-color: var(--so-line-2);
+    background: var(--so-ink-0);
+    box-shadow: 0 32px 80px -24px rgba(0, 0, 0, .85);
+  }
+
+  html[data-movviz-design="beta"] [data-premium-panel] h2 {
+    letter-spacing: -.015em;
+  }
+
+  /* Feedback, frequent: one short transition; no mount/route choreography.
+     Use transform alone, so hover scale utilities cannot double the scale. */
+  html[data-movviz-design="beta"] :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist, .nx-title-actions > button, .nx-title-actions > a, [data-premium-preview] button, [data-premium-preview] a[role="button"]) {
+    scale: 1;
+    transform: none;
+    transition: transform var(--so-t-fast) var(--so-ease-out);
+  }
+
+  html[data-movviz-design="beta"]:not(.reduce-motion) :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist, .nx-title-actions > button, .nx-title-actions > a, [data-premium-preview] button, [data-premium-preview] a[role="button"]):active:not(:disabled) {
+    transform: scale(.98);
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  html[data-movviz-design="beta"] .nx-desktop-shell [data-premium-card]:hover {
+    border-color: var(--so-line-2);
+    box-shadow: 0 10px 28px -20px #000;
+  }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  html[data-movviz-design="beta"]:not(.reduce-motion) :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist, .nx-title-actions > button, .nx-title-actions > a, [data-premium-preview] button, [data-premium-preview] a[role="button"]):active:not(:disabled) {
+    transform: none;
+  }
+}

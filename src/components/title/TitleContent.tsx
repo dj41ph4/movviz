@@ -50,6 +50,10 @@ import {
 
 /* ────────────────────────────────────────────── constants & helpers ─── */
 
+type LockableOrientation = ScreenOrientation & { lock?: (orientation: "landscape") => Promise<void> };
+
+function pad(n: number) { return String(n).padStart(2, "0"); }
+
 const STATUS_TONE: Record<LibraryStatus, string> = {
   available: "text-ok bg-ok/12 border-ok/25",
   downloading: "text-cyan bg-cyan/12 border-cyan/25",
@@ -259,6 +263,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   /* ── derived ────────────────────────────────────────────────────────── */
 
   const libraryMatch = libraryMatchRaw;
+  const libraryId = libraryMatch?.id;
 
   const libraryStatus: LibraryStatus | null = libraryMatch
     ? type === "movie"
@@ -430,12 +435,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         if (trailerModalRef.current && !document.fullscreenElement) {
           await trailerModalRef.current.requestFullscreen();
         }
-        if (!cancelled) await (screen.orientation as any)?.lock?.("landscape");
+        if (!cancelled) await (screen.orientation as LockableOrientation | undefined)?.lock?.("landscape");
       } catch { /* not supported on this browser/context — modal still works, just not rotated */ }
     })();
     return () => {
       cancelled = true;
-      try { (screen.orientation as any)?.unlock?.(); } catch { /* unsupported */ }
+      try { screen.orientation?.unlock?.(); } catch { /* unsupported */ }
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch { /* unsupported */ } }
     };
   }, [showTrailer]);
@@ -449,14 +454,17 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   // theater player closes (playerRequest going back to null) — the player
   // stays mounted above this page (PlayerProvider), so this component never
   // remounts on its own after a watch session ends.
-  const [resumeSeconds, setResumeSeconds] = useState<number | null>(null);
+  const resumeKey = betaPlayer && playbackRatingKey ? `${libraryMatch?.id ?? playbackRatingKey}:${playbackRatingKey}` : null;
+  const [resumePosition, setResumePosition] = useState<{ key: string; seconds: number | null } | null>(null);
+  // Never carry another title's progress into this CTA. An unavailable
+  // player/source clears the visible value immediately, without an effect.
+  const resumeSeconds = resumeKey && resumePosition?.key === resumeKey ? resumePosition.seconds : null;
   useEffect(() => {
-    if (playerRequest) return;
-    if (!betaPlayer || !playbackRatingKey) {
-      setResumeSeconds(null);
-      return;
-    }
+    if (playerRequest || !resumeKey || !playbackRatingKey) return;
     let cancelled = false;
+    const setResumeSeconds = (seconds: number | null) => {
+      if (!cancelled) setResumePosition({ key: resumeKey, seconds });
+    };
     // The player writes progress under the stable Movviz id and only keeps
     // the Plex rating key as a legacy alias. Read the same canonical record
     // here; otherwise the CTA could show an older Plex-keyed timestamp while
@@ -471,7 +479,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       })
       .catch(() => { if (!cancelled) setResumeSeconds(getSavedProgressSeconds(playbackRatingKey)); });
     return () => { cancelled = true; };
-  }, [playerRequest, betaPlayer, playbackRatingKey, libraryMatch?.id]);
+  }, [playerRequest, resumeKey, playbackRatingKey, libraryMatch?.id]);
   const resumePercent = resumeSeconds != null && detail?.runtime
     ? Math.min(100, Math.max(0, (resumeSeconds / (detail.runtime * 60)) * 100))
     : null;
@@ -666,13 +674,13 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       originRect: DOMRect,
       resumeFromSeconds?: number,
     ) => {
-      if (!libraryMatch?.id || (!episode.file && !episode.plexRatingKey)) return;
+      if (!libraryId || (!episode.file && !episode.plexRatingKey)) return;
       play({
-        ratingKey: episode.plexRatingKey ?? `${libraryMatch.id}:s${seasonNumber}e${episodeNumber}`,
+        ratingKey: episode.plexRatingKey ?? `${libraryId}:s${seasonNumber}e${episodeNumber}`,
         // The source resolver recognises this stable episode identity and
         // chooses the local Movviz file before falling back to Plex.
-        movvizId: `${libraryMatch.id}:s${seasonNumber}e${episodeNumber}`,
-        seriesId: libraryMatch.id,
+        movvizId: `${libraryId}:s${seasonNumber}e${episodeNumber}`,
+        seriesId: libraryId,
         plexUrl: episode.plexUrl,
         title: `${detail?.title ?? ""} — ${seasonNumber}x${pad(episodeNumber)}${episode.title ? ` · ${episode.title}` : ""}`,
         useTranscode: betaPlayer,
@@ -686,7 +694,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         posterUrl: poster,
       });
     },
-    [libraryMatch?.id, play, detail?.title, detail?.tmdbId, betaPlayer, backdrop, poster],
+    [libraryId, play, detail?.title, detail?.tmdbId, betaPlayer, backdrop, poster],
   );
 
   const searchCompleteSeries = useCallback(() => {
@@ -776,7 +784,21 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     }
   }, [forcingPlexSync, type, t, mutateLibrary]);
 
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const openManualSearchSeason = useCallback(
+    (seasonNumber: number) => {
+      if (!libraryId) return;
+      setManualSearch({
+        libraryRef: encodeLibraryRef({
+          kind: "season",
+          seriesId: libraryId,
+          season: seasonNumber,
+        }),
+        query: `${detail?.title} S${pad(seasonNumber)}`,
+        title: `${detail?.title} — S${pad(seasonNumber)}`,
+      });
+    },
+    [libraryId, detail?.title],
+  );
 
   const openManualSearch = useCallback(() => {
     if (!libraryMatch?.id) return;
@@ -797,31 +819,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           !s.episodes.every((e) => !e.monitored || e.status === "available" || e.status === "upcoming"),
       )?.seasonNumber ?? detail?.seasons?.[0]?.seasonNumber ?? 1;
     openManualSearchSeason(target);
-  }, [libraryMatch, type, detail]);
-
-  const openManualSearchSeason = useCallback(
-    (seasonNumber: number) => {
-      if (!libraryMatch?.id) return;
-      setManualSearch({
-        libraryRef: encodeLibraryRef({
-          kind: "season",
-          seriesId: libraryMatch.id,
-          season: seasonNumber,
-        }),
-        query: `${detail?.title} S${pad(seasonNumber)}`,
-        title: `${detail?.title} — S${pad(seasonNumber)}`,
-      });
-    },
-    [libraryMatch?.id, detail?.title],
-  );
+  }, [libraryMatch, type, detail, openManualSearchSeason]);
 
   const openManualSearchEpisode = useCallback(
     (seasonNumber: number, episodeNumber: number) => {
-      if (!libraryMatch?.id) return;
+      if (!libraryId) return;
       setManualSearch({
         libraryRef: encodeLibraryRef({
           kind: "episode",
-          seriesId: libraryMatch.id,
+          seriesId: libraryId,
           season: seasonNumber,
           episode: episodeNumber,
         }),
@@ -829,7 +835,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         title: `${detail?.title} — ${seasonNumber}x${pad(episodeNumber)}`,
       });
     },
-    [libraryMatch?.id, detail?.title],
+    [libraryId, detail?.title],
   );
 
   const remove = useCallback(async () => {
@@ -1285,7 +1291,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   : t(`status.${libraryStatus}`)}
               </span>
             )}
-            <h1 className="max-w-2xl text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
+            <h1 className="nx-title-heading max-w-2xl text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
               {logoPath ? (
                 <>
                   <span className="sr-only">{detail.title}</span>
@@ -1316,7 +1322,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 </span>
               ) : null}
             </h1>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-white/80">
+            <div className="nx-title-meta flex flex-wrap items-center gap-3 text-sm text-white/80">
               <span className="flex items-center gap-1 font-semibold text-amber">
                 <Star className="h-4 w-4 fill-amber" />{" "}
                 {detail.rating.toFixed(1)}

@@ -516,6 +516,12 @@ export const en: Dictionary = {
   },
 
   dashboard: {
+    splash: {
+      personalCinema: "Your personal cinema",
+      headline: "Cinema comes alive.",
+      preparing: "Preparing your cinema…",
+      loading: "Loading your library",
+    },
     featuredFilm: "Featured Film",
     featuredSeries: "Featured Series",
     stats: {
@@ -1456,7 +1462,7 @@ export const en: Dictionary = {
     openSettings: "Open settings",
     explore: "Explore",
     tabDashboardHint: "Display mode, cinematic Hero, carousels.",
-    tabExperienceHint: "Video on detail pages, special episodes.",
+    tabExperienceHint: "Stable or Beta appearance, video previews and special episodes.",
     tabGpuHint: "Enable or disable interface animations.",
     tabNetflix: "Netflix",
     tabNetflixHint: "Import your Netflix history to mark it watched.",
@@ -1542,6 +1548,13 @@ export const en: Dictionary = {
       minYearAll: "All years",
     },
     experience: {
+      designTitle: "Appearance",
+      designHint: "A personal choice saved to your account. Switch modes at any time without reloading. The visual updates apply to the web on larger screens.",
+      designStable: "Stable",
+      designStableHint: "Keep the current interface, including its familiar fonts, cards and effects.",
+      designBeta: "Beta",
+      designBetaHint: "Refined typography, quieter cards, consistent spacing and subtle press feedback. Return to Stable in one click.",
+      designSaveError: "Could not save the appearance. The previous mode has been restored.",
       cdnImagesTitle: "Images from the internet",
       cdnImagesHint: "Load posters and backdrops directly from TMDb instead of routing through your server — faster if your upload bandwidth is limited. Falls back to your server automatically if TMDb is unreachable.",
       cdnImagesEnabled: "Enabled",

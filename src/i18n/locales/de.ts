@@ -516,6 +516,12 @@ export const de: Dictionary = {
   },
 
   dashboard: {
+    splash: {
+      personalCinema: "Dein persönliches Kino",
+      headline: "Kino wird lebendig.",
+      preparing: "Dein Kino wird vorbereitet…",
+      loading: "Bibliothek wird geladen",
+    },
     featuredFilm: "Vorgestellter Film",
     featuredSeries: "Vorgestellte Serie",
     stats: {
@@ -1473,7 +1479,7 @@ export const de: Dictionary = {
     openSettings: "Einstellungen öffnen",
     explore: "Öffnen",
     tabDashboardHint: "Anzeigemodus, filmisches Hero, Karussells.",
-    tabExperienceHint: "Video auf Detailseiten, Sonderfolgen.",
+    tabExperienceHint: "Stabile oder Beta-Darstellung, Videovorschauen und Sonderfolgen.",
     tabGpuHint: "Animationen der Oberfläche ein- oder ausschalten.",
     tabNetflix: "Netflix",
     tabNetflixHint: "Netflix-Verlauf importieren, um ihn als gesehen zu markieren.",
@@ -1559,6 +1565,13 @@ export const de: Dictionary = {
       minYearAll: "Alle Jahre",
     },
     experience: {
+      designTitle: "Darstellung",
+      designHint: "Persönliche Auswahl, die in deinem Konto gespeichert wird. Wechsle jederzeit ohne Neuladen. Die visuellen Neuerungen gelten für das Web auf größeren Bildschirmen.",
+      designStable: "Stabil",
+      designStableHint: "Behält die aktuelle Oberfläche mit ihren vertrauten Schriften, Karten und Effekten bei.",
+      designBeta: "Beta",
+      designBetaHint: "Verfeinerte Typografie, ruhigere Karten, einheitliche Abstände und dezente Rückmeldung beim Drücken. Mit einem Klick zurück zu Stabil.",
+      designSaveError: "Die Darstellung konnte nicht gespeichert werden. Der vorherige Modus wurde wiederhergestellt.",
       cdnImagesTitle: "Bilder aus dem Internet",
       cdnImagesHint: "Lädt Poster und Hintergründe direkt von TMDb statt über deinen Server — schneller bei begrenzter Upload-Bandbreite. Fällt automatisch auf deinen Server zurück, wenn TMDb nicht erreichbar ist.",
       cdnImagesEnabled: "Aktiviert",

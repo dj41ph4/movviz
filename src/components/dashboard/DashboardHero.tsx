@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Info, Play, Pause, Plus, Loader2, Check, Heart } from "lucide-react";
@@ -33,9 +33,15 @@ type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string 
 const ROTATION_PERIOD_MS = 3 * 60 * 60 * 1000;
 
 const desktopSnapshot = () => window.matchMedia("(min-width: 1024px)").matches;
+const mobileSnapshot = () => window.matchMedia("(max-width: 639px)").matches;
 const serverDesktopSnapshot = () => false;
 const subscribeDesktop = (onChange: () => void) => {
   const query = window.matchMedia("(min-width: 1024px)");
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+const subscribeMobile = (onChange: () => void) => {
+  const query = window.matchMedia("(max-width: 639px)");
   query.addEventListener("change", onChange);
   return () => query.removeEventListener("change", onChange);
 };
@@ -59,21 +65,17 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   );
   const slides = richData?.slides?.length ? richData.slides : data?.slides ?? [];
 
-  const [index, setIndex] = useState(0);
-  const [anchored, setAnchored] = useState(false);
+  const [rotationBucket] = useState(() => Math.floor(Date.now() / ROTATION_PERIOD_MS));
+  const [selectedIndex, setIndex] = useState<number | null>(null);
+  // Adjust this component's own state as the first slides arrive. React
+  // retries this render before committing children; no extra effect/render
+  // and later enrichment never resets a manually selected slide.
+  if (selectedIndex === null && slides.length > 0) setIndex(rotationBucket % slides.length);
+  const index = selectedIndex ?? 0;
   const [manuallyPaused, setManuallyPaused] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<Set<number>>(new Set());
-
-  // Runs once per mount, as soon as the slide count is known — not on every
-  // SWR revalidation, so it never yanks the user back to a different slide
-  // mid-visit after they've navigated manually.
-  useEffect(() => {
-    if (anchored || slides.length === 0) return;
-    setIndex(Math.floor(Date.now() / ROTATION_PERIOD_MS) % slides.length);
-    setAnchored(true);
-  }, [anchored, slides.length]);
 
   const active = slides[Math.min(index, slides.length - 1)];
   // Keep the hero on the same editorial-artwork contract as the fiche: a
@@ -124,15 +126,8 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   // Poster art is already composed portrait — a dedicated mobile source, not
   // just a smaller version of the desktop crop, same idea confirmed live on
   // Netflix's own mobile hero.
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useSyncExternalStore(subscribeMobile, mobileSnapshot, serverDesktopSnapshot);
   const isDesktop = useSyncExternalStore(subscribeDesktop, desktopSnapshot, serverDesktopSnapshot);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    setIsMobile(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   const { path: heroBackdropPath, size: heroBackdropSize } =
     isMobile && active?.detail.posterPath
@@ -223,6 +218,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           </span>
 
           <TitleMark
+            className="nx-hero-title"
             key={`${active.detail.type}:${active.detail.tmdbId}`}
             tmdbId={active.detail.tmdbId}
             type={active.detail.type}
@@ -230,7 +226,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             locale={locale}
           />
 
-          <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
+          <div className="nx-hero-meta flex flex-wrap items-center gap-2 text-sm text-white/80">
             {active.detail.year && <span>{active.detail.year}</span>}
             {active.detail.runtime && <span>{active.detail.runtime} min</span>}
             {active.detail.rating > 0 && <span>★ {active.detail.rating.toFixed(1)}</span>}
@@ -242,7 +238,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             )}
           </div>
 
-          <p className="line-clamp-2 max-w-xl text-sm text-white/70 sm:line-clamp-3">{active.detail.overview}</p>
+          <p className="nx-hero-overview line-clamp-2 max-w-xl text-sm text-white/70 sm:line-clamp-3">{active.detail.overview}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button type="button" onClick={toggleWatchlist} className={cn("nx-hero-watchlist flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105", onWatchlist ? "border border-brand-glow/50 bg-brand/25" : "bg-white/15")}>

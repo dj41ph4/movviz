@@ -1,3 +1,21 @@
+## v1.26.035 — 17 octobre 2026
+
+### Apparence Stable / Bêta
+
+- Réglages → Mon expérience → Apparence et aperçus propose désormais un choix personnel Stable ou Bêta, enregistré sur le compte et appliqué sans rechargement. Stable conserve l’interface actuelle ; une erreur de sauvegarde rétablit le mode précédent.
+- Le choix enregistré s’applique dès le premier rendu serveur : un compte en Bêta démarre directement en Bêta, sans apparition intermédiaire de Stable, même lorsque l’API des préférences tarde à répondre.
+- Le mode Bêta affine la typographie desktop, les espacements, les cartes et les badges. Les actions principales donnent un retour d’appui discret ; la réduction des animations reste respectée. La fiche titre reste partagée entre la page et le panneau.
+
+### Une ouverture de cinéma
+
+- Le splashscreen Bêta accueille le démarrage avec le logo officiel agrandi, des faisceaux violets et cyan, un halo lumineux et une progression redessinée. Il s’adapte aux petits écrans et garde une version calme avec la réduction des mouvements.
+- L’ancien splash reste disponible en Stable. La nouvelle animation n’ajoute aucun temps d’attente au chargement et ne se rejoue pas à chaque navigation.
+
+### Fiabilité du frontend
+
+- Correction des sept erreurs ESLint identifiées dans le héros et la fiche titre : initialisation du diaporama, détection mobile, typage de l’orientation et déclarations des fonctions de recherche/lecture.
+- La position de reprise est rattachée au média courant pour éviter d’afficher celle du titre précédent ; elle est relue après fermeture du lecteur.
+
 ## v1.26.034 — 15 octobre 2026
 
 ### Recherche et téléchargement après une demande

@@ -60,7 +60,7 @@ export interface SettingsTab {
 export const SETTINGS_TABS: SettingsTab[] = [
   // Personnel
   { id: "dashboard", labelKey: "settings.tabDashboard", hintKey: "settings.tabDashboardHint", icon: LayoutGrid, group: "personal", journey: "experience" },
-  { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal", journey: "experience", keywords: ["lecteur", "sous-titres", "lenteur lecture", "transcodage"] },
+  { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal", journey: "experience", keywords: ["lecteur", "sous-titres", "lenteur lecture", "transcodage", "apparence", "appearance", "design", "typographie", "stable", "beta", "bêta"] },
   { id: "player", labelKey: "settings.tabPlayer", hintKey: "settings.tabPlayerHint", icon: MonitorPlay, group: "personal", journey: "playback", keywords: ["lecteur", "lecture", "transcodage", "audio", "codec", "ffmpeg", "benchmark", "buffer", "hdr", "sous-titres"] },
   { id: "gpu", labelKey: "settings.tabGpu", hintKey: "settings.tabGpuHint", icon: Zap, group: "personal", journey: "experience", expertOnly: true, keywords: ["lenteur", "animations", "performance"] },
   { id: "netflix", labelKey: "settings.tabNetflix", hintKey: "settings.tabNetflixHint", icon: Clapperboard, group: "personal", journey: "library" },

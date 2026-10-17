@@ -516,6 +516,12 @@ export const nl: Dictionary = {
   },
 
   dashboard: {
+    splash: {
+      personalCinema: "Jouw persoonlijke bioscoop",
+      headline: "Cinema komt tot leven.",
+      preparing: "Je bioscoop wordt voorbereid…",
+      loading: "Bibliotheek laden",
+    },
     featuredFilm: "Uitgelichte film",
     featuredSeries: "Uitgelichte serie",
     stats: {
@@ -1456,7 +1462,7 @@ export const nl: Dictionary = {
     openSettings: "Instellingen openen",
     explore: "Verkennen",
     tabDashboardHint: "Weergavemodus, cinematische Hero, carrousels.",
-    tabExperienceHint: "Video op detailpagina's, speciale afleveringen.",
+    tabExperienceHint: "Stabiel of Bèta, videovoorbeelden en speciale afleveringen.",
     tabGpuHint: "Interface-animaties in- of uitschakelen.",
     tabNetflix: "Netflix",
     tabNetflixHint: "Importeer je Netflix-geschiedenis om als bekeken te markeren.",
@@ -1542,6 +1548,13 @@ export const nl: Dictionary = {
       minYearAll: "Alle jaren",
     },
     experience: {
+      designTitle: "Uiterlijk",
+      designHint: "Een persoonlijke keuze die in je account wordt opgeslagen. Wissel op elk moment zonder opnieuw te laden. De visuele vernieuwingen gelden voor het web op grotere schermen.",
+      designStable: "Stabiel",
+      designStableHint: "Behoudt de huidige interface met de vertrouwde lettertypen, kaarten en effecten.",
+      designBeta: "Bèta",
+      designBetaHint: "Verfijnde typografie, rustigere kaarten, consistente afstanden en subtiele feedback bij indrukken. Ga met één klik terug naar Stabiel.",
+      designSaveError: "Het uiterlijk kon niet worden opgeslagen. De vorige modus is hersteld.",
       cdnImagesTitle: "Afbeeldingen via internet",
       cdnImagesHint: "Laadt posters en achtergronden rechtstreeks van TMDb in plaats van via je server — sneller bij beperkte uploadbandbreedte. Valt automatisch terug op je server als TMDb onbereikbaar is.",
       cdnImagesEnabled: "Ingeschakeld",

@@ -1,19 +1,61 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import { useDesignMode } from "@/components/appearance/AppearanceProvider";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useT } from "@/i18n/provider";
+import "./dashboard-splash.css";
 
 export function DashboardSplash({ show, progress }: { show: boolean; progress?: number }) {
-  const pct = Math.max(0, Math.min(100, progress ?? 0));
+  const { mode } = useDesignMode();
+  const reduceMotion = useShouldReduceMotion();
+  const t = useT();
+  const beta = mode === "beta";
+  const pct = typeof progress === "number" && Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : 0;
   return (
     <AnimatePresence>
       {show && (
         <motion.div
+          data-dashboard-splash
+          data-splash-design={mode}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.45, ease: "easeInOut" }}
-          className="fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden bg-[#08080F] px-6"
-          aria-hidden
+          transition={beta ? { duration: reduceMotion ? 0.12 : 0.22, ease: [0.23, 1, 0.32, 1] } : { duration: 0.45, ease: "easeInOut" }}
+          className={beta ? "mv-cinema-splash fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden px-6" : "fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden bg-[#08080F] px-6"}
+          aria-hidden={beta ? undefined : true}
         >
+          {beta ? (
+            <>
+              <div className="mv-splash-atmosphere" aria-hidden="true">
+                <div className="mv-splash-halo mv-splash-halo-violet" />
+                <div className="mv-splash-halo mv-splash-halo-cyan" />
+                <div className="mv-splash-beam mv-splash-beam-left" />
+                <div className="mv-splash-beam mv-splash-beam-right" />
+                <div className="mv-splash-aperture" />
+                <div className="mv-splash-horizon" />
+              </div>
+              <div className="mv-splash-stage">
+                <p className="mv-splash-eyebrow">{t("dashboard.splash.personalCinema")}</p>
+                <div className="mv-splash-logo">
+                  <Image src="/brand/movviz-lockup.png" alt="Movviz" width={640} height={640} unoptimized fetchPriority="high" loading="eager" />
+                  <div className="mv-splash-logo-sheen" aria-hidden="true" />
+                </div>
+                <p className="mv-splash-headline">{t("dashboard.splash.headline")}</p>
+              </div>
+              <div className="mv-splash-loading">
+                <div className="mv-splash-loading-label">
+                  <p role="status">{t("dashboard.splash.preparing")}</p>
+                  <span className="mv-splash-percentage" aria-hidden="true">{Math.round(pct)}<span>%</span></span>
+                </div>
+                <div className="mv-splash-track" role="progressbar" aria-label={t("dashboard.splash.loading")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+                  <div className="mv-splash-fill" style={{ transform: `scaleX(${pct / 100})` }} />
+                </div>
+              </div>
+              <div className="mv-splash-frame" aria-hidden="true"><i /><i /><i /><i /></div>
+            </>
+          ) : (
+            <>
           {/* Fond Movviz haute qualité : void profond + halos brand/magenta/cyan comme TV */}
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(124,58,237,0.22),transparent_36%),radial-gradient(circle_at_88%_78%,rgba(92,224,216,0.14),transparent_34%),radial-gradient(circle_at_50%_50%,rgba(236,72,153,0.08),transparent_55%)]" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.04] via-transparent to-black/20" />
@@ -58,6 +100,8 @@ export function DashboardSplash({ show, progress }: { show: boolean; progress?: 
             </div>
             <p className="text-[10px] font-bold tabular-nums tracking-widest text-white/35">{Math.round(pct)}%</p>
           </div>
+            </>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
