@@ -1,3 +1,10 @@
+## v1.26.037 — 18 octobre 2026
+
+### Accueil allégé
+
+- Retrait des textes « Le cinéma, chez vous » et « Votre prochaine grande histoire » de l’accueil Bêta.
+- Retrait du libellé visible « Plateformes » et de sa colonne réservée : les logos occupent directement la largeur disponible.
+
 ## v1.26.036 — 17 octobre 2026
 
 ### Une Bêta plus cinématographique

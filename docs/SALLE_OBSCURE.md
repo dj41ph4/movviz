@@ -4,8 +4,8 @@
 
 Réglages → Mon expérience → Apparence et aperçus propose **Stable** (par défaut)
 et **Bêta**. Stable conserve l'interface actuelle Salle obscure ; Bêta propose
-une composition cinéma : ouverture éditoriale en grand corps, héros encadré,
-navigation ivoire sur graphite, recherche redessinée et rangées plus aérées.
+une composition cinéma : héros encadré, navigation ivoire sur graphite,
+recherche redessinée et rangées plus aérées.
 Le choix est personnel, enregistré dans
 `user-preferences.json` (`designMode`), et s'applique sans rechargement. Un
 échec de sauvegarde rétablit le choix précédent avec un toast.
