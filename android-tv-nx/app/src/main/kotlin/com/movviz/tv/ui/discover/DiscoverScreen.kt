@@ -68,6 +68,7 @@ import com.movviz.tv.ui.theme.LocalMovvizBeta
 import com.movviz.tv.ui.theme.MovvizChip
 import com.movviz.tv.ui.theme.MovvizFocusTarget
 import com.movviz.tv.ui.theme.MovvizTheme
+import com.movviz.tv.ui.theme.providerBrandAsset
 import com.movviz.tv.ui.theme.betaDp
 import com.movviz.tv.ui.theme.movvizBetaSurfaceScale
 import com.movviz.tv.ui.theme.movvizFocusRing
@@ -589,6 +590,7 @@ private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() 
     val shape = RoundedCornerShape(50)
     val handleClick = onClick ?: {}
     val palette = MovvizTheme.palette
+    val brandAsset = providerBrandAsset(tile.id)
     Surface(
         onClick = handleClick,
         modifier = modifier
@@ -626,7 +628,16 @@ private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() 
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (tile.logoPath != null) {
+            if (brandAsset != null) {
+                coil.compose.SubcomposeAsyncImage(
+                    model = brandAsset,
+                    contentDescription = tile.name,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth().height(30.dp).padding(horizontal = 2.dp, vertical = 2.dp),
+                    loading = { DiscoverLogoTileFallback(tile.name, dark = false, focused = focused) },
+                    error = { DiscoverLogoTileFallback(tile.name, dark = false, focused = focused) },
+                )
+            } else if (tile.logoPath != null) {
                 // Fond quasi-blanc derrière le logo — même traitement que la
                 // LogoRow desktop ("bg-white/95"). Sans lui, un logo sombre
                 // (Disney+, Canal+…) devenait invisible sur le fond noir de

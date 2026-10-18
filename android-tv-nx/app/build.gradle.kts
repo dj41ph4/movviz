@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.tasks.Sync
 
 val releasePropsFile = rootProject.file("keystore.properties")
 
@@ -17,6 +18,22 @@ val desktopVersionName: String = (project.findProperty("movvizVersionName") as S
     ?: desktopPackageJson["version"] as String
 val desktopVersionCode: Int = (project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()
     ?: desktopVersionName.split(".").let { parts -> parts[0].toInt() * 100000 + parts[1].toInt() * 1000 + parts[2].toInt() }
+
+// Keep Android TV's platform marks byte-for-byte aligned with desktop's
+// canonical public/providers assets without maintaining a second copy.
+val providerBrandAssets = layout.buildDirectory.dir("generated/provider-brand-assets")
+val syncProviderBrandAssets by tasks.registering(Sync::class) {
+    from(rootProject.projectDir.parentFile.resolve("public/providers")) {
+        include(
+            "netflix.svg", "disney-plus-white.svg", "prime-video.svg", "hbo-max.svg",
+            "apple-tv-plus-white.svg", "youtube.svg", "crunchyroll.svg", "ocs.svg",
+        )
+    }
+    into(providerBrandAssets.map { it.dir("providers") })
+}
+
+android.sourceSets.getByName("main").assets.srcDir(providerBrandAssets)
+tasks.named("preBuild").configure { dependsOn(syncProviderBrandAssets) }
 
 android {
     namespace = "com.movviz.tv"
@@ -128,6 +145,7 @@ dependencies {
     implementation(libs.moshi.kotlin)
 
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
 
     // Persistance légère : URL du serveur + préférences utilisateur (le
     // cookie de session, lui, vit dans le CookieJar OkHttp — voir ApiClient).

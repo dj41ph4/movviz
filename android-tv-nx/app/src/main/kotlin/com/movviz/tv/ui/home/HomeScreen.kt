@@ -123,6 +123,7 @@ import com.movviz.tv.ui.theme.MovvizBetaButton
 import com.movviz.tv.ui.theme.MovvizBetaShapes
 import com.movviz.tv.ui.theme.MovvizMotion
 import com.movviz.tv.ui.theme.MovvizTheme
+import com.movviz.tv.ui.theme.providerBrandAsset
 import com.movviz.tv.ui.theme.animateMovvizImageZoom
 import com.movviz.tv.ui.theme.movvizBetaSurfaceScale
 import com.movviz.tv.ui.theme.movvizCardBorder
@@ -2373,8 +2374,8 @@ internal fun PlatformRow(
 }
 
 /** Tuile plateforme 16/9 — Surface tv-material3 (focus D-pad natif + OK),
- *  halo blanc au focus comme PosterCard/SeeAllTile, logo TMDb en Fit centré
- *  avec repli texte si absent ou en échec de chargement. */
+ *  halo blanc au focus comme PosterCard/SeeAllTile, logo de marque desktop
+ *  centré, avec repli TMDb puis texte pour les plateformes non curated. */
 @Composable
 private fun PlatformTile(
     tile: com.movviz.tv.data.LogoTileDto,
@@ -2385,6 +2386,7 @@ private fun PlatformTile(
     var focused by remember { mutableStateOf(false) }
     val beta = LocalMovvizBeta.current
     val palette = MovvizTheme.palette
+    val brandAsset = providerBrandAsset(tile.id)
     val shape = if (beta) MovvizBetaShapes.Card else RoundedCornerShape(5.dp)
     Surface(
         onClick = onClick,
@@ -2407,7 +2409,16 @@ private fun PlatformTile(
             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (tile.logoPath != null) {
+            if (brandAsset != null) {
+                coil.compose.SubcomposeAsyncImage(
+                    model = brandAsset,
+                    contentDescription = tile.name,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth(0.84f).fillMaxHeight(0.64f),
+                    loading = { PlatformTileFallback(name = tile.name, focused = focused) },
+                    error = { PlatformTileFallback(name = tile.name, focused = focused) },
+                )
+            } else if (tile.logoPath != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

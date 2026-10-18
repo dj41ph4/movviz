@@ -1,3 +1,12 @@
+## v1.26.042 — 18 octobre 2026
+
+### Numérotation Bleach et recherche TYBW
+
+- Android TV reprend les huit mêmes logos de plateformes que le dashboard desktop, chargés depuis les SVG source du projet.
+- Les intégrales originales numérotées S01E001–S01E366 sont redistribuées dans les 16 saisons et leurs dossiers saisonniers, avec le renommage local attendu.
+- TYBW conserve son suivi interne S17 et ses cours 1–4 en dossiers distincts. La recherche d’un épisode comme S17E41 accepte les releases S17 ou S04E01, et écarte les packs des autres cours.
+- Android TV, Android mobile et Tizen transmettent la partie Bleach sélectionnée lors du chargement et du rafraîchissement des saisons; S17 ne remonte plus dans la fiche originale.
+
 ## v1.26.041 — 18 octobre 2026
 
 ### Bleach : téléchargements et fiches complètes

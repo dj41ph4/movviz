@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
+import coil.decode.SvgDecoder
 import coil.memory.MemoryCache
 import com.movviz.tv.data.ApiClient
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -25,6 +26,7 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .components { add(SvgDecoder.Factory()) }
         // Client HTTP PARTAGÉ avec l'API (même CookieJar persistant), comme
         // sur le client mobile : les avatars protégés par la session (401 sans
         // cookie) se chargent comme les posters publics. Avec le client
