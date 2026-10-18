@@ -40,6 +40,7 @@ import com.movviz.nx.mobile.ui.profile.ProfileScreen
 fun MainScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     // Ouverture d'une série depuis "Continuer à regarder" — sur le bon
     // épisode plutôt que la saison 1 par défaut (voir HomeScreen).
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
@@ -122,7 +123,7 @@ fun MainScreen(
                 ) {
                     MainContent(
                         viewModel = viewModel,
-                        onOpenTitle = onOpenTitle,
+                        onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
                         onOpenEpisode = onOpenEpisode,
                         onSeeAllRow = onSeeAllRow,
                         onOpenGenre = onOpenGenre,
@@ -155,7 +156,7 @@ fun MainScreen(
     }
     MainContent(
         viewModel = viewModel,
-        onOpenTitle = onOpenTitle,
+        onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
         onOpenEpisode = onOpenEpisode,
         onSeeAllRow = onSeeAllRow,
         onOpenGenre = onOpenGenre,
@@ -180,6 +181,7 @@ fun MainScreen(
 private fun MainContent(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit,
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit,
     onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit,
@@ -219,7 +221,7 @@ private fun MainContent(
         when {
             searchOpen -> SearchScreen(
                 viewModel = viewModel,
-                onOpenTitle = onOpenTitle,
+                onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
                 query = searchQuery,
                 onQueryChange = onSearchQueryChange,
                 showSearchField = true,
@@ -227,20 +229,20 @@ private fun MainContent(
                 onCancel = onSearchCancel,
                 onOpenPerson = onOpenPerson,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
             // Films et Séries sont désormais chacun un véritable hub : les
             // suggestions de leur type, ou l'inventaire de leur type. Il n'y
             // a plus de découverte séparée qui mélangeait l'intention.
             tab == HomeTab.MOVIES -> MediaHubScreen(
                 viewModel = viewModel, type = HomeTab.MOVIES, activeHubTab = tab,
-                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 onSelectTab = onSelectTab,
                 onScrollChanged = onHomeScrollChanged,
             )
             tab == HomeTab.SERIES -> MediaHubScreen(
                 viewModel = viewModel, type = HomeTab.SERIES, activeHubTab = tab,
-                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 onSelectTab = onSelectTab,
                 onScrollChanged = onHomeScrollChanged,
@@ -299,6 +301,7 @@ private fun MediaHubScreen(
     viewModel: AppViewModel,
     type: HomeTab,
     onOpenTitle: (String, Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit,
     onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit,
     entryFocusRequester: FocusRequester,
@@ -338,7 +341,7 @@ private fun MediaHubScreen(
         MediaHubMode.LIBRARY -> CatalogScreen(
             viewModel = viewModel,
             type = type,
-            onOpenTitle = onOpenTitle,
+            onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
             entryFocusRequester = entryFocusRequester,
             mode = mode,
             onModeChange = { mode = it },

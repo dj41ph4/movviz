@@ -1,5 +1,7 @@
 package com.movviz.tv.ui.title
 
+import com.movviz.tv.data.BleachPresentation
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -183,37 +185,40 @@ fun TitleDetailScreen(
     // Ouverture depuis "Continuer à regarder" pour une série : la saison en
     // cours plutôt que la saison 1 par défaut (voir plus bas, la sélection
     // de saison ne l'écrase jamais une fois initialisée).
+    seriesPart: String? = null,
     initialSeasonNumber: Int? = null,
     initialEpisodeNumber: Int? = null,
     // Cible D-pad « flèche bas depuis la barre » : la fiche emploie sa zone
     // visuelle logo/titre comme première cible, même sans CTA générique.
     entryFocusRequester: FocusRequester? = null,
 ) {
-    val detail by viewModel.detail.collectAsState()
+    val part = BleachPresentation.part(tmdbId, type, seriesPart, initialSeasonNumber)
+    val rawDetail by viewModel.detail.collectAsState()
+    val detail = rawDetail?.takeIf { it.tmdbId == tmdbId && (part == null || it.seriesPart == part) }
     val detailError by viewModel.detailError.collectAsState()
     // Même artwork de titre que TitleContent sur desktop : le logo officiel
     // TMDb est préféré au texte brut, qui reste le repli si TMDb n'en a pas.
     val heroLogos by viewModel.heroLogos.collectAsState()
     val addingToLibrary by viewModel.addingToLibrary.collectAsState()
-    val seasons by viewModel.seriesSeasons.collectAsState()
+    val rawSeasons by viewModel.seriesSeasons.collectAsState()
     val seasonMetadata by viewModel.seasonMetadata.collectAsState()
     val searchingSeason by viewModel.searchingSeason.collectAsState()
     val scope = rememberCoroutineScope()
     var addError by remember { mutableStateOf<String?>(null) }
-    var selectedSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(null) }
+    var selectedSeasonNumber by remember(type, tmdbId, part) { mutableStateOf<Int?>(null) }
     // Une saison n'est pas un accordéon perdu au bas de la fiche. Elle ouvre
     // son propre écran, comme dans Plex : la fiche série reste un sommaire et
     // la liste d'épisodes garde tout l'espace et un parcours D-pad simple.
-    var openSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(initialSeasonNumber) }
-    var selectedEpisode by remember(type, tmdbId) { mutableStateOf<EpisodeSelection?>(null) }
+    var openSeasonNumber by remember(type, tmdbId, part) { mutableStateOf<Int?>(if (part == "tybw" && initialSeasonNumber == 17) 100 + (BleachPresentation.cours.firstOrNull { (initialEpisodeNumber ?: 1) > it.offset && (initialEpisodeNumber ?: 1) <= it.offset + it.count }?.part ?: 1) else initialSeasonNumber) }
+    var selectedEpisode by remember(type, tmdbId, part) { mutableStateOf<EpisodeSelection?>(null) }
     // Cartes de saison de la fiche : au retour d'une page de saison, le focus
     // revient sur la carte d'où l'on vient, jamais vers la sidebar.
-    val seasonCardFocus = remember(type, tmdbId) { mutableMapOf<Int, FocusRequester>() }
+    val seasonCardFocus = remember(type, tmdbId, part) { mutableMapOf<Int, FocusRequester>() }
     // Bande-annonce plein écran (même source que le desktop) : niveau d'écran
     // au-dessus de la fiche ; à sa fermeture le focus revient sur son bouton.
-    var trailerOpen by remember(type, tmdbId) { mutableStateOf(false) }
-    var trailerWasOpened by remember(type, tmdbId) { mutableStateOf(false) }
-    val trailerButtonFocus = remember(type, tmdbId) { FocusRequester() }
+    var trailerOpen by remember(type, tmdbId, part) { mutableStateOf(false) }
+    var trailerWasOpened by remember(type, tmdbId, part) { mutableStateOf(false) }
+    val trailerButtonFocus = remember(type, tmdbId, part) { FocusRequester() }
     LaunchedEffect(trailerOpen) {
         if (trailerOpen) { trailerWasOpened = true; return@LaunchedEffect }
         if (!trailerWasOpened) return@LaunchedEffect
@@ -222,10 +227,10 @@ fun TitleDetailScreen(
             if (attempt < 19) withFrameNanos { }
         }
     }
-    var lastOpenedSeason by remember(type, tmdbId) { mutableStateOf<Int?>(null) }
+    var lastOpenedSeason by remember(type, tmdbId, part) { mutableStateOf<Int?>(null) }
     // Une fiche ouverte depuis Reprendre attend la résolution locale avant de
     // choisir son CTA : Plex est optionnel, l'index de fichiers fait foi.
-    var libraryResolved by remember(type, tmdbId) { mutableStateOf(false) }
+    var libraryResolved by remember(type, tmdbId, part) { mutableStateOf(false) }
     // Repli de focus pour les fiches sans action principale (une série, un
     // téléchargement, ou une erreur). Un film disponible doit en revanche
     // arriver directement sur sa première action, « Lire ».
@@ -245,10 +250,14 @@ fun TitleDetailScreen(
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
-    val inLibrary by remember(type, tmdbId, movies, series) {
+    val bleachRecord = series.firstOrNull { it.tmdbId == tmdbId }
+    val bleachRepairRequired = part != null && bleachRecord != null && bleachRecord.episodeOrder != "tvdb"
+    val seasons = remember(rawSeasons, part, bleachRepairRequired) { if (bleachRepairRequired) emptyList() else BleachPresentation.seasons(rawSeasons, part) }
+
+    val inLibrary by remember(type, tmdbId, movies, series, part) {
         derivedStateOf {
             if (type == "movie") movies.any { it.tmdbId == tmdbId }
-            else series.any { it.tmdbId == tmdbId }
+            else series.any { it.tmdbId == tmdbId && (part == null || it.seasons.any { season -> BleachPresentation.contains(part, season.seasonNumber) && season.episodes.isNotEmpty() }) }
         }
     }
 
@@ -257,8 +266,8 @@ fun TitleDetailScreen(
     // vitesse, ETA. Le badge et le CTA se mettent à jour sans aucune
     // action utilisateur quand le téléchargement avance ou se termine.
     val queue by viewModel.queue.collectAsState()
-    val activeDownload = remember(queue, type, tmdbId) {
-        queue.firstOrNull { it.media.tmdbId == tmdbId && it.status != "completed" && it.status != "seeding" }
+    val activeDownload = remember(queue, type, tmdbId, part) {
+        queue.firstOrNull { it.media.tmdbId == tmdbId && BleachPresentation.contains(part, it.media.season, it.media.episode) && it.status != "completed" && it.status != "seeding" }
     }
     // Fichiers en cours de téléchargement pour CETTE série, indexés
     // "saison.épisode" — permet à chaque EpisodeCard d'afficher SA PROPRE
@@ -284,10 +293,10 @@ fun TitleDetailScreen(
         viewModel.clearEpisodeRequests(settled)
     }
 
-    LaunchedEffect(type, tmdbId) {
+    LaunchedEffect(type, tmdbId, part) {
         viewModel.resolveTitleLibraryEntry(type, tmdbId)
         libraryResolved = true
-        viewModel.loadDetail(type, tmdbId)
+        viewModel.loadDetail(type, tmdbId, part)
         viewModel.loadHeroLogo(type, tmdbId)
         // On-deck chargé pour les DEUX types : le libellé « S1 · Ép 3 — titre »
         // + le CTA « Reprendre » d'une série en cours dépendent de
@@ -304,7 +313,7 @@ fun TitleDetailScreen(
     }
 
     // PlayerActivity vit au-dessus de cette fiche. Quand elle se ferme, la
-    // composition est conservée : le LaunchedEffect(type, tmdbId) ne repart
+    // composition est conservée : le LaunchedEffect(type, tmdbId, part) ne repart
     // donc pas. On recharge explicitement le on-deck à ON_RESUME pour que le
     // CTA passe immédiatement de « Lire » à « Reprendre à HH:MM:SS ».
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -436,10 +445,10 @@ fun TitleDetailScreen(
             ?.toSet()
             ?: emptySet()
     }
-    val episodeResume = remember(continueWatching, type, tmdbId, watchedEpisodeKeys) {
+    val episodeResume = remember(continueWatching, type, tmdbId, watchedEpisodeKeys, part) {
         if (type != "series") null
         else continueWatching.firstOrNull {
-            it.type == "episode" && it.tmdbId == tmdbId && it.offsetMs > 5_000L &&
+            it.type == "episode" && it.tmdbId == tmdbId && BleachPresentation.contains(part, it.seasonNumber, it.episodeNumber) && it.offsetMs > 5_000L &&
                 !watchedEpisodeKeys.contains("${it.seasonNumber}.${it.episodeNumber}") &&
                 (it.durationMs == null || it.offsetMs < (it.durationMs * 0.80).toLong())
         }
@@ -468,7 +477,7 @@ fun TitleDetailScreen(
                     ) ?: return@mapNotNull null
                     QueueItem(
                         ratingKey = target.ratingKey,
-                        label = "S${season.seasonNumber} · Ép ${ep.episodeNumber} · ${ep.title}",
+                        label = "${if (part != null) BleachPresentation.episodeLabel(season.seasonNumber, ep.episodeNumber) else "S${season.seasonNumber} · Ép ${ep.episodeNumber}"} · ${ep.title}",
                         seasonNumber = season.seasonNumber,
                         episodeNumber = ep.episodeNumber,
                         localKey = target.localSeriesId,
@@ -555,11 +564,11 @@ fun TitleDetailScreen(
         // rafraîchissement du titre toutes les 8 s ne doit jamais écraser
         // la sélection D-pad (sinon retour à la saison 1 après chaque poll).
         if (selectedSeasonNumber == null && visibleSeasons.isNotEmpty()) {
-            val wanted = initialSeasonNumber?.let { s -> visibleSeasons.firstOrNull { it.seasonNumber == s } }
-            selectedSeasonNumber = (wanted ?: visibleSeasons.first()).seasonNumber
+            val wanted = initialSeasonNumber?.let { s -> visibleSeasons.firstOrNull { it.seasonNumber == s && (initialEpisodeNumber == null || it.episodes.any { e -> e.episodeNumber == initialEpisodeNumber }) } }
+            selectedSeasonNumber = BleachPresentation.seasonKey(wanted ?: visibleSeasons.first())
         }
     }
-    val selectedSeason = visibleSeasons.firstOrNull { it.seasonNumber == selectedSeasonNumber }
+    val selectedSeason = visibleSeasons.firstOrNull { BleachPresentation.seasonKey(it) == selectedSeasonNumber }
     // Les jaquettes ne viennent pas de Plex : elles sont portées par le
     // détail TMDb de chaque saison. Les charger dès que la liste Plex est
     // connue permet d'afficher les cartes avant même l'ouverture d'une
@@ -583,7 +592,7 @@ fun TitleDetailScreen(
     // au lieu de laisser l'utilisateur la chercher dans la liste des
     // saisons. Une seule ouverture automatique — un retour (Retour) ne la
     // rouvre jamais, et un changement de saison manuel non plus.
-    var didOpenInitialEpisode by remember(type, tmdbId) { mutableStateOf(false) }
+    var didOpenInitialEpisode by remember(type, tmdbId, part) { mutableStateOf(false) }
     LaunchedEffect(selectedSeason, seasonMetadata, initialEpisodeNumber) {
         if (didOpenInitialEpisode) return@LaunchedEffect
         if (initialEpisodeNumber == null || selectedSeason == null) return@LaunchedEffect
@@ -599,12 +608,12 @@ fun TitleDetailScreen(
     // Toujours repartir au début réel de la fiche à son ouverture.
     val lazyListState = rememberTvLazyListState().withTvPrefetchDisabled()
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
-    var hasRequestedPrimaryActionFocus by remember(type, tmdbId) { mutableStateOf(false) }
+    var hasRequestedPrimaryActionFocus by remember(type, tmdbId, part) { mutableStateOf(false) }
     // L'utilisateur s'est déjà déplacé dans la fiche : un chargement qui se
     // termine ensuite (reprise, saisons) ne doit plus déplacer son focus —
     // il se retrouvait renvoyé en haut, ou sur un bouton caché sous l'écran
     // saison, et le focus disparaissait complètement.
-    var userMoved by remember(type, tmdbId) { mutableStateOf(false) }
+    var userMoved by remember(type, tmdbId, part) { mutableStateOf(false) }
     LaunchedEffect(detail) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
         if (detail == null) return@LaunchedEffect
@@ -690,9 +699,9 @@ fun TitleDetailScreen(
     // muet reste derrière le texte et les actions. Sans cet appel, les fiches
     // ne pouvaient afficher qu'un backdrop statique, même lorsqu'un aperçu
     // existait côté Movviz.
-    var ambientPreview by remember(type, tmdbId) { mutableStateOf<com.movviz.tv.data.TvPreviewDto?>(null) }
-    LaunchedEffect(detail?.tmdbId, type) {
-        if (detail == null) return@LaunchedEffect
+    var ambientPreview by remember(type, tmdbId, part) { mutableStateOf<com.movviz.tv.data.TvPreviewDto?>(null) }
+    LaunchedEffect(detail?.tmdbId, type, part) {
+        if (detail == null || part != null) return@LaunchedEffect
         delay(900)
         ambientPreview = viewModel.loadTvPreview(type, tmdbId)
     }
@@ -708,7 +717,7 @@ fun TitleDetailScreen(
                 false
             },
     ) {
-        val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
+        val backdropUrl = (bleachRecord?.bleachArtwork?.get(part)?.customBackdropPath ?: (if (part == "original") bleachRecord?.customBackdropPath else null) ?: detail?.backdropPath)?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
             Image(
                 painter = rememberAsyncImagePainter(model = backdropUrl, contentScale = ContentScale.Crop),
@@ -793,8 +802,8 @@ fun TitleDetailScreen(
                         style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft),
                     )
                     Surface(
-                        onClick = { viewModel.loadDetail(type, tmdbId) },
-                        modifier = Modifier.focusRequester(initialFocusRequester).tvPointerClick { viewModel.loadDetail(type, tmdbId) },
+                        onClick = { viewModel.loadDetail(type, tmdbId, part) },
+                        modifier = Modifier.focusRequester(initialFocusRequester).tvPointerClick { viewModel.loadDetail(type, tmdbId, part) },
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
                         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                             containerColor = MovvizBrand,
@@ -845,7 +854,7 @@ fun TitleDetailScreen(
             if (fromStart || resumeMs == null) onPlayFromStart(d.title, playableEpisodes, index, d.posterPath)
             else onPlay(d.title, playableEpisodes, index, d.posterPath, resumeMs)
         }
-        val titleLogoPath = heroLogos["$type-$tmdbId"]
+        val titleLogoPath = bleachRecord?.bleachArtwork?.get(part)?.customLogoPath ?: if (part == "tybw") null else heroLogos["$type-$tmdbId"]
         var showTitleFallback by remember(titleLogoPath, d.tmdbId) { mutableStateOf(false) }
         LaunchedEffect(titleLogoPath, d.tmdbId) {
             showTitleFallback = false
@@ -1133,7 +1142,7 @@ fun TitleDetailScreen(
                         // focus à « Lire ».
                         focusRequester = if (episodeResume == null && nextEpisode == null) primaryActionFocusRequester else null,
                     ) {
-                        viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched, scope = "series")
+                        viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched, scope = if (part != null) null else "series")
                     }
                 }
             }
@@ -1181,7 +1190,7 @@ fun TitleDetailScreen(
                                     else onPlayFromStart(d.title, movieQueue, 0, d.posterPath)
                                 } else if (canAdd) {
                                     scope.launch {
-                                        when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
+                                        when (val result = viewModel.addCurrentToLibrary(type, tmdbId, part)) {
                                             is ApiResult.Failure -> addError = friendlyAddError(result.message)
                                             else -> addError = null
                                         }
@@ -1266,14 +1275,14 @@ fun TitleDetailScreen(
                         text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
 
-                        enabled = !addingToLibrary,
+                        enabled = !addingToLibrary && !bleachRepairRequired,
                         // Cible du focus d'ouverture pour un titre PAS encore
                         // en bibliothèque : sans elle, cette fiche n'avait
                         // aucune action focusable et s'ouvrait sur le rail.
                         focusRequester = primaryActionFocusRequester,
                     ) {
                         scope.launch {
-                            when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
+                            when (val result = viewModel.addCurrentToLibrary(type, tmdbId, part)) {
                                 is ApiResult.Failure -> addError = friendlyAddError(result.message)
                                 else -> addError = null
                             }
@@ -1297,7 +1306,7 @@ fun TitleDetailScreen(
                 val ctaResume = if (useResume) episodeResume!!.offsetMs else episodeResumeMs(ctaSeason, ctaEpisode)
                 Column {
                     Text(
-                        text = "S$ctaSeason · Ép $ctaEpisode" +
+                        text = (if (part != null) BleachPresentation.episodeLabel(ctaSeason, ctaEpisode) else "S$ctaSeason · Ép $ctaEpisode") +
                             (if (useResume) (episodeResume!!.episodeTitle?.let { " — $it" } ?: "") else ""),
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
@@ -1307,7 +1316,7 @@ fun TitleDetailScreen(
                             text = when {
                                 ctaWatched -> "Revoir depuis le début"
                                 ctaResume != null -> "Reprendre à ${formatResumeTime(ctaResume)}"
-                                else -> "Lire S$ctaSeason · Ép $ctaEpisode"
+                                else -> "Lire " + if (part != null) BleachPresentation.episodeLabel(ctaSeason, ctaEpisode) else "S$ctaSeason · Ép $ctaEpisode"
                             },
                             brush = null,
                             icon = if (ctaWatched) MovvizIconReplay else MovvizIconPlay,
@@ -1345,7 +1354,7 @@ fun TitleDetailScreen(
                         )
                     }
                 } else if (visibleSeasons.isEmpty()) {
-                    item { Text(text = "Aucune saison principale disponible.", style = TextStyle(fontSize = 10.sp, color = MovvizInkDim)) }
+                    item { Text(text = if (bleachRepairRequired) "La numérotation de Bleach doit être vérifiée dans les réglages du serveur." else "Aucune saison principale disponible.", style = TextStyle(fontSize = 10.sp, color = MovvizInkDim)) }
                 } else {
                     item {
                         SeasonSelector(
@@ -1404,12 +1413,12 @@ fun TitleDetailScreen(
         // Écran de saison au-dessus de la fiche série : il ne laisse ni les
         // épisodes ni la navigation générale se superposer à la hiérarchie.
         // Retour referme exactement ce niveau, avant de quitter la fiche.
-        val openSeason = visibleSeasons.firstOrNull { it.seasonNumber == openSeasonNumber }
+        val openSeason = visibleSeasons.firstOrNull { BleachPresentation.seasonKey(it) == openSeasonNumber }
         if (openSeason != null) {
             SeasonPageOverlay(
                 seriesTitle = d.title,
                 season = openSeason,
-                metadata = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, openSeason.seasonNumber)],
+                metadata = BleachPresentation.metadata(seasonMetadata[viewModel.seasonMetadataKey(tmdbId, openSeason.seasonNumber)], openSeason),
                 watchedEpisodeKeys = watchedEpisodeKeys,
                 downloading = searchingSeason == openSeason.seasonNumber,
                 episodeDownloads = episodeDownloads,
@@ -1417,9 +1426,9 @@ fun TitleDetailScreen(
                 focusLocked = episodePageOpen,
                 railEntryFocusRequester = entryFocusRequester,
                 onBack = { openSeasonNumber = null },
-                onDownloadSeason = { viewModel.downloadSeason(tmdbId, openSeason.seasonNumber) },
+                onDownloadSeason = { viewModel.downloadSeason(tmdbId, openSeason.seasonNumber, part, openSeason.bleachPart) },
                 onToggleEpisodesWatched = { episodes, watched ->
-                    viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = "season", season = openSeason.seasonNumber)
+                    viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = if (part != null) null else "season", season = if (part != null) null else openSeason.seasonNumber)
                 },
                 onPlayEpisode = { episode ->
                     playEpisode(
@@ -1446,7 +1455,7 @@ fun TitleDetailScreen(
             // Saison et épisode relus aussi : le statut de téléchargement
             // (recherche, en cours, disponible) avance pendant que la fiche
             // est ouverte, la sélection d'origine n'en est qu'un instantané.
-            val freshSeason = seasons.firstOrNull { it.seasonNumber == selection.season.seasonNumber } ?: selection.season
+            val freshSeason = seasons.firstOrNull { BleachPresentation.seasonKey(it) == BleachPresentation.seasonKey(selection.season) } ?: selection.season
             val freshEpisode = freshSeason.episodes.firstOrNull { it.episodeNumber == selection.episode.episodeNumber } ?: selection.episode
             val liveSelection = selection.copy(
                 season = freshSeason,
@@ -1481,7 +1490,7 @@ fun TitleDetailScreen(
                         watched,
                     )
                 },
-                onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber) },
+                onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber, part, selection.season.bleachPart) },
                 onDownloadEpisode = {
                     viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber)
                 },
@@ -1645,7 +1654,7 @@ private fun SeasonSelector(
         Text(text = "Saisons", style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(9.dp))
         TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-            items(seasons, key = { it.seasonNumber }) { season ->
+            items(seasons, key = { BleachPresentation.seasonKey(it) }) { season ->
                 val seasonPosterPath = metadataBySeasonNumber[season.seasonNumber]?.posterPath
                 var focused by remember { mutableStateOf(false) }
                 val shape = RoundedCornerShape(8.dp)
@@ -1669,17 +1678,17 @@ private fun SeasonSelector(
                     // remplace l'ancienne carte paysage tout-texte qui jurait
                     // avec le reste de l'app (retour utilisateur direct).
                     Surface(
-                        onClick = { onSelect(season.seasonNumber) },
+                        onClick = { onSelect(BleachPresentation.seasonKey(season)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(2f / 3f)
-                            .focusRequester(focusRequesterFor(season.seasonNumber))
+                            .focusRequester(focusRequesterFor(BleachPresentation.seasonKey(season)))
                             .tvCardFocusHalo(focused, shape)
                             .onFocusChanged {
                                 focused = it.isFocused
-                                if (it.isFocused) onCardFocused(season.seasonNumber)
+                                if (it.isFocused) onCardFocused(BleachPresentation.seasonKey(season))
                             }
-                            .tvPointerClick { onSelect(season.seasonNumber) },
+                            .tvPointerClick { onSelect(BleachPresentation.seasonKey(season)) },
                         shape = ClickableSurfaceDefaults.shape(shape),
                         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
                         border = ClickableSurfaceDefaults.border(
@@ -2103,9 +2112,9 @@ private fun SeasonPageHeader(
                             episodeProgress["${season.seasonNumber}.${landingEpisode.episodeNumber}"]?.resumeOffsetMs?.takeIf { it > 5_000L }
                         PrimaryPill(
                             text = when {
-                                landingWatched -> "Revoir l'épisode ${landingEpisode.episodeNumber}"
-                                landingResume != null -> "Reprendre l'épisode ${landingEpisode.episodeNumber} à ${formatResumeTime(landingResume)}"
-                                else -> "Lire l'épisode ${landingEpisode.episodeNumber}"
+                                landingWatched -> "Revoir l'épisode ${landingEpisode.displayEpisodeNumber ?: landingEpisode.episodeNumber}"
+                                landingResume != null -> "Reprendre l'épisode ${landingEpisode.displayEpisodeNumber ?: landingEpisode.episodeNumber} à ${formatResumeTime(landingResume)}"
+                                else -> "Lire l'épisode ${landingEpisode.displayEpisodeNumber ?: landingEpisode.episodeNumber}"
                             },
                             brush = null,
                             icon = if (landingWatched) MovvizIconReplay else MovvizIconPlay,
@@ -2207,7 +2216,7 @@ private fun EpisodeGridCard(
                     )
                 } else {
                     Box(modifier = Modifier.fillMaxSize().background(MovvizSurfaceStrong), contentAlignment = Alignment.Center) {
-                        Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+                        Text(text = "ÉP. ${episode.displayEpisodeNumber ?: episode.episodeNumber}", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
                     }
                 }
                 // Voile bas : le texte incrusté doit rester lisible quelle
@@ -2222,7 +2231,7 @@ private fun EpisodeGridCard(
                         ),
                 )
                 Text(
-                    text = "ÉP. ${episode.episodeNumber}",
+                    text = "ÉP. ${episode.displayEpisodeNumber ?: episode.episodeNumber}",
                     style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White),
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -2513,7 +2522,7 @@ private fun EpisodeDetailOverlay(
                         )
                     } else {
                         Box(modifier = Modifier.fillMaxSize().background(MovvizSurfaceStrong), contentAlignment = Alignment.Center) {
-                            Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+                            Text(text = "ÉP. ${episode.displayEpisodeNumber ?: episode.episodeNumber}", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
                         }
                     }
                     if (resumeOffset != null && progress != null && progress.durationMs > 0L) {
@@ -2576,11 +2585,11 @@ private fun EpisodeDetailOverlay(
                 Spacer(modifier = Modifier.height(14.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(
-                        text = "Saison ${selection.season.seasonNumber}",
+                        text = "Saison ${episode.displaySeasonNumber ?: selection.season.seasonNumber}",
                         style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
                     )
                     Text(
-                        text = "Épisode ${episode.episodeNumber}",
+                        text = "Épisode ${episode.displayEpisodeNumber ?: episode.episodeNumber}",
                         style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
                     )
                     if (!available) {

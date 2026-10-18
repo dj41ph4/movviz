@@ -17,7 +17,7 @@ after(async () => {
 const { AbstractBackend } = await import("../engine/src/backends/AbstractBackend.mjs");
 const { movePath, linkOrCopy } = await import("../engine/src/store.mjs");
 const { ReadOnlySeedStore } = await import("../engine/src/manualSeed.mjs");
-const { validateEpisodeTargets, resolveEpisodePlacement } = await import("../engine/src/episodePlacement.mjs");
+const { validateEpisodeTargets, resolveEpisodePlacement, ensurePresentationFolder } = await import("../engine/src/episodePlacement.mjs");
 const target = (s, e, ls, le, ps, pe) => ({ season: s, episode: e, library: { season: ls, episode: le }, placement: { season: ps, episode: pe } });
 
 async function fixture(names, targets, naming = {}) {
@@ -45,6 +45,34 @@ test("placement rejects invalid or conflicting identities and incomplete multi-e
   assert.throws(() => validateEpisodeTargets([target(2, 1, 17, 14, 2, 14), target(2, 1, 17, 15, 2, 15)]), /conflicting_episode_placement/);
   assert.throws(() => resolveEpisodePlacement([target(2, 1, 17, 14, 2, 14)], { season: 2, episode: 1, episodeEnd: 2 }), /partial_multi_episode_placement/);
   assert.throws(() => resolveEpisodePlacement([target(1, 20, 1, 20, 1, 20), target(1, 21, 2, 1, 1, 21)], { season: 1, episode: 20, episodeEnd: 21 }), /non_contiguous_episode_placement/);
+});
+
+test("standalone sequel imports to its own GUID-hinted folder without altering source or canonical numbering", async t => {
+  const presentation = { seriesPart: "tybw", title: "Bleach - Thousand-Year Blood War", year: 2022, folder: "Bleach - Thousand-Year Blood War (2022) {imdb-tt14986406}", plexGuid: "plex://show/68ae02ab39b1f79ac7d49761" };
+  const f = await fixture(["Bleach.TYBW.S02E01.mkv"], [{ ...target(2, 1, 17, 14, 2, 1), presentation }], { seriesFolder: "{title}", enabled: false });
+  let payload;
+  t.mock.method(globalThis, "fetch", async (_url, init) => { payload = JSON.parse(init.body); return Response.json({ ok: true }); });
+  await f.backend._import(f.snap, movePath);
+  const moved = f.backend.persistable()[0].movedFiles[0];
+  assert.equal(path.basename(path.dirname(path.dirname(moved.path))), presentation.folder);
+  assert.match(moved.path, /Season 02.*S02E01/);
+  assert.deepEqual([moved.season, moved.episode], [17, 14]);
+  assert.deepEqual(payload.files[0].episodePlacement.presentation, presentation);
+  assert.match(await fsp.readFile(path.join(f.cfg.completedPath, presentation.folder, ".plexmatch"), "utf8"), /guid: plex:\/\/show\/68ae02ab39b1f79ac7d49761/);
+  assert.deepEqual(await fsp.readFile(moved.path), f.bytes);
+  await ensurePresentationFolder(f.cfg.completedPath, presentation);
+});
+
+test("a conflicting Plex hint or unsafe folder rejects before any episode moves", async () => {
+  const presentation = { seriesPart: "tybw", title: "TYBW", year: 2022, folder: "TYBW (2022)", plexGuid: "plex://show/68ae02ab39b1f79ac7d49761" };
+  const f = await fixture(["Bleach.TYBW.S02E01.mkv"], [{ ...target(2, 1, 17, 14, 2, 1), presentation }]);
+  const folder = path.join(f.cfg.completedPath, presentation.folder);
+  await fsp.mkdir(folder); await fsp.writeFile(path.join(folder, ".plexmatch"), "tmdbid: 30984\n");
+  let transfers = 0;
+  await assert.rejects(f.backend._import(f.snap, async () => { transfers++; }), /hint_conflict/);
+  assert.equal(transfers, 0);
+  assert.deepEqual(await fsp.readFile(path.join(f.cfg.downloadPath, f.snap.files[0].path)), f.bytes);
+  for (const invalid of ["../Bleach", "nested/show", "C:\\Bleach"]) await assert.rejects(ensurePresentationFolder(f.cfg.completedPath, { ...presentation, folder: invalid }), /invalid_episode_presentation/);
 });
 
 test("historical S11E01 imports as TMDb S01E206 while callback retains library S11E01", async t => {

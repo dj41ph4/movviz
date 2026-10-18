@@ -109,12 +109,12 @@ export function bleachReleaseCoordinate(title: string, seasonNumber: number | nu
  * Interpret the identity Plex assigns, not the physical content of a file.
  * A stray S11 does NOT prove TVDB order: real Plex libraries can mix orders.
  */
-export function projectBleachPlexEpisodes<T extends EpisodeCoordinate>(title: string, episodes: T[], explicitOrder?: string | null) {
+export function projectBleachPlexEpisodes<T extends EpisodeCoordinate>(title: string, episodes: T[], explicitOrder?: string | null, seriesPart?: "original" | "tybw") {
   const items: T[] = [];
   const unresolved: T[] = [];
   for (const episode of episodes) {
     let coordinate: EpisodeCoordinate | null = null;
-    if (isBleachSequelTitle(title)) coordinate = bleachReleaseCoordinate(title, episode.seasonNumber, episode.episodeNumber);
+    if (seriesPart === "tybw" || (!seriesPart && isBleachSequelTitle(title))) coordinate = bleachReleaseCoordinate(seriesPart === "tybw" ? "Bleach TYBW" : title, episode.seasonNumber, episode.episodeNumber);
     else if (explicitOrder === "tmdbAiring") coordinate = bleachFromTmdb(episode.seasonNumber, episode.episodeNumber);
     else if (explicitOrder === "tvdbAiring" || explicitOrder === "aired") coordinate = bleachToTmdb(episode.seasonNumber, episode.episodeNumber) ? episode : null;
     else if (!explicitOrder && (episode.seasonNumber === 0 || (episode.seasonNumber === 1 && episode.episodeNumber >= 1 && episode.episodeNumber <= 20))) coordinate = episode;

@@ -14,7 +14,7 @@ import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSched
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
-import { getBleachPlexSnapshot, type BleachPlexSnapshot } from "./bleachSnapshot";
+import { getBleachPlexSnapshot, bleachPlexKeysPatch, type BleachPlexSnapshot } from "./bleachSnapshot";
 import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
@@ -743,7 +743,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             return ep;
           }),
         }));
-        updateSeries(byPath.id, { seasons: newSeasons, plexRatingKey: byPath.plexRatingKey ?? show.ratingKey });
+        updateSeries(byPath.id, { seasons: newSeasons, plexRatingKey: byPath.plexRatingKey ?? show.ratingKey, ...bleachPlexKeysPatch(byPath, bleach) });
         matched++;
         continue;
       }
@@ -805,6 +805,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         addedAt: Date.now(),
         plexRatingKey: show.ratingKey,
         originalTitle: meta.originalTitle,
+        ...bleachPlexKeysPatch(null, bleach),
       });
       added++;
       // TODO_POST_MOTEUR_LECTURE.md item 1 (série) — même contrat que
@@ -819,6 +820,8 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
 
     let changed = false;
     if (!existing.plexRatingKey) changed = true;
+    const plexKeys = bleachPlexKeysPatch(existing, bleach);
+    if (plexKeys.bleachPlexKeys && (JSON.stringify(plexKeys.bleachPlexKeys) !== JSON.stringify(existing.bleachPlexKeys) || plexKeys.plexRatingKey !== existing.plexRatingKey)) changed = true;
 
     // First pass: detect changes without deep-cloning the whole episode tree.
     // Also flag episodes whose language hasn't been set yet.
@@ -890,7 +893,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         }),
         };
       });
-      updateSeries(existing.id, { seasons: newSeasons, plexRatingKey: existing.plexRatingKey ?? show.ratingKey });
+      updateSeries(existing.id, { seasons: newSeasons, plexRatingKey: existing.plexRatingKey ?? show.ratingKey, ...bleachPlexKeysPatch(existing, bleach) });
       matched++;
       for (const pe of probedEpisodes) probeEpisodeInBackground(existing.id, pe.season, pe.episode, pe.path);
     }

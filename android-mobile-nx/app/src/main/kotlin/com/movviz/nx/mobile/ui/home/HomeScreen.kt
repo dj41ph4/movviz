@@ -1,5 +1,7 @@
 package com.movviz.nx.mobile.ui.home
 
+import com.movviz.nx.mobile.data.BleachPresentation
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -205,6 +207,7 @@ internal data class TvTitleCard(
      *  via Plex). V1 : jamais calculé pour les séries — voir le plan de
      *  finalisation watch-state, phase 12-13. */
     val watched: Boolean = false,
+    val seriesPart: String? = null,
 )
 
 /** Rangée d'accueil multi-type. Accueil est le seul endroit où films et séries
@@ -224,6 +227,7 @@ internal fun List<TvTitleCard>.withWatchedMovies(watchedMovieIds: Set<Int>): Lis
 fun HomeScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
     entryFocusRequester: FocusRequester? = null,
@@ -270,7 +274,8 @@ fun HomeScreen(
     // historiques continuent de fournir le Home.
     val homeSnapshot = homeUiState.snapshot
     val movies = homeSnapshot?.movies ?: streamedMovies
-    val series = homeSnapshot?.series ?: streamedSeries
+    val series = remember(homeSnapshot?.series, streamedSeries) { BleachPresentation.libraryViews(homeSnapshot?.series ?: streamedSeries) }
+    LaunchedEffect((homeSnapshot?.series ?: streamedSeries)) { viewModel.hydrateBleachLibrary() }
     val recentEpisodes = homeSnapshot?.recentEpisodes ?: streamedRecentEpisodes
     val continueWatching = homeSnapshot?.continueWatching ?: streamedContinueWatching
     val movieRows = homeSnapshot?.movieRows ?: streamedMovieRows
@@ -428,7 +433,7 @@ fun HomeScreen(
         }
         val shows = series.filter { it.hasAvailableEpisode && yearAllowed(it.year) }.map {
             it.addedAt to TvTitleCard(
-                id = "available-series-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
+                id = "available-series-${it.tmdbId}-${it.seriesPart.orEmpty()}", seriesPart = it.seriesPart, title = it.title, posterPath = it.posterPath,
                 backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = false,
                 year = it.year, rating = it.rating, genres = it.genres,
             )
@@ -638,7 +643,7 @@ fun HomeScreen(
                         onSelectIndex = { heroIndex = it },
                         ctaFocusRequester = contentFocus,
                         trailerAutoplay = dashboardLayout.hero.trailerAutoplay && activeCardPreviewKey == null,
-                        onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        onOpen = { card -> onOpenPartTitle(if (card.isMovie) "movie" else "series", card.tmdbId, card.seriesPart) },
                     )
                 }
             }
@@ -676,7 +681,7 @@ fun HomeScreen(
                                         val season = card.resumeSeasonNumber
                                         val episode = card.resumeEpisodeNumber
                                         if (season != null && episode != null) onOpenEpisode(card.tmdbId, season, episode)
-                                        else onOpenTitle("series", card.tmdbId)
+                                        else onOpenPartTitle("series", card.tmdbId, card.seriesPart)
                                     },
                                     firstItemFocusRequester = if (resumeMovies.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
                                     titleLogoPaths = heroLogos,
@@ -693,7 +698,7 @@ fun HomeScreen(
                                 val season = card.resumeSeasonNumber
                                 val episode = card.resumeEpisodeNumber
                                 if (!card.isMovie && season != null && episode != null) onOpenEpisode(card.tmdbId, season, episode)
-                                else onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
+                                else onOpenPartTitle(if (card.isMovie) "movie" else "series", card.tmdbId, card.seriesPart)
                             },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
@@ -705,7 +710,7 @@ fun HomeScreen(
                     "recentEpisodes" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Épisodes récemment ajoutés", items = recentEpisodeCards,
-                            onClick = { onOpenTitle("series", it.tmdbId) },
+                            onClick = { onOpenPartTitle("series", it.tmdbId, it.seriesPart) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
@@ -716,7 +721,7 @@ fun HomeScreen(
                     "becauseYouLike" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Sélection pour vous", items = recommendationCards,
-                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onClick = { onOpenPartTitle(if (it.isMovie) "movie" else "series", it.tmdbId, it.seriesPart) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -727,7 +732,7 @@ fun HomeScreen(
                     "rewatch" -> item(contentType = "row") {
                         TitleRow(
                             heading = "À revoir sans modération", items = rewatchCards,
-                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onClick = { onOpenPartTitle(if (it.isMovie) "movie" else "series", it.tmdbId, it.seriesPart) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -749,7 +754,7 @@ fun HomeScreen(
                     "discover" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Tendances Movviz", items = trendingCards,
-                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onClick = { onOpenPartTitle(if (it.isMovie) "movie" else "series", it.tmdbId, it.seriesPart) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -760,7 +765,7 @@ fun HomeScreen(
                     "availableNow" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Ajoutés récemment", items = availableNowCards,
-                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onClick = { onOpenPartTitle(if (it.isMovie) "movie" else "series", it.tmdbId, it.seriesPart) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -790,7 +795,7 @@ fun HomeScreen(
                     TitleRow(
                         heading = row.heading,
                         items = row.cards,
-                        onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                        onClick = { onOpenPartTitle(if (it.isMovie) "movie" else "series", it.tmdbId, it.seriesPart) },
                         titleLogoPaths = heroLogos,
                         onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
@@ -1908,7 +1913,7 @@ internal fun TitleRow(
                     // légende chaque carte. TV/paysage large sans légende.
                     showCaption = narrowRow,
                     showTechnicalBadges = false,
-                    titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
+                    titleLogoPath = if (card.seriesPart == "tybw") null else titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                 )
             }
             if (onSeeAll != null) {

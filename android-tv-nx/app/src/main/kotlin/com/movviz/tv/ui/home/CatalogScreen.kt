@@ -1,5 +1,7 @@
 package com.movviz.tv.ui.home
 
+import com.movviz.tv.data.BleachPresentation
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -87,6 +89,7 @@ internal fun CatalogScreen(
     viewModel: AppViewModel,
     type: HomeTab,
     onOpenTitle: (String, Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     entryFocusRequester: FocusRequester? = null,
     mode: MediaHubMode = MediaHubMode.LIBRARY,
     onModeChange: (MediaHubMode) -> Unit = {},
@@ -102,7 +105,9 @@ internal fun CatalogScreen(
     onFiltersChange: (CatalogFilters) -> Unit = {},
 ) {
     val movies by viewModel.movies.collectAsState()
-    val series by viewModel.series.collectAsState()
+    val rawSeries by viewModel.series.collectAsState()
+    val series = remember(rawSeries) { BleachPresentation.libraryViews(rawSeries) }
+    LaunchedEffect(rawSeries) { viewModel.hydrateBleachLibrary() }
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
@@ -119,13 +124,13 @@ internal fun CatalogScreen(
             movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
                 .withWatchedMovies(watchedMovieIds)
         } else {
-            series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
+            series.map { TvTitleCard("${it.id}-${it.seriesPart.orEmpty()}", it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres, seriesPart = it.seriesPart) }
         }
     }
 
     // Date d'ajout à la bibliothèque, par carte, pour le tri « Récemment ajouté ».
     val addedAtById = remember(movies, series, type) {
-        if (type == HomeTab.MOVIES) movies.associate { it.id to it.addedAt } else series.associate { it.id to it.addedAt }
+        if (type == HomeTab.MOVIES) movies.associate { it.id to it.addedAt } else series.associate { "${it.id}-${it.seriesPart.orEmpty()}" to it.addedAt }
     }
     var sort by remember(type) { mutableStateOf(hoistedFilters?.sort ?: CatalogSort.RECENT) }
     var selectedGenre by remember(type) { mutableStateOf(hoistedFilters?.genre) }
@@ -137,7 +142,7 @@ internal fun CatalogScreen(
     // Une série ne compte comme "manquante" que si AUCUN de ses épisodes
     // n'est disponible — une série avec ne serait-ce qu'un épisode reste
     // visible, contrairement à un film qui n'a qu'un seul fichier possible.
-    val missingSeriesIds = remember(series) { series.filterNot { it.hasAvailableEpisode }.map { it.id }.toSet() }
+    val missingSeriesIds = remember(series) { series.filterNot { it.hasAvailableEpisode }.map { "${it.id}-${it.seriesPart.orEmpty()}" }.toSet() }
 
     val filtered = remember(cards, selectedGenre, showMissing, missingSeriesIds) {
         val selection = selectedGenre
@@ -223,7 +228,7 @@ internal fun CatalogScreen(
                 itemsIndexed(sorted, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
                     PosterCard(
                         card = card,
-                        onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        onClick = { onOpenPartTitle(if (card.isMovie) "movie" else "series", card.tmdbId, card.seriesPart) },
                         // entryFocusRequester appartient exclusivement au
                         // couple Suggestions/Bibliothèque. Le réutiliser sur
                         // la première affiche rendait la cible ambiguë et

@@ -1,5 +1,6 @@
 import { pathFor } from "./renamePath";
 import { anthologyFor } from "@/lib/library/anthology";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { loadMovies, loadSeries } from "./store";
 import { getTitleInLanguage } from "@/lib/metadata/tmdb";
 import { loadNamingTemplates } from "@/lib/naming/store";
@@ -112,7 +113,9 @@ export async function scanRenames(
     idx++;
     // Anthologie Plex (Monster) : rangée exprès dans le dossier de
     // l'anthologie (anthology.ts) — le renommage ne doit pas l'en sortir.
-    if (anthologyFor(series.tmdbId)) {
+    // Bleach has two provider identities/folders; the generic one-title
+    // renamer would merge them and corrupt the physical episode order.
+    if (series.tmdbId === BLEACH_TMDB_ID || anthologyFor(series.tmdbId)) {
       setProgress?.(idx, total);
       continue;
     }

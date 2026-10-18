@@ -10,7 +10,7 @@ import {
 } from "../naming.mjs";
 import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR } from "../config.mjs";
 import { ManualSeed, cacheMetainfo, retainMetainfo, torrentPath } from "../manualSeed.mjs";
-import { validateEpisodeTargets, resolveEpisodePlacement } from "../episodePlacement.mjs";
+import { validateEpisodeTargets, resolveEpisodePlacement, ensurePresentationFolder } from "../episodePlacement.mjs";
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
@@ -930,6 +930,14 @@ export class AbstractBackend {
       }
       return matches.length > 0;
     });
+    // Validate every destination identity before transferring the first file.
+    const presentations = new Map();
+    for (const explicit of placementByFile.values()) if (explicit.presentation) {
+      const previous = presentations.get(explicit.presentation.folder);
+      if (previous && JSON.stringify(previous) !== JSON.stringify(explicit.presentation)) throw new Error("conflicting_episode_presentation");
+      presentations.set(explicit.presentation.folder, explicit.presentation);
+    }
+    for (const presentation of presentations.values()) await ensurePresentationFolder(this.cfg.completedPath, presentation);
 
     // Diagnostic: a video file that's actually part of this torrent but
     // matched NO target is exactly how a season pack silently loses episodes
@@ -1049,12 +1057,13 @@ export class AbstractBackend {
           info.season = explicit.placement.season;
           info.episode = explicit.placement.episode;
           info.episodeEnd = explicit.placement.episodeEnd ?? null;
+          if (explicit.presentation) { info.title = explicit.presentation.title; info.year = String(explicit.presentation.year); }
         }
         const ctx = buildContext(info);
         const ext = path.extname(file.name);
         let dest;
         if (this.cfg.category === "series") {
-          const seriesFolder = renderSegment(naming.seriesFolder, ctx, naming.useDotsInsteadOfSpaces);
+          const seriesFolder = explicit?.presentation?.folder ?? renderSegment(naming.seriesFolder, ctx, naming.useDotsInsteadOfSpaces);
           // Specials always land in a literal "Specials" folder regardless of
           // the user's season-folder template — Plex specifically expects
           // "Specials" or "Season 00", and there's no real reason to let the

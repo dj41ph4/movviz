@@ -193,6 +193,10 @@ export interface LibrarySeries {
   tmdbId: number;
   /** Explicit operational order for Bleach; legacy imports must be repaired before acquisition. */
   episodeOrder?: "tmdb" | "tvdb";
+  /** Independent cosmetic choices for the two Bleach fiches. */
+  bleachArtwork?: import("@/lib/metadata/bleachArtwork").BleachArtworkByPart;
+  /** Separate Plex shows share one Movviz catalogue and watch history. */
+  bleachPlexKeys?: { original?: string | null; tybw?: string | null };
   imdbId: string | null;
   /** TVDB id — needed for tvSearchTvdb-capable indexers (TR4KER only declares
    *  tvdb search, no tmdb): without it the indexer search falls back to a

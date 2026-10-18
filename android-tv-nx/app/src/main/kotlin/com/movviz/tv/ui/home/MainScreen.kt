@@ -33,6 +33,7 @@ import com.movviz.tv.ui.profile.ProfileScreen
 internal fun MainScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     // Ouverture d'une série depuis "Continuer à regarder" — sur le bon
     // épisode plutôt que la saison 1 par défaut (voir HomeScreen).
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
@@ -96,13 +97,13 @@ internal fun MainScreen(
         when {
             searchOpen -> SearchScreen(
                 viewModel = viewModel,
-                onOpenTitle = onOpenTitle,
+                onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
                 query = searchQuery.value,
                 onQueryChange = onSearchQueryChange,
                 showSearchField = true,
                 resultFocusRequester = contentFocusRequester,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged, restoreFocusRequester = homeRestoreFocusRequester)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged, restoreFocusRequester = homeRestoreFocusRequester)
             // Découverte redevient un onglet de nav à part entière (refonte
             // sidebar) : DiscoverScreen(fixedType = null) affiche déjà, sans
             // aucun changement de son côté, son propre sélecteur Films/Séries
@@ -117,7 +118,7 @@ internal fun MainScreen(
             // Bibliothèque fusionne Films/Séries/Collections (maquette) —
             // voir LibraryScreen.kt.
             tab == HomeTab.LIBRARY -> LibraryScreen(
-                viewModel = viewModel, onOpenTitle = onOpenTitle,
+                viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
                 entryFocusRequester = contentFocusRequester, onScrollChanged = onHomeScrollChanged,
                 tab = libraryTab, onTabChange = onLibraryTabChange,
                 movieFilters = libraryMovieFilters, onMovieFiltersChange = onLibraryMovieFiltersChange,

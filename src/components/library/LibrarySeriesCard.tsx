@@ -63,8 +63,8 @@ export function LibrarySeriesCard({
         seriesPart={series.seriesPart}
         title={series.title}
         posterPath={series.posterPath}
-        backdropPath={backdropPath ?? series.backdropPath}
-        logoPath={series.seriesPart === "tybw" ? null : logoPath}
+        backdropPath={series.customBackdropPath ?? backdropPath ?? series.backdropPath}
+        logoPath={series.customLogoPath ?? logoPath}
         titleEmbedded={series.seriesPart === "tybw" ? false : titleEmbedded}
         rating={series.rating}
         year={series.year}

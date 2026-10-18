@@ -104,7 +104,7 @@ private const val ROUTE_LOGIN = "login"
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_HOME = "home"
 private const val ROUTE_DOWNLOADS = "downloads"
-private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}?season={season}&episode={episode}"
+private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}?season={season}&episode={episode}&seriesPart={seriesPart}"
 private const val ROUTE_PERSON = "person/{id}"
 // "Voir tout" d'une rangée éditoriale ("row") ou grille filtrée par genre
 // ("genre") — voir RowDetailScreen. `key` porte soit la clé de rangée
@@ -123,10 +123,13 @@ private const val ROUTE_LOGIN_ADD = "login?add=true"
 private fun routeShowsNavRail(route: String?): Boolean =
     route != null && (route.startsWith("home") || route.startsWith("detail/") || route.startsWith("person/") || route.startsWith("row/"))
 
-fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = null): String {
-    val base = "detail/$type/$tmdbId"
-    if (season == null || episode == null) return base
-    return "$base?season=$season&episode=$episode"
+fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = null, seriesPart: String? = null): String {
+    val part = com.movviz.nx.mobile.data.BleachPresentation.part(tmdbId, type, seriesPart, season)
+    val query = buildList {
+        if (season != null && episode != null) { add("season=$season"); add("episode=$episode") }
+        if (part != null) add("seriesPart=$part")
+    }.joinToString("&")
+    return "detail/$type/$tmdbId" + if (query.isEmpty()) "" else "?$query"
 }
 
 fun personRoute(id: Int): String = "person/$id"
@@ -621,6 +624,7 @@ composable(ROUTE_PROFILES) {
                 onOpenTitle = { type, tmdbId ->
                     navController.navigate(detailRoute(type, tmdbId))
                 },
+                onOpenPartTitle = { type, id, part -> navController.navigate(detailRoute(type, id, seriesPart = part)) },
                 onOpenEpisode = { tmdbId, season, episode ->
                     navController.navigate(detailRoute("series", tmdbId, season, episode))
                 },
@@ -665,6 +669,7 @@ composable(ROUTE_PROFILES) {
                 navArgument("tmdbId") { type = NavType.IntType },
                 navArgument("season") { type = NavType.IntType; defaultValue = -1 },
                 navArgument("episode") { type = NavType.IntType; defaultValue = -1 },
+                navArgument("seriesPart") { type = NavType.StringType; nullable = true; defaultValue = null },
             ),
             deepLinks = listOf(
                 // movviz://title/movie/27205 (carte dashboard TvProvider) →
@@ -690,6 +695,7 @@ composable(ROUTE_PROFILES) {
                 viewModel = viewModel,
                 type = type,
                 tmdbId = tmdbId,
+                seriesPart = backStackEntry.arguments?.getString("seriesPart"),
                 initialSeasonNumber = season,
                 initialEpisodeNumber = episode,
                 onPlay = { title, queue, startIndex, posterPath ->

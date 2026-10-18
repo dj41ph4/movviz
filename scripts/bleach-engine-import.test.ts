@@ -4,6 +4,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import type { LibrarySeries, LibraryEpisode } from "@/lib/library/types";
+import { decodeLibraryRef } from "@/lib/library/types";
 
 test("real engine source selection → Plex physical name → operational library import, replacement and replay", async () => {
   const sandbox = await fsp.mkdtemp(path.join(os.tmpdir(), "movviz-bleach-import-"));
@@ -40,11 +41,11 @@ test("real engine source selection → Plex physical name → operational librar
     let postCount = 0, outdated = false;
     globalThis.fetch = async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/health")) return Response.json({ capabilities: outdated ? {} : { episodePlacementV1: true } });
+      if (url.endsWith("/health")) return Response.json({ capabilities: outdated ? { episodePlacementV1: true } : { episodePlacementV1: true, episodePresentationV1: true } });
       if (url.includes("/api/library/import")) {
         postCount++;
         const body = JSON.parse(String(init?.body));
-        const result = await applyImportedFiles({ kind: "episode", seriesId: "sr_bleach_test", season: 17, episode: 14 }, body.files, body.infoHash);
+        const result = await applyImportedFiles(decodeLibraryRef(body.libraryRef)!, body.files, body.infoHash);
         return Response.json(result);
       }
       if (url.endsWith("/instances")) return Response.json({ instances: [{ completedPath: root }] });
@@ -89,6 +90,36 @@ test("real engine source selection → Plex physical name → operational librar
     assert.equal(store.getSeries("sr_bleach_test")!.seasons.find(s => s.seasonNumber === 17)!.episodes[14].file!.path, rangePath);
     assert.throws(() => validateBleachImportedFiles(store.getSeries("sr_bleach_test")!, [{ ...range, episodePlacement: { ...range.episodePlacement, library: { season: 17, episode: 1, episodeEnd: Infinity } } }], "range-hash"), /identity_unverified/);
     assert.throws(() => validateBleachImportedFiles(store.getSeries("sr_bleach_test")!, [{ ...range, episodePlacement: undefined }], "range-hash"), /identity_unverified/);
+    // New downloads use two physical series identities. Legacy imports above
+    // remain valid; neither the canonical ID nor historical files are guessed.
+    const beforeOriginal = JSON.stringify(store.getSeries("sr_bleach_test")!.seasons[0]);
+    const destinations: string[] = [];
+    for (const [season, number, release, hash] of [
+      [17, 16, "Bleach.TYBW.The.Separation.S02E03.1080p", "separate-sequel"],
+      [11, 1, "Bleach.S11E01.1080p", "separate-original"],
+    ] as const) {
+      const libraryRef = `episode:sr_bleach_test:${season}:${number}`;
+      const planned = await prepareBleachGrab(libraryRef, release);
+      assert.equal(planned.targets?.length, 1);
+      markBleachGrabTargets("sr_bleach_test", hash, planned.targets!);
+      const name = `${release}.mkv`, bytes = `synthetic ${hash}`;
+      await fsp.writeFile(path.join(download, name), bytes);
+      backend.meta.set(hash, { title: "Bleach", libraryRef, episodeTarget: planned.single, addedAt: 2 });
+      await backend._import({ infoHash: hash, name, files: [{ name, path: name, length: Buffer.byteLength(bytes), selected: true }] }, movePath);
+      const installedPart = store.getSeries("sr_bleach_test")!.seasons.find(s => s.seasonNumber === season)!.episodes.find(e => e.episodeNumber === number)!;
+      assert.equal(installedPart.status, "available");
+      assert.equal(await fsp.readFile(installedPart.file!.path, "utf8"), bytes);
+      const folder = path.dirname(path.dirname(installedPart.file!.path)); destinations.push(folder);
+      assert.equal(path.basename(folder), planned.single!.presentation!.folder);
+      assert.match(await fsp.readFile(path.join(folder, ".plexmatch"), "utf8"), new RegExp(`imdbid: ${planned.single!.presentation!.imdbId}`));
+      if (season === 17) assert.match(installedPart.file!.path, /Season 02.*S02E03/);
+      else assert.match(installedPart.file!.path, /Season 01.*S01E206/);
+      const files = backend.meta.get(hash).movedFiles;
+      assert.equal(await backend._notifyLibrary(libraryRef, files, hash), true);
+      assert.throws(() => validateBleachImportedFiles(store.getSeries("sr_bleach_test")!, [{ ...files[0], path: path.join(root, "Wrong Bleach", path.basename(path.dirname(files[0].path)), path.basename(files[0].path)) }], hash), /folder_unverified/);
+    }
+    assert.notEqual(destinations[0], destinations[1]);
+    assert.equal(JSON.stringify(store.getSeries("sr_bleach_test")!.seasons[0]), beforeOriginal);
     cache.writeJsonCached(path.join(config, "playback-progress.json"), { sessions: { stale: { mediaId: "sr_bleach_test:17:14", lastHeartbeatAt: Date.now() - 25 * 60 * 60_000 } } });
     flush();
     assert.equal(inspectBleachRepairState("sr_bleach_test").blockers.includes("active_playback"), false);

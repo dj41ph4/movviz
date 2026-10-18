@@ -21,7 +21,8 @@ import path from "node:path";
 import fsp from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { BLEACH_TMDB_ID, bleachToTmdb, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_TMDB_ID, bleachToTmdb, bleachCourForEpisode, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachFilePresentation } from "@/lib/metadata/bleachPlexIdentity";
 import type { EpisodePlacement } from "@/lib/engine/episodePlacement";
 import type { LibrarySeries } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
@@ -50,6 +51,11 @@ export function validateBleachImportedFiles(series: LibrarySeries, files: Import
     const mapping = file.episodePlacement;
     if (!mapping || !infoHash) throw new Error("bleach_import_identity_unverified");
     const { source, library, placement } = mapping;
+    if (mapping.presentation) {
+      const expected = bleachFilePresentation(library.season === 17 ? "tybw" : "original");
+      if (Object.entries(expected).some(([key, value]) => mapping.presentation?.[key as keyof typeof expected] !== value) ||
+          pathFor(file.path).basename(pathFor(file.path).dirname(pathFor(file.path).dirname(file.path))) !== expected.folder) throw new Error("bleach_import_folder_unverified");
+    }
     const valid = (c: typeof library) => c && Number.isSafeInteger(c.season) && c.season >= 0 && c.season <= 17 && Number.isSafeInteger(c.episode) && c.episode >= 1 && c.episode <= 1000 && (c.episodeEnd == null || (Number.isSafeInteger(c.episodeEnd) && c.episodeEnd >= c.episode && c.episodeEnd <= 1000));
     if (![source, library, placement].every(valid)) throw new Error("bleach_import_identity_unverified");
     const end = library.episodeEnd ?? library.episode;
@@ -59,9 +65,12 @@ export function validateBleachImportedFiles(series: LibrarySeries, files: Import
       const offset = episodeNumber - library.episode;
       const expected = ep?.activeEpisodePlacement;
       const replay = ep?.lastImportedInfoHash === infoHash && samePath(diskPathOf(ep.file) ?? "", file.path);
-      if (!ep || (!replay && (ep.activeInfoHash !== infoHash || !expected || expected.source.season !== source.season || expected.source.episode !== source.episode + offset || expected.placement.season !== placement.season || expected.placement.episode !== placement.episode + offset))) throw new Error("bleach_import_intent_unverified");
+      if (!ep || (!replay && (ep.activeInfoHash !== infoHash || !expected || expected.source.season !== source.season || expected.source.episode !== source.episode + offset || expected.placement.season !== placement.season || expected.placement.episode !== placement.episode + offset || JSON.stringify(expected.presentation ?? null) !== JSON.stringify(mapping.presentation ?? null)))) throw new Error("bleach_import_intent_unverified");
       const tmdb = bleachToTmdb(library.season, episodeNumber);
-      if (!tmdb || !((placement.season === library.season && placement.episode + offset === episodeNumber) || (placement.season === tmdb.seasonNumber && placement.episode + offset === tmdb.episodeNumber))) throw new Error("bleach_import_placement_unverified");
+      const cour = mapping.presentation?.seriesPart === "tybw" ? bleachCourForEpisode(episodeNumber) : null;
+      const placementVerified = cour ? placement.season === cour.part && placement.episode + offset === episodeNumber - cour.offset :
+        (placement.season === library.season && placement.episode + offset === episodeNumber) || (placement.season === tmdb?.seasonNumber && placement.episode + offset === tmdb.episodeNumber);
+      if (!tmdb || !placementVerified) throw new Error("bleach_import_placement_unverified");
     }
     const physical = parseRelease(pathFor(file.path).basename(file.path));
     const rawRange = pathFor(file.path).basename(file.path).match(/S\d{1,2}E(\d{1,3})(?:-E?|E)(\d{1,3})(?=[^\d]|$)/i);

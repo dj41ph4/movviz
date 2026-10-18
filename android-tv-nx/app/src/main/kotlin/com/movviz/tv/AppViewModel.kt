@@ -1,5 +1,7 @@
 package com.movviz.tv
 
+import com.movviz.tv.data.BleachPresentation
+
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -346,7 +348,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // qu'une version fraîche est requêtée en silence derrière — même
     // compromis que l'accueil : l'affichage instantané peut être vieux de
     // quelques secondes (un statut qui vient de passer "disponible").
-    private val detailCache = mutableMapOf<Pair<String, Int>, MetaDetailDto>()
+    private val detailCache = mutableMapOf<Triple<String, Int, String?>, MetaDetailDto>()
 
     private val _person = MutableStateFlow<PersonDto?>(null)
     val person: StateFlow<PersonDto?> = _person.asStateFlow()
@@ -613,13 +615,13 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     /** Déclenche la même recherche de saison que le bouton desktop, mais ne
      * bloque pas la TV : le serveur répond immédiatement après mise en file. */
-    fun downloadSeason(tmdbId: Int, seasonNumber: Int) {
+    fun downloadSeason(tmdbId: Int, seasonNumber: Int, seriesPart: String? = null, bleachPart: Int? = null) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
         if (_searchingSeason.value != null) return
         _searchingSeason.value = seasonNumber
         viewModelScope.launch {
-            when (repo.searchSeriesSeasonNow(seriesId, seasonNumber)) {
+            when (repo.searchSeriesSeasonNow(seriesId, seasonNumber, seriesPart, bleachPart)) {
                 is ApiResult.Success -> loadSeriesSeasons(tmdbId)
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 is ApiResult.Failure -> Unit
@@ -665,9 +667,12 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
     }
 
-    fun loadDetail(type: String, tmdbId: Int) {
+    private var activeDetailKey: Triple<String, Int, String?>? = null
+
+    fun loadDetail(type: String, tmdbId: Int, seriesPart: String? = null) {
         val repo = repository ?: return
-        val key = type to tmdbId
+        val key = Triple(type, tmdbId, BleachPresentation.part(tmdbId, type, seriesPart))
+        activeDetailKey = key
         val cached = detailCache[key]
         // Un titre déjà vu cette session s'affiche tout de suite ; sinon
         // c'est le squelette (TitleDetailScreen) qui occupe l'écran pendant
@@ -675,17 +680,17 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         _detail.value = cached
         _detailError.value = null
         viewModelScope.launch {
-            when (val d = repo.detail(type, tmdbId)) {
+            when (val d = repo.detail(type, tmdbId, key.third)) {
                 is ApiResult.Success -> {
                     detailCache[key] = d.data
-                    _detail.value = d.data
+                    if (activeDetailKey == key) _detail.value = d.data
                 }
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 // Le cache reste affiché plutôt que de le remplacer par un
                 // message d'erreur si le rafraîchissement silencieux échoue :
                 // seul un tout premier chargement sans rien à montrer bascule
                 // sur l'écran d'erreur.
-                is ApiResult.Failure -> if (cached == null) _detailError.value = d.message
+                is ApiResult.Failure -> if (cached == null && activeDetailKey == key) _detailError.value = d.message
             }
         }
     }
@@ -699,15 +704,15 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
      *  déclencher une requête par carte survolée. Le job unique annule
      *  automatiquement la tentative de la carte précédente dès qu'une
      *  nouvelle carte prend le focus avant l'échéance. */
-    fun scheduleDetailPrefetch(type: String, tmdbId: Int) {
-        val key = type to tmdbId
+    fun scheduleDetailPrefetch(type: String, tmdbId: Int, seriesPart: String? = null) {
+        val key = Triple(type, tmdbId, BleachPresentation.part(tmdbId, type, seriesPart))
         if (detailCache.containsKey(key)) return
         detailPrefetchJob?.cancel()
         detailPrefetchJob = viewModelScope.launch {
             delay(750)
             val repo = repository ?: return@launch
             if (detailCache.containsKey(key)) return@launch
-            when (val d = repo.detail(type, tmdbId)) {
+            when (val d = repo.detail(type, tmdbId, key.third)) {
                 is ApiResult.Success -> detailCache[key] = d.data
                 else -> Unit
             }
@@ -725,14 +730,19 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
     }
 
-    suspend fun addCurrentToLibrary(type: String, tmdbId: Int): ApiResult<Unit> {
+    suspend fun addCurrentToLibrary(type: String, tmdbId: Int, seriesPart: String? = null): ApiResult<Unit> {
         val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
+        if (tmdbId == BleachPresentation.TMDB_ID && type == "series" && _series.value.any { it.tmdbId == tmdbId && it.episodeOrder != "tvdb" }) return ApiResult.Failure("La numérotation de Bleach doit être vérifiée sur le serveur")
         _addingToLibrary.value = true
         try {
-            val result = repo.addToLibrary(type, tmdbId)
+            val result = repo.addToLibrary(type, tmdbId, seriesPart)
             // Handle 401 explicitly -- do not silently swallow it as Success.
             if (result is ApiResult.Unauthorized) {
                 _sessionExpired.value = true
+                return result
+            }
+            if (tmdbId == BleachPresentation.TMDB_ID && type == "series") {
+                resolveTitleLibraryEntry(type, tmdbId)
                 return result
             }
             // Le parcours serveur crée d'abord l'entrée Movviz puis lance la
@@ -1337,6 +1347,24 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         withContext(Dispatchers.IO) {
             runCatching { homeLocalStore.write(snapshot) }
                 .onFailure { Log.w("TV-PERF", "LOCAL_STATE_WRITE_FAILED", it) }
+        }
+    }
+
+    private var bleachLibraryHydrating = false
+    /** Compact home snapshots omit seasons; resolve this one identity before projecting its parts. */
+    fun hydrateBleachLibrary() {
+        if (bleachLibraryHydrating || _series.value.none { it.tmdbId == BleachPresentation.TMDB_ID && it.seasons.isEmpty() }) return
+        val repo = repository ?: return
+        bleachLibraryHydrating = true
+        val profileId = _currentUser.value?.id
+        viewModelScope.launch {
+            try {
+                when (val result = repo.seriesByTmdbId(BleachPresentation.TMDB_ID)) {
+                    is ApiResult.Success -> if (_currentUser.value?.id == profileId) result.data?.let { updated -> _series.value = _series.value.replaceOrAppend(updated) { it.tmdbId } }
+                    ApiResult.Unauthorized -> _sessionExpired.value = true
+                    is ApiResult.Failure -> Unit
+                }
+            } finally { bleachLibraryHydrating = false }
         }
     }
 

@@ -80,6 +80,10 @@ data class LibrarySeriesDto(
     // côté TV permet d'afficher une saison manquante avant même qu'un fichier
     // Plex existe, afin de proposer sa recherche ciblée.
     val seasons: List<SeriesSeasonDto> = emptyList(),
+    val seriesPart: String? = null,
+    val episodeOrder: String? = null,
+    val bleachArtwork: Map<String, BleachArtworkDto> = emptyMap(),
+    val availableBySeason: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -276,6 +280,8 @@ data class LoginRequest(
 @JsonClass(generateAdapter = true)
 data class AddToLibraryRequest(
     val tmdbId: Int,
+    val seriesPart: String? = null,
+    val seasonNumbers: List<Int>? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -408,6 +414,7 @@ data class MetaDetailDto(
     // d'écran Collections côté TV : simple mention texte sur la fiche, pas
     // de duplication d'un parcours qui n'existe pas encore ici.
     val collection: MetaCollectionDto? = null,
+    val seriesPart: String? = null,
 )
 
 /** PIN éphémère créé par /api/auth/plex/pin. authUrl pointe uniquement vers
@@ -513,6 +520,8 @@ data class SeriesEpisodeDto(
     val plexRatingKey: String?,
     val playbackSource: String? = null,
     val plexLinkStatus: String? = null,
+    val displayEpisodeNumber: Int? = null,
+    val displaySeasonNumber: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -520,6 +529,7 @@ data class SeriesSeasonDto(
     val seasonNumber: Int,
     val name: String,
     val episodes: List<SeriesEpisodeDto> = emptyList(),
+    val bleachPart: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -562,6 +572,7 @@ data class SearchResultDto(
      * fond 16:9 que le dashboard desktop, au lieu de recadrer un poster. */
     val backdropPath: String? = null,
     val rating: Double = 0.0,
+    val seriesPart: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -1035,3 +1046,6 @@ data class PersonSearchResponseDto(
     val page: Int = 1,
     val totalPages: Int = 0,
 )
+
+@JsonClass(generateAdapter = true)
+data class BleachArtworkDto(val customBackdropPath: String? = null, val customLogoPath: String? = null)

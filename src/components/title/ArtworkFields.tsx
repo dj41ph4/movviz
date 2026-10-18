@@ -6,6 +6,9 @@ import { useT, useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { Loader2, Check, RotateCcw } from "lucide-react";
+import { toast } from "@/components/ui/Toast";
+import type { BleachPart } from "@/lib/metadata/bleachPresentation";
+import { mutate } from "swr";
 
 interface TitleImageOption {
   filePath: string;
@@ -26,13 +29,14 @@ type Kind = "backdrop" | "logo";
  * section of EditTitleModal instead of a second, separate entry point.
  */
 export function ArtworkFields({
-  type, id, tmdbId, currentBackdropPath, currentLogoPath, onChange,
+  type, id, tmdbId, currentBackdropPath, currentLogoPath, onChange, seriesPart,
 }: {
   type: "movie" | "series";
   id: string;
   tmdbId: number;
   currentBackdropPath?: string | null;
   currentLogoPath?: string | null;
+  seriesPart?: BleachPart;
   onChange: () => void;
 }) {
   const t = useT();
@@ -53,14 +57,18 @@ export function ArtworkFields({
   const choose = async (filePath: string | null) => {
     setSaving(filePath ?? "__default__");
     try {
-      await fetch(`${libEndpoint}/${id}`, {
+      const response = await fetch(`${libEndpoint}/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ [field]: filePath }),
+        body: JSON.stringify({ [field]: filePath, seriesPart }),
       });
+      if (!response.ok) { toast("error", t("indexerMgr.saveFailed")); return; }
       if (tab === "backdrop") setLocalBackdrop(filePath);
       else setLocalLogo(filePath);
       onChange();
+      void mutate(key => typeof key === "string" && (key.startsWith("title-artwork:") || key.startsWith(libEndpoint)));
+    } catch {
+      toast("error", t("indexerMgr.saveFailed"));
     } finally {
       setSaving(null);
     }

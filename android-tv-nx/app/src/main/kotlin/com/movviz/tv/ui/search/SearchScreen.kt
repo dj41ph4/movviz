@@ -1,5 +1,7 @@
 package com.movviz.tv.ui.search
 
+import com.movviz.tv.data.BleachPresentation
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -96,6 +98,7 @@ private enum class SearchTypeFilter(val label: String, val apiType: String?) {
 fun SearchScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     query: String = "",
     onQueryChange: (String) -> Unit = {},
     showSearchField: Boolean = true,
@@ -110,6 +113,7 @@ fun SearchScreen(
     // deux int/string, c'est instantané et ne retient rien de lourd.
     var focusedTmdbId by remember { mutableStateOf<Int?>(null) }
     var focusedType by remember { mutableStateOf<String?>(null) }
+    var focusedPart by remember { mutableStateOf<String?>(null) }
     // Distinct du requester d'entrée depuis la barre : un requester Compose
     // ne s'attache qu'à un seul nœud. Celui-ci est exclusivement la première
     // carte, pour que BAS depuis le champ sorte toujours du clavier vers les
@@ -156,7 +160,7 @@ fun SearchScreen(
     }
 
     val filteredResults = remember(results, typeFilter) {
-        typeFilter.apiType?.let { type -> results.filter { it.type == type } } ?: results
+        typeFilter.apiType?.let { type -> BleachPresentation.searchViews(results).filter { it.type == type } } ?: BleachPresentation.searchViews(results)
     }
     // Normalize once per library update, never the entire catalogue on the
     // UI thread for every IME character. Keep local matches ahead of TMDb.
@@ -164,8 +168,8 @@ fun SearchScreen(
         value = withContext(Dispatchers.Default) {
             libraryMovies.map {
                 IndexedSearchTitle(SearchResultDto(it.tmdbId, "movie", it.title, it.year, it.posterPath, it.backdropPath, it.rating), normalizedSearchText(it.title))
-            } + librarySeries.map {
-                IndexedSearchTitle(SearchResultDto(it.tmdbId, "series", it.title, it.year, it.posterPath, it.backdropPath, it.rating), normalizedSearchText(it.title))
+            } + BleachPresentation.libraryViews(librarySeries).map {
+                IndexedSearchTitle(SearchResultDto(it.tmdbId, "series", it.title, it.year, it.posterPath, it.backdropPath, it.rating, it.seriesPart), normalizedSearchText(it.title))
             }
         }
     }
@@ -190,8 +194,8 @@ fun SearchScreen(
     val mergedResults = remember(libraryMatches, filteredResults) {
         val seen = HashSet<String>()
         val combined = ArrayList<SearchResultDto>(libraryMatches.size + filteredResults.size)
-        for (item in libraryMatches) if (seen.add("${item.type}-${item.tmdbId}")) combined.add(item)
-        for (item in filteredResults) if (seen.add("${item.type}-${item.tmdbId}")) combined.add(item)
+        for (item in libraryMatches) if (seen.add(BleachPresentation.key(item))) combined.add(item)
+        for (item in filteredResults) if (seen.add(BleachPresentation.key(item))) combined.add(item)
         combined
     }
     // Navigation saves the clicked identity, never a Compose focus node.
@@ -199,7 +203,7 @@ fun SearchScreen(
     LaunchedEffect(mergedResults, returnResultKey, searching, matchedLibrary) {
         if (!returningFromTitle) return@LaunchedEffect
         val key = returnResultKey ?: return@LaunchedEffect
-        val index = mergedResults.indexOfFirst { "${it.type}-${it.tmdbId}" == key }
+        val index = mergedResults.indexOfFirst { BleachPresentation.key(it) == key }
         if (index >= 0) {
             gridState.scrollToItem(index)
             repeat(20) {
@@ -275,22 +279,22 @@ fun SearchScreen(
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
-                itemsIndexed(mergedResults, key = { _, result -> "${result.type}-${result.tmdbId}" }, contentType = { _, _ -> "search-result" }) { index, result ->
+                itemsIndexed(mergedResults, key = { _, result -> BleachPresentation.key(result) }, contentType = { _, _ -> "search-result" }) { index, result ->
                     SearchResultCard(
                         result,
-                        result.tmdbId == focusedTmdbId && result.type == focusedType,
-                        { focusedTmdbId = result.tmdbId; focusedType = result.type },
+                        result.tmdbId == focusedTmdbId && result.type == focusedType && result.seriesPart == focusedPart,
+                        { focusedTmdbId = result.tmdbId; focusedType = result.type; focusedPart = result.seriesPart },
                         // Le même FocusRequester ne peut être attaché qu'à
                         // un seul nœud Compose. Quand le champ est affiché,
                         // c'est lui qui reçoit BAS depuis la barre ; le
                         // premier résultat est ensuite atteint naturellement
                         // par BAS. L'ancienne double attache rendait la
                         // recherche muette au D-pad sur certains appareils.
-                        focusRequester = if (index == 0) firstResultFocusRequester else if ("${result.type}-${result.tmdbId}" == returnResultKey) returnResultFocusRequester else null,
+                        focusRequester = if (index == 0) firstResultFocusRequester else if (BleachPresentation.key(result) == returnResultKey) returnResultFocusRequester else null,
                         watched = result.type == "movie" && result.tmdbId in searchWatchedMovieIds,
                     ) {
-                        returnResultKey = "${result.type}-${result.tmdbId}"
-                        onOpenTitle(result.type, result.tmdbId)
+                        returnResultKey = BleachPresentation.key(result)
+                        onOpenPartTitle(result.type, result.tmdbId, result.seriesPart)
                     }
                 }
             }

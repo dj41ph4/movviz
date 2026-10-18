@@ -64,7 +64,7 @@ export function createApiServer(engine) {
           hostname: HOSTNAME,
           uptimeMs: Date.now() - started,
           started: engine.started,
-          capabilities: { episodePlacementV1: true },
+          capabilities: { episodePlacementV1: true, episodePresentationV1: true },
           // Resource footprint, so the Diagnostics panel can show which
           // process (web vs engine) is actually eating the machine.
           rssBytes: process.memoryUsage().rss,

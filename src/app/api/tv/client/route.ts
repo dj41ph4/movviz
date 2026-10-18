@@ -139,6 +139,7 @@ export async function POST(req: NextRequest) {
         case "/api/dashboard/hero": response = await (await import("@/app/api/dashboard/hero/route")).GET(delegated); break;
         case "/api/dashboard/layout": response = await (await import("@/app/api/dashboard/layout/route")).GET(delegated); break;
         case "/api/metadata/images": response = await (await import("@/app/api/metadata/images/route")).GET(delegated); break;
+        case "/api/metadata/images/batch": response = await (await import("@/app/api/metadata/images/batch/route")).GET(delegated); break;
         case "/api/metadata/season": response = await (await import("@/app/api/metadata/season/route")).GET(delegated); break;
         case "/api/metadata/person": response = await (await import("@/app/api/metadata/person/route")).GET(delegated); break;
         case "/api/metadata/genres": response = await (await import("@/app/api/metadata/genres/route")).GET(delegated); break;

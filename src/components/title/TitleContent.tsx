@@ -13,7 +13,7 @@ import { daysUntil } from "@/lib/library/releaseSchedule";
 import { SeasonAccordion } from "@/components/title/SeasonAccordion";
 import { BleachRepairNotice } from "@/components/title/BleachRepairNotice";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
-import { bleachContainsSeason, bleachCanonicalSeasons, bleachCour, bleachEpisodeLabel, bleachProjectionPresent, projectBleachDetail, projectBleachLibrary, type BleachPart } from "@/lib/metadata/bleachPresentation";
+import { bleachContainsSeason, bleachCanonicalSeasons, bleachCour, bleachEpisodeLabel, bleachPresentationKey, bleachProjectionPresent, projectBleachDetail, projectBleachLibrary, type BleachPart } from "@/lib/metadata/bleachPresentation";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
@@ -168,6 +168,9 @@ type LibraryListItem = {
   aliases?: string[];
   customBackdropPath?: string | null;
   customLogoPath?: string | null;
+  bleachArtwork?: import("@/lib/metadata/bleachArtwork").BleachArtworkByPart;
+  bleachPlexKeys?: Partial<Record<BleachPart, string | null>>;
+  bleachPlexUrls?: Partial<Record<BleachPart, string | null>>;
   plexMediaInfo?: {
     container: string | null;
     bitrate: number | null;
@@ -389,7 +392,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
   // Cards and details deliberately share one durable editorial selection.
   // A custom user choice still wins, but otherwise opening a title must not
   // download/display a second arbitrary TMDb backdrop for the same media.
-  const editorialArtwork = useTitleArtworkBatch([{ tmdbId, type }], locale)[`${type}:${tmdbId}`];
+  const editorialArtwork = useTitleArtworkBatch([{ tmdbId, type, seriesPart }], locale)[bleachPresentationKey({ tmdbId, type, seriesPart })];
   // Raw path + size — feeds TmdbImage/TrailerHeader (Tier 1/2, CDN+fallback
   // resolved internally by those). Same custom > editorial > detail
   // precedence as before.
@@ -507,8 +510,8 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
     detail?.tmdbId ? `/api/metadata/images?tmdbId=${detail.tmdbId}&type=${type}&locale=${locale}` : null,
     fetcher
   );
-  const logoPath = seriesPart === "tybw" ? null : libraryMatch?.customLogoPath
-    ?? (editorialArtwork ? editorialArtwork.logoPath : imagesData?.logos?.[0]?.filePath ?? null);
+  const logoPath = libraryMatch?.customLogoPath
+    ?? (editorialArtwork ? editorialArtwork.logoPath : seriesPart === "tybw" ? null : imagesData?.logos?.[0]?.filePath ?? null);
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
   const [forcingPlexSync, setForcingPlexSync] = useState(false);
@@ -1267,13 +1270,13 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
                 className="h-10 w-10 backdrop-blur"
               />
               {seriesPart && !partActionBlocked && <button onClick={togglePartMonitoring} title={t("title.edit.monitored")} aria-label={t("title.edit.monitored")} aria-pressed={(libraryMatch.seasons ?? []).some(s => s.episodes.some(e => e.monitored))} className="flex h-11 w-11 items-center justify-center rounded-xl glass text-ink-soft"><Eye className="h-4 w-4" /></button>}
-              {!seriesPart && <button
+              <button
                 onClick={() => setEditOpen(true)}
                 title={t("title.edit.title")}
-                className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
+                className="flex h-11 w-11 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
               >
                 <Pencil className="h-4 w-4" />
-              </button>}
+              </button>
               {!seriesPart && user?.role === "admin" && (
                 confirmRemove ? (
                   <div className="flex items-center gap-1 rounded-xl glass backdrop-blur p-1">
@@ -2007,13 +2010,15 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
           id={libraryMatch.id}
           tmdbId={tmdbId}
           title={detail.title}
-          monitored={libraryMatch.monitored ?? true}
+          seriesPart={seriesPart}
+          monitored={seriesPart ? (libraryMatch.seasons ?? []).some(s => s.episodes.some(e => e.monitored)) : libraryMatch.monitored ?? true}
           qualityProfileId={libraryMatch.qualityProfileId ?? defaultQualityProfile().id}
           aliases={libraryMatch.aliases ?? []}
           filePath={libraryMatch.file?.path}
           customBackdropPath={libraryMatch.customBackdropPath}
           customLogoPath={libraryMatch.customLogoPath}
           isAdmin={user?.role === "admin"}
+          monitoringBlocked={partActionBlocked}
           onClose={() => setEditOpen(false)}
           onChange={() => mutateLibrary()}
         />

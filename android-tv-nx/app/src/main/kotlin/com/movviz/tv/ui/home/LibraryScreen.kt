@@ -59,6 +59,7 @@ enum class LibraryTab(val label: String) { FILMS("Films"), SERIES("Séries"), CO
 internal fun LibraryScreen(
     viewModel: AppViewModel,
     onOpenTitle: (String, Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     entryFocusRequester: FocusRequester? = null,
     onScrollChanged: (Boolean) -> Unit = {},
     // Hoisté jusqu'à MovvizNavHost (MainActivity) : cet écran quitte
@@ -93,7 +94,7 @@ internal fun LibraryScreen(
                 hoistedFilters = movieFilters, onFiltersChange = onMovieFiltersChange,
             )
             LibraryTab.SERIES -> CatalogScreen(
-                viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle,
+                viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
                 showModeToggle = false, onScrollChanged = onScrollChanged,
                 hoistedFilters = seriesFilters, onFiltersChange = onSeriesFiltersChange,
             )

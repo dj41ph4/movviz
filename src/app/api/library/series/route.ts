@@ -6,7 +6,8 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { loadTrash } from "@/lib/library/trashStore";
 import { reconcileSeriesPlayback } from "@/lib/plex/librarySync";
-import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { projectBleachLibrary } from "@/lib/metadata/bleachPresentation";
 import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
 import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
 
@@ -27,6 +28,9 @@ export async function GET(req: NextRequest) {
   // callers that need it (the Bibliothèque page itself).
   const tmdbIdParam = req.nextUrl.searchParams.get("tmdbId");
   const tmdbId = tmdbIdParam ? Number(tmdbIdParam) : null;
+  const partParam = req.nextUrl.searchParams.get("seriesPart");
+  const seriesPart = parseBleachSeriesPart(partParam);
+  if (partParam != null && (!seriesPart || tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
   if (tmdbId) {
     // À l'ouverture d'une cible, vérifier uniquement cette série avant de
     // répondre. Cela répare un épisode remplacé sans lancer de réconciliation
@@ -35,8 +39,12 @@ export async function GET(req: NextRequest) {
     if (target) await reconcileSeriesPlayback(target.id);
   }
   const all = tmdbId ? loadSeries().filter((s) => s.tmdbId === tmdbId) : loadSeries();
-  const series = all.map((s) => ({
+  const views = all.flatMap(s => s.tmdbId === BLEACH_TMDB_ID && (seriesPart || req.nextUrl.searchParams.get("partViews") === "1")
+    ? (seriesPart ? [seriesPart] : ["original", "tybw"] as const).map(part => ({ ...projectBleachLibrary(s, part), bleachRepairRequired: needsBleachRepair(s) }))
+    : [s]);
+  const series = views.map((s) => ({
     ...s,
+    ...(s.bleachPlexKeys ? { bleachPlexUrls: Object.fromEntries(Object.entries(s.bleachPlexKeys).map(([part, key]) => [part, urlFor(key ?? null)])) } : {}),
     // The title panel needs the exact episode URL to launch a selected
     // episode directly. This is additive to the existing response and
     // mirrors the single-series route below; it never changes a Plex link

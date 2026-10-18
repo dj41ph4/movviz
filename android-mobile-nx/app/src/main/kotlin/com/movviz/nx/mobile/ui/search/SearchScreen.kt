@@ -1,5 +1,7 @@
 package com.movviz.nx.mobile.ui.search
 
+import com.movviz.nx.mobile.data.BleachPresentation
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -86,6 +88,7 @@ private enum class SearchTypeFilter(val label: String, val apiType: String?) {
 fun SearchScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     query: String = "",
     onQueryChange: (String) -> Unit = {},
     showSearchField: Boolean = true,
@@ -108,7 +111,7 @@ fun SearchScreen(
     if (compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()) {
         PortraitSearchScreen(
             viewModel = viewModel,
-            onOpenTitle = onOpenTitle,
+            onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
             query = query,
             onQueryChange = onQueryChange,
             onCancel = onCancel,
@@ -161,7 +164,7 @@ fun SearchScreen(
     // results.take(8) à chaque itération de la boucle (sous-liste recréée à
     // chaque passage) + une fois pour lastIndex.
     val filteredResults = remember(results, typeFilter) {
-        typeFilter.apiType?.let { type -> results.filter { it.type == type } } ?: results
+        typeFilter.apiType?.let { type -> BleachPresentation.searchViews(results).filter { it.type == type } } ?: BleachPresentation.searchViews(results)
     }
     val suggestions = remember(filteredResults) { filteredResults.take(8) }
     var fieldFocused by remember { mutableStateOf(false) }
@@ -231,7 +234,7 @@ fun SearchScreen(
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
-                itemsIndexed(filteredResults, key = { _, result -> "${result.type}-${result.tmdbId}" }, contentType = { _, _ -> "search-result" }) { index, result ->
+                itemsIndexed(filteredResults, key = { _, result -> BleachPresentation.key(result) }, contentType = { _, _ -> "search-result" }) { index, result ->
                     SearchResultCard(
                         result,
                         result.tmdbId == focusedTmdbId && result.type == focusedType,
@@ -244,7 +247,7 @@ fun SearchScreen(
                         // recherche muette au D-pad sur certains appareils.
                         focusRequester = if (index == 0) firstResultFocusRequester else null,
                         watched = result.type == "movie" && result.tmdbId in searchWatchedMovieIds,
-                    ) { onOpenTitle(result.type, result.tmdbId) }
+                    ) { onOpenPartTitle(result.type, result.tmdbId, result.seriesPart) }
                 }
             }
         }
@@ -383,6 +386,7 @@ private enum class PortraitSearchTypeFilter(val label: String, val apiType: Stri
 private fun PortraitSearchScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     query: String,
     onQueryChange: (String) -> Unit,
     onCancel: () -> Unit,
@@ -429,10 +433,10 @@ private fun PortraitSearchScreen(
         val downloading = downloadQueue.filter { it.status != "completed" && it.status != "seeding" }.map { it.media.tmdbId }.toSet()
         val movieIds = libraryMovies.map { it.tmdbId }.toSet()
         val seriesIds = librarySeries.map { it.tmdbId }.toSet()
-        val lookup: (String, Int) -> SearchResultStatus? = { type, tmdbId ->
+        val lookup: (String, Int, String?) -> SearchResultStatus? = { type, tmdbId, part ->
             when {
-                tmdbId in downloading -> SearchResultStatus.DOWNLOADING
-                (if (type == "movie") movieIds else seriesIds).contains(tmdbId) -> SearchResultStatus.IN_LIBRARY
+                tmdbId in downloading && (part == null || downloadQueue.any { it.media.tmdbId == tmdbId && BleachPresentation.contains(part, it.media.season, it.media.episode) && it.status != "completed" && it.status != "seeding" }) -> SearchResultStatus.DOWNLOADING
+                (if (type == "movie") movieIds else seriesIds).contains(tmdbId) && (part == null || librarySeries.any { it.tmdbId == tmdbId && it.seasons.any { season -> BleachPresentation.contains(part, season.seasonNumber) && season.episodes.isNotEmpty() } }) -> SearchResultStatus.IN_LIBRARY
                 else -> null
             }
         }
@@ -441,7 +445,7 @@ private fun PortraitSearchScreen(
 
     val filteredResults = remember(results, typeFilter) {
         val type = typeFilter.apiType
-        if (type == null || typeFilter == PortraitSearchTypeFilter.ACTOR) results else results.filter { it.type == type }
+        if (type == null || typeFilter == PortraitSearchTypeFilter.ACTOR) BleachPresentation.searchViews(results) else BleachPresentation.searchViews(results).filter { it.type == type }
     }
     val suggestions = remember(filteredResults) { filteredResults.take(6) }
     val trending = remember(trendingMovies, trendingSeries, typeFilter) {
@@ -583,7 +587,7 @@ private fun PortraitSearchScreen(
                 }
                 if (suggestions.isNotEmpty()) {
                     item { SearchSectionHeading("Suggestions") }
-                    items(suggestions, key = { "sugg-${it.type}-${it.tmdbId}" }) { item ->
+                    items(suggestions, key = { "sugg-${BleachPresentation.key(it)}" }) { item ->
                         SuggestionRow(title = item.title, onClick = { onQueryChange(item.title) })
                     }
                     item { Spacer(Modifier.height(10.dp)) }
@@ -615,11 +619,11 @@ private fun PortraitSearchScreen(
                         )
                     }
                 }
-                items(filteredResults, key = { "res-${it.type}-${it.tmdbId}" }) { result ->
+                items(filteredResults, key = { "res-${BleachPresentation.key(it)}" }) { result ->
                     SearchResultListRow(
                         result = result,
-                        status = resultStatus(result.type, result.tmdbId),
-                        onClick = { commitSearch(query); onOpenTitle(result.type, result.tmdbId) },
+                        status = resultStatus(result.type, result.tmdbId, result.seriesPart),
+                        onClick = { commitSearch(query); onOpenPartTitle(result.type, result.tmdbId, result.seriesPart) },
                     )
                 }
             }

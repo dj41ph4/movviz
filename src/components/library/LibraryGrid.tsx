@@ -414,7 +414,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   const artworkRefs = useMemo<TitleArtworkRef[]>(
     () => visibleItems.map((entry) => entry.kind === "movie"
       ? { type: "movie" as const, tmdbId: entry.movie.tmdbId }
-      : { type: "series" as const, tmdbId: entry.series.tmdbId }),
+        : { type: "series" as const, tmdbId: entry.series.tmdbId, seriesPart: entry.series.seriesPart }),
     [visibleItems]
   );
   const artworkByKey = useTitleArtworkBatch(artworkRefs, locale);
@@ -625,7 +625,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
         <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {visibleItems.map((entry, i) => {
-            const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[`series:${entry.series.tmdbId}`];
+            const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[bleachPresentationKey({ tmdbId: entry.series.tmdbId, seriesPart: entry.series.seriesPart })];
             return entry.kind === "movie" ? (
               <LibraryMovieCard
                 key={entry.movie.id}

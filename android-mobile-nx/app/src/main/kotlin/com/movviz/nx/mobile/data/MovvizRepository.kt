@@ -79,8 +79,8 @@ class MovvizRepository(private val baseUrl: String) {
         return result is ApiResult.Success && result.data.user != null
     }
 
-    suspend fun detail(type: String, tmdbId: Int): ApiResult<MetaDetailDto> =
-        safeCall { api.metadataDetail(type, tmdbId) }
+    suspend fun detail(type: String, tmdbId: Int, seriesPart: String? = null): ApiResult<MetaDetailDto> =
+        safeCall { api.metadataDetail(type, tmdbId, seriesPart) }
 
     suspend fun tvPreview(type: String, tmdbId: Int): ApiResult<TvPreviewDto> =
         safeCall { api.tvPreview(type, tmdbId) }
@@ -210,13 +210,13 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun discoverByGenre(type: String, genre: String, page: Int): ApiResult<SearchResponseDto> =
         safeCall { api.discoverByGenre(type, genre, page = page) }
 
-    suspend fun addToLibrary(type: String, tmdbId: Int): ApiResult<Unit> {
+    suspend fun addToLibrary(type: String, tmdbId: Int, seriesPart: String? = null): ApiResult<Unit> {
         val result = safeCall {
             if (type == "movie") api.addMovie(AddToLibraryRequest(tmdbId))
-            else api.addSeries(AddToLibraryRequest(tmdbId))
+            else api.addSeries(AddToLibraryRequest(tmdbId, seriesPart, BleachPresentation.canonicalSeasons(seriesPart)))
         }
         return when (result) {
-            is ApiResult.Success -> ApiResult.Success(Unit)
+            is ApiResult.Success -> if (result.data.containsKey("pendingRequest") || result.data.containsKey("duplicateRequest")) ApiResult.Failure("Demande en attente de validation") else ApiResult.Success(Unit)
             is ApiResult.Failure -> result
             ApiResult.Unauthorized -> ApiResult.Unauthorized
         }
@@ -346,11 +346,11 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun searchMovieNow(libraryId: String): ApiResult<Unit> =
         safeCall { api.searchMovieNow(libraryId) }.map { }
 
-    suspend fun searchSeriesNow(libraryId: String): ApiResult<Unit> =
-        safeCall { api.searchSeriesNow(libraryId) }.map { }
+    suspend fun searchSeriesNow(libraryId: String, seriesPart: String? = null): ApiResult<Unit> =
+        safeCall { api.searchSeriesNow(libraryId, BleachPresentation.scope(seriesPart)) }.map { }
 
-    suspend fun searchSeriesSeasonNow(libraryId: String, seasonNumber: Int): ApiResult<Unit> =
-        safeCall { api.searchSeriesSeasonNow(libraryId, seasonNumber) }.map { }
+    suspend fun searchSeriesSeasonNow(libraryId: String, seasonNumber: Int, seriesPart: String? = null, bleachPart: Int? = null): ApiResult<Unit> =
+        safeCall { api.searchSeriesSeasonNow(libraryId, seasonNumber, BleachPresentation.scope(seriesPart, bleachPart)) }.map { }
 
     suspend fun searchSeriesEpisodeNow(libraryId: String, seasonNumber: Int, episodeNumber: Int): ApiResult<Unit> =
         safeCall { api.searchSeriesEpisodeNow(libraryId, seasonNumber, episodeNumber) }.map { }

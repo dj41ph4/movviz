@@ -9,8 +9,11 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { trashSeriesFiles } from "@/lib/library/trashDelete";
 import { addTrashEntry } from "@/lib/library/trashStore";
-import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
+import { patchBleachArtwork, type BleachArtworkSelection } from "@/lib/metadata/bleachArtwork";
+import { projectBleachLibrary } from "@/lib/metadata/bleachPresentation";
+import { withKeyLock } from "@/lib/library/locks";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -18,15 +21,19 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const series = getSeries((await params).id);
-  if (!series) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const stored = getSeries((await params).id);
+  if (!stored) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const partParam = req.nextUrl.searchParams.get("seriesPart");
+  const seriesPart = parseBleachSeriesPart(partParam);
+  if (partParam != null && (!seriesPart || stored.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
+  const series = seriesPart ? { ...projectBleachLibrary(stored, seriesPart), bleachRepairRequired: needsBleachRepair(stored) } : stored;
   const cfg = loadPlexConfig();
   const urlFor = (ratingKey: string | null) => (ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null);
   const seasons = series.seasons.map((season) => ({
     ...season,
     episodes: season.episodes.map((ep) => ({ ...ep, plexUrl: urlFor(ep.plexRatingKey) })),
   }));
-  return NextResponse.json({ ...series, seasons, plexUrl: urlFor(series.plexRatingKey) });
+  return NextResponse.json({ ...series, ...(series.bleachPlexKeys ? { bleachPlexUrls: Object.fromEntries(Object.entries(series.bleachPlexKeys).map(([part, key]) => [part, urlFor(key ?? null)])) } : {}), seasons, plexUrl: urlFor(series.plexRatingKey) });
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
@@ -34,33 +41,43 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const patch = await req.json();
   const id = (await params).id;
-  const current = getSeries(id);
-  if (!current) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const seriesPart = parseBleachSeriesPart(patch.seriesPart);
-  if (patch.seriesPart != null && (!seriesPart || current.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
-  const allowed = ["monitored", "qualityProfileId", "aliases", "customBackdropPath", "customLogoPath"] as const;
-  const clean: Record<string, unknown> = {};
-  for (const k of allowed) if (k in patch) clean[k] = patch[k];
-  // See the movie route: aliases feeds release matching, so it's validated
-  // rather than passed through raw.
-  if ("aliases" in clean) {
-    if (!Array.isArray(clean.aliases)) delete clean.aliases;
-    else clean.aliases = (clean.aliases as unknown[]).filter((a): a is string => typeof a === "string" && a.trim() !== "").map((a) => a.trim());
-  }
-  // TMDb image file_path only ("/abc123.jpg") — see the movie route for why.
-  for (const k of ["customBackdropPath", "customLogoPath"] as const) {
-    if (k in clean && clean[k] !== null && !(typeof clean[k] === "string" && /^\/[\w.-]+\.(jpg|jpeg|png|svg)$/i.test(clean[k] as string))) {
-      delete clean[k];
+  return withKeyLock(`series:${id}`, async () => {
+    const current = getSeries(id);
+    if (!current) return NextResponse.json({ error: "not found" }, { status: 404 });
+    const seriesPart = parseBleachSeriesPart(patch.seriesPart);
+    if (patch.seriesPart != null && (!seriesPart || current.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
+    const allowed = ["monitored", "qualityProfileId", "aliases", "customBackdropPath", "customLogoPath"] as const;
+    const clean: Record<string, unknown> = {};
+    for (const k of allowed) if (k in patch) clean[k] = patch[k];
+    // See the movie route: aliases feeds release matching, so it's validated
+    // rather than passed through raw.
+    if ("aliases" in clean) {
+      if (!Array.isArray(clean.aliases)) delete clean.aliases;
+      else clean.aliases = (clean.aliases as unknown[]).filter((a): a is string => typeof a === "string" && a.trim() !== "").map((a) => a.trim());
     }
-  }
-  if (seriesPart && typeof patch.monitored === "boolean") {
-    const seasons = current.seasons.map(s => ({ ...s, monitored: s.episodes.some(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, seriesPart)) ? patch.monitored : s.monitored,
-      episodes: s.episodes.map(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, seriesPart) ? { ...e, monitored: patch.monitored } : e) }));
-    clean.seasons = seasons;
-    clean.monitored = seasons.some(s => s.monitored);
-  }
-  const updated = updateSeries(id, clean);
-  return updated ? NextResponse.json(updated) : NextResponse.json({ error: "not found" }, { status: 404 });
+    // TMDb image file_path only ("/abc123.jpg") — see the movie route for why.
+    for (const k of ["customBackdropPath", "customLogoPath"] as const) {
+      if (k in clean && clean[k] !== null && !(typeof clean[k] === "string" && /^\/[\w.-]+\.(jpg|jpeg|png|svg)$/i.test(clean[k] as string))) {
+        delete clean[k];
+      }
+    }
+    if (seriesPart) {
+      const artwork: BleachArtworkSelection = {};
+      for (const key of ["customBackdropPath", "customLogoPath"] as const) {
+        if (key in clean) { artwork[key] = clean[key] as string | null; delete clean[key]; }
+      }
+      if (Object.keys(artwork).length) clean.bleachArtwork = patchBleachArtwork(current.bleachArtwork, seriesPart, artwork);
+    }
+    if (seriesPart && typeof patch.monitored === "boolean") {
+      if (needsBleachRepair(current)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
+      const seasons = current.seasons.map(s => ({ ...s, monitored: s.episodes.some(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, seriesPart)) ? patch.monitored : s.monitored,
+        episodes: s.episodes.map(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, seriesPart) ? { ...e, monitored: patch.monitored } : e) }));
+      clean.seasons = seasons;
+      clean.monitored = seasons.some(s => s.monitored);
+    }
+    const updated = updateSeries(id, clean);
+    return updated ? NextResponse.json(updated) : NextResponse.json({ error: "not found" }, { status: 404 });
+  });
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {

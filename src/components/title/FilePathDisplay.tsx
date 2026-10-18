@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Check, Copy } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
+import { projectBleachLibrary, type BleachPart } from "@/lib/metadata/bleachPresentation";
 
 /** A path shown in full (wrapped, never truncated) with a copy button — the
  *  point is to find the file on the disk, from any machine (Windows included). */
@@ -50,7 +51,8 @@ export function CopyablePath({ path: movvizPath }: { path: string }) {
 }
 
 interface SeriesFiles {
-  seasons?: { seasonNumber: number; episodes: { file?: { path?: string; diskPath?: string } | null }[] }[];
+  episodeOrder?: string;
+  seasons?: { seasonNumber: number; episodes: { episodeNumber?: number; file?: { path?: string; diskPath?: string } | null }[] }[];
 }
 
 /** Last separator of a path, whichever the convention (NAS « / » or Windows « \ »). */
@@ -61,13 +63,14 @@ function parentOf(p: string): string {
 
 /** Where a series lives on the disk: its folder, then one folder per season
  *  that has files — read from the episodes' own files, nothing guessed. */
-export function SeriesFolders({ seriesId }: { seriesId: string }) {
+export function SeriesFolders({ seriesId, seriesPart }: { seriesId: string; seriesPart?: BleachPart }) {
   const t = useT();
   const { data } = useSWR<{ series?: SeriesFiles } & SeriesFiles>(`/api/library/series/${seriesId}`);
   const series = data?.series ?? data;
   if (!series) return <p className="text-xs text-ink-dim">{t("common.loading")}</p>;
+  const scoped = seriesPart ? projectBleachLibrary({ ...series, tmdbId: 30984 }, seriesPart) : series;
   const seasonDirs = new Map<number, string>();
-  for (const season of series.seasons ?? []) {
+  for (const season of scoped.seasons ?? []) {
     for (const ep of season.episodes) {
       const filePath = ep.file?.path;
       if (filePath && !seasonDirs.has(season.seasonNumber)) seasonDirs.set(season.seasonNumber, parentOf(filePath));

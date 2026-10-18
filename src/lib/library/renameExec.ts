@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { execFileSync } from "node:child_process";
 import { pathFor } from "./renamePath";
 import { loadMovies, loadSeries, updateMovie, updateSeriesList } from "./store";
@@ -488,6 +489,10 @@ async function renameSeriesUnlessAnthology(id: string, language: string, log: Lo
   const { getSeries } = await import("@/lib/library/store");
   const { anthologyFor } = await import("@/lib/library/anthology");
   const series = getSeries(id);
+  if (series?.tmdbId === BLEACH_TMDB_ID) {
+    log(`[SERIES] ${series.title} — dossiers Bleach/TYBW et numérotation Plex conservés`);
+    return { success: true, id, type: "series", title: series.title, skipped: true };
+  }
   if (series && anthologyFor(series.tmdbId)) {
     log(`[SERIES] ${series.title} — anthologie Plex, rangement conservé`);
     return { success: true, id, type: "series", title: series.title, skipped: true };

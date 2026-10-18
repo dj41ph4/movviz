@@ -10,6 +10,8 @@ import { AliasEditor } from "@/components/library/AliasEditor";
 import { CopyablePath, SeriesFolders } from "@/components/title/FilePathDisplay";
 import { AnthologyRelocate } from "@/components/title/AnthologyRelocate";
 import { ArtworkFields } from "@/components/title/ArtworkFields";
+import type { BleachPart } from "@/lib/metadata/bleachPresentation";
+import { toast } from "@/components/ui/Toast";
 
 /**
  * "Modifier la fiche" — fixes a mistake made when the title was first added
@@ -21,7 +23,7 @@ import { ArtworkFields } from "@/components/title/ArtworkFields";
  */
 export function EditTitleModal({
   type, id, tmdbId, title, monitored, qualityProfileId, aliases, filePath,
-  customBackdropPath, customLogoPath, isAdmin,
+  customBackdropPath, customLogoPath, isAdmin, seriesPart, monitoringBlocked = false,
   onClose, onChange,
 }: {
   type: "movie" | "series";
@@ -34,6 +36,8 @@ export function EditTitleModal({
   filePath?: string | null;
   customBackdropPath?: string | null;
   customLogoPath?: string | null;
+  seriesPart?: BleachPart;
+  monitoringBlocked?: boolean;
   /** Structural fields (monitored, quality profile, aliases, file location)
    *  stay admin-only, same as before — only the artwork picker below is open
    *  to every user (cosmetic edit). */
@@ -79,13 +83,16 @@ export function EditTitleModal({
   const save = async () => {
     setSaving(true);
     try {
-      await fetch(`${libEndpoint}/${id}`, {
+      const response = await fetch(`${libEndpoint}/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ monitored: localMonitored, qualityProfileId: localProfile, aliases: localAliases }),
+        body: JSON.stringify({ ...(!monitoringBlocked ? { monitored: localMonitored } : {}), qualityProfileId: localProfile, aliases: localAliases, seriesPart }),
       });
+      if (!response.ok) { toast("error", t("indexerMgr.saveFailed")); return; }
       onChange();
       onClose();
+    } catch {
+      toast("error", t("indexerMgr.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -134,6 +141,7 @@ export function EditTitleModal({
                   <input
                     type="checkbox"
                     checked={localMonitored}
+                    disabled={monitoringBlocked}
                     onChange={(e) => setLocalMonitored(e.target.checked)}
                     className="h-5 w-5 accent-brand"
                   />
@@ -173,10 +181,10 @@ export function EditTitleModal({
                 {type === "series" && (
                   <div>
                     <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.seriesLocation")}</p>
-                    <SeriesFolders seriesId={id} />
-                    <div className="mt-3">
+                    <SeriesFolders seriesId={id} seriesPart={seriesPart} />
+                    {!seriesPart && <div className="mt-3">
                       <AnthologyRelocate tmdbId={tmdbId} seriesId={id} />
-                    </div>
+                    </div>}
                   </div>
                 )}
 
@@ -201,6 +209,7 @@ export function EditTitleModal({
                 tmdbId={tmdbId}
                 currentBackdropPath={customBackdropPath}
                 currentLogoPath={customLogoPath}
+                seriesPart={seriesPart}
                 onChange={onChange}
               />
             </div>

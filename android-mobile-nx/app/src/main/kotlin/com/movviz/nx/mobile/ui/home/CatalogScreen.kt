@@ -1,5 +1,7 @@
 package com.movviz.nx.mobile.ui.home
 
+import com.movviz.nx.mobile.data.BleachPresentation
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +83,7 @@ fun CatalogScreen(
     viewModel: AppViewModel,
     type: HomeTab,
     onOpenTitle: (String, Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     entryFocusRequester: FocusRequester? = null,
     mode: MediaHubMode = MediaHubMode.LIBRARY,
     onModeChange: (MediaHubMode) -> Unit = {},
@@ -101,7 +104,9 @@ fun CatalogScreen(
     val narrow = compactPortrait || rememberUnfoldedLandscape()
     val unfoldedOnly = rememberUnfoldedLandscape() && !compactPortrait
     val movies by viewModel.movies.collectAsState()
-    val series by viewModel.series.collectAsState()
+    val rawSeries by viewModel.series.collectAsState()
+    val series = remember(rawSeries) { BleachPresentation.libraryViews(rawSeries) }
+    LaunchedEffect(rawSeries) { viewModel.hydrateBleachLibrary() }
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
@@ -118,7 +123,7 @@ fun CatalogScreen(
             movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(), runtime = it.runtime) }
                 .withWatchedMovies(watchedMovieIds)
         } else {
-            series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
+            series.map { TvTitleCard("${it.id}-${it.seriesPart.orEmpty()}", it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres, seriesPart = it.seriesPart) }
         }
     }
 
@@ -245,7 +250,7 @@ fun CatalogScreen(
                 itemsIndexed(sorted, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
                     PosterCard(
                         card = card,
-                        onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        onClick = { onOpenPartTitle(if (card.isMovie) "movie" else "series", card.tmdbId, card.seriesPart) },
                         // entryFocusRequester appartient exclusivement au
                         // couple Suggestions/Bibliothèque. Le réutiliser sur
                         // la première affiche rendait la cible ambiguë et

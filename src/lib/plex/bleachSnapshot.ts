@@ -8,13 +8,14 @@ import { getSeriesByTmdbId } from "@/lib/library/store";
  * same TMDb ID. Reconcile their union once, never mark the other half missing
  * while processing just one show. Any incomplete/ambiguous snapshot aborts.
  */
-export interface BleachPlexSnapshot { items: PlexEpisodeItem[]; complete: boolean; unresolved: number; uncertainShows: number }
+export interface BleachPlexSnapshot { items: PlexEpisodeItem[]; complete: boolean; unresolved: number; uncertainShows: number; showKeys?: { original: string | null; tybw: string | null } }
 export async function getBleachPlexSnapshot(cfg: PlexServerConfig, token: string): Promise<BleachPlexSnapshot | null> {
   const sections = await getLibrarySections(cfg, token);
   if (!sections.length) return null;
   const byEpisode = new Map<string, PlexEpisodeItem>();
   let unresolved = 0;
   let uncertainShows = 0;
+  let originalKey: string | null = null, sequelKey: string | null = null, combinedKey: string | null = null;
   const library = getSeriesByTmdbId(BLEACH_TMDB_ID);
   const linkedEpisodeKeys = new Set(library?.seasons.flatMap((s) => s.episodes.map((e) => e.plexRatingKey).filter(Boolean)) ?? []);
   for (const section of sections.filter((s) => s.type === "show")) {
@@ -34,7 +35,12 @@ export async function getBleachPlexSnapshot(cfg: PlexServerConfig, token: string
       if (!episodes.complete) return null;
       const ordering = await getPlexEpisodeOrdering(cfg, show.ratingKey, token, section.key);
       if (!ordering) return null;
-      const mapped = projectBleachPlexEpisodes(ordering.title, episodes.items, ordering.order);
+      const mapped = projectBleachPlexEpisodes(ordering.title, episodes.items, ordering.order, ordering.seriesPart);
+      if (ordering.seriesPart === "tybw") sequelKey ??= show.ratingKey;
+      else {
+        originalKey ??= show.ratingKey;
+        if (mapped.items.some(e => e.seasonNumber === 17)) combinedKey ??= show.ratingKey;
+      }
       unresolved += mapped.unresolved.length;
       for (const episode of mapped.items) {
         const key = `${episode.seasonNumber}:${episode.episodeNumber}`;
@@ -42,5 +48,11 @@ export async function getBleachPlexSnapshot(cfg: PlexServerConfig, token: string
       }
     }
   }
-  return { items: [...byEpisode.values()], complete: unresolved === 0 && uncertainShows === 0, unresolved, uncertainShows };
+  return { items: [...byEpisode.values()], complete: unresolved === 0 && uncertainShows === 0, unresolved, uncertainShows, showKeys: { original: originalKey, tybw: sequelKey ?? combinedKey } };
+}
+
+export function bleachPlexKeysPatch(existing: { plexRatingKey?: string | null; bleachPlexKeys?: { original?: string | null; tybw?: string | null } } | null | undefined, snapshot: BleachPlexSnapshot | null) {
+  if (!snapshot?.showKeys) return {};
+  const known = snapshot.complete ? snapshot.showKeys : Object.fromEntries(Object.entries(snapshot.showKeys).filter(([, key]) => key != null));
+  return { bleachPlexKeys: { ...existing?.bleachPlexKeys, ...known }, plexRatingKey: snapshot.showKeys.original ?? existing?.plexRatingKey ?? snapshot.showKeys.tybw };
 }

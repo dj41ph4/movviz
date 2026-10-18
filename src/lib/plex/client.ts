@@ -2,6 +2,8 @@ import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, Plex
 import { loadPlexConfig } from "./store";
 import { safePlexUrl } from "./safeUrl";
 import { findByExternalId } from "@/lib/metadata/tmdb";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachPlexPart } from "@/lib/metadata/bleachPlexIdentity";
 
 /**
  * Plex.tv API v2 client — real endpoints, no external SDK. Every request needs
@@ -472,6 +474,8 @@ async function resolveTmdbId(
   legacyGuid: string | undefined,
   kind: "movie" | "series"
 ): Promise<number | null> {
+  // The standalone Plex/IMDb sequel has no separate TMDb series ID.
+  if (kind === "series" && bleachPlexPart(guids, legacyGuid) === "tybw") return BLEACH_TMDB_ID;
   const direct = extractTmdbId(guids);
   if (direct != null) return direct;
 
@@ -538,23 +542,25 @@ export async function getRawItemDetail(
 }
 
 /** Effective Plex aired order, including the library default when inherited. */
-export async function getPlexEpisodeOrdering(cfg: PlexServerConfig, showRatingKey: string, token: string, sectionKey?: string): Promise<{ title: string; order: string | null } | null> {
+export async function getPlexEpisodeOrdering(cfg: PlexServerConfig, showRatingKey: string, token: string, sectionKey?: string): Promise<{ title: string; order: string | null; seriesPart?: "original" | "tybw" } | null> {
   try {
-    const response = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}?includePreferences=1`, { headers: serverHeaders(cfg, token), cache: "no-store" });
+    const response = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}?includePreferences=1&includeGuids=1`, { headers: serverHeaders(cfg, token), cache: "no-store" });
     if (!response.ok) return null;
     const container = (await response.json()).MediaContainer;
     const show = container?.Metadata?.[0];
     if (!show) return null;
+    const seriesPart = bleachPlexPart(show.Guid, show.guid) ?? undefined;
+    const identity = { title: show.title ?? "Bleach", ...(seriesPart ? { seriesPart } : {}) };
     const setting = (show.Preferences?.Setting ?? []).find((entry: { id: string }) => entry.id === "showOrdering");
     const override = show.episodeOrdering || show.showOrdering || setting?.value;
-    if (override) return { title: show.title ?? "Bleach", order: override };
+    if (override) return { ...identity, order: override };
     const libraryKey = sectionKey ?? show.librarySectionID ?? container.librarySectionID;
-    if (!libraryKey) return { title: show.title ?? "Bleach", order: null };
+    if (!libraryKey) return { ...identity, order: null };
     const preferences = await fetchWithRetry(`${serverBase(cfg)}/library/sections/${encodeURIComponent(String(libraryKey))}/prefs`, { headers: serverHeaders(cfg, token), cache: "no-store" });
     if (!preferences.ok) return null;
     const data = (await preferences.json()).MediaContainer;
     const librarySetting = (data?.Setting ?? []).find((entry: { id: string }) => entry.id === "showOrdering");
-    return { title: show.title ?? "Bleach", order: librarySetting?.value || librarySetting?.default || null };
+    return { ...identity, order: librarySetting?.value || librarySetting?.default || null };
   } catch { return null; }
 }
 

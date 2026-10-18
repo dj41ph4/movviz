@@ -1,3 +1,12 @@
+## v1.26.040 — 18 octobre 2026
+
+### Bleach et TYBW sur tous les écrans
+
+- Android mobile, Android TV et Samsung Tizen affichent les deux résultats Bleach et Thousand-Year Blood War. La navigation conserve la partie choisie, et les actions de lecture, de suivi et de recherche utilisent les épisodes correspondants.
+- Les deux fiches retrouvent le même éditeur que les autres titres, avec des choix de fond et de logo indépendants, conservés après rechargement et dans les listes.
+- Les nouveaux téléchargements sont rangés dans deux dossiers distincts, Bleach (2004) et Bleach - Thousand-Year Blood War (2022), avec leur identifiant IMDb dans un fichier `.plexmatch`. TYBW reprend la numérotation de chaque partie, alors que les coordonnées du suivi Movviz restent stables. Les anciens fichiers ne sont pas déplacés automatiquement.
+- La synchronisation reconnaît les fiches Plex indépendantes de TYBW, même renommées, et conserve un lien Plex par partie. Le renommage générique ne peut plus réunir leurs dossiers. Un moteur trop ancien bloque ces nouveaux imports au lieu d’ignorer le rangement demandé.
+
 ## v1.26.039 — 18 octobre 2026
 
 ### Recherche depuis une rangée

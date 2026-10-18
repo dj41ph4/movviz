@@ -96,7 +96,7 @@ export async function resolveEpisode(
   if (!snapshot.complete) return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND" };
   const ordering = await getPlexEpisodeOrdering(cfg, showKey, ctx.serverToken);
   if (!ordering) return { status: "UNRESOLVED", reason: "UNRESOLVED_MEDIA_NOT_FOUND" };
-  const normalized = projectBleachPlexEpisodes(ordering.title, snapshot.items, ordering.order).items;
+  const normalized = projectBleachPlexEpisodes(ordering.title, snapshot.items, ordering.order, ordering.seriesPart).items;
   const episode = normalized?.find((item) => item.ratingKey === result.ratingKey);
   if (!episode) return { status: "UNRESOLVED", reason: "UNRESOLVED_AMBIGUOUS_MATCH" };
   const canonical = { type: "episode", tmdbShowId: BLEACH_TMDB_ID, seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber } as const;

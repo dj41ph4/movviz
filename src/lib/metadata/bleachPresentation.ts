@@ -1,5 +1,6 @@
 import { BLEACH_TMDB_ID, BLEACH_ORIGINAL_COUNTS, BLEACH_TYBW_COURS, bleachFromTmdb, bleachToTmdb, bleachSeasonSummaries } from "./bleachEpisodeOrder";
 import type { MetaDetail } from "./types";
+import { bleachPartArtwork, type BleachArtworkByPart, type BleachArtworkSelection } from "./bleachArtwork";
 export type BleachPart = "original" | "tybw";
 export const BLEACH_COURS = BLEACH_TYBW_COURS.map(c => ({ ...c, title: ["The Blood Warfare", "The Separation", "The Conflict", "The Calamity"][c.part - 1] }));
 export function parseBleachPart(value: unknown): BleachPart | undefined { return value === "original" || value === "tybw" ? value : undefined; }
@@ -29,7 +30,7 @@ export function projectBleachDetail(detail: MetaDetail, seriesPart: BleachPart):
   return { ...detail, seriesPart, title: bleachPartTitle(seriesPart), originalTitle: bleachPartTitle(seriesPart), year: seriesPart === "tybw" ? 2022 : 2004, overview: seriesPart === "tybw" && detail.seriesPart !== "tybw" ? "" : detail.overview, seasons: seasons.filter(s => bleachContainsSeason(seriesPart, s.seasonNumber)) };
 }
 /** Projection only: IDs and every canonical episode coordinate survive. */
-export function projectBleachLibrary<T extends { tmdbId: number; title?: string; year?: number | null; episodeOrder?: string; seasons?: { seasonNumber?: number; name?: string; episodes: { episodeNumber?: number; seasonNumber?: number }[] }[] }>(series: T, seriesPart: BleachPart): T & { seriesPart: BleachPart } {
+export function projectBleachLibrary<T extends { tmdbId: number; title?: string; year?: number | null; episodeOrder?: string; customBackdropPath?: string | null; customLogoPath?: string | null; bleachArtwork?: BleachArtworkByPart; bleachPlexKeys?: Partial<Record<BleachPart, string | null>>; bleachPlexUrls?: Partial<Record<BleachPart, string | null>>; plexRatingKey?: string | null; plexUrl?: string | null; seasons?: { seasonNumber?: number; name?: string; episodes: { episodeNumber?: number; seasonNumber?: number }[] }[] }>(series: T, seriesPart: BleachPart): T & BleachArtworkSelection & { seriesPart: BleachPart; plexRatingKey?: string | null; plexUrl?: string | null } {
   if (series.tmdbId !== BLEACH_TMDB_ID) return { ...series, seriesPart };
   let seasons = series.seasons ?? [];
   const legacy = series.episodeOrder !== "tvdb" && seasons.every(s => (s.seasonNumber ?? -1) <= 2) && seasons.some(s => s.seasonNumber === 1 && s.episodes.some(e => (e.episodeNumber ?? 0) > 20));
@@ -43,5 +44,8 @@ export function projectBleachLibrary<T extends { tmdbId: number; title?: string;
     }
     seasons = [...grouped.values()];
   }
-  return { ...series, title: bleachPartTitle(seriesPart), year: seriesPart === "tybw" ? 2022 : 2004, seasons: seasons.filter(s => bleachContainsSeason(seriesPart, s.seasonNumber ?? -1)).map(s => seriesPart === "tybw" ? { ...s, episodes: s.episodes.filter(e => bleachCour(e.episodeNumber ?? -1)) } : s), seriesPart };
+  return { ...series, ...bleachPartArtwork(series, seriesPart),
+    ...(series.bleachPlexKeys?.[seriesPart] !== undefined ? { plexRatingKey: series.bleachPlexKeys[seriesPart] } : {}),
+    ...(series.bleachPlexUrls?.[seriesPart] !== undefined ? { plexUrl: series.bleachPlexUrls[seriesPart] } : {}),
+    title: bleachPartTitle(seriesPart), year: seriesPart === "tybw" ? 2022 : 2004, seasons: seasons.filter(s => bleachContainsSeason(seriesPart, s.seasonNumber ?? -1)).map(s => seriesPart === "tybw" ? { ...s, episodes: s.episodes.filter(e => bleachCour(e.episodeNumber ?? -1)) } : s), seriesPart };
 }

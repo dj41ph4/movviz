@@ -18,6 +18,7 @@ interface Window {
 
 (() => {
   type MediaType = "movie" | "series";
+  type SeriesPart = "original" | "tybw";
   interface Media {
     id?: string; tmdbId: number; type?: MediaType; title: string; overview?: string; addedAt?: number;
     posterPath?: string; backdropPath?: string; year?: number; rating?: number;
@@ -26,9 +27,24 @@ interface Window {
     cast?: { id: number; name: string; character: string; profilePath?: string }[];
     seasons?: { seasonNumber: number; name: string; posterPath?: string; episodeCount?: number }[];
     progress?: number; positionMs?: number; durationMs?: number; episodeTitle?: string;
+    seriesPart?: SeriesPart; bleachRepairRequired?: boolean;
   }
   interface Episode { seasonNumber: number; episodeNumber: number; title: string; status: string; file?: { resolution?: string; hdr?: string; videoCodec?: string; audioCodec?: string; source?: string }; playbackSource?: string; plexRatingKey?: string; stillPath?: string; runtime?: number; overview?: string; rating?: number; airDate?: string }
-  interface Series extends Media { seasons: { seasonNumber: number; name: string; episodes: Episode[] }[] }
+  interface Series extends Media { seasons: { seasonNumber: number; name: string; episodes: Episode[]; bleachPart?: number; episodeOffset?: number; displaySeasonNumber?: number }[] }
+  function seriesPartOf(item: Media, type: MediaType = item.type || "series"): SeriesPart | undefined {
+    return type === "series" && item.tmdbId === 30984 ? item.seriesPart || (item.seasonNumber === 17 ? "tybw" : "original") : undefined;
+  }
+  function partQuery(item: Media, type?: MediaType) { const part = seriesPartOf(item, type); return part ? `&seriesPart=${part}` : ""; }
+  function presentationSeasons(show: Series): Series["seasons"] {
+    if (show.seriesPart !== "tybw") return show.seasons;
+    const canonical = show.seasons.find(s => s.seasonNumber === 17);
+    if (!canonical) return [];
+    return [[0, 13, "The Blood Warfare"], [13, 13, "The Separation"], [26, 14, "The Conflict"], [40, 10, "The Calamity"]].map(([offset, count, name], i) => ({
+      ...canonical, name: String(name), bleachPart: i + 1, displaySeasonNumber: i + 1, episodeOffset: Number(offset),
+      episodes: canonical.episodes.filter(e => e.episodeNumber > Number(offset) && e.episodeNumber <= Number(offset) + Number(count)),
+    }));
+  }
+  function episodeLabel(season: Series["seasons"][number], episode: Episode) { return episode.episodeNumber - (season.episodeOffset || 0); }
   interface Track { index: number; language?: string; title?: string; codec: string }
   interface Prepared { sessionId: string; media: { durationMs?: number }; plan: { mode: string }; stream: { url: string; protocol: string }; tracks: { audio: Track[]; subtitle: Track[] } }
   interface Session { sessionId: string; resumeOffsetMs: number | null }
@@ -326,7 +342,15 @@ interface Window {
     const text = el("div", "", "hero-text");
     if (featured) text.append(el("div", `${t("tizen.featured")} · ${t(type === "movie" ? "tizen.movieLabel" : "tizen.seriesLabel")}`, "eyebrow"));
     const titleNode = el("h1", detail.title); text.append(titleNode);
-    void call<{ logos: { path: string; filePath?: string }[] }>(`/api/metadata/images?type=${type}&tmdbId=${detail.tmdbId}&locale=${locale}`).then(data => {
+    if (seriesPartOf(detail, type)) {
+      const key = `series:${detail.tmdbId}:${seriesPartOf(detail, type)}`;
+      void call<{ artwork: Record<string, { logoPath?: string; backdropPath?: string }> }>(`/api/metadata/images/batch?items=${key}&locale=${locale}`).then(data => {
+        if (!hero.isConnected) return;
+        const artwork = data.artwork[key];
+        if (artwork?.backdropPath) hero.style.backgroundImage = `url("${imageUrl(artwork.backdropPath)}")`;
+        if (artwork?.logoPath) { const image = el("img", "", "title-logo"); image.src = imageUrl(artwork.logoPath); image.alt = detail.title; image.onerror = () => image.replaceWith(titleNode); titleNode.replaceWith(image); }
+      }).catch(() => {});
+    } else void call<{ logos: { path: string; filePath?: string }[] }>(`/api/metadata/images?type=${type}&tmdbId=${detail.tmdbId}&locale=${locale}`).then(data => {
       const logo = data.logos?.[0]; const path = logo?.path || logo?.filePath;
       if (path && hero.isConnected) { const image = el("img", "", "title-logo"); image.src = imageUrl(path); image.alt = detail.title; image.onerror = () => image.replaceWith(titleNode); titleNode.replaceWith(image); }
     }).catch(() => {});
@@ -339,7 +363,7 @@ interface Window {
     hero.dataset.type = type; text.append(actions); hero.append(text); return hero;
   }
   async function loadLibrary() {
-    const [m, s] = await Promise.all([call<{ movies: Media[] }>("/api/library/movies"), call<{ series: Media[] }>("/api/library/series")]);
+    const [m, s] = await Promise.all([call<{ movies: Media[] }>("/api/library/movies"), call<{ series: Media[] }>("/api/library/series?partViews=1")]);
     movies = m.movies || []; series = s.series || [];
   }
   async function library() {
@@ -400,7 +424,7 @@ interface Window {
     let request = 0;
     form.onsubmit = event => {
       event.preventDefault(); const text = query.input.value.trim(); if (!text) return; const id = ++request;
-      void call<{ results: Media[] }>(`/api/metadata/search?q=${encodeURIComponent(text)}`).then(data => {
+      void call<{ results: Media[] }>(`/api/metadata/search?q=${encodeURIComponent(text)}&partViews=1`).then(data => {
         if (version !== generation || id !== request) return;
         grid.replaceChildren(); (data.results || []).forEach(item => grid.append(card(item, item.type || "movie")));
         if (!grid.childElementCount) grid.append(el("p", t("tizen.empty")));
@@ -410,23 +434,25 @@ interface Window {
   }
   async function title(item: Media, type: MediaType) {
     const version = begin(item.title, true);
-    const detail = await call<Media>(`/api/metadata/detail?type=${type}&tmdbId=${item.tmdbId}`);
+    const seriesPart = seriesPartOf(item, type);
+    const detail = await call<Media>(`/api/metadata/detail?type=${type}&tmdbId=${item.tmdbId}${partQuery(item, type)}`);
     if (version !== generation) return;
     content.classList.add("detail-page"); heading.style.display = "none";
     const hero = heroView(detail, type); const actions = hero.querySelector<HTMLElement>(".actions")!;
     actions.append(button(t("tizen.back"), back)); content.append(hero);
-    const response = await call<{ movies?: Media[]; series?: Media[] }>(`/api/library/${type === "movie" ? "movies" : "series"}?tmdbId=${item.tmdbId}`);
+    const response = await call<{ movies?: Media[]; series?: Media[] }>(`/api/library/${type === "movie" ? "movies" : "series"}?tmdbId=${item.tmdbId}${partQuery(item, type)}`);
     if (version !== generation) return;
     const local = (type === "movie" ? response.movies : response.series)?.find(media => media.tmdbId === item.tmdbId);
     let seriesWatchTargets: Episode[] = [];
     if (!local) actions.prepend(button(t("discover.addToLibrary"), async () => {
-      const result = await call<{ pendingRequest?: unknown; id?: string }>(`/api/library/${type === "movie" ? "movies" : "series"}`, { tmdbId: item.tmdbId }); toast(t(result.pendingRequest ? "nav.requests" : "discover.added"));
+      const result = await call<{ pendingRequest?: unknown; id?: string }>(`/api/library/${type === "movie" ? "movies" : "series"}`, { tmdbId: item.tmdbId, seriesPart }); toast(t(result.pendingRequest ? "nav.requests" : "discover.added"));
     }, "primary"));
-    else if (!(local.file || local.plexRatingKey) && local.id) actions.append(button(t("library.autoSearch"), async () => { await call(`/api/library/${type === "movie" ? "movies" : "series"}/${encodeURIComponent(local.id!)}/search`, {}); toast(t("discover.searchingRelease")); }));
+    else if ((type === "series" || !(local.file || local.plexRatingKey)) && local.id && !local.bleachRepairRequired) actions.append(button(t("library.autoSearch"), async () => { await call(`/api/library/${type === "movie" ? "movies" : "series"}/${encodeURIComponent(local.id!)}/search`, { seriesPart }); toast(t("discover.searchingRelease")); }));
+    if (local?.bleachRepairRequired) content.append(el("p", t("bleach.repairHint"), "muted"));
     actions.append(button(t("tizen.watchlist"), async () => { await call("/api/watchlist", { tmdbId: item.tmdbId, type, title: detail.title, posterPath: detail.posterPath }); toast(t("tizen.watchlist")); }));
     if (local?.id && type === "movie" && (local.file || local.plexRatingKey)) actions.prepend(button(t("tizen.play"), () => play(local, "movie")));
     if (local?.id && type === "series") {
-      const show = await call<Series>(`/api/library/series/${encodeURIComponent(local.id)}`);
+      const show = await call<Series>(`/api/library/series/${encodeURIComponent(local.id)}?view=detail${partQuery(item, type)}`);
       if (version !== generation) return;
       const deck = await call<{ items: DeckEntry[] }>("/api/plex/on-deck");
       if (version !== generation) return;
@@ -434,15 +460,16 @@ interface Window {
       if (version !== generation) return;
       const ordered = show.seasons.flatMap(s => s.episodes).sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber);
       seriesWatchTargets = ordered;
-      const playable = ordered.filter(e => e.status === "available" && (e.file || e.plexRatingKey));
-      const resume = normalizeDeck(deck.items).find(m => m.tmdbId === item.tmdbId && m.type === "series");
+      const playable = local.bleachRepairRequired ? [] : ordered.filter(e => e.status === "available" && (e.file || e.plexRatingKey));
+      const resume = normalizeDeck(deck.items).find(m => m.tmdbId === item.tmdbId && m.type === "series" && ordered.some(e => e.seasonNumber === m.seasonNumber && e.episodeNumber === m.episodeNumber));
       const current = playable.find(e => e.seasonNumber === (item.seasonNumber ?? resume?.seasonNumber) && e.episodeNumber === (item.episodeNumber ?? resume?.episodeNumber)) || playable.find(e => !watched.episodes.some(w => w.tmdbId === item.tmdbId && w.season === e.seasonNumber && w.episode === e.episodeNumber));
       if (current) actions.prepend(button(`▶ ${t(resume ? "tizen.continueWatching" : "tizen.play")} · S${current.seasonNumber} E${current.episodeNumber}`, () => play(local, type, current), "primary"));
       const grid = el("div", "", "row");
       content.append(el("h2", t("tizen.season")), grid);
-      for (const season of show.seasons) {
+      for (const season of presentationSeasons(show)) {
         const metadata = detail.seasons?.find(s => s.seasonNumber === season.seasonNumber);
         const tile = button("", () => seasonScreen(local, detail, season), "card"); const poster = el("img"); poster.src = imageUrl(metadata?.posterPath || detail.posterPath); poster.alt = "";
+        tile.disabled = !!local.bleachRepairRequired;
         tile.setAttribute("aria-label", season.name || `${t("tizen.season")} ${season.seasonNumber}`); tile.append(poster, el("span", season.name || `${t("tizen.season")} ${season.seasonNumber}`, "card-caption")); grid.append(tile);
       }
     }
@@ -450,9 +477,9 @@ interface Window {
     if (version !== generation) return;
     let isWatched = type === "movie" ? watch.movies.includes(item.tmdbId) : seriesWatchTargets.length > 0 && seriesWatchTargets.every(e => watch.episodes.some(w => w.tmdbId === item.tmdbId && w.season === e.seasonNumber && w.episode === e.episodeNumber));
     const watchedButton = button(t(isWatched ? "tizen.markUnwatched" : "tizen.markWatched"), async () => {
-      await call("/api/watch/toggle", { tmdbId: item.tmdbId, type, watched: !isWatched, title: detail.title, ...(type === "series" ? { scope: "series" } : {}) });
+      await call("/api/watch/toggle", { tmdbId: item.tmdbId, type, watched: !isWatched, title: detail.title, ...(type === "series" ? seriesPart ? { episodes: seriesWatchTargets.map(e => ({ season: e.seasonNumber, episode: e.episodeNumber })) } : { scope: "series" } : {}) });
       isWatched = !isWatched; watchedButton.textContent = t(isWatched ? "tizen.markUnwatched" : "tizen.markWatched");
-    }); actions.append(watchedButton);
+    }); watchedButton.disabled = !!local?.bleachRepairRequired || (type === "series" && !!seriesPart && !seriesWatchTargets.length); actions.append(watchedButton);
     if (detail.cast?.length) {
       content.append(el("h2", t("tizen.cast"))); const cast = el("div", "", "row");
       detail.cast.slice(0, 20).forEach(person => { const tile = button("", () => personScreen(person.id), "cast-card"), photo = el("img"); photo.src = imageUrl(person.profilePath); photo.alt = ""; tile.append(photo, el("p", person.name)); cast.append(tile); }); content.append(cast);
@@ -466,7 +493,7 @@ interface Window {
     content.append(el("h1", person.name), el("p", person.biography, "muted"), button(t("tizen.back"), back)); row(t("tizen.movies"), person.credits.filter(m => m.type === "movie"), "movie"); row(t("tizen.series"), person.credits.filter(m => m.type === "series"), "series"); focusFirst();
   }
   async function seasonScreen(local: Media, detail: Media, season: Series["seasons"][number]) {
-    const version = begin(`${detail.title} · ${t("tizen.season")} ${season.seasonNumber}`, true);
+    const version = begin(`${detail.title} · ${t("tizen.season")} ${season.displaySeasonNumber ?? season.seasonNumber}`, true);
     const [metadata, watched, deck] = await Promise.all([
       call<{ posterPath?: string; episodes: Episode[] }>(`/api/metadata/season?tmdbId=${detail.tmdbId}&season=${season.seasonNumber}&locale=${locale}`).catch(() => ({ episodes: [] as Episode[], posterPath: detail.posterPath })),
       call<{ episodes: { tmdbId: number; season: number; episode: number }[] }>(`/api/watch-status?type=series&tmdbId=${detail.tmdbId}`),
@@ -480,9 +507,9 @@ interface Window {
     const states = new Map<string, { tile: HTMLButtonElement; badge: HTMLElement }>();
     const counts = el("p", "", "season-meta muted");
     const hero = el("div", "", "season-hero"), poster = el("img"); poster.src = imageUrl(metadata.posterPath || detail.posterPath); poster.alt = "";
-    const text = el("div"); const actions = el("div", "", "actions"); actions.append(button(t("tizen.back"), back), button(t("library.searchSeason"), async () => { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, {}); toast(t("discover.searchingRelease")); })); text.append(el("p", detail.title, "season-series muted"), el("h1", season.name || `${t("tizen.season")} ${season.seasonNumber}`), counts, actions); hero.append(poster, text); content.append(hero);
+    const text = el("div"); const actions = el("div", "", "actions"); actions.append(button(t("tizen.back"), back), button(t("library.searchSeason"), async () => { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, { seriesPart: detail.seriesPart, bleachPart: season.bleachPart }); toast(t("discover.searchingRelease")); })); text.append(el("p", detail.title, "season-series muted"), el("h1", season.name || `${t("tizen.season")} ${season.seasonNumber}`), counts, actions); hero.append(poster, text); content.append(hero);
     const available = [...season.episodes].filter(episodePlayable).sort((a, b) => a.episodeNumber - b.episodeNumber);
-    const resume = deck.items.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === season.seasonNumber);
+    const resume = deck.items.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === season.seasonNumber && season.episodes.some(ep => ep.episodeNumber === e.episodeNumber));
     let next = available.find(e => e.episodeNumber === resume?.episodeNumber && !watchedKeys.has(episodeKey(e))) || available.find(e => !watchedKeys.has(episodeKey(e))) || available[0];
     const playButton = next ? button("", () => play(local, "series", next), "primary") : null;
     if (playButton) actions.prepend(playButton);
@@ -501,7 +528,7 @@ interface Window {
       counts.textContent = [`${season.episodes.length} ${t("title.episodes")}`, watchable.length ? t("tizen.watchedCount").replace("{watched}", String(seen)).replace("{total}", String(watchable.length)) : "", missing ? t(missing === 1 ? "tizen.missingOne" : "tizen.missingCount").replace("{count}", String(missing)) : ""].filter(Boolean).join(" · ");
       watchedButton.textContent = t(watchable.length && seen === watchable.length ? "tizen.markUnwatched" : "tizen.markWatched");
       next = available.find(e => e.episodeNumber === resume?.episodeNumber && !watchedKeys.has(episodeKey(e))) || available.find(e => !watchedKeys.has(episodeKey(e))) || available[0];
-      if (playButton && next) playButton.textContent = `▶ ${t(resume?.offsetMs && resume.episodeNumber === next.episodeNumber && !watchedKeys.has(episodeKey(next)) ? "tizen.continueWatching" : "tizen.play")} · E${next.episodeNumber}`;
+      if (playButton && next) playButton.textContent = `▶ ${t(resume?.offsetMs && resume.episodeNumber === next.episodeNumber && !watchedKeys.has(episodeKey(next)) ? "tizen.continueWatching" : "tizen.play")} · E${episodeLabel(season, next)}`;
       for (const episode of season.episodes) {
         const state = states.get(episodeKey(episode)); if (!state) continue;
         const seen = watchedKeys.has(episodeKey(episode)); state.badge.textContent = seen ? `✓ ${t("watch.watched")}` : episodeStatus(episode);
@@ -517,7 +544,7 @@ interface Window {
       const badge = el("span", "", "episode-badge"); artwork.append(still, badge);
       const progress = deck.items.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === episode.seasonNumber && e.episodeNumber === episode.episodeNumber);
       if (progress?.offsetMs) { const bar = el("progress"); bar.max = 100; bar.value = Math.min(100, Math.max(0, progress.progressPercent || 0)); artwork.append(bar); }
-      tile.append(artwork, el("strong", `${episode.episodeNumber}. ${meta?.title || episode.title}`), el("p", [meta?.runtime ? `${meta.runtime} min` : "", episode.file?.resolution, episode.file?.hdr].filter(Boolean).join(" · ")));
+      tile.append(artwork, el("strong", `${episodeLabel(season, episode)}. ${meta?.title || episode.title}`), el("p", [meta?.runtime ? `${meta.runtime} min` : "", episode.file?.resolution, episode.file?.hdr].filter(Boolean).join(" · ")));
       states.set(episodeKey(episode), { tile, badge }); grid.append(tile);
     }
     content.append(grid); renderStates(); if (playButton) playButton.focus(); else focusFirst();
@@ -533,14 +560,14 @@ interface Window {
     const progress = deck.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === episode.seasonNumber && e.episodeNumber === episode.episodeNumber);
     if (progress?.offsetMs) { const bar = el("progress"); bar.max = 100; bar.value = Math.min(100, Math.max(0, progress.progressPercent || 0)); art.append(bar); }
     const key = `${episode.seasonNumber}.${episode.episodeNumber}`; const state = el("p", "", "episode-watch-state"); art.append(state);
-    const info = el("div", "", "episode-dialog-info"); info.append(el("h1", detail.title), el("h2", metadata?.title || episode.title), el("p", `${t("tizen.season")} ${season.seasonNumber} · ${t("title.episode")} ${episode.episodeNumber} · ${episodeStatus(episode)}`, "episode-detail-meta"));
+    const info = el("div", "", "episode-dialog-info"); info.append(el("h1", detail.title), el("h2", metadata?.title || episode.title), el("p", `${t("tizen.season")} ${season.displaySeasonNumber ?? season.seasonNumber} · ${t("title.episode")} ${episodeLabel(season, episode)} · ${episodeStatus(episode)}`, "episode-detail-meta"));
     info.append(el("p", [episode.file?.resolution, episode.file?.hdr, metadata?.runtime ? `${metadata.runtime} min` : "", metadata?.rating ? `★ ${metadata.rating.toFixed(1)}` : "", metadata?.airDate ? new Date(metadata.airDate).toLocaleDateString(locale) : ""].filter(Boolean).join(" · "), "episode-detail-meta"));
     const actions = el("div", "", "actions");
     if (episodePlayable(episode)) {
       actions.append(button(progress?.offsetMs && !watchedKeys.has(key) ? t("tizen.resumeAt").replace("{time}", timeLabel(progress.offsetMs)) : t("tizen.play"), () => { cancel(); return play(local, "series", episode); }, "primary"));
       if (progress?.offsetMs && !watchedKeys.has(key)) actions.append(button(t("tizen.fromStart"), () => { cancel(); return play(local, "series", episode, true); }));
     } else {
-      const search = button(t("library.searchSeason"), async () => { search.disabled = true; try { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, {}); toast(t("discover.searchingRelease")); } finally { search.disabled = false; } }, "primary");
+      const search = button(t("library.searchSeason"), async () => { search.disabled = true; try { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, { seriesPart: detail.seriesPart, bleachPart: season.bleachPart }); toast(t("discover.searchingRelease")); } finally { search.disabled = false; } }, "primary");
       search.disabled = ["searching", "downloading", "upcoming"].includes(episode.status); actions.append(search);
     }
     const toggle = button("", async () => {
@@ -780,7 +807,7 @@ interface Window {
   async function nextEpisode(ended = false) {
     const player = activePlayer; if (!player || player.changing) return;
     if (!player.episode) { await stopPlayer(ended); return; }
-    const show = await call<Series>(`/api/library/series/${encodeURIComponent(player.media.id!)}`);
+    const show = await call<Series>(`/api/library/series/${encodeURIComponent(player.media.id!)}?view=playback${partQuery(player.media, "series")}`);
     const next = show.seasons.flatMap(s => s.episodes).filter(e => e.status === "available" && (e.file || e.plexRatingKey)).sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber).find(e => e.seasonNumber > player.episode!.seasonNumber || (e.seasonNumber === player.episode!.seasonNumber && e.episodeNumber > player.episode!.episodeNumber));
     if (activePlayer !== player || player.closing) return;
     await stopPlayer(ended); if (next) await play(player.media, "series", next);

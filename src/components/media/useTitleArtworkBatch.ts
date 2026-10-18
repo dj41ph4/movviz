@@ -2,8 +2,9 @@
 
 import { useMemo } from "react";
 import useSWR from "swr";
+import { bleachPresentationKey, type BleachPart } from "@/lib/metadata/bleachPresentation";
 
-export type TitleArtworkRef = { tmdbId: number; type: "movie" | "series" };
+export type TitleArtworkRef = { tmdbId: number; type: "movie" | "series"; seriesPart?: BleachPart };
 export type TitleArtworkByKey = Record<string, {
   backdropPath: string | null;
   logoPath: string | null;
@@ -26,13 +27,13 @@ export function useTitleArtworkBatch(refs: readonly TitleArtworkRef[], locale: s
     const unique = new Map<string, TitleArtworkRef>();
     for (const ref of refs) {
       if (!Number.isInteger(ref.tmdbId) || ref.tmdbId <= 0) continue;
-      unique.set(`${ref.type}:${ref.tmdbId}`, ref);
+      unique.set(bleachPresentationKey(ref), ref);
     }
     return [...unique.values()];
   }, [refs, locale]);
 
   const requestKey = useMemo(
-    () => allRefs.length ? `title-artwork:${locale}:${allRefs.map(({ type, tmdbId }) => `${type}:${tmdbId}`).join(",")}` : null,
+    () => allRefs.length ? `title-artwork:${locale}:${allRefs.map(bleachPresentationKey).join(",")}` : null,
     [allRefs, locale]
   );
   // keepPreviousData: the row lists feeding this batch (trending, recommended…)
@@ -44,8 +45,9 @@ export function useTitleArtworkBatch(refs: readonly TitleArtworkRef[], locale: s
   const { data } = useSWR<TitleArtworkByKey>(requestKey, async () => {
     const merged: TitleArtworkByKey = {};
     for (let start = 0; start < allRefs.length; start += ARTWORK_REQUEST_CHUNK) {
-      const items = allRefs.slice(start, start + ARTWORK_REQUEST_CHUNK).map(({ type, tmdbId }) => `${type}:${tmdbId}`).join(",");
-      const response = await fetch(`/api/metadata/images/batch?items=${encodeURIComponent(items)}&locale=${encodeURIComponent(locale)}`);
+      const chunk = allRefs.slice(start, start + ARTWORK_REQUEST_CHUNK);
+      const items = chunk.map(bleachPresentationKey).join(",");
+      const response = await fetch(`/api/metadata/images/batch?items=${encodeURIComponent(items)}&locale=${encodeURIComponent(locale)}`, chunk.some(ref => ref.seriesPart) ? { cache: "no-store" } : undefined);
       if (!response.ok) continue;
       const payload = await response.json() as { artwork?: TitleArtworkByKey };
       Object.assign(merged, payload.artwork ?? {});

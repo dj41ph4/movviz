@@ -59,6 +59,7 @@ interface MovvizApiService {
     suspend fun metadataDetail(
         @Query("type") type: String,
         @Query("tmdbId") tmdbId: Int,
+        @Query("seriesPart") seriesPart: String? = null,
     ): Response<MetaDetailDto>
 
     // Même pipeline que DashboardPosterCard desktop, mais groupé pour le
@@ -122,7 +123,7 @@ interface MovvizApiService {
     ): Response<MetadataSeasonDto>
 
     @GET("api/metadata/search")
-    suspend fun search(@Query("q") query: String, @Query("page") page: Int = 1, @Query("type") type: String? = null): Response<SearchResponseDto>
+    suspend fun search(@Query("q") query: String, @Query("page") page: Int = 1, @Query("type") type: String? = null, @Query("partViews") partViews: Int = 1): Response<SearchResponseDto>
 
     @GET("api/stream/{ratingKey}/info")
     suspend fun streamInfo(@Path("ratingKey") ratingKey: String): Response<StreamInfoDto>
@@ -173,12 +174,13 @@ interface MovvizApiService {
     suspend fun searchMovieNow(@Path("id") libraryId: String): Response<SearchTriggerResponseDto>
 
     @POST("api/library/series/{id}/search")
-    suspend fun searchSeriesNow(@Path("id") libraryId: String): Response<SearchTriggerResponseDto>
+    suspend fun searchSeriesNow(@Path("id") libraryId: String, @Body scope: Map<String, @JvmSuppressWildcards Any> = emptyMap()): Response<SearchTriggerResponseDto>
 
     @POST("api/library/series/{id}/season/{season}/search")
     suspend fun searchSeriesSeasonNow(
         @Path("id") libraryId: String,
         @Path("season") seasonNumber: Int,
+        @Body scope: Map<String, @JvmSuppressWildcards Any> = emptyMap(),
     ): Response<SearchTriggerResponseDto>
 
     // Un seul épisode manquant — même route que le bouton desktop

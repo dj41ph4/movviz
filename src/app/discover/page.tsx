@@ -560,11 +560,11 @@ function DiscoverPageInner() {
   const homeRowsArranged = useMemo(() => arrange(homeRows), [arrange, homeRows]);
   const catalogHero = homeRows.find((row) => row.key === "recommendedTop")?.results[0] ?? homeRows[0]?.results[0] ?? null;
   const homeArtworkRefs = useMemo(
-    () => homeRows.flatMap((row) => row.results.map((result) => ({ tmdbId: result.tmdbId, type: result.type }))),
+    () => homeRows.flatMap((row) => row.results.map((result) => ({ tmdbId: result.tmdbId, type: result.type, seriesPart: result.seriesPart }))),
     [homeRows]
   );
   const browseArtworkRefs = useMemo(
-    () => results.map((result) => ({ tmdbId: result.tmdbId, type: result.type })),
+    () => results.map((result) => ({ tmdbId: result.tmdbId, type: result.type, seriesPart: result.seriesPart })),
     [results]
   );
   const titleArtwork = useTitleArtworkBatch(isBrowsing ? browseArtworkRefs : homeArtworkRefs, locale);
@@ -1033,8 +1033,8 @@ function DiscoverPageInner() {
                         result={r}
                         status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
                         watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
-                        backdropPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.backdropPath ?? r.backdropPath}
-                        logoPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
+                        backdropPath={titleArtwork[bleachPresentationKey(r)]?.backdropPath ?? r.backdropPath}
+                        logoPath={titleArtwork[bleachPresentationKey(r)]?.logoPath ?? null}
                         onAdded={() => setLibStatus((m) => new Map(m).set(`${r.type}:${r.tmdbId}`, "missing"))}
                       />
                     ));
@@ -1477,8 +1477,8 @@ function PosterRow({
             result={r}
             status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
             watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
-            backdropPath={artwork[`${r.type}:${r.tmdbId}`]?.backdropPath ?? r.backdropPath}
-            logoPath={artwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
+            backdropPath={artwork[bleachPresentationKey(r)]?.backdropPath ?? r.backdropPath}
+            logoPath={artwork[bleachPresentationKey(r)]?.logoPath ?? null}
             onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
             providerTile={providerTile}
           />
@@ -1702,7 +1702,7 @@ function DiscoverCard({
           title={result.title}
           posterPath={result.posterPath}
           backdropPath={backdropPath}
-          logoPath={result.seriesPart === "tybw" ? null : logoPath}
+          logoPath={logoPath}
           rating={result.rating}
           badge={cardBadge}
           year={result.year}
