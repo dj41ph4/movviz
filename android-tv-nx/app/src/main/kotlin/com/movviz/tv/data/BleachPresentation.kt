@@ -40,6 +40,10 @@ object BleachPresentation {
         val cour = if (season == 17) cours.firstOrNull { episode > it.offset && episode <= it.offset + it.count } else null
         return if (cour != null) "S${cour.part} · Ép ${episode - cour.offset}" else "S$season · Ép $episode"
     }
+    fun displaySeasonNumber(tmdbId: Int, season: Int, episode: Int): Int =
+        if (tmdbId == TMDB_ID && season == 17) cours.firstOrNull { episode > it.offset && episode <= it.offset + it.count }?.part ?: season else season
+    fun displayEpisodeNumber(tmdbId: Int, season: Int, episode: Int): Int =
+        if (tmdbId == TMDB_ID && season == 17) cours.firstOrNull { episode > it.offset && episode <= it.offset + it.count }?.let { episode - it.offset } ?: episode else episode
     fun libraryViews(items: List<LibrarySeriesDto>): List<LibrarySeriesDto> = items.flatMap { item ->
         if (item.tmdbId != TMDB_ID) listOf(item) else listOf("original", "tybw").mapNotNull { part ->
             val projected = item.seasons.filter { contains(part, it.seasonNumber) }.map { s -> s.copy(episodes = s.episodes.filter { contains(part, s.seasonNumber, it.episodeNumber) }) }

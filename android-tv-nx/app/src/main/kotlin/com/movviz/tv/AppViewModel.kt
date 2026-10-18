@@ -573,23 +573,25 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
      * que lors d'un CHANGEMENT de série, jamais pendant un simple
      * rafraîchissement (sinon l'écran clignote et le choix de saison est
      * réinitialisé toutes les 3 secondes). */
-    private var seasonsTmdbId: Int? = null
+    private var seasonsRequestKey: Pair<Int, String?>? = null
 
     fun loadSeriesSeasons(tmdbId: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
-        if (seasonsTmdbId != tmdbId) {
-            seasonsTmdbId = tmdbId
+        val resolvedPart = BleachPresentation.part(tmdbId, "series", seriesPart)
+        val requestKey = tmdbId to resolvedPart
+        if (seasonsRequestKey != requestKey) {
+            seasonsRequestKey = requestKey
             _seriesSeasons.value = emptyList()
         }
         viewModelScope.launch {
-            when (val s = repo.seriesSeasons(seriesId, BleachPresentation.part(tmdbId, "series", seriesPart))) {
+            when (val s = repo.seriesSeasons(seriesId, resolvedPart)) {
                 // Garde anti-course : ouvrir A puis B vite fait renvoyer les
                 // deux réponses dans n'importe quel ordre — sans ce test,
                 // les saisons de A venaient écraser celles de B à l'écran
                 // (« la saison n'est pas celle de la série choisie »,
                 // constaté en direct).
-                is ApiResult.Success -> if (seasonsTmdbId == tmdbId) _seriesSeasons.value = s.data
+                is ApiResult.Success -> if (seasonsRequestKey == requestKey) _seriesSeasons.value = s.data
                 else -> Unit
             }
         }
@@ -1072,7 +1074,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _userPrefs.value = null
         _profileMedia.value = null
         _homeUiState.value = HomeUiState()
-        seasonsTmdbId = null
+        seasonsRequestKey = null
     }
 
     suspend fun selectProfile(profile: TvProfile): ApiResult<MovvizUserDto> {

@@ -1,3 +1,11 @@
+## v1.26.043 — 18 octobre 2026
+
+### Android TV : navigation et séparation Bleach/TYBW
+
+- Les rangées TV éliminent les cartes dupliquées avant de créer leurs clés Compose, ce qui évite le crash en descendant dans les suggestions.
+- Les ajouts récents de Bleach original et de Thousand-Year Blood War restent séparés. Les épisodes TYBW utilisent les numéros de cours 1–4 à l’écran, tout en gardant la saison 17 canonique pour la lecture et le suivi.
+- Le chargement des saisons ignore désormais les réponses tardives d’une autre partie de Bleach, même si les deux fiches partagent le même identifiant TMDb.
+
 ## v1.26.042 — 18 octobre 2026
 
 ### Numérotation Bleach et recherche TYBW

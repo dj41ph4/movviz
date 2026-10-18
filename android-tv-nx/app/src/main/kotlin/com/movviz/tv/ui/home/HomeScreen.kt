@@ -249,27 +249,32 @@ internal fun List<TvTitleCard>.withWatchedMovies(watchedMovieIds: Set<Int>): Lis
  *  carte épisode ; plusieurs → carte de la saison la plus récente avec le
  *  nombre d'épisodes non vus. Le décompte porte sur les épisodes récents
  *  renvoyés par le serveur (les plus récents, en nombre limité). */
-private fun groupRecentEpisodes(
+internal fun groupRecentEpisodes(
     episodes: List<com.movviz.tv.data.RecentEpisodeDto>,
     watched: Set<Triple<Int, Int, Int>>,
-    availableBySeason: Map<Int, Map<String, Int>>,
+    seriesViews: List<com.movviz.tv.data.LibrarySeriesDto>,
 ): List<TvTitleCard> =
-    episodes.groupBy { it.tmdbId }.values.map { group ->
+    episodes.groupBy { episode ->
+        episode.tmdbId to BleachPresentation.part(episode.tmdbId, "series", season = episode.seasonNumber)
+    }.values.map { group ->
         val latest = group.maxBy { it.addedAt }
+        val part = BleachPresentation.part(latest.tmdbId, "series", season = latest.seasonNumber)
         val card = if (group.size == 1) {
             TvTitleCard(
-                id = "recent-episode-${latest.tmdbId}-${latest.seasonNumber}-${latest.episodeNumber}",
+                id = "recent-episode-${latest.tmdbId}-${part.orEmpty()}-${latest.seasonNumber}-${latest.episodeNumber}",
                 title = latest.seriesTitle, posterPath = latest.posterPath, backdropPath = latest.backdropPath,
                 tmdbId = latest.tmdbId, isMovie = false, rating = latest.rating,
                 episodeSeasonNumber = latest.seasonNumber, episodeNumber = latest.episodeNumber,
                 episodeTitle = latest.episodeTitle,
                 fullyWatched = Triple(latest.tmdbId, latest.seasonNumber, latest.episodeNumber) in watched,
+                seriesPart = part,
             )
         } else {
             val season = latest.seasonNumber
+            val availableBySeason = seriesViews.firstOrNull { it.tmdbId == latest.tmdbId && it.seriesPart == part }?.availableBySeason.orEmpty()
             // Toute la saison si le serveur donne le total disponible ; sinon
             // repli sur les seuls épisodes récents connus.
-            val seasonTotal = availableBySeason[latest.tmdbId]?.get(season.toString())
+            val seasonTotal = availableBySeason[season.toString()]
             val unwatched = if (seasonTotal != null) {
                 val seen = watched.count { it.first == latest.tmdbId && it.second == season }
                 (seasonTotal - seen).coerceAtLeast(0)
@@ -277,12 +282,13 @@ private fun groupRecentEpisodes(
                 group.count { it.seasonNumber == season && Triple(it.tmdbId, it.seasonNumber, it.episodeNumber) !in watched }
             }
             TvTitleCard(
-                id = "recent-season-${latest.tmdbId}-$season",
+                id = "recent-season-${latest.tmdbId}-${part.orEmpty()}-$season",
                 title = latest.seriesTitle, posterPath = latest.posterPath, backdropPath = latest.backdropPath,
                 tmdbId = latest.tmdbId, isMovie = false, rating = latest.rating,
-                seasonLabel = if (season == 0) "Spéciaux" else "Saison $season",
+                seasonLabel = if (season == 0) "Spéciaux" else "Saison ${BleachPresentation.displaySeasonNumber(latest.tmdbId, season, latest.episodeNumber)}",
                 unwatchedCount = unwatched.takeIf { it > 0 },
                 fullyWatched = unwatched == 0,
+                seriesPart = part,
             )
         }
         latest.addedAt to card
@@ -380,12 +386,13 @@ fun HomeScreen(
     val minYear = dashboardLayout.hero.minYear
     fun yearAllowed(year: Int?): Boolean = minYear == null || (year ?: 0) >= minYear
     fun searchCard(item: com.movviz.tv.data.SearchResultDto, prefix: String) = TvTitleCard(
-        id = "$prefix-${item.type}-${item.tmdbId}",
+        id = "$prefix-${item.type}-${item.tmdbId}-${item.seriesPart.orEmpty()}",
         title = item.title,
         posterPath = item.posterPath,
         backdropPath = item.backdropPath,
         tmdbId = item.tmdbId,
         isMovie = item.type == "movie",
+        seriesPart = item.seriesPart,
         year = item.year,
         rating = item.rating,
     )
@@ -434,7 +441,7 @@ fun HomeScreen(
         homeWatchStatus?.episodes.orEmpty().map { Triple(it.tmdbId, it.season, it.episode) }.toSet()
     }
     val groupedRecentCards = remember(recentEpisodes, watchedEpisodeTriples, series) {
-        groupRecentEpisodes(recentEpisodes, watchedEpisodeTriples, series.associate { it.tmdbId to it.availableBySeason })
+        groupRecentEpisodes(recentEpisodes, watchedEpisodeTriples, BleachPresentation.libraryViews(series))
     }
     val recentEpisodeCards = remember(groupedRecentCards) { groupedRecentCards.take(20) }
     // Les vignettes de reprise sont déjà visibles au premier frame : charger
@@ -2168,6 +2175,7 @@ internal fun TitleRow(
      *  de section distinct, sinon elles partagent leur carte mémorisée. */
     rowKey: String = heading,
 ) {
+    val rowItems = remember(items) { uniqueTvRowCards(items) }
     // État de focus partagé par toutes les cartes de la rangée — il vit ici
     // (pas dans PosterCard) pour survivre à la destruction des items par la
     // LazyRow, et n'est lu QUE par les deux enfants dédiés (précharge des
@@ -2177,7 +2185,7 @@ internal fun TitleRow(
     val homeFocusMemory = LocalTvHomeFocusMemory.current
     val previewsByCardId = remember { mutableStateMapOf<String, TvPreviewDto>() }
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
-    val cardKeys = items.map { it.focusIdentity() } + if (onSeeAll != null) listOf("see-all") else emptyList()
+    val cardKeys = rowItems.map { it.focusIdentity() } + if (onSeeAll != null) listOf("see-all") else emptyList()
     val rowFocus = rememberTvRowFocusMemory(
         rowKey = rowKey, keys = cardKeys,
         isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
@@ -2219,7 +2227,7 @@ internal fun TitleRow(
             contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset()),
             horizontalArrangement = Arrangement.spacedBy(betaDp(9.dp, 12.dp)),
         ) {
-            tvItemsIndexed(items, key = { _, item -> item.focusIdentity() }, contentType = { _, _ -> "poster" }) { index, card ->
+            tvItemsIndexed(rowItems, key = { _, item -> item.focusIdentity() }, contentType = { _, _ -> "poster" }) { index, card ->
                 val preview = previewsByCardId[card.id]
                 val renderedCard = if (preview == null) card else card.copy(
                     // On garde les chemins de la rangée tant qu'ils sont
@@ -2271,7 +2279,7 @@ internal fun TitleRow(
                             homeFocusMemory?.markDetailOrigin(rowKey)
                             onSeeAll()
                         },
-                        modifier = rowFocus.itemModifier("see-all", items.size),
+                        modifier = rowFocus.itemModifier("see-all", rowItems.size),
                     )
                 }
             }
@@ -2284,11 +2292,11 @@ internal fun TitleRow(
         val imageLoader = ctx.imageLoader
         LaunchedEffect(focusedCardState.value) {
             val focused = focusedCardState.value ?: return@LaunchedEffect
-            val idx = items.indexOf(focused)
+            val idx = rowItems.indexOf(focused)
             if (idx < 0) return@LaunchedEffect
             val cardsToPreload = buildList {
                 add(focused)
-                for (offset in 1..2) items.getOrNull(idx + offset)?.let(::add)
+                for (offset in 1..2) rowItems.getOrNull(idx + offset)?.let(::add)
             }
             for (candidate in cardsToPreload) {
                 candidate.posterPath?.let { path ->
@@ -2476,8 +2484,9 @@ internal fun ContinueWatchingRow(
     navRailFocusRequester: FocusRequester? = null,
     titleLogoPaths: Map<String, String> = emptyMap(),
 ) {
+    val rowItems = remember(items) { uniqueTvRowCards(items) }
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
-    val keys = items.map { it.focusIdentity() }
+    val keys = rowItems.map { it.focusIdentity() }
     val rowFocus = rememberTvRowFocusMemory(
         rowKey = "continueWatching", keys = keys,
         isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
@@ -2494,7 +2503,7 @@ internal fun ContinueWatchingRow(
             contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset()),
             horizontalArrangement = Arrangement.spacedBy(betaDp(14.dp, 12.dp)),
         ) {
-            tvItemsIndexed(items, key = { _, card -> card.focusIdentity() }, contentType = { _, _ -> "resume" }) { index, card ->
+            tvItemsIndexed(rowItems, key = { _, card -> card.focusIdentity() }, contentType = { _, _ -> "resume" }) { index, card ->
                 ResumeCard(
                     card = card,
                     modifier = rowFocus.itemModifier(card.focusIdentity(), index),
@@ -2641,7 +2650,9 @@ private fun ResumeCard(
 private fun resumeCardMeta(card: TvTitleCard): String {
     val remainingSuffix = card.remainingMinutes?.let { " · $it min restantes" } ?: ""
     if (!card.isMovie && card.episodeSeasonNumber != null && card.episodeNumber != null) {
-        val base = "S${card.episodeSeasonNumber} E${card.episodeNumber}"
+        val displaySeason = BleachPresentation.displaySeasonNumber(card.tmdbId, card.episodeSeasonNumber, card.episodeNumber)
+        val displayEpisode = BleachPresentation.displayEpisodeNumber(card.tmdbId, card.episodeSeasonNumber, card.episodeNumber)
+        val base = "S$displaySeason E$displayEpisode"
         val epTitle = card.episodeTitle?.takeIf { it.isNotBlank() }
         val core = if (epTitle != null) "$base · $epTitle" else base
         return core + remainingSuffix
@@ -2893,15 +2904,21 @@ internal fun PosterCard(
                     )
                 }
                 val episodeBadge = card.episodeSeasonNumber != null && card.episodeNumber != null
+                val displayEpisodeSeason = card.episodeSeasonNumber?.let { season ->
+                    card.episodeNumber?.let { episode -> BleachPresentation.displaySeasonNumber(card.tmdbId, season, episode) }
+                }
+                val displayEpisodeNumber = card.episodeNumber?.let { episode ->
+                    card.episodeSeasonNumber?.let { season -> BleachPresentation.displayEpisodeNumber(card.tmdbId, season, episode) }
+                }
                 if (episodeBadge && beta) {
                     BetaCardBadge(
-                        text = "S${card.episodeSeasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
+                        text = "S${displayEpisodeSeason.toString().padStart(2, '0')} · E${displayEpisodeNumber.toString().padStart(2, '0')}",
                         palette = palette,
                         modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
                     )
                 } else if (episodeBadge) {
                     Text(
-                        text = "S${card.episodeSeasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
+                        text = "S${displayEpisodeSeason.toString().padStart(2, '0')} · E${displayEpisodeNumber.toString().padStart(2, '0')}",
                         style = TextStyle(fontSize = betaSp(8f, 11f), fontWeight = FontWeight.Bold, color = Color.White),
                         maxLines = 1,
                         modifier = Modifier

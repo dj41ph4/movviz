@@ -26,6 +26,11 @@ internal fun rememberedTvItemIndex(keys: List<String>, selectedKey: String?, pre
 internal fun TvTitleCard.focusIdentity(): String =
     "${if (isMovie) "movie" else "series"}:$tmdbId:${seriesPart.orEmpty()}:$id"
 
+/** Lazy TV rows require one stable key per rendered card. Keep the first
+ *  occurrence and preserve server order when a feed contains duplicates. */
+internal fun uniqueTvRowCards(cards: List<TvTitleCard>): List<TvTitleCard> =
+    cards.distinctBy { it.focusIdentity() }
+
 /** Identité d'une carte de grille (catalogue, « Voir tout », personne) :
  *  l'id seul pour un film, `id-partie` quand une série est découpée en
  *  parties logiques qui partagent le même id fournisseur (Bleach / TYBW). */

@@ -42,6 +42,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.data.BleachPresentation
 import com.movviz.tv.data.GenreDto
 import com.movviz.tv.data.RowMetaDto
 import com.movviz.tv.ui.home.HeroCarousel
@@ -86,6 +87,7 @@ import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 fun DiscoverScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenPartTitle: (type: String, tmdbId: Int, seriesPart: String?) -> Unit = { type, id, _ -> onOpenTitle(type, id) },
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
     onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit = { _, _, _ -> },
     entryFocusRequester: FocusRequester? = null,
@@ -151,7 +153,14 @@ fun DiscoverScreen(
         if (selectedType == HomeTab.MOVIES) {
             movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForDiscover(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
         } else {
-            series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
+            BleachPresentation.libraryViews(series).map {
+                TvTitleCard(
+                    id = "${it.id}-${it.seriesPart.orEmpty()}", title = it.title,
+                    posterPath = it.posterPath, backdropPath = it.backdropPath,
+                    tmdbId = it.tmdbId, isMovie = false, year = it.year,
+                    rating = it.rating, genres = it.genres, seriesPart = it.seriesPart,
+                )
+            }
         }
     }.withWatchedMovies(watchedMovieIds)
     val recommendationIds = if (selectedType == HomeTab.MOVIES) movieLibraryRecommendations else seriesLibraryRecommendations
@@ -183,8 +192,8 @@ fun DiscoverScreen(
     val editorial = remember(editorialRows, wantedType, watchedMovieIds) {
         editorialRows.filterNot { it.key == "kids" }.mapNotNull { row ->
             val rowCards = row.results.filter { it.type == wantedType }.map {
-                TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId,
-                    isMovie = it.type == "movie", year = it.year, rating = it.rating)
+                TvTitleCard("${row.key}-${it.type}-${it.tmdbId}-${it.seriesPart.orEmpty()}", it.title, it.posterPath, it.backdropPath, it.tmdbId,
+                    isMovie = it.type == "movie", year = it.year, rating = it.rating, seriesPart = it.seriesPart)
             }.withWatchedMovies(watchedMovieIds)
             if (rowCards.isEmpty()) null else DiscoverRow(row.key, row.meta, rowCards, seeAll = true)
         }
@@ -330,7 +339,7 @@ fun DiscoverScreen(
                     // deux fois et partageaient sinon la même mémoire.
                     rowKey = tvRowKey("discover-${selectedType.name}-${row.key}", label),
                     items = row.cards,
-                    onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                    onClick = { onOpenPartTitle(if (it.isMovie) "movie" else "series", it.tmdbId, it.seriesPart) },
                     firstItemFocusRequester = if (activeHero == null && row.key == firstRowKey) heroFocus else null,
                     onSeeAll = if (row.seeAll) { { onSeeAllRow(wantedType, row.key, label) } } else null,
                     titleLogoPaths = heroLogos,

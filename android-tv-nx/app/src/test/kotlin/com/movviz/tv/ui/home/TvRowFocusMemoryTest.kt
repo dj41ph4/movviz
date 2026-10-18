@@ -31,6 +31,12 @@ class TvRowFocusMemoryTest {
         val card = TvTitleCard("episode-1", "Bleach", null, null, 30984, false, seriesPart = "tybw")
         assertNotEquals(card.focusIdentity(), card.copy(id = "episode-2").focusIdentity())
     }
+
+    @Test fun duplicateCardsAreRemovedWithoutChangingOrderOrFirstOccurrence() {
+        val first = TvTitleCard("anime-movie-1311031", "Film", null, null, 1311031, true)
+        val other = first.copy(id = "anime-movie-2", tmdbId = 2)
+        assertEquals(listOf(first, other), uniqueTvRowCards(listOf(first, first.copy(title = "duplicate"), other)))
+    }
 }
 
 class TvGridFocusMemoryTest {

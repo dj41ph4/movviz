@@ -127,7 +127,7 @@ internal fun MainScreen(
             // interne à la place du toggle Suggestions/Bibliothèque des
             // anciens hubs (voir le "else" de son item "type-toggle").
             tab == HomeTab.DISCOVER -> DiscoverScreen(
-                viewModel = viewModel, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 fixedType = null, onScrollChanged = onHomeScrollChanged,
                 hoistedSelectedType = discoverType, onSelectedTypeChange = onDiscoverTypeChange,
@@ -149,13 +149,13 @@ internal fun MainScreen(
             // Découverte/Bibliothèque), jamais atteintes depuis la sidebar.
             tab == HomeTab.MOVIES -> MediaHubScreen(
                 viewModel = viewModel, type = HomeTab.MOVIES,
-                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 onScrollChanged = onHomeScrollChanged,
             )
             tab == HomeTab.SERIES -> MediaHubScreen(
                 viewModel = viewModel, type = HomeTab.SERIES,
-                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 onScrollChanged = onHomeScrollChanged,
             )
@@ -176,6 +176,7 @@ private fun MediaHubScreen(
     viewModel: AppViewModel,
     type: HomeTab,
     onOpenTitle: (String, Int) -> Unit,
+    onOpenPartTitle: (String, Int, String?) -> Unit,
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit,
     onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit,
     entryFocusRequester: FocusRequester,
@@ -195,6 +196,7 @@ private fun MediaHubScreen(
         MediaHubMode.SUGGESTIONS -> DiscoverScreen(
             viewModel = viewModel,
             onOpenTitle = onOpenTitle,
+            onOpenPartTitle = onOpenPartTitle,
             onSeeAllRow = onSeeAllRow,
             onOpenGenre = onOpenGenre,
             entryFocusRequester = entryFocusRequester,
@@ -207,6 +209,7 @@ private fun MediaHubScreen(
             viewModel = viewModel,
             type = type,
             onOpenTitle = onOpenTitle,
+            onOpenPartTitle = onOpenPartTitle,
             entryFocusRequester = entryFocusRequester,
             mode = mode,
             onModeChange = { mode = it },
