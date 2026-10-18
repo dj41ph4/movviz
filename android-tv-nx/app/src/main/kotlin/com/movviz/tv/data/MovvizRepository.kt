@@ -59,9 +59,9 @@ class MovvizRepository(private val baseUrl: String) {
             response.movies.firstOrNull { it.tmdbId == tmdbId }
         }
 
-    suspend fun seriesByTmdbId(tmdbId: Int): ApiResult<LibrarySeriesDto?> =
-        safeCall { api.librarySeries(tmdbId) }.map { response ->
-            response.series.firstOrNull { it.tmdbId == tmdbId }
+    suspend fun seriesByTmdbId(tmdbId: Int, seriesPart: String? = null): ApiResult<LibrarySeriesDto?> =
+        safeCall { api.librarySeries(tmdbId, seriesPart) }.map { response ->
+            response.series.firstOrNull { it.tmdbId == tmdbId && (seriesPart == null || it.seriesPart == seriesPart) }
         }
 
     /** Ping authentifié — sert à savoir, au lancement, si le cookie de

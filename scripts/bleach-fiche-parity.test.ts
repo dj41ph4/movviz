@@ -74,7 +74,7 @@ test("both fiches can acquire before Plex exists and retain independent ratings,
     globalThis.fetch = async () => Response.json({ capabilities: { episodePlacementV1: true, episodePresentationV1: true } });
     const original = await prepareBleachGrab("episode:sr_parity:16:24", "Bleach.S16E24.1080p");
     const sequel = await prepareBleachGrab("episode:sr_parity:17:14", "Bleach.TYBW.S02E01.1080p");
-    assert.deepEqual(original.single?.placement, { season: 1, episode: 366 });
+    assert.deepEqual(original.single?.placement, { season: 16, episode: 24 });
     assert.deepEqual(sequel.single?.placement, { season: 2, episode: 1 });
     assert.notEqual(original.single?.presentation?.folder, sequel.single?.presentation?.folder);
     assert.equal(scopedBleachSeries(series, "tybw").qualityProfileId, "uhd-4k");

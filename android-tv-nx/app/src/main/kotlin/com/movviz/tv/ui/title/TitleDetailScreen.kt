@@ -278,7 +278,7 @@ fun TitleDetailScreen(
     val inLibrary by remember(type, tmdbId, movies, series, part) {
         derivedStateOf {
             if (type == "movie") movies.any { it.tmdbId == tmdbId }
-            else series.any { it.tmdbId == tmdbId && (part == null || it.seasons.any { season -> BleachPresentation.contains(part, season.seasonNumber) && season.episodes.isNotEmpty() }) }
+            else series.any { it.tmdbId == tmdbId && (part == null || it.seriesPart == part || it.seriesPart == null && it.seasons.any { season -> BleachPresentation.contains(part, season.seasonNumber) && season.episodes.isNotEmpty() }) }
         }
     }
 
@@ -338,14 +338,14 @@ fun TitleDetailScreen(
     // donc pas. On recharge explicitement le on-deck à ON_RESUME pour que le
     // CTA passe immédiatement de « Lire » à « Reprendre à HH:MM:SS ».
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, type, tmdbId) {
+    DisposableEffect(lifecycleOwner, type, tmdbId, part) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.loadContinueWatching()
                 viewModel.loadWatchStatus(type, tmdbId)
                 if (type == "series") viewModel.loadPlaybackProgress()
                 if (viewModel.isInLibrary(type, tmdbId)) {
-                    viewModel.refreshTitleLibraryEntry(type, tmdbId)
+                    viewModel.refreshTitleLibraryEntry(type, tmdbId, part)
                 }
             }
         }
@@ -369,9 +369,9 @@ fun TitleDetailScreen(
     // l'ouverture ; ensuite le serveur PRÉVIENT (téléchargement fini, titre
     // devenu disponible…) et AppViewModel.onLibraryChanges relit alors CE
     // titre, saisons comprises.
-    LaunchedEffect(type, tmdbId, inLibrary) {
+    LaunchedEffect(type, tmdbId, part, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
-        viewModel.refreshTitleLibraryEntry(type, tmdbId)
+        viewModel.refreshTitleLibraryEntry(type, tmdbId, part)
     }
 
     // Polling de la file partagée pendant que la fiche est ouverte —

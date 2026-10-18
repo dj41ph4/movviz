@@ -1,3 +1,11 @@
+## v1.26.044 — 19 octobre 2026
+
+### Android TV : ajout bibliothèque Bleach fiable
+
+- Après l’ajout, Android TV relit la partie Bleach sélectionnée et conserve séparément les vues Original et TYBW. Le bouton « Ajouter à la bibliothèque » ne réapparaît plus pendant la réconciliation.
+- Les recherches de saison libèrent toujours leur indicateur de chargement, même si la requête échoue ou est annulée.
+- Tizen retire le bouton d’ajout dès que le serveur confirme l’ajout, pour garder le même comportement.
+
 ## v1.26.043 — 18 octobre 2026
 
 ### Android TV : navigation et séparation Bleach/TYBW

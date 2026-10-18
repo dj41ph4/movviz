@@ -113,7 +113,7 @@ test("real engine source selection → Plex physical name → operational librar
       assert.equal(path.basename(folder), planned.single!.presentation!.folder);
       assert.match(await fsp.readFile(path.join(folder, ".plexmatch"), "utf8"), new RegExp(`imdbid: ${planned.single!.presentation!.imdbId}`));
       if (season === 17) assert.match(installedPart.file!.path, /Season 02.*S02E03/);
-      else assert.match(installedPart.file!.path, /Season 01.*S01E206/);
+      else assert.match(installedPart.file!.path, /Season 11.*S11E01/);
       const files = backend.meta.get(hash).movedFiles;
       assert.equal(await backend._notifyLibrary(libraryRef, files, hash), true);
       assert.throws(() => validateBleachImportedFiles(store.getSeries("sr_bleach_test")!, [{ ...files[0], path: path.join(root, "Wrong Bleach", path.basename(path.dirname(files[0].path)), path.basename(files[0].path)) }], hash), /folder_unverified/);

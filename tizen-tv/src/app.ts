@@ -444,9 +444,20 @@ interface Window {
     if (version !== generation) return;
     const local = (type === "movie" ? response.movies : response.series)?.find(media => media.tmdbId === item.tmdbId);
     let seriesWatchTargets: Episode[] = [];
-    if (!local) actions.prepend(button(t("discover.addToLibrary"), async () => {
-      const result = await call<{ pendingRequest?: unknown; id?: string }>(`/api/library/${type === "movie" ? "movies" : "series"}`, { tmdbId: item.tmdbId, seriesPart }); toast(t(result.pendingRequest ? "nav.requests" : "discover.added"));
-    }, "primary"));
+    if (!local) {
+      const addButton = button(t("discover.addToLibrary"), async () => {
+        addButton.disabled = true;
+        try {
+          const result = await call<{ pendingRequest?: unknown; id?: string }>(`/api/library/${type === "movie" ? "movies" : "series"}`, { tmdbId: item.tmdbId, seriesPart });
+          addButton.remove();
+          toast(t(result.pendingRequest ? "nav.requests" : "discover.added"));
+        } catch (error) {
+          addButton.disabled = false;
+          report(error);
+        }
+      }, "primary");
+      actions.prepend(addButton);
+    }
     else if ((type === "series" || !(local.file || local.plexRatingKey)) && local.id && !local.bleachRepairRequired) actions.append(button(t("library.autoSearch"), async () => { await call(`/api/library/${type === "movie" ? "movies" : "series"}/${encodeURIComponent(local.id!)}/search`, { seriesPart }); toast(t("discover.searchingRelease")); }));
     if (local?.bleachRepairRequired) content.append(el("p", t("bleach.repairHint"), "muted"));
     actions.append(button(t("tizen.watchlist"), async () => { await call("/api/watchlist", { tmdbId: item.tmdbId, type, title: detail.title, posterPath: detail.posterPath }); toast(t("tizen.watchlist")); }));

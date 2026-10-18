@@ -53,7 +53,10 @@ interface MovvizApiService {
     suspend fun libraryMovies(@Query("tmdbId") tmdbId: Int? = null): Response<LibraryMoviesResponse>
 
     @GET("api/library/series")
-    suspend fun librarySeries(@Query("tmdbId") tmdbId: Int? = null): Response<LibrarySeriesResponse>
+    suspend fun librarySeries(
+        @Query("tmdbId") tmdbId: Int? = null,
+        @Query("seriesPart") seriesPart: String? = null,
+    ): Response<LibrarySeriesResponse>
 
     @GET("api/metadata/detail")
     suspend fun metadataDetail(

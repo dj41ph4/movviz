@@ -200,9 +200,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 // La fiche affichée relit tout (saisons comprises) ; un autre
                 // titre ne met à jour que son entrée, sans toucher aux saisons
                 // de la fiche ouverte.
-                if (isOpen) resolveTitleLibraryEntry(type, tmdbId)
+                if (isOpen) resolveTitleLibraryEntry(type, tmdbId, _detail.value?.seriesPart)
                 else if (type == "movie") (repo.movieByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { m -> _movies.value = _movies.value.replaceOrAppend(m) { it.tmdbId } }
-                else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppend(s) { it.tmdbId } }
+                else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppend(s, ::seriesViewKey) }
             }
             if (recentChanged) (repo.interfaceRecentEpisodes() as? ApiResult.Success)?.data?.recentEpisodes?.let { raw ->
                 _recentEpisodes.value = raw.mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
@@ -624,12 +624,15 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         if (_searchingSeason.value != null) return
         _searchingSeason.value = seasonNumber
         viewModelScope.launch {
-            when (repo.searchSeriesSeasonNow(seriesId, seasonNumber, seriesPart, bleachPart)) {
-                is ApiResult.Success -> loadSeriesSeasons(tmdbId, seriesPart)
-                ApiResult.Unauthorized -> _sessionExpired.value = true
-                is ApiResult.Failure -> Unit
+            try {
+                when (repo.searchSeriesSeasonNow(seriesId, seasonNumber, seriesPart, bleachPart)) {
+                    is ApiResult.Success -> loadSeriesSeasons(tmdbId, seriesPart)
+                    ApiResult.Unauthorized -> _sessionExpired.value = true
+                    is ApiResult.Failure -> Unit
+                }
+            } finally {
+                if (_searchingSeason.value == seasonNumber) _searchingSeason.value = null
             }
-            _searchingSeason.value = null
         }
     }
 
@@ -745,8 +748,17 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
                 return result
             }
             if (tmdbId == BleachPresentation.TMDB_ID && type == "series") {
-                resolveTitleLibraryEntry(type, tmdbId)
-                return result
+                // Bleach is two UI entries backed by one canonical series. Read
+                // the projection for the selected part, so TYBW cannot replace
+                // the original (or vice versa) in the shared screen state.
+                var attempt = 0
+                while (attempt < 4 && !_series.value.any { it.tmdbId == tmdbId && it.seriesPart == seriesPart }) {
+                    resolveTitleLibraryEntry(type, tmdbId, seriesPart)
+                    if (_series.value.any { it.tmdbId == tmdbId && it.seriesPart == seriesPart }) break
+                    delay(350)
+                    attempt++
+                }
+                return if (_series.value.any { it.tmdbId == tmdbId && it.seriesPart == seriesPart }) ApiResult.Success(Unit) else result
             }
             // Le parcours serveur crée d'abord l'entrée Movviz puis lance la
             // recherche automatique. Une erreur d'indexeur peut donc faire
@@ -1363,7 +1375,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         viewModelScope.launch {
             try {
                 when (val result = repo.seriesByTmdbId(BleachPresentation.TMDB_ID)) {
-                    is ApiResult.Success -> if (_currentUser.value?.id == profileId) result.data?.let { updated -> _series.value = _series.value.replaceOrAppend(updated) { it.tmdbId } }
+                    is ApiResult.Success -> if (_currentUser.value?.id == profileId) result.data?.let { updated -> _series.value = _series.value.replaceOrAppend(updated, ::seriesViewKey) }
                     ApiResult.Unauthorized -> _sessionExpired.value = true
                     is ApiResult.Failure -> Unit
                 }
@@ -1462,6 +1474,12 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         }
     }
 
+    fun refreshTitleLibraryEntry(type: String, tmdbId: Int, seriesPart: String?) {
+        viewModelScope.launch {
+            resolveTitleLibraryEntry(type, tmdbId, seriesPart)
+        }
+    }
+
     /** Résolution prioritaire pour une fiche ouverte depuis Reprendre : le
      * fichier/index local est consulté avant de rendre le CTA, sans attendre
      * Plex qui n'est qu'un enrichisseur optionnel. */
@@ -1471,9 +1489,9 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             is ApiResult.Success -> result.data?.let { _movies.value = _movies.value.replaceOrAppend(it) { movie -> movie.tmdbId } }
             ApiResult.Unauthorized -> _sessionExpired.value = true
             is ApiResult.Failure -> Unit
-        } else when (val result = repo.seriesByTmdbId(tmdbId)) {
+        } else when (val result = repo.seriesByTmdbId(tmdbId, seriesPart)) {
             is ApiResult.Success -> result.data?.let { updated ->
-                _series.value = _series.value.replaceOrAppend(updated) { series -> series.tmdbId }
+                _series.value = _series.value.replaceOrAppend(updated, ::seriesViewKey)
                 loadSeriesSeasons(tmdbId, seriesPart)
             }
             ApiResult.Unauthorized -> _sessionExpired.value = true
@@ -1855,7 +1873,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     }
 }
 
-private fun <T> List<T>.replaceOrAppend(item: T, key: (T) -> Int): List<T> {
+private fun seriesViewKey(series: LibrarySeriesDto): Pair<Int, String?> =
+    series.tmdbId to series.seriesPart.takeIf { series.tmdbId == BleachPresentation.TMDB_ID }
+
+private fun <T, K> List<T>.replaceOrAppend(item: T, key: (T) -> K): List<T> {
     val index = indexOfFirst { key(it) == key(item) }
     return if (index < 0) this + item else toMutableList().also { it[index] = item }
 }
