@@ -36,6 +36,11 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
+import com.movviz.tv.ui.discover.rememberTvScreenEntryFocus
+import com.movviz.tv.ui.home.requestFocusSafely
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizFocusTarget
+import com.movviz.tv.ui.theme.MovvizTheme
 
 private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w342"
 
@@ -92,6 +97,26 @@ fun PersonScreen(
             }.withWatchedMovies(watchedMovieIds)
     }
 
+    val beta = LocalMovvizBeta.current
+    // La donnée `person` est partagée par le ViewModel : tant qu'elle décrit
+    // encore l'acteur précédent, l'écran reste en chargement.
+    val loadedPerson = person?.takeIf { it.id == personId }
+    // Rien ne demandait jamais le focus ici (D10). Focus initial unique :
+    // le repère de chargement visible, puis la filmographie — la rangée
+    // rentre par sa mémoire, donc au retour d'une fiche sur la même carte —
+    // ou, sans filmographie, le message visible.
+    val rowFocus = entryFocusRequester ?: remember { FocusRequester() }
+    val statusFocus = remember { FocusRequester() }
+    val entryFocus = rememberTvScreenEntryFocus()
+    val hasFilmography = loadedPerson != null && filmography.isNotEmpty()
+    LaunchedEffect(loadedPerson != null, hasFilmography) {
+        when {
+            hasFilmography -> entryFocus.requestFinal { rowFocus.requestFocusSafely() }
+            loadedPerson != null -> entryFocus.requestFinal { statusFocus.requestFocusSafely() }
+            else -> entryFocus.requestPending { statusFocus.requestFocusSafely() }
+        }
+    }
+
     // Spec de scroll minimal (voir TitleDetailScreen) : le pivot TV
     // défilait la fiche acteur toute seule à l'ouverture.
     CompositionLocalProvider(
@@ -101,13 +126,20 @@ fun PersonScreen(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier
             .fillMaxSize()
+            .then(entryFocus.observerModifier())
             .background(MaterialTheme.colorScheme.background)
             .padding(top = 24.dp, bottom = 30.dp),
     ) {
-        item {
-            val p = person
+        item(key = "header", contentType = "header") {
+            val p = loadedPerson
             if (p == null) {
-                com.movviz.tv.ui.theme.MovvizLoader(modifier = Modifier.fillMaxWidth().height(360.dp))
+                // Chargement : repère focalisable visible (GAUCHE → sidebar
+                // via DetailFocusToNavHandler), jamais un écran sans cible.
+                Box(Modifier.fillMaxWidth().height(360.dp), contentAlignment = Alignment.Center) {
+                    MovvizFocusTarget(focusRequester = statusFocus) {
+                        com.movviz.tv.ui.theme.MovvizLoader(modifier = Modifier.padding(12.dp).size(96.dp))
+                    }
+                }
             } else {
                 Row(modifier = Modifier.padding(start = 36.dp, end = 36.dp, bottom = 24.dp)) {
                     val photoUrl = p.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
@@ -130,28 +162,44 @@ fun PersonScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = p.name,
-                            style = TextStyle(fontSize = 23.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                            style = if (beta) MaterialTheme.typography.displayMedium else TextStyle(fontSize = 23.sp, fontWeight = FontWeight.Black),
+                            color = if (beta) MovvizTheme.palette.ink else MovvizInk,
                         )
                         if (p.biography.isNotBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = p.biography,
-                                style = TextStyle(fontSize = 11.sp, color = MovvizInkSoft, lineHeight = 15.sp),
+                                style = if (beta) MaterialTheme.typography.bodyLarge else TextStyle(fontSize = 11.sp, lineHeight = 15.sp),
+                                color = if (beta) MovvizTheme.palette.inkSoft else MovvizInkSoft,
                                 maxLines = 6,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
                 }
+                if (filmography.isEmpty()) {
+                    MovvizFocusTarget(
+                        modifier = Modifier.padding(start = 36.dp),
+                        focusRequester = statusFocus,
+                    ) {
+                        Text(
+                            text = "Aucun titre pour le moment",
+                            color = if (beta) MovvizTheme.palette.inkDim else MovvizInkDim,
+                            style = if (beta) MaterialTheme.typography.bodyMedium else TextStyle(fontSize = 11.sp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        )
+                    }
+                }
             }
         }
-        if (filmography.isNotEmpty()) {
-            item {
+        if (hasFilmography) {
+            item(key = "filmography", contentType = "row") {
                 TitleRow(
                     heading = "Filmographie",
+                    rowKey = "person-$personId-filmography",
                     items = filmography,
                     onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
-                    firstItemFocusRequester = entryFocusRequester,
+                    firstItemFocusRequester = rowFocus,
                     titleLogoPaths = heroLogos,
                     onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                 )

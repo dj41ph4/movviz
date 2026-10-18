@@ -38,6 +38,9 @@ import com.movviz.tv.ui.theme.MovvizBorder
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizChip
+import com.movviz.tv.ui.theme.MovvizTheme
 import androidx.compose.ui.graphics.Brush
 
 enum class LibraryTab(val label: String) { FILMS("Films"), SERIES("Séries"), COLLECTIONS("Collections") }
@@ -75,16 +78,34 @@ internal fun LibraryScreen(
     onMovieFiltersChange: (CatalogFilters) -> Unit = {},
     seriesFilters: CatalogFilters = CatalogFilters(),
     onSeriesFiltersChange: (CatalogFilters) -> Unit = {},
+    // Cible de restauration de l'onglet (MainScreen) : transmise à la grille
+    // du sous-onglet actif, qui la porte dès qu'elle a une carte mémorisée.
+    restoreFocusRequester: FocusRequester? = null,
 ) {
+    val beta = LocalMovvizBeta.current
     Column(Modifier.fillMaxSize().padding(start = 42.dp, top = 24.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
             LibraryTab.entries.forEach { t ->
-                LibraryToggleChip(
-                    label = t.label,
-                    active = tab == t,
-                    onClick = { onTabChange(t) },
-                    focusRequester = if (t == LibraryTab.FILMS) entryFocusRequester else null,
-                )
+                // L'entrée D-pad (sidebar, retour de section) vise le
+                // sous-onglet ACTIF : avec Séries sélectionné, l'ancienne
+                // entrée sur Films faisait croire à un retour sur Films.
+                val requester = if (t == tab) entryFocusRequester else null
+                if (beta) {
+                    MovvizChip(
+                        label = t.label,
+                        active = tab == t,
+                        onClick = { onTabChange(t) },
+                        modifier = Modifier.tvPointerClick { onTabChange(t) },
+                        focusRequester = requester,
+                    )
+                } else {
+                    LibraryToggleChip(
+                        label = t.label,
+                        active = tab == t,
+                        onClick = { onTabChange(t) },
+                        focusRequester = requester,
+                    )
+                }
             }
         }
         when (tab) {
@@ -92,16 +113,19 @@ internal fun LibraryScreen(
                 viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle,
                 showModeToggle = false, onScrollChanged = onScrollChanged,
                 hoistedFilters = movieFilters, onFiltersChange = onMovieFiltersChange,
+                restoreFocusRequester = restoreFocusRequester,
             )
             LibraryTab.SERIES -> CatalogScreen(
                 viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle,
                 showModeToggle = false, onScrollChanged = onScrollChanged,
                 hoistedFilters = seriesFilters, onFiltersChange = onSeriesFiltersChange,
+                restoreFocusRequester = restoreFocusRequester,
             )
             LibraryTab.COLLECTIONS -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     "Collections — bientôt disponible",
-                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkDim),
+                    style = if (beta) MaterialTheme.typography.bodyMedium else TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+                    color = if (beta) MovvizTheme.palette.inkDim else MovvizInkDim,
                 )
             }
         }

@@ -53,8 +53,25 @@ import com.movviz.tv.ui.home.TvTitleCard
 import com.movviz.tv.ui.home.withWatchedMovies
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkSoft
-import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.layout.onPlaced
+import com.movviz.tv.ui.home.LocalTvHomeFocusMemory
+import com.movviz.tv.ui.home.TvHomeFocusMemory
+import com.movviz.tv.ui.home.rememberTvHomeFocusMemory
+import com.movviz.tv.ui.home.rememberTvRowFocusMemory
+import com.movviz.tv.ui.home.tvRememberedEntry
+import com.movviz.tv.ui.home.tvRowKey
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizChip
+import com.movviz.tv.ui.theme.MovvizFocusTarget
+import com.movviz.tv.ui.theme.MovvizTheme
+import com.movviz.tv.ui.theme.betaDp
+import com.movviz.tv.ui.theme.movvizBetaSurfaceScale
+import com.movviz.tv.ui.theme.movvizFocusRing
+import com.movviz.tv.ui.theme.movvizRowInset
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 
 /**
@@ -86,7 +103,13 @@ fun DiscoverScreen(
     // entièrement recomposé après un aller-retour sur la pile de nav.
     hoistedSelectedType: HomeTab? = null,
     onSelectedTypeChange: (HomeTab) -> Unit = {},
+    // Cible de restauration de l'onglet (MainScreen) : la demander au retour
+    // d'une fiche rentre dans la liste par sa mémoire (rangée puis carte).
+    // Attachée seulement quand une section a déjà été focalisée, pour que
+    // l'entrée depuis la sidebar reste le sélecteur Films/Séries.
+    restoreFocusRequester: FocusRequester? = null,
 ) {
+    val beta = LocalMovvizBeta.current
     var localSelectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
     LaunchedEffect(fixedType) { fixedType?.let { localSelectedType = it } }
     val selectedType = fixedType ?: hoistedSelectedType ?: localSelectedType
@@ -193,8 +216,13 @@ fun DiscoverScreen(
     // l'abandonner derrière le héros.
     val hubFocus = entryFocusRequester ?: remember { FocusRequester() }
     val heroFocus = remember { FocusRequester() }
-    val emptyStateFocus = heroFocus
-    val heroTopAnchor = remember { FocusRequester() }
+    val statusFocus = remember { FocusRequester() }
+    val listFocus = remember { FocusRequester() }
+    // Mémoire de section (sélecteur, hero, genres, rangées, logos), même
+    // mécanique que l'accueil : rentrer dans la liste (retour de fiche via
+    // restoreFocusRequester) vise la dernière section focalisée, puis sa
+    // carte mémorisée par identité.
+    val sectionMemory = rememberTvHomeFocusMemory()
     val listState = rememberTvLazyListState().withTvPrefetchDisabled()
     val hasScrolled by remember {
         derivedStateOf {
@@ -215,62 +243,91 @@ fun DiscoverScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        if (rows.isEmpty()) Text(
-            "Aucun titre pour le moment",
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .padding(start = 48.dp, top = 72.dp)
-                .focusRequester(emptyStateFocus)
-                .focusable(),
-        )
-        else TvLazyColumn(Modifier.fillMaxSize(), state = listState) {
-            item(contentType = "topAnchor") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .focusRequester(heroTopAnchor)
-                        .focusable(),
+    // Le sélecteur Films/Séries est TOUJOURS composé (chargement et vide
+    // compris) : c'est la cible d'entrée depuis la sidebar et le seul moyen
+    // de changer d'univers quand l'un des deux n'a rien à montrer.
+    CompositionLocalProvider(LocalTvHomeFocusMemory provides sectionMemory) {
+        TvLazyColumn(
+            modifier = Modifier.fillMaxSize()
+                .then(
+                    if (restoreFocusRequester != null && sectionMemory.selectedRowKey() != null) {
+                        Modifier.focusRequester(restoreFocusRequester)
+                    } else {
+                        Modifier
+                    },
                 )
+                .tvRememberedEntry(listFocus) { sectionMemory.destinationOrNull() },
+            state = listState,
+        ) {
+            item(key = "topAnchor", contentType = "topAnchor") {
+                // Espacement décoratif uniquement : l'ancienne ancre de 1 dp
+                // était focalisable et HAUT depuis Films/Séries tombait sur
+                // un nœud invisible.
+                Spacer(Modifier.fillMaxWidth().height(1.dp))
             }
-            item(contentType = "type-toggle") {
-                if (fixedType != null) {
-                    MediaHubToggleRow(
-                        mode = mode,
-                        onModeChange = onModeChange,
-                        firstFocusRequester = hubFocus,
-                        modifier = Modifier.padding(start = 42.dp, top = 24.dp, bottom = 15.dp),
-                    )
-                } else {
-                    // Ancien point d'entrée, maintenu proprement : le
-                    // sélecteur commence sous la barre flottante.
-                    TypeToggleRow(selected = selectedType, onSelect = setSelectedType, firstFocusRequester = hubFocus)
+            item(key = "type-toggle", contentType = "type-toggle") {
+                Box(modifier = rememberDiscoverSectionModifier(sectionMemory, "type-toggle", hubFocus)) {
+                    if (fixedType != null) {
+                        MediaHubToggleRow(
+                            mode = mode,
+                            onModeChange = onModeChange,
+                            firstFocusRequester = hubFocus,
+                            modifier = Modifier.padding(start = 42.dp, top = 24.dp, bottom = 15.dp),
+                        )
+                    } else {
+                        // Ancien point d'entrée, maintenu proprement : le
+                        // sélecteur commence sous la barre flottante.
+                        TypeToggleRow(selected = selectedType, onSelect = setSelectedType, activeFocusRequester = hubFocus, beta = beta)
+                    }
                 }
             }
-            if (activeHero != null) item {
-                HeroCarousel(
-                    items = heroItems,
-                    currentIndex = heroIndex,
-                    logoPath = heroLogos["$wantedType-${activeHero.tmdbId}"],
-                    onSelectIndex = { heroIndex = it },
-                    ctaFocusRequester = heroFocus,
-                    onOpen = { card -> onOpenTitle(wantedType, card.tmdbId) },
-                )
+            if (rows.isEmpty() && activeHero == null) {
+                item(key = "status", contentType = "status") {
+                    // Chargement ou catalogue vide : repère visible, atteint
+                    // par BAS depuis le sélecteur ; GAUCHE rejoint la sidebar.
+                    MovvizFocusTarget(
+                        modifier = Modifier.padding(start = 42.dp, top = 24.dp),
+                        focusRequester = statusFocus,
+                    ) {
+                        Text(
+                            "Aucun titre pour le moment",
+                            style = if (beta) MaterialTheme.typography.bodyMedium else androidx.tv.material3.LocalTextStyle.current,
+                            color = if (beta) MovvizTheme.palette.inkDim else MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            }
+            if (activeHero != null) item(key = "hero", contentType = "hero") {
+                Box(modifier = rememberDiscoverSectionModifier(sectionMemory, "hero", heroFocus)) {
+                    HeroCarousel(
+                        items = heroItems,
+                        currentIndex = heroIndex,
+                        logoPath = heroLogos["$wantedType-${activeHero.tmdbId}"],
+                        onSelectIndex = { heroIndex = it },
+                        ctaFocusRequester = heroFocus,
+                        onOpen = { card -> onOpenTitle(wantedType, card.tmdbId) },
+                    )
+                }
             }
             if (genres.isNotEmpty()) {
-                item(contentType = "genre-picker") {
+                item(key = "genre-picker", contentType = "genre-picker") {
                     DiscoverGenrePickerRow(
                         genres = genres,
                         onSelect = { genreId, label -> onOpenGenre(wantedType, genreId, label) },
+                        beta = beta,
                     )
                 }
             }
-            val firstRowKey = rows.first().key
+            val firstRowKey = rows.firstOrNull()?.key
             itemsIndexed(rows, key = { _, row -> "${selectedType.name}-${row.key}" }, contentType = { _, _ -> "discover-row" }) { _, row ->
                 val label = if (row.key == "library") selectedType.label else discoverRowLabel(row.key, row.meta)
                 TitleRow(
                     heading = label,
+                    // Identité de rangée, pas son titre : « Prochainement »
+                    // (upcoming / upcomingVod) ou « Tendances » apparaissent
+                    // deux fois et partageaient sinon la même mémoire.
+                    rowKey = tvRowKey("discover-${selectedType.name}-${row.key}", label),
                     items = row.cards,
                     onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                     firstItemFocusRequester = if (activeHero == null && row.key == firstRowKey) heroFocus else null,
@@ -288,17 +345,18 @@ fun DiscoverScreen(
             // l'ordre TMDb brut — les studios n'ont pas d'équivalent
             // personnalisé côté serveur, leur tuile reste donc décorative.
             if (watchProviderTiles.isNotEmpty()) {
-                item(contentType = "logo-row") {
+                item(key = "logos-providers", contentType = "logo-row") {
                     DiscoverLogoRow(
                         title = "Plateformes",
                         tiles = watchProviderTiles,
-                        onSelect = { tile -> onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
+                        onSelect = { tile -> onSeeAllRow(wantedType, "watchProvider:${tile.id}", "Sur ${tile.name}") },
+                        beta = beta,
                     )
                 }
             }
             if (companyTiles.isNotEmpty()) {
-                item(contentType = "logo-row") {
-                    DiscoverLogoRow(title = "Studios", tiles = companyTiles, onSelect = null)
+                item(key = "logos-studios", contentType = "logo-row") {
+                    DiscoverLogoRow(title = "Studios", tiles = companyTiles, onSelect = null, beta = beta)
                 }
             }
         }
@@ -354,7 +412,7 @@ private fun resolutionLabelForDiscover(resolution: String?): String? = when {
 }
 
 @Composable
-private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit, firstFocusRequester: FocusRequester? = null) {
+private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit, activeFocusRequester: FocusRequester? = null, beta: Boolean = false) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         // NxTopNav est une surcouche (volontairement transparente lorsque la
@@ -369,13 +427,26 @@ private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit, firstF
         // dans le vide : entryFocusRequester (= contentFocusRequester) n'était
         // attaché à rien ici, seulement dans la branche MediaHubToggleRow —
         // Découverte devenait injoignable au D-pad (confirmé en test manuel).
-        ToggleChip(label = "Films", active = selected == HomeTab.MOVIES, onClick = { onSelect(HomeTab.MOVIES) }, focusRequester = firstFocusRequester)
-        ToggleChip(label = "Séries", active = selected == HomeTab.SERIES, onClick = { onSelect(HomeTab.SERIES) })
+        // L'entrée vise le type ACTIF (Séries reste Séries au retour), comme
+        // les sous-onglets de la Bibliothèque.
+        listOf(HomeTab.MOVIES to "Films", HomeTab.SERIES to "Séries").forEach { (type, label) ->
+            ToggleChip(
+                label = label,
+                active = selected == type,
+                onClick = { onSelect(type) },
+                focusRequester = if (selected == type) activeFocusRequester else null,
+                beta = beta,
+            )
+        }
     }
 }
 
 @Composable
-private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null, beta: Boolean = false) {
+    if (beta) {
+        MovvizChip(label = label, active = active, onClick = onClick, modifier = Modifier.tvPointerClick(onClick), focusRequester = focusRequester)
+        return
+    }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
@@ -406,27 +477,64 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit, focu
 private val SYNTHETIC_GENRES = listOf("anime" to "Anime", "teen" to "Romance ado")
 
 @Composable
-private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit) {
+private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit, beta: Boolean) {
+    val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
+    val keys = remember(genres) { SYNTHETIC_GENRES.map { "synth-${it.first}" } + genres.map { "tmdb-${it.id}" } }
+    // Mémoire par identité de genre (et enregistrement auprès de la mémoire
+    // de section de l'écran) : retour de « Voir tout » → même chip.
+    val rowFocus = rememberTvRowFocusMemory(
+        rowKey = "discover-genres",
+        keys = keys,
+        isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
+        scrollToItem = { rowState.scrollToItem(it) },
+    )
     Column(modifier = Modifier.padding(bottom = 24.dp)) {
         Text(
             text = "Genres",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 39.dp, bottom = 9.dp),
+            modifier = Modifier.padding(start = movvizRowInset(), bottom = if (beta) 12.dp else 9.dp),
         )
         TvLazyRow(
-            state = rememberTvLazyListState().withTvPrefetchDisabled(),
-            modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
+            state = rowState,
+            modifier = rowFocus.rowModifier(),
+            contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset(), top = if (beta) 8.dp else 0.dp, bottom = if (beta) 8.dp else 0.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(SYNTHETIC_GENRES, key = { _, item -> "synth-${item.first}" }) { _, item ->
-                DiscoverGenreChip(label = item.second, onClick = { onSelect(item.first, item.second) })
+            itemsIndexed(SYNTHETIC_GENRES, key = { _, item -> "synth-${item.first}" }, contentType = { _, _ -> "genre" }) { index, item ->
+                DiscoverGenreChip(
+                    label = item.second,
+                    onClick = { onSelect(item.first, item.second) },
+                    modifier = rowFocus.itemModifier("synth-${item.first}", index),
+                    beta = beta,
+                )
             }
-            itemsIndexed(genres, key = { _, g -> "tmdb-${g.id}" }) { _, g ->
-                DiscoverGenreChip(label = g.name, onClick = { onSelect(g.id.toString(), g.name) })
+            itemsIndexed(genres, key = { _, g -> "tmdb-${g.id}" }, contentType = { _, _ -> "genre" }) { index, g ->
+                DiscoverGenreChip(
+                    label = g.name,
+                    onClick = { onSelect(g.id.toString(), g.name) },
+                    modifier = rowFocus.itemModifier("tmdb-${g.id}", SYNTHETIC_GENRES.size + index),
+                    beta = beta,
+                )
             }
         }
+    }
+}
+
+/**
+ * Section de la liste Découverte enregistrée auprès de la mémoire d'écran :
+ * `requester` est sa cible d'entrée (chip actif, bouton du hero), et toute
+ * prise de focus à l'intérieur la marque comme dernière section visitée.
+ */
+@Composable
+private fun rememberDiscoverSectionModifier(memory: TvHomeFocusMemory, key: String, requester: FocusRequester): Modifier {
+    DisposableEffect(memory, key, requester) {
+        onDispose { memory.detach(key, requester) }
+    }
+    return remember(memory, key, requester) {
+        Modifier
+            .onPlaced { memory.attach(key, requester) }
+            .onFocusChanged { if (it.hasFocus) memory.select(key) }
     }
 }
 
@@ -440,43 +548,73 @@ private fun DiscoverLogoRow(
     title: String,
     tiles: List<com.movviz.tv.data.LogoTileDto>,
     onSelect: ((com.movviz.tv.data.LogoTileDto) -> Unit)?,
+    beta: Boolean,
 ) {
+    val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
+    val keys = remember(tiles, title) { tiles.map { "$title-${it.id}" } }
+    val rowFocus = rememberTvRowFocusMemory(
+        rowKey = "discover-logos-$title",
+        keys = keys,
+        isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
+        scrollToItem = { rowState.scrollToItem(it) },
+    )
     Column(modifier = Modifier.padding(bottom = 24.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 39.dp, bottom = 9.dp),
+            modifier = Modifier.padding(start = movvizRowInset(), bottom = if (beta) 12.dp else 9.dp),
         )
         TvLazyRow(
-            state = rememberTvLazyListState().withTvPrefetchDisabled(),
-            modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(start = 39.dp, end = 39.dp),
-            horizontalArrangement = Arrangement.spacedBy(11.dp),
+            state = rowState,
+            modifier = rowFocus.rowModifier(),
+            contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset(), top = if (beta) 8.dp else 0.dp, bottom = if (beta) 8.dp else 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(betaDp(11.dp, 12.dp)),
         ) {
-            itemsIndexed(tiles, key = { _, tile -> "$title-${tile.id}" }) { _, tile ->
-                DiscoverLogoTile(tile = tile, onClick = onSelect?.let { { it(tile) } })
+            itemsIndexed(tiles, key = { _, tile -> "$title-${tile.id}" }, contentType = { _, _ -> "logo" }) { index, tile ->
+                DiscoverLogoTile(
+                    tile = tile,
+                    onClick = onSelect?.let { { it(tile) } },
+                    modifier = rowFocus.itemModifier("$title-${tile.id}", index),
+                    beta = beta,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() -> Unit)?) {
+private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() -> Unit)?, modifier: Modifier = Modifier, beta: Boolean = false) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     val handleClick = onClick ?: {}
+    val palette = MovvizTheme.palette
     Surface(
         onClick = handleClick,
-        modifier = Modifier
-            .tvFocusLift(focused, shape = shape)
+        modifier = modifier
+            .movvizFocusRing(shape, enabled = beta)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(handleClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
-        ),
+        scale = if (beta) movvizBetaSurfaceScale() else ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = if (beta) {
+            ClickableSurfaceDefaults.colors(
+                containerColor = palette.chipContainer, contentColor = palette.ink,
+                focusedContainerColor = palette.surfaceRaised, focusedContentColor = palette.ink,
+            )
+        } else {
+            ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White)
+        },
+        border = if (beta) {
+            ClickableSurfaceDefaults.border(
+                border = Border(androidx.compose.foundation.BorderStroke(1.dp, palette.line), shape = shape),
+                focusedBorder = Border(androidx.compose.foundation.BorderStroke(1.dp, palette.lineStrong), shape = shape),
+            )
+        } else {
+            ClickableSurfaceDefaults.border(
+                focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+            )
+        },
     ) {
         Box(
             modifier = Modifier
@@ -545,13 +683,16 @@ private fun DiscoverLogoTileFallback(name: String, dark: Boolean, focused: Boole
 }
 
 @Composable
-private fun DiscoverGenreChip(label: String, onClick: () -> Unit) {
+private fun DiscoverGenreChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, beta: Boolean = false) {
+    if (beta) {
+        MovvizChip(label = label, active = false, onClick = onClick, modifier = modifier.tvPointerClick(onClick))
+        return
+    }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
-        modifier = Modifier
-            .tvFocusLift(focused, shape = shape)
+        modifier = modifier
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

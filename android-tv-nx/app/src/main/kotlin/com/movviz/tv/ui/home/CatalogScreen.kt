@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.focus.focusRestorer
 import androidx.tv.foundation.lazy.list.TvLazyRow
@@ -29,6 +30,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +56,11 @@ import com.movviz.tv.data.GenreDto
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizChip
+import com.movviz.tv.ui.theme.MovvizFocusTarget
+import com.movviz.tv.ui.theme.MovvizIconCheck
+import com.movviz.tv.ui.theme.MovvizTheme
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
@@ -71,6 +78,20 @@ internal enum class CatalogSort(val label: String) {
  *  sidebar (ex. Bibliothèque → Découverte → Bibliothèque) : sans ça, ces
  *  réglages locaux à CatalogScreen étaient perdus dès que l'écran quittait
  *  la composition. */
+/** Signature sauvegardable (Bundle) des réglages appliqués à la grille. */
+internal fun catalogFilterSignature(sort: CatalogSort, genreKey: String?, showMissing: Boolean): String =
+    "${sort.name}|${genreKey.orEmpty()}|$showMissing"
+
+/**
+ * Remonter la grille en tête uniquement quand les réglages ont VRAIMENT
+ * changé depuis le dernier passage. `applied == null` = toute première
+ * composition (la grille est déjà en tête) ; une signature identique =
+ * simple retour sur l'écran (fiche, changement d'onglet), où la position
+ * doit être conservée.
+ */
+internal fun shouldResetCatalogScroll(applied: String?, current: String): Boolean =
+    applied != null && applied != current
+
 internal data class CatalogFilters(
     val sort: CatalogSort = CatalogSort.RECENT,
     val genre: CatalogGenreSelection? = null,
@@ -103,7 +124,13 @@ internal fun CatalogScreen(
     showModeToggle: Boolean = true,
     hoistedFilters: CatalogFilters? = null,
     onFiltersChange: (CatalogFilters) -> Unit = {},
+    // Cible de restauration de l'onglet (MainScreen) : la demander au retour
+    // d'une fiche ramène sur la carte mémorisée de la grille. Attachée
+    // seulement quand la grille a une carte mémorisée, sinon l'entrée
+    // normale (chip actif) reste prioritaire.
+    restoreFocusRequester: FocusRequester? = null,
 ) {
+    val beta = LocalMovvizBeta.current
     val movies by viewModel.movies.collectAsState()
     val rawSeries by viewModel.series.collectAsState()
     val series = remember(rawSeries) { BleachPresentation.libraryViews(rawSeries) }
@@ -166,8 +193,27 @@ internal fun CatalogScreen(
     // Changer de tri ou de genre doit toujours ramener sur le premier
     // titre de la liste : sans ça, la grille restait scrollée là où
     // l'utilisateur l'avait laissée, sur un tri qui n'avait plus rien à
-    // voir avec ce qui était affiché.
-    LaunchedEffect(sort, selectedGenre, showMissing) { gridState.scrollToItem(0) }
+    // voir avec ce qui était affiché. Mais un simple retour sur l'écran
+    // (fiche, onglet) relançait aussi cet effet et remontait la grille : la
+    // signature des réglages déjà appliqués est donc sauvegardée, et seul
+    // un vrai changement remonte la grille.
+    val filterSignature = catalogFilterSignature(sort, selectedGenre?.key, showMissing)
+    var appliedFilterSignature by rememberSaveable(type) { mutableStateOf<String?>(null) }
+    LaunchedEffect(filterSignature) {
+        if (shouldResetCatalogScroll(appliedFilterSignature, filterSignature)) gridState.scrollToItem(0)
+        appliedFilterSignature = filterSignature
+    }
+    // Mémoire de la grille par identité de carte (id, déjà suffixé de la
+    // partie pour une série découpée) : retour de fiche → même carte. Une
+    // clé par jeu de réglages : changer de tri repart d'une mémoire vierge
+    // au lieu de défiler vers une carte qui n'a plus de sens à cet endroit.
+    val gridKeys = remember(sorted) { sorted.map { it.id } }
+    val gridMemory = rememberTvGridFocusMemory(
+        gridKey = "catalog:${type.name}:$filterSignature",
+        keys = gridKeys,
+        isVisible = { index -> gridState.layoutInfo.visibleItemsInfo.any { it.index == index } },
+        scrollToItem = { gridState.scrollToItem(it) },
+    )
     val hasScrolled by remember {
         derivedStateOf {
             gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 12
@@ -187,47 +233,65 @@ internal fun CatalogScreen(
             )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(17.dp))
         }
-        Text(
-            text = "${type.label} · ${sorted.size}",
-            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
-            // Le toggle masqué (showModeToggle=false) portait la cible D-pad
-            // "flèche bas depuis la nav" — reportée ici pour ne jamais perdre
-            // ce repère quand LibraryScreen appelle cet écran.
-            modifier = Modifier.let {
-                if (!showModeToggle && entryFocusRequester != null) it.focusRequester(entryFocusRequester).focusable() else it
-            },
-        )
+        CatalogTitle(label = type.label, count = sorted.size, beta = beta)
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(9.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            SortRow(sort = sort, onSelect = { sort = it })
+            // Le toggle masqué (showModeToggle=false) portait la cible D-pad
+            // "flèche bas depuis la nav" : reportée sur le chip de tri actif
+            // (un vrai contrôle au focus visible), jamais sur un texte
+            // focalisable sans indicateur.
+            SortRow(
+                sort = sort,
+                onSelect = { sort = it },
+                activeFocusRequester = if (!showModeToggle) entryFocusRequester else null,
+                beta = beta,
+            )
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(4.dp))
-            MissingFilterChip(checked = showMissing, onToggle = { showMissing = !showMissing })
+            MissingFilterChip(checked = showMissing, onToggle = { showMissing = !showMissing }, beta = beta)
         }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
         if (genres.isNotEmpty()) {
-            CatalogGenreRow(genres = genres, selected = selectedGenre, onSelect = { selectedGenre = if (selectedGenre?.key == it.key) null else it })
+            CatalogGenreRow(genres = genres, selected = selectedGenre, onSelect = { selectedGenre = if (selectedGenre?.key == it.key) null else it }, beta = beta)
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(11.dp))
         }
         when {
-            sorted.isEmpty() -> Box(
-                modifier = Modifier.fillMaxWidth().padding(top = 18.dp)
-                    .focusRequester(entryFocusRequester ?: topAnchor).focusable(),
+            // État vide : une vraie cible D-pad au focus visible (jamais une
+            // boîte focalisable invisible). GAUCHE rejoint la sidebar via la
+            // sortie du groupe MainScreen.
+            sorted.isEmpty() -> MovvizFocusTarget(
+                modifier = Modifier.padding(top = 18.dp),
+                // entryFocusRequester est déjà porté par le toggle ou le chip
+                // de tri actif : un demandeur ne s'attache qu'à un seul nœud.
+                focusRequester = topAnchor,
             ) {
-                Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 11.sp))
+                Text(
+                    text = "Aucun titre pour le moment",
+                    color = if (beta) MovvizTheme.palette.inkDim else MovvizInkDim,
+                    style = if (beta) MaterialTheme.typography.bodyMedium else TextStyle(fontSize = 11.sp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                )
             }
             else -> TvLazyVerticalGrid(
                 // 132dp donne 6 à 7 affiches lisibles en 1080p (et davantage
                 // en 4K) : assez dense pour une bibliothèque TV, sans devenir
                 // une mosaïque illisible à trois mètres.
                 columns = TvGridCells.FixedSize(com.movviz.tv.ui.theme.betaDp(99.dp, 112.dp)),
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(com.movviz.tv.ui.theme.betaDp(9.dp, 12.dp)),
+                verticalArrangement = Arrangement.spacedBy(com.movviz.tv.ui.theme.betaDp(14.dp, 18.dp)),
+                // Bêta : l'anneau de focus est dessiné 6 dp autour de la
+                // carte ; 8 dp de marge interne évitent qu'il soit rogné sur
+                // la première colonne / ligne, et le décalage garde les
+                // affiches alignées sur les chips au-dessus.
+                contentPadding = if (beta) PaddingValues(8.dp) else PaddingValues(0.dp),
+                modifier = Modifier.fillMaxSize()
+                    .let { if (beta) it.offset(x = (-8).dp) else it }
+                    .then(gridMemory.containerModifier(restoreFocusRequester.takeIf { gridMemory.hasSelection() })),
                 state = gridState,
             ) {
                 itemsIndexed(sorted, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
                     PosterCard(
                         card = card,
+                        modifier = gridMemory.itemModifier(card.id, index),
                         onClick = { onOpenPartTitle(if (card.isMovie) "movie" else "series", card.tmdbId, card.seriesPart) },
                         // entryFocusRequester appartient exclusivement au
                         // couple Suggestions/Bibliothèque. Le réutiliser sur
@@ -262,22 +326,54 @@ internal fun CatalogScreen(
     }
 }
 
+/** Titre de page : Stable « Films · 123 » d'un bloc ; Bêta titre éditorial
+ *  + compteur en chiffres mono, sur une seule ligne. */
 @Composable
-private fun SortRow(sort: CatalogSort, onSelect: (CatalogSort) -> Unit) {
+private fun CatalogTitle(label: String, count: Int, beta: Boolean) {
+    if (beta) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(text = label, style = MaterialTheme.typography.headlineMedium, color = MovvizTheme.palette.ink, maxLines = 1)
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = count.toString(),
+                style = MovvizTheme.textStyles.count,
+                color = MovvizTheme.palette.inkDim,
+                maxLines = 1,
+                modifier = Modifier.padding(bottom = 3.dp),
+            )
+        }
+    } else {
+        Text(
+            text = "$label · $count",
+            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+        )
+    }
+}
+
+@Composable
+private fun SortRow(sort: CatalogSort, onSelect: (CatalogSort) -> Unit, activeFocusRequester: FocusRequester?, beta: Boolean) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         CatalogSort.entries.forEach { option ->
-            SortChip(label = option.label, active = sort == option, onClick = { onSelect(option) })
+            val active = sort == option
+            val requester = if (active) activeFocusRequester else null
+            if (beta) {
+                MovvizChip(label = option.label, active = active, onClick = { onSelect(option) }, modifier = Modifier.tvPointerClick { onSelect(option) }, focusRequester = requester)
+            } else {
+                SortChip(label = option.label, active = active, onClick = { onSelect(option) }, focusRequester = requester)
+            }
         }
     }
 }
 
 @Composable
-private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
+private fun SortChip(label: String, active: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
-        modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onClick),
+        modifier = Modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .onFocusChanged { focused = it.isFocused }.tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
@@ -286,13 +382,13 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
             focusedContentColor = Color.White,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
+            focusedBorder = Border(border = com.movviz.tv.ui.theme.movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f))), shape = shape),
         ),
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 10.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            style = TextStyle(fontSize = com.movviz.tv.ui.theme.betaSp(10f, 13f), fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = com.movviz.tv.ui.theme.betaDp(6.dp, 9.dp)),
         )
     }
 }
@@ -302,7 +398,17 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
  *  épisode disponible) pour ne pas mélanger derniers ajouts et vraie
  *  bibliothèque prête à regarder. */
 @Composable
-private fun MissingFilterChip(checked: Boolean, onToggle: () -> Unit) {
+private fun MissingFilterChip(checked: Boolean, onToggle: () -> Unit, beta: Boolean) {
+    if (beta) {
+        MovvizChip(
+            label = "Afficher les manquants",
+            active = checked,
+            onClick = onToggle,
+            modifier = Modifier.tvPointerClick(onToggle),
+            leadingIcon = if (checked) MovvizIconCheck else null,
+        )
+        return
+    }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
@@ -316,12 +422,12 @@ private fun MissingFilterChip(checked: Boolean, onToggle: () -> Unit) {
             focusedContentColor = Color.White,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
+            focusedBorder = Border(border = com.movviz.tv.ui.theme.movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f))), shape = shape),
         ),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = com.movviz.tv.ui.theme.betaDp(6.dp, 9.dp)),
         ) {
             Box(
                 modifier = Modifier
@@ -340,7 +446,7 @@ private fun MissingFilterChip(checked: Boolean, onToggle: () -> Unit) {
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(7.dp))
             Text(
                 text = "Afficher les manquants",
-                style = TextStyle(fontSize = 10.sp, fontWeight = if (checked) FontWeight.Bold else FontWeight.SemiBold),
+                style = TextStyle(fontSize = com.movviz.tv.ui.theme.betaSp(10f, 13f), fontWeight = if (checked) FontWeight.Bold else FontWeight.SemiBold),
             )
         }
     }
@@ -373,7 +479,7 @@ private fun cardMatchesCatalogGenre(card: TvTitleCard, selection: CatalogGenreSe
 }
 
 @Composable
-private fun CatalogGenreRow(genres: List<GenreDto>, selected: CatalogGenreSelection?, onSelect: (CatalogGenreSelection) -> Unit) {
+private fun CatalogGenreRow(genres: List<GenreDto>, selected: CatalogGenreSelection?, onSelect: (CatalogGenreSelection) -> Unit, beta: Boolean) {
     TvLazyRow(
         state = rememberTvLazyListState().withTvPrefetchDisabled(),
         modifier = Modifier.focusRestorer(),
@@ -382,17 +488,23 @@ private fun CatalogGenreRow(genres: List<GenreDto>, selected: CatalogGenreSelect
     ) {
         tvRowItemsIndexed(SYNTHETIC_GENRES, key = { _, item -> "synth-${item.first}" }) { _, item ->
             val value = CatalogGenreSelection(item.first, item.second)
-            CatalogGenreChip(label = item.second, active = selected?.key == item.first, onClick = { onSelect(value) })
+            CatalogGenreChip(label = item.second, active = selected?.key == item.first, onClick = { onSelect(value) }, beta = beta)
         }
         tvRowItemsIndexed(genres, key = { _, g -> "tmdb-${g.id}" }) { _, g ->
             val value = CatalogGenreSelection(g.id.toString(), g.name)
-            CatalogGenreChip(label = g.name, active = selected?.key == value.key, onClick = { onSelect(value) })
+            CatalogGenreChip(label = g.name, active = selected?.key == value.key, onClick = { onSelect(value) }, beta = beta)
         }
     }
 }
 
 @Composable
-private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit) {
+private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit, beta: Boolean) {
+    // Bêta : chip partagé (actif ivoire, focus = anneau extérieur) — remplace
+    // l'ancien chip actif violet dont le focus se confondait avec la sélection.
+    if (beta) {
+        MovvizChip(label = label, active = active, onClick = onClick, modifier = Modifier.tvPointerClick(onClick))
+        return
+    }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
@@ -407,13 +519,13 @@ private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit
             contentColor = if (active) Color.White else MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+            focusedBorder = Border(border = com.movviz.tv.ui.theme.movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f))), shape = shape),
         ),
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = TextStyle(fontSize = com.movviz.tv.ui.theme.betaSp(10f, 13f), fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = com.movviz.tv.ui.theme.betaDp(6.dp, 9.dp)),
         )
     }
 }

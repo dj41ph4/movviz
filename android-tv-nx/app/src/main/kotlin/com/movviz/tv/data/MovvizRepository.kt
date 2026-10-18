@@ -213,6 +213,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun discoverByGenre(type: String, genre: String, page: Int): ApiResult<SearchResponseDto> =
         safeCall { api.discoverByGenre(type, genre, page = page) }
 
+    suspend fun discoverByProvider(type: String, providerId: Int, page: Int): ApiResult<SearchResponseDto> =
+        safeCall { api.discoverByProvider(type, providerId, page = page) }
+
     suspend fun addToLibrary(type: String, tmdbId: Int, seriesPart: String? = null): ApiResult<Unit> {
         val result = safeCall {
             if (type == "movie") api.addMovie(AddToLibraryRequest(tmdbId))

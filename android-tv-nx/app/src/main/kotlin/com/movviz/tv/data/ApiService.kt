@@ -252,6 +252,15 @@ interface MovvizApiService {
         @Query("page") page: Int = 1,
     ): Response<SearchResponseDto>
 
+    /** Catalogue filtré par plateforme, identique au dashboard desktop. */
+    @GET("api/metadata/discover")
+    suspend fun discoverByProvider(
+        @Query("type") type: String,
+        @Query("watchProvider") watchProvider: Int,
+        @Query("sort") sort: String = "popularity.desc",
+        @Query("page") page: Int = 1,
+    ): Response<SearchResponseDto>
+
     // Statut "vu" manuel par utilisateur (films + épisodes) — voir
     // WatchStatusDto. Sert la fiche titre TV (badge "Vu" sur un film déjà
     // terminé, coche sur les épisodes déjà regardés).

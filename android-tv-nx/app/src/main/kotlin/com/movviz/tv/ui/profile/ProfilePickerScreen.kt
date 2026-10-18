@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.ui.theme.AnimatedLogo
@@ -41,6 +42,9 @@ import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
+import com.movviz.tv.ui.home.requestFocusSafely
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizTheme
 import kotlinx.coroutines.delay
 
 /**
@@ -50,6 +54,11 @@ import kotlinx.coroutines.delay
  * strictement personnel côté serveur ; cet écran ne fait que choisir la
  * session locale déjà autorisée.
  */
+/** Tuile d'atterrissage du sélecteur : le profil actif s'il est affiché,
+ *  sinon le premier ; null = aucun profil, la tuile « Ajouter » prend le focus. */
+internal fun profileLandingId(profileIds: List<String>, activeId: String?): String? =
+    activeId?.takeIf { it in profileIds } ?: profileIds.firstOrNull()
+
 @Composable
 fun ProfilePickerScreen(
     profiles: List<TvProfile>,
@@ -67,7 +76,11 @@ fun ProfilePickerScreen(
         mutableStateOf(activeProfile?.id ?: visibleProfiles.firstOrNull()?.id)
     }
     var shownNotice by remember { mutableStateOf(notice) }
-    val firstTileFocus = remember { FocusRequester() }
+    // Une seule cible d'atterrissage : la tuile du profil ACTIF (celle qui
+    // est mise en avant), sinon la première, sinon « Ajouter ».
+    val landingFocus = remember { FocusRequester() }
+    val landingId = profileLandingId(visibleProfiles.map { it.id }, activeId)
+    val beta = LocalMovvizBeta.current
 
     LaunchedEffect(notice) {
         shownNotice = notice
@@ -76,10 +89,18 @@ fun ProfilePickerScreen(
             onNoticeDismissed()
         }
     }
-    LaunchedEffect(visibleProfiles) {
-        repeat(10) { attempt ->
-            if (runCatching { firstTileFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
-            if (attempt < 9) withFrameNanos { }
+    // Focus initial UNE fois : la liste se rafraîchit en arrière-plan
+    // (réconciliation serveur) et chaque rafraîchissement ramenait le focus
+    // sur la première tuile pendant que l'utilisateur naviguait.
+    var initialFocusDone by remember { mutableStateOf(false) }
+    LaunchedEffect(landingId) {
+        if (initialFocusDone) return@LaunchedEffect
+        repeat(20) { attempt ->
+            if (landingFocus.requestFocusSafely()) {
+                initialFocusDone = true
+                return@LaunchedEffect
+            }
+            if (attempt < 19) withFrameNanos { }
         }
     }
 
@@ -88,7 +109,12 @@ fun ProfilePickerScreen(
             .fillMaxSize()
             .background(
                 Brush.radialGradient(
-                    colors = listOf(
+                    // Bêta : fond graphite et lueur violette à 10 %.
+                    colors = if (beta) listOf(
+                        Color(0xFF7C3AED).copy(alpha = .10f),
+                        MovvizTheme.palette.background,
+                        MovvizTheme.palette.background,
+                    ) else listOf(
                         MovvizBrand.copy(alpha = .17f),
                         Color(0xFF10101A),
                         Color(0xFF05060B),
@@ -125,12 +151,14 @@ fun ProfilePickerScreen(
             Spacer(Modifier.height(36.dp))
             Text(
                 text = "Qui regarde ?",
-                style = TextStyle(fontSize = 29.sp, fontWeight = FontWeight.Black, color = Color.White),
+                style = if (beta) MaterialTheme.typography.displayMedium.copy(color = MovvizTheme.palette.ink)
+                else TextStyle(fontSize = 29.sp, fontWeight = FontWeight.Black, color = Color.White),
             )
             Spacer(Modifier.height(7.dp))
             Text(
                 text = "Chaque profil garde ses reprises, ses goûts et ses suggestions.",
-                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = .58f), textAlign = TextAlign.Center),
+                style = if (beta) MaterialTheme.typography.bodyLarge.copy(color = MovvizTheme.palette.inkSoft, textAlign = TextAlign.Center)
+                else TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = .58f), textAlign = TextAlign.Center),
             )
 
             AnimatedVisibility(
@@ -152,7 +180,7 @@ fun ProfilePickerScreen(
             TvLazyRow(
                 state = rememberTvLazyListState().withTvPrefetchDisabled(),
                 modifier = Modifier.widthIn(max = 780.dp),
-                contentPadding = PaddingValues(horizontal = 21.dp, vertical = 9.dp),
+                contentPadding = PaddingValues(horizontal = 21.dp, vertical = if (beta) 12.dp else 9.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -163,13 +191,13 @@ fun ProfilePickerScreen(
                         active = activeId == profile.id,
                         onFocus = { focusedId = profile.id },
                         onClick = { onSelect(profile) },
-                        focusRequester = if (visibleProfiles.firstOrNull()?.id == profile.id) firstTileFocus else null,
+                        focusRequester = if (landingId == profile.id) landingFocus else null,
                     )
                 }
                 item(key = "add-profile") {
                     ProfileAddRow(
                         onClick = onAdd,
-                        focusRequester = if (visibleProfiles.isEmpty()) firstTileFocus else null,
+                        focusRequester = if (landingId == null) landingFocus else null,
                     )
                 }
             }

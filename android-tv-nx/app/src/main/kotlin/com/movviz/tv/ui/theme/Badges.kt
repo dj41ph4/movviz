@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 
 /**
@@ -41,10 +42,28 @@ fun statusTone(status: String): StatusTone = when (status) {
     else -> StatusTone(MovvizAmber, "Manquant")
 }
 
+/** Pastille Bêta commune (plan §4.2) : labelSmall sur fond `badgeContainer`
+ *  quasi opaque + filet `badgeBorder`, lisible sur n'importe quelle affiche.
+ *  Stable ne passe jamais par ici. */
+private val BetaBadgeShape = RoundedCornerShape(6.dp)
+
+@Composable
+private fun Modifier.betaBadgeFrame(): Modifier {
+    val palette = MovvizTheme.palette
+    return this
+        .background(palette.badgeContainer, BetaBadgeShape)
+        .border(1.dp, palette.badgeBorder, BetaBadgeShape)
+        .padding(horizontal = 7.dp, vertical = 3.dp)
+}
+
 /** Status pill — compact, dark glass, subtle color accent. */
 @Composable
 fun StatusPill(status: String, modifier: Modifier = Modifier) {
     val tone = statusTone(status)
+    if (LocalMovvizBeta.current) {
+        Text(text = tone.label, style = MaterialTheme.typography.labelSmall, color = tone.color, modifier = modifier.betaBadgeFrame())
+        return
+    }
     Text(
         text = tone.label,
         style = TextStyle(fontSize = betaSp(7f, 11f), fontWeight = FontWeight.Bold, color = tone.color),
@@ -60,6 +79,10 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
  *  concaténé en une seule pastille. */
 @Composable
 fun QualityPill(label: String, color: Color, modifier: Modifier = Modifier) {
+    if (LocalMovvizBeta.current) {
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = color, modifier = modifier.betaBadgeFrame())
+        return
+    }
     Text(
         text = label,
         style = TextStyle(fontSize = betaSp(9f, 11f), fontWeight = FontWeight.Bold, color = color),
@@ -74,6 +97,17 @@ fun QualityPill(label: String, color: Color, modifier: Modifier = Modifier) {
  *  vectorielle : le glyphe ★ n'existe pas dans Inter (rendu cassé TV). */
 @Composable
 fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
+    if (LocalMovvizBeta.current) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = modifier.betaBadgeFrame(),
+        ) {
+            Icon(imageVector = MovvizIconStar, contentDescription = null, tint = Color(0xFFF5C542), modifier = Modifier.size(11.dp))
+            Text(text = "%.1f".format(rating), style = MaterialTheme.typography.labelSmall, color = MovvizTheme.palette.ink)
+        }
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),

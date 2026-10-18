@@ -62,6 +62,31 @@ import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.ui.theme.withTvPrefetchDisabled
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.SolidColor
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.tv.foundation.lazy.list.itemsIndexed
+import com.movviz.tv.ui.home.rememberTvGridFocusMemory
+import com.movviz.tv.ui.home.requestFocusSafely
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizBetaShapes
+import com.movviz.tv.ui.theme.MovvizChip
+import com.movviz.tv.ui.theme.MovvizFocusTarget
+import com.movviz.tv.ui.theme.MovvizTheme
+import com.movviz.tv.ui.theme.animateMovvizImageZoom
+import com.movviz.tv.ui.theme.betaDp
+import com.movviz.tv.ui.theme.movvizBetaSurfaceScale
+import com.movviz.tv.ui.theme.movvizCardBorder
+import com.movviz.tv.ui.theme.movvizCardShape
+import com.movviz.tv.ui.theme.movvizFocusRing
+import com.movviz.tv.ui.theme.movvizImageZoom
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -105,7 +130,13 @@ fun SearchScreen(
     // Cible D-pad pour sortir du champ de recherche (NavRail.SearchButton) :
     // première carte de la grille de résultats.
     resultFocusRequester: FocusRequester? = null,
+    // Cible de restauration de l'onglet (MainScreen) : la demander au retour
+    // d'une fiche ramène sur le résultat mémorisé. Attachée seulement quand
+    // un résultat a déjà été focalisé ; sinon l'entrée reste le champ.
+    restoreFocusRequester: FocusRequester? = null,
 ) {
+    val beta = LocalMovvizBeta.current
+    val scope = rememberCoroutineScope()
     // Carte "focusée" identifiée par type+tmdbId (2 primitifs) plutôt que par
     // l'objet SearchResultDto entier : la comparaison par égalité structurelle
     // de la data class compare TOUS ses champs (posterPath, overview...) pour
@@ -119,9 +150,10 @@ fun SearchScreen(
     // carte, pour que BAS depuis le champ sorte toujours du clavier vers les
     // résultats réels.
     val firstResultFocusRequester = remember { FocusRequester() }
-    val returnResultFocusRequester = remember { FocusRequester() }
-    var returnResultKey by rememberSaveable(query) { mutableStateOf<String?>(null) }
-    val returningFromTitle = remember { returnResultKey != null }
+    // Filtre actif (BAS depuis le champ) et message d'état (vide, erreur,
+    // « Réessayer ») : de vraies cibles D-pad visibles.
+    val filterFocusRequester = remember { FocusRequester() }
+    val statusFocusRequester = remember { FocusRequester() }
     val gridState = rememberTvLazyGridState().withTvPrefetchDisabled()
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
@@ -141,15 +173,6 @@ fun SearchScreen(
     // explicite, le focus restait sur « Accueil » et l'utilisateur tapait
     // dans le vide. On attend l'attache du BasicTextField avant de demander
     // le focus, avec les mêmes garanties que les autres écrans TV.
-    LaunchedEffect(showSearchField) {
-        if (!showSearchField || resultFocusRequester == null) return@LaunchedEffect
-        if (returnResultKey != null) return@LaunchedEffect
-        repeat(4) { attempt ->
-            if (runCatching { resultFocusRequester.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
-            if (attempt < 3) withFrameNanos { }
-        }
-    }
-
     var typeFilter by rememberSaveable { mutableStateOf(SearchTypeFilter.ALL) }
     LaunchedEffect(query) {
         viewModel.invalidateSearch()
@@ -198,25 +221,59 @@ fun SearchScreen(
         for (item in filteredResults) if (seen.add(BleachPresentation.key(item))) combined.add(item)
         combined
     }
-    // Navigation saves the clicked identity, never a Compose focus node.
-    // Scroll lazy content into composition before requesting its single target.
-    LaunchedEffect(mergedResults, returnResultKey, searching, matchedLibrary) {
-        if (!returningFromTitle) return@LaunchedEffect
-        val key = returnResultKey ?: return@LaunchedEffect
-        val index = mergedResults.indexOfFirst { BleachPresentation.key(it) == key }
-        if (index >= 0) {
-            gridState.scrollToItem(index)
-            repeat(20) {
+    // Mémoire de la grille par identité (type, id, partie) : la navigation
+    // sauvegarde le résultat ouvert, jamais un nœud de focus. Une mémoire par
+    // requête + filtre : retaper repart d'une grille vierge.
+    val resultKeys = remember(mergedResults) { mergedResults.map { BleachPresentation.key(it) } }
+    val isResultVisible: (Int) -> Boolean = { index -> gridState.layoutInfo.visibleItemsInfo.any { it.index == index } }
+    val gridMemory = rememberTvGridFocusMemory(
+        gridKey = "search:${typeFilter.name}:$query",
+        keys = resultKeys,
+        isVisible = isResultVisible,
+        scrollToItem = { gridState.scrollToItem(it) },
+    )
+    // Retour de fiche = l'écran est recréé avec un résultat déjà mémorisé.
+    var restorePending by remember { mutableStateOf(gridMemory.hasSelection()) }
+    val searchSettled = !searching && matchedLibrary.first == query &&
+        (searchState is SearchState.Success || searchState is SearchState.Empty || searchState is SearchState.Error || searchState is SearchState.Unauthorized)
+
+    // Le clic sur l'icône de loupe change seulement l'état de navigation ;
+    // il ne déplace pas automatiquement le focus Compose. Sans cette reprise
+    // explicite, le focus restait sur « Accueil » et l'utilisateur tapait
+    // dans le vide. On attend l'attache du BasicTextField avant de demander
+    // le focus, avec les mêmes garanties que les autres écrans TV.
+    LaunchedEffect(showSearchField) {
+        if (!showSearchField || resultFocusRequester == null || restorePending) return@LaunchedEffect
+        repeat(4) { attempt ->
+            if (resultFocusRequester.requestFocusSafely()) return@LaunchedEffect
+            if (attempt < 3) withFrameNanos { }
+        }
+    }
+    // Retour de fiche : défiler jusqu'au résultat mémorisé, attendre qu'il
+    // s'attache, puis le focaliser. Résultat disparu une fois la recherche
+    // terminée : le plus proche par position, sinon le champ (toujours
+    // atteignable et au focus visible).
+    LaunchedEffect(resultKeys, searchSettled) {
+        if (!restorePending) return@LaunchedEffect
+        val rememberedStillThere = gridMemory.rememberedKey() in resultKeys
+        if (!rememberedStillThere && !searchSettled) return@LaunchedEffect
+        val restored = resultKeys.isNotEmpty() &&
+            gridMemory.restoreFocus(resultKeys, isResultVisible) { gridState.scrollToItem(it) }
+        if (restored || resultFocusRequester?.requestFocusSafely() == true) restorePending = false
+    }
+
+    // OK « Rechercher » du clavier : le clavier se ferme et le focus part
+    // vers le premier résultat, sinon le filtre actif, sinon le message
+    // d'état — jamais un écran sans focus (l'ancien clearFocus()).
+    val moveFocusAfterImeSearch: () -> Unit = {
+        scope.launch {
+            repeat(10) {
                 withFrameNanos { }
-                val target = if (index == 0) firstResultFocusRequester else returnResultFocusRequester
-                if (runCatching { target.requestFocus() }.getOrDefault(false)) {
-                    returnResultKey = null
-                    return@LaunchedEffect
-                }
+                val moved = firstResultFocusRequester.requestFocusSafely() ||
+                    filterFocusRequester.requestFocusSafely() ||
+                    statusFocusRequester.requestFocusSafely()
+                if (moved) return@launch
             }
-        } else if (!searching && (searchState is SearchState.Success || searchState is SearchState.Empty || searchState is SearchState.Error || searchState is SearchState.Unauthorized) && matchedLibrary.first == query) {
-            // Removed/unavailable result: keep a reachable field as fallback.
-            if (runCatching { resultFocusRequester?.requestFocus() }.getOrDefault(false) == true) returnResultKey = null
         }
     }
     // Prise UNE fois par changement de résultats : l'ancien code appelait
@@ -229,36 +286,42 @@ fun SearchScreen(
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(start = 36.dp, top = 24.dp, end = 36.dp, bottom = 23.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (showSearchField) {
-                Text("Recherche", style = TextStyle(fontSize = 23.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground))
+                Text(
+                    "Recherche",
+                    style = if (beta) MaterialTheme.typography.headlineMedium else TextStyle(fontSize = 23.sp, fontWeight = FontWeight.Black),
+                    color = if (beta) MovvizTheme.palette.ink else MaterialTheme.colorScheme.onBackground,
+                )
                 Spacer(Modifier.width(18.dp))
                 SearchField(
-                    query,
-                    fieldFocused,
-                    { fieldFocused = it },
-                    onQueryChange,
-                    { viewModel.search(query) },
-                    Modifier.width(323.dp),
-                    resultFocusRequester,
-                    if (mergedResults.isNotEmpty()) firstResultFocusRequester else null,
+                    value = query,
+                    focused = fieldFocused,
+                    onFocusChanged = { fieldFocused = it },
+                    onValueChange = onQueryChange,
+                    onSearch = {
+                        viewModel.search(query)
+                        moveFocusAfterImeSearch()
+                    },
+                    modifier = Modifier.width(323.dp),
+                    focusRequester = resultFocusRequester,
+                    // BAS : filtres (dès qu'une requête existe), sinon le
+                    // message d'état — l'ordre visuel de l'écran.
+                    downFocusRequester = if (query.isNotBlank()) filterFocusRequester else statusFocusRequester,
+                    beta = beta,
                 )
             }
         }
         Spacer(Modifier.height(14.dp))
         if (query.isNotBlank()) {
-            SearchTypeFilters(typeFilter) { typeFilter = it }
+            SearchTypeFilters(typeFilter, activeFocusRequester = filterFocusRequester, beta = beta) { typeFilter = it }
             Spacer(Modifier.height(11.dp))
         }
         if (query.isNotBlank() && suggestions.isNotEmpty()) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 10.sp)
-                Spacer(Modifier.width(8.dp))
-                suggestions.forEachIndexed { index, item ->
-                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(3.dp))) {
-                        Text(item.title, color = if (item.tmdbId == focusedTmdbId && item.type == focusedType) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 3.dp, vertical = 2.dp))
-                    }
-                    if (index < suggestions.lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 9.sp)
-                }
-            }
+            SearchSuggestionsRow(
+                suggestions = suggestions,
+                isHighlighted = { item -> item.tmdbId == focusedTmdbId && item.type == focusedType },
+                onSelect = { onQueryChange(it.title) },
+                beta = beta,
+            )
             Spacer(Modifier.height(14.dp))
         }
         when {
@@ -268,102 +331,216 @@ fun SearchScreen(
             // BAS ne quittait jamais le menu.
             query.isBlank() -> SearchFocusMessage(
                 text = "Recherchez un film ou une série",
-                focusRequester = if (showSearchField) null else resultFocusRequester,
+                focusRequester = statusTarget(showSearchField, statusFocusRequester, resultFocusRequester),
+                beta = beta,
             )
             // Les correspondances de bibliothèque passent AVANT l'état
             // réseau : un titre déjà chez l'utilisateur s'affiche dès la
             // frappe, sans attendre le debounce ni la réponse TMDb — la
             // grille reste ensuite à jour au fil de l'arrivée des résultats
             // distants (mergedResults se recompose).
-            mergedResults.isNotEmpty() -> TvLazyVerticalGrid(state = gridState, columns = TvGridCells.FixedSize(116.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(17.dp), modifier = Modifier.fillMaxSize()) {
+            mergedResults.isNotEmpty() -> TvLazyVerticalGrid(
+                state = gridState,
+                columns = TvGridCells.FixedSize(betaDp(116.dp, 112.dp)),
+                horizontalArrangement = Arrangement.spacedBy(betaDp(14.dp, 12.dp)),
+                verticalArrangement = Arrangement.spacedBy(betaDp(17.dp, 18.dp)),
+                // Bêta : marge pour l'anneau extérieur de la première
+                // colonne / ligne, compensée pour garder l'alignement.
+                contentPadding = if (beta) PaddingValues(8.dp) else PaddingValues(0.dp),
+                modifier = Modifier.fillMaxSize()
+                    .let { if (beta) it.offset(x = (-8).dp) else it }
+                    .then(gridMemory.containerModifier(restoreFocusRequester.takeIf { gridMemory.hasSelection() })),
+            ) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
                 // sous-compositions au scroll sans re-créer les nodes.
                 itemsIndexed(mergedResults, key = { _, result -> BleachPresentation.key(result) }, contentType = { _, _ -> "search-result" }) { index, result ->
+                    val resultKey = BleachPresentation.key(result)
                     SearchResultCard(
                         result,
-                        result.tmdbId == focusedTmdbId && result.type == focusedType && result.seriesPart == focusedPart,
-                        { focusedTmdbId = result.tmdbId; focusedType = result.type; focusedPart = result.seriesPart },
+                        onFocus = { focusedTmdbId = result.tmdbId; focusedType = result.type; focusedPart = result.seriesPart },
                         // Le même FocusRequester ne peut être attaché qu'à
                         // un seul nœud Compose. Quand le champ est affiché,
                         // c'est lui qui reçoit BAS depuis la barre ; le
                         // premier résultat est ensuite atteint naturellement
                         // par BAS. L'ancienne double attache rendait la
                         // recherche muette au D-pad sur certains appareils.
-                        focusRequester = if (index == 0) firstResultFocusRequester else if (BleachPresentation.key(result) == returnResultKey) returnResultFocusRequester else null,
+                        focusRequester = if (index == 0) firstResultFocusRequester else null,
+                        memoryModifier = gridMemory.itemModifier(resultKey, index),
                         watched = result.type == "movie" && result.tmdbId in searchWatchedMovieIds,
+                        beta = beta,
                     ) {
-                        returnResultKey = BleachPresentation.key(result)
                         onOpenPartTitle(result.type, result.tmdbId, result.seriesPart)
                     }
                 }
             }
             searchState is SearchState.Loading -> SearchFocusMessage(
                 text = "Recherche…",
-                focusRequester = if (showSearchField) null else resultFocusRequester,
+                focusRequester = statusTarget(showSearchField, statusFocusRequester, resultFocusRequester),
+                beta = beta,
             )
             searchState is SearchState.Unauthorized -> SearchRetryMessage(
                 text = "Session expirée. Reconnectez-vous.",
                 onRetry = { viewModel.search(query) },
+                focusRequester = statusTarget(showSearchField, statusFocusRequester, resultFocusRequester),
+                beta = beta,
             )
             searchState is SearchState.Error -> SearchRetryMessage(
                 text = "Recherche indisponible. Réessayer.",
                 onRetry = { viewModel.search(query) },
+                focusRequester = statusTarget(showSearchField, statusFocusRequester, resultFocusRequester),
+                beta = beta,
             )
             else -> SearchFocusMessage(
                 text = if (results.isEmpty()) "Aucun résultat pour « $query »" else "Aucun ${typeFilter.label.lowercase()} pour « $query »",
-                focusRequester = if (showSearchField) null else resultFocusRequester,
+                focusRequester = statusTarget(showSearchField, statusFocusRequester, resultFocusRequester),
+                beta = beta,
             )
         }
     }
 }
 
+
+/** Cible du message d'état : avec le champ affiché, un demandeur dédié (le
+ *  champ porte déjà `resultFocusRequester`) ; sans champ, l'entrée de l'écran. */
+private fun statusTarget(showSearchField: Boolean, status: FocusRequester, entry: FocusRequester?): FocusRequester? =
+    if (showSearchField) status else entry
+
 @Composable
-private fun SearchTypeFilters(selected: SearchTypeFilter, onSelect: (SearchTypeFilter) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun SearchTypeFilters(
+    selected: SearchTypeFilter,
+    activeFocusRequester: FocusRequester?,
+    beta: Boolean,
+    onSelect: (SearchTypeFilter) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(if (beta) 8.dp else 6.dp)) {
         SearchTypeFilter.entries.forEach { filter ->
             val active = filter == selected
-            Surface(
-                onClick = { onSelect(filter) },
-                modifier = Modifier.tvPointerClick { onSelect(filter) },
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-                    containerColor = if (active) MaterialTheme.colorScheme.primary else MovvizSurface,
-                    focusedContainerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = if (active) Color.White else MovvizInk,
-                    focusedContentColor = Color.White,
-                ),
-            ) {
-                Text(filter.label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp))
+            val requester = if (active) activeFocusRequester else null
+            if (beta) {
+                MovvizChip(
+                    label = filter.label,
+                    active = active,
+                    onClick = { onSelect(filter) },
+                    modifier = Modifier.tvPointerClick { onSelect(filter) },
+                    focusRequester = requester,
+                )
+            } else {
+                val shape = RoundedCornerShape(14.dp)
+                Surface(
+                    onClick = { onSelect(filter) },
+                    modifier = Modifier
+                        .let { if (requester != null) it.focusRequester(requester) else it }
+                        .tvPointerClick { onSelect(filter) },
+                    shape = ClickableSurfaceDefaults.shape(shape),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (active) MaterialTheme.colorScheme.primary else MovvizSurface,
+                        focusedContainerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = if (active) Color.White else MovvizInk,
+                        focusedContentColor = Color.White,
+                    ),
+                    // Actif et focalisé partageaient la même couleur : sans
+                    // bordure blanche, on ne voyait plus où était le focus.
+                    border = ClickableSurfaceDefaults.border(
+                        focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = shape),
+                    ),
+                ) {
+                    Text(filter.label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp))
+                }
             }
         }
     }
 }
 
+/**
+ * Suggestions sous les filtres. Rangée paresseuse défilante : l'ancienne
+ * Row fixe laissait des suggestions focalisables HORS de l'écran, et leur
+ * focus n'était qu'un changement de couleur.
+ */
 @Composable
-private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?) {
-    var focused by remember { mutableStateOf(false) }
-    Text(
-        text = text,
-        color = if (focused) MovvizInk else MovvizInkDim,
-        fontSize = 11.sp,
-        modifier = Modifier
-            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .focusable()
-            .onFocusChanged { focused = it.isFocused }
-            .padding(vertical = 6.dp),
-    )
+private fun SearchSuggestionsRow(
+    suggestions: List<SearchResultDto>,
+    isHighlighted: (SearchResultDto) -> Boolean,
+    onSelect: (SearchResultDto) -> Unit,
+    beta: Boolean,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "Autres titres à découvrir",
+            color = if (beta) MovvizTheme.palette.inkDim else MovvizInkDim,
+            style = if (beta) MaterialTheme.typography.labelMedium else TextStyle(fontSize = 10.sp),
+        )
+        Spacer(Modifier.width(8.dp))
+        TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
+            modifier = Modifier.weight(1f).focusRestorer(),
+            // Bêta : place pour l'anneau extérieur des chips.
+            contentPadding = if (beta) PaddingValues(8.dp) else PaddingValues(0.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (beta) 8.dp else 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            itemsIndexed(suggestions, key = { _, item -> BleachPresentation.key(item) }, contentType = { _, _ -> "suggestion" }) { index, item ->
+                if (beta) {
+                    MovvizChip(label = item.title, active = false, onClick = { onSelect(item) }, modifier = Modifier.tvPointerClick { onSelect(item) })
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val shape = RoundedCornerShape(3.dp)
+                        Surface(
+                            onClick = { onSelect(item) },
+                            modifier = Modifier.tvPointerClick { onSelect(item) },
+                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                            colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong),
+                            shape = ClickableSurfaceDefaults.shape(shape),
+                            border = ClickableSurfaceDefaults.border(
+                                focusedBorder = Border(BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+                            ),
+                        ) {
+                            Text(item.title, color = if (isHighlighted(item)) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 3.dp, vertical = 2.dp))
+                        }
+                        if (index < suggestions.lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 9.sp)
+                    }
+                }
+            }
+        }
+    }
 }
 
+/** Message d'état focalisable au focus VISIBLE (cible BAS depuis le champ). */
 @Composable
-private fun SearchRetryMessage(text: String, onRetry: () -> Unit) {
-    Text(
-        text = text,
-        color = MovvizInkDim,
-        fontSize = 15.sp,
-        modifier = Modifier.tvPointerClick(onRetry).focusable().padding(vertical = 8.dp),
-    )
+private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?, beta: Boolean) {
+    MovvizFocusTarget(focusRequester = focusRequester) {
+        Text(
+            text = text,
+            color = if (beta) MovvizTheme.palette.inkDim else MovvizInkDim,
+            style = if (beta) MaterialTheme.typography.bodyMedium else TextStyle(fontSize = 11.sp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+    }
 }
+
+/** Erreur + « Réessayer » : OK/ENTRÉE relance la recherche (l'ancien texte
+ *  focalisable ne réagissait qu'au toucher). */
+@Composable
+private fun SearchRetryMessage(text: String, onRetry: () -> Unit, focusRequester: FocusRequester?, beta: Boolean) {
+    MovvizFocusTarget(
+        modifier = Modifier.tvPointerClick(onRetry),
+        focusRequester = focusRequester,
+        onClick = onRetry,
+    ) {
+        Text(
+            text = text,
+            color = if (beta) MovvizTheme.palette.inkSoft else MovvizInkDim,
+            style = if (beta) MaterialTheme.typography.bodyLarge else TextStyle(fontSize = 15.sp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** Champ Bêta (style du champ web) : fond `chipContainer`, filet 8 %, au
+ *  focus filet lavande 60 % + halo 7 %. */
+private val BetaFieldRest = Color(0x13FFFFFF)
+private val BetaFieldFocused = Color(0x99C4B6FF)
+private val BetaFieldHalo = Color(0x12C4B6FF)
 
 @Composable
 private fun SearchField(
@@ -375,45 +552,115 @@ private fun SearchField(
     modifier: Modifier,
     focusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
+    beta: Boolean = false,
 ) {
-    val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    Box(modifier.height(39.dp).border(2.dp, if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = .25f), RoundedCornerShape(20.dp)).background(MovvizSurface, RoundedCornerShape(20.dp)).onFocusChanged { onFocusChanged(it.isFocused) }.padding(horizontal = 15.dp), contentAlignment = Alignment.CenterStart) {
-        if (value.isEmpty()) Text("Rechercher un titre…", color = MovvizInkDim, fontSize = 13.sp)
+    val palette = MovvizTheme.palette
+    val fieldShape = if (beta) MovvizBetaShapes.Field else RoundedCornerShape(20.dp)
+    val frame = if (beta) {
+        Modifier
+            .height(48.dp)
+            .drawBehind {
+                if (focused) {
+                    // Halo 3 dp autour du champ (lecture en phase de dessin).
+                    val halo = 3.dp.toPx()
+                    drawRoundRect(
+                        color = BetaFieldHalo,
+                        topLeft = Offset(-halo, -halo),
+                        size = Size(size.width + 2 * halo, size.height + 2 * halo),
+                        cornerRadius = CornerRadius(12.dp.toPx() + halo),
+                    )
+                }
+            }
+            .background(palette.chipContainer, fieldShape)
+            .border(if (focused) 2.dp else 1.dp, if (focused) BetaFieldFocused else BetaFieldRest, fieldShape)
+    } else {
+        Modifier
+            .height(39.dp)
+            .border(2.dp, if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = .25f), fieldShape)
+            .background(MovvizSurface, fieldShape)
+    }
+    val textSize = if (beta) 15.sp else 13.sp
+    Box(modifier.then(frame).onFocusChanged { onFocusChanged(it.isFocused) }.padding(horizontal = 15.dp), contentAlignment = Alignment.CenterStart) {
+        if (value.isEmpty()) Text("Rechercher un titre…", color = if (beta) palette.inkDim else MovvizInkDim, fontSize = textSize)
         BasicTextField(
             value,
             onValueChange,
             singleLine = true,
-            textStyle = TextStyle(fontSize = 13.sp, color = MovvizInk),
+            textStyle = if (beta) MaterialTheme.typography.bodyLarge.copy(color = palette.ink, fontSize = textSize) else TextStyle(fontSize = textSize, color = MovvizInk),
+            cursorBrush = SolidColor(if (beta) palette.accent else Color.Black),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSearch(); focusManager.clearFocus(); keyboardController?.hide() }),
+            // Le focus ne disparaît plus (ancien clearFocus) : l'écran le
+            // déplace vers le premier résultat / le filtre / le message.
+            keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide(); onSearch() }),
             modifier = Modifier
                 .fillMaxWidth()
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 // BasicTextField retient les flèches pour le curseur : la
-                // prévisualisation assure donc le passage au premier poster.
-                // Back/Escape rend la main à la navigation D-pad (quitte le
-                // champ sans quitter l'écran) et masque le clavier.
+                // prévisualisation assure donc le passage aux filtres / au
+                // message sous le champ. RETOUR n'est plus consommé : le
+                // clavier système se ferme de lui-même au premier appui, le
+                // focus RESTE sur le champ (focus visible), et un nouvel
+                // appui remonte au gestionnaire RETOUR de l'app (fermeture de
+                // la Recherche, retour à l'accueil).
                 .onPreviewKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
-                        downFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
-                    } else if ((event.key == Key.Back || event.key == Key.Escape) && event.type == KeyEventType.KeyUp) {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                        true
-                    } else false
+                    when {
+                        event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown ->
+                            downFocusRequester?.requestFocusSafely() == true
+                        event.key == Key.Escape && event.type == KeyEventType.KeyUp -> {
+                            keyboardController?.hide()
+                            false
+                        }
+                        else -> false
+                    }
                 },
         )
-}
+    }
 }
 
 @Composable
-private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, focusRequester: FocusRequester? = null, watched: Boolean = false, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(8.dp)
+private fun SearchResultCard(
+    result: SearchResultDto,
+    onFocus: () -> Unit,
+    focusRequester: FocusRequester? = null,
+    memoryModifier: Modifier = Modifier,
+    watched: Boolean = false,
+    beta: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val shape = if (beta) movvizCardShape() else RoundedCornerShape(8.dp)
+    var focused by remember { mutableStateOf(false) }
+    // Bêta : seule l'image zoome (la carte ne grandit pas) ; 1 en Stable.
+    val imageZoom = animateMovvizImageZoom(focused)
+    val palette = MovvizTheme.palette
     Column {
-        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
+        Surface(
+            onClick = onClick,
+            modifier = memoryModifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f)
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .movvizFocusRing(shape, enabled = beta)
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (it.isFocused) onFocus()
+                }
+                .tvPointerClick(onClick),
+            shape = ClickableSurfaceDefaults.shape(shape = shape),
+            scale = if (beta) movvizBetaSurfaceScale() else ClickableSurfaceDefaults.scale(focusedScale = 1f),
+            colors = ClickableSurfaceDefaults.colors(containerColor = if (beta) palette.surface else MovvizSurfaceStrong),
+            border = if (beta) movvizCardBorder(shape, BorderStroke(2.dp, MaterialTheme.colorScheme.primary))
+            else ClickableSurfaceDefaults.border(focusedBorder = Border(border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape)),
+        ) {
             Box(Modifier.fillMaxSize()) {
-                result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it", contentScale = ContentScale.Crop), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+                result.posterPath?.let {
+                    Image(
+                        painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it", contentScale = ContentScale.Crop),
+                        contentDescription = result.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().let { m -> if (beta) m.movvizImageZoom(imageZoom) else m },
+                    )
+                }
                 if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(5.dp))
                 // Pastille "vu" — même langage visuel que partout ailleurs
                 // (saison vue, épisode vu, PosterCard) : pastille noire à
@@ -430,7 +677,12 @@ private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus
                 }
             }
         }
-        Text(result.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
-        Text(if (result.type == "series") "Série" else "Film", color = MovvizInkDim, fontSize = 8.sp)
+        if (beta) {
+            Text(result.title, style = MaterialTheme.typography.titleMedium, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+            Text(if (result.type == "series") "Série" else "Film", style = MaterialTheme.typography.labelSmall, color = palette.inkDim)
+        } else {
+            Text(result.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp))
+            Text(if (result.type == "series") "Série" else "Film", color = MovvizInkDim, fontSize = 8.sp)
+        }
     }
 }

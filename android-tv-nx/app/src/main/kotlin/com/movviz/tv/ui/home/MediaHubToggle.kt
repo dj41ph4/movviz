@@ -64,6 +64,17 @@ private fun MediaHubToggleChip(
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
 ) {
+    // Bêta : chip partagé (actif ivoire, focus = anneau extérieur).
+    if (com.movviz.tv.ui.theme.LocalMovvizBeta.current) {
+        com.movviz.tv.ui.theme.MovvizChip(
+            label = label,
+            active = active,
+            onClick = onClick,
+            modifier = Modifier.tvPointerClick(onClick),
+            focusRequester = focusRequester,
+        )
+        return
+    }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(

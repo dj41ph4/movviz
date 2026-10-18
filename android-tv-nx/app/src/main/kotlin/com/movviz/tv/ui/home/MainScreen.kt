@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.ui.discover.DiscoverScreen
@@ -54,6 +56,14 @@ internal fun MainScreen(
     // plus rien ne se trouve au-dessus dans le contenu.
     navRailFocusRequester: FocusRequester? = null,
     homeRestoreFocusRequester: FocusRequester? = null,
+    // Cible DROITE depuis la NavRail : ce conteneur lui-même. Le demander
+    // rend l'élément du contenu d'où l'on était parti vers la barre
+    // (focusRestorer), et seulement à défaut la première cible de l'écran.
+    contentReentryFocusRequester: FocusRequester? = null,
+    // Incrémenté par le premier RETOUR de l'accueil : remonte en haut.
+    homeScrollToTopRequest: Int = 0,
+    // Bêta : état de démarrage de l'accueil vers le splash unique de MainActivity.
+    onHomeBootOverlayState: ((booting: Boolean, loadingFocused: Boolean) -> Unit)? = null,
     onHomeScrollChanged: (Boolean) -> Unit = {},
     // Filtre Films/Séries de la Bibliothèque et de Découverte, hoistés
     // jusqu'à MovvizNavHost : ouvrir une fiche depuis Bibliothèque > Séries
@@ -76,6 +86,7 @@ internal fun MainScreen(
         // redirige que la vraie sortie LEFT du groupe vers l'onglet actif,
         // via focusProperties, sans intercepter les touches.
         modifier = Modifier.fillMaxSize()
+            .let { if (contentReentryFocusRequester != null) it.focusRequester(contentReentryFocusRequester) else it }
             .focusProperties {
                 exit = { focusDirection ->
                     if (focusDirection == FocusDirection.Left) {
@@ -85,6 +96,11 @@ internal fun MainScreen(
                     }
                 }
             }
+            // Retour depuis la barre (DROITE) : l'élément quitté par GAUCHE,
+            // sinon la première vraie cible de l'onglet. Une cible non
+            // attachée (chargement) n'est qu'un refus silencieux en ui 1.9 :
+            // la recherche directionnelle par défaut prend alors le relais.
+            .focusRestorer(fallback = contentFocusRequester)
             .focusGroup(),
         // Jamais de padding top ici, sur AUCUN écran : un padding poussait
         // Recherche/Paramètres sous une bande opaque (MaterialTheme.
@@ -102,8 +118,9 @@ internal fun MainScreen(
                 onQueryChange = onSearchQueryChange,
                 showSearchField = true,
                 resultFocusRequester = contentFocusRequester,
+                restoreFocusRequester = homeRestoreFocusRequester,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged, restoreFocusRequester = homeRestoreFocusRequester)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenPartTitle = onOpenPartTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged, restoreFocusRequester = homeRestoreFocusRequester, scrollToTopRequest = homeScrollToTopRequest, onBootOverlayState = onHomeBootOverlayState)
             // Découverte redevient un onglet de nav à part entière (refonte
             // sidebar) : DiscoverScreen(fixedType = null) affiche déjà, sans
             // aucun changement de son côté, son propre sélecteur Films/Séries
@@ -114,6 +131,7 @@ internal fun MainScreen(
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
                 fixedType = null, onScrollChanged = onHomeScrollChanged,
                 hoistedSelectedType = discoverType, onSelectedTypeChange = onDiscoverTypeChange,
+                restoreFocusRequester = homeRestoreFocusRequester,
             )
             // Bibliothèque fusionne Films/Séries/Collections (maquette) —
             // voir LibraryScreen.kt.
@@ -123,6 +141,7 @@ internal fun MainScreen(
                 tab = libraryTab, onTabChange = onLibraryTabChange,
                 movieFilters = libraryMovieFilters, onMovieFiltersChange = onLibraryMovieFiltersChange,
                 seriesFilters = librarySeriesFilters, onSeriesFiltersChange = onLibrarySeriesFiltersChange,
+                restoreFocusRequester = homeRestoreFocusRequester,
             )
             // MOVIES/SERIES ne sont plus des destinations de nav directes
             // (fusionnées dans LIBRARY) — les branches restent pour usage
@@ -147,7 +166,7 @@ internal fun MainScreen(
                 onOpenEpisode = onOpenEpisode,
                 onScrollChanged = onHomeScrollChanged,
             )
-            tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester)
         }
     }
 }

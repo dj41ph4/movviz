@@ -152,6 +152,10 @@ private val WORDMARK_STOPS = listOf(
  */
 @Composable
 fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 21.sp) {
+    if (LocalMovvizBeta.current) {
+        BetaWordmark(fontSize)
+        return
+    }
     var widthPx by remember { mutableStateOf(0f) }
     val infinite = rememberInfiniteTransition(label = "wordmark_flow")
     val shift by infinite.floatLoop(0f, 1f, 8000, LinearEasing, RepeatMode.Restart)
@@ -171,6 +175,22 @@ fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 21.sp) {
         text = "Movviz",
         style = TextStyle(fontSize = fontSize, fontWeight = FontWeight.Black, brush = brush),
         modifier = Modifier.onSizeChanged { widthPx = it.width.toFloat() },
+    )
+}
+
+/** Mot-symbole Bêta : Bricolage 700 ivoire, immobile (l'apparence Bêta vise
+ *  le calme — pas de dégradé qui défile en boucle). L'approche serrée
+ *  (-0.055 em) suit la taille demandée par l'appelant. */
+@Composable
+private fun BetaWordmark(fontSize: androidx.compose.ui.unit.TextUnit) {
+    Text(
+        text = "Movviz",
+        style = MovvizTheme.textStyles.wordmark.copy(
+            fontSize = fontSize,
+            letterSpacing = (fontSize.value * -0.055f).sp,
+        ),
+        color = MovvizTheme.palette.ink,
+        maxLines = 1,
     )
 }
 

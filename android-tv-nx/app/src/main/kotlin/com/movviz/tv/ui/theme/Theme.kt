@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -151,26 +152,41 @@ private val MovvizColorScheme = darkColorScheme(
 )
 
 // ────────────────────────────────────────────────────────────────
-// Interface Bêta « Projection » (Paramètres > Apparence). Tout ce qui suit
-// ne s'applique que lorsque l'utilisateur l'active : l'apparence Stable
-// reste strictement celle d'avant. Échelle 10-foot : aucune information
-// sous 12 sp, synopsis à 15 sp.
+// Interface Bêta « Salle obscure » (Paramètres > Apparence). Tout ce qui
+// suit ne s'applique que lorsque l'utilisateur l'active : l'apparence Stable
+// reste strictement celle d'avant. Jetons : Color.kt (palette par rôle),
+// BetaTokens.kt (typographie, formes), MovvizMotion.kt (mouvement),
+// MovvizFocus.kt (anneau de focus et briques partagées).
 // ────────────────────────────────────────────────────────────────
 
 /** Vrai quand l'interface Bêta est active — lu par les écrans pour choisir
  *  tailles, marges et anneau de focus. */
 val LocalMovvizBeta = staticCompositionLocalOf { false }
 
-private val MovvizBetaTypography = Typography(
-    displayLarge = MovvizTypography.displayLarge.copy(fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Black),
-    headlineMedium = MovvizTypography.headlineMedium.copy(fontSize = 24.sp),
-    titleLarge = MovvizTypography.titleLarge.copy(fontSize = 20.sp),
-    titleMedium = MovvizTypography.titleMedium.copy(fontSize = 13.sp),
-    bodyLarge = MovvizTypography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp),
-    bodyMedium = MovvizTypography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = MovvizTypography.labelLarge.copy(fontSize = 13.sp),
-    labelSmall = MovvizTypography.labelSmall.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
-)
+/**
+ * Point d'accès unique aux jetons du thème courant, dans un composable :
+ * `MovvizTheme.palette.ink`, `MovvizTheme.textStyles.eyebrow`,
+ * `if (MovvizTheme.reduceMotion) …`, `if (MovvizTheme.beta) …`.
+ * Dans un élément de liste paresseuse, résoudre une fois au niveau de la
+ * rangée et passer les valeurs en paramètre.
+ */
+object MovvizTheme {
+    /** Palette par rôle : [MovvizStablePalette] ou [MovvizBetaPalette]. */
+    val palette: MovvizPalette
+        @Composable @ReadOnlyComposable get() = LocalMovvizPalette.current
+
+    /** Styles hors Typography (surtitre, compteur, splash, mot-symbole). */
+    val textStyles: MovvizTextStyles
+        @Composable @ReadOnlyComposable get() = LocalMovvizTextStyles.current
+
+    /** Animations système coupées : utiliser les variantes statiques. */
+    val reduceMotion: Boolean
+        @Composable @ReadOnlyComposable get() = LocalMovvizReduceMotion.current
+
+    /** Interface Bêta active (identique à `LocalMovvizBeta.current`). */
+    val beta: Boolean
+        @Composable @ReadOnlyComposable get() = LocalMovvizBeta.current
+}
 
 /** Taille de texte Stable ou Bêta. */
 @Composable
@@ -182,12 +198,15 @@ fun betaSp(stable: Float, beta: Float): androidx.compose.ui.unit.TextUnit =
 fun betaDp(stable: androidx.compose.ui.unit.Dp, beta: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
     if (LocalMovvizBeta.current) beta else stable
 
-/** Couleur et épaisseur uniques de l'anneau de focus Bêta. */
-val MovvizBetaFocusColor = Color(0xFFF4F6FF)
+/** Couleur et épaisseur uniques de l'anneau de focus Bêta : blanc pur 3 dp. */
+val MovvizBetaFocusColor = Color.White
 val MovvizBetaFocusWidth = 3.dp
 
-/** Bordure de focus : en Bêta, le même anneau blanc 3 dp partout ; en
- *  Stable, la bordure propre à chaque composant (passée en `stable`). */
+/** Bordure de focus historique : en Bêta, un anneau blanc 3 dp dessiné à
+ *  l'intérieur ; en Stable, la bordure propre à chaque composant (passée en
+ *  `stable`). Conservée pour les écrans pas encore migrés (ils ne perdent
+ *  jamais un focus visible) ; un composant migré utilise plutôt
+ *  `Modifier.movvizFocusRing` + `movvizCardBorder` (MovvizFocus.kt). */
 @Composable
 fun movvizFocusBorder(
     shape: Shape,
@@ -200,11 +219,33 @@ fun movvizFocusBorder(
 @Composable
 fun movvizRowInset(): androidx.compose.ui.unit.Dp = betaDp(39.dp, 48.dp)
 
+/** Schéma Bêta : les dégradés qui lisent déjà `colorScheme.background`
+ *  (fiche) suivent d'eux-mêmes. */
+private val MovvizBetaColorScheme = MovvizColorScheme.copy(
+    primary = MovvizBetaPalette.accent,
+    background = MovvizBetaPalette.background,
+    surface = MovvizBetaPalette.surface,
+    onBackground = MovvizBetaPalette.ink,
+    onSurface = MovvizBetaPalette.ink,
+)
+
+/**
+ * Thème racine. Fournit l'interface Bêta ([LocalMovvizBeta]), la palette,
+ * les styles complémentaires et le drapeau de mouvement réduit (suivi en
+ * direct des réglages système). `beta = false` reproduit exactement
+ * l'apparence Stable historique.
+ */
 @Composable
 fun MovvizTvTheme(beta: Boolean = false, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalMovvizBeta provides beta) {
+    val reduceMotion = rememberSystemReduceMotion()
+    CompositionLocalProvider(
+        LocalMovvizBeta provides beta,
+        LocalMovvizPalette provides if (beta) MovvizBetaPalette else MovvizStablePalette,
+        LocalMovvizTextStyles provides if (beta) MovvizBetaTextStyles else MovvizStableTextStyles,
+        LocalMovvizReduceMotion provides reduceMotion,
+    ) {
         MaterialTheme(
-            colorScheme = MovvizColorScheme,
+            colorScheme = if (beta) MovvizBetaColorScheme else MovvizColorScheme,
             typography = if (beta) MovvizBetaTypography else MovvizTypography,
             content = content,
         )

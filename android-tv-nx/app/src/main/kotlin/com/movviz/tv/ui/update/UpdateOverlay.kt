@@ -31,6 +31,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.withFrameNanos
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.focus.focusProperties
+import androidx.tv.material3.MaterialTheme
+import com.movviz.tv.ui.home.requestFocusSafely
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizBetaButton
+import com.movviz.tv.ui.theme.MovvizBetaShapes
+import com.movviz.tv.ui.theme.MovvizButtonVariant
+import com.movviz.tv.ui.theme.MovvizTheme
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -84,7 +97,13 @@ sealed interface UpdateUiState {
  * progression, vérification SHA-256, installeur système.
  */
 @Composable
-fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
+fun AutoUpdateOverlay(
+    viewModel: AppViewModel? = null,
+    // Élément qui reprend le focus quand l'overlay se referme (« Plus tard »,
+    // Retour) : en pratique la barre latérale, d'où l'installation est lancée.
+    // Sans lui, le bouton focalisé disparaissait et le focus n'était nulle part.
+    returnFocusRequester: FocusRequester? = null,
+) {
     val context = LocalContext.current
     val updateManager = remember { UpdateManager(context.applicationContext) }
     var state by remember { mutableStateOf<UpdateUiState>(UpdateUiState.Hidden) }
@@ -233,6 +252,18 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         start(info)
     }
 
+    val visible = state != UpdateUiState.Hidden
+    var wasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(visible) {
+        if (visible) { wasVisible = true; return@LaunchedEffect }
+        if (!wasVisible) return@LaunchedEffect
+        wasVisible = false
+        val target = returnFocusRequester ?: return@LaunchedEffect
+        repeat(20) { attempt ->
+            if (target.requestFocusSafely()) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
+        }
+    }
     if (state != UpdateUiState.Hidden) {
         UpdateOverlay(
             state = state,
@@ -250,6 +281,7 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
 }
 
 /** Affichage pur de l'overlay — ne contient aucune logique d'update. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun UpdateOverlay(
     state: UpdateUiState,
@@ -270,27 +302,54 @@ fun UpdateOverlay(
     val rootFocusRequester = remember { FocusRequester() }
     val authorizeFocusRequester = remember { FocusRequester() }
     val retryFocusRequester = remember { FocusRequester() }
+    val hasActions = state is UpdateUiState.NeedPermission || state is UpdateUiState.FallbackInstall
+    // Focus initial retenté sur quelques frames : au premier passage, le
+    // bouton n'est pas encore attaché et la demande échouait en silence.
     LaunchedEffect(state) {
-        if (state is UpdateUiState.NeedPermission) {
-            runCatching { authorizeFocusRequester.requestFocus() }
-        } else if (state is UpdateUiState.FallbackInstall) {
-            runCatching { retryFocusRequester.requestFocus() }
-        } else {
-            runCatching { rootFocusRequester.requestFocus() }
+        val target = when (state) {
+            is UpdateUiState.NeedPermission -> authorizeFocusRequester
+            is UpdateUiState.FallbackInstall -> retryFocusRequester
+            else -> rootFocusRequester
+        }
+        repeat(20) { attempt ->
+            if (target.requestFocusSafely()) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
         }
     }
+    // Retour : « Plus tard » quand il existe ; pendant le téléchargement ou
+    // l'installation, la touche est consommée (jamais transmise à l'écran
+    // caché dessous, qui fermait l'application ou dépilait la navigation).
+    BackHandler { if (hasActions) onLater() }
+    val beta = LocalMovvizBeta.current
+    val palette = MovvizTheme.palette
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MovvizBackground)
+            .background(if (beta) palette.background else MovvizBackground)
+            // Confinement : aucune direction ne sort vers la barre ou
+            // l'écran recouverts (invisibles, mais encore focalisables).
+            .focusProperties { exit = { FocusRequester.Cancel } }
+            .focusGroup()
+            // Repli sans bouton (téléchargement, installation) : l'overlay
+            // lui-même garde le focus. Avec des boutons, eux seuls le prennent.
             .focusRequester(rootFocusRequester)
+            .focusProperties { canFocus = !hasActions }
             .focusable(),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        val panelShape = MovvizBetaShapes.Panel
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = if (beta) Modifier
+                .widthIn(max = 560.dp)
+                .background(palette.surface, panelShape)
+                .border(1.dp, palette.lineStrong, panelShape)
+                .padding(horizontal = 32.dp, vertical = 28.dp) else Modifier,
+        ) {
             Text(
                 text = "Mise à jour, veuillez patienter…",
-                style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                style = if (beta) MaterialTheme.typography.headlineMedium.copy(color = palette.ink)
+                else TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White),
             )
             Spacer(Modifier.height(9.dp))
             Text(
@@ -340,7 +399,7 @@ fun UpdateOverlay(
                     Row {
                         ActionButton(text = "Autoriser", onClick = onAuthorize, focusRequester = authorizeFocusRequester)
                         Spacer(Modifier.width(15.dp))
-                        ActionButton(text = "Plus tard", onClick = onLater)
+                        ActionButton(text = "Plus tard", onClick = onLater, primary = false)
                     }
                 }
                 UpdateUiState.FallbackInstall -> {
@@ -359,7 +418,7 @@ fun UpdateOverlay(
                     Row {
                         ActionButton(text = "Installer", onClick = onRetryInstall, focusRequester = retryFocusRequester)
                         Spacer(Modifier.width(15.dp))
-                        ActionButton(text = "Plus tard", onClick = onLater)
+                        ActionButton(text = "Plus tard", onClick = onLater, primary = false)
                     }
                 }
                 UpdateUiState.Hidden -> Unit
@@ -374,6 +433,24 @@ fun UpdateOverlay(
 @Composable
 private fun ProgressBar(fraction: Float) {
     val shape = RoundedCornerShape(50)
+    if (LocalMovvizBeta.current) {
+        // Bêta : piste fine de 3 dp et dégradé du splash (violet, lilas, cyan).
+        val palette = MovvizTheme.palette
+        Box(
+            modifier = Modifier
+                .width(320.dp)
+                .height(3.dp)
+                .background(palette.progressTrack, shape),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                    .height(3.dp)
+                    .background(Brush.horizontalGradient(palette.progressFill), shape),
+            )
+        }
+        return
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth(0.7f)
@@ -405,7 +482,17 @@ private fun IndeterminateBar() {
 /** Bouton d'action TV — même traitement que GradientButton (wizard) :
  *  focus-first, lift, dégradé de marque, clic télécommande ET pointeur. */
 @Composable
-private fun ActionButton(text: String, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun ActionButton(text: String, onClick: () -> Unit, focusRequester: FocusRequester? = null, primary: Boolean = true) {
+    if (LocalMovvizBeta.current) {
+        MovvizBetaButton(
+            text = text,
+            onClick = onClick,
+            modifier = Modifier.tvPointerClick(onClick),
+            variant = if (primary) MovvizButtonVariant.Primary else MovvizButtonVariant.Secondary,
+            focusRequester = focusRequester,
+        )
+        return
+    }
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(9.dp)
     Surface(

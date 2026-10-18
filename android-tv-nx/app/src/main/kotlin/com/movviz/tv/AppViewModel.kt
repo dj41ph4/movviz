@@ -282,8 +282,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { prefs.setAutoUpdateEnabled(enabled) }
     }
 
-    val betaUiEnabled: StateFlow<Boolean> = prefs.betaUiEnabled.stateIn(
-        viewModelScope, SharingStarted.Eagerly, false
+    // null means DataStore has not loaded yet: never render Stable before Beta.
+    val betaUiEnabled: StateFlow<Boolean?> = prefs.betaUiEnabled.stateIn(
+        viewModelScope, SharingStarted.Eagerly, null
     )
 
     fun setBetaUiEnabled(enabled: Boolean) {

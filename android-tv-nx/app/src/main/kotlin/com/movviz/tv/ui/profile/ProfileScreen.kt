@@ -31,7 +31,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
+import androidx.tv.material3.Border
+import androidx.tv.material3.Glow
 import androidx.tv.material3.Text
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizBetaCardFocusedLine
+import com.movviz.tv.ui.theme.MovvizBetaShapes
+import com.movviz.tv.ui.theme.MovvizTheme
+import com.movviz.tv.ui.theme.animateMovvizImageZoom
+import com.movviz.tv.ui.theme.movvizFocusRing
+import com.movviz.tv.ui.theme.movvizImageZoom
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ProfileMediaCardDto
@@ -153,7 +165,14 @@ private fun LazyListScope.profileRail(
     item {
         Column(Modifier.fillMaxWidth()) {
             Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 11.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(15.dp)) {
+            val beta = LocalMovvizBeta.current
+            // focusRestorer : HAUT/BAS puis retour sur la rangée rend la carte
+            // quittée (et non la première). Bêta : marge pour l'anneau extérieur.
+            LazyRow(
+                modifier = Modifier.focusRestorer(),
+                horizontalArrangement = Arrangement.spacedBy(if (beta) 12.dp else 15.dp),
+                contentPadding = if (beta) PaddingValues(8.dp) else PaddingValues(0.dp),
+            ) {
                 itemsIndexed(cards, key = { _, card -> "${card.type}-${card.tmdbId}-${card.seasonNumber}-${card.episodeNumber}" }) { index, card ->
                     ProfilePosterCard(
                         card = card,
@@ -183,12 +202,30 @@ private fun LazyListScope.profileRail(
     seriesLogoPath: String? = null,
     onClick: () -> Unit,
 ) {
+    val beta = LocalMovvizBeta.current
+    val palette = MovvizTheme.palette
+    val cardShape = if (beta) MovvizBetaShapes.Card else profileCardShape
+    var focused by remember { mutableStateOf(false) }
+    val imageZoom = animateMovvizImageZoom(focused)
     Card(
-        onClick = onClick, modifier = modifier.width(138.dp).height(207.dp),
-        shape = CardDefaults.shape(shape = profileCardShape),
-        colors = CardDefaults.colors(containerColor = Color(0xFF202026), focusedContainerColor = Color(0xFF302A3A), contentColor = Color.White, focusedContentColor = Color.White),
+        onClick = onClick,
+        modifier = modifier
+            .width(138.dp).height(207.dp)
+            .onFocusChanged { focused = it.isFocused }
+            // Bêta : spécification de carte commune — anneau extérieur, filet,
+            // aucune mise à l'échelle ; seule l'image zoome.
+            .movvizFocusRing(cardShape, enabled = beta),
+        shape = CardDefaults.shape(shape = cardShape),
+        colors = if (beta) CardDefaults.colors(containerColor = palette.surface, focusedContainerColor = palette.surface, contentColor = palette.ink, focusedContentColor = palette.ink)
+        else CardDefaults.colors(containerColor = Color(0xFF202026), focusedContainerColor = Color(0xFF302A3A), contentColor = Color.White, focusedContentColor = Color.White),
+        scale = if (beta) CardDefaults.scale(focusedScale = 1f) else CardDefaults.scale(),
+        border = if (beta) CardDefaults.border(
+            border = Border(BorderStroke(1.dp, palette.line), shape = cardShape),
+            focusedBorder = Border(BorderStroke(1.dp, MovvizBetaCardFocusedLine), shape = cardShape),
+        ) else CardDefaults.border(),
+        glow = if (beta) CardDefaults.glow(glow = Glow.None, focusedGlow = Glow.None) else CardDefaults.glow(),
     ) {
-        Box(Modifier.fillMaxSize().clip(profileCardShape)) {
+        Box(Modifier.fillMaxSize().clip(cardShape)) {
             // Une carte verticale doit toujours privilégier l'affiche. Une
             // capture 16:9 recadrée en portrait est cheap, et le chemin peut
             // parfois manquer dans l'historique/les notes : ce cas reçoit un
@@ -205,7 +242,7 @@ private fun LazyListScope.profileRail(
                     ),
                     contentDescription = card.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().movvizImageZoom(imageZoom),
                 )
             } else {
                 ProfileFallbackArtwork()

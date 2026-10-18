@@ -38,6 +38,11 @@ import coil.compose.AsyncImage
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizBetaShapes
+import com.movviz.tv.ui.theme.MovvizTheme
+import com.movviz.tv.ui.theme.MovvizUiFonts
+import com.movviz.tv.ui.theme.movvizFocusRing
 import com.movviz.tv.ui.theme.tvPointerClick
 
 /**
@@ -55,7 +60,9 @@ fun ProfileTile(
     focusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(17.dp)
+    val beta = LocalMovvizBeta.current
+    val palette = MovvizTheme.palette
+    val shape = if (beta) MovvizBetaShapes.Avatar else RoundedCornerShape(17.dp)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(116.dp)) {
         Surface(
@@ -65,7 +72,9 @@ fun ProfileTile(
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 // Ombre seule au focus, jamais de scale : un avatar ou une
                 // initiale incrustée se rééchantillonne mal pendant le zoom.
-                .graphicsLayer { shadowElevation = if (focused) 28f else 0f }
+                // Bêta : ni ombre ni zoom, l'anneau extérieur blanc suffit.
+                .graphicsLayer { shadowElevation = if (focused && !beta) 28f else 0f }
+                .movvizFocusRing(shape, enabled = beta)
                 .onFocusChanged {
                     focused = it.isFocused
                     if (it.isFocused) onFocus()
@@ -77,13 +86,16 @@ fun ProfileTile(
                 focusedContainerColor = Color.White.copy(alpha = .12f),
                 contentColor = Color.White,
             ),
-            border = ClickableSurfaceDefaults.border(
+            border = if (beta) {
+                val line = Border(BorderStroke(1.dp, if (active) palette.accent.copy(alpha = .7f) else palette.line), shape = shape)
+                ClickableSurfaceDefaults.border(border = line, focusedBorder = line)
+            } else ClickableSurfaceDefaults.border(
                 border = if (active) Border(BorderStroke(1.dp, MovvizBrand2.copy(alpha = .55f))) else Border.None,
                 focusedBorder = Border(BorderStroke(2.dp, Color.White)),
             ),
         ) {
             Box(Modifier.fillMaxSize()) {
-                ProfileAvatar(profile, Modifier.fillMaxSize(), 17.dp)
+                ProfileAvatar(profile, Modifier.fillMaxSize(), if (beta) 20.dp else 17.dp)
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
@@ -96,7 +108,7 @@ fun ProfileTile(
                         Modifier
                             .align(Alignment.BottomEnd)
                             .size(14.dp)
-                            .background(MovvizBrand2, CircleShape),
+                            .background(if (beta) palette.accent else MovvizBrand2, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("✓", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
@@ -107,15 +119,18 @@ fun ProfileTile(
         Spacer(Modifier.height(10.dp))
         Text(
             text = profile.name,
-            color = if (focused || selected) Color.White else Color.White.copy(alpha = .68f),
-            fontSize = 13.sp,
-            fontWeight = if (focused) FontWeight.Bold else FontWeight.SemiBold,
+            color = if (beta) (if (focused || selected) palette.ink else palette.inkSoft)
+            else if (focused || selected) Color.White else Color.White.copy(alpha = .68f),
+            fontSize = if (beta) 16.sp else 13.sp,
+            fontFamily = if (beta) MovvizUiFonts else null,
+            fontWeight = if (beta) FontWeight.SemiBold else if (focused) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         if (active) {
             Spacer(Modifier.height(2.dp))
-            Text("Profil actif", color = MovvizBrand2, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            if (beta) Text("Profil actif", color = palette.accent, fontSize = 12.sp, fontFamily = MovvizUiFonts, fontWeight = FontWeight.Medium)
+            else Text("Profil actif", color = MovvizBrand2, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         } else {
             Spacer(Modifier.height(11.dp))
         }
@@ -126,7 +141,9 @@ fun ProfileTile(
 @Composable
 fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(17.dp)
+    val beta = LocalMovvizBeta.current
+    val palette = MovvizTheme.palette
+    val shape = if (beta) MovvizBetaShapes.Avatar else RoundedCornerShape(17.dp)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(116.dp)) {
         Surface(
@@ -135,7 +152,8 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
                 .size(105.dp)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 // Même règle que la tuile de profil : ombre, pas de zoom.
-                .graphicsLayer { shadowElevation = if (focused) 24f else 0f }
+                .graphicsLayer { shadowElevation = if (focused && !beta) 24f else 0f }
+                .movvizFocusRing(shape, enabled = beta)
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape),
@@ -144,7 +162,10 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
                 focusedContainerColor = Color.White.copy(alpha = .10f),
                 contentColor = MovvizBrand2,
             ),
-            border = ClickableSurfaceDefaults.border(
+            border = if (beta) {
+                val line = Border(BorderStroke(1.dp, palette.lineStrong), shape = shape)
+                ClickableSurfaceDefaults.border(border = line, focusedBorder = line)
+            } else ClickableSurfaceDefaults.border(
                 border = Border(BorderStroke(1.dp, Color.White.copy(alpha = .12f))),
                 focusedBorder = Border(BorderStroke(2.dp, MovvizBrand2)),
             ),
@@ -164,8 +185,9 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
         Spacer(Modifier.height(10.dp))
         Text(
             "Ajouter",
-            color = if (focused) Color.White else Color.White.copy(alpha = .68f),
-            fontSize = 13.sp,
+            color = if (beta) (if (focused) palette.ink else palette.inkSoft) else if (focused) Color.White else Color.White.copy(alpha = .68f),
+            fontSize = if (beta) 16.sp else 13.sp,
+            fontFamily = if (beta) MovvizUiFonts else null,
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.height(11.dp))

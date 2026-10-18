@@ -52,6 +52,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -130,7 +132,12 @@ class MainActivity : ComponentActivity() {
         pendingDeepLink = intent
         setContent {
             val betaUi by appViewModel.betaUiEnabled.collectAsState()
-            MovvizTvTheme(beta = betaUi) {
+            val resolvedAppearance = betaUi
+            if (resolvedAppearance == null) {
+                Box(Modifier.fillMaxSize().background(Color(0xFF05070F)))
+                return@setContent
+            }
+            MovvizTvTheme(beta = resolvedAppearance) {
                 MovvizNavHost(appViewModel)
             }
         }
@@ -188,6 +195,28 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     val contentFocusRequester = remember { FocusRequester() }
     // Cible HAUT depuis le contenu : onglet sélectionné de la NavRail.
     val navRailFocusRequester = remember { FocusRequester() }
+    // Cible DROITE depuis la NavRail : le conteneur du contenu affiché
+    // (MainScreen ou DetailFocusToNavHandler), toujours attaché tant que la
+    // barre est visible. Son focusRestorer rend l'élément d'où l'on était
+    // parti par GAUCHE ; à défaut seulement, contentFocusRequester.
+    val contentReentryFocusRequester = remember { FocusRequester() }
+    // Focus réel de la barre / du contenu : RETOUR en deux temps sur
+    // l'accueil (voir le BackHandler plus bas).
+    var railHasFocus by remember { mutableStateOf(false) }
+    // Après un « retour en haut » de l'accueil, DROITE depuis la barre doit
+    // viser le haut de la page (hero), pas la carte profonde mémorisée que
+    // l'on vient justement de quitter. Levé dès que le contenu reprend le focus.
+    var homeReentryAtTop by remember { mutableStateOf(false) }
+    var homeScrollToTopRequest by remember { mutableStateOf(0) }
+    // Bêta : splash UNIQUE, du démarrage jusqu'au premier contenu de
+    // l'accueil (l'accueil remonte son état au lieu d'ouvrir un second
+    // splash qui rejouerait l'intro). `true` d'emblée : l'accueil qui
+    // s'ouvre au démarrage n'a pas encore pu le confirmer à sa 1re frame.
+    var homeBooting by remember { mutableStateOf(true) }
+    var homeLoadingFocused by remember { mutableStateOf(false) }
+    // Largeur réelle de la barre : le splash ne recouvre que le contenu dès
+    // qu'elle est affichée (jamais de focus invisible sous la surcouche).
+    var railWidthPx by remember { mutableStateOf(0) }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
     // Une fiche/grille doit toujours revenir dans Movviz avant de laisser
@@ -204,6 +233,25 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             }
         }
     }
+    // Root tabs share the home route; BACK closes the current section first.
+    BackHandler(enabled = currentRoute == ROUTE_HOME && (tab != HomeTab.HOME || searchOpen)) {
+        searchOpen = false
+        searchQuery.value = ""
+        tab = HomeTab.HOME
+        headerHasScrolled = false
+    }
+    // Accueil, RETOUR en deux temps (validé par Seb) : un premier RETOUR
+    // depuis le contenu remonte l'accueil en haut et pose le focus sur
+    // l'onglet actif de la barre ; RETOUR depuis la barre (désactivé ici)
+    // laisse Android quitter l'app. Exclusif du BackHandler précédent
+    // (onglet ≠ Accueil ou recherche) et déclaré après lui : prioritaire
+    // sur la pile de navigation tant que le focus est dans le contenu.
+    BackHandler(enabled = currentRoute == ROUTE_HOME && tab == HomeTab.HOME && !searchOpen && !railHasFocus) {
+        homeReentryAtTop = true
+        runCatching { navRailFocusRequester.requestFocus() }
+        homeScrollToTopRequest++
+        headerHasScrolled = false
+    }
 
     // Restauration du focus au retour d'un écran détail : laisser
     // le focusRestorer de la rangée restaurer la même carte (spec P3),
@@ -219,10 +267,15 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // bas, puisqu'il n'est alors plus composé, et le focus restait sur la
     // barre latérale où Android l'avait posé.
     val homeRestoreFocus = remember { FocusRequester() }
-    suspend fun enterContent() {
+    // `restoreMemory` : retour de fiche → la carte mémorisée de l'onglet
+    // courant (homeRestoreFocus, branché par MainScreen sur l'accueil, la
+    // bibliothèque, Découverte et la recherche). Changement d'onglet depuis
+    // la barre → la cible d'entrée de l'onglet (chip actif…), sauf sur
+    // l'accueil qui reprend sa rangée mémorisée.
+    suspend fun enterContent(restoreMemory: Boolean = true) {
         repeat(30) { attempt ->
             val home = currentRoute?.startsWith("home") == true
-            if (home && runCatching { homeRestoreFocus.requestFocus() }.getOrDefault(false)) return
+            if (home && restoreMemory && runCatching { homeRestoreFocus.requestFocus() }.getOrDefault(false)) return
             if (runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)) return
             if (attempt < 29) withFrameNanos { }
         }
@@ -261,7 +314,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         previousTab = tab
         if (tab == HomeTab.SEARCH) return@LaunchedEffect
         delay(120)
-        enterContent()
+        enterContent(restoreMemory = tab == HomeTab.HOME)
     }
 
 // Démarrage façon Netflix : URL inconnue → wizard ; sinon, on vérifie
@@ -343,7 +396,12 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     }
 
     val resolvedStart = startDestination
-    if (resolvedStart == null) {
+    // Bêta : le splash cinématique n'est plus un écran qui `return` mais une
+    // surcouche au-dessus du NavHost (fin de fonction) : il peut s'effacer
+    // (500 ms EaseOut + léger zoom) sur l'écran d'arrivée au lieu d'être
+    // coupé net. Stable garde son lockup d'origine.
+    val betaShell = com.movviz.tv.ui.theme.LocalMovvizBeta.current
+    if (resolvedStart == null && !betaShell) {
         Box(
             modifier = Modifier.fillMaxSize().background(com.movviz.tv.ui.theme.MovvizBackground),
             contentAlignment = Alignment.Center,
@@ -374,7 +432,24 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // premier enfant) : AutoUpdateOverlay doit rester dessiné PAR-DESSUS
     // tout le reste, ce que seul un Box (empilement) garantit.
     Box(modifier = Modifier.fillMaxSize()) {
-    Row(modifier = Modifier.fillMaxSize().background(com.movviz.tv.ui.theme.MovvizBackground)) {
+    if (betaShell) {
+        // Premier enfant + zIndex : dessiné au-dessus de tout, mais sa place
+        // dans l'arbre ne bouge pas quand le NavHost apparaît à côté — la
+        // même instance (même horloge) continue du démarrage à l'accueil.
+        val coldStart = resolvedStart == null
+        ShellSplashOverlay(
+            viewModel = viewModel,
+            coldStart = coldStart,
+            homeLoading = currentRoute == ROUTE_HOME && tab == HomeTab.HOME && !searchOpen && homeBooting,
+            railShown = !coldStart && routeShowsNavRail(currentRoute),
+            railWidthPx = { railWidthPx },
+            loadingFocused = !coldStart && homeLoadingFocused,
+            modifier = Modifier.zIndex(1f),
+        )
+    }
+    if (resolvedStart != null) {
+    val sceneBackground = androidx.tv.material3.MaterialTheme.colorScheme.background
+    Row(modifier = Modifier.fillMaxSize().background(sceneBackground)) {
         if (routeShowsNavRail(currentRoute)) {
             NavRail(
                 selected = tab,
@@ -412,9 +487,16 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                 onUpdateClick = { viewModel.requestUpdateInstall() },
                 contentFocusRequester = contentFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
+                contentReentryFocusRequester = if (homeReentryAtTop && currentRoute == ROUTE_HOME) contentFocusRequester else contentReentryFocusRequester,
+                modifier = Modifier
+                    .onFocusChanged { railHasFocus = it.hasFocus }
+                    .onSizeChanged { railWidthPx = it.width },
             )
         }
-        Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+        Box(
+            modifier = Modifier.fillMaxSize().weight(1f)
+                .onFocusChanged { if (it.hasFocus) homeReentryAtTop = false },
+        ) {
         NavHost(navController = navController, startDestination = resolvedStart) {
 composable(ROUTE_WIZARD) {
             WizardScreen(
@@ -516,7 +598,8 @@ composable(ROUTE_PROFILES) {
                     navController.navigate(detailRoute("series", tmdbId, season, episode))
                 },
                 onSeeAllRow = { mediaType, key, label ->
-                    navController.navigate(rowDetailRoute("row", mediaType, key, label))
+                    val isProvider = key.startsWith("watchProvider:")
+                    navController.navigate(rowDetailRoute(if (isProvider) "provider" else "row", mediaType, if (isProvider) key.substringAfter(':') else key, label))
                 },
                 onOpenGenre = { mediaType, genreId, label ->
                     navController.navigate(rowDetailRoute("genre", mediaType, genreId, label))
@@ -533,6 +616,9 @@ composable(ROUTE_PROFILES) {
                 contentFocusRequester = contentFocusRequester,
                 homeRestoreFocusRequester = homeRestoreFocus,
                 navRailFocusRequester = navRailFocusRequester,
+                contentReentryFocusRequester = contentReentryFocusRequester,
+                homeScrollToTopRequest = homeScrollToTopRequest,
+                onHomeBootOverlayState = if (betaShell) { booting, focused -> homeBooting = booting; homeLoadingFocused = focused } else null,
                 onHomeScrollChanged = { headerHasScrolled = it },
                 libraryTab = libraryTab,
                 onLibraryTabChange = { libraryTab = it },
@@ -574,7 +660,7 @@ composable(ROUTE_PROFILES) {
             // épisodes → saison), puis l'onglet actif de la NavRail. Sans
             // ceci, la fiche (hors MainScreen) n'avait AUCUN chemin vers la
             // barre : le focus restait piégé dans le contenu.
-            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester, reentryFocusRequester = contentReentryFocusRequester, fallbackFocusRequester = contentFocusRequester) {
                 TitleDetailScreen(
                 viewModel = viewModel,
                 type = type,
@@ -605,6 +691,7 @@ composable(ROUTE_PROFILES) {
                     navController.navigate(personRoute(personId))
                 },
                 entryFocusRequester = contentFocusRequester,
+                navRailFocusRequester = navRailFocusRequester,
             )
             }
         }
@@ -614,7 +701,7 @@ composable(ROUTE_PROFILES) {
         ) { backStackEntry ->
             val personId = backStackEntry.arguments?.getInt("id") ?: 0
             // Même symétrie HAUT que la fiche titre (voir DetailFocusToNavHandler).
-            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester, reentryFocusRequester = contentReentryFocusRequester, fallbackFocusRequester = contentFocusRequester) {
                 PersonScreen(
                     viewModel = viewModel,
                     personId = personId,
@@ -643,7 +730,7 @@ composable(ROUTE_PROFILES) {
             val key = android.net.Uri.decode(backStackEntry.arguments?.getString("key") ?: "")
             val label = android.net.Uri.decode(backStackEntry.arguments?.getString("label") ?: "")
             // Même symétrie HAUT que la fiche titre/acteur (voir DetailFocusToNavHandler).
-            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester, reentryFocusRequester = contentReentryFocusRequester, fallbackFocusRequester = contentFocusRequester) {
                 RowDetailScreen(
                     viewModel = viewModel,
                     mode = mode,
@@ -660,8 +747,57 @@ composable(ROUTE_PROFILES) {
         }
             }
         }
-        AutoUpdateOverlay(viewModel)
+        // Fermeture (« Plus tard », RETOUR) : retour dans le contenu, sur
+        // l'élément quitté (restorer du conteneur, sinon sa cible d'entrée,
+        // sinon son premier élément). Sans barre (login, profils…), retour
+        // sur l'écran lui-même via sa cible d'entrée.
+        AutoUpdateOverlay(
+            viewModel,
+            returnFocusRequester = if (routeShowsNavRail(currentRoute)) contentReentryFocusRequester else contentFocusRequester,
+        )
     }
+    }
+}
+
+/**
+ * Splash Bêta unique de l'application : démarrage à froid puis, sans
+ * rupture, chargement de l'accueil (progression et messages réels du
+ * bootstrap, anneau autour de la progression quand le bloc de chargement de
+ * l'accueil a le focus). Ne couvre que la zone de contenu dès que la barre
+ * est affichée ; jamais focalisable. Composable à part : les lectures de
+ * `homeUiState` ne recomposent que lui, pas tout le NavHost.
+ */
+@Composable
+private fun ShellSplashOverlay(
+    viewModel: AppViewModel,
+    coldStart: Boolean,
+    homeLoading: Boolean,
+    railShown: Boolean,
+    railWidthPx: () -> Int,
+    loadingFocused: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val railFraction by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (railShown) 1f else 0f,
+        animationSpec = tween(com.movviz.tv.ui.theme.MovvizMotion.PANEL, easing = com.movviz.tv.ui.theme.MovvizMotion.EaseOut),
+        label = "splashRailInset",
+    )
+    val homeUi by viewModel.homeUiState.collectAsState()
+    com.movviz.tv.ui.theme.ProjectionSplashOverlay(
+        visible = coldStart || homeLoading,
+        progress = if (coldStart) null else homeUi.bootProgress,
+        message = if (coldStart) null else homeUi.bootMessage,
+        focused = loadingFocused,
+        modifier = modifier
+            // Largeur de barre (animée par la barre) lue en mise en page :
+            // aucune recomposition pendant son déploiement.
+            .layout { measurable, constraints ->
+                val inset = (railWidthPx() * railFraction).toInt().coerceIn(0, constraints.maxWidth)
+                val width = constraints.maxWidth - inset
+                val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                layout(constraints.maxWidth, placeable.height) { placeable.place(inset, 0) }
+            },
+    )
 }
 
 /** Une perte de focus moins de 600 ms après une touche vient de l'utilisateur. */
@@ -676,6 +812,10 @@ private const val USER_FOCUS_MOVE_WINDOW_MS = 600L
 @Composable
 private fun DetailFocusToNavHandler(
     navRailFocusRequester: FocusRequester,
+    // DROITE depuis la NavRail : ce conteneur, qui rend l'élément quitté
+    // (focusRestorer) ou, à défaut, la cible d'entrée de l'écran.
+    reentryFocusRequester: FocusRequester,
+    fallbackFocusRequester: FocusRequester,
     content: @Composable () -> Unit,
 ) {
     // Focus perdu SANS touche pressée = l'élément sélectionné vient de
@@ -709,7 +849,8 @@ private fun DetailFocusToNavHandler(
                 }
             }
             .focusRequester(contentFocus)
-            .focusRestorer()
+            .focusRequester(reentryFocusRequester)
+            .focusRestorer(fallback = fallbackFocusRequester)
             .focusProperties {
                 exit = { focusDirection ->
                     if (focusDirection == FocusDirection.Left) {

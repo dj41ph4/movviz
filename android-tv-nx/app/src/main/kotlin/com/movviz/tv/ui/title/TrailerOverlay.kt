@@ -308,6 +308,12 @@ internal fun TrailerOverlay(
 @Composable
 private fun TrailerControls(position: Long, duration: Long, playing: Boolean) {
     val fraction = if (duration > 0L) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
+    // Bêta : remplissage d'accent unique et temps en chiffres mono tabulaires
+    // (ils ne « dansent » pas pendant la lecture). Stable inchangé.
+    val beta = com.movviz.tv.ui.theme.LocalMovvizBeta.current
+    val accent = com.movviz.tv.ui.theme.MovvizTheme.palette.accent
+    val timeFamily = if (beta) com.movviz.tv.ui.theme.MovvizMonoFonts else null
+    val timeFeatures = if (beta) "tnum" else null
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -324,7 +330,7 @@ private fun TrailerControls(position: Long, duration: Long, playing: Boolean) {
             Spacer(modifier = Modifier.size(12.dp))
             Text(
                 text = formatClock(position),
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White, fontFamily = timeFamily, fontFeatureSettings = timeFeatures),
             )
             Spacer(modifier = Modifier.size(12.dp))
             Box(
@@ -337,13 +343,16 @@ private fun TrailerControls(position: Long, duration: Long, playing: Boolean) {
                     modifier = Modifier
                         .fillMaxWidth(fraction)
                         .fillMaxHeight()
-                        .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(3.dp)),
+                        .background(
+                            if (beta) Brush.horizontalGradient(listOf(accent, accent)) else Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                            RoundedCornerShape(3.dp),
+                        ),
                 )
             }
             Spacer(modifier = Modifier.size(12.dp))
             Text(
                 text = if (duration > 0L) formatClock(duration) else "--:--",
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f)),
+                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f), fontFamily = timeFamily, fontFeatureSettings = timeFeatures),
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
