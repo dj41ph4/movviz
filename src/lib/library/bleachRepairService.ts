@@ -4,7 +4,9 @@ import { getSeries, updateSeries } from "./store";
 import { planBleachRepair } from "./bleachRepair";
 import { inspectBleachRepairState } from "./bleachRepairState";
 import { withKeyLock } from "./locks";
-import { needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_TMDB_ID, detectBleachLibraryOrder, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { getSeason } from "@/lib/metadata/tmdb";
+import { bleachEpisodeInScope, type BleachSeriesPart } from "./bleachScope";
 
 export function previewBleachRepair(id: string) {
   const series = getSeries(id);
@@ -30,6 +32,9 @@ export function commitBleachRepair(plan: NonNullable<ReturnType<typeof previewBl
 /** Upgrade an unambiguous legacy catalogue automatically; ambiguous user history stays untouched. */
 export async function ensureBleachRepaired(id: string) {
   const current = getSeries(id);
+  if (current?.tmdbId === BLEACH_TMDB_ID && !current.episodeOrder && detectBleachLibraryOrder(current) === "tvdb") {
+    return updateSeries(id, { episodeOrder: "tvdb" });
+  }
   if (!current || !needsBleachRepair(current)) return current;
   return withKeyLock(`series:${id}`, async () => {
     const latest = getSeries(id);
@@ -37,5 +42,43 @@ export async function ensureBleachRepaired(id: string) {
     const plan = previewBleachRepair(id);
     if (plan?.applicable) commitBleachRepair(plan);
     return getSeries(id);
+  });
+}
+
+/** Refresh metadata at known coordinates; never flatten a repaired anime again. */
+export async function refreshBleachMetadata(id: string, part?: BleachSeriesPart | null) {
+  await ensureBleachRepaired(id);
+  return withKeyLock(`series:${id}`, async () => {
+    const series = getSeries(id);
+    if (!series) return { ok: false as const, error: "not_found" as const };
+    if (needsBleachRepair(series)) return { ok: false as const, error: "bleach_repair_required" as const };
+    const seasons = [...series.seasons];
+    let refreshed = 0;
+    for (let index = 0; index < seasons.length; index++) {
+      const season = seasons[index];
+      if (part && !season.episodes.some(e => bleachEpisodeInScope(season.seasonNumber, e.episodeNumber, part))) continue;
+      const detail = await getSeason(BLEACH_TMDB_ID, season.seasonNumber);
+      if (!detail) continue;
+      refreshed++;
+      seasons[index] = { ...season, name: detail.name, episodes: season.episodes.map(episode => {
+        const metadata = detail.episodes.find(e => e.episodeNumber === episode.episodeNumber);
+        return metadata ? { ...episode, title: metadata.title, airDate: metadata.airDate } : episode;
+      }) };
+    }
+    if (!refreshed) return { ok: false as const, error: "no_tvdb_match" as const };
+    const latest = getSeries(id);
+    if (!latest) return { ok: false as const, error: "not_found" as const };
+    // Downloads and Plex callbacks may advance while metadata is fetched.
+    // Merge only descriptive fields into the latest episode records.
+    const merged = latest.seasons.map(season => {
+      const metadata = seasons.find(s => s.seasonNumber === season.seasonNumber);
+      if (!metadata || (part && !season.episodes.some(e => bleachEpisodeInScope(season.seasonNumber, e.episodeNumber, part)))) return season;
+      return { ...season, name: metadata.name, episodes: season.episodes.map(episode => {
+        const detail = metadata.episodes.find(e => e.episodeNumber === episode.episodeNumber);
+        return detail ? { ...episode, title: detail.title, airDate: detail.airDate } : episode;
+      }) };
+    });
+    updateSeries(id, { seasons: merged, episodeOrder: "tvdb" });
+    return { ok: true as const, oldSeasonCount: series.seasons.length, newSeasonCount: merged.length };
   });
 }

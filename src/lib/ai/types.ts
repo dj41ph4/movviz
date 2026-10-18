@@ -271,6 +271,7 @@ export interface RatingHistoryEntry {
 }
 
 export interface TitleRating {
+  seriesPart?: "original" | "tybw";
   tmdbId: number;
   type: "movie" | "series";
   /** Denormalized for display/logs only — never the source of truth for

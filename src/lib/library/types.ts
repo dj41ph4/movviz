@@ -195,6 +195,7 @@ export interface LibrarySeries {
   episodeOrder?: "tmdb" | "tvdb";
   /** Independent cosmetic choices for the two Bleach fiches. */
   bleachArtwork?: import("@/lib/metadata/bleachArtwork").BleachArtworkByPart;
+  bleachSettings?: Partial<Record<"original" | "tybw", { qualityProfileId?: string; aliases?: string[] }>>;
   /** Separate Plex shows share one Movviz catalogue and watch history. */
   bleachPlexKeys?: { original?: string | null; tybw?: string | null };
   imdbId: string | null;

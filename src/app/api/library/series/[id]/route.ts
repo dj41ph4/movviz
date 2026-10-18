@@ -62,6 +62,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       }
     }
     if (seriesPart) {
+      const preferences: { qualityProfileId?: string; aliases?: string[] } = {};
+      if (typeof clean.qualityProfileId === "string") { preferences.qualityProfileId = clean.qualityProfileId; delete clean.qualityProfileId; }
+      if (Array.isArray(clean.aliases)) { preferences.aliases = clean.aliases as string[]; delete clean.aliases; }
+      if (Object.keys(preferences).length) clean.bleachSettings = { ...current.bleachSettings, [seriesPart]: { ...current.bleachSettings?.[seriesPart], ...preferences } };
       const artwork: BleachArtworkSelection = {};
       for (const key of ["customBackdropPath", "customLogoPath"] as const) {
         if (key in clean) { artwork[key] = clean[key] as string | null; delete clean[key]; }
@@ -83,9 +87,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const user = requireAdmin(req);
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  if (req.nextUrl.searchParams.has("part") || req.nextUrl.searchParams.has("seriesPart")) return NextResponse.json({ error: "scoped_deletion_not_supported" }, { status: 409 });
   const id = (await params).id;
-  const series = getSeries(id);
+  const stored = getSeries(id);
+  const partParam = req.nextUrl.searchParams.get("seriesPart") ?? req.nextUrl.searchParams.get("part");
+  const part = parseBleachSeriesPart(partParam);
+  if (partParam != null && (!part || stored?.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
+  const series = stored && part ? { ...stored, seasons: stored.seasons.filter(s => part === "tybw" ? s.seasonNumber === 17 : s.seasonNumber < 17) } : stored;
+  if (part && series && needsBleachRepair(series) && needsBleachRepair(stored!)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
   const deleteFiles = req.nextUrl.searchParams.get("deleteFiles") === "true";
   if (deleteFiles) {
     const paths = new Set<string>();
@@ -127,11 +135,13 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
         });
       });
       for (const dir of cleanedDirs) {
-        try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+        try { fs.rmdirSync(dir); } catch { /* Keep directories containing unrelated files. */ }
       }
     }
   }
-  removeSeries(id);
+  const remaining = part && stored ? stored.seasons.filter(s => part === "tybw" ? s.seasonNumber !== 17 : s.seasonNumber >= 17) : [];
+  if (part && remaining.length) updateSeries(id, { seasons: remaining, episodeOrder: "tvdb", monitored: remaining.some(s => s.monitored) });
+  else removeSeries(id);
   if (series) {
     logActivity("removed", user.username, series.title, null);
     if (deleteFiles) emitNotification("library_item_deleted", `${series.title} supprimé de la bibliothèque`, "/library", { title: series.title });

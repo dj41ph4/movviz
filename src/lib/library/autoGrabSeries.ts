@@ -32,7 +32,7 @@ import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBackoff";
 import { BLEACH_TMDB_ID, needsBleachRepair, knownBleachEpisode, bleachCourForEpisode, BLEACH_TYBW_COURS } from "@/lib/metadata/bleachEpisodeOrder";
-import { bleachMatchingTitle, bleachReleaseSource, isBleachSequelTitle, bleachReleaseTargets, bleachIndexerQueries, bleachReleaseYearCompatible } from "@/lib/library/bleachRelease";
+import { bleachMatchingTitle, bleachReleaseSource, bleachReleaseTargets, bleachIndexerQueries, bleachReleaseYearCompatible, bleachCompletePackCovers } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
 import { scopedBleachSeries, bleachEpisodeInScope, type BleachSeriesPart } from "@/lib/library/bleachScope";
 
@@ -866,8 +866,9 @@ export async function searchAndGrabEpisode(
   episodeNumber: number,
   options?: { skipPackRetry?: boolean }
 ) {
-  const series = getSeries(seriesId);
-  if (!series) return { error: "series not found" as const };
+  const stored = getSeries(seriesId);
+  if (!stored) return { error: "series not found" as const };
+  const series = stored.tmdbId === BLEACH_TMDB_ID ? scopedBleachSeries(stored, seasonNumber === 17 ? "tybw" : "original") : stored;
   if (needsBleachRepair(series)) return { error: "bleach_repair_required" as const };
   if (series.tmdbId === BLEACH_TMDB_ID && !knownBleachEpisode(seasonNumber, episodeNumber)) return { error: "bleach_episode_unmapped" as const };
   const profile = profileFor(series.qualityProfileId);
@@ -1188,8 +1189,9 @@ async function searchAndGrabSeasonOne(
   seasonNumber: number,
   options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean; bleachPart?: number }
 ) {
-  const series = getSeries(seriesId);
-  if (!series) return { error: "series not found" as const };
+  const stored = getSeries(seriesId);
+  if (!stored) return { error: "series not found" as const };
+  const series = stored.tmdbId === BLEACH_TMDB_ID ? scopedBleachSeries(stored, seasonNumber === 17 ? "tybw" : "original", options?.bleachPart) : stored;
   if (needsBleachRepair(series)) return { error: "bleach_repair_required" as const };
   const season = series.seasons.find((s) => s.seasonNumber === seasonNumber);
   if (!season) return { error: "season not found" as const };
@@ -1513,7 +1515,7 @@ export async function searchCompleteSeriesCandidates(
   const tS = performance.now();
   const candidates: CompleteSeriesCandidate[] = releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ release }) => series.tmdbId !== BLEACH_TMDB_ID || (!isBleachSequelTitle(release.title) && (() => { const range = extractSeasonRange(release.title); return !!range && targetSeasons.every((s) => s >= range.lo && s <= range.hi); })()))
+    .filter(({ release }) => series.tmdbId !== BLEACH_TMDB_ID || bleachReleaseTargets(targets, release.title).length === targets.length)
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, searchTitle, searchAliases))
     // A same-titled reboot/remake from a different year (e.g. Avatar: The
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
@@ -1522,8 +1524,8 @@ export async function searchCompleteSeriesCandidates(
     // never tell them apart. yearIsCompatible is lenient (a release with no
     // year at all still passes) so this only rejects a release that states
     // a clearly different year, never a legitimately unlabeled one.
-    .filter(({ parsed }) => yearIsCompatible(parsed.year, series.year))
-    .filter(({ release, parsed }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
+    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || yearIsCompatible(parsed.year, series.year))
+    .filter(({ release, parsed }) => series.tmdbId === BLEACH_TMDB_ID ? bleachCompletePackCovers(release.title, targets) : isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
     // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
     .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
@@ -1561,7 +1563,7 @@ export async function searchCompleteSeriesCandidates(
 
     const directCandidates: CompleteSeriesCandidate[] = directReleases
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-      .filter(({ release }) => series.tmdbId !== BLEACH_TMDB_ID || (!isBleachSequelTitle(release.title) && (() => { const range = extractSeasonRange(release.title); return !!range && targetSeasons.every((s) => s >= range.lo && s <= range.hi); })()))
+      .filter(({ release }) => series.tmdbId !== BLEACH_TMDB_ID || bleachReleaseTargets(targets, release.title).length === targets.length)
       .filter(({ parsed }) => releaseTitleMatches(parsed.title, searchTitle, searchAliases))
     // A same-titled reboot/remake from a different year (e.g. Avatar: The
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
@@ -1570,8 +1572,8 @@ export async function searchCompleteSeriesCandidates(
     // never tell them apart. yearIsCompatible is lenient (a release with no
     // year at all still passes) so this only rejects a release that states
     // a clearly different year, never a legitimately unlabeled one.
-    .filter(({ parsed }) => yearIsCompatible(parsed.year, series.year))
-    .filter(({ release, parsed }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
+    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || yearIsCompatible(parsed.year, series.year))
+    .filter(({ release, parsed }) => series.tmdbId === BLEACH_TMDB_ID ? bleachCompletePackCovers(release.title, targets) : isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
       .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ release }) => release.score >= profile.minScore)
@@ -1673,10 +1675,11 @@ function tryGrabSeriesPack(
  * series via withSearchLock, like every other series-level search entry
  * point.
  */
-export async function searchAndGrabCompleteSeries(seriesId: string) {
+export async function searchAndGrabCompleteSeries(seriesId: string, part?: BleachSeriesPart | null) {
   return withSearchLock(`series:${seriesId}`, async () => {
-    const series = getSeries(seriesId);
-    if (!series) return { error: "series not found" as const };
+    const stored = getSeries(seriesId);
+    if (!stored) return { error: "series not found" as const };
+    const series = stored.tmdbId === BLEACH_TMDB_ID ? scopedBleachSeries(stored, part) : stored;
     if (needsBleachRepair(series)) return { error: "bleach_repair_required" as const };
     const profile = profileFor(series.qualityProfileId);
 

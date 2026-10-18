@@ -7,6 +7,8 @@ import { encodeLibraryRef } from "@/lib/library/types";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { ManualSearchReleaseRow } from "./ManualSearchReleaseRow";
 import { Loader2, X, Layers, Check, Wand2 } from "lucide-react";
+import type { BleachPart } from "@/lib/metadata/bleachPresentation";
+import { toast } from "@/components/ui/Toast";
 
 /**
  * Complete-series pack selection popup — the manual "Intégrale" flow. Lists
@@ -23,6 +25,7 @@ export function IntegralSearchModal({
   title,
   tmdbId,
   seasonCount,
+  seriesPart,
   onGrabbed,
   onAutoSearch,
 }: {
@@ -32,6 +35,7 @@ export function IntegralSearchModal({
   title: string;
   tmdbId: number;
   seasonCount?: number;
+  seriesPart?: BleachPart;
   onGrabbed?: () => void;
   /** When set, an "auto-grab the best candidate" fallback button is shown. */
   onAutoSearch?: () => void;
@@ -52,7 +56,7 @@ export function IntegralSearchModal({
     const run = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/library/series/${seriesId}/integral-candidates`, { cache: "no-store" });
+        const res = await fetch(`/api/library/series/${seriesId}/integral-candidates${seriesPart ? `?seriesPart=${seriesPart}` : ""}`, { cache: "no-store" });
         const data = await res.json();
         setReleases(data.candidates ?? []);
         setResultCount(data.episodeCount ?? 0);
@@ -78,6 +82,7 @@ export function IntegralSearchModal({
           indexerId: r.indexerId,
           category: "series",
           libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
+          seriesPart,
           releaseTitle: r.title,
           title,
           tmdbId,
@@ -92,7 +97,11 @@ export function IntegralSearchModal({
       if (res.ok) {
         setGrabbed((s) => new Set(s).add(r.guid));
         onGrabbed?.();
+      } else {
+        toast("error", t("common.error"));
       }
+    } catch {
+      toast("error", t("common.error"));
     } finally {
       setGrabbing(null);
     }

@@ -36,6 +36,8 @@ export interface MetaEpisode {
 }
 
 export interface MetaSeason {
+  overview?: string;
+  posterUrl?: string;
   seasonNumber: number;
   name: string;
   episodeCount: number;
@@ -142,6 +144,8 @@ export interface MetaWatchProvider {
 }
 
 export interface MetaSeasonSummary {
+  overview?: string;
+  posterUrl?: string;
   seasonNumber: number;
   name: string;
   episodeCount: number;

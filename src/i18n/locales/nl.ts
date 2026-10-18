@@ -3,6 +3,8 @@ import type { Dictionary } from "../types";
 /** Nederlands woordenboek — weerspiegelt de Franse/Engelse sleutelstructuur. */
 export const nl: Dictionary = {
   bleach: {
+    engineUpdateRequired: "Werk de downloadengine bij om Bleach en TYBW in afzonderlijke mappen op te slaan.",
+    plexOrderRequired: "De afleveringsvolgorde van de originele serie in Plex kon niet worden gecontroleerd. Controleer de Plex-verbinding en afleveringsvolgorde.",
     previewFailed: "De seizoenscontrole is niet beschikbaar. Je kunt het opnieuw proberen.",
     retry: "Opnieuw controleren",
     blockDownload: "Er is een Bleach-download actief. Wacht tot deze klaar is.",

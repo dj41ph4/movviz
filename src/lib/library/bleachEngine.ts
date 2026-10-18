@@ -28,7 +28,9 @@ export async function bleachPhysicalOrder(series: LibrarySeries): Promise<string
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return "tmdbAiring";
   const originalKey = series.bleachPlexKeys?.original ?? series.plexRatingKey;
-  if (!originalKey) throw new Error("bleach_plex_order_unverified");
+  // A first acquisition has no Plex show to inspect yet. The new original
+  // folder uses TMDb's default aired order, just like an unconfigured Plex.
+  if (!originalKey) return "tmdbAiring";
   const effective = await getPlexEpisodeOrdering(cfg, originalKey, cfg.adminToken);
   if (!effective || effective.seriesPart === "tybw" || !["tmdbAiring", "aired", "tvdbAiring"].includes(effective.order ?? "")) throw new Error("bleach_plex_order_unverified");
   return effective.order!;

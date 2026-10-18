@@ -1,4 +1,4 @@
-import { BLEACH_TMDB_ID, BLEACH_TYBW_COURS, knownBleachEpisode } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_TMDB_ID, BLEACH_TYBW_COURS, knownBleachEpisode, detectBleachLibraryOrder } from "@/lib/metadata/bleachEpisodeOrder";
 import type { LibrarySeries } from "./types";
 
 export type BleachSeriesPart = "original" | "tybw";
@@ -21,5 +21,9 @@ export function bleachEpisodeInScope(season: number, episode: number, part?: Ble
 /** Ephemeral acquisition view. All writes still use the original series ID. */
 export function scopedBleachSeries(series: LibrarySeries, part?: BleachSeriesPart | null, cour?: number): LibrarySeries {
   if (series.tmdbId !== BLEACH_TMDB_ID) return series;
-  return { ...series, seasons: series.seasons.map(s => ({ ...s, episodes: s.episodes.filter(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, part, cour)) })).filter(s => s.episodes.length > 0) };
+  return { ...series,
+    ...(detectBleachLibraryOrder(series) === "tvdb" ? { episodeOrder: "tvdb" as const } : {}),
+    ...(part ? series.bleachSettings?.[part] : {}),
+    ...(part === "tybw" ? { title: "Bleach Thousand-Year Blood War", originalTitle: "Bleach Thousand-Year Blood War", year: 2022 } : {}),
+    seasons: series.seasons.map(s => ({ ...s, episodes: s.episodes.filter(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, part, cour)) })).filter(s => s.episodes.length > 0) };
 }

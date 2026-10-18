@@ -245,11 +245,11 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
   const readdable = libraryData?.readdable === true;
 
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{
-    items: { tmdbId: number; type: string; seasonNumber?: number | null; episodeNumber?: number | null }[];
+    items: { tmdbId: number; type: string; seasonNumber?: number | null; episodeNumber?: number | null; seriesPart?: BleachPart }[];
   }>("/api/watchlist", fetcher);
 
   const onWatchlist = (watchlistData?.items ?? []).some(
-    (x) => x.tmdbId === tmdbId && x.type === type,
+    (x) => x.tmdbId === tmdbId && x.type === type && (!seriesPart || (x.seriesPart ?? "original") === seriesPart),
   );
 
   const watchlistedEpisodes = useMemo(
@@ -588,16 +588,16 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
           ? {
               items: wasOnWatchlist
                 ? current.items.filter(
-                    (x) => !(x.tmdbId === tmdbId && x.type === type),
+                    (x) => !(x.tmdbId === tmdbId && x.type === type && (!seriesPart || (x.seriesPart ?? "original") === seriesPart)),
                   )
-                : [...current.items, { tmdbId, type }],
+                : [...current.items, { tmdbId, type, seriesPart }],
             }
           : current,
       { revalidate: false },
     );
     try {
       if (wasOnWatchlist) {
-        await fetch(`/api/watchlist/${type}/${tmdbId}`, { method: "DELETE" });
+        await fetch(`/api/watchlist/${type}/${tmdbId}${seriesPart ? `?seriesPart=${seriesPart}` : ""}`, { method: "DELETE" });
       } else {
         await fetch("/api/watchlist", {
           method: "POST",
@@ -606,6 +606,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
             tmdbId,
             type,
             title: detail?.title,
+            seriesPart,
             posterPath: detail?.posterPath,
             year: detail?.year,
             rating: detail?.rating,
@@ -616,7 +617,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
     } finally {
       setWatching(false);
     }
-  }, [onWatchlist, tmdbId, type, detail, mutateWatchlist]);
+  }, [onWatchlist, tmdbId, type, detail, mutateWatchlist, seriesPart]);
 
   const toggleEpisodeWatchlist = useCallback(async (seasonNumber: number, episodeNumber: number, title: string, stillPath?: string | null) => {
     const present = watchlistedEpisodes.has(`${seasonNumber}.${episodeNumber}`);
@@ -737,13 +738,13 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
     try {
       await fetch(
         `/api/library/series/${libraryMatch.id}/search-complete-series`,
-        { method: "POST" },
+        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seriesPart }) },
       );
       mutateLibrary();
     } finally {
       setSearchingComplete(false);
     }
-  }, [libraryMatch?.id, mutateLibrary]);
+  }, [libraryMatch?.id, mutateLibrary, seriesPart]);
 
   const resyncAnime = useCallback(async () => {
     if (!libraryMatch?.id) return;
@@ -752,7 +753,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
     try {
       const res = await fetch(
         `/api/library/series/${libraryMatch.id}/resync-anime`,
-        { method: "POST" },
+        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seriesPart }) },
       );
       const data = await res.json();
       if (res.ok) {
@@ -772,7 +773,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
     } finally {
       setResyncingAnime(false);
     }
-  }, [libraryMatch?.id, t]);
+  }, [libraryMatch?.id, t, seriesPart]);
 
   // "en attente de synchronisation Plex" (plexRatingKey/plexUrl not
   // populated yet) — admin-only manual trigger instead of waiting for the
@@ -870,16 +871,16 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
   );
 
   const remove = useCallback(async () => {
-    if (seriesPart) return;
     if (!libraryMatch?.id) return;
     setRemoving(true);
     try {
-      await fetch(`${libEndpoint}/${libraryMatch.id}`, { method: "DELETE" });
+      const response = await fetch(`${libEndpoint}/${libraryMatch.id}${seriesPart ? `?seriesPart=${seriesPart}` : ""}`, { method: "DELETE" });
+      if (!response.ok) { toast("error", t("common.error")); return; }
       router.push("/library");
     } finally {
       setRemoving(false);
     }
-  }, [libraryMatch?.id, libEndpoint, router, seriesPart]);
+  }, [libraryMatch?.id, libEndpoint, router, seriesPart, t]);
 
   const togglePartMonitoring = async () => {
     if (!libraryMatch?.id || !seriesPart) return;
@@ -1277,7 +1278,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
               >
                 <Pencil className="h-4 w-4" />
               </button>
-              {!seriesPart && user?.role === "admin" && (
+              {user?.role === "admin" && (
                 confirmRemove ? (
                   <div className="flex items-center gap-1 rounded-xl glass backdrop-blur p-1">
                     <button
@@ -1419,7 +1420,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
                 />
               </div>
             )}
-            {!seriesPart && <StarRating tmdbId={tmdbId} type={type} title={detail?.title ?? ""} className="mt-1" />}
+            <StarRating tmdbId={tmdbId} type={type} seriesPart={seriesPart} title={detail?.title ?? ""} className="mt-1" />
             {/* Action row */}
             <div className="nx-title-actions mt-1 flex flex-wrap items-center gap-2">
               {!inLibrary ? (
@@ -1613,7 +1614,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
                   )}
                 </button>
               )}
-              {!seriesPart && <button
+              <button
                 onClick={toggleWatchlist}
                 disabled={watching}
                 title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
@@ -1633,7 +1634,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
                     )}
                   />
                 )}
-              </button>}
+              </button>
               {detail.trailerKey && (
                 <button
                   onClick={() => setShowTrailer(true)}
@@ -1787,7 +1788,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
                 </h2>
                 {libraryMatch?.id && (
                   <div className="flex flex-wrap gap-2">
-                    {detail.isAnime && tmdbId !== BLEACH_TMDB_ID && user?.role === "admin" && (
+                    {detail.isAnime && user?.role === "admin" && (
                       <button
                         onClick={resyncAnime}
                         disabled={resyncingAnime}
@@ -1804,7 +1805,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
                         </span>
                       </button>
                     )}
-                    {!seriesPart && <button
+                    <button
                       onClick={searchCompleteSeries}
                       disabled={isSearchingCompleteSeries}
                       title={t("library.searchCompleteSeries")}
@@ -1818,7 +1819,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
                       <span className="hidden sm:inline">
                         {t("library.searchCompleteSeries")}
                       </span>
-                    </button>}
+                    </button>
                     <button
                       onClick={triggerSearch}
                       disabled={isSearching || partActionBlocked}
@@ -1986,6 +1987,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
           open={integralSearchOpen}
           onClose={() => setIntegralSearchOpen(false)}
           seriesId={libraryMatch.id}
+          seriesPart={seriesPart}
           title={detail.title}
           tmdbId={tmdbId}
           seasonCount={detail.seasons?.length}

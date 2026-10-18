@@ -4,6 +4,7 @@ import { clearRating, getAllRatings, getRating, setRating } from "@/lib/ai/taste
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
 import { pushRatingToPlex } from "@/lib/plex/watchWrite";
+import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,10 @@ export async function GET(req: NextRequest) {
   if (tmdbIdParam && (typeParam === "movie" || typeParam === "series")) {
     const tmdbId = Number(tmdbIdParam);
     if (!Number.isInteger(tmdbId) || tmdbId <= 0) return NextResponse.json({ error: "invalid_tmdbId" }, { status: 400 });
-    return NextResponse.json({ rating: getRating(user.id, tmdbId, typeParam) });
+    const partParam = url.searchParams.get("seriesPart");
+    const part = parseBleachSeriesPart(partParam);
+    if (partParam != null && (!part || typeParam !== "series" || tmdbId !== 30984)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
+    return NextResponse.json({ rating: getRating(user.id, tmdbId, typeParam, part ?? undefined) });
   }
 
   return NextResponse.json({ ratings: getAllRatings(user.id) });
@@ -37,7 +41,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const b = (body ?? {}) as { tmdbId?: unknown; type?: unknown; title?: unknown; rating?: unknown; at?: unknown };
+  const b = (body ?? {}) as { tmdbId?: unknown; type?: unknown; title?: unknown; rating?: unknown; at?: unknown; seriesPart?: unknown };
   const tmdbId = Number(b.tmdbId);
   const type = b.type;
   const title = typeof b.title === "string" ? b.title.trim().slice(0, 200) : "";
@@ -45,12 +49,14 @@ export async function PUT(req: NextRequest) {
 
   if (!Number.isInteger(tmdbId) || tmdbId <= 0) return NextResponse.json({ error: "invalid_tmdbId" }, { status: 400 });
   if (type !== "movie" && type !== "series") return NextResponse.json({ error: "invalid_type" }, { status: 400 });
+  const part = parseBleachSeriesPart(b.seriesPart);
+  if (b.seriesPart != null && (!part || type !== "series" || tmdbId !== 30984)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
   if (!title) return NextResponse.json({ error: "invalid_title" }, { status: 400 });
   if (!Number.isFinite(rating) || rating < 1 || rating > 5 || Math.round(rating * 2) !== rating * 2) return NextResponse.json({ error: "invalid_rating" }, { status: 400 });
 
   const at = b.at == null ? undefined : Number(b.at);
   if (at != null && (!Number.isFinite(at) || at <= 0)) return NextResponse.json({ error: "invalid_at" }, { status: 400 });
-  const updated = setRating(user.id, { tmdbId, type, title, rating, source: "explicit", confidence: 1, at });
+  const updated = setRating(user.id, { tmdbId, type, title, rating, source: "explicit", confidence: 1, at, ...(part ? { seriesPart: part } : {}) });
   invalidatePersonTraitCache(user.id);
   // Additive write-path, same fire-and-forget pattern used at every other
   // producer of real activity (watch/toggle, ai/watched, ai/feedback,
@@ -58,20 +64,22 @@ export async function PUT(req: NextRequest) {
   // consolidated context (profile panel) should pick up on its own,
   // without the user having to click "Régénérer le contexte" manually.
   triggerIncrementalContextIfDue(user.id).catch(() => {});
-  pushRatingToPlex(user, tmdbId, type, updated.rating, updated.updatedAt).catch(() => {});
+  pushRatingToPlex(user, tmdbId, type, updated.rating, updated.updatedAt, part ?? undefined).catch(() => {});
   return NextResponse.json({ rating: updated });
 }
 
 export async function DELETE(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const body = await req.json().catch(() => ({})) as { tmdbId?: unknown; type?: unknown; at?: unknown };
+  const body = await req.json().catch(() => ({})) as { tmdbId?: unknown; type?: unknown; at?: unknown; seriesPart?: unknown };
   const tmdbId = Number(body.tmdbId);
   if (!Number.isInteger(tmdbId) || tmdbId <= 0 || (body.type !== "movie" && body.type !== "series")) return NextResponse.json({ error: "invalid_media" }, { status: 400 });
+  const part = parseBleachSeriesPart(body.seriesPart);
+  if (body.seriesPart != null && (!part || body.type !== "series" || tmdbId !== 30984)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
   const at = body.at == null ? Date.now() : Number(body.at);
   if (!Number.isFinite(at) || at <= 0) return NextResponse.json({ error: "invalid_at" }, { status: 400 });
-  clearRating(user.id, tmdbId, body.type, at);
-  pushRatingToPlex(user, tmdbId, body.type, null, at).catch(() => {});
+  clearRating(user.id, tmdbId, body.type, at, "movviz", part ?? undefined);
+  pushRatingToPlex(user, tmdbId, body.type, null, at, part ?? undefined).catch(() => {});
   invalidatePersonTraitCache(user.id);
   return NextResponse.json({ cleared: true });
 }

@@ -120,7 +120,10 @@ export function ManualSearchModal({
         }
       } else {
         const data = await res.json().catch(() => ({}));
-        setGrabError(data.error === "season_mismatch" ? t("activity.linkError.season_mismatch") : t("activity.linkError.error"));
+        setGrabError(data.error === "season_mismatch" || data.error === "bleach_release_coverage_unverified" || data.error === "bleach_episode_unmapped" ? t("activity.linkError.season_mismatch")
+          : data.error === "bleach_engine_update_required" ? t("bleach.engineUpdateRequired")
+          : data.error === "bleach_plex_order_unverified" ? t("bleach.plexOrderRequired")
+          : data.error === "bleach_repair_required" ? t("bleach.repairHint") : t("activity.linkError.error"));
       }
     } finally {
       setGrabbing(null);

@@ -3,6 +3,8 @@ import type { Dictionary } from "../types";
 /** English dictionary — mirrors the French key structure. */
 export const en: Dictionary = {
   bleach: {
+    engineUpdateRequired: "Update the download engine to place Bleach and TYBW in their separate folders.",
+    plexOrderRequired: "The original show's episode order in Plex could not be verified. Check the Plex connection and episode ordering.",
     previewFailed: "The season check is unavailable. You can try again.",
     retry: "Check again",
     blockDownload: "A Bleach download is active. Wait until it finishes.",

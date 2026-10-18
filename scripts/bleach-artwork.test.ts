@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bleachPartArtwork, patchBleachArtwork } from "@/lib/metadata/bleachArtwork";
+import { bleachPartArtwork, patchBleachArtwork, BLEACH_LOGOS } from "@/lib/metadata/bleachArtwork";
 import { projectBleachLibrary } from "@/lib/metadata/bleachPresentation";
 
 test("legacy image choices stay on original Bleach and do not leak into TYBW", () => {
   const series = { customBackdropPath: "/original.jpg", customLogoPath: "/original.png" };
   assert.deepEqual(bleachPartArtwork(series, "original"), series);
-  assert.deepEqual(bleachPartArtwork(series, "tybw"), { customBackdropPath: undefined, customLogoPath: undefined });
+  assert.deepEqual(bleachPartArtwork(series, "tybw"), { customBackdropPath: undefined, customLogoPath: BLEACH_LOGOS.tybw });
 });
 
 test("saving either part's logo preserves both backdrops and the other logo", () => {

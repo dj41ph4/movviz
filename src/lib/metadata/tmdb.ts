@@ -22,6 +22,7 @@ import { LOCALES } from "@/i18n/config";
 import { matchesAnimeByIds, matchesTeenByIds } from "./genreTaxonomy";
 import { loadUserPrefs } from "@/lib/userPrefs/store";
 import { BLEACH_TMDB_ID, bleachToTmdb, bleachFromTmdb, bleachSeasonSummaries, type BleachEpisodeOrder } from "./bleachEpisodeOrder";
+import { bleachSeasonContent } from "./bleachSeasonContent";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -683,7 +684,8 @@ export async function getSeason(tmdbId: number, seasonNumber: number, preferLang
     : data.episodes ?? [];
   return {
     seasonNumber,
-    name: operationalBleach && seasonNumber > 0 ? (seasonNumber === 17 ? "Bleach: Thousand-Year Blood War" : `Bleach · ${seasonNumber}`) : data.name,
+    ...(operationalBleach ? bleachSeasonContent(seasonNumber) : {}),
+    name: operationalBleach && seasonNumber > 0 ? (seasonNumber === 17 ? "Bleach: Thousand-Year Blood War" : bleachSeasonContent(seasonNumber)?.name ?? `Bleach · ${seasonNumber}`) : data.name,
     episodeCount: episodes.length,
     airDate: episodes[0]?.air_date ?? data.air_date ?? null,
     posterPath: data.poster_path ?? null,

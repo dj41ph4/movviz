@@ -9,8 +9,8 @@ import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import { markManualGrab } from "@/lib/library/manualGrab";
 import { isBlockedRelease } from "@/lib/library/blockedReleases";
 import { parseRelease } from "@/lib/naming/parser";
-import { BLEACH_TMDB_ID, needsBleachRepair, bleachReleaseCoordinate } from "@/lib/metadata/bleachEpisodeOrder";
-import { bleachReleaseSource, isBleachSequelTitle } from "@/lib/library/bleachRelease";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachReleaseSource, bleachReleaseTargets, isBleachSequelTitle } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
 import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
 
@@ -95,9 +95,7 @@ export async function POST(req: NextRequest) {
   if (linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" && !bleachEpisodeInScope(decodedRef.season, decodedRef.episode, seriesPart, bleachPart)) return NextResponse.json({ error: "season_mismatch" }, { status: 422 });
   const bleachSource = linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" ? bleachReleaseSource(releaseTitle, decodedRef.season, decodedRef.episode) : null;
   if (linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" && isBleachSequelTitle(releaseTitle)) {
-    const parsed = parseRelease(releaseTitle);
-    const mapped = bleachReleaseCoordinate(releaseTitle, parsed.season, parsed.episode);
-    if (mapped?.seasonNumber !== decodedRef.season || mapped?.episodeNumber !== decodedRef.episode) return NextResponse.json({ error: "season_mismatch" }, { status: 422 });
+    if (!bleachReleaseTargets([{ season: decodedRef.season, episode: decodedRef.episode }], releaseTitle).length) return NextResponse.json({ error: "season_mismatch" }, { status: 422 });
   }
   if (decodedRef?.kind === "season" && releaseTitle) {
     const parsedSeason = parseRelease(releaseTitle).season;
@@ -153,10 +151,10 @@ export async function POST(req: NextRequest) {
       const targets: { season: number; episode: number }[] = [];
       for (const s of series.seasons) {
         if (decodedRef.kind === "season" && s.seasonNumber !== decodedRef.season) continue;
-        if (!s.monitored) continue;
+        if (!s.monitored && series.tmdbId !== BLEACH_TMDB_ID) continue;
         for (const ep of s.episodes) {
           if (series.tmdbId === BLEACH_TMDB_ID && !bleachEpisodeInScope(s.seasonNumber, ep.episodeNumber, seriesPart, bleachPart)) continue;
-          if (ep.monitored && (ep.status === "missing" || ep.status === "searching")) {
+          if (series.tmdbId === BLEACH_TMDB_ID || (ep.monitored && (ep.status === "missing" || ep.status === "searching"))) {
             targets.push({ season: s.seasonNumber, episode: ep.episodeNumber });
           }
         }
@@ -244,7 +242,11 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(data, { status: res.status });
-  } catch {
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "";
+    if (["bleach_engine_update_required", "bleach_plex_order_unverified", "bleach_release_coverage_unverified", "bleach_episode_unmapped", "bleach_repair_required"].includes(reason)) {
+      return NextResponse.json({ error: reason }, { status: 409 });
+    }
     return NextResponse.json({ error: "engine_unreachable" }, { status: 503 });
   }
 }

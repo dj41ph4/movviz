@@ -5,6 +5,8 @@
  * an episode by a coincident season/episode number from a different order.
  * Source: TMDb episode group 663fb548c10d4be3e80b2f6d (TVDB Order).
  */
+import { bleachSeasonContent } from "./bleachSeasonContent";
+
 export const BLEACH_TMDB_ID = 30984;
 export const BLEACH_TVDB_ID = 74796;
 export const BLEACH_ORIGINAL_COUNTS = [20, 21, 22, 28, 18, 22, 20, 16, 22, 16, 7, 17, 36, 51, 26, 24] as const;
@@ -65,7 +67,7 @@ export function bleachSeasonSummaries<T extends { seasonNumber: number; name: st
   return [
     ...seasons.filter((s) => s.seasonNumber === 0),
     ...(original ? BLEACH_ORIGINAL_COUNTS.map((episodeCount, index) => ({
-      ...original, seasonNumber: index + 1, name: `Bleach · ${index + 1}`, episodeCount,
+      ...original, ...bleachSeasonContent(index + 1), seasonNumber: index + 1, name: bleachSeasonContent(index + 1)?.name ?? `Bleach · ${index + 1}`, episodeCount,
       // The aggregate S1 air date is not the premiere of arcs 2–16.
       ...(index > 0 ? { airDate: null } : {}),
     })) : []),
@@ -80,6 +82,17 @@ export function detectBleachLibraryOrder(series: {
 }): BleachEpisodeOrder | "ambiguous" | null {
   if (series.tmdbId !== BLEACH_TMDB_ID) return null;
   if (series.episodeOrder) return series.episodeOrder;
+  // Older TVDB rebuilds wrote the full aired catalogue without the marker.
+  // Exact membership of all sixteen arcs proves this is already canonical;
+  // a stray S02/S11 or a partial import still proves nothing.
+  const original = series.seasons.filter(s => s.seasonNumber >= 1 && s.seasonNumber <= 16);
+  if (original.length === 16 && series.seasons.every(s => s.seasonNumber >= 0 && s.seasonNumber <= 17) &&
+      BLEACH_ORIGINAL_COUNTS.every((count, index) => {
+        const season = original.find(s => s.seasonNumber === index + 1);
+        const numbers = new Set(season?.episodes.map(e => e.episodeNumber));
+        return season?.episodes.length === count && numbers.size === count &&
+          Array.from({ length: count }, (_, i) => i + 1).every(n => numbers.has(n));
+      })) return "tvdb";
   if (series.seasons.every(s => s.seasonNumber <= 2) && series.seasons.some((s) => s.seasonNumber === 1 && s.episodes.some((e) => (e.episodeNumber ?? 0) > 20))) return "tmdb";
   return "ambiguous";
 }

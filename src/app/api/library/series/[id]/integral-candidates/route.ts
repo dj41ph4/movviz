@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { getSeries } from "@/lib/library/store";
 import { profileFor, searchCompleteSeriesCandidates } from "@/lib/library/autoGrabSeries";
+import { parseBleachSeriesPart, scopedBleachSeries } from "@/lib/library/bleachScope";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -20,7 +22,11 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const series = getSeries(id);
   if (!series) return NextResponse.json({ error: "series not found" }, { status: 404 });
 
-  const found = await searchCompleteSeriesCandidates(series, profileFor(series.qualityProfileId));
+  const partParam = req.nextUrl.searchParams.get("seriesPart");
+  const part = parseBleachSeriesPart(partParam);
+  if (partParam != null && (!part || series.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
+  const scoped = scopedBleachSeries(series, part);
+  const found = await searchCompleteSeriesCandidates(scoped, profileFor(scoped.qualityProfileId));
   const candidates = found?.candidates ?? [];
 
   return NextResponse.json({

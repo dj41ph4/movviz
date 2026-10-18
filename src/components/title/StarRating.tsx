@@ -15,17 +15,18 @@ interface StarRatingProps {
   type: "movie" | "series";
   title: string;
   className?: string;
+  seriesPart?: "original" | "tybw";
 }
 
 /** Widget 1-5 étoiles réutilisable — même source de vérité que le chatbot
  *  (setRating côté serveur), une note posée ici est toujours "explicite"
  *  et prime sur toute déduction conversationnelle. */
-export function StarRating({ tmdbId, type, title, className }: StarRatingProps) {
+export function StarRating({ tmdbId, type, title, className, seriesPart }: StarRatingProps) {
   const { t } = useI18n();
   const [hover, setHover] = useState(0);
   const [saving, setSaving] = useState(false);
   const { data, mutate } = useSWR<{ rating: TitleRating | null }>(
-    tmdbId ? `/api/ai/ratings?tmdbId=${tmdbId}&type=${type}` : null,
+    tmdbId ? `/api/ai/ratings?tmdbId=${tmdbId}&type=${type}${seriesPart ? `&seriesPart=${seriesPart}` : ""}` : null,
     fetcher
   );
   const current = data?.rating?.rating ?? 0;
@@ -37,7 +38,7 @@ export function StarRating({ tmdbId, type, title, className }: StarRatingProps) 
       const res = await fetch("/api/ai/ratings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmdbId, type, title, rating: value }),
+        body: JSON.stringify({ tmdbId, type, title, rating: value, seriesPart }),
       });
       if (!res.ok) throw new Error();
       const body = await res.json();

@@ -26,6 +26,8 @@ const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
 };
 
 interface SeasonInfo {
+  posterUrl?: string;
+  overview?: string;
   bleachPart?: number;
   episodeOffset?: number;
   episodeEnd?: number;
@@ -234,6 +236,7 @@ function SeasonRow({
       >
         <div className="flex min-w-0 items-center gap-3 sm:contents">
           <ChevronDown className={cn("h-5 w-5 shrink-0 text-ink-dim transition-transform", isExpanded && "rotate-180")} />
+          {season.posterUrl && <img src={season.posterUrl} alt={season.name} loading="lazy" className="h-20 w-14 shrink-0 rounded-lg object-cover" />}
           <span className="min-w-0 flex-1 font-bold text-ink sm:flex-initial">{season.name}</span>
           <span className={cn(
             "ml-auto shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[10px] font-bold sm:ml-auto sm:order-last",
@@ -293,6 +296,7 @@ function SeasonRow({
         }}
       >
         <div className="border-t border-white/5 px-4 pb-3 pt-2">
+          {season.overview && <p className="mb-3 max-w-3xl text-sm leading-relaxed text-ink-soft">{season.overview}</p>}
           {libSeason ? (
             <>
               {packCount != null && (

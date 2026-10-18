@@ -1,6 +1,7 @@
 export type WatchlistMediaType = "movie" | "series" | "episode";
 
 export interface WatchlistItem {
+  seriesPart?: "original" | "tybw";
   userId: string;
   type: WatchlistMediaType;
   tmdbId: number;

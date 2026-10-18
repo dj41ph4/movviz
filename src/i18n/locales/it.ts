@@ -3,6 +3,8 @@ import type { Dictionary } from "../types";
 /** Dizionario italiano — rispecchia la struttura delle chiavi francese/inglese. */
 export const it: Dictionary = {
   bleach: {
+    engineUpdateRequired: "Aggiorna il motore di download per salvare Bleach e TYBW in cartelle separate.",
+    plexOrderRequired: "Impossibile verificare l'ordine degli episodi della serie originale in Plex. Controlla la connessione e l'ordine degli episodi in Plex.",
     previewFailed: "La verifica delle stagioni non è disponibile. Puoi riprovare.",
     retry: "Verifica di nuovo",
     blockDownload: "Un download di Bleach è in corso. Attendi il completamento.",

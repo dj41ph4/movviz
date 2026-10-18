@@ -149,20 +149,20 @@ export default function ProfilePage() {
   const { data: profileMedia } = useSWR<ProfileMediaResponse>("/api/profile/media");
   const watchlistItems = watchlistData?.items ?? [];
   const removeFromWatchlist = async (item: WatchlistItem) => {
-    const suffix = item.type === "episode" ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : "";
+    const suffix = item.type === "episode" ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : item.seriesPart ? `?seriesPart=${item.seriesPart}` : "";
     await fetch(`/api/watchlist/${item.type}/${item.tmdbId}${suffix}`, { method: "DELETE" });
     mutateWatchlist();
   };
   const addWatchlistToLibrary = async (item: WatchlistItem) => {
     if (item.type === "episode") return;
-    const key = `${item.type}:${item.tmdbId}`;
+    const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}:${item.seriesPart ?? ""}`;
     setWatchlistBusy(key);
     try {
     const endpoint = item.type === "movie" ? "/api/library/movies" : "/api/library/series";
       await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tmdbId: item.tmdbId }),
+        body: JSON.stringify({ tmdbId: item.tmdbId, seriesPart: item.seriesPart }),
       });
     } finally {
       setWatchlistBusy(null);
@@ -400,9 +400,9 @@ export default function ProfilePage() {
         <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("watchlist.title")}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {watchlistItems.map((item) => {
-            const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}`;
+            const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}:${item.seriesPart ?? ""}`;
             const titleQuery = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null
-              ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : "";
+              ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : item.seriesPart ? `?part=${item.seriesPart}` : "";
             return (
               <article key={key} className="group w-full">
                 <Link href={`/title/${item.type === "episode" ? "series" : item.type}/${item.tmdbId}${titleQuery}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">

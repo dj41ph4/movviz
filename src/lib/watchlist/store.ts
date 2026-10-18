@@ -25,8 +25,8 @@ function writeJson(file: string, data: unknown) {
 export function loadWatchlist(userId: string): WatchlistItem[] {
   return readJson<WatchlistItem[]>(FILE, []).filter((i) => i.userId === userId).map(normalizeItem).filter((i) => i.present);
 }
-export function getWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number): WatchlistItem | null {
-  return readJson<WatchlistItem[]>(FILE, []).map(normalizeItem).find((item) => item.userId === userId && item.type === type && item.tmdbId === tmdbId && (type !== "episode" || (item.seasonNumber === seasonNumber && item.episodeNumber === episodeNumber))) ?? null;
+export function getWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number, seriesPart?: "original" | "tybw"): WatchlistItem | null {
+  return readJson<WatchlistItem[]>(FILE, []).map(normalizeItem).find((item) => item.userId === userId && watchlistKey(item) === watchlistKey({ type: type as WatchlistItem["type"], tmdbId, seasonNumber, episodeNumber, seriesPart })) ?? null;
 }
 function normalizeItem(item: WatchlistItem): WatchlistItem {
   const addedAt = Number.isFinite(item.addedAt) ? item.addedAt : Date.now();
@@ -39,14 +39,19 @@ function normalizeItem(item: WatchlistItem): WatchlistItem {
   };
 }
 
-export function watchlistKey(item: Pick<WatchlistItem, "type" | "tmdbId" | "seasonNumber" | "episodeNumber">): string {
+export function watchlistKey(item: Pick<WatchlistItem, "type" | "tmdbId" | "seasonNumber" | "episodeNumber" | "seriesPart">): string {
   return item.type === "episode"
     ? `episode:${item.tmdbId}:${item.seasonNumber ?? -1}:${item.episodeNumber ?? -1}`
-    : `${item.type}:${item.tmdbId}`;
+    : `${item.type}:${item.tmdbId}${item.tmdbId === 30984 && item.type === "series" && item.seriesPart === "tybw" ? ":tybw" : ""}`;
 }
 
-function sameItem(a: WatchlistItem, b: Pick<WatchlistItem, "type" | "tmdbId" | "seasonNumber" | "episodeNumber">): boolean {
+function sameItem(a: WatchlistItem, b: Pick<WatchlistItem, "type" | "tmdbId" | "seasonNumber" | "episodeNumber" | "seriesPart">): boolean {
   return watchlistKey(a) === watchlistKey(b);
+}
+
+function watchlistStateKey(userId: string, item: WatchlistItem): string {
+  const key = mediaStateKey(userId, item.type, item.tmdbId, item.seasonNumber, item.episodeNumber);
+  return item.tmdbId === 30984 && item.type === "series" && item.seriesPart === "tybw" ? `${key}:tybw` : key;
 }
 
 export function addWatchlistItem(item: Omit<WatchlistItem, "present" | "updatedAt" | "removedAt" | "source"> & Partial<Pick<WatchlistItem, "updatedAt" | "source">>) {
@@ -66,23 +71,23 @@ export function addWatchlistItem(item: Omit<WatchlistItem, "present" | "updatedA
   else normalized.push(next);
   writeJson(FILE, normalized);
   recordUserContextEvent({ userId: item.userId, eventType: "watchlist_added", source: next.source, sourceEventId: `watchlist:${watchlistKey(next)}:add:${mutationAt}`, tmdbId: next.tmdbId, mediaType: next.type === "episode" ? "episode" : next.type, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, title: next.title, occurredAt: mutationAt });
-  upsertUserMediaState({ stateKey: mediaStateKey(item.userId, next.type, next.tmdbId, next.seasonNumber, next.episodeNumber), userId: item.userId, tmdbId: next.tmdbId, mediaType: next.type, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, title: next.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: true, watchlistUpdatedAt: mutationAt, watchlistSource: next.source, watchlistAddedAt: mutationAt });
-  updateUserMediaSyncState({ userId: item.userId, stateKey: mediaStateKey(item.userId, next.type, next.tmdbId, next.seasonNumber, next.episodeNumber), field: "watchlist", target: "plex", capability: next.type === "episode" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
+  upsertUserMediaState({ stateKey: watchlistStateKey(item.userId, next), userId: item.userId, tmdbId: next.tmdbId, mediaType: next.type, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, title: next.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: true, watchlistUpdatedAt: mutationAt, watchlistSource: next.source, watchlistAddedAt: mutationAt });
+  updateUserMediaSyncState({ userId: item.userId, stateKey: watchlistStateKey(item.userId, next), field: "watchlist", target: "plex", capability: next.type === "episode" || next.seriesPart === "tybw" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
   emitWatchChanged(item.userId);
   return next;
 }
-export function removeWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number, mutationAt = Date.now()) {
+export function removeWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number, mutationAt = Date.now(), seriesPart?: "original" | "tybw") {
   const all = readJson<WatchlistItem[]>(FILE, []);
   const normalized = all.map(normalizeItem);
-  const idx = normalized.findIndex((i) => i.userId === userId && i.type === type && i.tmdbId === tmdbId && (type !== "episode" || (i.seasonNumber === seasonNumber && i.episodeNumber === episodeNumber)));
+  const idx = normalized.findIndex((i) => i.userId === userId && watchlistKey(i) === watchlistKey({ type: type as WatchlistItem["type"], tmdbId, seasonNumber, episodeNumber, seriesPart }));
   if (idx >= 0) {
     const current = normalized[idx];
     if (current.updatedAt > mutationAt) return;
     normalized[idx] = { ...current, present: false, removedAt: mutationAt, updatedAt: mutationAt, source: "movviz" };
     writeJson(FILE, normalized);
     recordUserContextEvent({ userId, eventType: "watchlist_removed", source: "movviz", sourceEventId: `watchlist:${watchlistKey(current)}:remove:${mutationAt}`, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, occurredAt: mutationAt });
-    upsertUserMediaState({ stateKey: mediaStateKey(userId, type as "movie" | "series" | "episode", tmdbId, seasonNumber, episodeNumber), userId, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: false, watchlistUpdatedAt: mutationAt, watchlistSource: "movviz", watchlistRemovedAt: mutationAt }, { force: true });
-    updateUserMediaSyncState({ userId, stateKey: mediaStateKey(userId, type as "movie" | "series" | "episode", tmdbId, seasonNumber, episodeNumber), field: "watchlist", target: "plex", capability: type === "episode" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
+    upsertUserMediaState({ stateKey: watchlistStateKey(userId, current), userId, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: false, watchlistUpdatedAt: mutationAt, watchlistSource: "movviz", watchlistRemovedAt: mutationAt }, { force: true });
+    updateUserMediaSyncState({ userId, stateKey: watchlistStateKey(userId, current), field: "watchlist", target: "plex", capability: type === "episode" || current.seriesPart === "tybw" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
     emitWatchChanged(userId);
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadWatchlist, addWatchlistItem } from "@/lib/watchlist/store";
 import { addPlexWatchlistItem } from "@/lib/plex/client";
+import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export async function POST(req: NextRequest) {
   const type = body.type === "series" || body.type === "episode" ? body.type : body.type === "movie" ? "movie" : null;
   const tmdbId = Number(body.tmdbId);
   if (!type || !Number.isInteger(tmdbId) || tmdbId <= 0) return NextResponse.json({ error: "invalid_media" }, { status: 400 });
+  const seriesPart = parseBleachSeriesPart(body.seriesPart);
+  if (body.seriesPart != null && (!seriesPart || type !== "series" || tmdbId !== 30984)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
   const seasonNumber = body.seasonNumber == null ? null : Number(body.seasonNumber);
   const episodeNumber = body.episodeNumber == null ? null : Number(body.episodeNumber);
   if (type === "episode" && (seasonNumber == null || episodeNumber == null || !Number.isInteger(seasonNumber) || seasonNumber < 0 || !Number.isInteger(episodeNumber) || episodeNumber <= 0)) {
@@ -28,6 +31,7 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     type,
     tmdbId,
+    ...(seriesPart ? { seriesPart } : {}),
     seasonNumber,
     episodeNumber,
     title: String(body.title ?? ""),

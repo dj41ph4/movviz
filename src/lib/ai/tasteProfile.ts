@@ -307,9 +307,9 @@ export function buildFeedbackContext(userId: string): string {
 
 const MAX_RATING_ENTRIES = 500;
 
-export function getRating(userId: string, tmdbId: number, type: "movie" | "series"): TitleRating | null {
+export function getRating(userId: string, tmdbId: number, type: "movie" | "series", seriesPart?: "original" | "tybw"): TitleRating | null {
   const ratings = profileForUser(read(), userId).ratings ?? [];
-  return ratings.find((r) => r.tmdbId === tmdbId && r.type === type && r.active !== false) ?? null;
+  return ratings.find((r) => r.tmdbId === tmdbId && r.type === type && (r.seriesPart ?? "original") === (seriesPart ?? "original") && r.active !== false) ?? null;
 }
 
 export function getAllRatings(userId: string): TitleRating[] {
@@ -331,14 +331,14 @@ export function getAllRatings(userId: string): TitleRating[] {
  */
 export function setRating(
   userId: string,
-  entry: { tmdbId: number; type: "movie" | "series"; title: string; rating: number; source: RatingSource; confidence: number; opinion?: string; at?: number; origin?: RatingOrigin }
+  entry: { tmdbId: number; type: "movie" | "series"; title: string; rating: number; source: RatingSource; confidence: number; opinion?: string; at?: number; origin?: RatingOrigin; seriesPart?: "original" | "tybw" }
 ): TitleRating {
   const clampedRating = Math.min(5, Math.max(1, Math.round(entry.rating * 2) / 2));
   const clampedConfidence = entry.source === "explicit" ? 1 : Math.min(1, Math.max(0, entry.confidence));
   const store = read();
   const profile = profileForUser(store, userId);
   const ratings = profile.ratings ?? [];
-  const idx = ratings.findIndex((r) => r.tmdbId === entry.tmdbId && r.type === entry.type);
+  const idx = ratings.findIndex((r) => r.tmdbId === entry.tmdbId && r.type === entry.type && (r.seriesPart ?? "original") === (entry.seriesPart ?? "original"));
   const existingBefore: number | null = idx === -1 ? null : ratings[idx].rating;
   const at = entry.at ?? Date.now();
   const origin = entry.origin ?? (entry.source === "inferred" ? "ai" : "movviz");
@@ -351,6 +351,7 @@ export function setRating(
   if (idx === -1) {
     updated = {
       tmdbId: entry.tmdbId,
+      ...(entry.seriesPart ? { seriesPart: entry.seriesPart } : {}),
       type: entry.type,
       title: entry.title,
       rating: clampedRating,
@@ -398,7 +399,7 @@ export function setRating(
       userId,
       eventType: idx === -1 ? "rating_set" : "rating_changed",
       source: "ai_ratings",
-      sourceEventId: `rating:${userId}:${entry.type}:${entry.tmdbId}:${entry.source}:${historyEntry.at}`,
+      sourceEventId: `rating:${userId}:${entry.type}:${entry.tmdbId}:${entry.seriesPart ?? "original"}:${entry.source}:${historyEntry.at}`,
       tmdbId: entry.tmdbId,
       mediaType: entry.type,
       title: entry.title,
@@ -410,16 +411,16 @@ export function setRating(
   return updated;
 }
 
-export function clearRating(userId: string, tmdbId: number, type: "movie" | "series", at = Date.now(), origin: RatingOrigin = "movviz"): void {
+export function clearRating(userId: string, tmdbId: number, type: "movie" | "series", at = Date.now(), origin: RatingOrigin = "movviz", seriesPart?: "original" | "tybw"): void {
   const store = read();
   const profile = profileForUser(store, userId);
   const ratings = profile.ratings ?? [];
-  const idx = ratings.findIndex((r) => r.tmdbId === tmdbId && r.type === type);
+  const idx = ratings.findIndex((r) => r.tmdbId === tmdbId && r.type === type && (r.seriesPart ?? "original") === (seriesPart ?? "original"));
   if (idx < 0) return;
   ratings[idx] = { ...ratings[idx], active: false, clearedAt: at, updatedAt: at, origin };
   store[userId] = { ...profile, ratings };
   write(store);
-  recordUserContextEvent({ userId, eventType: "rating_cleared", source: origin, sourceEventId: `rating-clear:${userId}:${type}:${tmdbId}:${at}`, tmdbId, mediaType: type, title: ratings[idx].title, occurredAt: at, textValue: origin });
+  recordUserContextEvent({ userId, eventType: "rating_cleared", source: origin, sourceEventId: `rating-clear:${userId}:${type}:${tmdbId}:${seriesPart ?? "original"}:${at}`, tmdbId, mediaType: type, title: ratings[idx].title, occurredAt: at, textValue: origin });
 }
 
 /** Compact context for the system prompt — same restraint as

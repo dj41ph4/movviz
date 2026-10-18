@@ -1,3 +1,11 @@
+## v1.26.041 — 18 octobre 2026
+
+### Bleach : téléchargements et fiches complètes
+
+- Les catalogues Bleach déjà répartis sur 16 saisons sont reconnus sans migration ni modification de l’historique. Les téléchargements manuels fonctionnent aussi pour une saison non suivie ou déjà disponible ; les packs TYBW conservent leur numérotation et leur dossier indépendant.
+- Les deux fiches disposent de la recherche d’intégrale, de la liste personnelle, de la notation, du rafraîchissement des métadonnées et de la suppression ciblée. Les profils de qualité, alias et choix personnels restent indépendants.
+- Les 16 saisons de Bleach reçoivent une jaquette et un résumé de leur arc. Bleach et Thousand-Year Blood War disposent de logos distincts, avec une version haute définition pour TYBW.
+
 ## v1.26.040 — 18 octobre 2026
 
 ### Bleach et TYBW sur tous les écrans

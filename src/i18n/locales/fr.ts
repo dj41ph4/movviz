@@ -1,6 +1,8 @@
 /** Dictionnaire français — langue principale et source de vérité des clés. */
 export const fr = {
   bleach: {
+    engineUpdateRequired: "Le moteur de téléchargement doit être mis à jour pour classer Bleach et TYBW dans leurs dossiers distincts.",
+    plexOrderRequired: "Le découpage de la série originale dans Plex n’a pas pu être vérifié. Vérifiez la connexion et l’ordre des épisodes dans Plex.",
     previewFailed: "La vérification des saisons est indisponible. Vous pouvez réessayer.",
     retry: "Vérifier à nouveau",
     blockDownload: "Un téléchargement Bleach est en cours. Attendez sa fin.",
