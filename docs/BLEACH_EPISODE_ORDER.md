@@ -1,9 +1,10 @@
 # Numérotation de Bleach
 
-Bleach conserve l'identité TMDb `30984` et TVDB `74796`. Deux fiches Movviz
-avec le même identifiant créeraient des conflits de suivi, de recherche et de
-synchronisation. La séparation est donc faite dans les saisons et dans les
-adaptateurs de numérotation.
+Bleach conserve l'identité TMDb `30984` et TVDB `74796` dans un seul catalogue
+persisté. L'interface propose deux fiches distinctes, via `?part=original` et
+`?part=tybw`, sans créer de faux identifiant TMDb ni dupliquer l'historique.
+Les recherches du catalogue utilisent `partViews=1` ; les anciens clients
+qui ne le demandent pas conservent la réponse canonique.
 
 | Référence | Série originale | Thousand-Year Blood War |
 | --- | --- | --- |
@@ -12,8 +13,17 @@ adaptateurs de numérotation.
 | Releases TYBW indépendantes | — | Peuvent recommencer à S1E1 ou numéroter les volets |
 
 Les métadonnées TMDb sont converties à la frontière de l'API. Par exemple,
-Movviz S2E1 demande TMDb S1E21 ; Movviz S17E1 demande TMDb S2E1. Le nombre
-d'épisodes de TYBW vient des métadonnées, pas d'un nombre final figé.
+Movviz S2E1 demande TMDb S1E21 ; Movviz S17E1 demande TMDb S2E1.
+TYBW est affiché et recherché en quatre parties de 13, 13, 14 et 10 épisodes
+officiellement référencés. Les anciennes entrées au-delà de 50 sont conservées
+en stockage, mais ne sont ni affichées comme épisodes confirmés ni acquises.
+Cette table doit être actualisée si la production annonce une autre couverture.
+
+Toutes les actions de la fiche sont limitées à sa partie. La deuxième saison
+affichée de TYBW utilise les coordonnées de suivi S17E14–26, tandis que ses
+releases indépendantes utilisent généralement S02E01–13. Une release Bleach
+S02 non qualifiée reste celle de la série originale. Les titres des parties
+et leurs noms japonais permettent également de reconnaître TYBW.
 
 ## Trois coordonnées distinctes lors d'un téléchargement
 
@@ -45,11 +55,12 @@ ordres est refusé avant tout déplacement.
 
 ## Réparation d'une entrée existante
 
-L'administrateur dispose d'un aperçu et d'une confirmation sur la fiche unique
-du titre. Le serveur contrôle une empreinte de l'état et écrit une sauvegarde
-avant de convertir les saisons. Il conserve l'identifiant de la série, les
-fichiers et leurs liens Plex. Il bloque les téléchargements en cours et les
-historiques dont l'identité ne peut pas être établie.
+Le serveur convertit automatiquement un ancien ordre TMDb dont l'identité est
+certaine, sous verrou et après sauvegarde. En cas d'ambiguïté, la fiche reste
+protégée ; l'administrateur dispose d'un aperçu et d'une confirmation soumis
+à l'empreinte de l'état. L'identifiant de la série, les fichiers et leurs liens
+Plex sont conservés. Les téléchargements en cours, lectures actives et
+historiques dont l'identité ne peut pas être établie bloquent la conversion.
 
 Cette opération convertit les métadonnées Movviz. Elle ne renomme pas les
 anciens fichiers et ne prouve pas leur contenu. Un nom S2E1, un GUID ou un titre
@@ -68,8 +79,9 @@ association fiable restent non résolus.
 - `node --test scripts/engine-*.test.mjs` : nom physique, pack de 13 épisodes,
   fichiers combinés, refus avant déplacement, callback après redémarrage et
   lecture des données de seed via leur chemin original.
-- L'aperçu et la confirmation doivent être vérifiés avec une copie isolée des
-  données. Aucun test ne doit télécharger une vraie release ou modifier Plex.
+- La migration, les fiches séparées, le suivi par partie et l'aperçu doivent
+  être vérifiés avec une copie isolée des données. Aucun test ne doit
+  télécharger une vraie release ou modifier Plex.
 
 Références : [ordre TMDb](https://www.themoviedb.org/tv/30984-bleach/episode_group/663fb548c10d4be3e80b2f6d),
 [TVDB](https://www.thetvdb.com/series/bleach),

@@ -1,6 +1,51 @@
 import { parseRelease } from "@/lib/naming/parser";
-import { bleachReleaseCoordinate, isBleachSequelTitle } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachReleaseCoordinate, isBleachSequelTitle, bleachNamedCour, bleachCourForEpisode, BLEACH_TYBW_COURS, knownBleachEpisode } from "@/lib/metadata/bleachEpisodeOrder";
 export { isBleachSequelTitle } from "@/lib/metadata/bleachEpisodeOrder";
+
+export function bleachReleaseTargets(targets: { season: number; episode: number }[], title: string) {
+  const parsed = parseRelease(title);
+  const sequel = isBleachSequelTitle(title);
+  const named = bleachNamedCour(title);
+  return targets.flatMap(library => {
+    if (!knownBleachEpisode(library.season, library.episode)) return [];
+    if (!sequel) {
+      // An unqualified Bleach S01/S02 always belongs to the original run.
+      if (library.season === 17 && parsed.season !== 17) return [];
+      if (parsed.season != null && parsed.season !== library.season && !/S0?1[ ._-]*(?:to|a|à|-)[ ._-]*S?1[67]/i.test(title)) return [];
+      if (parsed.episode != null && (library.episode < parsed.episode || library.episode > (parsed.episodeEnd ?? parsed.episode))) return [];
+      return [{ ...library, library: { ...library } }];
+    }
+    if (library.season !== 17) return [];
+    if (parsed.season === 17) {
+      if (parsed.episode != null && (library.episode < parsed.episode || library.episode > (parsed.episodeEnd ?? parsed.episode))) return [];
+      return [{ season: 17, episode: library.episode, library: { ...library } }];
+    }
+    const cour = BLEACH_TYBW_COURS.find(c => c.part === (named ?? parsed.season));
+    if (!cour || bleachCourForEpisode(library.episode)?.part !== cour.part) return [];
+    let sourceEpisode = library.episode - cour.offset;
+    if (parsed.episode != null) {
+      const first = bleachReleaseCoordinate(title, parsed.season, parsed.episode);
+      const last = bleachReleaseCoordinate(title, parsed.season, parsed.episodeEnd ?? parsed.episode);
+      if (!first || !last || library.episode < first.episodeNumber || library.episode > last.episodeNumber) return [];
+      sourceEpisode = parsed.episode + library.episode - first.episodeNumber;
+    }
+    return [{ season: parsed.season ?? 1, episode: sourceEpisode, library: { ...library } }];
+  });
+}
+
+/** Source queries never send a Bleach-wide TVDB ID for a standalone TYBW part. */
+export function bleachIndexerQueries(season: number, episode?: number | null, courPart?: number) {
+  if (season !== 17) return [{ title: "Bleach", season, episode: episode ?? null, tvdbId: 74796 }];
+  const cours = courPart != null ? BLEACH_TYBW_COURS.filter(c => c.part === courPart) : episode != null ? BLEACH_TYBW_COURS.filter(c => bleachCourForEpisode(episode)?.part === c.part) : BLEACH_TYBW_COURS;
+  return cours.map(c => ({ title: "Bleach Thousand-Year Blood War", season: c.part, episode: episode == null ? null : episode - c.offset, tvdbId: null }));
+}
+
+export function bleachReleaseYearCompatible(title: string, season: number): boolean {
+  const year = parseRelease(title).year;
+  if (!year) return true;
+  const n = Number(year);
+  return season === 17 ? n >= 2022 : n >= 2004 && n <= 2012;
+}
 
 /** Only rewrite matching input. Preserve the real release title for download. */
 export function bleachMatchingTitle(title: string, targetSeason: number, filterPack: boolean): string {

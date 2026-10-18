@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDetail } from "@/lib/metadata/tmdb";
+import { getDetail, getBleachSequelPresentation } from "@/lib/metadata/tmdb";
 import { requireUser } from "@/lib/auth/guard";
 import { loadDashboardLayout } from "@/lib/dashboard/store";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import { getSeriesByTmdbId } from "@/lib/library/store";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
+import { parseBleachPart, projectBleachDetail } from "@/lib/metadata/bleachPresentation";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +21,21 @@ export async function GET(req: NextRequest) {
   const lang = searchParams.get("lang") ?? undefined;
   const { youtubeTrailerSearch } = loadDashboardLayout(user.id);
   const library = type === "series" && tmdbId === BLEACH_TMDB_ID ? getSeriesByTmdbId(tmdbId) : null;
-  const detail = await getDetail(type, tmdbId, lang, {
+  if (library) await ensureBleachRepaired(library.id);
+  const currentLibrary = library ? getSeriesByTmdbId(tmdbId) : null;
+  let detail = await getDetail(type, tmdbId, lang, {
     youtubeTrailerSearch,
-    ...(library && needsBleachRepair(library) ? { bleachOrder: "tmdb" as const } : {}),
+    ...(currentLibrary && needsBleachRepair(currentLibrary) ? { bleachOrder: "tmdb" as const } : {}),
   });
   if (!detail) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const part = parseBleachPart(searchParams.get("seriesPart"));
+  if (type === "series" && tmdbId === BLEACH_TMDB_ID && part) {
+    detail = projectBleachDetail(detail, part);
+    if (part === "tybw") {
+      const sequel = await getBleachSequelPresentation(lang);
+      if (sequel) detail = { ...detail, ...sequel, posterPath: sequel.posterPath ?? detail.posterPath };
+    }
+  }
   // Every fiche open hits this route — hour-bucketed sourceEventId so
   // re-fetches (SWR revalidate, tab refocus) collapse into one row instead
   // of one per request. This is the one signal that previously had ZERO

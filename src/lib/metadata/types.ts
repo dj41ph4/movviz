@@ -45,6 +45,7 @@ export interface MetaSeason {
 }
 
 export interface MetaSeries {
+  seriesPart?: import("./bleachPresentation").BleachPart;
   tmdbId: number;
   imdbId: string | null;
   tvdbId: number | null;
@@ -63,6 +64,7 @@ export interface MetaSeries {
 }
 
 export interface MetaSearchResult {
+  seriesPart?: import("./bleachPresentation").BleachPart;
   tmdbId: number;
   type: "movie" | "series";
   title: string;
@@ -147,6 +149,7 @@ export interface MetaSeasonSummary {
 }
 
 export interface MetaDetail {
+  seriesPart?: import("./bleachPresentation").BleachPart;
   tmdbId: number;
   type: "movie" | "series";
   title: string;

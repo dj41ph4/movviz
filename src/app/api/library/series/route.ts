@@ -6,12 +6,17 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { loadTrash } from "@/lib/library/trashStore";
 import { reconcileSeriesPlayback } from "@/lib/plex/librarySync";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
+import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const bleach = loadSeries().find(s => s.tmdbId === BLEACH_TMDB_ID);
+  if (bleach) await ensureBleachRepaired(bleach.id);
   const cfg = loadPlexConfig();
   const urlFor = (ratingKey: string | null) => (ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null);
   // A title page only ever needs its own single match — fetching the whole
@@ -59,8 +64,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const tmdbId = Number(body.tmdbId);
   if (!tmdbId) return NextResponse.json({ error: "tmdbId required" }, { status: 400 });
+  const seriesPart = parseBleachSeriesPart(body.seriesPart);
+  if (body.seriesPart != null && (!seriesPart || tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
 
-  const result = await requestMedia(user, "series", tmdbId, body.qualityProfileId, body.seasonNumbers, { skipSearch: body.skipSearch === true, queueSearch: true });
+  const result = await requestMedia(user, "series", tmdbId, body.qualityProfileId, body.seasonNumbers, { skipSearch: body.skipSearch === true, queueSearch: true, seriesPart: seriesPart ?? undefined });
   if ("blocked" in result) return NextResponse.json(result, { status: 403 });
   if ("quotaReached" in result) return NextResponse.json(result, { status: 429 });
   if ("error" in result) return NextResponse.json(result, { status: 404 });

@@ -31,9 +31,10 @@ import { withKeyLock } from "@/lib/library/locks";
 import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBackoff";
-import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
-import { bleachMatchingTitle, bleachReleaseSource, isBleachSequelTitle } from "@/lib/library/bleachRelease";
+import { BLEACH_TMDB_ID, needsBleachRepair, knownBleachEpisode, bleachCourForEpisode, BLEACH_TYBW_COURS } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachMatchingTitle, bleachReleaseSource, isBleachSequelTitle, bleachReleaseTargets, bleachIndexerQueries, bleachReleaseYearCompatible } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
+import { scopedBleachSeries, bleachEpisodeInScope, type BleachSeriesPart } from "@/lib/library/bleachScope";
 
 /**
  * Anime tends to have more reliable episode numbering/titles on TVDB than
@@ -409,7 +410,30 @@ export async function addSeriesToLibrary(
   options?: { skipSearch?: boolean; onAdded?: (series: LibrarySeries) => void }
 ) {
   const existing = getSeriesByTmdbId(tmdbId);
-  if (existing) return { series: existing, searchResult: null };
+  if (existing) {
+    if (tmdbId !== BLEACH_TMDB_ID || !seasonNumbers?.length) return { series: existing, searchResult: null };
+    if (needsBleachRepair(existing)) return { error: "bleach_repair_required" as const };
+    return withKeyLock(`series:${existing.id}`, async () => {
+      const current = getSeries(existing.id) ?? existing;
+      const seasons = [...current.seasons];
+      for (const n of seasonNumbers) {
+        const found = seasons.find(s => s.seasonNumber === n);
+        if (found?.episodes.length) {
+          const index = seasons.indexOf(found);
+          seasons[index] = { ...found, monitored: true, episodes: found.episodes.map(e => knownBleachEpisode(n, e.episodeNumber) ? { ...e, monitored: true } : e) };
+          continue;
+        }
+        const detail = await fetchTmdbSeason(tmdbId, n);
+        if (!detail) continue;
+        const statuses = seasonEpisodeStatuses(detail.episodes);
+        const filled = { ...found, seasonNumber: n, name: detail.name, monitored: true, episodes: detail.episodes.filter(e => knownBleachEpisode(n, e.episodeNumber)).map(e => ({ seasonNumber: n, episodeNumber: e.episodeNumber, title: e.title, airDate: e.airDate, monitored: true, status: statuses.get(e.episodeNumber) ?? episodeStatus(e.airDate, e.title), file: null, activeInfoHash: null, plexRatingKey: null })) };
+        if (found) seasons[seasons.indexOf(found)] = filled; else seasons.push(filled);
+      }
+      const series = updateSeries(existing.id, { seasons: seasons.sort((a, b) => a.seasonNumber - b.seasonNumber), monitored: true })!;
+      options?.onAdded?.(series);
+      return { series, searchResult: null };
+    });
+  }
 
   const meta = await fetchTmdbSeries(tmdbId);
   if (!meta) return { error: "series not found on TMDb" as const };
@@ -559,7 +583,8 @@ async function grabRelease(
   seasonNumber: number,
   episodeNumber: number | undefined,
   profile: ReturnType<typeof profileFor>,
-  filterPack: boolean
+  filterPack: boolean,
+  bleachCoverage?: number[]
 ): Promise<GrabReleaseResult> {
   const t0 = performance.now();
   const releases = searchFromCache(TV_CATEGORY_IDS);
@@ -608,7 +633,8 @@ async function grabRelease(
     filterPack,
     partTotalEpisodes: singleSeasonTotalEpisodes,
   });
-  const step4 = matched.survivors.map(({ idx, parsed }) => ({ release: releases[idx], parsed }));
+  const coversTarget = (release: IndexerRelease) => series.tmdbId !== BLEACH_TMDB_ID || bleachReleaseTargets((bleachCoverage ?? (episodeNumber != null ? [episodeNumber] : series.seasons.find(s => s.seasonNumber === seasonNumber)?.episodes.map(e => e.episodeNumber) ?? [])).map(episode => ({ season: seasonNumber, episode })), release.title).length > 0;
+  const step4 = matched.survivors.map(({ idx, parsed }) => ({ release: releases[idx], parsed })).filter(({ release }) => coversTarget(release));
   // Two library entries can share the exact same title with nothing but the
   // year to tell them apart (e.g. "Doctor Who" 1963 vs 2005 — confirmed
   // live: the classic show's season/episode search matched and grabbed a
@@ -629,7 +655,7 @@ async function grabRelease(
   // the wrong show, confirmed to actually happen) for a narrower false
   // negative (a legitimate old-season release requiring a manual grab) —
   // revisit with a per-season tolerance if that ever surfaces for real.
-  const stepYear = step4.filter(({ parsed, release }) => (series.tmdbId === BLEACH_TMDB_ID && seasonNumber === 17 && isBleachSequelTitle(release.title)) || yearIsCompatible(parsed.year, series.year));
+  const stepYear = step4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : yearIsCompatible(parsed.year, series.year));
   // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
   const stepBlocked = stepYear.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const step5 = stepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
@@ -677,14 +703,9 @@ async function grabRelease(
   // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
   const directReleases: IndexerRelease[] = [];
   for (const ix of indexers) {
-    const results = await searchTv(ix, { title: searchTitle, season: seasonNumber, episode: filterPack ? null : episodeNumber, tvdbId: series.tvdbId ?? null }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
-    directReleases.push(...results);
-    if (series.tmdbId === BLEACH_TMDB_ID && seasonNumber === 17 && !filterPack && episodeNumber != null) {
-      const part = episodeNumber <= 13 ? 1 : episodeNumber <= 26 ? 2 : episodeNumber <= 40 ? 3 : 4;
-      const offset = [0, 13, 26, 40][part - 1];
-      const standalone = await searchTv(ix, { title: "Bleach Thousand-Year Blood War", season: part, episode: episodeNumber - offset, tvdbId: null }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
-      directReleases.push(...standalone);
-    }
+    const cour = seasonNumber === 17 && bleachCoverage?.length ? bleachCourForEpisode(bleachCoverage[0])?.part : undefined;
+    const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, filterPack ? null : episodeNumber, cour) : [{ title: searchTitle, season: seasonNumber, episode: filterPack ? null : episodeNumber, tvdbId: series.tvdbId ?? null }];
+    for (const query of queries) directReleases.push(...await searchTv(ix, query, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
   }
   const directMs = Math.round(performance.now() - tDirect);
   const newlyLimited = countNewlyRateLimited(indexers);
@@ -699,8 +720,8 @@ async function grabRelease(
     filterPack,
     partTotalEpisodes: singleSeasonTotalEpisodes,
   });
-  const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed }));
-  const dStepYear = dStep4.filter(({ parsed, release }) => (series.tmdbId === BLEACH_TMDB_ID && seasonNumber === 17 && isBleachSequelTitle(release.title)) || yearIsCompatible(parsed.year, series.year));
+  const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed })).filter(({ release }) => coversTarget(release));
+  const dStepYear = dStep4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : yearIsCompatible(parsed.year, series.year));
   const dStepBlocked = dStepYear.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const dStep5 = dStepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
@@ -848,6 +869,7 @@ export async function searchAndGrabEpisode(
   const series = getSeries(seriesId);
   if (!series) return { error: "series not found" as const };
   if (needsBleachRepair(series)) return { error: "bleach_repair_required" as const };
+  if (series.tmdbId === BLEACH_TMDB_ID && !knownBleachEpisode(seasonNumber, episodeNumber)) return { error: "bleach_episode_unmapped" as const };
   const profile = profileFor(series.qualityProfileId);
   const media = createMediaRef("series", seriesId, series.tmdbId, series.title, seasonNumber, episodeNumber, undefined, undefined, series.posterPath);
 
@@ -855,7 +877,7 @@ export async function searchAndGrabEpisode(
   // "searching" — otherwise it drops out of its own "missing" filter below.
   const season = series.seasons.find((s) => s.seasonNumber === seasonNumber);
   const missingInSeason = new Set(
-    (season?.episodes ?? []).filter((e) => e.monitored && e.status === "missing").map((e) => e.episodeNumber)
+    (season?.episodes ?? []).filter((e) => e.monitored && e.status === "missing" && (series.tmdbId !== BLEACH_TMDB_ID || bleachEpisodeInScope(seasonNumber, e.episodeNumber, undefined, seasonNumber === 17 ? bleachCourForEpisode(episodeNumber)?.part : undefined))).map((e) => e.episodeNumber)
   );
   missingInSeason.add(episodeNumber);
   const missingEpisodeNumbers = [...missingInSeason];
@@ -898,7 +920,7 @@ async function searchAndGrabEpisodeCascade(
   // série dans ce même run → on ne cherche que l'épisode seul.
   if (!options?.skipPackRetry) {
     // Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
-    const seriesPack = await tryGrabSeriesPack(series, profile);
+    const seriesPack = series.tmdbId === BLEACH_TMDB_ID ? null : await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
       void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
@@ -1038,7 +1060,7 @@ async function tryGrabSeasonPackImpl(
   profile: ReturnType<typeof profileFor>,
   missingEpisodeNumbers: number[]
 ) {
-  const packResult = await grabRelease(series, seasonNumber, undefined, profile, true);
+  const packResult = await grabRelease(series, seasonNumber, undefined, profile, true, missingEpisodeNumbers);
   if (!packResult.ok) return null;
   // A season-split release (single-season series, DVD ordering — e.g. a
   // "S02" pack of Disjointed covering S1E11-20) carries files named after
@@ -1130,7 +1152,7 @@ function tryGrabSeasonPack(
   profile: ReturnType<typeof profileFor>,
   missingEpisodeNumbers: number[]
 ) {
-  const key = `${series.id}-${seasonNumber}`;
+  const key = `${series.id}-${seasonNumber}${series.tmdbId === BLEACH_TMDB_ID ? `-${missingEpisodeNumbers.join(",")}` : ""}`;
   const existing = seasonPackInFlight().get(key);
   if (existing) return existing;
   const p = tryGrabSeasonPackImpl(series, seasonNumber, profile, missingEpisodeNumbers).finally(() => {
@@ -1148,10 +1170,23 @@ function tryGrabSeasonPack(
  * later seasons don't repeat that identical, series-wide (not season-specific)
  * search.
  */
-export async function searchAndGrabSeason(
+type SeasonSearchOptions = { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean; bleachPart?: number };
+export async function searchAndGrabSeason(seriesId: string, seasonNumber: number, options?: SeasonSearchOptions) {
+  const series = getSeries(seriesId);
+  if (series?.tmdbId === BLEACH_TMDB_ID && seasonNumber === 17 && options?.bleachPart == null) {
+    const results = [];
+    for (const cour of BLEACH_TYBW_COURS) {
+      if (options?.shouldCancel?.()) break;
+      results.push(await searchAndGrabSeasonOne(seriesId, seasonNumber, { ...options, bleachPart: cour.part, skipSeriesPackRetry: true }));
+    }
+    return { ok: true as const, mode: "bleach_parts" as const, results };
+  }
+  return searchAndGrabSeasonOne(seriesId, seasonNumber, options);
+}
+async function searchAndGrabSeasonOne(
   seriesId: string,
   seasonNumber: number,
-  options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean }
+  options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean; bleachPart?: number }
 ) {
   const series = getSeries(seriesId);
   if (!series) return { error: "series not found" as const };
@@ -1160,7 +1195,7 @@ export async function searchAndGrabSeason(
   if (!season) return { error: "season not found" as const };
   const profile = profileFor(series.qualityProfileId);
 
-  const missing = season.episodes.filter((e) => e.monitored && e.status === "missing");
+  const missing = season.episodes.filter((e) => e.monitored && e.status === "missing" && (series.tmdbId !== BLEACH_TMDB_ID || bleachEpisodeInScope(seasonNumber, e.episodeNumber, undefined, options?.bleachPart)));
   if (missing.length === 0) return { ok: true as const, skipped: "nothing missing" };
 
   setEpisodesStatus(series, seasonNumber, missing.map((e) => e.episodeNumber), { status: "searching" });
@@ -1192,7 +1227,7 @@ async function searchAndGrabSeasonCascade(
   seasonNumber: number,
   profile: ReturnType<typeof profileFor>,
   missing: LibraryEpisode[],
-  options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean }
+  options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean; bleachPart?: number }
 ) {
   // RÈGLE ABSOLUE — intégrale d'abord : si elle existe, elle couvre toute la
   // série d'un coup. Skipped when a prior season in this same searchAndGrabSeries
@@ -1202,7 +1237,7 @@ async function searchAndGrabSeasonCascade(
   // identical, empty direct searches for one 8-season show) is pure wasted
   // indexer load.
   if (!options?.skipSeriesPackRetry) {
-    const seriesPack = await tryGrabSeriesPack(series, profile);
+    const seriesPack = series.tmdbId === BLEACH_TMDB_ID ? null : await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
       void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
@@ -1307,7 +1342,7 @@ function collectMissingTargets(series: LibrarySeries): { season: number; episode
   for (const season of series.seasons) {
     if (!season.monitored) continue;
     for (const ep of season.episodes) {
-      if (ep.monitored && (ep.status === "missing" || ep.status === "searching")) targets.push({ season: season.seasonNumber, episode: ep.episodeNumber });
+      if (ep.monitored && (ep.status === "missing" || ep.status === "searching") && (series.tmdbId !== BLEACH_TMDB_ID || knownBleachEpisode(season.seasonNumber, ep.episodeNumber))) targets.push({ season: season.seasonNumber, episode: ep.episodeNumber });
     }
   }
   return targets;
@@ -1704,11 +1739,12 @@ export async function searchAndGrabCompleteSeries(seriesId: string) {
  */
 export async function searchAndGrabSeries(
   seriesId: string,
-  options?: { onSeasonDone?: () => void; shouldCancel?: () => boolean }
+  options?: { onSeasonDone?: () => void; shouldCancel?: () => boolean; seriesPart?: BleachSeriesPart }
 ) {
   return withSearchLock(`series:${seriesId}`, async () => {
-    const series = getSeries(seriesId);
-    if (!series) return { error: "series not found" as const };
+    const stored = getSeries(seriesId);
+    if (!stored) return { error: "series not found" as const };
+    const series = stored.tmdbId === BLEACH_TMDB_ID ? scopedBleachSeries(stored, options?.seriesPart) : stored;
     if (needsBleachRepair(series)) return { error: "bleach_repair_required" as const };
     const profile = profileFor(series.qualityProfileId);
 
@@ -1717,7 +1753,7 @@ export async function searchAndGrabSeries(
     if (missingCount === 0) return { ok: true as const, results: [] };
 
     // Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
-    const seriesPack = await tryGrabSeriesPack(series, profile);
+    const seriesPack = series.tmdbId === BLEACH_TMDB_ID && series.seasons.some(s => s.seasonNumber === 17) ? null : await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
       void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});

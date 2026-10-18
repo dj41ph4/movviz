@@ -13,6 +13,7 @@ import { MediaBadges } from "@/components/library/MediaBadges";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { isVisibleSeason } from "@/lib/settings/seasonVisibility";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_COURS, type BleachPart } from "@/lib/metadata/bleachPresentation";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -25,6 +26,9 @@ const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
 };
 
 interface SeasonInfo {
+  bleachPart?: number;
+  episodeOffset?: number;
+  episodeEnd?: number;
   seasonNumber: number;
   name: string;
   episodeCount: number;
@@ -88,6 +92,8 @@ function seasonStatus(librarySeason: LibrarySeasonInfo | undefined): LibraryStat
 
 function SeasonRow({
   season,
+  readOnly = false,
+  searchingBleachPart,
   libSeason,
   seriesId,
   tmdbId,
@@ -107,14 +113,16 @@ function SeasonRow({
   onToggleWatchlistEpisode,
 }: {
   season: SeasonInfo;
+  readOnly?: boolean;
+  searchingBleachPart?: number | null;
   libSeason: LibrarySeasonInfo | undefined;
   seriesId?: string;
   tmdbId?: number;
   seriesTitle?: string;
   isExpanded: boolean;
   onToggle: () => void;
-  onSearchSeason?: (n: number) => void;
-  onManualSearchSeason?: (n: number) => void;
+  onSearchSeason?: (n: number, bleachPart?: number) => void;
+  onManualSearchSeason?: (n: number, bleachPart?: number) => void;
   onSearchEpisode?: (s: number, e: number) => void;
   onManualSearchEpisode?: (s: number, e: number) => void;
   onPlayEpisode?: (
@@ -153,7 +161,8 @@ function SeasonRow({
   const tmdbKey = isExpanded && tmdbId
     ? `/api/metadata/season?tmdbId=${tmdbId}&season=${season.seasonNumber}&locale=${locale}`
     : null;
-  const { data: tmdbSeason, isLoading: tmdbLoading } = useSWR<TmdbSeasonData>(tmdbKey, fetcher);
+  const { data: tmdbSeasonRaw, isLoading: tmdbLoading } = useSWR<TmdbSeasonData>(tmdbKey, fetcher);
+  const tmdbSeason = useMemo(() => tmdbSeasonRaw ? { ...tmdbSeasonRaw, episodes: (tmdbSeasonRaw.episodes ?? []).filter(e => !season.bleachPart || (e.episodeNumber > (season.episodeOffset ?? 0) && e.episodeNumber <= (season.episodeEnd ?? 50))) } : undefined, [tmdbSeasonRaw, season.bleachPart, season.episodeOffset, season.episodeEnd]);
   const tmdbByEpisode = useMemo(() => {
     const m = new Map<number, TmdbEpisode>();
     for (const e of tmdbSeason?.episodes ?? []) m.set(e.episodeNumber, e);
@@ -223,9 +232,9 @@ function SeasonRow({
         }}
         className="flex w-full cursor-pointer outline-none flex-col gap-2 p-4 transition-colors hover:bg-white/5 sm:flex-row sm:items-center sm:gap-3"
       >
-        <div className="flex items-center gap-3 sm:contents">
+        <div className="flex min-w-0 items-center gap-3 sm:contents">
           <ChevronDown className={cn("h-5 w-5 shrink-0 text-ink-dim transition-transform", isExpanded && "rotate-180")} />
-          <span className="shrink-0 whitespace-nowrap font-bold text-ink">{season.name}</span>
+          <span className="min-w-0 flex-1 font-bold text-ink sm:flex-initial">{season.name}</span>
           <span className={cn(
             "ml-auto shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[10px] font-bold sm:ml-auto sm:order-last",
             STATUS_TONE[status]
@@ -241,9 +250,9 @@ function SeasonRow({
           {libSeason && monitored.length > 0 && (
             <span className="shrink-0 whitespace-nowrap text-xs text-ink-dim">{available}/{monitored.length}</span>
           )}
-          {knownEpisodes.length > 0 && (
+          {!readOnly && knownEpisodes.length > 0 && (
             <button
-              onClick={(e) => { e.stopPropagation(); toggleWatched(knownEpisodes, !seasonAllWatched, `s${season.seasonNumber}`, { type: "season", season: season.seasonNumber }); }}
+              onClick={(e) => { e.stopPropagation(); toggleWatched(knownEpisodes, !seasonAllWatched, `s${season.seasonNumber}`, season.bleachPart ? undefined : { type: "season", season: season.seasonNumber }); }}
               title={seasonAllWatched ? t("watch.markUnwatched") : t("watch.markWatched")}
               className={cn(
                 "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong transition-colors",
@@ -253,19 +262,19 @@ function SeasonRow({
               {togglingWatched === `s${season.seasonNumber}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", seasonAllWatched && "fill-ok/30")} />}
             </button>
           )}
-          {onSearchSeason && (
+          {!readOnly && onSearchSeason && (
             <button
-              onClick={(e) => { e.stopPropagation(); onSearchSeason(season.seasonNumber); }}
-              disabled={searchingSeason === season.seasonNumber}
+              onClick={(e) => { e.stopPropagation(); onSearchSeason(season.seasonNumber, season.bleachPart); }}
+              disabled={(searchingSeason === season.seasonNumber && (!season.bleachPart || searchingBleachPart == null || searchingBleachPart === season.bleachPart))}
               title={t("library.autoSearch")}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-cyan disabled:opacity-40"
             >
-              {searchingSeason === season.seasonNumber ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+              {(searchingSeason === season.seasonNumber && (!season.bleachPart || searchingBleachPart == null || searchingBleachPart === season.bleachPart)) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
             </button>
           )}
-          {onManualSearchSeason && (
+          {!readOnly && onManualSearchSeason && (
             <button
-              onClick={(e) => { e.stopPropagation(); onManualSearchSeason(season.seasonNumber); }}
+              onClick={(e) => { e.stopPropagation(); onManualSearchSeason(season.seasonNumber, season.bleachPart); }}
               title={t("library.manualSearch")}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-ink-soft hover:text-ink"
             >
@@ -304,7 +313,7 @@ function SeasonRow({
                     const tmdbEp = tmdbByEpisode.get(epNumber);
                     const rowContent = (
                       <>
-                        <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{epNumber}</span>
+                        <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{epNumber - (season.episodeOffset ?? 0)}</span>
                         {tmdbEp?.stillPath ? (
                           <TmdbImage
                             path={tmdbEp.stillPath}
@@ -320,8 +329,8 @@ function SeasonRow({
                         )}
                         <div className="min-w-0 flex-1 py-0.5">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{ep.title ?? `${t("title.episode")} ${epNumber}`}</span>
-                            <button
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{ep.title ?? `${t("title.episode")} ${epNumber - (season.episodeOffset ?? 0)}`}</span>
+                            {!readOnly && <button
                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWatched([{ season: season.seasonNumber, episode: epNumber }], !watched, epKey); }}
                               title={watched ? t("watch.markUnwatched") : t("watch.markWatched")}
                               className={cn(
@@ -330,10 +339,10 @@ function SeasonRow({
                               )}
                             >
                               {togglingWatched === epKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", watched && "fill-ok/30")} />}
-                            </button>
-                            {onToggleWatchlistEpisode && (
+                            </button>}
+                            {!readOnly && onToggleWatchlistEpisode && (
                               <button
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleWatchlistEpisode(season.seasonNumber, epNumber, ep.title ?? tmdbEp?.title ?? `${t("title.episode")} ${epNumber}`, tmdbEp?.stillPath); }}
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleWatchlistEpisode(season.seasonNumber, epNumber, ep.title ?? tmdbEp?.title ?? `${t("title.episode")} ${epNumber - (season.episodeOffset ?? 0)}`, tmdbEp?.stillPath); }}
                                 title={watchlisted ? t("watchlist.added") : t("watchlist.add")}
                                 className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors", watchlisted ? "bg-brand/15 text-brand-glow" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
                               >
@@ -362,7 +371,7 @@ function SeasonRow({
                     // A valid local file is sufficient. Plex enriches the
                     // episode but must never block a finished download.
                     const playableHere = ep.status === "available" && !!(ep.file || ep.plexRatingKey) && !!onPlayEpisode;
-                    const episodeDetailHref = seriesId && ep.episodeNumber != null
+                    const episodeDetailHref = !readOnly && seriesId && ep.episodeNumber != null
                       ? `/library/series/${seriesId}/season/${season.seasonNumber}/episode/${ep.episodeNumber}`
                       : null;
                     const interactiveRow = playableHere ? (
@@ -389,10 +398,10 @@ function SeasonRow({
                       <div className="flex min-w-0 flex-1 items-start gap-3">{rowContent}</div>
                     );
                     return (
-                      <div key={idx} className="flex items-start gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
+                      <div key={idx} className="flex flex-col items-stretch gap-3 rounded-lg px-3 py-2 hover:bg-white/5 sm:flex-row sm:items-start">
                         {interactiveRow}
                         {ep.status !== "downloading" && ep.status !== "searching" && ep.episodeNumber != null && (
-                          <div className="flex shrink-0 items-center gap-2 self-center">
+                          <div className="flex shrink-0 flex-wrap items-center gap-2 self-end sm:self-center">
                             {playableHere && episodeDetailHref && (
                               <Link
                                 href={episodeDetailHref}
@@ -403,7 +412,7 @@ function SeasonRow({
                                 <Info className="h-3.5 w-3.5" />
                               </Link>
                             )}
-                            {onSearchEpisode && (
+                            {!readOnly && onSearchEpisode && (
                               <button
                                 onClick={() => onSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
                                 disabled={searchingEpisodeKey === epKey}
@@ -413,7 +422,7 @@ function SeasonRow({
                                 {searchingEpisodeKey === epKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
                               </button>
                             )}
-                            {onManualSearchEpisode && (
+                            {!readOnly && onManualSearchEpisode && (
                               <button
                                 onClick={() => onManualSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
                                 title={t("library.manualSearch")}
@@ -443,7 +452,7 @@ function SeasonRow({
             <div className="space-y-1.5">
               {tmdbSeason.episodes.map((ep) => (
                 <div key={ep.episodeNumber} className="flex items-start gap-3 rounded-lg p-2 hover:bg-white/5">
-                  <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{ep.episodeNumber}</span>
+                  <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{ep.episodeNumber - (season.episodeOffset ?? 0)}</span>
                   {ep.stillPath ? (
                     <TmdbImage
                       path={ep.stillPath}
@@ -460,7 +469,7 @@ function SeasonRow({
                   )}
                   <div className="min-w-0 flex-1 py-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{ep.title || `${t("title.episode")} ${ep.episodeNumber}`}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{ep.title || `${t("title.episode")} ${ep.episodeNumber - (season.episodeOffset ?? 0)}`}</span>
                       {ep.airDate && (
                         <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-dim">
                           <Calendar className="h-2.5 w-2.5" /> {formatDate(ep.airDate, locale)}
@@ -475,7 +484,7 @@ function SeasonRow({
                     const tmdbEpWatchlisted = watchlistedEpisodes?.has(tmdbEpKey) ?? false;
                     return (
                       <>
-                        <button
+                        {!readOnly && <button
                           onClick={() => toggleWatched([{ season: season.seasonNumber, episode: ep.episodeNumber }], !tmdbEpWatched, tmdbEpKey)}
                           title={tmdbEpWatched ? t("watch.markUnwatched") : t("watch.markWatched")}
                           className={cn(
@@ -484,8 +493,8 @@ function SeasonRow({
                           )}
                         >
                           {togglingWatched === tmdbEpKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", tmdbEpWatched && "fill-ok/30")} />}
-                        </button>
-                        {onToggleWatchlistEpisode && (
+                        </button>}
+                        {!readOnly && onToggleWatchlistEpisode && (
                           <button
                             onClick={() => onToggleWatchlistEpisode(season.seasonNumber, ep.episodeNumber, ep.title, ep.stillPath)}
                             title={tmdbEpWatchlisted ? t("watchlist.added") : t("watchlist.add")}
@@ -512,6 +521,9 @@ function SeasonRow({
 export function SeasonAccordion({
   seriesId,
   tmdbId,
+  seriesPart,
+  readOnly,
+  searchingBleachPart,
   seasons,
   librarySeasons,
   seriesTitle,
@@ -529,12 +541,15 @@ export function SeasonAccordion({
 }: {
   seriesId?: string;
   tmdbId?: number;
+  seriesPart?: BleachPart;
+  readOnly?: boolean;
+  searchingBleachPart?: number | null;
   seasons: SeasonInfo[];
   librarySeasons?: LibrarySeasonInfo[];
   seriesTitle?: string;
   onWatchedChanged?: () => void;
-  onSearchSeason?: (seasonNumber: number) => void;
-  onManualSearchSeason?: (seasonNumber: number) => void;
+  onSearchSeason?: (seasonNumber: number, bleachPart?: number) => void;
+  onManualSearchSeason?: (seasonNumber: number, bleachPart?: number) => void;
   onSearchEpisode?: (seasonNumber: number, episodeNumber: number) => void;
   onManualSearchEpisode?: (seasonNumber: number, episodeNumber: number) => void;
   onPlayEpisode?: (
@@ -587,23 +602,27 @@ export function SeasonAccordion({
   }, [seasons, librarySeasons, t, includeSpecials]);
 
   const bleachAiredOrder = tmdbId === BLEACH_TMDB_ID && effectiveSeasons.some((s) => s.seasonNumber > 2);
-  const sorted = [...effectiveSeasons].sort((a, b) => bleachAiredOrder ? a.seasonNumber - b.seasonNumber : b.seasonNumber - a.seasonNumber);
+  const sorted = seriesPart === "tybw" ? BLEACH_COURS.map(c => ({ seasonNumber: 17, name: `${t("title.season")} ${c.part} · ${c.title}`, episodeCount: c.count, bleachPart: c.part, episodeOffset: c.offset, episodeEnd: c.offset + c.count } as SeasonInfo)) : [...effectiveSeasons].sort((a, b) => bleachAiredOrder ? a.seasonNumber - b.seasonNumber : b.seasonNumber - a.seasonNumber);
 
   return (
     <div className="space-y-2">
       {sorted.map((season) => {
-        const libSeason = librarySeasons?.find((s) => s.seasonNumber === season.seasonNumber);
+        const rawLibrarySeason = librarySeasons?.find((s) => s.seasonNumber === season.seasonNumber);
+        const libSeason = rawLibrarySeason && season.bleachPart ? { ...rawLibrarySeason, episodes: rawLibrarySeason.episodes.filter(e => (e.episodeNumber ?? 0) > (season.episodeOffset ?? 0) && (e.episodeNumber ?? 0) <= (season.episodeEnd ?? 50)) } : rawLibrarySeason;
+        const rowKey = season.bleachPart ? 100 + season.bleachPart : season.seasonNumber;
         return (
-          <div key={season.seasonNumber}>
-            {bleachAiredOrder && (season.seasonNumber === 1 || season.seasonNumber === 17) && <h3 className="mb-3 mt-5 text-base font-semibold text-ink">{t(season.seasonNumber === 17 ? "bleach.sequel" : "bleach.original")}</h3>}
+          <div key={rowKey}>
+            {!seriesPart && bleachAiredOrder && (season.seasonNumber === 1 || season.seasonNumber === 17) && <h3 className="mb-3 mt-5 text-base font-semibold text-ink">{t(season.seasonNumber === 17 ? "bleach.sequel" : "bleach.original")}</h3>}
           <SeasonRow
             season={bleachAiredOrder && season.seasonNumber > 0 && season.seasonNumber < 17 ? { ...season, name: `${t("title.season")} ${season.seasonNumber}` } : season}
             libSeason={libSeason}
+            readOnly={readOnly}
+            searchingBleachPart={searchingBleachPart}
             seriesId={seriesId}
             tmdbId={tmdbId}
             seriesTitle={seriesTitle}
-            isExpanded={expanded === season.seasonNumber}
-            onToggle={() => setExpanded(expanded === season.seasonNumber ? null : season.seasonNumber)}
+            isExpanded={expanded === rowKey}
+            onToggle={() => setExpanded(expanded === rowKey ? null : rowKey)}
             onSearchSeason={onSearchSeason}
             onManualSearchSeason={onManualSearchSeason}
             onSearchEpisode={onSearchEpisode}

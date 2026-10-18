@@ -12,6 +12,7 @@ import { parseRelease } from "@/lib/naming/parser";
 import { BLEACH_TMDB_ID, needsBleachRepair, bleachReleaseCoordinate } from "@/lib/metadata/bleachEpisodeOrder";
 import { bleachReleaseSource, isBleachSequelTitle } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
+import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,9 @@ export async function POST(req: NextRequest) {
   const libraryRef = typeof body.libraryRef === "string" ? body.libraryRef : null;
   const decodedRef = libraryRef ? decodeLibraryRef(libraryRef) : null;
   const linkedSeries = decodedRef && decodedRef.kind !== "movie" ? getSeries(decodedRef.seriesId) : null;
+  const seriesPart = parseBleachSeriesPart(body.seriesPart);
+  const bleachPart = body.bleachPart == null ? undefined : Number(body.bleachPart);
+  if ((body.seriesPart != null && !seriesPart) || (bleachPart != null && (!Number.isInteger(bleachPart) || bleachPart < 1 || bleachPart > 4)) || ((seriesPart || bleachPart) && linkedSeries?.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
   if (linkedSeries && needsBleachRepair(linkedSeries)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
 
   // The libraryRef (when present) is the source of truth for what this grab
@@ -87,6 +91,8 @@ export async function POST(req: NextRequest) {
   // safety net for legacy clients and races, but the normal path must make the
   // mismatch visible rather than downloading a release under a false link.
   const releaseTitle = typeof body.releaseTitle === "string" ? body.releaseTitle : "";
+  if (isBleachSequelTitle(releaseTitle) && /bleach|ブリーチ|\btybw\b|sennen[ ._-]*kessen|千年血戦/i.test(releaseTitle) && !linkedSeries) return NextResponse.json({ error: "bleach_target_required" }, { status: 422 });
+  if (linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" && !bleachEpisodeInScope(decodedRef.season, decodedRef.episode, seriesPart, bleachPart)) return NextResponse.json({ error: "season_mismatch" }, { status: 422 });
   const bleachSource = linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" ? bleachReleaseSource(releaseTitle, decodedRef.season, decodedRef.episode) : null;
   if (linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" && isBleachSequelTitle(releaseTitle)) {
     const parsed = parseRelease(releaseTitle);
@@ -149,6 +155,7 @@ export async function POST(req: NextRequest) {
         if (decodedRef.kind === "season" && s.seasonNumber !== decodedRef.season) continue;
         if (!s.monitored) continue;
         for (const ep of s.episodes) {
+          if (series.tmdbId === BLEACH_TMDB_ID && !bleachEpisodeInScope(s.seasonNumber, ep.episodeNumber, seriesPart, bleachPart)) continue;
           if (ep.monitored && (ep.status === "missing" || ep.status === "searching")) {
             targets.push({ season: s.seasonNumber, episode: ep.episodeNumber });
           }

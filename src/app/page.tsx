@@ -288,11 +288,6 @@ export default function DashboardPage() {
       <DashboardSplash show={showSplash} progress={splashProgress} />
       <div className="nx-dashboard-content nx-dashboard-premium w-full max-w-[2000px] space-y-8">
       {richMode && (
-        <header className="mv-beta-home-intro hidden">
-          <Link href="/discover" className="mv-beta-explore">{t("dashboard.cinema.explore")} <Compass aria-hidden="true" className="h-4 w-4" /></Link>
-        </header>
-      )}
-      {richMode && (
         <div className="nx-home-hero-grid">
           <CardErrorBoundary>
             <DashboardHero settings={layout.hero} />

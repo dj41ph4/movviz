@@ -9,10 +9,11 @@ import { ManualSearchReleaseRow } from "./ManualSearchReleaseRow";
 import { Loader2, X, Settings, AlertTriangle } from "lucide-react";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import Link from "next/link";
+import type { BleachPart } from "@/lib/metadata/bleachPresentation";
 
 export function ManualSearchModal({
   open, onClose, libraryRef, query, category, refTitle, year, title, tmdbId, imdbId,
-  replaceItemId, onReplaced,
+  replaceItemId, onReplaced, bleachPart, seriesPart,
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,6 +24,8 @@ export function ManualSearchModal({
   year?: string;
   title: string;
   tmdbId?: number;
+  bleachPart?: number;
+  seriesPart?: BleachPart;
   imdbId?: string;
   /** When set, grabbing a release asks to stop this queue item after acceptance, keeping its files until the replacement is installed — the "replace a stuck/blocked download" flow. */
   replaceItemId?: string;
@@ -57,6 +60,7 @@ export function ManualSearchModal({
       if (refTitle) p.set("refTitle", refTitle);
       if (year) p.set("year", year);
       if (tmdbId) p.set("tmdbId", String(tmdbId));
+      if (bleachPart) p.set("bleachPart", String(bleachPart));
       if (imdbId) p.set("imdbId", imdbId);
       const res = await fetch(`/api/indexers/search?${p.toString()}`, { cache: "no-store" });
       const data = await res.json();
@@ -88,6 +92,8 @@ export function ManualSearchModal({
           infoHash: r.infoHash,
           category,
           libraryRef,
+          bleachPart,
+          seriesPart,
           title: refTitle,
           year: year ? Number(year) : null,
           indexerName: r.indexer,

@@ -2,6 +2,8 @@
 import { requireUser } from "@/lib/auth/guard";
 import { getSeries } from "@/lib/library/store";
 import { grabEpisodeUpgradeCandidate } from "@/lib/library/searchAndReplaceSeries";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +14,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const series = getSeries(id);
   if (!series) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const body = await req.json().catch(() => ({}));
+  const seriesPart = parseBleachSeriesPart(body.seriesPart);
+  if (body.seriesPart != null && (!seriesPart || series.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
 
   // Find all available monitored episodes with files — same eligibility check
   // as findEpisodeUpgradeCandidates()
   const eligible: { seasonNumber: number; episodeNumber: number }[] = [];
   for (const season of series.seasons) {
     for (const ep of season.episodes) {
-      if (ep.status === "available" && ep.monitored && ep.file) {
+      if (ep.status === "available" && ep.monitored && ep.file && (series.tmdbId !== BLEACH_TMDB_ID || bleachEpisodeInScope(season.seasonNumber, ep.episodeNumber, seriesPart))) {
         eligible.push({ seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber });
       }
     }

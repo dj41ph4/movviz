@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
 import { getSeries } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
-import { needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string; season: string }> };
@@ -18,10 +18,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const series = getSeries(id);
   if (!series) return NextResponse.json({ error: "series not found" }, { status: 404 });
   if (needsBleachRepair(series)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
+  const body = await req.json().catch(() => ({}));
+  const bleachPart = body.bleachPart == null ? undefined : Number(body.bleachPart);
+  if (bleachPart != null && (series.tmdbId !== BLEACH_TMDB_ID || Number(season) !== 17 || !Number.isInteger(bleachPart) || bleachPart < 1 || bleachPart > 4)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
 
   enqueueJob("qualityUpgrade", `Recherche : ${series.title} — S${season}`, 1, async (setProgress) => {
-    await withSearchLock(`series:${id}`, () => searchAndGrabSeason(id, Number(season)));
+    await withSearchLock(`series:${id}`, () => searchAndGrabSeason(id, Number(season), { bleachPart }));
     setProgress(1, 1);
-  }, `season-search-${id}-${season}`);
+  }, `season-search-${id}-${season}-${bleachPart ?? "all"}`);
   return NextResponse.json({ queued: true });
 }

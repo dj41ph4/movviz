@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchMulti, searchTv, searchPeople, tmdbConfigured } from "@/lib/metadata/tmdb";
 import { requireUser } from "@/lib/auth/guard";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
+import { projectBleachSearchResults } from "@/lib/metadata/bleachPresentation";
+import { isBleachSequelTitle } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,11 @@ export async function GET(req: NextRequest) {
   // most routes require auth, this one intentionally doesn't) just doesn't
   // contribute a ledger row.
   const user = requireUser(req);
+  if (type !== "movie" && page === 1 && isBleachSequelTitle(q) && !paged.results.some(r => r.type === "series" && r.tmdbId === 30984)) {
+    const bleach = (await searchTv("Bleach", 1)).results.find(r => r.tmdbId === 30984);
+    if (bleach) paged.results = [bleach, ...paged.results];
+  }
+  if (req.nextUrl.searchParams.get("partViews") === "1") paged.results = projectBleachSearchResults(paged.results);
   if (user) logSearch(user.id, q, paged.results.length);
   return NextResponse.json({ configured: true, ...paged });
 }

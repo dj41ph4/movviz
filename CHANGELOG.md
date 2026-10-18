@@ -1,3 +1,17 @@
+## v1.26.038 — 18 octobre 2026
+
+### Bleach et Thousand-Year Blood War séparés
+
+- La recherche et la bibliothèque présentent deux fiches distinctes : Bleach (2004), avec ses 16 saisons et 366 épisodes, et Bleach: Thousand-Year Blood War (2022), organisée par parties. Les identifiants fournisseurs et l’historique restent conservés.
+- Les recherches, demandes, téléchargements manuels et automatiques, remplacements de qualité et actions de suivi sont limités à la partie choisie. TYBW S02E01 correspond au premier épisode de The Separation et ne peut plus être confondu avec Bleach original S02E01. Les titres japonais et les noms des parties sont également reconnus.
+- Le moteur distingue les numéros des fichiers source, le suivi Movviz et le nommage attendu par Plex. Les packs sont limités aux épisodes réellement couverts ; les coordonnées sont conservées lors d’un redémarrage et d’une nouvelle tentative d’import.
+- Les anciens catalogues dont l’ordre est certain sont réorganisés avec sauvegarde préalable, sans déplacement des fichiers ni suppression du suivi. Les historiques et instantanés Plex ambigus bloquent les corrections risquées ; aucun contenu réel n’est déduit d’un simple nom de fichier.
+- La fiche TYBW utilise son synopsis, son affiche et sa première diffusion. L’ajout d’une partie absente complète le même catalogue, y compris lorsqu’une saison vide existait déjà. Les titres longs des saisons restent lisibles sur mobile.
+
+### Accueil
+
+- Retrait de la ligne « Trouver l’inspiration ». Le choix Stable/Bêta et le démarrage direct dans l’apparence enregistrée sont conservés.
+
 ## v1.26.037 — 18 octobre 2026
 
 ### Accueil allégé

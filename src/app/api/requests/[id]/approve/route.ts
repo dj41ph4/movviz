@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if ("error" in result) return NextResponse.json(result, { status: 502 });
   const item = "movie" in result ? result.movie : result.series;
   updateRequest(request.id, { status: "approved", decidedAt: Date.now(), decidedBy: admin.username });
-  const searchResult = queueAcquisition(request.type, item);
+  const searchResult = queueAcquisition(request.type, item, request.seriesPart);
   emitNotification("request_approved", `${request.title} — demande approuvée`, "/requests", { title: request.title });
   logActivity("approved", admin.username, request.title, "/requests");
   return NextResponse.json({ ok: true, item, searchResult });

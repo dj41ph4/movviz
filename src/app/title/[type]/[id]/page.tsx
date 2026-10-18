@@ -1,6 +1,8 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { Suspense, use, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { parseBleachPart } from "@/lib/metadata/bleachPresentation";
 import { TitleContent } from "@/components/title/TitleContent";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 
@@ -9,9 +11,18 @@ export default function TitleDetailPage({
 }: {
   params: Promise<{ type: string; id: string }>;
 }) {
+  return <Suspense fallback={null}><TitleDetailBody params={params} /></Suspense>;
+}
+
+function TitleDetailBody({
+  params,
+}: {
+  params: Promise<{ type: string; id: string }>;
+}) {
   const { type: rawType, id } = use(params);
   const type = rawType === "series" ? "series" : "movie";
   const tmdbId = Number(id);
+  const seriesPart = parseBleachPart(useSearchParams().get("part"));
   const { titlePanel } = useTitlePanel();
 
   useEffect(() => {
@@ -20,9 +31,9 @@ export default function TitleDetailPage({
   }, [tmdbId]);
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div className="mx-auto max-w-[1200px] overflow-x-hidden">
       {titlePanel}
-      <TitleContent tmdbId={tmdbId} type={type} />
+      <TitleContent key={`${tmdbId}:${seriesPart ?? ""}`} tmdbId={tmdbId} type={type} seriesPart={seriesPart} />
     </div>
   );
 }

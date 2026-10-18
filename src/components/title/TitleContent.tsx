@@ -13,6 +13,7 @@ import { daysUntil } from "@/lib/library/releaseSchedule";
 import { SeasonAccordion } from "@/components/title/SeasonAccordion";
 import { BleachRepairNotice } from "@/components/title/BleachRepairNotice";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachContainsSeason, bleachCanonicalSeasons, bleachCour, bleachEpisodeLabel, bleachProjectionPresent, projectBleachDetail, projectBleachLibrary, type BleachPart } from "@/lib/metadata/bleachPresentation";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
@@ -195,11 +196,13 @@ type LibraryListItem = {
 export interface TitleContentProps {
   tmdbId: number;
   type: "movie" | "series";
+  seriesPart?: BleachPart;
 }
 
 /* ─────────────────────────────────────────────────── component ─────── */
 
-export function TitleContent({ tmdbId, type }: TitleContentProps) {
+export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleContentProps) {
+  const seriesPart = tmdbId === BLEACH_TMDB_ID && type === "series" ? requestedPart ?? "original" : undefined;
   const fetcher = useForegroundFetcher(titleFetcher);
   const { locale, t } = useI18n();
   const router = useRouter();
@@ -210,10 +213,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   /* ── data fetching ──────────────────────────────────────────────────── */
 
   const { data: detailData } = useSWR<MetaDetail>(
-    `/api/metadata/detail?type=${type}&tmdbId=${tmdbId}&lang=${locale}`,
+    `/api/metadata/detail?type=${type}&tmdbId=${tmdbId}&lang=${locale}${seriesPart ? `&seriesPart=${seriesPart}` : ""}`,
     fetcher,
   );
-  const detail = detailData?.tmdbId ? detailData : null;
+  const detail = useMemo(() => detailData?.tmdbId ? seriesPart ? projectBleachDetail(detailData, seriesPart) : detailData : null, [detailData, seriesPart]);
 
   /* ── AI page context ────────────────────────────────────────────────── */
 
@@ -235,6 +238,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const libraryMatchRaw = (
     ((type === "movie" ? libraryData?.movies : libraryData?.series) as LibraryListItem[] | undefined) ?? []
   ).find((x) => x.tmdbId === tmdbId) ?? null;
+  const partActionBlocked = !!seriesPart && !!libraryMatchRaw && needsBleachRepair({ tmdbId, episodeOrder: libraryMatchRaw.episodeOrder, seasons: (libraryMatchRaw.seasons ?? []).map(s => ({ seasonNumber: s.seasonNumber ?? -1, episodes: s.episodes })) });
   const readdable = libraryData?.readdable === true;
 
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{
@@ -265,7 +269,11 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
   /* ── derived ────────────────────────────────────────────────────────── */
 
-  const libraryMatch = libraryMatchRaw;
+  const libraryMatch = useMemo(() => {
+    if (!libraryMatchRaw || !seriesPart) return libraryMatchRaw;
+    const projected = projectBleachLibrary(libraryMatchRaw, seriesPart);
+    return bleachProjectionPresent(projected) ? projected : null;
+  }, [libraryMatchRaw, seriesPart]);
   const libraryId = libraryMatch?.id;
 
   const libraryStatus: LibraryStatus | null = libraryMatch
@@ -300,6 +308,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     return () => clearTimeout(timer);
   }, [playerRequest, mutateWatch, mutateSeriesOnDeck]);
   const seriesResume = seriesOnDeck?.items.find((item) => item.type === "episode" && item.tmdbId === tmdbId &&
+    (!seriesPart || (item.seasonNumber != null && bleachContainsSeason(seriesPart, item.seasonNumber))) &&
     item.seasonNumber != null && item.episodeNumber != null && item.offsetMs > 0 &&
     !watchedEpisodes.has(`${item.seasonNumber}.${item.episodeNumber}`) &&
     (!item.durationMs || item.offsetMs < item.durationMs * 0.80));
@@ -348,7 +357,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     seriesEpisodes.every((e) => watchedEpisodes.has(`${e.season}.${e.episode}`));
   const watched = type === "movie" ? watchedMovie : allSeriesWatched;
   const watchedToggleVisible =
-    type === "movie" ? !!detail : seriesEpisodes.length > 0;
+    !partActionBlocked && (type === "movie" ? !!detail : seriesEpisodes.length > 0);
   const [togglingWatched, setTogglingWatched] = useState(false);
 
   const toggleWatched = useCallback(async () => {
@@ -363,7 +372,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               type,
               watched: !allSeriesWatched,
               title: detail?.title ?? "",
-              scope: "series",
+              scope: seriesPart ? undefined : "series",
               episodes: seriesEpisodes,
             };
       await fetch("/api/watch/toggle", {
@@ -375,7 +384,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     } finally {
       setTogglingWatched(false);
     }
-  }, [togglingWatched, type, tmdbId, watchedMovie, allSeriesWatched, seriesEpisodes, detail?.title, mutateWatch]);
+  }, [togglingWatched, type, tmdbId, watchedMovie, allSeriesWatched, seriesEpisodes, detail?.title, mutateWatch, seriesPart]);
 
   // Cards and details deliberately share one durable editorial selection.
   // A custom user choice still wins, but otherwise opening a title must not
@@ -400,6 +409,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const [removing, setRemoving] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchingSeason, setSearchingSeason] = useState<number | null>(null);
+  const [searchingBleachPart, setSearchingBleachPart] = useState<number | null>(null);
   const [searchingEpisode, setSearchingEpisode] = useState<string | null>(null);
   const [searchingComplete, setSearchingComplete] = useState(false);
   const [integralSearchOpen, setIntegralSearchOpen] = useState(false);
@@ -413,6 +423,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     imdbId?: string;
     refTitle?: string;
     year?: number | null;
+    bleachPart?: number;
   } | null>(null);
   const [showFullCrew, setShowFullCrew] = useState(false);
   // Bêta desktop : le corps de la fiche se lit par onglets (Épisodes,
@@ -496,7 +507,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     detail?.tmdbId ? `/api/metadata/images?tmdbId=${detail.tmdbId}&type=${type}&locale=${locale}` : null,
     fetcher
   );
-  const logoPath = libraryMatch?.customLogoPath
+  const logoPath = seriesPart === "tybw" ? null : libraryMatch?.customLogoPath
     ?? (editorialArtwork ? editorialArtwork.logoPath : imagesData?.logos?.[0]?.filePath ?? null);
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
@@ -504,14 +515,14 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
   const inLibrary = added || libraryStatus !== null;
   const canSearch =
-    inLibrary && libraryMatch?.id && libraryStatus !== "downloading" && libraryStatus !== "searching";
+    !partActionBlocked && inLibrary && libraryMatch?.id && libraryStatus !== "downloading" && libraryStatus !== "searching";
 
   /* ── job state (shared via job queue) ───────────────────────────────── */
 
   const searchSourceId = libraryMatch?.id
     ? type === "movie"
       ? `movie-search-${libraryMatch.id}`
-      : `series-search-${libraryMatch.id}`
+      : `series-search-${libraryMatch.id}${tmdbId === BLEACH_TMDB_ID ? `-${seriesPart ?? "all"}` : ""}`
     : null;
   const jobSearching = useJobRunning(searchSourceId);
   const seasonSearchPrefix = libraryMatch?.id
@@ -531,7 +542,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
   const isSearching = searching || jobSearching;
   const effectiveSearchingSeason =
-    searchingSeason ?? (activeJobSeason != null ? Number(activeJobSeason) : null);
+    searchingSeason ?? (activeJobSeason != null ? Number(activeJobSeason.split("-")[0]) : null);
+  const effectiveSearchingBleachPart = searchingBleachPart ?? (activeJobSeason?.split("-")[1] && activeJobSeason.split("-")[1] !== "all" ? Number(activeJobSeason.split("-")[1]) : null);
   const effectiveSearchingEpisode = searchingEpisode ?? activeJobEpisode;
   const isSearchingCompleteSeries = searchingComplete || completeSeriesJobSearching;
 
@@ -543,7 +555,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       const res = await fetch(libEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tmdbId }),
+        body: JSON.stringify({ tmdbId, seriesPart, seasonNumbers: seriesPart ? bleachCanonicalSeasons(seriesPart) : undefined }),
       });
       // A previous implementation treated every HTTP response as a success.
       // In particular, an auto-search failure after the server had created
@@ -555,12 +567,14 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         await mutateLibrary();
         return;
       }
-      setAdded(true);
+      const result = await res.json();
+      setAdded(!result.pendingRequest && !result.duplicateRequest);
+      if (result.pendingRequest || result.duplicateRequest) toast("success", t("status.requested"));
       await mutateLibrary();
     } finally {
       setAdding(false);
     }
-  }, [libEndpoint, tmdbId, mutateLibrary, t]);
+  }, [libEndpoint, tmdbId, mutateLibrary, t, seriesPart]);
 
   const toggleWatchlist = useCallback(async () => {
     setWatching(true);
@@ -630,28 +644,31 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     try {
       await fetch(`${libEndpoint}/${libraryMatch.id}/search`, {
         method: "POST",
+        headers: { "content-type": "application/json" }, body: JSON.stringify({ seriesPart }),
       });
       mutateLibrary();
     } finally {
       setSearching(false);
     }
-  }, [libraryMatch?.id, libEndpoint, mutateLibrary]);
+  }, [libraryMatch?.id, libEndpoint, mutateLibrary, seriesPart]);
 
   const searchSeason = useCallback(
-    async (seasonNumber: number) => {
+    async (seasonNumber: number, bleachPart?: number) => {
       if (!libraryMatch?.id) return;
       setSearchingSeason(seasonNumber);
+      setSearchingBleachPart(bleachPart ?? null);
       try {
         await fetch(
           `/api/library/series/${libraryMatch.id}/season/${seasonNumber}/search`,
-          { method: "POST" },
+          { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bleachPart, seriesPart }) },
         );
         mutateLibrary();
       } finally {
         setSearchingSeason(null);
+        setSearchingBleachPart(null);
       }
     },
-    [libraryMatch?.id, mutateLibrary],
+    [libraryMatch?.id, mutateLibrary, seriesPart],
   );
 
   const searchEpisode = useCallback(
@@ -687,7 +704,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         movvizId: `${libraryId}:s${seasonNumber}e${episodeNumber}`,
         seriesId: libraryId,
         plexUrl: episode.plexUrl,
-        title: `${detail?.title ?? ""} — ${seasonNumber}x${pad(episodeNumber)}${episode.title ? ` · ${episode.title}` : ""}`,
+        title: `${detail?.title ?? ""} — ${bleachEpisodeLabel(seriesPart, seasonNumber, episodeNumber)}${episode.title ? ` · ${episode.title}` : ""}`,
         useTranscode: betaPlayer,
         tmdbId: detail?.tmdbId,
         type: "series",
@@ -699,7 +716,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         posterUrl: poster,
       });
     },
-    [libraryId, play, detail?.title, detail?.tmdbId, betaPlayer, backdrop, poster],
+    [libraryId, play, detail?.title, detail?.tmdbId, betaPlayer, backdrop, poster, seriesPart],
   );
 
   const searchCompleteSeries = useCallback(() => {
@@ -790,7 +807,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   }, [forcingPlexSync, type, t, mutateLibrary]);
 
   const openManualSearchSeason = useCallback(
-    (seasonNumber: number) => {
+    (seasonNumber: number, bleachPart?: number) => {
       if (!libraryId) return;
       setManualSearch({
         libraryRef: encodeLibraryRef({
@@ -798,11 +815,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           seriesId: libraryId,
           season: seasonNumber,
         }),
-        query: `${detail?.title} S${pad(seasonNumber)}`,
-        title: `${detail?.title} — S${pad(seasonNumber)}`,
+        query: `${detail?.title} S${pad(bleachPart ?? seasonNumber)}`,
+        title: `${detail?.title} — S${pad(bleachPart ?? seasonNumber)}`,
+        ...(seriesPart === "tybw" ? { bleachPart: bleachPart ?? 1, tmdbId, refTitle: "Bleach Thousand-Year Blood War", year: null } : {}),
       });
     },
-    [libraryId, detail?.title],
+    [libraryId, detail?.title, seriesPart, tmdbId],
   );
 
   const openManualSearch = useCallback(() => {
@@ -823,8 +841,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           s.episodes.some((e) => e.monitored) &&
           !s.episodes.every((e) => !e.monitored || e.status === "available" || e.status === "upcoming"),
       )?.seasonNumber ?? detail?.seasons?.[0]?.seasonNumber ?? 1;
-    openManualSearchSeason(target);
-  }, [libraryMatch, type, detail, openManualSearchSeason]);
+    const firstMissing = libraryMatch.seasons?.find(s => s.seasonNumber === target)?.episodes.find(e => e.monitored && e.status !== "available" && e.status !== "upcoming");
+    openManualSearchSeason(target, seriesPart === "tybw" ? bleachCour(firstMissing?.episodeNumber ?? 1)?.part ?? 1 : undefined);
+  }, [libraryMatch, type, detail, openManualSearchSeason, seriesPart]);
 
   const openManualSearchEpisode = useCallback(
     (seasonNumber: number, episodeNumber: number) => {
@@ -841,13 +860,14 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         }),
         query: bleachSequel ? `Bleach Thousand-Year Blood War S${pad(part)}E${pad(episodeNumber - offset)}` : `${detail?.title} S${pad(seasonNumber)}E${pad(episodeNumber)}`,
         title: `${detail?.title} — ${seasonNumber}x${pad(episodeNumber)}`,
-        ...(bleachSequel ? { refTitle: "Bleach Thousand-Year Blood War", year: null } : {}),
+        ...(bleachSequel ? { refTitle: "Bleach Thousand-Year Blood War", year: null, bleachPart: part, tmdbId } : {}),
       });
     },
     [libraryId, detail?.title, tmdbId],
   );
 
   const remove = useCallback(async () => {
+    if (seriesPart) return;
     if (!libraryMatch?.id) return;
     setRemoving(true);
     try {
@@ -856,7 +876,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     } finally {
       setRemoving(false);
     }
-  }, [libraryMatch?.id, libEndpoint, router]);
+  }, [libraryMatch?.id, libEndpoint, router, seriesPart]);
+
+  const togglePartMonitoring = async () => {
+    if (!libraryMatch?.id || !seriesPart) return;
+    const monitored = !(libraryMatch.seasons ?? []).some(s => s.episodes.some(e => e.monitored));
+    const response = await fetch(`${libEndpoint}/${libraryMatch.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ monitored, seriesPart }) });
+    if (!response.ok) toast("error", t("common.error"));
+    await mutateLibrary();
+  };
 
   /* ═══════════════════════════════════════════════════════════════════════
      LOADING STATE
@@ -1238,14 +1266,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 libraryId={libraryMatch.id}
                 className="h-10 w-10 backdrop-blur"
               />
-              <button
+              {seriesPart && !partActionBlocked && <button onClick={togglePartMonitoring} title={t("title.edit.monitored")} aria-label={t("title.edit.monitored")} aria-pressed={(libraryMatch.seasons ?? []).some(s => s.episodes.some(e => e.monitored))} className="flex h-11 w-11 items-center justify-center rounded-xl glass text-ink-soft"><Eye className="h-4 w-4" /></button>}
+              {!seriesPart && <button
                 onClick={() => setEditOpen(true)}
                 title={t("title.edit.title")}
                 className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
               >
                 <Pencil className="h-4 w-4" />
-              </button>
-              {user?.role === "admin" && (
+              </button>}
+              {!seriesPart && user?.role === "admin" && (
                 confirmRemove ? (
                   <div className="flex items-center gap-1 rounded-xl glass backdrop-blur p-1">
                     <button
@@ -1367,7 +1396,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               ) : null}
               {type === "series" && detail.seasons && (
                 <span>
-                  {detail.seasons.filter((season) => isVisibleSeason(season.seasonNumber, includeSpecials)).length} {t("title.seasonsCount")}
+                  {seriesPart === "tybw" ? 4 : detail.seasons.filter((season) => isVisibleSeason(season.seasonNumber, includeSpecials)).length} {t("title.seasonsCount")}
                 </span>
               )}
               <span className="max-w-xs truncate sm:max-w-md">{detail.genres.join(", ")}</span>
@@ -1387,7 +1416,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 />
               </div>
             )}
-            <StarRating tmdbId={tmdbId} type={type} title={detail?.title ?? ""} className="mt-1" />
+            {!seriesPart && <StarRating tmdbId={tmdbId} type={type} title={detail?.title ?? ""} className="mt-1" />}
             {/* Action row */}
             <div className="nx-title-actions mt-1 flex flex-wrap items-center gap-2">
               {!inLibrary ? (
@@ -1408,13 +1437,13 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   {/* Reprise en cours ou prochain épisode non vu : lecture directe
                       présent sur le disque. Plex, quand il est là, se
                       synchronise en arrière-plan sans jamais bloquer. */}
-                  {type === "series" && seriesLocalNext && (
+                  {!partActionBlocked && type === "series" && seriesLocalNext && (
                     <button
                       onClick={(e) => playEpisode(seriesLocalNext.season, seriesLocalNext.episode, seriesLocalNext.ep, e.currentTarget.getBoundingClientRect(), seriesResume?.offsetMs != null ? seriesResume.offsetMs / 1000 : undefined)}
                       className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
                     >
                       <Play className="h-4 w-4 fill-white" />
-                      {seriesResume ? `${t("player.betaResumeFrom")} ${formatResumeTime(seriesResume.offsetMs / 1000)}` : usePlayLabelResult.label} · S{pad(seriesLocalNext.season)}E{pad(seriesLocalNext.episode)}
+                      {seriesResume ? `${t("player.betaResumeFrom")} ${formatResumeTime(seriesResume.offsetMs / 1000)}` : usePlayLabelResult.label} · {bleachEpisodeLabel(seriesPart, seriesLocalNext.season, seriesLocalNext.episode)}
                     </button>
                   )}
                   {/* Lecture dès que le fichier est déplacé + renommé au bon
@@ -1581,7 +1610,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   )}
                 </button>
               )}
-              <button
+              {!seriesPart && <button
                 onClick={toggleWatchlist}
                 disabled={watching}
                 title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
@@ -1601,7 +1630,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     )}
                   />
                 )}
-              </button>
+              </button>}
               {detail.trailerKey && (
                 <button
                   onClick={() => setShowTrailer(true)}
@@ -1772,7 +1801,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         </span>
                       </button>
                     )}
-                    <button
+                    {!seriesPart && <button
                       onClick={searchCompleteSeries}
                       disabled={isSearchingCompleteSeries}
                       title={t("library.searchCompleteSeries")}
@@ -1786,10 +1815,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       <span className="hidden sm:inline">
                         {t("library.searchCompleteSeries")}
                       </span>
-                    </button>
+                    </button>}
                     <button
                       onClick={triggerSearch}
-                      disabled={isSearching}
+                      disabled={isSearching || partActionBlocked}
                       title={t("library.searchMissingEpisodes")}
                       className="flex h-9 shrink-0 items-center gap-2 rounded-xl bg-cyan/15 px-3.5 text-xs font-bold text-cyan transition-transform hover:scale-105 disabled:opacity-50 sm:px-4"
                     >
@@ -1805,7 +1834,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   </div>
                 )}
               </div>
-              {tmdbId === BLEACH_TMDB_ID && libraryMatch?.id && needsBleachRepair({ tmdbId, episodeOrder: libraryMatch.episodeOrder, seasons: (libraryMatch.seasons ?? []).map((s) => ({ seasonNumber: s.seasonNumber ?? -1, episodes: s.episodes })) }) && (
+              {tmdbId === BLEACH_TMDB_ID && libraryMatch?.id && needsBleachRepair({ tmdbId, episodeOrder: libraryMatchRaw?.episodeOrder, seasons: (libraryMatchRaw?.seasons ?? []).map((s) => ({ seasonNumber: s.seasonNumber ?? -1, episodes: s.episodes })) }) && (
                 <BleachRepairNotice seriesId={libraryMatch.id} admin={user?.role === "admin"} onRepaired={() => {
                   void mutateLibrary();
                   void mutateSWR((key) => typeof key === "string" && key.startsWith("/api/metadata/") && key.includes(`tmdbId=${tmdbId}`));
@@ -1814,25 +1843,28 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               <SeasonAccordion
                 seriesId={libraryMatch?.id}
                 tmdbId={detail.tmdbId}
+                seriesPart={seriesPart}
+                readOnly={partActionBlocked}
+                searchingBleachPart={effectiveSearchingBleachPart}
                 seasons={detail.seasons}
                 librarySeasons={libraryMatch?.seasons}
                 seriesTitle={detail?.title ?? ""}
                 onWatchedChanged={mutateWatch}
                 onSearchSeason={
-                  libraryMatch?.id ? searchSeason : undefined
+                  libraryMatch?.id && !partActionBlocked ? searchSeason : undefined
                 }
                 onManualSearchSeason={
-                  libraryMatch?.id ? openManualSearchSeason : undefined
+                  libraryMatch?.id && !partActionBlocked ? openManualSearchSeason : undefined
                 }
                 onSearchEpisode={
-                  libraryMatch?.id ? searchEpisode : undefined
+                  libraryMatch?.id && !partActionBlocked ? searchEpisode : undefined
                 }
                 onManualSearchEpisode={
                   libraryMatch?.id
                     ? openManualSearchEpisode
                     : undefined
                 }
-                onPlayEpisode={betaPlayer || !libraryMatch?.plexUrl ? playEpisode : undefined}
+                onPlayEpisode={!partActionBlocked && (seriesPart || betaPlayer || !libraryMatch?.plexUrl) ? playEpisode : undefined}
                 searchingSeason={effectiveSearchingSeason}
                 searchingEpisodeKey={effectiveSearchingEpisode}
                 watchedEpisodes={watchedEpisodes}
@@ -1939,6 +1971,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           refTitle={manualSearch.refTitle ?? detail.title}
           year={manualSearch.year === null ? undefined : manualSearch.year ? String(manualSearch.year) : detail.year ? String(detail.year) : undefined}
           title={manualSearch.title}
+          bleachPart={manualSearch.bleachPart}
+          seriesPart={seriesPart}
           tmdbId={manualSearch.tmdbId}
           imdbId={manualSearch.imdbId}
         />

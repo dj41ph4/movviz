@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { LibrarySeriesCard } from "@/components/library/LibrarySeriesCard";
+import { projectBleachLibrary, bleachPresentationKey, type BleachPart } from "@/lib/metadata/bleachPresentation";
 import { SearchAndReplacePanel } from "@/components/library/SearchAndReplacePanel";
 import { useT, useI18n } from "@/i18n/provider";
 import { useTitleArtworkBatch, type TitleArtworkRef } from "@/components/media/useTitleArtworkBatch";
@@ -48,7 +49,7 @@ const SORTS: { id: "title" | "recent" | "rating"; key: string }[] = [
   { id: "rating", key: "library.sortRating" },
 ];
 
-type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries };
+type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries & { seriesPart?: BleachPart } };
 function titleOf(c: CombinedItem): string {
   return c.kind === "movie" ? c.movie.title : c.series.title;
 }
@@ -167,7 +168,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     "/api/engine/torrents"
   );
   const movies = moviesData?.movies ?? [];
-  const series = seriesData?.series ?? [];
+  const series = useMemo(() => (seriesData?.series ?? []).flatMap(s => s.tmdbId === 30984 ? (["original", "tybw"] as const).map(part => projectBleachLibrary(s, part)) : [s]), [seriesData]);
   const torrents = torrentsData?.torrents ?? [];
   const loading = !moviesData || !seriesData;
   const refresh = () => { mutateMovies(); mutateSeries(); };
@@ -639,7 +640,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
               />
             ) : (
               <LibrarySeriesCard
-                key={entry.series.id}
+                key={bleachPresentationKey(entry.series)}
                 index={i}
                 series={entry.series}
                 onChange={refresh}

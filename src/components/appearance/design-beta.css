@@ -69,22 +69,6 @@
   html[data-movviz-design="beta"] .nx-dashboard-premium {
     margin-inline: auto;
   }
-  html[data-movviz-design="beta"] .mv-beta-home-intro {
-    display: flex;
-    justify-content: flex-end;
-    padding: .25rem 0 .5rem;
-  }
-  html[data-movviz-design="beta"] .mv-beta-explore {
-    display: inline-flex;
-    min-height: 44px;
-    flex: none;
-    align-items: center;
-    gap: .75rem;
-    border-bottom: 1px solid #c4b6ff55;
-    color: #d5ccee;
-    font-size: .8125rem;
-  }
-
   /* A framed projection replaces Stable's edge-to-edge background. */
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-home-hero-grid {
     margin: 1.75rem 0 0;

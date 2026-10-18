@@ -1,4 +1,6 @@
 "use client";
+import { bleachTitleHref, bleachPresentationKey, bleachCanonicalSeasons, projectBleachLibrary } from "@/lib/metadata/bleachPresentation";
+import type { LibrarySeries } from "@/lib/library/types";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
@@ -234,6 +236,7 @@ function DiscoverPageInner() {
     configured && interfaceModeReady && !optimizedInterface ? "/api/library/series" : null
   );
   const [libStatus, setLibStatus] = useState<Map<string, string>>(new Map());
+  const { data: bleachLibraryData } = useSWR<{ series: LibrarySeries[] }>(configured ? "/api/library/series?tmdbId=30984" : null);
   const [libLoaded, setLibLoaded] = useState(false);
   useEffect(() => {
     if (!optimizedStatusData && !moviesData && !seriesData) return;
@@ -261,9 +264,17 @@ function DiscoverPageInner() {
         m.set(`series:${x.tmdbId}`, allAvailable ? "available" : "missing");
       }
     }
+    const bleach = bleachLibraryData?.series.find(s => s.tmdbId === 30984);
+    if (bleach) for (const part of ["original", "tybw"] as const) {
+      const projected = projectBleachLibrary(bleach, part).seasons.flatMap(s => s.episodes);
+      if (projected.length === 0) continue;
+      const episodes = projected.filter(e => e.monitored);
+      const status = episodes.some(e => e.activeInfoHash || e.status === "downloading" || e.status === "searching") ? "downloading" : episodes.length && episodes.every(e => e.status === "available" || e.status === "upcoming") ? "available" : "missing";
+      m.set(bleachPresentationKey({ tmdbId: 30984, seriesPart: part }), status);
+    }
     setLibStatus(m);
     if (!libLoaded) setLibLoaded(true);
-  }, [optimizedStatusData, moviesData, seriesData, libLoaded]);
+  }, [optimizedStatusData, moviesData, seriesData, libLoaded, bleachLibraryData]);
 
   const { data: watchStatusData } = useSWR<{ movies: number[]; episodes: { tmdbId: number; season: number; episode: number }[] }>(
     configured ? "/api/watch-status" : null
@@ -416,7 +427,7 @@ function DiscoverPageInner() {
     const controller = new AbortController();
     const id = setTimeout(() => {
       setPersonResults([]);
-      withForegroundRequest(() => fetch(`/api/metadata/search?q=${encodeURIComponent(query)}&type=person`, { cache: "no-store", signal: controller.signal })
+      withForegroundRequest(() => fetch(`/api/metadata/search?partViews=1&q=${encodeURIComponent(query)}&type=person`, { cache: "no-store", signal: controller.signal })
         .then((r) => (r.ok ? r.json() : null)))
         .then((d: { results?: MetaPersonSearchResult[] } | null) => { if (!controller.signal.aborted) setPersonResults(d?.results?.slice(0, 8) ?? []); })
         .catch(() => { if (!controller.signal.aborted) setPersonResults([]); });
@@ -475,7 +486,7 @@ function DiscoverPageInner() {
         // unlike the Films/Séries tab toggle which still scopes browsing
         // (genre/year/sort) below. searchMulti (the API's unfiltered branch)
         // returns both, each already tagged with its own real type.
-        url = `/api/metadata/search?q=${encodeURIComponent(q)}&page=${targetPage}`;
+        url = `/api/metadata/search?partViews=1&q=${encodeURIComponent(q)}&page=${targetPage}`;
       } else {
         const params = new URLSearchParams({ type: mediaType, page: String(targetPage) });
         if (genre) params.set("genre", genre);
@@ -1017,10 +1028,10 @@ function DiscoverPageInner() {
                       });
                       return displayResults.map((r, i) => (
                       <DiscoverCard
-                        key={`${r.type}:${r.tmdbId}`}
+                        key={bleachPresentationKey(r)}
                         index={i}
                         result={r}
-                        status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
+                        status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
                         watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
                         backdropPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.backdropPath ?? r.backdropPath}
                         logoPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
@@ -1152,7 +1163,7 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
 
   return (
     <Link
-      href={`/title/${result.type}/${result.tmdbId}`}
+      href={bleachTitleHref(result.tmdbId, result.type, result.seriesPart)}
       className="group relative block min-h-[320px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[420px] lg:h-[clamp(28rem,42vw,40rem)] lg:min-h-[28rem]"
     >
       {showTrailer ? (
@@ -1181,7 +1192,7 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
           {label ?? (result.type === "movie" ? t("common.movies") : t("common.series"))}
         </span>
         <TitleMark
-          key={`${result.type}:${result.tmdbId}`}
+          key={bleachPresentationKey(result)}
           tmdbId={result.tmdbId}
           type={result.type}
           title={result.title}
@@ -1198,7 +1209,7 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
           <span className="flex w-fit items-center gap-1.5 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white shadow-lg transition-transform group-hover:scale-105">
             <Play className="h-4 w-4 fill-current" /> {t("discover.heroWatchNow")}
           </span>
-          <button
+          {!result.seriesPart && <button
             type="button"
             onClick={toggleWatchlist}
             disabled={watching}
@@ -1210,7 +1221,7 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
           >
             {watching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className={cn("h-4 w-4", onWatchlist && "fill-brand-glow")} />}
             {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
-          </button>
+          </button>}
           <button
             type="button"
             onClick={toggleTrailer}
@@ -1460,11 +1471,11 @@ function PosterRow({
   return (
     <SharedPosterRow title={title} onSeeAll={onSeeAll}>
       {results.map((r, i) => (
-        <div key={`${r.type}:${r.tmdbId}`} className="w-[275px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
+        <div key={bleachPresentationKey(r)} className="w-[275px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
           <DiscoverCard
             index={i}
             result={r}
-            status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
+            status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
             watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
             backdropPath={artwork[`${r.type}:${r.tmdbId}`]?.backdropPath ?? r.backdropPath}
             logoPath={artwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
@@ -1547,10 +1558,10 @@ function RankedList({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {results.map((r, i) => (
           <RankedRow
-            key={`${r.type}:${r.tmdbId}`}
+            key={bleachPresentationKey(r)}
             rank={i + 1}
             result={r}
-            status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
+            status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
             libLoaded={libLoaded}
             watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
             onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
@@ -1574,7 +1585,7 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
     setAdding(true);
     try {
       const endpoint = result.type === "movie" ? "/api/library/movies" : "/api/library/series";
-      await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tmdbId: result.tmdbId }) });
+      await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tmdbId: result.tmdbId, seriesPart: result.seriesPart, seasonNumbers: result.seriesPart ? bleachCanonicalSeasons(result.seriesPart) : undefined }) });
       onAdded();
     } finally {
       setAdding(false);
@@ -1582,7 +1593,7 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
   };
 
   return (
-    <Link href={`/title/${result.type}/${result.tmdbId}`} className="flex items-center gap-3 rounded-xl glass px-3 py-2 transition-colors hover:bg-white/5">
+    <Link href={bleachTitleHref(result.tmdbId, result.type, result.seriesPart)} className="flex items-center gap-3 rounded-xl glass px-3 py-2 transition-colors hover:bg-white/5">
       <span className="w-6 shrink-0 text-center text-lg font-black text-ink-dim">{rank}</span>
       <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-lg bg-surface">
         {result.posterPath ? (
@@ -1641,7 +1652,7 @@ function DiscoverCard({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tmdbId: result.tmdbId }),
+        body: JSON.stringify({ tmdbId: result.tmdbId, seriesPart: result.seriesPart, seasonNumbers: result.seriesPart ? bleachCanonicalSeasons(result.seriesPart) : undefined }),
       });
       const data = await res.json();
       if (data.blocked) { setFeedback(t("blocklist.blockedMessage")); return; }
@@ -1685,12 +1696,13 @@ function DiscoverCard({
       <div className="relative">
         <DashboardPosterCard
           layout="fill"
+          seriesPart={result.seriesPart}
           tmdbId={result.tmdbId}
           type={result.type}
           title={result.title}
           posterPath={result.posterPath}
           backdropPath={backdropPath}
-          logoPath={logoPath}
+          logoPath={result.seriesPart === "tybw" ? null : logoPath}
           rating={result.rating}
           badge={cardBadge}
           year={result.year}

@@ -5,7 +5,7 @@ import type { CanonicalMediaIdentity } from "./mediaIdentityMap";
 import { upsertMapping } from "./mediaIdentityMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { BLEACH_TMDB_ID, needsBleachRepair, projectBleachPlexEpisodes } from "@/lib/metadata/bleachEpisodeOrder";
-import { getSeriesByTmdbId } from "@/lib/library/store";
+import { findEpisodeByPlexRatingKey, getSeriesByTmdbId } from "@/lib/library/store";
 
 export type EpisodeResolveReason =
   | "RESOLVED_RATING_KEY"
@@ -345,7 +345,6 @@ function plexShowTmdbCache() {
 
 function findEpisodeByPlexRatingKeyCached(ratingKey: string): { tmdbId: number; season: number; episode: number } | null {
   try {
-    const { findEpisodeByPlexRatingKey } = require("@/lib/library/store") as typeof import("@/lib/library/store");
     const hit = findEpisodeByPlexRatingKey(ratingKey);
     if (!hit) return null;
     return { tmdbId: hit.series.tmdbId, season: hit.season.seasonNumber, episode: hit.episode.episodeNumber };

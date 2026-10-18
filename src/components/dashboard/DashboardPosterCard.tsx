@@ -1,4 +1,5 @@
 "use client";
+import { bleachTitleHref, bleachCanonicalSeasons, type BleachPart } from "@/lib/metadata/bleachPresentation";
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
@@ -97,6 +98,7 @@ function PreviewTechnicalMeta({ technical }: { technical?: DashboardCardTechnica
  */
 export function DashboardPosterCard({
   tmdbId,
+  seriesPart,
   type,
   title,
   posterPath,
@@ -126,6 +128,7 @@ export function DashboardPosterCard({
   onRemoveFromResume,
 }: {
   tmdbId: number;
+  seriesPart?: BleachPart;
   type: "movie" | "series";
   title: string;
   posterPath: string | null;
@@ -280,7 +283,7 @@ export function DashboardPosterCard({
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tmdbId }),
+        body: JSON.stringify({ tmdbId, seriesPart, seasonNumbers: seriesPart ? bleachCanonicalSeasons(seriesPart) : undefined }),
       });
       const body = await response.json().catch(() => null) as { blocked?: boolean } | null;
       if (!response.ok || body?.blocked) throw new Error("add_failed");
@@ -496,7 +499,7 @@ export function DashboardPosterCard({
   return (
     <>
     <Link
-      href={`/title/${type}/${tmdbId}`}
+      href={bleachTitleHref(tmdbId, type, seriesPart)}
       prefetch={false}
       onMouseEnter={(event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
@@ -627,7 +630,7 @@ export function DashboardPosterCard({
         }}
       >
         <Link
-          href={`/title/${type}/${tmdbId}`}
+          href={bleachTitleHref(tmdbId, type, seriesPart)}
           prefetch={false}
           onClick={(event) => (playback ? startPlayback(event) : closeOnClick())}
           title={playback ? t("common.play") : undefined}
@@ -740,7 +743,7 @@ export function DashboardPosterCard({
                   {adding ? <Loader2 className="h-5 w-5 animate-spin" /> : addedHere ? <Clock3 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                 </button>
               )}
-              <button
+              {!seriesPart && <><button
                 type="button"
                 onClick={() => void rateFiveStars()}
                 disabled={ratingSaving}
@@ -760,6 +763,7 @@ export function DashboardPosterCard({
               >
                 {dislikeSaving ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <ThumbsDown className="h-[18px] w-[18px]" />}
               </button>
+              </>}
               {popoverActions}
             </div>
             {onMarkWatched || onRemoveFromResume ? (
@@ -787,7 +791,7 @@ export function DashboardPosterCard({
               </CardMenu>
             ) : (
               <Link
-                href={`/title/${type}/${tmdbId}`}
+                href={bleachTitleHref(tmdbId, type, seriesPart)}
                 prefetch={false}
                 onClick={closeOnClick}
                 title={t("common.open")}
@@ -803,7 +807,7 @@ export function DashboardPosterCard({
            * an explicit icon) opens the fiche, same as the chevron. A real
            * <Link> here (rather than a div onClick) so useTitlePanel's
            * capture-phase interception picks it up like every other trigger. */}
-          <Link href={`/title/${type}/${tmdbId}`} prefetch={false} onClick={closeOnClick} className="block space-y-2.5 focus-visible:outline-none">
+          <Link href={bleachTitleHref(tmdbId, type, seriesPart)} prefetch={false} onClick={closeOnClick} className="block space-y-2.5 focus-visible:outline-none">
             {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
             {hasMeta && (
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-semibold text-white/85">

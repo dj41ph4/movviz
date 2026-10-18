@@ -28,12 +28,13 @@ export function inspectBleachRepairState(seriesId: string, episodeRatingKeys: st
     if (store === "playback-progress.json" && typeof row.lastHeartbeatAt === "number" && Date.now() - row.lastHeartbeatAt <= PLAYBACK_ACTIVE_HEARTBEAT_MS && (mediaIdentity || (typeof row.ratingKey === "string" && knownRatingKeys.has(row.ratingKey)))) blockers.push("active_playback");
     for (const child of Object.values(row)) visit(child, store, bleach);
   };
-  for (const name of ["plex-watch-status.json", "watchlist.json", "playback-progress.json", "plex-media-identity-map.json", "trash-manifest.json"]) {
+  for (const name of ["plex-watch-status.json", "watchlist.json", "playback-progress.json", "plex-media-identity-map.json", "trash-manifest.json", "requests.json"]) {
     const file = path.join(DATA_DIR, name);
     if (!fs.existsSync(file)) continue;
     const value = readJsonCached<unknown>(file, null);
     if (value == null || jsonCacheReadFailed(file)) { blockers.push(`unreadable:${name}`); continue; }
     snapshots[name] = value;
+    if (name === "requests.json" && Array.isArray(value) && value.some(r => r?.type === "series" && r.tmdbId === BLEACH_TMDB_ID && r.seasonNumbers?.length && !r.seriesPart && r.status === "pending")) blockers.push("ambiguous_user_history");
     visit(value, name);
   }
   const dbFile = path.join(DATA_DIR, "context", "user-context.sqlite");

@@ -94,8 +94,29 @@ test("real engine source selection → Plex physical name → operational librar
     assert.equal(inspectBleachRepairState("sr_bleach_test").blockers.includes("active_playback"), false);
     cache.writeJsonCached(path.join(config, "playback-progress.json"), { sessions: { active: { mediaId: "sr_bleach_test:17:14", lastHeartbeatAt: Date.now() } } });
     assert.equal(inspectBleachRepairState("sr_bleach_test").blockers.includes("active_playback"), true);
+    // Adding TYBW to an original-only catalogue must fill an empty placeholder
+    // in the same record, retaining the original file/history coordinates.
+    const preserved = store.getSeries("sr_bleach_test")!;
+    store.updateSeries(preserved.id, { seasons: [preserved.seasons[0], { seasonNumber: 17, name: "placeholder", monitored: true, episodes: [] }] });
+    globalThis.fetch = async input => {
+      const url = String(input);
+      if (url.includes("/tv/30984/season/2")) return Response.json({ season_number: 2, name: "TYBW", episodes: Array.from({ length: 53 }, (_, i) => ({ season_number: 2, episode_number: i + 1, name: `TYBW ${i + 1}`, air_date: "2022-10-11" })) });
+      throw new Error(`Unexpected request while filling Bleach placeholder: ${new URL(url).pathname}`);
+    };
+    const { requestMedia } = await import("@/lib/requests/requestMedia");
+    const addedPart = await requestMedia({ id: "fixture-admin", username: "QA", role: "admin" } as import("@/lib/auth/types").User, "series", 30984, undefined, undefined, { seriesPart: "tybw", skipSearch: true });
+    assert.ok("added" in addedPart);
+    const filled = store.getSeries(preserved.id)!;
+    assert.equal(filled.id, preserved.id);
+    assert.deepEqual(filled.seasons[0], preserved.seasons[0]);
+    assert.equal(filled.seasons.find(s => s.seasonNumber === 17)!.episodes.length, 50);
+    assert.equal(store.loadSeries().filter(s => s.tmdbId === 30984).length, 1);
   } finally {
     flush(); globalThis.fetch = previousFetch;
+    // requestMedia records activity in SQLite; close the test-owned handle
+    // before Windows can remove its isolated config directory.
+    const contextDb = globalThis as typeof globalThis & { __movvizUserContextDb?: import("node:sqlite").DatabaseSync | null };
+    contextDb.__movvizUserContextDb?.close(); contextDb.__movvizUserContextDb = null;
     if (previousConfig == null) delete process.env.MOVVIZ_CONFIG_DIR; else process.env.MOVVIZ_CONFIG_DIR = previousConfig;
     const target = path.resolve(sandbox), temp = path.resolve(os.tmpdir());
     if (!target.startsWith(temp + path.sep) || path.dirname(target) !== temp || !path.basename(target).startsWith("movviz-bleach-import-")) throw new Error("unsafe test cleanup");

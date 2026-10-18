@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { TitlePanel } from "./TitlePanel";
+import { parseBleachPart, type BleachPart } from "@/lib/metadata/bleachPresentation";
 
 export type PanelView =
   | {
       kind: "title";
       tmdbId: number;
+      seriesPart?: BleachPart;
       type: "movie" | "series";
       /** Screen position/size of the poster that was clicked, captured at click time — lets TitlePanel morph outward from exactly that spot instead of just fading in centered. Undefined when opened some other way (e.g. programmatically, with no originating element). */
       originRect?: { top: number; left: number; width: number; height: number };
@@ -17,7 +19,7 @@ export type PanelView =
 
 function viewKey(view: PanelView): string {
   return view.kind === "title"
-    ? `title:${view.type}:${view.tmdbId}`
+    ? `title:${view.type}:${view.tmdbId}:${view.seriesPart ?? ""}`
     : view.kind === "person"
       ? `person:${view.personId}`
       : `collection:${view.collectionId}`;
@@ -44,8 +46,8 @@ export function useTitlePanel() {
   const [view, setView] = useState<PanelView | null>(null);
   const isOpen = view !== null;
 
-  const openTitlePanel = useCallback((tmdbId: number, type: "movie" | "series", originRect?: { top: number; left: number; width: number; height: number }) => {
-    setView({ kind: "title", tmdbId, type, originRect });
+  const openTitlePanel = useCallback((tmdbId: number, type: "movie" | "series", originRect?: { top: number; left: number; width: number; height: number }, seriesPart?: BleachPart) => {
+    setView({ kind: "title", tmdbId, type, originRect, seriesPart });
   }, []);
 
   const closeTitlePanel = useCallback(() => {
@@ -70,14 +72,16 @@ export function useTitlePanel() {
       // add-to-library…) and the backdrop stay untouched.
       if (isOpen) {
         if (href.startsWith("/title/")) {
-          const parts = href.replace("/title/", "").split("/");
+          const parsedHref = new URL(href, window.location.origin);
+          const seriesPart = parseBleachPart(parsedHref.searchParams.get("part"));
+          const parts = parsedHref.pathname.replace("/title/", "").split("/");
           if (parts.length < 2) return;
           const t = parts[0] as "movie" | "series";
           const id = Number(parts[1]);
           if (!id) return;
           e.preventDefault();
           e.stopPropagation();
-          setView((v) => (v && v.kind === "title" && v.tmdbId === id && v.type === t ? v : { kind: "title", tmdbId: id, type: t }));
+          setView((v) => (v && v.kind === "title" && v.tmdbId === id && v.type === t && v.seriesPart === seriesPart ? v : { kind: "title", tmdbId: id, type: t, seriesPart }));
           return;
         }
         if (href.startsWith("/person/")) {
@@ -101,7 +105,9 @@ export function useTitlePanel() {
 
       if (target.closest("[data-title-panel]")) return;
       if (!href.startsWith("/title/")) return;
-      const parts = href.replace("/title/", "").split("/");
+      const parsedHref = new URL(href, window.location.origin);
+          const seriesPart = parseBleachPart(parsedHref.searchParams.get("part"));
+          const parts = parsedHref.pathname.replace("/title/", "").split("/");
       if (parts.length < 2) return;
       const t = parts[0] as "movie" | "series";
       const id = Number(parts[1]);
@@ -121,7 +127,7 @@ export function useTitlePanel() {
       const artwork = link.querySelector("img, [data-morph-source]") as HTMLElement | null;
       const rectEl = artwork ?? link;
       const r = rectEl.getBoundingClientRect();
-      openTitlePanel(id, t, { top: r.top, left: r.left, width: r.width, height: r.height });
+      openTitlePanel(id, t, { top: r.top, left: r.left, width: r.width, height: r.height }, seriesPart);
     };
     document.addEventListener("click", handler, true);
     return () => document.removeEventListener("click", handler, true);

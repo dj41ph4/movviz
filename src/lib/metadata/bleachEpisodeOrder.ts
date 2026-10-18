@@ -8,10 +8,32 @@
 export const BLEACH_TMDB_ID = 30984;
 export const BLEACH_TVDB_ID = 74796;
 export const BLEACH_ORIGINAL_COUNTS = [20, 21, 22, 28, 18, 22, 20, 16, 22, 16, 7, 17, 36, 51, 26, 24] as const;
+/** Official production parts. Legacy metadata beyond #50 is retained, never acquired blindly. */
+export const BLEACH_TYBW_COURS = [
+  { part: 1, offset: 0, count: 13 },
+  { part: 2, offset: 13, count: 13 },
+  { part: 3, offset: 26, count: 14 },
+  { part: 4, offset: 40, count: 10 },
+] as const;
+export function knownBleachEpisode(season: number, episode: number): boolean {
+  return Number.isInteger(season) && Number.isInteger(episode) && episode > 0 &&
+    (season === 0 || (season === 17 ? episode <= 50 : episode <= (BLEACH_ORIGINAL_COUNTS[season - 1] ?? 0)));
+}
+export function bleachCourForEpisode(episode: number) {
+  return BLEACH_TYBW_COURS.find(c => episode > c.offset && episode <= c.offset + c.count) ?? null;
+}
+export function bleachNamedCour(title: string): number | null {
+  if (/the[ ._-]*blood[ ._-]*warfare/i.test(title)) return 1;
+  if (/the[ ._-]*separation|ketsubetsu|訣別/i.test(title)) return 2;
+  if (/the[ ._-]*conflict|soukoku|相剋/i.test(title)) return 3;
+  if (/the[ ._-]*calamity|kashin|禍進/i.test(title)) return 4;
+  return null;
+}
 export type BleachEpisodeOrder = "tmdb" | "tvdb";
 export interface EpisodeCoordinate { seasonNumber: number; episodeNumber: number }
 export function isBleachSequelTitle(title: string): boolean {
-  return /thousand[ ._-]*year|blood[ ._-]*war|sennen[ ._-]*kessen|tybw|guerre[ ._-]*(?:sanglante|sanguinaire)|千年血戦/i.test(title);
+  return /blood[ ._-]*war|sennen[ ._-]*kessen|\btybw\b|千年血戦/i.test(title)
+    || (/bleach|ブリーチ/i.test(title) && (/thousand[ ._-]*year|guerre[ ._-]*(?:sanglante|sanguinaire)/i.test(title) || bleachNamedCour(title) != null));
 }
 
 export function bleachToTmdb(seasonNumber: number, episodeNumber: number): EpisodeCoordinate | null {
@@ -69,19 +91,18 @@ export function needsBleachRepair(series: Parameters<typeof detectBleachLibraryO
 
 /** Standalone TYBW releases restart their part numbering; keep the library S17. */
 export function bleachReleaseCoordinate(title: string, seasonNumber: number | null | undefined, episodeNumber: number | null | undefined): EpisodeCoordinate | null {
-  if (episodeNumber == null || episodeNumber < 1) return null;
+  if (episodeNumber == null || !Number.isInteger(episodeNumber) || episodeNumber < 1) return null;
   const sequel = isBleachSequelTitle(title);
   if (!sequel) return seasonNumber != null ? { seasonNumber, episodeNumber } : null;
-  if (seasonNumber === 17) return { seasonNumber: 17, episodeNumber };
-  let part = seasonNumber ?? 1;
-  if (/the[ ._-]*separation|ketsubetsu|訣別/i.test(title)) part = 2;
-  if (/the[ ._-]*conflict|soukoku|相剋/i.test(title)) part = 3;
-  if (/the[ ._-]*calamity|kashin|禍進/i.test(title)) part = 4;
-  if (part < 1 || part > 4) return null;
-  const offsets = [0, 13, 26, 40];
-  // Japanese releases also retain the cumulative TYBW episode number.
-  const offset = offsets[part - 1];
-  return { seasonNumber: 17, episodeNumber: episodeNumber > offset ? episodeNumber : offset + episodeNumber };
+  if (seasonNumber === 17) return knownBleachEpisode(17, episodeNumber) ? { seasonNumber: 17, episodeNumber } : null;
+  const named = bleachNamedCour(title);
+  if (!named && seasonNumber == null && episodeNumber > 13) return knownBleachEpisode(17, episodeNumber) ? { seasonNumber: 17, episodeNumber } : null;
+  const cour = BLEACH_TYBW_COURS.find(c => c.part === (named ?? seasonNumber ?? 1));
+  if (!cour) return null;
+  const cumulative = episodeNumber > cour.offset && episodeNumber <= cour.offset + cour.count;
+  const local = episodeNumber <= cour.count;
+  if (!cumulative && !local) return null;
+  return { seasonNumber: 17, episodeNumber: cumulative ? episodeNumber : cour.offset + episodeNumber };
 }
 
 /**

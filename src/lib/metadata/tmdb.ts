@@ -665,6 +665,12 @@ export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
   };
 }
 
+/** TYBW remains a season in TMDb; use its own synopsis/artwork for the separate fiche. */
+export async function getBleachSequelPresentation(preferLanguage?: string) {
+  const data = await tmdbGet<RawSeasonDetail>(`/tv/${BLEACH_TMDB_ID}/season/2`, {}, toTmdbLanguage(preferLanguage));
+  return data ? { overview: data.overview ?? "", posterPath: data.poster_path ?? null, releaseDateFull: data.air_date ?? "2022-10-11" } : null;
+}
+
 export async function getSeason(tmdbId: number, seasonNumber: number, preferLanguage?: string, opts?: { bleachOrder?: BleachEpisodeOrder }): Promise<MetaSeason | null> {
   const operationalBleach = tmdbId === BLEACH_TMDB_ID && opts?.bleachOrder !== "tmdb";
   const mapped = operationalBleach ? bleachToTmdb(seasonNumber, 1) : null;
@@ -1650,6 +1656,7 @@ interface RawSeries {
 interface RawSeasonDetail {
   season_number: number;
   name: string;
+  overview?: string;
   air_date?: string | null;
   poster_path?: string | null;
   episodes?: {

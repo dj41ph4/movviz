@@ -8,11 +8,12 @@ import type { LibrarySeries } from "@/lib/library/types";
 import { Check, HardDriveDownload, Loader2, Sparkles } from "lucide-react";
 import { aggregateBadges } from "./MediaBadges";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
+import type { BleachPart } from "@/lib/metadata/bleachPresentation";
 
 export function LibrarySeriesCard({
   series, index = 0, onChange, backdropPath, logoPath, titleEmbedded,
 }: {
-  series: LibrarySeries;
+  series: LibrarySeries & { seriesPart?: BleachPart };
   index?: number;
   onChange?: () => void;
   /** Resolved by the grid's single batch call (see useTitleArtworkBatch) — never fetched per-card. */
@@ -36,7 +37,7 @@ export function LibrarySeriesCard({
   const handleOptimize = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/library/series/${series.id}/optimize`, { method: "POST" });
+      const res = await fetch(`/api/library/series/${series.id}/optimize`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ seriesPart: series.seriesPart }) });
       if ((await res.json()).ok) onChange?.();
     } finally { setBusy(false); }
   };
@@ -59,16 +60,17 @@ export function LibrarySeriesCard({
         layout="fill"
         tmdbId={series.tmdbId}
         type="series"
+        seriesPart={series.seriesPart}
         title={series.title}
         posterPath={series.posterPath}
         backdropPath={backdropPath ?? series.backdropPath}
-        logoPath={logoPath}
-        titleEmbedded={titleEmbedded}
+        logoPath={series.seriesPart === "tybw" ? null : logoPath}
+        titleEmbedded={series.seriesPart === "tybw" ? false : titleEmbedded}
         rating={series.rating}
         year={series.year}
         genres={series.genres}
         badge={episodesPill}
-        inLibrary
+        inLibrary={!series.seriesPart || episodes.length > 0}
         technical={aggregateFile ? { resolution: aggregateFile.resolution, videoCodec: aggregateFile.videoCodec, audioCodec: aggregateFile.audioCodec, hdr: aggregateFile.hdr } : undefined}
         popoverActions={
           hasAvailableEpisodes ? (

@@ -17,4 +17,6 @@ export interface MediaRequest {
   decidedBy: string | null; // admin username
   /** Specific seasons requested; undefined = all seasons. */
   seasonNumbers?: number[];
+  /** Logical Bleach view; external identity and episode history remain canonical. */
+  seriesPart?: "original" | "tybw";
 }

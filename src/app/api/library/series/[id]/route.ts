@@ -9,6 +9,8 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { trashSeriesFiles } from "@/lib/library/trashDelete";
 import { addTrashEntry } from "@/lib/library/trashStore";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -31,6 +33,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const patch = await req.json();
+  const id = (await params).id;
+  const current = getSeries(id);
+  if (!current) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const seriesPart = parseBleachSeriesPart(patch.seriesPart);
+  if (patch.seriesPart != null && (!seriesPart || current.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
   const allowed = ["monitored", "qualityProfileId", "aliases", "customBackdropPath", "customLogoPath"] as const;
   const clean: Record<string, unknown> = {};
   for (const k of allowed) if (k in patch) clean[k] = patch[k];
@@ -46,13 +53,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       delete clean[k];
     }
   }
-  const updated = updateSeries((await params).id, clean);
+  if (seriesPart && typeof patch.monitored === "boolean") {
+    const seasons = current.seasons.map(s => ({ ...s, monitored: s.episodes.some(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, seriesPart)) ? patch.monitored : s.monitored,
+      episodes: s.episodes.map(e => bleachEpisodeInScope(s.seasonNumber, e.episodeNumber, seriesPart) ? { ...e, monitored: patch.monitored } : e) }));
+    clean.seasons = seasons;
+    clean.monitored = seasons.some(s => s.monitored);
+  }
+  const updated = updateSeries(id, clean);
   return updated ? NextResponse.json(updated) : NextResponse.json({ error: "not found" }, { status: 404 });
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const user = requireAdmin(req);
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (req.nextUrl.searchParams.has("part") || req.nextUrl.searchParams.has("seriesPart")) return NextResponse.json({ error: "scoped_deletion_not_supported" }, { status: 409 });
   const id = (await params).id;
   const series = getSeries(id);
   const deleteFiles = req.nextUrl.searchParams.get("deleteFiles") === "true";

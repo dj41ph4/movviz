@@ -15,6 +15,7 @@ import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 import { getBleachPlexSnapshot, type BleachPlexSnapshot } from "./bleachSnapshot";
+import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
 import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
@@ -159,6 +160,8 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   }
 
   const seenSeriesTmdbIds = new Set<number>();
+  const existingBleach = getSeriesByTmdbId(BLEACH_TMDB_ID);
+  if (existingBleach) await ensureBleachRepaired(existingBleach.id);
   const seriesSince = force ? undefined : state.seriesLastSyncedAt || undefined;
   let bleachSnapshot: Promise<BleachPlexSnapshot | null> | undefined;
   const bleachPass = { processed: false, snapshot: () => (bleachSnapshot ??= getBleachPlexSnapshot(cfg, adminToken)) };
@@ -174,6 +177,11 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   // Full reconcile: mark items missing if Plex no longer has them
   setSyncStatus({ phase: "finishing", sectionTitle: null });
   if (force) {
+    // An unresolved/unmatched show is not proof that Bleach disappeared.
+    if (existingBleach && !seenSeriesTmdbIds.has(BLEACH_TMDB_ID)) {
+      const snapshot = await bleachPass.snapshot();
+      if (!snapshot?.complete) seenSeriesTmdbIds.add(BLEACH_TMDB_ID);
+    }
     markMissingFromPlex(seenMovieTmdbIds, seenSeriesTmdbIds);
   }
 

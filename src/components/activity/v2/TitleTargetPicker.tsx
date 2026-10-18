@@ -5,8 +5,10 @@ import { Film, Tv, Layers, ListChecks, Loader2, ExternalLink } from "lucide-reac
 import { useT } from "@/i18n/provider";
 import { encodeLibraryRef } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
+import { BLEACH_COURS, bleachDisplayToCanonical, bleachPresentationKey, bleachCanonicalSeasons, projectBleachSearchResults, type BleachPart } from "@/lib/metadata/bleachPresentation";
 
 interface LibraryTitle {
+  seriesPart?: BleachPart;
   id: string;
   tmdbId: number;
   title: string;
@@ -15,6 +17,7 @@ interface LibraryTitle {
 }
 
 interface TmdbHit {
+  seriesPart?: BleachPart;
   tmdbId: number;
   title: string;
   year: number | null;
@@ -53,9 +56,9 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
         ...(m.movies ?? []).map((mv: { id: string; tmdbId: number; title: string; year: number | null }) => ({
           id: mv.id, tmdbId: mv.tmdbId, title: mv.title, year: mv.year, type: "movie" as const,
         })),
-        ...(s.series ?? []).map((sr: { id: string; tmdbId: number; title: string; year: number | null }) => ({
+        ...projectBleachSearchResults((s.series ?? []).map((sr: { id: string; tmdbId: number; title: string; year: number | null }) => ({
           id: sr.id, tmdbId: sr.tmdbId, title: sr.title, year: sr.year, type: "series" as const,
-        })),
+        }))),
       ]);
     });
   }, []);
@@ -65,10 +68,11 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
     const q = query.trim();
     if (!q) { setTmdbResults([]); return; }
     const timer = setTimeout(() => {
-      fetch(`/api/metadata/search?q=${encodeURIComponent(q)}`, { cache: "no-store" })
+      fetch(`/api/metadata/search?partViews=1&q=${encodeURIComponent(q)}`, { cache: "no-store" })
         .then((r) => r.json())
         .then((data) => {
-          setTmdbResults((data.results ?? []).map((r: { tmdbId: number; title: string; year: number | null; mediaType?: string; type?: string; overview: string; posterPath: string | null }) => ({
+          setTmdbResults((data.results ?? []).map((r: { seriesPart?: BleachPart; tmdbId: number; title: string; year: number | null; mediaType?: string; type?: string; overview: string; posterPath: string | null }) => ({
+            seriesPart: r.seriesPart,
             tmdbId: r.tmdbId,
             title: r.title,
             year: r.year,
@@ -107,7 +111,7 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
         // the file the user is about to pick to — the normal add flow's own
         // auto-search would otherwise grab a SECOND, different release for
         // the same title right alongside the one being linked here.
-        body: JSON.stringify({ tmdbId: hit.tmdbId, skipSearch: true }),
+        body: JSON.stringify({ tmdbId: hit.tmdbId, skipSearch: true, seriesPart: hit.seriesPart, seasonNumbers: hit.seriesPart ? bleachCanonicalSeasons(hit.seriesPart) : undefined }),
       });
       const data = await res.json();
       // /api/library/movies|series has three distinct success shapes: the
@@ -136,7 +140,7 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
         setAddError(t("activity.linkAddFailed"));
         return;
       }
-      const libTitle: LibraryTitle = { id: added.id, tmdbId: hit.tmdbId, title: hit.title, year: hit.year, type: hit.type };
+      const libTitle: LibraryTitle = { seriesPart: hit.seriesPart, id: added.id, tmdbId: hit.tmdbId, title: hit.title, year: hit.year, type: hit.type };
       if (hit.type === "movie") {
         onPick(encodeLibraryRef({ kind: "movie", movieId: libTitle.id }), libTitle.title);
       } else {
@@ -161,13 +165,13 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
     return (
       <div className="space-y-3">
         <TargetHeader title={series.title} type="series" onChange={() => setSeries(null)} t={t} />
-        <button
+        {!series.seriesPart && <button
           onClick={() => onPick(encodeLibraryRef({ kind: "series", seriesId: series.id }), `${series.title} — ${t("activity.scopeWholeSeries")}`)}
           className="flex w-full items-center gap-2.5 rounded-xl glass px-4 py-3 text-left text-sm font-semibold text-ink hover:bg-white/5"
         >
           <ListChecks className="h-4 w-4 shrink-0 text-brand-glow" />
           {t("activity.scopeWholeSeries")}
-        </button>
+        </button>}
         <button
           onClick={() => setSeasonStep(true)}
           className="flex w-full items-center gap-2.5 rounded-xl glass px-4 py-3 text-left text-sm font-semibold text-ink hover:bg-white/5"
@@ -187,13 +191,14 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
           {t("title.season")}
           <input
             type="number"
-            min={0}
+            min={series.seriesPart ? 1 : 0}
+            max={series.seriesPart === "tybw" ? 4 : series.seriesPart === "original" ? 16 : undefined}
             value={season}
             onChange={(e) => setSeason(e.target.value)}
             className="h-9 w-24 rounded-lg glass px-2.5 text-sm text-ink outline-none ring-focus"
           />
         </label>
-        <button
+        {series.seriesPart !== "tybw" && <button disabled={series.seriesPart === "original" && (!Number.isInteger(Number(season)) || Number(season) < 1 || Number(season) > 16)}
           onClick={() => onPick(
             encodeLibraryRef({ kind: "season", seriesId: series.id, season: Number(season) }),
             `${series.title} — ${t("title.season")} ${season}`
@@ -202,7 +207,7 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
         >
           <Layers className="h-4 w-4 shrink-0 text-brand-glow" />
           {t("activity.scopeWholeSeason")}
-        </button>
+        </button>}
         <div className="flex items-end gap-2">
           <label className="flex flex-1 items-center gap-2 text-xs text-ink-dim">
             {t("title.episode")}
@@ -215,8 +220,9 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
             />
           </label>
           <button
+            disabled={!!series.seriesPart && !bleachDisplayToCanonical(series.seriesPart, Number(season), Number(episode))}
             onClick={() => onPick(
-              encodeLibraryRef({ kind: "episode", seriesId: series.id, season: Number(season), episode: Number(episode) }),
+              encodeLibraryRef({ kind: "episode", seriesId: series.id, season: series.seriesPart === "tybw" ? 17 : Number(season), episode: Number(episode) + (series.seriesPart === "tybw" ? BLEACH_COURS.find(c => c.part === Number(season))?.offset ?? 0 : 0) }),
               `${series.title} — ${season}x${String(Number(episode)).padStart(2, "0")}`
             )}
             className="flex h-9 shrink-0 items-center gap-2 rounded-xl brand-gradient px-3.5 text-xs font-bold text-white"
@@ -240,7 +246,7 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
       <div className="max-h-80 space-y-1 overflow-y-auto">
         {libraryMatches.map((title) => (
           <button
-            key={`lib-${title.type}-${title.id}`}
+            key={`lib-${bleachPresentationKey(title)}`}
             onClick={() => pickTitle(title)}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-ink-soft hover:bg-white/5 hover:text-ink"
           >
@@ -252,7 +258,7 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
 
         {externalResults.map((hit) => (
           <button
-            key={`ext-${hit.type}-${hit.tmdbId}`}
+            key={`ext-${bleachPresentationKey(hit)}`}
             onClick={() => addAndPick(hit)}
             disabled={adding === `${hit.type}-${hit.tmdbId}`}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-ink-soft hover:bg-white/5 hover:text-ink disabled:opacity-50"

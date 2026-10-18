@@ -138,6 +138,7 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
             <TitleContent
               tmdbId={view.tmdbId}
               type={view.type}
+              seriesPart={view.seriesPart}
             />
           ) : view.kind === "person" ? (
             <PersonContent id={String(view.personId)} />

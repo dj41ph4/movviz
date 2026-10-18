@@ -9,12 +9,15 @@ import type { User } from "@/lib/auth/types";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { loadTrash, restoreFromTrash } from "@/lib/library/trashStore";
 import { queueAcquisition } from "@/lib/requests/queueAcquisition";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { bleachSeasonNumbers, type BleachSeriesPart } from "@/lib/library/bleachScope";
 
 function addApprovedRequest(
   user: User,
   type: "movie" | "series",
   item: LibraryMovie | LibrarySeries,
-  seasonNumbers?: number[]
+  seasonNumbers?: number[],
+  seriesPart?: BleachSeriesPart
 ) {
   return addRequest({
     id: `req_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -22,8 +25,8 @@ function addApprovedRequest(
     username: user.username,
     type,
     tmdbId: item.tmdbId,
-    title: item.title,
-    year: item.year,
+    title: seriesPart === "tybw" ? "Bleach: Thousand-Year Blood War" : item.title,
+    year: seriesPart === "tybw" ? 2022 : item.year,
     posterPath: item.posterPath,
     overview: item.overview,
     rating: item.rating,
@@ -32,6 +35,7 @@ function addApprovedRequest(
     decidedAt: Date.now(),
     decidedBy: user.username,
     seasonNumbers,
+    ...(seriesPart ? { seriesPart } : {}),
   });
 }
 
@@ -48,18 +52,21 @@ export async function requestMedia(
   tmdbId: number,
   qualityProfileId?: string,
   seasonNumbers?: number[],
-  options?: { skipSearch?: boolean; queueSearch?: boolean }
+  options?: { skipSearch?: boolean; queueSearch?: boolean; seriesPart?: BleachSeriesPart }
 ) {
   if (isBlocked(type, tmdbId)) return { blocked: true as const };
+  const seriesPart = type === "series" && tmdbId === BLEACH_TMDB_ID ? options?.seriesPart : undefined;
+  if (seriesPart) seasonNumbers = bleachSeasonNumbers(seriesPart);
 
   const alreadyInLibrary = type === "movie" ? getMovieByTmdbId(tmdbId) : getSeriesByTmdbId(tmdbId);
   // The item itself rides along so a caller that asks for the title and finds
   // it already present can link to it right away — without re-fetching the
   // whole library and hoping the entry is there (the "Impossible d'ajouter ce
   // titre à la bibliothèque" failure in the link-before-download picker).
-  if (alreadyInLibrary) {
+  const missingPart = seriesPart && alreadyInLibrary && "seasons" in alreadyInLibrary && seasonNumbers?.some(n => !alreadyInLibrary.seasons.some(s => s.seasonNumber === n && s.monitored && s.episodes.length > 0));
+  if (alreadyInLibrary && !missingPart) {
     const searchResult = options?.queueSearch && !options.skipSearch && (user.role === "admin" || user.autoApproveRequests)
-      ? queueAcquisition(type, alreadyInLibrary)
+      ? queueAcquisition(type, alreadyInLibrary, seriesPart)
       : null;
     return { alreadyInLibrary: true as const, item: alreadyInLibrary, searchResult };
   }
@@ -90,7 +97,7 @@ export async function requestMedia(
     // failure and prevents a 500 from hiding a title that was already added.
     let approvedRequest: ReturnType<typeof addRequest> | null = null;
     const onAdded = (item: LibraryMovie | LibrarySeries) => {
-      approvedRequest = addApprovedRequest(user, type, item, seasonNumbers);
+      approvedRequest = addApprovedRequest(user, type, item, seasonNumbers, seriesPart);
     };
     const result =
       type === "movie"
@@ -104,10 +111,10 @@ export async function requestMedia(
     // it shows every ask with a live status badge, not just the gated ones.
     // Reused/duplicate-title entries are returned without the callback; they
     // still represent this explicit request and must appear in Requests.
-    approvedRequest ??= addApprovedRequest(user, type, item, seasonNumbers);
+    approvedRequest ??= addApprovedRequest(user, type, item, seasonNumbers, seriesPart);
     if (wasDeleted) restoreFromTrash(tmdbId, type);
     const searchResult = options?.queueSearch && !options.skipSearch
-      ? queueAcquisition(type, item)
+      ? queueAcquisition(type, item, seriesPart)
       : result.searchResult;
     return { added: item, searchResult, readded: wasDeleted as true | false };
   }
@@ -116,7 +123,7 @@ export async function requestMedia(
   // already requested shouldn't spawn a second, duplicate Request; the asker
   // just gets told it's already in the queue.
   const existingRequest = loadRequests().find(
-    (r) => r.type === type && r.tmdbId === tmdbId && (r.status === "pending" || r.status === "approved")
+    (r) => r.type === type && r.tmdbId === tmdbId && (r.status === "pending" || r.status === "approved") && (!seriesPart || !r.seasonNumbers?.length || r.seriesPart === seriesPart || r.seasonNumbers.some(n => bleachSeasonNumbers(seriesPart).includes(n)))
   );
   if (existingRequest) {
     return existingRequest.userId === user.id
@@ -133,8 +140,8 @@ export async function requestMedia(
     username: user.username,
     type,
     tmdbId: meta.tmdbId,
-    title: meta.title,
-    year: meta.year,
+    title: seriesPart === "tybw" ? "Bleach: Thousand-Year Blood War" : meta.title,
+    year: seriesPart === "tybw" ? 2022 : meta.year,
     posterPath: meta.posterPath,
     overview: meta.overview,
     rating: meta.rating,
@@ -143,6 +150,7 @@ export async function requestMedia(
     decidedAt: null,
     decidedBy: null,
     seasonNumbers,
+    ...(seriesPart ? { seriesPart } : {}),
   });
 
   return { pendingRequest: request };
