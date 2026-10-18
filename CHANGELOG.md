@@ -1,3 +1,10 @@
+## v1.26.045 — 19 octobre 2026
+
+### Android TV : focus stable à l’ouverture des saisons
+
+- Le garde-fou d’ouverture ne reprend plus le focus quand l’utilisateur navigue volontairement vers une saison. Une redirection en cours est annulée dès que la saison est sélectionnée.
+- Tizen n’a pas de redirection différée équivalente; sa navigation de saison reste inchangée.
+
 ## v1.26.044 — 19 octobre 2026
 
 ### Android TV : ajout bibliothèque Bleach fiable

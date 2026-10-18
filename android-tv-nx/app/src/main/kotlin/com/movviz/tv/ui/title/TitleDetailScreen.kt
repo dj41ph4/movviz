@@ -916,6 +916,7 @@ fun TitleDetailScreen(
         // la saison 1 encadrée comme si elle était choisie.
         val detailReadyAt = remember(d.tmdbId) { android.os.SystemClock.uptimeMillis() }
         var seasonFocusGuardUsed by remember(d.tmdbId) { mutableStateOf(false) }
+        var seasonFocusRedirectJob by remember(d.tmdbId) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
         // UN SEUL chemin de lecture d'un épisode pour tous les boutons (série,
         // saison, fiche épisode) : la position de reprise vient de la même
         // source que le libellé « Reprendre à … » et est transmise au lecteur ;
@@ -1464,12 +1465,19 @@ fun TitleDetailScreen(
                             focusRequesterFor = { seasonCardFocus.getOrPut(it) { FocusRequester() } },
                             navRailFocusRequester = navRailFocusRequester,
                             onCardFocused = {
-                                if (!seasonFocusGuardUsed && lastOpenedSeason == null && !restoredFromReturn &&
-                                    android.os.SystemClock.uptimeMillis() - detailReadyAt < 2_000L
+                                if (shouldRedirectSeasonCardFocus(
+                                        guardUsed = seasonFocusGuardUsed,
+                                        seasonOpened = lastOpenedSeason != null || openSeasonNumber != null,
+                                        restoredFromReturn = restoredFromReturn,
+                                        userMoved = userMoved,
+                                        elapsedMs = android.os.SystemClock.uptimeMillis() - detailReadyAt,
+                                    )
                                 ) {
                                     seasonFocusGuardUsed = true
-                                    scope.launch {
+                                    seasonFocusRedirectJob?.cancel()
+                                    seasonFocusRedirectJob = scope.launch {
                                         repeat(10) { attempt ->
+                                            if (userMoved || lastOpenedSeason != null || openSeasonNumber != null) return@launch
                                             if (primaryActionFocusRequester.requestFocusSafely() ||
                                                 initialFocusRequester.requestFocusSafely()
                                             ) return@launch
@@ -1479,6 +1487,9 @@ fun TitleDetailScreen(
                                 }
                             },
                             onSelect = {
+                                seasonFocusRedirectJob?.cancel()
+                                seasonFocusRedirectJob = null
+                                seasonFocusGuardUsed = true
                                 selectedSeasonNumber = it
                                 lastOpenedSeason = it
                                 openSeasonNumber = it
@@ -1900,6 +1911,14 @@ internal enum class DetailLanding {
     /** Retour de la fiche d'un acteur ouverte depuis la distribution. */
     RESTORE_CAST,
 }
+
+internal fun shouldRedirectSeasonCardFocus(
+    guardUsed: Boolean,
+    seasonOpened: Boolean,
+    restoredFromReturn: Boolean,
+    userMoved: Boolean,
+    elapsedMs: Long,
+): Boolean = !guardUsed && !seasonOpened && !restoredFromReturn && !userMoved && elapsedMs in 0 until 2_000L
 
 /** Décision pure de l'atterrissage (testée sans Compose). Un retour prime sur
  *  la première ouverture ; un overlay ou une sortie vers la barre l'annulent. */
