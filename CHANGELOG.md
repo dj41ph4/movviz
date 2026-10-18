@@ -1,3 +1,9 @@
+## v1.26.039 — 18 octobre 2026
+
+### Recherche depuis une rangée
+
+- Après « Voir tout », une saisie dans la barre de recherche interroge maintenant le catalogue au lieu de continuer à charger l’ancienne rangée. Les deux fiches Bleach et Thousand-Year Blood War apparaissent également dans ce parcours, comme dans une recherche directe.
+
 ## v1.26.038 — 18 octobre 2026
 
 ### Bleach et Thousand-Year Blood War séparés

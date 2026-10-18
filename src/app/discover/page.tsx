@@ -478,15 +478,15 @@ function DiscoverPageInner() {
     if (targetPage === 1) setLoading(true); else setLoadingMore(true);
     try {
       let url: string;
-      if (rowCategory) {
-        url = `/api/metadata/row-page?type=${mediaType}&key=${encodeURIComponent(rowCategory)}&page=${targetPage}`;
-      } else if (q.trim()) {
+      if (q.trim()) {
         // No `type=` filter here on purpose — confirmed live the user wants
         // films et séries mêlés (merged in one grid) for a text search,
         // unlike the Films/Séries tab toggle which still scopes browsing
         // (genre/year/sort) below. searchMulti (the API's unfiltered branch)
         // returns both, each already tagged with its own real type.
         url = `/api/metadata/search?partViews=1&q=${encodeURIComponent(q)}&page=${targetPage}`;
+      } else if (rowCategory) {
+        url = `/api/metadata/row-page?type=${mediaType}&key=${encodeURIComponent(rowCategory)}&page=${targetPage}`;
       } else {
         const params = new URLSearchParams({ type: mediaType, page: String(targetPage) });
         if (genre) params.set("genre", genre);
