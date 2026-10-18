@@ -9,6 +9,11 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { loadReleaseRules, matchesBlockedWord } from "@/lib/library/releaseRules";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
+import { decodeLibraryRef } from "@/lib/library/types";
+import { getSeries } from "@/lib/library/store";
+import { bleachManualSearchTargets, bleachReleaseTargets } from "@/lib/library/bleachRelease";
 
 export const dynamic = "force-dynamic";
 
@@ -230,6 +235,15 @@ export async function GET(req: NextRequest) {
     } else {
       recordSearchLog("warn", "manual_search.no_indexers_available", `"${searchQuery}" — aucun indexeur torrent configuré`);
     }
+  }
+
+  const bleachPart = parseBleachSeriesPart(req.nextUrl.searchParams.get("seriesPart"));
+  const bleachRef = decodeLibraryRef(req.nextUrl.searchParams.get("libraryRef") ?? "");
+  const bleachSeries = bleachRef && bleachRef.kind !== "movie" ? getSeries(bleachRef.seriesId) : null;
+  if (category === "series" && tmdbId === BLEACH_TMDB_ID && bleachPart && bleachSeries?.tmdbId === BLEACH_TMDB_ID && bleachRef) {
+    const courPart = Number(req.nextUrl.searchParams.get("bleachPart"));
+    const targets = bleachManualSearchTargets(bleachRef, bleachPart, Number.isInteger(courPart) ? courPart : undefined);
+    filtered = targets.length ? filtered.filter(release => bleachReleaseTargets(targets, release.title).length > 0) : [];
   }
 
   // autoPick=1 : l'appelant prend la première release sans intervention

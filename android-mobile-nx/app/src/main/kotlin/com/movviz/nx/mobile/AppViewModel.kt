@@ -775,30 +775,32 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
      * que lors d'un CHANGEMENT de série, jamais pendant un simple
      * rafraîchissement (sinon l'écran clignote et le choix de saison est
      * réinitialisé toutes les 3 secondes). */
-    private var seasonsTmdbId: Int? = null
+    private var seasonsKey: Pair<Int, String?>? = null
 
-    private val seasonsCache = object : LinkedHashMap<Int, List<com.movviz.nx.mobile.data.SeriesSeasonDto>>(24, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<com.movviz.nx.mobile.data.SeriesSeasonDto>>?): Boolean = size > 20
+    private val seasonsCache = object : LinkedHashMap<Pair<Int, String?>, List<com.movviz.nx.mobile.data.SeriesSeasonDto>>(24, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Int, String?>, List<com.movviz.nx.mobile.data.SeriesSeasonDto>>?): Boolean = size > 20
     }
 
-    fun loadSeriesSeasons(tmdbId: Int) {
+    fun loadSeriesSeasons(tmdbId: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
-        if (seasonsTmdbId != tmdbId) {
-            seasonsTmdbId = tmdbId
+        val part = BleachPresentation.part(tmdbId, "series", seriesPart)
+        val key = tmdbId to part
+        if (seasonsKey != key) {
+            seasonsKey = key
             // Saisons déjà vues pour cette série : tout de suite à l'écran.
-            _seriesSeasons.value = seasonsCache[tmdbId] ?: emptyList()
+            _seriesSeasons.value = seasonsCache[key] ?: emptyList()
         }
         viewModelScope.launch {
-            when (val s = repo.seriesSeasons(seriesId)) {
+            when (val s = repo.seriesSeasons(seriesId, part)) {
                 // Garde anti-course : ouvrir A puis B vite fait renvoyer les
                 // deux réponses dans n'importe quel ordre — sans ce test,
                 // les saisons de A venaient écraser celles de B à l'écran
                 // (« la saison n'est pas celle de la série choisie »,
                 // constaté en direct).
                 is ApiResult.Success -> {
-                    seasonsCache[tmdbId] = s.data
-                    if (seasonsTmdbId == tmdbId) _seriesSeasons.value = s.data
+                    seasonsCache[key] = s.data
+                    if (seasonsKey == key) _seriesSeasons.value = s.data
                 }
                 else -> Unit
             }
@@ -833,7 +835,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         _searchingSeason.value = seasonNumber
         viewModelScope.launch {
             when (repo.searchSeriesSeasonNow(seriesId, seasonNumber, seriesPart, bleachPart)) {
-                is ApiResult.Success -> loadSeriesSeasons(tmdbId)
+                is ApiResult.Success -> loadSeriesSeasons(tmdbId, seriesPart)
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 is ApiResult.Failure -> Unit
             }
@@ -858,7 +860,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         if (keys.isNotEmpty()) _requestedEpisodes.value = _requestedEpisodes.value - keys
     }
 
-    fun downloadEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+    fun downloadEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
         val key = episodeRequestKey(tmdbId, seasonNumber, episodeNumber)
@@ -867,7 +869,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         viewModelScope.launch {
             when (repo.searchSeriesEpisodeNow(seriesId, seasonNumber, episodeNumber)) {
                 is ApiResult.Success -> {
-                    loadSeriesSeasons(tmdbId)
+                    loadSeriesSeasons(tmdbId, seriesPart)
                     loadQueue()
                     delay(120_000)
                 }
@@ -1319,7 +1321,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _userPrefs.value = null
         _profileMedia.value = null
         _homeUiState.value = HomeUiState()
-        seasonsTmdbId = null
+        seasonsKey = null
     }
 
     suspend fun selectProfile(profile: TvProfile): ApiResult<MovvizUserDto> {
@@ -1708,7 +1710,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     /** Résolution prioritaire pour une fiche ouverte depuis Reprendre : le
      * fichier/index local est consulté avant de rendre le CTA, sans attendre
      * Plex qui n'est qu'un enrichisseur optionnel. */
-    suspend fun resolveTitleLibraryEntry(type: String, tmdbId: Int) {
+    suspend fun resolveTitleLibraryEntry(type: String, tmdbId: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         if (type == "movie") when (val result = repo.movieByTmdbId(tmdbId)) {
             is ApiResult.Success -> result.data?.let { _movies.value = _movies.value.replaceOrAppend(it) { movie -> movie.tmdbId } }
@@ -1717,7 +1719,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         } else when (val result = repo.seriesByTmdbId(tmdbId)) {
             is ApiResult.Success -> result.data?.let { updated ->
                 _series.value = _series.value.replaceOrAppend(updated) { series -> series.tmdbId }
-                loadSeriesSeasons(tmdbId)
+                loadSeriesSeasons(tmdbId, seriesPart)
             }
             ApiResult.Unauthorized -> _sessionExpired.value = true
             is ApiResult.Failure -> Unit

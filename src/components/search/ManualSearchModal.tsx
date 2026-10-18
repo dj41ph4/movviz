@@ -61,6 +61,8 @@ export function ManualSearchModal({
       if (year) p.set("year", year);
       if (tmdbId) p.set("tmdbId", String(tmdbId));
       if (bleachPart) p.set("bleachPart", String(bleachPart));
+      if (seriesPart) p.set("seriesPart", seriesPart);
+      if (seriesPart) p.set("libraryRef", libraryRef);
       if (imdbId) p.set("imdbId", imdbId);
       const res = await fetch(`/api/indexers/search?${p.toString()}`, { cache: "no-store" });
       const data = await res.json();

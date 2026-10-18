@@ -575,7 +575,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
      * réinitialisé toutes les 3 secondes). */
     private var seasonsTmdbId: Int? = null
 
-    fun loadSeriesSeasons(tmdbId: Int) {
+    fun loadSeriesSeasons(tmdbId: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
         if (seasonsTmdbId != tmdbId) {
@@ -583,7 +583,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
             _seriesSeasons.value = emptyList()
         }
         viewModelScope.launch {
-            when (val s = repo.seriesSeasons(seriesId)) {
+            when (val s = repo.seriesSeasons(seriesId, BleachPresentation.part(tmdbId, "series", seriesPart))) {
                 // Garde anti-course : ouvrir A puis B vite fait renvoyer les
                 // deux réponses dans n'importe quel ordre — sans ce test,
                 // les saisons de A venaient écraser celles de B à l'écran
@@ -623,7 +623,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         _searchingSeason.value = seasonNumber
         viewModelScope.launch {
             when (repo.searchSeriesSeasonNow(seriesId, seasonNumber, seriesPart, bleachPart)) {
-                is ApiResult.Success -> loadSeriesSeasons(tmdbId)
+                is ApiResult.Success -> loadSeriesSeasons(tmdbId, seriesPart)
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 is ApiResult.Failure -> Unit
             }
@@ -648,7 +648,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         if (keys.isNotEmpty()) _requestedEpisodes.value = _requestedEpisodes.value - keys
     }
 
-    fun downloadEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+    fun downloadEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
         val key = episodeRequestKey(tmdbId, seasonNumber, episodeNumber)
@@ -657,7 +657,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         viewModelScope.launch {
             when (repo.searchSeriesEpisodeNow(seriesId, seasonNumber, episodeNumber)) {
                 is ApiResult.Success -> {
-                    loadSeriesSeasons(tmdbId)
+                    loadSeriesSeasons(tmdbId, seriesPart)
                     loadQueue()
                     delay(120_000)
                 }
@@ -1463,7 +1463,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     /** Résolution prioritaire pour une fiche ouverte depuis Reprendre : le
      * fichier/index local est consulté avant de rendre le CTA, sans attendre
      * Plex qui n'est qu'un enrichisseur optionnel. */
-    suspend fun resolveTitleLibraryEntry(type: String, tmdbId: Int) {
+    suspend fun resolveTitleLibraryEntry(type: String, tmdbId: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         if (type == "movie") when (val result = repo.movieByTmdbId(tmdbId)) {
             is ApiResult.Success -> result.data?.let { _movies.value = _movies.value.replaceOrAppend(it) { movie -> movie.tmdbId } }
@@ -1472,7 +1472,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         } else when (val result = repo.seriesByTmdbId(tmdbId)) {
             is ApiResult.Success -> result.data?.let { updated ->
                 _series.value = _series.value.replaceOrAppend(updated) { series -> series.tmdbId }
-                loadSeriesSeasons(tmdbId)
+                loadSeriesSeasons(tmdbId, seriesPart)
             }
             ApiResult.Unauthorized -> _sessionExpired.value = true
             is ApiResult.Failure -> Unit

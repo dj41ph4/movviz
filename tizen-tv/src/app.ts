@@ -36,7 +36,7 @@ interface Window {
   }
   function partQuery(item: Media, type?: MediaType) { const part = seriesPartOf(item, type); return part ? `&seriesPart=${part}` : ""; }
   function presentationSeasons(show: Series): Series["seasons"] {
-    if (show.seriesPart !== "tybw") return show.seasons;
+    if (show.seriesPart !== "tybw") return show.seasons.filter(s => s.seasonNumber >= 0 && s.seasonNumber <= 16);
     const canonical = show.seasons.find(s => s.seasonNumber === 17);
     if (!canonical) return [];
     return [[0, 13, "The Blood Warfare"], [13, 13, "The Separation"], [26, 14, "The Conflict"], [40, 10, "The Calamity"]].map(([offset, count, name], i) => ({

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { bleachFilePresentation, bleachPlexPart, BLEACH_ORIGINAL_PLEX_GUID, BLEACH_TYBW_PLEX_GUID } from "@/lib/metadata/bleachPlexIdentity";
-import { projectBleachPlexEpisodes } from "@/lib/metadata/bleachEpisodeOrder";
+import { BLEACH_ORIGINAL_COUNTS, projectBleachPlexEpisodes } from "@/lib/metadata/bleachEpisodeOrder";
 import { planBleachEngineTargets } from "@/lib/library/bleachEngine";
 import { getPlexEpisodeOrdering, resolveTmdbIdForDebug } from "@/lib/plex/client";
 import type { PlexServerConfig } from "@/lib/plex/types";
@@ -28,9 +28,50 @@ test("original and TYBW receive distinct physical folders and standalone TYBW re
   assert.deepEqual(sequel.library, { season: 17, episode: 14 });
   assert.deepEqual(sequel.placement, { season: 2, episode: 1 });
   assert.deepEqual(original.placement, { season: 2, episode: 1 });
-  assert.deepEqual(planBleachEngineTargets([{ season: 11, episode: 1 }], "Bleach.S11E01.1080p", "tmdbAiring", true)[0].placement, { season: 1, episode: 206 });
+  assert.deepEqual(planBleachEngineTargets([{ season: 11, episode: 1 }], "Bleach.S11E01.1080p", "tmdbAiring", true)[0].placement, { season: 11, episode: 1 });
   assert.equal(planBleachEngineTargets([{ season: 17, episode: 14 }], "Bleach.S02E01.1080p", "tmdbAiring", true).length, 0);
   assert.deepEqual(sequel.presentation, bleachFilePresentation("tybw"));
+});
+
+test("an original S01E001-E366 integral lands in the matching 16 physical season folders", () => {
+  const targets = BLEACH_ORIGINAL_COUNTS.flatMap((count, index) => Array.from({ length: count }, (_, i) => ({ season: index + 1, episode: i + 1 })));
+  const planned = planBleachEngineTargets(targets, "Bleach.S01E001-E366.COMPLETE.1080p", "tmdbAiring", true);
+  assert.equal(planned.length, 366);
+  assert.deepEqual(planned[20], { season: 1, episode: 21, library: { season: 2, episode: 1 }, placement: { season: 2, episode: 1 }, presentation: bleachFilePresentation("original") });
+  assert.deepEqual(planned[365].placement, { season: 16, episode: 24 });
+});
+
+test("TYBW S03E01 maps to Movviz S17E27 while preserving the standalone Season 03 file layout", () => {
+  const target = planBleachEngineTargets(
+    [{ season: 17, episode: 27 }],
+    "Bleach.Thousand-Year.Blood.War.The.Conflict.S03E01.1080p",
+    "tmdbAiring",
+    true,
+  )[0];
+  assert.deepEqual(target.library, { season: 17, episode: 27 });
+  assert.deepEqual(target, {
+    season: 3,
+    episode: 1,
+    library: { season: 17, episode: 27 },
+    placement: { season: 3, episode: 1 },
+    presentation: bleachFilePresentation("tybw"),
+  });
+});
+
+test("an original S01E021 absolute file is matched as episode 21 and placed as S02E01", () => {
+  const target = planBleachEngineTargets(
+    [{ season: 2, episode: 1 }],
+    "Bleach.S01E021.1080p",
+    "tvdbAiring",
+    true,
+  )[0];
+  assert.deepEqual(target, {
+    season: 1,
+    episode: 21,
+    library: { season: 2, episode: 1 },
+    placement: { season: 2, episode: 1 },
+    presentation: bleachFilePresentation("original"),
+  });
 });
 
 test("Plex GUID preserves cour identity even after a user renames the standalone show", async t => {

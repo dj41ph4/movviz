@@ -119,7 +119,7 @@ interface MovvizApiService {
     suspend fun addSeries(@Body body: AddToLibraryRequest): Response<Map<String, Any?>>
 
     @GET("api/library/series/{id}")
-    suspend fun seriesDetail(@Path("id") id: String): Response<SeriesDetailDto>
+    suspend fun seriesDetail(@Path("id") id: String, @Query("seriesPart") seriesPart: String? = null): Response<SeriesDetailDto>
 
     // Même route que SeasonAccordion.tsx côté desktop. Aucun nouvel endpoint
     // serveur : ces données enrichissent les épisodes déjà connus de Plex.

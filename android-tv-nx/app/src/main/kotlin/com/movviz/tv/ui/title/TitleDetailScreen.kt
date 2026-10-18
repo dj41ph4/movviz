@@ -315,7 +315,7 @@ fun TitleDetailScreen(
     }
 
     LaunchedEffect(type, tmdbId, part) {
-        viewModel.resolveTitleLibraryEntry(type, tmdbId)
+        viewModel.resolveTitleLibraryEntry(type, tmdbId, part)
         libraryResolved = true
         viewModel.loadDetail(type, tmdbId, part)
         viewModel.loadHeroLogo(type, tmdbId)
@@ -394,7 +394,7 @@ fun TitleDetailScreen(
     // toute la liste des saisons aussi souvent qu'une seule entrée film.
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (type != "series" || !inLibrary) return@LaunchedEffect
-        viewModel.loadSeriesSeasons(tmdbId)
+        viewModel.loadSeriesSeasons(tmdbId, part)
     }
 
     val plexRatingKey by remember(type, tmdbId, movies) {
@@ -1620,7 +1620,7 @@ fun TitleDetailScreen(
                 },
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber, part, selection.season.bleachPart) },
                 onDownloadEpisode = {
-                    viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber)
+                viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber, part)
                 },
             )
         }

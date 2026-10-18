@@ -13,7 +13,9 @@ export function planBleachEngineTargets(targets: { season: number; episode: numb
     const library = source.library;
     const tmdb = bleachToTmdb(library.season, library.episode);
     if (!tmdb) throw new Error("bleach_episode_unmapped");
-    const placement = order === "tmdbAiring" ? { season: tmdb.seasonNumber, episode: tmdb.episodeNumber } : { ...library };
+    const placement = separateFolders && library.season !== 17
+      ? { ...library }
+      : order === "tmdbAiring" ? { season: tmdb.seasonNumber, episode: tmdb.episodeNumber } : { ...library };
     if (separateFolders) {
       const sequel = library.season === 17;
       const cour = sequel ? bleachCourForEpisode(library.episode) : null;
@@ -26,11 +28,12 @@ export function planBleachEngineTargets(targets: { season: number; episode: numb
 
 export async function bleachPhysicalOrder(series: LibrarySeries): Promise<string> {
   const cfg = loadPlexConfig();
-  if (!cfg.hostname || !cfg.adminToken) return "tmdbAiring";
+  if (!cfg.hostname || !cfg.adminToken) return "tvdbAiring";
   const originalKey = series.bleachPlexKeys?.original ?? series.plexRatingKey;
-  // A first acquisition has no Plex show to inspect yet. The new original
-  // folder uses TMDb's default aired order, just like an unconfigured Plex.
-  if (!originalKey) return "tmdbAiring";
+  // A first acquisition has no Plex show to inspect yet. Use the same 16
+  // season aired order Movviz presents, so an absolute S01E001-S01E366 pack
+  // is filed into Season 01 through Season 16 instead of one giant Season 01.
+  if (!originalKey) return "tvdbAiring";
   const effective = await getPlexEpisodeOrdering(cfg, originalKey, cfg.adminToken);
   if (!effective || effective.seriesPart === "tybw" || !["tmdbAiring", "aired", "tvdbAiring"].includes(effective.order ?? "")) throw new Error("bleach_plex_order_unverified");
   return effective.order!;

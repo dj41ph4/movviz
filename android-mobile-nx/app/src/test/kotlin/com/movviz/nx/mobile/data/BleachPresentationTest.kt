@@ -55,6 +55,8 @@ class BleachPresentationTest {
         assertTrue(search.parameterAnnotations.flatten().filterIsInstance<retrofit2.http.Query>().any { it.value == "partViews" })
         val detail = MovvizApiService::class.java.methods.first { it.name == "metadataDetail" }
         assertTrue(detail.parameterAnnotations.flatten().filterIsInstance<retrofit2.http.Query>().any { it.value == "seriesPart" })
+        val seriesDetail = MovvizApiService::class.java.methods.first { it.name == "seriesDetail" }
+        assertTrue(seriesDetail.parameterAnnotations.flatten().filterIsInstance<retrofit2.http.Query>().any { it.value == "seriesPart" })
     }
 
 }

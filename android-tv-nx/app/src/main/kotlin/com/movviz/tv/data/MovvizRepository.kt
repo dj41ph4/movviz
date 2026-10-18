@@ -102,8 +102,8 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun metadataImages(type: String, tmdbId: Int): ApiResult<MetadataImagesDto> =
         safeCall { api.metadataImages(tmdbId, type) }
 
-    suspend fun seriesSeasons(seriesId: String): ApiResult<List<SeriesSeasonDto>> =
-        safeCall { api.seriesDetail(seriesId) }.map { it.seasons }
+    suspend fun seriesSeasons(seriesId: String, seriesPart: String? = null): ApiResult<List<SeriesSeasonDto>> =
+        safeCall { api.seriesDetail(seriesId, seriesPart) }.map { it.seasons }
 
     suspend fun metadataSeason(tmdbId: Int, seasonNumber: Int): ApiResult<MetadataSeasonDto> =
         safeCall { api.metadataSeason(tmdbId, seasonNumber) }
