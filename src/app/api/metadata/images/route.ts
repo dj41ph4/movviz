@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
 
   const images = await getTitleImages(tmdbId, type, locale);
   const artwork = pickEditorialArtwork(images);
+  // An empty list is how a TMDb hiccup shows up: never let the browser keep it
+  // for a day, or the logo is not retried until the next session.
+  const hasLogo = images.logos.length > 0;
   // The hero and the artwork picker share this route. Once either one has
   // seen a title, the editorial-card batch can reuse its chosen backdrop and
   // official title mark without another TMDb call.
@@ -28,6 +31,6 @@ export async function GET(req: NextRequest) {
     ...artwork,
   }], locale);
   return NextResponse.json(images, {
-    headers: { "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800" },
+    headers: { "Cache-Control": hasLogo ? "private, max-age=86400, stale-while-revalidate=604800" : "private, max-age=15" },
   });
 }

@@ -98,6 +98,9 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  // A title that came back with neither backdrop nor logo (or no entry at all)
+  // is a failed lookup: keep it out of the long browser cache so it is retried.
+  const complete = refs.every((ref) => { const entry = artwork[bleachPresentationKey(ref)]; return !!entry && (entry.backdropPath != null || entry.logoPath != null); });
   return NextResponse.json(
     { artwork },
     {
@@ -105,7 +108,7 @@ export async function GET(req: NextRequest) {
         // The URL is deterministic for one title set + locale. Browser cache
         // makes tab changes/back-navigation instant; the durable server cache
         // remains the fallback after a browser restart.
-        "Cache-Control": scoped ? "private, no-store" : "private, max-age=86400, stale-while-revalidate=604800",
+        "Cache-Control": scoped || !complete ? "private, no-store" : "private, max-age=86400, stale-while-revalidate=604800",
       },
     }
   );

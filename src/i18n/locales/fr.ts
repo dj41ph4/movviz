@@ -539,7 +539,6 @@ export const fr = {
       title: "Votre prochaine",
       accent: "grande histoire.",
       explore: "Trouver l’inspiration",
-      featured: "À l’affiche",
     },
     splash: {
       personalCinema: "Ton cinéma personnel",
@@ -601,8 +600,6 @@ export const fr = {
       inDays: "Dans {n} jours",
       inOneDay: "Demain",
       discovery: "Découverte",
-      pause: "Mettre en pause",
-      play: "Reprendre la lecture",
       previousSlide: "Diapositive précédente",
       nextSlide: "Diapositive suivante",
       reasons: {

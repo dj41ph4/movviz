@@ -3,7 +3,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Info, Play, Pause, Plus, Loader2, Check, Heart } from "lucide-react";
+import { Info, Play, Plus, Loader2, Check, Heart } from "lucide-react";
 import { HeroSlideshow } from "./HeroSlideshow";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TitleMark } from "@/components/media/TitleMark";
@@ -72,7 +72,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   // and later enrichment never resets a manually selected slide.
   if (selectedIndex === null && slides.length > 0) setIndex(rotationBucket % slides.length);
   const index = selectedIndex ?? 0;
-  const [manuallyPaused, setManuallyPaused] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<Set<number>>(new Set());
@@ -186,7 +185,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       index={index}
       onIndexChange={setIndex}
       intervalMs={settings.slideshowSpeedSec * 1000}
-      paused={manuallyPaused}
       className="nx-premium-hero -mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
     >
       <div className="mv-hero-scene relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:aspect-[18/9] lg:h-auto lg:min-h-0">
@@ -213,7 +211,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
         )}
 
         <div className="mv-hero-copy absolute inset-x-0 bottom-0 flex flex-col gap-3 p-4 sm:p-10 lg:gap-2 lg:p-6">
-          <p className="mv-hero-eyebrow hidden">{t("dashboard.cinema.featured")}</p>
           <span className="mv-hero-status w-fit rounded-full bg-black/40 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur">
             {statusLabel}
           </span>
@@ -306,17 +303,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             >
               {t("dashboard.hero.whyThisTitle")}
             </button>
-
-            {slides.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setManuallyPaused((v) => !v)}
-                aria-label={manuallyPaused ? t("dashboard.hero.play") : t("dashboard.hero.pause")}
-                className="ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-transform hover:scale-110"
-              >
-                {manuallyPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-              </button>
-            )}
           </div>
 
           {showReasons && activeReasons.length > 0 && (

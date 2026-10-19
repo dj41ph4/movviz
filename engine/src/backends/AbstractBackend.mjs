@@ -922,7 +922,7 @@ export class AbstractBackend {
     const availableFiles = snap.files.filter((f) => {
       if (f.selected === false) return false;
       if (!targetList) return true;
-      const matches = targetList.filter((t) => this._matchesEpisode(f, t));
+      const matches = targetList.filter((t) => this._matchesEpisode(f, t, targetList));
       if (matches.length) {
         matchedTargetByFile.set(f, matches[0]);
         const placement = resolveEpisodePlacement(matches, parseRelease(f.name), f.name);
@@ -1398,8 +1398,41 @@ export class AbstractBackend {
     return null;
   }
 
-  _matchesEpisode(f, target) {
+  /** Episode number of a season-less file name, ignoring resolution, codec,
+   * year, audio layout and release-group tokens. null when nothing credible. */
+  _bareEpisodeNumber(name) {
+    const clean = name.replace(VIDEO_EXT_RE, "")
+      .replace(/\[[0-9a-f]{8}\]/gi, " ")
+      .replace(/\b(?:2160|1440|1080|720|576|480)[pi]\b/gi, " ")
+      .replace(/\b(?:x|h)[ .]?26[45]\b|\b(?:10|8)[ -]?bits?\b|\b(?:5|7)\.1\b|\b(?:19|20)\d{2}\b|\bv\d\b/gi, " ");
+    const m = clean.match(/(?:^|[\s._\-\]\)#])(\d{1,3})(?=$|[\s._\-\[\(])/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  _matchesEpisode(f, target, allTargets = []) {
     const info = parseRelease(f.name);
+    // Absolutely numbered packs (Bleach: 366 episodes, no season) are filed by
+    // the target's absolute number — a local number would match one episode
+    // in every season at once, or none past the first season's length.
+    if (target.absolute != null) {
+      if (info.season === 1 && info.episode != null && info.episode <= 366) {
+        const end = info.episodeEnd ?? info.episode;
+        if (target.absolute >= info.episode && target.absolute <= end) return true;
+      }
+      if (info.season == null || info.episode == null) {
+        const pathSeason = this._seasonFromPath(f.path);
+        if (pathSeason == null) {
+          const n = info.season == null ? (info.episode ?? this._bareEpisodeNumber(f.name)) : null;
+          if (n != null && n > 0 && n <= 366) return n === target.absolute;
+          return false;
+        }
+        // A season folder holding absolute numbers (e.g. "Saison 02" with
+        // episodes 21-40): when that season has no local episode with this
+        // number, the number is the absolute index.
+        const m = info.season == null ? (info.episode ?? this._bareEpisodeNumber(f.name)) : null;
+        if (m != null && m === target.absolute && !allTargets.some((t) => t.season === pathSeason && t.episode === m)) return true;
+      }
+    }
     if (info.season === target.season && info.episode === target.episode) return true;
     if (info.season === target.season && info.episode != null && info.episodeEnd != null &&
         target.episode >= info.episode && target.episode <= info.episodeEnd) return true;
@@ -1442,7 +1475,7 @@ export class AbstractBackend {
     const matches = [];
     handle.files.forEach((f, i) => {
       for (const target of targets) {
-        if (this._matchesEpisode(f, target)) { matches.push(i); break; }
+        if (this._matchesEpisode(f, target, targets)) { matches.push(i); break; }
       }
     });
 

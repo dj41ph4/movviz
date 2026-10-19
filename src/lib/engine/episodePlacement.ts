@@ -12,6 +12,9 @@ export interface EngineEpisodeTarget extends EngineEpisodeCoordinate {
   library?: EngineEpisodeCoordinate;
   placement?: EngineEpisodeCoordinate;
   presentation?: EpisodePresentation;
+  /** 1-based number across the whole original run; lets the engine file a
+   * season-less, absolutely numbered pack into the right season. */
+  absolute?: number;
 }
 export interface EpisodePlacement {
   source: EngineEpisodeCoordinate;

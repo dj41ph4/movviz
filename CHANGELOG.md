@@ -1,3 +1,25 @@
+## v1.26.047 — 19 octobre 2026
+
+### Bleach : les intégrales se rangent dans les bonnes saisons
+
+- Une intégrale (numérotation absolue de 1 à 366, fichiers « Bleach - 150 », « S01E150 », ou dossiers de saison) place désormais chaque épisode dans sa saison Movviz. Avant, seuls les premiers épisodes étaient rangés et les autres restaient non appariés, ou l'import échouait.
+- L'intégrale de Thousand-Year Blood War (épisodes 1 à 50) est découpée automatiquement dans les 4 saisons de la série, quelle que soit la numérotation des fichiers.
+- Un pack d'une seule saison garde sa numérotation locale, sans confusion avec l'absolue.
+
+### Téléchargements : Thousand-Year Blood War affiché comme sa propre série
+
+- La file, l'historique et les recherches affichent « Bleach: Thousand-Year Blood War » avec sa saison et son épisode (par exemple S4E1), au lieu de « Bleach S17E41 ».
+- Un clic ouvre la fiche de la bonne série. Le rangement des fichiers n'a pas changé.
+
+### Accueil : bandeau mis en avant épuré
+
+- Les points de pagination sont centrés en bas, le bouton pause et le texte « À l'affiche » disparaissent.
+
+### Logos de titre : ils finissent toujours par apparaître
+
+- Quand un logo n'est pas disponible tout de suite, Movviz réessaie plus longtemps, avec des délais croissants. Le texte du titre sert d'attente, puis le logo le remplace dès qu'il arrive, sur le bandeau, les fiches et les rangées.
+- Une réponse sans logo n'est plus conservée un jour entier par le navigateur: un incident passager ne cache plus le logo jusqu'à la session suivante.
+
 ## v1.26.046 — 19 octobre 2026
 
 ### Android TV et mobile : état de réparation Bleach fiable

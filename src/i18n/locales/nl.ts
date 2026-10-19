@@ -541,7 +541,6 @@ export const nl: Dictionary = {
       title: "Jouw volgende",
       accent: "grote verhaal.",
       explore: "Vind inspiratie",
-      featured: "Nu in de kijker",
     },
     splash: {
       personalCinema: "Jouw persoonlijke bioscoop",
@@ -603,8 +602,6 @@ export const nl: Dictionary = {
       inDays: "Over {n} dagen",
       inOneDay: "Morgen",
       discovery: "Ontdekking",
-      pause: "Pauzeren",
-      play: "Afspelen hervatten",
       previousSlide: "Vorige slide",
       nextSlide: "Volgende slide",
       reasons: {

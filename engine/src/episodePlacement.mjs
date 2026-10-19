@@ -32,7 +32,9 @@ export function resolveEpisodePlacement(targets, parsed, rawName = "") {
   const rawRange = rawName.match(/S\d{1,2}E(\d{1,3})(?:-E?|E)(\d{1,3})(?=[^\d]|$)/i);
   if (rawRange) parsed = { ...parsed, episode: Number(rawRange[1]), episodeEnd: Number(rawRange[2]) };
   const end = parsed.episodeEnd ?? parsed.episode;
-  if (parsed.episode != null && (parsed.episode !== first.episode || end !== sorted.at(-1).episode)) throw new Error("partial_multi_episode_placement");
+  // An absolutely numbered file (S01E150) is identified by the target's absolute index.
+  const src = t => parsed.season === 1 && t.absolute != null ? t.absolute : t.episode;
+  if (parsed.episode != null && (parsed.episode !== src(first) || end !== src(sorted.at(-1)))) throw new Error("partial_multi_episode_placement");
   for (const [index, target] of sorted.entries()) {
     if (target.season !== first.season || target.episode !== first.episode + index ||
         target.library.season !== first.library.season || target.library.episode !== first.library.episode + index ||

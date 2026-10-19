@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, memo, useRef, useEffect } from "react";
+import { activityTitle, activitySeason, activityEpisode } from "@/lib/activity/v2/types";
 import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -705,10 +706,10 @@ const QueueItemRow = memo(function QueueItemRow({
         {item.media.linked === false ? (
           <p className="truncate" title={t("activity.queueUnlinkedHint")}>{item.media.title}</p>
         ) : (
-          <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="block truncate">{item.media.title}</Link>
+          <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="block truncate">{activityTitle(item.media)}</Link>
         )}
         <p className="nx-dl-meta truncate">
-          {item.media.season != null && <>{item.media.episode != null ? `S${pad(item.media.season)}E${pad(item.media.episode)}` : `S${pad(item.media.season)}`} · </>}
+          {activitySeason(item.media) != null && <>{activityEpisode(item.media) != null ? `S${pad(activitySeason(item.media)!)}E${pad(activityEpisode(item.media)!)}` : `S${pad(activitySeason(item.media)!)}`} · </>}
           {detailText} · {formatBytes(item.release.size)}
           {item.release.indexer && item.release.indexer !== "Inconnu" && ` · ${item.release.indexer}`}
         </p>
@@ -766,32 +767,32 @@ const QueueItemRow = memo(function QueueItemRow({
             <div className="flex items-start justify-between gap-2">
               {item.media.linked === false ? (
                 <span className="truncate font-semibold text-ink" title={t("activity.queueUnlinkedHint")}>
-                  {item.media.title}
-                  {item.media.season != null && (
+                  {activityTitle(item.media)}
+                  {activitySeason(item.media) != null && (
                     <span className="text-ink-dim">
                       {" — "}
-                      {item.media.episode != null
-                        ? `S${item.media.season}E${String(item.media.episode).padStart(2, "0")}`
-                        : `S${item.media.season}`}
+                      {activityEpisode(item.media) != null
+                        ? `S${activitySeason(item.media)}E${String(activityEpisode(item.media)).padStart(2, "0")}`
+                        : `S${activitySeason(item.media)}`}
                     </span>
                   )}
                 </span>
               ) : (
                 <Link href={item.media?.href ?? "#"} className="truncate font-semibold text-ink hover:text-brand-glow">
-                  {item.media.title}
+                  {activityTitle(item.media)}
                   {item.media.packEpisodeCount ? (
                     <span className="text-ink-dim">
                       {" — "}
-                      {item.media.season === 0
+                      {item.media.season === 0 || item.media.displaySeason === null
                         ? item.media.seasonCount && item.media.seasonCount > 1
                           ? t("activity.completeSeriesPackSeason", { count: item.media.packEpisodeCount ?? 0, seasons: item.media.seasonCount })
                           : t("activity.completeSeriesPack", { count: item.media.packEpisodeCount ?? 0 })
-                        : t("activity.seasonPack", { season: item.media.season ?? 0, count: item.media.packEpisodeCount ?? 0 })}
+                        : t("activity.seasonPack", { season: activitySeason(item.media) ?? 0, count: item.media.packEpisodeCount ?? 0 })}
                     </span>
-                  ) : item.media.season && item.media.episode ? (
+                  ) : activitySeason(item.media) && activityEpisode(item.media) ? (
                     <span className="text-ink-dim">
                       {" — "}
-                      {`S${item.media.season}E${String(item.media.episode).padStart(2, "0")}`}
+                      {`S${activitySeason(item.media)}E${String(activityEpisode(item.media)).padStart(2, "0")}`}
                     </span>
                   ) : null}
                 </Link>

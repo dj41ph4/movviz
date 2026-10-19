@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/provider";
 import { cn, openPlexLink } from "@/lib/utils";
 import { encodeLibraryRef } from "@/lib/library/types";
+import { useLogoRetry } from "@/lib/useLogoRetry";
 import type { MetaDetail } from "@/lib/metadata/types";
 import type { LibraryStatus, LibraryFile, LibraryFileVersion } from "@/lib/library/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
@@ -506,9 +507,11 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
   // Auto-picked logo (best-rated TMDb logo in the viewer's language, English,
   // or language-less) — the artwork picker lets a user override it, but the
   // hero always tries to show SOME logo over text when TMDb has one at all.
+  const logoRetry = useLogoRetry<{ logos: { filePath: string }[] }>((data) => !!data?.logos?.length);
   const { data: imagesData } = useSWR<{ logos: { filePath: string }[] }>(
     detail?.tmdbId ? `/api/metadata/images?tmdbId=${detail.tmdbId}&type=${type}&locale=${locale}` : null,
-    fetcher
+    fetcher,
+    { refreshInterval: logoRetry }
   );
   const logoPath = libraryMatch?.customLogoPath
     ?? (editorialArtwork ? editorialArtwork.logoPath : seriesPart === "tybw" ? null : imagesData?.logos?.[0]?.filePath ?? null);

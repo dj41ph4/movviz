@@ -37,7 +37,7 @@ test("an original S01E001-E366 integral lands in the matching 16 physical season
   const targets = BLEACH_ORIGINAL_COUNTS.flatMap((count, index) => Array.from({ length: count }, (_, i) => ({ season: index + 1, episode: i + 1 })));
   const planned = planBleachEngineTargets(targets, "Bleach.S01E001-E366.COMPLETE.1080p", "tmdbAiring", true);
   assert.equal(planned.length, 366);
-  assert.deepEqual(planned[20], { season: 1, episode: 21, library: { season: 2, episode: 1 }, placement: { season: 2, episode: 1 }, presentation: bleachFilePresentation("original") });
+  assert.deepEqual(planned[20], { season: 1, episode: 21, library: { season: 2, episode: 1 }, placement: { season: 2, episode: 1 }, presentation: bleachFilePresentation("original"), absolute: 21 });
   assert.deepEqual(planned[365].placement, { season: 16, episode: 24 });
 });
 
@@ -71,6 +71,7 @@ test("an original S01E021 absolute file is matched as episode 21 and placed as S
     library: { season: 2, episode: 1 },
     placement: { season: 2, episode: 1 },
     presentation: bleachFilePresentation("original"),
+    absolute: 21,
   });
 });
 

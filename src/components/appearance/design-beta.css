@@ -94,21 +94,6 @@
     padding: 2.5rem 3rem 4rem;
     gap: 1rem;
   }
-  html[data-movviz-design="beta"] .mv-hero-eyebrow {
-    display: flex;
-    align-items: center;
-    gap: .75rem;
-    font: 500 .625rem/1.5 var(--so-font-mono);
-    letter-spacing: .24em;
-    text-transform: uppercase;
-    color: #d8cef1;
-  }
-  html[data-movviz-design="beta"] .mv-hero-eyebrow::before {
-    content: "";
-    width: 1.75rem;
-    height: 1px;
-    background: var(--so-accent);
-  }
   html[data-movviz-design="beta"] .mv-hero-status {
     border: 1px solid #ffffff30;
     border-radius: 5px;
@@ -151,9 +136,7 @@
     backdrop-filter: none;
   }
   html[data-movviz-design="beta"] .mv-hero-dots {
-    left: 3rem;
     bottom: 1.5rem;
-    transform: none;
     min-height: 24px;
     align-items: center;
     gap: .5rem;

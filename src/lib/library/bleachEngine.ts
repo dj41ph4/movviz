@@ -1,3 +1,4 @@
+import { parseRelease } from "@/lib/naming/parser";
 import { BLEACH_TMDB_ID, bleachToTmdb, bleachCourForEpisode, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 import { bleachFilePresentation } from "@/lib/metadata/bleachPlexIdentity";
 import { bleachReleaseTargets } from "./bleachRelease";
@@ -9,7 +10,11 @@ import { requireEpisodePlacementCapability, type EngineEpisodeTarget, type Episo
 
 export function planBleachEngineTargets(targets: { season: number; episode: number }[], releaseTitle: string, order: string, separateFolders = false): EngineEpisodeTarget[] {
   if (!["tmdbAiring", "aired", "tvdbAiring"].includes(order)) throw new Error("bleach_plex_order_unverified");
-  return bleachReleaseTargets(targets, releaseTitle).map(source => {
+  const parsed = parseRelease(releaseTitle), range = /\bS(\d{1,2})\s*(?:[-–]|to|a|à)\s*S?(\d{1,2})\b/i.test(releaseTitle);
+  const absoluteSource = (t: EngineEpisodeTarget) => t.season === 1 && t.library != null && t.library.season !== 1;
+  const sources = bleachReleaseTargets(targets, releaseTitle);
+  const absolutePack = sources.some(absoluteSource);
+  return sources.map(source => {
     const library = source.library;
     const tmdb = bleachToTmdb(library.season, library.episode);
     if (!tmdb) throw new Error("bleach_episode_unmapped");
@@ -23,6 +28,15 @@ export function planBleachEngineTargets(targets: { season: number; episode: numb
       return { ...source, placement: cour ? { season: cour.part, episode: library.episode - cour.offset } : placement, presentation: bleachFilePresentation(sequel ? "tybw" : "original") };
     }
     return { ...source, placement };
+  }).map(target => {
+    const lib = target.library;
+    if (!lib) return target;
+    // Season-less files are filed by absolute index only when the release itself
+    // is not season-qualified (a "Bleach.S03.COMPLETE" keeps local numbering).
+    if (lib.season === 17) return target.season === 17 ? { ...target, absolute: lib.episode } : target;
+    const abs = bleachToTmdb(lib.season, lib.episode);
+    const qualified = parsed.season != null && !range && !absolutePack;
+    return abs && !qualified ? { ...target, absolute: abs.episodeNumber } : target;
   });
 }
 

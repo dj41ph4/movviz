@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { activityTitle, activitySeason, activityEpisode } from "@/lib/activity/v2/types";
 import useSWR from "swr";
 import Link from "next/link";
 import { useI18n, useT } from "@/i18n/provider";
@@ -307,9 +308,9 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <Link href={item.media?.href ?? "#"} className="truncate font-semibold text-ink hover:text-brand-glow">
-                    {item.media.title}
-                    {item.media.season && item.media.episode && (
-                      <span className="text-ink-dim"> — S{item.media.season}E{String(item.media.episode).padStart(2, "0")}</span>
+                    {activityTitle(item.media)}
+                    {activitySeason(item.media) && activityEpisode(item.media) && (
+                      <span className="text-ink-dim"> — S{activitySeason(item.media)}E{String(activityEpisode(item.media)).padStart(2, "0")}</span>
                     )}
                   </Link>
                 </div>

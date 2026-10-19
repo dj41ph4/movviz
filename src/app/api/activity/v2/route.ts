@@ -18,6 +18,11 @@ import { decodeLibraryRef } from "@/lib/library/types";
 import type { User } from "@/lib/auth/types";
 import { computeHashIndex, type HashIndexResult, type HashIndexEntry } from "@/lib/library/hashIndexCompute";
 import { parseRelease } from "@/lib/naming/parser";
+import { presentBleachActivityMedia } from "@/lib/metadata/bleachPresentation";
+
+function presentEntry<T extends { media: ActivityMedia }>(entry: T): T {
+  return entry.media ? { ...entry, media: presentBleachActivityMedia(entry.media) } : entry;
+}
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -280,7 +285,7 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
 
       return {
         id: t.infoHash,
-        media,
+        media: presentBleachActivityMedia(media),
         release: {
           indexer: resolved?.indexer ?? "Inconnu",
           releaseTitle: t.name,
@@ -327,7 +332,7 @@ async function getHistory(user: User): Promise<NextResponse<{ items: ActivityEnt
     const userTmdbIds = getUserTmdbIds(user);
     entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
   }
-  return NextResponse.json({ items: entries, total: entries.length });
+  return NextResponse.json({ items: entries.map(presentEntry), total: entries.length });
 }
 
 async function getFailures(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
@@ -336,7 +341,7 @@ async function getFailures(user: User): Promise<NextResponse<{ items: ActivityEn
     const userTmdbIds = getUserTmdbIds(user);
     entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
   }
-  return NextResponse.json({ items: entries, total: entries.length });
+  return NextResponse.json({ items: entries.map(presentEntry), total: entries.length });
 }
 
 /**
@@ -448,15 +453,15 @@ function computeWanted(): { missing: WantedItem[]; cutoffUnmet: WantedItem[] } {
         if (!ep.monitored) continue;
         if (ep.status === "missing") {
           missing.push({
-            media: {
+            media: presentBleachActivityMedia({
               id: s.id,
               title: s.title,
-              type: "series",
+              type: "series" as const,
               tmdbId: s.tmdbId,
               season: season.seasonNumber,
               episode: ep.episodeNumber,
               href: `/title/series/${s.tmdbId}`
-            },
+            }),
             monitored: true,
             status: "missing",
             targetQuality: targetLabel,
@@ -466,15 +471,15 @@ function computeWanted(): { missing: WantedItem[]; cutoffUnmet: WantedItem[] } {
           const fileRes = extractResolution(ep.file.quality);
           if (!isCutoffMet(profile, fileRes)) {
             cutoffUnmet.push({
-              media: {
+              media: presentBleachActivityMedia({
                 id: s.id,
                 title: s.title,
-                type: "series",
+                type: "series" as const,
                 tmdbId: s.tmdbId,
                 season: season.seasonNumber,
                 episode: ep.episodeNumber,
                 href: `/title/series/${s.tmdbId}`
-              },
+              }),
               monitored: true,
               status: "cutoff_unmet",
               currentQuality: ep.file.quality,

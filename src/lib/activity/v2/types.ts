@@ -18,6 +18,11 @@ export interface ActivityMedia {
   type: "movie" | "series";
   season?: number;
   episode?: number;
+  /** Presentation-only season/episode (Bleach TYBW shows its cour × local episode);
+   *  null = show none. Absent = use `season`/`episode`. */
+  displayTitle?: string;
+  displaySeason?: number | null;
+  displayEpisode?: number | null;
   /** Number of episodes sharing this same torrent (a season pack) — omitted/1 for a single episode. */
   packEpisodeCount?: number;
   /** Number of distinct seasons covered by this same torrent (a complete-series pack) — set alongside packEpisodeCount when the download is a whole-series intégrale. */
@@ -174,3 +179,7 @@ export interface WantedItem {
   nextSearch?: number;
   availableReleases?: ActivityRelease[];
 }
+
+export const activityTitle = (m: { title: string; displayTitle?: string }) => m.displayTitle ?? m.title;
+export const activitySeason = (m: { season?: number; displaySeason?: number | null }) => (m.displaySeason !== undefined ? m.displaySeason ?? undefined : m.season);
+export const activityEpisode = (m: { episode?: number; displayEpisode?: number | null }) => (m.displayEpisode !== undefined ? m.displayEpisode ?? undefined : m.episode);

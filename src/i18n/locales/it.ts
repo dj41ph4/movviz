@@ -541,7 +541,6 @@ export const it: Dictionary = {
       title: "La tua prossima",
       accent: "grande storia.",
       explore: "Trova l’ispirazione",
-      featured: "In primo piano",
     },
     splash: {
       personalCinema: "Il tuo cinema personale",
@@ -603,8 +602,6 @@ export const it: Dictionary = {
       inDays: "Tra {n} giorni",
       inOneDay: "Domani",
       discovery: "Scoperta",
-      pause: "Metti in pausa",
-      play: "Riprendi la riproduzione",
       previousSlide: "Diapositiva precedente",
       nextSlide: "Diapositiva successiva",
       reasons: {

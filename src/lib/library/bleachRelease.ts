@@ -34,6 +34,12 @@ export function bleachReleaseTargets(targets: { season: number; episode: number 
       if (parsed.episode != null && (library.episode < parsed.episode || library.episode > (parsed.episodeEnd ?? parsed.episode))) return [];
       return [{ season: 17, episode: library.episode, library: { ...library } }];
     }
+    // No season, cour name or range: the release numbers the whole run
+    // absolutely (S17 / 1-50). Movviz splits it into cours 1-4 itself.
+    if (!range && named == null && parsed.season == null) {
+      if (parsed.episode != null && (library.episode < parsed.episode || library.episode > (parsed.episodeEnd ?? parsed.episode))) return [];
+      return [{ season: 17, episode: library.episode, library: { ...library } }];
+    }
     const cour = range ? bleachCourForEpisode(library.episode) : BLEACH_TYBW_COURS.find(c => c.part === (named ?? parsed.season));
     if (!cour || bleachCourForEpisode(library.episode)?.part !== cour.part) return [];
     if (range && (cour.part < range.lo || cour.part > range.hi)) return [];

@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
+import { useLogoRetry } from "@/lib/useLogoRetry";
 import { TmdbImage } from "@/components/media/TmdbImage";
 
 /**
- * Resolves one hero's official title mark. It deliberately waits three
- * seconds before falling back to text, then keeps that fallback stable for
- * the rest of the slide instead of replacing it with a late image response.
+ * Resolves one hero's official title mark. It waits three seconds before
+ * showing the text title as a stand-in, but the official logo always takes
+ * over as soon as it resolves — a slow or retried request must not leave the
+ * slide on text until the visitor changes slide.
  */
 export function TitleMark({
   tmdbId,
@@ -26,8 +28,10 @@ export function TitleMark({
   logoClassName?: string;
 }) {
   const [display, setDisplay] = useState<"pending" | "logo" | "title">("pending");
+  const retry = useLogoRetry<{ logos: { filePath: string }[] }>((data) => !!data?.logos?.length);
   const { data: images } = useSWR<{ logos: { filePath: string }[] }>(
-    `/api/metadata/images?tmdbId=${tmdbId}&type=${type}&locale=${locale}`
+    `/api/metadata/images?tmdbId=${tmdbId}&type=${type}&locale=${locale}`,
+    { refreshInterval: retry }
   );
   const logoPath = images?.logos?.[0]?.filePath ?? null;
 
@@ -40,7 +44,7 @@ export function TitleMark({
 
   useEffect(() => {
     if (!logoPath) return;
-    setDisplay((current) => (current === "pending" ? "logo" : current));
+    setDisplay("logo");
   }, [logoPath]);
 
   return (
