@@ -44,10 +44,37 @@ export interface ImportedFile {
 }
 
 /** No post-import renaming: the engine must install the physical coordinates
- * before callback, and those identities must match the persisted grab intent. */
+ * before callback, and those identities must match the grab intent.
+ *
+ * The intent normally comes from the episode's persisted claim (activeInfoHash +
+ * activeEpisodePlacement). When that claim is gone — the episode carries no
+ * claim at all, e.g. a long pack whose claims were lost while it downloaded —
+ * the engine's own placement is still fully verified below (Bleach mapping,
+ * Plex folder, physical file name), so the file is accepted; but only to fill
+ * an empty episode or confirm the very same file, never to replace another
+ * file without a claim. An episode claimed by ANOTHER download stays refused.
+ *
+ * Each file is checked on its own: one unverifiable file no longer rejects the
+ * whole pack (366 episodes of an integral were lost to that). The import only
+ * fails when no file at all can be verified. */
 export function validateBleachImportedFiles(series: LibrarySeries, files: ImportedFile[], infoHash?: string): ImportedFile[] {
   if (series.tmdbId !== BLEACH_TMDB_ID) return files;
-  return files.map(file => {
+  const accepted: ImportedFile[] = [];
+  const errors: string[] = [];
+  for (const file of files) {
+    try { accepted.push(validateBleachImportedFile(series, file, infoHash)); }
+    catch (err) { errors.push((err as Error).message); }
+  }
+  if (errors.length) {
+    if (!accepted.length) throw new Error(errors[0]);
+    const counts = [...errors.reduce((m, e) => m.set(e, (m.get(e) ?? 0) + 1), new Map<string, number>())].map(([e, n]) => `${e}×${n}`).join(", ");
+    console.warn(`[import] Bleach : ${accepted.length} fichier(s) accepté(s), ${errors.length} écarté(s) (${counts})`);
+  }
+  return accepted;
+}
+
+function validateBleachImportedFile(series: LibrarySeries, file: ImportedFile, infoHash?: string): ImportedFile {
+  {
     const mapping = file.episodePlacement;
     if (!mapping || !infoHash) throw new Error("bleach_import_identity_unverified");
     const { source, library, placement } = mapping;
@@ -65,7 +92,17 @@ export function validateBleachImportedFiles(series: LibrarySeries, files: Import
       const offset = episodeNumber - library.episode;
       const expected = ep?.activeEpisodePlacement;
       const replay = ep?.lastImportedInfoHash === infoHash && samePath(diskPathOf(ep.file) ?? "", file.path);
-      if (!ep || (!replay && (ep.activeInfoHash !== infoHash || !expected || expected.source.season !== source.season || expected.source.episode !== source.episode + offset || expected.placement.season !== placement.season || expected.placement.episode !== placement.episode + offset || JSON.stringify(expected.presentation ?? null) !== JSON.stringify(mapping.presentation ?? null)))) throw new Error("bleach_import_intent_unverified");
+      if (!ep) throw new Error("bleach_import_intent_unverified");
+      if (!replay) {
+        if (ep.activeInfoHash === infoHash && expected) {
+          if (expected.source.season !== source.season || expected.source.episode !== source.episode + offset || expected.placement.season !== placement.season || expected.placement.episode !== placement.episode + offset || JSON.stringify(expected.presentation ?? null) !== JSON.stringify(mapping.presentation ?? null)) throw new Error("bleach_import_intent_unverified");
+        } else if (ep.activeInfoHash && ep.activeInfoHash !== infoHash) {
+          throw new Error("bleach_import_claimed_elsewhere");
+        } else if (ep.file && !samePath(diskPathOf(ep.file) ?? "", file.path)) {
+          // No claim: never replace an existing, different file.
+          throw new Error("bleach_unclaimed_replacement");
+        }
+      }
       const tmdb = bleachToTmdb(library.season, episodeNumber);
       const cour = mapping.presentation?.seriesPart === "tybw" ? bleachCourForEpisode(episodeNumber) : null;
       const placementVerified = cour ? placement.season === cour.part && placement.episode + offset === episodeNumber - cour.offset :
@@ -77,7 +114,7 @@ export function validateBleachImportedFiles(series: LibrarySeries, files: Import
     const physicalEnd = rawRange ? Number(rawRange[2]) : physical.episodeEnd ?? placement.episode;
     if (physical.season !== placement.season || physical.episode !== placement.episode || physicalEnd !== (placement.episodeEnd ?? placement.episode)) throw new Error("bleach_physical_name_mismatch");
     return file;
-  });
+  }
 }
 
 /** A file re-imported where it already is (same path, same size) is not a

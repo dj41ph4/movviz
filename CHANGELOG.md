@@ -1,3 +1,10 @@
+## v1.27.1 — 19 octobre 2026
+
+### Bleach : l'intégrale téléchargée est bien rangée dans la bibliothèque
+
+- Une intégrale de Bleach entièrement téléchargée et correctement rangée sur le disque pouvait n'apparaître nulle part dans Movviz : il suffisait qu'un seul épisode ne soit plus reconnu comme attendu pour que tout le lot soit refusé. Chaque fichier est désormais vérifié individuellement d'après l'emplacement où il a réellement été rangé (saison, dossier, nom), et les épisodes concernés deviennent disponibles sans rien retélécharger.
+- Aucun fichier existant n'est jamais remplacé ni supprimé par ce rattrapage, et un épisode attendu par un autre téléchargement reste réservé à celui-ci.
+
 ## v1.27.0 — 19 octobre 2026
 
 ### Design bêta : un écran de chargement fluide et qui ne part qu'une fois tout prêt
