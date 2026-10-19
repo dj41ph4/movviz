@@ -109,9 +109,9 @@ fun ProfilePickerScreen(
             .fillMaxSize()
             .background(
                 Brush.radialGradient(
-                    // Bêta : fond graphite et lueur dorée à 10 %.
+                    // Bêta : fond graphite et lueur violette à 10 %.
                     colors = if (beta) listOf(
-                        Color(0xFFB8892B).copy(alpha = .10f),
+                        Color(0xFF7C3AED).copy(alpha = .10f),
                         MovvizTheme.palette.background,
                         MovvizTheme.palette.background,
                     ) else listOf(

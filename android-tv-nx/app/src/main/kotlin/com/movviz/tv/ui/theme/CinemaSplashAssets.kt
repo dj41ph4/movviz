@@ -29,8 +29,8 @@ object CinemaSplashAssets {
     class Loaded(
         val plate: ImageBitmap,
         val logoMask: ImageBitmap,
-        val bloomFine: ImageBitmap,
-        val bloomWide: ImageBitmap,
+        /** Une image « lumière » par famille de néons (halo + cœur déjà fusionnés), dans l'ordre de [CinemaSplashLayout.families]. */
+        val families: List<ImageBitmap>,
     )
 
     /** Dernier état connu de la préférence Bêta, lu en parallèle du démarrage (null = pas encore lu). */
@@ -49,7 +49,7 @@ object CinemaSplashAssets {
     private var glowCached: ImageBitmap? = null
 
     /**
-     * Lueur chaude à bord totalement transparent : une seule image de 128 px, étirée à la demande
+     * Lueur violette à bord totalement transparent : une seule image de 128 px, étirée à la demande
      * (rond ou ovale) et dessinée en additif. Remplace tout disque/ovale plein, donc aucun contour
      * visible, et évite d'allouer un dégradé radial par image.
      */
@@ -58,13 +58,13 @@ object CinemaSplashAssets {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
             shader = RadialGradient(
-                size / 2f, size / 2f, size / 2f,
-                intArrayOf(0xFFFFE6B8.toInt(), 0x99FFB24A.toInt(), 0x33FF9A2E.toInt(), 0x0AFF9A2E, 0x00FF9A2E),
+                size / 2f, size / 2f, size / 2f - 3f, // 3 px de bord vide : aucune ligne fine au contour une fois étirée
+                intArrayOf(0xFFEEE2FF.toInt(), 0x99B089FF.toInt(), 0x337C5CFF, 0x0A7C5CFF, 0x007C5CFF),
                 floatArrayOf(0f, 0.22f, 0.5f, 0.8f, 1f),
                 Shader.TileMode.CLAMP,
             )
         }
-        AndroidCanvas(bitmap).drawCircle(size / 2f, size / 2f, size / 2f, paint)
+        AndroidCanvas(bitmap).drawCircle(size / 2f, size / 2f, size / 2f - 1f, paint)
         bitmap.asImageBitmap().also { glowCached = it }
     }
 
@@ -100,12 +100,11 @@ object CinemaSplashAssets {
         return Loaded(
             plate = bitmap(R.drawable.splash_plate),
             logoMask = bitmap(R.drawable.splash_logo_mask),
-            bloomFine = bitmap(R.drawable.splash_bloom_a),
-            bloomWide = bitmap(R.drawable.splash_bloom_b),
+            families = CinemaSplashLayout.families.map { bitmap(it.drawable) },
         )
     }
 
-    // inScaled = false : les images sont des plaques de 1672×941, jamais redimensionnées par la densité.
+    // inScaled = false : les images sont des plaques de 1916×821, jamais redimensionnées par la densité.
     private fun options() = BitmapFactory.Options().apply {
         inScaled = false
         inPreferredConfig = Bitmap.Config.ARGB_8888

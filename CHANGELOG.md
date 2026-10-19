@@ -1,3 +1,12 @@
+## v1.26.055 — 19 octobre 2026
+
+### Design bêta : retour au violet, nouvel écran de chargement et nouveaux logos
+
+- Le design bêta retrouve son violet (le doré de la version précédente est abandonné) sur le web et sur Android TV.
+- Nouvel écran de chargement en violet, sur le web comme sur Android TV : un grand couloir lumineux de 21:9 (ajusté exactement en 21:9, côtés rognés en 16:9, mot du logo toujours entier sur les écrans étroits). La lumière court en douceur le long des vraies lignes de la scène — sol, plafond, piliers, contour du triangle — avec un reflet chromé sur le logo et une barre qui suit l'avancement réel. Les animations restent discrètes.
+- Nouveaux logos violet chromé (symbole « O », format complet petit et grand), animés sans halo autour du « O », partout où le logo apparaît en bêta, y compris le README.
+- Android TV : démarrage toujours aussi rapide (images décodées en arrière-plan, version légère affichée tout de suite), avec « réduire les animations » la scène reste immobile.
+
 ## v1.26.054 — 19 octobre 2026
 
 ### Design bêta : un or foncé à la place du violet, sur le web et sur Android TV

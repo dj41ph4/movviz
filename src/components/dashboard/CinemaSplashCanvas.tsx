@@ -75,7 +75,7 @@ export function CinemaSplashCanvas({
     };
 
     renderer
-      .load("/brand/splash-bg.webp")
+      .load("/brand/splash")
       .then(() => {
         if (cancelled) return;
         fit();

@@ -3,22 +3,22 @@
   <defs>
   <linearGradient id="c-word" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="724" y2="0">
     <stop offset="0" stop-color="#f4f6ff"/><stop offset=".5" stop-color="#d9deef"/>
-    <stop offset=".64" stop-color="#f3e3c4"/><stop offset=".8" stop-color="#ffc25c"/><stop offset="1" stop-color="#f58a14"/>
+    <stop offset=".64" stop-color="#e6dcff"/><stop offset=".8" stop-color="#b78bff"/><stop offset="1" stop-color="#7c3aed"/>
   </linearGradient>
   <linearGradient id="c-shade" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
     <stop offset="1" stop-color="#1a1f3a" stop-opacity=".22"/>
   </linearGradient>
   <linearGradient id="c-ring" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#ffd98a"/><stop offset=".55" stop-color="#ffb33d"/><stop offset="1" stop-color="#f58a14"/>
+    <stop offset="0" stop-color="#d9c6ff"/><stop offset=".55" stop-color="#a984ff"/><stop offset="1" stop-color="#7c3aed"/>
   </linearGradient>
   <linearGradient id="c-play" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#ffc766"/><stop offset="1" stop-color="#f58a14"/>
+    <stop offset="0" stop-color="#c9a8ff"/><stop offset="1" stop-color="#7c3aed"/>
   </linearGradient>
   <linearGradient id="c-band" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0" stop-color="#fff6e1" stop-opacity="0"/><stop offset=".5" stop-color="#fff6e1" stop-opacity=".95"/><stop offset="1" stop-color="#fff6e1" stop-opacity="0"/>
+    <stop offset="0" stop-color="#ece2ff" stop-opacity="0"/><stop offset=".5" stop-color="#ece2ff" stop-opacity=".95"/><stop offset="1" stop-color="#ece2ff" stop-opacity="0"/>
   </linearGradient>
-  <radialGradient id="c-spark"><stop offset="0" stop-color="#fff0c8" stop-opacity=".95"/><stop offset=".35" stop-color="#ffaf3c" stop-opacity=".45"/><stop offset="1" stop-color="#ff8c1e" stop-opacity="0"/></radialGradient><style>
+  <radialGradient id="c-spark"><stop offset="0" stop-color="#efe4ff" stop-opacity=".95"/><stop offset=".35" stop-color="#a67bff" stop-opacity=".45"/><stop offset="1" stop-color="#7c3aed" stop-opacity="0"/></radialGradient><style>
   .sweep{animation:sweep 4.4s cubic-bezier(.65,0,.35,1) infinite}
   .flash{opacity:0;animation:flash 4.4s ease-out infinite}
   .ember{opacity:0;animation:ember 5.2s ease-in infinite}
@@ -38,6 +38,6 @@
   <clipPath id="c-shape"><path d="M0 110V0H30L75 62L120 0H150V110H122V48L75 112L28 48V110ZM292 0H322L354 74L386 0H416L369 110H339ZM422 0H452L484 74L516 0H546L499 110H469ZM560 0H588V110H560ZM612 0H724V24L652 86H724V110H612V86L684 24H612Z"/><path clip-rule="evenodd" d="M172.9 55a58.1 58.1 0 1 0 116.2 0a58.1 58.1 0 1 0 -116.2 0ZM177.1 55a53.9 53.9 0 1 1 107.8 0a53.9 53.9 0 1 1 -107.8 0Z"/><path d="M219.8 25.88L262.36 55L219.8 84.12Z"/></clipPath>
   <g clip-path="url(#c-shape)">
     <g transform="skewX(-18)"><rect class="sweep" style="--run:980px" x="-190" y="-20" width="150" height="150" fill="url(#c-band)"/></g>
-    <rect class="flash" x="-20" y="-20" width="764" height="150" fill="#ffe0a0"/>
+    <rect class="flash" x="-20" y="-20" width="764" height="150" fill="#d6c4ff"/>
   </g>
 </svg>

@@ -12,7 +12,6 @@ import { toast } from "@/components/ui/Toast";
 import "./premium.css";
 import "./salle-obscure.css";
 import "./design-beta.css";
-import "./design-beta-gold.css";
 
 type PreferencesResponse = { prefs?: UserPrefs };
 type DesignContextValue = { mode: DesignMode; loaded: boolean; saving: boolean; setMode: (mode: DesignMode) => Promise<void> };

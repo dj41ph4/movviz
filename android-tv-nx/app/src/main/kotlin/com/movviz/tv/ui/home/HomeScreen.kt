@@ -1517,7 +1517,7 @@ internal fun HeroCarousel(
                         modifier = Modifier
                             .width(5.dp).height(5.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(if (index == currentIndex) { if (com.movviz.tv.ui.theme.LocalMovvizBeta.current) MovvizTheme.palette.accent else Color(0xFFC04BFF) } else Color(0xFF3D4A7A)),
+                            .background(if (index == currentIndex) Color(0xFFC04BFF) else Color(0xFF3D4A7A)),
                     )
                 }
             }

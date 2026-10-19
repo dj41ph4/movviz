@@ -59,32 +59,37 @@ import kotlin.math.sin
 import kotlin.math.roundToInt
 
 // ────────────────────────────────────────────────────────────────
-// Splash Bêta « cinéma » : une plaque (1672×941) éclairée en direct.
+// Splash Bêta « cinéma » : une plaque 21:9 (1916×821) éclairée en direct.
 //
 // Latence minimale, par construction :
 //  • les images sont décodées hors du thread principal dès le lancement (CinemaSplashAssets) ;
-//    en attendant, une version 3,7 Ko de la MÊME plaque sert de décor → premier rendu immédiat ;
-//  • aucun calcul de pixels : masque du logo, halos et plaque nettoyée sont livrés précalculés ;
+//    en attendant, une version 6 Ko de la MÊME plaque sert de décor → premier rendu immédiat ;
+//  • aucun calcul de pixels : masque du logo et calques de néons (un par famille de lignes) sont
+//    livrés précalculés ; ils reprennent la couleur et le dégradé réels de la plaque ;
 //  • aucune recomposition par image : l'horloge n'est lue que pendant le dessin ;
-//  • la lumière est faite de cercles/ovales empilés et de peu de dégradés : pas de coût de flou.
+//  • chaque famille de néons n'est composée qu'une fois par image (une couche, une bande mobile).
 // La barre montre l'avancement RÉEL ; le splash n'est jamais focalisable.
 // ────────────────────────────────────────────────────────────────
 
-/** Géométrie « cover » : la plaque couvre la zone, centrée (testable, sans Android). */
+/** Géométrie : la plaque 21:9 s'ajuste exactement en 21:9, rogne les côtés en 16:9, garde le logo entier en étroit. */
 object CinemaSplashGeometry {
-    const val PLATE_W = 1672f
-    const val PLATE_H = 941f
+    const val PLATE_W = 1916f
+    const val PLATE_H = 821f
+
+    /** Largeur de plaque toujours visible (le mot entier + marge). */
+    const val MIN_VISIBLE_W = 780f
 
     class Cover(val scale: Float, val offsetX: Float, val offsetY: Float)
 
     fun cover(width: Float, height: Float): Cover {
         if (width <= 0f || height <= 0f) return Cover(1f, 0f, 0f)
-        val s = maxOf(width / PLATE_W, height / PLATE_H)
+        val aspect = width / height
+        val s = if (aspect >= PLATE_W / PLATE_H) width / PLATE_W else width / maxOf(PLATE_H * aspect, MIN_VISIBLE_W)
         return Cover(s, (width - PLATE_W * s) / 2f, (height - PLATE_H * s) / 2f)
     }
 
     /** Lent travelling avant, qui se stabilise (jamais de saut à la boucle : il n'y en a pas). */
-    fun zoom(timeSec: Float): Float = 1f + 0.035f * (1f - exp(-timeSec / 5f))
+    fun zoom(timeSec: Float): Float = 1f + 0.03f * (1f - exp(-timeSec / 5f))
 
     fun easeInOut(x: Float): Float {
         val t = x.coerceIn(0f, 1f)
@@ -92,29 +97,66 @@ object CinemaSplashGeometry {
     }
 }
 
+/**
+ * Familles de néons : chacune est un morceau de la plaque (rectangle en coordonnées plaque) qui
+ * suit une direction (la lumière y circule) ou, pour le triangle, tourne autour d'un centre.
+ */
+object CinemaSplashLayout {
+    class Family(
+        val drawable: Int,
+        val x: Float, val y: Float, val w: Float, val h: Float,
+        val conic: Boolean,
+        val dx: Float, val dy: Float,
+        val period: Float, val phase: Float, val band: Float, val gain: Float,
+    ) {
+        val cx get() = x + w / 2f
+        val cy get() = y + h / 2f
+
+        /** Demi-extension du rectangle le long de la direction. */
+        val half: Float get() = (kotlin.math.abs(dx) * w + kotlin.math.abs(dy) * h) / 2f
+
+        /** Demi-longueur de la bande lumineuse. */
+        val bandHalf: Float get() = maxOf(30f, half * band)
+        val angleDeg: Float get() = Math.toDegrees(kotlin.math.atan2(dy, dx).toDouble()).toFloat()
+    }
+
+    val families = listOf(
+        Family(R.drawable.splash_lit_tri, 700f, 30f, 470f, 320f, true, 0f, 0f, 5.2f, 0f, 0.2f, 1f),
+        Family(R.drawable.splash_lit_beaml, 640f, 0f, 66f, 345f, false, 0f, 1f, 3.6f, 0.1f, 0.45f, 0.9f),
+        Family(R.drawable.splash_lit_beamr, 1210f, 0f, 66f, 345f, false, 0f, 1f, 3.6f, 0.6f, 0.45f, 0.9f),
+        Family(R.drawable.splash_lit_ceill, 0f, 0f, 640f, 205f, false, 0.89f, 0.46f, 4.1f, 0.2f, 0.32f, 1f),
+        Family(R.drawable.splash_lit_ceilr, 1276f, 0f, 640f, 205f, false, -0.89f, 0.46f, 4.1f, 0.7f, 0.32f, 1f),
+        Family(R.drawable.splash_lit_pilll, 490f, 205f, 150f, 375f, false, 0f, -1f, 3.4f, 0.35f, 0.38f, 1f),
+        Family(R.drawable.splash_lit_pillr, 1276f, 205f, 150f, 375f, false, 0f, -1f, 3.4f, 0.85f, 0.38f, 1f),
+        Family(R.drawable.splash_lit_floorl, 0f, 575f, 958f, 246f, false, -1f, 0f, 4.6f, 0.5f, 0.3f, 1f),
+        Family(R.drawable.splash_lit_floorr, 958f, 575f, 958f, 246f, false, 1f, 0f, 4.6f, 0.05f, 0.3f, 1f),
+    )
+
+    const val TRI_CX = 940f
+    const val TRI_CY = 215f
+}
+
 private const val STILL_TIME = 3.2f
 private val SplashBase = Color(0xFF05050B)
 private val Plate = IntSize(CinemaSplashGeometry.PLATE_W.toInt(), CinemaSplashGeometry.PLATE_H.toInt())
-private val LabelColor = Color(0xDBD0D6EC)
+private val LabelColor = Color(0xE0DCD8F0)
 private val TaglineBrush = Brush.horizontalGradient(
-    0f to Color(0xFFAAB4D6),
-    0.62f to Color(0xFFAAB4D6),
-    0.78f to Color(0xFFFFB33D),
-    1f to Color(0xFFF58A14),
+    0f to Color(0xFFD4CFF0),
+    1f to Color(0xFFBDA7FF),
 )
 
-private class Comet(val x0: Float, val y0: Float, val x1: Float, val y1: Float, val durationSec: Float, val phase: Float)
-
-private val Comets = arrayOf(
-    Comet(722f, 100f, 1088f, 294f, 3.4f, 0f),
-    Comet(1258f, 280f, 1672f, 4f, 4.2f, 0.35f),
-    Comet(0f, 584f, 548f, 676f, 3.8f, 0.62f),
-    Comet(1214f, 676f, 1672f, 748f, 3.6f, 0.18f),
-)
+private const val BAR_X0 = 686f
+private const val BAR_X1 = 1234f
+private const val BAR_Y = 510f
+private const val BAR_H = 26f
+private const val CX = 958f
+private const val TAG_Y = 457f
+private const val LABEL_Y = 564f
+private val LogoBounds = Rect(620f, 290f, 620f + 686f, 290f + 146f)
 
 /** Braises : positions déterministes, calculées une seule fois. */
 private object Embers {
-    const val COUNT = 26
+    const val COUNT = 14
     val x = FloatArray(COUNT)
     val y = FloatArray(COUNT)
     val speed = FloatArray(COUNT)
@@ -124,7 +166,7 @@ private object Embers {
     val alpha = FloatArray(COUNT)
 
     init {
-        var seed = 7L
+        var seed = 11L
         fun rnd(): Float {
             seed = seed * 16807L % 2147483647L
             return seed / 2147483647f
@@ -132,40 +174,57 @@ private object Embers {
         for (i in 0 until COUNT) {
             x[i] = rnd() * CinemaSplashGeometry.PLATE_W
             y[i] = rnd() * CinemaSplashGeometry.PLATE_H
-            speed[i] = 10f + rnd() * 28f
-            size[i] = 0.7f + rnd() * 2.1f
+            speed[i] = 8f + rnd() * 22f
+            size[i] = 0.7f + rnd() * 1.9f
             sway[i] = rnd() * 6.28f
             freq[i] = 0.5f + rnd() * 1.6f
-            alpha[i] = 0.25f + rnd() * 0.55f
+            alpha[i] = 0.16f + rnd() * 0.3f
         }
     }
 }
 
-/** Objets de dessin réutilisés à chaque image (aucune allocation de pinceau stable). */
+/** Objets de dessin réutilisés à chaque image (aucune allocation de pinceau par image). */
 private class SceneCache(val glow: ImageBitmap) {
     val plusPaint = Paint().apply { blendMode = BlendMode.Plus }
     val skew = Matrix().also { it[0, 1] = -0.32f }
     val barFill = Brush.horizontalGradient(
-        0f to Color(0xFFFFD27A),
-        0.55f to Color(0xFFFFA62B),
-        1f to Color(0xFFFF8A14),
+        0f to Color(0xFF7C3AED),
+        0.6f to Color(0xFFB78BFF),
+        1f to Color(0xFFECE2FF),
         startX = BAR_X0,
         endX = BAR_X1,
     )
-    val sweepColors = listOf(Color(0x00FFF6E1), Color(0xF2FFF6E1), Color(0x00FFF6E1))
+    val sweepColors = listOf(Color(0x00ECE2FF), Color(0xB3ECE2FF), Color(0x00ECE2FF))
     val shineBrush = Brush.verticalGradient(
-        0f to Color(0x8CFFFFFF),
+        0f to Color(0x80FFFFFF),
         0.5f to Color(0x00FFFFFF),
         startY = BAR_Y,
         endY = BAR_Y + BAR_H,
     )
-}
 
-private const val BAR_X0 = 466f
-private const val BAR_X1 = 1207f
-private const val BAR_Y = 553f
-private const val BAR_H = 24f
-private val LogoBounds = Rect(466f, 328f, 466f + 746f, 328f + 126f)
+    /** Bande de lumière d'une famille linéaire : alpha seul (masque), tête devant, longue traîne derrière. */
+    val bands: List<Brush?> = CinemaSplashLayout.families.map { f ->
+        if (f.conic) null else Brush.horizontalGradient(
+            0f to Color.Black.copy(alpha = 0f),
+            0.3f to Color.Black.copy(alpha = 0.22f),
+            0.55f to Color.Black.copy(alpha = 0.85f),
+            0.62f to Color.Black,
+            1f to Color.Black.copy(alpha = 0f),
+            startX = -f.bandHalf,
+            endX = f.bandHalf,
+        )
+    }
+
+    /** Triangle : un secteur qui tourne (tête nette, traîne longue), centré sur le contour. */
+    val sweep: Brush = Brush.sweepGradient(
+        0f to Color.Black,
+        0.05f to Color.Black.copy(alpha = 0.35f),
+        0.55f to Color.Black.copy(alpha = 0f),
+        0.8f to Color.Black.copy(alpha = 0.18f),
+        1f to Color.Black,
+        center = Offset(CinemaSplashLayout.TRI_CX, CinemaSplashLayout.TRI_CY),
+    )
+}
 
 /**
  * Splash cinématique Bêta (plein écran, non focalisable).
@@ -242,15 +301,15 @@ fun CinemaSplash(
         val scale = cover.scale
         val tagline = stringResource(R.string.splash_tagline).uppercase(Locale.getDefault())
         val label = message ?: stringResource(R.string.splash_preparing)
-        val tagY = cover.offsetY + 486f * scale
-        val labelY = cover.offsetY + 606f * scale
+        val tagY = cover.offsetY + TAG_Y * scale
+        val labelY = cover.offsetY + LABEL_Y * scale
         Text(
             text = tagline,
             style = TextStyle(
                 fontFamily = MovvizUiFonts,
                 fontWeight = FontWeight.Medium,
                 fontSize = with(density) { (17f * scale).toSp() },
-                letterSpacing = with(density) { (7.5f * scale).toSp() },
+                letterSpacing = with(density) { (6.5f * scale).toSp() },
                 brush = TaglineBrush,
             ),
             maxLines = 1,
@@ -278,8 +337,8 @@ fun CinemaSplash(
         Box(
             Modifier
                 .align(Alignment.TopCenter)
-                .offset { IntOffset(0, (cover.offsetY + 540f * scale).roundToInt()) }
-                .size(with(density) { (780f * scale).toDp() }, with(density) { (96f * scale).toDp() })
+                .offset { IntOffset(0, (cover.offsetY + (BAR_Y - 13f) * scale).roundToInt()) }
+                .size(with(density) { (700f * scale).toDp() }, with(density) { (96f * scale).toDp() })
                 .movvizFocusRing(RoundedCornerShape(12.dp), focused = { focused }),
         )
     }
@@ -312,86 +371,92 @@ private fun DrawScope.drawScene(
     cache: SceneCache,
 ) {
     val energy = 0.55f + 0.45f * prog
+    val intro = if (reduce) 1f else 1f - (1f - (t / 1.4f).coerceIn(0f, 1f)).let { it * it * it }
     withTransform({
         translate(cover.offsetX, cover.offsetY)
         scale(cover.scale, cover.scale, Offset.Zero)
     }) {
-        // 1. décor : basse définition tout de suite, plaque nettoyée en fondu dès qu'elle est décodée
+        // 1. décor : basse définition tout de suite, plaque en fondu dès qu'elle est décodée
         if (assets == null || richAlpha < 1f) drawImage(lowRes, dstSize = Plate, filterQuality = FilterQuality.Medium)
         if (assets == null) return@withTransform
         drawImage(assets.plate, dstSize = Plate, alpha = richAlpha, filterQuality = FilterQuality.High)
 
-        // 2. halos vivants sur les arêtes orange réelles (calques précalculés, additifs)
-        val pulse = 0.7f + 0.3f * sin(t * 2.1f)
-        drawImage(assets.bloomWide, dstSize = Plate, alpha = (0.85f * energy * pulse * richAlpha).coerceIn(0f, 1f), blendMode = BlendMode.Plus)
-        drawImage(assets.bloomFine, dstSize = Plate, alpha = (0.55f * energy * pulse * richAlpha).coerceIn(0f, 1f), blendMode = BlendMode.Plus)
-
-        if (!reduce) drawComets(t, richAlpha, cache)
+        // 2. néons : la lumière circule sur les lignes réelles de la plaque
+        val families = CinemaSplashLayout.families
+        for (i in families.indices) drawFamily(families[i], assets.families[i], cache.bands[i], t, energy * intro, flash, richAlpha, reduce, cache)
 
         // 3. le mot : la lumière n'éclaire QUE les lettres (masque), jamais un rectangle
         drawLogoLight(assets, t, flash, reduce, cache)
+        glow(cache.glow, CX, LogoBounds.top + LogoBounds.height * 0.55f, 900f, 260f, 0.07f * (energy * (0.8f + 0.2f * sin(t * 1.7f)) + flash * 0.8f) * intro * richAlpha)
 
-        // 4. anneaux depuis le bouton lecture
-        if (!reduce) {
-            for (i in 0..1) {
-                val r = (t / 2.7f + i * 0.5f) % 1f
-                val e = 1f - (1f - r) * (1f - r) * (1f - r)
-                drawCircle(
-                    color = Color(1f, 0.675f, 0.216f, (1f - r) * (1f - r) * 0.55f * richAlpha),
-                    radius = 72f + 78f * e,
-                    center = Offset(705f, 386f),
-                    style = Stroke(width = 3.2f * (1f - r) + 0.5f),
-                )
-            }
-        }
-
-        // 5. sol : lueur qui monte avec le chargement
-        glow(cache.glow, 838f, 750f, 760f, 150f, 0.16f * energy * (0.75f + 0.25f * sin(t * 1.4f)) * richAlpha)
+        // 4. sol : lueur qui monte avec le chargement
+        glow(cache.glow, CX, 751f, 840f, 150f, 0.12f * energy * (0.75f + 0.25f * sin(t * 1.4f)) * intro * richAlpha)
 
         drawBar(t, prog, flash, richAlpha, reduce, cache)
         if (!reduce) drawEmbers(t, richAlpha, cache)
     }
     // vignette douce : fond les bords
-    drawRect(Brush.radialGradient(0.55f to Color.Transparent, 1f to Color(0x6B000000), center = center, radius = size.maxDimension * 0.75f))
+    drawRect(Brush.radialGradient(0.55f to Color.Transparent, 1f to Color(0x66000000), center = center, radius = size.maxDimension * 0.75f))
 }
 
-private fun DrawScope.drawComets(t: Float, richAlpha: Float, cache: SceneCache) {
-    for (c in Comets) {
-        val cyc = (t / c.durationSec + c.phase) % 1.7f
-        if (cyc > 1f) continue
-        val tailU = maxOf(0f, cyc - 0.26f)
-        val steps = 14
-        var px = c.x0 + (c.x1 - c.x0) * tailU
-        var py = c.y0 + (c.y1 - c.y0) * tailU
-        for (i in 1..steps) {
-            val u = tailU + (cyc - tailU) * i / steps
-            val nx = c.x0 + (c.x1 - c.x0) * u
-            val ny = c.y0 + (c.y1 - c.y0) * u
-            val k = i / steps.toFloat()
-            drawLine(
-                color = Color(1f, 0.58f + 0.35f * k, 0.24f + 0.43f * k * k, (0.05f + 0.8f * k * k) * richAlpha),
-                start = Offset(px, py),
-                end = Offset(nx, ny),
-                strokeWidth = 0.7f + 3.4f * k * k,
-                cap = StrokeCap.Round,
-                blendMode = BlendMode.Plus,
-            )
-            px = nx
-            py = ny
+/**
+ * Une famille de néons : base discrète qui respire + une bande lumineuse qui court sur les lignes
+ * (couche unique : bande en masque, image « lumière » composée en SrcIn, puis ajoutée à la scène).
+ */
+private fun DrawScope.drawFamily(
+    f: CinemaSplashLayout.Family,
+    image: ImageBitmap,
+    band: Brush?,
+    t: Float,
+    energy: Float,
+    flash: Float,
+    richAlpha: Float,
+    reduce: Boolean,
+    cache: SceneCache,
+) {
+    val amount = (f.gain * (0.42f + 0.32f * energy) + flash * 0.4f).coerceIn(0f, 1f) * richAlpha
+    val base = if (reduce) 0.3f else 0.06f + 0.04f * sin(t * 1.3f + f.phase * 6.28f)
+    val offset = IntOffset(f.x.toInt(), f.y.toInt())
+    drawImage(image, dstOffset = offset, alpha = (base * amount).coerceIn(0f, 1f), blendMode = BlendMode.Plus)
+
+    val u = if (reduce) 0.5f else (t / f.period + f.phase) % 1.35f // 1.35 : courte pause entre deux passages
+    if (u > 1f && !f.conic) return
+    val big = maxOf(f.w, f.h)
+    drawIntoCanvas { canvas ->
+        canvas.saveLayer(Rect(f.x, f.y, f.x + f.w, f.y + f.h), cache.plusPaint)
+        if (f.conic) {
+            val angle = (if (reduce) 0.62f else (t / f.period + f.phase) % 1f) * 360f
+            withTransform({ rotate(angle, Offset(CinemaSplashLayout.TRI_CX, CinemaSplashLayout.TRI_CY)) }) {
+                drawRect(
+                    cache.sweep,
+                    Offset(CinemaSplashLayout.TRI_CX - big, CinemaSplashLayout.TRI_CY - big),
+                    Size(big * 2f, big * 2f),
+                )
+            }
+        } else if (band != null) {
+            val bandHalf = f.bandHalf
+            val pos = -f.half - bandHalf + (f.half * 2f + bandHalf * 2f) * u.coerceIn(0f, 1f)
+            withTransform({
+                translate(f.cx, f.cy)
+                rotate(f.angleDeg, Offset.Zero)
+                translate(pos, 0f)
+            }) {
+                drawRect(band, Offset(-bandHalf, -big), Size(bandHalf * 2f, big * 2f))
+            }
         }
-        glow(cache.glow, px, py, 54f, 54f, 0.8f * richAlpha)
-        drawCircle(Color(1f, 0.94f, 0.8f, 0.9f * richAlpha), 4.5f, Offset(px, py), blendMode = BlendMode.Plus)
+        drawImage(image, dstOffset = offset, alpha = amount, blendMode = BlendMode.SrcIn)
+        canvas.restore()
     }
 }
 
 private fun DrawScope.drawLogoLight(assets: CinemaSplashAssets.Loaded, t: Float, flash: Float, reduce: Boolean, cache: SceneCache) {
-    val sweepU = ((t - 1.1f) / 2.6f) % 1.8f
+    val sweepU = ((t - 1.1f) / 2.8f) % 1.8f
     val sweeping = !reduce && t > 1.1f && sweepU < 1f
     if (!sweeping && flash <= 0f) return
     drawIntoCanvas { canvas ->
         canvas.saveLayer(LogoBounds, cache.plusPaint)
         if (sweeping) {
-            val bx = -160f + (746f + 320f) * CinemaSplashGeometry.easeInOut(sweepU)
+            val bx = -160f + (686f + 320f) * CinemaSplashGeometry.easeInOut(sweepU)
             translate(left = LogoBounds.left, top = LogoBounds.top) {
                 withTransform({ transform(cache.skew) }) {
                     drawRect(
@@ -402,16 +467,16 @@ private fun DrawScope.drawLogoLight(assets: CinemaSplashAssets.Loaded, t: Float,
                 }
             }
         }
-        if (flash > 0f) drawRect(Color(1f, 0.886f, 0.667f, flash * 0.85f), LogoBounds.topLeft, LogoBounds.size)
-        drawImage(assets.logoMask, dstOffset = androidx.compose.ui.unit.IntOffset(LogoBounds.left.toInt(), LogoBounds.top.toInt()), blendMode = BlendMode.DstIn)
+        if (flash > 0f) drawRect(Color(0.839f, 0.769f, 1f, flash * 0.85f), LogoBounds.topLeft, LogoBounds.size)
+        drawImage(assets.logoMask, dstOffset = IntOffset(LogoBounds.left.toInt(), LogoBounds.top.toInt()), blendMode = BlendMode.DstIn)
         canvas.restore()
     }
 }
 
 private fun DrawScope.drawBar(t: Float, prog: Float, flash: Float, richAlpha: Float, reduce: Boolean, cache: SceneCache) {
     val radius = CornerRadius(BAR_H / 2f)
-    drawRoundRect(Color(0xEB090D1E), Offset(BAR_X0, BAR_Y), Size(BAR_X1 - BAR_X0, BAR_H), radius)
-    drawRoundRect(Color(0x80ACB8D8), Offset(BAR_X0, BAR_Y), Size(BAR_X1 - BAR_X0, BAR_H), radius, style = Stroke(2f))
+    drawRoundRect(Color(0xF0080612), Offset(BAR_X0, BAR_Y), Size(BAR_X1 - BAR_X0, BAR_H), radius)
+    drawRoundRect(Color(0x8CC4B6FF), Offset(BAR_X0, BAR_Y), Size(BAR_X1 - BAR_X0, BAR_H), radius, style = Stroke(2f))
 
     val fw = (BAR_X1 - BAR_X0 - 6f) * prog
     if (fw <= 1f) return
@@ -419,10 +484,9 @@ private fun DrawScope.drawBar(t: Float, prog: Float, flash: Float, richAlpha: Fl
     val fillTop = BAR_Y + 3f
     val fillH = BAR_H - 6f
 
-    // halo de la partie remplie + son reflet sur le sol : lueurs douces étirées à la longueur réelle de la barre
+    // halo de la partie remplie : lueur douce étirée à la longueur réelle de la barre
     val mid = BAR_X0 + 3f + fw / 2f
-    glow(cache.glow, mid, BAR_Y + BAR_H / 2f, fw + 90f, 70f, 0.42f * richAlpha)
-    glow(cache.glow, mid, 790f, fw + 90f, 120f, (0.2f + flash * 0.2f) * richAlpha)
+    glow(cache.glow, mid, BAR_Y + BAR_H / 2f, fw + 90f, 70f, 0.4f * richAlpha)
 
     drawRoundRect(cache.barFill, Offset(BAR_X0 + 3f, fillTop), Size(maxOf(fw, fillH), fillH), fillRadius)
     clipRect(BAR_X0 + 3f, fillTop, BAR_X0 + 3f + fw, fillTop + fillH) {
@@ -439,12 +503,12 @@ private fun DrawScope.drawBar(t: Float, prog: Float, flash: Float, richAlpha: Fl
     // étincelle de tête de barre
     val hx = BAR_X0 + 3f + fw
     val hy = BAR_Y + BAR_H / 2f
-    glow(cache.glow, hx, hy, 96f + flash * 50f, 96f + flash * 50f, 0.85f * richAlpha)
-    drawCircle(Color(1f, 0.94f, 0.8f, 0.9f * richAlpha), 6f, Offset(hx, hy), blendMode = BlendMode.Plus)
+    glow(cache.glow, hx, hy, 96f + flash * 50f, 96f + flash * 50f, 0.8f * richAlpha)
+    drawCircle(Color(0.93f, 0.89f, 1f, 0.9f * richAlpha), 5f, Offset(hx, hy), blendMode = BlendMode.Plus)
     if (flash > 0f) {
         // éclat de fin : lueur centrée autour de la barre, courte (pas de trait sur toute la largeur)
-        glow(cache.glow, 837f, hy, 720f, 60f, 0.55f * flash)
-        glow(cache.glow, 837f, hy, 320f, 160f, 0.22f * flash)
+        glow(cache.glow, CX, hy, 760f, 60f, 0.5f * flash)
+        glow(cache.glow, CX, hy, 340f, 160f, 0.2f * flash)
     }
 }
 
@@ -460,6 +524,3 @@ private fun DrawScope.drawEmbers(t: Float, richAlpha: Float, cache: SceneCache) 
         glow(cache.glow, x, y, d, d, a)
     }
 }
-
-@Suppress("unused")
-private const val UNUSED_PI = PI
