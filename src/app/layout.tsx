@@ -67,6 +67,10 @@ export default async function RootLayout({
   // sur le tableau de bord et au premier passage de la session, comme le splash lui-même.
   const PRESPLASH_INIT_SCRIPT = `try{if(location.pathname==="/"&&!sessionStorage.getItem("movviz-splash-seen"))document.documentElement.setAttribute("data-mv-presplash","")}catch(e){}`;
   const PRESPLASH_CSS = `html[data-mv-presplash]::before{content:"";position:fixed;inset:-120px;z-index:79;pointer-events:none;background:#05050b url(${splashAsset("plate_lowres.webp")}) center/cover no-repeat;filter:blur(14px) brightness(.8);animation:mv-presplash-expire 0s 12s forwards}@keyframes mv-presplash-expire{to{opacity:0;visibility:hidden}}`;
+  // Tableau de bord : ses données partent dès l'analyse du HTML, en parallèle du JavaScript, au lieu
+  // d'attendre l'hydratation. Le fetcher SWR (AppShell) reprend ces promesses une seule fois.
+  const EARLY_DATA_SCRIPT = `try{if(location.pathname==="/"){var m=window.__mvEarly={};["/api/interface/dashboard","/api/dashboard/layout","/api/metadata/rows?type=movie","/api/metadata/rows?type=series"].forEach(function(k){m[k]=fetch(k,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(String(r.status));return r.json()});m[k].catch(function(){})})}}catch(e){}`;
+  let signedIn = false;
   let desktopTextScale: 110 | 120 | undefined;
   let designMode: DesignMode = "stable";
   try {
@@ -76,6 +80,7 @@ export default async function RootLayout({
       desktopTextScale = sessionUser.desktopTextScale;
     }
     if (sessionUser && sessionUser.status !== "pending") {
+      signedIn = true;
       markUserActivity(sessionUser);
       designMode = designModeOrDefault(loadUserPrefs(sessionUser.id).designMode);
     }
@@ -90,6 +95,7 @@ export default async function RootLayout({
           logo soit déjà en cache au moment où React le rend. */}
       <link rel="preload" as="image" href="/brand/movviz-lockup.png" fetchPriority="high" />
       <link rel="preload" as="image" href="/brand/movviz-mark.png" fetchPriority="high" />
+      {signedIn && <script dangerouslySetInnerHTML={{ __html: EARLY_DATA_SCRIPT }} />}
       {designMode === "beta" && (
         <>
           <link rel="preload" as="image" href={splashAsset("plate_lowres.webp")} fetchPriority="high" />

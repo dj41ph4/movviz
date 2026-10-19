@@ -3,7 +3,7 @@
  * The files are served with a one-year immutable cache: when an image changes, bump SPLASH_REV,
  * otherwise browsers keep the old one.
  */
-export const SPLASH_REV = "1";
+export const SPLASH_REV = "2";
 export const splashAsset = (name: string) => `/brand/splash/${name}?v=${SPLASH_REV}`;
 
 export interface SplashFamily {

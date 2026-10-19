@@ -1,12 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CinemaSplashRenderer } from "./cinemaSplash/renderer";
+import { CinemaSplashRenderer, drawTextLayer, splashLayout } from "./cinemaSplash/renderer";
+import type { SplashWorkerMessage } from "./cinemaSplash/splash.worker";
+
+const STILL_TIME = 3.2;
+
+/** What the component drives, whichever thread actually draws. */
+interface SplashDriver {
+  resize(pw: number, ph: number, k: number): void;
+  progress(value: number): void;
+  text(bitmap: ImageBitmap): void;
+  reduce(value: boolean): void;
+  stop(): void;
+}
 
 /**
- * Beta design cold-start scene. Draws the cinema plate and its live lighting
- * on a canvas that fills its parent at the screen's real resolution (16:9,
- * 21:9, portrait). The bar shows the REAL loading progress.
+ * Beta design cold-start scene. Draws the cinema plate and its live lighting on a canvas that fills
+ * its parent (16:9, 21:9, portrait). The bar shows the REAL loading progress.
+ *
+ * The drawing runs in a Web Worker (OffscreenCanvas) so the dashboard loading underneath — data
+ * parsing, React rendering — never steals its frames. Browsers without OffscreenCanvas transfer
+ * fall back to drawing on the main thread.
  */
 export function CinemaSplashCanvas({
   progress,
@@ -38,80 +53,140 @@ export function CinemaSplashCanvas({
     if (!visible) return;
     const id = window.setTimeout(notifyShown, 700);
     return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<CinemaSplashRenderer | null>(null);
-  const reduceRef = useRef(reduceMotion);
-  const progressRef = useRef(progress);
-  const textsRef = useRef({ tagline, label });
+  const driverRef = useRef<SplashDriver | null>(null);
+  const kCssRef = useRef(1);
+  const latest = useRef({ progress, reduceMotion, tagline, label });
+
+  const pushText = () => {
+    const driver = driverRef.current;
+    if (!driver) return;
+    const { tagline: tg, label: lb } = latest.current;
+    const font = getComputedStyle(document.body).fontFamily || "system-ui, sans-serif";
+    driver.text(drawTextLayer({ tagline: tg, label: lb }, kCssRef.current, font));
+  };
 
   useEffect(() => {
-    reduceRef.current = reduceMotion;
-    progressRef.current = progress;
-    textsRef.current = { tagline, label };
-    const renderer = rendererRef.current;
-    if (!renderer) return;
-    renderer.setProgress(progress);
-    renderer.setTexts({ tagline, label });
-    // Reduced motion: no animation loop, so redraw the still scene when something changes.
-    if (reduceMotion && renderer.isReady()) renderer.render(3.2, true);
+    latest.current = { progress, reduceMotion, tagline, label };
+    driverRef.current?.progress(progress);
   }, [progress, reduceMotion, tagline, label]);
+  useEffect(() => {
+    driverRef.current?.reduce(reduceMotion);
+  }, [reduceMotion]);
+  useEffect(() => {
+    pushText();
+  }, [tagline, label]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const renderer = new CinemaSplashRenderer(canvas, textsRef.current);
-    rendererRef.current = renderer;
-    renderer.onLayerLoaded = () => {
-      if (reduceRef.current) renderer.render(3.2, true);
-    };
-    let raf = 0;
     let cancelled = false;
-    let start = 0;
-
-    const fit = () => renderer.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
-    const frame = (now: number) => {
-      if (cancelled) return;
-      renderer.render((now - start) / 1000, false);
-      raf = requestAnimationFrame(frame);
+    const layout = () => {
+      const l = splashLayout(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
+      kCssRef.current = l.kCss;
+      return l;
     };
+    const first = layout();
+    const init = latest.current;
 
-    renderer
-      .load()
-      .then(() => {
-        if (cancelled) return;
-        fit();
-        renderer.setProgress(progressRef.current);
-        renderer.setTexts(textsRef.current);
-        if (reduceRef.current) {
-          renderer.render(3.2, true);
-        } else {
+    let driver: SplashDriver;
+    if (typeof Worker !== "undefined" && "transferControlToOffscreen" in canvas) {
+      const offscreen = canvas.transferControlToOffscreen();
+      const worker = new Worker(new URL("./cinemaSplash/splash.worker.ts", import.meta.url), { type: "module" });
+      const post = (m: SplashWorkerMessage, transfer: Transferable[] = []) => worker.postMessage(m, transfer);
+      worker.onmessage = (e: MessageEvent<{ type: string }>) => {
+        if (!cancelled && e.data.type === "shown") setVisible(true);
+      };
+      post({ type: "init", canvas: offscreen, pw: first.pw, ph: first.ph, k: first.k, progress: init.progress, reduce: init.reduceMotion }, [offscreen]);
+      driver = {
+        resize: (pw, ph, k) => post({ type: "resize", pw, ph, k }),
+        progress: (value) => post({ type: "progress", value }),
+        text: (bitmap) => post({ type: "text", bitmap }, [bitmap]),
+        reduce: (value) => post({ type: "reduce", value }),
+        stop: () => {
+          post({ type: "stop" });
+          setTimeout(() => worker.terminate(), 1000);
+        },
+      };
+    } else {
+      // Main-thread fallback: same renderer, own animation loop.
+      const renderer = new CinemaSplashRenderer(canvas);
+      renderer.resize(first.pw, first.ph, first.k);
+      renderer.setProgress(init.progress);
+      let raf = 0;
+      let start = 0;
+      let reduce = init.reduceMotion;
+      const frame = (now: number) => {
+        renderer.render((now - start) / 1000, false);
+        raf = requestAnimationFrame(frame);
+      };
+      const play = () => {
+        cancelAnimationFrame(raf);
+        if (reduce) renderer.render(STILL_TIME, true);
+        else {
           start = performance.now();
-          renderer.render(0, false); // first frame drawn before the fade-in starts
           raf = requestAnimationFrame(frame);
         }
-        setVisible(true);
-      })
-      .catch(() => {
-        /* image unavailable: the plain dark backdrop stays, nothing else to show */
-      });
+      };
+      renderer.onLayerLoaded = () => {
+        if (reduce) renderer.render(STILL_TIME, true);
+      };
+      renderer.load().then(
+        () => {
+          if (cancelled) return;
+          play();
+          setVisible(true);
+        },
+        () => {
+          /* images unavailable: the plain dark backdrop stays */
+        },
+      );
+      driver = {
+        resize: (pw, ph, k) => {
+          renderer.resize(pw, ph, k);
+          if (reduce && renderer.isReady()) renderer.render(STILL_TIME, true);
+        },
+        progress: (value) => {
+          renderer.setProgress(value);
+          if (reduce && renderer.isReady()) renderer.render(STILL_TIME, true);
+        },
+        text: (bitmap) => {
+          renderer.setTextLayer(bitmap);
+          if (reduce && renderer.isReady()) renderer.render(STILL_TIME, true);
+        },
+        reduce: (value) => {
+          reduce = value;
+          if (renderer.isReady()) play();
+        },
+        stop: () => {
+          cancelAnimationFrame(raf);
+          renderer.dispose();
+        },
+      };
+    }
+    driverRef.current = driver;
+    pushText();
+    // texts again once the web font is ready (the first raster may use a fallback face)
+    document.fonts?.ready.then(() => {
+      if (!cancelled) pushText();
+    });
 
     const observer = new ResizeObserver(() => {
-      if (!renderer.isReady()) return;
-      fit();
-      if (reduceRef.current) renderer.render(3.2, true);
+      const l = layout();
+      driver.resize(l.pw, l.ph, l.k);
+      pushText();
     });
     observer.observe(canvas);
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf);
       observer.disconnect();
-      renderer.dispose();
-      rendererRef.current = null;
+      driver.stop();
+      driverRef.current = null;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <canvas

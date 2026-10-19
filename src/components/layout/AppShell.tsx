@@ -40,6 +40,17 @@ import { DesktopTextScaleProvider } from "@/components/appearance/DesktopTextSca
  */
 const swrConfig = {
   fetcher: async (url: string) => {
+    // Dashboard data already requested by the inline script in the root layout: consume it once.
+    const early = typeof window !== "undefined" ? (window as { __mvEarly?: Record<string, Promise<unknown>> }).__mvEarly : undefined;
+    const pending = early?.[url];
+    if (pending) {
+      delete early[url];
+      try {
+        return await pending;
+      } catch {
+        /* failed early request: fall back to a normal fetch below */
+      }
+    }
     const r = await fetch(url, { cache: "no-store" });
     // Surface HTTP failures as SWR errors so consumers (e.g. engine-offline
     // detection) can tell "endpoint down" apart from "empty payload" — and

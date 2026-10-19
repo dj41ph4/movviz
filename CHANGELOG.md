@@ -1,3 +1,18 @@
+## v1.27.0 — 19 octobre 2026
+
+### Design bêta : un écran de chargement fluide et qui ne part qu'une fois tout prêt
+
+- L'animation de l'écran de chargement est désormais calculée à part du reste de la page : elle reste parfaitement fluide (60 images par seconde) même pendant que le tableau de bord se prépare derrière, là où elle saccadait auparavant. Elle est aussi plus légère à dessiner, notamment sur les grands écrans.
+- L'écran de chargement apparaît vite, et ne disparaît que lorsque tout ce qui est visible à l'écran est chargé — données, rangées, affiches et polices : plus rien ne se charge sous les yeux après son départ.
+
+### Tableau de bord plus rapide
+
+- Les données du tableau de bord commencent à se télécharger dès l'ouverture de la page, en même temps que l'application, au lieu d'attendre qu'elle soit prête.
+
+### Technique
+
+- Passage à Next.js 16.3.
+
 ## v1.26.056 — 19 octobre 2026
 
 ### Tableau de bord plus rapide

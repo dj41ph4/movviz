@@ -4,7 +4,7 @@ import "./dashboard-premium.css";
 
 import useSWR from "swr";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Reorder } from "framer-motion";
 import { StatTile } from "@/components/ui/StatTile";
 import { DownloadQueue } from "@/components/media/DownloadQueue";
@@ -54,6 +54,9 @@ const WIDGET_ACCENTS: Record<DashboardWidgetId, "brand" | "cyan" | "magenta" | "
   missing: "amber",
   episodesAvailable: "ok",
 };
+
+const SPLASH_SEEN_KEY = "movviz-splash-seen";
+const noopSubscribe = () => () => {};
 
 const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)]";
 
@@ -177,8 +180,18 @@ export default function DashboardPage() {
   };
 
   const order = layout.widgets;
-  const [showSplash, setShowSplash] = useState(false);
+  // Splash (cold start, once per session): it may stay as long as needed, but it leaves only when
+  // everything visible underneath is ready — data, rows, and every image inside the viewport.
+  // State is derived where possible (no synchronous setState inside effects).
+  const splashUnseen = useSyncExternalStore(noopSubscribe, () => !sessionStorage.getItem(SPLASH_SEEN_KEY), () => false);
+  const [loadingAtMount] = useState(loading);
+  const [splashDismissed, setSplashDismissed] = useState(false);
+  const showSplash = optimized && splashUnseen && loadingAtMount && !splashDismissed;
   const [splashProgress, setSplashProgress] = useState(14);
+  const dismissSplash = useCallback(() => {
+    setSplashDismissed(true);
+    try { sessionStorage.setItem(SPLASH_SEEN_KEY, "1"); } catch {}
+  }, []);
   // Bug fix: WhatsNewModal (mounted in AppShell, no shared parent state with
   // this page) used to appear on top of this splash instead of waiting for
   // it — see splashCoordinator.ts for why a plain prop/context can't cross
@@ -187,72 +200,57 @@ export default function DashboardPage() {
     setSplashActive(showSplash);
     return () => setSplashActive(false);
   }, [showSplash]);
-  const [rowsReady, setRowsReady] = useState(false);
+  const richMode = layout.mode === "beta";
+  const [rowsReported, setRowsReported] = useState(false);
+  const handleRowsReady = useCallback(() => setRowsReported(true), []);
+  // No rows to wait for (classic layout or empty library).
+  const rowsReady = rowsReported || (!loading && (!richMode || movies.length + series.length === 0));
   const [imagesReady, setImagesReady] = useState(false);
-  const handleRowsReady = useCallback(() => setRowsReady(true), []);
+  const splashDone = !loading && rowsReady && imagesReady;
+  const splashPct = splashDone ? 100 : splashProgress;
 
-  // Splash cold-start uniquement en optimisé (compatibilité va disparaître) : plein centre Movviz haute qualité, jamais à chaque clic/SWR
+  // Simulated progress while waiting for data, then the real share of visible images.
   useEffect(() => {
-    if (!optimized) return;
-    if (typeof window === "undefined") return;
-    const seen = sessionStorage.getItem("movviz-splash-seen");
-    if (!seen && loading) {
-      setShowSplash(true);
-      setSplashProgress(14);
-      setRowsReady(false);
-      setImagesReady(false);
-    }
-  }, [loading, optimized]);
+    if (!showSplash || !loading && rowsReady) return;
+    const id = setInterval(() => setSplashProgress((p) => (p < 70 ? p + Math.random() * 5 + 1 : p)), 300);
+    return () => clearInterval(id);
+  }, [showSplash, loading, rowsReady]);
 
-  useEffect(() => {
-    if (!showSplash) return;
-    if (loading || !rowsReady) {
-      const id = setInterval(() => setSplashProgress((p) => (p < 82 ? p + Math.random() * 5 + 1 : p)), 300);
-      return () => clearInterval(id);
-    }
-    if (!imagesReady) {
-      const id = setInterval(() => setSplashProgress((p) => (p < 92 ? p + 0.6 : p)), 400);
-      return () => clearInterval(id);
-    }
-    // loading + rows + images → 100 puis fade
-    setSplashProgress(100);
-    const t = setTimeout(() => {
-      setShowSplash(false);
-      try { sessionStorage.setItem("movviz-splash-seen", "1"); } catch {}
-    }, 520);
-    return () => clearTimeout(t);
-  }, [showSplash, loading, rowsReady, imagesReady]);
-
-  // Attente images dashboard avec timeout 15s (demandé) : toutes les affiches/backdrops du dashboard
+  // Every <img> inside the viewport must be decoded (or failed) — twice in a row, since rows keep
+  // mounting new images for a moment — plus the web fonts.
   useEffect(() => {
     if (!showSplash || loading || !rowsReady || imagesReady) return;
-    const urls = new Set<string>();
-    const add = (p: string | null, size: string) => { if (p) urls.add(`/tmdb/${size}${p}`); };
-    for (const m of movies.slice(0, 12)) { add(m.posterPath, "w500"); add(m.backdropPath, "w780"); }
-    for (const s of series.slice(0, 12)) { add(s.posterPath, "w500"); add(s.backdropPath, "w780"); }
-    for (const e of recentEpisodes.slice(0, 8)) { add(e.posterPath, "w500"); }
-    if (urls.size === 0) { setImagesReady(true); return; }
-    let done = 0;
-    const total = urls.size;
-    const checkDone = () => { done++; setSplashProgress(82 + Math.round((done / total) * 10)); if (done >= total) setImagesReady(true); };
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    for (const u of urls) {
-      const img = new window.Image();
-      img.onload = checkDone; img.onerror = checkDone; img.src = u;
-    }
-    const t = setTimeout(() => setImagesReady(true), 15000);
-    return () => { clearTimeout(t); timers.forEach(clearTimeout); };
-  }, [showSplash, loading, rowsReady, imagesReady, movies, series, recentEpisodes]);
+    let stable = 0;
+    let fontsReady = false;
+    document.fonts?.ready.then(() => { fontsReady = true; }, () => { fontsReady = true; });
+    const id = setInterval(() => {
+      const root = document.querySelector(".nx-dashboard-content");
+      const visible = root
+        ? [...root.querySelectorAll("img")].filter((img) => {
+            const r = img.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+          })
+        : [];
+      const done = visible.filter((img) => img.complete).length;
+      setSplashProgress(70 + Math.round((visible.length ? done / visible.length : 1) * 29));
+      stable = done === visible.length && fontsReady ? stable + 1 : 0;
+      if (stable >= 2) setImagesReady(true);
+    }, 150);
+    return () => clearInterval(id);
+  }, [showSplash, loading, rowsReady, imagesReady]);
 
-  // Sécurité : si le chargement traîne >15s, on ne bloque pas l'UI indéfiniment (images timeout)
+  useEffect(() => {
+    if (!showSplash || !splashDone) return;
+    const t = setTimeout(dismissSplash, 250);
+    return () => clearTimeout(t);
+  }, [showSplash, splashDone, dismissSplash]);
+
+  // Safety net: never block the interface indefinitely.
   useEffect(() => {
     if (!showSplash) return;
-    const t = setTimeout(() => {
-      setShowSplash(false);
-      try { sessionStorage.setItem("movviz-splash-seen", "1"); } catch {}
-    }, 15000);
+    const t = setTimeout(dismissSplash, 20000);
     return () => clearTimeout(t);
-  }, [showSplash]);
+  }, [showSplash, dismissSplash]);
 
   // Préchargement Découverte en arrière-plan une fois le dashboard totalement chargé — optimisé uniquement
   useEffect(() => {
@@ -275,17 +273,9 @@ export default function DashboardPage() {
     return () => clearTimeout(t);
   }, [loading, showSplash, optimized]);
 
-  const richMode = layout.mode === "beta";
-
-  // Si pas de rangées à attendre (classic ou biblio vide), ne bloque pas le splash
-  useEffect(() => {
-    if (!loading && !richMode) setRowsReady(true);
-    if (!loading && richMode && movies.length + series.length === 0) setRowsReady(true);
-  }, [loading, richMode, movies.length, series.length]);
-
   return (
     <>
-      <DashboardSplash show={showSplash} progress={splashProgress} />
+      <DashboardSplash show={showSplash} progress={splashPct} />
       <div className="nx-dashboard-content nx-dashboard-premium w-full max-w-[2000px] space-y-8">
       {richMode && (
         <div className="nx-home-hero-grid">

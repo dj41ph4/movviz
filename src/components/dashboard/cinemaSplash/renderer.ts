@@ -4,17 +4,22 @@
  * The scene is a 1916×821 (21:9) plate. Everything that moves is drawn on top
  * of it in plate coordinates, so overlays stay sharp at any resolution:
  *  - the plate's own emissive lines (ceiling, pillars, floor, outline of the
- *    play triangle…) were extracted at full resolution into "neon" layers and
- *    blurred "halo" layers, one pair per family. Light travels along each
- *    family through a soft moving band — it follows the pixels of the lines;
+ *    play triangle…) were extracted at full resolution into one "light" layer
+ *    per family. Light travels along each family through a soft moving band —
+ *    it follows the pixels of the lines;
  *  - light is additive and always fades to 0, no rectangular outline can show;
- *  - the wordmark is lit through a mask built from its own pixels;
- *  - what is baked into the plate and must live (progress bar, tagline, label)
- *    is repainted in the plate itself, then drawn live and localised.
+ *  - the wordmark is lit through a mask built from its own pixels.
  * 21:9 shows the whole plate; 16:9 crops the sides; narrower screens keep at
  * least the wordmark visible.
+ *
+ * The renderer runs in a Web Worker on an OffscreenCanvas (splash.worker.ts), so
+ * the page loading underneath never steals its frames; it also runs on the main
+ * thread as a fallback. It therefore never touches the DOM: images arrive as
+ * ImageBitmaps, and the localised texts as a bitmap rasterised by the page
+ * (where the web font lives). Per-frame cost is kept low: one composite per
+ * light family, pre-rendered glow sprites (no gradient built per frame), a
+ * vignette cached per size, and a capped backing store (see `splashLayout`).
  */
-
 import { SPLASH_MANIFEST, splashAsset, type SplashFamily, type SplashManifest } from "./assets";
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -24,32 +29,93 @@ const easeInOut = (t: number) => {
   t = clamp(t);
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 };
-const mk = (w: number, h: number) => {
-  const c = document.createElement("canvas");
-  c.width = Math.max(1, Math.round(w));
-  c.height = Math.max(1, Math.round(h));
-  return c;
-};
-const ctx2d = (c: HTMLCanvasElement) => c.getContext("2d")!;
 
-export interface CinemaSplashTexts {
-  /** Localised signature drawn under the wordmark. */
-  tagline: string;
-  /** Localised loading label drawn under the bar. */
-  label: string;
+type Surface = OffscreenCanvas;
+type Ctx = OffscreenCanvasRenderingContext2D;
+const mk = (w: number, h: number): Surface => new OffscreenCanvas(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+const ctx2d = (c: Surface) => c.getContext("2d")!;
+
+/** Region of the plate covered by the text bitmap (tagline + loading label), and its resolution. */
+export const TEXT_BAND = { y0: 430, y1: 600, scale: 2 } as const;
+const MIN_VISIBLE_W = 780;
+
+/**
+ * Backing-store size and plate scale for a canvas of cssW×cssH. The density is capped (soft light
+ * gains nothing from 4K pixels, while the cost grows with every one of them).
+ */
+export function splashLayout(cssW: number, cssH: number, devicePixelRatio: number) {
+  let dpr = Math.min(devicePixelRatio || 1, 1.5);
+  const maxPixels = 2560 * 1440;
+  if (cssW * dpr * cssH * dpr > maxPixels) dpr = Math.sqrt(maxPixels / Math.max(1, cssW * cssH));
+  const pw = Math.max(2, Math.round(cssW * dpr));
+  const ph = Math.max(2, Math.round(cssH * dpr));
+  const { w, h } = SPLASH_MANIFEST;
+  const aspect = pw / ph;
+  // wider than the plate: fit the width (crops top/bottom); narrower: crop the sides, but keep the wordmark whole
+  const k = aspect >= w / h ? pw / w : pw / Math.max(h * aspect, MIN_VISIBLE_W);
+  return { pw, ph, k, kCss: k / dpr };
+}
+
+/**
+ * Rasterises the localised texts in plate units (page side, where the web font is loaded).
+ * Sizes keep a readable minimum on small screens.
+ */
+export function drawTextLayer(texts: { tagline: string; label: string }, kCss: number, fontFamily: string): ImageBitmap {
+  const { cx, tagY, labelY, w } = SPLASH_MANIFEST;
+  const S = TEXT_BAND.scale;
+  const c = mk(w * S, (TEXT_BAND.y1 - TEXT_BAND.y0) * S);
+  const ctx = ctx2d(c);
+  ctx.scale(S, S);
+  ctx.translate(0, -TEXT_BAND.y0);
+  ctx.textBaseline = "middle";
+
+  const tag = texts.tagline.toLocaleUpperCase();
+  let tagSize = Math.max(17, 11 / kCss);
+  let tagSpacing = Math.max(5, tagSize * 0.4);
+  ctx.textAlign = "left";
+  const setTag = () => {
+    ctx.font = `500 ${tagSize}px ${fontFamily}`;
+    ctx.letterSpacing = `${tagSpacing}px`;
+  };
+  setTag();
+  let tagW = ctx.measureText(tag).width;
+  const maxTag = 600;
+  if (tagW > maxTag) {
+    tagSpacing = Math.max(1, tagSpacing * (maxTag / tagW));
+    setTag();
+    tagW = ctx.measureText(tag).width;
+    if (tagW > maxTag) {
+      tagSize *= maxTag / tagW;
+      setTag();
+      tagW = ctx.measureText(tag).width;
+    }
+  }
+  const tx = cx - tagW / 2;
+  const tg = ctx.createLinearGradient(tx, 0, tx + tagW, 0);
+  tg.addColorStop(0, "#d4cff0");
+  tg.addColorStop(1, "#bda7ff");
+  ctx.fillStyle = tg;
+  ctx.fillText(tag, tx, tagY);
+
+  const labelSize = Math.max(17, 13 / kCss);
+  ctx.font = `300 ${labelSize}px ${fontFamily}`;
+  ctx.letterSpacing = "2px";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(220,216,240,.88)";
+  ctx.fillText(texts.label, cx, labelY);
+  return c.transferToImageBitmap();
 }
 
 interface Family extends SplashFamily {
-  neon: HTMLImageElement;
-  halo: HTMLImageElement;
-  tmp: HTMLCanvasElement;
-  /** Scene time at which this layer finished loading (it fades in from there). */
-  bornAt: number;
+  light: ImageBitmap;
+  tmp: Surface;
   period: number;
   phase: number;
   /** Length of the travelling band, as a fraction of the family's extent. */
   band: number;
   gain: number;
+  /** Scene time at which this layer finished loading (it fades in from there). */
+  bornAt: number;
 }
 
 type Ember = { x: number; y: number; v: number; s: number; sw: number; f: number; a: number };
@@ -67,39 +133,56 @@ const RHYTHM: Record<string, { period: number; phase: number; band: number; gain
   floorR: { period: 4.6, phase: 0.05, band: 0.3, gain: 1 },
 };
 
+async function loadBitmap(name: string): Promise<ImageBitmap> {
+  const res = await fetch(splashAsset(name));
+  if (!res.ok) throw new Error(`${name}: ${res.status}`);
+  return createImageBitmap(await res.blob());
+}
+
+/** Soft radial light baked once; drawn stretched (round or oval) with any alpha. */
+function sprite(stops: [number, string][]): Surface {
+  const s = mk(128, 128);
+  const g = ctx2d(s);
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 61);
+  for (const [o, col] of stops) gr.addColorStop(o, col);
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 128, 128);
+  return s;
+}
+
 export class CinemaSplashRenderer {
-  private readonly ctx: CanvasRenderingContext2D;
-  private plate: HTMLImageElement | null = null;
+  private readonly ctx: Ctx;
+  private plate: ImageBitmap | null = null;
   private readonly man: SplashManifest = SPLASH_MANIFEST;
-  /** Called each time a neon layer arrives (a still scene must then be redrawn). */
+  /** Called each time a light layer arrives (a still scene must then be redrawn). */
   onLayerLoaded: (() => void) | null = null;
   private fams: Family[] = [];
   private ready = false;
-  private texts: CinemaSplashTexts;
-  private fontFamily = '"Segoe UI", system-ui, -apple-system, sans-serif';
+  private textLayer: ImageBitmap | null = null;
 
   private PW = 1916;
   private PH = 821;
   private k = 1;
-  private dpr = 1;
 
   private targetProgress = 0;
   private shownProgress = 0;
   private lastT = 0;
 
-  private logoMask!: HTMLCanvasElement;
-  private tmpLogo!: HTMLCanvasElement;
-  private grain!: HTMLCanvasElement;
-  private grainPattern: CanvasPattern | null = null;
+  private logoMask!: ImageBitmap;
+  private tmpLogo!: Surface;
+  private vignette: Surface | null = null;
+  private readonly softGlow = sprite([[0, "rgba(150,110,255,1)"], [0.45, "rgba(130,90,255,.35)"], [1, "rgba(120,80,255,0)"]]);
+  private readonly hotGlow = sprite([[0, "rgba(240,230,255,1)"], [0.3, "rgba(170,130,255,.5)"], [1, "rgba(130,90,255,0)"]]);
   private embers: Ember[] = [];
 
-  constructor(private readonly canvas: HTMLCanvasElement, texts: CinemaSplashTexts) {
-    this.ctx = ctx2d(canvas);
-    this.texts = texts;
+  constructor(private readonly canvas: OffscreenCanvas | HTMLCanvasElement) {
+    this.ctx = canvas.getContext("2d") as Ctx;
   }
 
-  setTexts(texts: CinemaSplashTexts) {
-    this.texts = texts;
+  /** Bitmap from `drawTextLayer`; replaces (and frees) the previous one. */
+  setTextLayer(bitmap: ImageBitmap | null) {
+    this.textLayer?.close();
+    this.textLayer = bitmap;
   }
 
   /** Real loading progress, 0..100. The bar eases toward it. */
@@ -109,35 +192,27 @@ export class CinemaSplashRenderer {
 
   /**
    * Resolves as soon as the plate and the wordmark mask are decoded: the scene is drawn right away.
-   * The neon layers keep loading in the background and each one fades in when it arrives.
+   * The light layers keep loading in the background and each one fades in when it arrives.
    */
   async load(): Promise<void> {
-    const img = (name: string) => {
-      const i = new Image();
-      i.decoding = "async";
-      i.src = splashAsset(name);
-      return i.decode().then(() => i);
-    };
     // all requests leave together; only the first two gate the first frame
-    const pending = this.man.families.map((f) => Promise.all([img(`neon_${f.id}.webp`), img(`halo_${f.id}.webp`)]).then(([neon, halo]) => ({ f, neon, halo })));
-    const [plate, mask] = await Promise.all([img("plate.webp"), img("logo_mask.png")]);
+    const pending = this.man.families.map((f) => loadBitmap(`lit_${f.id}.webp`).then((light) => ({ f, light })));
+    const [plate, mask] = await Promise.all([loadBitmap("plate.webp"), loadBitmap("logo_mask.png")]);
     this.plate = plate;
-    if (typeof getComputedStyle === "function") {
-      const family = getComputedStyle(document.body).fontFamily;
-      if (family) this.fontFamily = family;
-    }
-    this.prepare(mask);
+    this.logoMask = mask;
+    this.tmpLogo = mk(this.man.logo.w, this.man.logo.h);
+    this.prepareEmbers();
     this.ready = true;
     for (const job of pending) {
       job
-        .then(({ f, neon, halo }) => {
+        .then(({ f, light }) => {
           if (!this.plate) return;
           const r = RHYTHM[f.id] ?? { period: 4, phase: 0, band: 0.3, gain: 1 };
-          this.fams.push({ ...f, neon, halo, tmp: mk(f.rect[2], f.rect[3]), bornAt: this.lastT, ...r });
+          this.fams.push({ ...f, light, tmp: mk(f.rect[2], f.rect[3]), bornAt: this.lastT, ...r });
           this.onLayerLoaded?.();
         })
         .catch(() => {
-          /* a missing neon layer only removes that light */
+          /* a missing light layer only removes that light */
         });
     }
   }
@@ -146,46 +221,27 @@ export class CinemaSplashRenderer {
     return this.ready;
   }
 
-  /** cssW/cssH: displayed size in CSS pixels. */
-  resize(cssW: number, cssH: number, devicePixelRatio: number) {
-    let dpr = Math.min(devicePixelRatio || 1, 2);
-    dpr = Math.min(dpr, 3840 / Math.max(cssW, 1), 2160 / Math.max(cssH, 1));
-    this.dpr = dpr;
-    this.PW = Math.max(2, Math.round(cssW * dpr));
-    this.PH = Math.max(2, Math.round(cssH * dpr));
-    this.canvas.width = this.PW;
-    this.canvas.height = this.PH;
-    const { w, h } = this.man;
-    const aspect = this.PW / this.PH;
-    // wider than the plate: fit the width (crops top/bottom); narrower: crop the sides, but keep the wordmark whole
-    this.k = aspect >= w / h ? this.PW / w : this.PW / Math.max(h * aspect, 780);
+  /** Backing-store size in device pixels and plate scale, from `splashLayout`. */
+  resize(pw: number, ph: number, k: number) {
+    this.PW = pw;
+    this.PH = ph;
+    this.k = k;
+    this.canvas.width = pw;
+    this.canvas.height = ph;
+    this.vignette = null;
   }
 
   dispose() {
     this.ready = false;
+    this.plate?.close();
     this.plate = null;
+    this.textLayer?.close();
+    this.textLayer = null;
   }
 
   /* ───────────────────────────── preparation ───────────────────────────── */
 
-  private prepare(mask: HTMLImageElement) {
-    const lg = this.man.logo;
-    this.logoMask = mk(lg.w, lg.h);
-    ctx2d(this.logoMask).drawImage(mask, 0, 0);
-    this.tmpLogo = mk(lg.w, lg.h);
-
-    // fine grain: breaks dark flats (banding) and softens upscaling
-    this.grain = mk(256, 256);
-    const gg = ctx2d(this.grain);
-    const gd = gg.createImageData(256, 256);
-    for (let i = 0; i < 256 * 256; i++) {
-      const v = Math.random() * 255;
-      gd.data[i * 4] = gd.data[i * 4 + 1] = gd.data[i * 4 + 2] = v;
-      gd.data[i * 4 + 3] = 255;
-    }
-    gg.putImageData(gd, 0, 0);
-    this.grainPattern = this.ctx.createPattern(this.grain, "repeat");
-
+  private prepareEmbers() {
     let seed = 11;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     this.embers = Array.from({ length: 22 }, () => ({
@@ -199,51 +255,60 @@ export class CinemaSplashRenderer {
     }));
   }
 
+  /** Edge vignette (and, on narrow screens, the plate's top/bottom melting into black), cached per size. */
+  private getVignette(): Surface {
+    if (this.vignette) return this.vignette;
+    const { PW, PH, k } = this;
+    const v = mk(PW, PH);
+    const g = ctx2d(v);
+    const plateH = this.man.h * k;
+    if (plateH < PH - 2) {
+      const m = (PH - plateH) / 2;
+      const fade = Math.min(120, plateH * 0.2);
+      for (const [y0, dir] of [[m, 1], [PH - m, -1]] as const) {
+        const gr = g.createLinearGradient(0, y0, 0, y0 + dir * fade);
+        gr.addColorStop(0, "rgba(0,0,0,1)");
+        gr.addColorStop(1, "rgba(0,0,0,0)");
+        g.fillStyle = gr;
+        g.fillRect(0, dir > 0 ? y0 : y0 - fade, PW, fade);
+      }
+    }
+    const vg = g.createRadialGradient(PW / 2, PH / 2, Math.min(PW, PH) * 0.42, PW / 2, PH / 2, Math.hypot(PW, PH) * 0.56);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,.4)");
+    g.fillStyle = vg;
+    g.fillRect(0, 0, PW, PH);
+    this.vignette = v;
+    return v;
+  }
+
   /* ─────────────────────────────── drawing ─────────────────────────────── */
 
-  /** A soft light whose alpha reaches 0 before the edge of its carrier square. */
-  private glow(
-    x: number,
-    y: number,
-    r: number,
-    rx: number,
-    ry: number,
-    stops: [number, string][],
-    alpha = 1
-  ) {
+  /** A soft light: the sprite stretched to w×h around (x, y), added to the scene. */
+  private glow(spr: Surface, x: number, y: number, w: number, h: number, alpha: number) {
+    if (alpha <= 0.002) return;
     const c = this.ctx;
-    c.save();
-    c.translate(x, y);
-    c.scale(rx, ry);
-    const g = c.createRadialGradient(0, 0, 0, 0, 0, r);
-    for (const [o, col] of stops) g.addColorStop(o, col);
-    c.globalAlpha = alpha;
-    c.fillStyle = g;
-    c.fillRect(-r * 1.05, -r * 1.05, r * 2.1, r * 2.1);
-    c.restore();
+    c.globalAlpha = Math.min(1, alpha);
+    c.drawImage(spr, x - w / 2, y - h / 2, w, h);
+    c.globalAlpha = 1;
   }
 
   /**
-   * One neon family: its halo and its core are drawn into a private layer, then multiplied by a soft
-   * moving band (plus a faint breathing floor so the line never goes fully dark) and added to the scene.
+   * One light family: its layer is multiplied by a soft moving band (plus a faint breathing floor so
+   * the line never goes fully dark), then added to the scene.
    */
   private drawFamily(f: Family, t: number, energy: number, still: boolean) {
     const [rx, ry, rw, rh] = f.rect;
     const g = ctx2d(f.tmp);
-    g.globalCompositeOperation = "source-over";
-    g.clearRect(0, 0, rw, rh);
-    g.globalAlpha = 0.7;
-    g.drawImage(f.halo, 0, 0);
-    g.globalAlpha = 1;
-    g.globalCompositeOperation = "lighter";
-    g.drawImage(f.neon, 0, 0);
+    g.globalCompositeOperation = "copy";
+    g.drawImage(f.light, 0, 0);
     g.globalCompositeOperation = "destination-in";
 
     const base = still ? 0.3 : 0.06 + 0.04 * Math.sin(t * 1.3 + f.phase * 6.28);
     const u = still ? 0.5 : (t / f.period + f.phase) % 1.35; // 1.35: a short rest between passes
     let mask: CanvasGradient;
     if (f.kind === "conic" && f.center) {
-      const ang = still ? -0.9 : u * 6.283 * 1.0;
+      const ang = still ? -0.9 : u * 6.283;
       mask = g.createConicGradient(ang, f.center[0] - rx, f.center[1] - ry);
       mask.addColorStop(0, "rgba(0,0,0,1)");
       mask.addColorStop(0.05, `rgba(0,0,0,${base + 0.35})`);
@@ -256,8 +321,7 @@ export class CinemaSplashRenderer {
       const cy = rh / 2;
       // extent of the rect along the direction
       const half = (Math.abs(d[0]) * rw + Math.abs(d[1]) * rh) / 2;
-      const len = half * 2;
-      const bandHalf = Math.max(30, len * f.band * 0.5);
+      const bandHalf = Math.max(30, half * 2 * f.band * 0.5);
       const pos = lerp(-half - bandHalf, half + bandHalf, clamp(u));
       const px = (s: number): [number, number] => [cx + d[0] * s, cy + d[1] * s];
       const [x0, y0] = px(pos - bandHalf);
@@ -299,13 +363,13 @@ export class CinemaSplashRenderer {
     const intro = reduceMotion ? 1 : easeOut(t / 1.4);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, PW, PH);
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingQuality = "medium";
 
     const zoom = 1 + 0.03 * (1 - Math.exp(-mt / 5));
-    ctx.save();
     ctx.translate(PW / 2, PH / 2);
     ctx.scale(k * zoom, k * zoom);
     ctx.translate(-W / 2, -H / 2);
@@ -315,35 +379,33 @@ export class CinemaSplashRenderer {
     /* ── additive light ── */
     ctx.globalCompositeOperation = "lighter";
 
-    // 1. neon families: light travels along the plate's own lines
+    // 1. light families: light travels along the plate's own lines
     for (const f of this.fams) this.drawFamily(f, mt, energy * intro, reduceMotion);
 
     // 2. the wordmark: chrome sweep cut to the exact shape of the letters
-    {
+    const sweepU = ((t - 1.1) / 2.8) % 1.8;
+    if (!reduceMotion && t > 1.1 && sweepU < 1) {
       const g = ctx2d(this.tmpLogo);
       g.globalCompositeOperation = "source-over";
       g.clearRect(0, 0, LOGO.w, LOGO.h);
-      const sweepU = ((t - 1.1) / 2.8) % 1.8;
-      if (!reduceMotion && t > 1.1 && sweepU < 1) {
-        const bx = lerp(-160, LOGO.w + 160, easeInOut(sweepU));
-        g.save();
-        g.transform(1, 0, -0.32, 1, 0, 0);
-        const gr = g.createLinearGradient(bx - 120, 0, bx + 120, 0);
-        gr.addColorStop(0, "rgba(236,228,255,0)");
-        gr.addColorStop(0.5, "rgba(236,228,255,.7)");
-        gr.addColorStop(1, "rgba(236,228,255,0)");
-        g.fillStyle = gr;
-        g.fillRect(bx - 130, -10, 260, LOGO.h + 20);
-        g.restore();
-      }
+      const bx = lerp(-160, LOGO.w + 160, easeInOut(sweepU));
+      g.save();
+      g.transform(1, 0, -0.32, 1, 0, 0);
+      const gr = g.createLinearGradient(bx - 120, 0, bx + 120, 0);
+      gr.addColorStop(0, "rgba(236,228,255,0)");
+      gr.addColorStop(0.5, "rgba(236,228,255,.7)");
+      gr.addColorStop(1, "rgba(236,228,255,0)");
+      g.fillStyle = gr;
+      g.fillRect(bx - 130, -10, 260, LOGO.h + 20);
+      g.restore();
       g.globalCompositeOperation = "destination-in";
       g.drawImage(this.logoMask, 0, 0);
       ctx.drawImage(this.tmpLogo, LOGO.x, LOGO.y);
     }
-    this.glow(cx, LOGO.y + LOGO.h * 0.55, 300, 1.8, 0.5, [[0, "rgba(150,110,255,.07)"], [0.5, "rgba(130,90,255,.025)"], [1, "rgba(120,80,255,0)"]], (energy * (0.8 + 0.2 * Math.sin(mt * 1.7))) * intro);
+    this.glow(this.softGlow, cx, LOGO.y + LOGO.h * 0.55, 1080, 300, 0.07 * energy * (0.8 + 0.2 * Math.sin(mt * 1.7)) * intro);
 
     // 3. floor: glow that rises with loading
-    this.glow(cx, H - 70, 420, 2.1, 0.2, [[0, "rgba(140,100,255,.12)"], [1, "rgba(120,80,255,0)"]], energy * (0.75 + 0.25 * Math.sin(mt * 1.4)) * intro);
+    this.glow(this.softGlow, cx, H - 70, 1760, 170, 0.12 * energy * (0.75 + 0.25 * Math.sin(mt * 1.4)) * intro);
     ctx.globalCompositeOperation = "source-over";
 
     /* ── progress bar ── */
@@ -351,7 +413,6 @@ export class CinemaSplashRenderer {
     const bx1 = bar.x1;
     const by = bar.y;
     const bh = bar.h;
-    ctx.save();
     ctx.beginPath();
     ctx.roundRect(bx0, by, bx1 - bx0, bh, bh / 2);
     ctx.fillStyle = "rgba(8,6,18,.94)";
@@ -359,22 +420,11 @@ export class CinemaSplashRenderer {
     ctx.lineWidth = 2;
     ctx.strokeStyle = "rgba(196,182,255,.55)";
     ctx.stroke();
-    ctx.restore();
 
     const fw = Math.max(0, (bx1 - bx0 - 6) * prog);
     if (fw > 1) {
-      const mid = bx0 + 3 + fw / 2;
       ctx.globalCompositeOperation = "lighter";
-      ctx.save();
-      ctx.translate(mid, by + bh / 2);
-      ctx.scale(Math.max(fw / 2 + 24, 1), 26);
-      const hg = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-      hg.addColorStop(0, "rgba(150,100,255,.34)");
-      hg.addColorStop(0.6, "rgba(130,90,255,.10)");
-      hg.addColorStop(1, "rgba(120,80,255,0)");
-      ctx.fillStyle = hg;
-      ctx.fillRect(-1.05, -1.05, 2.1, 2.1);
-      ctx.restore();
+      this.glow(this.softGlow, bx0 + 3 + fw / 2, by + bh / 2, fw + 70, 56, 0.34);
       ctx.globalCompositeOperation = "source-over";
 
       ctx.save();
@@ -404,14 +454,13 @@ export class CinemaSplashRenderer {
       const hx = bx0 + 3 + fw;
       const hy = by + bh / 2;
       ctx.globalCompositeOperation = "lighter";
-      this.glow(hx, hy, 32, 1, 1, [[0, "rgba(240,230,255,.9)"], [0.3, "rgba(170,130,255,.45)"], [1, "rgba(130,90,255,0)"]]);
-      this.glow(hx, hy, 40, 1.6, 0.22, [[0, "rgba(220,205,255,.5)"], [1, "rgba(150,110,255,0)"]], 0.6);
+      this.glow(this.hotGlow, hx, hy, 66, 66, 0.9);
+      this.glow(this.hotGlow, hx, hy, 130, 18, 0.35);
       ctx.globalCompositeOperation = "source-over";
     }
 
-    /* ── localised texts (sizes keep a readable minimum on small screens) ── */
-    const kCss = k / this.dpr; // CSS pixels per plate unit
-    this.drawTexts(ctx, kCss);
+    /* ── localised texts (rasterised by the page) ── */
+    if (this.textLayer) ctx.drawImage(this.textLayer, 0, TEXT_BAND.y0, W, TEXT_BAND.y1 - TEXT_BAND.y0);
 
     /* ── embers ── */
     ctx.globalCompositeOperation = "lighter";
@@ -421,83 +470,12 @@ export class CinemaSplashRenderer {
       const yy = y < -20 ? y + H + 40 : y;
       const x = e.x + (reduceMotion ? 0 : Math.sin(t * 0.8 + e.sw) * 14);
       const tw = 0.5 + 0.5 * Math.sin(mt * e.f * 2 + e.sw);
-      this.glow(x, yy, e.s * 5, 1, 1, [[0, `rgba(${200 + tw * 40},${170 + tw * 40},255,${e.a * (0.5 + tw * 0.5)})`], [0.3, `rgba(150,110,255,${e.a * 0.35})`], [1, "rgba(120,80,255,0)"]]);
+      this.glow(this.hotGlow, x, yy, e.s * 10, e.s * 10, e.a * (0.5 + tw * 0.5));
     }
-    ctx.globalCompositeOperation = "source-over";
-    ctx.restore();
 
-    /* ── finishing in real pixels: soft vignette, grain, intro fade ── */
+    /* ── finishing in real pixels: cached vignette ── */
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    // narrow screens: the plate is shorter than the screen, melt its top/bottom edge into black
-    const plateH = H * k * zoom;
-    if (plateH < PH - 2) {
-      const m = (PH - plateH) / 2;
-      for (const [y0, dir] of [[m, 1], [PH - m, -1]] as const) {
-        const gr = ctx.createLinearGradient(0, y0, 0, y0 + dir * Math.min(120, plateH * 0.2));
-        gr.addColorStop(0, "rgba(0,0,0,1)");
-        gr.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = gr;
-        ctx.fillRect(0, dir > 0 ? y0 : y0 - Math.min(120, plateH * 0.2), PW, Math.min(120, plateH * 0.2));
-      }
-    }
-    const vg = ctx.createRadialGradient(PW / 2, PH / 2, Math.min(PW, PH) * 0.42, PW / 2, PH / 2, Math.hypot(PW, PH) * 0.56);
-    vg.addColorStop(0, "rgba(0,0,0,0)");
-    vg.addColorStop(1, "rgba(0,0,0,.4)");
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, PW, PH);
-    if (this.grainPattern) {
-      ctx.save();
-      ctx.globalCompositeOperation = "soft-light";
-      ctx.globalAlpha = 0.12;
-      ctx.translate(Math.floor(Math.random() * 256), Math.floor(Math.random() * 256));
-      ctx.fillStyle = this.grainPattern;
-      ctx.fillRect(-256, -256, PW + 512, PH + 512);
-      ctx.restore();
-    }
-  }
-
-  private drawTexts(ctx: CanvasRenderingContext2D, kCss: number) {
-    const family = this.fontFamily;
-    const { cx, tagY, labelY } = this.man;
-    ctx.save();
-    ctx.textBaseline = "middle";
-
-    // signature under the wordmark
-    const tag = this.texts.tagline.toLocaleUpperCase();
-    let tagSize = Math.max(17, 11 / kCss);
-    let tagSpacing = Math.max(5, tagSize * 0.4);
-    ctx.textAlign = "left";
-    const setTag = () => {
-      ctx.font = `500 ${tagSize}px ${family}`;
-      ctx.letterSpacing = `${tagSpacing}px`;
-    };
-    setTag();
-    let tagW = ctx.measureText(tag).width;
-    const maxTag = 600;
-    if (tagW > maxTag) {
-      tagSpacing = Math.max(1, tagSpacing * (maxTag / tagW));
-      setTag();
-      tagW = ctx.measureText(tag).width;
-      if (tagW > maxTag) {
-        tagSize *= maxTag / tagW;
-        setTag();
-        tagW = ctx.measureText(tag).width;
-      }
-    }
-    const tx = cx - tagW / 2;
-    const tg = ctx.createLinearGradient(tx, 0, tx + tagW, 0);
-    tg.addColorStop(0, "#d4cff0");
-    tg.addColorStop(1, "#bda7ff");
-    ctx.fillStyle = tg;
-    ctx.fillText(tag, tx, tagY);
-
-    // loading label under the bar
-    const labelSize = Math.max(17, 13 / kCss);
-    ctx.font = `300 ${labelSize}px ${family}`;
-    ctx.letterSpacing = "2px";
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(220,216,240,.88)";
-    ctx.fillText(this.texts.label, cx, labelY);
-    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(this.getVignette(), 0, 0);
   }
 }
