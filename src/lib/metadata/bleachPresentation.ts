@@ -56,7 +56,7 @@ export function projectBleachLibrary<T extends { tmdbId: number; title?: string;
  * clients match downloads to episodes with them. The web shows what the fiche
  * shows instead: the standalone TYBW series with its cour × local episode, linking
  * to its own fiche — carried by the additive `display*` fields. */
-export function presentBleachActivityMedia<T extends { type: string; tmdbId?: number; title: string; season?: number; episode?: number; packEpisodeCount?: number; href: string; displayTitle?: string; displaySeason?: number | null; displayEpisode?: number | null }>(media: T): T {
+export function presentBleachActivityMedia<T extends { type: string; tmdbId?: number; title: string; season?: number; episode?: number; packEpisodeCount?: number; href: string; displayTitle?: string; displayLabel?: string; displaySeason?: number | null; displayEpisode?: number | null }>(media: T): T {
   if (media.tmdbId !== BLEACH_TMDB_ID || media.type !== "series" || media.season == null || media.season < 1) return media;
   if (media.season !== 17) return { ...media, href: bleachTitleHref(BLEACH_TMDB_ID, "series", "original") };
   const href = bleachTitleHref(BLEACH_TMDB_ID, "series", "tybw");
@@ -64,6 +64,6 @@ export function presentBleachActivityMedia<T extends { type: string; tmdbId?: nu
   const cour = media.episode != null ? bleachCour(media.episode) : undefined;
   // A single episode shows its cour and local number; a pack spanning cours
   // shows the series alone.
-  if (!media.packEpisodeCount && cour) return { ...media, displayTitle, href, displaySeason: cour.part, displayEpisode: media.episode! - cour.offset };
-  return { ...media, displayTitle, href, displaySeason: null, displayEpisode: null };
+  if (!media.packEpisodeCount && cour) return { ...media, displayTitle, href, displaySeason: cour.part, displayEpisode: media.episode! - cour.offset, displayLabel: `S${cour.part} · E${media.episode! - cour.offset}` };
+  return { ...media, displayTitle, href, displaySeason: null, displayEpisode: null, displayLabel: "" };
 }

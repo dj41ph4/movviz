@@ -186,10 +186,9 @@ private fun DownloadRow(item: QueueItemDto, completed: Boolean, onClick: () -> U
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(item.media.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(item.media.displayTitle ?: item.media.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    listOfNotNull(item.media.season?.let { "S$it" }, item.media.episode?.let { "E$it" })
-                        .joinToString(" · ")
+                    (item.media.displayLabel ?: listOfNotNull(item.media.season?.let { "S$it" }, item.media.episode?.let { "E$it" }).joinToString(" · "))
                         .ifBlank { if (item.media.type == "movie") "Film" else "Série" },
                     color = MovvizInkDim,
                     fontSize = 12.sp,

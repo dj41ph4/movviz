@@ -1,3 +1,10 @@
+## v1.26.048 — 19 octobre 2026
+
+### Android et Samsung : Thousand-Year Blood War lisible dans les téléchargements
+
+- Les listes de téléchargements d'Android TV, d'Android mobile et de Samsung affichent « Bleach: Thousand-Year Blood War » avec sa saison et son épisode (par exemple S4 · E1), au lieu de « Bleach S17E41 ». Les autres séries ne changent pas.
+- Le suivi des téléchargements dans les fiches n'est pas modifié: les épisodes restent associés exactement comme avant.
+
 ## v1.26.047 — 19 octobre 2026
 
 ### Bleach : les intégrales se rangent dans les bonnes saisons

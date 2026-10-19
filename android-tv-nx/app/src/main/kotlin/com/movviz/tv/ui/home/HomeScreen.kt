@@ -3215,7 +3215,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit, modifier: Modi
                 QueueStatusPill(status = item.status)
                 Spacer(modifier = Modifier.height(7.dp))
                 Text(
-                    text = item.media.title,
+                    text = item.media.displayTitle ?: item.media.title,
                     style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

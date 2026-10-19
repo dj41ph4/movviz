@@ -896,6 +896,9 @@ data class PlaybackProgressResponseDto(
 data class QueueMediaDto(
     val title: String,
     val type: String,
+    // Présentation seule (Bleach TYBW) : titre et libellé « S4 · E1 » prêts à afficher.
+    val displayTitle: String? = null,
+    val displayLabel: String? = null,
     val posterPath: String? = null,
     val tmdbId: Int? = null,
     val season: Int? = null,

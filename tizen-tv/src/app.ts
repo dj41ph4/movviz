@@ -597,9 +597,9 @@ interface Window {
     async function refresh() {
       if (version !== generation) return;
       try {
-        const data = await call<{ items?: { media?: { title?: string }; download?: { progress?: number }; status?: string }[] }>("/api/activity/v2?tab=queue");
+        const data = await call<{ items?: { media?: { title?: string; displayTitle?: string }; download?: { progress?: number }; status?: string }[] }>("/api/activity/v2?tab=queue");
         if (version !== generation) return; list.replaceChildren();
-        for (const item of data.items || []) list.append(el("p", `${item.media?.title || ""} · ${Math.round((item.download?.progress || 0) * 100)} % · ${item.status || ""}`));
+        for (const item of data.items || []) list.append(el("p", `${item.media?.displayTitle || item.media?.title || ""} · ${Math.round((item.download?.progress || 0) * 100)} % · ${item.status || ""}`));
         if (!list.childElementCount) list.append(el("p", t("tizen.empty"), "muted"));
       } catch (error) { if (version === generation) report(error); }
       if (version === generation) window.setTimeout(() => void refresh(), 5000);

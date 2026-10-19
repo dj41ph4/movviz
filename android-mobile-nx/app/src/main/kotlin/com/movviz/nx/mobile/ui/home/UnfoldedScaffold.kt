@@ -471,12 +471,14 @@ private fun UnfoldedQueueRow(
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = item.media.title,
+                text = item.media.displayTitle ?: item.media.title,
                 style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            val episodeSuffix = if (item.media.season != null && item.media.episode != null) {
+            val episodeSuffix = if (item.media.displayLabel != null) {
+                if (item.media.displayLabel.isEmpty()) "" else "${item.media.displayLabel} · "
+            } else if (item.media.season != null && item.media.episode != null) {
                 "S${item.media.season} · E${item.media.episode} · "
             } else {
                 ""

@@ -21,6 +21,8 @@ export interface ActivityMedia {
   /** Presentation-only season/episode (Bleach TYBW shows its cour × local episode);
    *  null = show none. Absent = use `season`/`episode`. */
   displayTitle?: string;
+  /** Ready-made "S4 · E1" for the native clients; "" = none. Absent = build it from season/episode. */
+  displayLabel?: string;
   displaySeason?: number | null;
   displayEpisode?: number | null;
   /** Number of episodes sharing this same torrent (a season pack) — omitted/1 for a single episode. */
