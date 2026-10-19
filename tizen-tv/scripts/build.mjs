@@ -40,7 +40,8 @@ for (const name of ["index.html", "style.css", "config.xml"]) files.set(name, aw
 files.set("config.xml", Buffer.from(files.get("config.xml").toString().replace('version="1.0.0"', `version="${version}"`)));
 files.set("app.js", Buffer.from(js));
 files.set("locales.js", Buffer.from(`window.MovvizLocales=${JSON.stringify(dictionaries)};window.MOVVIZ_VERSION=${JSON.stringify(version)};\n`));
-files.set("icon.png", await fs.readFile(path.join(repo, "public/brand/movviz-mark.png")));
+// Icône et marque : le « M ruban » (même fichier que Android TV/mobile, movviz_mark.png).
+files.set("icon.png", await fs.readFile(path.join(moduleRoot, "assets/movviz-m.png")));
 files.set("Roboto-Regular.ttf", await fs.readFile(path.join(moduleRoot, "assets/Roboto-Regular.ttf")));
 files.set("Roboto-LICENSE.txt", await fs.readFile(path.join(moduleRoot, "assets/Roboto-LICENSE.txt")));
 files.set("qrcode.js", await fs.readFile(path.join(repo, "node_modules/qrcode-generator/dist/qrcode.js")));

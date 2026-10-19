@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1>
-  <img src="public/brand/movviz-logo-compact-animated.svg" width="420" alt="Movviz"/>
+  <img src="public/brand/m/movviz-logo-h-960.webp" width="420" alt="Movviz"/>
 </h1>
 
 ### Your catalog. Your server. Your rules.

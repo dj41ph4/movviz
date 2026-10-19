@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDesignMode } from "@/components/appearance/AppearanceProvider";
-import { CinemaSplashCanvas } from "./CinemaSplashCanvas";
+import { BrandSplash } from "./BrandSplash";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useT } from "@/i18n/provider";
 import Image from "next/image";
@@ -34,16 +34,11 @@ export function DashboardSplash({ show, progress }: { show: boolean; progress?: 
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: reduceMotion ? 0.12 : beta ? 0.6 : 0.5, ease: beta ? [0.4, 0, 0.2, 1] : [0.23, 1, 0.32, 1] }}
-          className={`${beta ? "mv-cinema-splash" : "mv-classic-splash"} fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden px-6`}
+          className={`${beta ? "mv-m-splash" : "mv-classic-splash"} fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden px-6`}
         >
           {beta ? (
             <>
-              <CinemaSplashCanvas onShown={clearPresplash} progress={pct} reduceMotion={reduceMotion} tagline={t("dashboard.splash.tagline")} label={t("dashboard.splash.preparing")} />
-              <div className="sr-only">
-                <p>Movviz</p>
-                <p role="status">{t("dashboard.splash.preparing")}</p>
-                <div role="progressbar" aria-label={t("dashboard.splash.loading")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} />
-              </div>
+              <BrandSplash progress={pct} label={t("dashboard.splash.preparing")} loadingLabel={t("dashboard.splash.loading")} onShown={clearPresplash} />
             </>
           ) : (
             // Stable: the Beta cold-start scene as it was on 19 October in the morning (v1.26.051).

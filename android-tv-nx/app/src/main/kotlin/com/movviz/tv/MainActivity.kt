@@ -134,15 +134,10 @@ class MainActivity : ComponentActivity() {
             val betaUi by appViewModel.betaUiEnabled.collectAsState()
             val resolvedAppearance = betaUi
             if (resolvedAppearance == null) {
-                // Bêta connue d'avance (lue au lancement du processus) : on montre déjà la plaque du splash,
-                // pour que l'écran ne passe pas par un aplat sombre avant la scène.
+                // Bêta connue d'avance (lue au lancement du processus) : on montre déjà le décor du splash
+                // (fond + M à leur place définitive), pour que l'écran ne passe pas par un aplat sombre.
                 if (com.movviz.tv.ui.theme.CinemaSplashAssets.betaHint == true) {
-                    androidx.compose.foundation.Image(
-                        bitmap = com.movviz.tv.ui.theme.CinemaSplashAssets.lowRes(this@MainActivity),
-                        contentDescription = null,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    com.movviz.tv.ui.theme.CinemaSplashBackdrop()
                 } else {
                     Box(Modifier.fillMaxSize().background(Color(0xFF05070F)))
                 }

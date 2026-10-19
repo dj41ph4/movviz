@@ -1,8 +1,18 @@
-/* Design bêta : logo complet petit format animé partout, symbole « O » animé seulement en variant="mark".
+/* Design bêta : logo horizontal « M ruban » partout, M seul en variant="mark" (barre repliée).
    Stable garde le PNG officiel. Le choix suit l'attribut posé sur <html> : valable aussi hors application
    (connexion, installation). */
 :root[data-movviz-design="beta"] .mv-logo-stable { display: none; }
-:root[data-movviz-design="beta"] .mv-logo-beta { display: block; }
+:root[data-movviz-design="beta"] .mv-logo-beta { display: inline-flex; align-items: center; justify-content: center; }
+/* Reflet discret qui traverse le logo, découpé à sa forme exacte (le masque est l'image elle-même). */
+.mv-logo-shine::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask: var(--mv-logo-src) center / contain no-repeat; mask: var(--mv-logo-src) center / contain no-repeat;
+  background: linear-gradient(105deg, #fff0 38%, #ffffff70 50%, #fff0 62%) no-repeat;
+  background-size: 260% 100%; background-position: 130% 0;
+  animation: mv-logo-shine 7s cubic-bezier(.45, 0, .2, 1) 1.2s infinite;
+}
+@keyframes mv-logo-shine { 0% { background-position: 130% 0; } 28%, 100% { background-position: -30% 0; } }
+@media (prefers-reduced-motion: reduce) { .mv-logo-shine::after { animation: none; display: none; } }
 /* Le logo complet est large : la boîte carrée du symbole ne doit pas le contraindre. */
 :root[data-movviz-design="beta"] .mv-logo-box[data-variant="full"] { width: auto; height: auto; max-width: 100%; }
 /* Le nom en texte devient redondant avec le logo complet : masqué à l'œil, conservé pour les lecteurs d'écran. */

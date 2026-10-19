@@ -751,7 +751,21 @@ fun HomeScreen(
             }
             .focusGroup(),
     ) {
-        CompositionLocalProvider(LocalTvHomeFocusMemory provides homeFocusMemory) {
+        // Secousses du hero : à chaque déplacement du focus dans le hero, le pivot TV lançait un
+        // défilement animé pour centrer le bouton, aussitôt annulé par le maintien en haut ci-dessus
+        // (scrollToItem(0) à chaque image) — les deux se battaient et toute la page tremblait.
+        // Tant que le hero a le focus, la liste ne défile simplement pas ; ailleurs, pivot inchangé.
+        val basePivot = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
+        val heroAwarePivot = remember(basePivot) {
+            object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+                override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+                    if (heroHasFocus) 0f else basePivot.calculateScrollDistance(offset, size, containerSize)
+            }
+        }
+        CompositionLocalProvider(
+            LocalTvHomeFocusMemory provides homeFocusMemory,
+            androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides heroAwarePivot,
+        ) {
         TvLazyColumn(
             // Règle d'entrée unique (D26) : la rangée mémorisée d'abord, puis
             // l'enfant sauvegardé par focusRestorer. Un `enter` séparé posé

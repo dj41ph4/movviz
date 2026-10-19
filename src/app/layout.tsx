@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { splashAsset } from "@/components/dashboard/cinemaSplash/assets";
+import { BRAND } from "@/lib/brand";
 import Script from "next/script";
 import { cookies } from "next/headers";
 import "./globals.css";
@@ -66,7 +66,8 @@ export default async function RootLayout({
   // Bêta : décor du splash peint dès le premier affichage (avant l'hydratation). Posé seulement
   // sur le tableau de bord et au premier passage de la session, comme le splash lui-même.
   const PRESPLASH_INIT_SCRIPT = `try{if(location.pathname==="/"&&!sessionStorage.getItem("movviz-splash-seen"))document.documentElement.setAttribute("data-mv-presplash","")}catch(e){}`;
-  const PRESPLASH_CSS = `html[data-mv-presplash]::before{content:"";position:fixed;inset:-120px;z-index:79;pointer-events:none;background:#05050b url(${splashAsset("plate_lowres.webp")}) center/cover no-repeat;filter:blur(14px) brightness(.8);animation:mv-presplash-expire 0s 12s forwards}@keyframes mv-presplash-expire{to{opacity:0;visibility:hidden}}`;
+  // Même géométrie et même entrée que BrandSplash (dashboard-splash.css) : le composant reprend la même animation sans saut.
+  const PRESPLASH_CSS = `html[data-mv-presplash]::before{content:"";position:fixed;inset:0;z-index:79;pointer-events:none;background:radial-gradient(60% 52% at 50% 41%,#1d0b42 0%,#0e0623 48%,#05030b 100%);animation:mv-presplash-expire 0s 12s forwards}html[data-mv-presplash]::after{content:"";position:fixed;z-index:79;pointer-events:none;left:50%;top:41%;width:clamp(150px,19vw,290px);aspect-ratio:640/442;transform:translate(-50%,-50%);background:url("${BRAND.mark}") center/contain no-repeat;animation:mv-m-in 900ms cubic-bezier(.2,.7,.2,1) both,mv-presplash-expire 0s 12s forwards}@keyframes mv-m-in{from{opacity:0;transform:translate(-50%,-50%) scale(.94)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes mv-presplash-expire{to{opacity:0;visibility:hidden}}@media (prefers-reduced-motion:reduce){html[data-mv-presplash]::after{animation:mv-presplash-expire 0s 12s forwards}}`;
   // Tableau de bord : ses données partent dès l'analyse du HTML, en parallèle du JavaScript, au lieu
   // d'attendre l'hydratation. Le fetcher SWR (AppShell) reprend ces promesses une seule fois.
   const EARLY_DATA_SCRIPT = `try{if(location.pathname==="/"){var m=window.__mvEarly={};["/api/interface/dashboard","/api/dashboard/layout","/api/metadata/rows?type=movie","/api/metadata/rows?type=series"].forEach(function(k){m[k]=fetch(k,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(String(r.status));return r.json()});m[k].catch(function(){})})}}catch(e){}`;
@@ -98,9 +99,8 @@ export default async function RootLayout({
       {signedIn && <script dangerouslySetInnerHTML={{ __html: EARLY_DATA_SCRIPT }} />}
       {designMode === "beta" && (
         <>
-          <link rel="preload" as="image" href={splashAsset("plate_lowres.webp")} fetchPriority="high" />
-          <link rel="preload" as="image" href={splashAsset("plate.webp")} fetchPriority="high" />
-          <link rel="preload" as="image" href={splashAsset("logo_mask.png")} />
+          <link rel="preload" as="image" href={BRAND.mark} fetchPriority="high" />
+          <link rel="preload" as="image" href={BRAND.word} />
           <style dangerouslySetInnerHTML={{ __html: PRESPLASH_CSS }} />
           <script dangerouslySetInnerHTML={{ __html: PRESPLASH_INIT_SCRIPT }} />
         </>

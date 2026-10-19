@@ -1,3 +1,19 @@
+## v1.27.05 — 19 octobre 2026
+
+### Nouveau logo « M ruban »
+
+- Le nouveau logo de Movviz, un M en ruban violet, arrive dans le design bêta sur le web : logo complet dans la barre latérale, à la connexion, à l'installation, dans le lecteur et dans « À propos », et M seul quand la barre est repliée, avec un léger reflet qui le traverse de temps en temps.
+- Sur Android TV, Google TV et Android mobile, il devient l'icône de l'application, la bannière de l'écran d'accueil Google TV et le logo affiché dans l'application. Sur les téléviseurs Samsung, il devient aussi l'icône et la marque de l'application.
+
+### Design bêta : un écran de chargement sobre et instantané
+
+- Nouvel écran de chargement sur le web et sur Android TV : le M au centre sur une nuit violette, avec sa lueur, MOVVIZ dessous et une barre fine qui suit le vrai chargement. Il s'affiche dès l'ouverture de la page, avant même que l'application soit chargée, et ne pèse plus que quelques dizaines de kilo-octets.
+- Le design stable garde son écran de chargement actuel.
+
+### Android TV : un hero immobile
+
+- En naviguant entre les boutons du hero de l'accueil, toute la page tremblait. Elle reste désormais parfaitement immobile.
+
 ## v1.27.04 — 19 octobre 2026
 
 ### Recherche : chaque série garde ses propres téléchargements

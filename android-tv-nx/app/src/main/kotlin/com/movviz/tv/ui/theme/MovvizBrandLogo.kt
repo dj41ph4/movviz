@@ -26,25 +26,24 @@ import androidx.compose.ui.unit.Dp
 import com.movviz.tv.R
 
 // ────────────────────────────────────────────────────────────────
-// Logos Bêta : logo complet petit format et symbole « O », animés.
-// Mêmes tracés que public/brand/*.svg (VectorDrawable générés). Le balayage de lumière et
-// l'éclat périodique ne s'appliquent QU'AUX formes du logo (couche + SrcAtop) : jamais de
-// rectangle visible, et AUCUN halo autour du « O ». Une horloge, lue au dessin seulement.
+// Logos Bêta « M ruban » : logo horizontal (M + MOVVIZ) et M seul, mêmes fichiers que le web
+// (public/brand/m). Le reflet ne s'applique QU'AUX formes du logo (couche + SrcAtop) : jamais
+// de rectangle visible. Une horloge, lue au dessin seulement.
 // ────────────────────────────────────────────────────────────────
 
-private const val FULL_ASPECT = 724f / 116f
-private const val CYCLE_MS = 4400
-private val SweepColors = listOf(Color(0x00FFF6E1), Color(0xF2FFF6E1), Color(0x00FFF6E1))
+private const val FULL_ASPECT = 960f / 213f
+private const val CYCLE_MS = 7000
+private val SweepColors = listOf(Color(0x00FFFFFF), Color(0x70FFFFFF), Color(0x00FFFFFF))
 
-/** Logo complet petit format (MOVVIZ) : barre latérale étendue, connexion, chargements. */
+/** Logo horizontal (M + MOVVIZ) : barre latérale étendue, connexion, chargements. */
 @Composable
 fun MovvizFullLogo(height: Dp, modifier: Modifier = Modifier) =
-    BrandLogo(R.drawable.movviz_logo_full, FULL_ASPECT, height, modifier)
+    BrandLogo(R.drawable.movviz_brand_logo, FULL_ASPECT, height, modifier)
 
-/** Symbole « O » seul : barre de navigation repliée. */
+/** M seul : barre de navigation repliée, splash. `size` est sa hauteur. */
 @Composable
 fun MovvizMarkO(size: Dp, modifier: Modifier = Modifier) =
-    BrandLogo(R.drawable.movviz_logo_o, 1f, size, modifier)
+    BrandLogo(R.drawable.movviz_brand_m, CinemaSplashGeometry.MARK_ASPECT, size, modifier)
 
 @Composable
 private fun BrandLogo(@DrawableRes resource: Int, aspect: Float, height: Dp, modifier: Modifier) {
@@ -82,19 +81,11 @@ private fun BrandLogo(@DrawableRes resource: Int, aspect: Float, height: Dp, mod
                         blendMode = BlendMode.SrcAtop,
                     )
                 }
-                val flash = flashAlpha(p)
-                if (flash > 0f) drawRect(Color(1f, 0.88f, 0.63f, flash), blendMode = BlendMode.SrcAtop)
             }
             canvas.restore()
         }
     }
 }
 
-private const val SWEEP_END = 0.42f
+private const val SWEEP_END = 0.3f
 
-/** Éclat doux après le balayage : monte vite, retombe lentement. */
-private fun flashAlpha(p: Float): Float {
-    if (p < 0.56f) return 0f
-    val up = (p - 0.56f) / 0.08f
-    return 0.5f * if (p < 0.64f) up else 1f - (p - 0.64f) / 0.36f
-}
