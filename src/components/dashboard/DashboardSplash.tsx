@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDesignMode } from "@/components/appearance/AppearanceProvider";
 import { CinemaSplashCanvas } from "./CinemaSplashCanvas";
@@ -7,11 +8,19 @@ import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useT } from "@/i18n/provider";
 import "./dashboard-splash.css";
 
+const clearPresplash = () => document.documentElement.removeAttribute("data-mv-presplash");
+
 export function DashboardSplash({ show, progress }: { show: boolean; progress?: number }) {
   const { mode } = useDesignMode();
   const reduceMotion = useShouldReduceMotion();
   const t = useT();
   const beta = mode === "beta";
+  // Le décor posé avant l'hydratation doit disparaître même si le splash ne s'affiche pas (déjà vu, mode sans splash).
+  useEffect(() => {
+    if (show) return;
+    const id = window.setTimeout(clearPresplash, 1500);
+    return () => window.clearTimeout(id);
+  }, [show]);
   const pct = typeof progress === "number" && Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : 0;
   return (
     <AnimatePresence>
@@ -28,7 +37,7 @@ export function DashboardSplash({ show, progress }: { show: boolean; progress?: 
         >
           {beta ? (
             <>
-              <CinemaSplashCanvas progress={pct} reduceMotion={reduceMotion} tagline={t("dashboard.splash.tagline")} label={t("dashboard.splash.preparing")} />
+              <CinemaSplashCanvas onShown={clearPresplash} progress={pct} reduceMotion={reduceMotion} tagline={t("dashboard.splash.tagline")} label={t("dashboard.splash.preparing")} />
               <div className="sr-only">
                 <p>Movviz</p>
                 <p role="status">{t("dashboard.splash.preparing")}</p>

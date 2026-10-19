@@ -2,3 +2,10 @@
    Le choix suit l'attribut posé sur <html> : valable aussi hors application (connexion, installation). */
 :root[data-movviz-design="beta"] .mv-logo-stable { display: none; }
 :root[data-movviz-design="beta"] .mv-logo-beta { display: block; }
+
+/* Barre latérale (bêta) : étendue → logo complet petit format animé ; repliée → symbole « O » animé. */
+:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) .mv-sidebar-brand { width: auto; min-width: 0; flex: 1 1 auto; justify-content: flex-start; padding-left: .5rem; }
+:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) .mv-sidebar-brand .mv-logo-stable,
+:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) .mv-sidebar-brand .mv-logo-beta { display: none; }
+:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) .mv-sidebar-brand .mv-brand-wordmark { display: block; }
+:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) .mv-brand-text { display: none; }

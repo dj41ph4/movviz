@@ -62,6 +62,10 @@ export default async function RootLayout({
   // la navigation et reprend 4 s après la dernière interaction. Les routes
   // API marquent déjà via requireUser ; ce point couvre le RSC lui-même
   // (sinon une navigation pure restait invisible de l'arrière-plan).
+  // Bêta : décor du splash peint dès le premier affichage (avant l'hydratation). Posé seulement
+  // sur le tableau de bord et au premier passage de la session, comme le splash lui-même.
+  const PRESPLASH_INIT_SCRIPT = `try{if(location.pathname==="/"&&!sessionStorage.getItem("movviz-splash-seen"))document.documentElement.setAttribute("data-mv-presplash","")}catch(e){}`;
+  const PRESPLASH_CSS = `html[data-mv-presplash]::before{content:"";position:fixed;inset:-120px;z-index:79;pointer-events:none;background:#05050b url(/brand/splash-bg.webp) center/cover no-repeat;filter:blur(36px) brightness(.45);animation:mv-presplash-expire 0s 12s forwards}@keyframes mv-presplash-expire{to{opacity:0;visibility:hidden}}`;
   let desktopTextScale: 110 | 120 | undefined;
   let designMode: DesignMode = "stable";
   try {
@@ -85,6 +89,13 @@ export default async function RootLayout({
           logo soit déjà en cache au moment où React le rend. */}
       <link rel="preload" as="image" href="/brand/movviz-lockup.png" fetchPriority="high" />
       <link rel="preload" as="image" href="/brand/movviz-mark.png" fetchPriority="high" />
+      {designMode === "beta" && (
+        <>
+          <link rel="preload" as="image" href="/brand/splash-bg.webp" fetchPriority="high" />
+          <style dangerouslySetInnerHTML={{ __html: PRESPLASH_CSS }} />
+          <script dangerouslySetInnerHTML={{ __html: PRESPLASH_INIT_SCRIPT }} />
+        </>
+      )}
       <body className="cinema-grain antialiased">
         <Script id="reduce-motion-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: REDUCE_MOTION_INIT_SCRIPT }} />
         <ScrollRestoration />

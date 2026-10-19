@@ -416,7 +416,6 @@ export class CinemaSplashRenderer {
     const prog = clamp(this.shownProgress);
     if (prog >= 1 && this.readyAt === null) this.readyAt = t;
     const flash = this.readyAt !== null && !reduceMotion ? clamp(1 - (t - this.readyAt) / 1.1) : 0;
-    const fade = reduceMotion ? 0 : t < 0.9 ? 1 - easeOut(t / 0.9) : 0;
     const energy = 0.55 + 0.45 * prog;
     const mt = reduceMotion ? 3.2 : t; // motion time: frozen when the user asked for less motion
 
@@ -657,10 +656,6 @@ export class CinemaSplashRenderer {
       ctx.fillStyle = this.grainPattern;
       ctx.fillRect(-256, -256, PW + 512, PH + 512);
       ctx.restore();
-    }
-    if (fade > 0) {
-      ctx.fillStyle = `rgba(0,0,0,${fade})`;
-      ctx.fillRect(0, 0, PW, PH);
     }
   }
 

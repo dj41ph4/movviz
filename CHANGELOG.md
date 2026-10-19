@@ -1,3 +1,11 @@
+## v1.26.053 — 19 octobre 2026
+
+### Design bêta : le splash démarre instantanément, logo complet dans la barre latérale
+
+- L'écran de chargement apparaît dès l'ouverture de la page, sans attendre le chargement de l'application : une ambiance floue de la scène est affichée tout de suite, puis la scène animée apparaît en fondu par-dessus dès qu'elle est prête. L'image de fond est préchargée, et le fondu noir de départ a disparu.
+- Dans la barre latérale du design bêta, le logo complet petit format animé remplace le « O » et le texte quand la barre est étendue ; quand elle est repliée, seul le « O » animé reste.
+- Le logo de MOVVIZ est mieux espacé : la distance entre le « O » et le premier « V », et entre le dernier « V » et le « I », est désormais homogène avec le reste des lettres.
+
 ## v1.26.052 — 19 octobre 2026
 
 ### Design bêta : nouvel écran de chargement et nouveau logo

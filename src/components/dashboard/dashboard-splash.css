@@ -6,3 +6,7 @@
   color: #f6f2ff;
   isolation: isolate;
 }
+
+/* Tant que le décor immédiat (posé avant l'hydratation) est visible, il reste visible à travers le splash
+   jusqu'à ce que la scène soit entièrement affichée par-dessus. */
+html[data-mv-presplash] .mv-cinema-splash { background: transparent; }

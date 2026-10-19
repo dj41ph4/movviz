@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CinemaSplashRenderer } from "./cinemaSplash/renderer";
 
 /**
@@ -13,12 +13,33 @@ export function CinemaSplashCanvas({
   reduceMotion,
   tagline,
   label,
+  onShown,
 }: {
   progress: number;
   reduceMotion: boolean;
   tagline: string;
   label: string;
+  /** Called once the scene is fully visible (after its fade-in over the instant backdrop). */
+  onShown?: () => void;
 }) {
+  const [visible, setVisible] = useState(false);
+  const shownRef = useRef(false);
+  const onShownRef = useRef(onShown);
+  useEffect(() => {
+    onShownRef.current = onShown;
+  }, [onShown]);
+  const notifyShown = () => {
+    if (shownRef.current) return;
+    shownRef.current = true;
+    onShownRef.current?.();
+  };
+  // Si la transition CSS est désactivée (réduire les animations), le signal arrive quand même.
+  useEffect(() => {
+    if (!visible) return;
+    const id = window.setTimeout(notifyShown, 700);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<CinemaSplashRenderer | null>(null);
   const reduceRef = useRef(reduceMotion);
@@ -64,8 +85,10 @@ export function CinemaSplashCanvas({
           renderer.render(3.2, true);
         } else {
           start = performance.now();
+          renderer.render(0, false); // first frame drawn before the fade-in starts
           raf = requestAnimationFrame(frame);
         }
+        setVisible(true);
       })
       .catch(() => {
         /* image unavailable: the plain dark backdrop stays, nothing else to show */
@@ -87,5 +110,12 @@ export function CinemaSplashCanvas({
     };
   }, []);
 
-  return <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 h-full w-full" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      onTransitionEnd={notifyShown}
+      className={`absolute inset-0 h-full w-full transition-opacity duration-500 motion-reduce:transition-none ${visible ? "opacity-100" : "opacity-0"}`}
+    />
+  );
 }
