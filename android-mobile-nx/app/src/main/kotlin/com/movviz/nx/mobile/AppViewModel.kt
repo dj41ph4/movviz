@@ -923,7 +923,9 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     suspend fun addCurrentToLibrary(type: String, tmdbId: Int, seriesPart: String? = null): ApiResult<Unit> {
         val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
-        if (tmdbId == BleachPresentation.TMDB_ID && type == "series" && _series.value.any { it.tmdbId == tmdbId && it.episodeOrder != "tvdb" }) return ApiResult.Failure("La numérotation de Bleach doit être vérifiée sur le serveur")
+        if (tmdbId == BleachPresentation.TMDB_ID && type == "series" && _series.value.any {
+                it.tmdbId == tmdbId && (seriesPart == null || it.seriesPart == seriesPart) && it.bleachRepairRequired
+            }) return ApiResult.Failure("La numérotation de Bleach doit être vérifiée sur le serveur")
         _addingToLibrary.value = true
         try {
             val result = repo.addToLibrary(type, tmdbId, seriesPart)

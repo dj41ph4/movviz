@@ -1,3 +1,12 @@
+## v1.26.046 — 19 octobre 2026
+
+### Android TV et mobile : état de réparation Bleach fiable
+
+- Les fiches Bleach utilisent désormais la projection de partie demandée et le drapeau de réparation fourni par le serveur. Une ligne compacte du tableau de bord ne peut plus faire croire que TYBW doit être réparé alors que son ordre est déjà correct.
+- Sur Android TV, l’action de réparation est cliquable et réservée aux administrateurs; elle présente l’aperçu et demande confirmation avant de modifier les données. Les blocages indiquent pourquoi la réparation est impossible.
+- Le focus d’ouverture vise une action réelle de la fiche; le titre décoratif ne reçoit plus de contour de sélection.
+- Tizen n’a pas d’action équivalente d’ajout ou de réparation Bleach dans sa fiche.
+
 ## v1.26.045 — 19 octobre 2026
 
 ### Android TV : focus stable à l’ouverture des saisons

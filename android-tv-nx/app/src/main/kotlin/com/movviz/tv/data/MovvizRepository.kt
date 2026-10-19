@@ -228,6 +228,12 @@ class MovvizRepository(private val baseUrl: String) {
         }
     }
 
+    suspend fun previewBleachRepair(seriesId: String): ApiResult<BleachRepairPreviewDto> =
+        safeCall { api.previewBleachRepair(seriesId) }
+
+    suspend fun repairBleach(seriesId: String, fingerprint: String): ApiResult<BleachRepairCommitDto> =
+        safeCall { api.repairBleach(seriesId, mapOf("confirm" to true, "fingerprint" to fingerprint)) }
+
     /** Construit l'URL de lecture directe — /api/stream/{ratingKey} sert les
      *  octets vidéo avec support des requêtes range (voir la route serveur),
      *  exactement ce qu'attend ExoPlayer. Le cookie de session posé au login

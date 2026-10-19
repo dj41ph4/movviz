@@ -114,6 +114,12 @@ interface MovvizApiService {
     @POST("api/library/series")
     suspend fun addSeries(@Body body: AddToLibraryRequest): Response<Map<String, Any?>>
 
+    @GET("api/library/series/{id}/repair-bleach")
+    suspend fun previewBleachRepair(@Path("id") id: String): Response<BleachRepairPreviewDto>
+
+    @POST("api/library/series/{id}/repair-bleach")
+    suspend fun repairBleach(@Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): Response<BleachRepairCommitDto>
+
     @GET("api/library/series/{id}")
     suspend fun seriesDetail(@Path("id") id: String, @Query("seriesPart") seriesPart: String? = null): Response<SeriesDetailDto>
 

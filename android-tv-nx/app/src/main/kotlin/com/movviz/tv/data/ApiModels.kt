@@ -81,6 +81,8 @@ data class LibrarySeriesDto(
     val seasons: List<SeriesSeasonDto> = emptyList(),
     val seriesPart: String? = null,
     val episodeOrder: String? = null,
+    /** Explicit result of the server-side Bleach order check; compact rows omit it. */
+    val bleachRepairRequired: Boolean = false,
     val bleachArtwork: Map<String, BleachArtworkDto> = emptyMap(),
 )
 
@@ -282,6 +284,22 @@ data class AddToLibraryRequest(
     val tmdbId: Int,
     val seriesPart: String? = null,
     val seasonNumbers: List<Int>? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class BleachRepairPreviewDto(
+    val applicable: Boolean = false,
+    val fingerprint: String = "",
+    val episodes: Int = 0,
+    val preservedFiles: Int = 0,
+    val preservedTracking: Int = 0,
+    val blockers: List<String> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class BleachRepairCommitDto(
+    val ok: Boolean = false,
+    val snapshot: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

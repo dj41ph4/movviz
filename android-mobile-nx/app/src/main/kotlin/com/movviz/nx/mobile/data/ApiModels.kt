@@ -82,6 +82,8 @@ data class LibrarySeriesDto(
     val seasons: List<SeriesSeasonDto> = emptyList(),
     val seriesPart: String? = null,
     val episodeOrder: String? = null,
+    /** Explicit result of the server-side Bleach order check; compact rows omit it. */
+    val bleachRepairRequired: Boolean = false,
     val bleachArtwork: Map<String, BleachArtworkDto> = emptyMap(),
     val availableBySeason: Map<String, Int> = emptyMap(),
 )

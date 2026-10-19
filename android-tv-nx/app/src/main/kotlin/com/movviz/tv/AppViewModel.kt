@@ -738,7 +738,9 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     suspend fun addCurrentToLibrary(type: String, tmdbId: Int, seriesPart: String? = null): ApiResult<Unit> {
         val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
-        if (tmdbId == BleachPresentation.TMDB_ID && type == "series" && _series.value.any { it.tmdbId == tmdbId && it.episodeOrder != "tvdb" }) return ApiResult.Failure("La numérotation de Bleach doit être vérifiée sur le serveur")
+        if (tmdbId == BleachPresentation.TMDB_ID && type == "series" && _series.value.any {
+                it.tmdbId == tmdbId && (seriesPart == null || it.seriesPart == seriesPart) && it.bleachRepairRequired
+            }) return ApiResult.Failure("La numérotation de Bleach doit être vérifiée sur le serveur")
         _addingToLibrary.value = true
         try {
             val result = repo.addToLibrary(type, tmdbId, seriesPart)
@@ -783,6 +785,25 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
             return if (result is ApiResult.Failure && !isInLibrary(type, tmdbId)) result else ApiResult.Success(Unit)
         } finally {
             _addingToLibrary.value = false
+        }
+    }
+
+    suspend fun previewBleachRepair(seriesId: String) =
+        repository?.previewBleachRepair(seriesId) ?: ApiResult.Failure("Aucun serveur configuré")
+
+    suspend fun repairBleach(seriesId: String, fingerprint: String): ApiResult<Unit> {
+        val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
+        return when (val result = repo.repairBleach(seriesId, fingerprint)) {
+            is ApiResult.Success -> {
+                if (!result.data.ok) return ApiResult.Failure("Réparation non confirmée par le serveur")
+                refreshLibraryNow()
+                ApiResult.Success(Unit)
+            }
+            is ApiResult.Failure -> result
+            ApiResult.Unauthorized -> {
+                _sessionExpired.value = true
+                ApiResult.Unauthorized
+            }
         }
     }
 

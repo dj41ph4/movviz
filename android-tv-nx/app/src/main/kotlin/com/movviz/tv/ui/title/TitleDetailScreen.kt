@@ -75,9 +75,12 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
+import com.movviz.tv.data.BleachRepairPreviewDto
 import com.movviz.tv.data.episodePlaybackTarget
 import com.movviz.tv.data.SeriesEpisodeDto
 import com.movviz.tv.data.SeriesSeasonDto
@@ -181,7 +184,7 @@ private fun episodeIsPlayable(episode: SeriesEpisodeDto): Boolean =
  * actions sont deux Surface focusables plutôt que des boutons cliqués à la
  * souris.
  */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun TitleDetailScreen(
     viewModel: AppViewModel,
@@ -226,6 +229,9 @@ fun TitleDetailScreen(
     val searchingSeason by viewModel.searchingSeason.collectAsState()
     val scope = rememberCoroutineScope()
     var addError by remember { mutableStateOf<String?>(null) }
+    var bleachRepairPreview by remember { mutableStateOf<BleachRepairPreviewDto?>(null) }
+    var bleachRepairDialog by remember { mutableStateOf(false) }
+    var bleachRepairBusy by remember { mutableStateOf(false) }
     var selectedSeasonNumber by remember(type, tmdbId, part) { mutableStateOf<Int?>(null) }
     // Une saison n'est pas un accordéon perdu au bas de la fiche. Elle ouvre
     // son propre écran, comme dans Plex : la fiche série reste un sommaire et
@@ -271,8 +277,11 @@ fun TitleDetailScreen(
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
-    val bleachRecord = series.firstOrNull { it.tmdbId == tmdbId }
-    val bleachRepairRequired = part != null && bleachRecord != null && bleachRecord.episodeOrder != "tvdb"
+    val currentUser by viewModel.currentUser.collectAsState()
+    // The dashboard keeps a compact Bleach row (seriesPart=null) alongside
+    // the two full projections. Never infer TYBW's repair state from that row.
+    val bleachRecord = series.firstOrNull { it.tmdbId == tmdbId && (part == null || it.seriesPart == part) }
+    val bleachRepairRequired = part != null && bleachRecord?.bleachRepairRequired == true
     val seasons = remember(rawSeasons, part, bleachRepairRequired) { if (bleachRepairRequired) emptyList() else BleachPresentation.seasons(rawSeasons, part) }
 
     val inLibrary by remember(type, tmdbId, movies, series, part) {
@@ -1007,13 +1016,6 @@ fun TitleDetailScreen(
             contentPadding = PaddingValues(top = 84.dp),
         ) {
             item(key = "header", contentType = "header") {
-            // Première cible D-pad = la zone VISUELLE du logo/titre, jamais
-            // une ligne technique invisible. Elle garde l'ouverture en haut
-            // de la fiche et donne un point d'ancrage réel au premier UP.
-            var topAnchorFocused by remember { mutableStateOf(false) }
-            LaunchedEffect(topAnchorFocused) {
-                if (topAnchorFocused) lazyListState.animateScrollToItem(0)
-            }
             // TvLazyColumn a son PROPRE pivot (élément focalisé placé à 30 %
             // de l'écran) et ignore le LocalBringIntoViewSpec posé autour :
             // focaliser « Lire » à l'ouverture faisait défiler la fiche et
@@ -1028,45 +1030,13 @@ fun TitleDetailScreen(
                     .collect { (index, offset) -> if (index != 0 || offset != 0) lazyListState.scrollToItem(0) }
             }
             fun Modifier.keepsHeaderAtTop(row: String) = onFocusChanged { headerRowsFocused[row] = it.hasFocus }
-            val anchorShape = RoundedCornerShape(9.dp)
+            fun Modifier.detailActionEntry() =
+                focusRequester(initialFocusRequester)
+                    .let { if (entryFocusRequester != null && !anyOverlayOpen) it.focusRequester(entryFocusRequester) else it }
             Box(
                 modifier = Modifier
                     .width(540.dp)
                     .heightIn(min = 87.dp)
-                    // Les deux requesters sur le même nœud : celui de la
-                    // fiche (focus d'ouverture) et celui, partagé, que la
-                    // NavRail vise pour entrer dans le contenu.
-                    .focusRequester(initialFocusRequester)
-                    // Cible d'entrée de la barre seulement quand aucun écran
-                    // n'est posé par-dessus : DROITE depuis le rail ne doit
-                    // jamais atterrir sur ce logo caché sous la page de saison.
-                    .let { if (entryFocusRequester != null && !anyOverlayOpen) it.focusRequester(entryFocusRequester) else it }
-                    // Bêta : l'anneau extérieur blanc est l'unique repère.
-                    .movvizFocusRing(anchorShape, enabled = beta)
-                    .focusable()
-                    // La destination spatiale par défaut privilégiait le
-                    // bouton d'état (« Marquer vu ») situé plus bas. Depuis
-                    // l'en-tête d'une fiche film, BAS mène toujours à la
-                    // première action utile : « Lire ».
-                    .onPreviewKeyEvent { event ->
-                        if (
-                            event.type == KeyEventType.KeyDown &&
-                            event.key == Key.DirectionDown &&
-                            moviePrimaryActionReady
-                        ) {
-                            runCatching { primaryActionFocusRequester.requestFocus() }.getOrDefault(false)
-                        } else {
-                            false
-                        }
-                    }
-                    .onFocusChanged { topAnchorFocused = it.isFocused }
-                    // Le focus est volontairement discret, mais réel : le
-                    // logo/titre devient son propre repère au lieu d'une
-                    // ancre technique minuscule et invisible.
-                    .background(
-                        if (topAnchorFocused && !beta) Color.White.copy(alpha = 0.07f) else Color.Transparent,
-                        anchorShape,
-                    ),
             ) {
                 if (titleLogoPath != null) {
                     Image(
@@ -1249,7 +1219,7 @@ fun TitleDetailScreen(
             // Plex/Netflix : jamais un simple bouton "Lire" sur une série).
             if (type == "movie") {
                 Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("movie")) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("movie").detailActionEntry()) {
                         val plexKey = plexRatingKey
                         // "Lire" dès que le fichier est prêt côté Movviz, sans
                         // attendre la clé Plex (scan Plex + sync, plusieurs
@@ -1277,7 +1247,7 @@ fun TitleDetailScreen(
                                 brush = if (canAdd) Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)) else null,
                                 enabled = !checking && !(canAdd && addingToLibrary),
                                 icon = if (canAdd) (if (addingToLibrary) null else MovvizIconPlus) else MovvizIconPlay,
-                                focusRequester = primaryActionFocusRequester,
+                                focusRequester = if (!checking && !(canAdd && addingToLibrary)) primaryActionFocusRequester else null,
                                 primary = true,
                             ) {
                                 if (playKey != null) {
@@ -1360,25 +1330,45 @@ fun TitleDetailScreen(
                     }
                 }
             } else if (!libraryResolved) {
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("checking")) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("checking").detailActionEntry()) {
                     PrimaryPill(text = "Vérification du fichier…", brush = null, enabled = false, onClick = {})
                     trailerAction()
                     seriesWatchAction()
                 }
             } else if (!inLibrary) {
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("add")) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("add").detailActionEntry()) {
                     PrimaryPill(
-                        text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
+                        text = when {
+                            addingToLibrary -> "Ajout…"
+                            bleachRepairRequired -> if (currentUser?.role == "admin") "Réparer Bleach" else "Vérification requise"
+                            else -> "+  Ajouter à la bibliothèque"
+                        },
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
 
-                        enabled = !addingToLibrary && !bleachRepairRequired,
+                        enabled = !addingToLibrary,
                         // Cible du focus d'ouverture pour un titre PAS encore
                         // en bibliothèque : sans elle, cette fiche n'avait
                         // aucune action focusable et s'ouvrait sur le rail.
-                        focusRequester = primaryActionFocusRequester,
+                        focusRequester = if (!addingToLibrary) primaryActionFocusRequester else null,
                         primary = true,
                     ) {
                         scope.launch {
+                            if (bleachRepairRequired) {
+                                if (currentUser?.role != "admin") {
+                                    addError = "Un administrateur doit vérifier la numérotation Bleach avant l’ajout."
+                                    return@launch
+                                }
+                                val record = bleachRecord ?: return@launch
+                                when (val preview = viewModel.previewBleachRepair(record.id)) {
+                                    is ApiResult.Success -> {
+                                        bleachRepairPreview = preview.data
+                                        bleachRepairDialog = true
+                                    }
+                                    is ApiResult.Failure -> addError = "Impossible de vérifier Bleach : ${preview.message}"
+                                    ApiResult.Unauthorized -> addError = "Session expirée. Reconnecte-toi comme administrateur."
+                                }
+                                return@launch
+                            }
                             when (val result = viewModel.addCurrentToLibrary(type, tmdbId, part)) {
                                 is ApiResult.Failure -> addError = friendlyAddError(result.message)
                                 else -> addError = null
@@ -1408,7 +1398,7 @@ fun TitleDetailScreen(
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("series")) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("series").detailActionEntry()) {
                         PrimaryPill(
                             text = when {
                                 ctaWatched -> "Revoir depuis le début"
@@ -1430,7 +1420,7 @@ fun TitleDetailScreen(
             } else {
                 // Série en bibliothèque sans épisode lisible : pas de CTA, mais
                 // la bande-annonce et « vu » restent sur leur propre ligne.
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("seriesNoCta")) {
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("seriesNoCta").detailActionEntry()) {
                     trailerAction()
                     seriesWatchAction()
                 }
@@ -1644,6 +1634,83 @@ fun TitleDetailScreen(
                 originUrl = viewModel.serverUrl.value,
                 onClose = { trailerOpen = false },
             )
+        }
+
+        if (bleachRepairDialog) {
+            val preview = bleachRepairPreview
+            val confirmFocus = remember { FocusRequester() }
+            LaunchedEffect(bleachRepairDialog, preview?.applicable) {
+                if (bleachRepairDialog) repeat(12) { attempt ->
+                    if (runCatching { confirmFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+                    if (attempt < 11) withFrameNanos { }
+                }
+            }
+            Dialog(
+                onDismissRequest = { if (!bleachRepairBusy) bleachRepairDialog = false },
+                properties = DialogProperties(dismissOnBackPress = !bleachRepairBusy, dismissOnClickOutside = false),
+            ) {
+                Column(
+                    modifier = Modifier.widthIn(max = 520.dp)
+                        .background(Color(0xFF11121A), RoundedCornerShape(14.dp))
+                        .border(1.dp, Color.White.copy(alpha = .16f), RoundedCornerShape(14.dp))
+                        .padding(24.dp)
+                        .focusProperties { exit = { FocusRequester.Cancel } }
+                        .focusGroup(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("Vérifier la numérotation de Bleach", style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+                    when {
+                        preview == null -> Text("Aucun aperçu de réparation reçu.", style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft))
+                        preview.applicable -> Text(
+                            "La réparation replacera ${preview.episodes} épisodes dans leurs saisons TVDB. ${preview.preservedFiles} fichiers et ${preview.preservedTracking} éléments de suivi seront conservés. Une sauvegarde sera créée avant toute modification.",
+                            style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+                        )
+                        else -> Text(
+                            "La réparation est bloquée pour protéger tes fichiers et ton suivi : " + preview.blockers.mapNotNull { blocker ->
+                                when (blocker) {
+                                    "active_download" -> "un téléchargement est en cours"
+                                    "active_playback" -> "une lecture est en cours"
+                                    "ambiguous_user_history", "unknown_context_identity", "pending_history_sync" -> "l’historique de visionnage est ambigu"
+                                    "unmapped_episode", "duplicate_episode" -> "certains épisodes ne peuvent pas être associés sans risque"
+                                    else -> null
+                                }
+                            }.distinct().ifEmpty { listOf("les données doivent être vérifiées sur le serveur") }.joinToString(" ; ") + ". Aucun changement n’a été fait.",
+                            style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PrimaryPill(
+                            text = "Fermer",
+                            brush = null,
+                            focusRequester = if (preview?.applicable != true) confirmFocus else null,
+                            onClick = { bleachRepairDialog = false },
+                        )
+                        if (preview?.applicable == true) PrimaryPill(
+                            text = if (bleachRepairBusy) "Réparation…" else "Confirmer",
+                            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                            enabled = !bleachRepairBusy,
+                            focusRequester = confirmFocus,
+                            onClick = {
+                                if (!bleachRepairBusy) scope.launch {
+                                    val record = bleachRecord ?: return@launch
+                                    bleachRepairBusy = true
+                                    when (val result = viewModel.repairBleach(record.id, preview.fingerprint)) {
+                                        is ApiResult.Success -> {
+                                            bleachRepairDialog = false
+                                            bleachRepairPreview = null
+                                            addError = null
+                                            viewModel.resolveTitleLibraryEntry("series", tmdbId, part)
+                                        }
+                                        is ApiResult.Failure -> addError = "Réparation refusée : ${result.message}"
+                                        ApiResult.Unauthorized -> addError = "Session expirée. Reconnecte-toi comme administrateur."
+                                    }
+                                    bleachRepairBusy = false
+                                }
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 }

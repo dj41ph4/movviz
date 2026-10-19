@@ -204,8 +204,10 @@ fun TitleDetailScreen(
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
-    val bleachRecord = series.firstOrNull { it.tmdbId == tmdbId }
-    val bleachRepairRequired = part != null && bleachRecord != null && bleachRecord.episodeOrder != "tvdb"
+    // Prefer the authoritative part projection, never the compact dashboard
+    // row with a missing episode-order marker.
+    val bleachRecord = series.firstOrNull { it.tmdbId == tmdbId && (part == null || it.seriesPart == part) }
+    val bleachRepairRequired = part != null && bleachRecord?.bleachRepairRequired == true
     val seasons = remember(rawSeasons, part, bleachRepairRequired) { if (bleachRepairRequired) emptyList() else BleachPresentation.seasons(rawSeasons, part) }
 
     val inLibrary by remember(type, tmdbId, movies, series, part) {
