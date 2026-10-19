@@ -1,3 +1,10 @@
+## v1.26.049 — 19 octobre 2026
+
+### Bleach : la recherche manuelle retrouve les épisodes de Thousand-Year Blood War
+
+- La sélection manuelle d'un épisode de Thousand-Year Blood War ne cherchait que les releases nommées par cour (« S04E01 ») et ne trouvait rien pour les épisodes publiés en numérotation continue (« S17E41 »). Elle interroge maintenant les deux formes et affiche toutes les releases qui correspondent à l'épisode.
+- La sélection manuelle d'un cour entier cherche aussi les packs publiés sous « Bleach S17 ».
+
 ## v1.26.048 — 19 octobre 2026
 
 ### Android et Samsung : Thousand-Year Blood War lisible dans les téléchargements

@@ -69,3 +69,10 @@ test("activity rows show TYBW as its own series but keep canonical coordinates f
   const other: Row = { ...base, tmdbId: 1, season: 17, episode: 1 };
   assert.equal(presentBleachActivityMedia(other), other);
 });
+
+test("manual TYBW search keeps releases named with the absolute S17 numbering", async () => {
+  const { bleachManualSearchTargets, bleachReleaseTargets } = await import("@/lib/library/bleachRelease");
+  const targets = bleachManualSearchTargets({ kind: "episode", seriesId: "x", season: 17, episode: 41 } as any, "tybw");
+  assert.equal(bleachReleaseTargets(targets, "Bleach.S17E41.MULTI.VFF.1080p.WEB.AAC.2.0.H264-TsundereRaws").length, 1);
+  assert.equal(bleachReleaseTargets(targets, "Bleach.S17E40.MULTI.VFF.1080p.WEB").length, 0);
+});

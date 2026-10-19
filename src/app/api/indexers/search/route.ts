@@ -78,6 +78,15 @@ function acquireManualSearchSlot(): Promise<() => void> {
  * autoGrab.ts/autoGrabSeries.ts, applied here too since this is a separate
  * code path that reads the cache on its own.
  */
+/** "Bleach S17E41" / "Bleach S17" for a standalone-TYBW manual search, else null. */
+function bleachSequelExtraQuery(req: NextRequest, category: MediaType | null, tmdbId: number | null): string | null {
+  if (category !== "series" || tmdbId !== BLEACH_TMDB_ID || parseBleachSeriesPart(req.nextUrl.searchParams.get("seriesPart")) !== "tybw") return null;
+  const ref = decodeLibraryRef(req.nextUrl.searchParams.get("libraryRef") ?? "");
+  if (!ref || ref.kind === "movie") return null;
+  if (ref.kind === "episode") return ref.season === 17 ? `Bleach S17E${String(ref.episode).padStart(2, "0")}` : null;
+  return "Bleach S17";
+}
+
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -190,6 +199,16 @@ export async function GET(req: NextRequest) {
             ).catch(() => [] as IndexerRelease[])
           )
         );
+        // Indexers name Thousand-Year Blood War releases either by cour
+        // (S04E01) or as one absolute run under Bleach (S17E41). The cour
+        // query above never finds the second kind, so ask for it as well.
+        const extra = bleachSequelExtraQuery(req, category, tmdbId);
+        if (extra) {
+          const more = await Promise.all(
+            indexers.map((ix) => searchIndexer(ix, sanitizeQuery(extra), scope, sanitizeQuery(extra)).catch(() => [] as IndexerRelease[]))
+          );
+          directResults = [...directResults, ...more];
+        }
       } finally {
         releaseSlot();
       }
