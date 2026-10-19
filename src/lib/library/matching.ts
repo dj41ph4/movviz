@@ -274,6 +274,27 @@ function matchesConcatenatedAlias(parsedTitle: string, targetTitle: string, alia
   return false;
 }
 
+const titleIndexHolder = globalThis as typeof globalThis & { __movvizLibraryTitleIndex?: () => ReadonlySet<string> };
+
+/** The library store registers the normalized titles of every movie and series it holds. */
+export function registerLibraryTitleIndex(index: () => ReadonlySet<string>) {
+  titleIndexHolder.__movvizLibraryTitleIndex = index;
+}
+
+/**
+ * A release named EXACTLY like another title of the library belongs to that title. Containment
+ * otherwise accepts it for a longer one ("Dragon Ball Super" for "Dragon Ball Super : Beerus",
+ * a different series with its own TMDb entry), because scene releases do drop subtitles.
+ * The target's own names (title, aliases) always win, so an alias deliberately set by a person
+ * keeps working.
+ */
+export function belongsToAnotherLibraryTitle(parsedTitle: string, targetTitle: string, aliases: string[] = []): boolean {
+  const np = normalizeTitle(parsedTitle);
+  if (!np) return false;
+  if ([targetTitle, ...aliases].some((t) => normalizeTitle(t) === np)) return false;
+  return titleIndexHolder.__movvizLibraryTitleIndex?.().has(np) ?? false;
+}
+
 /** Does this parsed release's title plausibly refer to the target movie/series? */
 export function releaseTitleMatches(
   parsedTitle: string,
@@ -282,6 +303,7 @@ export function releaseTitleMatches(
   yearInfo?: { year: string | null; targetYear: number | null }
 ): boolean {
   const candidates = [targetTitle, ...aliases];
+  if (belongsToAnotherLibraryTitle(parsedTitle, targetTitle, aliases)) return false;
   // A sequel-number conflict is disqualifying on its own — a close name
   // never overrides it, checked before everything below.
   if (candidates.some((t) => sequelNumbersConflict(parsedTitle, t))) return false;

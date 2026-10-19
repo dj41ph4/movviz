@@ -6,6 +6,7 @@ import { addToTrash } from "@/lib/library/trashStore";
 import { recordStatusTransition } from "@/lib/library/statusTransitions";
 import type { LibraryMovie, LibrarySeries, LibraryStatus, LibrarySeason, LibraryEpisode } from "./types";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { normalizeTitle, registerLibraryTitleIndex } from "./matching";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -533,3 +534,15 @@ export function getSeriesByActiveHash(
   ensureSeriesMaps();
   return _seriesByActiveHash!.get(infoHash) ?? null;
 }
+
+// Normalized titles of every library entry, rebuilt only when either list changes (cached arrays).
+let titleIndexCache: { movies: LibraryMovie[]; series: LibrarySeries[]; titles: Set<string> } | null = null;
+registerLibraryTitleIndex(() => {
+  const movies = loadMovies(), series = loadSeries();
+  if (titleIndexCache?.movies === movies && titleIndexCache.series === series) return titleIndexCache.titles;
+  const titles = new Set<string>();
+  for (const item of [...movies, ...series]) for (const t of [item.title, item.originalTitle]) if (t) titles.add(normalizeTitle(t));
+  titles.delete("");
+  titleIndexCache = { movies, series, titles };
+  return titles;
+});

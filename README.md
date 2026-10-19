@@ -6,7 +6,7 @@
   <img src="public/brand/movviz-logo-large-animated.svg" width="560" alt="Movviz — Vos univers en un seul endroit"/>
 </h1>
 <p><strong>Ton catalogue. Ton serveur. Tes règles.</strong></p>
-<p><strong>Version actuelle : v1.27.03</strong></p>
+<p><strong>Version actuelle : v1.27.04</strong></p>
 
 <p>
 Movviz réunit en <strong>une seule application auto-hébergée</strong> tout ce qu'il faut pour vivre ses films et séries :

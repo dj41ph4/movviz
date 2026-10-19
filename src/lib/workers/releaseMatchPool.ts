@@ -4,6 +4,7 @@ import type { ReleaseInfo } from "@/lib/naming/types";
 import { parseRelease } from "@/lib/naming/parser";
 import {
   releaseTitleMatches,
+  belongsToAnotherLibraryTitle,
   seasonEpisodeMatches,
   yearIsCompatible,
 } from "@/lib/library/matching";
@@ -81,7 +82,11 @@ class ReleaseMatchRunner {
   async run(input: ReleaseMatchInput): Promise<ReleaseMatchOutput> {
     if (this.workerUnavailable) return matchInProcess(input);
     try {
-      return await this.pool.run(input);
+      // The worker has no access to the library: apply the "named exactly like another library
+      // title" rule here, on its survivors (see belongsToAnotherLibraryTitle).
+      const out = await this.pool.run(input);
+      const survivors = out.survivors.filter(({ parsed }) => !belongsToAnotherLibraryTitle(parsed.title, input.targetTitle, input.aliases ?? []));
+      return survivors.length === out.survivors.length ? out : { ...out, survivors, packCount: survivors.length };
     } catch (error) {
       // The worker only protects responsiveness during large bulk searches.
       // A direct add/search is correctness-critical, so preserve the exact

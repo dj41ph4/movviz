@@ -77,8 +77,9 @@ test("every premium style rule is scoped to Beta and desktop", () => {
     assert.ok(desktop, rule.selector);
   });
   const source = readFileSync(new URL("../src/components/appearance/AppearanceProvider.tsx", import.meta.url), "utf8");
-  assert.ok(source.includes("if (reduceMotion || playbackActive) return;"));
-  assert.ok(source.includes("pointer.reset();"));
+  // Since v1.27.03 neither design tilts the cards (Stable carries the 19 October morning Beta look,
+  // which had no tilt): the provider must not wire the pointer controller any more.
+  assert.ok(!source.includes("createPremiumPointerController"));
 });
 
 test("Beta leaves the page and sidebar backgrounds to the original theme", () => {

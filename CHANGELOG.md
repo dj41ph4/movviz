@@ -1,3 +1,9 @@
+## v1.27.04 — 19 octobre 2026
+
+### Recherche : chaque série garde ses propres téléchargements
+
+- Une release portant exactement le nom d'un autre film ou d'une autre série de la bibliothèque n'est plus attribuée à un titre plus long qui le contient : l'intégrale de « Dragon Ball Super » n'est plus prise pour « Dragon Ball Super : Beerus », qui est une autre série. Cela vaut pour la recherche automatique, les flux RSS et les remplacements de version. Les releases qui omettent simplement un sous-titre restent reconnues, et les noms alternatifs ajoutés à la main sur une fiche restent prioritaires.
+
 ## v1.27.03 — 19 octobre 2026
 
 ### Le design stable adopte le design bêta de ce matin
