@@ -1,3 +1,9 @@
+## v1.27.02 — 19 octobre 2026
+
+### Mises à jour : plus jamais proposer une version plus ancienne
+
+- Après une mise à jour, la barre latérale pouvait encore proposer d'« installer » la version précédente, d'après une information gardée en mémoire avant le déploiement. Une mise à jour n'est maintenant proposée — et installée automatiquement sous Windows — que si elle est réellement plus récente que la version en cours.
+
 ## v1.27.1 — 19 octobre 2026
 
 ### Bleach : l'intégrale téléchargée est bien rangée dans la bibliothèque

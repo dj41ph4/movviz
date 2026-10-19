@@ -20,9 +20,19 @@ export interface SidebarReleaseFooterProps {
   labels: { currentVersion: string; available: string; install: string; inProgress: string; upToDate: string };
 }
 
+/** True only when `latest` is strictly newer than the running version. A cached answer from before the
+ *  last deployment can still claim an update that is in fact older (1.27.0 offered to a 1.27.1). */
+export function isNewerVersion(latest: string | null | undefined, current: string): boolean {
+  if (!latest) return false;
+  const a = latest.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
+  const b = current.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  return false;
+}
+
 /** Always below the profile, independent of the continuous navigation list. */
 export function SidebarReleaseFooter({ version, collapsed, updateInfo, installing, onInstall, labels }: SidebarReleaseFooterProps) {
-  const available = !!updateInfo?.updateAvailable;
+  const available = !!updateInfo?.updateAvailable && isNewerVersion(updateInfo.latestVersion, version);
   const oneClick = updateInfo?.oneClickSupported ?? updateInfo?.platform === "win32";
   const actionLabel = installing ? labels.inProgress : oneClick ? labels.install : labels.available;
   const actionClass = `flex h-11 items-center justify-center rounded-lg ring-focus text-xs font-bold ${collapsed ? "w-full" : "gap-2 px-2"} ${oneClick ? "brand-gradient text-white disabled:opacity-70" : "bg-brand/10 text-brand-glow hover:bg-brand/15"}`;

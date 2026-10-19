@@ -16,7 +16,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
-import { SidebarReleaseFooter, type SidebarUpdateInfo } from "./SidebarReleaseFooter";
+import { SidebarReleaseFooter, isNewerVersion, type SidebarUpdateInfo } from "./SidebarReleaseFooter";
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 
 type LiveBadge = NonNullable<NavItem["liveBadge"]>;
@@ -182,7 +182,7 @@ export function Sidebar({ version }: { version: string }) {
     if (increased) setPulseBadge(increased); previousCounts.current = next;
   }, [pendingRequests, pendingUsers, activeDownloads]);
   useEffect(() => { if (!pulseBadge) return; const timeout = window.setTimeout(() => setPulseBadge(null), 2000); return () => window.clearTimeout(timeout); }, [pulseBadge]);
-  const { data: updateInfo } = useSWR<SidebarUpdateInfo>(user?.role === "admin" ? "/api/system/update" : null, fetcher, { refreshInterval: 60 * 60 * 1000, revalidateOnFocus: false });
+  const { data: updateInfo } = useSWR<SidebarUpdateInfo>(user?.role === "admin" ? `/api/system/update?running=${version}` : null, fetcher, { refreshInterval: 60 * 60 * 1000, revalidateOnFocus: false });
   const [installing, setInstalling] = useState(false);
   const installingRef = useRef(false);
   const autoUpdate = useAutoUpdate(); const globalState = globalThis as typeof globalThis & { __movvizAutoUpdateTriggered?: boolean };
@@ -201,7 +201,7 @@ export function Sidebar({ version }: { version: string }) {
     finally { installingRef.current = false; setInstalling(false); }
   };
   useEffect(() => {
-    if (updateInfo?.updateAvailable && updateInfo.platform === "win32" && autoUpdate.enabled && !globalState.__movvizAutoUpdateTriggered) { globalState.__movvizAutoUpdateTriggered = true; const timeout = window.setTimeout(() => void triggerUpdate(), 2000); return () => window.clearTimeout(timeout); }
+    if (updateInfo?.updateAvailable && isNewerVersion(updateInfo.latestVersion, version) && updateInfo.platform === "win32" && autoUpdate.enabled && !globalState.__movvizAutoUpdateTriggered) { globalState.__movvizAutoUpdateTriggered = true; const timeout = window.setTimeout(() => void triggerUpdate(), 2000); return () => window.clearTimeout(timeout); }
   // triggerUpdate deliberately stays out: it is recreated every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateInfo?.updateAvailable, updateInfo?.platform, autoUpdate.enabled]);
@@ -216,7 +216,7 @@ export function Sidebar({ version }: { version: string }) {
     <nav aria-label="Navigation principale" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-0.5">
       {visibleNav.filter((item) => item.href !== "/settings").map((item) => <NavRow key={item.href} item={item} pathname={pathname} searchParams={searchParams} collapsed={collapsed} counts={counts} pulseBadge={pulseBadge} />)}
       <GestionNavItem pathname={pathname} searchParams={searchParams} counts={counts} pulseBadge={pulseBadge} isAdmin={user?.role === "admin"} collapsed={collapsed} />
-      {settingsItem && <NavRow item={settingsItem} pathname={pathname} searchParams={searchParams} collapsed={collapsed} counts={counts} pulseBadge={pulseBadge} updateAvailable={!!updateInfo?.updateAvailable} />}
+      {settingsItem && <NavRow item={settingsItem} pathname={pathname} searchParams={searchParams} collapsed={collapsed} counts={counts} pulseBadge={pulseBadge} updateAvailable={!!updateInfo?.updateAvailable && isNewerVersion(updateInfo.latestVersion, version)} />}
     </nav>
     <footer className="mt-2 shrink-0">
       {user && <div className="mt-2 border-t border-white/10 pt-2"><Link href="/profile" aria-label={user.username} className={cn("group flex h-11 items-center rounded-lg ring-focus transition-colors duration-150 hover:bg-white/[0.04]", collapsed ? "justify-center" : "gap-2.5 px-2")}><span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full brand-gradient text-xs font-black text-white">{effectiveAvatar(user) ? <img src={effectiveAvatar(user)!} alt="" className="h-full w-full object-cover" /> : user.username.slice(0, 2).toUpperCase()}</span>{!collapsed && <span className="min-w-0 leading-tight"><span className="block truncate text-sm font-semibold text-ink">{user.username}</span><span className="block truncate text-[11px] font-medium text-ink-dim">{user.role === "admin" ? t("auth.admin") : t("auth.user")}</span></span>}</Link></div>}
