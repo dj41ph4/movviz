@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { compressedJson } from "@/lib/http/compressedJson";
 import { trending, browseCategory, discoverByFilters, tmdbConfigured, getBoxOffice, getNewSeries, getKidsRow, getAnimeRow, getTeenRow } from "@/lib/metadata/tmdb";
 import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
@@ -155,7 +156,7 @@ export async function GET(req: NextRequest) {
     const filtered = rows.map((row) => ({ ...row, results: excludeDisliked(row.results, type, disliked)
       .filter((item) => !((row.key === "recommendedTop" || row.key.startsWith("becauseYouWatched:") || row.key.startsWith("provider")) && watched.has(item.tmdbId))) }))
       .filter((row) => row.results.length > 0);
-    return NextResponse.json({ configured: true, layout, rows: filtered, pending: responsiveRows.pending(scope) });
+    return compressedJson(req, { configured: true, layout, rows: filtered, pending: responsiveRows.pending(scope) });
   };
 
   const recommended = part("recommended", () => getRecommendations(userId, type), [] as MetaSearchResult[], true);

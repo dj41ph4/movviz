@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { compressedJson } from "@/lib/http/compressedJson";
 import { requireUser } from "@/lib/auth/guard";
 import { getRecommendations } from "@/lib/recommender/engine";
 import { responsiveRows } from "@/lib/recommender/responsiveCache";
@@ -17,5 +18,5 @@ export async function GET(req: NextRequest) {
   const key = JSON.stringify([user.id, type, "recommendations"]) + ":recommended";
   const pool = await responsiveRows.read(key, () => getRecommendations(user.id, type), [] as MetaSearchResult[], () => notifyRecommendationsChanged(user.id), 30_000);
   const excluded = new Set([...getWatchedTitles(user.id, type).keys(), ...getFeedback(user.id).filter((f) => f.type === type && !f.liked).map((f) => f.tmdbId)]);
-  return NextResponse.json({ results: pool.filter((item) => !excluded.has(item.tmdbId)), pending: responsiveRows.pending(key) });
+  return compressedJson(req, { results: pool.filter((item) => !excluded.has(item.tmdbId)), pending: responsiveRows.pending(key) });
 }

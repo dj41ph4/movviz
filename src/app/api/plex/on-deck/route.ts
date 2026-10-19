@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { compressedJson } from "@/lib/http/compressedJson";
 import { requireUser } from "@/lib/auth/guard";
 import type { User } from "@/lib/auth/types";
 import { eventBus } from "@/lib/events/EventBus";
@@ -61,5 +62,5 @@ export async function GET(req: NextRequest) {
   } else {
     items = await refresh(user);
   }
-  return NextResponse.json({ items }, { headers: { "Cache-Control": "private, no-store" } });
+  return compressedJson(req, { items }, { headers: { "Cache-Control": "private, no-store" } });
 }

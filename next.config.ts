@@ -69,6 +69,14 @@ const nextConfig: NextConfig = {
   // `/tmdb/:size/:path*` is served by the App Router route, which persists
   // the immutable image bytes under the Movviz config directory and gives
   // browsers a one-year cache lifetime.
+  // Splash images are versioned by a query string (SPLASH_REV): cache them for a year. Other brand
+  // files keep a short cache with background revalidation, so a slow server never blocks a repaint.
+  async headers() {
+    return [
+      { source: "/brand/splash/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+      { source: "/brand/:file", headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=2592000" }] },
+    ];
+  },
   experimental: {
     // Server code keeps its real function names: a CPU profile of a server
     // freeze (/api/perf/profile) must say WHICH function holds the thread.

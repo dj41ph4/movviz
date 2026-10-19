@@ -15,6 +15,8 @@
  * least the wordmark visible.
  */
 
+import { SPLASH_MANIFEST, splashAsset, type SplashFamily, type SplashManifest } from "./assets";
+
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const easeOut = (t: number) => 1 - Math.pow(1 - clamp(t), 3);
@@ -37,30 +39,12 @@ export interface CinemaSplashTexts {
   label: string;
 }
 
-interface FamilyDef {
-  id: string;
-  rect: [number, number, number, number];
-  kind: "conic" | "linear";
-  dir: [number, number] | null;
-  center: [number, number] | null;
-}
-
-interface Manifest {
-  w: number;
-  h: number;
-  families: FamilyDef[];
-  logo: { x: number; y: number; w: number; h: number };
-  ring: { cx: number; cy: number; r: number };
-  bar: { x0: number; x1: number; y: number; h: number };
-  tagY: number;
-  labelY: number;
-  cx: number;
-}
-
-interface Family extends FamilyDef {
+interface Family extends SplashFamily {
   neon: HTMLImageElement;
   halo: HTMLImageElement;
   tmp: HTMLCanvasElement;
+  /** Scene time at which this layer finished loading (it fades in from there). */
+  bornAt: number;
   period: number;
   phase: number;
   /** Length of the travelling band, as a fraction of the family's extent. */
@@ -86,7 +70,9 @@ const RHYTHM: Record<string, { period: number; phase: number; band: number; gain
 export class CinemaSplashRenderer {
   private readonly ctx: CanvasRenderingContext2D;
   private plate: HTMLImageElement | null = null;
-  private man!: Manifest;
+  private readonly man: SplashManifest = SPLASH_MANIFEST;
+  /** Called each time a neon layer arrives (a still scene must then be redrawn). */
+  onLayerLoaded: (() => void) | null = null;
   private fams: Family[] = [];
   private ready = false;
   private texts: CinemaSplashTexts;
@@ -100,7 +86,6 @@ export class CinemaSplashRenderer {
   private targetProgress = 0;
   private shownProgress = 0;
   private lastT = 0;
-  private readyAt: number | null = null;
 
   private logoMask!: HTMLCanvasElement;
   private tmpLogo!: HTMLCanvasElement;
@@ -122,32 +107,39 @@ export class CinemaSplashRenderer {
     this.targetProgress = Number.isFinite(pct) ? clamp(pct / 100) : 0;
   }
 
-  /** `base` is the folder that holds manifest.json, plate.webp, logo_mask.png and the neon_/halo_ layers. */
-  async load(base: string): Promise<void> {
-    const img = (src: string) => {
+  /**
+   * Resolves as soon as the plate and the wordmark mask are decoded: the scene is drawn right away.
+   * The neon layers keep loading in the background and each one fades in when it arrives.
+   */
+  async load(): Promise<void> {
+    const img = (name: string) => {
       const i = new Image();
       i.decoding = "async";
-      i.src = src;
+      i.src = splashAsset(name);
       return i.decode().then(() => i);
     };
-    const man = (await fetch(`${base}/manifest.json`).then((r) => r.json())) as Manifest;
-    const [plate, mask, ...layers] = await Promise.all([
-      img(`${base}/plate.webp`),
-      img(`${base}/logo_mask.png`),
-      ...man.families.flatMap((f) => [img(`${base}/neon_${f.id}.webp`), img(`${base}/halo_${f.id}.webp`)]),
-    ]);
-    this.man = man;
+    // all requests leave together; only the first two gate the first frame
+    const pending = this.man.families.map((f) => Promise.all([img(`neon_${f.id}.webp`), img(`halo_${f.id}.webp`)]).then(([neon, halo]) => ({ f, neon, halo })));
+    const [plate, mask] = await Promise.all([img("plate.webp"), img("logo_mask.png")]);
     this.plate = plate;
-    this.fams = man.families.map((f, i) => {
-      const r = RHYTHM[f.id] ?? { period: 4, phase: 0, band: 0.3, gain: 1 };
-      return { ...f, neon: layers[i * 2], halo: layers[i * 2 + 1], tmp: mk(f.rect[2], f.rect[3]), ...r };
-    });
     if (typeof getComputedStyle === "function") {
       const family = getComputedStyle(document.body).fontFamily;
       if (family) this.fontFamily = family;
     }
     this.prepare(mask);
     this.ready = true;
+    for (const job of pending) {
+      job
+        .then(({ f, neon, halo }) => {
+          if (!this.plate) return;
+          const r = RHYTHM[f.id] ?? { period: 4, phase: 0, band: 0.3, gain: 1 };
+          this.fams.push({ ...f, neon, halo, tmp: mk(f.rect[2], f.rect[3]), bornAt: this.lastT, ...r });
+          this.onLayerLoaded?.();
+        })
+        .catch(() => {
+          /* a missing neon layer only removes that light */
+        });
+    }
   }
 
   isReady() {
@@ -163,7 +155,7 @@ export class CinemaSplashRenderer {
     this.PH = Math.max(2, Math.round(cssH * dpr));
     this.canvas.width = this.PW;
     this.canvas.height = this.PH;
-    const { w, h } = this.man ?? { w: 1916, h: 821 };
+    const { w, h } = this.man;
     const aspect = this.PW / this.PH;
     // wider than the plate: fit the width (crops top/bottom); narrower: crop the sides, but keep the wordmark whole
     this.k = aspect >= w / h ? this.PW / w : this.PW / Math.max(h * aspect, 780);
@@ -235,7 +227,7 @@ export class CinemaSplashRenderer {
    * One neon family: its halo and its core are drawn into a private layer, then multiplied by a soft
    * moving band (plus a faint breathing floor so the line never goes fully dark) and added to the scene.
    */
-  private drawFamily(f: Family, t: number, energy: number, flash: number, still: boolean) {
+  private drawFamily(f: Family, t: number, energy: number, still: boolean) {
     const [rx, ry, rw, rh] = f.rect;
     const g = ctx2d(f.tmp);
     g.globalCompositeOperation = "source-over";
@@ -281,7 +273,8 @@ export class CinemaSplashRenderer {
     g.fillRect(0, 0, rw, rh);
 
     const ctx = this.ctx;
-    ctx.globalAlpha = clamp(f.gain * (0.42 + 0.32 * energy) + flash * 0.4, 0, 1);
+    const born = still ? 1 : clamp((t - f.bornAt) / 0.6);
+    ctx.globalAlpha = clamp(f.gain * (0.42 + 0.32 * energy), 0, 1) * born;
     ctx.drawImage(f.tmp, rx, ry);
     ctx.globalAlpha = 1;
   }
@@ -301,8 +294,6 @@ export class CinemaSplashRenderer {
     this.shownProgress += (goal - this.shownProgress) * (reduceMotion ? 1 : 1 - Math.exp(-dt * 5));
     if (this.targetProgress >= 1 && this.shownProgress > 0.985) this.shownProgress = 1;
     const prog = clamp(this.shownProgress);
-    if (prog >= 1 && this.readyAt === null) this.readyAt = t;
-    const flash = this.readyAt !== null && !reduceMotion ? clamp(1 - (t - this.readyAt) / 1.1) : 0;
     const energy = 0.55 + 0.45 * prog;
     const mt = reduceMotion ? 3.2 : t; // motion time: frozen when the user asked for less motion
     const intro = reduceMotion ? 1 : easeOut(t / 1.4);
@@ -325,7 +316,7 @@ export class CinemaSplashRenderer {
     ctx.globalCompositeOperation = "lighter";
 
     // 1. neon families: light travels along the plate's own lines
-    for (const f of this.fams) this.drawFamily(f, mt, energy * intro, flash, reduceMotion);
+    for (const f of this.fams) this.drawFamily(f, mt, energy * intro, reduceMotion);
 
     // 2. the wordmark: chrome sweep cut to the exact shape of the letters
     {
@@ -345,15 +336,11 @@ export class CinemaSplashRenderer {
         g.fillRect(bx - 130, -10, 260, LOGO.h + 20);
         g.restore();
       }
-      if (flash > 0) {
-        g.fillStyle = `rgba(214,196,255,${flash * 0.85})`;
-        g.fillRect(0, 0, LOGO.w, LOGO.h);
-      }
       g.globalCompositeOperation = "destination-in";
       g.drawImage(this.logoMask, 0, 0);
       ctx.drawImage(this.tmpLogo, LOGO.x, LOGO.y);
     }
-    this.glow(cx, LOGO.y + LOGO.h * 0.55, 300, 1.8, 0.5, [[0, "rgba(150,110,255,.07)"], [0.5, "rgba(130,90,255,.025)"], [1, "rgba(120,80,255,0)"]], (energy * (0.8 + 0.2 * Math.sin(mt * 1.7)) + flash * 0.8) * intro);
+    this.glow(cx, LOGO.y + LOGO.h * 0.55, 300, 1.8, 0.5, [[0, "rgba(150,110,255,.07)"], [0.5, "rgba(130,90,255,.025)"], [1, "rgba(120,80,255,0)"]], (energy * (0.8 + 0.2 * Math.sin(mt * 1.7))) * intro);
 
     // 3. floor: glow that rises with loading
     this.glow(cx, H - 70, 420, 2.1, 0.2, [[0, "rgba(140,100,255,.12)"], [1, "rgba(120,80,255,0)"]], energy * (0.75 + 0.25 * Math.sin(mt * 1.4)) * intro);
@@ -417,13 +404,8 @@ export class CinemaSplashRenderer {
       const hx = bx0 + 3 + fw;
       const hy = by + bh / 2;
       ctx.globalCompositeOperation = "lighter";
-      this.glow(hx, hy, 32 + flash * 22, 1, 1, [[0, "rgba(240,230,255,.9)"], [0.3, "rgba(170,130,255,.45)"], [1, "rgba(130,90,255,0)"]]);
+      this.glow(hx, hy, 32, 1, 1, [[0, "rgba(240,230,255,.9)"], [0.3, "rgba(170,130,255,.45)"], [1, "rgba(130,90,255,0)"]]);
       this.glow(hx, hy, 40, 1.6, 0.22, [[0, "rgba(220,205,255,.5)"], [1, "rgba(150,110,255,0)"]], 0.6);
-      ctx.globalCompositeOperation = "source-over";
-    }
-    if (flash > 0) {
-      ctx.globalCompositeOperation = "lighter";
-      this.glow(cx, by + bh / 2, 300, 1.2, 0.045, [[0, `rgba(214,196,255,${0.5 * flash})`], [0.4, `rgba(160,120,255,${0.2 * flash})`], [1, "rgba(130,90,255,0)"]]);
       ctx.globalCompositeOperation = "source-over";
     }
 

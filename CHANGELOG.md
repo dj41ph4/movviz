@@ -1,3 +1,18 @@
+## v1.26.056 — 19 octobre 2026
+
+### Tableau de bord plus rapide
+
+- Les données du tableau de bord (bibliothèque, lignes de recommandations, bandeau d'accueil, « Reprendre ») sont maintenant compressées avant l'envoi : plusieurs mégaoctets en moins à chaque ouverture, ce qui se ressent surtout à distance. Les applications Android en profitent aussi, sans mise à jour.
+
+### Design bêta : écran de chargement plus rapide et plus sobre
+
+- L'écran de chargement apparaît plus vite : ses images restent en cache dans le navigateur, la scène s'affiche dès que le décor est prêt et les néons s'allument ensuite en douceur. Le décor de l'écran de chargement est visible immédiatement, avant même le chargement de l'application.
+- Sa disparition est un simple fondu, sans zoom ni éclat final.
+
+### Design bêta web : barre latérale
+
+- Barre latérale un peu plus étroite, logo centré ; repliée, seul le symbole « O » reste.
+
 ## v1.26.055 — 19 octobre 2026
 
 ### Design bêta : retour au violet, nouvel écran de chargement et nouveaux logos

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { splashAsset } from "@/components/dashboard/cinemaSplash/assets";
 import Script from "next/script";
 import { cookies } from "next/headers";
 import "./globals.css";
@@ -65,7 +66,7 @@ export default async function RootLayout({
   // Bêta : décor du splash peint dès le premier affichage (avant l'hydratation). Posé seulement
   // sur le tableau de bord et au premier passage de la session, comme le splash lui-même.
   const PRESPLASH_INIT_SCRIPT = `try{if(location.pathname==="/"&&!sessionStorage.getItem("movviz-splash-seen"))document.documentElement.setAttribute("data-mv-presplash","")}catch(e){}`;
-  const PRESPLASH_CSS = `html[data-mv-presplash]::before{content:"";position:fixed;inset:-120px;z-index:79;pointer-events:none;background:#05050b url(/brand/splash/plate_lowres.webp) center/cover no-repeat;filter:blur(36px) brightness(.45);animation:mv-presplash-expire 0s 12s forwards}@keyframes mv-presplash-expire{to{opacity:0;visibility:hidden}}`;
+  const PRESPLASH_CSS = `html[data-mv-presplash]::before{content:"";position:fixed;inset:-120px;z-index:79;pointer-events:none;background:#05050b url(${splashAsset("plate_lowres.webp")}) center/cover no-repeat;filter:blur(14px) brightness(.8);animation:mv-presplash-expire 0s 12s forwards}@keyframes mv-presplash-expire{to{opacity:0;visibility:hidden}}`;
   let desktopTextScale: 110 | 120 | undefined;
   let designMode: DesignMode = "stable";
   try {
@@ -91,7 +92,9 @@ export default async function RootLayout({
       <link rel="preload" as="image" href="/brand/movviz-mark.png" fetchPriority="high" />
       {designMode === "beta" && (
         <>
-          <link rel="preload" as="image" href="/brand/splash/plate_lowres.webp" fetchPriority="high" />
+          <link rel="preload" as="image" href={splashAsset("plate_lowres.webp")} fetchPriority="high" />
+          <link rel="preload" as="image" href={splashAsset("plate.webp")} fetchPriority="high" />
+          <link rel="preload" as="image" href={splashAsset("logo_mask.png")} />
           <style dangerouslySetInnerHTML={{ __html: PRESPLASH_CSS }} />
           <script dangerouslySetInnerHTML={{ __html: PRESPLASH_INIT_SCRIPT }} />
         </>

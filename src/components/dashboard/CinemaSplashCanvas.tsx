@@ -63,6 +63,9 @@ export function CinemaSplashCanvas({
     if (!canvas) return;
     const renderer = new CinemaSplashRenderer(canvas, textsRef.current);
     rendererRef.current = renderer;
+    renderer.onLayerLoaded = () => {
+      if (reduceRef.current) renderer.render(3.2, true);
+    };
     let raf = 0;
     let cancelled = false;
     let start = 0;
@@ -75,7 +78,7 @@ export function CinemaSplashCanvas({
     };
 
     renderer
-      .load("/brand/splash")
+      .load()
       .then(() => {
         if (cancelled) return;
         fit();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { compressedJson } from "@/lib/http/compressedJson";
 import { requireUser } from "@/lib/auth/guard";
 import { buildHeroSlides, buildLibraryHeroFallbackSlides } from "@/lib/dashboard/suggestionEngine";
 import { loadMovies } from "@/lib/library/store";
@@ -35,5 +36,5 @@ export async function GET(req: NextRequest) {
     return { ...slide, plexUrl, plexRatingKey: movie?.plexRatingKey ?? null };
   });
 
-  return NextResponse.json({ slides: withPlexUrl });
+  return compressedJson(req, { slides: withPlexUrl });
 }

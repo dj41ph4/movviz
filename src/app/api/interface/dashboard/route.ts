@@ -1,4 +1,5 @@
 import { recentEpisodesAcrossSeries } from "@/lib/library/recentEpisodes";
+import { compressedJson } from "@/lib/http/compressedJson";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import type { DashboardWidgetId } from "@/lib/dashboard/types";
@@ -155,6 +156,6 @@ export async function GET(req: NextRequest) {
   // du cache partagé ci-dessus (données locales seulement, aucun appel TMDb).
   // ?only=recent — a device told that an episode became available reloads
   // just this row, not the whole library (same memoized computation).
-  if (onlyRecent) return NextResponse.json({ recentEpisodes: payload.recentEpisodes }, { headers: { "Cache-Control": "private, no-cache" } });
-  return NextResponse.json({ ...payload, rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
+  if (onlyRecent) return compressedJson(req, { recentEpisodes: payload.recentEpisodes }, { headers: { "Cache-Control": "private, no-cache" } });
+  return compressedJson(req, { ...payload, rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
 }

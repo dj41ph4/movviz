@@ -30,8 +30,8 @@ export function DashboardSplash({ show, progress }: { show: boolean; progress?: 
           data-splash-design={mode}
           data-ready={pct >= 100 ? "true" : undefined}
           initial={{ opacity: 1 }}
-          exit={beta && !reduceMotion ? { opacity: 0, transform: "scale(1.06)" } : { opacity: 0 }}
-          transition={beta ? { duration: reduceMotion ? 0.12 : 0.5, ease: [0.23, 1, 0.32, 1] } : { duration: 0.45, ease: "easeInOut" }}
+          exit={{ opacity: 0 }}
+          transition={beta ? { duration: reduceMotion ? 0.12 : 0.6, ease: [0.4, 0, 0.2, 1] } : { duration: 0.45, ease: "easeInOut" }}
           className={beta ? "mv-cinema-splash fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden px-6" : "fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden bg-[#08080F] px-6"}
           aria-hidden={beta ? undefined : true}
         >
