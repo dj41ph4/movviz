@@ -1,3 +1,13 @@
+## v1.27.06 — 20 octobre 2026
+
+### Android TV : la fiche d'un épisode répond de nouveau à la télécommande
+
+- En ouvrant la fiche d'un épisode depuis une saison, aucun bouton n'était sélectionné et la télécommande ne répondait plus : l'écran restait figé. Le bouton « Lecture » (ou « Retour ») est de nouveau sélectionné à l'ouverture et toutes les actions sont accessibles.
+
+### Accueil : plus de clignotement dans le hero
+
+- En changeant de mise en avant dans le hero, l'image passait brièvement par le noir avant d'afficher la suivante. La nouvelle image se pose désormais directement par-dessus l'ancienne, une fois chargée, sur Android TV comme sur les téléviseurs Samsung.
+
 ## v1.27.05 — 19 octobre 2026
 
 ### Nouveau logo « M ruban »

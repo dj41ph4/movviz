@@ -1956,11 +1956,23 @@ private fun Modifier.railExitGroup(rail: FocusRequester?, contain: Boolean = fal
         exit = { direction ->
             when {
                 direction == FocusDirection.Left -> rail ?: FocusRequester.Default
-                contain -> FocusRequester.Cancel
+                // Seules les flèches sont confinées : `exit` est aussi consulté
+                // pour un requestFocus() (direction Enter), et l'annuler
+                // empêchait la fiche d'épisode posée au-dessus de prendre le
+                // focus — écran figé, D-pad mort.
+                contain && direction in CONTAINED_DIRECTIONS -> FocusRequester.Cancel
                 else -> FocusRequester.Default
             }
         }
     }.focusGroup()
+
+private val CONTAINED_DIRECTIONS = setOf(
+    FocusDirection.Up,
+    FocusDirection.Down,
+    FocusDirection.Right,
+    FocusDirection.Next,
+    FocusDirection.Previous,
+)
 
 /** Rangée à rendre au focus quand la fiche est recréée par un retour. */
 internal const val DETAIL_RETURN_SIMILAR = "similar"
@@ -2853,12 +2865,15 @@ private fun EpisodeDetailOverlay(
     // nœud n'est pas encore attaché à la première composition et
     // requestFocus() lève tant qu'il ne l'est pas.
     val primaryActionFocus = remember { FocusRequester() }
-    LaunchedEffect(episode.seasonNumber, episode.episodeNumber) {
-        repeat(10) { attempt ->
-            if (runCatching { primaryActionFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
-            if (attempt < 9) withFrameNanos { }
+    // Repli : « Retour » existe dans tous les états de l'épisode.
+    val backFocus = remember { FocusRequester() }
+    suspend fun landFocus() {
+        repeat(30) { attempt ->
+            if (listOf(primaryActionFocus, backFocus).any { runCatching { it.requestFocus() }.getOrDefault(false) }) return
+            if (attempt < 29) withFrameNanos { }
         }
     }
+    LaunchedEffect(episode.seasonNumber, episode.episodeNumber) { landFocus() }
     // Le bouton « Télécharger l'épisode » cède la place à sa pilule d'état
     // (puis à « Lecture ») : le nœud focalisé disparaît, le focus est reposé
     // sur l'action principale à chaque changement d'état, pas à chaque %.
@@ -2872,10 +2887,7 @@ private fun EpisodeDetailOverlay(
     LaunchedEffect(actionKind) {
         if (actionKind == lastActionKind) return@LaunchedEffect
         lastActionKind = actionKind
-        repeat(10) { attempt ->
-            if (runCatching { primaryActionFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
-            if (attempt < 9) withFrameNanos { }
-        }
+        landFocus()
     }
     val metadata = selection.metadata
     val stillUrl = metadata?.stillPath?.let { "$TMDB_STILL_BASE$it" }
@@ -3089,7 +3101,7 @@ private fun EpisodeDetailOverlay(
                     PrimaryPill(
                         text = "Retour",
                         brush = null,
-                        focusRequester = if (!available && episode.status == "upcoming") primaryActionFocus else null,
+                        focusRequester = if (!available && episode.status == "upcoming") primaryActionFocus else backFocus,
                         onClick = onDismiss,
                     )
                 }

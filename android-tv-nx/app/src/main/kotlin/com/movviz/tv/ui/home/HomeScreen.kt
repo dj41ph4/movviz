@@ -1224,36 +1224,12 @@ internal fun HeroCarousel(
     }
     val heroHeight = (screenHeightDp * 0.46f).coerceIn(340f, 500f)
     Box(modifier = Modifier.fillMaxWidth().height(heroHeight.dp).clipToBounds().onFocusChanged { onFocusWithinChanged(it.hasFocus) }) {
-        androidx.compose.animation.AnimatedContent(
-            targetState = current,
-            transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
-            label = "hero_backdrop",
+        HeroBackdropCrossfade(
+            backdropPath = current.backdropPath,
+            durationMs = 700,
+            kenBurns = true,
             modifier = Modifier.fillMaxSize(),
-        ) { item ->
-            val infinite = rememberInfiniteTransition(label = "hero_ken_burns")
-            val zoom by infinite.animateFloat(
-                initialValue = 1f,
-                targetValue = 1.12f,
-                animationSpec = infiniteRepeatable(tween(HERO_ROTATE_MS.toInt() * 3, easing = LinearEasing), RepeatMode.Reverse),
-                label = "zoom",
-            )
-            Image(
-                painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE${item.backdropPath}", contentScale = ContentScale.Crop),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alignment = Alignment.TopCenter,
-                // graphicsLayer (pas .scale(zoom)) : .scale() avec une valeur
-                // lue depuis un State (ici animateFloat en continu tant que
-                // le hero est affiché) force une recomposition du composable
-                // Image à CHAQUE frame Choreographer, en boucle infinie —
-                // mesuré : 61,71% de frames janky à l'accueil totalement
-                // inactif (dumpsys gfxinfo, 700 frames/26s). graphicsLayer{}
-                // lit le State uniquement en phase de dessin (juste un
-                // re-layer, pas de recomposition), le zoom Ken Burns reste
-                // fluide sans repasser par toute la composition à 60fps.
-                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom },
-            )
-        }
+        )
 
         if (trailerAutoplay) {
             AmbientTrailer(
@@ -1584,20 +1560,12 @@ private fun BetaHeroFrame(
             .border(1.dp, palette.heroFrameBorder, frameShape)
             .onFocusChanged { onFocusWithinChanged(it.hasFocus) },
     ) {
-        androidx.compose.animation.AnimatedContent(
-            targetState = current,
-            transitionSpec = { fadeIn(tween(crossfade)) togetherWith fadeOut(tween(crossfade)) },
-            label = "beta_hero_backdrop",
+        HeroBackdropCrossfade(
+            backdropPath = current.backdropPath,
+            durationMs = crossfade,
+            kenBurns = false,
             modifier = Modifier.fillMaxSize(),
-        ) { item ->
-            Image(
-                painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE${item.backdropPath}", contentScale = ContentScale.Crop),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alignment = Alignment.TopCenter,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        )
         if (trailerAutoplay) {
             AmbientTrailer(trailerKeys = current.trailerKeys, title = current.title, modifier = Modifier.fillMaxSize())
         }
@@ -1727,6 +1695,74 @@ private fun BetaHeroFrame(
                             .background(if (index == currentIndex) palette.navSelectedContainer else Color.White.copy(alpha = 0.22f)),
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Fond du hero : la nouvelle image se pose PAR-DESSUS l'ancienne, qui reste
+ * opaque dessous jusqu'à la fin du fondu. L'ancien AnimatedContent faisait
+ * disparaître l'image sortante en même temps qu'entrait la nouvelle — encore
+ * en chargement le plus souvent — et laissait voir le cadre sombre entre
+ * les deux : un clignotement à chaque changement. Ici le fondu ne démarre
+ * qu'une fois la nouvelle image décodée, et chaque calque garde son painter
+ * (key) : aucune image déjà affichée n'est rechargée.
+ */
+@Composable
+private fun HeroBackdropCrossfade(
+    backdropPath: String?,
+    durationMs: Int,
+    kenBurns: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val url = "$TMDB_BACKDROP_BASE$backdropPath"
+    val layers = remember { androidx.compose.runtime.mutableStateListOf(url) }
+    LaunchedEffect(url) {
+        if (layers.lastOrNull() != url) {
+            layers.remove(url)
+            layers.add(url)
+        }
+    }
+    Box(modifier = modifier) {
+        layers.forEachIndexed { index, layerUrl ->
+            androidx.compose.runtime.key(layerUrl) {
+                val painter = rememberAsyncImagePainter(model = layerUrl, contentScale = ContentScale.Crop)
+                val alpha = remember { androidx.compose.animation.core.Animatable(if (index == 0) 1f else 0f) }
+                val settled = painter.state is coil.compose.AsyncImagePainter.State.Success ||
+                    painter.state is coil.compose.AsyncImagePainter.State.Error
+                val isTop = index == layers.lastIndex
+                LaunchedEffect(isTop, settled) {
+                    if (!isTop || !settled) return@LaunchedEffect
+                    if (layers.size > 1) {
+                        if (alpha.value >= 1f) alpha.snapTo(0f)
+                        alpha.animateTo(1f, tween(durationMs))
+                    } else {
+                        alpha.snapTo(1f)
+                    }
+                    // Fondu terminé : les calques couverts sont libérés.
+                    layers.removeAll { it != layerUrl }
+                }
+                val zoom = if (kenBurns) {
+                    rememberInfiniteTransition(label = "hero_ken_burns").animateFloat(
+                        initialValue = 1f,
+                        targetValue = 1.12f,
+                        animationSpec = infiniteRepeatable(tween(HERO_ROTATE_MS.toInt() * 3, easing = LinearEasing), RepeatMode.Reverse),
+                        label = "zoom",
+                    )
+                } else null
+                Image(
+                    painter = painter,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter,
+                    // Valeurs lues au dessin seulement (graphicsLayer) : ni le
+                    // fondu ni le zoom Ken Burns ne recomposent l'image.
+                    modifier = Modifier.fillMaxSize().graphicsLayer {
+                        this.alpha = alpha.value
+                        zoom?.let { scaleX = it.value; scaleY = it.value }
+                    },
+                )
             }
         }
     }

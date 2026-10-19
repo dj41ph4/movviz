@@ -292,7 +292,10 @@ interface Window {
     const featured = slides.slides?.map(slide => slide.detail).filter(Boolean) || [];
     if (featured.length) {
       const container = el("div", "", "home-hero-container"); content.append(container); let index = 0;
-      const render = () => { container.replaceChildren(heroView(featured[index], featured[index].type || "movie", true)); const dots = el("div", "", "hero-dots"); featured.forEach((_, i) => { const dot = button("", () => { index = i; render(); container.querySelector<HTMLElement>(`[data-slide="${i}"]`)?.focus(); }, i === index ? "selected" : ""); dot.dataset.slide = String(i); dot.setAttribute("aria-label", `${t("tizen.featured")} ${i + 1}`); dots.append(dot); }); container.append(dots); }; render();
+      // Le fond suivant est chargé AVANT de remplacer le hero : sinon le nouveau bloc s'affiche sans image le temps du téléchargement (clignotement).
+      let pending = 0;
+      const showSlide = (i: number) => { const ticket = ++pending; let done = false; const swap = () => { if (done || ticket !== pending || !container.isConnected) return; done = true; index = i; render(); container.querySelector<HTMLElement>(`[data-slide="${i}"]`)?.focus(); }; const path = featured[i].backdropPath; if (!path) { swap(); return; } const preload = new Image(); preload.onload = swap; preload.onerror = swap; preload.src = imageUrl(path); window.setTimeout(swap, 1500); };
+      const render = () => { container.replaceChildren(heroView(featured[index], featured[index].type || "movie", true)); const dots = el("div", "", "hero-dots"); featured.forEach((_, i) => { const dot = button("", () => showSlide(i), i === index ? "selected" : ""); dot.dataset.slide = String(i); dot.setAttribute("aria-label", `${t("tizen.featured")} ${i + 1}`); dots.append(dot); }); container.append(dots); }; render();
     }
     row(t("tizen.continueWatching"), normalizeDeck(onDeck.items || []));
     row(t("tizen.recentMovies"), (dashboard.movies || []).filter(Boolean).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 25), "movie");
