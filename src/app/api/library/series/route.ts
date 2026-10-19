@@ -5,7 +5,7 @@ import { requestMedia } from "@/lib/requests/requestMedia";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { loadTrash } from "@/lib/library/trashStore";
-import { reconcileSeriesPlayback } from "@/lib/plex/librarySync";
+import { scheduleSeriesPlaybackReconcile } from "@/lib/plex/librarySync";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 import { projectBleachLibrary } from "@/lib/metadata/bleachPresentation";
 import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const bleach = loadSeries().find(s => s.tmdbId === BLEACH_TMDB_ID);
+  const tmdbIdFilter = Number(req.nextUrl.searchParams.get("tmdbId")) || null;
+  const bleach = !tmdbIdFilter || tmdbIdFilter === BLEACH_TMDB_ID ? loadSeries().find(s => s.tmdbId === BLEACH_TMDB_ID) : undefined;
   if (bleach) await ensureBleachRepaired(bleach.id);
   const cfg = loadPlexConfig();
   const urlFor = (ratingKey: string | null) => (ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null);
@@ -31,12 +32,14 @@ export async function GET(req: NextRequest) {
   const partParam = req.nextUrl.searchParams.get("seriesPart");
   const seriesPart = parseBleachSeriesPart(partParam);
   if (partParam != null && (!seriesPart || tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
+  let reconciling = false;
   if (tmdbId) {
-    // À l'ouverture d'une cible, vérifier uniquement cette série avant de
-    // répondre. Cela répare un épisode remplacé sans lancer de réconciliation
-    // globale ni demander à l'utilisateur de redémarrer l'application.
+    // À l'ouverture d'une cible, vérifier uniquement cette série. Cela répare
+    // un épisode remplacé sans réconciliation globale ni redémarrage — mais en
+    // arrière-plan : la fiche répond tout de suite avec l'état local au lieu
+    // d'attendre Plex (jusqu'à ~14 s pour Bleach), puis relit `reconciling`.
     const target = loadSeries().find((s) => s.tmdbId === tmdbId);
-    if (target) await reconcileSeriesPlayback(target.id);
+    if (target) reconciling = scheduleSeriesPlaybackReconcile(target.id);
   }
   const all = tmdbId ? loadSeries().filter((s) => s.tmdbId === tmdbId) : loadSeries();
   const views = all.flatMap(s => s.tmdbId === BLEACH_TMDB_ID && (seriesPart || req.nextUrl.searchParams.get("partViews") === "1")
@@ -61,7 +64,7 @@ export async function GET(req: NextRequest) {
     plexUrl: urlFor(s.plexRatingKey),
   }));
   const readdable = !!tmdbId && loadTrash().some((t) => t.type === "series" && t.tmdbId === tmdbId);
-  return NextResponse.json({ series, readdable });
+  return NextResponse.json({ series, readdable, reconciling });
 }
 
 /** Same auto-approve/pending-request split as movies (see /api/library/movies). */

@@ -944,7 +944,7 @@ export async function reconcileSeriesPlayback(
 
   const cfg = loadPlexConfig();
   if (needsPlex && cfg.hostname && cfg.adminToken && series.plexRatingKey) {
-    const plexEpisodes = series.tmdbId === BLEACH_TMDB_ID ? (await getBleachPlexSnapshot(cfg, cfg.adminToken))?.items : await getShowEpisodes(cfg, series.plexRatingKey, cfg.adminToken);
+    const plexEpisodes = series.tmdbId === BLEACH_TMDB_ID ? (await cachedBleachPlexSnapshot(cfg, cfg.adminToken))?.items : await getShowEpisodes(cfg, series.plexRatingKey, cfg.adminToken);
     if (!plexEpisodes) return series;
     seasons = seasons.map((season) => ({
       ...season,
@@ -970,6 +970,51 @@ export async function reconcileSeriesPlayback(
 
   if (!changed) return series;
   return updateSeries(series.id, { seasons });
+}
+
+/**
+ * Walking every Plex show to resolve Bleach's identity takes seconds, and a
+ * title page used to pay for it on every open. One shared snapshot, kept ten
+ * minutes and shared by concurrent callers; a failed walk is never cached.
+ */
+const gBleachSnapshot = globalThis as typeof globalThis & { __movvizBleachSnapshot?: { at: number; value: Promise<BleachPlexSnapshot | null> } };
+const BLEACH_SNAPSHOT_TTL_MS = 10 * 60_000;
+function cachedBleachPlexSnapshot(cfg: PlexServerConfig, token: string): Promise<BleachPlexSnapshot | null> {
+  const cached = gBleachSnapshot.__movvizBleachSnapshot;
+  if (cached && Date.now() - cached.at < BLEACH_SNAPSHOT_TTL_MS) return cached.value;
+  const value = getBleachPlexSnapshot(cfg, token).then((snapshot) => {
+    if (!snapshot && gBleachSnapshot.__movvizBleachSnapshot?.value === value) gBleachSnapshot.__movvizBleachSnapshot = undefined;
+    return snapshot;
+  }, (error) => {
+    if (gBleachSnapshot.__movvizBleachSnapshot?.value === value) gBleachSnapshot.__movvizBleachSnapshot = undefined;
+    throw error;
+  });
+  gBleachSnapshot.__movvizBleachSnapshot = { at: Date.now(), value };
+  return value;
+}
+
+/**
+ * Opening a title page must never wait on Plex nor on disk checks: the page
+ * answers at once from Movviz's own state and this reconciles one series in
+ * the background (at most once a minute per series). Returns true while a
+ * reconciliation is running or just started, so the page knows to re-read.
+ */
+const gSeriesReconcile = globalThis as typeof globalThis & { __movvizSeriesReconcile?: Map<string, { running: boolean; last: number }> };
+const SERIES_RECONCILE_MIN_INTERVAL_MS = 60_000;
+export function scheduleSeriesPlaybackReconcile(seriesId: string): boolean {
+  const state = (gSeriesReconcile.__movvizSeriesReconcile ??= new Map());
+  const entry = state.get(seriesId) ?? { running: false, last: 0 };
+  state.set(seriesId, entry);
+  if (entry.running) return true;
+  if (Date.now() - entry.last < SERIES_RECONCILE_MIN_INTERVAL_MS) return false;
+  entry.running = true;
+  // After the response has left: the synchronous file checks must not delay it.
+  setTimeout(() => {
+    reconcileSeriesPlayback(seriesId)
+      .catch((error) => console.warn("[plex] series reconcile failed:", error instanceof Error ? error.message : error))
+      .finally(() => { entry.running = false; entry.last = Date.now(); });
+  }, 50);
+  return true;
 }
 
 /**

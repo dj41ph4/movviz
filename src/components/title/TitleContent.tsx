@@ -239,6 +239,16 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
     Record<string, LibraryListItem[] | boolean>
   >(`${libEndpoint}?tmdbId=${tmdbId}`, fetcher);
 
+  // The server answers at once from Movviz's own state and reconciles with Plex
+  // in the background; read again shortly after (a few times at most) to pick up
+  // whatever that changed.
+  const reconcileRefreshes = useRef(0);
+  useEffect(() => {
+    if (libraryData?.reconciling !== true || reconcileRefreshes.current >= 3) return;
+    const timer = setTimeout(() => { reconcileRefreshes.current += 1; void mutateLibrary(); }, 4_000);
+    return () => clearTimeout(timer);
+  }, [libraryData, mutateLibrary]);
+
   const libraryMatchRaw = (
     ((type === "movie" ? libraryData?.movies : libraryData?.series) as LibraryListItem[] | undefined) ?? []
   ).find((x) => x.tmdbId === tmdbId) ?? null;

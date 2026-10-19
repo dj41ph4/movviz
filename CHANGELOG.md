@@ -1,3 +1,11 @@
+## v1.26.051 — 19 octobre 2026
+
+### Fiches : le statut s'affiche tout de suite
+
+- À l'ouverture d'une fiche (web, Android TV, mobile, Samsung), le statut (dans la bibliothèque, épisodes manquants ou disponibles) s'affiche immédiatement. Avant, la page attendait que Movviz interroge Plex, ce qui pouvait prendre une dizaine de secondes pour Bleach pendant lesquelles elle proposait « Ajouter à la bibliothèque ».
+- La vérification avec Plex se fait désormais en arrière-plan, au plus une fois par minute et par série, et la fiche se met à jour toute seule quand elle trouve du nouveau. Le parcours de Plex propre à Bleach est conservé dix minutes au lieu d'être refait à chaque ouverture.
+- Le compteur de téléchargements de la barre latérale ne retient plus le chargement des pages: il répond avec la dernière valeur connue et se rafraîchit en arrière-plan.
+
 ## v1.26.050 — 19 octobre 2026
 
 ### Bleach : les logos japonais de la série originale dans le sélecteur
