@@ -11,13 +11,27 @@ import type { AudioTrack, HdrType, MediaDescriptor, SubtitleTrack, SubtitleTrack
 import { resolveFfprobeBinary } from "./mediaRuntime";
 
 let cachedVersion: string | null | undefined; // undefined = not yet checked, null = checked and unavailable
+let versionCheck: Promise<string | null> | null = null;
+let unavailableSince = 0;
+/** A failed check is retried after this delay instead of disabling probing until the next restart. */
+const RETRY_UNAVAILABLE_MS = 60_000;
 
-/** ffprobe's own version string (e.g. "6.1.1"), or null if unavailable —
- *  memoized for the life of the server process, same tradeoff as
- *  isFfmpegAvailable(). Also serves as the availability check: no separate
- *  spawn is needed just to answer "is ffprobe there". */
+/** ffprobe's own version string (e.g. "6.1.1"), or null if unavailable.
+ *  A found version is memoized for the life of the server process, same
+ *  tradeoff as isFfmpegAvailable(); it also serves as the availability check.
+ *
+ *  Concurrent callers share ONE check: an import of a whole pack (346 Bleach
+ *  episodes at once) used to spawn one `ffprobe -version` per episode, which
+ *  overloaded the NAS until every check hit its 3 s timeout — and that
+ *  "unavailable" verdict then stuck until the next restart. */
 export async function getFfprobeVersion(): Promise<string | null> {
-  if (cachedVersion !== undefined) return cachedVersion;
+  if (cachedVersion) return cachedVersion;
+  if (cachedVersion === null && Date.now() - unavailableSince < RETRY_UNAVAILABLE_MS) return null;
+  versionCheck ??= checkFfprobeVersion().finally(() => { versionCheck = null; });
+  return versionCheck;
+}
+
+async function checkFfprobeVersion(): Promise<string | null> {
   const bin = resolveFfprobeBinary();
   cachedVersion = await new Promise<string | null>((resolve) => {
     let settled = false;
@@ -47,7 +61,10 @@ export async function getFfprobeVersion(): Promise<string | null> {
       settle(m?.[1] ?? "unknown");
     });
   });
-  if (!cachedVersion) console.error(`[media-probe] ffprobe indisponible (bin="${bin}")`);
+  if (!cachedVersion) {
+    unavailableSince = Date.now();
+    console.error(`[media-probe] ffprobe indisponible (bin="${bin}") — nouvelle vérification dans ${RETRY_UNAVAILABLE_MS / 1000} s`);
+  }
   return cachedVersion;
 }
 

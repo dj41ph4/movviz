@@ -1,0 +1,326 @@
+/* Design stable = le design bêta tel qu'il était le 19 octobre 2026 au matin (v1.26.051), juste avant le
+   nouveau logo et le nouvel écran de chargement. Copie figée : le bêta continue d'évoluer dans design-beta.css. */
+/* Opt-in cinema composition on top of the current interface. Removing this attribute
+   restores Stable, including the existing Salle obscure styles. Every rule
+   also requires desktop: mobile/tablet and native apps keep their layout. */
+@media (min-width: 1024px) {
+  html[data-movviz-design="stable"] {
+    --so-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --so-ink-0: #0b0c10;
+    --so-ink-1: #13151b;
+    --so-ink-2: #1b1e27;
+    --so-ink-3: #252935;
+    --so-fg: #f5f2eb;
+    --so-fg-2: #b7b5bf;
+    --so-fg-3: #94919f;
+    --so-accent: #c4b6ff;
+    --color-void: #0b0c10;
+    --color-surface: #13151b;
+    --color-surface-2: #1b1e27;
+    --color-ink: #f5f2eb;
+  }
+
+  /* The rail keeps its existing links, collapse behaviour and geometry. */
+  html[data-movviz-design="stable"] .nx-sidebar {
+    background: #101116;
+    border-right-color: #ffffff0d;
+  }
+  html[data-movviz-design="stable"] .nx-sidebar > header {
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #ffffff0d;
+  }
+  html[data-movviz-design="stable"] .nx-sidebar > header > div > span {
+    font-family: var(--so-font-display);
+    font-size: 1.375rem;
+    letter-spacing: -.055em;
+  }
+  html[data-movviz-design="stable"] .nx-sidebar nav { gap: .375rem; }
+  html[data-movviz-design="stable"] .nx-sidebar nav > a,
+  html[data-movviz-design="stable"] .nx-sidebar nav > span > a {
+    height: 48px;
+    border-radius: 12px;
+    font-size: .8125rem;
+    font-weight: 500;
+  }
+  html[data-movviz-design="stable"] .nx-sidebar a[aria-current="page"],
+  html[data-movviz-design="stable"] .nx-sidebar a[aria-current="page"]:hover {
+    background: #f1ede5;
+    color: #17151e;
+    box-shadow: 0 3px 16px #0002;
+  }
+  html[data-movviz-design="stable"] .nx-sidebar a[aria-current="page"] svg { color: #514177; }
+
+  html[data-movviz-design="stable"] .nx-topbar {
+    height: 76px;
+    padding-inline: 2rem;
+    background: #0b0c10;
+    border-bottom: 1px solid #ffffff08;
+  }
+  html[data-movviz-design="stable"] .nx-topbar[data-scrolled] { background: #0b0c10ed; }
+  html[data-movviz-design="stable"] .nx-search-pill {
+    height: 44px;
+    border: 1px solid #ffffff13;
+    border-radius: 12px;
+    background: #191b23;
+    box-shadow: none;
+  }
+  html[data-movviz-design="stable"] .nx-search-pill:focus-within {
+    border-color: #c4b6ff99;
+    box-shadow: 0 0 0 3px #c4b6ff12;
+  }
+  html[data-movviz-design="stable"] .nx-dashboard-premium {
+    margin-inline: auto;
+  }
+  /* A framed projection replaces Stable's edge-to-edge background. */
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-home-hero-grid {
+    margin: 1.75rem 0 0;
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero {
+    border: 1px solid #ffffff1a;
+    border-radius: 24px;
+    background: #14151e;
+    box-shadow: 0 24px 60px -36px #000;
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .mv-hero-scene.relative:has(> .absolute.inset-x-0.bottom-0) {
+    height: clamp(510px, 58vh, 700px);
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-t {
+    background-image: linear-gradient(0deg, #11121b 0%, #11121b33 42%, #11121b0a 75%, #11121b22);
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-r {
+    background-image: linear-gradient(90deg, #11121bf5 0%, #11121bd9 26%, #11121b75 48%, #11121b00 78%);
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .relative > .mv-hero-copy.absolute.inset-x-0.bottom-0 {
+    inset: auto 0 0;
+    max-width: min(780px, 80%);
+    padding: 2.5rem 3rem 4rem;
+    gap: 1rem;
+  }
+  html[data-movviz-design="stable"] .mv-hero-status {
+    border: 1px solid #ffffff30;
+    border-radius: 5px;
+    padding: .25rem .5rem;
+    font-size: .625rem;
+    background: #ffffff0d;
+    color: #d4cadd;
+  }
+  html[data-movviz-design="stable"] .nx-hero-title {
+    min-height: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: clamp(2.75rem, 4.2vw, 5rem);
+    letter-spacing: -.04em;
+    line-height: 1.02;
+  }
+  html[data-movviz-design="stable"] .nx-hero-title img {
+    max-height: 130px;
+    max-width: min(360px, 100%);
+  }
+  html[data-movviz-design="stable"] .mv-hero-actions { gap: .625rem; }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-home-hero-grid .nx-hero-more { order: -1; }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-home-hero-grid .nx-hero-watchlist { order: 0; }
+  html[data-movviz-design="stable"] .mv-hero-actions > :is(button, a) {
+    min-height: 44px;
+    border-radius: 9px;
+    font-size: .75rem;
+  }
+  html[data-movviz-design="stable"] .nx-dashboard-premium .nx-hero-play {
+    padding-inline: 1.5rem;
+    background: #e4d9ff;
+    color: #211830;
+  }
+  html[data-movviz-design="stable"] .mv-hero-reasons {
+    padding-inline: .25rem;
+    background: transparent;
+    color: #c6bdcd;
+    backdrop-filter: none;
+  }
+  html[data-movviz-design="stable"] .mv-hero-dots {
+    bottom: 1.5rem;
+    min-height: 24px;
+    align-items: center;
+    gap: .5rem;
+  }
+  html[data-movviz-design="stable"] :is(.mv-hero-previous, .mv-hero-next) {
+    top: auto;
+    bottom: 1rem;
+    left: auto;
+    transform: none;
+    border: 1px solid #ffffff26;
+    background: #ffffff0d;
+  }
+  html[data-movviz-design="stable"] .mv-hero-previous { right: 5.25rem; }
+  html[data-movviz-design="stable"] .mv-hero-next { right: 2rem; }
+
+  html[data-movviz-design="stable"] .nx-home-providers {
+    padding-block: 1rem;
+    border-bottom: 1px solid #ffffff10;
+  }
+  html[data-movviz-design="stable"] .nx-home-providers > div { margin-top: 0; }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-provider-tile {
+    min-height: 52px;
+    border-radius: 10px;
+    background: #191b23;
+    border-color: #ffffff0a;
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-provider-tile-light {
+    background: #efedf2;
+  }
+  html[data-movviz-design="stable"] .nx-poster-row { padding-block: .75rem; }
+  html[data-movviz-design="stable"] .nx-poster-row > div:first-child {
+    margin-bottom: 1rem;
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-poster-row > div:first-child > h2 {
+    font: 600 clamp(1.35rem, 1.8vw, 1.8rem)/1.2 var(--so-font-display);
+    letter-spacing: -.035em;
+  }
+  html[data-movviz-design="stable"] .nx-desktop-shell .group\/row > .relative > .flex { gap: 1.125rem; }
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-row-card [data-premium-card] {
+    border-radius: 14px;
+    border-color: #ffffff12;
+  }
+
+  /* Geist carries functional headings; Bricolage keeps the editorial voice. */
+  html[data-movviz-design="stable"] :is(h2, h3) {
+    font-family: var(--so-font-ui);
+    font-weight: 600;
+    letter-spacing: -.015em;
+    line-height: 1.3;
+  }
+
+  html[data-movviz-design="stable"] :is([data-nx-page-header] h1, .nx-title-heading, .nx-hero-title) {
+    font-family: var(--so-font-display);
+    font-weight: 700;
+    letter-spacing: -.035em;
+    line-height: 1.08;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+    font-optical-sizing: auto;
+  }
+
+  html[data-movviz-design="stable"] [data-nx-page-header] h1 {
+    font-size: 2rem;
+  }
+
+  html[data-movviz-design="stable"] .nx-title-heading {
+    font-size: clamp(2.25rem, 3.5vw, 3.5rem);
+  }
+
+  html[data-movviz-design="stable"] .nx-hero-title {
+    font-size: clamp(2.75rem, 4.2vw, 5rem);
+  }
+
+  html[data-movviz-design="stable"] :is(.nx-hero-meta, .nx-title-meta) {
+    column-gap: .75rem;
+    row-gap: .5rem;
+    font-size: .875rem;
+    font-weight: 450;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+
+  html[data-movviz-design="stable"] .nx-hero-overview {
+    max-width: 58ch;
+    font-size: .9375rem;
+    line-height: 1.65;
+    color: rgba(255, 255, 255, .8);
+  }
+
+  html[data-movviz-design="stable"] .nx-poster-row > div:first-child {
+    align-items: center;
+    gap: 1rem;
+  }
+
+  html[data-movviz-design="stable"] .nx-poster-row > div:first-child > h2,
+  html[data-movviz-design="stable"] .nx-desktop-shell .nx-dashboard-premium .nx-poster-row > div:first-child > h2 {
+    font-family: var(--so-font-ui);
+    font-size: clamp(1.35rem, 1.8vw, 1.8rem);
+    font-weight: 600;
+    letter-spacing: -.02em;
+    line-height: 1.35;
+  }
+
+  /* Cards stay still. The artwork, rather than a moving rim, gets attention. */
+  html[data-movviz-design="stable"] .nx-desktop-shell [data-premium-card] {
+    border-radius: var(--so-r-card);
+    border-color: var(--so-line);
+    box-shadow: 0 8px 24px -20px #000;
+    transform: none;
+  }
+
+  html[data-movviz-design="stable"] [data-premium-card]::after {
+    display: none;
+  }
+
+  html[data-movviz-design="stable"] [data-premium-badge] {
+    font-family: var(--so-font-ui);
+    font-size: .6875rem;
+    font-weight: 550;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+    background: rgba(7, 8, 15, .88);
+    border-color: rgba(255, 255, 255, .18);
+    box-shadow: none;
+  }
+
+  html[data-movviz-design="stable"] [data-premium-progress] > div {
+    background: var(--so-accent);
+    box-shadow: none;
+  }
+
+  html[data-movviz-design="stable"] [data-premium-preview] {
+    border-radius: var(--so-r-panel);
+    border-color: var(--so-line-2);
+    background: var(--so-ink-1);
+    box-shadow: 0 24px 64px -20px rgba(0, 0, 0, .8);
+  }
+
+  html[data-movviz-design="stable"] [data-premium-panel] {
+    border-radius: var(--so-r-panel);
+    border-color: var(--so-line-2);
+    background: var(--so-ink-0);
+    box-shadow: 0 32px 80px -24px rgba(0, 0, 0, .85);
+  }
+
+  html[data-movviz-design="stable"] [data-premium-panel] h2 {
+    letter-spacing: -.015em;
+  }
+
+  /* Feedback, frequent: one short transition; no mount/route choreography.
+     Use transform alone, so hover scale utilities cannot double the scale. */
+  html[data-movviz-design="stable"] :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist, .nx-title-actions > button, .nx-title-actions > a, [data-premium-preview] button, [data-premium-preview] a[role="button"]) {
+    scale: 1;
+    transform: none;
+    transition: transform var(--so-t-fast) var(--so-ease-out);
+  }
+
+  html[data-movviz-design="stable"]:not(.reduce-motion) :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist, .nx-title-actions > button, .nx-title-actions > a, [data-premium-preview] button, [data-premium-preview] a[role="button"]):active:not(:disabled) {
+    transform: scale(.98);
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  html[data-movviz-design="stable"] .nx-desktop-shell [data-premium-card]:hover {
+    border-color: var(--so-line-2);
+    box-shadow: 0 10px 28px -20px #000;
+  }
+  html[data-movviz-design="stable"]:not(.reduce-motion) .nx-row-card [data-premium-card] > img {
+    transition: transform 220ms var(--so-ease-out);
+  }
+  html[data-movviz-design="stable"]:not(.reduce-motion) .nx-row-card:hover [data-premium-card] > img {
+    transform: scale(1.035);
+  }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  html[data-movviz-design="stable"]:not(.reduce-motion) :is(.nx-hero-play, .nx-hero-more, .nx-hero-watchlist, .nx-title-actions > button, .nx-title-actions > a, [data-premium-preview] button, [data-premium-preview] a[role="button"]):active:not(:disabled) {
+    transform: none;
+  }
+  html[data-movviz-design="stable"]:not(.reduce-motion) .nx-row-card:hover [data-premium-card] > img {
+    transform: none;
+    transition: none;
+  }
+}

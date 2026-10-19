@@ -1,3 +1,13 @@
+## v1.27.03 — 19 octobre 2026
+
+### Le design stable adopte le design bêta de ce matin
+
+- Le design stable reprend à l'identique le design bêta tel qu'il était le 19 octobre au matin, avant le nouveau logo et le nouvel écran de chargement : couleurs, barre latérale, cartes et mise en page sur ordinateur, ainsi que l'écran de chargement cinéma (projecteur, halos, logo complet et pourcentage). Le design bêta continue d'évoluer de son côté.
+
+### Analyse des fichiers fiable après un gros import
+
+- Après l'import d'un grand nombre d'épisodes d'un coup (une intégrale), l'analyse des fichiers (codecs, pistes audio et sous-titres) pouvait se couper jusqu'au redémarrage suivant, et surcharger le serveur au passage. Elle reste désormais disponible, sans pic de charge.
+
 ## v1.27.02 — 19 octobre 2026
 
 ### Mises à jour : plus jamais proposer une version plus ancienne

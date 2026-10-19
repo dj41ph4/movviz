@@ -543,6 +543,8 @@ export const nl: Dictionary = {
       explore: "Vind inspiratie",
     },
     splash: {
+      personalCinema: "Jouw persoonlijke bioscoop",
+      headline: "Cinema komt tot leven.",
       tagline: "Al je werelden op één plek",
       preparing: "Je bioscoop wordt voorbereid…",
       loading: "Bibliotheek laden",

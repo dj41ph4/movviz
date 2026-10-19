@@ -2,9 +2,6 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
-import { createPremiumPointerController } from "@/lib/appearance/premiumPointer";
-import { usePlaybackActive } from "@/lib/player/PlayerProvider";
 import { designModeOrDefault, type DesignMode } from "@/lib/appearance/designMode";
 import type { UserPrefs } from "@/lib/userPrefs/store";
 import { useT } from "@/i18n/provider";
@@ -12,6 +9,7 @@ import { toast } from "@/components/ui/Toast";
 import "./premium.css";
 import "./salle-obscure.css";
 import "./design-beta.css";
+import "./design-classic.css";
 
 type PreferencesResponse = { prefs?: UserPrefs };
 type DesignContextValue = { mode: DesignMode; loaded: boolean; saving: boolean; setMode: (mode: DesignMode) => Promise<void> };
@@ -33,8 +31,6 @@ export function AppearanceProvider({ children, initialDesignMode = "stable" }: {
   // The server-rendered choice remains authoritative while preferences
   // load, including partial optimistic updates from another settings hook.
   const mode = data?.prefs?.designMode === undefined ? initialDesignMode : designModeOrDefault(data.prefs.designMode);
-  const reduceMotion = useShouldReduceMotion();
-  const playbackActive = usePlaybackActive();
 
   useEffect(() => {
     document.documentElement.dataset.movvizDesign = mode;
@@ -66,38 +62,7 @@ export function AppearanceProvider({ children, initialDesignMode = "stable" }: {
     }
   }
 
-  useEffect(() => {
-    if (reduceMotion || playbackActive) return;
-    // The new design lets artwork carry the colour; no decorative tilt.
-    if (mode === "beta") return;
-    const media = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
-    const pointer = createPremiumPointerController(requestAnimationFrame, cancelAnimationFrame);
-    const onMove = (event: PointerEvent) => {
-      const target = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-premium-card]") : null;
-      pointer.move(media.matches && event.pointerType !== "touch" ? target : null, event.clientX, event.clientY);
-    };
-    const onOut = (event: PointerEvent) => {
-      const source = event.target instanceof Element ? event.target.closest("[data-premium-card]") : null;
-      const destination = event.relatedTarget instanceof Element ? event.relatedTarget.closest("[data-premium-card]") : null;
-      if (!event.relatedTarget || (source && source !== destination)) pointer.reset();
-    };
-    const reset = () => pointer.reset();
-    document.addEventListener("pointermove", onMove, { passive: true });
-    document.addEventListener("pointerout", onOut, { passive: true });
-    document.addEventListener("scroll", reset, { passive: true, capture: true });
-    window.addEventListener("blur", reset);
-    window.addEventListener("resize", reset);
-    media.addEventListener("change", reset);
-    return () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerout", onOut);
-      document.removeEventListener("scroll", reset, true);
-      window.removeEventListener("blur", reset);
-      window.removeEventListener("resize", reset);
-      media.removeEventListener("change", reset);
-      pointer.reset();
-    };
-  }, [reduceMotion, playbackActive, mode]);
+  // Neither design tilts the cards: Stable now carries the 19 October morning Beta look, which had none.
 
   return <DesignContext.Provider value={{ mode, loaded: !!data?.prefs, saving, setMode }}>{children}</DesignContext.Provider>;
 }
