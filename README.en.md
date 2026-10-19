@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="public/brand/movviz-lockup.png" width="420" alt="Movviz"/>
-
-# Movviz
+<h1>
+  <img src="public/brand/movviz-logo-compact-animated.svg" width="420" alt="Movviz"/>
+</h1>
 
 ### Your catalog. Your server. Your rules.
 

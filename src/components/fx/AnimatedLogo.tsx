@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import "./animated-logo.css";
 
 const SIZES = {
   sm: { outer: "h-10 w-10", inner: "h-10 w-10" },
@@ -19,12 +20,21 @@ export function AnimatedLogo({ size = "md" }: { size?: keyof typeof SIZES }) {
 
   return (
     <div className={cn("relative flex items-center justify-center", s.outer)}>
+      {/* Stable garde le PNG officiel ; la bêta affiche le nouveau symbole animé (SVG). Le choix se fait en CSS
+          (attribut posé sur <html> par AppearanceProvider) : aucune dépendance au contexte, donc valable sur login/setup aussi. */}
       <img
         src="/brand/movviz-mark.png"
         alt="Movviz"
         fetchPriority="high"
         loading="eager"
-        className={cn("h-full w-full object-contain", s.inner)}
+        className={cn("mv-logo-stable h-full w-full object-contain", s.inner)}
+      />
+      <img
+        src="/brand/movviz-mark-animated.svg"
+        alt=""
+        aria-hidden="true"
+        loading="eager"
+        className={cn("mv-logo-beta hidden h-full w-full object-contain", s.inner)}
       />
     </div>
   );

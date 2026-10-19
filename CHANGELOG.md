@@ -1,3 +1,13 @@
+## v1.26.052 — 19 octobre 2026
+
+### Design bêta : nouvel écran de chargement et nouveau logo
+
+- Au démarrage, le design bêta affiche un nouvel écran de chargement cinématographique : mur d'écrans, reflets qui courent sur les arêtes orange, lumière qui balaie les lettres du logo, braises, et une barre qui suit la progression réelle du chargement. Un éclat de lumière marque la fin.
+- L'écran s'adapte à tous les formats : 16:9, ultra-large 21:9 (la scène se prolonge de chaque côté sans étirement) et téléphone en portrait. Il est rendu à la résolution réelle de l'écran, donc net sur les écrans haute définition.
+- La signature « Vos univers en un seul endroit » est traduite dans les cinq langues. Avec l'option « réduire les animations », la scène reste immobile.
+- Nouveau logo en trois formats vectoriels : le symbole « O » seul, le logo complet petit format et le logo complet grand format, avec leurs versions animées (balayage de lumière sur les lettres, sans halo autour du « O »). Le design bêta affiche le nouveau symbole animé dans la barre latérale, à la connexion et dans les réglages.
+- Le design stable ne change pas. Le logo du README GitHub est remplacé par la version animée.
+
 ## v1.26.051 — 19 octobre 2026
 
 ### Fiches : le statut s'affiche tout de suite

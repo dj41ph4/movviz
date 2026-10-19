@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 250" role="img" aria-label="Movviz — Vos univers en un seul endroit">
+  <title>Movviz — Vos univers en un seul endroit</title>
+  <defs>
+  <linearGradient id="l-word" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="724" y2="0">
+    <stop offset="0" stop-color="#f4f6ff"/><stop offset=".5" stop-color="#d9deef"/>
+    <stop offset=".64" stop-color="#f3e3c4"/><stop offset=".8" stop-color="#ffc25c"/><stop offset="1" stop-color="#f58a14"/>
+  </linearGradient>
+  <linearGradient id="l-shade" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+    <stop offset="1" stop-color="#1a1f3a" stop-opacity=".22"/>
+  </linearGradient>
+  <linearGradient id="l-ring" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffd98a"/><stop offset=".55" stop-color="#ffb33d"/><stop offset="1" stop-color="#f58a14"/>
+  </linearGradient>
+  <linearGradient id="l-play" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffc766"/><stop offset="1" stop-color="#f58a14"/>
+  </linearGradient>
+    <linearGradient id="l-tag" gradientUnits="userSpaceOnUse" x1="118" y1="0" x2="842" y2="0">
+      <stop offset="0" stop-color="#aab4d6"/><stop offset=".62" stop-color="#aab4d6"/><stop offset=".78" stop-color="#ffb33d"/><stop offset="1" stop-color="#f58a14"/>
+    </linearGradient>
+    <linearGradient id="l-rule" gradientUnits="userSpaceOnUse" x1="118" y1="0" x2="842" y2="0">
+      <stop offset="0" stop-color="#ffb33d" stop-opacity="0"/><stop offset=".5" stop-color="#ffb33d" stop-opacity=".9"/><stop offset="1" stop-color="#ffb33d" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(118 40)">
+  <g fill="url(#l-word)"><path d="M0 110V0H30L75 62L120 0H150V110H122V48L75 112L28 48V110ZM292 0H322L354 74L386 0H416L369 110H339ZM422 0H452L484 74L516 0H546L499 110H469ZM560 0H588V110H560ZM612 0H724V24L652 86H724V110H612V86L684 24H612Z"/></g>
+  <g fill="url(#l-shade)"><path d="M0 110V0H30L75 62L120 0H150V110H122V48L75 112L28 48V110ZM292 0H322L354 74L386 0H416L369 110H339ZM422 0H452L484 74L516 0H546L499 110H469ZM560 0H588V110H560ZM612 0H724V24L652 86H724V110H612V86L684 24H612Z"/></g>
+  
+  <circle cx="231" cy="55" r="56" fill="none" stroke="url(#l-ring)" stroke-width="4.2"/>
+  <path fill="url(#l-play)" d="M219.8 25.88L262.36 55L219.8 84.12Z" stroke="url(#l-play)" stroke-width="5.04" stroke-linejoin="round"/></g>
+  <rect x="238" y="186" width="484" height="1.6" fill="url(#l-rule)"/>
+  <!-- la signature est du texte vivant : à convertir en tracés quand la police de marque sera choisie -->
+  <text x="480" y="222" text-anchor="middle" font-family="Montserrat, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="17" font-weight="500" letter-spacing="7.5" fill="url(#l-tag)">VOS UNIVERS EN UN SEUL ENDROIT</text>
+</svg>

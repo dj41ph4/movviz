@@ -543,8 +543,7 @@ export const it: Dictionary = {
       explore: "Trova l’ispirazione",
     },
     splash: {
-      personalCinema: "Il tuo cinema personale",
-      headline: "Il cinema prende vita.",
+      tagline: "Tutti i tuoi universi in un unico posto",
       preparing: "Preparazione del tuo cinema…",
       loading: "Caricamento della biblioteca",
     },

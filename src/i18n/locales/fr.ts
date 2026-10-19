@@ -541,8 +541,7 @@ export const fr = {
       explore: "Trouver l’inspiration",
     },
     splash: {
-      personalCinema: "Ton cinéma personnel",
-      headline: "Le cinéma prend vie.",
+      tagline: "Vos univers en un seul endroit",
       preparing: "Préparation de ton cinéma…",
       loading: "Chargement de la bibliothèque",
     },

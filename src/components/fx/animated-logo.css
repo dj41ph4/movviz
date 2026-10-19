@@ -1,0 +1,4 @@
+/* Le design bêta affiche le nouveau symbole vectoriel animé ; Stable garde le PNG officiel.
+   Le choix suit l'attribut posé sur <html> : valable aussi hors application (connexion, installation). */
+:root[data-movviz-design="beta"] .mv-logo-stable { display: none; }
+:root[data-movviz-design="beta"] .mv-logo-beta { display: block; }
