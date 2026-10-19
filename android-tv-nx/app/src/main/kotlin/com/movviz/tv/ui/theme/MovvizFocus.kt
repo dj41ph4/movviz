@@ -231,7 +231,7 @@ private val NoGlow = ClickableSurfaceDefaults.glow(glow = Glow.None, focusedGlow
  * Bêta : pilule 36 dp, fond `chipContainer` + filet `line` ; actif = ivoire
  * (texte `#17151E`) ; focus = anneau extérieur blanc, quel que soit l'état
  * actif (le focus reste toujours distinguable de la sélection).
- * Stable : pilule `MovvizSurface`, actif `MovvizBrand`, focus 2 dp blanc —
+ * Stable : pilule `MovvizSurface`, actif `MovvizTheme.palette.brand`, focus 2 dp blanc —
  * mais un écran Stable existant garde de préférence son propre composable.
  *
  * Usage : `MovvizChip("Séries", active = tab == Series, onClick = { … }, focusRequester = entry)`.

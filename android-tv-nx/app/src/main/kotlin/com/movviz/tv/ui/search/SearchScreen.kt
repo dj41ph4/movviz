@@ -539,8 +539,8 @@ private fun SearchRetryMessage(text: String, onRetry: () -> Unit, focusRequester
 /** Champ Bêta (style du champ web) : fond `chipContainer`, filet 8 %, au
  *  focus filet lavande 60 % + halo 7 %. */
 private val BetaFieldRest = Color(0x13FFFFFF)
-private val BetaFieldFocused = Color(0x99C4B6FF)
-private val BetaFieldHalo = Color(0x12C4B6FF)
+private val BetaFieldFocused = Color(0x99DAB563)
+private val BetaFieldHalo = Color(0x12DAB563)
 
 @Composable
 private fun SearchField(

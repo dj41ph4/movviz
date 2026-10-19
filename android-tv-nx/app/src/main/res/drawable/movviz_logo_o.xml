@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Symbole « O » (bêta). Généré depuis les tracés de public/brand/movviz-mark.svg. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <path android:fillType="evenOdd" android:pathData="M11.5 128a116.5 116.5 0 1 0 233 0a116.5 116.5 0 1 0 -233 0ZM20.5 128a107.5 107.5 0 1 1 215 0a107.5 107.5 0 1 1 -215 0Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="12" android:startY="12" android:endX="244" android:endY="244">
+                <item android:offset="0" android:color="#FFFFD98A" />
+                <item android:offset="0.55" android:color="#FFFFB33D" />
+                <item android:offset="1" android:color="#FFF58A14" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M105.6 69.75999999999999L190.72 128L105.6 186.24Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="105" android:startY="70" android:endX="191" android:endY="186">
+                <item android:offset="0" android:color="#FFFFC766" />
+                <item android:offset="1" android:color="#FFF58A14" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

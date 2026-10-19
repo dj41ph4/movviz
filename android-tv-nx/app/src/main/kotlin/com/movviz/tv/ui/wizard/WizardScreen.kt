@@ -29,6 +29,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.ui.theme.MovvizTheme
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizBrand
@@ -220,7 +221,7 @@ fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusR
             // pattern que le reste de l'appli, plus le simple scale() isolé
             // d'avant qui ne donnait aucune impression de profondeur.
             .tvFocusLift(focused, shape = shape)
-            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+            .background(Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)), shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

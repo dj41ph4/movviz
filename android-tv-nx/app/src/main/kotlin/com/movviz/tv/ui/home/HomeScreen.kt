@@ -1043,7 +1043,7 @@ private fun MovvizBootProgress(progress: Int, message: String) {
         ) {
             Box(
                 modifier = Modifier.fillMaxHeight().fillMaxWidth((progress.coerceIn(0, 100) / 100f))
-                    .background(MovvizBrand),
+                    .background(MovvizTheme.palette.brand),
             )
         }
         Spacer(Modifier.height(9.dp))
@@ -1439,7 +1439,7 @@ internal fun HeroCarousel(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .background(
-                                Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)),
+                                Brush.linearGradient(listOf(MovvizBrand3, MovvizTheme.palette.brand, MovvizTheme.palette.brand2)),
                                 RoundedCornerShape(5.dp),
                             )
                             .padding(horizontal = 15.dp, vertical = 8.dp),
@@ -1517,7 +1517,7 @@ internal fun HeroCarousel(
                         modifier = Modifier
                             .width(5.dp).height(5.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(if (index == currentIndex) Color(0xFFC04BFF) else Color(0xFF3D4A7A)),
+                            .background(if (index == currentIndex) { if (com.movviz.tv.ui.theme.LocalMovvizBeta.current) MovvizTheme.palette.accent else Color(0xFFC04BFF) } else Color(0xFF3D4A7A)),
                     )
                 }
             }
@@ -2540,6 +2540,8 @@ private fun ResumeCard(
         ?: card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         ?: card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
     val meta = resumeCardMeta(card)
+    // Lu ici (composition) : la lambda graphicsLayer ci-dessous n'est pas composable.
+    val glowShadow = MovvizTheme.palette.brandGlow.copy(alpha = 0.55f)
     Column(modifier = Modifier.width(betaDp(203.dp, 224.dp))) {
         Surface(
             onClick = onClick,
@@ -2553,7 +2555,7 @@ private fun ResumeCard(
                 .graphicsLayer {
                     shadowElevation = if (focused && !beta) 14.dp.toPx() else 0f
                     shape = tileShape
-                    ambientShadowColor = MovvizBrandGlow.copy(alpha = 0.55f)
+                    ambientShadowColor = glowShadow
                     spotShadowColor = Color.Black
                     clip = false
                 }
@@ -2563,7 +2565,7 @@ private fun ResumeCard(
             shape = ClickableSurfaceDefaults.shape(shape = tileShape),
             scale = if (beta) movvizBetaSurfaceScale() else ClickableSurfaceDefaults.scale(focusedScale = 1f),
             colors = ClickableSurfaceDefaults.colors(containerColor = if (beta) palette.surface else MovvizSurfaceStrong),
-            border = movvizCardBorder(tileShape, androidx.compose.foundation.BorderStroke(2.dp, MovvizBrandGlow)),
+            border = movvizCardBorder(tileShape, androidx.compose.foundation.BorderStroke(2.dp, MovvizTheme.palette.brandGlow)),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 if (imageUrl != null) {
@@ -2618,7 +2620,7 @@ private fun ResumeCard(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(progress.coerceIn(0, 100) / 100f)
-                                .background(if (beta) palette.accent else MovvizBrandGlow),
+                                .background(if (beta) palette.accent else MovvizTheme.palette.brandGlow),
                         )
                     }
                 }
@@ -2805,7 +2807,7 @@ internal fun PosterCard(
                     )
                 } else if (showTypeBadge) {
                     val typeLabel = if (card.isMovie) "FILM" else "SÉRIE"
-                    val typeColor = if (card.isMovie) MovvizCyan else MovvizBrand
+                    val typeColor = if (card.isMovie) MovvizCyan else MovvizTheme.palette.brand
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -3017,7 +3019,7 @@ internal fun PosterCard(
                             modifier = Modifier
                                 .fillMaxWidth(fraction = (card.progressPercent / 100f).coerceIn(0f, 1f))
                                 .fillMaxHeight()
-                                .let { if (beta) it.background(palette.accent) else it.background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))) },
+                                .let { if (beta) it.background(palette.accent) else it.background(Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))) },
                         )
                     }
                 }
@@ -3193,7 +3195,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit, modifier: Modi
                 modifier = Modifier
                     .width(81.dp)
                     .fillMaxHeight()
-                    .background(Brush.verticalGradient(listOf(MovvizBrand.copy(alpha = 0.35f), MovvizSurfaceStrong.copy(alpha = 0.8f), MovvizSurfaceStrong))),
+                    .background(Brush.verticalGradient(listOf(MovvizTheme.palette.brand.copy(alpha = 0.35f), MovvizSurfaceStrong.copy(alpha = 0.8f), MovvizSurfaceStrong))),
                 contentAlignment = Alignment.Center,
             ) {
                 if (posterUrl != null) {
@@ -3232,7 +3234,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit, modifier: Modi
                         modifier = Modifier
                             .fillMaxWidth(fraction = item.download.progress.toFloat().coerceIn(0f, 1f))
                             .fillMaxHeight()
-                            .background(Brush.horizontalGradient(if (beta) palette.progressFill else listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(50)),
+                            .background(Brush.horizontalGradient(if (beta) palette.progressFill else listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)), RoundedCornerShape(50)),
                     )
                 }
                 if (clickable) {

@@ -108,8 +108,13 @@ data class MovvizPalette(
     /** Action destructive (déconnexion). */
     val danger: Color,
     val progressTrack: Color,
-    /** Dégradé de progression du splash (violet → lilas → cyan). */
+    /** Dégradé de progression du splash (Stable : violet → lilas ; Bêta : or foncé → or clair). */
     val progressFill: List<Color>,
+    /** Couleur de marque : violet en Stable, or foncé en Bêta (CTA, états actifs, jauges). */
+    val brand: Color,
+    val brand2: Color,
+    /** Lueur / texte d'accent de la marque, plus clair que [brand2]. */
+    val brandGlow: Color,
 )
 
 /** Palette Stable : chaque rôle pointe sur la constante historique. */
@@ -144,9 +149,17 @@ val MovvizStablePalette = MovvizPalette(
     danger = MovvizDown,
     progressTrack = Color.White.copy(alpha = 0.10f),
     progressFill = listOf(MovvizBrand, MovvizBrand2),
+    brand = MovvizBrand,
+    brand2 = MovvizBrand2,
+    brandGlow = MovvizBrandGlow,
 )
 
-/** Palette Bêta « Salle obscure » (valeurs du plan de refonte, §3.1). */
+/**
+ * Palette Bêta « Salle obscure » (valeurs du plan de refonte, §3.1), avec l'or foncé de la marque
+ * à la place des violets : accent #DAB563, action principale #C4902C (texte #1A1406), progression
+ * #8A6418 → #B8892B → #E4C88D. Même teinte (≈ 41°) que le logo ; luminosités choisies pour rester
+ * lisibles sur le fond graphite. Fond du rail = fond de la scène : un seul aplat.
+ */
 val MovvizBetaPalette = MovvizPalette(
     background = Color(0xFF0B0C10),
     surface = Color(0xFF13151B),
@@ -155,21 +168,21 @@ val MovvizBetaPalette = MovvizPalette(
     ink = Color(0xFFF5F2EB),
     inkSoft = Color(0xFFB7B5BF),
     inkDim = Color(0xFF94919F),
-    accent = Color(0xFFC4B6FF),
+    accent = Color(0xFFDAB563),
     line = Color(0x14FFFFFF),
     lineStrong = Color(0x24FFFFFF),
     focusRing = Color(0xFFFFFFFF),
-    navBackground = Color(0xFF101116),
+    navBackground = Color(0xFF0B0C10),
     navEdge = Color(0x0DFFFFFF),
     navSelectedContainer = Color(0xFFF1EDE5),
     navSelectedContent = Color(0xFF17151E),
-    navSelectedIcon = Color(0xFF514177),
+    navSelectedIcon = Color(0xFF876722),
     heroFrame = Color(0xFF14151E),
     heroScrim = Color(0xFF11121B),
     heroFrameBorder = Color(0x1AFFFFFF),
-    primaryContainer = Color(0xFFE4D9FF),
-    onPrimaryContainer = Color(0xFF211830),
-    eyebrow = Color(0xFFD8CEF1),
+    primaryContainer = Color(0xFFC4902C),
+    onPrimaryContainer = Color(0xFF1A1406),
+    eyebrow = Color(0xFFD9BC7A),
     chipContainer = Color(0xFF191B23),
     chipActiveContainer = Color(0xFFF1EDE5),
     chipActiveContent = Color(0xFF17151E),
@@ -177,7 +190,10 @@ val MovvizBetaPalette = MovvizPalette(
     badgeBorder = Color(0x2EFFFFFF),
     danger = Color(0xFFE87C7C),
     progressTrack = Color(0x12FFFFFF),
-    progressFill = listOf(Color(0xFF7C3AED), Color(0xFFC084FC), Color(0xFF67E8F9)),
+    progressFill = listOf(Color(0xFF8A6418), Color(0xFFB8892B), Color(0xFFE4C88D)),
+    brand = Color(0xFFB8892B),
+    brand2 = Color(0xFFCF9F3B),
+    brandGlow = Color(0xFFE4C88D),
 )
 
 /** Filet de carte focalisée en Bêta (24 % de blanc) — plus clair que `line`. */

@@ -341,12 +341,12 @@ private fun SettingsToggle(label: String, enabled: Boolean, onToggle: () -> Unit
             .tvPointerClick(onToggle),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (enabled) MovvizBrand.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f),
-            contentColor = if (enabled) MovvizBrand else MovvizInkSoft,
+            containerColor = if (enabled) MovvizTheme.palette.brand.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f),
+            contentColor = if (enabled) MovvizTheme.palette.brand else MovvizInkSoft,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, if (enabled) MovvizBrand else Color.White.copy(alpha = 0.4f)),
+                border = androidx.compose.foundation.BorderStroke(2.dp, if (enabled) MovvizTheme.palette.brand else Color.White.copy(alpha = 0.4f)),
                 shape = shape,
             ),
         ),
@@ -365,7 +365,7 @@ private fun SettingsToggle(label: String, enabled: Boolean, onToggle: () -> Unit
                     .width(33.dp)
                     .height(18.dp)
                     .background(
-                        if (enabled) MovvizBrand else Color.White.copy(alpha = 0.15f),
+                        if (enabled) MovvizTheme.palette.brand else Color.White.copy(alpha = 0.15f),
                         RoundedCornerShape(9.dp),
                     ),
             ) {
@@ -517,7 +517,7 @@ private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit, 
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) MovvizBrand.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.08f),
+            containerColor = if (selected) MovvizTheme.palette.brand.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.08f),
             contentColor = if (selected) Color.White else MovvizInkSoft,
         ),
         border = ClickableSurfaceDefaults.border(

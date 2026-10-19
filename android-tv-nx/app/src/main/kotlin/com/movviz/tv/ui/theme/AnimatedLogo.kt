@@ -57,7 +57,13 @@ import kotlin.math.sin
  * (R.drawable.movviz_mark) est affiché tel quel, sans effet.
  */
 @Composable
-fun AnimatedLogo(size: Dp = 42.dp) {
+fun AnimatedLogo(size: Dp = 42.dp, symbolOnly: Boolean = false) {
+    // Bêta : logo complet petit format animé partout ; le symbole « O » seul si `symbolOnly` (barre repliée).
+    // Stable : le mark officiel, inchangé.
+    if (LocalMovvizBeta.current) {
+        if (symbolOnly) MovvizMarkO(size = size) else MovvizFullLogo(height = size * 0.7f)
+        return
+    }
     StaticLogo(size = size)
 }
 
@@ -152,10 +158,8 @@ private val WORDMARK_STOPS = listOf(
  */
 @Composable
 fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 21.sp) {
-    if (LocalMovvizBeta.current) {
-        BetaWordmark(fontSize)
-        return
-    }
+    // Bêta : le logo complet porte déjà le nom, le texte serait redondant.
+    if (LocalMovvizBeta.current) return
     var widthPx by remember { mutableStateOf(0f) }
     val infinite = rememberInfiniteTransition(label = "wordmark_flow")
     val shift by infinite.floatLoop(0f, 1f, 8000, LinearEasing, RepeatMode.Restart)
@@ -177,23 +181,6 @@ fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 21.sp) {
         modifier = Modifier.onSizeChanged { widthPx = it.width.toFloat() },
     )
 }
-
-/** Mot-symbole Bêta : Bricolage 700 ivoire, immobile (l'apparence Bêta vise
- *  le calme — pas de dégradé qui défile en boucle). L'approche serrée
- *  (-0.055 em) suit la taille demandée par l'appelant. */
-@Composable
-private fun BetaWordmark(fontSize: androidx.compose.ui.unit.TextUnit) {
-    Text(
-        text = "Movviz",
-        style = MovvizTheme.textStyles.wordmark.copy(
-            fontSize = fontSize,
-            letterSpacing = (fontSize.value * -0.055f).sp,
-        ),
-        color = MovvizTheme.palette.ink,
-        maxLines = 1,
-    )
-}
-
 
 /**
  * Chargement premium, commun à toutes les fiches : le mark Movviz respire au

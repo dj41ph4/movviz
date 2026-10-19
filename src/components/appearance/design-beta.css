@@ -11,7 +11,7 @@
     --so-fg: #f5f2eb;
     --so-fg-2: #b7b5bf;
     --so-fg-3: #94919f;
-    --so-accent: #c4b6ff;
+    --so-accent: #e9d2a0;
     --color-void: #0b0c10;
     --color-surface: #13151b;
     --color-surface-2: #1b1e27;
@@ -25,7 +25,6 @@
   }
   html[data-movviz-design="beta"] .nx-sidebar > header {
     margin-bottom: 1.5rem;
-    border-bottom: 1px solid #ffffff0d;
   }
   html[data-movviz-design="beta"] .nx-sidebar > header > div > span {
     font-family: var(--so-font-display);
@@ -46,7 +45,7 @@
     color: #17151e;
     box-shadow: 0 3px 16px #0002;
   }
-  html[data-movviz-design="beta"] .nx-sidebar a[aria-current="page"] svg { color: #514177; }
+  html[data-movviz-design="beta"] .nx-sidebar a[aria-current="page"] svg { color: #876722; }
 
   html[data-movviz-design="beta"] .nx-topbar {
     height: 76px;
@@ -63,8 +62,8 @@
     box-shadow: none;
   }
   html[data-movviz-design="beta"] .nx-search-pill:focus-within {
-    border-color: #c4b6ff99;
-    box-shadow: 0 0 0 3px #c4b6ff12;
+    border-color: #e9d2a099;
+    box-shadow: 0 0 0 3px #e9d2a012;
   }
   html[data-movviz-design="beta"] .nx-dashboard-premium {
     margin-inline: auto;
@@ -126,8 +125,8 @@
   }
   html[data-movviz-design="beta"] .nx-dashboard-premium .nx-hero-play {
     padding-inline: 1.5rem;
-    background: #e4d9ff;
-    color: #211830;
+    background: #efdeba;
+    color: #29261f;
   }
   html[data-movviz-design="beta"] .mv-hero-reasons {
     padding-inline: .25rem;

@@ -2,6 +2,7 @@ package com.movviz.tv.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MovvizPaletteTest {
@@ -28,17 +29,38 @@ class MovvizPaletteTest {
         assertEquals(Color(0xFFF5F2EB), p.ink)
         assertEquals(Color(0xFFB7B5BF), p.inkSoft)
         assertEquals(Color(0xFF94919F), p.inkDim)
-        assertEquals(Color(0xFFC4B6FF), p.accent)
+        assertEquals(Color(0xFFDAB563), p.accent) // or foncé de la marque (plus de violet)
         assertEquals(Color.White, p.focusRing)
-        assertEquals(Color(0xFF101116), p.navBackground)
+        assertEquals(p.background, p.navBackground) // un seul aplat : le rail a le fond de la scène
         assertEquals(Color(0xFFF1EDE5), p.navSelectedContainer)
         assertEquals(Color(0xFF17151E), p.navSelectedContent)
-        assertEquals(Color(0xFF514177), p.navSelectedIcon)
-        assertEquals(Color(0xFFE4D9FF), p.primaryContainer)
-        assertEquals(Color(0xFF211830), p.onPrimaryContainer)
-        assertEquals(Color(0xFFD8CEF1), p.eyebrow)
+        assertEquals(Color(0xFF876722), p.navSelectedIcon)
+        assertEquals(Color(0xFFC4902C), p.primaryContainer)
+        assertEquals(Color(0xFF1A1406), p.onPrimaryContainer)
+        assertEquals(Color(0xFFD9BC7A), p.eyebrow)
         assertEquals(Color(0xFFE87C7C), p.danger)
-        assertEquals(listOf(Color(0xFF7C3AED), Color(0xFFC084FC), Color(0xFF67E8F9)), p.progressFill)
+        assertEquals(listOf(Color(0xFF8A6418), Color(0xFFB8892B), Color(0xFFE4C88D)), p.progressFill)
+    }
+
+    @Test fun stableBrandRolesAreTheHistoricalConstants() {
+        val p = MovvizStablePalette
+        assertEquals(MovvizBrand, p.brand)
+        assertEquals(MovvizBrand2, p.brand2)
+        assertEquals(MovvizBrandGlow, p.brandGlow)
+    }
+
+    @Test fun betaBrandRolesAreGold() {
+        val p = MovvizBetaPalette
+        for (c in listOf(p.brand, p.brand2, p.brandGlow)) assertTrue("$c n'est pas dans la gamme dorée", c.red > c.green && c.green > c.blue)
+    }
+
+    @Test fun betaPaletteHasNoVioletLeft() {
+        val p = MovvizBetaPalette
+        val accents = listOf(p.accent, p.primaryContainer, p.eyebrow, p.navSelectedIcon) + p.progressFill
+        for (c in accents) {
+            // teinte comprise entre 20° et 60° (or) : le rouge domine, le bleu est le canal le plus faible
+            assertTrue("$c n'est pas dans la gamme dorée", c.red > c.green && c.green > c.blue)
+        }
     }
 
     @Test fun betaLinesAreTranslucentWhite() {

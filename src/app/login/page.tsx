@@ -163,7 +163,7 @@ export default function LoginPage() {
       >
         <motion.div variants={itemVariants} className="mb-6 flex flex-col items-center gap-3 text-center">
           <AnimatedLogo size="lg" />
-          <h1 className="text-logo-flow text-2xl font-black tracking-tight">Movviz</h1>
+          <h1 className="mv-brand-name text-logo-flow text-2xl font-black tracking-tight">Movviz</h1>
           <p className="text-xs text-ink-dim">
             {setupRequired ? t("auth.setupTitle") : t("auth.welcomeTitle")}
           </p>

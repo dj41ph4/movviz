@@ -892,8 +892,8 @@ fun TitleDetailScreen(
                             modifier = retryModifier,
                             shape = ClickableSurfaceDefaults.shape(retryShape),
                             scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-                                containerColor = MovvizBrand,
-                                focusedContainerColor = MovvizBrand2,
+                                containerColor = MovvizTheme.palette.brand,
+                                focusedContainerColor = MovvizTheme.palette.brand2,
                                 contentColor = Color.White,
                                 focusedContentColor = Color.White,
                             ),
@@ -1244,7 +1244,7 @@ fun TitleDetailScreen(
                             }
                             PrimaryPill(
                                 text = ctaText,
-                                brush = if (canAdd) Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)) else null,
+                                brush = if (canAdd) Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)) else null,
                                 enabled = !checking && !(canAdd && addingToLibrary),
                                 icon = if (canAdd) (if (addingToLibrary) null else MovvizIconPlus) else MovvizIconPlay,
                                 focusRequester = if (!checking && !(canAdd && addingToLibrary)) primaryActionFocusRequester else null,
@@ -1310,7 +1310,7 @@ fun TitleDetailScreen(
                                 modifier = Modifier
                                     .fillMaxWidth(fraction = (resume.progressPercent / 100f).coerceIn(0f, 1f))
                                     .fillMaxHeight()
-                                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                                    .background(Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)), RoundedCornerShape(2.dp)),
                             )
                         }
                     }
@@ -1343,7 +1343,7 @@ fun TitleDetailScreen(
                             bleachRepairRequired -> if (currentUser?.role == "admin") "Réparer Bleach" else "Vérification requise"
                             else -> "+  Ajouter à la bibliothèque"
                         },
-                        brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                        brush = Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)),
 
                         enabled = !addingToLibrary,
                         // Cible du focus d'ouverture pour un titre PAS encore
@@ -1687,7 +1687,7 @@ fun TitleDetailScreen(
                         )
                         if (preview?.applicable == true) PrimaryPill(
                             text = if (bleachRepairBusy) "Réparation…" else "Confirmer",
-                            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                            brush = Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)),
                             enabled = !bleachRepairBusy,
                             focusRequester = confirmFocus,
                             onClick = {
@@ -2016,7 +2016,7 @@ private fun SeasonSelector(
 ) {
     val beta = LocalMovvizBeta.current
     val shape = if (beta) MovvizBetaShapes.Card else RoundedCornerShape(8.dp)
-    val stableFocusedBorder = movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2))
+    val stableFocusedBorder = movvizFocusBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, MovvizTheme.palette.brand2))
     val cardBorder = if (beta) {
         movvizCardBorder(shape, stableFocusedBorder)
     } else {
@@ -2147,7 +2147,7 @@ private fun SeasonSelector(
                                         modifier = Modifier
                                             .fillMaxWidth(fraction = (watchedCount.toFloat() / watchable.size.coerceAtLeast(1)).coerceIn(0f, 1f))
                                             .fillMaxHeight()
-                                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                                            .background(Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))),
                                     )
                                 }
                             }
@@ -2486,7 +2486,7 @@ private fun SeasonPageHeader(
                         Text(text = "·", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
                         Text(
                             text = if (allWatched) "Saison vue" else "$watchedCount/${watchable.size} vus",
-                            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (allWatched) MovvizBrandGlow else MovvizInkSoft),
+                            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (allWatched) MovvizTheme.palette.brandGlow else MovvizInkSoft),
                         )
                     }
                     if (missingCount > 0) {
@@ -2663,7 +2663,7 @@ private fun EpisodeGridCard(
                             modifier = Modifier
                                 .fillMaxWidth(fraction = resumeFraction)
                                 .fillMaxHeight()
-                                .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                                .background(Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))),
                         )
                     }
                 }
@@ -2682,7 +2682,7 @@ private fun EpisodeGridCard(
                 Spacer(modifier = Modifier.height(3.dp))
                 if (downloading && queueItem != null) {
                     if (episode.status == "searching") {
-                        Text(text = "Recherche en cours…", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrandGlow), maxLines = 1)
+                        Text(text = "Recherche en cours…", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizTheme.palette.brandGlow), maxLines = 1)
                     } else {
                         val pct = (queueItem.download.progress.coerceIn(0.0, 1.0) * 100).toInt()
                         Text(
@@ -2947,7 +2947,7 @@ private fun EpisodeDetailOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth(fraction = (resumeOffset.toFloat() / progress.durationMs.toFloat()).coerceIn(0f, 1f))
                                     .fillMaxHeight()
-                                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                                    .background(Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))),
                             )
                         }
                     }
@@ -3201,7 +3201,7 @@ private fun WatchedToggle(
                     Border.None
                 },
                 focusedBorder = Border(
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))),
                     shape = shape,
                 ),
             ),
@@ -3288,7 +3288,7 @@ private fun PrimaryPill(
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
                 border = if (brush == null) {
-                    androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)))
+                    androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)))
                 } else {
                     androidx.compose.foundation.BorderStroke(2.dp, Color.White)
                 },
@@ -3396,7 +3396,7 @@ private fun DownloadProgressPill(
                         modifier = Modifier
                             .fillMaxWidth(fraction = progress.coerceIn(0.0, 1.0).toFloat())
                             .fillMaxHeight()
-                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                            .background(Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)), RoundedCornerShape(2.dp)),
                     )
                 }
             }
@@ -3484,7 +3484,7 @@ private fun DownloadAction(
         statusLabel != null -> DownloadProgressPill(0.0, 0.0, 0L, searching = false, stateLabel = statusLabel, focusRequester = focusRequester)
         else -> PrimaryPill(
             text = label,
-            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+            brush = Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)),
             icon = MovvizIconDownload,
             focusRequester = focusRequester,
             onClick = onClick,

@@ -109,13 +109,13 @@ fun ProfilePickerScreen(
             .fillMaxSize()
             .background(
                 Brush.radialGradient(
-                    // Bêta : fond graphite et lueur violette à 10 %.
+                    // Bêta : fond graphite et lueur dorée à 10 %.
                     colors = if (beta) listOf(
-                        Color(0xFF7C3AED).copy(alpha = .10f),
+                        Color(0xFFB8892B).copy(alpha = .10f),
                         MovvizTheme.palette.background,
                         MovvizTheme.palette.background,
                     ) else listOf(
-                        MovvizBrand.copy(alpha = .17f),
+                        MovvizTheme.palette.brand.copy(alpha = .17f),
                         Color(0xFF10101A),
                         Color(0xFF05060B),
                     ),
@@ -131,7 +131,7 @@ fun ProfilePickerScreen(
                 .fillMaxSize()
                 .background(
                     Brush.radialGradient(
-                        colors = listOf(MovvizBrand2.copy(alpha = .08f), Color.Transparent),
+                        colors = listOf(MovvizTheme.palette.brand2.copy(alpha = .08f), Color.Transparent),
                         center = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
                         radius = 690f,
                     ),

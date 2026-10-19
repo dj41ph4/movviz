@@ -88,9 +88,9 @@ export function AboutPanel() {
   return (
     <div className="rounded-2xl glass p-5 space-y-6">
       <div className="flex flex-col items-center gap-4 rounded-2xl glass p-8 text-center">
-        <AnimatedLogo size="lg" />
+        <AnimatedLogo size="xl" />
         <div>
-          <h2 className="text-logo-flow text-2xl font-black tracking-tight">Movviz</h2>
+          <h2 className="mv-brand-name text-logo-flow text-2xl font-black tracking-tight">Movviz</h2>
           <p className="mt-1 text-sm text-ink-dim">
             {t("settings.aboutVersion", { version })}
           </p>

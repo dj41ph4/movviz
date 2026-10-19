@@ -39,6 +39,7 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import com.movviz.tv.BuildConfig
 import com.movviz.tv.ui.theme.LocalMovvizBeta
+import com.movviz.tv.ui.theme.MovvizFullLogo
 import com.movviz.tv.ui.theme.BetaEyebrow
 import com.movviz.tv.ui.theme.MovvizBetaShapes
 import com.movviz.tv.ui.theme.MovvizMotion
@@ -224,14 +225,13 @@ fun NavRail(
             // En-tête Bêta : mot-symbole (style wordmark), filet navEdge
             // dessous, 24 dp d'air avant les onglets.
             Column(modifier = Modifier.padding(bottom = 24.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(40.dp).padding(bottom = 12.dp)) {
-                    AnimatedLogo(size = 28.dp)
-                    AnimatedVisibility(visible = expanded, enter = fadeIn(tween(MovvizMotion.FAST)), exit = fadeOut(tween(MovvizMotion.FAST))) {
-                        Row {
-                            Spacer(Modifier.width(10.dp))
-                            MovvizWordmark(fontSize = MovvizTheme.textStyles.wordmark.fontSize)
-                        }
-                    }
+                // Barre étendue : logo complet à gauche ; repliée : le symbole « O » seul, CENTRÉ dans la
+                // colonne de 48 dp utile (72 − 2 × 12), et assez grand pour rester lisible à distance.
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(52.dp).padding(bottom = 8.dp),
+                    contentAlignment = if (expanded) Alignment.CenterStart else Alignment.Center,
+                ) {
+                    if (expanded) MovvizFullLogo(height = 30.dp) else AnimatedLogo(size = 36.dp, symbolOnly = true)
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(palette.navEdge))
             }
@@ -325,18 +325,18 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (updateAvailable) MovvizBrand.copy(alpha = 0.18f) else MovvizOk.copy(alpha = 0.08f),
-            focusedContainerColor = if (updateAvailable) MovvizBrand.copy(alpha = 0.32f) else MovvizOk.copy(alpha = 0.16f),
+            containerColor = if (updateAvailable) MovvizTheme.palette.brand.copy(alpha = 0.18f) else MovvizOk.copy(alpha = 0.08f),
+            focusedContainerColor = if (updateAvailable) MovvizTheme.palette.brand.copy(alpha = 0.32f) else MovvizOk.copy(alpha = 0.16f),
         ),
         // Bêta : l'anneau extérieur porte le focus, aucune bordure interne.
         border = if (beta) ClickableSurfaceDefaults.border() else ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, if (updateAvailable) MovvizBrand2.copy(alpha = 0.65f) else MovvizOk.copy(alpha = 0.65f)), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, if (updateAvailable) MovvizTheme.palette.brand2.copy(alpha = 0.65f) else MovvizOk.copy(alpha = 0.65f)), shape = shape),
         ),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
             Box(
                 Modifier.size(5.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(if (updateAvailable) Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand2)) else Brush.linearGradient(listOf(MovvizOk, MovvizOk))),
+                    .background(if (updateAvailable) Brush.linearGradient(listOf(MovvizBrand3, MovvizTheme.palette.brand2)) else Brush.linearGradient(listOf(MovvizOk, MovvizOk))),
             )
             Spacer(Modifier.width(5.dp))
             val label = if (updateAvailable) "Mettre à jour" else "À jour"
@@ -406,7 +406,7 @@ private fun ProfileFooterRow(
             colors = if (beta) ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = palette.surfaceRaised, pressedContainerColor = palette.surfaceRaised)
                 else ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .06f), focusedContainerColor = Color.White.copy(alpha = .14f)),
             border = if (beta) ClickableSurfaceDefaults.border() else ClickableSurfaceDefaults.border(
-                focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBrand2.copy(alpha = 0.55f)), shape = avatarShape),
+                focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizTheme.palette.brand2.copy(alpha = 0.55f)), shape = avatarShape),
             ),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize()) {
@@ -418,7 +418,7 @@ private fun ProfileFooterRow(
                             shape = avatarShape,
                             initialsFontSize = 10.sp,
                         )
-                    } else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                    } else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))), contentAlignment = Alignment.Center) {
                         Text("?", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -465,7 +465,7 @@ private fun ProfileFooterRow(
                             .padding(8.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
-                            Box(Modifier.size(26.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(26.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))), contentAlignment = Alignment.Center) {
                                 if (active != null) {
                                     com.movviz.tv.ui.profile.AvatarImage(
                                         profile = active,
@@ -532,16 +532,16 @@ private fun MenuItem(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = Color.White.copy(alpha = 0.09f),
-            contentColor = if (accent) MovvizBrand2 else MovvizInk,
+            contentColor = if (accent) MovvizTheme.palette.brand2 else MovvizInk,
             focusedContentColor = MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBrand2.copy(alpha = 0.50f)), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizTheme.palette.brand2.copy(alpha = 0.50f)), shape = shape),
         ),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)) {
             if (avatar != null) {
-                Box(Modifier.size(21.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(21.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))), contentAlignment = Alignment.Center) {
                     com.movviz.tv.ui.profile.AvatarImage(
                         profile = avatar,
                         modifier = Modifier.fillMaxSize(),
@@ -551,10 +551,10 @@ private fun MenuItem(
                 }
                 Spacer(Modifier.width(8.dp))
             } else if (leadingIcon != null) {
-                Icon(imageVector = leadingIcon, contentDescription = null, tint = if (accent) MovvizBrand2 else MovvizInk, modifier = Modifier.size(12.dp))
+                Icon(imageVector = leadingIcon, contentDescription = null, tint = if (accent) MovvizTheme.palette.brand2 else MovvizInk, modifier = Modifier.size(12.dp))
                 Spacer(Modifier.width(6.dp))
             }
-            Text(label, color = if (accent) MovvizBrand2 else MovvizInk, fontSize = 11.sp, fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium)
+            Text(label, color = if (accent) MovvizTheme.palette.brand2 else MovvizInk, fontSize = 11.sp, fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium)
         }
     }
 }
@@ -729,12 +729,12 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
             focusedContentColor = MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizBrand2.copy(alpha = 0.52f)), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizTheme.palette.brand2.copy(alpha = 0.52f)), shape = shape),
         ),
     ) {
         Box(
             modifier = Modifier
-                .let { if (active) it.background(MovvizBrand.copy(alpha = if (focused) 0.14f else 0.085f), shape) else it }
+                .let { if (active) it.background(MovvizTheme.palette.brand.copy(alpha = if (focused) 0.14f else 0.085f), shape) else it }
                 .let { if (expanded) it.fillMaxWidth() else it.fillMaxSize() },
             contentAlignment = if (expanded) Alignment.CenterStart else Alignment.Center,
         ) {

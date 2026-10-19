@@ -1,3 +1,21 @@
+## v1.26.054 — 19 octobre 2026
+
+### Design bêta : un or foncé à la place du violet, sur le web et sur Android TV
+
+- Les violets et mauves du design bêta deviennent un or foncé, dans la même teinte que le logo : boutons d'action principaux, états actifs, barres de progression, contours de focus, filtres et lueurs. La luminosité et la transparence d'origine sont conservées pour que tout reste lisible. Le design stable ne change pas.
+- Sur Android TV, la barre de navigation prend exactement le même fond que le reste de l'écran : un seul aplat.
+
+### Android TV bêta : nouvel écran de chargement et nouveau logo
+
+- Nouvel écran de chargement cinématographique en plein écran (la barre de navigation reste cachée dessous) : mur d'écrans éclairé en direct, reflets qui courent sur les arêtes orange, lumière sur les lettres du logo, braises, et une barre qui suit l'avancement réel avec le message de l'étape en cours. Un éclat marque la fin.
+- Démarrage au plus vite : les images sont décodées en arrière-plan dès le lancement de l'application, une version légère de la même scène s'affiche immédiatement dans l'attente, et rien n'est calculé à l'exécution (masques et halos sont fournis prêts à l'emploi). Avec « réduire les animations », la scène reste immobile.
+- Le logo complet petit format animé remplace le symbole et le texte partout (sélecteur de profil, connexion, installation, lecteur, barre étendue). Barre repliée : seul le symbole « O » animé reste, plus grand et centré.
+
+### Design bêta web : logo partout, barre latérale épurée
+
+- Le logo complet petit format animé s'affiche partout (connexion, installation, lecteur, À propos) ; dans la barre latérale il laisse place au symbole « O » animé quand elle est repliée.
+- Dans la barre latérale, le logo est décalé un peu vers la gauche et la ligne de séparation sous l'en-tête a disparu.
+
 ## v1.26.053 — 19 octobre 2026
 
 ### Design bêta : le splash démarre instantanément, logo complet dans la barre latérale

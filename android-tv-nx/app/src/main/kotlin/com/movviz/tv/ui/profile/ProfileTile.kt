@@ -90,7 +90,7 @@ fun ProfileTile(
                 val line = Border(BorderStroke(1.dp, if (active) palette.accent.copy(alpha = .7f) else palette.line), shape = shape)
                 ClickableSurfaceDefaults.border(border = line, focusedBorder = line)
             } else ClickableSurfaceDefaults.border(
-                border = if (active) Border(BorderStroke(1.dp, MovvizBrand2.copy(alpha = .55f))) else Border.None,
+                border = if (active) Border(BorderStroke(1.dp, MovvizTheme.palette.brand2.copy(alpha = .55f))) else Border.None,
                 focusedBorder = Border(BorderStroke(2.dp, Color.White)),
             ),
         ) {
@@ -108,7 +108,7 @@ fun ProfileTile(
                         Modifier
                             .align(Alignment.BottomEnd)
                             .size(14.dp)
-                            .background(if (beta) palette.accent else MovvizBrand2, CircleShape),
+                            .background(if (beta) palette.accent else MovvizTheme.palette.brand2, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("✓", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
@@ -130,7 +130,7 @@ fun ProfileTile(
         if (active) {
             Spacer(Modifier.height(2.dp))
             if (beta) Text("Profil actif", color = palette.accent, fontSize = 12.sp, fontFamily = MovvizUiFonts, fontWeight = FontWeight.Medium)
-            else Text("Profil actif", color = MovvizBrand2, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            else Text("Profil actif", color = MovvizTheme.palette.brand2, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         } else {
             Spacer(Modifier.height(11.dp))
         }
@@ -160,20 +160,20 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                 containerColor = Color.White.copy(alpha = .055f),
                 focusedContainerColor = Color.White.copy(alpha = .10f),
-                contentColor = MovvizBrand2,
+                contentColor = MovvizTheme.palette.brand2,
             ),
             border = if (beta) {
                 val line = Border(BorderStroke(1.dp, palette.lineStrong), shape = shape)
                 ClickableSurfaceDefaults.border(border = line, focusedBorder = line)
             } else ClickableSurfaceDefaults.border(
                 border = Border(BorderStroke(1.dp, Color.White.copy(alpha = .12f))),
-                focusedBorder = Border(BorderStroke(2.dp, MovvizBrand2)),
+                focusedBorder = Border(BorderStroke(2.dp, MovvizTheme.palette.brand2)),
             ),
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Box(
                     Modifier.size(44.dp).background(
-                        Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .20f), MovvizBrand2.copy(alpha = .24f))),
+                        Brush.linearGradient(listOf(MovvizTheme.palette.brand.copy(alpha = .20f), MovvizTheme.palette.brand2.copy(alpha = .24f))),
                         CircleShape,
                     ),
                     contentAlignment = Alignment.Center,
@@ -229,7 +229,7 @@ fun AvatarImage(
         )
     } else {
         Box(
-            modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
+            modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))),
             contentAlignment = Alignment.Center,
         ) {
             Text(

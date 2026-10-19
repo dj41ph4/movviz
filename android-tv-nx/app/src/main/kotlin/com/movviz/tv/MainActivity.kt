@@ -134,7 +134,18 @@ class MainActivity : ComponentActivity() {
             val betaUi by appViewModel.betaUiEnabled.collectAsState()
             val resolvedAppearance = betaUi
             if (resolvedAppearance == null) {
-                Box(Modifier.fillMaxSize().background(Color(0xFF05070F)))
+                // Bêta connue d'avance (lue au lancement du processus) : on montre déjà la plaque du splash,
+                // pour que l'écran ne passe pas par un aplat sombre avant la scène.
+                if (com.movviz.tv.ui.theme.CinemaSplashAssets.betaHint == true) {
+                    androidx.compose.foundation.Image(
+                        bitmap = com.movviz.tv.ui.theme.CinemaSplashAssets.lowRes(this@MainActivity),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF05070F)))
+                }
                 return@setContent
             }
             MovvizTvTheme(beta = resolvedAppearance) {
@@ -441,8 +452,6 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             viewModel = viewModel,
             coldStart = coldStart,
             homeLoading = currentRoute == ROUTE_HOME && tab == HomeTab.HOME && !searchOpen && homeBooting,
-            railShown = !coldStart && routeShowsNavRail(currentRoute),
-            railWidthPx = { railWidthPx },
             loadingFocused = !coldStart && homeLoadingFocused,
             modifier = Modifier.zIndex(1f),
         )
@@ -763,40 +772,25 @@ composable(ROUTE_PROFILES) {
  * Splash Bêta unique de l'application : démarrage à froid puis, sans
  * rupture, chargement de l'accueil (progression et messages réels du
  * bootstrap, anneau autour de la progression quand le bloc de chargement de
- * l'accueil a le focus). Ne couvre que la zone de contenu dès que la barre
- * est affichée ; jamais focalisable. Composable à part : les lectures de
- * `homeUiState` ne recomposent que lui, pas tout le NavHost.
+ * l'accueil a le focus). PLEIN ÉCRAN : la barre de navigation reste cachée
+ * dessous tant qu'il est affiché ; jamais focalisable. Composable à part :
+ * les lectures de `homeUiState` ne recomposent que lui, pas tout le NavHost.
  */
 @Composable
 private fun ShellSplashOverlay(
     viewModel: AppViewModel,
     coldStart: Boolean,
     homeLoading: Boolean,
-    railShown: Boolean,
-    railWidthPx: () -> Int,
     loadingFocused: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val railFraction by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (railShown) 1f else 0f,
-        animationSpec = tween(com.movviz.tv.ui.theme.MovvizMotion.PANEL, easing = com.movviz.tv.ui.theme.MovvizMotion.EaseOut),
-        label = "splashRailInset",
-    )
     val homeUi by viewModel.homeUiState.collectAsState()
     com.movviz.tv.ui.theme.ProjectionSplashOverlay(
         visible = coldStart || homeLoading,
         progress = if (coldStart) null else homeUi.bootProgress,
         message = if (coldStart) null else homeUi.bootMessage,
         focused = loadingFocused,
-        modifier = modifier
-            // Largeur de barre (animée par la barre) lue en mise en page :
-            // aucune recomposition pendant son déploiement.
-            .layout { measurable, constraints ->
-                val inset = (railWidthPx() * railFraction).toInt().coerceIn(0, constraints.maxWidth)
-                val width = constraints.maxWidth - inset
-                val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
-                layout(constraints.maxWidth, placeable.height) { placeable.place(inset, 0) }
-            },
+        modifier = modifier,
     )
 }
 

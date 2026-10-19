@@ -154,7 +154,7 @@ private fun LibraryToggleChip(label: String, active: Boolean, onClick: () -> Uni
     ) {
         Box(
             modifier = Modifier
-                .let { if (active) it.background(Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)), shape) else it }
+                .let { if (active) it.background(Brush.linearGradient(listOf(MovvizBrand3, MovvizTheme.palette.brand, MovvizTheme.palette.brand2)), shape) else it }
                 .padding(horizontal = 17.dp, vertical = 8.dp),
         ) {
             Text(

@@ -69,7 +69,7 @@ function WizardIntro({ onDone }: { onDone: () => void }) {
       transition={{ duration: 0.5 }}
     >
       <AnimatedLogo size="lg" />
-      <div className="text-logo-flow text-3xl font-black tracking-tight">Movviz</div>
+      <div className="mv-brand-name text-logo-flow text-3xl font-black tracking-tight">Movviz</div>
     </motion.div>
   );
 }

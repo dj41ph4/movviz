@@ -93,6 +93,7 @@ import android.graphics.Typeface
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.movviz.tv.data.ApiResult
+import com.movviz.tv.ui.theme.MovvizTheme
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.PlaybackPrefs
 import com.movviz.tv.ui.theme.MovvizBrand
@@ -1687,6 +1688,10 @@ private fun subtitleTrackOptions(player: ExoPlayer): List<TrackOption> =
  *  repasser par la composition. */
 @Composable
 private fun BufferingSpinner(size: Dp, modifier: Modifier = Modifier) {
+    // Couleurs de marque lues en composition : les lambdas de dessin ci-dessous ne sont pas composables.
+    val brandC = MovvizTheme.palette.brand
+    val brand2C = MovvizTheme.palette.brand2
+    val brandGlowC = MovvizTheme.palette.brandGlow
     val transition = rememberInfiniteTransition(label = "buffering")
     val angle by transition.animateFloat(
         initialValue = 0f,
@@ -1696,7 +1701,7 @@ private fun BufferingSpinner(size: Dp, modifier: Modifier = Modifier) {
     )
     Canvas(modifier = modifier.size(size).graphicsLayer { rotationZ = angle }) {
         drawArc(
-            brush = Brush.sweepGradient(listOf(Color.Transparent, MovvizBrand, MovvizBrand2)),
+            brush = Brush.sweepGradient(listOf(Color.Transparent, brandC, brand2C)),
             startAngle = 0f,
             sweepAngle = 300f,
             useCenter = false,
@@ -1724,6 +1729,10 @@ private fun PlayerProgressBar(
     onMoveToControls: (() -> Unit)? = null,
     onInteraction: (() -> Unit)? = null,
 ) {
+    // Couleurs de marque lues en composition : les lambdas de dessin ci-dessous ne sont pas composables.
+    val brandC = MovvizTheme.palette.brand
+    val brand2C = MovvizTheme.palette.brand2
+    val brandGlowC = MovvizTheme.palette.brandGlow
     var positionMs by remember { mutableStateOf(0L) }
     var durationMs by remember { mutableStateOf(0L) }
     var bufferedPercent by remember { mutableStateOf(0) }
@@ -1798,13 +1807,13 @@ private fun PlayerProgressBar(
                 val core = size.height
                 if (w > 0f) {
                     drawRoundRect(
-                        brush = Brush.horizontalGradient(listOf(MovvizBrand.copy(alpha = 0.35f), MovvizBrand2.copy(alpha = 0.35f))),
+                        brush = Brush.horizontalGradient(listOf(brandC.copy(alpha = 0.35f), brand2C.copy(alpha = 0.35f))),
                         topLeft = Offset(0f, core / 2f - core * 1.6f),
                         size = Size(w, core * 3.2f),
                         cornerRadius = CornerRadius(core * 1.6f),
                     )
                     drawRoundRect(
-                        brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                        brush = Brush.horizontalGradient(listOf(brandC, brand2C)),
                         topLeft = Offset.Zero,
                         size = Size(w, core),
                         cornerRadius = CornerRadius(core / 2f),
@@ -1820,7 +1829,7 @@ private fun PlayerProgressBar(
                 val handleCenter = Offset(handleX, core / 2f)
                 drawCircle(
                     brush = Brush.radialGradient(
-                        listOf(MovvizBrandGlow.copy(alpha = 0.55f), Color.Transparent),
+                        listOf(brandGlowC.copy(alpha = 0.55f), Color.Transparent),
                         center = handleCenter,
                         radius = core * 3.2f,
                     ),
@@ -1828,7 +1837,7 @@ private fun PlayerProgressBar(
                     center = handleCenter,
                 )
                 drawCircle(color = Color(0xFF13131B), radius = core * 1.3f, center = handleCenter)
-                drawCircle(color = if (focused) MovvizBrand2 else Color.White, radius = if (focused) core * 1.25f else core * 1.0f, center = handleCenter)
+                drawCircle(color = if (focused) brand2C else Color.White, radius = if (focused) core * 1.25f else core * 1.0f, center = handleCenter)
             }
         }
         Spacer(modifier = Modifier.height(6.dp))
@@ -2046,7 +2055,7 @@ private fun ControlButton(
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, if (primary) MovvizBrand else Color.White),
+                border = androidx.compose.foundation.BorderStroke(2.dp, if (primary) MovvizTheme.palette.brand else Color.White),
                 shape = CircleShape,
             ),
         ),
@@ -2134,7 +2143,7 @@ private fun ResolutionBadge(label: String?) {
                 style = TextStyle(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Black,
-                    brush = Brush.linearGradient(listOf(MovvizBrand3, MovvizBrand, MovvizBrand2)),
+                    brush = Brush.linearGradient(listOf(MovvizBrand3, MovvizTheme.palette.brand, MovvizTheme.palette.brand2)),
                 ),
             )
         }
@@ -2219,12 +2228,12 @@ private fun ErrorActionButton(
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (primary) MovvizBrand else Color.White.copy(alpha = 0.14f),
+            containerColor = if (primary) MovvizTheme.palette.brand else Color.White.copy(alpha = 0.14f),
             contentColor = Color.White,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, if (primary) MovvizBrand2 else MovvizBrand),
+                border = androidx.compose.foundation.BorderStroke(2.dp, if (primary) MovvizTheme.palette.brand2 else MovvizTheme.palette.brand),
                 shape = shape,
             ),
         ),
@@ -2383,7 +2392,7 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
         // simple changement d'opacité est trop discret au D-pad.
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand),
+                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizTheme.palette.brand),
                 shape = shape,
             ),
         ),
@@ -2398,7 +2407,7 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
                 Icon(
                     imageVector = MovvizIconCheck,
                     contentDescription = null,
-                    tint = MovvizBrand,
+                    tint = MovvizTheme.palette.brand,
                     modifier = Modifier.size(14.dp),
                 )
             }

@@ -63,6 +63,7 @@ import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import com.movviz.tv.data.TrailerSourceDto
+import com.movviz.tv.ui.theme.MovvizTheme
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizIconPause
@@ -344,7 +345,7 @@ private fun TrailerControls(position: Long, duration: Long, playing: Boolean) {
                         .fillMaxWidth(fraction)
                         .fillMaxHeight()
                         .background(
-                            if (beta) Brush.horizontalGradient(listOf(accent, accent)) else Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                            if (beta) Brush.horizontalGradient(listOf(accent, accent)) else Brush.horizontalGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)),
                             RoundedCornerShape(3.dp),
                         ),
                 )

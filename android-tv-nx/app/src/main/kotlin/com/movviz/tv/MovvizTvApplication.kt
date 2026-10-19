@@ -8,6 +8,13 @@ import coil.disk.DiskCache
 import coil.decode.SvgDecoder
 import coil.memory.MemoryCache
 import com.movviz.tv.data.ApiClient
+import com.movviz.tv.data.ServerPrefs
+import com.movviz.tv.ui.theme.CinemaSplashAssets
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
@@ -23,6 +30,13 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         ApiClient.initialize(this)
+        // Splash Bêta : lire la préférence puis décoder les images PENDANT que l'activité se crée,
+        // hors du thread principal. Quand le splash est composé, tout est déjà prêt.
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            val beta = runCatching { ServerPrefs(applicationContext).betaUiEnabled.first() }.getOrDefault(false)
+            CinemaSplashAssets.betaHint = beta
+            if (beta) CinemaSplashAssets.preload(applicationContext)
+        }
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
