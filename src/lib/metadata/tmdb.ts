@@ -1021,12 +1021,12 @@ function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string
 }
 
 /** Alternate backdrops/logos for a title — feeds the artwork picker. */
-export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
+export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string, extraLanguages: string[] = []): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
   const preferredLocale = toTmdbLanguage(locale);
   const lang = preferredLocale.split("-")[0];
   const data = await tmdbGet<RawTitleImages>(
     `/${type === "movie" ? "movie" : "tv"}/${tmdbId}/images`,
-    { include_image_language: lang === "fr" ? "fr,en,null" : "en,null" },
+    { include_image_language: [...(lang === "fr" ? ["fr", "en", "null"] : ["en", "null"]), ...extraLanguages].join(",") },
     preferredLocale
   );
   return { backdrops: mapTitleImages(data?.backdrops, lang), logos: mapTitleImages(data?.logos, lang) };

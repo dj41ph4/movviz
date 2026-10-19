@@ -47,7 +47,7 @@ export function ArtworkFields({
   const [localLogo, setLocalLogo] = useState(currentLogoPath);
 
   const { data, isLoading } = useSWR<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }>(
-    `/api/metadata/images?tmdbId=${tmdbId}&type=${type}&locale=${locale}`
+    `/api/metadata/images?tmdbId=${tmdbId}&type=${type}&locale=${locale}&picker=1`
   );
   const options = tab === "backdrop" ? data?.backdrops ?? [] : data?.logos ?? [];
   const current = tab === "backdrop" ? localBackdrop : localLogo;

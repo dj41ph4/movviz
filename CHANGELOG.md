@@ -1,3 +1,10 @@
+## v1.26.050 — 19 octobre 2026
+
+### Bleach : les logos japonais de la série originale dans le sélecteur
+
+- Le sélecteur de logo de Bleach propose maintenant aussi les logos japonais, dont le logo classique « BLEACH ブリーチ » rouge et bleu de la série originale, qui n'existe pas en français ni en anglais.
+- Le logo choisi automatiquement et les autres séries ne changent pas.
+
 ## v1.26.049 — 19 octobre 2026
 
 ### Bleach : la recherche manuelle retrouve les épisodes de Thousand-Year Blood War

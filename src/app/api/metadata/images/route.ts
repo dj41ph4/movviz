@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { requireUser } from "@/lib/auth/guard";
 import { getTitleImages, pickEditorialArtwork } from "@/lib/metadata/tmdb";
 import { cacheTitleArtwork } from "@/lib/metadata/titleArtworkCache";
@@ -17,7 +18,11 @@ export async function GET(req: NextRequest) {
   if (!Number.isInteger(tmdbId) || tmdbId <= 0) return NextResponse.json({ error: "invalid_tmdbId" }, { status: 400 });
   if (type !== "movie" && type !== "series") return NextResponse.json({ error: "invalid_type" }, { status: 400 });
 
-  const images = await getTitleImages(tmdbId, type, locale);
+  // The artwork picker for Bleach also offers TMDb's Japanese logos: the
+  // original series' classic logo only exists in that language. Automatic
+  // picks (hero, cards) never ask for it.
+  const pickerExtras = req.nextUrl.searchParams.get("picker") === "1" && tmdbId === BLEACH_TMDB_ID && type === "series" ? ["ja"] : [];
+  const images = await getTitleImages(tmdbId, type, locale, pickerExtras);
   const artwork = pickEditorialArtwork(images);
   // An empty list is how a TMDb hiccup shows up: never let the browser keep it
   // for a day, or the logo is not retried until the next session.
@@ -25,7 +30,7 @@ export async function GET(req: NextRequest) {
   // The hero and the artwork picker share this route. Once either one has
   // seen a title, the editorial-card batch can reuse its chosen backdrop and
   // official title mark without another TMDb call.
-  cacheTitleArtwork([{
+  if (!pickerExtras.length) cacheTitleArtwork([{
     type,
     tmdbId,
     ...artwork,
