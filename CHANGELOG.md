@@ -1,3 +1,18 @@
+## v1.27.12 — 20 octobre 2026
+
+### Accueil : bannière plus lumineuse et plus claire (ordinateur)
+
+- L’image de la bannière est nettement plus claire, avec une ombre légère sous les textes pour qu’ils restent lisibles.
+- Les badges techniques (4K, HDR, MULTI, TrueHD…) ont leur propre ligne, sous les genres.
+- « Informations » devient « Plus d’infos », l’icône du bouton Lire est pleine, et le texte des boutons est un peu plus grand.
+- Les raisons de la suggestion sont affichées en permanence en bas à droite, sous les flèches de défilement, à la place du bouton « Pourquoi ce contenu ? ».
+- Le bouton du son passe en haut à droite, avec un trait plus fin ; il est de nouveau cliquable.
+
+### Interface
+
+- Le thème Bêta devient l’unique apparence de Movviz : le choix entre Stable et Bêta est retiré des réglages.
+- Barre latérale plus étroite, liens remontés d’un cran et icônes alignées à l’identique, que la barre soit dépliée ou repliée. Le bouton pour la replier ou la déplier se trouve désormais en bas, au-dessus du profil.
+
 ## v1.27.11 — 20 octobre 2026
 
 ### Recherche tolérante aux fautes sur Android TV, Android mobile et Samsung
