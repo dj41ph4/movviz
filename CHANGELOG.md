@@ -1,3 +1,9 @@
+## v1.27.15 — 20 octobre 2026
+
+### Barre latérale : bouton de mise à jour lisible avec le zoom d’accessibilité
+
+- Avec le texte agrandi (110 % ou 120 %), le bouton « Nouvelle mise à jour disponible » débordait de la barre latérale. Il affiche maintenant un libellé court (« Mise à jour v1.27.15 ») et s’agrandit si nécessaire au lieu de déborder ; le texte complet reste visible au survol.
+
 ## v1.27.14 — 20 octobre 2026
 
 ### Bandes-annonces : une vidéo de remplacement quand YouTube bloque la lecture
