@@ -48,6 +48,9 @@ jobs:
         run: npm ci --no-audit --no-fund
         working-directory: engine
 
+      - name: Verify WebTorrent queue and transfers
+        run: node --test scripts/engine-client-restart.test.mjs scripts/engine-seed.test.mjs scripts/engine-pause.test.mjs scripts/engine-stall.test.mjs scripts/engine-episode-placement.test.mjs scripts/engine-replacement-retry.test.mjs
+
       - name: Install resolver dependencies
         run: npm ci --no-audit --no-fund
         working-directory: resolver

@@ -1,8 +1,7 @@
 import path from "node:path";
 import fsp from "node:fs/promises";
 import { WebTorrentBackend } from "./backends/WebTorrentBackend.mjs";
-import { NativeTorrentBackend } from "./backends/NativeTorrentBackend.mjs";
-import { LibtorrentBackend } from "./backends/LibtorrentBackend.mjs";
+import { retainMetainfo } from "./manualSeed.mjs";
 import {
   DEFAULT_INSTANCES,
   DATA_DIR,
@@ -15,13 +14,7 @@ import {
 } from "./config.mjs";
 import { loadState, scheduleSave, writeState, ensureDir } from "./store.mjs";
 
-function createBackend(cfg, deps, clientType) {
-  if (clientType === "native") {
-    return new NativeTorrentBackend(cfg, deps);
-  }
-  if (clientType === "libtorrent") {
-    return new LibtorrentBackend(cfg, deps);
-  }
+function createBackend(cfg, deps) {
   return new WebTorrentBackend(cfg, deps);
 }
 
@@ -37,7 +30,12 @@ export class MovvizEngine {
       ? this.state.statsHistory.filter((sample) => sample && sample.at >= cutoff).slice(-360)
       : [];
     this.started = false;
-    this._clientType = resolveClientType(this.state);
+    const hasSavedQueue = Array.isArray(this.state.torrents) && this.state.torrents.length > 0;
+    this._legacyClientMigration = this.state.webTorrentMigrationPending === true
+      || (!!this.state.clientType && this.state.clientType !== "webtorrent")
+      || (!this.state.clientType && hasSavedQueue);
+    this._clientType = resolveClientType();
+    this.state.clientType = this._clientType;
     this.clientRestart = { restarting: false, error: null };
   }
 
@@ -56,6 +54,11 @@ export class MovvizEngine {
   }
 
   async start() {
+    // A retired backend's durable queue must survive any init/restore failure.
+    if (this._legacyClientMigration) {
+      this._preserveRestartState = true;
+      this.state.webTorrentMigrationPending = true;
+    }
     await ensureDir(CONFIG_DIR);
     await ensureDir(DATA_DIR);
     const deps = {
@@ -64,7 +67,7 @@ export class MovvizEngine {
     };
     for (const cfg of this.configs()) {
       try {
-        const inst = createBackend(cfg, deps, this._clientType);
+        const inst = createBackend(cfg, deps);
         await inst.init();
         this.instances.set(cfg.id, inst);
       } catch (e) {
@@ -76,7 +79,18 @@ export class MovvizEngine {
       this.started = true;
       return;
     }
-    await this.resumeTorrents();
+    try {
+      await this.resumeTorrents(this._legacyClientMigration);
+      if (this._legacyClientMigration) {
+        this._preserveRestartState = false;
+        this._legacyClientMigration = false;
+        delete this.state.webTorrentMigrationPending;
+        this.persist();
+      }
+    } catch (error) {
+      this.clientRestart.error = error.message ?? String(error);
+      console.error("[engine] WebTorrent migration incomplete; saved queue retained:", this.clientRestart.error);
+    }
     this.ticker = setInterval(() => {
       if (this._preserveRestartState) return;
       for (const inst of this.instances.values()) inst.tick();
@@ -107,6 +121,7 @@ export class MovvizEngine {
         continue;
       }
       let torrentId = null;
+      if (this._legacyClientMigration) await retainMetainfo(inst.cfg, rec.infoHash);
       try {
         torrentId = await fsp.readFile(path.join(TORRENT_CACHE_DIR, `${rec.infoHash}.torrent`));
       } catch {
@@ -245,26 +260,16 @@ export class MovvizEngine {
     return inst.cfg;
   }
 
-  /** Switch client type and restart instances. */
+  /** Compatibility endpoint: selecting the sole backend is a harmless no-op. */
   async setClientType(clientType) {
     if (this._preserveRestartState) throw new Error("Torrent client restart pending");
-    if (clientType !== "webtorrent" && clientType !== "native" && clientType !== "libtorrent") {
+    if (clientType !== "webtorrent") {
       throw new Error(`invalid client type: ${clientType}`);
-    }
-    this._clientType = clientType;
-    this.state.clientType = clientType;
-    this.persist();
-    this._changingClientType = true;
-    try {
-      await this._recreateInstances();
-    } finally {
-      this._changingClientType = false;
     }
   }
 
   /** Recreate the actual clients, retaining the durable queue even on failure. */
   restartClients() {
-    if (this._changingClientType) throw new Error("Client type change in progress");
     if (this.clientRestart.restarting) return;
     this.clientRestart = { restarting: true, error: null };
     this._restartTask = (async () => {
@@ -274,6 +279,8 @@ export class MovvizEngine {
         await writeState(this.state);
         await this._recreateInstances(createBackend, true);
         this._preserveRestartState = false;
+        this._legacyClientMigration = false;
+        delete this.state.webTorrentMigrationPending;
         this.persist();
       } catch (e) {
         this.clientRestart.error = e.message ?? String(e);
@@ -295,10 +302,10 @@ export class MovvizEngine {
     };
     for (const cfg of this.configs()) {
       try {
-        const inst = factory(cfg, deps, this._clientType);
+        const inst = factory(cfg, deps);
         await inst.init();
         this.instances.set(cfg.id, inst);
-        if (strict && (this._clientType === "webtorrent" ? !inst.client || inst.client.destroyed : !inst._available)) {
+        if (strict && (!inst.client || inst.client.destroyed)) {
           throw new Error(`Client ${cfg.id} is offline`);
         }
       } catch (e) {

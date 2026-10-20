@@ -13,6 +13,7 @@ const { MovvizEngine } = await import("../engine/src/engine.mjs");
 const { STATE_FILE, ENGINE_TOKEN } = await import("../engine/src/config.mjs");
 const { stopClientProcess } = await import("../engine/src/processLifecycle.mjs");
 const { createApiServer } = await import("../engine/src/api.mjs");
+const { WebTorrentBackend } = await import("../engine/src/backends/WebTorrentBackend.mjs");
 
 function fixture(factory) {
   const engine = new MovvizEngine();
@@ -85,15 +86,22 @@ test("offline client reports failure, retains durable queue and permits retry", 
   assert.equal(engine.state.torrents.length, 2);
 });
 
-test("native and libtorrent ready instances restore successfully", async () => {
-  for (const clientType of ["native", "libtorrent"]) {
-    const { engine } = fixture();
-    engine._clientType = clientType;
-    engine.restartClients();
-    await engine._restartTask;
-    assert.equal(engine.clientRestart.error, null);
-    assert.equal(engine.state.torrents.length, 2);
+test("retired selections resolve to WebTorrent without modifying the saved queue", async () => {
+  const { resolveClientType } = await import("../engine/src/config.mjs");
+  for (const clientType of ["aria2", "native", "libtorrent", "webtorrent"]) {
+    const state = { clientType, torrents: [{ infoHash: "abc", userPaused: true, movedFiles: [{ path: "/library/Inception.mkv" }] }] };
+    const before = JSON.stringify(state);
+    process.env.MOVVIZ_CLIENT_TYPE = clientType;
+    assert.equal(resolveClientType(state), "webtorrent");
+    assert.equal(JSON.stringify(state), before);
   }
+  delete process.env.MOVVIZ_CLIENT_TYPE;
+  const { engine, records } = fixture();
+  const before = JSON.stringify(engine.state);
+  await engine.setClientType("webtorrent");
+  assert.equal(JSON.stringify(engine.state), before);
+  for (const type of ["native", "aria2", "libtorrent"]) await assert.rejects(engine.setClientType(type), /invalid client type/);
+  assert.equal(records.length, 2);
 });
 
 test("missing restoration input is an error, not a successful empty queue", async () => {
@@ -103,6 +111,50 @@ test("missing restoration input is an error, not a successful empty queue", asyn
   await engine._restartTask;
   assert.match(engine.clientRestart.error, /Cannot restore torrent/);
   assert.equal(engine.state.torrents.length, 2);
+});
+
+test("legacy startup keeps the durable queue during callbacks and failed WebTorrent restoration", async () => {
+  const methods = Object.fromEntries(["init", "add", "persistable", "destroy"].map((key) => [key, WebTorrentBackend.prototype[key]]));
+  let fail = false;
+  WebTorrentBackend.prototype.init = async function () { this.client = {}; this.restored = []; this.onChange(); };
+  WebTorrentBackend.prototype.add = async function (_id, options) {
+    this.onChange();
+    if (fail) throw new Error("fixture restore failed");
+    this.restored.push({ ...options, userPaused: options.paused });
+  };
+  WebTorrentBackend.prototype.persistable = function () { return [...this.restored, ...this.importedHistory.values()]; };
+  WebTorrentBackend.prototype.destroy = async function () {};
+  try {
+    for (fail of [false, true]) {
+      const engine = new MovvizEngine();
+      engine.state = { clientType: "webtorrent", instances: {}, torrents: [
+        { instanceId: "films", infoHash: "abc", magnetURI: "magnet:?xt=urn:btih:abc", userPaused: true, addedAt: 123 },
+        { instanceId: "films", infoHash: "def", movedTo: "/library/Inception.mkv", movedFiles: [{ path: "/library/Inception.mkv" }] },
+      ] };
+      engine._legacyClientMigration = true;
+      engine.configs = () => [{ id: "films", downloadPath: root, completedPath: root }];
+      engine._recordStats = () => {};
+      try {
+        await engine.start();
+        assert.equal(engine.state.torrents.length, 2);
+        assert.equal(engine.state.torrents[0].userPaused, true);
+        assert.equal(engine.state.torrents[1].movedTo, "/library/Inception.mkv");
+        assert.equal(!!engine._preserveRestartState, fail);
+        assert.equal(engine.state.webTorrentMigrationPending === true, fail);
+        assert.equal(engine.state.clientType, "webtorrent");
+        if (fail) {
+          assert.match(engine.clientRestart.error, /restore/);
+          const { writeState } = await import("../engine/src/store.mjs");
+          await writeState(engine.state);
+          const afterReboot = new MovvizEngine();
+          assert.equal(afterReboot._legacyClientMigration, true);
+          assert.equal(afterReboot.state.torrents.length, 2);
+        }
+      } finally { clearInterval(engine.ticker); }
+    }
+  } finally {
+    for (const [key, method] of Object.entries(methods)) WebTorrentBackend.prototype[key] = method;
+  }
 });
 
 test("graceful process shutdown waits for actual exit", async () => {

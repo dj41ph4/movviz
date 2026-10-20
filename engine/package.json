@@ -8,10 +8,8 @@
   "scripts": {
     "start": "node src/index.mjs"
   },
-  "optionalDependencies": {
-    "webtorrent": "^2.6.19"
-  },
   "dependencies": {
+    "webtorrent": "^2.6.19",
     "nat-upnp": "^1.1.1"
   }
 }

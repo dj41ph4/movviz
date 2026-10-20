@@ -1,3 +1,16 @@
+## v1.27.09 — 20 octobre 2026
+
+### Téléchargements : WebTorrent devient le moteur unique
+
+- Suppression des moteurs aria2 et rTorrent, du sélecteur de moteur dans les réglages et de leurs dépendances dans les installateurs Windows, Linux et Docker. WebTorrent reste le moteur intégré pour les films et les séries.
+- Les anciennes sélections de moteur sont reprises avec WebTorrent sans effacer la file, les fichiers ni l'historique. Si la restauration d'un téléchargement échoue, la file enregistrée est conservée pour permettre une nouvelle tentative.
+
+### Windows : mises à jour indépendantes de Movviz
+
+- Le nouveau service « Movviz Update » contrôle le téléchargement officiel par SHA256, installe la mise à jour et confirme que la version attendue répond après redémarrage. Il reste actif quand l'installateur arrête Movviz, et conserve les journaux en cas d'échec.
+- Le réglage automatique désactivé continue d'autoriser uniquement les mises à jour demandées par clic. Une installation manuelle de cette version est nécessaire une première fois pour créer le service, sans perdre les données ni les réglages.
+- Le test de compilation Windows génère désormais son icône, comme l'installateur de production, pour fonctionner également sur un runner vierge.
+
 ## v1.27.08 — 20 octobre 2026
 
 ### Windows : installation du service Movviz Update

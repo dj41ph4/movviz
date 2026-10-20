@@ -46,7 +46,7 @@ RUN addgroup -g 1001 movviz && adduser -u 1001 -G movviz -S movviz
 # tracks always go through burn-in, see decidePlayback.ts's subtitle
 # pipeline) either renders invisible text or fails the whole ffmpeg process
 # outright, found auditing the production image, not hypothetically.
-RUN apk add --no-cache su-exec aria2 rtorrent ffmpeg fontconfig ttf-dejavu
+RUN apk add --no-cache su-exec ffmpeg fontconfig ttf-dejavu
 RUN ffmpeg -version >/dev/null && ffprobe -version >/dev/null
 
 # Standalone server + assets only (small image).

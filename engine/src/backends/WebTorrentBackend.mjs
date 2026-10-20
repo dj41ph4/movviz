@@ -261,8 +261,7 @@ export class WebTorrentBackend extends AbstractBackend {
       // doesn't affect that) so it reads as active and never trips stall
       // detection, but downloads 0 bytes of anything forever. "ready" fires
       // once t.files is actually populated, so retry here — same fix
-      // already shipped for this exact race in NativeTorrentBackend.mjs's
-      // poll loop, just triggered by the event instead of polling.
+      // retried when the metadata-ready event arrives.
       const m = this.meta.get(infoHash);
       if (m && (m.episodeTargets?.length || m.episodeTarget) && !m.selectedFileIndices && t.files?.length) {
         this._selectEpisodeFiles(this._wtHandle(t), m);

@@ -6,7 +6,7 @@
   <img src="public/brand/m/movviz-logo-h-960.webp" width="520" alt="Movviz — Vos univers en un seul endroit"/>
 </h1>
 <p><strong>Ton catalogue. Ton serveur. Tes règles.</strong></p>
-<p><strong>Version actuelle : v1.27.08</strong></p>
+<p><strong>Version actuelle : v1.27.09</strong></p>
 
 <p>
 Movviz réunit en <strong>une seule application auto-hébergée</strong> tout ce qu'il faut pour vivre ses films et séries :
@@ -293,7 +293,7 @@ L'accueil est pensé comme celui d'une plateforme de streaming, mais nourri par 
 
 - **Moteur BitTorrent intégré**, dans un processus séparé :
   - **une instance pour les films, une pour les séries**, chacune avec ses dossiers, ses limites de vitesse, son ratio de seed, ses pairs et ses slots d'envoi ;
-  - deux moteurs au choix : **stable** (JavaScript) ou **natif**, en bêta, très léger (quelques Mo de mémoire, des centaines de torrents).
+  - un moteur intégré unique : **WebTorrent**, avec reprise des téléchargements après redémarrage.
 - **File de téléchargement** : progression, vitesse, temps restant, pause/reprise, redémarrage, retrait (avec ou sans les fichiers), ajout manuel par **lien magnet** ou **fichier .torrent**, jaquettes et titres cliquables.
 - **Import automatique** : à la fin du téléchargement, le fichier est déplacé et **renommé selon ton modèle**, la fiche passe à « Lire ». Un épisode re-téléchargé **remplace** l'ancien fichier au lieu de s'installer à côté.
 - **Remise en seed après import** : le bouton de partage des téléchargements terminés vérifie les fichiers renommés puis partage leurs données en lecture seule, sans copie ni retéléchargement. L'interface distingue vérification, seed complet, seed partiel et fichiers indisponibles. Le torrent et la correspondance des chemins sont conservés après redémarrage.

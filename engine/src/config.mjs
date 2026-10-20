@@ -111,21 +111,10 @@ function resolveEngineToken() {
 export const ENGINE_TOKEN = resolveEngineToken();
 
 /**
- * Which torrent client backend to use: "webtorrent" (default) or "native".
- * When set, only the chosen backend is loaded — the other dependency is
- * never imported. Override with MOVVIZ_CLIENT_TYPE env var or persisted
- * in engine-state.json under the top-level "clientType" key.
- *
- * Backward compatible: accepts "aria2" from old configs, normalises to "native".
+ * WebTorrent is the sole transport. Old persisted selections and deployment
+ * overrides cannot reactivate removed backends. Queue/files stay untouched.
  */
-export function resolveClientType(state) {
-  const env = process.env.MOVVIZ_CLIENT_TYPE?.toLowerCase().trim();
-  if (env === "aria2" || env === "native") return "native";
-  if (env === "webtorrent") return "webtorrent";
-  const ct = state?.clientType;
-  if (ct === "aria2" || ct === "native") return "native";
-  if (ct === "webtorrent") return "webtorrent";
-  if (ct === "libtorrent") return "libtorrent";
+export function resolveClientType() {
   return "webtorrent";
 }
 

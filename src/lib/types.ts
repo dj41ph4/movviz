@@ -142,7 +142,7 @@ export interface EngineInstance {
   total: number;
   downloadSpeed: number;
   uploadSpeed: number;
-  clientType?: "webtorrent" | "native" | "libtorrent";
+  clientType?: "webtorrent";
   /** Set when the instance's folders can't be created/written — the engine
    * stays up but downloads are blocked until the paths are fixed. */
   folderError?: string | null;

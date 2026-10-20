@@ -183,7 +183,6 @@ fi
 
 install_media_dependencies() {
   local packages=()
-  command -v aria2c >/dev/null 2>&1 || packages+=(aria2)
   command -v ffmpeg >/dev/null 2>&1 || packages+=(ffmpeg)
   [[ ${#packages[@]} -gt 0 ]] || return 0
 
@@ -196,7 +195,6 @@ install_media_dependencies() {
     apk add --no-cache "${packages[@]}" >/dev/null 2>&1 || true
   fi
 
-  command -v aria2c >/dev/null 2>&1 || warn "aria2 reste introuvable : le moteur utilisera ses solutions de repli."
   command -v ffmpeg >/dev/null 2>&1 || warn "FFmpeg reste introuvable : le remux et le transcodage locaux seront indisponibles."
 }
 install_media_dependencies

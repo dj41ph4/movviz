@@ -17,8 +17,6 @@ process.env.MOVVIZ_DATA_DIR = root;
 const { ManualSeed, ReadOnlySeedStore, cacheMetainfo, torrentPath } = await import("../engine/src/manualSeed.mjs");
 const { AbstractBackend } = await import("../engine/src/backends/AbstractBackend.mjs");
 const { WebTorrentBackend } = await import("../engine/src/backends/WebTorrentBackend.mjs");
-const { NativeTorrentBackend } = await import("../engine/src/backends/NativeTorrentBackend.mjs");
-const { LibtorrentBackend } = await import("../engine/src/backends/LibtorrentBackend.mjs");
 const { default: WebTorrent } = await import("../engine/node_modules/webtorrent/index.js");
 const { default: createTorrent } = await import("../engine/node_modules/create-torrent/index.js");
 const { default: parseTorrent } = await import("../engine/node_modules/parse-torrent/index.js");
@@ -169,8 +167,8 @@ test("history preserves file mapping, avoids duplicate records and reseeds after
   assert.deepEqual(await fsp.readFile(f.rec.movedTo), Buffer.from(f.buffers[0]));
 });
 
-test("all three download backends use the read-only seed flow for imported history", async (t) => {
-  for (const Backend of [WebTorrentBackend, NativeTorrentBackend, LibtorrentBackend]) {
+test("WebTorrent uses the read-only seed flow for imported history", async (t) => {
+  for (const Backend of [WebTorrentBackend]) {
     const f = await fixture(t);
     const backend = new Backend(f.cfg);
     backend._clientGet = () => null;
@@ -180,6 +178,17 @@ test("all three download backends use the read-only seed flow for imported histo
     await until(() => backend.importedSummary(f.rec).seedStatus?.state === "full", `${Backend.name} must seed`);
     assert.equal(await backend.stopSeeding(f.rec.infoHash), true);
   }
+});
+
+test("zero download limit disables the actual WebTorrent throttle, including after a 10 MiB/s cap", async (t) => {
+  const f = await fixture(t);
+  const backend = new WebTorrentBackend({ ...f.cfg, downloadLimitKbps: 10 * 1024, uploadLimitKbps: 0 });
+  backend.client = f.client;
+  backend._applyThrottle();
+  assert.equal(f.client._downloadLimit, 10 * 1024 * 1024);
+  backend.applyConfig({ downloadLimitKbps: 0 });
+  assert.equal(f.client._downloadLimit, -1);
+  assert.equal(f.client._uploadLimit, -1);
 });
 
 test("legacy history without mappings or metadata fails explicitly", async (t) => {

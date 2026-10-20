@@ -14,7 +14,8 @@ foreach ($file in @('runtime\node.exe', 'service\movviz-service.exe', 'app\serve
 foreach ($file in @('movviz-updater.xml', 'register-updater.ps1', 'update-service.ps1', 'update-worker.ps1')) {
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $fixture 'stage\updater')
 }
-foreach ($file in @('movviz.ico', 'Movviz.url', 'movviz.iss')) {
+& (Join-Path $source 'make-icon.ps1') -OutFile (Join-Path $fixture 'movviz.ico')
+foreach ($file in @('Movviz.url', 'movviz.iss')) {
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination $fixture
 }
 & $Compiler /Q '/DAppVersion=0.0.0' ("/O{0}" -f (Join-Path $fixture 'output')) (Join-Path $fixture 'movviz.iss')

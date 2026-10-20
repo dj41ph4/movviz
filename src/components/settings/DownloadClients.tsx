@@ -62,35 +62,6 @@ export function DownloadClients() {
     }
   };
 
-  const [clientType, setClientType] = useState<string>("webtorrent");
-  const [switching, setSwitching] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/engine/client-type", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setClientType(d.clientType ?? "webtorrent"))
-      .catch(() => {});
-  }, []);
-
-  const switchClient = async (type: string) => {
-    setSwitching(true);
-    try {
-      const res = await fetch("/api/engine/client-type", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ clientType: type }),
-      });
-      if (res.ok) {
-        setClientType(type);
-        // Wait for engine to restart before reloading instances
-        await new Promise((r) => setTimeout(r, 2000));
-        await load();
-      }
-    } finally {
-      setSwitching(false);
-    }
-  };
-
   return (
     <div className="rounded-2xl glass p-5">
       <div className="mb-5 flex items-start gap-3">
@@ -103,42 +74,10 @@ export function DownloadClients() {
         </div>
       </div>
 
-      {/* Client type selector */}
       <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.02] p-4">
         <Cpu className="h-5 w-5 shrink-0 text-ink-dim" />
         <span className="text-sm font-semibold text-ink-soft">{t("settings.clientEngine")}</span>
-        <div className="flex items-center gap-2">
-          {(["webtorrent", "native", "libtorrent"] as const).map((type) => (
-            <button
-              key={type}
-              onClick={() => { if (type !== clientType && !switching) switchClient(type); }}
-              disabled={switching}
-              className={cn(
-                "relative h-10 rounded-xl border px-4 text-sm font-semibold transition-all",
-                clientType === type
-                  ? "border-brand/40 bg-brand/15 text-brand-glow shadow-sm"
-                  : "border-white/8 bg-black/30 text-ink-soft hover:border-white/20"
-              )}
-            >
-              {switching && type !== clientType ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : type === "webtorrent" ? (
-                t("settings.clientStableLabel")
-              ) : type === "libtorrent" ? (
-                <span className="flex items-center gap-1.5">libtorrent <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">Expérimental</span></span>
-              ) : (
-                t("settings.clientNativeLabel")
-              )}
-            </button>
-          ))}
-        </div>
-        <span className="ml-auto text-[11px] text-ink-dim">
-          {clientType === "native"
-            ? t("settings.clientNativeHint")
-            : clientType === "libtorrent"
-            ? t("settings.clientLibtorrentHint")
-            : t("settings.clientWebtorrentHint")}
-        </span>
+        <span className="rounded-xl border border-brand/40 bg-brand/15 px-4 py-2 text-sm font-semibold text-brand-glow">WebTorrent</span>
       </div>
 
       {offline && (
@@ -222,7 +161,7 @@ function InstanceCard({
           </p>
         </div>
         <span className="rounded-lg bg-black/30 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-soft">
-          {inst.clientType === "native" ? t("settings.clientNativeLabel") : inst.clientType === "libtorrent" ? "libtorrent (Expérimental)" : "WebTorrent"}
+          WebTorrent
         </span>
       </div>
 

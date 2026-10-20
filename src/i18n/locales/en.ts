@@ -1616,10 +1616,6 @@ export const en: Dictionary = {
     clientsIntro:
       "Each category has its own download client, with its own folders, limits and priorities. Everything is unified, yet each instance stays independent.",
     clientEngine: "Torrent engine",
-    clientStableLabel: "Stable",
-    clientNativeLabel: "Beta",
-    clientNativeHint: "~5 MB RAM, hundreds of torrents",
-    clientWebtorrentHint: "50-100 MB RAM, native JS",
     boundTo: "Bound to",
     downloadPath: "Download folder",
     completedPath: "Completed folder",

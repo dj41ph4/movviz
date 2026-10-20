@@ -54,7 +54,7 @@ node --version
 systemctl --version
 ```
 
-L'installateur tente d'ajouter automatiquement `aria2` et `ffmpeg` avec le
+L'installateur tente d'ajouter automatiquement `ffmpeg` avec le
 gestionnaire de paquets disponible. Sans FFmpeg, l'interface fonctionne mais
 le remux et le transcodage locaux ne sont pas disponibles.
 

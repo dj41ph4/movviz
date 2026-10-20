@@ -6,9 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET — read current client type from the engine.
- * POST — switch to a different torrent backend (webtorrent|native).
- * Changing the client type tears down all instances and recreates them
- * with the new backend — active downloads are lost and must be re-added.
+ * POST — compatibility no-op for WebTorrent; removed backends are rejected.
  */
 export async function GET() {
   try {
@@ -24,7 +22,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { clientType } = await req.json();
-  if (clientType !== "webtorrent" && clientType !== "native") {
+  if (clientType !== "webtorrent") {
     return NextResponse.json({ error: "invalid client type" }, { status: 400 });
   }
   try {

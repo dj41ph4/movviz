@@ -45,8 +45,7 @@ async function avoidCollision(dest) {
 }
 
 /**
- * Base backend — all shared download/import/queue/naming logic that both
- * WebTorrent and Aria2 backends inherit. Concrete subclasses implement the
+ * Shared WebTorrent download/import/queue/naming logic. Subclasses implement the
  * `_client*` abstract methods for transport-specific operations.
  */
 export class AbstractBackend {
@@ -59,7 +58,7 @@ export class AbstractBackend {
     this.client = null;
     this.folderError = null;
     this.manualSeed = new ManualSeed(cfg, () => this._manualSeedClient(), () => this.onChange());
-    this.cfg.logTag = this.constructor.name === "NativeTorrentBackend" ? "beta" : this.constructor.name === "LibtorrentBackend" ? "alpha" : "stable";
+    this.cfg.logTag = "stable";
   }
 
   // ─── Abstract methods (override in subclass) ──────────────────────────────
@@ -155,10 +154,7 @@ export class AbstractBackend {
     if (this.folderError) {
       throw new Error(`download folder unavailable: ${this.folderError}`);
     }
-    // Extract infoHash from magnet URI when not explicitly provided —
-    // aria2 (native backend) cannot resolve infoHash from a magnet at add
-    // time, so without opts.infoHash the GID becomes the meta key, the
-    // real infoHash never matches, and onComplete is never triggered.
+    // Extract the stable identity before add() to detect duplicates early.
     if (!opts.infoHash && typeof torrentId === "string") {
       const m = torrentId.match(/[?&]xt=urn:btih:([a-f0-9]{32,64})/i);
       if (m) opts = { ...opts, infoHash: m[1].toLowerCase() };
@@ -336,7 +332,7 @@ export class AbstractBackend {
         });
       } else {
         if (m.movedTo) {
-          // Already imported via linkOrCopy — aria2 finished seeding.
+          // Already imported via linkOrCopy; seeding finished.
           // Only cleanup if the library notification actually went through.
           if (!m.notifiedLibrary && m.libraryRef) {
             // Notification never succeeded — retry NOW before cleanup
@@ -531,7 +527,7 @@ export class AbstractBackend {
     if (this.manualSeed?.report(infoHash) && !(await this.manualSeed.stop(infoHash))) return false;
     const m = this.meta.get(infoHash);
     if (!m) {
-      // Completed/imported torrent — clean history entry (no aria2 download to stop)
+      // Completed/imported torrent: clean the history entry.
       if (this.importedHistory.has(infoHash)) {
         this.importedHistory.delete(infoHash);
         await this._dropCachedTorrentFile?.(infoHash);
@@ -543,7 +539,7 @@ export class AbstractBackend {
     m.finishing = true;
     const snap = this._clientSnapshot(infoHash);
     // _clientRemove can silently fail to resolve the client's internal handle
-    // (aria2 GID / libtorrent id lookup miss) and return false without
+    // (client lookup miss) and return false without
     // throwing — confirmed live: this used to fall straight through to
     // meta.delete() below regardless, wiping libraryRef and every other
     // bookkeeping field while the torrent kept running/seeding in the actual
@@ -714,7 +710,7 @@ export class AbstractBackend {
     if (!m && imported) return this.importedSummary(imported);
     const bytesComplete = Number(t.length) > 0 && Number(t.downloaded) >= Number(t.length);
     const isSeeding = m?.seeding || this._isDone(t) || bytesComplete;
-    // Re-hash phase after a restart (rtorrent "checking files") — reported by
+    // Re-hash phase after a restart, reported by
     // the backend as t.verifying. Must win over stalled/queued so a torrent
     // mid-verification never shows as blocked or stuck in the queue.
     const verifying = !!t.verifying || !!m?.verifying;
@@ -788,8 +784,7 @@ export class AbstractBackend {
       queued: false,
       stalled: false,
       // A torrent restored from history after an engine restart has no live
-      // client-side handle behind it (aria2/rtorrent are child processes that
-      // die with the engine, WebTorrent's in-memory client is gone entirely)
+      // client-side handle behind it (WebTorrent's in-memory client is gone)
       // — nothing is genuinely seeding until the user explicitly toggles it
       // back on, so this is never true for an imported/restored record.
       seeding: false,
@@ -978,7 +973,7 @@ export class AbstractBackend {
         const src = path.isAbsolute(file.path) ? file.path : path.join(this.cfg.downloadPath, file.path);
         const dest = path.join(this.cfg.completedPath, file.path);
         await transfer(src, dest);
-        // Replace download copy with symlink → library so aria2 seeds from
+        // Replace download copy with symlink → library to seed from
         // the library file (saves disk and keeps library as single source of truth).
         if (transfer === linkOrCopy) {
           if (!(await this._swapForSymlink(src, dest))) m.symlinkVerificationFailed = true;
@@ -1523,7 +1518,7 @@ export class AbstractBackend {
    * Règle produit : un torrent sans mouvement pendant 2 minutes passe en
    * catégorie "blocked" — il ne consomme plus de slot dans la file (ne bloque
    * plus les autres). S'il se débloque, il se remet EN DERNIER dans la file.
-   * Détection pilotée par tick() (5 s, tous backends — WT, aria2, rtorrent) :
+   * Détection pilotée par tick() (5 s) :
    * `lastActivityAt` est réarmé uniquement à partir de 20 octets/s,
    * ce qui couvre aussi le cycle stall → recovery → re-stall.
    */

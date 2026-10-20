@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from "react";
 
 /**
  * Smoothly interpolates download progress between engine polls.
- * The engine updates every ~2.5s (aria2 tellActive) + SWR polling,
+ * Engine snapshots and SWR polling update periodically,
  * causing visible jumps. This hook advances progress at the last
  * known download speed between updates for a fluid 60fps bar.
  */
