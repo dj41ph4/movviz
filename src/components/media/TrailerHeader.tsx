@@ -5,7 +5,7 @@ import Hls from "hls.js";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
 import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
@@ -233,6 +233,10 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
 
 type TrailerCandidate = { kind: "direct"; source: TrailerSource } | { kind: "youtube"; key: string };
 
+/** Keys that already failed in this browser session: never tried again on
+ *  another slide or page (the server learns them too, see /api/trailers/blocked). */
+const sessionBlockedKeys = new Set<string>();
+
 export interface TrailerHeaderProps {
   backdropPath: string | null;
   size: TmdbImageSize;
@@ -244,6 +248,9 @@ export interface TrailerHeaderProps {
    *  falls straight through to the existing YouTube behavior, unchanged. */
   enhancedSources?: TrailerSource[];
   title: string;
+  /** Release year — narrows the replacement-trailer search used when every
+   *  candidate is blocked from embedded playback. */
+  year?: number | null;
   /** "immediate" — starts as soon as it's allowed to (title page header).
    *  "hover" — only plays while hovered past HOVER_DELAY_MS (dashboard hero, several slides share the same screen real estate). */
   trigger: "immediate" | "hover";
@@ -586,7 +593,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, cardPreview = false, youtubeProfile, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, year = null, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, cardPreview = false, youtubeProfile, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -601,18 +608,31 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   // Enhanced sources are strictly Apple/Netflix/Disney/Prime/IMDb, already
   // identity-checked by their resolver. The retired remastered-search chain
   // is deliberately absent here: it must never select an ambient preview.
+  const { locale } = useI18n();
+  // Replacement trailers fetched once every TMDb key of this title refused
+  // to play embedded (YouTube 101/150, e.g. Toei's own Dragon Ball uploads).
+  const [replacementKeys, setReplacementKeys] = useState<string[]>([]);
+  const failedKeys = useRef<string[]>([]);
+  const replacementRequested = useRef(false);
   const candidates = useMemo<TrailerCandidate[]>(
     () => [
-      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
+      ...[...trailerKeys, ...replacementKeys.filter((key) => !trailerKeys.includes(key))]
+        .filter((key) => !sessionBlockedKeys.has(key))
+        .map((key): TrailerCandidate => ({ kind: "youtube", key })),
     ],
-    [trailerKeys]
+    [trailerKeys, replacementKeys]
   );
   // Which candidate we're currently trying — advanced by onError below.
-  // Reset to 0 whenever the candidate list itself changes (new title), not
-  // just on every render, or a slide change would keep replaying whichever
-  // fallback the PREVIOUS title happened to land on.
+  // Reset to 0 only when the title's own list changes (new title), not when
+  // replacements are appended: those must continue from where we stopped,
+  // and a slide change must never replay the PREVIOUS title's fallback.
   const [candidateIndex, setCandidateIndex] = useState(0);
-  useEffect(() => { setCandidateIndex(0); }, [candidates]);
+  useEffect(() => {
+    setCandidateIndex(0);
+    setReplacementKeys([]);
+    failedKeys.current = [];
+    replacementRequested.current = false;
+  }, [trailerKeys]);
   const candidate = candidates[candidateIndex] ?? null;
   const candidateKey = candidate ? (candidate.kind === "direct" ? candidate.source.url : candidate.key) : null;
   const canPlay = enabled && !!candidate;
@@ -636,7 +656,36 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   // wouldn't fire onError at all) — so retrying it would just fail again.
   // Move to the next candidate; once the list is exhausted, candidate
   // resolves to null and canPlay naturally falls back to the static poster.
-  const onVideoError = () => setCandidateIndex((i) => i + 1);
+  const onVideoError = () => {
+    if (candidate?.kind === "youtube") {
+      failedKeys.current.push(candidate.key);
+      sessionBlockedKeys.add(candidate.key);
+    }
+    setCandidateIndex((i) => i + 1);
+  };
+
+  // Every candidate failed: report the blocked keys once and try the
+  // replacement trailers the server finds (card previews excluded — too many
+  // at once, and the hero/title page cover the same titles).
+  useEffect(() => {
+    if (cardPreview || !enabled || replacementRequested.current) return;
+    if (candidates.length === 0 || candidateIndex < candidates.length || failedKeys.current.length === 0) return;
+    replacementRequested.current = true;
+    const controller = new AbortController();
+    fetch("/api/trailers/blocked", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ keys: failedKeys.current.slice(0, 10), title, year, language: locale.slice(0, 2) }),
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : { keys: [] }))
+      .then((data: { keys?: string[] }) => {
+        const fresh = (data.keys ?? []).filter((key) => !failedKeys.current.includes(key));
+        if (fresh.length) setReplacementKeys(fresh);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [candidateIndex, candidates.length, cardPreview, enabled, title, year, locale]);
 
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
 

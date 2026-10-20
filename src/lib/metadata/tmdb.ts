@@ -13,6 +13,8 @@ import { loadTmdbKey } from "./store";
 import { getCache } from "@/lib/cache/registry";
 import { omdbConfigured, getOmdbRatings } from "./omdb";
 import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
+import { isBlockedVideo } from "@/lib/trailers/blockedVideos";
+import { cachedFallbackTrailerKeys } from "@/lib/trailers/fallbackTrailers";
 import { excludePortrait, excludeUnknownOrPortrait } from "./youtubeOrientation";
 import { currentLane, runBackground } from "@/lib/priority/lane";
 import { createTmdbRequestSlots, type TmdbRequestQueueState } from "./tmdbRequestSlots";
@@ -1442,7 +1444,17 @@ async function selectVideoCandidates(
   year: number | null,
   youtubeTrailerSearch: boolean
 ): Promise<{ trailerKeys: string[]; ambientVideoKeys: string[] }> {
-  let pool = videos ?? [];
+  // Videos a real player reported as blocked from embedding (YouTube
+  // 101/150) are dropped; when that empties every YouTube candidate, the
+  // cached replacement trailers take their place (warmed in the background,
+  // never awaited here).
+  const hadYouTube = (videos ?? []).some((v) => v.site === "YouTube");
+  let pool = (videos ?? []).filter((v) => v.site !== "YouTube" || !isBlockedVideo(v.key));
+  if (hadYouTube && !pool.some((v) => v.site === "YouTube")) {
+    for (const key of cachedFallbackTrailerKeys(title, year, preferLanguage ?? "fr")) {
+      pool.push({ key, site: "YouTube", type: "Trailer", official: false, iso_639_1: preferLanguage });
+    }
+  }
 
   if (youtubeTrailerSearch) {
     const yt = pool.filter((v) => v.site === "YouTube");
