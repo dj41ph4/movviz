@@ -1,3 +1,19 @@
+## v1.27.10 — 20 octobre 2026
+
+### Recherche : plus rapide, plus claire, tolérante aux fautes
+
+- Les fautes de frappe sont corrigées automatiquement : « hary potter », « matirx », « onepiece » ou « le seigneur des anaux » affichent directement les bons titres, avec la mention « Résultats pour … » et un lien pour rechercher le texte exact.
+- Pendant la frappe, les résultats précédents restent affichés et s’estompent le temps du chargement, au lieu de disparaître à chaque lettre. Le message « Aucun résultat » n’apparaît plus avant la fin de la recherche.
+- Une ligne « Autres titres à découvrir » complète le titre en cours de saisie, et une section « Dans le même esprit » enrichit les recherches qui donnent peu de résultats.
+- Quand rien ne correspond, la page propose de chercher directement sur les indexeurs et affiche les films en tendance.
+- Un clic dans la barre vide affiche les recherches récentes et les tendances. Échap efface la recherche puis quitte la barre, la flèche bas descend dans les résultats.
+- Une recherche ne crée plus qu’une seule entrée dans l’historique du navigateur, et effacer la barre ramène immédiatement au catalogue.
+- Pendant une recherche, seuls les filtres de la recherche sont affichés ; les personnes sans photo ne sont plus proposées.
+
+### Apparence : le thème Bêta par défaut
+
+- Le thème Bêta est désormais celui de tous les comptes, dès le premier affichage et sans passage par le thème Stable. Le thème Stable reste disponible dans les réglages.
+
 ## v1.27.09 — 20 octobre 2026
 
 ### Téléchargements : WebTorrent devient le moteur unique
