@@ -111,7 +111,7 @@ function PendingApprovalScreen({ username }: { username: string }) {
   );
 }
 
-export function AppShell({ children, version, initialDesignMode = "stable" }: { children: React.ReactNode; version: string; initialDesignMode?: DesignMode }) {
+export function AppShell({ children, version, initialDesignMode = "beta" }: { children: React.ReactNode; version: string; initialDesignMode?: DesignMode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isAuthPage = pathname === "/login" || pathname === "/setup";

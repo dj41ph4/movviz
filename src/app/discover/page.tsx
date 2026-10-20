@@ -33,7 +33,7 @@ import { useRowLayout, type RowLayoutApi } from "@/components/media/useRowLayout
 import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
-  Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark, SlidersHorizontal,
+  Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark, SlidersHorizontal, SearchX,
 } from "lucide-react";
 
 /**
@@ -163,6 +163,13 @@ function DiscoverPageInner() {
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Query whose first page actually came back — until then a text search
+  // shows its skeleton, never a false "Aucun résultat" flash.
+  const [settledQuery, setSettledQuery] = useState<string | null>(null);
+  // Typo tolerance: the title the server actually searched, when it
+  // corrected the query ("hary potter" → "harry potter").
+  const [correctedQuery, setCorrectedQuery] = useState<string | null>(null);
+  const exactSearch = searchParams.get("exact") === "1";
   const browseRequestId = useRef(0);
 
   // Filtre post-search Tout/Films/Séries + tri connu/récent
@@ -177,6 +184,69 @@ function DiscoverPageInner() {
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!watchProvider || !!rowCategory || !!duration;
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const textSearch = !!q.trim();
+  const awaitingSearch = textSearch && settledQuery !== q;
+
+  const displayResults = useMemo(() => {
+    const filteredByType = searchFilter === "all" ? results : results.filter((r) => r.type === searchFilter);
+    return [...filteredByType].sort((a, b) => {
+      if (searchSort === "popularity") return (b.voteCount ?? 0) - (a.voteCount ?? 0);
+      if (searchSort === "recent") return (b.year ?? 0) - (a.year ?? 0);
+      if (searchSort === "rating") return b.rating - a.rating;
+      // relevance : connu/récent d'abord sans oublier le reste (voteCount + year)
+      const score = (r: typeof a) => (r.voteCount ?? 0) * 0.6 + (r.year ?? 0) * 0.4;
+      return score(b) - score(a);
+    });
+  }, [results, searchFilter, searchSort]);
+
+  // "Autres titres à découvrir" — titles of the current answer that complete
+  // what is being typed, one click away from an exact search.
+  const searchSuggestions = useMemo(() => {
+    const query = (correctedQuery ?? q).trim().toLowerCase();
+    if (!query) return [];
+    const seen = new Set<string>([query]);
+    const out: string[] = [];
+    for (const r of displayResults) {
+      const title = r.title.trim();
+      const key = title.toLowerCase();
+      if (!key.includes(query) || seen.has(key)) continue;
+      seen.add(key);
+      out.push(title);
+      if (out.length === 10) break;
+    }
+    return out;
+  }, [q, correctedQuery, displayResults]);
+
+  // A short answer is padded with titles close to its best match, so a
+  // search never ends on a near-empty page.
+  const searchSettled = textSearch && !awaitingSearch && !loading && page >= totalPages;
+  const similarSource = searchSettled && displayResults.length > 0 && displayResults.length < 12 ? displayResults[0] : null;
+  const { data: similarDetail } = useSWR<MetaDetail | null>(
+    similarSource ? `/api/metadata/detail?type=${similarSource.type}&tmdbId=${similarSource.tmdbId}&lang=${locale}` : null,
+    { revalidateOnFocus: false }
+  );
+  const similarResults = useMemo(() => {
+    if (!similarSource || !similarDetail?.similar) return [];
+    const shown = new Set(results.map((r) => `${r.type}:${r.tmdbId}`));
+    return similarDetail.similar.filter((r) => !shown.has(`${r.type}:${r.tmdbId}`)).slice(0, 12);
+  }, [similarSource, similarDetail, results]);
+
+  // Nothing matched: the empty state still offers somewhere to go.
+  const searchEmpty = searchSettled && results.length === 0 && personResults.length === 0;
+  const { data: emptyTrending } = useSWR<{ results?: MetaSearchResult[] }>(searchEmpty ? "/api/metadata/trending?type=movie" : null);
+
+  const renderResultCard = (r: MetaSearchResult, i: number) => (
+    <DiscoverCard
+      key={bleachPresentationKey(r)}
+      index={i}
+      result={r}
+      status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
+      watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
+      backdropPath={titleArtwork[bleachPresentationKey(r)]?.backdropPath ?? r.backdropPath}
+      logoPath={titleArtwork[bleachPresentationKey(r)]?.logoPath ?? null}
+      onAdded={() => setLibStatus((m) => new Map(m).set(`${r.type}:${r.tmdbId}`, "missing"))}
+    />
+  );
 
   // Panel titre coulissant (remplace la navigation vers /title/...) — partagé
   // avec Bibliothèque/Collection/Calendrier via useTitlePanel().
@@ -411,13 +481,15 @@ function DiscoverPageInner() {
     if (!configured || !isBrowsing) return;
     const controller = new AbortController();
     const id = setTimeout(() => {
-      setResults([]);
+      // A text search keeps the previous grid on screen (dimmed) until the
+      // new answer lands — never a flash back to the skeleton per letter.
+      if (!q.trim()) setResults([]);
       setPage(1);
       void loadPage(1, controller.signal, requestId);
     }, 0);
     return () => { clearTimeout(id); controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory]);
+  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory, exactSearch]);
 
   // Same debounce as the browse grid above, kept as its own request since
   // people aren't paginated/filtered the same way movies and series are.
@@ -426,10 +498,9 @@ function DiscoverPageInner() {
     const query = q.trim();
     const controller = new AbortController();
     const id = setTimeout(() => {
-      setPersonResults([]);
       withForegroundRequest(() => fetch(`/api/metadata/search?partViews=1&q=${encodeURIComponent(query)}&type=person`, { cache: "no-store", signal: controller.signal })
         .then((r) => (r.ok ? r.json() : null)))
-        .then((d: { results?: MetaPersonSearchResult[] } | null) => { if (!controller.signal.aborted) setPersonResults(d?.results?.slice(0, 8) ?? []); })
+        .then((d: { results?: MetaPersonSearchResult[] } | null) => { if (!controller.signal.aborted) setPersonResults(d?.results?.filter((p) => !!p.profilePath).slice(0, 8) ?? []); })
         .catch(() => { if (!controller.signal.aborted) setPersonResults([]); });
     }, 0);
     return () => { clearTimeout(id); controller.abort(); };
@@ -484,7 +555,7 @@ function DiscoverPageInner() {
         // unlike the Films/Séries tab toggle which still scopes browsing
         // (genre/year/sort) below. searchMulti (the API's unfiltered branch)
         // returns both, each already tagged with its own real type.
-        url = `/api/metadata/search?partViews=1&q=${encodeURIComponent(q)}&page=${targetPage}`;
+        url = `/api/metadata/search?partViews=1&q=${encodeURIComponent(q)}&page=${targetPage}${exactSearch ? "&exact=1" : ""}`;
       } else if (rowCategory) {
         url = `/api/metadata/row-page?type=${mediaType}&key=${encodeURIComponent(rowCategory)}&page=${targetPage}`;
       } else {
@@ -511,6 +582,7 @@ function DiscoverPageInner() {
       const filtered: MetaSearchResult[] = rowCategory && !q.trim() ? raw.filter(afterMinYear) : raw;
       const list: MetaSearchResult[] = rowCategory || q.trim() ? filtered : filtered.map((r: MetaSearchResult) => ({ ...r, type: mediaType }));
       setResults((prev) => (targetPage === 1 ? list : [...prev, ...list]));
+      if (targetPage === 1) setCorrectedQuery(q.trim() && typeof d.correctedQuery === "string" ? d.correctedQuery : null);
       setPage(d.page ?? targetPage);
       setTotalPages(d.totalPages ?? 0);
       // Direct/bookmarked "?row=becauseYouWatched:..." load — no click ever
@@ -523,6 +595,7 @@ function DiscoverPageInner() {
     } finally {
       endForeground();
       if (!signal?.aborted && requestId === browseRequestId.current) {
+        if (targetPage === 1) setSettledQuery(q);
         setLoading(false);
         setLoadingMore(false);
       }
@@ -601,7 +674,7 @@ function DiscoverPageInner() {
         title={mediaType === "movie" ? t("common.movies") : t("common.series")}
         description={t("discover.description")}
       >
-        {configured && (
+        {configured && !textSearch && (
           <div ref={filterRowRef} className="flex flex-wrap items-center gap-1.5 lg:hidden">
             {(["movie", "series"] as const).map((mt) => (
               <button
@@ -782,7 +855,9 @@ function DiscoverPageInner() {
         )}
       </PageHeader>
 
-      {configured && (
+      {/* A text search has its own Tout/Films/Séries + tri bar below — the
+          catalog filters (plateformes, genre, année, Tendances) don't apply. */}
+      {configured && !textSearch && (
         <div ref={desktopFilterRef} className="nx-discover-desktop-bar hidden lg:flex">
           <div className="nx-discover-mode-tabs flex items-center gap-1">
             {(["all", "movie", "series"] as const).map((kind) => (
@@ -904,7 +979,7 @@ function DiscoverPageInner() {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 lg:hidden">
+          <div className={cn("flex flex-wrap items-center gap-2 lg:hidden", textSearch && "hidden")}>
             <input
               value={year}
               onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
@@ -973,7 +1048,7 @@ function DiscoverPageInner() {
 
           {isBrowsing && (
             <>
-              {loading && page === 1 && (
+              {results.length === 0 && ((loading && page === 1) || awaitingSearch) && (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                   {[...Array(12)].map((_, i) => (
                     <div key={i}>
@@ -984,12 +1059,68 @@ function DiscoverPageInner() {
                 </div>
               )}
 
+              {textSearch && correctedQuery && settledQuery === q && (
+                <p className="text-sm text-ink-soft">
+                  <span className="font-semibold text-ink">{t("discover.searchCorrected", { q: correctedQuery })}</span>
+                  <span aria-hidden className="mx-2 text-ink-dim/50">·</span>
+                  <button
+                    type="button"
+                    onClick={() => router.replace(`/discover?q=${encodeURIComponent(q.trim())}&exact=1`, { scroll: false })}
+                    className="text-ink-dim underline-offset-2 transition-colors hover:text-ink hover:underline"
+                  >
+                    {t("discover.searchInsteadFor", { q: q.trim() })}
+                  </button>
+                </p>
+              )}
+
+              {searchSuggestions.length > 0 && (
+                <div className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5 text-sm">
+                  <span className="mr-1 text-ink-dim">{t("discover.searchSuggestions")}</span>
+                  {searchSuggestions.map((title, i) => (
+                    <span key={title} className="flex items-baseline">
+                      <button
+                        type="button"
+                        onClick={() => router.replace(`/discover?q=${encodeURIComponent(title)}`, { scroll: false })}
+                        className="rounded text-ink-soft transition-colors hover:text-ink focus-visible:text-ink"
+                      >
+                        {title}
+                      </button>
+                      {/* Trailing separator: a wrapped line never starts with "|". */}
+                      {i < searchSuggestions.length - 1 && <span aria-hidden className="ml-1.5 mr-0.5 text-ink-dim/50">|</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className={cn("flex flex-col gap-8 transition-opacity duration-200", loading && page === 1 && results.length > 0 && "opacity-50")}>
               {q.trim() && personResults.length > 0 && (
                 <PersonRow title={t("discover.peopleTitle")} results={personResults} />
               )}
 
-              {!loading && results.length === 0 && personResults.length === 0 && (
-                <div className="rounded-2xl glass py-16 text-center text-sm text-ink-dim">{t("discover.noResults")}</div>
+              {!loading && !awaitingSearch && results.length === 0 && personResults.length === 0 && (
+                q.trim() ? (
+                  <div className="flex flex-col gap-8">
+                    <div className="flex flex-col items-center gap-3 rounded-2xl glass px-6 py-12 text-center">
+                      <SearchX className="h-8 w-8 text-ink-dim" />
+                      <p className="text-base font-bold text-ink">{t("discover.searchNoResultsFor", { q: q.trim() })}</p>
+                      <p className="max-w-md text-sm text-ink-soft">{t("discover.searchNoResultsHint")}</p>
+                      <Link
+                        href={`/search?q=${encodeURIComponent(q.trim())}&category=${mediaType}`}
+                        className="mt-2 flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white transition-transform hover:scale-105"
+                      >
+                        <Search className="h-4 w-4" /> {t("discover.searchOnIndexers")}
+                      </Link>
+                    </div>
+                    {!!emptyTrending?.results?.length && (
+                      <section className="flex flex-col gap-3">
+                        <h2 className="text-base font-bold text-ink">{t("discover.searchTrending")}</h2>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                          {emptyTrending.results.slice(0, 12).map((r, i) => renderResultCard({ ...r, type: r.type ?? "movie" }, i))}
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                ) : <div className="rounded-2xl glass py-16 text-center text-sm text-ink-dim">{t("discover.noResults")}</div>
               )}
 
               {results.length > 0 && (
@@ -1008,38 +1139,24 @@ function DiscoverPageInner() {
                         ))}
                       </div>
                       <select value={searchSort} onChange={(e) => setSearchSort(e.target.value as typeof searchSort)} className="h-9 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none">
-                        <option value="relevance">Pertinence</option>
-                        <option value="popularity">Populaire</option>
-                        <option value="recent">Récent</option>
-                        <option value="rating">Notes</option>
+                        <option value="relevance">{t("discover.searchSortRelevance")}</option>
+                        <option value="popularity">{t("discover.searchSortPopularity")}</option>
+                        <option value="recent">{t("discover.searchSortRecent")}</option>
+                        <option value="rating">{t("discover.searchSortRating")}</option>
                       </select>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-                    {(() => {
-                      const filteredByType = searchFilter === "all" ? results : results.filter((r) => r.type === searchFilter);
-                      const displayResults = [...filteredByType].sort((a, b) => {
-                        if (searchSort === "popularity") return (b.voteCount ?? 0) - (a.voteCount ?? 0);
-                        if (searchSort === "recent") return (b.year ?? 0) - (a.year ?? 0);
-                        if (searchSort === "rating") return b.rating - a.rating;
-                        // relevance : connu/récent d'abord sans oublier le reste (voteCount + year)
-                        const score = (r: typeof a) => (r.voteCount ?? 0) * 0.6 + (r.year ?? 0) * 0.4;
-                        return score(b) - score(a);
-                      });
-                      return displayResults.map((r, i) => (
-                      <DiscoverCard
-                        key={bleachPresentationKey(r)}
-                        index={i}
-                        result={r}
-                        status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
-                        watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
-                        backdropPath={titleArtwork[bleachPresentationKey(r)]?.backdropPath ?? r.backdropPath}
-                        logoPath={titleArtwork[bleachPresentationKey(r)]?.logoPath ?? null}
-                        onAdded={() => setLibStatus((m) => new Map(m).set(`${r.type}:${r.tmdbId}`, "missing"))}
-                      />
-                    ));
-                    })()}
+                  <div data-search-results className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                    {displayResults.map(renderResultCard)}
                   </div>
+                  {similarResults.length > 0 && (
+                    <section className="flex flex-col gap-3 border-t border-white/8 pt-6">
+                      <h2 className="text-base font-bold text-ink">{t("discover.searchSimilar")}</h2>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                        {similarResults.map(renderResultCard)}
+                      </div>
+                    </section>
+                  )}
                   <div ref={sentinelRef} className="flex items-center justify-center py-8">
                     {loadingMore && <Loader2 className="h-5 w-5 animate-spin text-ink-dim" />}
                     {!loadingMore && page < totalPages && (
@@ -1053,6 +1170,7 @@ function DiscoverPageInner() {
                   </div>
                 </>
               )}
+              </div>
             </>
           )}
         </>

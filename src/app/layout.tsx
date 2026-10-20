@@ -73,7 +73,7 @@ export default async function RootLayout({
   const EARLY_DATA_SCRIPT = `try{if(location.pathname==="/"){var m=window.__mvEarly={};["/api/interface/dashboard","/api/dashboard/layout","/api/metadata/rows?type=movie","/api/metadata/rows?type=series"].forEach(function(k){m[k]=fetch(k,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(String(r.status));return r.json()});m[k].catch(function(){})})}}catch(e){}`;
   let signedIn = false;
   let desktopTextScale: 110 | 120 | undefined;
-  let designMode: DesignMode = "stable";
+  let designMode: DesignMode = "beta";
   try {
     const token = (await cookies()).get(SESSION_COOKIE)?.value;
     const sessionUser = token ? resolveSession(token) : null;

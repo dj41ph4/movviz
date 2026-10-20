@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Search, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavSearch } from "@/lib/nav/useNavSearch";
+import { SearchSuggestPanel } from "./SearchSuggestPanel";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
@@ -18,6 +19,35 @@ export function Topbar() {
   // the screen, is what "navrail" refers to, not the left Sidebar). Typing
   // pushes to /discover?q=, whose own card grid replaces the dashboard.
   const navSearch = useNavSearch();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // Focus anywhere inside the box (input OR the suggestion panel) keeps the
+  // panel open, so Tab/arrows can walk into it without it vanishing.
+  const [panelFocus, setPanelFocus] = useState(false);
+  const showPanel = panelFocus && !navSearch.value.trim();
+  const focusables = () => [...(boxRef.current?.querySelectorAll<HTMLElement>("[data-search-panel] button, [data-search-panel] a[href]") ?? [])];
+
+  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      // First Escape clears the query, the second leaves the box.
+      if (navSearch.value) navSearch.onChange("");
+      else inputRef.current?.blur();
+    } else if (e.key === "ArrowDown") {
+      const target = showPanel
+        ? focusables()[0]
+        : document.querySelector<HTMLElement>("[data-search-results] a[href]");
+      if (target) { e.preventDefault(); target.focus(); }
+    }
+  };
+  const onPanelKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.target === inputRef.current) return;
+    const items = focusables();
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "ArrowDown" && i >= 0) { e.preventDefault(); items[Math.min(i + 1, items.length - 1)]?.focus(); }
+    else if (e.key === "ArrowUp" && i >= 0) { e.preventDefault(); (i === 0 ? inputRef.current : items[i - 1])?.focus(); }
+    else if (e.key === "Escape") { e.preventDefault(); inputRef.current?.focus(); }
+  };
   // Bêta desktop : la langue et Sponsor passent dans le menu profil. La
   // recherche reste la barre Stable partout (Seb, 2026-10-06 : pas de
   // palette Ctrl K).
@@ -61,9 +91,17 @@ export function Topbar() {
           strict (PortraitTopHeader) : pill 46px, bordure électrique, fond
           #131836, icône 17px + placeholder 13px #B3B3B3 — voir
           .nx-search-pill. */}
-      <div className="group nx-search-pill flex h-[46px] min-w-0 flex-1 items-center gap-[10px] rounded-[23px] px-4 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]">
+      <div
+        ref={boxRef}
+        onFocus={() => setPanelFocus(true)}
+        onBlur={(e) => { if (!boxRef.current?.contains(e.relatedTarget as Node | null)) setPanelFocus(false); }}
+        onKeyDown={onPanelKeyDown}
+        className="group nx-search-pill relative flex h-[46px] min-w-0 flex-1 items-center gap-[10px] rounded-[23px] px-4 sm:max-w-md lg:max-w-[clamp(380px,30vw,650px)]"
+      >
         <Search className="h-[17px] w-[17px] shrink-0 text-[#B3B3B3]" />
         <input
+          ref={inputRef}
+          onKeyDown={onSearchKeyDown}
           value={navSearch.value}
           onChange={(e) => navSearch.onChange(e.target.value)}
           onFocus={navSearch.onFocus}
@@ -84,6 +122,12 @@ export function Topbar() {
           autoComplete="off"
           className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-[#B3B3B3]"
         />
+        {showPanel && (
+          <SearchSuggestPanel
+            onPick={(q) => { navSearch.submit(q); inputRef.current?.focus(); }}
+            onNavigate={() => { setPanelFocus(false); inputRef.current?.blur(); }}
+          />
+        )}
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">

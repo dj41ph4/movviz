@@ -23,7 +23,7 @@ export function useDesignMode() {
 
 /** The existing Salle obscure interface is Stable. New polish has its own
  * opt-in attribute so switching back restores that interface exactly. */
-export function AppearanceProvider({ children, initialDesignMode = "stable" }: { children: ReactNode; initialDesignMode?: DesignMode }) {
+export function AppearanceProvider({ children, initialDesignMode = "beta" }: { children: ReactNode; initialDesignMode?: DesignMode }) {
   const t = useT();
   const { data, mutate } = useSWR<PreferencesResponse>("/api/settings/preferences");
   const [saving, setSaving] = useState(false);

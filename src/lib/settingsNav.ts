@@ -31,13 +31,11 @@ import {
 
 /**
  * Single source of truth for every Settings tab — shared by the Settings
- * page itself (sidebar + mobile sheet) and the global command palette
- * (Cmd/Ctrl+K), so "where do I find X" has exactly one place to search:
- * type it anywhere in the app, not just once already inside Settings.
+ * page itself (sidebar + mobile sheet), its home overview and its context
+ * header. There is deliberately no global command palette (no Ctrl/Cmd+K).
  *
  * `hintKey` mirrors NAV's shape (src/lib/nav.ts) — a one-line "what's in
- * here" description, used both as the palette's secondary line and (later)
- * anywhere else a quick description is useful.
+ * here" description, used wherever a quick description is useful.
  */
 export type SettingsGroup = "personal" | "download" | "library" | "disk" | "notifications" | "system";
 export type SettingsJourney = "experience" | "playback" | "library" | "downloads" | "system";

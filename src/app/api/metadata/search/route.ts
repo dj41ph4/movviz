@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import { projectBleachSearchResults } from "@/lib/metadata/bleachPresentation";
 import { isBleachSequelTitle } from "@/lib/metadata/bleachEpisodeOrder";
+import { findCorrection, hasStrongMatch, learnTitles, warmSearchCorpus } from "@/lib/metadata/searchCorrection";
 
 export const dynamic = "force-dynamic";
 
@@ -37,14 +38,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ configured: true, ...paged });
   }
 
-  let paged;
-  if (type === "series") {
-    paged = await searchTv(q, page);
-  } else if (type === "movie") {
-    paged = await searchMulti(q, page);
-    paged.results = paged.results.filter((r) => r.type === "movie");
-  } else {
-    paged = await searchMulti(q, page);
+  const run = async (query: string) => {
+    if (type === "series") return searchTv(query, page);
+    const res = await searchMulti(query, page);
+    if (type === "movie") res.results = res.results.filter((r) => r.type === "movie");
+    return res;
+  };
+  warmSearchCorpus();
+  let paged = await run(q);
+  learnTitles(paged.results);
+  // Typo tolerance: a weak literal answer is retried with the closest known
+  // title, whose results lead; `exact=1` ("Rechercher plutôt …") opts out.
+  let correctedQuery: string | null = null;
+  if (page === 1 && req.nextUrl.searchParams.get("exact") !== "1" && !hasStrongMatch(q, paged.results)) {
+    const correction = findCorrection(q);
+    if (correction) {
+      const corrected = await run(correction);
+      if (corrected.results.length > 0) {
+        learnTitles(corrected.results);
+        const seen = new Set(corrected.results.map((r) => `${r.type}:${r.tmdbId}`));
+        paged = { ...corrected, results: [...corrected.results, ...paged.results.filter((r) => !seen.has(`${r.type}:${r.tmdbId}`))] };
+        correctedQuery = correction;
+      }
+    }
   }
   // Never blocks the response — a user searching while logged out (rare,
   // most routes require auth, this one intentionally doesn't) just doesn't
@@ -56,5 +72,5 @@ export async function GET(req: NextRequest) {
   }
   if (req.nextUrl.searchParams.get("partViews") === "1") paged.results = projectBleachSearchResults(paged.results);
   if (user) logSearch(user.id, q, paged.results.length);
-  return NextResponse.json({ configured: true, ...paged });
+  return NextResponse.json({ configured: true, ...paged, correctedQuery });
 }
