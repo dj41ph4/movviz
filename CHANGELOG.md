@@ -1,3 +1,11 @@
+## v1.27.13 — 20 octobre 2026
+
+### Accueil : les séries arrivent dans la bannière
+
+- La bannière d’accueil ne proposait que des films : elle met désormais aussi en avant les séries, en alternance avec les films. Une nouvelle série que Movviz sait que vous aimez apparaît donc dès sa sortie.
+- Côté bibliothèque, la bannière tient compte des séries jamais regardées, récemment ajoutées, de celles dont un épisode vient d’arriver et du prochain épisode à sortir des séries suivies.
+- Profite aussi aux applications Android TV et Android mobile, sans mise à jour de leur part.
+
 ## v1.27.12 — 20 octobre 2026
 
 ### Accueil : bannière plus lumineuse et plus claire (ordinateur)
