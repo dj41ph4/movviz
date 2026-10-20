@@ -24,7 +24,7 @@ import { getDetail, getCachedVideoKeys, trending } from "@/lib/metadata/tmdb";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { getComputedGenreTraits, getFavoritePeople, matchGenreAffinity, type EvidenceTasteTrait } from "@/lib/userContext/taste";
-import type { LibraryFile, LibraryMovie, LibraryStatus } from "@/lib/library/types";
+import type { LibraryFile, LibraryStatus } from "@/lib/library/types";
 import type { MetaDetail } from "@/lib/metadata/types";
 
 export const HERO_POOL_IDS = [
@@ -269,6 +269,16 @@ function dailySeed(userId: string): number {
   return h >>> 0;
 }
 
+/** Alternates two ranked lists (a1, b1, a2, b2…) without reordering either. */
+function interleave<T>(a: T[], b: T[]): T[] {
+  const out: T[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (i < a.length) out.push(a[i]);
+    if (i < b.length) out.push(b[i]);
+  }
+  return out;
+}
+
 function seededShuffle<T>(list: T[], seed: number): T[] {
   const out = [...list];
   let s = seed || 1;
@@ -302,7 +312,9 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
 
   const movies = loadMovies();
   const series = loadSeries();
-  void series;
+  // A series is "available" as soon as one episode is; its next not-yet-out
+  // episode makes it "upcoming" (same pools as movies).
+  const seriesAvailable = series.filter((sr) => sr.seasons.some((se) => se.episodes.some((e) => e.status === "available")));
 
   const unownedRefs: HeroCandidateRef[] = [];
   const ownedRefs: HeroCandidateRef[] = [];
@@ -312,15 +324,26 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
     // is meaningful (taste + audience traction), so it must be preserved.
     // getRecommendations is already ranked by taste + audience traction.
     // Shuffling it hid hot same-day releases below weaker candidates.
-    const recs = await getRecommendations(userId, "movie").catch(() => []);
-    for (const r of recs) unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "personalized", libraryStatus: null, daysUntilRelease: null });
+    // Films AND series, interleaved rank by rank: the Hero used to be
+    // movie-only, so a series ranked #1 for this user (a brand-new show they
+    // love) could never appear.
+    const [recMovies, recSeries] = await Promise.all([
+      getRecommendations(userId, "movie").catch(() => []),
+      getRecommendations(userId, "series").catch(() => []),
+    ]);
+    for (const r of interleave<{ x: { tmdbId: number }; type: "movie" | "series" }>(recMovies.map((x) => ({ x, type: "movie" as const })), recSeries.map((x) => ({ x, type: "series" as const })))) {
+      unownedRefs.push({ tmdbId: r.x.tmdbId, type: r.type, poolId: "personalized", libraryStatus: null, daysUntilRelease: null });
+    }
 
     // Pool 6 — découverte TMDb (plus un simple repli — une vraie source de contenu non possédé).
-    const owned = new Set(movies.map((m) => m.tmdbId));
-    const trend = await trending("movie", 1, []).catch(() => ({ results: [] }));
-    for (const r of trend.results) {
-      if (owned.has(r.tmdbId)) continue;
-      unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "discovery", libraryStatus: null, daysUntilRelease: null });
+    const owned = new Set([...movies.map((m) => `movie:${m.tmdbId}`), ...series.map((sr) => `series:${sr.tmdbId}`)]);
+    const [trendMovies, trendSeries] = await Promise.all([
+      trending("movie", 1, []).catch(() => ({ results: [] })),
+      trending("series", 1, []).catch(() => ({ results: [] })),
+    ]);
+    for (const r of interleave<{ x: { tmdbId: number }; type: "movie" | "series" }>(trendMovies.results.map((x) => ({ x, type: "movie" as const })), trendSeries.results.map((x) => ({ x, type: "series" as const })))) {
+      if (owned.has(`${r.type}:${r.x.tmdbId}`)) continue;
+      unownedRefs.push({ tmdbId: r.x.tmdbId, type: r.type, poolId: "discovery", libraryStatus: null, daysUntilRelease: null });
     }
   }
 
@@ -328,25 +351,44 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
     // Pool 2 — jamais regardés dans la bibliothèque. Mélangé (seed du jour) —
     // sinon toujours les mêmes premiers films de la bibliothèque en tête
     // (aucun ordre chronologique naturel ici, contrairement aux pools 3-5).
-    const watched = new Set(getWatchStatus(userId)?.movies ?? []);
+    const watchStatus = getWatchStatus(userId);
+    const watched = new Set(watchStatus?.movies ?? []);
+    const watchedSeries = new Set((watchStatus?.episodes ?? []).map((e) => e.tmdbId));
     const unwatched = seededShuffle(movies.filter((m) => m.status === "available" && !watched.has(m.tmdbId)), seed + 2);
-    for (const m of unwatched) {
-      ownedRefs.push({ tmdbId: m.tmdbId, type: "movie", poolId: "unwatchedLibrary", libraryStatus: m.status, daysUntilRelease: null });
-    }
+    const unwatchedSeries = seededShuffle(seriesAvailable.filter((sr) => !watchedSeries.has(sr.tmdbId)), seed + 3);
+    for (const r of interleave(
+      unwatched.map((m): HeroCandidateRef => ({ tmdbId: m.tmdbId, type: "movie", poolId: "unwatchedLibrary", libraryStatus: m.status, daysUntilRelease: null })),
+      unwatchedSeries.map((sr): HeroCandidateRef => ({ tmdbId: sr.tmdbId, type: "series", poolId: "unwatchedLibrary", libraryStatus: "available", daysUntilRelease: null })),
+    )) ownedRefs.push(r);
 
     // Pool 3 — récemment ajoutés.
-    for (const m of [...movies].filter((m) => m.status === "available").sort((a, b) => b.addedAt - a.addedAt)) {
-      ownedRefs.push({ tmdbId: m.tmdbId, type: "movie", poolId: "recentlyAdded", libraryStatus: m.status, daysUntilRelease: null });
-    }
+    for (const r of interleave(
+      [...movies].filter((m) => m.status === "available").sort((a, b) => b.addedAt - a.addedAt)
+        .map((m): HeroCandidateRef => ({ tmdbId: m.tmdbId, type: "movie", poolId: "recentlyAdded", libraryStatus: m.status, daysUntilRelease: null })),
+      [...seriesAvailable].sort((a, b) => b.addedAt - a.addedAt)
+        .map((sr): HeroCandidateRef => ({ tmdbId: sr.tmdbId, type: "series", poolId: "recentlyAdded", libraryStatus: "available", daysUntilRelease: null })),
+    )) ownedRefs.push(r);
 
-    // Pool 4 — suivis à sortie prochaine, triés par proximité de date.
-    const upcoming = movies
-      .filter((m) => m.status === "upcoming")
-      .map((m) => ({ m, days: daysUntil(m.vfReleaseDate ?? m.releaseDate) }))
-      .filter((x): x is { m: LibraryMovie; days: number } => x.days !== null)
+    // Pool 4 — suivis à sortie prochaine (films, et prochain épisode des séries suivies), triés par proximité de date.
+    const upcoming = [
+      ...movies
+        .filter((m) => m.status === "upcoming")
+        .map((m) => ({ tmdbId: m.tmdbId, type: "movie" as const, days: daysUntil(m.vfReleaseDate ?? m.releaseDate) })),
+      ...series
+        .filter((sr) => sr.monitored)
+        .map((sr) => {
+          const next = sr.seasons.flatMap((se) => se.episodes)
+            .filter((e) => e.status === "upcoming" && e.airDate)
+            .map((e) => daysUntil(e.airDate))
+            .filter((d): d is number => d !== null && d >= 0)
+            .sort((a, b) => a - b)[0];
+          return { tmdbId: sr.tmdbId, type: "series" as const, days: next ?? null };
+        }),
+    ]
+      .filter((x): x is { tmdbId: number; type: "movie" | "series"; days: number } => x.days !== null)
       .sort((a, b) => a.days - b.days);
-    for (const { m, days } of upcoming) {
-      ownedRefs.push({ tmdbId: m.tmdbId, type: "movie", poolId: "upcoming", libraryStatus: m.status, daysUntilRelease: days });
+    for (const u of upcoming) {
+      ownedRefs.push({ tmdbId: u.tmdbId, type: u.type, poolId: "upcoming", libraryStatus: "upcoming", daysUntilRelease: u.days });
     }
 
     // Pool 5 — mouvement récent de la bibliothèque (statut passé à "available"
@@ -354,10 +396,17 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
     // GrabIntent du LOT 6 permettra plus tard de distinguer précisément une
     // vraie montée en qualité, non fabriqué ici pour rester honnête).
     const byId = new Map(movies.map((m) => [m.id, m] as const));
-    const recentAvailable = getStatusTransitions().filter((t) => t.refType === "movie" && t.to === "available").slice(0, 40);
+    const seriesById = new Map(series.map((sr) => [sr.id, sr] as const));
+    const recentAvailable = getStatusTransitions().filter((t) => t.to === "available").slice(0, 60);
     for (const t of recentAvailable) {
-      const movie = byId.get(t.refId);
-      if (movie && movie.status === "available") ownedRefs.push({ tmdbId: movie.tmdbId, type: "movie", poolId: "recentActivity", libraryStatus: movie.status, daysUntilRelease: null });
+      if (t.refType === "movie") {
+        const movie = byId.get(t.refId);
+        if (movie && movie.status === "available") ownedRefs.push({ tmdbId: movie.tmdbId, type: "movie", poolId: "recentActivity", libraryStatus: movie.status, daysUntilRelease: null });
+      } else {
+        // Episode refId = "seriesId:season:episode" — a freshly arrived episode puts its series forward.
+        const sr = seriesById.get(t.refId.split(":")[0]);
+        if (sr) ownedRefs.push({ tmdbId: sr.tmdbId, type: "series", poolId: "recentActivity", libraryStatus: "available", daysUntilRelease: null });
+      }
     }
   }
 
@@ -414,10 +463,13 @@ export async function buildHeroSlides(
     }),
   ]);
 
+  const seriesList = loadSeries();
   const recentlyActiveTmdbIds = new Set(
     getStatusTransitions()
-      .filter((t) => t.refType === "movie" && t.to === "available")
-      .map((t) => movies.find((m) => m.id === t.refId)?.tmdbId)
+      .filter((t) => t.to === "available")
+      .map((t) => t.refType === "movie"
+        ? movies.find((m) => m.id === t.refId)?.tmdbId
+        : seriesList.find((sr) => sr.id === t.refId.split(":")[0])?.tmdbId)
       .filter((id): id is number => typeof id === "number")
   );
 
