@@ -1,3 +1,16 @@
+## v1.27.17 — 20 octobre 2026
+
+### Interface : thème mobile et tablette, bannière et navigation
+
+- Le thème Beta s’étend aux téléphones et tablettes avec des couleurs et surfaces cohérentes, une bannière plus lisible et des actions compactes. Les compteurs sont retirés de l’accueil.
+- Sur ordinateur, un éclairage d’ambiance prolonge les couleurs de la bannière et suit la lecture de sa bande-annonce.
+- Le choix de langue est accessible dans le menu utilisateur sur tous les écrans. Les marges de la page détail, les libellés des compteurs et l’accessibilité du bouton de fermeture des nouveautés sont ajustés.
+
+### Windows : protection du service de mise à jour
+
+- L’installateur désactive la fermeture automatique des applications par Windows pour préserver le service Movviz Update pendant l’installation.
+- Les téléchargements PowerShell masquent leur progression et le contrôle d’installation en CI dispose de délais et de diagnostics plus précis.
+
 ## v1.27.16 — 20 octobre 2026
 
 ### Séries : les nouveaux épisodes sont enfin récupérés

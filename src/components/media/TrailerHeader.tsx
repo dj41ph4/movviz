@@ -251,6 +251,9 @@ export interface TrailerHeaderProps {
   /** Release year — narrows the replacement-trailer search used when every
    *  candidate is blocked from embedded playback. */
   year?: number | null;
+  /** Called with the YouTube key that is really playing (null otherwise) —
+   *  drives the dashboard hero's ambilight copy. */
+  onActiveVideo?: (key: string | null) => void;
   /** "immediate" — starts as soon as it's allowed to (title page header).
    *  "hover" — only plays while hovered past HOVER_DELAY_MS (dashboard hero, several slides share the same screen real estate). */
   trigger: "immediate" | "hover";
@@ -593,7 +596,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, year = null, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, cardPreview = false, youtubeProfile, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, year = null, onActiveVideo, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, cardPreview = false, youtubeProfile, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -651,6 +654,12 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   }, [trigger, canPlay]);
 
   useEffect(() => { setVideoPlaying(false); }, [candidateKey, playing]);
+
+  const onActiveVideoRef = useRef(onActiveVideo);
+  useEffect(() => { onActiveVideoRef.current = onActiveVideo; }, [onActiveVideo]);
+  const activeYouTubeKey = playing && videoPlaying && candidate?.kind === "youtube" ? candidate.key : null;
+  useEffect(() => { onActiveVideoRef.current?.(activeYouTubeKey); }, [activeYouTubeKey]);
+  useEffect(() => () => onActiveVideoRef.current?.(null), []);
 
   // This exact video is blocked/removed — never a network hiccup (that
   // wouldn't fire onError at all) — so retrying it would just fail again.

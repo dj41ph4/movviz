@@ -6,7 +6,6 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Reorder } from "framer-motion";
-import { StatTile } from "@/components/ui/StatTile";
 import { DownloadQueue } from "@/components/media/DownloadQueue";
 import { UpdateAvailableBanner } from "@/components/system/UpdateAvailableBanner";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
@@ -24,41 +23,13 @@ import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySeries, DashboardRecentEpisode } from "@/lib/dashboard/interfaceTypes";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
-import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
+import type { DashboardLayout } from "@/lib/dashboard/types";
 import { mergeNxDashboardLayout } from "@/lib/dashboard/homeLayout";
-import {
-  Film, Tv, HardDriveDownload, Download, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
-  Pencil, Check, Plus, X, type LucideIcon,
-} from "lucide-react";
-
-const WIDGET_ICONS: Record<DashboardWidgetId, LucideIcon> = {
-  movies: Film,
-  series: Tv,
-  episodes: ListVideo,
-  missingEpisodes: AlertCircle,
-  available: HardDriveDownload,
-  downloading: Download,
-  searching: SearchIcon,
-  missing: Clock,
-  episodesAvailable: ListVideo,
-};
-
-const WIDGET_ACCENTS: Record<DashboardWidgetId, "brand" | "cyan" | "magenta" | "ok" | "amber"> = {
-  movies: "brand",
-  series: "magenta",
-  episodes: "cyan",
-  missingEpisodes: "amber",
-  available: "ok",
-  downloading: "cyan",
-  searching: "amber",
-  missing: "amber",
-  episodesAvailable: "ok",
-};
+import { Compass } from "lucide-react";
 
 const SPLASH_SEEN_KEY = "movviz-splash-seen";
 const noopSubscribe = () => () => {};
 
-const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)]";
 
 export default function DashboardPage() {
   const t = useT();
@@ -105,15 +76,6 @@ export default function DashboardPage() {
   const hasError = optimized ? optimizedError : moviesError || seriesError || torrentsError;
   const loading = !hasError && (!interfaceModeReady || (optimized ? !optimizedData : !moviesData && !seriesData && !torrentsData));
 
-  const available = movies.filter((m) => m.status === "available");
-  // "searching" (actively looking for a release, no torrent grabbed yet) no
-  // longer counts as "downloading" — confirmed live: the "En téléchargement"
-  // tile showed 9 while zero torrents were actually active, because a whole
-  // season stuck in "searching" with activeInfoHash: null was counted as if
-  // it were downloading. It gets its own tile below instead of vanishing.
-  const downloadingMovies = movies.filter((m) => m.status === "downloading");
-  const searchingMovies = movies.filter((m) => m.status === "searching");
-  const missing = movies.filter((m) => m.status === "missing");
   const recentlyAdded = compactRecentMovies;
 
   // Legacy mode keeps feature parity with the compact interface payload. It
@@ -144,42 +106,10 @@ export default function DashboardPage() {
       .sort((a, b) => b.addedAt - a.addedAt)
       .slice(0, 24);
 
-  const legacySeries = seriesData?.series ?? [];
-  const monitoredEpisodes = legacySeries.flatMap((s) => s.seasons.flatMap((se) => se.episodes)).filter((e) => e.monitored);
-  const availableEpisodes = monitoredEpisodes.filter((e) => e.status === "available");
-  const downloadingEpisodes = monitoredEpisodes.filter((e) => e.status === "downloading");
-  const searchingEpisodes = monitoredEpisodes.filter((e) => e.status === "searching");
-  const missingEpisodes = monitoredEpisodes.filter((e) => e.status === "missing");
 
   const progressFor = (movie: LibraryMovie) =>
     movie.activeInfoHash ? torrents.find((tr) => tr.infoHash === movie.activeInfoHash) : null;
 
-  const legacyWidgetValues: Record<DashboardWidgetId, number> = {
-    movies: movies.length,
-    series: series.length,
-    episodes: monitoredEpisodes.length,
-    missingEpisodes: missingEpisodes.length,
-    available: available.length + availableEpisodes.length,
-    downloading: downloadingMovies.length + downloadingEpisodes.length,
-    searching: searchingMovies.length + searchingEpisodes.length,
-    missing: missing.length,
-    episodesAvailable: availableEpisodes.length,
-  };
-  const widgetValues = optimized ? optimizedData?.widgetValues ?? legacyWidgetValues : legacyWidgetValues;
-
-  const widgetLabels: Record<DashboardWidgetId, string> = {
-    movies: t("dashboard.stats.movies"),
-    series: t("dashboard.stats.series"),
-    episodes: t("dashboard.stats.episodes"),
-    missingEpisodes: t("dashboard.stats.missingEpisodes"),
-    available: t("status.available"),
-    downloading: t("dashboard.stats.downloading"),
-    searching: t("dashboard.stats.searching"),
-    missing: t("status.missing"),
-    episodesAvailable: t("dashboard.stats.episodesAvailable"),
-  };
-
-  const order = layout.widgets;
   // Splash (cold start, once per session): it may stay as long as needed, but it leaves only when
   // everything visible underneath is ready — data, rows, and every image inside the viewport.
   // State is derived where possible (no synchronous setState inside effects).
@@ -307,58 +237,8 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* The NX desktop reference reserves operational counters for the
-          Downloads control room.  Keep this useful overview on touch layouts,
-          but let the desktop dashboard move directly from hero/platforms to
-          its editorial rails. */}
-      {layout.showStats && (
-        <div className="lg:hidden">
-        {loading ? (
-          <div className={cn("flex flex-wrap", richMode ? "gap-2" : "gap-4")}>
-            {[...Array(8)].map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  richMode ? "h-[52px] w-[160px] rounded-xl glass" : cn(TILE_CLASS, "rounded-2xl glass p-5")
-                )}
-              >
-                {!richMode && (
-                  <>
-                    <div className="h-3 w-20 animate-pulse rounded bg-white/10" />
-                    <div className="mt-3 h-8 w-16 animate-pulse rounded bg-white/10" />
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : hasError ? (
-          <div className="rounded-2xl glass p-5 text-center">
-            <div className="flex items-center justify-center gap-2 text-amber">
-              <AlertCircle className="h-5 w-5" />
-              <p className="font-semibold text-ink">{t("common.error")}</p>
-            </div>
-            <p className="mt-1 text-sm text-ink-dim">{t("dashboard.errorHint")}</p>
-          </div>
-        ) : richMode ? (
-          <div className="flex flex-wrap gap-2">
-            {order.map((id) => (
-              <StatTile key={id} compact label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-4">
-            {order.map((id) => (
-              <div key={id} className={TILE_CLASS}>
-                <StatTile label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
-              </div>
-            ))}
-          </div>
-        )}
-        </div>
-      )}
-
       {/*
-        Always full-width right under the widgets, at every screen size —
+        Always full-width right under the hero rows, at every screen size —
         it used to move into a narrow 320px side rail on desktop, which made
         it much harder to read at a glance on a wide screen.
       */}

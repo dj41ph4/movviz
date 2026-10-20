@@ -122,6 +122,8 @@ export function WhatsNewModal() {
               </div>
               <button
                 onClick={close}
+                aria-label={t("common.close")}
+                title={t("common.close")}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
               >
                 <X className="h-4 w-4" />

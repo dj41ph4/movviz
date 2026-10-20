@@ -1,6 +1,7 @@
 # Loaded once by update-service.ps1. No automatic release polling: a request
 # from the authenticated Movviz API is required for every installation.
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Write-UpdateStatus([string]$Status, [string]$Version, [string]$Message = '') {
@@ -34,7 +35,7 @@ function Invoke-MovvizUpdate([string]$Version, [int]$VerificationTimeoutSeconds 
         Write-UpdateStatus 'installing' $Version
         # This process belongs to MovvizUpdate, never to Movviz. Neither the
         # application's runtime nor its WinSW executable hosts this updater.
-        $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', ('/DIR="{0}"' -f $InstallDirectory), ('/LOG="{0}"' -f $log))
+        $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/NOCLOSEAPPLICATIONS', '/NORESTARTAPPLICATIONS', '/SP-', ('/DIR="{0}"' -f $InstallDirectory), ('/LOG="{0}"' -f $log))
         $setup = Start-Process -FilePath $installer -ArgumentList $arguments -WindowStyle Hidden -PassThru -Wait
         if ($setup.ExitCode -ne 0) { throw "Installer failed with exit code $($setup.ExitCode). See $log" }
         Write-UpdateStatus 'verifying' $Version

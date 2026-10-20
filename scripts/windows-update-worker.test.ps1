@@ -29,6 +29,7 @@ function Invoke-WebRequest {
 function Start-Process {
     param($FilePath, $ArgumentList, $WindowStyle, [switch]$PassThru, [switch]$Wait)
     if (-not ($ArgumentList -contains '/VERYSILENT')) { throw 'Missing silent flag' }
+    if (-not ($ArgumentList -contains '/NOCLOSEAPPLICATIONS') -or -not ($ArgumentList -contains '/NORESTARTAPPLICATIONS')) { throw 'Restart Manager must not stop the updater' }
     if (-not (($ArgumentList -join ' ') -match '/LOG=')) { throw 'Missing installation log' }
     if (-not (($ArgumentList -join ' ') -match '/DIR=')) { throw 'Missing installation directory' }
     $script:installs++

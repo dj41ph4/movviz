@@ -87,3 +87,22 @@ test("every design rule requires Beta and desktop, including motion and portal c
   assert.ok(css.includes("[data-premium-preview]"));
   assert.ok(css.includes("[data-premium-panel]"));
 });
+
+test("phones and tablets get the Beta theme without touching desktop", async () => {
+  const { buildCompactBetaCss } = await import("./build-compact-beta-css.mjs");
+  const generated = await readFile(new URL("../src/components/appearance/design-beta-compact.generated.css", import.meta.url), "utf8");
+  assert.equal(generated.replace(/\r\n/g, "\n"), (await buildCompactBetaCss()).replace(/\r\n/g, "\n"), "run: node scripts/build-compact-beta-css.mjs");
+  for (const file of ["design-beta-compact.generated.css", "design-beta-compact.css"]) {
+    const css = await readFile(new URL(`../src/components/appearance/${file}`, import.meta.url), "utf8");
+    postcss.parse(css).walkRules((rule) => {
+      for (const selector of rule.selectors) assert.ok(/^(html|:root)\[data-movviz-(design|appearance)="beta"\]/.test(selector), `${file}: ${selector}`);
+      let parent: Node | undefined = rule.parent;
+      let compact = false;
+      while (parent) {
+        if (parent.type === "atrule" && (parent as AtRule).name === "media" && /max-width: (1023|639)\.98px/.test((parent as AtRule).params)) compact = true;
+        parent = parent.parent;
+      }
+      assert.ok(compact, `${file}: ${rule.selector}`);
+    });
+  }
+});

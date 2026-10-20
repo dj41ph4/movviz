@@ -50,10 +50,12 @@
   html[data-movviz-design="beta"] .nx-topbar {
     height: 76px;
     padding-inline: 2rem;
-    background: #0b0c10;
-    border-bottom: 1px solid #ffffff08;
+    /* Transparent at the top so the hero's ambient tint runs behind it (Netflix). */
+    background: transparent;
+    border-bottom: 1px solid transparent;
+    transition: background-color .2s ease, border-color .2s ease;
   }
-  html[data-movviz-design="beta"] .nx-topbar[data-scrolled] { background: #0b0c10ed; }
+  html[data-movviz-design="beta"] .nx-topbar[data-scrolled] { background: #0b0c10ed; border-bottom-color: #ffffff08; }
   html[data-movviz-design="beta"] .nx-search-pill {
     height: 44px;
     border: 1px solid #ffffff13;
@@ -77,6 +79,26 @@
     border-radius: 24px;
     background: #14151e;
     box-shadow: 0 24px 60px -36px #000;
+    /* Ambilight (HeroAmbilight.tsx) spills past the card; the scene itself
+       keeps the rounded clip. */
+    overflow: visible;
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .mv-hero-scene {
+    border-radius: 23px;
+    overflow: hidden;
+  }
+  html[data-movviz-design="beta"] .nx-dashboard-premium .mv-hero-ambilight {
+    /* Slightly larger than the card and only moderately blurred: the light
+       starts exactly where the image ends, then fades out. */
+    filter: blur(34px) saturate(1.5);
+    opacity: .9;
+    transform: scale(1.1) translateZ(0);
+    border-radius: 24px;
+    overflow: hidden;
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero:has(.mv-hero-ambilight) {
+    box-shadow: none;
+    border-color: #ffffff12;
   }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .mv-hero-scene.relative:has(> .absolute.inset-x-0.bottom-0) {
     height: clamp(510px, 58vh, 700px);

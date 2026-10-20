@@ -42,7 +42,7 @@ export function StatTile({
           <Icon className="h-4 w-4" />
         </span>
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-dim">{label}</p>
+          <p className="line-clamp-2 text-[11px] font-semibold uppercase leading-tight tracking-wide text-ink-dim">{label}</p>
           <p className="text-lg font-black tracking-tight text-ink">{value}</p>
         </div>
       </div>

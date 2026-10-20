@@ -1,0 +1,47 @@
+/* Beta on phones and tablets (<1024px): layout fixes on top of the theme
+   mirrored from desktop in design-beta-compact.generated.css. */
+@media (max-width: 1023.98px) {
+  /* Hero: the copy sits over the whole artwork here, so the desktop 10% veil
+     would leave it unreadable — a real bottom fade instead. */
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-t {
+    opacity: 1;
+    background-image: linear-gradient(0deg, #0b0c10 0%, #0b0c10e0 32%, #0b0c1066 62%, #0b0c1000 100%);
+  }
+  html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-r { opacity: .35; }
+  /* Room under the actions for the slide dots. */
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-hero-copy { padding-bottom: 2.5rem; }
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-hero-copy { text-shadow: 0 1px 2px rgb(0 0 0 / .55); }
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-hero-actions { text-shadow: none; }
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-trailer-sound { left: auto; right: .75rem; top: .75rem; }
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-trailer-sound svg { stroke-width: 1.5; }
+  html[data-movviz-design="beta"] .mv-hero-actions > :is(button, a) {
+    min-height: 44px;
+    border-radius: 10px;
+  }
+  html[data-movviz-design="beta"] .nx-dashboard-premium .nx-hero-play {
+    background: #e4d9ff;
+    color: #211830;
+  }
+  /* Streaming platform tiles: centred logo in a 16:9 tile, light tile for dark logos (same as desktop). */
+  html[data-movviz-design="beta"] .nx-provider-tile {
+    display: grid;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 48px;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid #ffffff0a;
+    border-radius: 10px;
+    background: #191b23;
+  }
+  html[data-movviz-design="beta"] .nx-provider-tile-light { background: #efedf2; }
+  /* The dots move between slides here — the side arrows would sit on the copy. */
+  html[data-movviz-design="beta"] :is(.mv-hero-previous, .mv-hero-next) { display: none; }
+}
+
+/* Phones: secondary hero actions shrink to icons so the row stays on one line. */
+@media (max-width: 639.98px) {
+  html[data-movviz-design="beta"] .mv-hero-actions { flex-wrap: nowrap; }
+  html[data-movviz-design="beta"] .mv-hero-actions > :is(button, a) { flex: 0 0 auto; }
+  html[data-movviz-design="beta"] .mv-hero-actions > :is(.nx-hero-play, .nx-hero-more) { flex: 1 1 auto; justify-content: center; }
+}

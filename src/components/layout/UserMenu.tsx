@@ -90,7 +90,7 @@ export function UserMenu() {
             >
               <UserCog className="h-4 w-4" /> {t("profile.title")}
             </Link>
-            <div className="hidden lg:block">
+            <div>
               <div className="my-1 border-t border-white/10" />
               <p className="px-3 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-dim">{t("nav.menuLanguage")}</p>
               <div role="group" aria-label={t("common.languageLabel")} className="grid grid-cols-5 gap-1 px-1.5 pb-1">

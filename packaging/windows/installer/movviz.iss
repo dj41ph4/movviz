@@ -42,7 +42,10 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
 PrivilegesRequired=admin
 SetupLogging=yes
-CloseApplications=yes
+; We explicitly stop Movviz in ssInstall. Restart Manager must never stop the
+; independent updater that is currently executing this installer.
+CloseApplications=no
+RestartApplications=no
 ; --- Data/settings live outside Program Files, like any pro app ---
 UsePreviousAppDir=yes
 

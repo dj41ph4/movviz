@@ -5,6 +5,8 @@ import { DESIGN_MODE, type DesignMode } from "@/lib/appearance/designMode";
 import "./premium.css";
 import "./salle-obscure.css";
 import "./design-beta.css";
+import "./design-beta-compact.generated.css";
+import "./design-beta-compact.css";
 import "./design-classic.css";
 
 type DesignContextValue = { mode: DesignMode };

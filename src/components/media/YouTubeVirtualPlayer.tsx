@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { reportVideoTime } from "@/lib/player/heroVideoClock";
 
 const YOUTUBE_ORIGIN = "https://www.youtube.com";
 const LOAD_TIMEOUT_MS = 6000;
@@ -309,6 +310,7 @@ export function YouTubeVirtualPlayer({
         loopArmed = true;
       }
       lastCurrentTime = current;
+      reportVideoTime(trailerKey, current, playerState === 1);
     };
 
     const sendListening = () => post({ event: "listening" });

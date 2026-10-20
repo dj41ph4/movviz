@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Search, Heart } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavSearch } from "@/lib/nav/useNavSearch";
 import { SearchSuggestPanel } from "./SearchSuggestPanel";
-import { LanguageSwitcher } from "./LanguageSwitcher";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
 import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
@@ -131,17 +130,7 @@ export function Topbar() {
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-        <a
-          href="https://github.com/sponsors/dj41ph4"
-          target="_blank"
-          rel="noreferrer"
-          aria-label={t("settings.aboutSupportTitle")}
-          className={cn("flex h-11 w-11 items-center justify-center rounded-full glass text-ink-soft transition-colors hover:border-magenta/30 hover:text-magenta lg:hidden")}
-        >
-          <Heart className="h-4 w-4 animate-heartbeat fill-down text-down" />
-        </a>
         {user?.role === "admin" && <ActivityMonitor />}
-        <div className="lg:hidden"><LanguageSwitcher /></div>
         <NotificationBell />
         <UserMenu />
       </div>

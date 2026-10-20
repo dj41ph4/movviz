@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { HeroAmbilight } from "./HeroAmbilight";
 import useSWR from "swr";
 import Link from "next/link";
-import { Info, Play, Plus, Loader2, Check, Heart } from "lucide-react";
+import { Play, Plus, Loader2, Check, Heart } from "lucide-react";
 import { HeroSlideshow } from "./HeroSlideshow";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TitleMark } from "@/components/media/TitleMark";
@@ -72,7 +73,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   // and later enrichment never resets a manually selected slide.
   if (selectedIndex === null && slides.length > 0) setIndex(rotationBucket % slides.length);
   const index = selectedIndex ?? 0;
-  const [showReasons, setShowReasons] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<Set<number>>(new Set());
 
@@ -143,6 +143,8 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   // `active?.` so a still-loading/empty slide list just resolves to
   // null/no-op inputs instead of skipping the hook call itself.
   const backdropUrl = useTmdbImageUrl(heroBackdropPath, heroBackdropSize);
+  // YouTube key really playing in the hero — mirrored, blurred, behind the card (ambilight).
+  const [ambilightKey, setAmbilightKey] = useState<string | null>(null);
   const enhancedTrailerSources = useTrailerSources(
     active?.detail.type ?? "movie",
     active?.detail.tmdbId ?? null,
@@ -187,6 +189,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       intervalMs={settings.slideshowSpeedSec * 1000}
       className="nx-premium-hero -mx-4 mb-6 overflow-hidden rounded-none sm:mx-0 sm:rounded-3xl lg:mb-0 lg:rounded-lg lg:border lg:border-cyan/30"
     >
+      {isDesktop && <HeroAmbilight backdropUrl={backdropUrl} videoKey={ambilightKey} />}
       <div className="mv-hero-scene relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px] lg:aspect-[18/9] lg:h-auto lg:min-h-0">
         <ErrorBoundary key={`${active.detail.type}:${active.detail.tmdbId}`} fallback={trailerFallback}>
           <TrailerHeader
@@ -195,6 +198,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             trailerKeys={active.detail.ambientVideoKeys}
             enhancedSources={enhancedTrailerSources}
             title={active.detail.title}
+            onActiveVideo={setAmbilightKey}
             trigger="immediate"
             youtubeProfile="detail"
             enabled={trailerEnabled}
@@ -243,13 +247,13 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
 
           <div className="mv-hero-actions mt-2 flex flex-wrap items-center gap-2">
             <button type="button" onClick={toggleWatchlist} className={cn("nx-hero-watchlist flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105", onWatchlist ? "border border-brand-glow/50 bg-brand/25" : "bg-white/15")}>
-              <Heart className={cn("h-4 w-4", onWatchlist && "fill-current")} /> {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+              <Heart className={cn("h-4 w-4", onWatchlist && "fill-current")} /> <span className="max-sm:sr-only">{onWatchlist ? t("watchlist.added") : t("watchlist.add")}</span>
             </button>
             <Link
               href={`/title/${active.detail.type}/${active.detail.tmdbId}`}
               className="nx-hero-more flex items-center gap-1.5 rounded-lg bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
             >
-              <Info className="h-4 w-4 lg:hidden" /> {isDesktop ? t("dashboard.hero.moreInfoDesktop") : t("dashboard.hero.moreInfo")}
+              {t("dashboard.hero.moreInfoDesktop")}
             </Link>
 
             {active.plexUrl ? (
@@ -295,31 +299,12 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                {added.has(active.detail.tmdbId) ? t("discover.added") : t("discover.addToLibrary")}
+                <span className="max-sm:sr-only">{added.has(active.detail.tmdbId) ? t("discover.added") : t("discover.addToLibrary")}</span>
               </button>
             ) : null}
 
-            <button
-              type="button"
-              onClick={() => setShowReasons((v) => !v)}
-              className="mv-hero-reasons rounded-xl lg:hidden bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105"
-            >
-              {t("dashboard.hero.whyThisTitle")}
-            </button>
           </div>
 
-          {showReasons && activeReasons.length > 0 && (
-            <ul className="mt-1 flex flex-wrap gap-1.5 lg:hidden">
-              {activeReasons.map((r) => (
-                <li
-                  key={r.key}
-                  className={cn("rounded-full border border-white/15 bg-black/30 px-2.5 py-1 text-xs text-white/80")}
-                >
-                  {reasonLabel(t, r)}
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
         {activeReasons.length > 0 && (
