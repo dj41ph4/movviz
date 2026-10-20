@@ -1,3 +1,11 @@
+## v1.27.16 — 20 octobre 2026
+
+### Séries : les nouveaux épisodes sont enfin récupérés
+
+- La liste des épisodes d’une série n’était construite qu’au moment de l’ajout : les épisodes et saisons annoncés ensuite (par exemple la saison 4 de Link Click, restée à 1 épisode sur 12), ainsi que les titres et dates d’épisodes publiés après coup, n’étaient jamais récupérés.
+- Une nouvelle tâche planifiée, « Mise à jour des épisodes des séries », s’exécute une fois par jour : elle ajoute les épisodes et saisons manquants (les nouvelles saisons seulement pour les séries suivies) et met à jour les titres, dates de diffusion et noms de saisons. Les épisodes déjà sortis deviennent recherchables, les autres attendent leur date de diffusion.
+- Rien n’est jamais supprimé : fichiers, téléchargements et liens Plex restent intacts, et les séries dont la numérotation diffère de TMDb (certains animes) ne sont pas modifiées.
+
 ## v1.27.15 — 20 octobre 2026
 
 ### Barre latérale : bouton de mise à jour lisible avec le zoom d’accessibilité
