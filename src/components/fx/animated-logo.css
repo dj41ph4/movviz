@@ -22,7 +22,5 @@
 }
 /* Barre latérale étendue (bêta) : un peu plus étroite, logo complet centré sur toute la largeur ; le bouton
    de repli reste à droite, hors du flux. Repliée : seul le symbole « O » animé, centré (variant="mark"). */
-:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) { width: 220px; }
-:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) div:has(> .mv-sidebar-brand) { position: relative; }
-:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) .mv-sidebar-brand { width: auto; min-width: 0; flex: 1 1 auto; justify-content: center; padding: 0; margin: 0; }
-:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) div:has(> .mv-sidebar-brand) > button { position: absolute; right: -.375rem; top: 50%; transform: translateY(-50%); }
+:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) { width: 200px; }
+:root[data-movviz-design="beta"] .nx-sidebar:not([data-collapsed]) .mv-sidebar-brand { width: auto; min-width: 0; flex: 1 1 auto; justify-content: flex-start; padding: 0 0 0 .375rem; margin: 0; }

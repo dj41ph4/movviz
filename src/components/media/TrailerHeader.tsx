@@ -768,7 +768,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
             <button
               onClick={() => setSoundOn((s) => !s)}
               className={cn(
-                "absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
+                "mv-trailer-sound absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
                 "bg-black/40 text-white/80 hover:bg-white/20 hover:text-white hover:scale-110 active:scale-95"
               )}
               aria-label={muted ? "Activer le son" : "Couper le son"}

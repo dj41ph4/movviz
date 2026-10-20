@@ -231,10 +231,13 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             {(active.detail.genres ?? []).slice(0, 3).map((g) => (
               <span key={g} className="rounded-full border border-white/20 px-2 py-0.5 text-xs">{g}</span>
             ))}
-            {active.libraryFile && isDesktop && (
-              <MediaBadges file={active.libraryFile} variant="overlay" genreStyle />
-            )}
           </div>
+          {/* Desktop: format badges (4K, HDR, MULTI…) get their own line under the genres. */}
+          {active.libraryFile && isDesktop && (
+            <div className="mv-hero-formats flex flex-wrap items-center gap-2">
+              <MediaBadges file={active.libraryFile} variant="overlay" genreStyle />
+            </div>
+          )}
 
           <p className="nx-hero-overview line-clamp-2 max-w-xl text-sm text-white/70 sm:line-clamp-3">{active.detail.overview}</p>
 
@@ -246,7 +249,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
               href={`/title/${active.detail.type}/${active.detail.tmdbId}`}
               className="nx-hero-more flex items-center gap-1.5 rounded-lg bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
             >
-              <Info className="h-4 w-4" /> {t("dashboard.hero.moreInfo")}
+              <Info className="h-4 w-4 lg:hidden" /> {isDesktop ? t("dashboard.hero.moreInfoDesktop") : t("dashboard.hero.moreInfo")}
             </Link>
 
             {active.plexUrl ? (
@@ -299,14 +302,14 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             <button
               type="button"
               onClick={() => setShowReasons((v) => !v)}
-              className="mv-hero-reasons rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105"
+              className="mv-hero-reasons rounded-xl lg:hidden bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105"
             >
               {t("dashboard.hero.whyThisTitle")}
             </button>
           </div>
 
           {showReasons && activeReasons.length > 0 && (
-            <ul className="mt-1 flex flex-wrap gap-1.5">
+            <ul className="mt-1 flex flex-wrap gap-1.5 lg:hidden">
               {activeReasons.map((r) => (
                 <li
                   key={r.key}
@@ -318,6 +321,16 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             </ul>
           )}
         </div>
+
+        {activeReasons.length > 0 && (
+          <ul className="mv-hero-reason-list absolute bottom-4 right-8 z-10 hidden max-w-[40%] flex-wrap justify-end gap-1.5 lg:flex">
+            {activeReasons.map((r) => (
+              <li key={r.key} className="rounded-full border border-white/15 bg-black/30 px-2.5 py-1 text-xs text-white/80 backdrop-blur">
+                {reasonLabel(t, r)}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </HeroSlideshow>
   );

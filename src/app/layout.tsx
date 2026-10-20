@@ -14,8 +14,7 @@ import { REDUCE_MOTION_INIT_SCRIPT } from "@/lib/gpu/reduceMotionInit";
 import { SESSION_COOKIE } from "@/lib/auth/session";
 import { resolveSession } from "@/lib/auth/store";
 import { markUserActivity } from "@/lib/priority/userActivity";
-import { loadUserPrefs } from "@/lib/userPrefs/store";
-import { designModeOrDefault, type DesignMode } from "@/lib/appearance/designMode";
+import { DESIGN_MODE } from "@/lib/appearance/designMode";
 
 const DESCRIPTION =
   "Le centre de commande intelligent de vos films et séries — découverte, demandes et bibliothèque, orchestrés en un seul endroit.";
@@ -73,7 +72,7 @@ export default async function RootLayout({
   const EARLY_DATA_SCRIPT = `try{if(location.pathname==="/"){var m=window.__mvEarly={};["/api/interface/dashboard","/api/dashboard/layout","/api/metadata/rows?type=movie","/api/metadata/rows?type=series"].forEach(function(k){m[k]=fetch(k,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(String(r.status));return r.json()});m[k].catch(function(){})})}}catch(e){}`;
   let signedIn = false;
   let desktopTextScale: 110 | 120 | undefined;
-  let designMode: DesignMode = "beta";
+  const designMode = DESIGN_MODE;
   try {
     const token = (await cookies()).get(SESSION_COOKIE)?.value;
     const sessionUser = token ? resolveSession(token) : null;
@@ -83,7 +82,6 @@ export default async function RootLayout({
     if (sessionUser && sessionUser.status !== "pending") {
       signedIn = true;
       markUserActivity(sessionUser);
-      designMode = designModeOrDefault(loadUserPrefs(sessionUser.id).designMode);
     }
   } catch {
     // Pré-rendu statique au build (pas de cookies) — sans conséquence.

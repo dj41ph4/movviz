@@ -24,7 +24,7 @@
     border-right-color: #ffffff0d;
   }
   html[data-movviz-design="beta"] .nx-sidebar > header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
   }
   html[data-movviz-design="beta"] .nx-sidebar > header > div > span {
     font-family: var(--so-font-display);
@@ -83,9 +83,11 @@
   }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-t {
     background-image: linear-gradient(0deg, #11121b 0%, #11121b33 42%, #11121b0a 75%, #11121b22);
+    opacity: .1; /* Light veil: the artwork stays bright. */
   }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .bg-gradient-to-r {
     background-image: linear-gradient(90deg, #11121bf5 0%, #11121bd9 26%, #11121b75 48%, #11121b00 78%);
+    opacity: .1;
   }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero .relative > .mv-hero-copy.absolute.inset-x-0.bottom-0 {
     inset: auto 0 0;
@@ -115,18 +117,25 @@
     max-height: 130px;
     max-width: min(360px, 100%);
   }
+  /* Light veil (10%): a soft shadow keeps the white copy readable on bright artwork. */
+  html[data-movviz-design="beta"] .nx-premium-hero :is(.mv-hero-copy, .mv-hero-reason-list) { text-shadow: 0 1px 2px rgb(0 0 0 / .5), 0 0 14px rgb(0 0 0 / .35); }
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-hero-actions { text-shadow: none; }
   html[data-movviz-design="beta"] .mv-hero-actions { gap: .625rem; }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-home-hero-grid .nx-hero-more { order: -1; }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-home-hero-grid .nx-hero-watchlist { order: 0; }
   html[data-movviz-design="beta"] .mv-hero-actions > :is(button, a) {
     min-height: 44px;
     border-radius: 9px;
-    font-size: .75rem;
+    font-size: .8125rem;
   }
   html[data-movviz-design="beta"] .nx-dashboard-premium .nx-hero-play {
     padding-inline: 1.5rem;
     background: #e4d9ff;
     color: #211830;
+  }
+  html[data-movviz-design="beta"] .nx-dashboard-premium .nx-hero-play svg {
+    color: #000;
+    fill: #000;
   }
   html[data-movviz-design="beta"] .mv-hero-reasons {
     padding-inline: .25rem;
@@ -149,6 +158,11 @@
     background: #ffffff0d;
   }
   html[data-movviz-design="beta"] .mv-hero-previous { right: 5.25rem; }
+  /* Dashboard hero: sound toggle top-right, thinner icon stroke. */
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-trailer-sound { left: auto; right: 1rem; }
+  html[data-movviz-design="beta"] .nx-premium-hero .mv-trailer-sound svg { stroke-width: 1.5; }
+  /* The "why this title" reasons sit bottom-right, under the slide arrows. */
+  html[data-movviz-design="beta"] .nx-premium-hero:has(.mv-hero-reason-list) :is(.mv-hero-previous, .mv-hero-next) { bottom: 3.25rem; }
   html[data-movviz-design="beta"] .mv-hero-next { right: 2rem; }
 
   html[data-movviz-design="beta"] .nx-home-providers {

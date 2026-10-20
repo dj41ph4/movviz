@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import postcss, { type AtRule, type Node } from "postcss";
-import { designModeOrDefault } from "../src/lib/appearance/designMode.ts";
+import { DESIGN_MODE } from "../src/lib/appearance/designMode.ts";
 
 process.env.MOVVIZ_CONFIG_DIR = mkdtempSync(path.join(os.tmpdir(), "movviz-design-mode-"));
 const { addUser, createSession } = await import("../src/lib/auth/store.ts");
@@ -32,10 +32,11 @@ function request(session: string | null, body?: unknown) {
   });
 }
 
-test("existing and malformed preferences retain the current Stable interface", () => {
-  for (const value of [undefined, null, "stable", "cinema", "Beta", true, {}]) assert.equal(designModeOrDefault(value), "stable");
-  assert.equal(designModeOrDefault("beta"), "beta");
-  assert.equal(designModeOrDefault(loadUserPrefs("new").designMode), "stable");
+test("Beta is the only design, whatever a profile stored before", async () => {
+  assert.equal(DESIGN_MODE, "beta");
+  const layout = await readFile(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
+  assert.ok(layout.includes("const designMode = DESIGN_MODE;"));
+  assert.ok(!layout.includes("loadUserPrefs"), "the root layout no longer reads a per-user design choice");
 });
 
 test("Beta round-trips through the authenticated API; Stable restores it without changing another profile or preferences", async () => {
@@ -50,7 +51,7 @@ test("Beta round-trips through the authenticated API; Stable restores it without
   flushPendingJsonWritesSync();
   const persistedBeta = JSON.parse(readFileSync(path.join(process.env.MOVVIZ_CONFIG_DIR!, "user-preferences.json"), "utf8"));
   assert.equal(persistedBeta["design-a"].designMode, "beta");
-  assert.equal(designModeOrDefault(loadUserPrefs("design-b").designMode), "stable");
+  assert.equal(loadUserPrefs("design-b").designMode, undefined);
   assert.equal(loadUserPrefs("design-a").reduceAnimations, true);
   assert.equal(loadUserPrefs("design-a").specialEpisodesEnabled, true);
   await PATCH(request(token, { locale: "en" }));

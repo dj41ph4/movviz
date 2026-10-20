@@ -1,9 +1,7 @@
-/** Beta is the default design for everyone, rendered server-side from the
- *  first paint (no Stable → Beta switch). Stable stays available as an
- *  explicit per-user choice in Settings. */
+/** Beta is Movviz's only design, rendered server-side from the first
+ *  paint. "stable" is still a valid stored value (older preferences keep
+ *  validating) but is never applied anymore. */
 export const DESIGN_MODES = ["stable", "beta"] as const;
 export type DesignMode = (typeof DESIGN_MODES)[number];
 
-export function designModeOrDefault(value: unknown): DesignMode {
-  return value === "stable" ? "stable" : "beta";
-}
+export const DESIGN_MODE: DesignMode = "beta";
