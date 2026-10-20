@@ -2337,6 +2337,7 @@ export const en: Dictionary = {
     download: "Download",
     dismiss: "Dismiss",
     available: "New update available (v{version})",
+    availableShort: "Update v{version}",
     clickToUpdate: "Click here to update",
     inProgress: "Updating — the app will restart…",
     installNow: "Install {version}",

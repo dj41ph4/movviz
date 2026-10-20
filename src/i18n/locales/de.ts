@@ -1300,6 +1300,7 @@ export const de: Dictionary = {
 
   update: {
     available: "Neues Update verfügbar (v{version})",
+    availableShort: "Update v{version}",
     clickToUpdate: "Hier klicken, um zu aktualisieren",
     inProgress: "Wird aktualisiert — die App startet neu…",
     availableTitle: "Update {version} verfügbar",

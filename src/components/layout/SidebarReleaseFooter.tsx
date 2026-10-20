@@ -17,7 +17,7 @@ export interface SidebarReleaseFooterProps {
   updateInfo?: SidebarUpdateInfo;
   installing: boolean;
   onInstall: () => void;
-  labels: { currentVersion: string; available: string; install: string; inProgress: string; upToDate: string };
+  labels: { currentVersion: string; available: string; availableShort: string; install: string; inProgress: string; upToDate: string };
 }
 
 /** True only when `latest` is strictly newer than the running version. A cached answer from before the
@@ -35,7 +35,7 @@ export function SidebarReleaseFooter({ version, collapsed, updateInfo, installin
   const available = !!updateInfo?.updateAvailable && isNewerVersion(updateInfo.latestVersion, version);
   const oneClick = updateInfo?.oneClickSupported ?? updateInfo?.platform === "win32";
   const actionLabel = installing ? labels.inProgress : oneClick ? labels.install : labels.available;
-  const actionClass = `flex h-11 items-center justify-center rounded-lg ring-focus text-xs font-bold ${collapsed ? "w-full" : "gap-2 px-2"} ${oneClick ? "brand-gradient text-white disabled:opacity-70" : "bg-brand/10 text-brand-glow hover:bg-brand/15"}`;
+  const actionClass = `flex min-h-11 items-center justify-center rounded-lg py-1.5 ring-focus text-xs font-bold leading-tight ${collapsed ? "w-full" : "gap-2 px-2"} ${oneClick ? "brand-gradient text-white disabled:opacity-70" : "bg-brand/10 text-brand-glow hover:bg-brand/15"}`;
   return (
     <div className="mt-2 flex shrink-0 flex-col gap-1 border-t border-white/10 pt-2">
       <Link href="/settings?tab=about" title={labels.currentVersion} aria-label={labels.currentVersion}
@@ -50,7 +50,7 @@ export function SidebarReleaseFooter({ version, collapsed, updateInfo, installin
           </button>
         : <Link href="/settings?tab=about" title={actionLabel} aria-label={actionLabel} className={actionClass}>
             <Download aria-hidden className="h-4 w-4 shrink-0" />
-            {!collapsed && <span className="min-w-0 text-center">{actionLabel}</span>}
+            {!collapsed && <span className="min-w-0 text-center">{labels.availableShort}</span>}
           </Link>)}
       {!collapsed && updateInfo?.releaseUrl && !available && <span className="text-center text-[10px] font-medium text-ok">{labels.upToDate}</span>}
     </div>

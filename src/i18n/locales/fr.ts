@@ -2335,6 +2335,7 @@ export const fr = {
     download: "Télécharger",
     dismiss: "Ignorer",
     available: "Nouvelle mise à jour disponible (v{version})",
+    availableShort: "Mise à jour v{version}",
     clickToUpdate: "Cliquez ici pour mettre à jour",
     inProgress: "Mise à jour en cours — l'application va redémarrer…",
     installNow: "Installer {version}",

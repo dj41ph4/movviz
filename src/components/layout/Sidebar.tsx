@@ -227,6 +227,7 @@ export function Sidebar({ version }: { version: string }) {
       <SidebarReleaseFooter version={version} collapsed={collapsed} updateInfo={user?.role === "admin" ? updateInfo : undefined} installing={installing} onInstall={() => void triggerUpdate()} labels={{
         currentVersion: t("update.currentVersion", { version }),
         available: t("update.available", { version: updateInfo?.latestVersion ?? "..." }),
+        availableShort: t("update.availableShort", { version: updateInfo?.latestVersion ?? "..." }),
         install: t("update.installNow", { version: updateInfo?.latestVersion ?? "..." }),
         inProgress: t("update.inProgress"), upToDate: t("update.upToDate"),
       }} />

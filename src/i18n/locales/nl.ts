@@ -2337,6 +2337,7 @@ export const nl: Dictionary = {
     download: "Downloaden",
     dismiss: "Negeren",
     available: "Nieuwe update beschikbaar (v{version})",
+    availableShort: "Update v{version}",
     clickToUpdate: "Klik hier om te updaten",
     inProgress: "Bezig met updaten — de app herstart…",
     installNow: "Installeer {version}",

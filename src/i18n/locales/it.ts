@@ -2336,6 +2336,7 @@ export const it: Dictionary = {
     download: "Scarica",
     dismiss: "Ignora",
     available: "Nuovo aggiornamento disponibile (v{version})",
+    availableShort: "Aggiornamento v{version}",
     clickToUpdate: "Clicca qui per aggiornare",
     inProgress: "Aggiornamento in corso — l'app si riavvierà…",
     installNow: "Installa {version}",

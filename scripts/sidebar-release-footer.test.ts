@@ -18,7 +18,7 @@ vm.runInNewContext(compiled, { module: componentModule, exports: componentModule
 const Footer = componentModule.exports.SidebarReleaseFooter;
 const base: SidebarReleaseFooterProps = {
   version: "1.25.166", collapsed: false, installing: false, onInstall: () => {},
-  labels: { currentVersion: "Version actuelle : 1.25.166", available: "Mise à jour 1.25.167 disponible", install: "Installer 1.25.167", inProgress: "Mise à jour en cours", upToDate: "À jour" },
+  labels: { currentVersion: "Version actuelle : 1.25.166", available: "Mise à jour 1.25.167 disponible", availableShort: "Mise à jour v1.25.167", install: "Installer 1.25.167", inProgress: "Mise à jour en cours", upToDate: "À jour" },
 };
 const render = (props: Partial<SidebarReleaseFooterProps> = {}) => renderToStaticMarkup(createElement(Footer, { ...base, ...props }));
 
@@ -43,7 +43,9 @@ test("Windows and native Linux offer installation while NAS only offers instruct
   }
   const nas = render({ updateInfo: { platform: "linux", oneClickSupported: false, latestVersion: "1.25.167", updateAvailable: true } });
   assert.doesNotMatch(nas, /<button/);
-  assert.match(nas, /Mise à jour 1\.25\.167 disponible/);
+  assert.match(nas, /aria-label="Mise à jour 1\.25\.167 disponible"/);
+  // The visible text stays short so it fits the 200px rail without overflowing.
+  assert.match(nas, />Mise à jour v1\.25\.167<\/span>/);
   assert.equal((nas.match(/href="\/settings\?tab=about"/g) ?? []).length, 2);
 });
 
