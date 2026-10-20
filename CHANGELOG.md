@@ -1,3 +1,10 @@
+## v1.27.14 — 20 octobre 2026
+
+### Bandes-annonces : une vidéo de remplacement quand YouTube bloque la lecture
+
+- Certaines bandes-annonces officielles ne peuvent pas être lues hors de YouTube (c’est le cas de celles de Toei pour Dragon Ball Super : Beerus). Quand toutes les vidéos d’un titre sont refusées, Movviz cherche désormais une autre bande-annonce, en privilégiant les chaînes officielles et les éditeurs d’anime (Netflix, Crunchyroll…).
+- Les vidéos refusées sont mémorisées et ne sont plus jamais proposées, sur le web comme sur les applications Android.
+
 ## v1.27.13 — 20 octobre 2026
 
 ### Accueil : les séries arrivent dans la bannière
