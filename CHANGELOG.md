@@ -1,3 +1,14 @@
+## v1.27.11 — 20 octobre 2026
+
+### Recherche tolérante aux fautes sur Android TV, Android mobile et Samsung
+
+- Les apps Android TV, Android mobile et Samsung indiquent désormais « Résultats pour … » quand une faute de frappe a été corrigée, comme sur le web.
+- Sur Android TV, la correction retrouve aussi les titres déjà présents dans la bibliothèque.
+
+### Interface web
+
+- Correction d’erreurs d’affichage au chargement des pages : les éléments de démarrage de l’interface sont désormais placés au bon endroit de la page.
+
 ## v1.27.10 — 20 octobre 2026
 
 ### Recherche : plus rapide, plus claire, tolérante aux fautes
