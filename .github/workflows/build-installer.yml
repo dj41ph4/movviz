@@ -38,7 +38,7 @@ jobs:
       - name: Verify Windows updater
         shell: powershell
         run: |
-          & scripts\windows-update-worker.test.ps1
+          powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts\windows-update-worker.test.ps1
           if ($LASTEXITCODE -ne 0) { throw "Updater worker tests failed" }
           node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test scripts/windows-update-service.test.ts
           if ($LASTEXITCODE -ne 0) { throw "Updater API tests failed" }

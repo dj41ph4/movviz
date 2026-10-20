@@ -1,3 +1,10 @@
+## v1.27.08 — 20 octobre 2026
+
+### Windows : installation du service Movviz Update
+
+- Le service indépendant « Movviz Update » télécharge et contrôle l'installateur officiel, redémarre Movviz et vérifie la version en fonctionnement, avec des journaux conservés. Le réglage automatique désactivé continue d'autoriser uniquement les installations demandées par clic.
+- Correction du contrôle des tests PowerShell qui avait empêché la fabrication de l'installateur Windows précédent. Installer cette version manuellement une première fois pour créer le nouveau service ; les données et réglages sont conservés.
+
 ## v1.27.07 — 20 octobre 2026
 
 ### Windows : un service indépendant pour les mises à jour
