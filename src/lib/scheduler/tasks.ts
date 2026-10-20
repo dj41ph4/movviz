@@ -14,6 +14,7 @@ import { syncUserWatchStatus } from "@/lib/plex/watchSync";
 import { getBootstrapState } from "@/lib/plex/plexHistoryBootstrap";
 import { loadPlexConfig, plexConfigured } from "@/lib/plex/store";
 import { refreshLibraryMetadata } from "@/lib/library/metadataRefresh";
+import { syncSeriesEpisodes } from "@/lib/library/episodeSync";
 import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
 import { purgeExpiredTrash } from "@/lib/library/trashPurge";
 import { isAutoSearchMissingEnabled } from "@/lib/settings/automation";
@@ -324,6 +325,16 @@ export const TASKS: ScheduledTask[] = [
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       await refreshLibraryMetadata();
+    },
+  },
+  {
+    id: "series-episodes-sync",
+    name: "Mise à jour des épisodes des séries",
+    intervalMs: 24 * 60 * 60 * 1000, // daily
+    // New episodes/seasons, episode titles and air dates published after a
+    // series was added (see episodeSync.ts).
+    run: async () => {
+      await syncSeriesEpisodes();
     },
   },
   {

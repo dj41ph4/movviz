@@ -2310,6 +2310,7 @@ export const it: Dictionary = {
       "plex-full-reconcile": "Full Plex reconciliation",
       "release-day-search": "Day release search",
       "metadata-refresh": "TMDb metadata refresh",
+      "series-episodes-sync": "Aggiornamento degli episodi delle serie",
       "rss-indexer-scan": "Indexer RSS scan",
       "download-state-reconcile": "Download state reconciliation",
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",

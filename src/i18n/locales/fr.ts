@@ -2309,6 +2309,7 @@ export const fr = {
       "plex-full-reconcile": "Réconciliation complète Plex",
       "release-day-search": "Recherche des sorties du jour",
       "metadata-refresh": "Rafraîchissement des métadonnées TMDb",
+      "series-episodes-sync": "Mise à jour des épisodes des séries",
       "rss-indexer-scan": "Scan RSS des indexeurs",
       "download-state-reconcile": "Réconciliation des téléchargements en cours",
       "anime-vf-calendar-refresh": "Rafraîchissement du calendrier VF anime",
