@@ -112,11 +112,12 @@ class MovvizRepository(private val baseUrl: String) {
 
     /** La première page est publiée sans attendre les pages suivantes : une
      * recherche interactive ne doit jamais être bloquée par la pagination. */
-    suspend fun search(query: String): ApiResult<List<SearchResultDto>> {
+    /** Première page + titre corrigé par le serveur (faute de frappe), le cas échéant. */
+    suspend fun search(query: String): ApiResult<SearchResponseDto> {
         return when (val response = searchPage(query, page = 1)) {
             is ApiResult.Success -> {
                 if (!response.data.configured) ApiResult.Failure("metadata_not_configured")
-                else ApiResult.Success(response.data.results)
+                else response
             }
             is ApiResult.Failure -> response
             ApiResult.Unauthorized -> ApiResult.Unauthorized

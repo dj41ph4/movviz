@@ -611,6 +611,9 @@ data class SearchResponseDto(
     val results: List<SearchResultDto> = emptyList(),
     val page: Int = 1,
     val totalPages: Int = 1,
+    /** Titre réellement cherché quand le serveur a corrigé une faute
+     *  ("hary potter" → "harry potter"), sinon null. */
+    val correctedQuery: String? = null,
 )
 
 /** Porté par une rangée dynamique "becauseYouWatched:{anchorTmdbId}" (voir

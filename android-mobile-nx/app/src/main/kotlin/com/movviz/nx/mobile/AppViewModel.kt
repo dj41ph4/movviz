@@ -335,6 +335,10 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _searchResults = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val searchResults: StateFlow<List<SearchResultDto>> = _searchResults.asStateFlow()
 
+    /** Titre réellement cherché quand le serveur a corrigé une faute de frappe. */
+    private val _searchCorrection = MutableStateFlow<String?>(null)
+    val searchCorrection: StateFlow<String?> = _searchCorrection.asStateFlow()
+
     private val _searching = MutableStateFlow(false)
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
 
@@ -1986,6 +1990,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     fun invalidateSearch() {
         searchJob?.cancel()
         searchRequestId++
+        _searchCorrection.value = null
         activeSearchQuery = null
         personSearchJob?.cancel()
         personSearchRequestId++
@@ -2017,8 +2022,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             when (val r = repo.search(normalizedQuery)) {
                 is ApiResult.Success -> {
                     if (requestId != searchRequestId) return@launch
-                    _searchResults.value = r.data
-                    _searchState.value = if (r.data.isEmpty()) SearchState.Empty else SearchState.Success(r.data)
+                    val found = r.data.results
+                    _searchCorrection.value = r.data.correctedQuery?.takeIf { it.isNotBlank() }
+                    _searchResults.value = found
+                    _searchState.value = if (found.isEmpty()) SearchState.Empty else SearchState.Success(found)
                 }
                 ApiResult.Unauthorized -> {
                     if (requestId != searchRequestId) return@launch

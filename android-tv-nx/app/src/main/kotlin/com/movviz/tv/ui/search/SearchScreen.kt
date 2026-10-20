@@ -156,6 +156,8 @@ fun SearchScreen(
     val statusFocusRequester = remember { FocusRequester() }
     val gridState = rememberTvLazyGridState().withTvPrefetchDisabled()
     val results by viewModel.searchResults.collectAsState()
+    // Titre corrigé par le serveur (« hary potter » → « harry potter »).
+    val correction by viewModel.searchCorrection.collectAsState()
     val searching by viewModel.searching.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
     // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
@@ -196,15 +198,18 @@ fun SearchScreen(
             }
         }
     }
-    val matchedLibrary by produceState(Triple("", SearchTypeFilter.ALL, emptyList<SearchResultDto>()), query, libraryIndex, typeFilter) {
+    val matchedLibrary by produceState(Triple("", SearchTypeFilter.ALL, emptyList<SearchResultDto>()), query, libraryIndex, typeFilter, correction) {
         val q = normalizedSearchText(query)
+        // Une faute de frappe corrigée par le serveur retrouve aussi la bibliothèque.
+        val corrected = correction?.let(::normalizedSearchText)?.takeIf { it.isNotBlank() && it != q }
         val matches = if (q.isBlank()) {
             emptyList()
         } else {
             withContext(Dispatchers.Default) {
                 libraryIndex.filter {
-                    (typeFilter.apiType == null || it.result.type == typeFilter.apiType) && it.normalizedTitle.contains(q)
-                }.sortedWith(compareBy({ !it.normalizedTitle.startsWith(q) }, { it.result.title.length }))
+                    (typeFilter.apiType == null || it.result.type == typeFilter.apiType) &&
+                        (it.normalizedTitle.contains(q) || (corrected != null && it.normalizedTitle.contains(corrected)))
+                }.sortedWith(compareBy({ !it.normalizedTitle.startsWith(corrected ?: q) && !it.normalizedTitle.startsWith(q) }, { it.result.title.length }))
                     .map { it.result }
             }
         }
@@ -314,6 +319,16 @@ fun SearchScreen(
         if (query.isNotBlank()) {
             SearchTypeFilters(typeFilter, activeFocusRequester = filterFocusRequester, beta = beta) { typeFilter = it }
             Spacer(Modifier.height(11.dp))
+        }
+        if (query.isNotBlank() && correction != null && searchSettled) {
+            // Texte seul, jamais focalisable : il n'ajoute aucun arrêt D-pad.
+            Text(
+                "Résultats pour « $correction »",
+                color = if (beta) MovvizTheme.palette.inkSoft else MovvizInkDim,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(8.dp))
         }
         if (query.isNotBlank() && suggestions.isNotEmpty()) {
             SearchSuggestionsRow(

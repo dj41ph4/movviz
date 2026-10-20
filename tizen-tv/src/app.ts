@@ -423,12 +423,16 @@ interface Window {
   }
   async function search() {
     const version = begin(t("nav.search")); const form = el("form"), query = field(t("nav.search"), "search"), grid = el("div", "", "grid");
-    const submit = el("button", t("nav.search")); submit.type = "submit"; form.append(query.wrapper, submit); content.append(form, grid);
+    // Titre corrigé par le serveur (« hary potter » → « harry potter »), affiché au-dessus des résultats.
+    const corrected = el("p", "", "muted"); corrected.hidden = true;
+    const submit = el("button", t("nav.search")); submit.type = "submit"; form.append(query.wrapper, submit); content.append(form, corrected, grid);
     let request = 0;
     form.onsubmit = event => {
       event.preventDefault(); const text = query.input.value.trim(); if (!text) return; const id = ++request;
-      void call<{ results: Media[] }>(`/api/metadata/search?q=${encodeURIComponent(text)}&partViews=1`).then(data => {
+      void call<{ results: Media[]; correctedQuery?: string | null }>(`/api/metadata/search?q=${encodeURIComponent(text)}&partViews=1`).then(data => {
         if (version !== generation || id !== request) return;
+        corrected.hidden = !data.correctedQuery;
+        corrected.textContent = data.correctedQuery ? t("discover.searchCorrected").replace("{q}", data.correctedQuery) : "";
         grid.replaceChildren(); (data.results || []).forEach(item => grid.append(card(item, item.type || "movie")));
         if (!grid.childElementCount) grid.append(el("p", t("tizen.empty")));
         grid.querySelector<HTMLElement>("button")?.focus();

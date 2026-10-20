@@ -132,6 +132,8 @@ fun SearchScreen(
     // résultats réels.
     val firstResultFocusRequester = remember { FocusRequester() }
     val results by viewModel.searchResults.collectAsState()
+    // Titre corrigé par le serveur (« hary potter » → « harry potter »).
+    val correction by viewModel.searchCorrection.collectAsState()
     val searching by viewModel.searching.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
     // Pastille "vu" (phase 12-13 watch-state) — films uniquement.
@@ -191,6 +193,10 @@ fun SearchScreen(
         if (query.isNotBlank()) {
             SearchTypeFilters(typeFilter) { typeFilter = it }
             Spacer(Modifier.height(14.dp))
+        }
+        if (query.isNotBlank() && correction != null && searchState is SearchState.Success) {
+            Text("Résultats pour « $correction »", color = MovvizInkSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
         }
         if (query.isNotBlank() && suggestions.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -393,6 +399,8 @@ private fun PortraitSearchScreen(
     onOpenPerson: (personId: Int) -> Unit,
 ) {
     val results by viewModel.searchResults.collectAsState()
+    // Titre corrigé par le serveur (« hary potter » → « harry potter »).
+    val correction by viewModel.searchCorrection.collectAsState()
     val personResults by viewModel.personSearchResults.collectAsState()
     val personSearchState by viewModel.personSearchState.collectAsState()
     val searching by viewModel.searching.collectAsState()
@@ -600,6 +608,7 @@ private fun PortraitSearchScreen(
                                 searchState is SearchState.Unauthorized -> "Session expirée. Reconnectez-vous."
                                 searchState is SearchState.Error -> "Recherche indisponible — réessayer"
                                 filteredResults.isEmpty() -> "Aucun résultat pour « $query »"
+                                correction != null -> "Résultats pour « $correction » (${filteredResults.size})"
                                 else -> "Résultats (${filteredResults.size})"
                             },
                             color = MovvizInkSoft,

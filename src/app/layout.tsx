@@ -94,17 +94,21 @@ export default async function RootLayout({
           trop tard pour qu'il "apparaisse en premier". Ce preload démarre le
           téléchargement dès le HTML initial, en parallèle du JS, pour que le
           logo soit déjà en cache au moment où React le rend. */}
-      <link rel="preload" as="image" href="/brand/movviz-lockup.png" fetchPriority="high" />
-      <link rel="preload" as="image" href="/brand/movviz-mark.png" fetchPriority="high" />
-      {signedIn && <script dangerouslySetInnerHTML={{ __html: EARLY_DATA_SCRIPT }} />}
-      {designMode === "beta" && (
-        <>
-          <link rel="preload" as="image" href={BRAND.mark} fetchPriority="high" />
-          <link rel="preload" as="image" href={BRAND.word} />
-          <style dangerouslySetInnerHTML={{ __html: PRESPLASH_CSS }} />
-          <script dangerouslySetInnerHTML={{ __html: PRESPLASH_INIT_SCRIPT }} />
-        </>
-      )}
+      {/* Inline <style>/<script> must sit inside <head>: rendered directly
+          under <html> they are invalid HTML and break hydration. */}
+      <head>
+        <link rel="preload" as="image" href="/brand/movviz-lockup.png" fetchPriority="high" />
+        <link rel="preload" as="image" href="/brand/movviz-mark.png" fetchPriority="high" />
+        {signedIn && <script dangerouslySetInnerHTML={{ __html: EARLY_DATA_SCRIPT }} />}
+        {designMode === "beta" && (
+          <>
+            <link rel="preload" as="image" href={BRAND.mark} fetchPriority="high" />
+            <link rel="preload" as="image" href={BRAND.word} />
+            <style dangerouslySetInnerHTML={{ __html: PRESPLASH_CSS }} />
+            <script dangerouslySetInnerHTML={{ __html: PRESPLASH_INIT_SCRIPT }} />
+          </>
+        )}
+      </head>
       <body className="cinema-grain antialiased">
         <Script id="reduce-motion-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: REDUCE_MOTION_INIT_SCRIPT }} />
         <ScrollRestoration />
