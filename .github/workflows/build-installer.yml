@@ -35,6 +35,15 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Verify Windows updater
+        shell: powershell
+        run: |
+          & scripts\windows-update-worker.test.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Updater worker tests failed" }
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test scripts/windows-update-service.test.ts
+          if ($LASTEXITCODE -ne 0) { throw "Updater API tests failed" }
+          & scripts\windows-installer-smoke.ps1 -Compiler "$env:ISCC_DIR\ISCC.exe"
+
       - name: Install engine dependencies
         run: npm ci --no-audit --no-fund
         working-directory: engine
@@ -66,3 +75,22 @@ jobs:
         with:
           files: dist\Movviz-Setup-*.exe
           body_path: dist/release-notes.md
+
+      - name: Verify real update with independent Windows services
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          & scripts\windows-update-e2e.ps1 -Installer (Resolve-Path "dist\Movviz-Setup-$version.exe") -Version $version
+
+      - name: Upload Windows update diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-update-diagnostics
+          if-no-files-found: ignore
+          path: |
+            C:\ProgramData\MovvizUpdater\*.log
+            C:\ProgramData\MovvizUpdater\status.json
+            C:\ProgramData\Movviz\logs\*.log
+            ${{ runner.temp }}\movviz-bootstrap.log

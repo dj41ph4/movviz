@@ -1,3 +1,11 @@
+## v1.27.07 — 20 octobre 2026
+
+### Windows : un service indépendant pour les mises à jour
+
+- Le nouveau service « Movviz Update » installe les mises à jour sans être arrêté avec Movviz, puis vérifie que la nouvelle version répond après redémarrage. Le téléchargement est contrôlé par son empreinte SHA256 et les journaux d'installation sont conservés pour diagnostiquer un échec.
+- Le réglage de mise à jour automatique est respecté dès l'ouverture de l'interface : lorsqu'il est désactivé, seule une installation demandée par clic est lancée. L'interface suit désormais l'installation jusqu'au retour de la version attendue et affiche les erreurs.
+- Pour créer ce nouveau service sur une installation existante, installer cette version manuellement une première fois. Les données et réglages sont conservés.
+
 ## v1.27.06 — 20 octobre 2026
 
 ### Android TV : la fiche d'un épisode répond de nouveau à la télécommande

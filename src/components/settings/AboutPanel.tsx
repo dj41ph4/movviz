@@ -13,6 +13,7 @@ import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink, Sparkles, RotateCcw, Trash2 } from "lucide-react";
 import { useVersion } from "@/lib/version/VersionContext";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
+import { installSystemUpdate } from "@/lib/updates/installSystemUpdate";
 
 interface UpdateCheck {
   currentVersion: string;
@@ -50,13 +51,9 @@ export function AboutPanel() {
   const installNow = async () => {
     setInstalling(true);
     try {
-      const res = await fetch("/api/system/update", { method: "POST" });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        toast("error", t("update.failed", { error: err.error ?? "unknown" }));
-      }
-    } catch {
-      toast("error", t("update.failed", { error: "network" }));
+      await installSystemUpdate();
+    } catch (error) {
+      toast("error", t("update.failed", { error: error instanceof Error ? error.message : "unknown" }));
     } finally {
       setInstalling(false);
     }

@@ -175,6 +175,11 @@ if (-not (Test-Path $winsw)) {
 }
 Copy-Item -Force $winsw (Join-Path $stage "service\movviz-service.exe")
 Copy-Item -Force (Join-Path $here "movviz-service.xml") (Join-Path $stage "service")
+New-Item -ItemType Directory -Force (Join-Path $stage "updater") | Out-Null
+Copy-Item -Force $winsw (Join-Path $stage "updater\movviz-updater.exe")
+foreach ($file in @('movviz-updater.xml', 'update-service.ps1', 'update-worker.ps1', 'register-updater.ps1')) {
+  Copy-Item -Force (Join-Path $here $file) (Join-Path $stage "updater")
+}
 
 # --- 3. Icon ----------------------------------------------------------------
 Step "Generating icon"

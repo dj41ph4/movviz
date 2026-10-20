@@ -16,6 +16,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
+import { installSystemUpdate } from "@/lib/updates/installSystemUpdate";
 import { SidebarReleaseFooter, isNewerVersion, type SidebarUpdateInfo } from "./SidebarReleaseFooter";
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 
@@ -23,6 +24,13 @@ type LiveBadge = NonNullable<NavItem["liveBadge"]>;
 const SIDEBAR_STORAGE_KEY = "movviz.sidebar.collapsed";
 
 function fetcher(url: string) { return fetch(url, { cache: "no-store" }).then((r) => r.json()); }
+
+function claimAutomaticUpdate(): boolean {
+  const state = globalThis as typeof globalThis & { __movvizAutoUpdateTriggered?: boolean };
+  if (state.__movvizAutoUpdateTriggered) return false;
+  state.__movvizAutoUpdateTriggered = true;
+  return true;
+}
 
 function matchesRoute(item: NavItem, pathname: string, searchParams?: ReturnType<typeof useSearchParams>) {
   const [hrefPath, hrefQuery] = item.href.split("?");
@@ -186,22 +194,17 @@ export function Sidebar({ version }: { version: string }) {
   const [installing, setInstalling] = useState(false);
   const installingRef = useRef(false);
   const autoUpdate = useAutoUpdate(); const globalState = globalThis as typeof globalThis & { __movvizAutoUpdateTriggered?: boolean };
-  if (globalState.__movvizAutoUpdateTriggered === undefined) globalState.__movvizAutoUpdateTriggered = false;
-  const triggerUpdate = async () => {
+  const triggerUpdate = async (automatic = false) => {
     if (installingRef.current) return;
     installingRef.current = true;
     setInstalling(true);
     try {
-      const response = await fetch("/api/system/update", { method: "POST" });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        toast("error", t("update.failed", { error: error.error ?? "unknown" }));
-      }
-    } catch { toast("error", t("update.failed", { error: "network" })); }
+      await installSystemUpdate(automatic);
+    } catch (error) { toast("error", t("update.failed", { error: error instanceof Error ? error.message : "unknown" })); }
     finally { installingRef.current = false; setInstalling(false); }
   };
   useEffect(() => {
-    if (updateInfo?.updateAvailable && isNewerVersion(updateInfo.latestVersion, version) && updateInfo.platform === "win32" && autoUpdate.enabled && !globalState.__movvizAutoUpdateTriggered) { globalState.__movvizAutoUpdateTriggered = true; const timeout = window.setTimeout(() => void triggerUpdate(), 2000); return () => window.clearTimeout(timeout); }
+    if (updateInfo?.updateAvailable && isNewerVersion(updateInfo.latestVersion, version) && updateInfo.platform === "win32" && autoUpdate.enabled && !globalState.__movvizAutoUpdateTriggered) { const timeout = window.setTimeout(() => { if (claimAutomaticUpdate()) void triggerUpdate(true); }, 2000); return () => window.clearTimeout(timeout); }
   // triggerUpdate deliberately stays out: it is recreated every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateInfo?.updateAvailable, updateInfo?.platform, autoUpdate.enabled]);

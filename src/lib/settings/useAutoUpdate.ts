@@ -10,7 +10,8 @@ export function useAutoUpdate() {
     fetcher,
   );
   return {
-    enabled: data?.enabled ?? true,
+    // Do not trigger an update before the saved preference has been loaded.
+    enabled: data?.enabled === true,
     setEnabled: async (enabled: boolean) => {
       await fetch("/api/settings/auto-update", {
         method: "POST",

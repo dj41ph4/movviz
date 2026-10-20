@@ -1,0 +1,16 @@
+<service>
+  <id>MovvizUpdate</id>
+  <name>Movviz Update</name>
+  <description>Installs Movviz updates only when requested by Movviz. Keeps installation logs and verifies recovery.</description>
+  <executable>%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe</executable>
+  <arguments>-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%BASE%\update-service.ps1"</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+  <startmode>Automatic</startmode>
+  <onfailure action="restart" delay="5 sec"/>
+  <resetfailure>1 hour</resetfailure>
+  <logpath>%ProgramData%\MovvizUpdater</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>1024</sizeThreshold>
+    <keepFiles>3</keepFiles>
+  </log>
+</service>

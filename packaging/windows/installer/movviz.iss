@@ -41,6 +41,7 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
 PrivilegesRequired=admin
+SetupLogging=yes
 CloseApplications=yes
 ; --- Data/settings live outside Program Files, like any pro app ---
 UsePreviousAppDir=yes
@@ -71,6 +72,11 @@ Type: filesandordirs; Name: "{app}\service"
 Source: "stage\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs ignoreversion
 ; Service manager (NSSM).
 Source: "stage\service\*"; DestDir: "{app}\service"; Flags: recursesubdirs ignoreversion
+; Separate service: never delete its directory or replace its running wrapper.
+; PowerShell uses the Windows runtime, independent from app/runtime payloads.
+Source: "stage\updater\movviz-updater.exe"; DestDir: "{app}\updater"; Flags: onlyifdoesntexist
+Source: "stage\updater\*.xml"; DestDir: "{app}\updater"; Flags: ignoreversion
+Source: "stage\updater\*.ps1"; DestDir: "{app}\updater"; Flags: ignoreversion
 ; The application (Next.js standalone server + assets).
 Source: "stage\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion createallsubdirs
 ; Icon + web shortcut.
@@ -163,9 +169,28 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+  ServiceExe: String;
 begin
   if CurStep = ssInstall then
     StopAndRemoveExistingService();
+  if CurStep = ssPostInstall then
+  begin
+    if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\updater\register-updater.ps1') + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      RaiseException('Cannot launch Movviz Update registration');
+    if ResultCode <> 0 then
+      RaiseException('Cannot register or start Movviz Update. See setup log.');
+    ServiceExe := ExpandConstant('{app}\service\movviz-service.exe');
+    if not Exec(ServiceExe, 'install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      RaiseException('Cannot register Movviz');
+    if ResultCode <> 0 then RaiseException('Movviz service registration failed');
+    if not Exec(ServiceExe, 'start', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      RaiseException('Cannot start Movviz');
+    if ResultCode <> 0 then RaiseException('Movviz service start failed');
+  end;
 end;
 
 { Data removal at uninstall: the app deliberately keeps user data (libraries,
@@ -195,21 +220,14 @@ begin
 end;
 
 [Run]
-; Defense in depth: the [Code] section above already stopped/unregistered any
-; previous service before files were copied. Re-run stop/uninstall here too
-; (harmless no-op if already gone) before registering the new one, in case the
-; service's own config (movviz-service.xml) changed between versions.
-Filename: "{app}\service\movviz-service.exe"; Parameters: "stop"; Flags: runhidden waituntilterminated skipifdoesntexist
-Filename: "{app}\service\movviz-service.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated skipifdoesntexist
-Filename: "{app}\service\movviz-service.exe"; Parameters: "install"; \
-  StatusMsg: "Registering the Movviz service..."; Flags: runhidden waituntilterminated
-Filename: "{app}\service\movviz-service.exe"; Parameters: "start"; \
-  StatusMsg: "Starting Movviz..."; Flags: runhidden waituntilterminated
+; Service installation/start is checked in ssPostInstall above.
 ; Offer to open Movviz in the browser after install.
 Filename: "{app}\Movviz.url"; Description: "Open Movviz"; \
   Flags: postinstall shellexec skipifsilent nowait
 
 [UninstallRun]
+Filename: "{app}\updater\movviz-updater.exe"; Parameters: "stop"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopMovvizUpdater"
+Filename: "{app}\updater\movviz-updater.exe"; Parameters: "uninstall"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveMovvizUpdater"
 ; Stop + remove the service before files are deleted.
 Filename: "{app}\service\movviz-service.exe"; Parameters: "stop"; \
   Flags: runhidden waituntilterminated; RunOnceId: "StopMovvizService"

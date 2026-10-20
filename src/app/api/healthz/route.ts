@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsonPersistenceHealthy } from "@/lib/fsJsonCache";
+import { getAppVersion } from "@/lib/updates/version";
 
 export const dynamic = "force-dynamic";
 
@@ -12,5 +13,5 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const ok = jsonPersistenceHealthy();
-  return NextResponse.json({ ok }, { status: ok ? 200 : 503 });
+  return NextResponse.json({ ok, version: getAppVersion() }, { status: ok ? 200 : 503 });
 }

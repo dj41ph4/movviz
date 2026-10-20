@@ -6,6 +6,8 @@ import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { cn } from "@/lib/utils";
 import { Download, Loader2 } from "lucide-react";
+import { installSystemUpdate } from "@/lib/updates/installSystemUpdate";
+import { toast } from "@/components/ui/Toast";
 
 interface UpdateCheck {
   updateAvailable: boolean;
@@ -40,9 +42,11 @@ export function UpdateAvailableBanner() {
   const start = async () => {
     setPhase("updating");
     try {
-      await fetch("/api/system/update", { method: "POST" });
-    } catch {
-      // Expected: the response may never arrive if the update already killed the server.
+      await installSystemUpdate();
+    } catch (error) {
+      toast("error", t("update.failed", { error: error instanceof Error ? error.message : "unknown" }));
+      setPhase("idle");
+      return;
     }
     setPhase("waiting");
     const deadline = Date.now() + 5 * 60_000;

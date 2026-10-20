@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { requireAdmin } from "@/lib/auth/guard";
+import { queueWindowsUpdate, readWindowsUpdateProgress } from "@/lib/updates/windowsUpdateService";
+import { isAutoUpdateEnabled } from "@/lib/settings/autoUpdate";
 
 const REPO_OWNER = "dj41ph4";
 const REPO_NAME = "movviz";
@@ -58,6 +60,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (req.nextUrl.searchParams.get("progress") === "1") {
+    return NextResponse.json(process.platform === "win32" ? readWindowsUpdateProgress() : { status: "idle" });
+  }
   const currentVersion = getCurrentVersion();
   const latest = await getLatestRelease();
 
@@ -107,22 +112,8 @@ async function updateWindows(latestVersion: string, latest: NonNullable<Awaited<
     return NextResponse.json({ error: "invalid_installer_name" }, { status: 400 });
   }
 
-  const tempDir = path.join(process.env.TEMP ?? process.cwd(), "movviz-update");
-  const installerPath = path.join(tempDir, installerAsset.name);
-
-  fs.mkdirSync(tempDir, { recursive: true });
-  const res = await fetch(installerAsset.browser_download_url);
-  if (!res.ok) throw new Error("download failed");
-  const buffer = await res.arrayBuffer();
-  fs.writeFileSync(installerPath, Buffer.from(buffer));
-
-  const { spawn } = await import("node:child_process");
-  spawn(installerPath, ["/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], {
-    detached: true,
-    stdio: "ignore",
-  }).unref();
-
-  return NextResponse.json({ success: true, path: installerPath });
+  queueWindowsUpdate(latestVersion);
+  return NextResponse.json({ accepted: true, version: latestVersion }, { status: 202 });
 }
 
 // Downloads the pre-built tarball (linux-release-build.yml) and extracts it
@@ -178,6 +169,10 @@ async function updateLinux(latestVersion: string, latest: NonNullable<Awaited<Re
 
 export async function POST(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const options = await req.json().catch(() => ({}));
+  if (options?.automatic === true && !isAutoUpdateEnabled()) {
+    return NextResponse.json({ error: "auto_update_disabled" }, { status: 409 });
+  }
   const isWindows = process.platform === "win32";
   if (!isWindows && !isNativeLinuxInstall()) {
     return NextResponse.json({ error: "unsupported_platform" }, { status: 400 });
