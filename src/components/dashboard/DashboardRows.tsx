@@ -14,6 +14,7 @@ import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
+import { RecentEpisodesRow } from "./RecentEpisodesRow";
 import { useRowLayout } from "@/components/media/useRowLayout";
 import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
 
@@ -280,7 +281,6 @@ export function DashboardRows({
     if (visible.has("shortSessions")) shortSessions.forEach((item) => add("movie", item.tmdbId));
     if (visible.has("discover")) trending.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("availableNow")) recentlyAdded.forEach(({ type, item }) => add(type, item.tmdbId));
-    if (visible.has("availableNow")) recentEpisodes.forEach((episode) => add("series", episode.tmdbId));
     if (visible.has("comingSoon")) upcoming.forEach(({ m }) => add("movie", m.tmdbId));
     if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
 
@@ -385,10 +385,6 @@ export function DashboardRows({
           );
         }
 
-        // Plex distinguishes a newly imported *episode* from a newly added
-        // series. Keep that distinction on Movviz too: this shelf points to
-        // the exact Sx · Ex file and can start it directly, rather than
-        // making the user open the parent series and hunt for the episode.
         if (id === "availableNow" && (recentEpisodes.length > 0 || recentlyAdded.length > 0)) {
           return (
             <div key={id} className="space-y-8">
@@ -416,40 +412,7 @@ export function DashboardRows({
                   );
                 })}
               </PosterRow>}
-              {recentEpisodes.length > 0 && <PosterRow title={t("dashboard.recentEpisodes")}>
-                {recentEpisodes.slice(0, 24).map((episode) => {
-                const artwork = resolveArtwork("series", episode.tmdbId, episode.backdropPath);
-                const playback = episode.plexRatingKey && episode.plexUrl
-                  ? {
-                      ratingKey: episode.plexRatingKey,
-                      plexUrl: episode.plexUrl,
-                      seriesId: episode.seriesId,
-                      type: "series" as const,
-                      seasonNumber: episode.seasonNumber,
-                      episodeNumber: episode.episodeNumber,
-                    }
-                  : undefined;
-                return (
-                  <CardErrorBoundary key={`${episode.seriesId}:${episode.seasonNumber}:${episode.episodeNumber}`}>
-                    <DashboardPosterCard
-                      tmdbId={episode.tmdbId}
-                      type="series"
-                      title={episode.title}
-                      posterPath={episode.posterPath}
-                      backdropPath={artwork.backdropPath}
-                      logoPath={artwork.logoPath}
-                      titleEmbedded={artwork.titleEmbedded}
-                      rating={episode.rating}
-                      subtitle={`S${episode.seasonNumber} · E${episode.episodeNumber} — ${episode.episodeTitle}`}
-                      episodeBadge={formatEpisodeBadge(episode.seasonNumber, episode.episodeNumber)}
-                      inLibrary
-                      playback={playback}
-                      technical={technicalFromFile(episode.file)}
-                    />
-                  </CardErrorBoundary>
-                );
-                })}
-              </PosterRow>}
+              <RecentEpisodesRow episodes={recentEpisodes} series={series} />
             </div>
           );
         }

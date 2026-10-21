@@ -1,3 +1,8 @@
+import type { DashboardLibrarySeries, DashboardRecentEpisode } from "../dashboard/interfaceTypes";
+import type { WatchedEpisode } from "../plex/watchStore";
+import { BLEACH_TMDB_ID } from "../metadata/bleachEpisodeOrder";
+import { bleachCour, bleachPartTitle, type BleachPart } from "../metadata/bleachPresentation";
+
 /**
  * « Recently added » episodes for the home screens, newest first.
  *
@@ -27,4 +32,57 @@ export function recentEpisodesAcrossSeries<T extends { tmdbId: number; addedAt: 
     out.push(episode);
   }
   return out;
+}
+
+export interface RecentEpisodeGroup {
+  key: string;
+  latest: DashboardRecentEpisode;
+  seriesPart?: BleachPart;
+  displaySeason: number;
+  displayEpisode: number;
+  grouped: boolean;
+  unwatchedCount: number | null;
+  fullyWatched: boolean;
+}
+
+/** Mirrors Android TV: one card per series/part, showing the latest season
+ * when several episodes arrived. Count the whole available season when known,
+ * falling back to the recent files, and keep each user's watched state separate.
+ * Apply the row limit after grouping so bulk imports cannot hide other shows. */
+export function groupRecentEpisodes(
+  episodes: DashboardRecentEpisode[],
+  watched: WatchedEpisode[],
+  series: DashboardLibrarySeries[],
+): RecentEpisodeGroup[] {
+  const groups = new Map<string, DashboardRecentEpisode[]>();
+  for (const episode of episodes) {
+    const part = episode.tmdbId === BLEACH_TMDB_ID ? (episode.seasonNumber === 17 ? "tybw" : "original") : "";
+    const key = `${episode.tmdbId}:${part}`;
+    const group = groups.get(key) ?? [];
+    group.push(episode);
+    groups.set(key, group);
+  }
+  const seen = new Set(watched.map((ep) => `${ep.tmdbId}:${ep.season}:${ep.episode}`));
+  const bySeries = new Map(series.map((show) => [show.tmdbId, show]));
+  return [...groups].map(([key, group]): RecentEpisodeGroup => {
+    const latest = group.reduce((a, b) => b.addedAt > a.addedAt ? b : a);
+    const seriesPart = latest.tmdbId === BLEACH_TMDB_ID ? (latest.seasonNumber === 17 ? "tybw" : "original") : undefined;
+    const cour = seriesPart === "tybw" ? bleachCour(latest.episodeNumber) : undefined;
+    const grouped = group.length > 1;
+    const seasonTotal = bySeries.get(latest.tmdbId)?.availableBySeason?.[latest.seasonNumber];
+    const watchedInSeason = [...seen].filter((id) => id.startsWith(`${latest.tmdbId}:${latest.seasonNumber}:`)).length;
+    const remaining = seasonTotal != null
+      ? Math.max(0, seasonTotal - watchedInSeason)
+      : group.filter((ep) => ep.seasonNumber === latest.seasonNumber && !seen.has(`${ep.tmdbId}:${ep.seasonNumber}:${ep.episodeNumber}`)).length;
+    return {
+      key,
+      latest: seriesPart ? { ...latest, title: bleachPartTitle(seriesPart) } : latest,
+      seriesPart,
+      displaySeason: cour?.part ?? latest.seasonNumber,
+      displayEpisode: latest.episodeNumber - (cour?.offset ?? 0),
+      grouped,
+      unwatchedCount: grouped && remaining > 0 ? remaining : null,
+      fullyWatched: grouped ? remaining === 0 : seen.has(`${latest.tmdbId}:${latest.seasonNumber}:${latest.episodeNumber}`),
+    };
+  }).sort((a, b) => b.latest.addedAt - a.latest.addedAt);
 }

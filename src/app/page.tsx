@@ -25,6 +25,7 @@ import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySer
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import { mergeNxDashboardLayout } from "@/lib/dashboard/homeLayout";
+import { recentEpisodesAcrossSeries } from "@/lib/library/recentEpisodes";
 import { Compass } from "lucide-react";
 
 const SPLASH_SEEN_KEY = "movviz-splash-seen";
@@ -67,6 +68,7 @@ export default function DashboardPage() {
         genres: show.genres,
         addedAt: show.addedAt,
         hasAvailableEpisode: show.seasons.some((season) => season.episodes.some((episode) => episode.status === "available")),
+        availableBySeason: Object.fromEntries(show.seasons.map((season) => [season.seasonNumber, season.episodes.filter((episode) => episode.status === "available" && episode.file).length])),
       }));
   const torrents = torrentsData?.torrents ?? [];
   const compactRecentMovies = optimized
@@ -83,7 +85,7 @@ export default function DashboardPage() {
   // the concrete episode identity once compact mode is enabled (the default).
   const recentEpisodes: DashboardRecentEpisode[] = optimized
     ? optimizedData?.recentEpisodes ?? []
-    : (seriesData?.series ?? []).flatMap((show) => show.seasons.flatMap((season) => season.episodes
+    : recentEpisodesAcrossSeries((seriesData?.series ?? []).flatMap((show) => show.seasons.flatMap((season) => season.episodes
       .filter((episode) => episode.status === "available" && episode.file)
       .map((episode) => ({
         seriesId: show.id,
@@ -102,9 +104,7 @@ export default function DashboardPage() {
         addedAt: episode.file!.addedAt,
         plexRatingKey: episode.plexRatingKey,
         file: episode.file,
-      }))))
-      .sort((a, b) => b.addedAt - a.addedAt)
-      .slice(0, 24);
+      })))));
 
 
   const progressFor = (movie: LibraryMovie) =>
