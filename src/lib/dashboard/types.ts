@@ -21,6 +21,7 @@ export const DASHBOARD_SECTION_IDS = [
   "continueWatching",
   "availableNow",
   "becauseYouLike",
+  "watchlist",
   "rewatch",
   "discover",
   "shortSessions",
@@ -147,7 +148,10 @@ function sanitizeSections(raw: unknown): DashboardLayout["sections"] {
   // Movviz version adding a row type) is appended visible-by-default,
   // rather than silently missing until the user re-saves their settings.
   for (const id of DASHBOARD_SECTION_IDS) {
-    if (!seen.has(id)) sections.push({ id, visible: true });
+    if (!seen.has(id)) {
+      if (id === "watchlist") sections.splice(Math.min(3, sections.length), 0, { id, visible: true });
+      else sections.push({ id, visible: true });
+    }
   }
   return sections;
 }

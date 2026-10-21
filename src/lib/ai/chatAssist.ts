@@ -306,7 +306,7 @@ export function buildCapabilitiesSection(webSearchEnabled: boolean): string {
     "marquer un titre comme vu (« mets-le en vu », « j'ai déjà tout vu ») et retenir tes notes (« je mets 4/5 à X ») pour affiner les suggestions",
     "sur la fiche que tu regardes : durée, qualité (4K, HDR), liste des épisodes et ceux que tu as vus",
     "se souvenir de toi d'une conversation à l'autre (ton prénom, ce que tu aimes ou pas)",
-    ...(webSearchEnabled ? ["retrouver la musique d'un film ou d'une série, ou une scène culte, grâce à la recherche web"] : []),
+    ...(webSearchEnabled ? ["vérifier une information actuelle ou une date de sortie sur le web à ta demande, avec les sources ; retrouver aussi une musique ou une scène culte"] : []),
     "te dire ce qui a changé dans la dernière version de Movviz",
     "sous chaque suggestion : « Déjà vu » ou 👎 la remplace aussitôt par une autre",
   ];

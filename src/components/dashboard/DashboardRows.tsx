@@ -15,6 +15,8 @@ import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types"
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
 import { RecentEpisodesRow } from "./RecentEpisodesRow";
+import { WatchlistRow } from "./WatchlistRow";
+import type { WatchlistItem } from "@/lib/watchlist/types";
 import { useRowLayout } from "@/components/media/useRowLayout";
 import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
 
@@ -104,6 +106,7 @@ export function DashboardRows({
     () => (minYear ? (r: { year?: number | null }) => (r.year ?? 0) >= minYear : () => true),
     [minYear]
   );
+  const { data: watchlistData } = useSWR<{ items: WatchlistItem[] }>(visible.has("watchlist") ? "/api/watchlist" : null);
 
   const { data: rowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
     visible.has("discover") ? "/api/metadata/rows?type=movie" : null
@@ -301,10 +304,13 @@ export function DashboardRows({
     };
   };
 
-  const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "rewatch", "discover", "shortSessions", "comingSoon", "upgradesAvailable"];
+  const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "watchlist", "rewatch", "discover", "shortSessions", "comingSoon", "upgradesAvailable"];
 
   const renderSection = (id: DashboardSectionId) => {
         if (!visible.has(id)) return null;
+        if (id === "watchlist" && watchlistData?.items.length) {
+          return <WatchlistRow key={id} items={watchlistData.items} libraryTitleKeys={libraryTitleKeys} />;
+        }
 
         if (id === "continueWatching" && continueWatching.length > 0) {
           return (

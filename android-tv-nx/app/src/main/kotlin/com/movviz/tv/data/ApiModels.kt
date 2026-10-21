@@ -1023,6 +1023,11 @@ data class ProfileMediaCardDto(
     val stillPath: String? = null,
     val userRating: Double? = null,
     val progress: ProfileMediaProgressDto? = null,
+    val addedAt: Long = 0,
+    val seriesPart: String? = null,
+    val parentTitle: String? = null,
+    val year: Int? = null,
+    val rating: Double = 0.0,
 )
 
 @JsonClass(generateAdapter = true)
@@ -1035,3 +1040,6 @@ data class ProfileMediaResponseDto(
 
 @JsonClass(generateAdapter = true)
 data class BleachArtworkDto(val customBackdropPath: String? = null, val customLogoPath: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class DashboardWatchlistResponseDto(val items: List<ProfileMediaCardDto> = emptyList())

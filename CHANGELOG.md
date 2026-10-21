@@ -1,3 +1,17 @@
+## v1.27.19 — 21 octobre 2026
+
+### Accueil : Ma liste sur desktop, Android TV et Android mobile
+
+- La liste personnelle apparaît en quatrième bloc par défaut, avant « À revoir », avec les ajouts les plus récents à gauche.
+- Elle reprend les cartes existantes et se rafraîchit quand la liste change sur un autre appareil. Les préférences de visibilité sont conservées.
+- L’application Tizen sera mise à jour ultérieurement.
+
+### Assistant IA : identification des titres et vérifications factuelles
+
+- L’assistant cherche d’abord dans la bibliothèque et reconnaît un même titre avec ou sans espaces, comme Vision Quest et VisionQuest. Les corrections de type et d’année sont conservées et les liens réutilisent l’identité vérifiée.
+- Une demande de vérification sur le web ou de date de sortie déclenche une recherche quand elle est activée. L’assistant distingue une date annoncée d’une sortie confirmée et indique quand la vérification est indisponible.
+- Une simple vérification ne peut plus provoquer un ajout automatique, même si le modèle produit une action erronée.
+
 ## v1.27.18 — 21 octobre 2026
 
 ### Desktop : épisodes récemment ajoutés regroupés comme sur Android TV

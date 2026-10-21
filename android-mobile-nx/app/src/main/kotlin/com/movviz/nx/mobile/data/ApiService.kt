@@ -270,6 +270,9 @@ interface MovvizApiService {
     @GET("api/profile/media")
     suspend fun profileMedia(): Response<ProfileMediaResponseDto>
 
+    @GET("api/watchlist")
+    suspend fun dashboardWatchlist(): Response<DashboardWatchlistResponseDto>
+
     // Watchlist réelle (src/app/api/watchlist/route.ts,
     // src/app/api/watchlist/[type]/[id]/route.ts) — bidirectionnelle, pas un
     // simple miroir de lecture : la fiche titre/Bibliothèque écrivent ici.

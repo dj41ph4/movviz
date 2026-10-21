@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import type { RowLayoutPref } from "@/lib/auth/types";
 import { applyRowLayout, EMPTY_ROW_LAYOUT } from "@/lib/rowLayout";
@@ -15,7 +15,13 @@ type LayoutsResponse = { layouts: Record<string, RowLayoutPref> };
 export function useRowLayout(page: string) {
   const { data, mutate } = useSWR<LayoutsResponse>("/api/profile/row-layout", { revalidateOnFocus: false });
   const [editing, setEditing] = useState(false);
-  const layout = data?.layouts?.[page] ?? EMPTY_ROW_LAYOUT;
+  const storedLayout = data?.layouts?.[page] ?? EMPTY_ROW_LAYOUT;
+  const layout = useMemo(() => {
+    if (page !== "dashboard" || !storedLayout.order.length || storedLayout.order.includes("watchlist")) return storedLayout;
+    const order = [...storedLayout.order];
+    order.splice(Math.min(3, order.length), 0, "watchlist");
+    return { ...storedLayout, order };
+  }, [storedLayout, page]);
 
   const save = useCallback((next: RowLayoutPref) => {
     const layouts = { ...(data?.layouts ?? {}) };

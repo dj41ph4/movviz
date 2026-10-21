@@ -159,6 +159,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 loadContinueWatching()
                 loadWatchStatus()
                 loadProfileMedia()
+                loadDashboardWatchlist()
             }
             if ("library" in channels) onLibraryChanges()
             if ("library" in channels && "watch" !in channels) loadContinueWatching()
@@ -527,6 +528,23 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val _profileMedia = MutableStateFlow<ProfileMediaResponseDto?>(null)
     val profileMedia: StateFlow<ProfileMediaResponseDto?> = _profileMedia.asStateFlow()
+
+    private val _dashboardWatchlist = MutableStateFlow<List<com.movviz.tv.data.ProfileMediaCardDto>>(emptyList())
+    val dashboardWatchlist = _dashboardWatchlist.asStateFlow()
+
+    fun loadDashboardWatchlist() {
+        val userId = _currentUser.value?.id ?: return
+        val profileId = _activeProfile.value?.id
+        val server = _serverUrl.value
+        viewModelScope.launch {
+            when (val result = repository?.dashboardWatchlist()) {
+                is ApiResult.Success -> if (_currentUser.value?.id == userId && _activeProfile.value?.id == profileId && _serverUrl.value == server) {
+                    _dashboardWatchlist.value = result.data.items.sortedByDescending { it.addedAt }
+                }
+                else -> Unit // Preserve the last known list when the server is unavailable.
+            }
+        }
+    }
 
     fun loadProfileMedia() {
         viewModelScope.launch {
@@ -1110,6 +1128,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _watchStatus.value = null
         _userPrefs.value = null
         _profileMedia.value = null
+        _dashboardWatchlist.value = emptyList()
         _homeUiState.value = HomeUiState()
         seasonsRequestKey = null
     }
@@ -1230,6 +1249,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         homeBootstrapStartedAt = SystemClock.elapsedRealtime()
         homeFirstFrameDrawn = false
         loadWatchStatus()
+        loadDashboardWatchlist()
         homeBootstrapJob = viewModelScope.launch {
             val started = homeBootstrapStartedAt
             Log.d("TV-PERF", "APP_START bootstrap")

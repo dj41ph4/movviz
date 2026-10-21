@@ -285,6 +285,9 @@ interface MovvizApiService {
     @GET("api/profile/media")
     suspend fun profileMedia(): Response<ProfileMediaResponseDto>
 
+    @GET("api/watchlist")
+    suspend fun dashboardWatchlist(): Response<DashboardWatchlistResponseDto>
+
     // Préférences de compte persistées côté serveur (voir
     // src/app/api/settings/preferences/route.ts) — écran Paramètres, section
     // Lecture (langue audio par défaut). Même route que le desktop, PATCH

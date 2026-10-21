@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  return NextResponse.json({ items: loadWatchlist(user.id) });
+  return NextResponse.json({ items: loadWatchlist(user.id).sort((a, b) => b.addedAt - a.addedAt) }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(req: NextRequest) {

@@ -394,6 +394,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun profileMedia(): ApiResult<ProfileMediaResponseDto> =
         safeCall { api.profileMedia() }
 
+    suspend fun dashboardWatchlist(): ApiResult<DashboardWatchlistResponseDto> =
+        safeCall { api.dashboardWatchlist() }
+
     /** Identité du compte connecté — écran Paramètres, section Compte. Même
      *  route que hasValidSession() mais on garde cette fois l'utilisateur
      *  plutôt que de le jeter, car AppViewModel ne le charge sinon qu'au

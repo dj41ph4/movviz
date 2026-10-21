@@ -6,7 +6,7 @@ import { addWatchlistItem } from "@/lib/watchlist/store";
 import { addPlexWatchlistItem } from "@/lib/plex/client";
 import { extractPersonListFollowUp, extractCountedPersonRequest, personNameMatches, buildPersonListCards, personListIntro, type PersonCredit } from "@/lib/ai/personList";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { correctTypos } from "@/lib/ai/typoTolerance";
@@ -21,7 +21,6 @@ import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAna
 import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
 import { getMovie, getSeries, getDetail, getCollection, searchMulti, searchPerson, getPerson, getGenres } from "@/lib/metadata/tmdb";
 import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
-import { resolveTitleAgainstTmdb } from "@/lib/metadata/resolveTitle";
 import { cleanAiReply, emphasizedTitles, userExpressedRating, extractListedRecommendations, matchHistoryRecommendationCards } from "@/lib/ai/replyPresentation";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
@@ -34,6 +33,8 @@ import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories, AiRec
 import { buildNowContext } from "@/lib/ai/nowContext";
 import { buildSystemPromptCompact } from "@/lib/ai/promptCompact";
 import { buildCreatorContext, creatorBoundaryReply, creatorSafeHistory, guardCreatorReply } from "@/lib/ai/creator";
+import { asksForWebVerification, chatTitleQuery, factualWebContext, factualWebPrompt, resolveChatTitle, titleKey } from "@/lib/ai/chatGrounding";
+import type { ResolvedTitleItem } from "@/lib/metadata/resolveTitle";
 
 export const dynamic = "force-dynamic";
 
@@ -489,7 +490,7 @@ export async function POST(req: NextRequest) {
   const watchStatusTitle = extractWatchStatusQuestion(message) ?? extractWatchStatusQuestion(looseMessage);
   if (watchStatusTitle) {
     try {
-      const resolved = await resolveTitleAgainstTmdb({ title: watchStatusTitle });
+      const resolved = await resolveChatTitle({ ...chatTitleQuery(message, session.messages, pageContext ?? freshSubject), title: watchStatusTitle });
       let result: WatchStatusResult | null = null;
       let recentAt: number | undefined;
       if (resolved) {
@@ -518,7 +519,7 @@ export async function POST(req: NextRequest) {
   const presenceTitle = extractLibraryPresenceQuestion(message) ?? extractLibraryPresenceQuestion(looseMessage);
   if (presenceTitle) {
     try {
-      const resolved = await resolveTitleAgainstTmdb({ title: presenceTitle });
+      const resolved = await resolveChatTitle({ ...chatTitleQuery(message, session.messages, pageContext ?? freshSubject), title: presenceTitle });
       system += buildLibraryPresenceContext(presenceTitle, resolved);
       if (resolved) setActiveSubject(user.id, { tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title });
     } catch {
@@ -534,7 +535,7 @@ export async function POST(req: NextRequest) {
   const castCrewTitle = extractCastCrewQuestion(message) ?? extractCastCrewQuestion(looseMessage);
   if (castCrewTitle) {
     try {
-      const resolved = await resolveTitleAgainstTmdb({ title: castCrewTitle });
+      const resolved = await resolveChatTitle({ ...chatTitleQuery(message, session.messages, pageContext ?? freshSubject), title: castCrewTitle });
       let cast: { name: string; character: string }[] = [];
       let crew: { name: string; job: string }[] = [];
       if (resolved) {
@@ -559,7 +560,7 @@ export async function POST(req: NextRequest) {
       const query = statusTitle ?? pageContext!.title;
       let resolved: TitleRef | null;
       if (statusTitle) {
-        resolved = await resolveTitleAgainstTmdb({ title: statusTitle });
+        resolved = await resolveChatTitle({ ...chatTitleQuery(message, session.messages, pageContext ?? freshSubject), title: statusTitle });
       } else {
         resolved = { title: pageContext!.title, type: pageContext!.type, tmdbId: pageContext!.tmdbId };
       }
@@ -577,12 +578,15 @@ export async function POST(req: NextRequest) {
   const prevAssistantForBare = session.messages[session.messages.length - 2]?.content ?? "";
   const isMusicFollowUp = /musique|Crow Zero|bande originale|OST/i.test(prevAssistantForBare) && message.split(/\s+/).filter(Boolean).length <= 6;
   const musicQuestion = (extractMusicQuestion(message) ?? extractMusicQuestion(looseMessage)) ?? (isMusicFollowUp ? message : null);
-  const bareTitleCandidate = (!musicQuestion && !recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
-    ? extractBareTitleMention(message)
+  const factualQuery = (!musicQuestion && !recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
+    ? chatTitleQuery(message, session.messages, pageContext ?? freshSubject)
     : null;
-  if (bareTitleCandidate) {
+  const bareTitleCandidate = factualQuery?.title;
+  let groundedTitle: ResolvedTitleItem | null = null;
+  if (factualQuery) {
     try {
-      const resolved = await resolveTitleAgainstTmdb({ title: bareTitleCandidate });
+      const resolved = await resolveChatTitle(factualQuery);
+      groundedTitle = resolved;
       let watchResult: WatchStatusResult | null = null;
       let rating: { rating: number; source: "explicit" | "inferred" } | null = null;
       if (resolved) {
@@ -596,7 +600,18 @@ export async function POST(req: NextRequest) {
         const existingRating = getRating(user.id, resolved.tmdbId, resolved.type);
         if (existingRating) rating = { rating: existingRating.rating, source: existingRating.source };
       }
-      system += buildTitleMentionContext(bareTitleCandidate, resolved, watchResult, rating);
+      system += buildTitleMentionContext(factualQuery.title, resolved, watchResult, rating);
+      system += `\n\nPRIORITÉ FACTUELLE POUR CE TOUR : réponds au titre et aux corrections de l'utilisateur, même s'il exprime son agacement. Corrige tes propres erreurs sans le provoquer ni lui reprocher de manquer de précision. Texte normal, aucun ajout ni changement de bibliothèque demandé par cette simple vérification. Les anciennes réponses de l'assistant ne constituent jamais une preuve. Ne remplace pas le titre demandé par une œuvre voisine.`;
+      if (resolved) {
+        system += `\nIDENTITÉ VÉRIFIÉE : ${resolved.type === "series" ? "série" : "film"} « ${resolved.title} » (${resolved.year ?? "année inconnue"}), TMDb ${resolved.type}:${resolved.tmdbId}. Synopsis de référence : ${resolved.overview}. Garde ce type et cette identité dans les titres cités et les liens.`;
+        if (factualQuery.verifyOnline) {
+          const detail = await getDetail(resolved.type, resolved.tmdbId);
+          if (detail) system += `\nMÉTADONNÉES TMDb CONSULTÉES : date de sortie/première diffusion ${detail.releaseDateFull ?? "inconnue"}, statut ${detail.status || "inconnu"}. La présence en bibliothèque prouve le suivi du titre, pas l'existence d'un fichier ni sa sortie. L'année seule ne permet jamais de conclure qu'il est déjà sorti.`;
+        }
+      } else if (factualQuery.corrected) {
+        clearActiveSubject(user.id);
+        system += "\nLa correction ne permet pas encore d'identifier une œuvre avec certitude : ne reprends pas l'ancienne identité, demande une seule précision utile si nécessaire (film/série ou année).";
+      }
       if (resolved) setActiveSubject(user.id, { tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title });
     } catch {
       // Best-effort, see comment above.
@@ -653,6 +668,13 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+  }
+
+  if (!musicQuestion && (asksForWebVerification(message) || factualQuery?.verifyOnline)) {
+    const webResult = config.webSearchEnabled
+      ? await searchWeb(config, factualWebPrompt(message, groundedTitle ?? factualQuery ?? pageContext ?? freshSubject, new Date().toISOString().slice(0, 10)))
+      : null;
+    system += factualWebContext(webResult, config.webSearchEnabled);
   }
 
   if (musicQuestion && config.webSearchEnabled) {
@@ -955,10 +977,11 @@ export async function POST(req: NextRequest) {
       const retryIntent = parseIntent(retryRes.text);
       if (retryIntent.action === null) intent = retryIntent;
     } catch {
-      // Best-effort, single bounded retry — falls through to the original
-      // add_media outcome if this also fails, same as every other retry
-      // in this file.
+      // A factual question never authorizes an add, even if the retry fails.
     }
+    if (intent.action === "add_media") intent = { action: null, items: [], rawText: groundedTitle
+      ? `${groundedTitle.title} est ${groundedTitle.type === "series" ? "une série" : "un film"}${groundedTitle.year ? ` de ${groundedTitle.year}` : ""}${groundedTitle.inLibrary ? ", déjà dans ta bibliothèque" : ""}. Aucun ajout n'a été effectué.`
+      : "Je n'ai pas identifié ce titre avec certitude. Aucun ajout n'a été effectué." };
   }
   // Confirmed live: a genuine recommend-shaped request ("surprends-moi,
   // sors moi de ma zone de confort") got a mode-3 prose reply that PROMISED
@@ -1133,7 +1156,7 @@ export async function POST(req: NextRequest) {
         : falseNameDenial
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a PRÉTENDU ne pas connaître le prénom de l'utilisateur ("je ne sais pas", "dis-le-moi"...) alors qu'il figure bien dans les faits retenus fournis plus haut dans ce prompt (${knownNameFact}). C'est un mensonge sur ta propre mémoire — exactement le genre d'erreur que tu dois éviter absolument. Réponds cette fois en confirmant directement et naturellement que tu t'en souviens, en utilisant ce prénom exact.`
         : falseInternetDenial
-        ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a nié CATÉGORIQUEMENT tout accès à internet ("je n'ai pas accès", "Movviz ne me donne pas cette capacité"...) — c'est FAUX en ce moment précis : la recherche web EST activée sur ce compte (Réglages → section IA), une vraie recherche a bien lieu en coulisses pour certaines fonctionnalités précises (comme retrouver une scène mémorable), même si toi-même tu ne la déclenches jamais à la demande en pleine conversation. Réponds cette fois en expliquant cette nuance précise et honnête — ni un déni catégorique, ni une prétention d'avoir un accès web général à la demande.`
+        ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a nié CATÉGORIQUEMENT tout accès à internet ("je n'ai pas accès", "Movviz ne me donne pas cette capacité"...) — c'est FAUX en ce moment précis : la recherche web EST activée sur ce compte (Réglages → section IA), Movviz déclenche une vraie recherche pour une demande explicite de vérification web. Utilise le résultat ou l'échec indiqué dans le contexte de CE tour ; ne prétends jamais avoir consulté une source absente, ni mis à jour une base de données.`
         : unresolvedPromise
         ? (hasRealVerification
             ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message s'est contentée de PROMETTRE de vérifier quelque chose ("je vais vérifier", "laisse-moi regarder"...) alors qu'une vraie vérification (section "VÉRIFICATION RÉELLE" plus haut dans ce prompt) est DÉJÀ disponible dans ce même message — tu n'as aucune raison d'attendre, réponds directement et maintenant avec cette information réelle, dans ta personnalité habituelle (naturel, chaleureux, avec des emojis avec modération).`
@@ -1489,7 +1512,8 @@ export async function POST(req: NextRequest) {
     if (titles.length) {
       const resolved = await mapWithConcurrency(titles, 2, async (title) => {
         try {
-          const item = await resolveAiItem({ title });
+          const isGroundedMention = groundedTitle && (titleKey(title) === titleKey(groundedTitle.title) || titleKey(title) === titleKey(factualQuery?.title ?? ""));
+          const item = isGroundedMention ? groundedTitle : await resolveChatTitle({ title });
           return item ? { title, type: item.type, tmdbId: item.tmdbId, year: item.year, posterPath: item.posterPath } : null;
         } catch { return null; }
       });
@@ -1505,10 +1529,10 @@ export async function POST(req: NextRequest) {
   // A title put forward in plain text becomes the conversation's subject, so
   // « dans le même genre » or « mets-le en vu » right after refers to it.
   // Resolved after replying: it only matters for the next message.
-  if (intent.action === null) {
+  if (intent.action === null && !groundedTitle) {
     const suggested = extractSuggestedTitle(assistant.content);
     if (suggested) {
-      void resolveTitleAgainstTmdb({ title: suggested })
+      void resolveChatTitle({ title: suggested })
         .then((resolved) => { if (resolved) setActiveSubject(user.id, { tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title }); })
         .catch(() => {});
     }

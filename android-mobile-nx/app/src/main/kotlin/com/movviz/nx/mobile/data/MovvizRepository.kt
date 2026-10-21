@@ -375,6 +375,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun profileMedia(): ApiResult<ProfileMediaResponseDto> =
         safeCall { api.profileMedia() }
 
+    suspend fun dashboardWatchlist(): ApiResult<DashboardWatchlistResponseDto> =
+        safeCall { api.dashboardWatchlist() }
+
     /** Ajout/retrait watchlist — bidirectionnel, jamais une simple lecture
      *  (voir WatchlistAddRequest). */
     suspend fun addToWatchlist(type: String, tmdbId: Int, title: String, year: Int?, posterPath: String?, rating: Double): ApiResult<Unit> =

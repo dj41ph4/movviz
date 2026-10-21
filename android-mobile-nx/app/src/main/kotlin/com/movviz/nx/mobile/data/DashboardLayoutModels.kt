@@ -41,6 +41,7 @@ fun defaultDashboardSections(): List<DashboardSectionDto> = listOf(
     "continueWatching",
     "availableNow",
     "becauseYouLike",
+    "watchlist",
     "rewatch",
     "discover",
     "shortSessions",

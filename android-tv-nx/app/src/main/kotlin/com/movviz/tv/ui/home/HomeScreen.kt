@@ -359,6 +359,22 @@ fun HomeScreen(
     val seriesRecommendations = homeSnapshot?.seriesRecommendations ?: streamedSeriesRecommendations
     val dashboardHero = homeSnapshot?.dashboardHero ?: streamedDashboardHero
     val dashboardLayout = homeSnapshot?.dashboardLayout ?: streamedDashboardLayout
+    val dashboardWatchlist by viewModel.dashboardWatchlist.collectAsState()
+    val watchlistCards = remember(dashboardWatchlist, movies, series) {
+        dashboardWatchlist.sortedByDescending { it.addedAt }.map { item ->
+            val libraryBackdrop = if (item.type == "movie") movies.firstOrNull { it.tmdbId == item.tmdbId }?.backdropPath
+                else series.firstOrNull { it.tmdbId == item.tmdbId && it.seriesPart == item.seriesPart }?.backdropPath
+            TvTitleCard(
+                id = "watchlist-${item.type}-${item.tmdbId}-${item.seriesPart.orEmpty()}-${item.seasonNumber}-${item.episodeNumber}",
+                title = if (item.type == "episode") item.parentTitle ?: item.title else item.title,
+                posterPath = item.posterPath, backdropPath = libraryBackdrop,
+                tmdbId = item.tmdbId, isMovie = item.type == "movie",
+                year = item.year, rating = item.rating, seriesPart = item.seriesPart,
+                episodeSeasonNumber = item.seasonNumber.takeIf { item.type == "episode" },
+                episodeNumber = item.episodeNumber.takeIf { item.type == "episode" },
+            )
+        }
+    }
     // Une TV modeste ne doit jamais décoder le hero et une carte à la fois.
     // Cette clé est levée uniquement lorsqu'une carte a effectivement une
     // source prête : le hero s'éteint alors sans toucher au focus D-pad.
@@ -612,12 +628,13 @@ fun HomeScreen(
 
     val visibleSections = remember(
         dashboardLayout.sections, continueCards, recentEpisodeCards, recommendationCards, rewatchCards, shortSessionCards,
-        trendingCards, availableNowCards, comingSoonCards,
+        trendingCards, availableNowCards, comingSoonCards, watchlistCards,
     ) {
         val configured = dashboardLayout.sections.filter { it.visible }.mapNotNull { section ->
             val hasContent = when (section.id) {
                 "continueWatching" -> continueCards.isNotEmpty()
                 "becauseYouLike" -> recommendationCards.isNotEmpty()
+                "watchlist" -> watchlistCards.isNotEmpty()
                 "rewatch" -> rewatchCards.isNotEmpty()
                 "shortSessions" -> shortSessionCards.isNotEmpty()
                 "discover" -> trendingCards.isNotEmpty()
@@ -631,7 +648,7 @@ fun HomeScreen(
         // Reprendre, Ajouts récents, recommandations, puis Tendances et les
         // sessions courtes. Les réglages conservent seulement la visibilité.
         val canonicalOrder = listOf(
-            "continueWatching", "availableNow", "becauseYouLike", "rewatch",
+            "continueWatching", "availableNow", "becauseYouLike", "watchlist", "rewatch",
             "discover", "shortSessions", "comingSoon", "upgradesAvailable",
         )
         val ordered = canonicalOrder.filter { id ->
@@ -849,6 +866,24 @@ fun HomeScreen(
                             previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                             showTypeBadge = true,
+                            navRailFocusRequester = navRailFocusRequester,
+                        )
+                    }
+                    "watchlist" -> item(key = sectionId, contentType = "row") {
+                        TitleRow(
+                            heading = "Ma liste", items = watchlistCards,
+                            rowKey = tvRowKey(sectionId, "Ma liste"),
+                            onClick = { card ->
+                                val season = card.episodeSeasonNumber
+                                val episode = card.episodeNumber
+                                if (season != null && episode != null) onOpenEpisode(card.tmdbId, season, episode)
+                                else onOpenPartTitle(if (card.isMovie) "movie" else "series", card.tmdbId, card.seriesPart)
+                            },
+                            firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                             navRailFocusRequester = navRailFocusRequester,
                         )
                     }

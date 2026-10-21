@@ -34,3 +34,14 @@ test("a user who had saved Stable gets Beta and keeps their other settings", () 
   assert.equal(loadDashboardLayout("stable-user").hero.trailerAutoplay, false);
   assert.equal(loadDashboardLayout("friend").mode, "beta");
 });
+
+test("Ma liste is fourth by default and appears in old layouts without losing hidden sections", () => {
+  assert.equal(DEFAULT_DASHBOARD_LAYOUT.sections[3].id, "watchlist");
+  const old = DEFAULT_DASHBOARD_LAYOUT.sections.filter((section) => section.id !== "watchlist").map((section) => ({ ...section, visible: section.id !== "rewatch" }));
+  const migrated = sanitizeDashboardLayout({ sections: old });
+  assert.equal(migrated.sections[3].id, "watchlist");
+  assert.equal(migrated.sections.find((section) => section.id === "rewatch")?.visible, false);
+  const custom = sanitizeDashboardLayout({ sections: [{ id: "watchlist", visible: false }, ...old] });
+  assert.equal(custom.sections[0].id, "watchlist");
+  assert.equal(custom.sections[0].visible, false);
+});
