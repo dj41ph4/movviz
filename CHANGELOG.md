@@ -1,3 +1,11 @@
+## v1.27.18 — 21 octobre 2026
+
+### Desktop : épisodes récemment ajoutés regroupés comme sur Android TV
+
+- Sur l’accueil et dans la bibliothèque Séries, plusieurs épisodes récemment ajoutés d’une même série sont rassemblés en une seule carte de saison.
+- Le badge indique le nombre d’épisodes non vus de cette saison et devient une coche quand tout est vu. Un épisode ajouté seul conserve son numéro et sa lecture directe.
+- Le regroupement précède la limite de cartes : une saison importée en bloc ne masque plus les autres séries récemment enrichies.
+
 ## v1.27.17 — 20 octobre 2026
 
 ### Interface : thème mobile et tablette, bannière et navigation
