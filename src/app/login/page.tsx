@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { resetSwrCache } from "@/lib/swrCacheReset";
 import { useT } from "@/i18n/provider";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
+import { PlexLoginDialog } from "@/components/auth/PlexLoginDialog";
 import { Loader2, ShieldCheck, Play } from "lucide-react";
 
 const cardVariants = {
@@ -28,6 +29,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [plexBusy, setPlexBusy] = useState(false);
+  const [plexDialogOpen, setPlexDialogOpen] = useState(false);
+
+  const completePlexLogin = useCallback(async () => {
+    await resetSwrCache();
+    router.push(setupRequired ? "/setup" : "/");
+    router.refresh();
+  }, [router, setupRequired]);
 
   // Subtle cursor-driven 3D tilt on the login card.
   const mouseX = useMotionValue(0);
@@ -216,7 +224,7 @@ export default function LoginPage() {
           </div>
 
           <button
-            onClick={loginWithPlex}
+            onClick={() => { setError(null); setPlexDialogOpen(true); }}
             disabled={plexBusy}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-xl glass-strong text-sm font-bold text-amber disabled:opacity-40"
           >
@@ -238,6 +246,13 @@ export default function LoginPage() {
           </motion.button>
         )}
       </motion.div>
+      {plexDialogOpen && (
+        <PlexLoginDialog
+          onAuthenticated={completePlexLogin}
+          onClose={() => setPlexDialogOpen(false)}
+          onUseBrowser={() => { setPlexDialogOpen(false); void loginWithPlex(); }}
+        />
+      )}
     </div>
   );
 }
