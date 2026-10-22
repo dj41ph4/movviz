@@ -1,0 +1,182 @@
+name: TerraMaster TOS 7 package
+run-name: TerraMaster TOS 7 — ${{ github.ref_name }}
+
+on:
+  pull_request:
+    paths:
+      - "packaging/terramaster/**"
+      - "packaging/docker/docker-entrypoint.sh"
+      - ".github/workflows/terramaster-package.yml"
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve immutable release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          IMAGE_TAG="sha-${GITHUB_SHA}"
+          IMAGE="dj41ph4/movviz:${IMAGE_TAG}"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [[ "$TAG_VERSION" != "$VERSION" ]]; then
+              echo "Tag version $TAG_VERSION does not match package.json $VERSION" >&2
+              exit 1
+            fi
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for immutable Docker Hub image
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+              echo "Found $IMAGE on Docker Hub"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "Immutable Docker image $IMAGE was not published; refusing to package a mutable/nonexistent image." >&2
+          exit 1
+
+  package:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and validate TerraMaster package
+        shell: bash
+        run: bash packaging/terramaster/build.sh "${{ matrix.arch }}" "${{ needs.prepare.outputs.image_tag }}"
+
+      - name: Upload validated package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terramaster-${{ matrix.arch }}
+          if-no-files-found: error
+          path: |
+            dist/terramaster/movviz_${{ matrix.arch }}.tar.gz
+            dist/terramaster/movviz_${{ matrix.arch }}.tar.gz.sha256
+
+  runtime-security:
+    if: github.ref_type == 'tag'
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull immutable MOVVIZ image
+        env:
+          IMAGE: ${{ needs.prepare.outputs.image }}
+        run: docker pull "$IMAGE"
+
+      - name: Verify TerraMaster non-root runtime and writable data mounts
+        shell: bash
+        env:
+          IMAGE: ${{ needs.prepare.outputs.image }}
+        run: |
+          set -euo pipefail
+          CONFIG_DIR="$RUNNER_TEMP/terramaster-config"
+          DATA_DIR="$RUNNER_TEMP/terramaster-data"
+          mkdir -p "$CONFIG_DIR" "$DATA_DIR"
+          sudo chown 1000:1000 "$CONFIG_DIR" "$DATA_DIR"
+
+          CID="$(docker run -d \
+            --user 1000:1000 \
+            -p 127.0.0.1:19810:9810 \
+            -v "$CONFIG_DIR:/config" \
+            -v "$DATA_DIR:/data" \
+            "$IMAGE")"
+
+          cleanup() {
+            docker logs "$CID" || true
+            docker rm -f "$CID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker exec "$CID" sh -c 'test "$(id -u)" = "1000" && test "$(id -g)" = "1000" && touch /config/.tos-write-test /data/.tos-write-test'
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:19810/api/healthz >/dev/null; then
+              echo "MOVVIZ non-root runtime healthcheck passed"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "MOVVIZ did not become healthy under TerraMaster's non-root runtime." >&2
+          exit 1
+
+      - name: Trivy critical vulnerability scan
+        env:
+          IMAGE: ${{ needs.prepare.outputs.image }}
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.76.0 image \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --severity CRITICAL \
+            "$IMAGE"
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [prepare, package, runtime-security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download TerraMaster packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: terramaster-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f release-assets/movviz_x86_64.tar.gz
+          test -f release-assets/movviz_x86_64.tar.gz.sha256
+          test -f release-assets/movviz_aarch64.tar.gz
+          test -f release-assets/movviz_aarch64.tar.gz.sha256
+          (cd release-assets && sha256sum -c movviz_x86_64.tar.gz.sha256)
+          (cd release-assets && sha256sum -c movviz_aarch64.tar.gz.sha256)
+
+      - name: Attach TerraMaster packages to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/movviz_x86_64.tar.gz
+            release-assets/movviz_x86_64.tar.gz.sha256
+            release-assets/movviz_aarch64.tar.gz
+            release-assets/movviz_aarch64.tar.gz.sha256
