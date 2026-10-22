@@ -37,7 +37,7 @@
 
 <br><br>
 
-<img src="assets/screenshots/readme-hero-promo.svg" width="600" alt="MOVVIZ overview — desktop, TV, mobile, acquisition, playback and AI" />
+<img src="assets/screenshots/readme-hero-promo.webp" width="600" alt="MOVVIZ overview — desktop, TV, mobile, acquisition, playback and AI" />
 
 <br><br>
 
