@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MOVVIZ">
+  <defs>
+    <linearGradient id="movviz-gradient" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f33fbc"/>
+      <stop offset="0.52" stop-color="#cf3fe0"/>
+      <stop offset="1" stop-color="#8e37f7"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#movviz-gradient)" fill-rule="evenodd" d="M133 225H379Q414 225 414 260V389Q414 424 379 424H133Q98 424 98 389V260Q98 225 133 225ZM135 272V384H377V272Z"/>
+  <g transform="rotate(-15 256 180)">
+    <path fill="url(#movviz-gradient)" fill-rule="evenodd" d="M128 126H385Q410 126 410 151V205Q410 230 385 230H128Q103 230 103 205V151Q103 126 128 126ZM132 151V194H190V151ZM221 151V194H279V151ZM310 151V194H368V151Z"/>
+  </g>
+</svg>
