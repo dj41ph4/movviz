@@ -1,8 +1,7 @@
 # Finalisation du statut « vu / non vu » — bilan
 
 > Suite directe de [WATCH_STATE_CANONICAL_REFACTOR.md](./WATCH_STATE_CANONICAL_REFACTOR.md).
-> Ce document couvre le plan de finalisation (branche
-> `claude/watch-state-finalization`) : transactions atomiques, lecture
+> Ce document couvre le plan de finalisation : transactions atomiques, lecture
 > canonique côté API, outbox Plex durable, réparation de la contamination
 > inter-comptes trouvée en production, et badge « vu » Android.
 

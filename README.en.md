@@ -148,12 +148,9 @@ docker pull dj41ph4/movviz:latest
 
 A Docker Compose setup is available under `packaging/docker`.
 
-Default service ports:
+On first access, `/setup` guides you through the administrator account and essential service settings.
 
-- Web interface: `9810`
-- BitTorrent engine: `9820`
-- resolver service: `9830`
-- peer-to-peer ports: `55000` / `55001`
+Default ports: Web `9810`, BitTorrent `9820`, resolver `9830`, peer-to-peer `55000` / `55001`.
 
 ### Android
 
@@ -366,7 +363,7 @@ Movviz can import or synchronize data from several existing workflows:
 - **Seerr / Overseerr** requests;
 - **Plex** libraries, profiles, history and watchlists.
 
-Notifications can be sent through Discord, Telegram, Gotify, Slack, Pushbullet or generic webhooks.
+Notifications support Discord, Telegram, Gotify, Slack, Pushbullet and HTTP webhooks, with in-app alerts.
 
 ---
 
@@ -470,7 +467,7 @@ If you try Movviz, **star the repository** if you want to help other self-hoster
 
 ### Download Movviz
 
-[GitHub Releases](https://github.com/dj41ph4/movviz/releases/latest) · [Docker Hub](https://hub.docker.com/r/dj41ph4/movviz)
+[GitHub Releases](https://github.com/dj41ph4/movviz/releases/latest) · [Docker Hub](https://hub.docker.com/r/dj41ph4/movviz) · [GitHub Sponsors](https://github.com/sponsors/dj41ph4)
 
 **Open source · GPL-3.0 · Self-hosted**
 

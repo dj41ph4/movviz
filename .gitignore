@@ -27,9 +27,6 @@ packaging/windows/installer/movviz.ico
 # local reference material — never shipped, never committed
 /_refs/
 /UX-CLAIR.md
-/RECO-AGENT.md
-/AGENTS.md
-/AI.MD
 
 # misc
 .DS_Store
@@ -48,21 +45,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-# opencode agents (local only)
-.opencode/agents/*.md
 
-# AI assistant local config — never committed (no AI credit anywhere, project charter).
-# No leading slash: must match at ANY depth, not just the repo root — a
-# nested android-tv/.claude/ slipped past the old root-anchored pattern and
-# got committed for real (2 files, confirmed live).
-.claude/
-/CLAUDE.md
-.cursor/
-.windsurf/
-.cline/
-.aider*
-AGENTS.md
-.opencode/
 
 # debug logs
 build-debug*.txt
@@ -70,11 +53,9 @@ build-errors.txt
 build-output*.txt
 engine/src/.movviz-data/
 
-# agent QA/debug artifacts (screenshots, uiautomator dumps) — never shipped
 .tmp-*.png
 .tmp-*.xml
 .qa-dpad-evidence/
-.codex-remote-attachments/
 fold6-*.png
 mobile-*.png
 mobile-nx-*.png

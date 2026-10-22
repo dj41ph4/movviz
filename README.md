@@ -359,6 +359,8 @@ flowchart LR
 | **Letterboxd** | Listes |
 | **Seerr / Overseerr** | Demandes existantes |
 
+Notifications : Discord, Telegram, Gotify, Slack, Pushbullet et webhooks HTTP, avec alertes dans l’application.
+
 ---
 
 ## 📅 Automatisation
@@ -485,7 +487,9 @@ APK Android TV et Android mobile disponibles dans les Releases.
 </tr>
 </table>
 
-**Port Web par défaut : `9810`**
+Au premier accès, `/setup` guide la création du compte administrateur et le réglage des services nécessaires.
+
+**Ports par défaut : Web `9810` · BitTorrent `9820` · résolveur `9830` · pair-à-pair `55000`/`55001`**
 
 ---
 
@@ -506,6 +510,7 @@ Guides : [Français](docs/guide-fr.md) · [English](docs/guide-en.md) · [Deutsc
 - [Samsung Tizen](tizen-tv/)
 - [Docker Hub](https://hub.docker.com/r/dj41ph4/movviz)
 - [Dernière release](https://github.com/dj41ph4/movviz/releases/latest)
+- [Soutenir le projet sur GitHub Sponsors](https://github.com/sponsors/dj41ph4)
 
 ---
 

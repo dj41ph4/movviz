@@ -1,12 +1,6 @@
-# Movviz NX — client Android TV (variante Netflix-style)
+# Movviz NX — client Android TV
 
-Client natif Android TV/Fire TV, écrit en Kotlin + Jetpack Compose for TV,
-avec une navigation et un shell repensés façon Netflix. Se connecte à un
-serveur Movviz existant via son API REST — aucun changement côté serveur.
-
-> **Ce README est la référence de maintenance pour les agents IA.** Lire
-> cette section **Identité**, **Signature**, **Build** et **Release**
-> avant toute modification.
+Client Android TV/Fire TV natif en Kotlin et Jetpack Compose for TV. Il se connecte à un serveur Movviz existant via son API REST.
 
 ---
 
@@ -34,14 +28,13 @@ serveur Movviz existant via son API REST — aucun changement côté serveur.
 Toolchain : JDK 17, Gradle 8.9, en pointant sur ce module :
 
 ```powershell
-$env:JAVA_HOME = "C:\Users\dj41ph4\.movviz\jdk-17"
-& "C:\Users\dj41ph4\.movviz\gradle-8.9\bin\gradle.bat" -p android-tv-nx :app:assembleRelease --no-daemon
+gradle -p android-tv-nx :app:assembleRelease --no-daemon
 ```
 
 Pour valider le Kotlin seul (rapide) :
 
 ```powershell
-& "C:\Users\dj41ph4\.movviz\gradle-8.9\bin\gradle.bat" -p android-tv-nx :app:compileReleaseKotlin --no-daemon
+gradle -p android-tv-nx :app:compileReleaseKotlin --no-daemon
 ```
 
 `assembleRelease` produit `app/build/outputs/apk/release/app-release.apk`,
