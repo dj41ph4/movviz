@@ -17,4 +17,8 @@ The TerraMaster package is intentionally isolated from the standard Docker/Synol
 - UTF-8 / LF text files
 - SHA-256 release checksums
 
+The standard MOVVIZ Docker entrypoint keeps its existing NAS behaviour when started as root: it can remap PUID/PGID, fix ownership and then drop privileges. When an orchestrator such as TerraMaster starts the container with an explicit non-root `user:`, the entrypoint now detects that state and immediately executes MOVVIZ without trying privileged setup.
+
+The final `.tar.gz` release packages are generated from these source templates and contain only the four files required by TOS 7.
+
 See `TERRAMASTER_SUBMISSION.md` for the submission checklist.
