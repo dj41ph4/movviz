@@ -21,6 +21,11 @@ services:
       MOVVIZ_CONFIG_DIR: "/config"
       MOVVIZ_DATA_DIR: "/data"
       MOVVIZ_CONTAINER: "1"
+    # Stable MOVVIZ container-side contract:
+    # /config = persistent application configuration/state.
+    # /data   = media/download root. The host-side source can be replaced in
+    # TOS Container Manager with any media folder, including the directory
+    # already watched by an existing Plex installation.
     volumes:
       - ./config:/config
       - ./data:/data
