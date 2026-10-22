@@ -30,8 +30,8 @@
        e.g. value="D:\Media". -->
   <env name="MOVVIZ_DATA_DIR" value="%ProgramData%\Movviz\data"/>
 
+  <logpath>%ProgramData%\Movviz\logs</logpath>
   <log mode="roll-by-size">
-    <logpath>%ProgramData%\Movviz\logs</logpath>
     <sizeThreshold>10240</sizeThreshold>
     <keepFiles>5</keepFiles>
   </log>
