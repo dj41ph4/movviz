@@ -1,3 +1,11 @@
+## v1.27.20 — 22 octobre 2026
+
+### Windows : vérification du démarrage et diagnostics de mise à jour
+
+- Le contrôle d’installation attend que les services Movviz et Movviz Update soient actifs et que le serveur réponde avec la version attendue, au lieu d’échouer sur un statut transitoire de démarrage.
+- Les journaux du service sont enregistrés dans le dossier prévu. Les diagnostics Windows sont regroupés avant leur envoi pour éviter l’erreur liée aux fichiers répartis sur plusieurs lecteurs.
+- Le test de mise à jour réelle peut être lancé depuis une branche : il vérifie le redémarrage de Movviz et le maintien du processus Movviz Update pendant l’installation.
+
 ## v1.27.19 — 21 octobre 2026
 
 ### Accueil : Ma liste sur desktop, Android TV et Android mobile
