@@ -1,0 +1,20 @@
+# MOVVIZ for TerraMaster TOS 7
+
+This directory contains the TerraMaster TOS 7 App Center packaging layer for MOVVIZ.
+
+The TerraMaster package is intentionally isolated from the standard Docker/Synology packaging so the existing deployment path is not changed.
+
+## Compliance goals
+
+- Docker application package for TOS 7
+- Docker Hub image only (`dj41ph4/movviz`)
+- Explicit non-root runtime user via Compose `user:`
+- No privileged mode
+- No host networking
+- Persistent bind mounts
+- `x-app-meta` web declaration
+- Separate x86_64 and aarch64 package metadata
+- UTF-8 / LF text files
+- SHA-256 release checksums
+
+See `TERRAMASTER_SUBMISSION.md` for the submission checklist.
