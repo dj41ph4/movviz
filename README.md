@@ -35,7 +35,11 @@
 
 **Discover · Request · Search · Download · Organize · Watch · Recommend**
 
-<br>
+<br><br>
+
+<img src="assets/screenshots/readme-hero-promo.svg" width="600" alt="MOVVIZ overview — desktop, TV, mobile, acquisition, playback and AI" />
+
+<br><br>
 
 [**Why MOVVIZ**](#-why-movviz) · [**Features**](#-one-app-the-entire-workflow) · [**Platforms**](#-one-product-every-screen) · [**Installation**](#-installation) · [**Architecture**](#-architecture) · [**Changelog**](CHANGELOG.md)
 
