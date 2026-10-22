@@ -11,11 +11,14 @@ Each submitted `.tar.gz` must contain exactly these four files at its root:
 - `movviz.svg`
 - `docker-compose.yml`
 
+The CI produces separate `movviz_x86_64.tar.gz` and `movviz_aarch64.tar.gz` assets so each architecture has its own `config.ini.platform` value.
+
 ## Docker requirements
 
-- Docker Hub image only: `dj41ph4/movviz:<version>`
+- Docker Hub image only: `dj41ph4/movviz:sha-<commit>`
+- Immutable image tag; never `latest`
 - Compose compatible with version 3.8+
-- Explicit `user: "1001:1001"`
+- Explicit `user: "1000:1000"`
 - No `privileged`
 - No `network_mode: host`
 - Persistent bind mounts for `/config` and `/data`
@@ -23,39 +26,65 @@ Each submitted `.tar.gz` must contain exactly these four files at its root:
 - `restart: unless-stopped`
 - Healthcheck configured
 - Web UI exposed through `x-app-meta`
-- Web port uses TerraMaster-approved non-reserved range
+- Port 9810 uses the TerraMaster recommended application range
+- BitTorrent peer ports 55000/55001 are explicitly declared in the allowed dynamic range
+- Internal engine/resolver ports 9820/9830 are not published to the NAS host
 
 ## TOS metadata
 
+- `id`: `movviz`
+- `publisher`: `dj41ph4` — use the same developer name when registering on the TerraMaster Developer Platform
 - `application_type`: `docker`
 - `exec`: `true`
 - `open_path`: `true`
 - `path`: `http://${ip}:9810`
+- `category`: `Audio_Video_Entertainment`
 - `depend`: includes `DockerEngine`
+- `relation`: includes `docker` and `DockerEngine`
 - `platform`: one package each for `x86_64` and `aarch64`
-- `user`: `1001:1001`
+- `user`: `1000:1000`
 - icon path: `/images/icons/movviz.svg`
 - help URL present
-- publisher matches the developer account identity used for submission
+- TOS minimum version: `TOS7.0`
 
 ## Language and icon
 
 - UTF-8 without BOM
 - LF line endings
-- TerraMaster-required language sections present
-- `name`, `auth`, and `descript` non-empty
+- Full documented 26-language baseline in TerraMaster's documented order
+- `name`, `auth`, and `descript` non-empty for every language
+- English text may be used for untranslated language descriptions, as permitted by TerraMaster
 - SVG with transparent background and valid `viewBox`
 - SVG below 50 KB
 
-## Release
+## Automated release gates
 
-- Build x86_64 package
-- Build aarch64 package
-- Generate SHA-256 for each package
-- Publish packages as GitHub Release assets
-- Submit each architecture separately in the TerraMaster Developer Platform
-- Verify package SHA-256 at submission/review
+Before a TerraMaster package is attached to a tagged GitHub release, CI must pass all of the following:
 
-## Manual review reminders
+- Git tag `vX.Y.Z` matches `package.json` version
+- Immutable `dj41ph4/movviz:sha-<commit>` image exists on Docker Hub
+- Source files are UTF-8 without BOM and LF-only
+- `config.ini` passes JSON and TerraMaster field validation
+- language file passes the 26-language validation
+- SVG validation passes
+- `docker compose config -q` passes
+- archive contains exactly the four required TOS files
+- SHA-256 is generated and then verified again before release upload
+- container starts as UID/GID 1000:1000 with writable `/config` and `/data`
+- `/api/healthz` succeeds while running as that non-root user
+- Trivy finds no fixable CRITICAL image vulnerabilities
 
-The GitHub Actions workflow validates the mechanical rules we can check locally. TerraMaster still performs manual/security/runtime review, and a reviewer may reject a package even when CI passes. In particular, Docker Hub trust/reputation and App Center runtime behavior remain external review items.
+## Developer Platform submission
+
+1. Register at the TerraMaster Developer Ecosystem Platform using developer name `dj41ph4` so it matches `config.ini.publisher`.
+2. Create the MOVVIZ application as a Docker application using the public GitHub repository.
+3. Register/submit `x86_64` and `aarch64` separately as required by TOS.
+4. Select the corresponding package asset from the GitHub Release.
+5. Record/verify the package SHA-256 from the matching `.sha256` asset.
+6. Submit for TerraMaster automated and manual review.
+
+## External/manual review items
+
+The CI validates everything that can be mechanically checked in the repository or container. TerraMaster still controls App Center review and can reject the application for external policy reasons.
+
+Most importantly, the current TOS 7 documentation states that Docker Hub trust/reputation is reviewed and warns that unverified personal images can be rejected. MOVVIZ is hosted on Docker Hub as required, but Docker Hub publisher verification/reputation cannot be made true by repository code. Confirm this point with `developer@terra-master.com` before final submission if the `dj41ph4` Docker Hub namespace is not accepted by their reviewer.
