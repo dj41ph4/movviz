@@ -2,14 +2,12 @@ version: "3.8"
 
 services:
   movviz:
-    image: dj41ph4/movviz:__MOVVIZ_VERSION__
+    image: dj41ph4/movviz:__MOVVIZ_IMAGE_TAG__
     container_name: movviz-terramaster
     restart: unless-stopped
-    user: "1001:1001"
+    user: "1000:1000"
     ports:
       - "9810:9810"
-      - "9820:9820"
-      - "9830:9830"
       - "55000:55000/tcp"
       - "55000:55000/udp"
       - "55001:55001/tcp"
