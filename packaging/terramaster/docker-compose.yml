@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   movviz:
-    image: dj41ph4/movviz:latest
+    image: dj41ph4/movviz:__MOVVIZ_VERSION__
     container_name: movviz-terramaster
     restart: unless-stopped
     user: "1001:1001"
