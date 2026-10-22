@@ -1,3 +1,11 @@
+## v1.27.21 — 22 octobre 2026
+
+### Desktop : connexion Plex par QR code
+
+- Le bouton « Se connecter avec Plex » affiche un QR code à scanner avec un smartphone et un code court utilisable sur plex.tv/link.
+- Le desktop attend la validation sur le smartphone, puis ouvre automatiquement le profil connecté, sans clic supplémentaire.
+- La connexion Plex habituelle dans le navigateur reste accessible à droite du QR code. Un code expiré peut être renouvelé et fermer la fenêtre arrête l’attente.
+
 ## v1.27.20 — 22 octobre 2026
 
 ### Windows : vérification du démarrage et diagnostics de mise à jour
