@@ -77,6 +77,17 @@ The same system knows what you want, what you own, what is missing, what is down
 
 > **One user state. One interface. One media universe.**
 
+<table>
+<tr>
+<td width="50%" align="center"><img src="assets/screenshots/discover.webp" width="100%" alt="MOVVIZ Discover interface" /></td>
+<td width="50%" align="center"><img src="assets/screenshots/library.webp" width="100%" alt="MOVVIZ Library interface" /></td>
+</tr>
+<tr>
+<td align="center"><sub><b>Discover</b> — cinematic discovery, services and recommendations.</sub></td>
+<td align="center"><sub><b>Your library</b> — one place for movies, series, collections and availability.</sub></td>
+</tr>
+</table>
+
 ---
 
 ## ⚡ One app, the entire workflow
@@ -282,6 +293,11 @@ TV interface
 
 The backend remains shared: history, resume points, library, downloads, and user context are not reimplemented separately for each screen.
 
+<p align="center">
+  <img src="assets/screenshots/mobile.webp" width="220" alt="MOVVIZ native Android mobile interface" />
+</p>
+<p align="center"><sub><b>Native Android client</b> — the same library, history and downloads in a touch-first interface.</sub></p>
+
 ---
 
 ## 👤 Real user context
@@ -378,6 +394,18 @@ MOVVIZ runs the background tasks required to keep everything consistent:
 **today's releases · missing episodes · RSS · quality upgrades · metadata · imports · indexers · downloads · Plex · intros · credits · recycle bin · diagnostics · benchmarks · backups**
 
 User actions remain higher priority than background work.
+
+---
+
+## ⚙️ Built to be operated, not babysat
+
+MOVVIZ keeps day-to-day operation visible instead of hiding it behind configuration files. The Control Center checks the essentials, exposes guided paths for common tasks, and keeps advanced controls available in Expert mode when you need them.
+
+<p align="center">
+  <img src="assets/screenshots/control-center.webp" width="900" alt="MOVVIZ Control Center and settings" />
+</p>
+
+**Live health checks · guided configuration · Essential and Expert modes · diagnostics in one place.**
 
 ---
 
