@@ -1,3 +1,7 @@
+<p align="center">
+  <strong>English</strong> · <a href="README.fr.md">Français</a> · <a href="README.nl.md">Nederlands</a> · <a href="README.de.md">Deutsch</a> · <a href="README.it.md">Italiano</a>
+</p>
+
 <div align="center">
 
 <br>
@@ -6,34 +10,34 @@
 
 <br>
 
-### Ton catalogue. Ton serveur. Tes règles.
+### Your catalog. Your server. Your rules.
 
-<p><strong>Version actuelle : v1.27.20</strong></p>
+<p><strong>Current version: v1.27.20</strong></p>
 
-**Une plateforme média auto-hébergée complète — de la découverte jusqu'à la lecture.**
+**A complete self-hosted media platform — from discovery to playback.**
 
 <br>
 
-<a href="https://github.com/dj41ph4/movviz/releases/latest"><img src="https://img.shields.io/badge/TÉLÉCHARGER-WINDOWS-7C3AED?style=for-the-badge&logo=windows&logoColor=white&labelColor=0B1026" alt="Télécharger MOVVIZ pour Windows" /></a>
-<a href="https://hub.docker.com/r/dj41ph4/movviz"><img src="https://img.shields.io/badge/DOCKER-NAS-34E2FF?style=for-the-badge&logo=docker&logoColor=0B1026&labelColor=0B1026" alt="MOVVIZ sur Docker" /></a>
-<a href="https://github.com/dj41ph4/movviz/releases/latest"><img src="https://img.shields.io/badge/LINUX-x64_%2F_ARM64-C04BFF?style=for-the-badge&logo=linux&logoColor=white&labelColor=0B1026" alt="MOVVIZ pour Linux" /></a>
+<a href="https://github.com/dj41ph4/movviz/releases/latest"><img src="https://img.shields.io/badge/DOWNLOAD-WINDOWS-7C3AED?style=for-the-badge&logo=windows&logoColor=white&labelColor=0B1026" alt="Download MOVVIZ for Windows" /></a>
+<a href="https://hub.docker.com/r/dj41ph4/movviz"><img src="https://img.shields.io/badge/DOCKER-NAS-34E2FF?style=for-the-badge&logo=docker&logoColor=0B1026&labelColor=0B1026" alt="MOVVIZ on Docker" /></a>
+<a href="https://github.com/dj41ph4/movviz/releases/latest"><img src="https://img.shields.io/badge/LINUX-x64_%2F_ARM64-C04BFF?style=for-the-badge&logo=linux&logoColor=white&labelColor=0B1026" alt="MOVVIZ for Linux" /></a>
 
 <br><br>
 
 <img src="https://img.shields.io/github/v/release/dj41ph4/movviz?style=flat-square&label=release&labelColor=131836&color=7C3AED" alt="Release" />
-<img src="https://img.shields.io/badge/Android_TV-native-7C3AED?style=flat-square&logo=androidtv&logoColor=white&labelColor=131836" alt="Android TV natif" />
-<img src="https://img.shields.io/badge/Android-native-C04BFF?style=flat-square&logo=android&logoColor=white&labelColor=131836" alt="Android natif" />
+<img src="https://img.shields.io/badge/Android_TV-native-7C3AED?style=flat-square&logo=androidtv&logoColor=white&labelColor=131836" alt="Native Android TV" />
+<img src="https://img.shields.io/badge/Android-native-C04BFF?style=flat-square&logo=android&logoColor=white&labelColor=131836" alt="Native Android" />
 <img src="https://img.shields.io/badge/Tizen-beta-34E2FF?style=flat-square&logo=samsung&logoColor=white&labelColor=131836" alt="Tizen beta" />
-<img src="https://img.shields.io/badge/Plex-optionnel-E5A00D?style=flat-square&logo=plex&labelColor=131836" alt="Plex optionnel" />
+<img src="https://img.shields.io/badge/Plex-optional-E5A00D?style=flat-square&logo=plex&labelColor=131836" alt="Plex optional" />
 <img src="https://img.shields.io/badge/GPL--3.0-open_source-43E6A0?style=flat-square&labelColor=131836" alt="GPL-3.0" />
 
 <br><br>
 
-**Découvrir · Demander · Chercher · Télécharger · Organiser · Regarder · Recommander**
+**Discover · Request · Search · Download · Organize · Watch · Recommend**
 
 <br>
 
-[**Pourquoi MOVVIZ**](#-pourquoi-movviz) · [**Fonctionnalités**](#-une-seule-application-tout-le-workflow) · [**Écrans**](#-un-produit-tous-tes-écrans) · [**Installation**](#-installation) · [**Architecture**](#-architecture) · [**Changelog**](CHANGELOG.md)
+[**Why MOVVIZ**](#-why-movviz) · [**Features**](#-one-app-the-entire-workflow) · [**Platforms**](#-one-product-every-screen) · [**Installation**](#-installation) · [**Architecture**](#-architecture) · [**Changelog**](CHANGELOG.md)
 
 <br>
 
@@ -41,128 +45,128 @@
 
 ---
 
-## ✦ Pourquoi MOVVIZ
+## ✦ Why MOVVIZ
 
-Les stacks média auto-hébergées sont puissantes, mais elles finissent souvent par devenir une chaîne d'applications : une pour les demandes, une pour les films, une pour les séries, une pour les indexeurs, une pour télécharger, une pour lire, une pour surveiller.
+Self-hosted media stacks are powerful, but they often turn into a chain of separate applications: one for requests, one for movies, one for TV shows, one for indexers, one for downloading, one for playback, and one for monitoring.
 
-**MOVVIZ transforme cette chaîne en un seul produit.**
+**MOVVIZ turns that chain into a single product.**
 
 ```text
-Découvrir
+Discover
    ↓
-Demander
+Request
    ↓
-Trouver la bonne release
+Find the right release
    ↓
-Télécharger
+Download
    ↓
-Importer et organiser
+Import and organize
    ↓
-Regarder
+Watch
    ↓
-Synchroniser l'historique
+Sync viewing history
    ↓
-Recommander la suite
+Recommend what comes next
 ```
 
-Le même système connaît ce que tu veux, ce que tu possèdes, ce qui manque, ce qui se télécharge, ce qui est disponible, ce que tu as regardé et ce qui pourrait te plaire ensuite.
+The same system knows what you want, what you own, what is missing, what is downloading, what is available, what you have watched, and what you might enjoy next.
 
-> **Un seul état utilisateur. Une seule interface. Un seul univers média.**
+> **One user state. One interface. One media universe.**
 
 ---
 
-## ⚡ Une seule application, tout le workflow
+## ⚡ One app, the entire workflow
 
 <table>
 <tr>
 <td width="33%" valign="top">
 
-### 🎬 Découvrir
+### 🎬 Discover
 
-- Hero cinématique
-- Tendances et nouveautés
+- Cinematic hero
+- Trending and new releases
 - Netflix / Disney+ / Prime Video…
-- Films et séries
-- Genres, studios, chaînes
-- Acteurs et réalisateurs
-- Collections et sagas
-- Calendrier des sorties
-- Suggestions personnelles
+- Movies and TV shows
+- Genres, studios, networks
+- Actors and directors
+- Collections and sagas
+- Release calendar
+- Personal suggestions
 
 </td>
 <td width="33%" valign="top">
 
-### 🔎 Acquérir
+### 🔎 Acquire
 
 - Torznab / Newznab
-- Recherche multi-indexeurs
-- Score des releases
-- Qualités configurables
-- Formats personnalisés
-- WebTorrent intégré
-- Import automatique
-- Renommage
-- Upgrades qualité
+- Multi-indexer search
+- Release scoring
+- Configurable qualities
+- Custom formats
+- Integrated WebTorrent
+- Automatic import
+- Renaming
+- Quality upgrades
 
 </td>
 <td width="33%" valign="top">
 
-### ▶️ Regarder
+### ▶️ Watch
 
 - Direct Play
 - Remux
-- Transcodage FFmpeg
-- Accélération matérielle
-- HDR → SDR si nécessaire
-- Audio / sous-titres
-- Intro / générique
-- Épisode suivant
-- Reprise exacte
+- FFmpeg transcoding
+- Hardware acceleration
+- HDR → SDR when required
+- Audio / subtitles
+- Intro / credits
+- Next episode
+- Exact resume point
 
 </td>
 </tr>
 <tr>
 <td width="33%" valign="top">
 
-### 👤 Comprendre
+### 👤 Understand
 
-- Vu / non vu
-- Historique
-- Progression
-- Notes
+- Watched / unwatched
+- History
+- Progress
+- Ratings
 - Likes / dislikes
-- Ma liste
-- Préférences
-- Profils isolés
-- Recommandations
+- My List
+- Preferences
+- Isolated profiles
+- Recommendations
 
 </td>
 <td width="33%" valign="top">
 
-### 🧠 Assister
+### 🧠 Assist
 
 - MOVVIZ AI
-- Conversation naturelle
-- Contexte bibliothèque
-- Historique utilisateur
-- Recommandations expliquées
-- Recherche web factuelle
-- Actions dans l'application
-- Dictée et voix
+- Natural conversation
+- Library context
+- User history
+- Explained recommendations
+- Fact-checking web search
+- In-app actions
+- Dictation and voice
 
 </td>
 <td width="33%" valign="top">
 
-### 🩺 Exploiter
+### 🩺 Operate
 
 - Doctor MOVVIZ
-- Santé des services
-- Logs centralisés
-- Jobs planifiés
-- Benchmarks FFmpeg
-- CPU / RAM / latence
-- Sauvegarde / restauration
-- Mises à jour
+- Service health
+- Centralized logs
+- Scheduled jobs
+- FFmpeg benchmarks
+- CPU / RAM / latency
+- Backup / restore
+- Updates
 
 </td>
 </tr>
@@ -170,55 +174,55 @@ Le même système connaît ce que tu veux, ce que tu possèdes, ce qui manque, c
 
 ---
 
-## 🎞️ Un player qui s'adapte au client
+## 🎞️ A player that adapts to the client
 
-MOVVIZ ne transcode pas par défaut. Il choisit le traitement minimal nécessaire selon le fichier et les capacités de l'appareil.
+MOVVIZ does not transcode by default. It chooses the lightest processing path required by the media file and the capabilities of the device.
 
 ```mermaid
 flowchart LR
-    F[Fichier média] --> E{Playback Engine}
-    C[Capacités client] --> E
+    F[Media file] --> E{Playback Engine}
+    C[Client capabilities] --> E
     E -->|Compatible| D[Direct Play]
-    E -->|Conteneur / audio| R[Remux]
-    E -->|Codec incompatible| T[Transcodage]
-    T --> G[GPU si disponible]
+    E -->|Container / audio| R[Remux]
+    E -->|Unsupported codec| T[Transcoding]
+    T --> G[GPU when available]
     T --> P[CPU fallback]
-    T --> H[HDR / DV → SDR si nécessaire]
+    T --> H[HDR / DV → SDR when required]
 ```
 
-**Le meilleur transcodage est celui qu'on évite quand il n'est pas nécessaire.**
+**The best transcode is the one you avoid when it is not needed.**
 
 ---
 
-## 🌊 WebTorrent intégré
+## 🌊 Integrated WebTorrent
 
-MOVVIZ embarque son propre moteur BitTorrent basé sur **WebTorrent**.
+MOVVIZ includes its own BitTorrent engine based on **WebTorrent**.
 
-Pas besoin d'un client torrent séparé pour le workflow principal.
+No separate torrent client is required for the main workflow.
 
 ```text
-Film / Série
+Movie / TV show
     ↓
-Recherche indexeurs
+Indexer search
     ↓
-Analyse et score
+Analysis and scoring
     ↓
-Sélection
+Selection
     ↓
 WebTorrent
     ↓
-Téléchargement
+Download
     ↓
-Import / renommage
+Import / rename
     ↓
-Bibliothèque
+Library
 ```
 
-MOVVIZ gère notamment les files films/séries, la reprise, les limites, la progression, le seed après import, les torrents orphelins et les upgrades de qualité.
+MOVVIZ handles movie/TV queues, resume, limits, progress, seeding after import, orphaned torrents, and quality upgrades.
 
 ---
 
-## 📺 Un produit, tous tes écrans
+## 📺 One product, every screen
 
 <table>
 <tr>
@@ -226,11 +230,11 @@ MOVVIZ gère notamment les files films/séries, la reprise, les limites, la prog
 
 ### 🖥 Desktop / Web
 
-Interface complète  
+Full interface  
 Administration  
-Bibliothèque  
-Découverte  
-Téléchargements  
+Library  
+Discovery  
+Downloads  
 Player  
 MOVVIZ AI
 
@@ -239,7 +243,7 @@ MOVVIZ AI
 
 ### 📺 Android TV
 
-**Application native**  
+**Native app**  
 Kotlin  
 Jetpack Compose  
 Media3  
@@ -251,12 +255,12 @@ D-pad
 
 ### 📱 Android
 
-**Application native**  
+**Native app**  
 Portrait  
-Paysage  
+Landscape  
 Foldables  
-Player natif  
-IA vocale
+Native player  
+Voice AI
 
 </td>
 <td width="25%" valign="top" align="center">
@@ -264,112 +268,112 @@ IA vocale
 ### 📺 Samsung TV
 
 Tizen  
-Télécommande  
-Interface TV  
-**Statut : bêta**
+Remote control  
+TV interface  
+**Status: beta**
 
 </td>
 </tr>
 </table>
 
-Le backend reste commun : l'historique, les reprises, la bibliothèque, les téléchargements et le contexte utilisateur ne sont pas réinventés séparément pour chaque écran.
+The backend remains shared: history, resume points, library, downloads, and user context are not reimplemented separately for each screen.
 
 ---
 
-## 👤 Un vrai contexte utilisateur
+## 👤 Real user context
 
-MOVVIZ distingue les concepts qui doivent rester séparés.
+MOVVIZ keeps concepts separate when they need to remain separate.
 
 ```text
-PROFIL
-├── Historique
-├── Vu / non vu
-├── Progression
-├── Reprise
-├── Notes
-├── Ma liste
-├── Préférences
-├── Recommandations
-└── Contexte IA
+PROFILE
+├── History
+├── Watched / unwatched
+├── Progress
+├── Resume point
+├── Ratings
+├── My List
+├── Preferences
+├── Recommendations
+└── AI context
 ```
 
-Regarder plusieurs fois le même film ne crée pas plusieurs films. Quitter après quelques minutes ne signifie pas qu'il est vu. Supprimer une reprise n'efface pas l'historique.
+Watching the same movie several times does not create several movies. Leaving after a few minutes does not mark it as watched. Clearing a resume point does not erase viewing history.
 
-Chaque profil possède son propre contexte et ses propres recommandations.
+Each profile has its own context and its own recommendations.
 
 ---
 
 ## 🤖 MOVVIZ AI
 
-MOVVIZ AI n'est pas un chatbot posé à côté de l'application.
+MOVVIZ AI is not a chatbot bolted onto the side of the application.
 
-Il peut utiliser le contexte MOVVIZ : bibliothèque, historique, notes, préférences, acteurs, réalisateurs, collections, disponibilité et état courant de l'application.
+It can use MOVVIZ context: library, history, ratings, preferences, actors, directors, collections, availability, and the application's current state.
 
 ```text
-« Je veux une série courte, sombre, terminée,
-que je n'ai jamais vue. »
+“I want a short, dark, finished series
+that I have never watched.”
 
 MOVVIZ AI
-├── comprend la demande
-├── consulte ton historique
-├── exclut ce que tu as déjà vu
-├── utilise tes préférences
-├── vérifie les données disponibles
-└── propose les meilleurs candidats
+├── understands the request
+├── checks your history
+├── excludes what you already watched
+├── uses your preferences
+├── verifies available data
+└── suggests the best candidates
 ```
 
-Puis la conversation peut continuer :
+Then the conversation can continue:
 
 ```text
-— Le deuxième a quoi de particulier ?
-— Même genre, mais plus court.
-— Ajoute celui-là.
-— Lance-le.
+— What is special about the second one?
+— Same genre, but shorter.
+— Add that one.
+— Play it.
 ```
 
-L'application reste responsable des faits, des données et des actions. L'IA se concentre sur la compréhension, le raisonnement, le choix et l'explication.
+The application remains responsible for facts, data, and actions. AI focuses on understanding, reasoning, choosing, and explaining.
 
 ---
 
-## 🟠 Plex : intégré, jamais obligatoire
+## 🟠 Plex: integrated, never required
 
-Plex est une **intégration facultative**, pas le cœur de MOVVIZ.
+Plex is an **optional integration**, not the core of MOVVIZ.
 
-MOVVIZ peut synchroniser des informations telles que la bibliothèque, l'historique, les reprises, les états vus ou les profils, tout en restant capable de gérer et lire ses fichiers locaux sans Plex.
+MOVVIZ can synchronize information such as the library, history, resume points, watched states, or profiles while remaining fully capable of managing and playing local files without Plex.
 
 ```mermaid
 flowchart LR
-    M[MOVVIZ] <-->|Bibliothèque| P[Plex]
-    M <-->|Historique| P
-    M <-->|Vu / non vu| P
-    M <-->|Reprises| P
-    M <-->|Profils| P
+    M[MOVVIZ] <-->|Library| P[Plex]
+    M <-->|History| P
+    M <-->|Watched / unwatched| P
+    M <-->|Resume points| P
+    M <-->|Profiles| P
 ```
 
 ---
 
-## 🔌 Tu ne repars pas de zéro
+## 🔌 You do not start from scratch
 
-| Source | Import / intégration |
+| Source | Import / integration |
 | --- | --- |
-| **Netflix** | Historique CSV |
-| **Plex** | Bibliothèque, historique, reprises, profils |
-| **Trakt** | Listes |
-| **IMDb** | Listes |
-| **Letterboxd** | Listes |
-| **Seerr / Overseerr** | Demandes existantes |
+| **Netflix** | CSV viewing history |
+| **Plex** | Library, history, resume points, profiles |
+| **Trakt** | Lists |
+| **IMDb** | Lists |
+| **Letterboxd** | Lists |
+| **Seerr / Overseerr** | Existing requests |
 
-Notifications : Discord, Telegram, Gotify, Slack, Pushbullet et webhooks HTTP, avec alertes dans l’application.
+Notifications: Discord, Telegram, Gotify, Slack, Pushbullet, and HTTP webhooks, plus in-app alerts.
 
 ---
 
-## 📅 Automatisation
+## 📅 Automation
 
-MOVVIZ exécute les tâches de fond nécessaires pour maintenir l'ensemble cohérent :
+MOVVIZ runs the background tasks required to keep everything consistent:
 
-**sorties du jour · épisodes manquants · RSS · upgrades qualité · métadonnées · imports · indexeurs · téléchargements · Plex · intros · crédits · corbeille · diagnostic · benchmark · sauvegarde**
+**today's releases · missing episodes · RSS · quality upgrades · metadata · imports · indexers · downloads · Plex · intros · credits · recycle bin · diagnostics · benchmarks · backups**
 
-Les actions utilisateur restent prioritaires sur le travail de fond.
+User actions remain higher priority than background work.
 
 ---
 
@@ -388,7 +392,7 @@ flowchart TB
     subgraph CORE[MOVVIZ Core]
         NEXT[Next.js 16 / React 19]
         API[Application API]
-        EVENTS[Temps réel]
+        EVENTS[Real-time events]
         CTX[Context Engine]
         LIB[Library]
         REC[Recommendations]
@@ -420,22 +424,22 @@ flowchart TB
     PLAYER --> FFMPEG
 ```
 
-### Stack technique
+### Technical stack
 
-| Couche | Technologie |
+| Layer | Technology |
 | --- | --- |
-| Web / serveur | **Next.js 16** |
+| Web / server | **Next.js 16** |
 | UI | **React 19** |
-| Langage | **TypeScript strict** |
+| Language | **TypeScript strict** |
 | Styling | **Tailwind CSS 4** |
 | Animations | **Framer Motion** |
-| Player Web | **HLS.js / DASH.js / MP4Box** |
-| Média | **FFmpeg / ffprobe** |
+| Web player | **HLS.js / DASH.js / MP4Box** |
+| Media | **FFmpeg / ffprobe** |
 | Torrent | **WebTorrent** |
 | Android TV | **Kotlin / Jetpack Compose / Media3** |
 | Android mobile | **Kotlin / Jetpack Compose / Media3** |
-| Temps réel | **Server-Sent Events** |
-| État | **SQLite + JSON atomiques** |
+| Real-time | **Server-Sent Events** |
+| State | **SQLite + atomic JSON** |
 
 ---
 
@@ -447,9 +451,9 @@ flowchart TB
 
 ### 🪟 Windows
 
-Télécharge l'installeur depuis les [Releases](https://github.com/dj41ph4/movviz/releases/latest).
+Download the installer from [Releases](https://github.com/dj41ph4/movviz/releases/latest).
 
-Service Windows et système de mise à jour intégrés.
+Windows service and integrated update system included.
 
 </td>
 <td width="25%" valign="top">
@@ -462,7 +466,7 @@ cd movviz
 sudo ./packaging/linux/install.sh
 ```
 
-x64 et ARM64.
+x64 and ARM64.
 
 </td>
 <td width="25%" valign="top">
@@ -474,34 +478,34 @@ docker pull dj41ph4/movviz:latest
 docker compose up -d
 ```
 
-amd64 et arm64.
+amd64 and arm64.
 
 </td>
 <td width="25%" valign="top">
 
 ### 📺 Android
 
-APK Android TV et Android mobile disponibles dans les Releases.
+Android TV and Android mobile APKs are available in Releases.
 
 </td>
 </tr>
 </table>
 
-Au premier accès, `/setup` guide la création du compte administrateur et le réglage des services nécessaires.
+On first access, `/setup` guides you through creating the administrator account and configuring the required services.
 
-**Ports par défaut : Web `9810` · BitTorrent `9820` · résolveur `9830` · pair-à-pair `55000`/`55001`**
-
----
-
-## 🌍 Langues
-
-🇫🇷 Français · 🇬🇧 English · 🇩🇪 Deutsch · 🇮🇹 Italiano · 🇳🇱 Nederlands
-
-Guides : [Français](docs/guide-fr.md) · [English](docs/guide-en.md) · [Deutsch](docs/guide-de.md) · [Italiano](docs/guide-it.md) · [Nederlands](docs/guide-nl.md)
+**Default ports: Web `9810` · BitTorrent `9820` · resolver `9830` · peer-to-peer `55000`/`55001`**
 
 ---
 
-## 🧭 Pour aller plus loin
+## 🌍 Languages
+
+🇬🇧 English · 🇫🇷 Français · 🇳🇱 Nederlands · 🇩🇪 Deutsch · 🇮🇹 Italiano
+
+Guides: [English](docs/guide-en.md) · [Français](docs/guide-fr.md) · [Nederlands](docs/guide-nl.md) · [Deutsch](docs/guide-de.md) · [Italiano](docs/guide-it.md)
+
+---
+
+## 🧭 Go further
 
 - [Changelog](CHANGELOG.md)
 - [Documentation](docs/)
@@ -509,8 +513,8 @@ Guides : [Français](docs/guide-fr.md) · [English](docs/guide-en.md) · [Deutsc
 - [Android mobile](android-mobile-nx/)
 - [Samsung Tizen](tizen-tv/)
 - [Docker Hub](https://hub.docker.com/r/dj41ph4/movviz)
-- [Dernière release](https://github.com/dj41ph4/movviz/releases/latest)
-- [Soutenir le projet sur GitHub Sponsors](https://github.com/sponsors/dj41ph4)
+- [Latest release](https://github.com/dj41ph4/movviz/releases/latest)
+- [Support the project on GitHub Sponsors](https://github.com/sponsors/dj41ph4)
 
 ---
 
@@ -520,7 +524,7 @@ Guides : [Français](docs/guide-fr.md) · [English](docs/guide-en.md) · [Deutsc
 
 ### MOVVIZ
 
-**Ton catalogue. Ton serveur. Tes règles.**
+**Your catalog. Your server. Your rules.**
 
 Open source · Self-hosted · GPL-3.0
 
