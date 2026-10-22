@@ -8,7 +8,7 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import type { ReleaseInfo } from "@/lib/naming/types";
-import { releaseTitleMatches, yearIsCompatible, partPackInfo, pickSearchTitle } from "@/lib/library/matching";
+import { releaseTitleMatches, seriesNeedsReleaseYear, seriesYearIsCompatible, partPackInfo, pickSearchTitle } from "@/lib/library/matching";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
@@ -483,6 +483,7 @@ export async function addSeriesToLibrary(
     tmdbId: meta.tmdbId,
     ...(meta.tmdbId === BLEACH_TMDB_ID ? { episodeOrder: "tvdb" as const } : {}),
     imdbId: meta.imdbId,
+    tvdbId: meta.tvdbId,
     title: meta.title,
     year: meta.year,
     releaseDate: meta.releaseDate,
@@ -610,6 +611,7 @@ async function grabRelease(
   // Japanese/Chinese/Korean/etc, so it would be a guaranteed zero-match
   // search target instead of a better one (confirmed live: "BAKI-DOU : Le
   // samouraï invincible", original title "刃牙道", matched 0 of 75 releases).
+  const requireYear = seriesNeedsReleaseYear(series, loadSeries());
   const searchTitle = pickSearchTitle(series.title, series.originalTitle);
   const searchAliases = [
     ...(series.aliases ?? []),
@@ -635,27 +637,8 @@ async function grabRelease(
   });
   const coversTarget = (release: IndexerRelease) => series.tmdbId !== BLEACH_TMDB_ID || bleachReleaseTargets((bleachCoverage ?? (episodeNumber != null ? [episodeNumber] : series.seasons.find(s => s.seasonNumber === seasonNumber)?.episodes.map(e => e.episodeNumber) ?? [])).map(episode => ({ season: seasonNumber, episode })), release.title).length > 0;
   const step4 = matched.survivors.map(({ idx, parsed }) => ({ release: releases[idx], parsed })).filter(({ release }) => coversTarget(release));
-  // Two library entries can share the exact same title with nothing but the
-  // year to tell them apart (e.g. "Doctor Who" 1963 vs 2005 — confirmed
-  // live: the classic show's season/episode search matched and grabbed a
-  // release actually belonging to the 2005 reboot, since season numbers
-  // alone don't disambiguate two shows that both have a "season 9"). The
-  // intégrale search path already guards against this with yearIsCompatible
-  // — season/episode search never did. Same lenient semantics: a release
-  // with no year at all still passes, only a release that states a clearly
-  // different year gets rejected.
-  // KNOWN TRADEOFF: series.year is always the show's DEBUT year, not the
-  // broadcast year of any specific season — a decades-spanning back
-  // catalogue (26 seasons across 1963-1989, in Doctor Who's own case) could
-  // in principle have an old season's release tagged with its own real
-  // broadcast year, which would then get wrongly rejected here since it sits
-  // more than a year off the debut year. Accepted deliberately: it's the
-  // same tradeoff the intégrale path has already lived with, and it only
-  // trades a same-title-different-year false positive (silently grabbing
-  // the wrong show, confirmed to actually happen) for a narrower false
-  // negative (a legitimate old-season release requiring a manual grab) —
-  // revisit with a per-season tolerance if that ever surfaces for real.
-  const stepYear = step4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : yearIsCompatible(parsed.year, series.year));
+  // Known homonyms require the exact debut year, including for yearless releases.
+  const stepYear = step4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : seriesYearIsCompatible(parsed.year, series.year, requireYear));
   // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
   const stepBlocked = stepYear.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const step5 = stepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
@@ -704,7 +687,7 @@ async function grabRelease(
   const directReleases: IndexerRelease[] = [];
   for (const ix of indexers) {
     const cour = seasonNumber === 17 && bleachCoverage?.length ? bleachCourForEpisode(bleachCoverage[0])?.part : undefined;
-    const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, filterPack ? null : episodeNumber, cour) : [{ title: searchTitle, season: seasonNumber, episode: filterPack ? null : episodeNumber, tvdbId: series.tvdbId ?? null }];
+    const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, filterPack ? null : episodeNumber, cour) : [{ title: requireYear ? `${searchTitle} ${series.year}` : searchTitle, season: seasonNumber, episode: filterPack ? null : episodeNumber, tvdbId: series.tvdbId ?? null, tmdbId: series.tmdbId, imdbId: series.imdbId }];
     for (const query of queries) directReleases.push(...await searchTv(ix, query, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
   }
   const directMs = Math.round(performance.now() - tDirect);
@@ -721,7 +704,7 @@ async function grabRelease(
     partTotalEpisodes: singleSeasonTotalEpisodes,
   });
   const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed })).filter(({ release }) => coversTarget(release));
-  const dStepYear = dStep4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : yearIsCompatible(parsed.year, series.year));
+  const dStepYear = dStep4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : seriesYearIsCompatible(parsed.year, series.year, requireYear));
   const dStepBlocked = dStepYear.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const dStep5 = dStepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
@@ -1500,6 +1483,7 @@ export async function searchCompleteSeriesCandidates(
   const targetSeasons = [...new Set(targets.map((t) => t.season))];
   // Same original-title preference (and non-Latin-script guard) as
   // grabRelease — see pickSearchTitle's own comment.
+  const requireYear = seriesNeedsReleaseYear(series, loadSeries());
   const searchTitle = pickSearchTitle(series.title, series.originalTitle);
   const searchAliases = [
     ...(series.aliases ?? []),
@@ -1521,10 +1505,9 @@ export async function searchCompleteSeriesCandidates(
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
     // title — with no season/episode numbers to disambiguate an intégrale
     // (unlike a regular episode/season search), title similarity alone can
-    // never tell them apart. yearIsCompatible is lenient (a release with no
-    // year at all still passes) so this only rejects a release that states
-    // a clearly different year, never a legitimately unlabeled one.
-    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || yearIsCompatible(parsed.year, series.year))
+    // never tell them apart. Known library homonyms require an explicit debut
+    // year; unrelated series keep the existing year tolerance.
+    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || seriesYearIsCompatible(parsed.year, series.year, requireYear))
     .filter(({ release, parsed }) => series.tmdbId === BLEACH_TMDB_ID ? bleachCompletePackCovers(release.title, targets) : isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
     // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
@@ -1554,7 +1537,7 @@ export async function searchCompleteSeriesCandidates(
     // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
     const directReleases: IndexerRelease[] = [];
     for (const ix of indexers) {
-      const results = await searchCompleteSeriesPack(ix, { title: searchTitle, seasonCount }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+      const results = await searchCompleteSeriesPack(ix, { title: requireYear ? `${searchTitle} ${series.year}` : searchTitle, seasonCount }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
       directReleases.push(...results);
     }
     const directMs = Math.round(performance.now() - tDirect);
@@ -1569,10 +1552,9 @@ export async function searchCompleteSeriesCandidates(
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
     // title — with no season/episode numbers to disambiguate an intégrale
     // (unlike a regular episode/season search), title similarity alone can
-    // never tell them apart. yearIsCompatible is lenient (a release with no
-    // year at all still passes) so this only rejects a release that states
-    // a clearly different year, never a legitimately unlabeled one.
-    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || yearIsCompatible(parsed.year, series.year))
+    // never tell them apart. Known library homonyms require an explicit debut
+    // year; unrelated series keep the existing year tolerance.
+    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || seriesYearIsCompatible(parsed.year, series.year, requireYear))
     .filter(({ release, parsed }) => series.tmdbId === BLEACH_TMDB_ID ? bleachCompletePackCovers(release.title, targets) : isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
       .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))

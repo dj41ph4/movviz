@@ -28,6 +28,6 @@ export function queueAcquisition(type: "movie" | "series", item: LibraryMovie | 
     if ("error" in result) throw new Error(result.error);
     setProgress(1, 1);
     return result;
-  }, sourceId, { heavy: true });
+  }, sourceId, { immediate: true });
   return { queued: true as const, jobId: job.id };
 }

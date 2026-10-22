@@ -48,6 +48,8 @@ export interface RunnerContext {
 type Runner = (setProgress: ProgressFn, ctx: RunnerContext) => Promise<unknown>;
 
 export interface EnqueueOptions {
+  /** Acquisition d'un titre ajouté : une place dédiée, sans attendre les tâches de fond. */
+  immediate?: boolean;
   /** Tâche lourde : une seule à la fois (voir HEAVY_SOFT_LIMIT_MS). */
   heavy?: boolean;
   /** Lancée par le planificateur : passe après les actions de l'utilisateur. */
@@ -141,18 +143,28 @@ export function enqueueJob(type: JobType, label: string, total: number, runner: 
 }
 
 async function dispatch() {
+  // One explicit acquisition may start even when scheduled jobs occupy all
+  // normal slots. Keep this lane serial and start it before the engine check.
+  if (![...live].some((id) => jobOptions.get(id)?.immediate)) {
+    const next = pickNextQueued(true);
+    if (next) startJob(next.job, next.runner);
+  }
   const throttled = (await isDownloadActive()) && priorityOf("download") >= DOWNLOAD_THROTTLE_THRESHOLD;
   const limit = throttled ? MAX_CONCURRENT_WHILE_DOWNLOADING : MAX_CONCURRENT;
   while (state.runningCount < limit) {
     const next = pickNextQueued();
     if (!next) return;
     const { job, runner } = next;
-    state.pending.delete(job.id);
-    job.status = "running";
-    job.startedAt = Date.now();
-    state.runningCount++;
-    runJob(job, runner);
+    startJob(job, runner);
   }
+}
+
+function startJob(job: Job, runner: Runner) {
+  state.pending.delete(job.id);
+  job.status = "running";
+  job.startedAt = Date.now();
+  state.runningCount++;
+  runJob(job, runner);
 }
 
 /** Ordre de passage : actions de l'utilisateur d'abord, puis points de priorité, puis ancienneté. */
@@ -160,11 +172,12 @@ function rankOf(job: Job): number {
   return (jobOptions.get(job.id)?.scheduled ? 0 : 1000) + priorityOf(job.type);
 }
 
-function pickNextQueued(): { job: Job; runner: Runner } | null {
+function pickNextQueued(immediate = false): { job: Job; runner: Runner } | null {
   let best: Job | null = null;
   const heavyBusy = heavyLive.size > 0;
   for (const job of state.jobs) {
     if (job.status !== "queued") continue;
+    if (!!jobOptions.get(job.id)?.immediate !== immediate) continue;
     if (heavyBusy && jobOptions.get(job.id)?.heavy) continue;
     if (!best || rankOf(job) > rankOf(best)) best = job;
     else if (rankOf(job) === rankOf(best) && job.createdAt < best.createdAt) best = job;
@@ -181,13 +194,14 @@ function runJob(job: Job, runner: Runner) {
     if (total) job.total = total;
   };
   const heavy = !!jobOptions.get(job.id)?.heavy;
+  const immediate = !!jobOptions.get(job.id)?.immediate;
   live.add(job.id);
   if (heavy) heavyLive.add(job.id);
   let settled = false;
   // Une tâche lourde n'est jamais « libérée » par le délai de garde : elle
   // garde sa place lourde jusqu'à sa vraie fin. Au plafond, on demande
   // seulement son arrêt.
-  const timeoutTimer = heavy
+  const timeoutTimer = heavy || immediate
     ? setTimeout(() => {
         if (settled) return;
         cancelled.add(job.id);
@@ -214,7 +228,7 @@ function runJob(job: Job, runner: Runner) {
       // Lu par le planificateur dans le même tour (runTaskNow) — on le
       // retire un peu plus tard pour que l'ensemble ne grossisse pas.
       if (preempted.has(job.id)) setTimeout(() => preempted.delete(job.id), 60_000).unref?.();
-      if (heavy) void dispatch();
+      if (heavy || immediate) void dispatch();
     })
     .then((result) => {
       if (settled) return; // watchdog already freed this slot — a late result must not double-decrement runningCount

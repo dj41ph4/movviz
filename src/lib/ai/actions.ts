@@ -6,9 +6,6 @@ import { getMovieByTmdbId, getSeriesByTmdbId, loadMovies, loadSeries } from "@/l
 import { getWatchStatus, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { pushEpisodesWatchedToPlex } from "@/lib/plex/watchWrite";
 import { loadRequests } from "@/lib/requests/store";
-import { enqueueJob } from "@/lib/jobs/queue";
-import { searchAndGrabMovie } from "@/lib/library/autoGrab";
-import { searchAndGrabSeries } from "@/lib/library/autoGrabSeries";
 import { rememberAiEntry } from "@/lib/ai/memory";
 import { getAllRatings } from "@/lib/ai/tasteProfile";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
@@ -258,8 +255,8 @@ async function markEpisodeWatchedFromTitle(user: User, tmdbId: number, seriesTit
 /** Adds media through the exact same gate as the "add" buttons everywhere
  *  (requestMedia — admin/auto-approve adds + searches immediately, everyone
  *  else gets a pending request). The library entry is created with
- *  skipSearch so a long list responds fast; each added title then gets its
- *  search queued (max 3 concurrent) so downloads start right after. */
+ *  queued acquisition so a long list responds fast; the shared immediate
+ *  lane starts downloads without waiting for scheduled jobs. */
 export async function addMedia(user: User, items: AiAddItem[]): Promise<AiActionOutcome[]> {
   const resolved = await mapWithConcurrency(items, 4, resolveAiItem);
   const outcomes: AiActionOutcome[] = [];
@@ -271,7 +268,7 @@ export async function addMedia(user: User, items: AiAddItem[]): Promise<AiAction
       continue;
     }
     if (res.type === "series") markEpisodeWatchedFromTitle(user, res.tmdbId, res.title, item.title).catch(() => {});
-    const result = await requestMedia(user, res.type, res.tmdbId, undefined, undefined, { skipSearch: true });
+    const result = await requestMedia(user, res.type, res.tmdbId, undefined, undefined, { queueSearch: true });
     if ("blocked" in result && result.blocked) {
       outcomes.push({ title: res.title, year: res.year, type: res.type, tmdbId: res.tmdbId, status: "blocked" });
     } else if ("alreadyInLibrary" in result && result.alreadyInLibrary) {
@@ -281,8 +278,6 @@ export async function addMedia(user: User, items: AiAddItem[]): Promise<AiAction
     } else if ("quotaReached" in result && result.quotaReached) {
       outcomes.push({ title: res.title, year: res.year, type: res.type, tmdbId: res.tmdbId, status: "error", detail: "quota_reached" });
     } else if ("added" in result && result.added) {
-      const added = result.added;
-      const id = "id" in added ? added.id : (added as { id?: string }).id;
       rememberAiEntry(user.id, "added", { tmdbId: res.tmdbId, title: res.title, type: res.type, at: Date.now() });
       // Distinct from the generic media_requested event addRequest() already
       // emits (requests/store.ts) — this tags the add as AI-INITIATED
@@ -300,13 +295,6 @@ export async function addMedia(user: User, items: AiAddItem[]): Promise<AiAction
         title: res.title,
         occurredAt: Date.now(),
       });
-      if (id) {
-        const jobFn = res.type === "movie" ? () => searchAndGrabMovie(id) : () => searchAndGrabSeries(id);
-        enqueueJob("qualityUpgrade", `Recherche : ${res.title}`, 1, async (setProgress) => {
-          await jobFn();
-          setProgress(1, 1);
-        }, `ai-search-${id}`);
-      }
       outcomes.push({ title: res.title, year: res.year, type: res.type, tmdbId: res.tmdbId, status: "added" });
     } else {
       rememberAiEntry(user.id, "added", { tmdbId: res.tmdbId, title: res.title, type: res.type, at: Date.now() });

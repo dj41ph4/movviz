@@ -40,7 +40,8 @@ test("phone adds queue acquisition after approval, including existing missing se
       activeJobForSource: source => jobs.find(j => j.source === source && j.active),
       isJobCancelled: () => false,
       enqueueJob: (_type, _label, _total, runner, source, options) => {
-        assert.equal(options.heavy, true);
+        assert.equal(options.immediate, true);
+        assert.notEqual(options.heavy, true, 'single-title acquisition must not wait for bulk tasks');
         assert.ok(requests.length, 'approved request exists before any job is queued');
         const job = { id: String(jobs.length), active: true, source, runner }; jobs.push(job); return job;
       },
@@ -150,6 +151,29 @@ test("Gintama: real series creation and queued search fall back from integral to
     assert.equal(sent.length, 2, 'both season packs must be handed to the engine');
     assert.deepEqual(sent.map(b => b.episodeTargets), [[{season:1,episode:1},{season:1,episode:2}], [{season:2,episode:1},{season:2,episode:2}]]);
     assert.ok([...library.values()][0].seasons.every(s => s.episodes.every(e => e.status === 'downloading' && e.activeInfoHash)));
+
+    // The real auto-grab pipeline must not take the classic show's yearless
+    // season pack just because both shows are called Scrubs and have an S02.
+    const template = [...library.values()][0];
+    const reboot = { ...template, id: 'scrubs-2026', tmdbId: 295778, title: 'Scrubs', originalTitle: 'Scrubs', year: 2026,
+      seasons: [{ seasonNumber: 2, monitored: true, episodes: [1, 2].map(episodeNumber => ({
+        seasonNumber: 2, episodeNumber, title: 'Episode ' + episodeNumber, monitored: true,
+        status: 'missing', file: null, activeInfoHash: null, airDate: '2026-01-01'
+      })) }] };
+    library.clear(); library.set(reboot.id, reboot);
+    library.set('scrubs-2001', { ...template, id: 'scrubs-2001', tmdbId: 4556, title: 'Scrubs', originalTitle: 'Scrubs', year: 2001 });
+    const release = title => ({ ...releases[0], title });
+    releases.splice(0, releases.length, release('Scrubs.S02.MULTi.1080p.WEB-DL'), release('Scrubs.2001.S02.MULTi.1080p.WEB-DL'));
+    const { searchAndGrabSeason, searchCompleteSeriesCandidates } = await import('@/lib/library/autoGrabSeries');
+    const before = sent.length;
+    await searchAndGrabSeason(reboot.id, 2, { skipSeriesPackRetry: true });
+    assert.equal(sent.length, before, 'ambiguous and classic packs must never reach the engine');
+    releases.push(release('Scrubs.2026.S02.MULTi.1080p.WEB-DL'));
+    await searchAndGrabSeason(reboot.id, 2, { skipSeriesPackRetry: true });
+    assert.equal(sent.length, before + 1, 'the correctly dated reboot pack is downloaded');
+    releases.splice(0, releases.length, ...[null, 2001, 2026].map(year => release('Scrubs.' + (year ? year + '.' : '') + 'Complete.Series.1080p.WEB-DL')));
+    const complete = await searchCompleteSeriesCandidates(reboot, { allowedResolutions: ['1080p'], minScore: 0 });
+    assert.deepEqual(complete.candidates.map(c => c.release.title), ['Scrubs.2026.Complete.Series.1080p.WEB-DL']);
   `);
 });
 

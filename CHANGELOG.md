@@ -1,3 +1,12 @@
+## v1.27.22 — 22 octobre 2026
+
+### Acquisition : distinguer les séries homonymes et rechercher dès l’ajout
+
+- Deux séries de la bibliothèque portant le même nom mais des années différentes, comme Scrubs (2001) et Scrubs (2026), exigent désormais une année explicite correspondant à la bonne série avant un téléchargement automatique. Les épisodes, packs de saison et intégrales ambigus sont écartés.
+- Les recherches directes des séries homonymes incluent leur année et utilisent les identifiants TMDb, IMDb ou TVDB quand l’indexeur les prend en charge.
+- L’ajout approuvé d’un film ou d’une série déclenche une recherche dans une place dédiée, même quand les tâches de fond occupent la file ordinaire. Si une release admissible est trouvée, elle est envoyée au téléchargement sans attendre une tâche planifiée. Les acquisitions restent séquentielles et les doublons sont évités.
+- Les ajouts depuis l’assistant IA utilisent le même parcours. Les demandes nécessitant une approbation conservent leur validation préalable.
+
 ## v1.27.21 — 22 octobre 2026
 
 ### Desktop : connexion Plex par QR code

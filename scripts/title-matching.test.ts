@@ -1,7 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { titleSimilarity, releaseTitleMatches, pickSearchTitle } from "@/lib/library/matching";
+import { titleSimilarity, releaseTitleMatches, pickSearchTitle, seriesNeedsReleaseYear, seriesYearIsCompatible } from "@/lib/library/matching";
+import { parseRelease } from "@/lib/naming/parser";
 import { sanitizeQuery } from "@/lib/indexers/torznab";
+
+test("Scrubs 2001 / 2026: seasons and packs need an explicit matching year when both shows exist", () => {
+  const classic = { tmdbId: 4556, title: "Scrubs", year: 2001 };
+  const reboot = { tmdbId: 295778, title: "Scrubs", year: 2026 };
+  const library = [classic, reboot];
+  for (const target of library) {
+    const requireYear = seriesNeedsReleaseYear(target, library);
+    assert.equal(requireYear, true);
+    for (const suffix of ["S02.MULTi.1080p", "S02E01.MULTi.1080p", "Complete.Series.1080p"]) {
+      for (const year of [null, 2001, 2024, 2026]) {
+        const parsed = parseRelease(`Scrubs.${year ? `${year}.` : ""}${suffix}`);
+        assert.equal(seriesYearIsCompatible(parsed.year, target.year, requireYear), year === target.year);
+      }
+    }
+  }
+});
+
+test("unambiguous shows retain yearless releases and existing tolerance; localized homonyms are recognized", () => {
+  const target = { tmdbId: 1, title: "Titre français", originalTitle: "Original Show", year: 2026 };
+  assert.equal(seriesNeedsReleaseYear(target, [target]), false);
+  assert.equal(seriesYearIsCompatible(null, 2026, false), true);
+  assert.equal(seriesYearIsCompatible("2024", 2026, false), true);
+  assert.equal(seriesYearIsCompatible("2001", 2026, false), false);
+  assert.equal(seriesNeedsReleaseYear(target, [target, { tmdbId: 2, title: "Original.Show", year: 2001 }]), true);
+  assert.equal(seriesNeedsReleaseYear(target, [target, { tmdbId: 3, title: "Original Show Quebec", year: 2001 }]), false);
+});
 
 test("pickSearchTitle : un titre original en script non-latin est inexploitable, retombe sur le titre localisé (cas réel : BAKI-DOU, titre original 刃牙道, 0 résultat sur 75 releases indexées)", () => {
   assert.equal(pickSearchTitle("BAKI-DOU : Le samouraï invincible", "刃牙道"), "BAKI-DOU : Le samouraï invincible");

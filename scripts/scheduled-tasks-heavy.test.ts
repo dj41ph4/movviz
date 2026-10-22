@@ -77,6 +77,29 @@ test("Arrêter : une tâche en cours s'arrête à son prochain point d'arrêt", 
   assert.ok(iterations < 1000);
 });
 
+test("un ajout démarre malgré les trois places occupées et les acquisitions restent séquentielles", async () => {
+  let releaseBackground!: () => void;
+  let releaseAcquisition!: () => void;
+  const backgroundGate = new Promise<void>((resolve) => { releaseBackground = resolve; });
+  const acquisitionGate = new Promise<void>((resolve) => { releaseAcquisition = resolve; });
+  const background = [0, 1, 2].map((n) => enqueueJob("maintenance", `fond ${n}`, 1,
+    async () => { await backgroundGate; }, `reserved-background-${n}`, { scheduled: true, heavy: n === 0 }));
+  try {
+    await waitFor(() => background.every((job) => job.status === "running"));
+    const first = enqueueJob("qualityUpgrade", "ajout film", 1, async () => { await acquisitionGate; }, "reserved-first", { immediate: true });
+    const second = enqueueJob("qualityUpgrade", "ajout série", 1, async () => {}, "reserved-second", { immediate: true });
+    assert.equal(first.status, "running", "starts immediately without awaiting the background task or engine check");
+    assert.equal(second.status, "queued", "only one acquisition uses the reserved lane");
+    assert.ok(background.every((job) => job.status === "running"), "background work is not cancelled");
+    releaseAcquisition();
+    await waitFor(() => first.status === "completed" && second.status === "completed");
+  } finally {
+    releaseAcquisition();
+    releaseBackground();
+    await waitFor(() => background.every((job) => job.status === "completed"));
+  }
+});
+
 test("les intervalles personnalisés sont remis par défaut une seule fois", async () => {
   fs.writeFileSync(
     path.join(dataDir, "scheduler.json"),

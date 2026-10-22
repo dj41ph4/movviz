@@ -350,6 +350,21 @@ export function yearIsCompatible(parsedYear: string | null, targetYear: number |
   return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 2;
 }
 
+type SeriesIdentity = { tmdbId: number; title: string; originalTitle?: string | null; year: number | null };
+
+/** A season number cannot distinguish two same-named shows in the library. */
+export function seriesNeedsReleaseYear(target: SeriesIdentity, library: SeriesIdentity[]): boolean {
+  if (!target.year) return false;
+  const names = new Set([target.title, target.originalTitle].filter((name): name is string => !!name).map(normalizeTitle));
+  return library.some((other) => other.tmdbId !== target.tmdbId && other.year != null && other.year !== target.year &&
+    [other.title, other.originalTitle].some((name) => !!name && names.has(normalizeTitle(name))));
+}
+
+/** With a known homonym, an absent year is ambiguous; movie year tolerance is unsafe too. */
+export function seriesYearIsCompatible(parsedYear: string | null, targetYear: number | null, requireYear: boolean): boolean {
+  return requireYear ? parsedYear != null && Number(parsedYear) === targetYear : yearIsCompatible(parsedYear, targetYear);
+}
+
 // Explicit season/episode markers only (S01, S01E05, "Saison 2", "Season 3").
 // Deliberately NOT parseRelease().season: that one also flags "Special"/"OVA"
 // as season 0, which would wrongly reject a "Special Edition" movie release.
