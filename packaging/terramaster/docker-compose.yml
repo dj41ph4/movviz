@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  movviz:
+    image: dj41ph4/movviz:latest
+    container_name: movviz-terramaster
+    restart: unless-stopped
+    user: "1001:1001"
+    ports:
+      - "9810:9810"
+      - "9820:9820"
+      - "9830:9830"
+      - "55000:55000/tcp"
+      - "55000:55000/udp"
+      - "55001:55001/tcp"
+      - "55001:55001/udp"
+    environment:
+      MOVVIZ_WEB_PORT: "9810"
+      MOVVIZ_ENGINE_PORT: "9820"
+      MOVVIZ_RESOLVER_PORT: "9830"
+      MOVVIZ_TORRENT_PORT: "55000"
+      MOVVIZ_TORRENT_PORT_SERIES: "55001"
+      MOVVIZ_CONFIG_DIR: "/config"
+      MOVVIZ_DATA_DIR: "/data"
+      MOVVIZ_CONTAINER: "1"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9810/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+x-app-meta:
+  web:
+    port: 9810
+    protocol: http
