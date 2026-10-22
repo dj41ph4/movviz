@@ -40,6 +40,8 @@ jobs:
         run: |
           powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts\windows-update-worker.test.ps1
           if ($LASTEXITCODE -ne 0) { throw "Updater worker tests failed" }
+          powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts\windows-update-e2e-helpers.test.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Updater E2E helper tests failed" }
           node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test scripts/windows-update-service.test.ts
           if ($LASTEXITCODE -ne 0) { throw "Updater API tests failed" }
           & scripts\windows-installer-smoke.ps1 -Compiler "$env:ISCC_DIR\ISCC.exe"
@@ -80,12 +82,22 @@ jobs:
           body_path: dist/release-notes.md
 
       - name: Verify real update with independent Windows services
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         timeout-minutes: 20
         shell: powershell
         run: |
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           & scripts\windows-update-e2e.ps1 -Installer (Resolve-Path "dist\Movviz-Setup-$version.exe") -Version $version
+
+      - name: Collect Windows update diagnostics
+        if: always()
+        shell: powershell
+        run: |
+          . scripts\windows-update-e2e-helpers.ps1
+          Save-MovvizUpdateDiagnostics -Destination (Join-Path $env:RUNNER_TEMP 'movviz-update-diagnostics')
+          Get-ChildItem -LiteralPath (Join-Path $env:RUNNER_TEMP 'movviz-update-diagnostics') -Recurse -File |
+            Where-Object { $_.Name -match '\.(err|wrapper)\.log$' } |
+            ForEach-Object { Write-Host "Diagnostics: $($_.FullName)"; Get-Content -LiteralPath $_.FullName -Tail 60 }
 
       - name: Upload Windows update diagnostics
         if: always()
@@ -93,8 +105,4 @@ jobs:
         with:
           name: Windows-update-diagnostics
           if-no-files-found: ignore
-          path: |
-            C:\ProgramData\MovvizUpdater\*.log
-            C:\ProgramData\MovvizUpdater\status.json
-            C:\ProgramData\Movviz\logs\*.log
-            ${{ runner.temp }}\movviz-bootstrap.log
+          path: ${{ runner.temp }}\movviz-update-diagnostics
