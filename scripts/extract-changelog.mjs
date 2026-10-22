@@ -36,7 +36,13 @@ if (start === -1) {
 if (!/^###\s+.+/m.test(notes) || !/^-\s+\S/m.test(notes)) throw new Error(`CHANGELOG.md : notes vides pour ${version}`);
 const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 if (lock.version !== version || lock.packages?.[""]?.version !== version) throw new Error("Version du lockfile incohérente");
-if (!readFileSync("README.md", "utf8").includes(`Version actuelle : v${version}</strong>`)) throw new Error("Version du README incohérente");
+const readmeFiles = ["README.md", "README.fr.md", "README.de.md", "README.it.md", "README.nl.md"];
+const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+for (const file of readmeFiles) {
+  const content = readFileSync(file, "utf8");
+  const versionLine = new RegExp(`<p><strong>[^\\r\\n]*v${escapedVersion}<\\/strong><\\/p>`);
+  if (!versionLine.test(content)) throw new Error(`Version du README incohérente : ${file}`);
+}
 if (process.argv.includes("--check")) {
   console.log(`Notes et versions vérifiées : ${version}`);
   process.exit(0);
