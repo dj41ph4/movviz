@@ -1,6 +1,14 @@
 #!/bin/sh
 set -e
 
+# TerraMaster TOS 7 (and other hardened orchestrators) may force an explicit
+# non-root user via Compose's `user:` field. In that case the container must
+# not try to rewrite /etc/passwd, change ownership or call su-exec: just start
+# MOVVIZ as the already-selected user.
+if [ "$(id -u)" != "0" ]; then
+  exec "$@"
+fi
+
 # Recreate the movviz user/group to match the PUID/PGID the NAS admin set —
 # without this, the container always writes as the image's baked-in uid
 # (1001), which almost never matches whatever user actually owns the bind-
