@@ -1,3 +1,12 @@
+## v1.27.25 — 23 octobre 2026
+
+### Diagnostic : voir ce qui gèle le serveur
+
+- Réglages liste désormais chaque gel du serveur avec sa durée, sa nature (calcul bloqué ou attente d'un service externe) et les opérations qui s'exécutaient à cet instant précis.
+- Une timeline des fenêtres mesurées montre le chevauchement des tâches de fond, comme le scan des indexeurs, la synchronisation Plex, l'import de demandes ou la réconciliation des téléchargements.
+- Le scan des indexeurs distingue son temps de calcul (chargement des bibliothèques, comparaison des releases) de son temps d'attente (recherche et téléchargement auprès des indexeurs).
+- Chaque fenêtre garde l'emplacement de code qui l'a ouverte : le coupable d'un ralentissement se lit, il ne se devine plus.
+
 ## v1.27.22 — 22 octobre 2026
 
 ### Acquisition : distinguer les séries homonymes et rechercher dès l’ajout
