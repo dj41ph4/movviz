@@ -134,10 +134,19 @@ export function readJsonCached<T>(file: string, fallback: T): T {
     return hit.value as T;
   }
   let stat: fs.Stats;
+  const statStart = performance.now();
   try {
     stat = fs.statSync(file);
   } catch {
+    const statMs = Math.round(performance.now() - statStart);
+    if (statMs >= 200) {
+      recordSearchLog("info", "perf.json_stat", `${path.basename(file)} : vérification du fichier échouée après ${statMs} ms`, statMs);
+    }
     return fallback;
+  }
+  const statMs = Math.round(performance.now() - statStart);
+  if (statMs >= 200) {
+    recordSearchLog("info", "perf.json_stat", `${path.basename(file)} : vérification du fichier en ${statMs} ms (serveur figé pendant ce temps)`, statMs);
   }
   if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) {
     hit.checkedAt = now;

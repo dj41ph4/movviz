@@ -1,3 +1,10 @@
+## v1.27.28 — 23 octobre 2026
+
+### Performance et diagnostic
+
+- Les lectures de bibliothèque déjà servies par le cache ne créent plus chacune une pile d'appel et deux événements de chronologie. Cela supprime une surcharge de mesure sur un chemin appelé très fréquemment.
+- Les accès disque lents lors de la vérification des fichiers JSON sont désormais journalisés, en complément des décodages JSON lents. Les gels globaux et les tâches de fond restent mesurés.
+
 ## v1.27.27 — 23 octobre 2026
 
 ### Épisodes récemment ajoutés
