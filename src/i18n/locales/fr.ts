@@ -1217,6 +1217,7 @@ export const fr = {
     hint: "Mesure la vitesse réelle de transcodage sur ce serveur — en direct, plutôt que de le découvrir en pleine lecture.",
     run: "Lancer le benchmark",
     running: "Benchmark en cours…",
+    queued: "Benchmark en attente…",
     never: "Aucun benchmark encore lancé.",
     lastRun: "Dernière exécution",
     hardwareDetected: "Accélération matérielle détectée",

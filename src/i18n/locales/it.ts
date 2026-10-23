@@ -1219,6 +1219,7 @@ export const it: Dictionary = {
     hint: "Misura la velocità reale di transcodifica di questo server, invece di scoprirla durante la riproduzione.",
     run: "Avvia benchmark",
     running: "Benchmark in corso…",
+    queued: "Benchmark in attesa…",
     never: "Nessun benchmark ancora eseguito.",
     lastRun: "Ultima esecuzione",
     hardwareDetected: "Accelerazione hardware rilevata",

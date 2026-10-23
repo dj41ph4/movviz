@@ -53,27 +53,54 @@ export function BenchmarkPanel() {
   const [result, setResult] = useState<BenchmarkResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [queued, setQueued] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
     fetch("/api/system/benchmark", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setResult(d.result))
+      .then((d) => {
+        if (!d) return;
+        setResult(d.result);
+        if (d.state === "queued" || d.state === "running") {
+          setQueued(d.state === "queued");
+          setRunning(true);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      fetch("/api/system/benchmark", { cache: "no-store" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => {
+          if (!d) return;
+          if (d.state === "queued" || d.state === "running") {
+            setQueued(d.state === "queued");
+            return;
+          }
+          setResult(d.result);
+          setQueued(false);
+          setRunning(false);
+        })
+        .catch(() => {});
+    }, 3_000);
+    return () => clearInterval(id);
+  }, [running]);
+
   const run = async () => {
     setRunning(true);
+    setQueued(true);
     try {
       const res = await fetch("/api/system/benchmark", { method: "POST" });
-      if (res.ok) {
-        const d = await res.json();
-        setResult(d.result);
-      }
-    } finally {
+      if (!res.ok) { setRunning(false); setQueued(false); }
+    } catch {
       setRunning(false);
+      setQueued(false);
     }
   };
 
@@ -95,7 +122,7 @@ export function BenchmarkPanel() {
           className="ml-auto flex h-9 shrink-0 items-center gap-2 rounded-xl brand-gradient px-3.5 text-xs font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
         >
           {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          {running ? t("benchmark.running") : t("benchmark.run")}
+          {running ? t(queued ? "benchmark.queued" : "benchmark.running") : t("benchmark.run")}
         </button>
       </div>
 

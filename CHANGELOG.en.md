@@ -1,3 +1,10 @@
+## v1.27.32 — October 23, 2026
+
+### Player and interface priority
+
+- Heavy automatic jobs wait until playback in the Movviz player ends and user activity settles before starting. They stay queued and resume afterward.
+- A heavy automatic job runs alone among automatic jobs; the automatic benchmark no longer overlaps Plex sync or Seerr import. The Benchmark button also uses this queue and shows when it is waiting. Direct user actions and immediate acquisition retain priority.
+
 ## v1.27.31 — October 23, 2026
 
 ### Double episodes by season

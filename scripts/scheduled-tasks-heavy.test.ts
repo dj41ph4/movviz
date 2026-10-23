@@ -23,7 +23,7 @@ async function waitFor(cond: () => boolean, timeoutMs = 5000) {
   }
 }
 
-test("jamais deux tâches lourdes en même temps, les légères continuent", async () => {
+test("une tâche automatique lourde attend les autres et s'exécute seule", async () => {
   let heavyRunning = 0;
   let maxHeavy = 0;
   let lightDone = false;
@@ -35,12 +35,31 @@ test("jamais deux tâches lourdes en même temps, les légères continuent", asy
   };
   const a = enqueueJob("maintenance", "lourde A", 1, heavy, "test-heavy-a", { heavy: true, scheduled: true });
   const b = enqueueJob("maintenance", "lourde B", 1, heavy, "test-heavy-b", { heavy: true, scheduled: true });
-  enqueueJob("maintenance", "légère", 1, async () => { lightDone = true; }, "test-light", { scheduled: true });
-  await waitFor(() => lightDone);
-  // La légère a fini alors que la première lourde tourne encore.
+  const light = enqueueJob("maintenance", "légère", 1, async () => { lightDone = true; }, "test-light", { scheduled: true });
+  await waitFor(() => a.status === "running");
   assert.equal(getJobs().find((j) => j.id === b.id)?.status, "queued");
+  assert.equal(light.status, "queued");
   await waitFor(() => getJobs().filter((j) => j.id === a.id || j.id === b.id).every((j) => j.status === "completed"));
+  await waitFor(() => lightDone);
   assert.equal(maxHeavy, 1);
+});
+
+test("une lecture active diffère les tâches lourdes sans arrêter les légères", async () => {
+  const sessions = new Map<string, { lastHeartbeatAt: number; lastIsPlaying: boolean }>();
+  sessions.set("player", { lastHeartbeatAt: Date.now(), lastIsPlaying: true });
+  (globalThis as typeof globalThis & { __movvizPlaybackSessions?: typeof sessions }).__movvizPlaybackSessions = sessions;
+  let lightDone = false;
+  const heavy = enqueueJob("maintenance", "benchmark", 1, async () => {}, "server-benchmark", { heavy: true, scheduled: true });
+  const light = enqueueJob("reconcile", "mise à jour légère", 1, async () => { lightDone = true; }, "playback-light", { scheduled: true });
+  try {
+    await waitFor(() => lightDone);
+    assert.equal(light.status, "completed");
+    assert.equal(heavy.status, "queued");
+    sessions.get("player")!.lastIsPlaying = false;
+    await waitFor(() => heavy.status === "completed", 7_000);
+  } finally {
+    sessions.clear();
+  }
 });
 
 test("une recherche manuelle lourde met en pause la tâche lourde automatique", async () => {
@@ -83,7 +102,7 @@ test("un ajout démarre malgré les trois places occupées et les acquisitions r
   const backgroundGate = new Promise<void>((resolve) => { releaseBackground = resolve; });
   const acquisitionGate = new Promise<void>((resolve) => { releaseAcquisition = resolve; });
   const background = [0, 1, 2].map((n) => enqueueJob("maintenance", `fond ${n}`, 1,
-    async () => { await backgroundGate; }, `reserved-background-${n}`, { scheduled: true, heavy: n === 0 }));
+    async () => { await backgroundGate; }, `reserved-background-${n}`, { scheduled: true }));
   try {
     await waitFor(() => background.every((job) => job.status === "running"));
     const first = enqueueJob("qualityUpgrade", "ajout film", 1, async () => { await acquisitionGate; }, "reserved-first", { immediate: true });

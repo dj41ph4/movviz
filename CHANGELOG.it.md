@@ -1,3 +1,10 @@
+## v1.27.32 — 23 ottobre 2026
+
+### Priorità al lettore e all'interfaccia
+
+- Le attività automatiche pesanti attendono la fine della riproduzione nel lettore Movviz e un breve periodo senza interazioni prima di iniziare. Restano in coda e riprendono in seguito.
+- Un'attività automatica pesante viene eseguita da sola tra le attività automatiche; il benchmark automatico non si sovrappone più alla sincronizzazione Plex o all'importazione Seerr. Anche il pulsante Benchmark usa questa coda e mostra l'attesa. Le azioni dirette dell'utente e le acquisizioni immediate mantengono la priorità.
+
 ## v1.27.31 — 23 ottobre 2026
 
 ### Episodi doppi per stagione

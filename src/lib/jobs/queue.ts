@@ -3,6 +3,7 @@ import { priorityOf } from "./priorities";
 import type { Job, JobType } from "./types";
 import { cancelledJobs, JobCancelledError, runInJobScope } from "./cancelScope";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { hasActivePlayback, hasForegroundActivity, isUserActive } from "@/lib/priority/userActivity";
 
 export { JobCancelledError };
 
@@ -85,6 +86,20 @@ const state: QueueState = (g.__movvizJobQueue ??= { jobs: [], pending: new Map()
 const live: Set<string> = (state.live ??= new Set());
 const heavyLive: Set<string> = (state.heavyLive ??= new Set());
 const jobOptions: Map<string, EnqueueOptions> = (state.options ??= new Map());
+let backgroundRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function retryHeavyWhenIdle() {
+  if (backgroundRetryTimer) return;
+  backgroundRetryTimer = setTimeout(() => {
+    backgroundRetryTimer = null;
+    if (isUserActive() || hasForegroundActivity() || hasActivePlayback()) {
+      retryHeavyWhenIdle();
+      return;
+    }
+    void dispatch();
+  }, 5_000);
+  backgroundRetryTimer.unref?.();
+}
 
 // Jobs whose cancellation was requested while running — cooperative: the
 // runner checks isJobCancelled(jobId) between items and stops. A running
@@ -175,10 +190,22 @@ function rankOf(job: Job): number {
 function pickNextQueued(immediate = false): { job: Job; runner: Runner } | null {
   let best: Job | null = null;
   const heavyBusy = heavyLive.size > 0;
+  const scheduledBusy = [...live].some((id) => jobOptions.get(id)?.scheduled && !jobOptions.get(id)?.immediate);
   for (const job of state.jobs) {
     if (job.status !== "queued") continue;
-    if (!!jobOptions.get(job.id)?.immediate !== immediate) continue;
-    if (heavyBusy && jobOptions.get(job.id)?.heavy) continue;
+    const options = jobOptions.get(job.id);
+    if (!!options?.immediate !== immediate) continue;
+    if (heavyBusy && options?.heavy) continue;
+    // A scheduled heavy job gets the background lane to itself. Explicit
+    // user actions and immediate acquisitions can still take priority.
+    if (options?.scheduled && (heavyBusy || (options.heavy && scheduledBusy))) continue;
+    // Heavy automation, including the benchmark, waits for page use and
+    // playback to finish. Keep it queued and retry without polling the engine
+    // while a video is playing; light automation remains eligible.
+    if (options?.scheduled && options.heavy && (isUserActive() || hasForegroundActivity() || hasActivePlayback())) {
+      retryHeavyWhenIdle();
+      continue;
+    }
     if (!best || rankOf(job) > rankOf(best)) best = job;
     else if (rankOf(job) === rankOf(best) && job.createdAt < best.createdAt) best = job;
   }

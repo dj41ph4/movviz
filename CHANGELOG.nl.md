@@ -1,3 +1,10 @@
+## v1.27.32 — 23 oktober 2026
+
+### Voorrang voor speler en interface
+
+- Zware automatische taken wachten met starten tot het afspelen in de Movviz-speler is afgelopen en er kort geen gebruikersactiviteit is. Ze blijven in de wachtrij en gaan daarna verder.
+- Een zware automatische taak draait alleen tussen de automatische taken; de automatische benchmark overlapt niet langer met Plex-synchronisatie of Seerr-import. Ook de Benchmark-knop gebruikt deze wachtrij en toont wanneer hij wacht. Directe gebruikersacties en onmiddellijke acquisitie houden voorrang.
+
 ## v1.27.31 — 23 oktober 2026
 
 ### Dubbele afleveringen per seizoen

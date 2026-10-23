@@ -1,3 +1,10 @@
+## v1.27.32 — 23 octobre 2026
+
+### Priorité au lecteur et à l'interface
+
+- Les tâches automatiques lourdes attendent la fin de la lecture dans le lecteur Movviz et une courte période sans interaction avant de démarrer. Elles restent en file et reprennent ensuite.
+- Une tâche automatique lourde s'exécute seule parmi les tâches automatiques ; le benchmark automatique ne chevauche plus les synchronisations Plex ni l'import Seerr. Le bouton Benchmark utilise aussi cette file et affiche son attente. Les actions directes de l'utilisateur et l'acquisition immédiate gardent la priorité.
+
 ## v1.27.31 — 23 octobre 2026
 
 ### Épisodes doubles par saison

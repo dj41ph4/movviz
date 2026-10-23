@@ -26,6 +26,7 @@
 
 import { throwIfJobCancelled } from "@/lib/jobs/cancelScope";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { PLAYBACK_ACTIVE_HEARTBEAT_MS } from "@/lib/playback/sessionFreshness";
 
 // Fenêtre pendant laquelle une interaction utilisateur est considérée
 // « récente » (isUserActive).
@@ -62,6 +63,18 @@ export function hasForegroundActivity(): boolean {
     if (until <= now) foregroundLeases.delete(userId);
   }
   return foregroundLeases.size > 0;
+}
+
+/** Live playback must outrank maintenance even after the last UI click. */
+export function hasActivePlayback(): boolean {
+  const playback = globalThis as typeof globalThis & {
+    __movvizPlaybackSessions?: Map<string, { lastHeartbeatAt: number; lastIsPlaying: boolean }>;
+  };
+  const now = Date.now();
+  for (const session of playback.__movvizPlaybackSessions?.values() ?? []) {
+    if (session.lastIsPlaying && now - session.lastHeartbeatAt <= PLAYBACK_ACTIVE_HEARTBEAT_MS) return true;
+  }
+  return false;
 }
 
 /**

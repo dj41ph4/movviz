@@ -1219,6 +1219,7 @@ export const en: Dictionary = {
     hint: "Measures this server's real transcode speed directly, instead of discovering it live mid-playback.",
     run: "Run benchmark",
     running: "Benchmark running…",
+    queued: "Benchmark queued…",
     never: "No benchmark has run yet.",
     lastRun: "Last run",
     hardwareDetected: "Hardware acceleration detected",

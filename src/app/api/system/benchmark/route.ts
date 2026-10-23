@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { readServerBenchmark, runServerBenchmark } from "@/lib/playback/engine/serverBenchmark";
+import { readServerBenchmark } from "@/lib/playback/engine/serverBenchmark";
+import { activeJobForSource } from "@/lib/jobs/queue";
+import { queueTaskRun } from "@/lib/scheduler/engine";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  return NextResponse.json({ result: readServerBenchmark() });
+  const job = activeJobForSource("server-benchmark");
+  return NextResponse.json({ result: readServerBenchmark(), state: job?.status ?? null });
 }
 
-// The scheduler's generic /api/tasks/server-benchmark/run also runs this
-// same runServerBenchmark() (see scheduler/tasks.ts) but only reports back
-// generic run/duration metadata via the Automatisation panel — this direct
-// route holds the request open for the real result (profiles, realtime
-// factors) so the dedicated Performance → Benchmark panel can show it
-// immediately instead of a second round-trip through readServerBenchmark().
+// The Performance button uses the same low-priority heavy queue as the
+// automatic triggers. A 202 lets the panel show the queued state without
+// holding an HTTP request open through playback or other background work.
 export async function POST(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const result = await runServerBenchmark();
-  return NextResponse.json({ result });
+  const queued = queueTaskRun("server-benchmark");
+  if (!queued.ok) return NextResponse.json({ error: queued.error }, { status: 500 });
+  return NextResponse.json({ queued: true }, { status: 202 });
 }

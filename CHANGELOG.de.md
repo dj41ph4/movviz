@@ -1,3 +1,10 @@
+## v1.27.32 — 23. Oktober 2026
+
+### Vorrang für Player und Oberfläche
+
+- Schwere automatische Aufgaben warten vor dem Start, bis die Wiedergabe im Movviz-Player endet und eine kurze Zeit ohne Nutzerinteraktion vergangen ist. Sie bleiben in der Warteschlange und werden danach fortgesetzt.
+- Eine schwere automatische Aufgabe läuft allein unter den automatischen Aufgaben; der automatische Benchmark überschneidet sich nicht mehr mit der Plex-Synchronisierung oder dem Seerr-Import. Auch die Benchmark-Schaltfläche nutzt diese Warteschlange und zeigt Wartezeiten an. Direkte Nutzeraktionen und sofortige Beschaffung behalten Vorrang.
+
 ## v1.27.31 — 23. Oktober 2026
 
 ### Doppelfolgen pro Staffel

@@ -1219,6 +1219,7 @@ export const de: Dictionary = {
     hint: "Misst die tatsächliche Transcodierungsgeschwindigkeit dieses Servers direkt, statt sie erst während der Wiedergabe zu entdecken.",
     run: "Benchmark starten",
     running: "Benchmark läuft…",
+    queued: "Benchmark wartet…",
     never: "Noch kein Benchmark ausgeführt.",
     lastRun: "Letzte Ausführung",
     hardwareDetected: "Hardwarebeschleunigung erkannt",

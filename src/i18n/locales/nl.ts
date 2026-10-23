@@ -1219,6 +1219,7 @@ export const nl: Dictionary = {
     hint: "Meet de echte transcodeersnelheid van deze server rechtstreeks, in plaats van dit tijdens het afspelen te ontdekken.",
     run: "Benchmark starten",
     running: "Benchmark bezig…",
+    queued: "Benchmark in wachtrij…",
     never: "Nog geen benchmark uitgevoerd.",
     lastRun: "Laatst uitgevoerd",
     hardwareDetected: "Hardwareversnelling gedetecteerd",
