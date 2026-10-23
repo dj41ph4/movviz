@@ -191,7 +191,7 @@ object MovvizTheme {
 /** Taille de texte Stable ou Bêta. */
 @Composable
 fun betaSp(stable: Float, beta: Float): androidx.compose.ui.unit.TextUnit =
-    if (LocalMovvizBeta.current) beta.sp else stable.sp
+    if (LocalMovvizBeta.current) (stable + (beta - stable) * 0.5f).sp else stable.sp
 
 /** Dimension Stable ou Bêta. */
 @Composable

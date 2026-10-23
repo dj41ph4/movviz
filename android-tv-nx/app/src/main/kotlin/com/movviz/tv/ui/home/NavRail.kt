@@ -89,10 +89,10 @@ import androidx.compose.ui.unit.IntOffset
 // gap inter-items 6, gap icône-libellé 14, icônes 20px, logo margin-bottom 48.
 private val NAV_RAIL_COLLAPSED_WIDTH = 63.dp
 private val NAV_RAIL_EXPANDED_WIDTH = 156.dp
-// Bêta « Salle obscure » (plan §4.3) : rail d'icônes 72 dp, déployé 200 dp.
-private val NAV_RAIL_BETA_COLLAPSED_WIDTH = 72.dp
-private val NAV_RAIL_BETA_EXPANDED_WIDTH = 200.dp
-private val NAV_ITEM_BETA_HEIGHT = 48.dp
+// Bêta : entre les dimensions du rail Stable (63/156) et l'ancien Bêta (72/200).
+private val NAV_RAIL_BETA_COLLAPSED_WIDTH = 68.dp
+private val NAV_RAIL_BETA_EXPANDED_WIDTH = 178.dp
+private val NAV_ITEM_BETA_HEIGHT = 45.dp
 
 // HomeTab garde MOVIES/SERIES/PROFILE : MOVIES/SERIES restent le filtre
 // interne Films/Séries de Découverte et de la Bibliothèque (jamais des
@@ -175,7 +175,7 @@ fun NavRail(
     }
     val palette = MovvizTheme.palette
     val reduceMotion = MovvizTheme.reduceMotion
-    // Bêta : 72/200 dp en 220 ms EaseOut (la largeur suit le focus, une
+    // Bêta : 68/178 dp en 220 ms EaseOut (la largeur suit le focus, une
     // fois par entrée dans la barre). Stable garde son tween(280) d'origine.
     val width by androidx.compose.animation.core.animateDpAsState(
         targetValue = if (expanded) { if (beta) NAV_RAIL_BETA_EXPANDED_WIDTH else NAV_RAIL_EXPANDED_WIDTH } else { if (beta) NAV_RAIL_BETA_COLLAPSED_WIDTH else NAV_RAIL_COLLAPSED_WIDTH },
@@ -217,21 +217,21 @@ fun NavRail(
                     strokeWidth = 1.dp.toPx(),
                 )
             }
-            // Bêta : (72 − 48) / 2 = 12 dp replié, ce qui laisse aussi la
+            // Bêta : (68 − 45) / 2 ≈ 11.5 dp replié, ce qui laisse aussi la
             // place de l'anneau extérieur (6 dp) sans le rogner.
-            .padding(horizontal = if (beta) { if (expanded) 16.dp else 12.dp } else { if (expanded) 15.dp else 11.dp }, vertical = 24.dp),
+            .padding(horizontal = if (beta) { if (expanded) 15.dp else 11.dp } else { if (expanded) 15.dp else 11.dp }, vertical = 24.dp),
     ) {
         if (beta) {
             // En-tête Bêta : mot-symbole (style wordmark), filet navEdge
-            // dessous, 24 dp d'air avant les onglets.
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            // dessous, 20 dp d'air avant les onglets.
+            Column(modifier = Modifier.padding(bottom = 20.dp)) {
                 // Barre étendue : logo complet à gauche ; repliée : le symbole « O » seul, CENTRÉ dans la
-                // colonne de 48 dp utile (72 − 2 × 12), et assez grand pour rester lisible à distance.
+                // colonne utile, et assez grand pour rester lisible à distance.
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(52.dp).padding(bottom = 8.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp).padding(bottom = 8.dp),
                     contentAlignment = if (expanded) Alignment.CenterStart else Alignment.Center,
                 ) {
-                    if (expanded) MovvizFullLogo(height = 30.dp) else AnimatedLogo(size = 36.dp, symbolOnly = true)
+                    if (expanded) MovvizFullLogo(height = 27.dp) else AnimatedLogo(size = 30.dp, symbolOnly = true)
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(palette.navEdge))
             }
@@ -683,9 +683,9 @@ private fun BetaNavItem(
             modifier = Modifier.fillMaxSize().padding(horizontal = if (expanded) 14.dp else 0.dp),
         ) {
             if (tab == HomeTab.LIBRARY) {
-                BookmarkIcon(color = iconTint, modifier = Modifier.size(20.dp))
+                BookmarkIcon(color = iconTint, modifier = Modifier.size(18.dp))
             } else {
-                Icon(imageVector = tab.icon(), contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                Icon(imageVector = tab.icon(), contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             }
             if (expanded) {
                 Spacer(Modifier.width(12.dp))

@@ -22,7 +22,7 @@ import com.movviz.tv.R
 // Typographie et formes Bêta « Salle obscure » — mêmes repères que
 // l'apparence Bêta desktop (Bricolage Grotesque éditorial, Geist pour
 // l'interface, Geist Mono pour les surtitres), transposés à l'échelle
-// 10-foot (canevas 960×540 dp, aucune information sous 12 sp).
+// 10-foot (canevas 960×540 dp). Bêta reste légèrement plus grande que Stable.
 // Stable n'utilise rien de ce fichier.
 // ────────────────────────────────────────────────────────────────
 
@@ -67,41 +67,41 @@ private const val TABULAR = "tnum"
 internal val MovvizBetaTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = MovvizDisplayFonts, fontWeight = FontWeight.Bold,
-        fontSize = 48.sp, lineHeight = 50.sp, letterSpacing = (-1.7).sp,
+        fontSize = 40.sp, lineHeight = 43.sp, letterSpacing = (-1.4).sp,
     ),
     displayMedium = TextStyle(
         fontFamily = MovvizDisplayFonts, fontWeight = FontWeight.Bold,
-        fontSize = 40.sp, lineHeight = 43.sp, letterSpacing = (-1.4).sp,
+        fontSize = 35.sp, lineHeight = 39.sp, letterSpacing = (-1.2).sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = MovvizDisplayFonts, fontWeight = FontWeight.Bold,
-        fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.9).sp,
+        fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = (-0.7).sp,
     ),
     titleLarge = TextStyle(
         fontFamily = MovvizUiFonts, fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp, lineHeight = 30.sp, letterSpacing = (-0.44).sp,
+        fontSize = 19.sp, lineHeight = 25.sp, letterSpacing = (-0.35).sp,
     ),
     titleMedium = TextStyle(
         fontFamily = MovvizUiFonts, fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp, lineHeight = 19.sp,
+        fontSize = 12.sp, lineHeight = 17.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = MovvizUiFonts, fontWeight = FontWeight.Normal,
-        fontSize = 15.sp, lineHeight = 24.sp,
+        fontSize = 13.sp, lineHeight = 20.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = MovvizUiFonts, fontWeight = FontWeight.Medium,
-        fontSize = 14.sp, lineHeight = 21.sp, fontFeatureSettings = TABULAR,
+        fontSize = 12.sp, lineHeight = 18.sp, fontFeatureSettings = TABULAR,
     ),
     labelLarge = TextStyle(
-        fontFamily = MovvizUiFonts, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+        fontFamily = MovvizUiFonts, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
     ),
     labelMedium = TextStyle(
-        fontFamily = MovvizUiFonts, fontWeight = FontWeight.Medium, fontSize = 13.sp,
+        fontFamily = MovvizUiFonts, fontWeight = FontWeight.Medium, fontSize = 12.sp,
     ),
     labelSmall = TextStyle(
         fontFamily = MovvizUiFonts, fontWeight = FontWeight(550),
-        fontSize = 12.sp, letterSpacing = 0.12.sp, fontFeatureSettings = TABULAR,
+        fontSize = 10.5.sp, letterSpacing = 0.12.sp, fontFeatureSettings = TABULAR,
     ),
 )
 
@@ -112,12 +112,12 @@ internal val MovvizBetaTypography = Typography(
  */
 @Immutable
 data class MovvizTextStyles(
-    /** Surtitre : Geist Mono 12 sp, espacement 0.24 em. Mettre le texte en
+    /** Surtitre : Geist Mono 10.5 sp. Mettre le texte en
      *  capitales côté code (`uppercase(Locale.FRENCH)`) — voir [BetaEyebrow]. */
     val eyebrow: TextStyle,
-    /** Compteur (« 128 titres ») : Geist Mono 16 sp, chiffres tabulaires. */
+    /** Compteur (« 128 titres ») : Geist Mono 13 sp, chiffres tabulaires. */
     val count: TextStyle,
-    /** Accroche du splash : Bricolage 22/26 sp. */
+    /** Accroche du splash : Bricolage 17/21 sp. */
     val splashHeadline: TextStyle,
     /** Mot-symbole « Movviz » du rail. */
     val wordmark: TextStyle,
@@ -126,19 +126,19 @@ data class MovvizTextStyles(
 internal val MovvizBetaTextStyles = MovvizTextStyles(
     eyebrow = TextStyle(
         fontFamily = MovvizMonoFonts, fontWeight = FontWeight.Medium,
-        fontSize = 12.sp, letterSpacing = 2.9.sp,
+        fontSize = 10.5.sp, letterSpacing = 2.1.sp,
     ),
     count = TextStyle(
         fontFamily = MovvizMonoFonts, fontWeight = FontWeight.Medium,
-        fontSize = 16.sp, letterSpacing = (-0.6).sp, fontFeatureSettings = TABULAR,
+        fontSize = 13.sp, letterSpacing = (-0.4).sp, fontFeatureSettings = TABULAR,
     ),
     splashHeadline = TextStyle(
         fontFamily = MovvizDisplayFonts, fontWeight = FontWeight.Medium,
-        fontSize = 22.sp, lineHeight = 26.sp, letterSpacing = (-0.75).sp,
+        fontSize = 17.sp, lineHeight = 21.sp, letterSpacing = (-0.6).sp,
     ),
     wordmark = TextStyle(
         fontFamily = MovvizDisplayFonts, fontWeight = FontWeight.Bold,
-        fontSize = 20.sp, letterSpacing = (-1.1).sp,
+        fontSize = 18.sp, letterSpacing = (-0.9).sp,
     ),
 )
 

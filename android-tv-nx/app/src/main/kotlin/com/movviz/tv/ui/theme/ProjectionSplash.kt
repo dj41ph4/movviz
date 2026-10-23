@@ -175,8 +175,6 @@ internal object ProjectionSplashTimeline {
  * @param progress avancement réel 0..100, ou null si inconnu.
  * @param message libellé de l'étape en cours ; null = « Préparation de ton cinéma… ».
  * @param ready chargement terminé : déclenche l'éclat de fin.
- * @param focused anneau de focus autour du bloc de chargement quand la vraie cible de focus
- *  (bloc de chargement de l'accueil) est sous la surcouche.
  */
 @Composable
 fun ProjectionSplash(
@@ -184,9 +182,8 @@ fun ProjectionSplash(
     progress: Int? = null,
     message: String? = null,
     ready: Boolean = false,
-    focused: Boolean = false,
 ) {
-    CinemaSplash(modifier = modifier, progress = progress, message = message, ready = ready, focused = focused)
+    CinemaSplash(modifier = modifier, progress = progress, message = message, ready = ready)
 }
 
 /**
@@ -203,7 +200,6 @@ fun ProjectionSplashOverlay(
     progress: Int? = null,
     message: String? = null,
     ready: Boolean = false,
-    focused: Boolean = false,
 ) {
     val reduce = LocalMovvizReduceMotion.current
     AnimatedVisibility(
@@ -217,7 +213,7 @@ fun ProjectionSplashOverlay(
                 scaleOut(targetScale = ProjectionSplashTimeline.EXIT_SCALE, animationSpec = tween(500, easing = MovvizMotion.EaseOut))
         },
     ) {
-        ProjectionSplash(progress = progress, message = message, ready = ready || !visible, focused = focused)
+        ProjectionSplash(progress = progress, message = message, ready = ready || !visible)
     }
 }
 

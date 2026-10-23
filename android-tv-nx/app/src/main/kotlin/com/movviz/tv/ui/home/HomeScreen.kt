@@ -710,13 +710,21 @@ fun HomeScreen(
     }
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
     // TV's bring-into-view pivot centers the CTA and otherwise crops the hero's logo.
-    // Hold its complete header at the top only while a hero action owns focus.
+    // The hero stays at the top while its actions have focus. On the first
+    // DOWN, place the next row once; otherwise disabling TV's focus scroll
+    // would leave that row clipped at the bottom of the screen.
+    var heroWasFocused by remember { mutableStateOf(false) }
     LaunchedEffect(heroHasFocus) {
-        if (!heroHasFocus) return@LaunchedEffect
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .collect { (index, offset) ->
-                if (index != 0 || offset != 0) listState.scrollToItem(0)
+        if (heroHasFocus) {
+            heroWasFocused = true
+            if (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0) listState.scrollToItem(0)
+        } else if (heroWasFocused) {
+            heroWasFocused = false
+            withFrameNanos { }
+            if (homeHasFocus && firstVisibleSection != null && homeFocusMemory.selectedRowKey() != "hero") {
+                listState.scrollToItem(2)
             }
+        }
     }
     LaunchedEffect(showHero, firstVisibleSection) {
         if (initialFocusAssigned) {
@@ -768,10 +776,8 @@ fun HomeScreen(
             }
             .focusGroup(),
     ) {
-        // Secousses du hero : à chaque déplacement du focus dans le hero, le pivot TV lançait un
-        // défilement animé pour centrer le bouton, aussitôt annulé par le maintien en haut ci-dessus
-        // (scrollToItem(0) à chaque image) — les deux se battaient et toute la page tremblait.
-        // Tant que le hero a le focus, la liste ne défile simplement pas ; ailleurs, pivot inchangé.
+        // Tant que le hero a le focus, le pivot TV ne recentre pas chaque bouton.
+        // Ailleurs, le comportement de défilement reste inchangé.
         val basePivot = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
         val heroAwarePivot = remember(basePivot) {
             object : androidx.compose.foundation.gestures.BringIntoViewSpec {
@@ -792,6 +798,7 @@ fun HomeScreen(
                 .tvRememberedEntry(homeListRequester) { homeFocusMemory.destinationOrNull() }
                 .focusGroup(),
             state = listState,
+            userScrollEnabled = !heroHasFocus,
             // Le rail possède désormais sa propre colonne hors de cet écran.
             // Le hero peut donc occuper toute la largeur de la zone contenu,
             // sans marge à gauche ni recouvrement sous la navigation. Les
@@ -1008,8 +1015,8 @@ fun HomeScreen(
                 item(key = "loading", contentType = "loading") {
                     // Reste LA cible de focus pendant le chargement (entrée
                     // DROITE depuis la barre, focus initial). En Bêta, le
-                    // splash en surcouche (plus bas) dessine l'anneau autour
-                    // de son bloc de progression : `loadingFocused` y remonte.
+                    // splash en surcouche (plus bas) masque cette cible pendant
+                    // le chargement ; elle reste accessible au D-pad.
                     Box(
                         modifier = Modifier.fillMaxWidth().height(315.dp)
                             .focusRequester(contentFocus)
@@ -1048,7 +1055,6 @@ fun HomeScreen(
                 visible = isBooting,
                 progress = homeUiState.bootProgress,
                 message = homeUiState.bootMessage,
-                focused = loadingFocused,
             )
         }
         // Signal passif : le cache reste pleinement navigable, sans modal ni

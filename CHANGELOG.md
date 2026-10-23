@@ -1,3 +1,12 @@
+## v1.27.26 — 23 octobre 2026
+
+### Android TV : interface Bêta et lecteur
+
+- La barre latérale et les textes de l’interface Bêta sont moins imposants, tout en restant légèrement plus grands que ceux du mode Stable.
+- Le passage entre les boutons du hero ne relance plus un recentrage continu de la page.
+- Le contour blanc fugitif a été retiré de l’écran de chargement.
+- Les options audio et sous-titres du lecteur gardent un texte lisible quand elles sont sélectionnées à la télécommande.
+
 ## v1.27.25 — 23 octobre 2026
 
 ### Diagnostic : voir ce qui gèle le serveur

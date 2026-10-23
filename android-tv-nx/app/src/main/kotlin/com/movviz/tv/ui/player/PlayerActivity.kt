@@ -2372,19 +2372,21 @@ private fun TrackDialog(
 
 @Composable
 private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequester?, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (focused) MovvizInk.copy(alpha = 0.14f) else Color.Transparent,
+            containerColor = Color.Transparent,
             contentColor = MovvizInk,
+            focusedContainerColor = MovvizInk.copy(alpha = 0.14f),
+            focusedContentColor = MovvizInk,
+            pressedContainerColor = MovvizInk.copy(alpha = 0.18f),
+            pressedContentColor = MovvizInk,
         ),
         // Avant : seul le fond changeait légèrement au focus, contrairement
         // à toutes les autres rangées/cartes focusables de l'app qui ont
@@ -2402,7 +2404,7 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MovvizInk)
+            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = androidx.tv.material3.LocalContentColor.current)
             if (selected) {
                 Icon(
                     imageVector = MovvizIconCheck,

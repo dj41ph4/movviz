@@ -219,7 +219,6 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // splash qui rejouerait l'intro). `true` d'emblée : l'accueil qui
     // s'ouvre au démarrage n'a pas encore pu le confirmer à sa 1re frame.
     var homeBooting by remember { mutableStateOf(true) }
-    var homeLoadingFocused by remember { mutableStateOf(false) }
     // Largeur réelle de la barre : le splash ne recouvre que le contenu dès
     // qu'elle est affichée (jamais de focus invisible sous la surcouche).
     var railWidthPx by remember { mutableStateOf(0) }
@@ -447,7 +446,6 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             viewModel = viewModel,
             coldStart = coldStart,
             homeLoading = currentRoute == ROUTE_HOME && tab == HomeTab.HOME && !searchOpen && homeBooting,
-            loadingFocused = !coldStart && homeLoadingFocused,
             modifier = Modifier.zIndex(1f),
         )
     }
@@ -622,7 +620,7 @@ composable(ROUTE_PROFILES) {
                 navRailFocusRequester = navRailFocusRequester,
                 contentReentryFocusRequester = contentReentryFocusRequester,
                 homeScrollToTopRequest = homeScrollToTopRequest,
-                onHomeBootOverlayState = if (betaShell) { booting, focused -> homeBooting = booting; homeLoadingFocused = focused } else null,
+                onHomeBootOverlayState = if (betaShell) { booting, _ -> homeBooting = booting } else null,
                 onHomeScrollChanged = { headerHasScrolled = it },
                 libraryTab = libraryTab,
                 onLibraryTabChange = { libraryTab = it },
@@ -766,8 +764,7 @@ composable(ROUTE_PROFILES) {
 /**
  * Splash Bêta unique de l'application : démarrage à froid puis, sans
  * rupture, chargement de l'accueil (progression et messages réels du
- * bootstrap, anneau autour de la progression quand le bloc de chargement de
- * l'accueil a le focus). PLEIN ÉCRAN : la barre de navigation reste cachée
+ * bootstrap). PLEIN ÉCRAN : la barre de navigation reste cachée
  * dessous tant qu'il est affiché ; jamais focalisable. Composable à part :
  * les lectures de `homeUiState` ne recomposent que lui, pas tout le NavHost.
  */
@@ -776,7 +773,6 @@ private fun ShellSplashOverlay(
     viewModel: AppViewModel,
     coldStart: Boolean,
     homeLoading: Boolean,
-    loadingFocused: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val homeUi by viewModel.homeUiState.collectAsState()
@@ -784,7 +780,6 @@ private fun ShellSplashOverlay(
         visible = coldStart || homeLoading,
         progress = if (coldStart) null else homeUi.bootProgress,
         message = if (coldStart) null else homeUi.bootMessage,
-        focused = loadingFocused,
         modifier = modifier,
     )
 }

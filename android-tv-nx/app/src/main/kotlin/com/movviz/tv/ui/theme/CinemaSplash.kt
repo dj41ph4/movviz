@@ -104,8 +104,6 @@ fun CinemaSplashBackdrop(modifier: Modifier = Modifier) {
  * @param progress avancement réel 0..100, ou null si inconnu (la barre montre alors un filet de vie).
  * @param message libellé de l'étape en cours ; null = « Préparation de ton cinéma… ».
  * @param ready chargement terminé : la barre se remplit.
- * @param focused anneau de focus autour du bloc de chargement quand la vraie cible de focus
- *  (bloc de chargement de l'accueil) est sous la surcouche.
  */
 @Composable
 fun CinemaSplash(
@@ -113,7 +111,6 @@ fun CinemaSplash(
     progress: Int? = null,
     message: String? = null,
     ready: Boolean = false,
-    focused: Boolean = false,
 ) {
     val reduce = LocalMovvizReduceMotion.current
     val fraction by animateFloatAsState(
@@ -208,15 +205,6 @@ fun CinemaSplash(
                 .align(Alignment.TopCenter)
                 .offset(y = barTop + 14.dp)
                 .graphicsLayer { alpha = barIn.value },
-        )
-        // Anneau de focus : seulement quand la vraie cible de focus est sous la surcouche.
-        Box(
-            Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = barTop - 18.dp)
-                .size(barW + 48.dp, 56.dp)
-                .graphicsLayer { alpha = barIn.value }
-                .movvizFocusRing(RoundedCornerShape(12.dp), focused = { focused }),
         )
     }
 }
