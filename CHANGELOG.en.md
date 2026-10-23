@@ -1,3 +1,10 @@
+## v1.27.30 — October 23, 2026
+
+### Dashboard hero
+
+- Ambilight waits for its YouTube video copy to confirm its position before showing the glow, then hides and realigns if the two videos drift apart.
+- The dark veil at the top of the hero is removed, preserving the video's and ambilight's colors along the upper edge.
+
 ## v1.27.29 — October 23, 2026
 
 ### Loading and Plex Continue Watching

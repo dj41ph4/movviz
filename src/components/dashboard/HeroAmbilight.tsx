@@ -6,6 +6,7 @@ import { videoPositionNow } from "@/lib/player/heroVideoClock";
 const YOUTUBE_ORIGIN = "https://www.youtube.com";
 /** Re-align the mirror as soon as it drifts this far from the visible video. */
 const MAX_DRIFT_SEC = 0.3;
+const SEEK_COOLDOWN_MS = 800;
 
 /**
  * Ambilight behind the desktop dashboard hero: a blurred copy of what the
@@ -27,42 +28,51 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
     const iframe = iframeRef.current;
     if (!videoKey || !iframe) return;
     const bridgeId = Math.floor(Math.random() * 1_000_000_000) + 1;
-    let mirrorTime: number | null = null;
-    let mirrorAt = 0;
-    let aligned = false;
+    let mirrorSample: { time: number; at: number; playing: boolean } | null = null;
+    let mirrorPlaying: boolean | null = null;
+    let lastSeekAt = 0;
     const post = (payload: Record<string, unknown>) => {
       try { iframe.contentWindow?.postMessage(JSON.stringify({ ...payload, id: bridgeId, channel: "widget" }), YOUTUBE_ORIGIN); } catch { /* not ready */ }
     };
     const command = (func: string, args: unknown[] = []) => post({ event: "command", func, args });
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== YOUTUBE_ORIGIN || event.source !== iframe.contentWindow) return;
-      let data: { event?: string; info?: { currentTime?: number } } | null = null;
+      let data: { event?: string; info?: { currentTime?: number; playerState?: number } | number } | null = null;
       try { data = typeof event.data === "string" ? JSON.parse(event.data) : event.data; } catch { return; }
-      const t = data?.info?.currentTime;
+      const info = data?.info;
+      const state = typeof info === "number" ? info : info?.playerState;
+      if (typeof state === "number") mirrorPlaying = state === 1;
+      const t = typeof info === "object" ? info?.currentTime : undefined;
       if (data?.event === "infoDelivery" && typeof t === "number" && Number.isFinite(t)) {
-        mirrorTime = t;
-        mirrorAt = performance.now();
+        mirrorSample = { time: t, at: performance.now(), playing: mirrorPlaying ?? false };
+        sync();
       }
     };
     const sync = () => {
       const main = videoPositionNow(videoKey);
-      if (!main) return;
-      const mirror = mirrorTime === null ? null : mirrorTime + (performance.now() - mirrorAt) / 1000;
-      if (mirror === null || Math.abs(mirror - main.time) > MAX_DRIFT_SEC) {
+      if (!main) {
+        setAlignedKey((key) => key === videoKey ? null : key);
+        return;
+      }
+      const now = performance.now();
+      const mirror = mirrorSample
+        ? mirrorSample.time + (mirrorSample.playing ? (now - mirrorSample.at) / 1000 : 0)
+        : null;
+      const aligned = mirror !== null && Math.abs(mirror - main.time) <= MAX_DRIFT_SEC
+        && (mirrorPlaying === null || mirrorPlaying === main.playing);
+      setAlignedKey((key) => aligned ? videoKey : (key === videoKey ? null : key));
+      if (!aligned && now - lastSeekAt >= SEEK_COOLDOWN_MS) {
+        // Do not invent a mirror position after seekTo: wait until YouTube
+        // reports the new frame before showing its light around the hero.
         command("seekTo", [main.time + 0.15, true]);
-        mirrorTime = main.time + 0.15;
-        mirrorAt = performance.now();
+        lastSeekAt = now;
       }
-      command(main.playing ? "playVideo" : "pauseVideo");
-      if (!aligned && mirror !== null && Math.abs(mirror - main.time) <= MAX_DRIFT_SEC) {
-        aligned = true;
-        setAlignedKey(videoKey);
-      }
+      if (mirrorPlaying !== main.playing) command(main.playing ? "playVideo" : "pauseVideo");
     };
     const onLoad = () => post({ event: "listening" });
     window.addEventListener("message", onMessage);
     iframe.addEventListener("load", onLoad);
-    const timer = setInterval(() => { post({ event: "listening" }); sync(); }, 500);
+    const timer = setInterval(() => { post({ event: "listening" }); sync(); }, 250);
     return () => {
       clearInterval(timer);
       window.removeEventListener("message", onMessage);
@@ -81,7 +91,7 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
     <div aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={{ containerType: "size" }}>
       {backdropUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={backdropUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={backdropUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300" style={{ opacity: videoKey ? 0 : 1 }} />
       )}
       {videoKey && (
         <iframe
@@ -91,7 +101,7 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
           tabIndex={-1}
           allow="autoplay; encrypted-media"
           src={`${YOUTUBE_ORIGIN}/embed/${encodeURIComponent(videoKey)}?${params}`}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-500"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[1.15] border-0 transition-opacity duration-500"
           style={{ width: "max(100cqw, 177.78cqh)", height: "max(100cqh, 56.25cqw)", opacity: alignedKey === videoKey ? 1 : 0 }}
         />
       )}

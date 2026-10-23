@@ -1,3 +1,10 @@
+## v1.27.30 — 23 octobre 2026
+
+### Hero du tableau de bord
+
+- L’ambilight attend que sa copie de la vidéo YouTube confirme sa position avant d’afficher la lumière, puis se masque et se recale si les deux vidéos se désynchronisent.
+- Le voile sombre ajouté en haut du hero est retiré ; le bord supérieur conserve les couleurs de la vidéo et de l’ambilight.
+
 ## v1.27.29 — 23 octobre 2026
 
 ### Chargement et reprises Plex

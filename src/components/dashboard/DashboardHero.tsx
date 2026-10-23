@@ -200,12 +200,13 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             title={active.detail.title}
             onActiveVideo={setAmbilightKey}
             trigger="immediate"
+            hideTopGradient
             youtubeProfile="detail"
             enabled={trailerEnabled}
             className="absolute inset-0 h-full w-full"
           />
         </ErrorBoundary>
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
 
         {active.libraryFile && !isDesktop && (

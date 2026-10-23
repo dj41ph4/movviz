@@ -1,3 +1,10 @@
+## v1.27.30 — 23. Oktober 2026
+
+### Dashboard-Hero
+
+- Ambilight wartet, bis die YouTube-Videokopie ihre Position bestätigt, bevor das Licht angezeigt wird. Laufen die Videos auseinander, wird das Licht ausgeblendet und neu ausgerichtet.
+- Der dunkle Schleier am oberen Rand des Hero wird entfernt, sodass die Farben von Video und Ambilight dort erhalten bleiben.
+
 ## v1.27.29 — 23. Oktober 2026
 
 ### Laden und Plex Weiterschauen

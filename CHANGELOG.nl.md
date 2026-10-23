@@ -1,3 +1,10 @@
+## v1.27.30 — 23 oktober 2026
+
+### Hero van het dashboard
+
+- Ambilight wacht tot de YouTube-videokopie haar positie bevestigt voordat de gloed verschijnt; als de video's uit de pas lopen, verdwijnt de gloed en wordt hij opnieuw uitgelijnd.
+- De donkere sluier bovenaan de hero is verwijderd, zodat de kleuren van de video en ambilight langs de bovenrand behouden blijven.
+
 ## v1.27.29 — 23 oktober 2026
 
 ### Laden en Plex Verder kijken
