@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { readEntry, readRange } from "@/lib/changelog";
+import { getChangelogEntry, getChangelogRange, readEntry, readRange } from "@/lib/changelog";
+import { LOCALES } from "@/i18n/config";
+const pkg = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
 
 function writeTempChangelog(content: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-changelog-"));
@@ -72,4 +74,20 @@ test("une ligne blanche entre deux sections n'est pas fusionnée dans un item", 
   const entry = readEntry(file, "1.0.0");
   assert.ok(entry);
   assert.deepEqual(entry!.sections.map((s) => s.items), [["Item normal."], ["Deuxième item."]]);
+});
+
+test("chaque langue choisie reçoit les notes de la version courante et des versions manquées", () => {
+  const french = getChangelogEntry(pkg.version, "fr");
+  assert.ok(french);
+  for (const locale of LOCALES) {
+    const current = getChangelogRange(null, pkg.version, locale);
+    assert.equal(current.length, 1);
+    assert.equal(current[0].version, pkg.version);
+    assert.ok(current[0].sections.some((section) => section.items.length));
+    const missed = getChangelogRange("1.27.12", pkg.version, locale);
+    assert.deepEqual(missed.map((entry) => entry.version),
+      getChangelogRange("1.27.12", pkg.version, "fr").map((entry) => entry.version));
+    assert.equal(missed[0].version, pkg.version);
+    if (locale !== "fr") assert.notDeepEqual(current[0].sections, french.sections);
+  }
 });

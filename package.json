@@ -7,7 +7,7 @@
     "tizen:build": "node tizen-tv/scripts/build.mjs",
     "tizen:preview": "node tizen-tv/scripts/preview.mjs",
     "dev": "next dev -p 9810",
-    "build": "node scripts/extract-changelog.mjs --check && next build --webpack && node scripts/clean-standalone.mjs",
+    "build": "node scripts/extract-changelog.mjs --check && node scripts/check-changelog-locales.mjs && next build --webpack && node scripts/clean-standalone.mjs",
     "start": "next start -p 9810",
     "engine": "node engine/src/index.mjs",
     "lint": "eslint .",

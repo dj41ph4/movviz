@@ -24,7 +24,7 @@ test("new acknowledgement key cannot inherit versions falsely marked seen by the
   const source = readFileSync(new URL("../src/components/layout/WhatsNewModal.tsx", import.meta.url), "utf8");
   assert.equal((source.match(/localStorage\.setItem/g) ?? []).length, 1);
   const close = source.slice(source.indexOf("const close ="));
-  assert.match(close, /visible && !splashActive && entries\.length/);
+  assert.match(close, /visible && entriesFor === `\$\{locale\}:\$\{version\}` && !splashActive && entries\.length/);
   assert.match(close, /localStorage\.setItem\(CHANGELOG_SEEN_KEY, entries\[0\]\.version\)/);
   assert.match(source, /return \(\) => \{ cancelled = true; controller\.abort\(\)/);
 });
@@ -69,7 +69,9 @@ test("release guard accepts current v-style notes and rejects missing notes, bla
   const script = fileURLToPath(new URL("../scripts/extract-changelog.mjs", import.meta.url));
   writeFileSync(path.join(dir, "package.json"), JSON.stringify({ version: "9.9.9" }));
   writeFileSync(path.join(dir, "package-lock.json"), JSON.stringify({ version: "9.9.9", packages: { "": { version: "9.9.9" } } }));
-  writeFileSync(path.join(dir, "README.md"), "Version actuelle : v9.9.9</strong>");
+  for (const file of ["README.md", "README.fr.md", "README.de.md", "README.it.md", "README.nl.md"]) {
+    writeFileSync(path.join(dir, file), "<p><strong>Version actuelle : v9.9.9</strong></p>");
+  }
   const run = () => execFileSync(process.execPath, [script, "--check"], { cwd: dir, stdio: "pipe" }).toString();
   writeFileSync(path.join(dir, "CHANGELOG.md"), "## v9.9.9 — Octobre\n### Test\n- Notes complètes.\n");
   assert.match(run(), /9\.9\.9/);
@@ -79,5 +81,5 @@ test("release guard accepts current v-style notes and rejects missing notes, bla
   assert.throws(run);
   writeFileSync(path.join(dir, "CHANGELOG.md"), "## v9.9.9\n### Test\n"); assert.throws(run);
   writeFileSync(path.join(dir, "CHANGELOG.md"), "## v9.9.9\n### Test\n- Notes complètes.\n");
-  writeFileSync(path.join(dir, "README.md"), "Version actuelle : v9.9.8</strong>"); assert.throws(run);
+  writeFileSync(path.join(dir, "README.md"), "<p><strong>Version actuelle : v9.9.8</strong></p>"); assert.throws(run);
 });

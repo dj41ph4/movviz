@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { fr } from "./locales/fr";
@@ -27,6 +28,7 @@ type TFn = (path: string, params?: Record<string, string | number>) => string;
 
 interface I18nCtx {
   locale: Locale;
+  localeReady: boolean;
   setLocale: (l: Locale) => void;
   t: TFn;
 }
@@ -50,26 +52,32 @@ function interpolate(str: string, params?: Record<string, string | number>) {
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
+  const [localeReady, setLocaleReady] = useState(false);
+  const selectedByUser = useRef(false);
 
   // Hydrate the stored preference after mount (avoids SSR mismatch).
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Locale | null;
-    if (stored && LOCALES.includes(stored)) setLocaleState(stored);
+    let stored: Locale | null = null;
+    try { stored = window.localStorage.getItem(STORAGE_KEY) as Locale | null; } catch { /* Account preference still loads. */ }
+    if (stored && LOCALES.includes(stored)) queueMicrotask(() => {
+      if (!selectedByUser.current) setLocaleState(stored);
+    });
 
     // Account-level preference wins once it loads — confirmed live: the
     // interface language was device-only, resetting on every new browser or
     // device. Also writes back to localStorage for instant hydration next
     // time. Silently ignored when logged out or offline.
-    fetch("/api/settings/preferences", { cache: "no-store" })
+    fetch("/api/settings/preferences", { cache: "no-store", signal: AbortSignal.timeout(5000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const locale = d?.prefs?.locale as Locale | undefined;
-        if (locale && LOCALES.includes(locale)) {
-          window.localStorage.setItem(STORAGE_KEY, locale);
+        if (!selectedByUser.current && locale && LOCALES.includes(locale)) {
+          try { window.localStorage.setItem(STORAGE_KEY, locale); } catch { /* Optional local cache. */ }
           setLocaleState(locale);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLocaleReady(true));
   }, []);
 
   useEffect(() => {
@@ -77,8 +85,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [locale]);
 
   const setLocale = useCallback((l: Locale) => {
+    selectedByUser.current = true;
     setLocaleState(l);
-    window.localStorage.setItem(STORAGE_KEY, l);
+    setLocaleReady(true);
+    try { window.localStorage.setItem(STORAGE_KEY, l); } catch { /* Account preference still saves. */ }
     fetch("/api/settings/preferences", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -92,8 +102,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ locale, setLocale, t }),
-    [locale, setLocale, t]
+    () => ({ locale, localeReady, setLocale, t }),
+    [locale, localeReady, setLocale, t]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

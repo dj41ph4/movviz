@@ -23,13 +23,13 @@ if (!fs.existsSync(standalone)) {
 }
 
 const resolvedStandalone = path.resolve(standalone);
-const keep = new Set([".next", "node_modules", "server.js", "package.json", "CHANGELOG.md"]);
+const keep = new Set([".next", "node_modules", "server.js", "package.json"]);
 const workersSource = path.join(root, "src", "lib", "workers");
 const workersDestination = path.join(resolvedStandalone, "workers");
 
 let removed = 0;
 for (const entry of fs.readdirSync(resolvedStandalone)) {
-  if (keep.has(entry)) continue;
+  if (keep.has(entry) || /^CHANGELOG(?:\.(?:en|it|nl|de))?\.md$/.test(entry)) continue;
 
   const target = path.join(resolvedStandalone, entry);
   if (!target.startsWith(resolvedStandalone + path.sep)) {
@@ -53,6 +53,8 @@ for (const file of workerFiles) {
   fs.copyFileSync(path.join(workersSource, file), path.join(workersDestination, file));
 }
 
-// The popup reads this at runtime; native Linux also ships standalone directly.
-fs.copyFileSync(path.join(root, "CHANGELOG.md"), path.join(resolvedStandalone, "CHANGELOG.md"));
-console.log(`clean-standalone: removed ${removed} entry(ies); staged ${workerFiles.length} worker asset(s) and CHANGELOG.md`);
+// The popup reads every locale at runtime; native Linux also ships standalone directly.
+for (const file of fs.readdirSync(root).filter((name) => /^CHANGELOG(?:\.(?:en|it|nl|de))?\.md$/.test(name))) {
+  fs.copyFileSync(path.join(root, file), path.join(resolvedStandalone, file));
+}
+console.log(`clean-standalone: removed ${removed} entry(ies); staged ${workerFiles.length} worker asset(s) and localized changelogs`);

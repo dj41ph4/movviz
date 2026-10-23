@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 
 export interface ChangelogSection {
   heading: string;
@@ -12,24 +13,27 @@ export interface ChangelogEntry {
   sections: ChangelogSection[];
 }
 
-/**
- * CHANGELOG.md is the single source, in French, for every audience (GitHub
- * and the in-app "what's new" popup alike — AGENTS.md: everything
- * GitHub-visible is French). There used to be a per-locale
- * CHANGELOG.<locale>.md translation set, but CHANGELOG.md itself drifted to
- * French directly (matching the repo-wide French rule) while the
- * translated files silently stopped being updated after v1.13.72 — meaning
- * every non-French interface language actually fell back to raw French
- * text anyway. Removed rather than resurrected: one file, always in
- * French, is simpler and matches what was already true in practice.
- */
 const DEFAULT_FILE = path.join(process.cwd(), "CHANGELOG.md");
 const VERSION_HEADER = /^##\s+(?:v|\[)?([\d.]+)(?:\])?(?:\s+—\s+(.+))?/;
 
-/** Pulls the "for humans" release notes for one version straight out of
- *  CHANGELOG.md. */
-export function getChangelogEntry(version: string): ChangelogEntry | null {
-  return readEntry(DEFAULT_FILE, version);
+function fileForLocale(locale: Locale): string {
+  return locale === DEFAULT_LOCALE ? DEFAULT_FILE : path.join(process.cwd(), `CHANGELOG.${locale}.md`);
+}
+
+function sameStructure(source: ChangelogEntry, translated: ChangelogEntry | undefined): translated is ChangelogEntry {
+  return !!translated && translated.sections.length === source.sections.length
+    && translated.sections.every((section, i) => section.heading.trim()
+      && section.items.length === source.sections[i].items.length
+      && section.items.every((item) => item.trim()));
+}
+
+/** Reads one release in the requested UI language. The French source remains
+ * available if a translated file is missing or structurally incomplete. */
+export function getChangelogEntry(version: string, locale: Locale = DEFAULT_LOCALE): ChangelogEntry | null {
+  const source = readEntry(DEFAULT_FILE, version);
+  if (!source || locale === DEFAULT_LOCALE) return source;
+  const translated = readEntry(fileForLocale(locale), version);
+  return sameStructure(source, translated ?? undefined) ? translated : source;
 }
 
 /** Exportée pour les tests (scripts/changelog.test.ts) — le chemin par
@@ -150,15 +154,21 @@ export function readRange(FILE: string): { version: string; date: string | null;
  * `since === null` (never seen a version before) returns just `upTo`, same
  * as the single-entry behavior this replaces.
  */
-export function getChangelogRange(since: string | null, upTo: string): ChangelogEntry[] {
+export function getChangelogRange(since: string | null, upTo: string, locale: Locale = DEFAULT_LOCALE): ChangelogEntry[] {
   const all = readRange(DEFAULT_FILE).filter((e) => e.sections.length > 0);
-  if (since === null) return all.filter((entry) => entry.version === upTo);
+  const localized = locale === DEFAULT_LOCALE ? new Map<string, ChangelogEntry>()
+    : new Map(readRange(fileForLocale(locale)).map((entry) => [entry.version, entry]));
+  const resolve = (entry: ChangelogEntry) => {
+    const translation = localized.get(entry.version);
+    return sameStructure(entry, translation) ? translation : entry;
+  };
+  if (since === null) return all.filter((entry) => entry.version === upTo).map(resolve);
 
   const entries: ChangelogEntry[] = [];
   for (const e of all) {
     if (compareVersions(e.version, upTo) > 0) continue;
     if (since !== null && compareVersions(e.version, since) <= 0) continue;
-    entries.push(e);
+    entries.push(resolve(e));
   }
   entries.sort((a, b) => compareVersions(b.version, a.version));
   return entries;

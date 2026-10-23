@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X } from "lucide-react";
-import { useT } from "@/i18n/provider";
+import { useI18n } from "@/i18n/provider";
 import { useVersion } from "@/lib/version/VersionContext";
 import { useSplashActive } from "@/lib/dashboard/splashCoordinator";
 import { CHANGELOG_SEEN_KEY, loadWhatsNew } from "@/lib/updates/whatsNew";
@@ -34,13 +34,13 @@ function renderBold(text: string) {
  * Shown once per browser whenever the running app version doesn't match the
  * last one this browser saw — covers a Windows one-click update just as much
  * as a Docker/NAS re-pull, since both just change the version the server
- * reports. Content comes from /api/system/changelog, always French
- * (CHANGELOG.md — see src/lib/changelog.ts).
+ * reports. Content comes from the changelog matching the account's UI locale.
  */
 export function WhatsNewModal() {
-  const t = useT();
+  const { t, locale, localeReady } = useI18n();
   const version = useVersion();
   const [entries, setEntries] = useState<ChangelogEntry[]>([]);
+  const [entriesFor, setEntriesFor] = useState("");
   const [visible, setVisible] = useState(false);
   // Bug fix: this modal used to appear on top of the dashboard's cold-start
   // splash (DashboardSplash) instead of waiting for it to finish — the two
@@ -50,7 +50,7 @@ export function WhatsNewModal() {
   const splashActive = useSplashActive();
 
   useEffect(() => {
-    if (!version || version === "0.0.0") return;
+    if (!localeReady || !version || version === "0.0.0") return;
     let lastSeen: string | null = null;
     try { lastSeen = localStorage.getItem(CHANGELOG_SEEN_KEY); } catch { /* Private/restricted storage does not hide the notes. */ }
     if (lastSeen === version) return;
@@ -62,6 +62,7 @@ export function WhatsNewModal() {
     // releases sees the full story, not only the newest entry.
     const params = new URLSearchParams();
     if (lastSeen) params.set("since", lastSeen);
+    params.set("lang", locale);
     const controller = new AbortController();
     let cancelled = false;
     void loadWhatsNew(version, async () => {
@@ -74,15 +75,16 @@ export function WhatsNewModal() {
     }), () => cancelled).then((notes) => {
         if (!cancelled && notes.length > 0) {
           setEntries(notes);
+          setEntriesFor(`${locale}:${version}`);
           setVisible(true);
         }
       });
     return () => { cancelled = true; controller.abort(); };
-  }, [version]);
+  }, [version, locale, localeReady]);
 
   const close = () => {
     // No acknowledgement while loading, on error, or behind the splash.
-    if (visible && !splashActive && entries.length) {
+    if (visible && entriesFor === `${locale}:${version}` && !splashActive && entries.length) {
       try { localStorage.setItem(CHANGELOG_SEEN_KEY, entries[0].version); } catch { /* Keep the popup usable without storage. */ }
     }
     setVisible(false);
@@ -90,7 +92,7 @@ export function WhatsNewModal() {
 
   return (
     <AnimatePresence>
-      {visible && entries.length > 0 && !splashActive && (
+      {visible && entriesFor === `${locale}:${version}` && entries.length > 0 && !splashActive && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

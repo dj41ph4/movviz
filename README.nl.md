@@ -37,7 +37,7 @@
 
 <br>
 
-[**Waarom MOVVIZ**](#-waarom-movviz) · [**Functies**](#-één-app-de-volledige-workflow) · [**Schermen**](#-één-product-elk-scherm) · [**Installatie**](#-installatie) · [**Architectuur**](#-architectuur) · [**Changelog**](CHANGELOG.md)
+[**Waarom MOVVIZ**](#-waarom-movviz) · [**Functies**](#-één-app-de-volledige-workflow) · [**Schermen**](#-één-product-elk-scherm) · [**Installatie**](#-installatie) · [**Architectuur**](#-architectuur) · [**Changelog**](CHANGELOG.nl.md)
 
 <br>
 
@@ -507,7 +507,7 @@ Handleidingen: [English](docs/guide-en.md) · [Français](docs/guide-fr.md) · [
 
 ## 🧭 Meer ontdekken
 
-- [Changelog](CHANGELOG.md)
+- [Changelog](CHANGELOG.nl.md)
 - [Documentatie](docs/)
 - [Android TV](android-tv-nx/)
 - [Android mobile](android-mobile-nx/)

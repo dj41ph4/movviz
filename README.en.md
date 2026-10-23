@@ -16,7 +16,7 @@
 [![Android](https://img.shields.io/badge/Android-native-3DDC84?style=flat-square&logo=android&logoColor=white&labelColor=1a1a2e)](android-mobile-nx/)
 [![Plex](https://img.shields.io/badge/Plex-optional-E5A00D?style=flat-square&logo=plex&labelColor=1a1a2e)](#plex-is-optional)
 
-[Download](https://github.com/dj41ph4/movviz/releases/latest) · [Docker Hub](https://hub.docker.com/r/dj41ph4/movviz) · [Français](README.md) · [Changelog](CHANGELOG.md)
+[Download](https://github.com/dj41ph4/movviz/releases/latest) · [Docker Hub](https://hub.docker.com/r/dj41ph4/movviz) · [Français](README.md) · [Changelog](CHANGELOG.en.md)
 
 </div>
 
@@ -455,7 +455,7 @@ Movviz is particularly relevant if you:
 
 ## Project status
 
-Movviz is under active development. Releases are published frequently and the complete history is available in [`CHANGELOG.md`](CHANGELOG.md).
+Movviz is under active development. Releases are published frequently and the complete history is available in [`CHANGELOG.en.md`](CHANGELOG.en.md).
 
 Bug reports, feature requests, testing feedback, packaging contributions and documentation improvements are welcome.
 
