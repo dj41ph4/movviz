@@ -19,6 +19,7 @@ const TICK_MS = 100;
 /** Gel à partir duquel une entrée est gardée dans le journal des gels. */
 const LOG_BLOCK_MS = 500;
 const MAX_LOG = 300;
+const MAX_TIMELINE = 1000;
 
 export interface BlockEntry {
   t: number;
@@ -26,11 +27,26 @@ export interface BlockEntry {
   ms: number;
   /** Fenêtres ouvertes pendant ce gel. */
   during: string[];
+  /** Piles d'appel au moment où chaque fenêtre a été ouverte (pour retrouver le fichier:ligne). */
+  duringStacks?: string[];
+  /** cpu = thread monopolisé par du JS synchrone ; io = attente réseau/disque. */
+  type?: 'cpu' | 'io';
 }
 
 interface Window {
   label: string;
   maxGapMs: number;
+  type?: 'cpu' | 'io';
+  /** Stack capturée à l'ouverture de la fenêtre. */
+  openStack?: string;
+}
+
+export interface BlockTimelineEvent {
+  t: number;
+  type: 'open' | 'close';
+  label: string;
+  id: number;
+  windowType?: 'cpu' | 'io';
 }
 
 const g = globalThis as typeof globalThis & {
@@ -38,9 +54,16 @@ const g = globalThis as typeof globalThis & {
   __movvizBlockLog?: BlockEntry[];
   __movvizBlockTimer?: ReturnType<typeof setInterval> | null;
   __movvizBlockSeq?: number;
+  __movvizBlockTimeline?: BlockTimelineEvent[];
 };
 const windows: Map<number, Window> = (g.__movvizBlockWindows ??= new Map());
 const log: BlockEntry[] = (g.__movvizBlockLog ??= []);
+const timeline: BlockTimelineEvent[] = (g.__movvizBlockTimeline ??= []);
+
+function pushTimeline(event: Omit<BlockTimelineEvent, 't'>) {
+  timeline.push({ t: Date.now(), ...event });
+  while (timeline.length > MAX_TIMELINE) timeline.shift();
+}
 
 function ensureTicking() {
   if (g.__movvizBlockTimer) return;
@@ -52,7 +75,14 @@ function ensureTicking() {
     if (gap <= 0) return;
     for (const w of windows.values()) if (gap > w.maxGapMs) w.maxGapMs = gap;
     if (gap >= LOG_BLOCK_MS) {
-      log.push({ t: Date.now(), ms: gap, during: [...windows.values()].map((w) => w.label) });
+      const winList = [...windows.values()];
+      log.push({
+        t: Date.now(),
+        ms: gap,
+        during: winList.map((w) => w.label),
+        duringStacks: winList.map((w) => w.openStack ?? null).filter((s): s is string => s != null),
+        type: winList.length > 0 ? winList[winList.length - 1]?.type : undefined,
+      });
       while (log.length > MAX_LOG) log.shift();
     }
   }, TICK_MS);
@@ -65,15 +95,24 @@ function stopTickingIfIdle() {
   g.__movvizBlockTimer = null;
 }
 
-/** Ouvre une fenêtre étiquetée ; `end()` renvoie le pire gel observé pendant qu'elle était ouverte. */
-export function openBlockWindow(label: string): { end: () => { maxBlockMs: number; overlapping: string[] } } {
+/** Ouvre une fenêtre étiquetée ; `end()` renvoie le pire gel observé pendant qu'elle était ouverte.
+ *
+ * `type` (optionnel) : 'cpu' si le travail à l'intérieur est du JS synchrone qui monopolise le thread,
+ * 'io' si c'est une attente réseau/disque (ne gèle pas l'event loop mais allonge le job).
+ */
+export function openBlockWindow(
+  label: string,
+  opts?: { type?: 'cpu' | 'io' },
+): { end: () => { maxBlockMs: number; overlapping: string[] } } {
   const id = (g.__movvizBlockSeq = (g.__movvizBlockSeq ?? 0) + 1);
-  const w: Window = { label, maxGapMs: 0 };
+  const w: Window = { label, maxGapMs: 0, type: opts?.type, openStack: new Error().stack };
   windows.set(id, w);
+  pushTimeline({ type: 'open', label, id, windowType: opts?.type });
   ensureTicking();
   return {
     end: () => {
       windows.delete(id);
+      pushTimeline({ type: 'close', label, id, windowType: opts?.type });
       const overlapping = [...windows.values()].map((o) => o.label);
       stopTickingIfIdle();
       return { maxBlockMs: w.maxGapMs, overlapping };
@@ -82,8 +121,13 @@ export function openBlockWindow(label: string): { end: () => { maxBlockMs: numbe
 }
 
 /** Mesure une fonction asynchrone ; journalise si elle a figé le serveur au-delà de `warnMs`. */
-export async function measureBlocking<T>(label: string, fn: () => Promise<T>, warnMs = 1_000): Promise<{ value: T; maxBlockMs: number; durationMs: number }> {
-  const w = openBlockWindow(label);
+export async function measureBlocking<T>(
+  label: string,
+  fn: () => Promise<T>,
+  warnMs = 1_000,
+  opts?: { type?: 'cpu' | 'io' },
+): Promise<{ value: T; maxBlockMs: number; durationMs: number }> {
+  const w = openBlockWindow(label, opts);
   const start = Date.now();
   let value: T;
   let maxBlockMs = 0;
@@ -107,4 +151,9 @@ export async function measureBlocking<T>(label: string, fn: () => Promise<T>, wa
 /** Journal des gels ≥ 500 ms observés pendant une fenêtre (le plus récent en dernier). */
 export function getBlockLog(): BlockEntry[] {
   return [...log];
+}
+
+/** Timeline des ouvertures/fermetures de fenêtres (le plus récent en dernier). */
+export function getBlockTimeline(): BlockTimelineEvent[] {
+  return [...timeline].reverse();
 }

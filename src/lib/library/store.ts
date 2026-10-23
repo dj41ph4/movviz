@@ -4,6 +4,7 @@ import path from "node:path";
 import { eventBus } from "@/lib/events/EventBus";
 import { addToTrash } from "@/lib/library/trashStore";
 import { recordStatusTransition } from "@/lib/library/statusTransitions";
+import { openBlockWindow } from "@/lib/blockProbe";
 import type { LibraryMovie, LibrarySeries, LibraryStatus, LibrarySeason, LibraryEpisode } from "./types";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { normalizeTitle, registerLibraryTitleIndex } from "./matching";
@@ -90,19 +91,24 @@ function invalidateSeriesCaches() {
 // ---- Movies ----
 
 export function loadMovies(): LibraryMovie[] {
-  const list = readJson<LibraryMovie[]>(MOVIES_FILE, []);
-  // Safety: if the fallback [] was returned due to read failure (NAS down, corruption)
-  // rather than the file being genuinely empty, log it. Empty list on genuine empty
-  // file is fine, but a ~20MB file that suddenly returns [] is a data integrity alarm.
-  if (list.length === 0) {
-    try {
-      const raw = fs.readFileSync(MOVIES_FILE, "utf8");
-      if (raw.trim().length > 2) {
-        console.error("[store] MOVIES_FILE read returned [] but file is non-empty — possible corruption or permission issue");
-      }
-    } catch { /* file genuinely missing or inaccessible — expected */ }
+  const win = openBlockWindow("library-read-movies", { type: "cpu" });
+  try {
+    const list = readJson<LibraryMovie[]>(MOVIES_FILE, []);
+    // Safety: if the fallback [] was returned due to read failure (NAS down, corruption)
+    // rather than the file being genuinely empty, log it. Empty list on genuine empty
+    // file is fine, but a ~20MB file that suddenly returns [] is a data integrity alarm.
+    if (list.length === 0) {
+      try {
+        const raw = fs.readFileSync(MOVIES_FILE, "utf8");
+        if (raw.trim().length > 2) {
+          console.error("[store] MOVIES_FILE read returned [] but file is non-empty — possible corruption or permission issue");
+        }
+      } catch { /* file genuinely missing or inaccessible — expected */ }
+    }
+    return list;
+  } finally {
+    win.end();
   }
-  return list;
 }
 function saveMovies(list: LibraryMovie[], isExplicitClear = false) {
   if (list.length === 0 && !isExplicitClear) {
@@ -261,16 +267,21 @@ export function getMovieByActiveHash(infoHash: string): LibraryMovie | null {
 // ---- Series ----
 
 export function loadSeries(): LibrarySeries[] {
-  const list = readJson<LibrarySeries[]>(SERIES_FILE, []);
-  if (list.length === 0) {
-    try {
-      const raw = fs.readFileSync(SERIES_FILE, "utf8");
-      if (raw.trim().length > 2) {
-        console.error("[store] SERIES_FILE read returned [] but file is non-empty — possible corruption or permission issue");
-      }
-    } catch { /* file genuinely missing or inaccessible */ }
+  const win = openBlockWindow("library-read-series", { type: "cpu" });
+  try {
+    const list = readJson<LibrarySeries[]>(SERIES_FILE, []);
+    if (list.length === 0) {
+      try {
+        const raw = fs.readFileSync(SERIES_FILE, "utf8");
+        if (raw.trim().length > 2) {
+          console.error("[store] SERIES_FILE read returned [] but file is non-empty — possible corruption or permission issue");
+        }
+      } catch { /* file genuinely missing or inaccessible */ }
+    }
+    return list;
+  } finally {
+    win.end();
   }
-  return list;
 }
 function saveSeries(list: LibrarySeries[], isExplicitClear = false) {
   if (list.length === 0 && !isExplicitClear) {

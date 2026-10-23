@@ -7,6 +7,7 @@ import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSerie
 import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
+import { openBlockWindow } from "@/lib/blockProbe";
 import type { IndexerRelease } from "@/lib/indexers/types";
 
 /**
@@ -49,8 +50,8 @@ export async function rssMatchIndexers() {
 }
 
 async function rssMatchIndexersInner() {
-  const releases = readRssCache();
-  if (releases.length === 0) return { grabbed: 0 };
+  const cached = readRssCache();
+  if (cached.length === 0) return { grabbed: 0 };
 
   const now = Date.now();
   const prev = gs.__movvizRssMatchState;
@@ -58,43 +59,37 @@ async function rssMatchIndexersInner() {
   const seenBefore = fullPass ? new Set<string>() : prev.seenReleases;
   const knownBefore = fullPass ? new Set<string>() : prev.knownTargets;
 
-  const keys = releases.map(releaseKey);
+  const keys = cached.map(releaseKey);
   const isNewRelease = keys.map((k) => !seenBefore.has(k));
-  const parsedReleases = releases.map((r) => parseRelease(r.title));
-  const seriesLike = new Set(parsedReleases.filter((_, i) => looksLikeSeriesRelease(releases[i].title)));
+  const parsedReleases = cached.map((r) => parseRelease(r.title));
+  const seriesLike = new Set(parsedReleases.filter((_, i) => looksLikeSeriesRelease(cached[i].title)));
 
-  const missingMovies = loadMovies().filter((m) => m.monitored && m.status === "missing");
+  // Chargement de la bibliothèque films (CPU : JSON.parse, instrumenté dans library-read-movies)
+  const movies = loadMovies().filter((m) => m.monitored && m.status === "missing");
+
+  // Chargement de la bibliothèque séries (CPU : JSON.parse sur library-series.json, ~22 Mo)
   const missingSeasons: { seriesId: string; seriesTitle: string; seriesAliases: string[]; season: number }[] = [];
-  for (const series of loadSeries()) {
-    if (!series.monitored) continue;
-    for (const season of series.seasons) {
-      if (season.episodes.some((e) => e.monitored && e.status === "missing")) {
-        missingSeasons.push({ seriesId: series.id, seriesTitle: series.title, seriesAliases: series.aliases ?? [], season: season.seasonNumber });
+  const loadSeriesWin = openBlockWindow("rss-load-series", { type: "cpu" });
+  try {
+    for (const series of loadSeries()) {
+      if (!series.monitored) continue;
+      for (const season of series.seasons) {
+        if (season.episodes.some((e) => e.monitored && e.status === "missing")) {
+          missingSeasons.push({ seriesId: series.id, seriesTitle: series.title, seriesAliases: series.aliases ?? [], season: season.seasonNumber });
+        }
       }
     }
+  } finally {
+    loadSeriesWin.end();
   }
 
   let grabbed = 0;
   const grabbedMovies = new Set<string>();
   const grabbedSeasons = new Set<string>();
-  // The series pack (intégrale) is searched once per series per pass — if
-  // several seasons of the same show match RSS releases in the same pass,
-  // re-searching it for each season is pure indexer load (same cache, same
-  // result). Later seasons skip the series-pack stage and go straight to
-  // season pack → per-episode.
   const seriesPackSearched = new Set<string>();
-  // Once an intégrale actually lands for a series, it covers every season at
-  // once — any OTHER missingSeasons entry for that same series (this array
-  // is a snapshot from before any grab in this pass) must be skipped
-  // entirely, not just re-searched with skipSeriesPackRetry. Without this, a
-  // later RSS release matching e.g. season 2 of a show whose intégrale was
-  // just grabbed for season 1's match still ran a full season-pack →
-  // per-episode cascade against it — confirmed live: one intégrale, one
-  // redundant season pack, AND every individual episode of another season
-  // all grabbed for the same show in one scan.
   const seriesFullyGrabbed = new Set<string>();
 
-  const movieTargets = missingMovies.map((movie) => ({
+  const movieTargets = movies.map((movie) => ({
     movie,
     isNew: !knownBefore.has(`movie:${movie.id}`),
     searchTitle: pickSearchTitle(movie.title, movie.originalTitle),
@@ -104,50 +99,76 @@ async function rssMatchIndexersInner() {
   const anyNewSeason = missingSeasons.some((s) => !knownBefore.has(`season:${s.seriesId}.${s.season}`));
   let compared = 0;
 
-  for (let ri = 0; ri < parsedReleases.length; ri++) {
-    const parsed = parsedReleases[ri];
-    const releaseIsNew = isNewRelease[ri];
-    // Release déjà vue et aucun titre nouvellement manquant : rien à comparer.
-    if (!releaseIsNew && !anyNewMovie && !anyNewSeason) continue;
-    for (const { movie, isNew, searchTitle, aliases } of movieTargets) {
-      if (!releaseIsNew && !isNew) continue;
-      if (grabbedMovies.has(movie.id)) continue;
-      if (seriesLike.has(parsed)) continue;
-      if (++compared % COMPARE_YIELD_EVERY === 0) await yieldToEventLoop();
-      if (!releaseTitleMatches(parsed.title, searchTitle, aliases) || !yearIsCompatible(parsed.year, movie.year)) continue;
-      grabbedMovies.add(movie.id);
-      await yieldToUser("match RSS films");
-      const result = await searchAndGrabMovie(movie.id);
-      if ("ok" in result && result.ok) grabbed++;
-    }
-
-    if (parsed.season == null) continue;
-    for (const s of missingSeasons) {
-      if (seriesFullyGrabbed.has(s.seriesId)) continue;
-      const key = `${s.seriesId}.${s.season}`;
-      if (!releaseIsNew && knownBefore.has(`season:${key}`)) continue;
-      if (grabbedSeasons.has(key)) continue;
-      if (++compared % COMPARE_YIELD_EVERY === 0) await yieldToEventLoop();
-      if (parsed.season !== s.season || !releaseTitleMatches(parsed.title, s.seriesTitle, s.seriesAliases)) continue;
-      grabbedSeasons.add(key);
-      // RSS just signals a release exists for this season — do a proper
-      // pack-first search (falls back to per-episode) rather than grabbing
-      // this one RSS item directly, so quality-profile scoring still applies.
-      const skipSeriesPack = seriesPackSearched.has(s.seriesId);
-      seriesPackSearched.add(s.seriesId);
-      // Locked per series like every other search entry point: a bulk job or
-      // scheduled retry may be mid-search on this exact series right now —
-      // without the lock this RSS hit would run a redundant season search
-      // chain against it.
-      await yieldToUser("match RSS saisons");
-      const result = await withSearchLock(`series:${s.seriesId}`, () =>
-        searchAndGrabSeason(s.seriesId, s.season, { skipSeriesPackRetry: skipSeriesPack })
-      );
-      if ("ok" in result && result.ok) {
-        grabbed++;
-        if ("mode" in result && result.mode === "series_pack") seriesFullyGrabbed.add(s.seriesId);
+  // Boucle de comparaison CPU : releases × films manquants
+  const matchMoviesWin = openBlockWindow("rss-match-movies", { type: "cpu" });
+  try {
+    for (let ri = 0; ri < parsedReleases.length; ri++) {
+      const parsed = parsedReleases[ri];
+      const releaseIsNew = isNewRelease[ri];
+      // Release déjà vue et aucun titre nouvellement manquant : rien à comparer.
+      if (!releaseIsNew && !anyNewMovie && !anyNewSeason) continue;
+      for (const { movie, isNew, searchTitle, aliases } of movieTargets) {
+        if (!releaseIsNew && !isNew) continue;
+        if (grabbedMovies.has(movie.id)) continue;
+        if (seriesLike.has(parsed)) continue;
+        if (++compared % COMPARE_YIELD_EVERY === 0) await yieldToEventLoop();
+        if (!releaseTitleMatches(parsed.title, searchTitle, aliases) || !yearIsCompatible(parsed.year, movie.year)) continue;
+        grabbedMovies.add(movie.id);
+        await yieldToUser("match RSS films");
+        // Grab d'un film : I/O (appels indexeur + Plex + TMDb)
+        const grabWin = openBlockWindow("rss-grab-movie", { type: "io" });
+        try {
+          const result = await searchAndGrabMovie(movie.id);
+          if ("ok" in result && result.ok) grabbed++;
+        } finally {
+          grabWin.end();
+        }
       }
     }
+  } finally {
+    matchMoviesWin.end();
+  }
+
+  // Boucle de comparaison CPU : releases × saisons manquantes
+  const matchSeasonsWin = openBlockWindow("rss-match-seasons", { type: "cpu" });
+  try {
+    for (let ri = 0; ri < parsedReleases.length; ri++) {
+      const parsed = parsedReleases[ri];
+      if (parsed.season == null) continue;
+      for (const s of missingSeasons) {
+        if (seriesFullyGrabbed.has(s.seriesId)) continue;
+        const key = `${s.seriesId}.${s.season}`;
+        if (grabbedSeasons.has(key)) continue;
+        if (++compared % COMPARE_YIELD_EVERY === 0) await yieldToEventLoop();
+        if (parsed.season !== s.season || !releaseTitleMatches(parsed.title, s.seriesTitle, s.seriesAliases)) continue;
+        grabbedSeasons.add(key);
+        // RSS just signals a release exists for this season — do a proper
+        // pack-first search (falls back to per-episode) rather than grabbing
+        // this one RSS item directly, so quality-profile scoring still applies.
+        const skipSeriesPack = seriesPackSearched.has(s.seriesId);
+        seriesPackSearched.add(s.seriesId);
+        // Locked per series like every other search entry point: a bulk job or
+        // scheduled retry may be mid-search on this exact series right now —
+        // without the lock this RSS hit would run a redundant season search
+        // chain against it.
+        await yieldToUser("match RSS saisons");
+        // Grab d'une saison : I/O (appels indexeur + Plex + TMDb)
+        const grabWin = openBlockWindow("rss-grab-season", { type: "io" });
+        try {
+          const result = await withSearchLock(`series:${s.seriesId}`, () =>
+            searchAndGrabSeason(s.seriesId, s.season, { skipSeriesPackRetry: skipSeriesPack })
+          );
+          if ("ok" in result && result.ok) {
+            grabbed++;
+            if ("mode" in result && result.mode === "series_pack") seriesFullyGrabbed.add(s.seriesId);
+          }
+        } finally {
+          grabWin.end();
+        }
+      }
+    }
+  } finally {
+    matchSeasonsWin.end();
   }
 
   // Passage terminé (un arrêt en cours de route lance une exception avant
@@ -155,7 +176,7 @@ async function rssMatchIndexersInner() {
   gs.__movvizRssMatchState = {
     seenReleases: new Set(keys),
     knownTargets: new Set([
-      ...missingMovies.map((m) => `movie:${m.id}`),
+      ...movies.map((m) => `movie:${m.id}`),
       ...missingSeasons.map((s) => `season:${s.seriesId}.${s.season}`),
     ]),
     lastFullPassAt: fullPass ? now : prev!.lastFullPassAt,
