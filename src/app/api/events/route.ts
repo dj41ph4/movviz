@@ -36,6 +36,7 @@ const EVENT_SSE_CHANNEL: Record<AppEvent["type"], string> = {
   user_updated: "user",
   activity_updated: "activity",
   watch_changed: "watch",
+  on_deck_refreshed: "on-deck",
   ai_chat_changed: "ai",
   recommendations_changed: "recommendations",
 };

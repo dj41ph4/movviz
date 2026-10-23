@@ -1,6 +1,6 @@
 import { checkQualityUpgrades, searchReleasedMissingMovies, searchMissingMovies, transitionUpcomingMovies, autoUpgradeAll } from "@/lib/library/autoGrab";
 import { searchReleasedMissingEpisodes, searchMissingEpisodes, transitionUpcomingEpisodes } from "@/lib/library/autoGrabSeries";
-import { rssMatchIndexers } from "@/lib/library/rssScan";
+import { queueRssMatch } from "@/lib/scheduler/rssMatchJob";
 import { refreshRssCache } from "@/lib/indexers/rssCache";
 import { reconcileDownloadingItems } from "@/lib/library/downloadState";
 import { reconcileLibrary } from "@/lib/library/reconcile";
@@ -369,7 +369,9 @@ export const TASKS: ScheduledTask[] = [
       transitionUpcomingMovies();
       transitionUpcomingEpisodes();
       await refreshRssCache();
-      await rssMatchIndexers();
+      // Feed collection must stay on its 15-minute cadence. Matching and
+      // grabbing can be heavy, so it runs as a separate serial heavy job.
+      queueRssMatch();
     },
   },
   {

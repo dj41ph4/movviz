@@ -76,6 +76,9 @@ export function useLibrarySSE(enabled = true) {
         void mutate((key) => typeof key === "string" && WATCH_KEY_RE.test(key));
         void mutate((key) => typeof key === "string" && /^\/api\/metadata\/(rows|recommendations|row-page)(\?|$)/.test(key));
       });
+      es.addEventListener("on-deck", () => {
+        void mutate((key) => typeof key === "string" && key.startsWith("/api/plex/on-deck"));
+      });
       es.addEventListener("recommendations", () => {
         void mutate((key) => typeof key === "string" && /^\/api\/metadata\/(rows|recommendations|row-page)(\?|$)/.test(key));
       });

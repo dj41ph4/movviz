@@ -43,14 +43,14 @@ function releaseKey(r: IndexerRelease): string {
  * part of the 15-minute `rss-indexer-scan` task. Matching a release
  * triggers the normal quality-filtered search/grab pipeline.
  */
-export async function rssMatchIndexers() {
+export async function rssMatchIndexers(releases?: IndexerRelease[]) {
   // Voie arrière-plan + cession à l'utilisateur : le match RSS est planifié,
   // jamais prioritaire sur une interaction utilisateur.
-  return runBackground(() => rssMatchIndexersInner());
+  return runBackground(() => rssMatchIndexersInner(releases));
 }
 
-async function rssMatchIndexersInner() {
-  const cached = readRssCache();
+async function rssMatchIndexersInner(releases?: IndexerRelease[]) {
+  const cached = releases ?? readRssCache();
   if (cached.length === 0) return { grabbed: 0 };
 
   const now = Date.now();

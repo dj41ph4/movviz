@@ -73,7 +73,12 @@ function technical(file: { resolution: string | null; videoCodec: string | null;
 }
 
 /** Single per-user Continue Watching source. Plex enriches it when available. */
-export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
+export async function listOnDeckEntries(user: User, options?: {
+  /** Already verified for this profile by getVerifiedOnDeck. */
+  verifiedPlexItems?: PlexOnDeckItem[];
+  maxPlexItems?: number;
+  includeStills?: boolean;
+}): Promise<OnDeckEntry[]> {
   const cfg = loadPlexConfig();
   const local = listPlaybackProgress(user.id);
   const watchStatus = getWatchStatus(user.id);
@@ -115,10 +120,14 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
   };
   if (!cfg.hostname) {
     addLocalNextEpisodes();
-    return (await attachEpisodeStills(items)).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
+    return (options?.includeStills === false ? items : await attachEpisodeStills(items))
+      .sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
   }
 
-  const plexOnDeck = await getVerifiedOnDeck(user, cfg);
+  const verifiedPlexItems = options?.verifiedPlexItems ?? await getVerifiedOnDeck(user, cfg);
+  const plexOnDeck = [...verifiedPlexItems]
+    .sort((left, right) => (right.lastViewedAt ?? right.updatedAt ?? 0) - (left.lastViewedAt ?? left.updatedAt ?? 0))
+    .slice(0, options?.maxPlexItems ?? verifiedPlexItems.length);
   // Marked « vu » in Movviz after Plex last saw it played: the Plex resume
   // is stale (Plex catches up on the « vu » a moment later), so the title
   // leaves « Reprendre » at once. A later Plex play (a rewatch) still wins,
@@ -131,9 +140,17 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
   // Plex is an optional peer, not a subset of the Movviz library. Resolve
   // external IDs directly from Plex so a perfectly valid Plex resume is not
   // silently dropped merely because the title was never added to Movviz.
-  const auth = await resolvePlexServerAuth(user, cfg);
+  // Known library entries already carry their TMDb identity and playback
+  // source. Only unresolved Plex-only entries need the expensive metadata
+  // request (plus possible external-ID lookups).
+  const metadataKeys = plexOnDeck.flatMap((item) => {
+    if (item.type === "movie") return getMovieByPlexRatingKey(item.ratingKey) ? [] : [item.ratingKey];
+    if (findEpisodeByPlexLocator(item.ratingKey, item.grandparentRatingKey, item.seasonNumber, item.episodeNumber)) return [];
+    return item.grandparentRatingKey ? [item.ratingKey, item.grandparentRatingKey] : [item.ratingKey];
+  });
+  const auth = metadataKeys.length ? await resolvePlexServerAuth(user, cfg) : null;
   const metadataByKey: Awaited<ReturnType<typeof batchTmdbIds>> = auth
-    ? await batchTmdbIds(cfg, auth.token, plexOnDeck.flatMap((item) => item.type === "episode" && item.grandparentRatingKey ? [item.ratingKey, item.grandparentRatingKey] : [item.ratingKey]))
+    ? await batchTmdbIds(cfg, auth.token, [...new Set(metadataKeys)])
     : new Map();
   const movieMeta = new Map<number, ReturnType<typeof getMovie>>();
   const seriesMeta = new Map<number, ReturnType<typeof getSeries>>();
@@ -224,5 +241,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     if (!current || (item.offsetMs > 0 && current.offsetMs === 0) ||
       ((item.offsetMs > 0) === (current.offsetMs > 0) && item.lastPlayedAt > current.lastPlayedAt)) newest.set(identity, item);
   }
-  return (await attachEpisodeStills([...newest.values()])).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
+  const visible = [...newest.values()];
+  return (options?.includeStills === false ? visible : await attachEpisodeStills(visible))
+    .sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
 }

@@ -11,6 +11,8 @@ export type AppEvent =
   /** Seen/unseen, resume position or « Ma liste » of ONE user changed —
    *  sent only to that user's own devices (see /api/events). */
   | { type: "watch_changed"; userId: string }
+  /** A verified Plex Continue Watching batch is ready for this user's devices. */
+  | { type: "on_deck_refreshed"; userId: string }
   /** The Movviz AI conversation of ONE user changed (new message, card
    *  swapped, « Effacer ») — that user's other devices show it at once. */
   | { type: "ai_chat_changed"; userId: string }

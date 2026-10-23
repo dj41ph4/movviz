@@ -72,7 +72,7 @@ test("la tâche RSS active réconcilie les sorties avant refresh et grab, désac
         transitionUpcomingMovies: () => calls.push('movies'),
         transitionUpcomingEpisodes: () => calls.push('episodes'),
         refreshRssCache: async () => calls.push('refresh'),
-        rssMatchIndexers: async () => calls.push('grab'),
+        queueRssMatch: () => calls.push('grab_queued'),
         isAutoSearchMissingEnabled: () => enabled,
       };
       // Isolate every external boundary of the real task definitions.
@@ -85,11 +85,46 @@ test("la tâche RSS active réconcilie les sorties avant refresh et grab, désac
       const rss = TASKS.find(t => t.id === 'rss-indexer-scan');
       assert.equal(rss.intervalMs, 900000);
       await rss.run();
-      assert.deepEqual(calls, ['movies', 'episodes', 'refresh', 'grab']);
+      assert.deepEqual(calls, ['movies', 'episodes', 'refresh', 'grab_queued']);
       enabled = false;
       calls.length = 0;
       await rss.run();
       assert.deepEqual(calls, []);
+    `,
+  ], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+});
+
+test("RSS garde les sorties des rafraîchissements en attente dans une seule tâche lourde", () => {
+  const result = spawnSync(process.execPath, [
+    "--experimental-transform-types", "--no-warnings", "--experimental-test-module-mocks",
+    "--import", "./scripts/movviz-test-loader.mjs", "--input-type=module", "-e", `
+      import { mock } from 'node:test';
+      import assert from 'node:assert/strict';
+      let active = false;
+      let releases = [{ guid: 'first', title: 'First' }];
+      let runner;
+      let enqueued = 0;
+      let matched;
+      mock.module('@/lib/jobs/queue', { namedExports: {
+        isSourceActive: () => active,
+        enqueueJob: (_type, _label, _total, run, source, options) => {
+          assert.equal(source, 'rss-indexer-match');
+          assert.deepEqual(options, { heavy: true, scheduled: true });
+          runner = run;
+          active = true;
+          enqueued++;
+        },
+      } });
+      mock.module('@/lib/indexers/rssCache', { namedExports: { readRssCache: () => releases } });
+      mock.module('@/lib/library/rssScan', { namedExports: { rssMatchIndexers: async batch => { matched = batch; } } });
+      const { queueRssMatch } = await import('@/lib/scheduler/rssMatchJob');
+      queueRssMatch();
+      releases = [{ guid: 'second', title: 'Second' }];
+      queueRssMatch();
+      assert.equal(enqueued, 1);
+      await runner(() => {});
+      assert.deepEqual(matched.map(item => item.guid), ['first', 'second']);
     `,
   ], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr + result.stdout);

@@ -25,6 +25,8 @@ export interface BlockEntry {
   t: number;
   /** Durée du gel observé (retard du tick). */
   ms: number;
+  /** Consecutive samples with the same active windows are grouped. */
+  count?: number;
   /** Fenêtres ouvertes pendant ce gel. */
   during: string[];
   /** Piles d'appel au moment où chaque fenêtre a été ouverte (pour retrouver le fichier:ligne). */
@@ -76,14 +78,25 @@ function ensureTicking() {
     for (const w of windows.values()) if (gap > w.maxGapMs) w.maxGapMs = gap;
     if (gap >= LOG_BLOCK_MS) {
       const winList = [...windows.values()];
-      log.push({
-        t: Date.now(),
-        ms: gap,
-        during: winList.map((w) => w.label),
-        duringStacks: winList.map((w) => w.openStack ?? null).filter((s): s is string => s != null),
-        type: winList.length > 0 ? winList[winList.length - 1]?.type : undefined,
-      });
-      while (log.length > MAX_LOG) log.shift();
+      const t = Date.now();
+      const during = winList.map((w) => w.label);
+      const type = winList.length > 0 ? winList[winList.length - 1]?.type : undefined;
+      const last = log.at(-1);
+      // One sustained incident used to create dozens of identical rows and
+      // repeat the same diagnostic stack as an apparent "Error" each time.
+      if (last && t - last.t < 5_000 && last.type === type &&
+          last.during.length === during.length && last.during.every((label, i) => label === during[i])) {
+        last.t = t;
+        last.ms = Math.max(last.ms, gap);
+        last.count = (last.count ?? 1) + 1;
+      } else {
+        log.push({
+          t, ms: gap, during,
+          duringStacks: winList.map((w) => w.openStack ?? null).filter((s): s is string => s != null),
+          type,
+        });
+        while (log.length > MAX_LOG) log.shift();
+      }
     }
   }, TICK_MS);
   g.__movvizBlockTimer.unref?.();
@@ -105,7 +118,10 @@ export function openBlockWindow(
   opts?: { type?: 'cpu' | 'io' },
 ): { end: () => { maxBlockMs: number; overlapping: string[] } } {
   const id = (g.__movvizBlockSeq = (g.__movvizBlockSeq ?? 0) + 1);
-  const w: Window = { label, maxGapMs: 0, type: opts?.type, openStack: new Error().stack };
+  // This is a call-site trace, not a thrown exception. Drop V8's "Error:"
+  // heading so exported diagnostics do not report false errors.
+  const openStack = new Error().stack?.split("\n").slice(1, 6).map((line) => line.trim()).join(" ");
+  const w: Window = { label, maxGapMs: 0, type: opts?.type, openStack };
   windows.set(id, w);
   pushTimeline({ type: 'open', label, id, windowType: opts?.type });
   ensureTicking();

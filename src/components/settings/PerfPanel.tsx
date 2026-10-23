@@ -34,6 +34,7 @@ interface EventLoopSample {
 interface BlockEntry {
   t: number;
   ms: number;
+  count?: number;
   during: string[];
   duringStacks?: (string | null)[];
   type?: "cpu" | "io";
@@ -225,7 +226,7 @@ export function PerfPanel() {
                 {blocks.slice(0, 50).map((b, i) => (
                   <tr key={i} className="border-b border-white/5 last:border-0">
                     <td className="px-3 py-1.5 text-ink-soft">{new Date(b.t).toLocaleTimeString()}</td>
-                    <td className={cn("px-3 py-1.5 text-right font-bold", msTone(b.ms))}>{fmtMs(b.ms)}</td>
+                    <td className={cn("px-3 py-1.5 text-right font-bold", msTone(b.ms))}>{fmtMs(b.ms)}{b.count && b.count > 1 ? ` ×${b.count}` : ""}</td>
                     <td className="px-3 py-1.5 text-left text-ink-soft capitalize">{b.type ?? "—"}</td>
                     <td className="px-3 py-1.5 text-ink-soft break-words" title={b.during.join(", ")}>{b.during.join(", ")}</td>
                     <td className="px-3 py-1.5 text-ink-dim break-all text-[9px]">
