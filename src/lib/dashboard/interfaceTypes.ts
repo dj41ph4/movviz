@@ -80,4 +80,5 @@ export interface DashboardInterfaceData {
   widgetValues: Record<DashboardWidgetId, number>;
   compactRecentMovies: LibraryMovie[];
   recentEpisodes: DashboardRecentEpisode[];
+  recentEpisodesNextCursor?: number | null;
 }

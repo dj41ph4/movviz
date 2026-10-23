@@ -203,6 +203,7 @@ internal data class TvTitleCard(
     val episodeSeasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val episodeTitle: String? = null,
+    val recentSeasonLabel: String? = null,
     /** Vrai si ce film figure dans `watchStatus.movies` (vu manuellement ou
      *  via Plex). V1 : jamais calculé pour les séries — voir le plan de
      *  finalisation watch-state, phase 12-13. */
@@ -371,17 +372,30 @@ fun HomeScreen(
         }.distinctBy { it.id }.withWatchedMovies(watchedMovieIds)
     }
     val recentEpisodeCards = remember(recentEpisodes) {
-        // Toujours des épisodes de série (isMovie = false) : jamais de
-        // pastille "vu" en V1, aucun besoin de withWatchedMovies ici.
-        recentEpisodes.sortedByDescending { it.addedAt }.map { episode ->
-            TvTitleCard(
-                id = "recent-episode-${episode.tmdbId}-${episode.seasonNumber}-${episode.episodeNumber}",
-                title = episode.seriesTitle, posterPath = episode.posterPath, backdropPath = episode.backdropPath,
-                tmdbId = episode.tmdbId, isMovie = false, rating = episode.rating,
-                episodeSeasonNumber = episode.seasonNumber, episodeNumber = episode.episodeNumber,
-                episodeTitle = episode.episodeTitle,
+        // Même regroupement que TV/desktop : un lot d'épisodes d'une série
+        // occupe une seule affiche, puis les pages suivantes s'ajoutent au fil
+        // du défilement sans masquer les autres séries.
+        recentEpisodes.groupBy { episode ->
+            episode.tmdbId to BleachPresentation.part(episode.tmdbId, "series", season = episode.seasonNumber)
+        }.values.map { group ->
+            val latest = group.maxBy { it.addedAt }
+            val part = BleachPresentation.part(latest.tmdbId, "series", season = latest.seasonNumber)
+            val grouped = group.size > 1
+            val seasonLabel = if (latest.seasonNumber == 0) "Spéciaux" else if (part == "tybw") {
+                val cour = BleachPresentation.cours.firstOrNull { latest.episodeNumber > it.offset && latest.episodeNumber <= it.offset + it.count }
+                "Saison ${cour?.part ?: latest.seasonNumber}"
+            } else "Saison ${latest.seasonNumber}"
+            latest.addedAt to TvTitleCard(
+                id = if (grouped) "recent-season-${latest.tmdbId}-${part.orEmpty()}-${latest.seasonNumber}" else "recent-episode-${latest.tmdbId}-${part.orEmpty()}-${latest.seasonNumber}-${latest.episodeNumber}",
+                title = if (part != null) BleachPresentation.title(part) else latest.seriesTitle,
+                posterPath = latest.posterPath, backdropPath = latest.backdropPath,
+                tmdbId = latest.tmdbId, isMovie = false, rating = latest.rating, seriesPart = part,
+                episodeSeasonNumber = if (grouped) null else latest.seasonNumber,
+                episodeNumber = if (grouped) null else latest.episodeNumber,
+                episodeTitle = if (grouped) null else latest.episodeTitle,
+                recentSeasonLabel = seasonLabel.takeIf { grouped },
             )
-        }.distinctBy { it.id }.take(20)
+        }.sortedByDescending { it.first }.map { it.second }
     }
     // Les vignettes de reprise sont déjà visibles au premier frame : charger
     // leurs logos en parallèle (et non seulement au focus) évite le texte
@@ -731,6 +745,7 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
+                            onNearEnd = viewModel::loadMoreRecentEpisodes,
                             previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                         )
@@ -1821,6 +1836,7 @@ internal fun TitleRow(
     onSeeAll: (() -> Unit)? = null,
     titleLogoPaths: Map<String, String> = emptyMap(),
     onFocusedCard: (TvTitleCard) -> Unit = {},
+    onNearEnd: (() -> Unit)? = null,
     /** Même contrat que DashboardPosterCard desktop : on ne résout une
      * prévisualisation qu'après avoir réellement posé le focus sur la carte.
      * Cela évite les appels réseau pour chaque affiche visible et garantit
@@ -1851,6 +1867,13 @@ internal fun TitleRow(
     // recomposent JAMAIS pendant un scroll latéral, seul le bandeau bouge.
     val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
     val previewsByCardId = remember { mutableStateMapOf<String, TvPreviewDto>() }
+    val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
+    val currentOnNearEnd by rememberUpdatedState(onNearEnd)
+    if (onNearEnd != null) LaunchedEffect(rowState, items.size) {
+        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }.collect { last ->
+            if (last >= items.size - 4 && last >= 0) currentOnNearEnd?.invoke()
+        }
+    }
 
     // Une carte ne doit pas faire démarrer un trailer lors d'un passage D-pad
     // rapide. On attend que le focus soit resté stable puis on récupère les
@@ -1896,7 +1919,7 @@ internal fun TitleRow(
                 132.dp
             }
             TvLazyRow(
-                state = rememberTvLazyListState().withTvPrefetchDisabled(),
+                state = rowState,
                 modifier = Modifier.focusRestorer(),
                 contentPadding = PaddingValues(start = edge, end = edge),
                 horizontalArrangement = Arrangement.spacedBy(if (narrowRow) 10.dp else 12.dp),
@@ -2162,9 +2185,9 @@ internal fun PosterCard(
                 // dans « Continuer à regarder », sans transformer la carte
                 // récente en fausse reprise.
                 val episodeBadge = card.episodeSeasonNumber != null && card.episodeNumber != null
-                if (episodeBadge) {
+                if (episodeBadge || card.recentSeasonLabel != null) {
                     Text(
-                        text = "S${card.episodeSeasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
+                        text = card.recentSeasonLabel ?: "S${card.episodeSeasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White),
                         maxLines = 1,
                         modifier = Modifier

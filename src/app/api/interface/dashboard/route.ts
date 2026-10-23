@@ -1,9 +1,9 @@
-import { recentEpisodesAcrossSeries } from "@/lib/library/recentEpisodes";
+import { recentEpisodePage } from "@/lib/library/recentEpisodes";
 import { compressedJson } from "@/lib/http/compressedJson";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import type { DashboardWidgetId } from "@/lib/dashboard/types";
-import type { DashboardFileTechnical, DashboardInterfaceData } from "@/lib/dashboard/interfaceTypes";
+import type { DashboardFileTechnical, DashboardInterfaceData, DashboardRecentEpisode } from "@/lib/dashboard/interfaceTypes";
 import { libraryFilePaths, loadMovies, loadSeries } from "@/lib/library/store";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
@@ -11,6 +11,32 @@ import { memoizeByFileMtimes } from "@/lib/fsJsonCache";
 import { buildRewatchRow } from "@/lib/dashboard/rewatch";
 
 export const dynamic = "force-dynamic";
+
+function recentEpisodeCandidates(series: ReturnType<typeof loadSeries>, machineIdentifier: string | null | undefined): DashboardRecentEpisode[] {
+  return series.flatMap((show) => show.seasons.flatMap((season) => season.episodes
+    .filter((episode) => episode.status === "available" && episode.file)
+    .map((episode) => ({
+      seriesId: show.id,
+      tmdbId: show.tmdbId,
+      title: show.title,
+      year: show.year,
+      posterPath: show.posterPath,
+      backdropPath: show.backdropPath,
+      customBackdropPath: show.customBackdropPath ?? null,
+      customLogoPath: show.customLogoPath ?? null,
+      rating: show.rating,
+      genres: show.genres,
+      seasonNumber: season.seasonNumber,
+      episodeNumber: episode.episodeNumber,
+      episodeTitle: episode.title,
+      addedAt: episode.file!.addedAt,
+      plexRatingKey: episode.plexRatingKey,
+      plexUrl: episode.plexRatingKey && machineIdentifier
+        ? buildPlexWebUrl(machineIdentifier, episode.plexRatingKey)
+        : null,
+      file: technical(episode.file),
+    }))));
+}
 
 function technical(file: { resolution: string | null; videoCodec: string | null; audioCodec: string | null; hdr: string | null } | null): DashboardFileTechnical | null {
   if (!file) return null;
@@ -28,6 +54,15 @@ export async function GET(req: NextRequest) {
 
   const cfg = loadPlexConfig();
   const onlyRecent = req.nextUrl.searchParams.get("only") === "recent";
+  const cursor = Math.max(0, Number.parseInt(req.nextUrl.searchParams.get("cursor") ?? "0", 10) || 0);
+  if (onlyRecent) {
+    const page = memoizeByFileMtimes(
+      `interface-recent:${cfg.machineIdentifier ?? "none"}:${cursor}`,
+      libraryFilePaths(),
+      () => recentEpisodePage(recentEpisodeCandidates(loadSeries(), cfg.machineIdentifier), cursor),
+    );
+    return compressedJson(req, { recentEpisodes: page.episodes, recentEpisodesNextCursor: page.nextCursor }, { headers: { "Cache-Control": "private, no-cache" } });
+  }
   const payload = memoizeByFileMtimes<DashboardInterfaceData>(
     `interface-dashboard:${cfg.machineIdentifier ?? "none"}`,
     libraryFilePaths(),
@@ -75,36 +110,9 @@ export async function GET(req: NextRequest) {
         };
       });
 
-      // Keep the exact episode/file association: a “recently added series”
-      // shelf is not enough when a long-running show gains one new episode.
-      // Sorting on file.addedAt makes Plex imports and Movviz downloads share
-      // the same, real arrival chronology.
-      const recentEpisodes = recentEpisodesAcrossSeries(series.flatMap((show) =>
-        show.seasons.flatMap((season) => season.episodes
-          .filter((episode) => episode.status === "available" && episode.file)
-          .map((episode) => ({
-            seriesId: show.id,
-            tmdbId: show.tmdbId,
-            title: show.title,
-            year: show.year,
-            posterPath: show.posterPath,
-            backdropPath: show.backdropPath,
-            customBackdropPath: show.customBackdropPath ?? null,
-            customLogoPath: show.customLogoPath ?? null,
-            rating: show.rating,
-            genres: show.genres,
-            seasonNumber: season.seasonNumber,
-            episodeNumber: episode.episodeNumber,
-            episodeTitle: episode.title,
-            addedAt: episode.file!.addedAt,
-            plexRatingKey: episode.plexRatingKey,
-            plexUrl: episode.plexRatingKey && cfg.machineIdentifier
-              ? buildPlexWebUrl(cfg.machineIdentifier, episode.plexRatingKey)
-              : null,
-            file: technical(episode.file),
-          }))
-        )
-      ));
+      // Files belong to the library, independently of the download queue.
+      // Page by series so a bulk import cannot hide all other arrivals.
+      const recentPage = recentEpisodePage(recentEpisodeCandidates(series, cfg.machineIdentifier));
 
       const compactMovies = movies.map((movie) => ({
         id: movie.id,
@@ -148,14 +156,12 @@ export async function GET(req: NextRequest) {
         series: compactSeries,
         widgetValues,
         compactRecentMovies: [...movies].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12),
-        recentEpisodes,
+        recentEpisodes: recentPage.episodes,
+        recentEpisodesNextCursor: recentPage.nextCursor,
       };
     },
   );
   // « À revoir » dépend de l'utilisateur : calculé à chaque requête, hors
   // du cache partagé ci-dessus (données locales seulement, aucun appel TMDb).
-  // ?only=recent — a device told that an episode became available reloads
-  // just this row, not the whole library (same memoized computation).
-  if (onlyRecent) return compressedJson(req, { recentEpisodes: payload.recentEpisodes }, { headers: { "Cache-Control": "private, no-cache" } });
   return compressedJson(req, { ...payload, rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
 }

@@ -1,3 +1,11 @@
+## v1.27.27 — 23 octobre 2026
+
+### Épisodes récemment ajoutés
+
+- Les épisodes arrivés dans la bibliothèque restent visibles indépendamment de la liste des téléchargements. Une purge attend la confirmation de l’import avant d’effacer les informations nécessaires à l’association des fichiers.
+- Les ajouts récents sont chargés par pages au fil du défilement, sans limite définitive de 150 fichiers. Un lot d’épisodes d’une même série occupe une seule carte sur desktop, Android TV et Android mobile.
+- La purge des téléchargements affiche les éléments qu’elle n’a pas pu retirer au lieu de vider artificiellement la liste.
+
 ## v1.27.26 — 23 octobre 2026
 
 ### Android TV : interface Bêta et lecteur

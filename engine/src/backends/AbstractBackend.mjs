@@ -526,6 +526,15 @@ export class AbstractBackend {
     infoHash = infoHash.toLowerCase();
     if (this.manualSeed?.report(infoHash) && !(await this.manualSeed.stop(infoHash))) return false;
     const m = this.meta.get(infoHash);
+    if (m?.processing && m.libraryRef) return false;
+    const pendingImport = m ?? this.importedHistory.get(infoHash);
+    // A moved file is already part of the media library even when the web
+    // callback has not committed its episode association yet. Keep the
+    // torrent's import metadata until that association is confirmed; clearing
+    // the download queue must never erase the only recovery path for it.
+    if (pendingImport?.libraryRef && pendingImport.movedFiles && !pendingImport.notifiedLibrary && !pendingImport.replacementFailure?.discarded) {
+      if (!(await this._notifyLibrary(pendingImport.libraryRef, pendingImport.movedFiles, infoHash))) return false;
+    }
     if (!m) {
       // Completed/imported torrent: clean the history entry.
       if (this.importedHistory.has(infoHash)) {

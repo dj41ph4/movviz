@@ -100,7 +100,7 @@ interface MovvizApiService {
 
     /** Seulement « Épisodes récemment ajoutés » (même calcul serveur). */
     @GET("api/interface/dashboard?only=recent")
-    suspend fun interfaceRecentEpisodes(): Response<InterfaceDashboardDto>
+    suspend fun interfaceRecentEpisodes(@Query("cursor") cursor: Int? = null): Response<InterfaceDashboardDto>
 
     @GET("api/metadata/images")
     suspend fun metadataImages(

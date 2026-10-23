@@ -205,8 +205,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 else if (type == "movie") (repo.movieByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { m -> _movies.value = _movies.value.replaceOrAppend(m) { it.tmdbId } }
                 else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppend(s, ::seriesViewKey) }
             }
-            if (recentChanged) (repo.interfaceRecentEpisodes() as? ApiResult.Success)?.data?.recentEpisodes?.let { raw ->
-                _recentEpisodes.value = raw.mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
+            if (recentChanged) (repo.interfaceRecentEpisodes() as? ApiResult.Success)?.data?.let { page ->
+                _recentEpisodes.value = page.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
+                recentCursor = page.recentEpisodesNextCursor
             }
         }
     }
@@ -321,6 +322,25 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     val series: StateFlow<List<LibrarySeriesDto>> = _series.asStateFlow()
     private val _recentEpisodes = MutableStateFlow<List<RecentEpisodeDto>>(emptyList())
     val recentEpisodes: StateFlow<List<RecentEpisodeDto>> = _recentEpisodes.asStateFlow()
+    private var recentCursor: Int? = null
+    private var recentPageLoading = false
+
+    fun loadMoreRecentEpisodes() {
+        val cursor = recentCursor ?: return
+        if (recentPageLoading) return
+        val repo = repository ?: return
+        recentPageLoading = true
+        viewModelScope.launch {
+            try {
+                val page = (repo.interfaceRecentEpisodes(cursor) as? ApiResult.Success)?.data ?: return@launch
+                val added = page.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }
+                _recentEpisodes.value = (_recentEpisodes.value + added)
+                    .distinctBy { Triple(it.tmdbId, it.seasonNumber, it.episodeNumber) }
+                    .sortedByDescending { it.addedAt }
+                recentCursor = page.recentEpisodesNextCursor
+            } finally { recentPageLoading = false }
+        }
+    }
 
     private val _dashboardHero = MutableStateFlow<List<DashboardHeroSlideDto>>(emptyList())
     val dashboardHero: StateFlow<List<DashboardHeroSlideDto>> = _dashboardHero.asStateFlow()
@@ -1107,6 +1127,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _movies.value = emptyList()
         _series.value = emptyList()
         _recentEpisodes.value = emptyList()
+        recentCursor = null
         _dashboardHero.value = emptyList()
         _heroLogos.value = emptyMap()
         _continueWatching.value = emptyList()
@@ -1289,6 +1310,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             val compact = (library as? ApiResult.Success)?.data
             compact?.let { _rewatch.value = it.rewatch.orEmpty().filterNotNull() }
             if (compact != null) {
+                recentCursor = compact.recentEpisodesNextCursor
                 _homeUiState.value = _homeUiState.value.copy(bootProgress = 75, bootMessage = "Préparation du premier écran…")
                 val fresh = HomeSnapshot(
                     generatedAt = System.currentTimeMillis(), serverIdentity = url.trim().trimEnd('/'),
@@ -1460,6 +1482,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                     _movies.value = compactMovies
                     _series.value = compactSeries
                     _recentEpisodes.value = snapshot.data.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
+                    recentCursor = snapshot.data.recentEpisodesNextCursor
                     return@coroutineScope
                 }
             }

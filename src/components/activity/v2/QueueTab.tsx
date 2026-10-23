@@ -340,12 +340,14 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     if (!(await confirmDialog(t("downloads.confirmClearAll")))) return;
     setClearingAll(true);
     try {
-      await api(`${BASE}/torrents/clear-all`, { method: "POST" });
+      const result = await api(`${BASE}/torrents/clear-all`, { method: "POST" }) as { failed?: number };
+      if (result.failed) toast("error", t("downloads.seedResult.actionFailed"));
     } catch (e) {
       console.error(`[queue] clear-all failed:`, e);
+      toast("error", t("downloads.seedResult.actionFailed"));
     } finally {
-      globalMutate(SWR_KEY, { items: [] }, { revalidate: false });
       setClearingAll(false);
+      await globalMutate(SWR_KEY);
     }
   };
 

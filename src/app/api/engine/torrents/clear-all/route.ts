@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
   }
 
   let removed = 0;
+  let failed = 0;
   for (const t of torrents) {
     try {
       const res = await fetch(`${ENGINE_BASE}/torrents/${t.infoHash}?deleteData=${deleteData ? 1 : 0}`, {
@@ -41,11 +42,12 @@ export async function POST(req: NextRequest) {
       if (res.ok) {
         removed++;
         releaseAllDownloadClaims(t.infoHash);
-      }
+      } else failed++;
     } catch {
       // Keep going — one stuck torrent shouldn't stop the rest from clearing.
+      failed++;
     }
   }
   if (removed > 0) eventBus.emit({ type: "download_changed" });
-  return NextResponse.json({ removed });
+  return NextResponse.json({ removed, failed });
 }

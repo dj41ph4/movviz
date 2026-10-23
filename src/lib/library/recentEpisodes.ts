@@ -15,6 +15,31 @@ import { bleachCour, bleachPartTitle, type BleachPart } from "../metadata/bleach
 export const RECENT_EPISODE_SERIES = 20;
 export const RECENT_EPISODE_MAX = 150;
 
+/** Page by series, not by file: a season import must never consume the whole
+ * first page. Two files per series are enough for clients to distinguish a
+ * single arrival from a batch; the library supplies the full season count. */
+export function recentEpisodePage<T extends { tmdbId: number; addedAt: number; seasonNumber: number }>(
+  episodes: T[], cursor = 0, pageSize = RECENT_EPISODE_SERIES,
+): { episodes: T[]; nextCursor: number | null } {
+  const groups = new Map<string, T[]>();
+  for (const episode of episodes) {
+    const part = episode.tmdbId === BLEACH_TMDB_ID && episode.seasonNumber === 17 ? "tybw" : "original";
+    const key = `${episode.tmdbId}:${part}`;
+    const group = groups.get(key) ?? [];
+    group.push(episode);
+    groups.set(key, group);
+  }
+  const ordered = [...groups.values()]
+    .map((group) => group.sort((a, b) => b.addedAt - a.addedAt))
+    .sort((a, b) => b[0].addedAt - a[0].addedAt);
+  const start = Math.max(0, cursor);
+  const page = ordered.slice(start, start + pageSize);
+  return {
+    episodes: page.flatMap((group) => group.slice(0, 2)),
+    nextCursor: start + page.length < ordered.length ? start + page.length : null,
+  };
+}
+
 export function recentEpisodesAcrossSeries<T extends { tmdbId: number; addedAt: number }>(
   episodes: T[],
   seriesWanted = RECENT_EPISODE_SERIES,

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { groupRecentEpisodes, recentEpisodesAcrossSeries } from "../src/lib/library/recentEpisodes";
+import { groupRecentEpisodes, recentEpisodePage, recentEpisodesAcrossSeries } from "../src/lib/library/recentEpisodes";
 import type { DashboardLibrarySeries, DashboardRecentEpisode } from "../src/lib/dashboard/interfaceTypes";
 
 test("une saison entière arrivée d'un coup ne cache plus les autres ajouts récents", () => {
@@ -16,6 +16,20 @@ test("la liste s'arrête au nombre de séries voulu et reste plafonnée", () => 
   assert.equal(recentEpisodesAcrossSeries(many, 20).length, 20);
   const huge = Array.from({ length: 500 }, (_, i) => ({ tmdbId: 1, addedAt: i }));
   assert.equal(recentEpisodesAcrossSeries(huge, 20, 150).length, 150);
+});
+
+test("les pages parcourent toutes les séries malgré un import massif", () => {
+  const bulk = Array.from({ length: 500 }, (_, i) => ({ tmdbId: 1, seasonNumber: 1, addedAt: 10_000 - i }));
+  const others = Array.from({ length: 45 }, (_, i) => ({ tmdbId: i + 2, seasonNumber: 1, addedAt: 9_000 - i }));
+  const all = [...bulk, ...others];
+  const first = recentEpisodePage(all);
+  const second = recentEpisodePage(all, first.nextCursor!);
+  const third = recentEpisodePage(all, second.nextCursor!);
+  assert.equal(new Set(first.episodes.map((ep) => ep.tmdbId)).size, 20);
+  assert.equal(first.episodes.filter((ep) => ep.tmdbId === 1).length, 2);
+  assert.equal(second.nextCursor, 40);
+  assert.equal(third.nextCursor, null);
+  assert.equal(new Set([...first.episodes, ...second.episodes, ...third.episodes].map((ep) => ep.tmdbId)).size, 46);
 });
 
 const episode = (tmdbId: number, seasonNumber: number, episodeNumber: number, addedAt = episodeNumber): DashboardRecentEpisode => ({

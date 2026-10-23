@@ -26,10 +26,12 @@ import { usePlaybackActive } from "@/lib/player/PlayerProvider";
 export function PosterRow({
   title,
   onSeeAll,
+  onNearEnd,
   children,
 }: {
   title: string;
   onSeeAll?: () => void;
+  onNearEnd?: () => void;
   children: React.ReactNode;
 }) {
   const t = useT();
@@ -42,6 +44,7 @@ export function PosterRow({
     if (!el) return;
     const { scrollLeft, scrollWidth, clientWidth } = el;
     const max = scrollWidth - clientWidth;
+    if (onNearEnd && max - scrollLeft <= clientWidth * 1.5) onNearEnd();
     const next = {
       overflowing: max > 4,
       atStart: scrollLeft <= 4,
@@ -50,7 +53,7 @@ export function PosterRow({
     setScrollState((previous) => previous.overflowing === next.overflowing
       && previous.atStart === next.atStart && previous.atEnd === next.atEnd
       ? previous : next);
-  }, []);
+  }, [onNearEnd]);
 
   useEffect(() => {
     measure();

@@ -459,7 +459,7 @@ fun HomeScreen(
     val groupedRecentCards = remember(recentEpisodes, watchedEpisodeTriples, series) {
         groupRecentEpisodes(recentEpisodes, watchedEpisodeTriples, BleachPresentation.libraryViews(series))
     }
-    val recentEpisodeCards = remember(groupedRecentCards) { groupedRecentCards.take(20) }
+    val recentEpisodeCards = groupedRecentCards
     // Les vignettes de reprise sont déjà visibles au premier frame : charger
     // leurs logos en parallèle (et non seulement au focus) évite le texte
     // de repli sur chaque carte alors qu'un logo officiel existe. Le
@@ -856,7 +856,10 @@ fun HomeScreen(
                             onClick = { onOpenPartTitle("series", it.tmdbId, it.seriesPart) },
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { requestHeroLogoAndPrefetch(viewModel, "series", it.tmdbId) },
+                            onFocusedCard = { card ->
+                                requestHeroLogoAndPrefetch(viewModel, "series", card.tmdbId)
+                            },
+                            onNearEnd = viewModel::loadMoreRecentEpisodes,
                             previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
                             onPreviewStateChanged = onCardPreviewStateChanged,
                             navRailFocusRequester = navRailFocusRequester,
@@ -2249,6 +2252,7 @@ internal fun TitleRow(
     onSeeAll: (() -> Unit)? = null,
     titleLogoPaths: Map<String, String> = emptyMap(),
     onFocusedCard: (TvTitleCard) -> Unit = {},
+    onNearEnd: (() -> Unit)? = null,
     /** Même contrat que DashboardPosterCard desktop : on ne résout une
      * prévisualisation qu'après avoir réellement posé le focus sur la carte.
      * Cela évite les appels réseau pour chaque affiche visible et garantit
@@ -2276,6 +2280,12 @@ internal fun TitleRow(
     val homeFocusMemory = LocalTvHomeFocusMemory.current
     val previewsByCardId = remember { mutableStateMapOf<String, TvPreviewDto>() }
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
+    val currentOnNearEnd by rememberUpdatedState(onNearEnd)
+    if (onNearEnd != null) LaunchedEffect(rowState, rowItems.size) {
+        snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }.collect { last ->
+            if (last >= rowItems.size - 4 && last >= 0) currentOnNearEnd?.invoke()
+        }
+    }
     val cardKeys = rowItems.map { it.focusIdentity() } + if (onSeeAll != null) listOf("see-all") else emptyList()
     val rowFocus = rememberTvRowFocusMemory(
         rowKey = rowKey, keys = cardKeys,
