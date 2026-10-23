@@ -1,3 +1,11 @@
+## v1.27.29 — 23 ottobre 2026
+
+### Caricamento e ripresa Plex
+
+- «Continua a guardare» mostra prima le cinque riprese Plex più recenti, poi completa progressivamente l'elenco in background sui dispositivi connessi.
+- L'abbinamento RSS e i download automatici continuano a funzionare, ma questa fase attende ora il proprio turno tra le attività pesanti per limitare i blocchi del server.
+- La diagnostica raggruppa i blocchi consecutivi simili e non mostra più una traccia di misurazione come errore.
+
 ## v1.27.28 — 23 ottobre 2026
 
 ### Prestazioni e diagnostica

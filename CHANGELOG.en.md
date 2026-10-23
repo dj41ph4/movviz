@@ -1,3 +1,11 @@
+## v1.27.29 — October 23, 2026
+
+### Loading and Plex Continue Watching
+
+- Continue Watching shows the five most recent Plex resumes first, then fills in the rest progressively in the background on connected devices.
+- RSS matching and automatic downloads continue to run, but this phase now waits its turn among heavy jobs to limit server stalls.
+- Diagnostics group consecutive similar stalls and no longer display a measurement stack as an error.
+
 ## v1.27.28 — October 23, 2026
 
 ### Performance and diagnostics

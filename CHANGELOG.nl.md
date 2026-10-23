@@ -1,3 +1,11 @@
+## v1.27.29 — 23 oktober 2026
+
+### Laden en Plex Verder kijken
+
+- Verder kijken toont eerst de vijf meest recente Plex-hervattingen en vult de rest van de lijst daarna geleidelijk op de achtergrond aan op verbonden apparaten.
+- RSS-koppeling en automatische downloads blijven werken, maar deze fase wacht nu op haar beurt tussen zware taken om vastlopers van de server te beperken.
+- Diagnostiek groepeert opeenvolgende vergelijkbare vastlopers en toont een meetstack niet langer als fout.
+
 ## v1.27.28 — 23 oktober 2026
 
 ### Prestaties en diagnostiek

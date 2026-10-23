@@ -1,3 +1,11 @@
+## v1.27.29 — 23 octobre 2026
+
+### Chargement et reprises Plex
+
+- « Reprendre » affiche d'abord les cinq reprises Plex les plus récentes, puis complète la liste progressivement en arrière-plan sur les appareils connectés.
+- L'appariement RSS et les téléchargements automatiques continuent de fonctionner, mais cette phase attend désormais son tour parmi les tâches lourdes pour limiter les gels du serveur.
+- Le diagnostic regroupe les gels consécutifs similaires et n'affiche plus une pile de mesure comme une erreur.
+
 ## v1.27.28 — 23 octobre 2026
 
 ### Performance et diagnostic

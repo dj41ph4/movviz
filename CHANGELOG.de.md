@@ -1,3 +1,11 @@
+## v1.27.29 — 23. Oktober 2026
+
+### Laden und Plex Weiterschauen
+
+- Weiterschauen zeigt zuerst die fünf neuesten Plex-Fortsetzungen an und ergänzt die Liste auf verbundenen Geräten schrittweise im Hintergrund.
+- RSS-Abgleich und automatische Downloads laufen weiter, aber diese Phase wartet nun unter den aufwendigen Aufgaben auf ihren Einsatz, um Serverblockaden zu begrenzen.
+- Die Diagnose fasst aufeinanderfolgende ähnliche Blockaden zusammen und zeigt einen Mess-Stack nicht mehr als Fehler an.
+
 ## v1.27.28 — 23. Oktober 2026
 
 ### Leistung und Diagnose
