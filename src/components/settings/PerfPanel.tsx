@@ -31,6 +31,22 @@ interface EventLoopSample {
   p99Ms: number;
 }
 
+interface BlockEntry {
+  t: number;
+  ms: number;
+  during: string[];
+  duringStacks?: (string | null)[];
+  type?: "cpu" | "io";
+}
+
+interface BlockTimelineEvent {
+  t: number;
+  type: "open" | "close";
+  label: string;
+  id: number;
+  windowType?: "cpu" | "io";
+}
+
 /** Event-loop delay tone is stricter than request-timing tone — a few ms here means EVERY concurrent request is paying that tax, not just one slow endpoint. */
 function eventLoopTone(ms: number) {
   if (ms >= 100) return "text-down";
@@ -93,6 +109,8 @@ export function PerfPanel() {
   const [aggregates, setAggregates] = useState<PerfAggregate[] | null>(null);
   const [eventLoopLive, setEventLoopLive] = useState<EventLoopSample | null>(null);
   const [eventLoopHistory, setEventLoopHistory] = useState<EventLoopSample[]>([]);
+  const [blocks, setBlocks] = useState<BlockEntry[]>([]);
+  const [timeline, setTimeline] = useState<BlockTimelineEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorModal, setErrorModal] = useState<{ kind: string; label: string; entries: PerfErrorEntry[] } | null>(null);
 
@@ -105,6 +123,8 @@ export function PerfPanel() {
         setAggregates(data.aggregates ?? []);
         setEventLoopLive(data.eventLoop?.live ?? null);
         setEventLoopHistory(data.eventLoop?.history ?? []);
+        setBlocks(data.blocks ?? []);
+        setTimeline(data.timeline ?? []);
       }
     } finally {
       setLoading(false);
@@ -181,6 +201,70 @@ export function PerfPanel() {
             )}
           </>
         )}
+      </div>
+
+      {/* Gels de l'event loop */}
+      {blocks.length > 0 ? (
+        <div className="mb-5 rounded-xl border border-white/8 bg-black/20 p-4">
+          <h4 className="flex items-center gap-1.5 text-xs font-bold text-ink-dim">
+            <Activity className="h-3.5 w-3.5" /> {t("health.blocksTitle")}
+          </h4>
+          <p className="mt-1 text-[11px] leading-relaxed text-ink-dim">{t("health.blocksHint")}</p>
+          <div className="mt-3 overflow-x-auto rounded-lg border border-white/5 bg-black/40">
+            <table className="w-full text-left font-mono text-[10px]">
+              <thead>
+                <tr className="border-b border-white/8 uppercase tracking-wider text-ink-dim">
+                  <th className="px-3 py-2 font-semibold">{t("health.blockColTime")}</th>
+                  <th className="px-3 py-2 text-right font-semibold">{t("health.blockColMs")}</th>
+                  <th className="px-3 py-2 text-left font-semibold">{t("health.blockColType")}</th>
+                  <th className="px-3 py-2 font-semibold">{t("health.blockColDuring")}</th>
+                  <th className="px-3 py-2 font-semibold">{t("health.blockColStack")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blocks.slice(0, 50).map((b, i) => (
+                  <tr key={i} className="border-b border-white/5 last:border-0">
+                    <td className="px-3 py-1.5 text-ink-soft">{new Date(b.t).toLocaleTimeString()}</td>
+                    <td className={cn("px-3 py-1.5 text-right font-bold", msTone(b.ms))}>{fmtMs(b.ms)}</td>
+                    <td className="px-3 py-1.5 text-left text-ink-soft capitalize">{b.type ?? "—"}</td>
+                    <td className="px-3 py-1.5 text-ink-soft break-words" title={b.during.join(", ")}>{b.during.join(", ")}</td>
+                    <td className="px-3 py-1.5 text-ink-dim break-all text-[9px]">
+                      {b.duringStacks?.map((s, si) => (
+                        <div key={si} className="mb-1 truncate max-w-[200px]">{s ?? "—"}</div>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-5 rounded-xl border border-white/8 bg-black/20 p-4">
+          <h4 className="flex items-center gap-1.5 text-xs font-bold text-ink-dim">
+            <Activity className="h-3.5 w-3.5" /> {t("health.blocksTitle")}
+          </h4>
+          <p className="mt-1 text-[11px] text-ink-dim">{t("health.blockEmpty")}</p>
+        </div>
+      )}
+
+      {/* Timeline des fenêtres */}
+      <div className="mt-4 rounded-xl border border-white/8 bg-black/20 p-4">
+        <h4 className="flex items-center gap-1.5 text-xs font-bold text-ink-dim">
+          <Activity className="h-3.5 w-3.5" /> {t("health.timelineTitle")}
+        </h4>
+        <p className="mt-1 text-[11px] leading-relaxed text-ink-dim">{t("health.timelineHint")}</p>
+        <div className="mt-3 max-h-64 overflow-y-auto font-mono text-[9px] space-y-0.5">
+          {timeline.slice(0, 100).map((e) => (
+            <div key={e.t + e.id} className="flex items-center gap-2 px-2 py-0.5 rounded-lg">
+              <span className="w-[52px] text-ink-dim">{new Date(e.t).toLocaleTimeString()}</span>
+              <span className={`w-[14px] shrink-0 rounded ${e.type === "cpu" ? "bg-down/20 text-down" : e.type === "io" ? "bg-amber/20 text-amber" : "bg-white/10 text-ink-dim"}`}>{e.windowType ?? "—"}</span>
+              <span className="w-20 shrink-0 truncate">{e.type === "open" ? t("health.timelineOpen") : t("health.timelineClose")}</span>
+              <span className="text-ink-soft break-all">{e.label}</span>
+              <span className="ml-1 text-[10px] text-ink-dim">#{e.id}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="mt-4 space-y-4">
