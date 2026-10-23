@@ -26,6 +26,7 @@ import { bleachFilePresentation } from "@/lib/metadata/bleachPlexIdentity";
 import type { EpisodePlacement } from "@/lib/engine/episodePlacement";
 import type { LibrarySeries } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
+import { repairCombinedEpisodesUnderLock } from "@/lib/library/combinedEpisodes";
 
 export interface ImportedFile {
   path: string;
@@ -503,7 +504,10 @@ async function prepareEpisodeReplacements(
   }
   const renamed = new Map<string, string>();
   for (const [file, oldPaths] of byFile) {
-    if (file.episodePlacement && oldPaths.some(old => series.seasons.some(s => s.episodes.some(ep => diskPathOf(ep.file) === old && matchFor(s.seasonNumber, ep.episodeNumber) !== file)))) throw new Error("bleach_shared_file_replacement_unverified");
+    // One file can back two catalog entries. Never delete or replace it when
+    // this import targets only one of them; the untouched episode would then
+    // retain a path to a deleted file.
+    if (oldPaths.some(old => series.seasons.some(s => s.episodes.some(ep => diskPathOf(ep.file) === old && matchFor(s.seasonNumber, ep.episodeNumber) !== file)))) throw new Error("shared_episode_file_replacement_unverified");
     if (oldPaths.length === 1 && !file.episodePlacement) {
       const roots = await engineLibraryRoots();
       const finalPath = await replaceOneEpisodeFile(oldPaths[0], file.path, file.size, roots);
@@ -628,6 +632,7 @@ export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedF
     if (ref.kind !== "movie") {
       const { relocateAnthologyFiles } = await import("@/lib/library/anthology");
       if (await relocateAnthologyFiles(ref.seriesId).catch(() => 0)) refreshLoose("tv");
+      if (result.ok) await repairCombinedEpisodesUnderLock(ref.seriesId);
     }
     return result;
   });

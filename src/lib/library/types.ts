@@ -173,6 +173,9 @@ export interface LibraryEpisode {
   activeEpisodePlacement?: import("@/lib/engine/episodePlacement").EpisodePlacement;
   /** Dernier torrent effectivement installé, pour acquitter un callback rejoué après un renommage. */
   lastImportedInfoHash?: string | null;
+  /** Two catalog episodes represented by one unchanged on-disk video.
+   * The number in the physical filename is not the catalog episode number. */
+  combinedFile?: { fileEpisodeNumber: number; firstEpisodeNumber: number; lastEpisodeNumber: number };
   /** Plex library item id for this exact episode — set by the Plex library sync, powers "Watch on Plex". */
   plexRatingKey: string | null;
   playbackSource?: "movviz" | "plex" | null;
@@ -185,6 +188,8 @@ export interface LibrarySeason {
   seasonNumber: number;
   name: string;
   monitored: boolean;
+  /** Per-season double-episode mapping; absent permits strict automatic detection. */
+  doubleEpisodesMode?: "off" | "auto" | "manual";
   episodes: LibraryEpisode[];
 }
 

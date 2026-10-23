@@ -102,7 +102,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json() as {
         next?: {
           seriesId: string; seriesTitle: string; seasonNumber: number; episodeNumber: number;
-          title: string; plexRatingKey: string; plexUrl: string;
+          title: string; plexRatingKey: string; plexUrl: string | null;
         } | null;
       };
       const next = data.next;

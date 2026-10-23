@@ -181,7 +181,7 @@ export function EditTitleModal({
                 {type === "series" && (
                   <div>
                     <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.seriesLocation")}</p>
-                    <SeriesFolders seriesId={id} seriesPart={seriesPart} />
+                    <SeriesFolders seriesId={id} seriesPart={seriesPart} onChange={onChange} />
                     {!seriesPart && <div className="mt-3">
                       <AnthologyRelocate tmdbId={tmdbId} seriesId={id} />
                     </div>}

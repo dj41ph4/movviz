@@ -1,3 +1,11 @@
+## v1.27.31 — October 23, 2026
+
+### Double episodes by season
+
+- In Edit title, each season offers a Double episodes switch beside its folder. It links each file to two catalog episodes and can be disabled per season.
+- New packs are detected automatically only when file count, numbering and durations confirm the double format. FINAL helps but is never sufficient alone.
+- Movviz shows covered episodes as available, plays their shared file, marks both watched at completion and continues to the next file. Disk videos are not renamed.
+
 ## v1.27.30 — October 23, 2026
 
 ### Dashboard hero

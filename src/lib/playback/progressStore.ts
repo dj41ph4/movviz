@@ -7,6 +7,8 @@ import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, 
 import { emitPlaybackProgress, emitWatchChanged } from "@/lib/events/watchEvents";
 import { resolvePlaybackEpisode } from "./episodeIdentity";
 import { PLAYBACK_ACTIVE_HEARTBEAT_MS } from "./sessionFreshness";
+import { getSeriesByTmdbId } from "@/lib/library/store";
+import { combinedEpisodePeers } from "@/lib/library/combinedEpisodes";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "playback-progress.json");
@@ -418,7 +420,24 @@ export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBound
   if (p.watched) return p;
   p.watched = true; p.watchedAt = Date.now(); p.resumeOffsetMs = null; p.eligibleForResume = false; p.boundarySource = source; p.updatedAt = Date.now(); p.revision++;
   if (p.mediaType === "movie" && p.tmdbId != null) setWatchedMovies(p.userId, [p.tmdbId], true, p.title ?? "", undefined, "movviz_playback");
-  if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) setWatchedEpisodes(p.userId, [{ tmdbId: p.tmdbId, season: p.seasonNumber, episode: p.episodeNumber }], true, p.title ?? "", "movviz_playback");
+  if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) {
+    const series = getSeriesByTmdbId(p.tmdbId);
+    const episodeNumbers = series ? combinedEpisodePeers(series, p.seasonNumber, p.episodeNumber) : [p.episodeNumber];
+    setWatchedEpisodes(p.userId, episodeNumbers.map((episode) => ({ tmdbId: p.tmdbId!, season: p.seasonNumber!, episode })), true, p.title ?? "", "movviz_playback");
+    if (episodeNumbers.length > 1) {
+      // store() can call markPlaybackWatched during its one-time backfill;
+      // reading the already-loaded global avoids re-entering that load.
+      for (const progress of Object.values(g.__movvizPlaybackProgress?.byUser[p.userId] ?? {})) {
+        if (progress === p || progress.mediaType !== "episode" || progress.tmdbId !== p.tmdbId || progress.seasonNumber !== p.seasonNumber || !episodeNumbers.includes(progress.episodeNumber ?? -1)) continue;
+        progress.watched = true;
+        progress.watchedAt = p.watchedAt;
+        progress.resumeOffsetMs = null;
+        progress.eligibleForResume = false;
+        progress.updatedAt = p.updatedAt;
+        progress.revision++;
+      }
+    }
+  }
   recordPlaybackCompleted(p);
   return p;
 }

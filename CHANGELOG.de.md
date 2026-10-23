@@ -1,3 +1,11 @@
+## v1.27.31 — 23. Oktober 2026
+
+### Doppelfolgen pro Staffel
+
+- In „Titel bearbeiten“ hat jede Staffel neben ihrem Ordner einen Schalter für Doppelfolgen. Er ordnet jede Datei zwei Katalogfolgen zu und lässt sich pro Staffel deaktivieren.
+- Neue Pakete werden nur automatisch erkannt, wenn Dateianzahl, Nummerierung und Laufzeiten das Doppelformat bestätigen. FINAL ist ein zusätzlicher Hinweis, allein aber nicht ausreichend.
+- Movviz zeigt die abgedeckten Folgen als verfügbar, spielt ihre gemeinsame Datei ab, markiert beide nach dem Abspielen als gesehen und fährt mit der nächsten Datei fort. Dateien auf dem Datenträger werden nicht umbenannt.
+
 ## v1.27.30 — 23. Oktober 2026
 
 ### Dashboard-Hero

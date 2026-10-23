@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import { projectBleachLibrary, type BleachPart } from "@/lib/metadata/bleachPresentation";
@@ -52,7 +52,7 @@ export function CopyablePath({ path: movvizPath }: { path: string }) {
 
 interface SeriesFiles {
   episodeOrder?: string;
-  seasons?: { seasonNumber: number; episodes: { episodeNumber?: number; file?: { path?: string; diskPath?: string } | null }[] }[];
+  seasons?: { seasonNumber: number; doubleEpisodesMode?: "off" | "auto" | "manual"; episodes: { episodeNumber?: number; file?: { path?: string; diskPath?: string } | null }[] }[];
 }
 
 /** Last separator of a path, whichever the convention (NAS « / » or Windows « \ »). */
@@ -63,9 +63,11 @@ function parentOf(p: string): string {
 
 /** Where a series lives on the disk: its folder, then one folder per season
  *  that has files — read from the episodes' own files, nothing guessed. */
-export function SeriesFolders({ seriesId, seriesPart }: { seriesId: string; seriesPart?: BleachPart }) {
+export function SeriesFolders({ seriesId, seriesPart, onChange }: { seriesId: string; seriesPart?: BleachPart; onChange?: () => void }) {
   const t = useT();
-  const { data } = useSWR<{ series?: SeriesFiles } & SeriesFiles>(`/api/library/series/${seriesId}`);
+  const { data, mutate } = useSWR<{ series?: SeriesFiles } & SeriesFiles>(`/api/library/series/${seriesId}`);
+  const [savingSeason, setSavingSeason] = useState<number | null>(null);
+  const [seasonError, setSeasonError] = useState<{ seasonNumber: number; message: string } | null>(null);
   const series = data?.series ?? data;
   if (!series) return <p className="text-xs text-ink-dim">{t("common.loading")}</p>;
   const scoped = seriesPart ? projectBleachLibrary({ ...series, tmdbId: 30984 }, seriesPart) : series;
@@ -76,20 +78,58 @@ export function SeriesFolders({ seriesId, seriesPart }: { seriesId: string; seri
       if (filePath && !seasonDirs.has(season.seasonNumber)) seasonDirs.set(season.seasonNumber, parentOf(filePath));
     }
   }
-  if (seasonDirs.size === 0) return <p className="text-xs text-ink-dim">{t("title.edit.noFile")}</p>;
   const seriesDirs = [...new Set([...seasonDirs.values()].map(parentOf))];
+  const toggleDoubleEpisodes = async (seasonNumber: number, enabled: boolean) => {
+    setSavingSeason(seasonNumber);
+    setSeasonError(null);
+    try {
+      const response = await fetch(`/api/library/series/${seriesId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ doubleEpisodesSeason: seasonNumber, doubleEpisodesEnabled: enabled }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(result.error === "no_matching_pack" ? t("library.doubleEpisodesNoMatch") : t("library.doubleEpisodesError"));
+      }
+      await mutate();
+      onChange?.();
+    } catch (error) {
+      setSeasonError({ seasonNumber, message: error instanceof Error ? error.message : t("library.doubleEpisodesError") });
+    } finally {
+      setSavingSeason(null);
+    }
+  };
   return (
     <div className="space-y-3">
       {seriesDirs.map((dir) => <CopyablePath key={dir} path={dir} />)}
-      <div className="space-y-2">
-        {[...seasonDirs.entries()].sort(([a], [b]) => a - b).map(([season, dir]) => (
-          <div key={season}>
-            <p className="mb-1 text-xs font-semibold text-ink-dim">
-              {season === 0 ? t("title.edit.specials") : t("title.edit.seasonFolder", { season })}
-            </p>
-            <CopyablePath path={dir} />
+      <p className="text-xs leading-relaxed text-ink-dim">{t("library.doubleEpisodesHint")}</p>
+      <div className="space-y-3">
+        {[...(scoped.seasons ?? [])].sort((a, b) => a.seasonNumber - b.seasonNumber).map((season) => {
+          const dir = seasonDirs.get(season.seasonNumber);
+          const enabled = season.doubleEpisodesMode === "manual" || season.doubleEpisodesMode === "auto";
+          return <div key={season.seasonNumber} className="rounded-xl border border-white/8 bg-black/15 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-ink-dim">
+                {season.seasonNumber === 0 ? t("title.edit.specials") : t("title.edit.seasonFolder", { season: season.seasonNumber })}
+              </p>
+              <label className="flex items-center gap-2 text-xs font-semibold text-ink">
+                <span>{t("library.doubleEpisodes")}</span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={enabled}
+                  disabled={!dir || season.seasonNumber < 1 || scoped.episodeOrder === "tvdb" || savingSeason != null}
+                  onChange={(event) => void toggleDoubleEpisodes(season.seasonNumber, event.target.checked)}
+                  className="h-4 w-4 accent-brand disabled:opacity-40"
+                />
+                {savingSeason === season.seasonNumber && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              </label>
+            </div>
+            {dir ? <CopyablePath path={dir} /> : <p className="text-xs text-ink-dim">{t("title.edit.noFile")}</p>}
+            {seasonError?.seasonNumber === season.seasonNumber && <p role="status" className="mt-1.5 text-xs text-down">{seasonError.message}</p>}
           </div>
-        ))}
+        })}
       </div>
     </div>
   );

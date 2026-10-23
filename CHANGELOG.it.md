@@ -1,3 +1,11 @@
+## v1.27.31 — 23 ottobre 2026
+
+### Episodi doppi per stagione
+
+- In Modifica scheda, ogni stagione ha un interruttore Episodi doppi accanto alla sua cartella. Associa ogni file a due episodi del catalogo e si può disattivare per stagione.
+- I nuovi pacchetti vengono rilevati automaticamente solo se numero di file, numerazione e durate confermano il formato doppio. FINAL aiuta ma da solo non basta.
+- Movviz mostra gli episodi coperti come disponibili, riproduce il file condiviso, segna entrambi come visti al termine e passa al file successivo. I video sul disco non vengono rinominati.
+
 ## v1.27.30 — 23 ottobre 2026
 
 ### Hero della dashboard

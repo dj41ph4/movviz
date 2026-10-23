@@ -1,3 +1,11 @@
+## v1.27.31 — 23 oktober 2026
+
+### Dubbele afleveringen per seizoen
+
+- In Titel bewerken heeft elk seizoen naast de map een schakelaar voor dubbele afleveringen. Die koppelt elk bestand aan twee catalogusafleveringen en kan per seizoen worden uitgezet.
+- Nieuwe pakketten worden alleen automatisch herkend wanneer aantal bestanden, nummering en speelduur het dubbele formaat bevestigen. FINAL helpt, maar is op zichzelf niet voldoende.
+- Movviz toont de gedekte afleveringen als beschikbaar, speelt hun gedeelde bestand af, markeert beide na afloop als bekeken en gaat door naar het volgende bestand. Videobestanden worden niet hernoemd.
+
 ## v1.27.30 — 23 oktober 2026
 
 ### Hero van het dashboard

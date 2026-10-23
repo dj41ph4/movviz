@@ -14,6 +14,7 @@ import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleac
 import { patchBleachArtwork, type BleachArtworkSelection } from "@/lib/metadata/bleachArtwork";
 import { projectBleachLibrary } from "@/lib/metadata/bleachPresentation";
 import { withKeyLock } from "@/lib/library/locks";
+import { repairCombinedEpisodesUnderLock, removeCombinedEpisodeMappingUnderLock } from "@/lib/library/combinedEpisodes";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -44,6 +45,25 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   return withKeyLock(`series:${id}`, async () => {
     const current = getSeries(id);
     if (!current) return NextResponse.json({ error: "not found" }, { status: 404 });
+    if ("doubleEpisodesEnabled" in patch) {
+      if (user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      const seasonNumber = patch.doubleEpisodesSeason;
+      if (typeof patch.doubleEpisodesEnabled !== "boolean" || !Number.isInteger(seasonNumber) || seasonNumber < 1 || patch.seriesPart != null) return NextResponse.json({ error: "invalid_double_episodes_setting" }, { status: 400 });
+      if (!current.seasons.some((season) => season.seasonNumber === seasonNumber)) return NextResponse.json({ error: "season_not_found" }, { status: 404 });
+      if (patch.doubleEpisodesEnabled) {
+        updateSeries(id, { seasons: current.seasons.map((season) => season.seasonNumber === seasonNumber ? { ...season, doubleEpisodesMode: "manual" } : season) });
+        const mappedSeasons = await repairCombinedEpisodesUnderLock(id, seasonNumber);
+        if (mappedSeasons === 0) {
+          const latest = getSeries(id);
+          if (latest) updateSeries(id, { seasons: latest.seasons.map((season) => season.seasonNumber === seasonNumber ? { ...season, doubleEpisodesMode: current.seasons.find((previous) => previous.seasonNumber === seasonNumber)?.doubleEpisodesMode } : season) });
+          return NextResponse.json({ error: "no_matching_pack" }, { status: 422 });
+        }
+        return NextResponse.json({ ...getSeries(id), doubleEpisodesMappedSeasons: mappedSeasons });
+      }
+      const result = removeCombinedEpisodeMappingUnderLock(id, seasonNumber);
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.error === "not_found" ? 404 : 409 });
+      return NextResponse.json({ ...getSeries(id), doubleEpisodesMappedSeasons: result.seasons });
+    }
     const seriesPart = parseBleachSeriesPart(patch.seriesPart);
     if (patch.seriesPart != null && (!seriesPart || current.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
     const allowed = ["monitored", "qualityProfileId", "aliases", "customBackdropPath", "customLogoPath"] as const;

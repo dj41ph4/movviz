@@ -829,6 +829,10 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     if (!changed) {
       for (const season of existing.seasons) {
         for (const ep of season.episodes) {
+          // Plex still numbers the unchanged physical files E01..E10. The
+          // verified 2:1 Movviz association must not be overwritten by Plex's
+          // different catalog coordinate (its E02 points at physical file 2).
+          if (ep.combinedFile && hasValidLocalFile(ep.file)) continue;
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey) { changed = true; break; }
@@ -850,6 +854,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         return {
           ...season,
           episodes: season.episodes.map((ep) => {
+          if (ep.combinedFile && hasValidLocalFile(ep.file)) return ep;
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {

@@ -1,3 +1,11 @@
+## v1.27.31 — 23 octobre 2026
+
+### Épisodes doubles par saison
+
+- Dans « Modifier la fiche », chaque saison propose « Épisodes doubles » à côté de son dossier. Le réglage associe chaque fichier à deux épisodes du catalogue et peut être désactivé saison par saison.
+- Les nouveaux packs sont reconnus automatiquement uniquement si le nombre de fichiers, la numérotation et les durées confirment le format double. Le mot FINAL aide sans suffire à lui seul.
+- Movviz affiche les épisodes couverts comme disponibles, lit le fichier commun, marque les deux épisodes vus en fin de lecture et passe ensuite au fichier suivant. Les vidéos sur disque ne sont pas renommées.
+
 ## v1.27.30 — 23 octobre 2026
 
 ### Hero du tableau de bord

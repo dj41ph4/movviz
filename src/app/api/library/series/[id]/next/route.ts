@@ -3,16 +3,16 @@ import { requireUser } from "@/lib/auth/guard";
 import { getSeries } from "@/lib/library/store";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
+import { combinedEpisodePeers } from "@/lib/library/combinedEpisodes";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * Resolves only the immediate next episode. Skipping a missing episode to
- * reach a later one would be convenient technically but wrong narratively.
- * The player therefore shows/starts the next item only when that exact item
- * is playable now, from Movviz local storage or Plex.
+ * Resolves the next distinct playable file. A verified double-episode pair
+ * shares one file, so finishing either catalog entry advances after the pair.
+ * Otherwise only the immediate next episode is considered.
  */
 export async function GET(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
@@ -33,7 +33,12 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const currentIndex = ordered.findIndex(
     (item) => item.seasonNumber === seasonNumber && item.episode.episodeNumber === episodeNumber,
   );
-  const candidate = currentIndex >= 0 ? ordered[currentIndex + 1] : undefined;
+  const peerNumbers = currentIndex >= 0 ? combinedEpisodePeers(series, seasonNumber, episodeNumber) : [episodeNumber];
+  const lastPeer = Math.max(...peerNumbers);
+  const lastPeerIndex = currentIndex >= 0 && lastPeer !== episodeNumber
+    ? ordered.findIndex((item) => item.seasonNumber === seasonNumber && item.episode.episodeNumber === lastPeer)
+    : currentIndex;
+  const candidate = lastPeerIndex >= 0 ? ordered[lastPeerIndex + 1] : undefined;
   if (!candidate || candidate.episode.status !== "available" || (!candidate.episode.file && !candidate.episode.plexRatingKey)) {
     return NextResponse.json({ next: null });
   }
@@ -44,7 +49,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     : null;
   // A playable player request needs a Plex URL as the final emergency
   // fallback, even when the local source will be chosen first.
-  if (!candidate.episode.plexRatingKey || !plexUrl) return NextResponse.json({ next: null });
+  if (!candidate.episode.file && (!candidate.episode.plexRatingKey || !plexUrl)) return NextResponse.json({ next: null });
 
   return NextResponse.json({
     next: {
@@ -53,7 +58,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       seasonNumber: candidate.seasonNumber,
       episodeNumber: candidate.episode.episodeNumber,
       title: candidate.episode.title,
-      plexRatingKey: candidate.episode.plexRatingKey,
+      plexRatingKey: candidate.episode.plexRatingKey ?? `${series.id}:s${candidate.seasonNumber}e${candidate.episode.episodeNumber}`,
       plexUrl,
     },
   });
