@@ -1,3 +1,10 @@
+## v1.27.39 — 24 octobre 2026
+
+### Téléchargements plus réactifs
+
+- L'accès aux téléchargements affiche immédiatement la structure de la page. Seul l'onglet ouvert est monté : l'historique ne montre plus le chargement ni le panneau de la file sur grand écran.
+- La file charge les lignes suivantes au défilement. Ses relevés et ceux du panneau WebTorrent s'arrêtent lorsque la page passe en arrière-plan ou que l'on quitte la file, tout en restant rapides pendant un téléchargement actif.
+
 ## v1.27.38 — 24 octobre 2026
 
 ### Téléchargements, images et réglages

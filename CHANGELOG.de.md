@@ -1,3 +1,10 @@
+## v1.27.39 — 24. Oktober 2026
+
+### Schnellere Downloads-Ansicht
+
+- Beim Öffnen der Downloads erscheint die Seitenstruktur sofort. Nur der gewählte Tab wird geladen; der Verlauf zeigt auf großen Bildschirmen weder den Ladezustand noch das Panel der Warteschlange.
+- Weitere Einträge der Warteschlange werden beim Scrollen geladen. Warteschlange und WebTorrent-Panel stoppen ihre Abfragen im Hintergrund oder auf anderen Tabs und bleiben bei aktiven Downloads reaktionsschnell.
+
 ## v1.27.38 — 24. Oktober 2026
 
 ### Downloads, Bilder und Einstellungen

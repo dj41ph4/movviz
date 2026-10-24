@@ -11,6 +11,7 @@ import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/u
 import { useSmoothProgress } from "@/lib/media/useSmoothProgress";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
+import { usePageVisible } from "@/lib/usePageVisible";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { QueueItem } from "@/lib/activity/v2/types";
@@ -83,6 +84,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const user = useCurrentUser();
   const reduceMotion = useShouldReduceMotion();
   const { optimized } = useInterfaceDataMode();
+  const pageVisible = usePageVisible();
   const btnSpring = reduceMotion ? {} : {
     whileTap: { scale: 0.95 },
     transition: { type: "spring" as const, stiffness: 400, damping: 17 },
@@ -90,11 +92,12 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const [clearingAll, setClearingAll] = useState(false);
   const SWR_KEY = "/api/activity/v2?tab=queue";
   const { data, error, mutate } = useSWR<{ items: QueueItem[]; engineUnavailable?: boolean }>(
-    clearingAll || !active ? null : SWR_KEY,
+    clearingAll || !active || !pageVisible ? null : SWR_KEY,
     {
-      refreshInterval: optimized
-        ? (latest) => (latest?.items.some((item) => item.status === "downloading" || item.status === "importing" || item.seedStatus?.state === "verifying") ? 1_000 : 10_000)
-        : 500,
+      refreshInterval: (latest) => {
+        const busy = latest?.items.some((item) => item.status === "downloading" || item.status === "importing" || item.seedStatus?.state === "verifying");
+        return busy ? (optimized ? 2_000 : 1_000) : (optimized ? 10_000 : 3_000);
+      },
       dedupingInterval: optimized ? 750 : 250,
       revalidateOnFocus: !optimized,
     }
@@ -167,21 +170,18 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   // Progressive rendering — a queue with hundreds of completed/seeding items
   // crashed the tab when every row was painted on every 500ms poll. Paint the
   // first batch immediately (active/importing items sort first, so the live
-  // part of the queue is always visible), grow the rest in idle time.
+  // part of the queue is always visible), grow the rest only when scrolled into view.
   const [visibleCount, setVisibleCount] = useState(RENDER_BATCH_INITIAL);
+  const moreRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    setVisibleCount(RENDER_BATCH_INITIAL);
-  }, [filter]);
-  useEffect(() => {
-    if (visibleCount >= filtered.length) return;
-    const grow = () => setVisibleCount((c) => c + RENDER_BATCH_STEP);
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(grow);
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(grow, 50);
-    return () => window.clearTimeout(id);
-  }, [visibleCount, filtered.length]);
+    const node = moreRef.current;
+    if (!node || visibleCount >= filtered.length || !pageVisible) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) setVisibleCount((count) => count + RENDER_BATCH_STEP);
+    }, { rootMargin: "300px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [visibleCount, filtered.length, pageVisible]);
   const visibleItems = filtered.slice(0, visibleCount);
 
   const toggleExpand = (id: string) => {
@@ -424,6 +424,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     }
   };
 
+  if (!active) return null;
   if (error) return <div className="rounded-2xl glass py-12 text-center text-sm text-down">{t("activity.loadError")}</div>;
   if (!data) return <div className="flex items-center justify-center gap-2 py-16 text-ink-dim"><Download className="h-5 w-5 animate-pulse" /> {t("common.loading")}</div>;
 
@@ -440,7 +441,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           {FILTERS.map((f) => (
             <button
               key={f}
-              onClick={() => setFilter(f)}
+              onClick={() => { setFilter(f); setVisibleCount(RENDER_BATCH_INITIAL); }}
               aria-pressed={filter === f}
               className={cn(
                 "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
@@ -580,13 +581,15 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       {filtered.length > visibleItems.length && (
-        <button
-          onClick={() => setVisibleCount((c) => c + RENDER_BATCH_STEP)}
-          className="mx-auto flex h-11 items-center gap-2 rounded-xl bg-white/5 px-4 text-sm font-semibold text-ink-soft transition-colors hover:bg-white/10"
-        >
-          <List className="h-4 w-4" />
-          {t("activity.showMore", { n: filtered.length - visibleItems.length })}
-        </button>
+        <div ref={moreRef} className="flex justify-center">
+          <button
+            onClick={() => setVisibleCount((c) => c + RENDER_BATCH_STEP)}
+            className="flex h-11 items-center gap-2 rounded-xl bg-white/5 px-4 text-sm font-semibold text-ink-soft transition-colors hover:bg-white/10"
+          >
+            <List className="h-4 w-4" />
+            {t("activity.showMore", { n: filtered.length - visibleItems.length })}
+          </button>
+        </div>
       )}
 
       {filtered.length === 0 && (

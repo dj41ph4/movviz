@@ -13,7 +13,9 @@ import { DownloadLiveStats } from "@/components/media/DownloadLiveStats";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import useSWR from "swr";
 import { formatBytes, formatSpeed } from "@/lib/utils";
+import { usePageVisible } from "@/lib/usePageVisible";
 import { Download, History, ListChecks, AlertCircle, Link2 } from "lucide-react";
+import DownloadsLoading from "./loading";
 
 const TABS = [
   { id: "queue", labelKey: "activity.queue", icon: Download },
@@ -25,10 +27,15 @@ const TABS = [
 
 export default function DownloadsPage() {
   return (
-    <Suspense fallback={null}>
-      <DownloadsPageInner />
+    <Suspense fallback={<DownloadsLoading />}>
+      <DownloadsPageRoute />
     </Suspense>
   );
+}
+
+function DownloadsPageRoute() {
+  const params = useSearchParams();
+  return <DownloadsPageInner key={params.get("tab") ?? "queue"} />;
 }
 
 function DownloadsPageInner() {
@@ -37,17 +44,19 @@ function DownloadsPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  // La description est un résumé live (mêmes clés SWR que la colonne de droite, donc aucune requête en plus).
-  const { data: engine } = useSWR<{ downloading: number; downloadSpeed: number }>("/api/engine/stats", { refreshInterval: 5000, revalidateOnFocus: false });
-  const { data: system } = useSWR<{ disk: { free: number } | null }>("/api/stats", { refreshInterval: 30_000, revalidateOnFocus: false });
+  const pageVisible = usePageVisible();
+  const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
+  const initialTab = visibleTabs.find((tb) => tb.id === params.get("tab"))?.id ?? "queue";
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
+  // Share the SWR keys with the queue panel; neither polls on another tab or in the background.
+  const live = tab === "queue" && pageVisible;
+  const { data: engine } = useSWR<{ downloading: number; downloadSpeed: number }>(live ? "/api/engine/stats" : null, { refreshInterval: 5000, revalidateOnFocus: false });
+  const { data: system } = useSWR<{ disk: { free: number } | null }>(live ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
   const summary = [
     t("downloads.summaryActive", { count: engine?.downloading ?? 0 }),
     formatSpeed(engine?.downloadSpeed ?? 0),
     system?.disk ? t("downloads.summaryFree", { size: formatBytes(system.disk.free) }) : null,
   ].filter(Boolean).join(" · ");
-  const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
-  const initialTab = visibleTabs.find((tb) => tb.id === params.get("tab"))?.id ?? "queue";
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
 
   const pushTab = (id: (typeof TABS)[number]["id"]) => {
     setTab(id);
@@ -62,7 +71,7 @@ function DownloadsPageInner() {
       <PageHeader
         eyebrow={t("activity.eyebrow")}
         title={t("activity.title")}
-        description={summary}
+        description={tab === "queue" && engine ? summary : undefined}
       />
 
       <div className="nx-dl-tabs mb-6 flex flex-wrap gap-1.5" role="tablist">
@@ -83,15 +92,17 @@ function DownloadsPageInner() {
         ))}
       </div>
 
-      <div className="space-y-8">
-        <div className={cn("gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_280px]", tab !== "queue" && "hidden")}>
-          <QueueTab active={tab === "queue"} />
-          <div className="nx-download-live-stats mt-6 lg:mt-0"><DownloadLiveStats active={tab === "queue"} /></div>
-        </div>
-        <div className={cn(tab !== "history" && "hidden")}><HistoryTab active={tab === "history"} /></div>
-        <div className={cn(tab !== "wanted" && "hidden")}><WantedTab active={tab === "wanted"} /></div>
-        <div className={cn(tab !== "failures" && "hidden")}><HistoryTab failuresOnly={true} active={tab === "failures"} /></div>
-        {user?.role === "admin" && <div className={cn(tab !== "unlinked" && "hidden")}><UnlinkedTab active={tab === "unlinked"} /></div>}
+      <div>
+        {tab === "queue" && (
+          <div className="gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_280px]">
+            <QueueTab />
+            <div className="nx-download-live-stats mt-6 lg:mt-0"><DownloadLiveStats /></div>
+          </div>
+        )}
+        {tab === "history" && <HistoryTab />}
+        {tab === "wanted" && <WantedTab />}
+        {tab === "failures" && <HistoryTab failuresOnly />}
+        {tab === "unlinked" && user?.role === "admin" && <UnlinkedTab />}
       </div>
     </div>
   );

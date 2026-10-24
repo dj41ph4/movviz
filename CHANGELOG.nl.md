@@ -1,3 +1,10 @@
+## v1.27.39 — 24 oktober 2026
+
+### Snellere downloads
+
+- Bij het openen van Downloads verschijnt de paginastructuur direct. Alleen het geselecteerde tabblad wordt geladen; Geschiedenis toont op grote schermen niet langer de laadstatus of het wachtrijpaneel.
+- De wachtrij laadt meer regels bij het scrollen. De wachtrij en het WebTorrent-paneel stoppen met pollen op de achtergrond of op andere tabbladen, maar blijven snel reageren tijdens actieve downloads.
+
 ## v1.27.38 — 24 oktober 2026
 
 ### Downloads, afbeeldingen en instellingen

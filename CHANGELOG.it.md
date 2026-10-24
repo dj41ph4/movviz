@@ -1,3 +1,10 @@
+## v1.27.39 — 24 ottobre 2026
+
+### Download più reattivi
+
+- Aprendo Download appare subito la struttura della pagina. Viene montata solo la scheda selezionata: la cronologia non mostra più il caricamento o il pannello della coda sugli schermi grandi.
+- La coda carica altre righe durante lo scorrimento. I suoi aggiornamenti e quelli del pannello WebTorrent si fermano in background o su altre schede, restando rapidi durante i download attivi.
+
 ## v1.27.38 — 24 ottobre 2026
 
 ### Download, immagini e impostazioni

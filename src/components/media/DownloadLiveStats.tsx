@@ -10,6 +10,7 @@ import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import { Toggle } from "@/components/ui/Toggle";
 import type { EngineInstance } from "@/lib/types";
+import { usePageVisible } from "@/lib/usePageVisible";
 
 type SpeedSample = { at: number; downloadSpeed: number; uploadSpeed: number; active: number };
 type EngineStats = { torrents: number; downloading: number; queued: number; seeding: number; completed: number; downloadSpeed: number; uploadSpeed: number; history?: SpeedSample[] };
@@ -29,9 +30,11 @@ function linePoints(history: SpeedSample[], key: "downloadSpeed" | "uploadSpeed"
 export function DownloadLiveStats({ active = true }: { active?: boolean }) {
   const t = useT();
   const user = useCurrentUser();
+  const pageVisible = usePageVisible();
+  const polling = active && pageVisible;
   const [requestingRestart, setRequestingRestart] = useState(false);
   const { data: restartStatus, mutate: mutateRestart } = useSWR<{ restarting: boolean; error: string | null }>(
-    active && user?.role === "admin" ? "/api/engine/client-restart" : null,
+    polling && user?.role === "admin" ? "/api/engine/client-restart" : null,
     { refreshInterval: (status) => status?.restarting ? 1000 : 15_000, dedupingInterval: 500, revalidateOnFocus: true },
   );
   const restarting = requestingRestart || !!restartStatus?.restarting;
@@ -50,9 +53,9 @@ export function DownloadLiveStats({ active = true }: { active?: boolean }) {
       await mutateInstances();
     }
   };
-  const { data } = useSWR<EngineStats>(active ? "/api/engine/stats" : null, { refreshInterval: 5000, revalidateOnFocus: false });
-  const { data: systemStats } = useSWR<SystemStats>(active ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
-  const { data: instanceData, mutate: mutateInstances } = useSWR<{ instances: EngineInstance[] }>(active ? "/api/engine/instances" : null, { refreshInterval: 15_000, revalidateOnFocus: false });
+  const { data } = useSWR<EngineStats>(polling ? "/api/engine/stats" : null, { refreshInterval: 5000, revalidateOnFocus: false });
+  const { data: systemStats } = useSWR<SystemStats>(polling ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
+  const { data: instanceData, mutate: mutateInstances } = useSWR<{ instances: EngineInstance[] }>(polling ? "/api/engine/instances" : null, { refreshInterval: 15_000, revalidateOnFocus: false });
   const history = data?.history?.slice(-60) ?? [];
   const down = linePoints(history, "downloadSpeed");
   const up = linePoints(history, "uploadSpeed");

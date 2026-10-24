@@ -1,3 +1,10 @@
+## v1.27.39 — October 24, 2026
+
+### More responsive downloads
+
+- Opening Downloads now shows the page structure immediately. Only the selected tab mounts, so History no longer displays the queue loader or its panel on large screens.
+- The queue loads more rows on scroll. Its updates and the WebTorrent panel stop polling when the page is in the background or another tab is selected, while remaining responsive during active downloads.
+
 ## v1.27.38 — October 24, 2026
 
 ### Downloads, images and settings
