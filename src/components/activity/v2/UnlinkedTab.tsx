@@ -9,12 +9,14 @@ import { formatBytes, formatDateTime } from "@/lib/utils";
 import type { ActivityEntry } from "@/lib/activity/v2/types";
 import { LinkDownloadModal } from "./LinkDownloadModal";
 
-export function UnlinkedTab() {
+export function UnlinkedTab({ active = true }: { active?: boolean }) {
   const t = useT();
   const { locale } = useI18n();
-  const { data, mutate } = useSWR<{ items: ActivityEntry[] }>("/api/activity/v2?tab=unlinked");
+  const { data, mutate } = useSWR<{ items: ActivityEntry[] }>(active ? "/api/activity/v2?tab=unlinked" : null);
   const [target, setTarget] = useState<ActivityEntry | null>(null);
   const items = data?.items ?? [];
+
+  if (!active) return null;
 
   if (data && items.length === 0) {
     return (

@@ -49,7 +49,7 @@ export function GpuProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GpuContext.Provider value={value}>
-      <MotionConfig reducedMotion={reduceAnimations ? "always" : "user"}>{children}</MotionConfig>
+      <MotionConfig reducedMotion={reduceAnimations ? "always" : "user"} transition={reduceAnimations ? { duration: 0, delay: 0 } : undefined}>{children}</MotionConfig>
     </GpuContext.Provider>
   );
 }

@@ -32,7 +32,7 @@ export function ExperiencePanel() {
         <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.titlePageVideoHint")}</p>
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.titlePageVideoEnabled")}</span>
-          <Toggle on={titlePageVideo.enabled} onChange={() => titlePageVideo.setEnabled(!titlePageVideo.enabled)} />
+          <Toggle on={titlePageVideo.enabled} disabled={!titlePageVideo.loaded} onChange={() => titlePageVideo.setEnabled(!titlePageVideo.enabled)} />
         </div>
       </div>
 

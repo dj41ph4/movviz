@@ -1,3 +1,13 @@
+## v1.27.38 — October 24, 2026
+
+### Downloads, images and settings
+
+- The queue shows current downloads first and keeps completed and seeding torrents in their filters. A brief WebTorrent outage retains the last known queue instead of clearing it.
+- History loads only the open tab, shows 50 events, then loads more on scroll. Other tabs avoid background requests.
+- Known images and logos display from the browser cache, separated by language. Missing artwork loads in small batches through the server cache; recent additions and resumes come first.
+- The animations setting also disables Hero ambilight and automatic rotation. The separate Hero video setting stops its player immediately; manual playback remains independent.
+- Monitored upcoming movies now enter automatic search on addition, scheduled retries and RSS matching. No release before the date keeps their upcoming status without a false error.
+
 ## v1.27.37 — October 24, 2026
 
 ### Instant recent additions and playback resumes

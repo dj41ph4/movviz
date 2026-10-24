@@ -240,6 +240,7 @@ export const nl: Dictionary = {
       low: "Lage prioriteit",
     },
     filter: {
+      current: "Huidige wachtrij",
       all: "Alle",
       downloading: "Bezig",
       seeding: "Aan het seeden",
@@ -919,6 +920,7 @@ export const nl: Dictionary = {
     completed: "Voltooid",
     inProgress: "Bezig",
     loadError: "Laden mislukt",
+    queueSnapshotWarning: "De torrentclient reageert niet. De laatst bekende status wordt getoond; er wordt automatisch opnieuw geprobeerd.",
     noResults: "Geen resultaten komen overeen met je filters",
     noActivity: "Geen recente activiteit",
     today: "Vandaag",
@@ -1593,7 +1595,7 @@ export const nl: Dictionary = {
     dashboardExperience: {
       animationsTitle: "Animaties",
       animationsEnabled: "Animaties inschakelen",
-      animationsHint: "Logo, overgangen, effecten. Zet uit voor een volledig statische interface.",
+      animationsHint: "Schakelt overgangen, automatische carrouselrotatie, bewegende effecten en Hero-ambilight uit. Hero-video en afspelen hebben aparte instellingen.",
       saveError: "Dashboardinstellingen konden niet worden opgeslagen.",
       trailerSearchTitle: "Trailers",
       trailerSearchHint: "Als TMDb geen trailer in jouw taal heeft, zoek er dan een op YouTube in plaats van terug te vallen op Engels. Standaard uit — dit is geen officiële API, het hangt af van YouTube.",

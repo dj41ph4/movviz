@@ -86,12 +86,12 @@ function DownloadsPageInner() {
       <div className="space-y-8">
         <div className={cn("gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_280px]", tab !== "queue" && "hidden")}>
           <QueueTab active={tab === "queue"} />
-          <div className="nx-download-live-stats mt-6 lg:mt-0"><DownloadLiveStats /></div>
+          <div className="nx-download-live-stats mt-6 lg:mt-0"><DownloadLiveStats active={tab === "queue"} /></div>
         </div>
-        <div className={cn(tab !== "history" && "hidden")}><HistoryTab /></div>
+        <div className={cn(tab !== "history" && "hidden")}><HistoryTab active={tab === "history"} /></div>
         <div className={cn(tab !== "wanted" && "hidden")}><WantedTab active={tab === "wanted"} /></div>
-        <div className={cn(tab !== "failures" && "hidden")}><HistoryTab failuresOnly={true} /></div>
-        {user?.role === "admin" && <div className={cn(tab !== "unlinked" && "hidden")}><UnlinkedTab /></div>}
+        <div className={cn(tab !== "failures" && "hidden")}><HistoryTab failuresOnly={true} active={tab === "failures"} /></div>
+        {user?.role === "admin" && <div className={cn(tab !== "unlinked" && "hidden")}><UnlinkedTab active={tab === "unlinked"} /></div>}
       </div>
     </div>
   );

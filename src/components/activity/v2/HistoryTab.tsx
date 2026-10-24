@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { activityTitle, activitySeason, activityEpisode } from "@/lib/activity/v2/types";
-import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import Link from "next/link";
 import { useI18n, useT } from "@/i18n/provider";
 import { cn, formatClockTime, formatDateTime } from "@/lib/utils";
@@ -61,21 +61,42 @@ const STATUS_TABS = [
   { id: "failures",    types: ["failed", "blocked", "declined", "removed"] },
 ] as const;
 
-const RENDER_BATCH_INITIAL = 100;
-const RENDER_BATCH_STEP = 150;
+type HistoryPage = {
+  items: ActivityEntry[];
+  total: number;
+  availableTotal: number;
+  facets: { users: string[]; indexers: string[] };
+  nextCursor: string | null;
+};
 
-export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } = {}) {
+export function HistoryTab({ failuresOnly = false, active = true }: { failuresOnly?: boolean; active?: boolean } = {}) {
   const t = useT();
   const { locale } = useI18n();
-  const { data, error } = useSWR<{ items: ActivityEntry[]; total: number }>(
-    failuresOnly ? "/api/activity/v2?tab=failures" : "/api/activity/v2?tab=history"
-  );
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>(["all"]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [selectedIndexers, setSelectedIndexers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusTab, setStatusTab] = useState("all");
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+  const { data, error, size, setSize, isValidating } = useSWRInfinite<HistoryPage>(
+    (index, previous) => {
+      if (!active || (index > 0 && !previous?.nextCursor)) return null;
+      const params = new URLSearchParams({ tab: failuresOnly ? "failures" : "history" });
+      if (!selectedTypes.includes("all")) params.set("kinds", selectedTypes.join(","));
+      if (selectedUsers.length) params.set("users", selectedUsers.join(","));
+      if (selectedIndexers.length) params.set("indexers", selectedIndexers.join(","));
+      if (debouncedSearch) params.set("q", debouncedSearch);
+      if (index > 0 && previous?.nextCursor) params.set("after", previous.nextCursor);
+      return `/api/activity/v2?${params}`;
+    },
+    { revalidateFirstPage: false, revalidateOnFocus: false }
+  );
 
   const activateTab = (id: string) => {
     const tab = STATUS_TABS.find((t) => t.id === id);
@@ -83,57 +104,23 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
     setStatusTab(id);
   };
 
-  const items = data?.items ?? [];
-  const total = data?.total ?? 0;
-
-  const uniqueUsers = useMemo(() => [...new Set(items.map(item => item.actor))], [items]);
-  const uniqueIndexers = useMemo(() => {
-    const set = new Set<string>();
-    for (const item of items) {
-      if (item.release) set.add(item.release.indexer);
-    }
-    return [...set];
-  }, [items]);
-
-  const filteredItems = useMemo(() => items.filter(item => {
-    if (selectedTypes.length > 0 && !selectedTypes.includes("all") && !selectedTypes.includes(item.kind)) {
-      return false;
-    }
-
-    if (selectedUsers.length > 0 && !selectedUsers.includes(item.actor)) {
-      return false;
-    }
-
-    if (selectedIndexers.length > 0 && item.release && !selectedIndexers.includes(item.release.indexer)) {
-      return false;
-    }
-
-    if (searchQuery && !item.media.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
-    }
-
-    return true;
-  }), [items, selectedTypes, selectedUsers, selectedIndexers, searchQuery]);
-
-  // Progressive rendering — the history keeps thousands of entries (MAX_KEEP
-  // 2000) and rendering them all in one pass froze the tab; paint the first
-  // batch immediately and grow in idle time. Day grouping runs on the visible
-  // slice only, so a new day's header can't appear without its entries.
-  const [visibleCount, setVisibleCount] = useState(RENDER_BATCH_INITIAL);
+  const firstPage = data?.[0];
+  const lastPage = data?.at(-1);
+  const visibleItems = data?.flatMap((page) => page.items) ?? [];
+  const total = firstPage?.availableTotal ?? 0;
+  const filteredTotal = firstPage?.total ?? 0;
+  const uniqueUsers = firstPage?.facets.users ?? [];
+  const uniqueIndexers = firstPage?.facets.indexers ?? [];
+  const hasMore = !!lastPage?.nextCursor;
   useEffect(() => {
-    setVisibleCount(RENDER_BATCH_INITIAL);
-  }, [filteredItems.length]);
-  useEffect(() => {
-    if (visibleCount >= filteredItems.length) return;
-    const grow = () => setVisibleCount((c) => c + RENDER_BATCH_STEP);
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(grow);
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(grow, 50);
-    return () => window.clearTimeout(id);
-  }, [visibleCount, filteredItems.length]);
-  const visibleItems = filteredItems.slice(0, visibleCount);
+    const node = sentinelRef.current;
+    if (!active || !node || !hasMore || isValidating) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void setSize((current) => current + 1);
+    }, { rootMargin: "350px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [active, hasMore, isValidating, setSize, size]);
 
   const toggleType = (type: string) => {
     if (type === "all") {
@@ -160,7 +147,8 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
     );
   };
 
-  if (error) return <div className="rounded-2xl glass py-12 text-center text-sm text-down">{t("activity.loadError")}</div>;
+  if (!active) return null;
+  if (error && !data) return <div className="rounded-2xl glass py-12 text-center text-sm text-down">{t("activity.loadError")}</div>;
   if (!data) return <div className="flex items-center justify-center gap-2 py-16 text-ink-dim"><Download className="h-5 w-5 animate-pulse" /> {t("common.loading")}</div>;
 
   return (
@@ -197,7 +185,7 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
              selectedIndexers.length > 0 ||
              searchQuery ? (
               <span className="rounded-full bg-brand/20 px-2 py-0.5 text-xs font-semibold text-brand-glow">
-                {filteredItems.length} / {total}
+                {filteredTotal} / {total}
               </span>
             ) : null}
           </div>
@@ -346,17 +334,19 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
           );
         })}
 
-        {filteredItems.length > visibleItems.length && (
+        {hasMore && (
           <button
-            onClick={() => setVisibleCount((c) => c + RENDER_BATCH_STEP)}
+            onClick={() => void setSize((current) => current + 1)}
+            disabled={isValidating}
             className="mx-auto flex h-11 items-center gap-2 rounded-xl bg-white/5 px-4 text-sm font-semibold text-ink-soft transition-colors hover:bg-white/10"
           >
             <ChevronDown className="h-4 w-4" />
-            {t("activity.showMore", { n: filteredItems.length - visibleItems.length })}
+            {t("activity.showMore", { n: Math.min(50, filteredTotal - visibleItems.length) })}
           </button>
         )}
+        <div ref={sentinelRef} aria-hidden="true" />
 
-        {filteredItems.length === 0 && (
+        {filteredTotal === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-2xl glass py-16 text-center">
             <Clock className="h-6 w-6 text-ink-dim" />
             <p className="text-sm text-ink-dim">

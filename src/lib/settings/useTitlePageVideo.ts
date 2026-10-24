@@ -15,7 +15,8 @@ interface PreferencesData {
 export function useTitlePageVideo() {
   const { data, mutate } = useSWR<PreferencesData>("/api/settings/preferences");
 
-  const enabled = data?.prefs?.titlePageVideoEnabled ?? true;
+  // Wait for the saved preference so a disabled preview never flashes on.
+  const enabled = !!data && (data.prefs?.titlePageVideoEnabled ?? true);
   const loaded = data !== undefined;
 
   const setEnabled = async (next: boolean) => {

@@ -28,7 +28,7 @@ export function WantedTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const { enabled: upgradesEnabled } = useQualityUpgradesEnabled();
   const { data, error, mutate } = useSWR<{ missing: WantedItem[]; cutoffUnmet: WantedItem[] }>(
-    "/api/activity/v2?tab=wanted"
+    active ? "/api/activity/v2?tab=wanted" : null
   );
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -55,7 +55,7 @@ export function WantedTab({ active = true }: { active?: boolean }) {
     setVisibleCount(RENDER_BATCH_INITIAL);
   }, [filterType, sortBy]);
   useEffect(() => {
-    if (visibleCount >= allItems.length) return;
+    if (!active || visibleCount >= allItems.length) return;
     const grow = () => setVisibleCount((c) => c + RENDER_BATCH_STEP);
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(grow);
@@ -63,7 +63,7 @@ export function WantedTab({ active = true }: { active?: boolean }) {
     }
     const id = window.setTimeout(grow, 50);
     return () => window.clearTimeout(id);
-  }, [visibleCount, allItems.length]);
+  }, [active, visibleCount, allItems.length]);
   const visibleItems = allItems.slice(0, visibleCount);
 
   const toggleSelectItem = (id: string) => {

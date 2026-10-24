@@ -280,11 +280,11 @@ export function DashboardRows({
     if (visible.has("continueWatching")) {
       continueWatching.forEach((item) => add(item.type === "movie" ? "movie" : "series", item.tmdbId));
     }
+    if (visible.has("availableNow")) recentlyAdded.forEach(({ type, item }) => add(type, item.tmdbId));
+    if (visible.has("discover")) trending.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("becauseYouLike")) recommended.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("rewatch")) rewatch.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("shortSessions")) shortSessions.forEach((item) => add("movie", item.tmdbId));
-    if (visible.has("discover")) trending.forEach((item) => add(item.type, item.tmdbId));
-    if (visible.has("availableNow")) recentlyAdded.forEach(({ type, item }) => add(type, item.tmdbId));
     if (visible.has("comingSoon")) upcoming.forEach(({ m }) => add("movie", m.tmdbId));
     if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
 

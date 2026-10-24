@@ -54,7 +54,7 @@ export function HeroSlideshow({ count, index, onIndexChange, intervalMs, paused 
           initial={reduceMotion ? false : { opacity: 0, scale: 1.03 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={reduceMotion ? undefined : { opacity: 0, scale: 0.98 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          transition={{ duration: reduceMotion ? 0 : 0.5, ease: "easeOut" }}
         >
           {children}
         </motion.div>

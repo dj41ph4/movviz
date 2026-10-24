@@ -240,6 +240,7 @@ export const de: Dictionary = {
       low: "Niedrige Priorität",
     },
     filter: {
+      current: "Aktuelle Warteschlange",
       all: "Alle",
       downloading: "Lädt",
       seeding: "Seede",
@@ -919,6 +920,7 @@ export const de: Dictionary = {
     completed: "Abgeschlossen",
     inProgress: "In Bearbeitung",
     loadError: "Laden fehlgeschlagen",
+    queueSnapshotWarning: "Der Torrent-Client antwortet nicht. Der letzte bekannte Stand wird angezeigt; ein neuer Versuch läuft automatisch.",
     noResults: "Keine Ergebnisse entsprechen deinen Filtern",
     noActivity: "Keine kürzliche Aktivität",
     today: "Heute",
@@ -1611,7 +1613,7 @@ export const de: Dictionary = {
     dashboardExperience: {
       animationsTitle: "Animationen",
       animationsEnabled: "Animationen aktivieren",
-      animationsHint: "Logo, Übergänge, Effekte. Ausschalten für eine vollständig statische Oberfläche.",
+      animationsHint: "Schaltet Übergänge, automatische Karussellrotation, animierte Effekte und Hero-Ambilight aus. Hero-Video und Wiedergabe haben eigene Einstellungen.",
       saveError: "Dashboard-Einstellungen konnten nicht gespeichert werden.",
       trailerSearchTitle: "Trailer",
       trailerSearchHint: "Wenn TMDb keinen Trailer in deiner Sprache hat, wird stattdessen einer auf YouTube gesucht, statt auf Englisch zurückzufallen. Standardmäßig deaktiviert — das ist keine offizielle API, es hängt von YouTube ab.",

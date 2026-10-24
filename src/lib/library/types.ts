@@ -8,11 +8,9 @@
 
 /**
  * "upcoming" — release date is in the future (or unknown-but-unaired for an
- * episode): deliberately excluded from every search path (searchAllMissing,
- * the 6h retry task, RSS matching) so the engine never wastes indexer calls
- * on something that can't possibly exist yet. A scheduled task flips it to
- * "missing" once the date passes, at which point the normal search pipeline
- * picks it up like anything else.
+ * episode). Movies can still be checked by automatic search and RSS matching;
+ * episodes retain their separate air-date gate. The scheduled task flips a
+ * movie to "missing" when its release date passes.
  */
 export type LibraryStatus = "upcoming" | "missing" | "searching" | "downloading" | "available";
 

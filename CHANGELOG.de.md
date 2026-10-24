@@ -1,3 +1,13 @@
+## v1.27.38 — 24. Oktober 2026
+
+### Downloads, Bilder und Einstellungen
+
+- Die Warteschlange zeigt laufende Downloads zuerst; abgeschlossene und seeding Torrents bleiben über ihre Filter erreichbar. Bei kurzem WebTorrent-Ausfall bleibt der letzte bekannte Stand sichtbar.
+- Der Verlauf lädt nur den geöffneten Tab, zeigt 50 Ereignisse und lädt beim Scrollen weitere. Andere Tabs vermeiden Hintergrundanfragen.
+- Bekannte Bilder und Logos kommen aus dem Browsercache, getrennt nach Sprache. Fehlende Bilder werden in kleinen Gruppen über den Servercache geladen; neue Inhalte und Fortsetzungen haben Vorrang.
+- Die Animationseinstellung deaktiviert auch Hero-Ambilight und automatische Rotation. Die separate Hero-Videoeinstellung beendet den Player sofort; manuelle Wiedergabe bleibt unabhängig.
+- Überwachte kommende Filme werden beim Hinzufügen, bei geplanten Wiederholungen und beim RSS-Abgleich automatisch gesucht. Ohne Release bleibt ihr Status „bevorstehend“, ohne falschen Fehler.
+
 ## v1.27.37 — 24. Oktober 2026
 
 ### Sofortige neue Inhalte und Wiedergabefortsetzung

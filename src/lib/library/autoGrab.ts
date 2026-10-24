@@ -125,11 +125,10 @@ export async function addMovieToLibrary(
   // user just chose themselves. A plain "add to library" (Discover, request
   // approval, Plex watchlist sync, …) never sets this, so it keeps
   // auto-searching exactly as before.
-  // Also skipped for a movie that hasn't released yet — nothing to find on
-  // any indexer, and this would just burn an API call for a guaranteed miss.
-  // releaseDayTask (scheduler) picks it up automatically once its date passes.
+  // Upcoming films may already have a valid release on an indexer. The same
+  // title, year, quality and blocked-word checks still apply to the grab.
   let searchResult: Awaited<ReturnType<typeof searchAndGrabMovie>> | null = null;
-  if (!options?.skipSearch && released) {
+  if (!options?.skipSearch) {
     try {
       searchResult = await searchAndGrabMovie(movie.id);
     } catch (error) {
@@ -173,11 +172,15 @@ export async function searchAndGrabMovie(movieId: string) {
     } finally {
       const fresh = getMovie(movieId);
       if (fresh?.status === "searching") {
-        updateMovie(movieId, { status: fresh.file ? "available" : "missing" });
-        recordSearchLog("warn", "search_movie.stale_search_restored", `${fresh.title} — remis à "manquant" (statut "recherche" laissé par une erreur en cours de recherche)`);
+        updateMovie(movieId, { status: moviePendingStatus(fresh) });
+        recordSearchLog("warn", "search_movie.stale_search_restored", `${fresh.title} — statut restauré après une recherche interrompue`);
       }
     }
   });
+}
+
+function moviePendingStatus(movie: LibraryMovie): LibraryMovie["status"] {
+  return movie.file ? "available" : movieHasReleased(movie.vfReleaseDate, movie.releaseDate) ? "missing" : "upcoming";
 }
 
 /**
@@ -289,7 +292,11 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   }
 
   if (finalCandidates.length === 0) {
-    updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
+    updateMovie(movie.id, { status: moviePendingStatus(movie) });
+    if (moviePendingStatus(movie) === "upcoming") {
+      recordSearchLog("info", "search_movie.upcoming_no_match", `${movie.title} — aucun candidat admissible pour le moment ; recherche automatique maintenue`);
+      return { error: "no_match" as const, detail: "No eligible release yet", queried: 0 };
+    }
     logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, error: "Aucune release ne correspond au profil de qualité" });
     logActivityV2({
       kind: "failed",
@@ -331,7 +338,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   }
 
   if (!best || !payload) {
-    updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
+    updateMovie(movie.id, { status: moviePendingStatus(movie) });
     recordSearchLog("error", "search_movie.grab_payload_failed", `${movie.title} — tous les candidats essayés ont échoué (dernière erreur: ${lastGrabError})`);
     logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, error: lastGrabError ?? "unknown" });
     logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("download_failed", `Impossible de récupérer le lien de téléchargement pour tous les candidats essayés : ${lastGrabError}`) });
@@ -372,7 +379,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
     });
     const torrent = await res.json();
     if (!res.ok) {
-      updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
+      updateMovie(movie.id, { status: moviePendingStatus(movie) });
       const detail = JSON.stringify(torrent);
       const hint = detail.includes("unauthorized") ? " — TOKEN MOTEUR INVALIDE : le moteur et le web doivent partager le même token (engine-token.json)" : "";
       recordSearchLog("error", "search_movie.engine_rejected", `${movie.title} — "${best.title}" refusé par le moteur (${detail})${hint}`);
@@ -387,7 +394,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
     emitNotification("grab_movie", `${movie.title} — release récupérée, import en cours`, "/library", { title: movie.title });
     return { ok: true as const, release: best, torrent };
   } catch {
-    updateMovie(movie.id, { status: movie.file ? "available" : "missing" });
+    updateMovie(movie.id, { status: moviePendingStatus(movie) });
     recordSearchLog("error", "search_movie.engine_unreachable", `${movie.title} — moteur de téléchargement injoignable`);
     logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, error: "Moteur de téléchargement inaccessible" });
     logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("timeout", "Le moteur de téléchargement est injoignable.") });
@@ -583,13 +590,11 @@ async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number
 /**
  * Bidirectional status reconciliation against the release date:
  *  - "upcoming" → "missing" once the date has actually passed, making it
- *    eligible for the normal search pipeline (searchAllMissing, the 6h retry
- *    task, RSS matching) for the first time.
+ *    keeping the visible library status in sync with the release date.
  *  - "missing" → "upcoming" for anything whose date is still in the future —
  *    this catches every movie added before the "upcoming" status existed
  *    (or added via a path that doesn't check the date, e.g. addMediaSilent),
- *    so the backlog of already-"missing"-but-not-actually-released movies
- *    stops being searched needlessly too, not just newly-added ones.
+ *    while still allowing monitored upcoming films in automatic searches.
  * Meant to run right before searchReleasedMissingMovies in the same
  * scheduled pass, so a movie that just released gets both its status flip
  * and its first real search attempt in the same tick.
@@ -653,7 +658,7 @@ export async function searchMissingMovies(max = 100) {
 }
 
 async function searchMissingMoviesInner(max: number) {
-  const missing = loadMovies().filter((m) => m.monitored && m.status === "missing");
+  const missing = loadMovies().filter((m) => m.monitored && (m.status === "missing" || m.status === "upcoming"));
   // Titles this retry already searched in vain wait 1 then 3 days (see
   // missingSearchBackoff.ts) — the RSS scan still grabs them meanwhile.
   const candidates = missing.filter((m) => isDueForRetry(`movie:${m.id}`));
@@ -670,7 +675,7 @@ async function searchMissingMoviesInner(max: number) {
     await searchAndGrabMovie(movie.id);
     searched.push(movie.id);
   }
-  const stillMissing = searched.filter((id) => getMovie(id)?.status === "missing").map((id) => `movie:${id}`);
+  const stillMissing = searched.filter((id) => { const status = getMovie(id)?.status; return status === "missing" || status === "upcoming"; }).map((id) => `movie:${id}`);
   recordRetryPass("movie:", stillMissing, new Set(missing.map((m) => `movie:${m.id}`)));
   return { searched, total: missing.length };
 }

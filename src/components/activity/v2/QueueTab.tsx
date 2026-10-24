@@ -70,7 +70,7 @@ async function api(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-const FILTERS = ["all", "downloading", "seeding", "stalled", "completed"] as const;
+const FILTERS = ["current", "all", "downloading", "seeding", "stalled", "completed"] as const;
 type Filter = (typeof FILTERS)[number];
 
 const RENDER_BATCH_INITIAL = 50;
@@ -89,7 +89,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   };
   const [clearingAll, setClearingAll] = useState(false);
   const SWR_KEY = "/api/activity/v2?tab=queue";
-  const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
+  const { data, error, mutate } = useSWR<{ items: QueueItem[]; engineUnavailable?: boolean }>(
     clearingAll || !active ? null : SWR_KEY,
     {
       refreshInterval: optimized
@@ -101,7 +101,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("current");
   const [manualSearchItem, setManualSearchItem] = useState<QueueItem | null>(null);
   const [bulkReplacing, setBulkReplacing] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
@@ -132,6 +132,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
 
   const filtered = useMemo(() => items
     .filter((item) => {
+      if (filter === "current") return item.status !== "completed" && item.status !== "seeding";
       if (filter === "downloading") return item.status === "downloading" || item.status === "importing" || item.status === "verifying";
       if (filter === "seeding") return item.status === "seeding";
       if (filter === "stalled") return item.status === "stalled";
@@ -428,6 +429,11 @@ export function QueueTab({ active = true }: { active?: boolean }) {
 
   return (
     <div className="nx-download-queue space-y-6">
+      {data.engineUnavailable && (
+        <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+          {t("activity.queueSnapshotWarning")}
+        </p>
+      )}
       {/* Filter bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="nx-dl-filter flex gap-1 overflow-x-auto rounded-xl glass p-0.5">

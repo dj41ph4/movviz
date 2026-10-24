@@ -1,3 +1,13 @@
+## v1.27.38 — 24 oktober 2026
+
+### Downloads, afbeeldingen en instellingen
+
+- De wachtrij toont eerst actieve downloads; voltooide en delende torrents blijven via hun filters beschikbaar. Een korte WebTorrent-storing behoudt de laatst bekende wachtrij.
+- Geschiedenis laadt alleen het geopende tabblad, toont 50 gebeurtenissen en laadt verder bij scrollen. Andere tabbladen doen geen achtergrondverzoeken.
+- Bekende afbeeldingen en logo's verschijnen uit de browsercache, per taal gescheiden. Ontbrekende beelden komen in kleine groepen uit de servercache; recente toevoegingen en hervattingen krijgen voorrang.
+- De animatie-instelling schakelt ook Hero-ambilight en automatische rotatie uit. De aparte Hero-video-instelling stopt de speler meteen; handmatig afspelen blijft onafhankelijk.
+- Gevolgde toekomstige films doen vanaf het toevoegen mee aan automatisch zoeken, geplande pogingen en RSS-matching. Zonder release behouden ze hun status als aankomend zonder foutmelding.
+
 ## v1.27.37 — 24 oktober 2026
 
 ### Directe recente toevoegingen en hervatten

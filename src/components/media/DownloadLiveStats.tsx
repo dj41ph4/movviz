@@ -26,12 +26,12 @@ function linePoints(history: SpeedSample[], key: "downloadSpeed" | "uploadSpeed"
 }
 
 /** Real engine samples, shared by every browser through /api/engine/stats. */
-export function DownloadLiveStats() {
+export function DownloadLiveStats({ active = true }: { active?: boolean }) {
   const t = useT();
   const user = useCurrentUser();
   const [requestingRestart, setRequestingRestart] = useState(false);
   const { data: restartStatus, mutate: mutateRestart } = useSWR<{ restarting: boolean; error: string | null }>(
-    user?.role === "admin" ? "/api/engine/client-restart" : null,
+    active && user?.role === "admin" ? "/api/engine/client-restart" : null,
     { refreshInterval: (status) => status?.restarting ? 1000 : 15_000, dedupingInterval: 500, revalidateOnFocus: true },
   );
   const restarting = requestingRestart || !!restartStatus?.restarting;
@@ -50,9 +50,9 @@ export function DownloadLiveStats() {
       await mutateInstances();
     }
   };
-  const { data } = useSWR<EngineStats>("/api/engine/stats", { refreshInterval: 5000, revalidateOnFocus: false });
-  const { data: systemStats } = useSWR<SystemStats>("/api/stats", { refreshInterval: 30_000, revalidateOnFocus: false });
-  const { data: instanceData, mutate: mutateInstances } = useSWR<{ instances: EngineInstance[] }>("/api/engine/instances", { refreshInterval: 15_000, revalidateOnFocus: false });
+  const { data } = useSWR<EngineStats>(active ? "/api/engine/stats" : null, { refreshInterval: 5000, revalidateOnFocus: false });
+  const { data: systemStats } = useSWR<SystemStats>(active ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
+  const { data: instanceData, mutate: mutateInstances } = useSWR<{ instances: EngineInstance[] }>(active ? "/api/engine/instances" : null, { refreshInterval: 15_000, revalidateOnFocus: false });
   const history = data?.history?.slice(-60) ?? [];
   const down = linePoints(history, "downloadSpeed");
   const up = linePoints(history, "uploadSpeed");

@@ -1,3 +1,13 @@
+## v1.27.38 — 24 ottobre 2026
+
+### Download, immagini e impostazioni
+
+- La coda mostra prima i download attivi; i torrent completati e in condivisione restano nei rispettivi filtri. Una breve interruzione di WebTorrent mantiene l'ultimo stato noto.
+- La cronologia carica solo la scheda aperta, mostra 50 eventi e carica gli altri durante lo scorrimento. Le altre schede evitano richieste in background.
+- Immagini e loghi già noti appaiono dalla cache del browser, separata per lingua. Quelli mancanti arrivano in piccoli gruppi dalla cache del server; aggiunte recenti e riprese hanno priorità.
+- L'opzione animazioni disattiva anche l'ambilight dell'Hero e la rotazione automatica. L'opzione video Hero arresta subito il lettore; la riproduzione manuale resta indipendente.
+- I film futuri monitorati entrano nella ricerca automatica all'aggiunta, nei tentativi programmati e nel confronto RSS. Senza release mantengono lo stato futuro senza un falso errore.
+
 ## v1.27.37 — 24 ottobre 2026
 
 ### Aggiunte recenti e ripresa immediata

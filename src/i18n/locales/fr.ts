@@ -238,6 +238,7 @@ export const fr = {
       low: "Priorité basse",
     },
     filter: {
+      current: "File actuelle",
       all: "Tous",
       downloading: "En cours",
       seeding: "En seed",
@@ -917,6 +918,7 @@ export const fr = {
     completed: "Terminé",
     inProgress: "En cours",
     loadError: "Erreur de chargement",
+    queueSnapshotWarning: "Le client torrent ne répond pas. Dernier état connu affiché ; nouvelle tentative automatique en cours.",
     noResults: "Aucun résultat ne correspond aux filtres",
     noActivity: "Aucune activité récente",
     today: "Aujourd'hui",
@@ -1590,7 +1592,7 @@ export const fr = {
     dashboardExperience: {
       animationsTitle: "Animations",
       animationsEnabled: "Activer les animations",
-      animationsHint: "Logo, transitions, effets. Désactive tout pour un affichage entièrement statique.",
+      animationsHint: "Coupe les transitions, rotations automatiques, effets animés et l'ambilight du Hero. La vidéo du Hero et la lecture gardent leurs propres réglages.",
       saveError: "Impossible d’enregistrer les réglages du tableau de bord.",
       trailerSearchTitle: "Bandes-annonces",
       trailerSearchHint: "Quand TMDb n'a pas de bande-annonce dans ta langue, cherche-en une sur YouTube au lieu de retomber sur l'anglais. Désactivé par défaut — ce n'est pas une API officielle, ça dépend de YouTube.",

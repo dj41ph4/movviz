@@ -1,3 +1,13 @@
+## v1.27.38 — 24 octobre 2026
+
+### Téléchargements, images et réglages
+
+- La file affiche d'abord les téléchargements en cours et garde les torrents terminés et en partage dans leurs filtres. Un bref arrêt de WebTorrent conserve le dernier état connu au lieu de vider la file.
+- L'historique ne charge que l'onglet ouvert, affiche 50 événements puis charge les suivants au défilement. Les autres onglets évitent leurs requêtes en arrière-plan.
+- Les images et logos déjà connus s'affichent depuis le cache du navigateur, séparé par langue. Les images manquantes sont récupérées par petits groupes via le cache serveur ; les ajouts récents et les reprises passent en premier.
+- Le réglage des animations coupe aussi l'ambilight et la rotation automatique du Hero. Le réglage vidéo du Hero arrête son lecteur immédiatement ; la lecture manuelle reste indépendante.
+- Les films suivis encore à venir participent à la recherche automatique dès leur ajout, aux recherches différées et au suivi RSS. Une absence de release avant la sortie conserve leur statut « à venir » sans créer de fausse erreur.
+
 ## v1.27.37 — 24 octobre 2026
 
 ### Ajouts récents et reprises immédiats

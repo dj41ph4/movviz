@@ -65,7 +65,7 @@ async function rssMatchIndexersInner(releases?: IndexerRelease[]) {
   const seriesLike = new Set(parsedReleases.filter((_, i) => looksLikeSeriesRelease(cached[i].title)));
 
   // Chargement de la bibliothèque films (CPU : JSON.parse, instrumenté dans library-read-movies)
-  const movies = loadMovies().filter((m) => m.monitored && m.status === "missing");
+  const movies = loadMovies().filter((m) => m.monitored && (m.status === "missing" || m.status === "upcoming"));
 
   // Chargement de la bibliothèque séries (CPU : JSON.parse sur library-series.json, ~22 Mo)
   const missingSeasons: { seriesId: string; seriesTitle: string; seriesAliases: string[]; season: number }[] = [];

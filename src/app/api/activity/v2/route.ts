@@ -1,4 +1,6 @@
 import { torrentActivityStatus } from "@/lib/activity/v2/torrentStatus";
+import { resolveQueueSnapshot } from "@/lib/activity/v2/queueSnapshot";
+import { selectHistoryPage } from "@/lib/activity/v2/historyPage";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
@@ -12,7 +14,6 @@ import { getHashIndexPool } from "@/lib/workers/hashIndexPool";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import type { ActivityEntry, QueueItem, WantedItem, ActivityMedia } from "@/lib/activity/v2/types";
-import type { EngineTorrent } from "@/lib/types";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { decodeLibraryRef } from "@/lib/library/types";
 import type { User } from "@/lib/auth/types";
@@ -66,9 +67,9 @@ export async function GET(request: NextRequest) {
       case "queue":
         return await getQueue(user);
       case "history":
-        return await getHistory(user);
+        return await getHistory(user, searchParams);
       case "failures":
-        return await getFailures(user);
+        return await getFailures(user, searchParams);
       case "wanted":
         return await getWanted(user);
       case "unlinked":
@@ -217,9 +218,10 @@ function resolveFromLibraryRef(
   return { seriesMatch: { series, season: ref.season, episode: ref.episode, count: 1 } };
 }
 
-async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }>> {
-  const engineData = await fetchEngine("torrents") as { torrents?: EngineTorrent[] } | null;
-  const torrents = engineData?.torrents ?? [];
+async function getQueue(user: User): Promise<NextResponse> {
+  const snapshot = resolveQueueSnapshot(await fetchEngine("torrents"));
+  if (!snapshot) return NextResponse.json({ error: "engine_unavailable" }, { status: 503 });
+  const torrents = snapshot.torrents;
   const { byHash: hashIndex, moviesById, seriesById } = await buildHashIndex();
   const { byHash: releaseByHash, byLibraryRef: releaseByLibraryRef } = buildReleaseLookup();
 
@@ -299,7 +301,7 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
           customFormats: []
         },
         download: {
-          client: "qBittorrent",
+          client: "WebTorrent",
           infoHash: t.infoHash ?? "",
           progress: t.progress,
           downloadSpeed: t.downloadSpeed,
@@ -323,25 +325,35 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
     items = items.filter((item) => item.media.tmdbId != null && userTmdbIds.has(item.media.tmdbId));
   }
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, engineUnavailable: snapshot.stale, snapshotAt: snapshot.updatedAt });
 }
 
-async function getHistory(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
+function historyFilters(params: URLSearchParams) {
+  const split = (name: string) => params.get(name)?.split(",").filter(Boolean).slice(0, 30);
+  return {
+    kinds: split("kinds"), users: split("users"), indexers: split("indexers"),
+    query: params.get("q")?.slice(0, 120), after: params.get("after")?.slice(0, 100), limit: 50,
+  };
+}
+
+async function getHistory(user: User, params: URLSearchParams) {
   let entries = loadActivityV2().filter(e => e.media?.href);
   if (user.role !== "admin") {
     const userTmdbIds = getUserTmdbIds(user);
     entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
   }
-  return NextResponse.json({ items: entries.map(presentEntry), total: entries.length });
+  const page = selectHistoryPage(entries, historyFilters(params));
+  return NextResponse.json({ ...page, items: page.items.map(presentEntry) });
 }
 
-async function getFailures(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
+async function getFailures(user: User, params: URLSearchParams) {
   let entries = loadActivityV2().filter(e => e.kind === "failed" && e.media?.href);
   if (user.role !== "admin") {
     const userTmdbIds = getUserTmdbIds(user);
     entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
   }
-  return NextResponse.json({ items: entries.map(presentEntry), total: entries.length });
+  const page = selectHistoryPage(entries, historyFilters(params));
+  return NextResponse.json({ ...page, items: page.items.map(presentEntry) });
 }
 
 /**
