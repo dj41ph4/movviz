@@ -1,8 +1,8 @@
 type Listener = (event: AppEvent) => void;
 
 export type AppEvent =
-  | { type: "movie_updated"; movieId: string }
-  | { type: "series_updated"; seriesId: string }
+  | { type: "movie_updated"; movieId: string; arrival?: boolean }
+  | { type: "series_updated"; seriesId: string; arrival?: boolean }
   | { type: "download_changed" }
   | { type: "request_updated" }
   | { type: "notification_added" }

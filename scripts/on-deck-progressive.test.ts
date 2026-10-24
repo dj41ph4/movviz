@@ -30,18 +30,16 @@ test("Plex Continue Watching returns five entries first, then publishes the rest
       const { GET } = await import('@/app/api/plex/on-deck/route');
       const request = new Request('http://localhost/api/plex/on-deck');
       const first = await (await GET(request)).json();
-      assert.deepEqual(first.items.map(item => item.plexRatingKey), ['1', '2', '3', '4', '5']);
-      assert.deepEqual(calls, [5]);
-      for (let i = 0; i < 20 && events.filter(event => event.type === 'on_deck_refreshed').length < 2; i++)
+      assert.deepEqual(first.items, []);
+      for (let i = 0; i < 20 && events.filter(event => event.type === 'on_deck_refreshed').length < 3; i++)
         await new Promise(resolve => setTimeout(resolve, 10));
       const full = await (await GET(request)).json();
       assert.equal(full.items.length, 12);
-      assert.deepEqual(calls, [5, 10, 'all']);
-      assert.equal(events.filter(event => event.type === 'on_deck_refreshed').length, 2);
+      assert.deepEqual(calls, ['all', 5, 10, 'all']);
+      assert.equal(events.filter(event => event.type === 'on_deck_refreshed').length, 3);
       eventBus.emit({ type: 'watch_changed', userId: 'profile-a' });
       const afterWatch = await (await GET(request)).json();
-      assert.equal(afterWatch.items.length, 5);
-      assert.equal(calls.at(-1), 5);
+      assert.equal(afterWatch.items.length, 0);
     `,
   ], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr + result.stdout);
@@ -72,7 +70,7 @@ test("cold On Deck returns local resume within a budget and publishes delayed Pl
       const request = new Request('http://localhost/api/plex/on-deck');
       const start = performance.now();
       const first = await (await GET(request)).json();
-      assert.ok(performance.now() - start < 2500, 'cold request exceeded the 2 s Plex budget');
+      assert.ok(performance.now() - start < 500, 'cold request waited for Plex');
       assert.deepEqual(first.items.map(item => item.plexRatingKey), ['local-resume']);
       finishPlex(Array.from({ length: 5 }, (_, i) => ({ ratingKey: String(i + 1) })));
       for (let i = 0; i < 20 && events.length === 0; i++) await new Promise(resolve => setTimeout(resolve, 10));

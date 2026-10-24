@@ -1,3 +1,12 @@
+## v1.27.37 — 24 oktober 2026
+
+### Directe recente toevoegingen en hervatten
+
+- Recente toevoegingen komen alleen uit de Movviz-bibliotheek en staan voor elk profiel in dezelfde volgorde, zonder persoonlijke filters of de jaargrens van de Hero. Series worden gerangschikt op hun laatst beschikbare aflevering.
+- Het toevoegen van een film of serie vernieuwt het beginscherm op het web, Android TV en Android mobiel. De eerste beschikbare afleveringen vernieuwen ook de recente rijen.
+- Verder kijken toont Movviz-posities meteen. De eerste vijf geverifieerde Plex-hervattingen en latere groepen komen op de achtergrond binnen en vernieuwen ook de Android-apps.
+- Afspelen en het melden van voortgang wachten niet meer op Plex-netwerkverzoeken. Imports starten nog steeds een Plex-scan en kort daarna een metadata-afstemming op de achtergrond.
+
 ## v1.27.36 — 24 oktober 2026
 
 ### Optimalisatie Movviz AI

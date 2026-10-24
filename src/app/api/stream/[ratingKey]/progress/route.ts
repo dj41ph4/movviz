@@ -23,22 +23,23 @@ export async function POST(req: NextRequest, context: Ctx) {
     /* malformed body - defaults apply */
   }
 
-  const cfg = loadPlexConfig();
-  // A timeline update is a write to Plex's per-profile state.  It must use a
-  // real server-scoped token; the former admin token + X-Plex-Profile header
-  // could record another user's progress under the owner account.
-  const auth = cfg.hostname ? await resolvePlexServerAuth(user, cfg) : null;
-  if (cfg.hostname && auth) {
+  // A timeline update is a best-effort Plex mirror. Never hold the player's
+  // progress request while resolving a Plex identity or waiting on its HTTP.
+  void (async () => {
+    const cfg = loadPlexConfig();
+    if (!cfg.hostname) return;
+    // Use the user's real server-scoped token, never the owner token.
+    const auth = await resolvePlexServerAuth(user, cfg);
+    if (!auth) return;
     const base = safePlexUrl(`${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`);
-    if (!base) return NextResponse.json({ error: "invalid_plex_url" }, { status: 500 });
+    if (!base) return;
     const params = new URLSearchParams({
       key: ratingKey,
       identifier: "com.plexapp.plugins.library",
       time: String(offset),
       state,
     });
-    try {
-      await fetch(`${base}/:/progress?${params}`, {
+    await fetch(`${base}/:/progress?${params}`, {
         method: "GET",
         headers: {
           "X-Plex-Token": auth.token,
@@ -47,10 +48,7 @@ export async function POST(req: NextRequest, context: Ctx) {
         },
         signal: AbortSignal.timeout(5000),
       });
-    } catch {
-      /* ignore — best-effort */
-    }
-  }
+  })().catch(() => { /* Plex is optional; local progress is already saved. */ });
 
   return NextResponse.json({ ok: true });
 }

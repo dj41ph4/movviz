@@ -14,11 +14,9 @@ export async function POST(req: NextRequest) {
   const durationMs = Number(body?.durationMs);
   if (!ratingKey || !mediaType || !Number.isFinite(durationMs) || durationMs <= 0) return NextResponse.json({ error: "invalid_media" }, { status: 400 });
   const result = openPlaybackSession(user.id, { ratingKey, mediaId, mediaType, durationMs, tmdbId: Number.isInteger(Number(body?.tmdbId)) ? Number(body.tmdbId) : undefined, seasonNumber: Number.isInteger(Number(body?.seasonNumber)) ? Number(body.seasonNumber) : undefined, episodeNumber: Number.isInteger(Number(body?.episodeNumber)) ? Number(body.episodeNumber) : undefined, title: typeof body?.title === "string" ? body.title.slice(0, 200) : undefined });
-  // Plex is the second source of truth for resume. A user can pause on Plex
-  // and immediately continue in Movviz (or the reverse), so do not show the
-  // stale local timestamp while opening a session. This is best-effort and
-  // never blocks local playback when Plex is unavailable.
+  // Movviz's local position is ready now. An already verified Plex snapshot
+  // may enrich it, but starting playback never waits for Plex networking.
   let resumeOffsetMs = result.progress.watched ? null : result.progress.resumeOffsetMs;
-  if (!result.progress.watched) resumeOffsetMs = await mergePlexResume(user, ratingKey, resumeOffsetMs);
+  if (!result.progress.watched) resumeOffsetMs = mergePlexResume(user, ratingKey, resumeOffsetMs);
   return NextResponse.json({ sessionId: result.session.id, resumeOffsetMs, watched: result.progress.watched, eligibleForResume: result.progress.eligibleForResume, completionBoundaryMs: result.progress.completionBoundaryMs, boundarySource: result.progress.boundarySource });
 }

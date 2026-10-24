@@ -1,3 +1,12 @@
+## v1.27.37 — 24. Oktober 2026
+
+### Sofortige neue Inhalte und Wiedergabefortsetzung
+
+- Neue Inhalte stammen ausschließlich aus der Movviz-Bibliothek und erscheinen für alle Profile in derselben Reihenfolge, ohne persönliche Filter oder die Jahresgrenze des Heros. Serien werden nach ihrer zuletzt verfügbaren Folge sortiert.
+- Das Hinzufügen eines Films oder einer Serie aktualisiert die Startseite im Web, auf Android TV und auf Android-Geräten. Auch die ersten verfügbaren Folgen aktualisieren die neuen Inhalte.
+- „Weitersehen“ zeigt Movviz-Positionen sofort. Die ersten fünf geprüften Plex-Fortsetzungen und weitere Gruppen treffen im Hintergrund ein und aktualisieren auch die Android-Apps.
+- Wiedergabe und Fortschrittsmeldung warten nicht mehr auf Plex-Netzwerkanfragen. Importe starten weiterhin einen Plex-Scan und kurz danach den Metadatenabgleich im Hintergrund.
+
 ## v1.27.36 — 24. Oktober 2026
 
 ### Movviz AI Optimierung

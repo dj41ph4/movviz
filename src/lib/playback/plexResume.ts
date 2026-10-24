@@ -1,35 +1,24 @@
-import { loadPlexConfig } from "@/lib/plex/store";
-import { resolveToken, getVerifiedOnDeck } from "@/lib/plex/watchWrite";
+import { getCachedVerifiedOnDeck } from "@/lib/plex/watchWrite";
 import { getPlaybackProgress } from "@/lib/playback/progressStore";
+import type { User } from "@/lib/auth/types";
 
 /**
  * Merge the local Movviz position with Plex's Continue Watching position.
- * Plex is queried best-effort: an unavailable Plex server must never prevent
- * local playback or erase a valid local position. getVerifiedOnDeck (not a
- * raw getPlexOnDeck call) protects a Plex Home managed profile from ever
- * being merged with the server owner's own resume position — see its doc
- * comment in watchWrite.ts.
+ * Only an already verified Plex snapshot may enrich the local position.
+ * Starting a player never makes a Plex network request or waits for one.
  */
-export async function mergePlexResume(
-  user: Parameters<typeof resolveToken>[0],
+export function mergePlexResume(
+  user: User,
   ratingKey: string,
   localOffsetMs: number | null,
-): Promise<number | null> {
-  try {
-    const cfg = loadPlexConfig();
-    if (!cfg.hostname) return localOffsetMs;
-    const item = (await getVerifiedOnDeck(user, cfg))
-      .find((candidate) => candidate.ratingKey === ratingKey);
-    if (!item || item.viewOffset <= 0) return localOffsetMs;
-    const local = getPlaybackProgress(user.id, ratingKey);
-    const remoteAt = item.lastViewedAt ?? item.updatedAt ?? null;
-    // Plex is only allowed to replace a local position when its real remote
-    // clock is newer. Numeric offset is intentionally irrelevant: restarting
-    // at 12% after a local 82% is a valid newer user action.
-    return remoteAt != null && local?.updatedAt != null && remoteAt > local.updatedAt
-      ? item.viewOffset
-      : localOffsetMs;
-  } catch {
-    return localOffsetMs;
-  }
+): number | null {
+  const item = getCachedVerifiedOnDeck(user.id).find((candidate) => candidate.ratingKey === ratingKey);
+  if (!item || item.viewOffset <= 0) return localOffsetMs;
+  const local = getPlaybackProgress(user.id, ratingKey);
+  const remoteAt = item.lastViewedAt ?? item.updatedAt ?? null;
+  // Plex may replace a local position only when its clock is newer. A later
+  // restart at 12% legitimately beats an older local 82%.
+  return remoteAt != null && (local?.updatedAt == null || remoteAt > local.updatedAt)
+    ? item.viewOffset
+    : localOffsetMs;
 }

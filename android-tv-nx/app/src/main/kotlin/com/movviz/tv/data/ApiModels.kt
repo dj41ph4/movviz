@@ -70,6 +70,7 @@ data class LibrarySeriesDto(
     val rating: Double,
     val genres: List<String> = emptyList(),
     val addedAt: Long = 0L,
+    val latestAvailableAt: Long = 0L,
     val hasAvailableEpisode: Boolean = false,
     /** Épisodes disponibles par numéro de saison (compact dashboard). */
     val availableBySeason: Map<String, Int> = emptyMap(),

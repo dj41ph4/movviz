@@ -67,8 +67,15 @@ export function useLibrarySSE(enabled = true) {
       };
 
       for (const [channel, keys] of Object.entries(EVENT_MUTATIONS)) {
-        es.addEventListener(channel, () => {
+        es.addEventListener(channel, (event) => {
           for (const key of keys) mutate(key);
+          if (channel === "library") {
+            try {
+              if (JSON.parse((event as MessageEvent).data)?.arrival === true) {
+                void mutate((key) => typeof key === "string" && key.startsWith("/api/plex/on-deck"));
+              }
+            } catch { /* Ignore malformed optional event metadata. */ }
+          }
         });
       }
 

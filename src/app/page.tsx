@@ -67,6 +67,8 @@ export default function DashboardPage() {
         rating: show.rating,
         genres: show.genres,
         addedAt: show.addedAt,
+        latestAvailableAt: show.seasons.reduce((latest, season) => season.episodes.reduce((time, episode) =>
+          episode.status === "available" && episode.file ? Math.max(time, episode.file.addedAt) : time, latest), 0),
         hasAvailableEpisode: show.seasons.some((season) => season.episodes.some((episode) => episode.status === "available")),
         availableBySeason: Object.fromEntries(show.seasons.map((season) => [season.seasonNumber, season.episodes.filter((episode) => episode.status === "available" && episode.file).length])),
       }));

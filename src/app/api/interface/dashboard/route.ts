@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
       let searchingEpisodes = 0;
       const compactSeries = series.map((show) => {
         let hasAvailableEpisode = false;
+        let latestAvailableAt = 0;
         // Available episodes per season, so clients can show a season's
         // unwatched count without loading the full season tree.
         const availableBySeason: Record<number, number> = {};
@@ -87,6 +88,7 @@ export async function GET(req: NextRequest) {
             if (episode.status === "available") {
               availableEpisodes++;
               hasAvailableEpisode = true;
+              if (episode.file?.addedAt) latestAvailableAt = Math.max(latestAvailableAt, episode.file.addedAt);
               availableBySeason[season.seasonNumber] = (availableBySeason[season.seasonNumber] ?? 0) + 1;
             } else if (episode.status === "downloading") downloadingEpisodes++;
             else if (episode.status === "searching") searchingEpisodes++;
@@ -105,6 +107,7 @@ export async function GET(req: NextRequest) {
           rating: show.rating,
           genres: show.genres,
           addedAt: show.addedAt,
+          latestAvailableAt,
           hasAvailableEpisode,
           availableBySeason,
         };

@@ -520,8 +520,8 @@ fun HomeScreen(
     // Films et séries construits séparément (20 chacun) : deux rangées
     // « Récemment ajouté dans Films / Séries TV » comme sur Plex. Découper
     // après coup un top 20 mélangé laisserait une rangée quasi vide.
-    val availableSplit = remember(movies, series, minYear, watchedMovieIds) {
-        val movie = movies.filter { it.status == "available" && yearAllowed(it.year) }.map {
+    val availableSplit = remember(movies, series, watchedMovieIds) {
+        val movie = movies.filter { it.status == "available" }.map {
             it.addedAt to TvTitleCard(
                 id = "available-movie-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
                 backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = true,
@@ -529,8 +529,8 @@ fun HomeScreen(
                 qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
             )
         }
-        val shows = series.filter { it.hasAvailableEpisode && yearAllowed(it.year) }.map {
-            it.addedAt to TvTitleCard(
+        val shows = series.filter { it.hasAvailableEpisode }.map {
+            (it.latestAvailableAt.takeIf { time -> time > 0L } ?: it.addedAt) to TvTitleCard(
                 id = "available-series-${it.tmdbId}-${it.seriesPart.orEmpty()}", seriesPart = it.seriesPart, title = it.title, posterPath = it.posterPath,
                 backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = false,
                 year = it.year, rating = it.rating, genres = it.genres,

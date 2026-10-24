@@ -161,6 +161,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 loadProfileMedia()
                 loadDashboardWatchlist()
             }
+            if ("on-deck" in channels && "watch" !in channels && "resync" !in channels) loadContinueWatching()
             if ("library" in channels) onLibraryChanges()
             if ("library" in channels && "watch" !in channels) loadContinueWatching()
 
@@ -184,12 +185,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (type == "movie") {
                 val nowAvailable = change.optString("status") == "available"
                 val wasAvailable = _movies.value.firstOrNull { it.tmdbId == tmdbId }?.status == "available"
-                if (isOpen || (nowAvailable && !wasAvailable)) refresh += type to tmdbId
+                if (isOpen || change.optBoolean("arrival") || (nowAvailable && !wasAvailable)) refresh += type to tmdbId
             } else if (type == "series") {
                 val available = change.optInt("availableEpisodes", -1)
                 val before = knownAvailableEpisodes[tmdbId]
                 if (available >= 0) knownAvailableEpisodes[tmdbId] = available
-                val gained = before != null && available > before
+                val gained = change.optBoolean("arrival") || available > 0 && (before == null || available > before)
                 if (gained) recentChanged = true
                 if (isOpen || gained) refresh += type to tmdbId
             }

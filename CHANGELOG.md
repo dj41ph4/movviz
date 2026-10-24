@@ -1,3 +1,12 @@
+## v1.27.37 — 24 octobre 2026
+
+### Ajouts récents et reprises immédiats
+
+- Les ajouts récents proviennent uniquement de la bibliothèque Movviz et s'affichent dans le même ordre pour tous les profils, sans filtre personnel ni limite d'année du Hero. Les séries remontent selon l'arrivée de leur dernier épisode disponible.
+- L'ajout initial d'un film ou d'une série réveille l'accueil sur le web, Android TV et Android mobile. Les premiers épisodes d'une série déclenchent aussi l'actualisation des rangées récentes.
+- « Reprendre » renvoie immédiatement les positions Movviz. Les cinq premières reprises Plex vérifiées, puis les suivantes, arrivent en arrière-plan et actualisent aussi les applications Android.
+- La lecture et l'envoi de progression n'attendent plus une requête réseau Plex. L'import déclenche toujours le scan Plex en arrière-plan et le rapprochement des métadonnées peu après.
+
 ## v1.27.36 — 24 octobre 2026
 
 ### Optimisation Movviz AI

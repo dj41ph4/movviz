@@ -195,16 +195,17 @@ export function DashboardRows({
   const recentlyAdded = useMemo(
     () => {
       const availableMovies: EditorialLibraryItem[] = movies
-        .filter((m) => m.status === "available" && afterMinYear(m) && isNotExcluded("movie", m.tmdbId))
+        .filter((m) => m.status === "available")
         .map((item) => ({ type: "movie", item }));
       const availableSeries: EditorialLibraryItem[] = series
-        .filter((s) => s.hasAvailableEpisode && afterMinYear(s) && isNotExcluded("series", s.tmdbId))
+        .filter((s) => s.hasAvailableEpisode)
         .map((item) => ({ type: "series", item }));
       return [...availableMovies, ...availableSeries]
-        .sort((a, b) => b.item.addedAt - a.item.addedAt)
+        .sort((a, b) => (b.type === "series" ? b.item.latestAvailableAt ?? b.item.addedAt : b.item.addedAt)
+          - (a.type === "series" ? a.item.latestAvailableAt ?? a.item.addedAt : a.item.addedAt))
         .slice(0, 20);
     },
-    [movies, series, afterMinYear, isNotExcluded]
+    [movies, series]
   );
 
   // Netflix's "short on time" idea, grounded in Movviz data rather than an

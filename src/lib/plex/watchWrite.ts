@@ -254,13 +254,27 @@ export async function deleteItemFromPlex(user: User, ratingKey: string): Promise
  * fail-closed guard for an expired/broken scoped token: Plex must never turn
  * the server owner's position into another Movviz user's resume position.
  */
+const verifiedOnDeckCache = ((globalThis as typeof globalThis & {
+  __movvizVerifiedOnDeckCache?: Map<string, { items: PlexOnDeckItem[]; at: number }>;
+}).__movvizVerifiedOnDeckCache ??= new Map<string, { items: PlexOnDeckItem[]; at: number }>());
+
+/** Playback may use an already verified Plex position, but never waits for Plex. */
+export function getCachedVerifiedOnDeck(userId: string): PlexOnDeckItem[] {
+  const cached = verifiedOnDeckCache.get(userId);
+  if (!cached || Date.now() - cached.at > 10 * 60_000) return [];
+  return cached.items.filter((item) => !isBeforeWatchReset(userId, item.lastViewedAt ?? item.updatedAt));
+}
+
 export async function getVerifiedOnDeck(user: User, cfg: PlexServerConfig): Promise<PlexOnDeckItem[]> {
   const auth = await resolvePlexServerAuth(user, cfg);
   if (!auth) return [];
   // « Effacer la lecture » : une reprise Plex d'avant la remise à zéro du
   // profil (Plex n'a pas pu l'effacer) ne revient pas dans « Reprendre ».
   const items = (await getPlexOnDeck(cfg, auth.token)).filter((i) => !isBeforeWatchReset(user.id, i.lastViewedAt ?? i.updatedAt));
-  if (auth.source === "owner" || !cfg.adminToken) return items;
+  if (auth.source === "owner" || !cfg.adminToken) {
+    verifiedOnDeckCache.set(user.id, { items, at: Date.now() });
+    return items;
+  }
 
   const ownerItems = await getPlexOnDeck(cfg, cfg.adminToken);
   const ownerPositions = new Set(ownerItems.map((i) => `${i.ratingKey}:${i.viewOffset}:${i.duration}`));
@@ -272,6 +286,7 @@ export async function getVerifiedOnDeck(user: User, cfg: PlexServerConfig): Prom
       `${user.username} (${auth.source}) : ${items.length - verified.length} position(s) identique(s) au compte propriétaire rejetée(s) — reprise Movviz locale conservée.`
     );
   }
+  verifiedOnDeckCache.set(user.id, { items: verified, at: Date.now() });
   return verified;
 }
 

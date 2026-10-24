@@ -73,6 +73,7 @@ data class LibrarySeriesDto(
     val rating: Double,
     val genres: List<String> = emptyList(),
     val addedAt: Long = 0L,
+    val latestAvailableAt: Long = 0L,
     val hasAvailableEpisode: Boolean = false,
     val customBackdropPath: String? = null,
     val customLogoPath: String? = null,

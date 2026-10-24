@@ -1,3 +1,12 @@
+## v1.27.37 — October 24, 2026
+
+### Instant recent additions and playback resumes
+
+- Recent additions now come solely from the Movviz library and appear in the same order for every profile, without personal filters or the Hero year limit. Series are ordered by their latest available episode.
+- Adding a movie or series refreshes the home screen on web, Android TV, and Android mobile. The first available episodes of a series also refresh the recent rows.
+- Continue Watching returns Movviz positions immediately. The first five verified Plex resumes and subsequent batches arrive in the background and update Android apps too.
+- Playback and progress reporting no longer wait for Plex network calls. Imports still trigger a background Plex scan and metadata reconciliation shortly afterward.
+
 ## v1.27.36 — October 24, 2026
 
 ### Movviz AI optimization

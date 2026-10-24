@@ -12,6 +12,6 @@ export async function GET(req: NextRequest, context: { params: Promise<{ ratingK
     { watched: false, resumeOffsetMs: null, eligibleForResume: false },
     { headers: { "Cache-Control": "private, no-store" } }
   );
-  const resumeOffsetMs = p.watched ? null : await mergePlexResume(user, ratingKey, p.resumeOffsetMs);
+  const resumeOffsetMs = p.watched ? null : mergePlexResume(user, ratingKey, p.resumeOffsetMs);
   return NextResponse.json({ ...p, resumeOffsetMs }, { headers: { "Cache-Control": "private, no-store" } });
 }

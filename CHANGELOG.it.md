@@ -1,3 +1,12 @@
+## v1.27.37 — 24 ottobre 2026
+
+### Aggiunte recenti e ripresa immediata
+
+- Le aggiunte recenti provengono solo dalla libreria Movviz e appaiono nello stesso ordine per tutti i profili, senza filtri personali o limiti di anno dell'Hero. Le serie sono ordinate in base all'ultimo episodio disponibile.
+- L'aggiunta di un film o di una serie aggiorna la schermata iniziale sul web, Android TV e Android mobile. Anche i primi episodi disponibili aggiornano le righe recenti.
+- Continua a guardare mostra subito le posizioni Movviz. Le prime cinque riprese Plex verificate e i lotti successivi arrivano in background e aggiornano anche le app Android.
+- La riproduzione e l'invio dei progressi non attendono più le richieste di rete Plex. Le importazioni avviano comunque una scansione Plex e la riconciliazione dei metadati in background poco dopo.
+
 ## v1.27.36 — 24 ottobre 2026
 
 ### Ottimizzazione Movviz AI
