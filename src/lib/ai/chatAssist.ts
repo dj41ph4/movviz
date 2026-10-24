@@ -6,6 +6,7 @@ import { getChangelogEntry } from "@/lib/changelog";
 import { getSeenKeys, getSeenTitles } from "./seen";
 import { isSeriesFullyWatched } from "./recommendationScore";
 import type { AiChatMessage, AiRecommendation } from "./types";
+import type { Locale } from "@/i18n/config";
 
 /*
  * Deterministic helpers for the chat (chat/route.ts): everything here is
@@ -204,10 +205,14 @@ export function buildMovvizSelfSection(): string {
 /** Chips under the reply: one tap sends the text as the next message. */
 const ABOUT_ONE_TITLE_RE = /\b(?:le|la|l['’])\s*(?:lancer|regarder|voir|mettre|ajouter|garder|commencer)\b|\bcelui-(?:l[àa]|ci)\b|\bcelle-(?:l[àa]|ci)\b/i;
 
-export function buildQuickReplies(assistant: AiChatMessage): string[] {
+export function buildQuickReplies(assistant: AiChatMessage, locale: Locale = "fr"): string[] {
   const recos = assistant.recommendations ?? [];
   if (recos.length) {
     const seriesCount = recos.filter((r) => r.type === "series").length;
+    if (locale === "en") return ["Darker", "Lighter", seriesCount > recos.length / 2 ? "A movie instead" : "A series instead", "Hidden gems", "Something else"];
+    if (locale === "it") return ["Più cupo", "Più leggero", seriesCount > recos.length / 2 ? "Un film invece" : "Una serie invece", "Titoli meno noti", "Qualcos'altro"];
+    if (locale === "nl") return ["Donkerder", "Luchtiger", seriesCount > recos.length / 2 ? "Liever een film" : "Liever een serie", "Verborgen parels", "Iets anders"];
+    if (locale === "de") return ["Düsterer", "Leichter", seriesCount > recos.length / 2 ? "Lieber ein Film" : "Lieber eine Serie", "Geheimtipps", "Etwas anderes"];
     return [
       "Plus sombre",
       "Plus léger",
@@ -230,6 +235,10 @@ export function buildQuickReplies(assistant: AiChatMessage): string[] {
   const filmOrSeries = /\bfilms?\b/i.test(question) && /\bs[ée]ries?\b/i.test(question);
   if (/\sou\s/i.test(question) && !filmOrSeries) return [];
   if (OFFER_QUESTION_RE.test(text) && OFFER_TOPIC_RE.test(text)) {
+    if (locale === "en") return ["Go ahead", "A movie", "A series", "Surprise me"];
+    if (locale === "it") return ["Vai", "Un film", "Una serie", "Sorprendimi"];
+    if (locale === "nl") return ["Ga je gang", "Een film", "Een serie", "Verras me"];
+    if (locale === "de") return ["Los", "Ein Film", "Eine Serie", "Überrasch mich"];
     return ["Vas-y", "Un film", "Une série", "Surprends-moi"];
   }
   return [];
@@ -270,9 +279,13 @@ const FALLBACK_INTROS = [
 /** One line above the cards. The model's own `intro` (its voice) when it
  *  wrote one, otherwise a short varied line — never the same one twice in a
  *  row. */
-export function recommendationIntro(modelIntro: string | undefined, previousReplies: string[]): string {
+export function recommendationIntro(modelIntro: string | undefined, previousReplies: string[], locale: Locale = "fr"): string {
   const own = modelIntro?.trim();
   if (own) return own;
+  if (locale === "en") return "Here's what I'd pick for you:";
+  if (locale === "it") return "Ecco cosa sceglierei per te:";
+  if (locale === "nl") return "Dit zou ik voor je kiezen:";
+  if (locale === "de") return "Das würde ich dir empfehlen:";
   const last = previousReplies[0] ?? "";
   const pool = FALLBACK_INTROS.filter((line) => !last.startsWith(line));
   return pool[Math.floor(Math.random() * pool.length)];

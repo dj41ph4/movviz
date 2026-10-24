@@ -416,7 +416,7 @@ export function ChatWidget() {
       const r = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: text, pageContext: getPageTitleContext(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+        body: JSON.stringify({ message: text, locale, pageContext: getPageTitleContext(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
       });
       const data = await r.json().catch(() => null);
       if (!r.ok) {
@@ -434,7 +434,7 @@ export function ChatWidget() {
     } finally {
       setBusy(false);
     }
-  }, [busy, t, mutateSession, startPlayback, replyAloud]);
+  }, [busy, t, locale, mutateSession, startPlayback, replyAloud]);
   useEffect(() => { sendTextRef.current = sendText; }, [sendText]);
 
   // Chat partagé : la conversation continue sur tous les appareils. Le serveur

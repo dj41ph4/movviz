@@ -33,7 +33,11 @@ import { asksToAddMedia, asksForSimilar, saysMisunderstood, detectSeenCommand, e
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories, AiRecommendation } from "@/lib/ai/types";
 import { buildNowContext } from "@/lib/ai/nowContext";
 import { buildSystemPromptCompact } from "@/lib/ai/promptCompact";
-import { buildCreatorContext, creatorBoundaryReply, creatorSafeHistory, guardCreatorReply } from "@/lib/ai/creator";
+import { aiLanguageInstruction, resolveAiLocale, tmdbLanguage } from "@/lib/ai/responseLanguage";
+import { loadUserPrefs } from "@/lib/userPrefs/store";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
+import { getTitleInLanguage } from "@/lib/metadata/tmdb";
+import { buildCreatorContext, creatorSafeHistory, guardCreatorReply } from "@/lib/ai/creator";
 import { asksForWebVerification, chatTitleQuery, factualWebContext, factualWebPrompt, resolveChatTitle, titleKey } from "@/lib/ai/chatGrounding";
 import type { ResolvedTitleItem } from "@/lib/metadata/resolveTitle";
 
@@ -49,11 +53,25 @@ const SHOWN_CARDS = 6;
 const ALTERNATE_CARDS = 6;
 const CORRECTION_TIME_BUDGET_MS = 20_000;
 
-function summarizeAdd(outcomes: AiActionOutcome[]): string[] {
+function summarizeAdd(outcomes: AiActionOutcome[], locale: Locale = "fr"): string[] {
   const counts = { added: 0, already: 0, requested: 0, not_found: 0, blocked: 0, error: 0 };
   for (const o of outcomes) counts[o.status]++;
   const lines: string[] = [];
   const total = outcomes.length;
+  if (locale !== "fr") {
+    const copy = {
+      en: { start: total > 1 ? `Added ${total} titles — searches start automatically in the background.` : "Title added — the search starts automatically in the background.", added: "Added", requested: "Request sent", already: "Already in your library", not_found: "No reliable TMDb match", blocked: "Blocked by an existing rule", error: "Failed" },
+      it: { start: total > 1 ? `${total} titoli aggiunti — la ricerca parte automaticamente in background.` : "Titolo aggiunto — la ricerca parte automaticamente in background.", added: "Aggiunto", requested: "Richiesta inviata", already: "Già nella tua libreria", not_found: "Nessuna corrispondenza affidabile su TMDb", blocked: "Bloccato da una regola esistente", error: "Errore" },
+      nl: { start: total > 1 ? `${total} titels toegevoegd — het zoeken start automatisch op de achtergrond.` : "Titel toegevoegd — het zoeken start automatisch op de achtergrond.", added: "Toegevoegd", requested: "Aanvraag verstuurd", already: "Al in je bibliotheek", not_found: "Geen betrouwbare TMDb-match", blocked: "Geblokkeerd door een bestaande regel", error: "Mislukt" },
+      de: { start: total > 1 ? `${total} Titel hinzugefügt — die Suche startet automatisch im Hintergrund.` : "Titel hinzugefügt — die Suche startet automatisch im Hintergrund.", added: "Hinzugefügt", requested: "Anfrage gesendet", already: "Bereits in deiner Bibliothek", not_found: "Kein verlässlicher TMDb-Treffer", blocked: "Durch eine bestehende Regel gesperrt", error: "Fehlgeschlagen" },
+    }[locale];
+    if (counts.added || counts.requested) lines.push(copy.start);
+    for (const o of outcomes) {
+      const name = o.year ? `${o.title} (${o.year})` : o.title;
+      lines.push(`• ${copy[o.status]} — ${name}${o.status === "error" && o.detail && o.detail !== "quota_reached" ? ` (${o.detail})` : ""}`);
+    }
+    return lines;
+  }
   if (counts.added || counts.requested) {
     lines.push(`Ajout ${total > 1 ? "de " + total + " titres" : "du titre"} — les recherches démarrent automatiquement en arrière-plan.`);
   }
@@ -82,6 +100,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const message = typeof body?.message === "string" ? body.message.trim() : "";
   if (!message) return NextResponse.json({ error: "message required" }, { status: 400 });
+  const storedLocale = loadUserPrefs(user.id).locale;
+  const clientLocale = LOCALES.includes(body?.locale) ? body.locale as Locale : undefined;
+  const replyLocale = resolveAiLocale(storedLocale ?? clientLocale ?? DEFAULT_LOCALE, message);
 
   // Page context comes from the CLIENT (the chat widget reads the browser
   // store written by the title page) — the server keeps no notion of "what
@@ -119,13 +140,6 @@ export async function POST(req: NextRequest) {
   markChatActive(user.id);
   pushAiMessage(user.id, { role: "user", content: message });
   const previousAssistantReply = [...session.messages].reverse().find((entry) => entry.role === "assistant")?.content;
-  const creatorRecentReplies = session.messages.filter((entry) => entry.role === "assistant").slice(-8).map((entry) => entry.content);
-  const creatorReply = creatorBoundaryReply(user, message, previousAssistantReply, undefined, creatorRecentReplies);
-  if (creatorReply) {
-    const assistant: AiChatMessage = { role: "assistant", content: creatorReply };
-    pushAiMessage(user.id, assistant);
-    return NextResponse.json({ message: assistant, provider: null });
-  }
   // Detectors read the message with its typos corrected (« apelle moi »,
   // « deja vu », « recomande »…); title extractors try it as typed first.
   const looseMessage = correctTypos(message);
@@ -419,14 +433,14 @@ export async function POST(req: NextRequest) {
           } else {
             const listOptions = { best: false, scope: filmographyRequest.scope, directorOnly: effectiveDirectorOnly };
             personCards = buildPersonListCards(selectedCredits.map(toPersonCredit), listOptions);
-            groundedAnswer = personListIntro(full.name, personCards, selectedCredits.length, listOptions);
+            groundedAnswer = personListIntro(full.name, personCards, selectedCredits.length, listOptions, replyLocale);
           }
         }
       }
       // TMDb reste prioritaire car lui seul permet la comparaison exacte
       // avec la bibliothèque. Le web ne sert que de repli factuel.
       if (!groundedAnswer && config.webSearchEnabled) {
-        const webResult = await searchWeb(config, `Réponds en français avec la filmographie complète et vérifiée de ${personQuery}. ${filmographyRequest.scope === "movie" ? "Films uniquement." : filmographyRequest.scope === "series" ? "Séries uniquement." : "Films et séries."} N'invente aucun titre.`);
+        const webResult = await searchWeb(config, `Respond in ${replyLocale} with the complete, verified filmography of ${personQuery}. ${filmographyRequest.scope === "movie" ? "Movies only." : filmographyRequest.scope === "series" ? "Series only." : "Movies and series."} Do not invent titles.`);
         if (webResult) groundedAnswer = webResult;
       }
     } catch {
@@ -450,7 +464,7 @@ export async function POST(req: NextRequest) {
           const selected = selectPersonCredits(full, countedPerson.scope, directing, person.knownForDepartment === "Acting");
           const listOptions = { count: countedPerson.count, best: countedPerson.best, scope: countedPerson.scope, directorOnly: directing };
           personCards = buildPersonListCards(selected.map(toPersonCredit), listOptions);
-          groundedAnswer = personListIntro(full.name, personCards, selected.length, listOptions);
+          groundedAnswer = personListIntro(full.name, personCards, selected.length, listOptions, replyLocale);
           setActivePerson(user.id, { id: full.id, name: full.name, department: person.knownForDepartment });
         }
       }
@@ -467,7 +481,7 @@ export async function POST(req: NextRequest) {
         const selected = selectPersonCredits(full, personFollowUp.scope, directing, freshPerson.department === "Acting");
         const listOptions = { count: personFollowUp.count, best: personFollowUp.best, scope: personFollowUp.scope, directorOnly: directing };
         personCards = buildPersonListCards(selected.map(toPersonCredit), listOptions);
-        groundedAnswer = personListIntro(full.name, personCards, selected.length, listOptions);
+        groundedAnswer = personListIntro(full.name, personCards, selected.length, listOptions, replyLocale);
         setActivePerson(user.id, { id: full.id, name: full.name, department: freshPerson.department });
       }
     } catch {
@@ -681,7 +695,7 @@ export async function POST(req: NextRequest) {
   if (musicQuestion && config.webSearchEnabled) {
     const subject = pageContext?.title ?? session.activeSubject?.title ?? "le film ou la série évoqué(e) dans la conversation";
     const webResult = await searchWeb(config, [
-      "Réponds en français à cette question factuelle sur une musique de film/série.",
+      `Answer this factual film/series music question in ${replyLocale}.`,
       `Question : ${musicQuestion}`,
       `Sujet conversationnel probable : ${subject}`,
       "Cherche des sources fiables. Identifie le morceau et l'artiste, et précise la scène seulement si elle est confirmée. N'invente rien. Donne une réponse directement exploitable par une chatbox, avec les sources ou liens utiles.",
@@ -697,7 +711,10 @@ export async function POST(req: NextRequest) {
   // knows which card — no model call (it cost ~20 s for a fixed reply).
   const shownBefore = previousAssistant?.role === "assistant" ? previousAssistant.recommendations ?? [] : [];
   const quickWatchlist = !playTarget && !groundedAnswer && asksToAddToWatchlist(looseMessage) ? pickShownCards(looseMessage, shownBefore) : [];
-  if (quickWatchlist.length) groundedAnswer = watchlistReply(quickWatchlist);
+  if (quickWatchlist.length) groundedAnswer = watchlistReply(quickWatchlist, replyLocale);
+  // Keep this directive last: the factual context above is mostly French and
+  // otherwise overwhelms a short English message on smaller models.
+  system += aiLanguageInstruction(storedLocale ?? clientLocale ?? DEFAULT_LOCALE, message);
   const t0 = Date.now();
   let providerName = "";
   let text: string;
@@ -745,11 +762,17 @@ export async function POST(req: NextRequest) {
       return Promise.reject(new Error("correction_budget_exhausted"));
     }
     correctionsLeft--;
-    return callAi(config, retrySystem, historyForModel(creatorSafeHistory(user, session.messages), scrubTitles))
+    return callAi(config, retrySystem + aiLanguageInstruction(storedLocale ?? clientLocale ?? DEFAULT_LOCALE, message), historyForModel(creatorSafeHistory(user, session.messages), scrubTitles))
       .then((res) => ({ ...res, text: guardCreatorReply(user, res.text) }));
   };
   // The model's own quick replies ([[CHOIX: …]]), taken out of the text first.
   // Some models escape marker brackets as Markdown; normalize before parsing.
+  if (guardCreatorReply(user, text) !== text && providerName !== "tmdb") {
+    try {
+      const retry = await callAi(config, system + "\n\nCREATOR IDENTITY: Your previous draft disclosed or confirmed an identity you must not disclose. Answer the user's actual question in your own words, in the reply language, without identifying or confirming any person.", historyForModel(creatorSafeHistory(user, session.messages), scrubTitles));
+      text = retry.text;
+    } catch { /* The final identity guard still protects the reply. */ }
+  }
   text = guardCreatorReply(user, text).replace(/\\([\[\]])/g, "$1");
   const modelChoices = extractQuickChoices(text);
   text = stripQuickChoices(text);
@@ -956,7 +979,13 @@ export async function POST(req: NextRequest) {
       }
     }
     if (intent.rawText === BROKEN_ACTION_FALLBACK) {
-      intent = { action: null, items: [], rawText: "Hmm, j'ai un peu buggé sur ce coup — tu peux reformuler autrement ? 😅" };
+      intent = { action: null, items: [], rawText: ({
+        fr: "Hmm, j'ai un peu buggé sur ce coup — tu peux reformuler autrement ? 😅",
+        en: "I stumbled on that one — could you say it another way? 😅",
+        it: "Mi sono un po' perso — puoi dirlo in un altro modo? 😅",
+        nl: "Ik liep even vast — kun je het anders zeggen? 😅",
+        de: "Da bin ich kurz ins Stolpern geraten — kannst du es anders formulieren? 😅",
+      } satisfies Record<Locale, string>)[replyLocale] };
     }
   }
   // Confirmed live: a bare title mention with no action verb ("Hurlevent",
@@ -1162,7 +1191,7 @@ export async function POST(req: NextRequest) {
         ? (hasRealVerification
             ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message s'est contentée de PROMETTRE de vérifier quelque chose ("je vais vérifier", "laisse-moi regarder"...) alors qu'une vraie vérification (section "VÉRIFICATION RÉELLE" plus haut dans ce prompt) est DÉJÀ disponible dans ce même message — tu n'as aucune raison d'attendre, réponds directement et maintenant avec cette information réelle, dans ta personnalité habituelle (naturel, chaleureux, avec des emojis avec modération).`
             : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message s'est contentée de PROMETTRE de vérifier quelque chose ("je vais vérifier"...) — c'est une erreur, Movviz n'a pas de mécanisme pour revenir vers l'utilisateur après coup, une promesse comme ça reste sans suite pour toujours. Réponds cette fois soit avec l'information si tu l'as réellement, soit en disant honnêtement que tu ne peux pas vérifier ça pour l'instant — jamais une promesse d'action que tu ne peux pas tenir dans ce même message.`)
-        : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ne contenait AUCUNE phrase réelle${facts.length ? ` (seulement ${facts.length > 1 ? "des lignes" : "une ligne"} interne${facts.length > 1 ? "s" : ""} de mémorisation, ex. ${facts.map((f) => `« ${f} »`).join(", ")})` : ""} — c'est une erreur, jamais une réponse acceptable. Réponds cette fois avec une vraie phrase, en français, qui répond concrètement à ce que l'utilisateur vient de dire — garde ta personnalité habituelle. Tu peux toujours ajouter une ligne \`[[FAIT: ...]]\` APRÈS cette phrase si pertinent, mais ta réponse ne peut plus être vide de texte réel.`;
+        : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ne contenait AUCUNE phrase réelle${facts.length ? ` (seulement ${facts.length > 1 ? "des lignes" : "une ligne"} interne${facts.length > 1 ? "s" : ""} de mémorisation, ex. ${facts.map((f) => `« ${f} »`).join(", ")})` : ""} — c'est une erreur, jamais une réponse acceptable. Réponds cette fois avec une vraie phrase dans la langue de réponse définie plus haut, qui répond concrètement à ce que l'utilisateur vient de dire — garde ta personnalité habituelle. Tu peux toujours ajouter une ligne \`[[FAIT: ...]]\` APRÈS cette phrase si pertinent, mais ta réponse ne peut plus être vide de texte réel.`;
       const retryRes = await callCorrection(retrySystem);
       const retryIntent = parseIntent(retryRes.text);
       // Only trust the retry if it stayed in mode 3 — a retry that suddenly
@@ -1249,12 +1278,17 @@ export async function POST(req: NextRequest) {
   // sanitizeMechanicalBulletReply.
   if (!finalCleaned && appliedRatings.length) {
     const list = appliedRatings.map((r) => `${r.title} (${r.stars}/5)`).join(", ");
-    finalCleaned = appliedRatings.length === 1
-      ? `C'est noté ⭐ ${list}.`
-      : `C'est noté ⭐ ${list} — ${appliedRatings.length} titres mis à jour.`;
+    const ratingPrefix = ({ fr: "C'est noté", en: "Saved", it: "Salvato", nl: "Opgeslagen", de: "Gespeichert" } satisfies Record<Locale, string>)[replyLocale];
+    finalCleaned = `${ratingPrefix} ⭐ ${list}.`;
   }
   if (scrubTitles && finalCleaned) finalCleaned = scrubTitles(finalCleaned);
-  const FALLBACK_TEXT = "J’ai raté ma réponse sur ce tour. Le contexte de la conversation est toujours là, je repars de ce qu’on vient de se dire.";
+  const FALLBACK_TEXT = ({
+    fr: "J’ai raté ma réponse sur ce tour. Le contexte de la conversation est toujours là, je repars de ce qu’on vient de se dire.",
+    en: "I missed the mark on that reply. I still have the conversation context, so let's pick up where we were.",
+    it: "Non ho risposto bene. Ho ancora il contesto della conversazione, quindi ripartiamo da lì.",
+    nl: "Mijn antwoord sloeg de plank mis. Ik heb de context nog, dus we pakken de draad weer op.",
+    de: "Meine Antwort war daneben. Ich habe den Gesprächskontext noch, also machen wir dort weiter.",
+  } satisfies Record<Locale, string>)[replyLocale];
   // Whatever the model wrote, a started title is never answered by « j'ai
   // raté ma réponse ».
   if (!finalCleaned && playTarget) finalCleaned = `C'est parti ▶ « ${playTarget.title} »${playTarget.seasonNumber != null ? ` — S${playTarget.seasonNumber}E${playTarget.episodeNumber}` : ""}. Bonne séance ! 🍿`;
@@ -1310,7 +1344,7 @@ export async function POST(req: NextRequest) {
     intent = { ...intent, action: "recommend" };
   }
   if (watchlistTargets) {
-    assistant.content = watchlistReply(watchlistTargets);
+    assistant.content = watchlistReply(watchlistTargets, replyLocale);
     if (watchlistTargets.length) assistant.recommendations = watchlistTargets;
     itemCount = watchlistTargets.length;
   } else if (personCards?.length && providerName === "tmdb") {
@@ -1320,7 +1354,7 @@ export async function POST(req: NextRequest) {
   } else if (intent.action === "add_media" && intent.items.length) {
     const outcomes = await addMedia(user, intent.items as AiAddItem[]);
     assistant.actions = outcomes;
-    const summary = summarizeAdd(outcomes);
+    const summary = summarizeAdd(outcomes, replyLocale);
     assistant.content = [cleaned, ...summary].filter(Boolean).join("\n\n");
     itemCount = outcomes.length;
     console.log(`[ai] action=add_media items=${outcomes.length} user=${user.username}`);
@@ -1328,7 +1362,7 @@ export async function POST(req: NextRequest) {
     // The provider echoed titles from our own history. Those cards already
     // have verified TMDb identities; show them immediately in the same order.
     assistant.recommendations = recoveredHistoryCards.slice(0, SHOWN_CARDS);
-    assistant.content = cleaned || recommendationIntro(intent.intro, recentConversationReplies);
+    assistant.content = cleaned || recommendationIntro(intent.intro, recentConversationReplies, replyLocale);
     itemCount = assistant.recommendations.length;
   } else if (intent.action === "recommend" && intent.items.length) {
     const pairs = await recommendMedia(intent.items);
@@ -1496,8 +1530,14 @@ export async function POST(req: NextRequest) {
     // cards — replaces a fixed « Voici ce qui devrait bien coller : » that
     // was stacked on top of any text the model had written.
     assistant.content = recommendations.length
-      ? (cleaned || recommendationIntro(intent.intro, recentConversationReplies))
-      : "Là, tout ce qui me venait, tu l'as déjà vu ou je te l'ai déjà proposé. Donne-moi une piste (un titre que tu as adoré, une ambiance, une durée) et je creuse ailleurs.";
+      ? (cleaned || recommendationIntro(intent.intro, recentConversationReplies, replyLocale))
+      : ({
+          fr: "Là, tout ce qui me venait, tu l'as déjà vu ou je te l'ai déjà proposé. Donne-moi une piste (un titre que tu as adoré, une ambiance, une durée) et je creuse ailleurs.",
+          en: "You've already seen everything I had in mind, or I've suggested it before. Give me a clue — a title, a mood or a length — and I'll look elsewhere.",
+          it: "Hai già visto tutto ciò che mi veniva in mente, oppure te l'ho già proposto. Dammi un indizio — un titolo, un'atmosfera o una durata — e cercherò altrove.",
+          nl: "Alles waar ik aan dacht heb je al gezien of heb ik eerder genoemd. Geef me een hint — een titel, een sfeer of een speelduur — dan zoek ik verder.",
+          de: "Alles, woran ich dachte, hast du schon gesehen oder ich habe es bereits vorgeschlagen. Gib mir einen Hinweis — einen Titel, eine Stimmung oder eine Länge — dann suche ich weiter.",
+        } satisfies Record<Locale, string>)[replyLocale];
     console.log(`[ai] action=recommend candidates=${allItems.length} (llm=${pairs.length}) shown=${recommendations.length} mood=${!!mood} user=${user.username}`);
   }
   recordAiCall({
@@ -1522,10 +1562,16 @@ export async function POST(req: NextRequest) {
     }
   }
   const suggestions = playTarget ? [] : capabilitiesQuestion && !assistant.recommendations?.length
-    ? ["Conseille-moi un film", "Une série pour ce soir", "Quoi de neuf dans Movviz ?"]
+    ? ({
+        fr: ["Conseille-moi un film", "Une série pour ce soir", "Quoi de neuf dans Movviz ?"],
+        en: ["Recommend a movie", "A series for tonight", "What's new in Movviz?"],
+        it: ["Consigliami un film", "Una serie per stasera", "Novità di Movviz?"],
+        nl: ["Raad een film aan", "Een serie voor vanavond", "Wat is nieuw in Movviz?"],
+        de: ["Empfiehl mir einen Film", "Eine Serie für heute Abend", "Was ist neu bei Movviz?"],
+      } satisfies Record<Locale, string[]>)[replyLocale]
     : modelChoices.length && !assistant.recommendations?.length && !assistant.actions?.length
       ? modelChoices
-      : buildQuickReplies(assistant);
+      : buildQuickReplies(assistant, replyLocale);
   if (suggestions.length) assistant.suggestions = suggestions;
   // A title put forward in plain text becomes the conversation's subject, so
   // « dans le même genre » or « mets-le en vu » right after refers to it.
@@ -1539,6 +1585,33 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Resolve display names by TMDb identity after actions and ranking. Never
+  // translate a title by guesswork or change the id used by add/playback.
+  if (replyLocale !== "fr") {
+    const titled = [
+      ...(assistant.recommendations ?? []),
+      ...(assistant.alternates ?? []),
+      ...(assistant.actions ?? []).filter((item) => item.tmdbId),
+      ...(assistant.linkedTitles ?? []),
+    ];
+    const unique = [...new Map(titled.filter((item) => item.tmdbId).map((item) => [`${item.type}:${item.tmdbId}`, item])).values()];
+    const localized = new Map<string, string>();
+    const translations = mapWithConcurrency(unique, 4, async (item) => {
+      try {
+        const title = await getTitleInLanguage(item.tmdbId!, item.type, tmdbLanguage(replyLocale));
+        if (title) localized.set(`${item.type}:${item.tmdbId}`, title);
+      } catch { /* Preserve the verified original title. */ }
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([translations, new Promise<void>((resolve) => { timer = setTimeout(resolve, 1_200); })]);
+    if (timer) clearTimeout(timer);
+    for (const item of titled) {
+      const title = localized.get(`${item.type}:${item.tmdbId}`);
+      if (title) item.title = title;
+    }
+    if (watchlistTargets) assistant.content = watchlistReply(watchlistTargets, replyLocale);
+    if (assistant.actions?.length) assistant.content = [cleaned, ...summarizeAdd(assistant.actions, replyLocale)].filter(Boolean).join("\n\n");
+  }
   pushAiMessage(user.id, assistant);
   setDialogueState(user.id, updateDialogueState(dialoguePlan, assistant.content));
   // Apprentissage conversationnel continu (demande explicite : "la moindre

@@ -1,3 +1,9 @@
+## v1.27.36 — October 24, 2026
+
+### Movviz AI optimization
+
+- Movviz AI optimization.
+
 ## v1.27.35 — October 24, 2026
 
 ### Episodes and Plex watchlist

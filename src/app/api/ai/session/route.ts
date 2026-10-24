@@ -15,6 +15,9 @@ import { buildCreatorContext, creatorSafeHistory, guardCreatorReply } from "@/li
 import type { User } from "@/lib/auth/types";
 import { cleanAiReply } from "@/lib/ai/replyPresentation";
 import { extractQuickChoices, stripQuickChoices } from "@/lib/ai/chatAssist";
+import { aiLanguageInstruction } from "@/lib/ai/responseLanguage";
+import { loadUserPrefs } from "@/lib/userPrefs/store";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +50,9 @@ async function maybeSendProactiveNudge(user: User): Promise<void> {
     const feedbackContext = buildFeedbackContext(userId);
     const factsContext = buildFactsContext(userId);
     const contextInsightsContext = buildContextInsightsSection(userId);
-    const system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, false, false, contextInsightsContext) + buildCreatorContext(user);
+    const system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, false, false, contextInsightsContext)
+      + buildCreatorContext(user)
+      + aiLanguageInstruction(loadUserPrefs(user.id).locale ?? DEFAULT_LOCALE);
     // Prefer the rating nudge over the generic opener when a real
     // watched-but-unrated candidate exists AND its own cooldown (shared
     // with the mid-conversation opportunity in chat/route.ts, so a rating

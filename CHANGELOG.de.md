@@ -1,3 +1,9 @@
+## v1.27.36 — 24. Oktober 2026
+
+### Movviz AI Optimierung
+
+- Movviz AI Optimierung.
+
 ## v1.27.35 — 24. Oktober 2026
 
 ### Folgen und Plex-Watchlist

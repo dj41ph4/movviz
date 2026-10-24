@@ -1,4 +1,5 @@
 import type { AiRecommendation } from "@/lib/ai/types";
+import type { Locale } from "@/i18n/config";
 
 /** « ajoute à ma liste », « mets-le dans ma watchlist », « garde-le pour
  *  plus tard » — the user's own list (Ma liste), never a download. */
@@ -37,7 +38,17 @@ export function pickShownCards(message: string, cards: AiRecommendation[]): AiRe
 }
 
 /** The line shown after adding: what really went in the list. */
-export function watchlistReply(added: { title: string; year?: number }[]): string {
+export function watchlistReply(added: { title: string; year?: number }[], locale: Locale = "fr"): string {
+  if (locale !== "fr") {
+    const names = added.map((a) => `${a.title}${a.year ? ` (${a.year})` : ""}`).join(", ");
+    const copy = {
+      en: { empty: "Which title should I put on your list?", single: `Added to your list ✅ ${names} is there for later.`, many: `Added to your list ✅ ${names}.` },
+      it: { empty: "Quale titolo vuoi mettere nella tua lista?", single: `Aggiunto alla tua lista ✅ ${names} ti aspetta.`, many: `Aggiunti alla tua lista ✅ ${names}.` },
+      nl: { empty: "Welke titel wil je op je lijst zetten?", single: `Toegevoegd aan je lijst ✅ ${names} staat klaar voor later.`, many: `Toegevoegd aan je lijst ✅ ${names}.` },
+      de: { empty: "Welchen Titel soll ich auf deine Liste setzen?", single: `Auf deiner Liste ✅ ${names} wartet auf später.`, many: `Auf deiner Liste ✅ ${names}.` },
+    }[locale];
+    return added.length ? (added.length === 1 ? copy.single : copy.many) : copy.empty;
+  }
   if (!added.length) return "Je ne vois pas quel titre mettre dans ta liste. Dis-moi lequel et je l'y range.";
   const names = added.map((a) => `${a.title}${a.year ? ` (${a.year})` : ""}`);
   return added.length === 1

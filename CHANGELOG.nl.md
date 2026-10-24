@@ -1,3 +1,9 @@
+## v1.27.36 — 24 oktober 2026
+
+### Optimalisatie Movviz AI
+
+- Optimalisatie Movviz AI.
+
 ## v1.27.35 — 24 oktober 2026
 
 ### Afleveringen en Plex Watchlist

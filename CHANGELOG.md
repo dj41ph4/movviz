@@ -1,3 +1,9 @@
+## v1.27.36 — 24 octobre 2026
+
+### Optimisation Movviz AI
+
+- Optimisation Movviz AI.
+
 ## v1.27.35 — 24 octobre 2026
 
 ### Épisodes et liste de suivi Plex

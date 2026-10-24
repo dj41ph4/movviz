@@ -100,7 +100,21 @@ export function buildPersonListCards(credits: PersonCredit[], options: { count?:
 
 /** The line above the cards — plain facts (what is shown, out of how many,
  *  how many the user already owns); the model never has to make them up. */
-export function personListIntro(name: string, cards: AiRecommendation[], total: number, options: { count?: number; best: boolean; scope: "movie" | "series" | "all"; directorOnly: boolean }): string {
+export function personListIntro(name: string, cards: AiRecommendation[], total: number, options: { count?: number; best: boolean; scope: "movie" | "series" | "all"; directorOnly: boolean }, locale: "fr" | "en" | "it" | "nl" | "de" = "fr"): string {
+  if (locale !== "fr") {
+    const copy = {
+      en: { none: `I couldn't find any reliable titles for ${name} in TMDb.`, kinds: ["movies", "series", "titles"], best: "highest-rated", popular: "best-known", by: "directed by", owned0: "None are in your library yet.", ownedAll: "They're all in your library.", owned: (n: number) => `${n} are already in your library.` },
+      it: { none: `Non ho trovato titoli affidabili per ${name} su TMDb.`, kinds: ["film", "serie", "titoli"], best: "più apprezzati", popular: "più conosciuti", by: "diretti da", owned0: "Nessuno è ancora nella tua libreria.", ownedAll: "Sono già tutti nella tua libreria.", owned: (n: number) => `Ne hai già ${n} nella tua libreria.` },
+      nl: { none: `Ik vond geen betrouwbare titels voor ${name} op TMDb.`, kinds: ["films", "series", "titels"], best: "best beoordeelde", popular: "bekendste", by: "geregisseerd door", owned0: "Nog geen ervan staat in je bibliotheek.", ownedAll: "Ze staan allemaal al in je bibliotheek.", owned: (n: number) => `${n} staan al in je bibliotheek.` },
+      de: { none: `Ich habe keine verlässlichen Titel für ${name} auf TMDb gefunden.`, kinds: ["Filme", "Serien", "Titel"], best: "bestbewerteten", popular: "bekanntesten", by: "von", owned0: "Noch keiner ist in deiner Bibliothek.", ownedAll: "Du hast sie alle schon in deiner Bibliothek.", owned: (n: number) => `${n} sind bereits in deiner Bibliothek.` },
+    }[locale];
+    if (!cards.length) return copy.none;
+    const kind = copy.kinds[options.scope === "movie" ? 0 : options.scope === "series" ? 1 : 2];
+    const owned = cards.filter((card) => card.inLibrary).length;
+    const ownedNote = owned === 0 ? copy.owned0 : owned === cards.length ? copy.ownedAll : copy.owned(owned);
+    const count = cards.length < total ? `${cards.length}/${total}` : String(total);
+    return `${count} ${options.best ? copy.best : copy.popular} ${kind} ${options.directorOnly ? copy.by : "—"} ${name} 🎬 ${ownedNote}`;
+  }
   if (!cards.length) return `Je n'ai trouvé aucun titre fiable pour ${name} dans les données TMDb.`;
   const kind = options.scope === "movie" ? "films" : options.scope === "series" ? "séries" : "titres";
   const owned = cards.filter((c) => c.inLibrary).length;
