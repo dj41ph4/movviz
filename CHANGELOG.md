@@ -1,3 +1,12 @@
+## v1.27.33 — 24 octobre 2026
+
+### Reprises Plex et réactivité
+
+- La collecte complète des vues Plex s'exécute dans un worker dédié. Les vues existantes ne sont remplacées qu'après réception d'un snapshot complet et validé.
+- Les synchronisations planifiées des vues et de l'historique Plex rejoignent les tâches lourdes : elles ne chevauchent plus une autre tâche lourde et attendent la fin de la lecture.
+- L'ouverture d'une fiche déclenche encore la vérification rapide des vues, sans lancer le snapshot complet.
+- On Deck affiche les reprises locales après au plus deux secondes d'attente Plex. Les cinq premières reprises Plex arrivent ensuite automatiquement, puis les suivantes progressivement, avec moins de passages répétés.
+
 ## v1.27.32 — 23 octobre 2026
 
 ### Priorité au lecteur et à l'interface

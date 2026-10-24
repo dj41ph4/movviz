@@ -249,7 +249,7 @@ export const TASKS: ScheduledTask[] = [
       const users = loadUsers().filter((u) => u.plexId || u.plexManagedUserId);
       // Full history bootstrap can involve thousands of events per user and must
       // not monopolize the process with 15 parallel full scans. Keep at most
-      // one full bootstrap at a time (owner snapshot is cheap, history is not).
+      // one full bootstrap at a time (owner snapshot and history can both be heavy).
       await mapWithConcurrency(users, 1, (user) => syncUserWatchStatus(user));
     },
   },

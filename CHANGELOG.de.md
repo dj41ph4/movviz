@@ -1,3 +1,12 @@
+## v1.27.33 — 24. Oktober 2026
+
+### Plex Fortsetzen und Reaktionszeit
+
+- Die vollständige Erfassung der Plex Wiedergabestatus läuft in einem eigenen Worker. Bestehende Status werden erst nach einem vollständigen, geprüften Snapshot ersetzt.
+- Geplante Synchronisierungen von Plex Wiedergabestatus und Verlauf gelten als schwere Aufgaben: Sie überschneiden sich nicht mit anderen schweren Aufgaben und warten auf das Ende der Wiedergabe.
+- Beim Öffnen eines Titels bleibt die schnelle Statusprüfung erhalten, ohne einen vollständigen Snapshot zu starten.
+- On Deck zeigt lokale Fortsetzungen nach höchstens zwei Sekunden Wartezeit auf Plex. Die ersten fünf Plex Fortsetzungen erscheinen danach automatisch, die übrigen schrittweise mit weniger wiederholter Verarbeitung.
+
 ## v1.27.32 — 23. Oktober 2026
 
 ### Vorrang für Player und Oberfläche

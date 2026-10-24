@@ -6,6 +6,7 @@ import { eventBus } from "@/lib/events/EventBus";
 import { listOnDeckEntries, type OnDeckEntry } from "@/lib/plex/onDeckService";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { getVerifiedOnDeck } from "@/lib/plex/watchWrite";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 export const dynamic = "force-dynamic";
 export type { OnDeckEntry } from "@/lib/plex/onDeckService";
@@ -20,12 +21,17 @@ export type { OnDeckEntry } from "@/lib/plex/onDeckService";
  */
 const FRESH_MS = 15_000;
 const MAX_AGE_MS = 10 * 60_000;
+// A cold Plex request may wait behind a full server snapshot for minutes.
+// Give the five newest Plex resumes a short chance to arrive, then show the
+// local positions while the same request finishes and publishes via SSE.
+const COLD_WAIT_MS = 2_000;
 
 const g = globalThis as typeof globalThis & {
   __movvizOnDeckValidatedCache?: Map<string, { items: OnDeckEntry[]; at: number }>;
   __movvizOnDeckValidatedInFlight?: Map<string, Promise<OnDeckEntry[]>>;
   __movvizOnDeckValidatedTail?: Map<string, Promise<void>>;
   __movvizOnDeckValidatedGeneration?: Map<string, number>;
+  __movvizOnDeckColdTimedOut?: Set<string>;
   __movvizOnDeckValidatedInvalidation?: boolean;
 };
 // Do not retain entries from the previous unvalidated policy on a hot upgrade.
@@ -33,12 +39,14 @@ const cache = (g.__movvizOnDeckValidatedCache ??= new Map());
 const inFlight = (g.__movvizOnDeckValidatedInFlight ??= new Map());
 const tails = (g.__movvizOnDeckValidatedTail ??= new Map());
 const generations = (g.__movvizOnDeckValidatedGeneration ??= new Map());
+const coldTimedOut = (g.__movvizOnDeckColdTimedOut ??= new Set());
 if (!g.__movvizOnDeckValidatedInvalidation) {
   g.__movvizOnDeckValidatedInvalidation = true;
   eventBus.on((event) => {
     if (event.type === "watch_changed") {
       cache.delete(event.userId);
       inFlight.delete(event.userId);
+      coldTimedOut.delete(event.userId);
       generations.set(event.userId, (generations.get(event.userId) ?? 0) + 1);
     }
   });
@@ -74,20 +82,27 @@ function refresh(user: User): Promise<OnDeckEntry[]> {
 
     // Fetch and verify the profile's Plex list once. Only the five newest
     // entries need metadata before the cold request can answer.
+    const plexStartedAt = Date.now();
     const verifiedPlexItems = await getVerifiedOnDeck(user, cfg);
+    const plexMs = Date.now() - plexStartedAt;
+    if (plexMs >= COLD_WAIT_MS) recordSearchLog("info", "perf.on_deck", `Plex On Deck user=${user.id} verification=${plexMs}ms items=${verifiedPlexItems.length}`, plexMs);
     const first = await listOnDeckEntries(user, {
       verifiedPlexItems,
       maxPlexItems: 5,
       includeStills: false,
     });
-    if (!publish(user.id, generation, first, false)) return cache.get(user.id)?.items ?? [];
+    const notifyFirst = coldTimedOut.delete(user.id);
+    if (!publish(user.id, generation, first, notifyFirst)) return cache.get(user.id)?.items ?? [];
 
     // Resolve the rest in small batches. Each successful batch becomes
     // visible to web clients by SSE and to other platforms on their next GET.
     if (verifiedPlexItems.length > 5 || first.some((item) => item.type === "episode")) {
       const tail = new Promise<void>((resolve) => setImmediate(resolve))
         .then(async () => {
-          for (let count = 10; count < verifiedPlexItems.length; count += 10) {
+          // Rebuilding 10, 20, 30... N entries repeats the same Plex metadata
+          // calls quadratically. Doubling keeps intermediate updates while
+          // bounding the number of full passes for large libraries.
+          for (let count = 10; count < verifiedPlexItems.length; count *= 2) {
             if ((generations.get(user.id) ?? 0) !== generation) return;
             const items = await listOnDeckEntries(user, {
               verifiedPlexItems,
@@ -120,7 +135,21 @@ export async function GET(req: NextRequest) {
     if (age > FRESH_MS) void refresh(user).catch(() => {});
     items = cached.items;
   } else {
-    items = await refresh(user);
+    const pending = refresh(user);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const result = await Promise.race([
+      pending.then((value) => ({ ready: true as const, value })),
+      new Promise<{ ready: false }>((resolve) => { timer = setTimeout(() => resolve({ ready: false }), COLD_WAIT_MS); }),
+    ]);
+    if (timer) clearTimeout(timer);
+    if (result.ready) {
+      items = result.value;
+    } else {
+      coldTimedOut.add(user.id);
+      // This path never queries Plex. The verified Plex result still arrives
+      // through the in-flight refresh and its on_deck_refreshed event.
+      items = await listOnDeckEntries(user, { verifiedPlexItems: [], includeStills: false });
+    }
   }
   return compressedJson(req, { items }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -8,10 +8,15 @@ import type { CanonicalMediaIdentity } from "./mediaIdentityMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { batchTmdbIds } from "./client";
+import { runPlexSnapshotWorker } from "@/lib/workers/plexSnapshotPool";
 
 type SnapshotResult =
   | { ok: true; states: PlexObservedState[]; movieRatingKeys: string[]; showRatingKeys: string[]; episodeRatingKeys: string[] }
   | { ok: false; reason: string };
+
+type CollectedSnapshot =
+  | (Extract<SnapshotResult, { ok: true }> & { mappings: Parameters<typeof upsertMappings>[0] })
+  | Extract<SnapshotResult, { ok: false }>;
 
 /**
  * PlexWatchStateObserver (§22-27)
@@ -25,7 +30,22 @@ type SnapshotResult =
  * build complete set, THEN diff.
  */
 
-export async function snapshotWatchState(ctx: PlexUserContext, opts?: { forceSnapshot?: boolean }): Promise<SnapshotResult> {
+export async function snapshotWatchState(ctx: PlexUserContext, _opts?: { forceSnapshot?: boolean }): Promise<SnapshotResult> {
+  let snapshot: CollectedSnapshot;
+  try {
+    snapshot = await runPlexSnapshotWorker(ctx);
+  } catch (error) {
+    recordSearchLog("warn", "plex.snapshot", `plex.snapshot worker failed user=${ctx.movvizUserId} error=${error instanceof Error ? error.message : String(error)}`);
+    return { ok: false, reason: "snapshot_worker_failed" };
+  }
+  if (snapshot.ok && snapshot.mappings.length > 0) {
+    try { upsertMappings(snapshot.mappings); } catch { /* Mapping remains best-effort. */ }
+  }
+  return snapshot;
+}
+
+/** Read-only Plex collection; called inside the dedicated worker. */
+export async function collectSnapshotWatchState(ctx: PlexUserContext): Promise<CollectedSnapshot> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname) return { ok: false, reason: "plex_not_configured" };
   if (ctx.authSource !== "owner") {
@@ -48,7 +68,7 @@ export async function snapshotWatchState(ctx: PlexUserContext, opts?: { forceSna
   return snapshotViaBatch(ctx, sections);
 }
 
-async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnType<typeof getLibrarySections>>): Promise<SnapshotResult> {
+async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnType<typeof getLibrarySections>>): Promise<CollectedSnapshot> {
   const cfg = loadPlexConfig();
   const allMovieKeys = new Set<string>();
   const allShowKeys = new Set<string>();
@@ -97,11 +117,12 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
   const allRatingKeys = [...allMovieKeys, ...allEpisodeKeys];
   // Show ratingKeys themselves are not watched directly; episodes are. So snapshot only movies + episodes.
   if (allRatingKeys.length === 0) {
-    return { ok: true, states: [], movieRatingKeys: [], showRatingKeys: showKeyList, episodeRatingKeys: [] };
+    return { ok: true, states: [], movieRatingKeys: [], showRatingKeys: showKeyList, episodeRatingKeys: [], mappings: [] };
   }
 
   // Batch view state using USER token – atomic per §25-28
   let viewMap: Map<string, import("./client").PlexViewState>;
+  const mappings: Parameters<typeof upsertMappings>[0] = [];
   try {
     viewMap = await batchPlexViewState(cfg, ctx.serverToken, allRatingKeys);
   } catch (e) {
@@ -152,15 +173,12 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
   // Build mediaIdentityMap entries (best-effort, for resolver)
   try {
     const tmdbMap = await batchTmdbIds(cfg, ctx.serverToken, [...allMovieKeys]);
-    const showTmdbMap = await batchTmdbIds(cfg, ctx.serverToken, showKeyList);
-    const entries: Parameters<typeof upsertMappings>[0] = [];
     for (const rk of allMovieKeys) {
       const tmdbId = tmdbMap.get(rk)?.tmdbId;
-      if (tmdbId != null) entries.push({ machineIdentifier: ctx.machineIdentifier, ratingKey: rk, canonical: { type: "movie", tmdbId }, updatedAt: now });
+      if (tmdbId != null) mappings.push({ machineIdentifier: ctx.machineIdentifier, ratingKey: rk, canonical: { type: "movie", tmdbId }, updatedAt: now });
     }
     // For episodes, we need season/episode mapping – we have eps from getShowEpisodes, but we didn't keep them.
     // Re-fetch mapping via getShowEpisodes already gave us season/episode? We dropped it. To keep simple, we will not map episodes here; observer's reconciler will map via Movviz library's plexRatingKey lookup instead.
-    if (entries.length > 0) upsertMappings(entries);
   } catch {
     // non-fatal
   }
@@ -176,6 +194,7 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
     movieRatingKeys: [...allMovieKeys],
     showRatingKeys: showKeyList,
     episodeRatingKeys: [...allEpisodeKeys],
+    mappings,
   };
 }
 

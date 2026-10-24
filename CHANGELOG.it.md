@@ -1,3 +1,12 @@
+## v1.27.33 — 24 ottobre 2026
+
+### Riprese Plex e reattività
+
+- La raccolta completa degli stati di visione Plex viene eseguita in un worker dedicato. Gli stati esistenti vengono sostituiti solo dopo uno snapshot completo e convalidato.
+- Le sincronizzazioni pianificate delle visioni e della cronologia Plex sono attività pesanti: non si sovrappongono ad altre attività pesanti e attendono la fine della riproduzione.
+- L'apertura di una scheda mantiene la verifica rapida degli stati di visione senza avviare uno snapshot completo.
+- On Deck mostra le riprese locali dopo al massimo due secondi di attesa per Plex. Le prime cinque riprese Plex arrivano automaticamente, poi le altre in modo progressivo con meno passaggi ripetuti.
+
 ## v1.27.32 — 23 ottobre 2026
 
 ### Priorità al lettore e all'interfaccia

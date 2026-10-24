@@ -1,3 +1,12 @@
+## v1.27.33 — 24 oktober 2026
+
+### Plex hervatten en reactiesnelheid
+
+- De volledige verzameling van Plex kijkstatussen draait in een aparte worker. Bestaande statussen worden pas vervangen na een volledige, gevalideerde snapshot.
+- Geplande synchronisaties van Plex kijkstatus en geschiedenis zijn zware taken: ze overlappen geen andere zware taak en wachten tot het afspelen is gestopt.
+- Bij het openen van een titel blijft de snelle controle van de kijkstatus actief, zonder een volledige snapshot te starten.
+- On Deck toont lokale hervatpunten na maximaal twee seconden wachten op Plex. De eerste vijf Plex hervatpunten verschijnen daarna automatisch, gevolgd door de rest in stappen met minder herhaalde verwerking.
+
 ## v1.27.32 — 23 oktober 2026
 
 ### Voorrang voor speler en interface

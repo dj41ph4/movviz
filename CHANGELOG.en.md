@@ -1,3 +1,12 @@
+## v1.27.33 — October 24, 2026
+
+### Plex resumes and responsiveness
+
+- Full Plex watch-state collection runs in a dedicated worker. Existing states are replaced only after a complete, validated snapshot arrives.
+- Scheduled Plex watch and history syncs are treated as heavy tasks: they no longer overlap another heavy task and wait until playback ends.
+- Opening a title still triggers quick watch-state verification without starting a full snapshot.
+- On Deck shows local resumes after at most two seconds of waiting for Plex. The first five Plex resumes then arrive automatically, followed by the rest progressively with fewer repeated passes.
+
 ## v1.27.32 — October 23, 2026
 
 ### Player and interface priority

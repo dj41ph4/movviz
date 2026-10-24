@@ -123,6 +123,8 @@ export const HEAVY_TASKS = new Set<string>([
   "metadata-refresh",
   "library-reconcile",
   "plex-full-reconcile",
+  "plex-watch-sync",
+  "plex-watch-bootstrap",
   "library-health-check",
   "server-benchmark",
 ]);

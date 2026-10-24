@@ -468,7 +468,7 @@ export async function syncUserWatchStatusForSeries(user: User, tmdbShowId: numbe
  * resolve user → history poll → watch snapshot → reconciliation → diagnostics
  * Never contains business logic inline – delegates to observers & reconciler.
  */
-export async function syncUserWatchStatus(user: User, opts?: { forceSnapshot?: boolean }) {
+export async function syncUserWatchStatus(user: User, opts?: { forceSnapshot?: boolean; skipSnapshot?: boolean }) {
   const lockKey = `plex-sync:${user.id}`;
   if (syncLocks().get(user.id)) {
     rerunSet().add(user.id);
@@ -489,7 +489,7 @@ export async function syncUserWatchStatus(user: User, opts?: { forceSnapshot?: b
   }
 }
 
-async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
+async function doSync(user: User, opts?: { forceSnapshot?: boolean; skipSnapshot?: boolean }) {
   const syncStartedAt = Date.now();
   let syncPhase = "identity";
   const cfg = loadPlexConfig();
@@ -852,7 +852,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean }) {
 
     // 2) WatchStateObserver snapshot – owner only. Shared/managed have no reliable per-user viewCount.
     syncPhase = "snapshot";
-    const doSnapshot = ctx.authSource === "owner" && (opts?.forceSnapshot === true || bootstrapCompletedThisRun || (!bootstrapNeeded && shouldSnapshot(user.id)));
+    const doSnapshot = !opts?.skipSnapshot && ctx.authSource === "owner" && (opts?.forceSnapshot === true || bootstrapCompletedThisRun || (!bootstrapNeeded && shouldSnapshot(user.id)));
     if (doSnapshot) {
       const previousMap = getObservedStatesForUser(user.id, ctx.machineIdentifier);
       const snap = await snapshotWatchState(ctx);
@@ -1053,7 +1053,9 @@ export async function syncUserWatchStatusIfDue(user: User, minIntervalMs = 30_00
   const current = gate.get(user.id);
   const now = Date.now();
   if (current && now - current.at < minIntervalMs) return current.promise;
-  const promise = syncUserWatchStatus(user).catch(() => undefined);
+  // A fiche read may trigger quick history verification; the full library
+  // snapshot belongs to the scheduled heavy task, never the user's request.
+  const promise = syncUserWatchStatus(user, { skipSnapshot: true }).catch(() => undefined);
   gate.set(user.id, { at: now, promise });
   await promise;
 }

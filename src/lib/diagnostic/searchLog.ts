@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parentPort } from "node:worker_threads";
 
 // 4000 : chaque recherche d'épisode écrit ~10 lignes (dont 2-4 en debug) —
 // avec 2000, une grosse passe (bulk, RSS, relance) poussait hors du buffer
@@ -41,7 +42,7 @@ function loadFromDisk(): SearchLogLine[] {
 }
 
 // Pre-populate buffer from disk at module init
-if (buffer.length === 0) {
+if (buffer.length === 0 && process.env.MOVVIZ_SNAPSHOT_WORKER !== "1") {
   const persisted = loadFromDisk();
   for (const line of persisted) buffer.push(line);
 }
@@ -67,6 +68,10 @@ function scheduleFlush() {
 }
 
 export function recordSearchLog(level: SearchLogLine["level"], step: string, message: string, ms?: number) {
+  if (process.env.MOVVIZ_SNAPSHOT_WORKER === "1" && parentPort) {
+    parentPort.postMessage({ kind: "log", level, step, message, ms });
+    return;
+  }
   buffer.push({ t: Date.now(), level, step, message, ms });
   while (buffer.length > MAX_LINES) buffer.shift();
   scheduleFlush();

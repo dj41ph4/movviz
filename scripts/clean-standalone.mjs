@@ -52,9 +52,12 @@ fs.mkdirSync(workersDestination, { recursive: true });
 for (const file of workerFiles) {
   fs.copyFileSync(path.join(workersSource, file), path.join(workersDestination, file));
 }
+const plexSnapshotWorker = path.join(root, ".next", "plex-snapshot", "plexSnapshotWorker.mjs");
+if (!fs.existsSync(plexSnapshotWorker)) throw new Error("clean-standalone: Plex snapshot worker missing");
+fs.copyFileSync(plexSnapshotWorker, path.join(workersDestination, "plexSnapshotWorker.mjs"));
 
 // The popup reads every locale at runtime; native Linux also ships standalone directly.
 for (const file of fs.readdirSync(root).filter((name) => /^CHANGELOG(?:\.(?:en|it|nl|de))?\.md$/.test(name))) {
   fs.copyFileSync(path.join(root, file), path.join(resolvedStandalone, file));
 }
-console.log(`clean-standalone: removed ${removed} entry(ies); staged ${workerFiles.length} worker asset(s) and localized changelogs`);
+console.log(`clean-standalone: removed ${removed} entry(ies); staged ${workerFiles.length + 1} worker asset(s) and localized changelogs`);
