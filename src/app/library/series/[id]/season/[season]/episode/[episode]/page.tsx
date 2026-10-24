@@ -1,8 +1,9 @@
 "use client";
 
-import { use as usePromise } from "react";
+import { use as usePromise, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/provider";
 import { cn, openPlexLink } from "@/lib/utils";
 import type { LibrarySeries, LibraryEpisode, LibraryStatus } from "@/lib/library/types";
@@ -10,9 +11,11 @@ import type { MetaEpisode } from "@/lib/metadata/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
-import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv, Calendar } from "lucide-react";
+import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv, Calendar, Trash2, Loader2, X } from "lucide-react";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { toast } from "@/components/ui/Toast";
 
 type EpisodeWithPlexUrl = LibraryEpisode & { plexUrl?: string | null };
 
@@ -40,6 +43,10 @@ export default function EpisodeDetailPage({
   const seasonNumber = Number(season);
   const episodeNumber = Number(episode);
   const { t, locale } = useI18n();
+  const router = useRouter();
+  const user = useCurrentUser();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play } = usePlayer();
   // Same SWR key as the series detail page: navigating from there paints
@@ -76,6 +83,23 @@ export default function EpisodeDetailPage({
   // never when arriving from the series page, which shares this SWR key and
   // so already has the data on the very first render.
   const still = useTmdbImageUrl(stillPath, "original");
+
+  const removeEpisode = async (deleteFiles: boolean) => {
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/library/series/${id}/episode/${seasonNumber}/${episodeNumber}?deleteFiles=${deleteFiles}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast("error", body.error === "shared_file" ? t("library.removeEpisodeShared") : body.error === "episode_busy" ? t("library.removeEpisodeBusy") : body.error === "file_removal_failed" && typeof body.detail === "string" ? `${t("library.removeEpisodeFailed")} ${body.detail}` : t("library.removeEpisodeFailed"));
+        return;
+      }
+      router.push(`/title/series/${series?.tmdbId ?? ""}`);
+    } catch {
+      toast("error", t("library.removeEpisodeFailed"));
+    } finally {
+      setRemoving(false);
+    }
+  };
 
   if (!series) return (
     <div className="mx-auto max-w-[1000px] animate-pulse">
@@ -148,6 +172,17 @@ export default function EpisodeDetailPage({
             >
               <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
             </a>
+          )
+        )}
+        {user?.role === "admin" && (
+          confirmRemove ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-down/30 bg-down/10 p-2">
+              <button onClick={() => void removeEpisode(false)} disabled={removing} className="rounded-lg px-3 py-2 text-xs font-bold text-down hover:bg-down/10 disabled:opacity-50">{t("library.removeEpisodeOnly")}</button>
+              {ep.file && !ep.combinedFile && <button onClick={() => void removeEpisode(true)} disabled={removing} className="rounded-lg bg-down px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{t("library.removeEpisodeFiles")}</button>}
+              <button onClick={() => setConfirmRemove(false)} disabled={removing} aria-label={t("common.cancel")} className="rounded-lg p-2 text-ink-dim hover:text-ink">{removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmRemove(true)} className="flex h-9 items-center gap-2 rounded-xl border border-down/25 px-3 text-sm font-semibold text-down hover:bg-down/10"><Trash2 className="h-4 w-4" />{t("library.removeEpisode")}</button>
           )
         )}
       </div>

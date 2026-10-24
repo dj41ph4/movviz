@@ -1,3 +1,10 @@
+## v1.27.35 — 24 octobre 2026
+
+### Épisodes et liste de suivi Plex
+
+- Les administrateurs peuvent retirer un épisode depuis sa fiche, avec un choix séparé pour supprimer son fichier. Un fichier partagé par plusieurs épisodes est protégé. L'épisode retiré ne repart pas en recherche automatique et la synchronisation Plex ne le rattache pas à nouveau.
+- « Ma liste » synchronise les films et séries ajoutés ou retirés dans les deux sens avec la Watchlist Plex du compte personnel. Les ajouts Movviz sont envoyés après la réponse, sans retarder la page ; la synchronisation planifiée reprend les échecs. Les conflits utilisent l'heure du changement ; une suppression Plex sans horodatage est datée à sa constatation.
+
 ## v1.27.34 — 24 octobre 2026
 
 ### Réactivité pendant les tâches automatiques

@@ -489,7 +489,7 @@ export function clearEpisodeFile(seriesId: string, seasonNumber: number, episode
         // instead of threading a brand-new field through a dozen scattered
         // filters — restoreEpisodeMonitoring() below puts the original
         // value back from the trash snapshot.
-        return { ...ep, status: "missing" as const, file: null, activeInfoHash: null, monitored: false };
+        return { ...ep, status: "missing" as const, file: null, activeInfoHash: null, monitored: false, plexRatingKey: null, playbackSource: null };
       }),
     };
   });

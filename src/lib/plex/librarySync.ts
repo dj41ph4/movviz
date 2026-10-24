@@ -23,6 +23,7 @@ import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, type PathM
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { runBackground } from "@/lib/priority/lane";
 import { registerMarkerCandidate } from "./markerSync";
+import { loadTrash } from "@/lib/library/trashStore";
 import path from "node:path";
 
 /**
@@ -703,6 +704,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
 
 async function syncShowSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined, seenTmdbIds: Set<number>, bleachPass: { processed: boolean; snapshot: () => Promise<BleachPlexSnapshot | null> }) {
   const shows = await getSectionItems(cfg, section.key, token, { sinceUnixSeconds: since });
+  const removedEpisodeKeys = new Set(loadTrash().filter((item) => item.type === "episode").map((item) => `${item.seriesTmdbId}:${item.seasonNumber}:${item.episodeNumber}`));
   let added = 0, matched = 0;
 
   for (const show of shows) {
@@ -710,6 +712,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     await yieldToUser("sync Plex séries");
     setSyncStatus({ seriesProcessed: getPlexSyncStatus().seriesProcessed + 1 });
     if (show.tmdbId == null) continue;
+    const isRemoved = (season: number, episode: number) => removedEpisodeKeys.has(`${show.tmdbId}:${season}:${episode}`);
     seenTmdbIds.add(show.tmdbId);
     if (show.tmdbId === BLEACH_TMDB_ID && bleachPass.processed) continue;
     if (show.tmdbId === BLEACH_TMDB_ID) bleachPass.processed = true;
@@ -736,7 +739,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         const newSeasons = byPath.seasons.map((season) => ({
           ...season,
           episodes: season.episodes.map((ep) => {
-            const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+            const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
             if (plexEp && ep.status !== "available") {
               return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file) ?? ep.file, plexRatingKey: plexEp.ratingKey };
             }
@@ -762,7 +765,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         const detail = await fetchTmdbSeason(show.tmdbId, s.seasonNumber);
         const seasonStatuses = seasonEpisodeStatuses(detail?.episodes ?? []);
         const eps: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => {
-          const plexEp = episodes.find((pe) => pe.seasonNumber === e.seasonNumber && pe.episodeNumber === e.episodeNumber);
+          const plexEp = isRemoved(e.seasonNumber, e.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === e.seasonNumber && pe.episodeNumber === e.episodeNumber);
           return {
             seasonNumber: e.seasonNumber,
             episodeNumber: e.episodeNumber,
@@ -833,7 +836,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           // verified 2:1 Movviz association must not be overwritten by Plex's
           // different catalog coordinate (its E02 points at physical file 2).
           if (ep.combinedFile && hasValidLocalFile(ep.file)) continue;
-          const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+          const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey) { changed = true; break; }
             if (ep.file && hasValidLocalFile(ep.file) && ep.playbackSource !== "movviz") { changed = true; break; }
@@ -855,7 +858,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           ...season,
           episodes: season.episodes.map((ep) => {
           if (ep.combinedFile && hasValidLocalFile(ep.file)) return ep;
-          const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+          const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
               const nextFile = toLibraryFileReconciled(plexEp, ep.file) ?? ep.file;

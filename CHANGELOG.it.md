@@ -1,3 +1,10 @@
+## v1.27.35 — 24 ottobre 2026
+
+### Episodi e watchlist Plex
+
+- Gli amministratori possono rimuovere un episodio dalla sua scheda, con un'opzione separata per eliminare il file. I file condivisi tra episodi sono protetti. Gli episodi rimossi non vengono ricercati automaticamente né riassociati dalla sincronizzazione Plex.
+- «La mia lista» sincronizza film e serie aggiunti o rimossi in entrambe le direzioni con la Watchlist Plex personale. Le modifiche Movviz vengono inviate dopo la risposta, senza rallentare la pagina, e la sincronizzazione pianificata riprova in caso di errore. I conflitti usano l'ora della modifica; una rimozione Plex senza data viene datata quando è rilevata.
+
 ## v1.27.34 — 24 ottobre 2026
 
 ### Reattività durante le attività automatiche

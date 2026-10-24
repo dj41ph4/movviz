@@ -1,3 +1,10 @@
+## v1.27.35 — 24. Oktober 2026
+
+### Folgen und Plex-Watchlist
+
+- Administratoren können eine Folge auf ihrer Detailseite entfernen und optional auch die Datei löschen. Von mehreren Folgen verwendete Dateien sind geschützt. Entfernte Folgen werden nicht erneut automatisch gesucht oder durch die Plex-Synchronisierung verknüpft.
+- „Meine Liste“ synchronisiert hinzugefügte und entfernte Filme und Serien in beide Richtungen mit der persönlichen Plex-Watchlist. Movviz sendet Änderungen nach der Antwort, damit die Seite schnell bleibt; die geplante Synchronisierung wiederholt fehlgeschlagene Aktionen. Konflikte verwenden Änderungszeiten; eine Plex-Entfernung ohne Zeitstempel wird bei ihrer Feststellung datiert.
+
 ## v1.27.34 — 24. Oktober 2026
 
 ### Reaktionsfähigkeit bei automatischen Aufgaben

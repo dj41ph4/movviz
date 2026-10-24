@@ -366,26 +366,55 @@ export async function testPlexServer(cfg: PlexServerConfig): Promise<boolean> {
 }
 
 /** A user's real Plex watchlist (plex.tv Discover, separate from the media server itself). */
+const watchlistLogState = globalThis as typeof globalThis & { __movvizWatchlistErrorAt?: Map<string, number> };
+function logWatchlistIssue(key: string, message: string) {
+  const seen = (watchlistLogState.__movvizWatchlistErrorAt ??= new Map());
+  const now = Date.now();
+  if (now - (seen.get(key) ?? 0) < 30 * 60_000) return;
+  seen.set(key, now);
+  console.warn(`[PlexWatchlist] ${message}`);
+}
+
 export async function getPlexWatchlist(userToken: string): Promise<PlexWatchlistItem[]> {
+  return (await getPlexWatchlistSnapshot(userToken)) ?? [];
+}
+
+/** null means the remote list could not be read; it must never look like an empty list. */
+export async function getPlexWatchlistSnapshot(userToken: string): Promise<PlexWatchlistItem[] | null> {
   const cfg = loadPlexConfig();
   try {
-    const url = new URL("https://discover.provider.plex.tv/library/sections/watchlist/all");
-    url.searchParams.set("includeExternalMedia", "1");
-    url.searchParams.set("includeCollections", "1");
-    const res = await fetchWithTimeout(url.toString(), {
-      headers: headers(cfg.clientId, {
-        "x-plex-token": userToken,
-        "x-plex-sync-version": "2",
-        "x-plex-features": "external-media",
-      }),
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      console.error(`[PlexWatchlist] HTTP ${res.status} — sync skipped`);
-      return [];
+    const items: RawWatchlistItem[] = [];
+    const pageSize = 200;
+    let firstPageKey: string | undefined;
+    for (let start = 0; ; ) {
+      const url = new URL("https://discover.provider.plex.tv/library/sections/watchlist/all");
+      url.searchParams.set("includeExternalMedia", "1");
+      url.searchParams.set("includeCollections", "1");
+      const res = await fetchWithTimeout(url.toString(), {
+        headers: headers(cfg.clientId, {
+          "x-plex-token": userToken,
+          "x-plex-sync-version": "2",
+          "x-plex-features": "external-media",
+          "x-plex-container-start": String(start),
+          "x-plex-container-size": String(pageSize),
+        }),
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        logWatchlistIssue(`http:${res.status}`, `HTTP ${res.status} — sync skipped`);
+        return null;
+      }
+      const data = await res.json();
+      const page: RawWatchlistItem[] = data?.MediaContainer?.Metadata ?? [];
+      if (start > 0 && page.length > 0 && page[0].ratingKey === firstPageKey) return null;
+      if (start === 0) firstPageKey = page[0]?.ratingKey;
+      items.push(...page);
+      const total = Number(data?.MediaContainer?.totalSize);
+      if (Number.isFinite(total) && total > 0 && items.length >= total) break;
+      if (page.length === 0 || (!Number.isFinite(total) && page.length < pageSize)) break;
+      start += page.length;
+      if (start >= 20_000) return null;
     }
-    const data = await res.json();
-    const items: RawWatchlistItem[] = data?.MediaContainer?.Metadata ?? [];
     return items
       .map((item) => {
         const guids: string[] = (item.Guid ?? []).map((g) => g.id);
@@ -402,8 +431,31 @@ export async function getPlexWatchlist(userToken: string): Promise<PlexWatchlist
       })
       .filter((item) => item.tmdbId != null);
   } catch (e) {
-    console.error(`[PlexWatchlist] fetch failed:`, e);
-    return [];
+    logWatchlistIssue("fetch", `fetch failed: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+/** Resolve a Movviz TMDb title to a Plex Discover key before a watchlist write. */
+export async function resolvePlexDiscoverRatingKey(userToken: string, type: "movie" | "series", tmdbId: number): Promise<string | null> {
+  const cfg = loadPlexConfig();
+  try {
+    const url = new URL("https://metadata.provider.plex.tv/library/metadata/matches");
+    url.searchParams.set("guid", `tmdb://${tmdbId}`);
+    url.searchParams.set("type", type === "movie" ? "1" : "2");
+    const res = await fetchWithTimeout(url.toString(), {
+      headers: headers(cfg.clientId, { "x-plex-token": userToken }), cache: "no-store",
+    }, 5000);
+    if (!res.ok) return null;
+    const matches = (await res.json())?.MediaContainer?.Metadata;
+    if (!Array.isArray(matches)) return null;
+    const expectedType = type === "series" ? "show" : "movie";
+    const candidates = matches.filter((entry: { ratingKey?: unknown; type?: string }) => entry.type === expectedType && typeof entry.ratingKey === "string");
+    const match = candidates.find((entry: { Guid?: { id?: string }[] }) => entry.Guid?.some((guid) => guid.id === `tmdb://${tmdbId}`))
+      ?? (candidates.length === 1 && !candidates[0].Guid?.length ? candidates[0] : null);
+    return match?.ratingKey ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -956,7 +1008,7 @@ async function mutatePlexWatchlist(userToken: string, discoverRatingKey: string,
       method: "PUT",
       headers: headers(cfg.clientId, { "x-plex-token": userToken, "x-plex-sync-version": "2" }),
       cache: "no-store",
-    });
+    }, 5000);
     return res.ok;
   } catch {
     return false;

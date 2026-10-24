@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setActivePerson, setDialogueState, dropUnansweredUserMessage, markChatActive, clearActiveSubject } from "@/lib/ai/store";
 import { asksToAddToWatchlist, pickShownCards, watchlistReply } from "@/lib/ai/watchlistAction";
 import { addWatchlistItem } from "@/lib/watchlist/store";
-import { addPlexWatchlistItem } from "@/lib/plex/client";
+import { syncPlexWatchlistMutation } from "@/lib/plex/userMediaSync";
+import { loadPlexConfig } from "@/lib/plex/store";
 import { extractPersonListFollowUp, extractCountedPersonRequest, personNameMatches, buildPersonListCards, personListIntro, type PersonCredit } from "@/lib/ai/personList";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
@@ -1295,7 +1296,7 @@ export async function POST(req: NextRequest) {
         rating: target.rating,
         addedAt: Date.now(),
       });
-      if (item.plexDiscoverRatingKey && user.plexToken) addPlexWatchlistItem(user.plexToken, item.plexDiscoverRatingKey).catch(() => {});
+      if (user.plexToken && user.autoRequestFromWatchlist !== false && loadPlexConfig().watchlistSyncEnabled) after(() => syncPlexWatchlistMutation(user, item));
     }
     console.log(`[ai] watchlist add=${targets.length} user=${user.username}`);
     watchlistTargets = targets;

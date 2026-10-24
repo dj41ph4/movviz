@@ -1,3 +1,10 @@
+## v1.27.35 — 24 oktober 2026
+
+### Afleveringen en Plex Watchlist
+
+- Beheerders kunnen een aflevering vanuit de detailpagina verwijderen, met een aparte optie om het bestand te wissen. Bestanden die door meerdere afleveringen worden gedeeld, zijn beschermd. Verwijderde afleveringen worden niet opnieuw automatisch gezocht of door Plex synchronisatie gekoppeld.
+- ‘Mijn lijst’ synchroniseert toegevoegde en verwijderde films en series in beide richtingen met de persoonlijke Plex Watchlist. Movviz verstuurt wijzigingen na het antwoord zodat de pagina snel blijft; geplande synchronisatie probeert mislukte acties opnieuw. Conflicten volgen het wijzigingstijdstip; een Plex verwijdering zonder tijdstip wordt gedateerd bij constatering.
+
 ## v1.27.34 — 24 oktober 2026
 
 ### Responsiviteit tijdens automatische taken

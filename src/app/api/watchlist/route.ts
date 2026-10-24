@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadWatchlist, addWatchlistItem } from "@/lib/watchlist/store";
-import { addPlexWatchlistItem } from "@/lib/plex/client";
+import { syncPlexWatchlistMutation } from "@/lib/plex/userMediaSync";
+import { loadPlexConfig } from "@/lib/plex/store";
 import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,8 @@ export async function POST(req: NextRequest) {
     rating: Number(body.rating ?? 0),
     addedAt: Date.now(),
   });
-  if (item.plexDiscoverRatingKey && user.plexToken) addPlexWatchlistItem(user.plexToken, item.plexDiscoverRatingKey).catch(() => {});
+  if (user.plexToken && user.autoRequestFromWatchlist !== false && loadPlexConfig().watchlistSyncEnabled) {
+    after(() => syncPlexWatchlistMutation(user, item));
+  }
   return NextResponse.json(item, { status: 201 });
 }

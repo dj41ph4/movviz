@@ -25,6 +25,16 @@ function writeJson(file: string, data: unknown) {
 export function loadWatchlist(userId: string): WatchlistItem[] {
   return readJson<WatchlistItem[]>(FILE, []).filter((i) => i.userId === userId).map(normalizeItem).filter((i) => i.present);
 }
+export function loadWatchlistHistory(userId: string): WatchlistItem[] {
+  return readJson<WatchlistItem[]>(FILE, []).filter((i) => i.userId === userId).map(normalizeItem);
+}
+export function setWatchlistPlexIdentity(userId: string, type: "movie" | "series", tmdbId: number, ratingKey: string): void {
+  const all = readJson<WatchlistItem[]>(FILE, []);
+  const index = all.findIndex((item) => item.userId === userId && item.type === type && item.tmdbId === tmdbId && item.seriesPart !== "tybw");
+  if (index < 0 || all[index].plexDiscoverRatingKey === ratingKey) return;
+  all[index] = { ...all[index], plexDiscoverRatingKey: ratingKey };
+  writeJson(FILE, all);
+}
 export function getWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number, seriesPart?: "original" | "tybw"): WatchlistItem | null {
   return readJson<WatchlistItem[]>(FILE, []).map(normalizeItem).find((item) => item.userId === userId && watchlistKey(item) === watchlistKey({ type: type as WatchlistItem["type"], tmdbId, seasonNumber, episodeNumber, seriesPart })) ?? null;
 }
@@ -76,17 +86,17 @@ export function addWatchlistItem(item: Omit<WatchlistItem, "present" | "updatedA
   emitWatchChanged(item.userId);
   return next;
 }
-export function removeWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number, mutationAt = Date.now(), seriesPart?: "original" | "tybw") {
+export function removeWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number, mutationAt = Date.now(), seriesPart?: "original" | "tybw", source = "movviz") {
   const all = readJson<WatchlistItem[]>(FILE, []);
   const normalized = all.map(normalizeItem);
   const idx = normalized.findIndex((i) => i.userId === userId && watchlistKey(i) === watchlistKey({ type: type as WatchlistItem["type"], tmdbId, seasonNumber, episodeNumber, seriesPart }));
   if (idx >= 0) {
     const current = normalized[idx];
     if (current.updatedAt > mutationAt) return;
-    normalized[idx] = { ...current, present: false, removedAt: mutationAt, updatedAt: mutationAt, source: "movviz" };
+    normalized[idx] = { ...current, present: false, removedAt: mutationAt, updatedAt: mutationAt, source };
     writeJson(FILE, normalized);
-    recordUserContextEvent({ userId, eventType: "watchlist_removed", source: "movviz", sourceEventId: `watchlist:${watchlistKey(current)}:remove:${mutationAt}`, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, occurredAt: mutationAt });
-    upsertUserMediaState({ stateKey: watchlistStateKey(userId, current), userId, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: false, watchlistUpdatedAt: mutationAt, watchlistSource: "movviz", watchlistRemovedAt: mutationAt }, { force: true });
+    recordUserContextEvent({ userId, eventType: "watchlist_removed", source, sourceEventId: `watchlist:${watchlistKey(current)}:remove:${mutationAt}`, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, occurredAt: mutationAt });
+    upsertUserMediaState({ stateKey: watchlistStateKey(userId, current), userId, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: false, watchlistUpdatedAt: mutationAt, watchlistSource: source, watchlistRemovedAt: mutationAt }, { force: true });
     updateUserMediaSyncState({ userId, stateKey: watchlistStateKey(userId, current), field: "watchlist", target: "plex", capability: type === "episode" || current.seriesPart === "tybw" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
     emitWatchChanged(userId);
   }

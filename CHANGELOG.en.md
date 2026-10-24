@@ -1,3 +1,10 @@
+## v1.27.35 — October 24, 2026
+
+### Episodes and Plex watchlist
+
+- Admins can remove an episode from its detail page, with a separate option to delete its file. Files shared by episodes are protected. Removed episodes no longer enter automatic search or get reattached by Plex sync.
+- “My List” syncs movie and series additions and removals both ways with the personal Plex Watchlist. Movviz changes are sent after the response so the page stays fast, and scheduled sync retries failures. Conflicts use change times; a Plex removal without a timestamp is dated when observed.
+
 ## v1.27.34 — October 24, 2026
 
 ### Responsiveness during automated tasks
