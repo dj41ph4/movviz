@@ -12,6 +12,7 @@ import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImport
 import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
 import { loadActivityV2, logActivityV2, createImportRef } from "@/lib/activity/v2/store";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { yieldToUser } from "@/lib/priority/userActivity";
 
 /**
  * Shared implementation of the "Récupérer les téléchargements" maintenance
@@ -187,17 +188,22 @@ function matchesTitle(parsedTitle: string, item: { title: string; originalTitle?
   return fuzzyMatch(parsedTitle, item.title) || (!!item.originalTitle && fuzzyMatch(parsedTitle, item.originalTitle));
 }
 
-async function scanVideoFiles(dir: string): Promise<string[]> {
+async function scanVideoFiles(dir: string, background: boolean): Promise<string[]> {
   const results: string[] = [];
   async function walk(d: string) {
-    try {
-      const entries = await fsp.readdir(d, { withFileTypes: true });
-      for (const e of entries) {
-        const full = path.join(d, e.name);
-        if (e.isDirectory()) { await walk(full); }
-        else if (VIDEO_EXT_RE.test(e.name)) { results.push(full); }
+    if (background) await yieldToUser("scan de récupération des téléchargements");
+    const entries = await fsp.readdir(d, { withFileTypes: true }).catch(() => null);
+    if (!entries) return;
+    for (let i = 0; i < entries.length; i++) {
+      if (i % 64 === 0) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (background) await yieldToUser("scan de récupération des téléchargements");
       }
-    } catch { /* skip inaccessible dirs */ }
+      const e = entries[i];
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) { await walk(full); }
+      else if (VIDEO_EXT_RE.test(e.name)) { results.push(full); }
+    }
   }
   await walk(dir);
   return results;
@@ -340,6 +346,8 @@ export interface RecoverOptions {
   batchSize?: number;
   /** src paths already attempted by previous batches of this run. */
   processed?: string[];
+  /** Scheduled recovery yields to foreground use; a manual request runs immediately. */
+  background?: boolean;
 }
 
 export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOptions = {}): Promise<{
@@ -458,7 +466,7 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
         }
       }
 
-      const files = await scanVideoFiles(inst.downloadPath);
+      const files = await scanVideoFiles(inst.downloadPath, opts.background === true);
       for (const fp of files) {
         // Batch mode — a file a previous batch of this run already attempted
         // (moved, duplicate, or failed) is skipped without being examined
@@ -468,7 +476,8 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
         // too-young file stays eligible for the next batch.
         if (processed.has(fp)) continue;
         // Rend la main entre deux fichiers : les clics restent fluides.
-        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (opts.background) await yieldToUser("récupération des téléchargements");
+        else await new Promise<void>((resolve) => setImmediate(resolve));
         const engineConfirmed = allowed.has(fp);
         if (!engineConfirmed && (!filesSafeThisInstance || activeFiles.has(fp))) continue; // file of an active torrent or unconfirmed — never touch
 

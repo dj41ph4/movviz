@@ -31,6 +31,7 @@ import { findEpisodeUpgradeCandidates } from "@/lib/library/searchAndReplaceSeri
 import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/languageDetectionTask";
 import { syncPlexMarkers } from "@/lib/plex/markerSync";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
+import { JobCancelledError } from "@/lib/jobs/cancelScope";
 
 export interface ScheduledTask {
   id: string;
@@ -408,7 +409,7 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "stuck-downloads-recover",
     name: "Récupération des téléchargements terminés non importés",
-    intervalMs: 15 * 60 * 1000, // every 15 min — bounded to completed/seeding torrents' files (no full-library walk), so cheap enough to run often; a finished download must become playable fast, without waiting for Plex
+    intervalMs: 15 * 60 * 1000, // every 15 min — scans download folders for orphaned files; scheduled as heavy so it does not delay the interface
     // A completed torrent whose import callback never landed (engine crash
     // between completion and import, failed move, lost callback) leaves its
     // files in the download folder while the library item stays stuck on
@@ -430,12 +431,13 @@ export const TASKS: ScheduledTask[] = [
     run: async () => {
       const { recoverDownloads } = await import("@/lib/library/recoverDownloads");
       try {
-        const result = await recoverDownloads();
+        const result = await recoverDownloads(undefined, { background: true });
         if (result.recovered.length > 0) {
           emitNotification("downloads_recovered", `${result.recovered.length} téléchargement(s) terminé(s) récupéré(s) depuis le dossier de téléchargement`, "/downloads?tab=queue", { count: result.recovered.length });
         }
         console.log(`[scheduler] stuck-downloads-recover: ${result.recovered.length} récupéré(s), ${result.failed.length} ignoré(s), ${result.duplicates.length} doublon(s)`);
       } catch (e) {
+        if (e instanceof JobCancelledError) throw e;
         console.error("[scheduler] stuck-downloads-recover failed:", (e as Error).message);
       }
     },

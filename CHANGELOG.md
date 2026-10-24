@@ -1,3 +1,11 @@
+## v1.27.34 — 24 octobre 2026
+
+### Réactivité pendant les tâches automatiques
+
+- La récupération planifiée des téléchargements non importés reste automatique toutes les 15 minutes, mais s'exécute seule parmi les tâches lourdes, après la période de démarrage, et cède la main pendant l'utilisation de l'interface ou du lecteur. La récupération lancée manuellement reste immédiate.
+- L'import Seerr ne relance la déduplication de toute la bibliothèque que lorsqu'il a réellement ajouté une demande approuvée. La réconciliation quotidienne reste active.
+- Les titres originaux en écriture non latine ne créent plus de faux homonymes : la recherche automatique accepte les bonnes releases sans année et protège toujours les vrais homonymes. Les échecs indiquent le filtre qui a rejeté les résultats.
+
 ## v1.27.33 — 24 octobre 2026
 
 ### Reprises Plex et réactivité
@@ -6854,4 +6862,3 @@ In-app player with automatic Plex transcode fallback, third-party request import
 ## v1.1.50 – v1.1.66 — July 2026
 
 Initial public release: TMDb discovery, Torznab/Newznab indexer search, unified movie/series library, multi-user requests, the built-in BitTorrent engine, and Plex sync — plus early stability and security fixes (session handling, library deduplication, dependency upgrades).
-

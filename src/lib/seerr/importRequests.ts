@@ -153,10 +153,9 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
     else if (o.kind === "failed") failed++;
   }
 
-  // Only the dedupe mattered here (in-memory, no disk access): the full disk
-  // reconcile this used to call — whose result was discarded — crawled the
-  // whole library every few minutes and froze the server for 30+ s on a NAS.
-  mergeLibraryDuplicates();
+  // Only new approved items can create duplicates here. The full disk
+  // reconcile remains scheduled separately for pre-existing duplicates.
+  if (importedApproved > 0) mergeLibraryDuplicates();
 
   return {
     seerrUsers: seerrUsers.length,

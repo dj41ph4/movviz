@@ -1,3 +1,11 @@
+## v1.27.34 — October 24, 2026
+
+### Responsiveness during automated tasks
+
+- Scheduled recovery of unimported downloads still runs every 15 minutes, but now runs alone among heavy tasks, waits until startup settles, and yields to interface or player use. Manual recovery remains immediate.
+- Seerr import only deduplicates the whole library after it actually adds an approved request. Daily reconciliation remains active.
+- Non-Latin original titles no longer create false homonyms: automatic search accepts matching yearless releases while protecting real homonyms. Failures now identify the filter that rejected the results.
+
 ## v1.27.33 — October 24, 2026
 
 ### Plex resumes and responsiveness

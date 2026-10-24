@@ -1,3 +1,11 @@
+## v1.27.34 — 24. Oktober 2026
+
+### Reaktionsfähigkeit bei automatischen Aufgaben
+
+- Die geplante Wiederherstellung nicht importierter Downloads läuft weiterhin alle 15 Minuten, jedoch allein unter den schweren Aufgaben, nach der Startphase und mit Vorrang für Oberfläche und Wiedergabe. Die manuelle Wiederherstellung startet weiterhin sofort.
+- Der Seerr-Import entfernt Duplikate in der gesamten Bibliothek nur, wenn tatsächlich eine genehmigte Anfrage hinzugefügt wurde. Der tägliche Abgleich bleibt aktiv.
+- Originaltitel in nichtlateinischer Schrift erzeugen keine falschen Namensgleichheiten mehr: Die automatische Suche akzeptiert passende Releases ohne Jahreszahl und schützt weiterhin echte Namensgleichheiten. Fehler nennen den Ablehnungsfilter.
+
 ## v1.27.33 — 24. Oktober 2026
 
 ### Plex Fortsetzen und Reaktionszeit

@@ -1,3 +1,11 @@
+## v1.27.34 — 24 ottobre 2026
+
+### Reattività durante le attività automatiche
+
+- Il recupero programmato dei download non importati continua ogni 15 minuti, ma viene eseguito da solo tra le attività pesanti, dopo l'avvio, e lascia spazio all'interfaccia e alla riproduzione. Il recupero manuale resta immediato.
+- L'importazione Seerr deduplica l'intera libreria solo quando aggiunge davvero una richiesta approvata. La riconciliazione giornaliera resta attiva.
+- I titoli originali in scritture non latine non creano più falsi omonimi: la ricerca automatica accetta le release corrette senza anno e protegge i veri omonimi. Gli errori indicano il filtro che ha scartato i risultati.
+
 ## v1.27.33 — 24 ottobre 2026
 
 ### Riprese Plex e reattività

@@ -122,6 +122,7 @@ export const HEAVY_TASKS = new Set<string>([
   "quality-upgrade-check",
   "metadata-refresh",
   "library-reconcile",
+  "stuck-downloads-recover",
   "plex-full-reconcile",
   "plex-watch-sync",
   "plex-watch-bootstrap",
@@ -137,7 +138,7 @@ export const HEAVY_TASKS = new Set<string>([
  * Le bouton « lancer maintenant » n'est pas concerné.
  */
 const BOOT_QUIET_MS = 3 * 60 * 1000;
-const BOOT_EXEMPT_TASKS = new Set<string>(["download-state-reconcile", "stuck-downloads-recover"]);
+const BOOT_EXEMPT_TASKS = new Set<string>(["download-state-reconcile"]);
 const bootAt = Date.now();
 
 function enqueueTask(task: (typeof TASKS)[number]) {

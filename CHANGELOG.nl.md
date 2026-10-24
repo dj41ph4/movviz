@@ -1,3 +1,11 @@
+## v1.27.34 — 24 oktober 2026
+
+### Responsiviteit tijdens automatische taken
+
+- Het geplande herstel van niet geïmporteerde downloads blijft elke 15 minuten draaien, maar draait alleen tussen zware taken, na de opstartfase, en geeft de interface en het afspelen voorrang. Handmatig herstel start nog steeds direct.
+- De Seerr-import verwijdert duplicaten uit de hele bibliotheek alleen wanneer er echt een goedgekeurd verzoek is toegevoegd. De dagelijkse controle blijft actief.
+- Oorspronkelijke titels in niet-Latijns schrift veroorzaken geen valse naamgenoten meer: automatisch zoeken accepteert passende releases zonder jaartal en beschermt echte naamgenoten. Fouten vermelden welk filter de resultaten afwees.
+
 ## v1.27.33 — 24 oktober 2026
 
 ### Plex hervatten en reactiesnelheid

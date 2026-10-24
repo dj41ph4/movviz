@@ -355,7 +355,9 @@ type SeriesIdentity = { tmdbId: number; title: string; originalTitle?: string | 
 /** A season number cannot distinguish two same-named shows in the library. */
 export function seriesNeedsReleaseYear(target: SeriesIdentity, library: SeriesIdentity[]): boolean {
   if (!target.year) return false;
-  const names = new Set([target.title, target.originalTitle].filter((name): name is string => !!name).map(normalizeTitle));
+  // normalizeTitle is Latin-only: Japanese/Chinese/etc names become "".
+  // An empty key must never make every non-Latin original title a homonym.
+  const names = new Set([target.title, target.originalTitle].filter((name): name is string => !!name).map(normalizeTitle).filter(Boolean));
   return library.some((other) => other.tmdbId !== target.tmdbId && other.year != null && other.year !== target.year &&
     [other.title, other.originalTitle].some((name) => !!name && names.has(normalizeTitle(name))));
 }

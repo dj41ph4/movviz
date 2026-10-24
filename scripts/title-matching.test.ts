@@ -30,6 +30,14 @@ test("unambiguous shows retain yearless releases and existing tolerance; localiz
   assert.equal(seriesNeedsReleaseYear(target, [target, { tmdbId: 3, title: "Original Show Quebec", year: 2001 }]), false);
 });
 
+test("non-Latin original titles do not create false homonyms for yearless anime releases", () => {
+  const nakamura = { tmdbId: 274622, title: "Go For It, Nakamura-kun!!", originalTitle: "ガンバレ！中村くん！！", year: 2026 };
+  const otherAnime = { tmdbId: 65292, title: "Ajin : semi-humain", originalTitle: "亜人", year: 2016 };
+  assert.equal(seriesNeedsReleaseYear(nakamura, [nakamura, otherAnime]), false);
+  assert.equal(seriesYearIsCompatible(parseRelease("Go.For.It.Nakamura.kun.S01E01.MULTI.VFF.1080p.WEBRip.x265").year, nakamura.year, false), true);
+  assert.equal(seriesNeedsReleaseYear(nakamura, [nakamura, otherAnime, { tmdbId: 9, title: "Go For It Nakamura kun", year: 2025 }]), true);
+});
+
 test("pickSearchTitle : un titre original en script non-latin est inexploitable, retombe sur le titre localisé (cas réel : BAKI-DOU, titre original 刃牙道, 0 résultat sur 75 releases indexées)", () => {
   assert.equal(pickSearchTitle("BAKI-DOU : Le samouraï invincible", "刃牙道"), "BAKI-DOU : Le samouraï invincible");
 });

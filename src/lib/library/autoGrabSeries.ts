@@ -527,13 +527,22 @@ export function profileFor(qualityProfileId: string) {
 
 type GrabReleaseResult =
   | { ok: true; release: IndexerRelease }
-  | { ok: false; error: "no_indexers" | "no_match"; totalReleases?: number };
+  | { ok: false; error: "no_indexers" | "no_match"; totalReleases?: number; diagnostic?: string };
 
 /** Turns a grabRelease/tryGrabSeriesPack failure into a readable sentence for the activity log. */
-function describeGrabFailure(result: { error: "no_indexers" | "no_match"; totalReleases?: number }): string {
+function describeGrabFailure(result: { error: "no_indexers" | "no_match"; totalReleases?: number; diagnostic?: string }): string {
   if (result.error === "no_indexers") return "Aucun indexeur torrent activé.";
   if (!result.totalReleases) return "Aucun résultat trouvé sur les indexeurs pour cette recherche.";
-  return `${result.totalReleases} résultat(s) trouvé(s) sur les indexeurs, mais aucun ne correspond au titre, à la saison/l'épisode, à la résolution autorisée ou au score minimum du profil de qualité.`;
+  return `${result.totalReleases} résultat(s) examinés. ${result.diagnostic ?? "Aucun candidat ne satisfait tous les critères du profil."}`;
+}
+
+function grabRejectionDiagnostic(stages: Array<[label: string, count: number]>, rawCount: number): string {
+  let previous = rawCount;
+  for (const [label, count] of stages) {
+    if (count === 0 && previous > 0) return `Blocage au filtre « ${label} » : ${previous} candidat(s) rejeté(s).`;
+    previous = count;
+  }
+  return `Aucune release retenue après les filtres (${stages.map(([label, count]) => `${label}: ${count}`).join(", ")}).`;
 }
 
 /**
@@ -673,7 +682,7 @@ async function grabRelease(
   const alreadyLimited = configuredIndexers.length - indexers.length;
   if (indexers.length === 0) {
     recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${releases.length} bruts, aucun indexeur disponible : tous rate-limités (${alreadyLimited}/${configuredIndexers.length})`);
-    return { ok: false, error: "no_match", totalReleases: releases.length };
+    return { ok: false, error: "no_match", totalReleases: releases.length, diagnostic: `Aucun indexeur disponible pour la recherche directe (${alreadyLimited}/${configuredIndexers.length} en pause après limitation).` };
   }
 
   const tDirect = performance.now();
@@ -705,7 +714,9 @@ async function grabRelease(
   });
   const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed })).filter(({ release }) => coversTarget(release));
   const dStepYear = dStep4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : seriesYearIsCompatible(parsed.year, series.year, requireYear));
-  const dStepBlocked = dStepYear.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
+  const directBlocked = dStepYear.map(({ release }) => isBlockedForAutoGrab(release.title, rules, series.title));
+  const dStepBlocked = dStepYear.filter((_, index) => !directBlocked[index].blocked);
+  const blockedTerms = [...new Set(directBlocked.map((result) => result.matchedTerm).filter((term): term is string => !!term))];
   const dStep5 = dStepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
   const dStep7 = dStep6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
@@ -717,9 +728,16 @@ async function grabRelease(
     if (newlyLimited > 0) {
       recordSearchLog("warn", "grab_release.fallback_rate_limited", `${label} — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
     } else {
-      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (titre:${dMatched.titleCount}, saison:${dMatched.secondCount}, pack:${dMatched.packCount}, résolution:${dStep5.length}, score:${dStep6.length}, taille:${dStep7.length}, échec:${dStep8.length})`);
+      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (titre:${dMatched.titleCount}, saison:${dMatched.secondCount}, épisode/pack:${dMatched.packCount}, cible:${dStep4.length}, année:${dStepYear.length}, mots interdits:${dStepBlocked.length}, résolution:${dStep5.length}, score:${dStep6.length}, taille:${dStep7.length}, échec:${dStep8.length})`);
     }
-    return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length };
+    return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length, diagnostic: newlyLimited > 0
+      ? `${newlyLimited} indexeur(s) ont limité la recherche directe.`
+      : grabRejectionDiagnostic([
+          ["titre", dMatched.titleCount], ["saison", dMatched.secondCount], ["épisode/pack", dMatched.packCount],
+          ["cible", dStep4.length], ["année", dStepYear.length], [blockedTerms.length ? `mots interdits (${blockedTerms.join(", ")})` : "mots interdits", dStepBlocked.length],
+          ["résolution", dStep5.length], ["score minimum", dStep6.length], ["taille maximale", dStep7.length],
+          ["releases déjà échouées", dStep8.length],
+        ], directReleases.length) };
   }
   recordSearchLog("info", "grab_release.fallback_match", `${label} — meilleur candidat via recherche directe: "${topDirect.release.title}" (score:${topDirect.release.score}, indexeur:${topDirect.release.indexerId})`);
   recordDecision({
