@@ -1,3 +1,10 @@
+## v1.27.40 — October 25, 2026
+
+### GPU/iGPU access on Docker NAS systems
+
+- The Compose launcher detects `/dev/dri/renderD128` on the NAS and gives Movviz access to the device and its group. Systems without a usable GPU still deploy normally and keep CPU transcoding.
+- Docker device mapping is applied when the container is recreated; the guide covers image updates and manual setup in Container Manager.
+
 ## v1.27.39 — October 24, 2026
 
 ### More responsive downloads

@@ -12,7 +12,7 @@
 
 ### Ton catalogue. Ton serveur. Tes règles.
 
-<p><strong>Version actuelle : v1.27.39</strong></p>
+<p><strong>Version actuelle : v1.27.40</strong></p>
 
 **Une plateforme média auto-hébergée complète — de la découverte jusqu'à la lecture.**
 
@@ -475,10 +475,13 @@ x64 et ARM64.
 
 ```bash
 docker pull dj41ph4/movviz:latest
-docker compose up -d
+cd packaging/docker
+sh up.sh
 ```
 
 amd64 et arm64.
+
+Le lancement active l'iGPU du NAS s'il est accessible. [Configuration GPU/iGPU](packaging/docker/GPU.md) ; relancer `sh up.sh` après chaque mise à jour de l'image.
 
 </td>
 <td width="25%" valign="top">

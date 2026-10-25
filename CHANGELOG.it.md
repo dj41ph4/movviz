@@ -1,3 +1,10 @@
+## v1.27.40 — 25 ottobre 2026
+
+### Accesso GPU/iGPU su NAS Docker
+
+- L'avvio Compose rileva `/dev/dri/renderD128` sul NAS e concede a Movviz l'accesso al dispositivo e al suo gruppo. I sistemi senza GPU utilizzabile continuano ad avviarsi con la transcodifica CPU.
+- Il mapping Docker viene applicato quando il container viene ricreato; la guida spiega gli aggiornamenti dell'immagine e la configurazione manuale in Container Manager.
+
 ## v1.27.39 — 24 ottobre 2026
 
 ### Download più reattivi

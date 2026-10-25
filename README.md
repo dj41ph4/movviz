@@ -12,7 +12,7 @@
 
 ### Your catalog. Your server. Your rules.
 
-<p><strong>Current version: v1.27.39</strong></p>
+<p><strong>Current version: v1.27.40</strong></p>
 
 **A complete self-hosted media platform — from discovery to playback.**
 
@@ -507,10 +507,14 @@ x64 and ARM64.
 
 ```bash
 docker pull dj41ph4/movviz:latest
-docker compose up -d
+cd packaging/docker
+sh up.sh
 ```
 
 amd64 and arm64.
+
+`up.sh` automatically maps an Intel/AMD NAS render device when available; see
+[GPU/iGPU setup](packaging/docker/GPU.md). Re-run it after image updates.
 
 </td>
 <td width="25%" valign="top">

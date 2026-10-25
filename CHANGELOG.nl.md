@@ -1,3 +1,10 @@
+## v1.27.40 — 25 oktober 2026
+
+### GPU/iGPU-toegang op Docker-NAS-systemen
+
+- De Compose-starter detecteert `/dev/dri/renderD128` op de NAS en geeft Movviz toegang tot het apparaat en de groep. Systemen zonder bruikbare GPU blijven normaal starten met CPU-transcodering.
+- De Docker-apparaatkoppeling wordt toegepast wanneer de container opnieuw wordt aangemaakt; de handleiding beschrijft image-updates en handmatige instellingen in Container Manager.
+
 ## v1.27.39 — 24 oktober 2026
 
 ### Snellere downloads

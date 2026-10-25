@@ -1,0 +1,10 @@
+# Applied by up.sh only when the Linux host exposes /dev/dri/renderD128.
+# Keep the base compose GPU-free so NAS devices without an iGPU still start.
+services:
+  movviz:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${MOVVIZ_RENDER_GID:?Run packaging/docker/up.sh to detect the render device group}"
+    environment:
+      MOVVIZ_RENDER_GID: "${MOVVIZ_RENDER_GID:?Run packaging/docker/up.sh to detect the render device group}"

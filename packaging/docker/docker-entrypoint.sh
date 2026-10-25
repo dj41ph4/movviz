@@ -50,7 +50,33 @@ if ! id movviz >/dev/null 2>&1; then
   adduser -D -H -G movviz -u "$PUID" movviz
 fi
 
+# Docker's group_add grants the initial process access to the render device,
+# but su-exec rebuilds supplementary groups from /etc/group. Mirror the host
+# render GID there before dropping privileges, without touching host devices.
+if [ -n "${MOVVIZ_RENDER_GID:-}" ]; then
+  case "$MOVVIZ_RENDER_GID" in
+    *[!0-9]*|'') echo "[movviz] Ignoring invalid render device group: $MOVVIZ_RENDER_GID" >&2 ;;
+    0) echo "[movviz] Refusing to join the root group for a render device." >&2 ;;
+    *)
+      render_group="$(awk -F: -v id="$MOVVIZ_RENDER_GID" '$3==id{print $1; exit}' /etc/group)"
+      if [ -z "$render_group" ]; then
+        if addgroup -g "$MOVVIZ_RENDER_GID" movviz-render; then
+          render_group=movviz-render
+        else
+          echo "[movviz] Could not create render device group; hardware encoding may be unavailable." >&2
+        fi
+      fi
+      if [ -n "$render_group" ] && [ "$render_group" != movviz ]; then
+        addgroup movviz "$render_group" || echo "[movviz] Could not join render device group; hardware encoding may be unavailable." >&2
+      fi
+      ;;
+  esac
+fi
+
 mkdir -p /config /data
 chown movviz:movviz /config /data
 
-exec su-exec movviz:movviz "$@"
+# Specifying "movviz:movviz" makes su-exec discard supplementary groups.
+# The account's primary group is already movviz; using its name also retains
+# the render device group added above.
+exec su-exec movviz "$@"

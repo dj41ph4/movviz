@@ -12,7 +12,7 @@
 
 ### Jouw catalogus. Jouw server. Jouw regels.
 
-<p><strong>Huidige versie: v1.27.39</strong></p>
+<p><strong>Huidige versie: v1.27.40</strong></p>
 
 **Een compleet self-hosted mediaplatform — van ontdekking tot afspelen.**
 
@@ -475,10 +475,13 @@ x64 en ARM64.
 
 ```bash
 docker pull dj41ph4/movviz:latest
-docker compose up -d
+cd packaging/docker
+sh up.sh
 ```
 
 amd64 en arm64.
+
+Bij het starten wordt de NAS-iGPU ingeschakeld als die beschikbaar is. [GPU/iGPU-configuratie](packaging/docker/GPU.md); voer `sh up.sh` opnieuw uit na elke image-update.
 
 </td>
 <td width="25%" valign="top">
