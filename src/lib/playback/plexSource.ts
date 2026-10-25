@@ -16,6 +16,8 @@ export interface PlexAudioStreamRef {
   id: number | null;
   codec: string | null;
   language: string | null;
+  channels: number | null;
+  title: string | null;
   selected: boolean;
 }
 
@@ -25,6 +27,8 @@ export interface PlexSubtitleStreamRef {
   id: number | null;
   codec: string | null;
   language: string | null;
+  title: string | null;
+  forced: boolean;
   /** true si ffmpeg peut convertir la piste en WebVTT texte (srt/ass/ssa/webvtt/mov_text…) */
   toTextConvertible: boolean;
   selected: boolean;
@@ -86,7 +90,7 @@ export async function resolvePlexPartUrl(
         : `/library/parts/${part.id}/file.${media.container || "mp4"}`;
     const sourceUrl = `${base}${streamPath}`;
 
-    const streams: Array<{ id?: number; streamType?: number; codec?: string; language?: string; selected?: boolean }> =
+    const streams: Array<{ id?: number; streamType?: number; codec?: string; language?: string; selected?: boolean; channels?: number; title?: string; displayTitle?: string; forced?: boolean }> =
       part?.Stream ?? [];
     const audioStreams: PlexAudioStreamRef[] = streams
       .filter((s) => s.streamType === 2)
@@ -95,6 +99,8 @@ export async function resolvePlexPartUrl(
         id: typeof s.id === "number" ? s.id : null,
         codec: s.codec ?? null,
         language: s.language ?? null,
+        channels: typeof s.channels === "number" ? s.channels : null,
+        title: s.title ?? null,
         selected: s.selected === true,
       }));
 
@@ -105,6 +111,8 @@ export async function resolvePlexPartUrl(
         id: typeof s.id === "number" ? s.id : null,
         codec: s.codec ?? null,
         language: s.language ?? null,
+        title: s.title ?? null,
+        forced: s.forced === true,
         toTextConvertible: isSubtitleToTextCodec(s.codec),
         selected: s.selected === true,
       }));

@@ -79,7 +79,7 @@ export function LibraryRecommendedRows({ type }: { type: MediaType }) {
   const moviePlayback = (item: LibraryItem): DashboardCardPlayback | undefined => {
     if (type !== "movie") return undefined;
     const movie = item as DashboardLibraryMovie;
-    return movie.plexRatingKey && movie.plexUrl ? { ratingKey: movie.plexRatingKey, plexUrl: movie.plexUrl, movvizId: movie.id, type: "movie" } : undefined;
+    return movie.file ? { ratingKey: movie.plexRatingKey ?? movie.id, plexUrl: movie.plexUrl, movvizId: movie.id, type: "movie" } : undefined;
   };
   const card = (item: LibraryItem) => (
     <DashboardPosterCard

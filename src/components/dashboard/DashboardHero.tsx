@@ -23,7 +23,7 @@ import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { toast } from "@/components/ui/Toast";
 
-type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
+type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null; movvizId?: string | null };
 
 // The featured slide is a deterministic ranking over data that barely moves
 // day to day (library/watch/request state) — with no anchoring, every fresh
@@ -98,7 +98,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   const activeReasons = useMemo(() => active?.score?.reasons?.filter((r) => r.matched) ?? [], [active]);
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play } = usePlayer();
-  const { label: playLabel } = usePlayLabel(active?.plexRatingKey);
+  const { label: playLabel } = usePlayLabel(active?.plexRatingKey ?? active?.movvizId, !!active?.movvizId);
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{ items: { tmdbId: number; type: string }[] }>("/api/watchlist");
   const onWatchlist = (watchlistData?.items ?? []).some((item) => item.tmdbId === active?.detail.tmdbId && item.type === active?.detail.type);
 
@@ -271,15 +271,16 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
               {t("dashboard.hero.moreInfoDesktop")}
             </Link>
 
-            {active.plexUrl ? (
-              betaPlayer && active.plexRatingKey ? (
+            {active.plexUrl || active.movvizId ? (
+              (betaPlayer && active.plexRatingKey) || active.movvizId ? (
                 <button
                   type="button"
                   onClick={(e) => play({
-                    ratingKey: active.plexRatingKey!,
-                    plexUrl: active.plexUrl!,
+                    ratingKey: active.plexRatingKey ?? active.movvizId!,
+                    movvizId: active.movvizId ?? undefined,
+                    plexUrl: active.plexUrl,
                     title: active.detail.title,
-                    useTranscode: betaPlayer,
+                    useTranscode: betaPlayer || !active.plexUrl,
                     tmdbId: active.detail.tmdbId,
                     type: active.detail.type,
                     originRect: e.currentTarget.getBoundingClientRect(),
@@ -291,7 +292,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                 </button>
               ) : (
                 <a
-                  href={active.plexUrl}
+                  href={active.plexUrl!}
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => openPlexLink(e, active.plexUrl!)}

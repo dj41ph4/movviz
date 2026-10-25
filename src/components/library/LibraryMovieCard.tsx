@@ -139,9 +139,10 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
         badge={statusPill}
         inLibrary
         progressPercent={downloadProgress}
-        playback={movie.status === "available" && movie.plexUrl ? {
-          ratingKey: movie.plexRatingKey ?? "",
+        playback={movie.file ? {
+          ratingKey: movie.plexRatingKey ?? movie.id,
           plexUrl: movie.plexUrl,
+          movvizId: movie.id,
           type: "movie",
         } : undefined}
         popoverActions={

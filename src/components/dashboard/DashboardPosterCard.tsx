@@ -37,7 +37,7 @@ const previewFetcher = (url: string) => fetch(url).then((response) => (response.
 
 export type DashboardCardPlayback = {
   ratingKey: string;
-  plexUrl: string;
+  plexUrl?: string | null;
   movvizId?: string;
   seriesId?: string;
   type: "movie" | "series";
@@ -422,7 +422,7 @@ export function DashboardPosterCard({
       seriesId: playback.seriesId,
       plexUrl: playback.plexUrl,
       title,
-      useTranscode: betaPlayer,
+      useTranscode: betaPlayer || !playback.plexUrl,
       tmdbId,
       type: playback.type,
       seasonNumber: playback.seasonNumber,
@@ -632,14 +632,7 @@ export function DashboardPosterCard({
         <Link
           href={bleachTitleHref(tmdbId, type, seriesPart)}
           prefetch={false}
-          onClick={(event) => (playback ? startPlayback(event) : closeOnClick())}
-          title={playback ? t("common.play") : undefined}
-          // useTitlePanel intercepts every <a href="/title/..."> click in the
-          // capture phase and opens the fiche unconditionally — this marker
-          // tells it to leave THIS link alone when a play action is available,
-          // so startPlayback (this Link's own onClick, which already calls
-          // preventDefault itself) actually gets to run instead.
-          data-skip-title-panel={playback ? "" : undefined}
+          onClick={closeOnClick}
           className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
         >
           <div className="relative aspect-video overflow-hidden">
@@ -676,7 +669,7 @@ export function DashboardPosterCard({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               {playback ? (
-                betaPlayer ? (
+                betaPlayer || !playback.plexUrl ? (
                   resumeSeconds && resumeSeconds > 0 ? (
                     <>
                       <button
@@ -715,7 +708,7 @@ export function DashboardPosterCard({
                     href={playback.plexUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={(event) => openPlexLink(event, playback.plexUrl)}
+                    onClick={(event) => openPlexLink(event, playback.plexUrl!)}
                     title={t("library.watchOnPlex")}
                     aria-label={t("library.watchOnPlex")}
                     className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"

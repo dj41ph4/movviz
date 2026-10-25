@@ -1,3 +1,18 @@
+## v1.27.45 — October 25, 2026
+
+### Playback from cards
+
+- On the dashboard, in the library and in Discover, cards show + outside the library, a clock when the file is missing, and Play as soon as a local movie is available, without waiting for Plex.
+- The home hero Play button and the episode page Play button also work as soon as the local file exists, without a Plex link.
+- Clicking the image opens the title details; only the Play button starts playback.
+
+### Audio and subtitle tracks
+
+- Player menus (web, Android TV, Android mobile, Samsung) now show language, codec and channels (e.g. "French · E-AC-3 5.1"), plus the track title and a Forced tag for subtitles.
+- Tracks are read from the file itself: a title without a Plex link now has its audio and subtitle menus, and switching track restarts the local engine.
+- Automatic subtitles (profile setting, off by default): when the audio being played is not in the profile language — the interface language picked with the flags — subtitles start in that language. The setting is tied to the account: changing it on Android changes it on desktop, TV and Samsung.
+- The default audio language follows the profile language while set to Automatic; on Android this setting was never applied during playback, which is now fixed.
+
 ## v1.27.44 — October 25, 2026
 
 ### Manual port forwarding

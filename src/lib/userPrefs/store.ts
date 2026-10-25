@@ -41,6 +41,12 @@ export interface UserPrefs {
    *  même schéma "merge only known fields" que le reste de ce store — pas de
    *  distinction fragile entre null/undefined/absent à travers la route API. */
   preferredAudioLanguage?: PreferredAudioLanguage;
+  /** Sous-titres automatiques du profil — absent/false (défaut) : aucun
+   *  sous-titre ne démarre seul. true : quand la piste audio lue n'est pas
+   *  dans la langue du profil (`locale`, choisie via les drapeaux), le
+   *  lecteur démarre les sous-titres dans cette langue. Stocké côté compte :
+   *  le réglage suit l'utilisateur sur toutes les plateformes. */
+  autoSubtitles?: boolean;
   /** Ambient trailer video on movie/series detail pages — absent/true keeps
    *  today's behavior (video plays immediately), false falls back to the
    *  static backdrop image. Independent of the dashboard hero's own
@@ -97,6 +103,7 @@ function sanitize(prefs: unknown): UserPrefs {
   if (typeof p.preferredAudioLanguage === "string" && (PREFERRED_AUDIO_LANGUAGES as readonly string[]).includes(p.preferredAudioLanguage)) {
     clean.preferredAudioLanguage = p.preferredAudioLanguage as PreferredAudioLanguage;
   }
+  if (typeof p.autoSubtitles === "boolean") clean.autoSubtitles = p.autoSubtitles;
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
   if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;
   if (typeof p.watchRegion === "string" && ISO_3166_1_ALPHA_2.test(p.watchRegion)) clean.watchRegion = p.watchRegion;

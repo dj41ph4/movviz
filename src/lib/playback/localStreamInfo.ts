@@ -63,15 +63,45 @@ export function correctedLanguage(plexLanguage: string, ffprobeCode: string | un
   return autonym;
 }
 
+type MediaDescriptorLike = NonNullable<Awaited<ReturnType<typeof getOrProbeMediaDescriptor>>>;
+
+/** Listes de pistes issues de la sonde ffprobe seule — utilisées quand Plex
+ *  n'a rien à dire (titre purement local, pas encore scanné) pour que le
+ *  menu audio / sous-titres existe quand même. L'id est l'index ffprobe : le
+ *  lecteur relie le choix du menu à la piste réelle par position, jamais par id. */
+function streamsFromDescriptor(media: MediaDescriptorLike) {
+  return {
+    audioStreams: media.audioTracks.map((track) => ({
+      id: String(track.index),
+      codec: track.codec ?? "",
+      language: ffprobeLanguageAutonym(track.language) ?? track.language ?? "",
+      title: track.title ?? "",
+      channels: track.channels ?? 0,
+      forced: !!track.forced,
+      selected: !!track.default,
+    })),
+    subtitleStreams: media.subtitleTracks.map((track) => ({
+      id: String(track.index),
+      codec: track.codec ?? "",
+      language: ffprobeLanguageAutonym(track.language) ?? track.language ?? "",
+      title: track.title ?? "",
+      forced: !!track.forced,
+      toTextConvertible: track.type === "text",
+      selected: !!track.default,
+    })),
+  };
+}
+
 export async function getLocalStreamInfo(plexRatingKey: string | null, userId: string, mediaId?: string, filePath?: string) {
   const markers = getPlaybackMarkers(plexRatingKey ?? "");
   if (!plexRatingKey) {
+    const localMedia = mediaId && filePath ? await getOrProbeMediaDescriptor(mediaId, filePath).catch(() => null) : null;
+    const local = localMedia ? streamsFromDescriptor(localMedia) : { audioStreams: [], subtitleStreams: [] };
     return {
       videoCodec: null,
       audioCodec: null,
       container: null,
-      audioStreams: [],
-      subtitleStreams: [],
+      ...local,
       ffmpegAvailable: false,
       durationMs: null,
       markers,
@@ -88,8 +118,7 @@ export async function getLocalStreamInfo(plexRatingKey: string | null, userId: s
       videoCodec: null,
       audioCodec: null,
       container: null,
-      audioStreams: [],
-      subtitleStreams: [],
+      ...(media ? streamsFromDescriptor(media) : { audioStreams: [], subtitleStreams: [] }),
       ffmpegAvailable: false,
       durationMs: null,
       markers,
@@ -100,13 +129,17 @@ export async function getLocalStreamInfo(plexRatingKey: string | null, userId: s
     id: String(stream.id ?? ""),
     codec: stream.codec ?? "",
     language: correctedLanguage(stream.language ?? "", media?.audioTracks[i]?.language),
-    channels: 0,
+    title: media?.audioTracks[i]?.title ?? stream.title ?? "",
+    channels: media?.audioTracks[i]?.channels ?? stream.channels ?? 0,
+    forced: !!media?.audioTracks[i]?.forced,
     selected: stream.selected,
   }));
   const subtitleStreams = part.subtitleStreams.map((stream, i) => ({
     id: String(stream.id ?? ""),
     codec: stream.codec ?? "",
     language: correctedLanguage(stream.language ?? "", media?.subtitleTracks[i]?.language),
+    title: media?.subtitleTracks[i]?.title ?? stream.title ?? "",
+    forced: media?.subtitleTracks[i]?.forced ?? stream.forced ?? false,
     toTextConvertible: isSubtitleToTextCodec(stream.codec),
     selected: stream.selected,
   }));

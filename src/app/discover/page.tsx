@@ -17,7 +17,7 @@ import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import { TitleMark } from "@/components/media/TitleMark";
 import { useTitleArtworkBatch, type TitleArtworkByKey } from "@/components/media/useTitleArtworkBatch";
-import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
+import { DashboardPosterCard, type DashboardCardPlayback } from "@/components/dashboard/DashboardPosterCard";
 import { AiPickOfTheDay } from "@/components/discover/AiPickOfTheDay";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
@@ -241,6 +241,7 @@ function DiscoverPageInner() {
       index={i}
       result={r}
       status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
+      playback={libPlayback.get(`${r.type}:${r.tmdbId}`)}
       watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
       backdropPath={titleArtwork[bleachPresentationKey(r)]?.backdropPath ?? r.backdropPath}
       logoPath={titleArtwork[bleachPresentationKey(r)]?.logoPath ?? null}
@@ -295,17 +296,29 @@ function DiscoverPageInner() {
   const { optimized: optimizedInterface, ready: interfaceModeReady } = useInterfaceDataMode();
 
   const { data: optimizedStatusData } = useSWR<{
-    movies: { tmdbId: number; status: string }[];
+    movies: { id: string; tmdbId: number; status: string; hasFile: boolean; plexRatingKey: string | null; plexUrl: string | null }[];
     series: { tmdbId: number; status: string }[];
   }>(configured && interfaceModeReady && optimizedInterface ? "/api/interface/library-status" : null);
 
-  const { data: moviesData } = useSWR<{ movies: { tmdbId: number; status: string; activeInfoHash: string | null }[] }>(
+  const { data: moviesData } = useSWR<{ movies: { id: string; tmdbId: number; status: string; activeInfoHash: string | null; file: unknown | null; plexRatingKey: string | null; plexUrl: string | null }[] }>(
     configured && interfaceModeReady && !optimizedInterface ? "/api/library/movies" : null
   );
   const { data: seriesData } = useSWR<{ series: { tmdbId: number; seasons: { episodes: { status: string; activeInfoHash: string | null; monitored: boolean }[] }[] }[] }>(
     configured && interfaceModeReady && !optimizedInterface ? "/api/library/series" : null
   );
   const [libStatus, setLibStatus] = useState<Map<string, string>>(new Map());
+  const libPlayback = useMemo(() => {
+    const source = optimizedStatusData?.movies
+      ?? moviesData?.movies.map((movie) => ({ id: movie.id, tmdbId: movie.tmdbId, hasFile: !!movie.file, plexRatingKey: movie.plexRatingKey, plexUrl: movie.plexUrl })) ?? [];
+    return new Map<string, DashboardCardPlayback>(source
+      .filter((movie) => movie.hasFile)
+      .map((movie) => [`movie:${movie.tmdbId}`, {
+        ratingKey: movie.plexRatingKey ?? movie.id,
+        plexUrl: movie.plexUrl,
+        movvizId: movie.id,
+        type: "movie" as const,
+      }]));
+  }, [optimizedStatusData, moviesData]);
   const { data: bleachLibraryData } = useSWR<{ series: LibrarySeries[] }>(configured ? "/api/library/series?tmdbId=30984" : null);
   const [libLoaded, setLibLoaded] = useState(false);
   useEffect(() => {
@@ -1034,6 +1047,7 @@ function DiscoverPageInner() {
               companyTiles={companyTiles}
               watchProviderTiles={watchProviderTiles}
               libStatus={libStatus}
+              libPlayback={libPlayback}
               libLoaded={libLoaded}
               watchedSet={watchedSet}
               onAdded={(key) => setLibStatus((m) => new Map(m).set(key, "missing"))}
@@ -1408,7 +1422,7 @@ function PlatformsSection({ tiles, onClick }: { tiles: LogoTile[]; onClick: (til
 }
 
 function HomeRows({
-  rows, layout, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick,
+  rows, layout, artwork, loading, companyTiles, watchProviderTiles, libStatus, libPlayback, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick,
 }: {
   layout: RowLayoutApi;
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[];
@@ -1417,6 +1431,7 @@ function HomeRows({
   companyTiles: LogoTile[];
   watchProviderTiles: LogoTile[];
   libStatus: Map<string, string>;
+  libPlayback: Map<string, DashboardCardPlayback>;
   libLoaded: boolean;
   watchedSet: Set<number>;
   onAdded: (key: string) => void;
@@ -1478,6 +1493,7 @@ function HomeRows({
             title={rowLabel(row.key, row.meta)}
             results={row.results}
             libStatus={libStatus}
+            libPlayback={libPlayback}
             libLoaded={libLoaded}
             watchedSet={watchedSet}
             artwork={artwork}
@@ -1570,12 +1586,13 @@ function PersonRow({ title, results }: { title: string; results: MetaPersonSearc
 }
 
 function PosterRow({
-  title, results, artwork, libStatus, libLoaded, watchedSet, onAdded, onSeeAll, providerTile,
+  title, results, artwork, libStatus, libPlayback, libLoaded, watchedSet, onAdded, onSeeAll, providerTile,
 }: {
   title: string;
   results: MetaSearchResult[];
   artwork: TitleArtworkByKey;
   libStatus: Map<string, string>;
+  libPlayback: Map<string, DashboardCardPlayback>;
   libLoaded: boolean;
   watchedSet: Set<number>;
   onAdded: (key: string) => void;
@@ -1594,6 +1611,7 @@ function PosterRow({
             index={i}
             result={r}
             status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
+            playback={libPlayback.get(`${r.type}:${r.tmdbId}`)}
             watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
             backdropPath={artwork[bleachPresentationKey(r)]?.backdropPath ?? r.backdropPath}
             logoPath={artwork[bleachPresentationKey(r)]?.logoPath ?? null}
@@ -1745,10 +1763,11 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
 }
 
 function DiscoverCard({
-  result, status, watched, backdropPath, logoPath, onAdded, index = 0, providerTile,
+  result, status, playback, watched, backdropPath, logoPath, onAdded, index = 0, providerTile,
 }: {
   result: MetaSearchResult;
   status: string | null;
+  playback?: DashboardCardPlayback;
   watched: boolean;
   backdropPath: string | null;
   logoPath: string | null;
@@ -1826,6 +1845,7 @@ function DiscoverCard({
           year={result.year}
           overview={result.overview}
           inLibrary={!!status}
+          playback={playback}
           reserveBottomRight={watched || !!providerTile?.logoPath}
         />
         <button

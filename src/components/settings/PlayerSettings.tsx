@@ -4,8 +4,6 @@ import { MonitorPlay, Bug, Gauge } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
-import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
-import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/languages";
 import { Toggle } from "@/components/ui/Toggle";
 import { BenchmarkPanel } from "@/components/settings/BenchmarkPanel";
 
@@ -25,7 +23,6 @@ export function PlayerSettings() {
     setHdrDvToSdrEnabled,
     setDebug,
   } = useBetaPlayer();
-  const { value: preferredAudioLanguage, set: setPreferredAudioLanguage } = usePreferredAudioLanguage();
 
   return (
     <div className="space-y-6">
@@ -46,16 +43,6 @@ export function PlayerSettings() {
             <p className="text-xs text-ink-dim">{t("player.useMovvizHint")}</p>
           </div>
           <Toggle on={userEnabled} onChange={() => setUserEnabled(!userEnabled)} />
-        </div>
-
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
-          <div>
-            <p className="text-sm font-semibold text-ink">{t("player.preferredAudioLanguage")}</p>
-            <p className="text-xs text-ink-dim">{t("player.preferredAudioLanguageHint")}</p>
-          </div>
-          <select value={preferredAudioLanguage} onChange={(e) => setPreferredAudioLanguage(e.target.value as PreferredAudioLanguage)} className="h-9 shrink-0 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none focus:border-brand/40">
-            {PREFERRED_AUDIO_LANGUAGES.map((l) => <option key={l} value={l}>{t(`player.audioLang.${l}`)}</option>)}
-          </select>
         </div>
 
         <div className="mt-4 rounded-xl border border-brand/15 bg-brand/5 p-3">

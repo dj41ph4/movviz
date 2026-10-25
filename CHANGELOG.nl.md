@@ -1,3 +1,18 @@
+## v1.27.45 — 25 oktober 2026
+
+### Afspelen vanaf kaarten
+
+- Op het dashboard, in de bibliotheek en in Ontdekken tonen kaarten + buiten de bibliotheek, een klok als het bestand ontbreekt en Afspelen zodra een lokale film beschikbaar is, zonder op Plex te wachten.
+- De afspeelknop in de hoofdbanner en op de afleveringspagina werkt ook zodra het lokale bestand bestaat, zonder Plex-link.
+- Klikken op de afbeelding opent de titeldetails; alleen de afspeelknop start de speler.
+
+### Audio- en ondertitelsporen
+
+- De spelermenu's (web, Android TV, Android mobiel, Samsung) tonen taal, codec en kanalen (bv. "Frans · E-AC-3 5.1"), plus de sportitel en de vermelding Geforceerd bij ondertitels.
+- De sporen worden uit het bestand zelf gelezen: een titel zonder Plex-koppeling heeft nu zijn audio- en ondertitelmenu's, en het wisselen van spoor herstart de lokale engine.
+- Automatische ondertitels (profielinstelling, standaard uit): als de afgespeelde audio niet in de profieltaal is — de interfacetaal gekozen met de vlaggen — starten de ondertitels in die taal. De instelling hoort bij het account: wijzigen op Android wijzigt ze ook op desktop, tv en Samsung.
+- De standaard audiotaal volgt de profieltaal zolang die op Automatisch staat; op Android werd deze instelling nooit toegepast tijdens het afspelen, dat is nu opgelost.
+
 ## v1.27.44 — 25 oktober 2026
 
 ### Handmatige poortdoorsturing

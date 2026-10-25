@@ -427,6 +427,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun savePreferredAudioLanguage(language: String): ApiResult<UserPrefsDto> =
         safeCall { api.savePreferences(UserPrefsDto(preferredAudioLanguage = language)) }.map { it.prefs }
 
+    suspend fun saveAutoSubtitles(enabled: Boolean): ApiResult<UserPrefsDto> =
+        safeCall { api.savePreferences(UserPrefsDto(autoSubtitles = enabled)) }.map { it.prefs }
+
     /** Détruit la session côté serveur — best-effort, une erreur réseau ne
      *  doit jamais empêcher la déconnexion locale (le cookie jar est de
      *  toute façon vidé juste après par AppViewModel.logout, voir

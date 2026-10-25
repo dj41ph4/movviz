@@ -74,6 +74,7 @@ export async function GET(req: NextRequest, context: Ctx) {
         codec: String(s.codec ?? ""),
         language: String(s.language ?? s.languageTag ?? ""),
         channels: Number(s.channels ?? 0),
+        title: String(s.title ?? ""),
         selected: Boolean(s.selected),
       }));
     const subtitleStreams = streams
@@ -82,6 +83,8 @@ export async function GET(req: NextRequest, context: Ctx) {
         id: String(s.id ?? ""),
         codec: String(s.codec ?? ""),
         language: String(s.language ?? s.languageTag ?? ""),
+        title: String(s.title ?? ""),
+        forced: Boolean(s.forced),
         toTextConvertible: isSubtitleToTextCodec(String(s.codec ?? "")),
         selected: Boolean(s.selected),
       }));

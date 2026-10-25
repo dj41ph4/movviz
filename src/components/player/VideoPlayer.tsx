@@ -8,7 +8,9 @@ import type { MediaPlayerClass } from "dashjs";
 import { cn, openPlexLink } from "@/lib/utils";
 import { useI18n } from "@/i18n/provider";
 import { findTrackForLocale } from "@/lib/library/detectLanguage";
+import { audioTrackLabel, subtitleTrackLabel } from "@/lib/playback/trackLabels";
 import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
+import { useAutoSubtitles } from "@/lib/settings/useAutoSubtitles";
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2, Check, RotateCcw,
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
@@ -61,6 +63,8 @@ interface StreamTrack {
   codec: string;
   language: string;
   channels?: number;
+  title?: string;
+  forced?: boolean;
   toTextConvertible?: boolean;
   selected?: boolean;
 }
@@ -170,6 +174,11 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const { effective: preferredAudioLocale } = usePreferredAudioLanguage();
   const localeRef = useRef<string>(locale);
   localeRef.current = preferredAudioLocale;
+  const { enabled: autoSubtitles } = useAutoSubtitles();
+  const localeUiRef = useRef<string>(locale);
+  localeUiRef.current = locale;
+  const autoSubtitlesRef = useRef(false);
+  autoSubtitlesRef.current = autoSubtitles;
   const beta = useBetaPlayer();
   const betaRef = useRef(beta);
   betaRef.current = beta;
@@ -705,7 +714,56 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // leg active : engine-v2 (reloadLocalEngineTracks, nouvelle session via
   // /api/playback/prepare), ffmpeg legacy (reload sur la même session
   // ratingKey), HLS (reloadHls, chemin existant inchangé).
+  /**
+   * Titre purement local (aucune liaison Plex) lu en DIRECT_PLAY : il n'y a ni
+   * session Plex ni moteur ffmpeg à recharger, donc ni reloadHls ni la
+   * route sous-titres Plex ne peuvent servir. Le choix de piste repart alors
+   * du moteur local (prepare → decidePlayback), qui grave le sous-titre /
+   * bascule l'audio et reprend à la position courante.
+   */
+  const restartLocalEngineWithTracks = (nextAudioId: string | null, nextSubtitleId: string | null): boolean => {
+    const b = betaRef.current;
+    const unifiedSelected = b.enabled && (b.playbackEngine === "auto" || b.playbackEngine === "stable" || b.playbackEngine === "beta");
+    if (hasRealPlexLink || !playbackId || !unifiedSelected || isLocalEngineV2Ref.current || !tryStartUnifiedEngineRef.current) return false;
+    const toIndex = (id: string | null, streams: StreamTrack[], tracks: { index: number }[]): number | undefined => {
+      if (id === null) return undefined;
+      const ordinal = streams.findIndex((stream) => stream.id === id);
+      return ordinal >= 0 ? tracks[ordinal]?.index : undefined;
+    };
+    const audioTrack = toIndex(nextAudioId, audioStreams, localEngineAudioTracksRef.current);
+    const subtitleTrack = nextSubtitleId === null ? null : toIndex(nextSubtitleId, subtitleStreams, localEngineSubtitleTracksRef.current);
+    if (nextSubtitleId !== null && subtitleTrack === undefined) return false;
+    setMenuOpen(null);
+    if (nextAudioId === currentAudio && nextSubtitleId === currentSubtitle) return true;
+    setCurrentAudio(nextAudioId);
+    audioStreamIdRef.current = nextAudioId;
+    setCurrentSubtitle(nextSubtitleId);
+    const position = videoRef.current?.currentTime ?? 0;
+    setError(null);
+    lastMediaErrorCodeRef.current = null;
+    setOptimizing(true);
+    setBuffering(true);
+    setDirectMode(false);
+    const currentEngine = ffmpegEngineRef.current;
+    if (currentEngine) {
+      ffmpegEngineRef.current = null;
+      void currentEngine.destroy().catch(() => void 0);
+    }
+    ffmpegActiveRef.current = false;
+    setFfmpegActive(false);
+    void (async () => {
+      const ok = await tryStartUnifiedEngineRef.current?.(position > 0 ? position : undefined, { audioTrack, subtitleTrack });
+      if (!ok) {
+        setOptimizing(false);
+        setBuffering(false);
+        setError(tRef.current("player.betaError"));
+      }
+    })();
+    return true;
+  };
+
   const handleAudioSelect = (id: string) => {
+    if (restartLocalEngineWithTracks(id, currentSubtitle)) return;
     if (isLocalEngineV2Ref.current) {
       void reloadLocalEngineTracks(id, currentSubtitle);
     } else if (ffmpegActive) {
@@ -718,6 +776,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
   const handleSubtitleSelect = (id: string) => {
     setMenuOpen(null);
+    if (restartLocalEngineWithTracks(currentAudio, id)) return;
     if (isLocalEngineV2Ref.current) {
       void reloadLocalEngineTracks(currentAudio, id);
     } else if (ffmpegActive) {
@@ -738,6 +797,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
   const handleSubtitleOff = () => {
     setMenuOpen(null);
+    if (restartLocalEngineWithTracks(currentAudio, null)) return;
     if (isLocalEngineV2Ref.current) {
       void reloadLocalEngineTracks(currentAudio, null);
     } else if (ffmpegActive) {
@@ -1222,8 +1282,13 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           // à la langue de l'UI — seulement quand aucune piste audio dans
           // cette langue n'existe, pour retrouver le réflexe "audio étranger
           // → sous-titres dans ma langue" des autres lecteurs.
-          const localeSub = localeAudio ? null : findTrackForLocale(subTracks, localeRef.current);
-          const selSub = localeSub ?? subTracks.find((s) => s.selected);
+          // Désactivé par défaut (réglage de profil « sous-titres
+          // automatiques ») : sans lui, aucun sous-titre ne démarre seul.
+          // Langue du profil = langue d'interface (drapeaux), pas la langue audio préférée.
+          const playedAudio = localePreferredAudio;
+          const audioInProfileLanguage = !!playedAudio && !!findTrackForLocale([playedAudio], localeUiRef.current);
+          const localeSub = audioInProfileLanguage || !autoSubtitlesRef.current ? null : findTrackForLocale(subTracks, localeUiRef.current);
+          const selSub = localeSub;
           if (selSub) setCurrentSubtitle(selSub.id);
 
           // The playback session opens before the stream metadata arrives so
@@ -1606,6 +1671,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
             ratingKey: hasRealPlexLink ? ratingKey : "",
             clientProfile,
             audioLanguage: localeRef.current,
+            profileLanguage: locale,
             audioTrack: overrides.audioTrack,
             subtitleTrack: overrides.subtitleTrack,
             quality: overrides.quality ?? toPlannerQuality(qualityRef.current),
@@ -1618,6 +1684,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           stream: { url: string };
           media: { durationMs?: number };
           tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };
+          selection?: { subtitle: number | null };
         };
         // DIRECT_PLAY et UNSUPPORTED ne concernent pas cette
         // leg : le premier est déjà couvert par startDirect, les seconds
@@ -1674,6 +1741,16 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
         localEngineAudioTracksRef.current = prep.tracks?.audio ?? [];
         localEngineSubtitleTracksRef.current = prep.tracks?.subtitle ?? [];
+        // Le serveur peut avoir choisi seul un sous-titre (réglage de profil
+        // « sous-titres automatiques ») : le menu reflète exactement ce que le
+        // moteur joue, relié à la piste du menu par sa position (même règle
+        // que reloadLocalEngineTracks).
+        if (prep.selection) {
+          const subtitlePosition = prep.selection.subtitle === null
+            ? -1
+            : localEngineSubtitleTracksRef.current.findIndex((track) => track.index === prep.selection!.subtitle);
+          setCurrentSubtitle(subtitlePosition >= 0 ? (infoRef.current?.subtitleStreams?.[subtitlePosition]?.id ?? null) : null);
+        }
 
         if (prep.plan.mode === "DIRECT_PLAY") {
           destroyFfmpeg();
@@ -3074,8 +3151,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                                       currentAudio === s.id ? "font-semibold text-brand-glow" : "text-white/75"
                                     )}
                                   >
-                                    <span className="truncate">{s.language || s.codec || s.id}</span>
-                                    {s.channels ? <span className="text-[10px] opacity-60">{s.channels > 2 ? `${s.channels}.1` : `${s.channels}.0`}</span> : null}
+                                    <span className="truncate">{audioTrackLabel(s)}</span>
                                   </button>
                                 ))}
                               </>
@@ -3100,7 +3176,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                                       currentSubtitle === s.id ? "font-semibold text-brand-glow" : "text-white/75"
                                     )}
                                   >
-                                    <span className="truncate">{s.language || s.codec || s.id}</span>
+                                    <span className="truncate">{subtitleTrackLabel(s, t("player.subtitleForced"))}</span>
                                   </button>
                                 ))}
                               </>

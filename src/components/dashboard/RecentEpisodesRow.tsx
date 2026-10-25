@@ -54,8 +54,10 @@ export function RecentEpisodesRow({ episodes, series }: {
       const seasonLabel = displaySeason === 0 ? t("title.edit.specials") : `${t("title.season")} ${displaySeason}`;
       // A season card opens the series; a single episode retains its exact
       // playback target and file metadata, without inventing a resume state.
-      const playback = !grouped && episode.plexRatingKey && episode.plexUrl ? {
-        ratingKey: episode.plexRatingKey, plexUrl: episode.plexUrl,
+      const playback = !grouped && episode.file ? {
+        ratingKey: episode.plexRatingKey ?? `${episode.seriesId}:s${episode.seasonNumber}e${episode.episodeNumber}`,
+        plexUrl: episode.plexUrl,
+        movvizId: `${episode.seriesId}:s${episode.seasonNumber}e${episode.episodeNumber}`,
         seriesId: episode.seriesId, type: "series" as const,
         seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber,
       } : undefined;

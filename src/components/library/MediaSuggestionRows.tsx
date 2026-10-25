@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import { useMemo } from "react";
 import { PosterRow } from "@/components/media/PosterRow";
-import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
+import { DashboardPosterCard, type DashboardCardPlayback } from "@/components/dashboard/DashboardPosterCard";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useI18n, useT } from "@/i18n/provider";
 import { EditableRow } from "@/components/media/RowLayoutControls";
@@ -33,6 +33,11 @@ export function MediaSuggestionRows({ type, layout }: { type: MediaType; layout:
   const rows = useMemo(() => arrange(available), [arrange, available]);
   const libraryIds = useMemo(() => new Set(
     type === "movie" ? (dashboard?.movies ?? []).map((item) => item.tmdbId) : (dashboard?.series ?? []).map((item) => item.tmdbId)
+  ), [dashboard, type]);
+  const moviePlaybackByTmdbId = useMemo(() => new Map<number, DashboardCardPlayback>(
+    type === "movie" ? (dashboard?.movies ?? [])
+      .filter((movie) => !!movie.file)
+      .map((movie) => [movie.tmdbId, { ratingKey: movie.plexRatingKey ?? movie.id, plexUrl: movie.plexUrl, movvizId: movie.id, type: "movie" }]) : []
   ), [dashboard, type]);
   const artworkRefs = useMemo<TitleArtworkRef[]>(() => {
     const seen = new Set<number>();
@@ -68,6 +73,7 @@ export function MediaSuggestionRows({ type, layout }: { type: MediaType; layout:
                   rating={item.rating}
                   year={item.year}
                   inLibrary={libraryIds.has(item.tmdbId)}
+                  playback={type === "movie" ? moviePlaybackByTmdbId.get(item.tmdbId) : undefined}
                 />
               </CardErrorBoundary>
             );

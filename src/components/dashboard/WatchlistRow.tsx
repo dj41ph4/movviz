@@ -8,9 +8,9 @@ import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
 import { bleachPresentationKey } from "@/lib/metadata/bleachPresentation";
 import type { WatchlistItem } from "@/lib/watchlist/types";
-import { DashboardPosterCard } from "./DashboardPosterCard";
+import { DashboardPosterCard, type DashboardCardPlayback } from "./DashboardPosterCard";
 
-export function WatchlistRow({ items: source, libraryTitleKeys }: { items: WatchlistItem[]; libraryTitleKeys: Set<string> }) {
+export function WatchlistRow({ items: source, libraryTitleKeys, moviePlaybackByTmdbId }: { items: WatchlistItem[]; libraryTitleKeys: Set<string>; moviePlaybackByTmdbId?: (type: "movie" | "series", tmdbId: number) => DashboardCardPlayback | undefined }) {
   const { t, locale } = useI18n();
   const items = useMemo(() => [...source].sort((a, b) => b.addedAt - a.addedAt), [source]);
   const refs = useMemo(() => items.map((item) => ({ type: item.type === "movie" ? "movie" as const : "series" as const, tmdbId: item.tmdbId, seriesPart: item.seriesPart })), [items]);
@@ -28,6 +28,7 @@ export function WatchlistRow({ items: source, libraryTitleKeys }: { items: Watch
           titleEmbedded={art?.titleEmbedded} year={item.year} rating={item.rating}
           episodeBadge={item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null ? formatEpisodeBadge(item.seasonNumber, item.episodeNumber) : undefined}
           inLibrary={libraryTitleKeys.has(`${type}:${item.tmdbId}`)}
+          playback={!item.seriesPart ? moviePlaybackByTmdbId?.(type, item.tmdbId) : undefined}
         />
       </CardErrorBoundary>;
     })}

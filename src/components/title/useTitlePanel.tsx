@@ -62,11 +62,6 @@ export function useTitlePanel() {
       if (!link) return;
       const href = link.getAttribute("href");
       if (!href) return;
-      // DashboardPosterCard's image/play link opts out when it has its own
-      // action to take (starting playback) — otherwise this handler would
-      // always win the race and open the fiche instead of playing anything.
-      if (link.hasAttribute("data-skip-title-panel")) return;
-
       // Panel open: internal links clicked anywhere (including inside the
       // panel) swap the panel's view instead of navigating. Buttons (close,
       // add-to-library…) and the backdrop stay untouched.

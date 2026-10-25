@@ -945,6 +945,10 @@ data class WatchToggleRequestDto(
 @JsonClass(generateAdapter = true)
 data class UserPrefsDto(
     val preferredAudioLanguage: String? = null,
+    /** Langue du profil = langue d'interface choisie avec les drapeaux (lecture seule ici). */
+    val locale: String? = null,
+    /** Sous-titres automatiques du profil — réglage de compte partagé avec le web et les autres clients. */
+    val autoSubtitles: Boolean? = null,
 )
 
 @JsonClass(generateAdapter = true)

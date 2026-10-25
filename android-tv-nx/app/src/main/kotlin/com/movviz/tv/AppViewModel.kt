@@ -1931,6 +1931,17 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         }
     }
 
+    fun setAutoSubtitles(enabled: Boolean) {
+        val repo = repository ?: return
+        _userPrefs.value = (_userPrefs.value ?: UserPrefsDto()).copy(autoSubtitles = enabled)
+        viewModelScope.launch {
+            when (val r = repo.saveAutoSubtitles(enabled)) {
+                is ApiResult.Success -> _userPrefs.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
     fun logout() {
         val repo = repository
         // Best-effort côté serveur (voir MovvizRepository.logoutServer) puis

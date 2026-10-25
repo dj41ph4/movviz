@@ -41,9 +41,9 @@ type ResolvedArtwork = Pick<LocalArtwork, "backdropPath" | "logoPath"> & { title
 type DashboardMovie = DashboardLibraryMovie;
 
 function moviePlayback(movie: DashboardMovie): DashboardCardPlayback | undefined {
-  if (movie.status !== "available" || !movie.file || !movie.plexRatingKey || !movie.plexUrl) return undefined;
+  if (!movie.file) return undefined;
   return {
-    ratingKey: movie.plexRatingKey,
+    ratingKey: movie.plexRatingKey ?? movie.id,
     plexUrl: movie.plexUrl,
     movvizId: movie.id,
     type: "movie",
@@ -268,6 +268,11 @@ export function DashboardRows({
     ...movies.map((movie) => `movie:${movie.tmdbId}`),
     ...series.map((show) => `series:${show.tmdbId}`),
   ]), [movies, series]);
+  const moviesByTmdbId = useMemo(() => new Map(movies.map((movie) => [movie.tmdbId, movie])), [movies]);
+  const playbackForTitle = (type: "movie" | "series", tmdbId: number) => {
+    const movie = type === "movie" ? moviesByTmdbId.get(tmdbId) : undefined;
+    return movie ? moviePlayback(movie) : undefined;
+  };
 
   const artworkRefs = useMemo(() => {
     const refs = new Map<string, { type: "movie" | "series"; tmdbId: number }>();
@@ -312,7 +317,7 @@ export function DashboardRows({
   const renderSection = (id: DashboardSectionId) => {
         if (!visible.has(id)) return null;
         if (id === "watchlist" && watchlistData?.items.length) {
-          return <WatchlistRow key={id} items={watchlistData.items} libraryTitleKeys={libraryTitleKeys} />;
+          return <WatchlistRow key={id} items={watchlistData.items} libraryTitleKeys={libraryTitleKeys} moviePlaybackByTmdbId={playbackForTitle} />;
         }
 
         if (id === "continueWatching" && continueWatching.length > 0) {
@@ -433,7 +438,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -448,7 +453,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -553,7 +558,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} rank={i + 1} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} rank={i + 1} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
                   </CardErrorBoundary>
                 );
               })}

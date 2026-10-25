@@ -190,6 +190,17 @@ fun SettingsScreen(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Sous-titres automatiques : démarrent dans la langue du profil (celle de l'interface) quand l'audio lu n'est pas dans cette langue. Réglage commun à toutes vos plateformes.",
+                    style = TextStyle(fontSize = if (beta) 13.sp else 10.sp, color = if (beta) MovvizTheme.palette.inkSoft else MovvizInkSoft),
+                )
+                Spacer(modifier = Modifier.height(9.dp))
+                SettingsToggle(
+                    label = if (userPrefs?.autoSubtitles == true) "Sous-titres automatiques : activés" else "Sous-titres automatiques : désactivés",
+                    enabled = userPrefs?.autoSubtitles == true,
+                    onToggle = { viewModel.setAutoSubtitles(userPrefs?.autoSubtitles != true) },
+                )
             }
         }
 

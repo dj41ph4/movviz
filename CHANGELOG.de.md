@@ -1,3 +1,18 @@
+## v1.27.45 — 25. Oktober 2026
+
+### Wiedergabe über Karten
+
+- Auf dem Dashboard, in der Bibliothek und in Entdecken zeigen Karten + außerhalb der Bibliothek, eine Uhr bei fehlender Datei und Wiedergabe, sobald ein lokaler Film verfügbar ist, ohne auf Plex zu warten.
+- Die Wiedergabetaste im Startbanner und auf der Episodenseite funktioniert ebenfalls, sobald die lokale Datei existiert, ohne Plex-Link.
+- Ein Klick auf das Bild öffnet die Titeldetails; nur die Wiedergabetaste startet den Player.
+
+### Audio- und Untertitelspuren
+
+- Die Player-Menüs (Web, Android TV, Android Mobil, Samsung) zeigen Sprache, Codec und Kanäle (z. B. „Französisch · E-AC-3 5.1“) sowie Spurtitel und den Hinweis Erzwungen bei Untertiteln.
+- Die Spuren werden direkt aus der Datei gelesen: Ein Titel ohne Plex-Verknüpfung hat jetzt seine Audio- und Untertitelmenüs, und der Spurwechsel startet die lokale Engine neu.
+- Automatische Untertitel (Profileinstellung, standardmäßig aus): Ist die abgespielte Audiospur nicht in der Profilsprache — der mit den Flaggen gewählten Oberflächensprache —, starten die Untertitel in dieser Sprache. Die Einstellung gehört zum Konto: Eine Änderung auf Android gilt auch auf Desktop, TV und Samsung.
+- Die Standard-Audiosprache folgt der Profilsprache, solange sie auf Automatisch steht; unter Android wurde diese Einstellung bei der Wiedergabe nie angewendet, das ist behoben.
+
 ## v1.27.44 — 25. Oktober 2026
 
 ### Manuelle Portweiterleitung

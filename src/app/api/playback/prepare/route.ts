@@ -10,6 +10,7 @@ import { benchmarkRealtimeFactor } from "@/lib/playback/engine/serverBenchmark";
 import type { ClientPlaybackProfile } from "@/lib/playback/engine/clientProfile";
 import { findTrackForLocale } from "@/lib/library/detectLanguage";
 import { isHdrDvToSdrEnabled } from "@/lib/settings/betaPlayer";
+import { loadUserPrefs } from "@/lib/userPrefs/store";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,28 @@ export async function POST(req: NextRequest) {
     audioTrack = findTrackForLocale(media.audioTracks, requestedAudioLanguage)?.index;
   }
   const subtitleTrackRaw = b.subtitleTrack;
-  const subtitleTrack = subtitleTrackRaw === null ? null : Number.isInteger(subtitleTrackRaw) ? (subtitleTrackRaw as number) : undefined;
+  let subtitleTrack = subtitleTrackRaw === null ? null : Number.isInteger(subtitleTrackRaw) ? (subtitleTrackRaw as number) : undefined;
+  // Sous-titres automatiques du profil (réglage de compte, désactivé par
+  // défaut) : uniquement quand le client n'a exprimé AUCUN choix (champ absent)
+  // — un null explicite reste « sans sous-titres ». Aucune dépendance à Plex :
+  // tout vient des pistes ffprobe du fichier.
+  let autoSubtitle = false;
+  if (subtitleTrackRaw === undefined) {
+    const prefs = loadUserPrefs(user.id);
+    if (prefs.autoSubtitles === true) {
+      // Langue du profil = langue d'interface choisie (drapeaux), distincte de
+      // la langue audio préférée : un profil français qui préfère l'audio
+      // anglais obtient justement des sous-titres français.
+      const clientProfileLanguage = typeof b.profileLanguage === "string" ? b.profileLanguage.trim().toLowerCase() : "";
+      const profileLanguage = prefs.locale ?? (clientProfileLanguage || requestedAudioLanguage);
+      const playedAudio = media.audioTracks.find((t) => t.index === audioTrack) ?? media.audioTracks.find((t) => t.default) ?? media.audioTracks[0];
+      if (profileLanguage && playedAudio && !findTrackForLocale([playedAudio], profileLanguage)) {
+        const candidates = media.subtitleTracks.filter((t) => findTrackForLocale([t], profileLanguage));
+        const chosen = candidates.find((t) => !t.forced) ?? candidates[0];
+        if (chosen) { subtitleTrack = chosen.index; autoSubtitle = true; }
+      }
+    }
+  }
   const quality = typeof b.quality === "string" ? (b.quality as "original" | "auto" | "4k" | "1440p" | "1080p" | "720p") : undefined;
 
   // Instance-wide product rule from Settings > Player. OFF is a hard veto:
@@ -140,6 +162,7 @@ export async function POST(req: NextRequest) {
     media,
     plan,
     tracks: { audio: media.audioTracks, subtitle: media.subtitleTracks },
+    selection: { subtitle: subtitleTrack ?? null, subtitleAuto: autoSubtitle },
     source: { type: source.type },
     markers: {},
     resume: {},

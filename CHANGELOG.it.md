@@ -1,3 +1,18 @@
+## v1.27.45 — 25 ottobre 2026
+
+### Riproduzione dalle schede
+
+- Nella dashboard, nella libreria e in Scopri, le schede mostrano + fuori dalla libreria, un orologio quando manca il file e Riproduci non appena un film locale è disponibile, senza attendere Plex.
+- Anche il pulsante Riproduci del banner iniziale e quello della pagina episodio funzionano non appena il file locale esiste, senza link Plex.
+- Un clic sull'immagine apre la scheda del titolo; solo il pulsante Riproduci avvia il lettore.
+
+### Tracce audio e sottotitoli
+
+- I menu del lettore (web, Android TV, Android mobile, Samsung) mostrano lingua, codec e canali (es. «Francese · E-AC-3 5.1»), oltre al titolo della traccia e alla dicitura Forzati per i sottotitoli.
+- Le tracce sono lette dal file stesso: un titolo senza collegamento Plex ha ora i menu audio e sottotitoli, e il cambio di traccia riavvia il motore locale.
+- Sottotitoli automatici (impostazione del profilo, disattivata di default): quando l'audio riprodotto non è nella lingua del profilo — quella dell'interfaccia, scelta con le bandiere — i sottotitoli partono in quella lingua. L'impostazione è legata all'account: cambiarla su Android la cambia su desktop, TV e Samsung.
+- La lingua audio predefinita segue la lingua del profilo finché è su Automatica; su Android questa impostazione non veniva mai applicata in riproduzione, ora è corretto.
+
 ## v1.27.44 — 25 ottobre 2026
 
 ### Inoltro manuale delle porte

@@ -20,6 +20,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useWatchRegion, WATCH_REGION_OPTIONS } from "@/lib/settings/useWatchRegion";
 import { Toggle } from "@/components/ui/Toggle";
 import { AiContextPanel } from "@/components/profile/AiContextPanel";
+import { LanguagePanel } from "@/components/profile/LanguagePanel";
 import { AccessibilityPanel } from "@/components/profile/AccessibilityPanel";
 import { WatchResetPanel } from "@/components/profile/WatchResetPanel";
 
@@ -296,6 +297,8 @@ export default function ProfilePage() {
         </div>
         {photoMessage && <p className="mt-2 text-xs text-ink-dim">{photoMessage}</p>}
       </div>
+
+      <LanguagePanel />
 
       <AiContextPanel />
 

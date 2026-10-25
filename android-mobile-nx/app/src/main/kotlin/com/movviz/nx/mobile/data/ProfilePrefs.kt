@@ -102,6 +102,10 @@ class PlaybackPrefs(
         return SubtitlePreference(enabled = enabled, language = language)
     }
 
+    /** Vrai seulement si l'utilisateur a déjà choisi (activé OU coupé) des
+     *  sous-titres pour ce média — distingue « jamais choisi » de « coupé ». */
+    fun hasSubtitlePreference(mediaKey: String): Boolean = prefs.contains("${key(mediaKey)}|enabled")
+
     fun saveSubtitlePreference(mediaKey: String, enabled: Boolean, language: String? = null) {
         prefs.edit()
             .putBoolean("${key(mediaKey)}|enabled", enabled)

@@ -1,3 +1,18 @@
+## v1.27.45 — 25 octobre 2026
+
+### Lecture depuis les cartes
+
+- Sur le tableau de bord, dans la bibliothèque et dans la découverte, les cartes affichent « + » hors bibliothèque, une horloge si le fichier manque et Lecture dès qu'un film local est disponible, sans attendre Plex.
+- Le bouton Lecture du bandeau d'accueil et celui de la page épisode fonctionnent aussi dès que le fichier local existe, sans lien Plex.
+- Cliquer sur l'image ouvre la fiche ; seul le bouton Lecture lance le lecteur.
+
+### Pistes audio et sous-titres
+
+- Les menus du lecteur (web, Android TV, Android mobile, Samsung) affichent la langue, le codec et les canaux (ex. « Français · E-AC-3 5.1 »), plus le titre de la piste et la mention Forcé pour les sous-titres.
+- Les pistes sont lues dans le fichier lui-même : un titre sans liaison Plex a maintenant ses menus audio et sous-titres, et le changement de piste relance le moteur local.
+- Sous-titres automatiques (réglage du profil, désactivé par défaut) : quand l'audio lu n'est pas dans la langue du profil — celle de l'interface, choisie avec les drapeaux — les sous-titres démarrent dans cette langue. Le réglage est lié au compte : le changer sur Android le change sur le bureau, la TV et Samsung.
+- La langue audio par défaut suit la langue du profil tant qu'elle est sur « Automatique » ; sur Android, ce réglage n'était jamais appliqué à la lecture, c'est corrigé.
+
 ## v1.27.44 — 25 octobre 2026
 
 ### Redirections de ports manuelles

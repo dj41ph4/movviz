@@ -65,7 +65,7 @@ export default function EpisodeDetailPage({
   // loading-state early returns below (via optional chaining) rather than
   // after them, or this would violate rules-of-hooks the moment `ep` is
   // still unknown on first paint.
-  const { label: playLabel } = usePlayLabel(ep?.plexRatingKey);
+  const { label: playLabel } = usePlayLabel(ep?.plexRatingKey ?? (ep?.file ? `${series?.id}:s${seasonNumber}e${episodeNumber}` : null), !!ep?.file);
   const stillPath = meta?.stillPath ?? null;
   // Only needed for play()'s backdropUrl below (Tier 3, no fallback — see
   // useTmdbImageUrl's doc comment); the <img> further down resolves its own
@@ -141,16 +141,16 @@ export default function EpisodeDetailPage({
         <span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold", STATUS_TONE[ep.status])}>
           <Icon className="h-3 w-3" /> {t(`status.${ep.status}`)}
         </span>
-        {ep.plexUrl && (
-          betaPlayer && ep.plexRatingKey ? (
+        {(ep.plexUrl || ep.file) && (
+          (betaPlayer && ep.plexRatingKey) || ep.file ? (
             <button
               onClick={(e) => play({
-                ratingKey: ep.plexRatingKey!,
+                ratingKey: ep.plexRatingKey ?? `${series.id}:s${seasonNumber}e${episodeNumber}`,
                 movvizId: `${series.id}:s${seasonNumber}e${episodeNumber}`,
                 seriesId: series.id,
-                plexUrl: ep.plexUrl!,
+                plexUrl: ep.plexUrl,
                 title: ep.title,
-                useTranscode: betaPlayer,
+                useTranscode: betaPlayer || !ep.plexUrl,
                 tmdbId: series.tmdbId,
                 type: "series",
                 seasonNumber,
@@ -164,7 +164,7 @@ export default function EpisodeDetailPage({
             </button>
           ) : (
             <a
-              href={ep.plexUrl}
+              href={ep.plexUrl!}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => openPlexLink(e, ep.plexUrl!)}

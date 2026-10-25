@@ -77,7 +77,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const { enabled, loaded, userEnabled } = useBetaPlayer();
 
   const play = useCallback((req: PlayNowRequest) => {
-    const destination = playerDestination(enabled || (!loaded && userEnabled), req.plexUrl);
+    const destination = playerDestination(enabled || (!loaded && userEnabled) || (!!req.movvizId && !req.plexUrl), req.plexUrl);
     if (destination !== "movviz") {
       if (window.innerWidth < 640) window.location.assign(destination);
       else window.open(destination, "_blank", "noopener,noreferrer");

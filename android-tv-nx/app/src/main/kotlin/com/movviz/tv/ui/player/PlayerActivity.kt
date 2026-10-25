@@ -96,6 +96,7 @@ import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.MovvizTheme
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.PlaybackPrefs
+import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizBrand3
@@ -451,6 +452,15 @@ private fun PlayerScreen(
     val scope = rememberCoroutineScope()
     val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
     val playbackPrefs = remember(baseUrl, profileId) { PlaybackPrefs(context, baseUrl, profileId) }
+    // Réglages de compte partagés avec le web/Samsung/autres clients : langue du
+    // profil (drapeaux), langue audio préférée, sous-titres automatiques. Chargés
+    // une fois ; un échec réseau laisse les défauts (rien d'automatique).
+    var accountPrefs by remember { mutableStateOf<UserPrefsDto?>(null) }
+    var accountPrefsLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(repository) {
+        accountPrefs = (repository.preferences() as? ApiResult.Success)?.data
+        accountPrefsLoaded = true
+    }
 
     val view = androidx.compose.ui.platform.LocalView.current
 
@@ -958,14 +968,48 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     // groupes du MediaItem courant. Sans préférence enregistrée, OFF reste
     // la règle. Si le média avait été repris avec sous-titres ON, on tente la
     // même langue puis la première piste disponible en repli.
-    LaunchedEffect(current.ratingKey, current.seasonNumber, current.episodeNumber, tracksVersion) {
+    // Langue audio par défaut = réglage « langue audio » du compte, sinon la
+    // langue du profil (drapeaux) — même règle que le lecteur web.
+    val profileLanguage = (accountPrefs?.locale ?: "fr").lowercase()
+    LaunchedEffect(accountPrefs) {
+        val preferred = accountPrefs?.preferredAudioLanguage?.takeIf { it.isNotBlank() && it != "auto" } ?: profileLanguage
+        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            .setPreferredAudioLanguage(preferred)
+            .build()
+    }
+
+    LaunchedEffect(current.ratingKey, current.seasonNumber, current.episodeNumber, tracksVersion, accountPrefsLoaded) {
         val groups = exoPlayer.currentTracks.groups.withIndex()
             .filter { it.value.type == C.TRACK_TYPE_TEXT }
         if (groups.isEmpty()) return@LaunchedEffect
+        if (!accountPrefsLoaded) return@LaunchedEffect
         val prefKey = subtitlePreferenceKey(current)
         if (subtitlePreferenceAppliedFor == prefKey) return@LaunchedEffect
         val pref = playbackPrefs.subtitlePreference(prefKey)
+        // Sous-titres automatiques du profil : seulement si l'utilisateur n'a
+        // jamais choisi pour ce média, et que l'audio lu n'est pas dans la
+        // langue du profil (une langue audio inconnue ne déclenche rien).
+        val auto = if (!playbackPrefs.hasSubtitlePreference(prefKey) && accountPrefs?.autoSubtitles == true) {
+            val audioLanguage = exoPlayer.currentTracks.groups
+                .firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
+                ?.getTrackFormat(0)?.language
+                ?.takeIf { it.isNotBlank() && it != "und" }
+            if (audioLanguage == null || sameLanguage(audioLanguage, profileLanguage)) null
+            else {
+                val matching = groups.filter { sameLanguage(it.value.getTrackFormat(0).language, profileLanguage) }
+                matching.firstOrNull { it.value.getTrackFormat(0).selectionFlags and C.SELECTION_FLAG_FORCED == 0 }
+                    ?: matching.firstOrNull()
+            }
+        } else null
         subtitlePreferenceAppliedFor = prefKey
+        if (auto != null) {
+            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(TrackSelectionOverride(auto.value.mediaTrackGroup, 0))
+                .build()
+            return@LaunchedEffect
+        }
         val builder = exoPlayer.trackSelectionParameters.buildUpon()
             .clearOverridesOfType(C.TRACK_TYPE_TEXT)
         if (!pref.enabled) {
@@ -1656,17 +1700,64 @@ private fun applyTrackOverride(player: ExoPlayer, trackType: Int, group: android
         .build()
 }
 
+/** Deux codes de langue (« fr », « fra », « fre »…) désignent-ils la même langue ? */
+private fun sameLanguage(a: String?, b: String?): Boolean {
+    if (a.isNullOrBlank() || b.isNullOrBlank()) return false
+    return androidx.media3.common.util.Util.normalizeLanguageCode(a.lowercase()) ==
+        androidx.media3.common.util.Util.normalizeLanguageCode(b.lowercase())
+}
+
 private data class TrackOption(val groupIndex: Int, val trackIndex: Int, val label: String, val selected: Boolean)
+
+/** Libellés des pistes alignés sur le lecteur web (trackLabels.ts) :
+ *  « Français · E-AC-3 5.1 » — lus du Format ExoPlayer, donc valables sans
+ *  aucune liaison Plex. Le titre du conteneur n'est ajouté que s'il apporte
+ *  une information en plus. */
+private fun trackLanguageName(code: String?): String? {
+    if (code.isNullOrBlank() || code == "und") return null
+    val locale = java.util.Locale.forLanguageTag(code)
+    val name = locale.getDisplayLanguage(java.util.Locale.getDefault())
+    return if (name.isNullOrBlank()) code.uppercase() else name.replaceFirstChar { it.uppercase() }
+}
+
+private fun audioChannelLayout(channels: Int): String? = when {
+    channels <= 0 -> null
+    channels <= 2 -> "$channels.0"
+    else -> "${channels - 1}.1"
+}
+
+private fun trackLabelParts(parts: List<String?>): String =
+    parts.filterNotNull().map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.joinToString(" · ")
+
+private fun audioTrackLabel(format: androidx.media3.common.Format): String {
+    val codec = listOfNotNull(codecShortName(format.sampleMimeType), audioChannelLayout(format.channelCount)).joinToString(" ")
+    val language = trackLanguageName(format.language)
+    val title = format.label?.takeIf { it.isNotBlank() && !it.equals(language, ignoreCase = true) && !it.contains(codec, ignoreCase = true) }
+    return trackLabelParts(listOf(language, codec.ifEmpty { null }, title)).ifEmpty { "Piste audio" }
+}
+
+private fun subtitleTrackLabel(format: androidx.media3.common.Format): String {
+    val language = trackLanguageName(format.language)
+    val codec = when (format.sampleMimeType) {
+        MimeTypes.APPLICATION_SUBRIP -> "SRT"
+        MimeTypes.TEXT_SSA -> "ASS"
+        MimeTypes.TEXT_VTT -> "WebVTT"
+        MimeTypes.APPLICATION_PGS -> "PGS"
+        MimeTypes.APPLICATION_VOBSUB -> "VobSub"
+        MimeTypes.APPLICATION_TX3G -> "TX3G"
+        else -> null
+    }
+    val title = format.label?.takeIf { it.isNotBlank() && !it.equals(language, ignoreCase = true) }
+    val forced = if (format.selectionFlags and C.SELECTION_FLAG_FORCED != 0) "Forcé" else null
+    return trackLabelParts(listOf(language, codec, title, forced)).ifEmpty { "Sous-titres" }
+}
 
 private fun audioTrackOptions(player: ExoPlayer): List<TrackOption> =
     player.currentTracks.groups
         .withIndex()
         .filter { it.value.type == C.TRACK_TYPE_AUDIO }
         .map { (i, g) ->
-            val format = g.getTrackFormat(0)
-            val lang = format.language?.uppercase() ?: "Inconnue"
-            val channels = if (format.channelCount > 0) " · ${format.channelCount}.0" else ""
-            TrackOption(i, 0, "$lang$channels", g.isSelected)
+            TrackOption(i, 0, audioTrackLabel(g.getTrackFormat(0)), g.isSelected)
         }
 
 private fun subtitleTrackOptions(player: ExoPlayer): List<TrackOption> =
@@ -1674,9 +1765,7 @@ private fun subtitleTrackOptions(player: ExoPlayer): List<TrackOption> =
         .withIndex()
         .filter { it.value.type == C.TRACK_TYPE_TEXT }
         .map { (i, g) ->
-            val format = g.getTrackFormat(0)
-            val lang = format.language?.uppercase() ?: "Inconnue"
-            TrackOption(i, 0, lang, g.isSelected)
+            TrackOption(i, 0, subtitleTrackLabel(g.getTrackFormat(0)), g.isSelected)
         }
 
 /** Petit indicateur de chargement/tampon rotatif aux couleurs de marque —

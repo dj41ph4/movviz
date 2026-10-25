@@ -45,8 +45,8 @@ interface Window {
     }));
   }
   function episodeLabel(season: Series["seasons"][number], episode: Episode) { return episode.episodeNumber - (season.episodeOffset || 0); }
-  interface Track { index: number; language?: string; title?: string; codec: string }
-  interface Prepared { sessionId: string; media: { durationMs?: number }; plan: { mode: string }; stream: { url: string; protocol: string }; tracks: { audio: Track[]; subtitle: Track[] } }
+  interface Track { index: number; language?: string; title?: string; codec: string; channels?: number; forced?: boolean }
+  interface Prepared { sessionId: string; media: { durationMs?: number }; plan: { mode: string }; stream: { url: string; protocol: string }; tracks: { audio: Track[]; subtitle: Track[] }; selection?: { subtitle: number | null } }
   interface Session { sessionId: string; resumeOffsetMs: number | null }
   interface PublicUser { id: string; username: string; role: string }
   interface Saved { server: string; session: string; cookieName: string; user: PublicUser; locale: string }
@@ -670,7 +670,7 @@ interface Window {
   }
   async function settings() {
     const version = begin(t("nav.settings")); content.classList.add("settings-page"); const loading = el("p", t("tizen.loading"), "muted"); content.append(loading);
-    const response = await call<{ prefs: { preferredAudioLanguage?: string } }>("/api/settings/preferences"); if (version !== generation) return; loading.remove();
+    const response = await call<{ prefs: { preferredAudioLanguage?: string; autoSubtitles?: boolean } }>("/api/settings/preferences"); if (version !== generation) return; loading.remove();
     function section(label: string) { const node = el("section", "", "settings-section"); node.append(el("h2", label)); content.append(node); return node; }
     function info(parent: HTMLElement, label: string, value: string) { const row = el("p", "", "settings-info"); row.append(el("span", label), el("span", value)); parent.append(row); }
     const account = section(t("tizen.account")); info(account, t("tizen.username"), saved!.user.username); info(account, t("tizen.role"), saved!.user.role); info(account, t("tizen.server"), saved!.server);
@@ -684,6 +684,14 @@ interface Window {
         finally { busy = false; chips.forEach(node => { node.disabled = false; }); if (chip.isConnected) chip.focus(); }
       }); chip.dataset.language = code; languages.append(chip); return chip;
     });
+    playback.append(el("p", t("player.autoSubtitles"), "muted")); playback.append(el("p", t("player.autoSubtitlesHint"), "muted"));
+    let autoSubtitles = response.prefs.autoSubtitles === true, autoBusy = false;
+    const autoToggle = button("", async () => {
+      if (autoBusy) return; autoBusy = true; autoToggle.disabled = true;
+      try { const result = await call<{ prefs: { autoSubtitles?: boolean } }>("/api/settings/preferences", { autoSubtitles: !autoSubtitles }, "PATCH"); autoSubtitles = result.prefs.autoSubtitles === true; renderAuto(); }
+      finally { autoBusy = false; autoToggle.disabled = false; autoToggle.focus(); }
+    }); playback.append(autoToggle);
+    function renderAuto() { autoToggle.textContent = autoSubtitles ? t("tizen.on") : t("tizen.off"); autoToggle.classList.toggle("selected", autoSubtitles); autoToggle.setAttribute("aria-pressed", String(autoSubtitles)); } renderAuto();
     function renderSelection() { chips.forEach(chip => { const chosen = chip.dataset.language === selected; chip.classList.toggle("selected", chosen); chip.setAttribute("aria-pressed", String(chosen)); }); } renderSelection();
     const about = section(t("tizen.about")); info(about, t("tizen.application"), "Movviz NX · Samsung Tizen"); info(about, t("settings.aboutVersion").replace("{version}", "").trim(), window.MOVVIZ_VERSION);
     const links = el("div", "", "settings-links"); links.append(button(t("nav.downloads"), downloads), button(t("tizen.profile"), profile), button(t("tizen.whoWatching"), profilesScreen)); content.append(links);
@@ -716,7 +724,7 @@ interface Window {
       const mediaId = episode ? `${media.id}:s${episode.seasonNumber}e${episode.episodeNumber}` : media.id!;
       const preferences = await call<{ prefs: { preferredAudioLanguage?: string } }>("/api/settings/preferences");
       const audioLanguage = preferences.prefs.preferredAudioLanguage && preferences.prefs.preferredAudioLanguage !== "auto" ? preferences.prefs.preferredAudioLanguage : locale;
-      const prepared = await call<Prepared>("/api/playback/prepare", { mediaId, ratingKey: episode && localEpisode ? undefined : (episode?.plexRatingKey || media.plexRatingKey), clientProfile: playbackProfile(), quality: "1080p", subtitleTrack: null, audioLanguage });
+      const prepared = await call<Prepared>("/api/playback/prepare", { mediaId, ratingKey: episode && localEpisode ? undefined : (episode?.plexRatingKey || media.plexRatingKey), clientProfile: playbackProfile(), quality: "1080p", profileLanguage: locale, audioLanguage });
       engineId = prepared.sessionId;
       if (generation !== startGeneration) throw new Error(t("tizen.playbackFailed"));
       if (prepared.plan.mode === "UNSUPPORTED") throw new Error(t("tizen.playbackFailed"));
@@ -736,7 +744,7 @@ interface Window {
       const session = await call<Session>("/api/playback/sessions", { ratingKey, mediaId, mediaType: episode ? "episode" : "movie", durationMs: duration, tmdbId: media.tmdbId, seasonNumber: episode?.seasonNumber, episodeNumber: episode?.episodeNumber, title: media.title });
       progressId = session.sessionId;
       if (generation !== startGeneration) throw new Error(t("tizen.playbackFailed"));
-      const page = snapshot(); activePlayer = { position: 0, duration, progressId, engineId, sequence: 0, timer: 0, closing: false, page, frame: Array.from(app.childNodes), prepared, base: 0, media, type, episode, subtitle: null, changing: false };
+      const page = snapshot(); activePlayer = { position: 0, duration, progressId, engineId, sequence: 0, timer: 0, closing: false, page, frame: Array.from(app.childNodes), prepared, base: 0, media, type, episode, subtitle: prepared.selection?.subtitle ?? null, changing: false };
       document.body.classList.add("playing"); document.documentElement.classList.add("playing"); app.replaceChildren();
       const overlay = el("div", "", "player-overlay"); overlay.append(el("h1", episode ? `${media.title} · ${episode.title}` : media.title));
       const progress = el("progress"); progress.id = "timeline"; progress.max = duration; overlay.append(progress, el("div", "", "player-time"));
@@ -810,11 +818,19 @@ interface Window {
     } catch (error) { await stopPlayer(false); throw error; }
     finally { player.changing = false; }
   }
+  const CODEC_NAMES: Record<string, string> = { aac: "AAC", ac3: "AC-3", eac3: "E-AC-3", dts: "DTS", truehd: "TrueHD", flac: "FLAC", opus: "Opus", mp3: "MP3", srt: "SRT", subrip: "SRT", ass: "ASS", ssa: "SSA", webvtt: "WebVTT", mov_text: "TX3G", hdmv_pgs_subtitle: "PGS", dvd_subtitle: "VobSub" };
+  function trackLabel(track: Track): string {
+    const layout = track.channels ? (track.channels <= 2 ? track.channels + ".0" : (track.channels - 1) + ".1") : "";
+    const codec = [CODEC_NAMES[track.codec.toLowerCase()] || track.codec.toUpperCase(), layout].filter(Boolean).join(" ");
+    const parts: string[] = [];
+    for (const part of [track.language, codec, track.title, track.forced ? t("tizen.forced") : ""]) { const value = (part || "").trim(); if (value && !parts.some(p => p.toLowerCase() === value.toLowerCase())) parts.push(value); }
+    return parts.join(" · ") || "?";
+  }
   function trackPicker(kind: "audio" | "subtitle") {
     const player = activePlayer; if (!player || closeModal) return;
     const overlay = el("div", "", "modal"), box = el("section", "", "plex-dialog"); box.append(el("h2", t(kind === "audio" ? "tizen.audio" : "tizen.subtitles")));
     const cancel = () => { overlay.remove(); closeModal = null; document.querySelector<HTMLElement>(".player-overlay button")?.focus(); }; closeModal = cancel;
-    function option(track?: Track) { box.append(button(track ? [track.title, track.language, track.codec].filter(Boolean).join(" · ") : t("tizen.off"), async () => {
+    function option(track?: Track) { box.append(button(track ? trackLabel(track) : t("tizen.off"), async () => {
       if (!player || activePlayer !== player || player.closing) { cancel(); return; }
       if (kind === "audio") player.audio = track?.index; else player.subtitle = track?.index ?? null;
       cancel(); await reposition(player.position, true);
