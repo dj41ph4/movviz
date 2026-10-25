@@ -135,6 +135,7 @@ export async function GET(req: NextRequest) {
         file: technical(movie.file),
         activeInfoHash: movie.activeInfoHash,
         addedAt: movie.addedAt,
+        latestAvailableAt: movie.status === "available" ? movie.file?.addedAt ?? movie.addedAt : undefined,
         tmdbCollectionId: movie.tmdbCollectionId ?? null,
         plexRatingKey: movie.plexRatingKey,
         plexUrl: movie.plexRatingKey && cfg.machineIdentifier
@@ -158,7 +159,7 @@ export async function GET(req: NextRequest) {
         movies: compactMovies,
         series: compactSeries,
         widgetValues,
-        compactRecentMovies: [...movies].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12),
+        compactRecentMovies: [...movies].sort((a, b) => (b.file?.addedAt ?? b.addedAt) - (a.file?.addedAt ?? a.addedAt)).slice(0, 12),
         recentEpisodes: recentPage.episodes,
         recentEpisodesNextCursor: recentPage.nextCursor,
       };

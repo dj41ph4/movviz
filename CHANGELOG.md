@@ -1,3 +1,11 @@
+## v1.27.41 — 25 octobre 2026
+
+### Recherche automatique et ajouts récents
+
+- La recherche automatique essaie le titre original, puis le titre localisé et un alias si aucun candidat admissible n'est trouvé. Les indexeurs sont interrogés séquentiellement et les mêmes règles de qualité restent appliquées.
+- Le Hero confirme l'ajout seulement après une réponse valide et distingue une demande en attente d'un titre ajouté.
+- Les films demandés de longue date remontent dans « Ajouts récents » à l'arrivée de leur fichier. Les rangées de bibliothèque et le tri récent utilisent aussi la date de disponibilité.
+
 ## v1.27.40 — 25 octobre 2026
 
 ### Accès GPU/iGPU sur NAS Docker

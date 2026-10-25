@@ -1,3 +1,11 @@
+## v1.27.41 — October 25, 2026
+
+### Automatic search and recent arrivals
+
+- Automatic search tries the original title, then the localized title and one alias when no eligible result is found. Indexers remain sequential and quality rules still apply.
+- The Hero confirms an addition only after a valid response and distinguishes a pending request from an added title.
+- Movies requested long ago appear in Recently Added when their file arrives. Library shelves and recent sorting also use the availability date.
+
 ## v1.27.40 — October 25, 2026
 
 ### GPU/iGPU access on Docker NAS systems

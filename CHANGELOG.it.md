@@ -1,3 +1,11 @@
+## v1.27.41 — 25 ottobre 2026
+
+### Ricerca automatica e arrivi recenti
+
+- La ricerca automatica prova il titolo originale, poi quello localizzato e un alias se non trova risultati idonei. Gli indexer restano sequenziali e le regole di qualità rimangono valide.
+- L'Hero conferma l'aggiunta solo dopo una risposta valida e distingue una richiesta in attesa da un titolo aggiunto.
+- I film richiesti tempo fa compaiono tra gli arrivi recenti quando arriva il file. Anche le righe della libreria e l'ordinamento recente usano la data di disponibilità.
+
 ## v1.27.40 — 25 ottobre 2026
 
 ### Accesso GPU/iGPU su NAS Docker

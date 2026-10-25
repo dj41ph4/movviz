@@ -2,6 +2,8 @@ import type { DashboardWidgetId } from "@/lib/dashboard/types";
 import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
 
 export interface DashboardFileTechnical {
+  /** Present in the full library payload; compact mode sends latestAvailableAt instead. */
+  addedAt?: number;
   resolution: string | null;
   videoCodec: string | null;
   audioCodec: string | null;
@@ -26,6 +28,8 @@ export interface DashboardLibraryMovie {
   file: DashboardFileTechnical | null;
   activeInfoHash: string | null;
   addedAt: number;
+  /** Arrival of the playable file; a movie may have been requested months earlier. */
+  latestAvailableAt?: number;
   /** TMDb saga membership, used by the Android Collections hub to open the
    * owned movies belonging to a selected saga. */
   tmdbCollectionId?: number | null;

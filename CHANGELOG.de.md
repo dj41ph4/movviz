@@ -1,3 +1,11 @@
+## v1.27.41 — 25. Oktober 2026
+
+### Automatische Suche und neue Zugänge
+
+- Die automatische Suche versucht zuerst den Originaltitel, dann den lokalisierten Titel und einen Alias, falls kein passender Treffer vorliegt. Indexer werden weiterhin nacheinander abgefragt und die Qualitätsregeln bleiben erhalten.
+- Der Hero bestätigt das Hinzufügen erst nach einer gültigen Antwort und unterscheidet zwischen einer ausstehenden Anfrage und einem hinzugefügten Titel.
+- Früher angefragte Filme erscheinen bei den neuesten Zugängen, sobald ihre Datei eintrifft. Bibliotheksreihen und die Sortierung verwenden ebenfalls das Verfügbarkeitsdatum.
+
 ## v1.27.40 — 25. Oktober 2026
 
 ### GPU/iGPU-Zugriff auf Docker-NAS-Systemen

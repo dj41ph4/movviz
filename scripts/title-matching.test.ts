@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { titleSimilarity, releaseTitleMatches, pickSearchTitle, seriesNeedsReleaseYear, seriesYearIsCompatible } from "@/lib/library/matching";
+import { titleSimilarity, releaseTitleMatches, pickSearchTitle, searchTitleVariants, seriesNeedsReleaseYear, seriesYearIsCompatible } from "@/lib/library/matching";
 import { parseRelease } from "@/lib/naming/parser";
 import { sanitizeQuery } from "@/lib/indexers/torznab";
 
@@ -49,6 +49,12 @@ test("pickSearchTitle : préfère le titre original en script latin (les release
 test("pickSearchTitle : pas de titre original distinct => garde le titre tel quel", () => {
   assert.equal(pickSearchTitle("Inception", null), "Inception");
   assert.equal(pickSearchTitle("Inception", "Inception"), "Inception");
+});
+
+test("la recherche automatique essaie le titre original puis le titre localisé, sans doublons", () => {
+  assert.deepEqual(searchTitleVariants("Capitaine Superslip", "Captain Underpants: The First Epic Movie"), ["Captain Underpants: The First Epic Movie", "Capitaine Superslip"]);
+  assert.deepEqual(searchTitleVariants("Go For It, Nakamura-kun!!", "ガンバレ！中村くん！！", ["Go For It Nakamura kun"]), ["Go For It, Nakamura-kun!!"]);
+  assert.deepEqual(searchTitleVariants("Un homme de Toronto", "The Man from Toronto", ["The Man from Toronto", "L'homme de Toronto"]), ["The Man from Toronto", "Un homme de Toronto", "L'homme de Toronto"]);
 });
 
 test("pickSearchTitle : rejette aussi le cyrillique, l'arabe, le coréen et le thaï, pas seulement le CJK", () => {

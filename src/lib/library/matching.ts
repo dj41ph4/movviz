@@ -44,6 +44,21 @@ export function pickSearchTitle(title: string, originalTitle: string | null | un
   return originalTitle;
 }
 
+/** Search the original title first, then the localized title and at most one
+ * explicit alias only if earlier queries found no eligible release. Keep all
+ * aliases for local matching; limiting remote variants protects indexer quotas. */
+export function searchTitleVariants(title: string, originalTitle: string | null | undefined, aliases: string[] = []): string[] {
+  const variants = [pickSearchTitle(title, originalTitle), title, ...aliases];
+  const seen = new Set<string>();
+  return variants.filter((variant, index) => {
+    const key = normalizeTitle(variant);
+    if (index === 0) { seen.add(key || variant); return true; }
+    if (!key || seen.has(key) || NON_LATIN_SCRIPT_RE.test(variant)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 3);
+}
+
 // The background searches (missing movies, release day, RSS) compare the
 // same release names against the same library titles on every pass: these
 // pure functions were a measured ~5 s of CPU per pass (profile 2026-09-26).

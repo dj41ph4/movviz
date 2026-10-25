@@ -54,7 +54,7 @@ export function LibraryRecommendedRows({ type }: { type: MediaType }) {
     .filter((item): item is LibraryItem => !!item)
     .slice(0, 20), [recommendations, byTmdbId]);
   const bestRated = useMemo(() => [...items].sort((a, b) => b.rating - a.rating).slice(0, 20), [items]);
-  const recentlyAdded = useMemo(() => [...items].sort((a, b) => b.addedAt - a.addedAt).slice(0, 20), [items]);
+  const recentlyAdded = useMemo(() => [...items].sort((a, b) => (b.latestAvailableAt ?? b.addedAt) - (a.latestAvailableAt ?? a.addedAt)).slice(0, 20), [items]);
   const leadingGenres = useMemo(() => {
     const counts = new Map<string, number>();
     items.forEach((item) => item.genres.forEach((genre) => counts.set(genre, (counts.get(genre) ?? 0) + 1)));

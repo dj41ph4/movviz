@@ -1,3 +1,11 @@
+## v1.27.41 — 25 oktober 2026
+
+### Automatisch zoeken en recente toevoegingen
+
+- Automatisch zoeken probeert eerst de oorspronkelijke titel, daarna de vertaalde titel en een alias als er geen geschikt resultaat is. Indexers worden achtereenvolgens bevraagd en de kwaliteitsregels blijven gelden.
+- De Hero bevestigt een toevoeging pas na een geldig antwoord en maakt onderscheid tussen een openstaand verzoek en een toegevoegde titel.
+- Films die lang geleden zijn aangevraagd verschijnen bij Recente toevoegingen zodra hun bestand binnenkomt. Bibliotheekrijen en recente sortering gebruiken ook de beschikbaarheidsdatum.
+
 ## v1.27.40 — 25 oktober 2026
 
 ### GPU/iGPU-toegang op Docker-NAS-systemen

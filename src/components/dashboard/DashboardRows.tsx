@@ -200,9 +200,11 @@ export function DashboardRows({
       const availableSeries: EditorialLibraryItem[] = series
         .filter((s) => s.hasAvailableEpisode)
         .map((item) => ({ type: "series", item }));
+      const availableAt = (entry: EditorialLibraryItem) => entry.item.latestAvailableAt
+        ?? (entry.type === "movie" ? entry.item.file?.addedAt : undefined)
+        ?? entry.item.addedAt;
       return [...availableMovies, ...availableSeries]
-        .sort((a, b) => (b.type === "series" ? b.item.latestAvailableAt ?? b.item.addedAt : b.item.addedAt)
-          - (a.type === "series" ? a.item.latestAvailableAt ?? a.item.addedAt : a.item.addedAt))
+        .sort((a, b) => availableAt(b) - availableAt(a))
         .slice(0, 20);
     },
     [movies, series]

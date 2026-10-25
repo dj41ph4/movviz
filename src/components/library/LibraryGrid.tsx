@@ -285,10 +285,20 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
       ...movieItems.map((movie): CombinedItem => ({ kind: "movie", movie })),
       ...seriesItems.map((series): CombinedItem => ({ kind: "series", series })),
     ];
-    const addedAtOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.addedAt : c.series.addedAt);
+    const addedAtOf = (c: CombinedItem) => {
+      if (c.kind === "movie") return c.movie.file?.addedAt ?? c.movie.addedAt;
+      let latest = 0;
+      for (const season of c.series.seasons) {
+        for (const episode of season.episodes) {
+          if (episode.status === "available" && episode.file) latest = Math.max(latest, episode.file.addedAt);
+        }
+      }
+      return latest || c.series.addedAt;
+    };
+    const recentTimes = sort === "recent" ? new Map(combined.map((item) => [item, addedAtOf(item)])) : null;
     const ratingOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.rating : c.series.rating);
     return sort === "recent"
-      ? combined.sort((a, b) => addedAtOf(b) - addedAtOf(a))
+      ? combined.sort((a, b) => (recentTimes?.get(b) ?? 0) - (recentTimes?.get(a) ?? 0))
       : sort === "rating"
         ? combined.sort((a, b) => ratingOf(b) - ratingOf(a))
         : combined.sort((a, b) => titleOf(a).localeCompare(titleOf(b)));

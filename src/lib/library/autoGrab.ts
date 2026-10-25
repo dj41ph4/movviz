@@ -23,7 +23,7 @@ import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
-import { normalizeTitle, pickSearchTitle } from "@/lib/library/matching";
+import { normalizeTitle, pickSearchTitle, searchTitleVariants } from "@/lib/library/matching";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { movieHasReleased, movieReleasedRecently } from "@/lib/library/releaseSchedule";
@@ -202,10 +202,8 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   // alias. Unless the original title is itself in a non-Latin script — see
   // pickSearchTitle's own comment.
   const searchTitle = pickSearchTitle(movie.title, movie.originalTitle);
-  const searchAliases = [
-    ...(movie.aliases ?? []),
-    ...(searchTitle !== movie.title ? [searchTitle] : []),
-  ];
+  const searchAliases = [movie.title, movie.originalTitle ?? "", ...(movie.aliases ?? [])].filter(Boolean);
+  const directTitles = searchTitleVariants(movie.title, movie.originalTitle, movie.aliases);
 
   const rules = loadReleaseRules();
   const tCache = performance.now();
@@ -241,10 +239,15 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   // si supporté, t=search sinon), au prix d'un appel HTTP par indexeur — c'est ce qui se passait
   // avant le passage au cache-only en v1.1.14, mais limité aux seuls cas où le cache échoue.
   let finalCandidates = candidates;
+  let directRawCount = 0;
+  let skippedIndexers = 0;
+  let configuredIndexerCount = 0;
   if (candidates.length === 0) {
     const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
+    configuredIndexerCount = configuredIndexers.length;
     const indexers = withoutRateLimited(configuredIndexers);
     const alreadyLimited = configuredIndexers.length - indexers.length;
+    skippedIndexers = alreadyLimited;
     if (indexers.length > 0) {
       const tDirect = performance.now();
       recordSearchLog(
@@ -253,38 +256,45 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
         `${movie.title} — cache vide, recherche directe sur ${indexers.length} indexeur(s)` +
           (alreadyLimited > 0 ? ` (${alreadyLimited} exclu(s), déjà rate-limité(s))` : "")
       );
-      // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
+      // Try alternate title spellings only when the preceding one produced
+      // no eligible candidate. Keep requests sequential to respect quotas.
       const directReleases: IndexerRelease[] = [];
-      for (const ix of indexers) {
-        const results = await searchMovie(ix, { title: searchTitle, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
-        directReleases.push(...results);
+      for (const [variantIndex, directTitle] of directTitles.entries()) {
+        for (const ix of indexers) {
+          const results = await (variantIndex === 0
+            ? searchMovie(ix, { title: directTitle, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS)
+            : searchIndexer(ix, directTitle, MOVIE_CATEGORY_IDS, `${directTitle} ${movie.year ?? ""}`)
+          ).catch(() => [] as IndexerRelease[]);
+          directReleases.push(...results);
+        }
+        const matched2 = await getReleaseMatchPool().run({
+          releases: directReleases.map((r) => ({ title: r.title })),
+          targetTitle: searchTitle,
+          aliases: searchAliases,
+          targetYear: movie.year,
+        });
+        const candidates2 = matched2.survivors
+          .map(({ idx, parsed }) => ({ release: directReleases[idx], parsed }))
+          .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
+          .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
+          .filter(({ release }) => release.score >= profile.minScore)
+          .filter(({ release }) => withinSizeLimit(release.size, "movie"))
+          .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
+          .sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec }));
+        if (candidates2.length > 0) {
+          finalCandidates = candidates2;
+          recordSearchLog("info", "search_movie.fallback_match", `${movie.title} — ${candidates2.length} candidat(s) via « ${directTitle} »`);
+          break;
+        }
       }
+      directRawCount = directReleases.length;
       const directMs = Math.round(performance.now() - tDirect);
       const newlyLimited = countNewlyRateLimited(indexers);
-      recordSearchLog("info", "search_movie.fallback_result", `${movie.title} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
-
-      const matched2 = await getReleaseMatchPool().run({
-        releases: directReleases.map((r) => ({ title: r.title })),
-        targetTitle: searchTitle,
-        aliases: searchAliases,
-        targetYear: movie.year,
-      });
-      const candidates2 = matched2.survivors
-        .map(({ idx, parsed }) => ({ release: directReleases[idx], parsed }))
-        .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
-        .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
-        .filter(({ release }) => release.score >= profile.minScore)
-        .filter(({ release }) => withinSizeLimit(release.size, "movie"))
-        .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-        .sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec }));
-
-      if (candidates2.length > 0) {
-        finalCandidates = candidates2;
-        recordSearchLog("info", "search_movie.fallback_match", `${movie.title} — ${candidates2.length} candidat(s) via recherche directe`);
-      } else if (newlyLimited > 0) {
+      recordSearchLog("info", "search_movie.fallback_result", `${movie.title} — ${directRawCount} release(s) en ${directMs}ms (titres: ${directTitles.join(" / ")})`, directMs);
+      if (finalCandidates.length === 0 && newlyLimited > 0) {
         recordSearchLog("warn", "search_movie.fallback_rate_limited", `${movie.title} — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
-      } else {
-        recordSearchLog("warn", "search_movie.fallback_empty", `${movie.title} — recherche directe: ${directReleases.length} brut(s), 0 candidat après filtrage (taux d'échec: titre=${movie.title}, année=${movie.year})`);
+      } else if (finalCandidates.length === 0) {
+        recordSearchLog("warn", "search_movie.fallback_empty", `${movie.title} — recherche directe: ${directRawCount} brut(s), 0 candidat après filtrage (titre=${movie.title}, année=${movie.year})`);
       }
     } else {
       recordSearchLog("warn", "search_movie.no_indexers_available", `${movie.title} — aucun indexeur disponible : tous rate-limités (${alreadyLimited}/${configuredIndexers.length})`);
@@ -304,9 +314,13 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
       actor: "system",
       failure: createFailureRef(
         "no_release_found",
-        candidates.length === 0
-          ? "Aucun résultat trouvé sur les indexeurs pour ce film."
-          : `${candidates.length} résultat(s) trouvé(s) sur les indexeurs, mais aucun ne correspond au titre, à l'année, à la résolution autorisée ou au score minimum du profil de qualité.`
+        configuredIndexerCount === 0 && candidates.length === 0
+          ? "Aucun indexeur torrent activé pour la recherche automatique."
+          : skippedIndexers > 0 && directRawCount === 0 && candidates.length === 0
+          ? `${skippedIndexers} indexeur(s) temporairement en pause après limitation ; recherche automatique à réessayer.`
+          : candidates.length + directRawCount === 0
+            ? `Aucun résultat renvoyé pour les titres recherchés (${directTitles.join(" / ")}).`
+            : `${candidates.length + directRawCount} résultat(s) examinés, mais aucun ne satisfait le titre, l'année, la résolution, le score ou les autres règles de sélection.`
       ),
     });
     return { error: "no_match" as const, detail: "No release matched the title/year or met the quality profile", queried: 0 };

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { HeroAmbilight } from "./HeroAmbilight";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import Link from "next/link";
 import { Play, Plus, Loader2, Check, Heart } from "lucide-react";
 import { HeroSlideshow } from "./HeroSlideshow";
@@ -21,6 +21,7 @@ import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { toast } from "@/components/ui/Toast";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
 
@@ -76,7 +77,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   if (selectedIndex === null && slides.length > 0) setIndex(rotationBucket % slides.length);
   const index = selectedIndex ?? 0;
   const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState<Set<number>>(new Set());
+  const [addResults, setAddResults] = useState<Record<string, "added" | "requested">>({});
 
   const active = slides[Math.min(index, slides.length - 1)];
   // Keep the hero on the same editorial-artwork contract as the fiche: a
@@ -102,12 +103,22 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   const onWatchlist = (watchlistData?.items ?? []).some((item) => item.tmdbId === active?.detail.tmdbId && item.type === active?.detail.type);
 
   const addActiveToLibrary = async () => {
-    if (!active) return;
+    if (!active || adding) return;
+    const { type, tmdbId } = active.detail;
+    const key = `${type}:${tmdbId}`;
+    if (addResults[key]) return;
     setAdding(true);
     try {
-      const endpoint = active.detail.type === "movie" ? "/api/library/movies" : "/api/library/series";
-      await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tmdbId: active.detail.tmdbId }) });
-      setAdded((prev) => new Set(prev).add(active.detail.tmdbId));
+      const endpoint = type === "movie" ? "/api/library/movies" : "/api/library/series";
+      const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tmdbId }) });
+      const result = await response.json().catch(() => null) as { pendingRequest?: unknown; duplicateRequest?: unknown } | null;
+      if (!response.ok || !result) throw new Error("add_failed");
+      const requested = Boolean(result.pendingRequest || result.duplicateRequest);
+      setAddResults((prev) => ({ ...prev, [key]: requested ? "requested" : "added" }));
+      if (requested) toast("success", t("status.requested"));
+      else void mutate(`${endpoint}?tmdbId=${tmdbId}`);
+    } catch {
+      toast("error", t("discover.addFailed"));
     } finally {
       setAdding(false);
     }
@@ -293,17 +304,17 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
               <button
                 type="button"
                 onClick={addActiveToLibrary}
-                disabled={adding || added.has(active.detail.tmdbId)}
+                disabled={adding || Boolean(addResults[`${active.detail.type}:${active.detail.tmdbId}`])}
                 className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105 disabled:opacity-60"
               >
-                {added.has(active.detail.tmdbId) ? (
+                {addResults[`${active.detail.type}:${active.detail.tmdbId}`] ? (
                   <Check className="h-4 w-4" />
                 ) : adding ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Plus className="h-4 w-4" />
                 )}
-                <span className="max-sm:sr-only">{added.has(active.detail.tmdbId) ? t("discover.added") : t("discover.addToLibrary")}</span>
+                <span className="max-sm:sr-only">{addResults[`${active.detail.type}:${active.detail.tmdbId}`] === "requested" ? t("status.requested") : addResults[`${active.detail.type}:${active.detail.tmdbId}`] === "added" ? t("discover.added") : t("discover.addToLibrary")}</span>
               </button>
             ) : null}
 

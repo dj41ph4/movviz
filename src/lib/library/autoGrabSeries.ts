@@ -8,7 +8,7 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import type { ReleaseInfo } from "@/lib/naming/types";
-import { releaseTitleMatches, seriesNeedsReleaseYear, seriesYearIsCompatible, partPackInfo, pickSearchTitle } from "@/lib/library/matching";
+import { releaseTitleMatches, seriesNeedsReleaseYear, seriesYearIsCompatible, partPackInfo, pickSearchTitle, searchTitleVariants } from "@/lib/library/matching";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
@@ -532,7 +532,7 @@ type GrabReleaseResult =
 /** Turns a grabRelease/tryGrabSeriesPack failure into a readable sentence for the activity log. */
 function describeGrabFailure(result: { error: "no_indexers" | "no_match"; totalReleases?: number; diagnostic?: string }): string {
   if (result.error === "no_indexers") return "Aucun indexeur torrent activé.";
-  if (!result.totalReleases) return "Aucun résultat trouvé sur les indexeurs pour cette recherche.";
+  if (!result.totalReleases) return result.diagnostic ?? "Aucun résultat trouvé sur les indexeurs pour cette recherche.";
   return `${result.totalReleases} résultat(s) examinés. ${result.diagnostic ?? "Aucun candidat ne satisfait tous les critères du profil."}`;
 }
 
@@ -622,10 +622,8 @@ async function grabRelease(
   // samouraï invincible", original title "刃牙道", matched 0 of 75 releases).
   const requireYear = seriesNeedsReleaseYear(series, loadSeries());
   const searchTitle = pickSearchTitle(series.title, series.originalTitle);
-  const searchAliases = [
-    ...(series.aliases ?? []),
-    ...(searchTitle !== series.title ? [searchTitle] : []),
-  ];
+  const searchAliases = [series.title, series.originalTitle ?? "", ...(series.aliases ?? [])].filter(Boolean);
+  const directTitles = searchTitleVariants(series.title, series.originalTitle, series.aliases);
 
   recordSearchLog("debug", "grab_release.cache_read", `${label} — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
@@ -692,52 +690,61 @@ async function grabRelease(
     `${label} — cache vide, recherche directe sur ${indexers.length} indexeur(s)` +
       (alreadyLimited > 0 ? ` (${alreadyLimited} exclu(s), déjà rate-limité(s))` : "")
   );
-  // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
   const directReleases: IndexerRelease[] = [];
-  for (const ix of indexers) {
-    const cour = seasonNumber === 17 && bleachCoverage?.length ? bleachCourForEpisode(bleachCoverage[0])?.part : undefined;
-    const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, filterPack ? null : episodeNumber, cour) : [{ title: requireYear ? `${searchTitle} ${series.year}` : searchTitle, season: seasonNumber, episode: filterPack ? null : episodeNumber, tvdbId: series.tvdbId ?? null, tmdbId: series.tmdbId, imdbId: series.imdbId }];
-    for (const query of queries) directReleases.push(...await searchTv(ix, query, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
+  const scoreDirect = async () => {
+    const matched = await getReleaseMatchPool().run({
+      releases: directReleases.map((r) => ({ title: series.tmdbId === BLEACH_TMDB_ID ? bleachMatchingTitle(r.title, seasonNumber, filterPack) : r.title })),
+      targetTitle: searchTitle,
+      aliases: searchAliases,
+      seasonNumber,
+      episodeNumber: filterPack ? null : (episodeNumber ?? null),
+      filterPack,
+      partTotalEpisodes: singleSeasonTotalEpisodes,
+    });
+    const target = matched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed })).filter(({ release }) => coversTarget(release));
+    const year = target.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : seriesYearIsCompatible(parsed.year, series.year, requireYear));
+    const blocked = year.map(({ release }) => isBlockedForAutoGrab(release.title, rules, series.title));
+    const allowed = year.filter((_, index) => !blocked[index].blocked);
+    const resolutions = allowed.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+    const scores = resolutions.filter(({ release }) => release.score >= profile.minScore);
+    const sizes = scores.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
+    const eligible = sizes.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
+    return {
+      candidates: eligible.sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec })),
+      stages: [
+        ["titre", matched.titleCount], ["saison", matched.secondCount], ["épisode/pack", matched.packCount],
+        ["cible", target.length], ["année", year.length], ["mots interdits", allowed.length],
+        ["résolution", resolutions.length], ["score minimum", scores.length], ["taille maximale", sizes.length],
+        ["releases déjà échouées", eligible.length],
+      ] as Array<[string, number]>,
+      blockedTerms: [...new Set(blocked.map((result) => result.matchedTerm).filter((term): term is string => !!term))],
+    };
+  };
+  let directAnalysis: Awaited<ReturnType<typeof scoreDirect>> | null = null;
+  const titles = series.tmdbId === BLEACH_TMDB_ID ? [searchTitle] : directTitles;
+  for (const [variantIndex, directTitle] of titles.entries()) {
+    for (const ix of indexers) {
+      const cour = seasonNumber === 17 && bleachCoverage?.length ? bleachCourForEpisode(bleachCoverage[0])?.part : undefined;
+      const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, filterPack ? null : episodeNumber, cour) : [{ title: directTitle, season: seasonNumber, episode: filterPack ? null : episodeNumber, tvdbId: variantIndex === 0 ? series.tvdbId ?? null : null, tmdbId: variantIndex === 0 ? series.tmdbId : null, imdbId: variantIndex === 0 ? series.imdbId : null }];
+      for (const query of queries) directReleases.push(...await searchTv(ix, query, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
+    }
+    directAnalysis = await scoreDirect();
+    if (directAnalysis.candidates.length > 0) break;
   }
+  directAnalysis ??= await scoreDirect();
   const directMs = Math.round(performance.now() - tDirect);
   const newlyLimited = countNewlyRateLimited(indexers);
-  recordSearchLog("info", "grab_release.fallback_result", `${label} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
-
-  const dMatched = await getReleaseMatchPool().run({
-    releases: directReleases.map((r) => ({ title: series.tmdbId === BLEACH_TMDB_ID ? bleachMatchingTitle(r.title, seasonNumber, filterPack) : r.title })),
-    targetTitle: searchTitle,
-    aliases: searchAliases,
-    seasonNumber,
-    episodeNumber: filterPack ? null : (episodeNumber ?? null),
-    filterPack,
-    partTotalEpisodes: singleSeasonTotalEpisodes,
-  });
-  const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed })).filter(({ release }) => coversTarget(release));
-  const dStepYear = dStep4.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : seriesYearIsCompatible(parsed.year, series.year, requireYear));
-  const directBlocked = dStepYear.map(({ release }) => isBlockedForAutoGrab(release.title, rules, series.title));
-  const dStepBlocked = dStepYear.filter((_, index) => !directBlocked[index].blocked);
-  const blockedTerms = [...new Set(directBlocked.map((result) => result.matchedTerm).filter((term): term is string => !!term))];
-  const dStep5 = dStepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
-  const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
-  const dStep7 = dStep6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
-  const dStep8 = dStep7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
-  const directCandidates = dStep8.sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec }));
-
-  const topDirect = directCandidates[0];
+  recordSearchLog("info", "grab_release.fallback_result", `${label} — recherche directe: ${directReleases.length} release(s) (${directMs}ms, titres: ${titles.join(" / ")})`, directMs);
+  const topDirect = directAnalysis.candidates[0];
   if (!topDirect) {
     if (newlyLimited > 0) {
       recordSearchLog("warn", "grab_release.fallback_rate_limited", `${label} — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
     } else {
-      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (titre:${dMatched.titleCount}, saison:${dMatched.secondCount}, épisode/pack:${dMatched.packCount}, cible:${dStep4.length}, année:${dStepYear.length}, mots interdits:${dStepBlocked.length}, résolution:${dStep5.length}, score:${dStep6.length}, taille:${dStep7.length}, échec:${dStep8.length})`);
+      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (${directAnalysis.stages.map(([stage, count]) => `${stage}:${count}`).join(", ")})`);
     }
     return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length, diagnostic: newlyLimited > 0
       ? `${newlyLimited} indexeur(s) ont limité la recherche directe.`
-      : grabRejectionDiagnostic([
-          ["titre", dMatched.titleCount], ["saison", dMatched.secondCount], ["épisode/pack", dMatched.packCount],
-          ["cible", dStep4.length], ["année", dStepYear.length], [blockedTerms.length ? `mots interdits (${blockedTerms.join(", ")})` : "mots interdits", dStepBlocked.length],
-          ["résolution", dStep5.length], ["score minimum", dStep6.length], ["taille maximale", dStep7.length],
-          ["releases déjà échouées", dStep8.length],
-        ], directReleases.length) };
+      : grabRejectionDiagnostic(directAnalysis.stages.map(([stage, count]) => [stage === "mots interdits" && directAnalysis.blockedTerms.length ? `${stage} (${directAnalysis.blockedTerms.join(", ")})` : stage, count]), directReleases.length) };
   }
   recordSearchLog("info", "grab_release.fallback_match", `${label} — meilleur candidat via recherche directe: "${topDirect.release.title}" (score:${topDirect.release.score}, indexeur:${topDirect.release.indexerId})`);
   recordDecision({
@@ -1503,10 +1510,8 @@ export async function searchCompleteSeriesCandidates(
   // grabRelease — see pickSearchTitle's own comment.
   const requireYear = seriesNeedsReleaseYear(series, loadSeries());
   const searchTitle = pickSearchTitle(series.title, series.originalTitle);
-  const searchAliases = [
-    ...(series.aliases ?? []),
-    ...(searchTitle !== series.title ? [searchTitle] : []),
-  ];
+  const searchAliases = [series.title, series.originalTitle ?? "", ...(series.aliases ?? [])].filter(Boolean);
+  const directTitles = searchTitleVariants(series.title, series.originalTitle, series.aliases);
 
   const t0 = performance.now();
   const releases = searchFromCache(TV_CATEGORY_IDS);
@@ -1552,20 +1557,16 @@ export async function searchCompleteSeriesCandidates(
       `${series.title} — cache vide, recherche directe d'intégrale sur ${indexers.length} indexeur(s)` +
         (alreadyLimited > 0 ? ` (${alreadyLimited} exclu(s), déjà rate-limité(s))` : "")
     );
-    // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
     const directReleases: IndexerRelease[] = [];
-    for (const ix of indexers) {
-      const results = await searchCompleteSeriesPack(ix, { title: requireYear ? `${searchTitle} ${series.year}` : searchTitle, seasonCount }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
-      directReleases.push(...results);
-    }
-    const directMs = Math.round(performance.now() - tDirect);
-    const newlyLimited = countNewlyRateLimited(indexers);
-    recordSearchLog("info", "series_pack.fallback_result", `${series.title} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
-
-    const directCandidates: CompleteSeriesCandidate[] = directReleases
-      .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-      .filter(({ release }) => series.tmdbId !== BLEACH_TMDB_ID || bleachReleaseTargets(targets, release.title).length === targets.length)
-      .filter(({ parsed }) => releaseTitleMatches(parsed.title, searchTitle, searchAliases))
+    let directCandidates: CompleteSeriesCandidate[] = [];
+    for (const directTitle of series.tmdbId === BLEACH_TMDB_ID ? [searchTitle] : directTitles) {
+      for (const ix of indexers) {
+        directReleases.push(...await searchCompleteSeriesPack(ix, { title: directTitle, seasonCount }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
+      }
+      directCandidates = directReleases
+        .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
+        .filter(({ release }) => series.tmdbId !== BLEACH_TMDB_ID || bleachReleaseTargets(targets, release.title).length === targets.length)
+        .filter(({ parsed }) => releaseTitleMatches(parsed.title, searchTitle, searchAliases))
     // A same-titled reboot/remake from a different year (e.g. Avatar: The
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
     // title — with no season/episode numbers to disambiguate an intégrale
@@ -1579,7 +1580,12 @@ export async function searchCompleteSeriesCandidates(
       .filter(({ release }) => release.score >= profile.minScore)
       .filter(({ release }) => withinSizeLimit(release.size, "series"))
       .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-      .sort(compareCompletePackCandidates);
+        .sort(compareCompletePackCandidates);
+      if (directCandidates.length > 0) break;
+    }
+    const directMs = Math.round(performance.now() - tDirect);
+    const newlyLimited = countNewlyRateLimited(indexers);
+    recordSearchLog("info", "series_pack.fallback_result", `${series.title} — recherche directe: ${directReleases.length} release(s) (${directMs}ms, titres: ${directTitles.join(" / ")})`, directMs);
     candidates.push(...directCandidates);
 
     if (directCandidates.length === 0) {

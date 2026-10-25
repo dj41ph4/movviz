@@ -75,7 +75,7 @@ export default function DashboardPage() {
   const torrents = torrentsData?.torrents ?? [];
   const compactRecentMovies = optimized
     ? optimizedData?.compactRecentMovies ?? []
-    : [...(moviesData?.movies ?? [])].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12);
+    : [...(moviesData?.movies ?? [])].sort((a, b) => (b.file?.addedAt ?? b.addedAt) - (a.file?.addedAt ?? a.addedAt)).slice(0, 12);
   const load = () => optimized ? mutateOptimized() : mutateMovies();
   const hasError = optimized ? optimizedError : moviesError || seriesError || torrentsError;
   const loading = !hasError && (!interfaceModeReady || (optimized ? !optimizedData : !moviesData && !seriesData && !torrentsData));
