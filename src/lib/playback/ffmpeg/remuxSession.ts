@@ -373,7 +373,10 @@ export function startRemux(
   let vttPath: string | null = null;
   if (subIdx !== null) {
     vttPath = vttPathFor(key);
-    args.push("-map", `0:s:${subIdx}`, "-c:s", "webvtt", "-f", "webvtt", vttPath);
+    // -flush_packets 1 : sans lui, ffmpeg garde le WebVTT dans son tampon
+    // d'écriture (~32 Ko, soit des dizaines de minutes de dialogues) — le
+    // fichier restait vide et le lecteur n'affichait aucun sous-titre.
+    args.push("-map", `0:s:${subIdx}`, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", vttPath);
     console.log(`[remux] ${key} sortie WebVTT piste=0:s:${subIdx} fichier=${vttPath}`);
   } else {
     console.log(`[remux] ${key} pas de piste sous-titres texte — pas de sortie WebVTT`);

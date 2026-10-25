@@ -92,7 +92,28 @@ export async function GET(req: NextRequest, context: Ctx) {
     console.error(`[subtitle] ${ratingKey} piste=${match.id} stderr: ${String(d).trim()}`);
   });
 
-  const stream = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+  // En-tête WebVTT envoyé immédiatement (voir streamLiveVttFile) : la
+  // réponse part avant la première réplique, jamais de 504 du reverse proxy.
+  const ffmpegOut = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(new TextEncoder().encode("WEBVTT\n\n"));
+      const reader = ffmpegOut.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      void ffmpegOut.cancel(reason).catch(() => void 0);
+    },
+  });
 
   // Sur exit anormal AVANT la fin naturelle du flux (EOF), on force une
   // erreur sur le stdout plutôt que de laisser un EOF silencieux passer
@@ -143,6 +164,11 @@ function streamLiveVttFile(
 ): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
+      // En-tête envoyé tout de suite : la réponse part sans attendre la
+      // première réplique (sinon le reverse proxy coupait en 504 au bout de
+      // 60 s sur un passage sans dialogue). Le lecteur ignore les lignes
+      // d'en-tête en double.
+      controller.enqueue(new TextEncoder().encode("WEBVTT\n\n"));
       let vttPath = initialVttPath;
       let pos = 0;
       let missCount = 0;

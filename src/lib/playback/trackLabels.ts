@@ -50,6 +50,24 @@ function dedupe(parts: (string | null | undefined | false)[]): string[] {
   return out;
 }
 
+const TITLE_NOISE = new Set([
+  "fr", "fre", "fra", "en", "eng", "de", "ger", "deu", "it", "ita", "es", "spa", "nl", "dut", "nld", "pt", "por",
+  "full", "forced", "forcé", "forcés", "forces", "complet", "complets", "srt", "subrip", "pgs", "ass", "ssa",
+  "vobsub", "sub", "subs", "subtitle", "subtitles", "audio",
+]);
+
+/** Les titres de pistes des releases répètent langue / codec / « Full » /
+ *  « Forced » (« FR Full : SRT »). Ne garde que ce qui apporte une information
+ *  en plus (« SDH », « VO », « Commentaire »…) ; chaîne vide si tout est redondant. */
+export function cleanTrackTitle(title: string | null | undefined, redundant: (string | null | undefined)[] = []): string {
+  const known = new Set(redundant.flatMap((value) => (value || "").toLowerCase().split(/[^\p{L}\p{N}]+/u)).filter(Boolean));
+  const kept = (title || "").split(/[^\p{L}\p{N}.+]+/u).filter(Boolean).filter((token) => {
+    const lower = token.toLowerCase();
+    return !TITLE_NOISE.has(lower) && !known.has(lower) && !/^\d+(\.\d+)?$/.test(lower);
+  });
+  return kept.join(" ");
+}
+
 /** « Français · E-AC-3 5.1 » — le titre du conteneur est ajouté seulement
  *  quand il apporte une information en plus (commentaire, VO, etc.). */
 export function audioTrackLabel(track: {
@@ -57,10 +75,8 @@ export function audioTrackLabel(track: {
 }): string {
   const codec = [audioCodecName(track.codec), channelLayout(track.channels)].filter(Boolean).join(" ");
   const language = (track.language || "").trim();
-  const title = (track.title || "").trim();
-  const titleIsRedundant = !title || title.toLowerCase() === language.toLowerCase()
-    || (!!codec && title.toLowerCase().replace(/[^a-z0-9]/g, "").includes(codec.toLowerCase().replace(/[^a-z0-9]/g, "")));
-  const parts = dedupe([language, codec, titleIsRedundant ? null : title]);
+  const title = cleanTrackTitle(track.title, [language, audioCodecName(track.codec), track.codec]);
+  const parts = dedupe([language, codec, title]);
   return parts.length ? parts.join(" · ") : (track.id ?? "");
 }
 
@@ -69,8 +85,7 @@ export function subtitleTrackLabel(track: {
   language?: string | null; codec?: string | null; title?: string | null; forced?: boolean | null; id?: string;
 }, forcedLabel = "Forced"): string {
   const language = (track.language || "").trim();
-  const title = (track.title || "").trim();
-  const titleIsRedundant = !title || title.toLowerCase() === language.toLowerCase();
-  const parts = dedupe([language, subtitleCodecName(track.codec), titleIsRedundant ? null : title, track.forced && forcedLabel]);
+  const title = cleanTrackTitle(track.title, [language, subtitleCodecName(track.codec), track.codec]);
+  const parts = dedupe([language, subtitleCodecName(track.codec), title, track.forced && forcedLabel]);
   return parts.length ? parts.join(" · ") : (track.id ?? "");
 }

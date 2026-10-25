@@ -531,10 +531,16 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         body: JSON.stringify({ mediaId: movvizId ?? playbackId, ratingKey: hasRealPlexLink ? ratingKey : "", clientProfile, audioTrack, subtitleTrack, audioLanguage: localeRef.current, quality: toPlannerQuality(qualityRef.current) }),
       });
       if (!prepRes.ok) throw new Error("prepare_failed");
-      const prep = (await prepRes.json()) as { sessionId: string; tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] } };
+      const prep = (await prepRes.json()) as { sessionId: string; plan?: { subtitleAction?: string }; tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] } };
       localEngineAudioTracksRef.current = prep.tracks?.audio ?? localEngineAudioTracksRef.current;
       localEngineSubtitleTracksRef.current = prep.tracks?.subtitle ?? localEngineSubtitleTracksRef.current;
       await engine.load(prep.sessionId, { seekTo: pos, debug: betaRef.current.debug });
+      // Sous-titre texte « extrait » (EXTRACT/CONVERT) : le moteur ne le grave
+      // pas dans la vidéo, c'est au lecteur de l'afficher depuis la session.
+      clearFfmpegSubtitle();
+      if (nextSubtitleId !== null && subtitleTrack !== undefined && subtitleTrack !== null && (prep.plan?.subtitleAction === "EXTRACT" || prep.plan?.subtitleAction === "CONVERT")) {
+        void loadFfmpegSubtitle(nextSubtitleId, { url: `/api/playback/session/${encodeURIComponent(prep.sessionId)}/subtitle?subtitleIndex=${subtitleTrack}` });
+      }
     } catch {
       // Same safety net as reloadFfmpeg — the engine already fires onError
       // → fallback for a genuine playback failure; this only covers the
@@ -607,11 +613,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     }
   }, []);
 
-  const loadFfmpegSubtitle = useCallback(async (subtitleId: string) => {
+  // `opts.url` : sous-titre extrait par une session du moteur local (route
+  // /api/playback/session/{id}/subtitle, sans aucune dépendance à Plex) — dans
+  // ce cas pas de repli HLS Plex en cas d'échec, et la base de décalage vaut 0
+  // quand la lecture est directe (aucun moteur ffmpeg).
+  const loadFfmpegSubtitle = useCallback(async (subtitleId: string, opts?: { url?: string }) => {
     setCurrentSubtitle(subtitleId);
     setMenuOpen(null);
     const engine = ffmpegEngineRef.current;
-    if (!engine) return;
+    if (!engine && !opts?.url) return;
     // Annule une extraction précédente encore en vol (changement de piste).
     // ATTENTION : ce reset ne doit PAS toucher le nouveau controller créé
     // juste après — clearFfmpegSubtitle() abortait le fetch fraîchement
@@ -637,12 +647,12 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       try {
         const track = el.addTextTrack("subtitles", "Sous-titres");
         track.mode = "showing";
-        subtitleTrackRef.current = { track, base: engine.seekBase };
+        subtitleTrackRef.current = { track, base: engine?.seekBase ?? 0 };
       } catch { /* addTextTrack peut échouer — sous-titres ignorés */ }
     }
     try {
       const res = await fetch(
-        `/api/playback-ffmpeg/${ratingKey}/subtitle?subtitleStreamID=${encodeURIComponent(subtitleId)}`,
+        opts?.url ?? `/api/playback-ffmpeg/${ratingKey}/subtitle?subtitleStreamID=${encodeURIComponent(subtitleId)}`,
         { cache: "no-store", signal: ac.signal }
       );
       if (!res.ok) throw new Error(`subtitle ${res.status}`);
@@ -704,7 +714,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // une erreur d'extraction, aucun repli HLS.
       if (ac.signal.aborted) return;
       // Extraction impossible (piste image, erreur serveur...) — repli HLS.
-      if (ffmpegEngineRef.current && engine === ffmpegEngineRef.current) {
+      if (!opts?.url && ffmpegEngineRef.current && engine === ffmpegEngineRef.current) {
         switchFfmpegToHls(subtitleId);
       }
     }
@@ -1680,11 +1690,11 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         if (!prepRes.ok) return false;
         const prep = (await prepRes.json()) as {
           sessionId: string;
-          plan: { mode: string; toneMap?: boolean; videoAction?: string; audioAction?: string; videoEncoderImpl?: string };
+          plan: { mode: string; toneMap?: boolean; videoAction?: string; audioAction?: string; subtitleAction?: string; videoEncoderImpl?: string };
           stream: { url: string };
           media: { durationMs?: number };
           tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };
-          selection?: { subtitle: number | null };
+          selection?: { subtitle: number | null; subtitleAuto?: boolean };
         };
         // DIRECT_PLAY et UNSUPPORTED ne concernent pas cette
         // leg : le premier est déjà couvert par startDirect, les seconds
@@ -1745,11 +1755,17 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         // « sous-titres automatiques ») : le menu reflète exactement ce que le
         // moteur joue, relié à la piste du menu par sa position (même règle
         // que reloadLocalEngineTracks).
+        let extractedSubtitle: { id: string; url: string } | null = null;
         if (prep.selection) {
           const subtitlePosition = prep.selection.subtitle === null
             ? -1
             : localEngineSubtitleTracksRef.current.findIndex((track) => track.index === prep.selection!.subtitle);
-          setCurrentSubtitle(subtitlePosition >= 0 ? (infoRef.current?.subtitleStreams?.[subtitlePosition]?.id ?? null) : null);
+          const selectedId = subtitlePosition >= 0 ? (infoRef.current?.subtitleStreams?.[subtitlePosition]?.id ?? null) : null;
+          setCurrentSubtitle(selectedId);
+          // Sous-titre texte « extrait » : affiché par le lecteur depuis la session.
+          if (selectedId && prep.selection.subtitle !== null && (prep.plan.subtitleAction === "EXTRACT" || prep.plan.subtitleAction === "CONVERT")) {
+            extractedSubtitle = { id: selectedId, url: `/api/playback/session/${encodeURIComponent(prep.sessionId)}/subtitle?subtitleIndex=${prep.selection.subtitle}` };
+          }
         }
 
         if (prep.plan.mode === "DIRECT_PLAY") {
@@ -1764,6 +1780,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           }
           video.src = prep.stream.url;
           video.load();
+          if (extractedSubtitle) void loadFfmpegSubtitle(extractedSubtitle.id, { url: extractedSubtitle.url });
           try { await video.play(); } catch { /* autoplay policy/user action will retry */ }
           return true;
         }
@@ -1800,6 +1817,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           onLocalEngineFailure();
           return true;
         }
+        if (extractedSubtitle) void loadFfmpegSubtitle(extractedSubtitle.id, { url: extractedSubtitle.url });
         return true;
       } catch {
         return false;

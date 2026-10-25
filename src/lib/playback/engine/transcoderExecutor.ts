@@ -452,7 +452,10 @@ export function startTranscoderSession(
   if (extractingSubtitle && subtitleIndex !== null) {
     vttPath = vttPathFor(key);
     vttSubIndex = subtitleIndex;
-    args.push("-map", `0:${subtitleIndex}`, "-c:s", "webvtt", "-f", "webvtt", vttPath);
+    // -flush_packets 1 : sans lui, ffmpeg garde le WebVTT dans son tampon
+    // d'écriture (~32 Ko, soit des dizaines de minutes de dialogues) — le
+    // fichier restait vide et le lecteur n'affichait aucun sous-titre.
+    args.push("-map", `0:${subtitleIndex}`, "-c:s", "webvtt", "-flush_packets", "1", "-f", "webvtt", vttPath);
   }
 
   const bin = resolveFfmpegBinary();

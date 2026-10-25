@@ -58,6 +58,59 @@ export function removePathMapping(plexPrefix: string, movvizPrefix: string): boo
   return true;
 }
 
+const usableCache = new Map<string, { usable: boolean; at: number }>();
+const USABLE_TTL_MS = 60_000;
+
+/**
+ * Une correspondance n'est utilisable que si son dossier côté Movviz existe
+ * vraiment dans ce conteneur. Sans ce garde-fou, une correspondance fausse mais
+ * plus longue (ex. /volume1/docker/plex/films → /data/film, dossier inexistant)
+ * l'emportait sur la bonne (/volume1/docker/plex → /data) et 157 films finissaient
+ * enregistrés avec le chemin vu par Plex. Résultat mis en cache 60 s : la synchro
+ * l'interroge pour chaque fichier.
+ */
+export function isUsablePathMapping(m: PathMapping): boolean {
+  const key = m.movvizPrefix;
+  const cached = usableCache.get(key);
+  if (cached && Date.now() - cached.at < USABLE_TTL_MS) return cached.usable;
+  let usable = false;
+  try { usable = fs.statSync(m.movvizPrefix).isDirectory(); } catch { usable = false; }
+  usableCache.set(key, { usable, at: Date.now() });
+  return usable;
+}
+
+function translateWith(m: PathMapping, plexPath: string): string | null {
+  const sep = pathFor(plexPath).sep;
+  const normalized = plexPath.replace(/[\\/]/g, sep);
+  const prefixNormalized = m.plexPrefix.replace(/[\\/]/g, sep);
+  if (!normalized.toLowerCase().startsWith(prefixNormalized.toLowerCase())) return null;
+  const rest = normalized.slice(prefixNormalized.length);
+  // Le préfixe doit s'arrêter sur une frontière de dossier : « /plex/films »
+  // ne doit pas capturer « /plex/films-4k/... ».
+  if (rest !== "" && rest[0] !== sep) return null;
+  const movvizSep = pathFor(m.movvizPrefix).sep;
+  return m.movvizPrefix + rest.split(sep).join(movvizSep);
+}
+
+/**
+ * Un vrai fichier vient de prouver où se trouve `plexPath` côté Movviz : toute
+ * correspondance qui le traduirait ailleurs, vers un fichier inexistant, est
+ * fausse et retirée — la détection automatique se corrige d'elle-même.
+ */
+export function pruneContradictedMappings(plexPath: string, verifiedMovvizPath: string): void {
+  const mappings = loadPathMappings();
+  const kept = mappings.filter((m) => {
+    const translated = translateWith(m, plexPath);
+    if (!translated) return true;
+    if (translated.toLowerCase() === verifiedMovvizPath.toLowerCase()) return true;
+    return fs.existsSync(translated);
+  });
+  if (kept.length !== mappings.length) {
+    usableCache.clear();
+    savePathMappings(kept);
+  }
+}
+
 /**
  * Rewrites a Plex-reported path to Movviz's own filesystem view using the
  * longest matching learned prefix (tolerant of both separator styles, same
@@ -74,16 +127,12 @@ export function applyLearnedPathMapping(plexPath: string): string {
 
   let best: PathMapping | null = null;
   for (const m of mappings) {
-    const prefixNormalized = m.plexPrefix.replace(/[\\/]/g, sep);
-    if (normalized.toLowerCase().startsWith(prefixNormalized.toLowerCase())) {
-      if (!best || m.plexPrefix.length > best.plexPrefix.length) best = m;
-    }
+    if (!translateWith(m, normalized)) continue;
+    if (!isUsablePathMapping(m)) continue;
+    if (!best || m.plexPrefix.length > best.plexPrefix.length) best = m;
   }
   if (!best) return plexPath;
-
-  const rest = normalized.slice(best.plexPrefix.replace(/[\\/]/g, sep).length);
-  const movvizSep = pathFor(best.movvizPrefix).sep;
-  return best.movvizPrefix + rest.split(sep).join(movvizSep);
+  return translateWith(best, normalized) ?? plexPath;
 }
 
 /**

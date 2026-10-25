@@ -1,3 +1,11 @@
+## v1.27.46 — 25 ottobre 2026
+
+### Sottotitoli e riproduzione
+
+- I sottotitoli di testo scelti nel lettore desktop vengono di nuovo mostrati: erano estratti ma restavano bloccati in un buffer di ffmpeg, e il lettore non li chiedeva al nuovo motore. Le etichette delle tracce non mostrano più i titoli ridondanti delle release («FR Full : SRT»).
+- I film il cui percorso registrato è quello visto da Plex (es. /volume1/...) si riproducono di nuovo: il percorso viene tradotto in quello di Movviz, altrimenti la riproduzione passa dalla sorgente Plex invece di fallire.
+- Corrispondenza dei percorsi Plex ↔ Movviz: una corrispondenza che porta a una cartella inesistente viene ignorata, poi rimossa appena un file reale la contraddice; l'aggiunta manuale rifiuta una cartella Movviz assente; e il suggerimento automatico funziona quando le due radici condividono una sola cartella (/volume1/docker/plex/films ↔ /data/films).
+
 ## v1.27.45 — 25 ottobre 2026
 
 ### Riproduzione dalle schede

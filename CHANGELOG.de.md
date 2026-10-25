@@ -1,3 +1,11 @@
+## v1.27.46 — 25. Oktober 2026
+
+### Untertitel und Wiedergabe
+
+- Im Desktop-Player gewählte Textuntertitel werden wieder angezeigt: Sie wurden extrahiert, blieben aber in einem ffmpeg-Puffer hängen, und der Player hat sie bei der neuen Engine nie abgefragt. Spurbezeichnungen zeigen keine redundanten Release-Titel mehr („FR Full : SRT“).
+- Filme, deren gespeicherter Pfad der Plex-Sicht entspricht (z. B. /volume1/...), lassen sich wieder abspielen: Der Pfad wird in den von Movviz übersetzt, sonst läuft die Wiedergabe über die Plex-Quelle statt fehlzuschlagen.
+- Pfadzuordnung Plex ↔ Movviz: Eine Zuordnung, die zu einem fehlenden Ordner führt, wird ignoriert und entfernt, sobald eine echte Datei ihr widerspricht; die manuelle Eingabe lehnt einen fehlenden Movviz-Ordner ab; und der automatische Vorschlag funktioniert, wenn beide Wurzeln nur einen Ordner teilen (/volume1/docker/plex/films ↔ /data/films).
+
 ## v1.27.45 — 25. Oktober 2026
 
 ### Wiedergabe über Karten

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
+import { resolveLocalFilePath, resolveMoviePlayback, resolveEpisodePlayback } from "@/lib/playback/sourceResolver";
 import { getOrProbeMediaDescriptor, getOrProbeRemoteMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { resolvePlexPartUrl } from "@/lib/playback/plexSource";
 import { detectServerCapabilities } from "@/lib/playback/engine/serverCapabilities.detect";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
   const b = body as Record<string, unknown>;
   const mediaId = typeof b.mediaId === "string" ? b.mediaId.trim() : "";
-  const ratingKey = typeof b.ratingKey === "string" ? b.ratingKey.trim() : "";
+  const requestedRatingKey = typeof b.ratingKey === "string" ? b.ratingKey.trim() : "";
   const clientProfile = b.clientProfile as ClientPlaybackProfile | undefined;
   if (!mediaId || !clientProfile || typeof clientProfile !== "object") {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
@@ -59,6 +59,14 @@ export async function POST(req: NextRequest) {
   // ratingKey exists, Plex contributes only its original /library/parts URL.
   // No /transcode endpoint is used anywhere in this engine.
   const resolution = resolveLocalFilePath(mediaId);
+  // Fichier local illisible depuis ce conteneur : la clé Plex du titre sert de
+  // repli même si le client ne l'a pas transmise.
+  let ratingKey = requestedRatingKey;
+  if (!resolution.ok && !ratingKey) {
+    const episodeRef = /^(.+):s(\d+)e(\d+)$/.exec(mediaId);
+    const fallback = episodeRef ? resolveEpisodePlayback(episodeRef[1], Number(episodeRef[2]), Number(episodeRef[3])) : resolveMoviePlayback(mediaId);
+    if (fallback.ok && fallback.value.plexRatingKey) ratingKey = fallback.value.plexRatingKey;
+  }
   let media;
   let source;
   let directUrl: string;

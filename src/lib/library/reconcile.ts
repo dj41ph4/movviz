@@ -5,7 +5,7 @@ import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/serv
 import { trashRoots } from "@/lib/library/trashStore";
 import { pathFor } from "@/lib/library/renamePath";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { loadPathMappings, type PathMapping } from "@/lib/plex/pathMappingStore";
+import { loadPathMappings, isUsablePathMapping, type PathMapping } from "@/lib/plex/pathMappingStore";
 import { mapWithConcurrency } from "@/lib/concurrency";
 
 const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts)$/i;
@@ -173,7 +173,7 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
   // Mappings chargés une fois (un stat disque), réutilisés en mémoire pure
   // pour chaque path suivi — voir le même piège documenté dans librarySync.
   let cachedMappings: PathMapping[] = [];
-  try { cachedMappings = loadPathMappings(); } catch { cachedMappings = []; }
+  try { cachedMappings = loadPathMappings().filter(isUsablePathMapping); } catch { cachedMappings = []; }
   const translateCached = (p: string, mappings: PathMapping[]): string[] => {
     if (mappings.length === 0) return [p];
     const out = new Set<string>([p]);

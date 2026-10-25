@@ -8,9 +8,11 @@ import {
   loadPathMappings,
   learnPathMapping,
   removePathMapping,
+  isUsablePathMapping,
   type PathMapping,
 } from "@/lib/plex/pathMappingStore";
 import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
+import fs from "node:fs";
 import { commonSuffixDepth } from "@/lib/library/pathSuffix";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +38,8 @@ function engineRoots(): { movies: string[]; series: string[] } {
 
 function alreadyCovered(mappings: PathMapping[], plexLocation: string): boolean {
   const loc = plexLocation.toLowerCase();
-  return mappings.some((m) => loc.startsWith(m.plexPrefix.toLowerCase()));
+  // Une correspondance inutilisable (dossier Movviz absent) ne « couvre » rien.
+  return mappings.some((m) => loc.startsWith(m.plexPrefix.toLowerCase()) && isUsablePathMapping(m));
 }
 
 /**
@@ -64,7 +67,10 @@ function buildSuggestions(
         if (alreadyCovered(mappings, loc)) continue;
         let depth = 0;
         try {
-          depth = commonSuffixDepth(loc, root);
+          // Un seul dossier commun suffit ici (/volume1/docker/plex/films ↔
+          // /data/films) : ce sont deux racines de bibliothèque, pas deux
+          // fichiers — le minimum de 2 par défaut ne suggérait jamais rien.
+          depth = commonSuffixDepth(loc, root, 1);
         } catch {
           depth = 0;
         }
@@ -115,7 +121,7 @@ export async function GET(req: NextRequest) {
     supported: true,
     engineRoots: roots,
     sections: sections.map((s) => ({ key: s.key, type: s.type, title: s.title, locations: s.locations ?? [] })),
-    mappings,
+    mappings: mappings.map((m) => ({ ...m, usable: isUsablePathMapping(m) })),
     suggestions: buildSuggestions(sections, roots, mappings),
   });
 }
@@ -133,6 +139,9 @@ export async function POST(req: NextRequest) {
   if (plexPrefix.toLowerCase() === movvizPrefix.toLowerCase()) {
     return NextResponse.json({ error: "identical_prefix" }, { status: 400 });
   }
+  let movvizExists = false;
+  try { movvizExists = fs.statSync(movvizPrefix).isDirectory(); } catch { movvizExists = false; }
+  if (!movvizExists) return NextResponse.json({ error: "movviz_prefix_missing" }, { status: 400 });
   learnPathMapping(plexPrefix, movvizPrefix);
   return NextResponse.json({ ok: true, mappings: loadPathMappings() });
 }

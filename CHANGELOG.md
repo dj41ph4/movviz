@@ -1,3 +1,11 @@
+## v1.27.46 — 25 octobre 2026
+
+### Sous-titres et lecture
+
+- Les sous-titres texte choisis dans le lecteur du bureau s'affichent de nouveau : ils étaient bien extraits mais restaient bloqués dans un tampon de ffmpeg, et le lecteur ne les demandait pas au nouveau moteur. Les libellés de pistes n'affichent plus les titres redondants des releases (« FR Full : SRT »).
+- Les films dont le chemin enregistré est celui vu par Plex (ex. /volume1/...) se lisent de nouveau : le chemin est traduit vers celui de Movviz, et à défaut la lecture passe par la source Plex au lieu d'échouer.
+- Correspondance des chemins Plex ↔ Movviz : une correspondance qui mène vers un dossier inexistant est ignorée puis retirée dès qu'un vrai fichier la contredit, l'ajout manuel refuse un dossier Movviz absent, et la suggestion automatique fonctionne quand les deux racines ne partagent qu'un dossier (/volume1/docker/plex/films ↔ /data/films).
+
 ## v1.27.45 — 25 octobre 2026
 
 ### Lecture depuis les cartes

@@ -1,3 +1,11 @@
+## v1.27.46 — 25 oktober 2026
+
+### Ondertitels en afspelen
+
+- Tekstondertitels die in de desktopspeler worden gekozen, verschijnen weer: ze werden uitgepakt maar bleven in een ffmpeg-buffer hangen, en de speler vroeg ze nooit op bij de nieuwe engine. Spoorlabels tonen geen overbodige releasetitels meer ("FR Full : SRT").
+- Films waarvan het opgeslagen pad het pad is dat Plex ziet (bv. /volume1/...), spelen weer af: het pad wordt vertaald naar dat van Movviz, anders loopt het afspelen via de Plex-bron in plaats van te mislukken.
+- Padkoppeling Plex ↔ Movviz: een koppeling naar een ontbrekende map wordt genegeerd en verwijderd zodra een echt bestand haar tegenspreekt; handmatig toevoegen weigert een ontbrekende Movviz-map; en de automatische suggestie werkt wanneer beide hoofdmappen maar één map delen (/volume1/docker/plex/films ↔ /data/films).
+
 ## v1.27.45 — 25 oktober 2026
 
 ### Afspelen vanaf kaarten

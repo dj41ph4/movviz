@@ -19,7 +19,7 @@ import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
 import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
-import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, type PathMapping } from "./pathMappingStore";
+import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, pruneContradictedMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { runBackground } from "@/lib/priority/lane";
 import { registerMarkerCandidate } from "./markerSync";
@@ -237,6 +237,7 @@ export function reconcileFilePath(existingPath: string | null | undefined, plexP
       const { prefix: plexPrefix } = splitAtSuffixDepth(plexPath, depth);
       learnPathMapping(plexPrefix, movvizPrefix);
     }
+    pruneContradictedMappings(plexPath, existingPath!);
   }
 
   if (existingVerified) {

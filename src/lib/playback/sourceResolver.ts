@@ -4,6 +4,7 @@ import { getMovie, loadMovies, loadSeries } from "@/lib/library/store";
 import { getPrimaryFile } from "@/lib/library/versions";
 import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
 import type { LibraryEpisode, LibraryMovie } from "@/lib/library/types";
+import { applyLearnedPathMapping } from "@/lib/plex/pathMappingStore";
 
 export type PlaybackSource = {
   source: "movviz" | "plex";
@@ -37,8 +38,18 @@ function validLocalFile(file: string | null | undefined): file is string {
   }
 }
 
+/** Chemin lisible par CE conteneur : le chemin enregistré, sinon sa
+ *  traduction par les correspondances Plex → Movviz déjà apprises (un chemin
+ *  stocké tel que Plex le voit, ex. /volume1/... côté hôte NAS). */
+function readableLocalPath(recorded: string | null | undefined): string | null {
+  if (validLocalFile(recorded)) return recorded;
+  if (!recorded) return null;
+  const mapped = applyLearnedPathMapping(recorded);
+  return mapped !== recorded && validLocalFile(mapped) ? mapped : null;
+}
+
 function fromMovie(movie: LibraryMovie): PlaybackResolution {
-  const localPath = movie.file?.diskPath ?? movie.file?.path;
+  const localPath = readableLocalPath(movie.file?.diskPath ?? movie.file?.path);
   if (validLocalFile(localPath)) {
     return { ok: true, value: { source: "movviz", movvizId: movie.id, path: localPath, plexRatingKey: movie.plexRatingKey } };
   }
@@ -49,7 +60,7 @@ function fromMovie(movie: LibraryMovie): PlaybackResolution {
 }
 
 function fromEpisode(seriesId: string, episode: LibraryEpisode): PlaybackResolution {
-  const localPath = episode.file?.diskPath ?? episode.file?.path;
+  const localPath = readableLocalPath(episode.file?.diskPath ?? episode.file?.path);
   if (validLocalFile(localPath)) {
     return { ok: true, value: { source: "movviz", movvizId: `${seriesId}:s${episode.seasonNumber}e${episode.episodeNumber}`, path: localPath, plexRatingKey: episode.plexRatingKey } };
   }
@@ -97,7 +108,11 @@ export function resolveLocalFilePath(mediaId: string): LocalFileResolution {
   const movie = getMovie(mediaId);
   if (!movie) return { ok: false, code: "not_found" };
   const file = getPrimaryFile(movie);
-  const filePath = file?.diskPath ?? file?.path;
+  const filePath = readableLocalPath(file?.diskPath ?? file?.path);
+  // Même garde que fromMovie : un chemin enregistré tel que Plex le voit
+  // (ex. /volume1/... sur l'hôte NAS, invisible depuis le conteneur Movviz)
+  // n'est PAS un fichier local lisible — l'appelant doit alors se rabattre sur
+  // la source Plex brute au lieu d'échouer en « file_missing ».
   if (!filePath) return { ok: false, code: "not_playable" };
   return { ok: true, path: filePath };
 }

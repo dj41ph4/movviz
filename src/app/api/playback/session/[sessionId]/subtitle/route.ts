@@ -56,12 +56,33 @@ export async function GET(req: NextRequest, context: Ctx) {
     const rawHeaders = Object.entries(session.source.headers).map(([k, v]) => `${k}: ${v}\r\n`).join("");
     if (rawHeaders) args.push("-headers", rawHeaders);
   }
-  args.push("-i", session.source.uri, "-map", `0:${subtitleIndex}`, "-f", "webvtt", "pipe:1");
+  args.push("-i", session.source.uri, "-map", `0:${subtitleIndex}`, "-flush_packets", "1", "-f", "webvtt", "pipe:1");
   const proc = spawn(resolveFfmpegBinary(), args, { stdio: ["ignore", "pipe", "pipe"] });
 
   proc.stderr?.on("data", (d: Buffer) => console.error(`[transcoder] ${sessionId} sous-titre stderr: ${String(d).trim()}`));
 
-  const stream = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+  // En-tête WebVTT envoyé immédiatement (voir streamLiveVttFile) : la
+  // réponse part avant la première réplique, jamais de 504 du reverse proxy.
+  const ffmpegOut = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(new TextEncoder().encode("WEBVTT\n\n"));
+      const reader = ffmpegOut.getReader();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+        controller.close();
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      void ffmpegOut.cancel(reason).catch(() => void 0);
+    },
+  });
   proc.on("exit", (code) => {
     if (code !== 0 && code !== null && proc.stdout && !proc.stdout.readableEnded && !proc.stdout.destroyed) {
       proc.stdout.destroy(new Error(`ffmpeg exited with code ${code}`));
@@ -78,6 +99,11 @@ export async function GET(req: NextRequest, context: Ctx) {
 function streamLiveVttFile(req: NextRequest, mediaId: string, userId: string, subtitleIndex: number, initialVttPath: string): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
+      // En-tête envoyé tout de suite : la réponse part sans attendre la
+      // première réplique (sinon le reverse proxy coupait en 504 au bout de
+      // 60 s sur un passage sans dialogue). Le lecteur ignore les lignes
+      // d'en-tête en double.
+      controller.enqueue(new TextEncoder().encode("WEBVTT\n\n"));
       let vttPath = initialVttPath;
       let pos = 0;
       let missCount = 0;

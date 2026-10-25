@@ -1,3 +1,11 @@
+## v1.27.46 — October 25, 2026
+
+### Subtitles and playback
+
+- Text subtitles selected in the desktop player display again: they were extracted but stuck in an ffmpeg buffer, and the player never requested them from the new engine. Track labels no longer show redundant release titles ("FR Full : SRT").
+- Movies whose recorded path is the one Plex sees (e.g. /volume1/...) play again: the path is translated to Movviz's own, otherwise playback goes through the Plex source instead of failing.
+- Plex ↔ Movviz path mapping: a mapping that leads to a missing folder is ignored, then removed as soon as a real file contradicts it; manual entry rejects a missing Movviz folder; and the automatic suggestion works when both roots share a single folder (/volume1/docker/plex/films ↔ /data/films).
+
 ## v1.27.45 — October 25, 2026
 
 ### Playback from cards
