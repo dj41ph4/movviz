@@ -1,3 +1,11 @@
+## v1.27.52 — 25. Oktober 2026
+
+### Plattformen auf Android TV
+
+- Das Raster einer Plattform („Auf Disney Plus“…) springt und friert beim Herunterscrollen nicht mehr ein: Jede geladene Seite schickte den Fokus auf eine bereits überholte Karte zurück. Der Fokus bleibt jetzt auf der gewählten Karte, in derselben Spalte.
+- Die Reihe Plattformen auf der Startseite steht jetzt direkt unter der ersten Reihe.
+- Transparente Logos auf Android TV und Android: Plattformlogos (und PNG-Titellogos) erscheinen nicht mehr auf einem schwarzen Rechteck, und der Kopfbereich einer Plattform nutzt dasselbe Markenlogo wie die Kacheln.
+
 ## v1.27.51 — 25. Oktober 2026
 
 ### Profil auf Android TV und Android

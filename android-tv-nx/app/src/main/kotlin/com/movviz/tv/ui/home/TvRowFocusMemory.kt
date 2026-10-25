@@ -123,6 +123,8 @@ internal class TvRowFocusMemory(
 ) {
     private val attached = mutableMapOf<String, FocusRequester>()
     private var rowHasFocus = false
+    // Carte qui a le focus en ce moment (null si aucune dans cette rangée).
+    private var focusedKey: String? = null
     val rowRequester = FocusRequester()
 
     /** Modifier du conteneur (LazyRow / LazyVerticalGrid). */
@@ -152,8 +154,11 @@ internal class TvRowFocusMemory(
             .onPlaced { attached[key] = requester }
             .onFocusChanged {
                 if (it.isFocused) {
+                    focusedKey = key
                     selectedKey.value = key
                     selectedIndex.value = index
+                } else if (focusedKey == key) {
+                    focusedKey = null
                 }
             }
     }
@@ -161,6 +166,10 @@ internal class TvRowFocusMemory(
     fun detach() = host?.detach(rowKey, rowRequester)
     fun targetIndex(keys: List<String>): Int = rememberedTvItemIndex(keys, selectedKey.value, selectedIndex.value)
     fun hasSelection(): Boolean = selectedKey.value != null
+
+    /** La carte focalisée existe toujours après un changement de clés (ex. page
+     *  suivante ajoutée à la grille) : il n'y a rien à restaurer. */
+    fun focusSurvives(keys: List<String>): Boolean = focusedKey?.let(keys::contains) == true
     fun rememberedKey(): String? = selectedKey.value
 
     /** Après un changement de clés pendant que la rangée a le focus : replace
@@ -251,7 +260,13 @@ private fun rememberTvItemFocusMemory(
     val memory = remember(host, key) { TvRowFocusMemory(selectedKey, selectedIndex, host, key) }
     DisposableEffect(memory) { onDispose { memory.detach() } }
     LaunchedEffect(memory, keys) {
-        if (memory.hasSelection() && keys.isNotEmpty()) {
+        // Ne restaurer que si la carte focalisée a disparu (contenu remplacé)
+        // ou au retour sur l'écran. Quand une page s'ajoute pendant que
+        // l'utilisateur descend dans la grille, la carte focalisée est toujours
+        // là : la « restaurer » faisait défiler la grille vers une carte déjà
+        // dépassée et lui rendait le focus — la grille sautait et semblait
+        // figée sous la télécommande (écran « Sur Disney Plus »).
+        if (memory.hasSelection() && keys.isNotEmpty() && !memory.focusSurvives(keys)) {
             val target = memory.targetIndex(keys)
             if (!isVisible(target)) scrollToItem(target)
             withFrameNanos { }

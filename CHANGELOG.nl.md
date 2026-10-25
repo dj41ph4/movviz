@@ -1,3 +1,11 @@
+## v1.27.52 — 25 oktober 2026
+
+### Platforms op Android TV
+
+- Het raster van een platform ("Op Disney Plus"…) springt en bevriest niet meer bij het omlaag scrollen: elke geladen pagina stuurde de focus terug naar een al gepasseerde kaart. De focus blijft nu op de gekozen kaart, in dezelfde kolom.
+- De rij Platforms op de startpagina staat nu direct onder de eerste rij.
+- Transparante logo's op Android TV en Android: platformlogo's (en PNG-titellogo's) verschijnen niet meer op een zwarte rechthoek, en de kop van een platform gebruikt hetzelfde merklogo als de tegels.
+
 ## v1.27.51 — 25 oktober 2026
 
 ### Profiel op Android TV en Android

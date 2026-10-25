@@ -1,3 +1,11 @@
+## v1.27.52 — October 25, 2026
+
+### Platforms on Android TV
+
+- A platform grid ("On Disney Plus"…) no longer jumps or freezes while scrolling down: each loaded page sent focus back to an already-passed card. Focus now stays on the chosen card, same column.
+- The home Platforms row has moved up, right under the first row.
+- Transparent logos on Android TV and Android: platform logos (and PNG title logos) no longer show on a black rectangle, and a platform's header uses the same brand logo as the tiles.
+
 ## v1.27.51 — October 25, 2026
 
 ### Profile on Android TV and Android

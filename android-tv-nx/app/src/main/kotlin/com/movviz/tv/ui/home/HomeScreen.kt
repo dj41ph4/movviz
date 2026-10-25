@@ -978,23 +978,20 @@ fun HomeScreen(
                 if (sectionId == "becauseYouLike" && queue.isNotEmpty()) {
                     item(key = "queue", contentType = "queue") { DownloadQueueRow(items = queue, onOpenTitle = onOpenTitle) }
                 }
-            }
-
-            // Rangée "Plateformes" de la maquette Accueil — mêmes tuiles et
-            // même ordre que Discover (watchProviderTiles), affichée après
-            // les sections éditoriales et avant les rangées éditoriales
-            // mélangées. Pas de focus initial ici : contentFocus reste sur
-            // le hero / la première section, la rangée est atteignable en
-            // descendant. Absente tant que les logos ne sont pas chargés.
-            if (watchProviderTiles.isNotEmpty()) {
-                item(key = "platforms", contentType = "platforms") {
-                    PlatformRow(
-                        tiles = watchProviderTiles,
-                        onSelect = { tile ->
-                            onSeeAllRow("movie", "watchProvider:${tile.id}", "Sur ${tile.name}")
-                        },
-                        navRailFocusRequester = navRailFocusRequester,
-                    )
+                // Rangée "Plateformes" remontée juste sous la première rangée
+                // de l'accueil (demande utilisateur) : accès direct sans
+                // descendre sous toutes les sections. Pas de focus initial ici,
+                // contentFocus reste sur le hero / la première rangée.
+                if (sectionId == firstVisibleSection && watchProviderTiles.isNotEmpty()) {
+                    item(key = "platforms", contentType = "platforms") {
+                        PlatformRow(
+                            tiles = watchProviderTiles,
+                            onSelect = { tile ->
+                                onSeeAllRow("movie", "watchProvider:${tile.id}", "Sur ${tile.name}")
+                            },
+                            navRailFocusRequester = navRailFocusRequester,
+                        )
+                    }
                 }
             }
 

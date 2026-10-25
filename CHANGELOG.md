@@ -1,3 +1,11 @@
+## v1.27.52 — 25 octobre 2026
+
+### Plateformes sur Android TV
+
+- La grille d'une plateforme (« Sur Disney Plus »…) ne saute plus et ne se fige plus en descendant : à chaque page chargée, le focus était renvoyé sur une carte déjà dépassée. Le focus reste désormais sur la carte choisie, même colonne.
+- La rangée Plateformes de l'accueil est remontée juste sous la première rangée.
+- Logos transparents sur Android TV et Android : les logos de plateformes (et les logos de titres PNG) ne s'affichent plus sur un rectangle noir, et l'en-tête d'une plateforme utilise le même logo de marque que les tuiles.
+
 ## v1.27.51 — 25 octobre 2026
 
 ### Profil sur Android TV et Android

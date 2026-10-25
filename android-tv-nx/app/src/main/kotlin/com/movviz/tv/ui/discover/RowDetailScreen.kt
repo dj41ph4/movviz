@@ -229,12 +229,18 @@ fun RowDetailScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (mode == "provider") {
-                providerTiles.firstOrNull { it.id == rowKey.toIntOrNull() }?.logoPath?.let { logo ->
+                // Logo de marque transparent (même SVG que les tuiles Plateformes)
+                // plutôt que le carré TMDb sur fond de couleur ; repli TMDb pour
+                // les plateformes sans logo de marque embarqué.
+                val providerId = rowKey.toIntOrNull()
+                val brandLogo = providerId?.let { com.movviz.tv.ui.theme.providerBrandAsset(it) }
+                val logoModel = brandLogo ?: providerTiles.firstOrNull { it.id == providerId }?.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+                if (logoModel != null) {
                     coil.compose.AsyncImage(
-                        model = "https://image.tmdb.org/t/p/w500$logo",
+                        model = logoModel,
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.padding(end = 14.dp).size(width = 92.dp, height = 42.dp),
+                        modifier = Modifier.padding(end = 18.dp).size(width = if (brandLogo != null) 120.dp else 92.dp, height = 42.dp),
                     )
                 }
             }

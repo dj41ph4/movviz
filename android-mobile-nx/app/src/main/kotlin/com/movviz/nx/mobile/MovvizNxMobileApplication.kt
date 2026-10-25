@@ -30,12 +30,13 @@ class MovvizNxMobileApplication : Application(), ImageLoaderFactory {
         // chargent comme les posters publics — avant, Coil utilisait son
         // propre client anonyme et les photos de profil restaient vides.
         .okHttpClient(ApiClient.httpClient())
-        // RGB_565 (2 octets/pixel) au lieu du ARGB_8888 par défaut (4
-        // octets/pixel) : les posters/backdrops TMDb sont des JPEG opaques,
-        // aucun canal alpha à perdre — moitié moins de mémoire pour un cache
-        // qui contient facilement 50+ affiches en même temps sur l'accueil,
-        // sensible sur un boîtier TV à 1-2 Go de RAM.
-        .bitmapConfig(Bitmap.Config.RGB_565)
+        // RGB_565 (2 octets/pixel) seulement pour les images SANS transparence
+        // (affiches et fonds JPEG TMDb : moitié moins de mémoire, sensible sur un
+        // boîtier TV à 1-2 Go). Forcer RGB_565 partout supprimait le canal alpha :
+        // logos de plateformes (SVG) et logos de titres PNG s'affichaient sur un
+        // rectangle noir. allowRgb565 laisse Coil garder ARGB_8888 quand l'image
+        // a de la transparence.
+        .allowRgb565(true)
         .memoryCache {
             MemoryCache.Builder(this)
                 .maxSizePercent(0.10)
