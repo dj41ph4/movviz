@@ -1,3 +1,9 @@
+## v1.27.47 — October 25, 2026
+
+### Downloads
+
+- Re-grabbing an already-imported release whose file was deleted (or replaced by another version) now really restarts the download: the engine answered "already imported" without downloading anything, and the title stayed "downloading" without showing up in the queue.
+
 ## v1.27.46 — October 25, 2026
 
 ### Subtitles and playback

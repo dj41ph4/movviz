@@ -1,3 +1,9 @@
+## v1.27.47 — 25 ottobre 2026
+
+### Download
+
+- Riscaricare una release già importata il cui file è stato eliminato (o sostituito da un'altra versione) riavvia davvero il download: il motore rispondeva «già importato» senza scaricare nulla, e il titolo restava «in download» senza comparire nella coda.
+
 ## v1.27.46 — 25 ottobre 2026
 
 ### Sottotitoli e riproduzione

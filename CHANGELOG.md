@@ -1,3 +1,9 @@
+## v1.27.47 — 25 octobre 2026
+
+### Téléchargements
+
+- Retélécharger une release déjà importée dont le fichier a été supprimé (ou remplacé par une autre version) relance vraiment le téléchargement : le moteur répondait « déjà importé » sans rien télécharger, et le titre restait « en téléchargement » sans apparaître dans la file.
+
 ## v1.27.46 — 25 octobre 2026
 
 ### Sous-titres et lecture

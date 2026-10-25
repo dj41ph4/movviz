@@ -48,6 +48,21 @@ async function avoidCollision(dest) {
  * Shared WebTorrent download/import/queue/naming logic. Subclasses implement the
  * `_client*` abstract methods for transport-specific operations.
  */
+/** Le ou les fichiers d'un import passé sont-ils toujours sur disque, à la
+ *  bonne taille ? Un chemin inconnu compte comme absent. Exporté pour les tests. */
+export async function importedFilesStillPresent(hist) {
+  const files = Array.isArray(hist?.movedFiles) && hist.movedFiles.length > 0
+    ? hist.movedFiles.map((f) => ({ path: f?.path, size: Number(f?.size) || 0 }))
+    : hist?.movedTo ? [{ path: hist.movedTo, size: Number(hist.size) || 0 }] : [];
+  if (files.length === 0 || files.some((f) => !f.path)) return false;
+  for (const f of files) {
+    const st = await fsp.stat(f.path).catch(() => null);
+    if (!st) return false;
+    if (st.isFile() && f.size > 0 && st.size !== f.size) return false;
+  }
+  return true;
+}
+
 export class AbstractBackend {
   constructor(cfg, { onChange, emitActivity } = {}) {
     this.cfg = cfg;
@@ -156,7 +171,17 @@ export class AbstractBackend {
       const existing = this._get(opts.infoHash);
       if (existing) return this.summary(existing);
       const hist = this.importedHistory.get(opts.infoHash);
-      if (hist) return this.importedSummary(hist);
+      if (hist) {
+        // Même release déjà importée : on ne la retélécharge que si le fichier
+        // importé n'est plus là (supprimé, ou remplacé par une autre version au
+        // même chemin). Sans ça, regrabber une release dont le fichier a été
+        // supprimé renvoyait « déjà importé » sans rien télécharger, et le
+        // titre restait « en téléchargement » sans torrent.
+        if (await importedFilesStillPresent(hist)) return this.importedSummary(hist);
+        console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}] historique périmé pour ${opts.infoHash} (fichier importé absent) — nouveau téléchargement`);
+        this.importedHistory.delete(opts.infoHash);
+        this.onChange();
+      }
     }
 
     const handle = await this._clientAdd(torrentId, opts);

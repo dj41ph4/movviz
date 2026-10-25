@@ -1,3 +1,9 @@
+## v1.27.47 — 25 oktober 2026
+
+### Downloads
+
+- Een al geïmporteerde release opnieuw downloaden waarvan het bestand is verwijderd (of vervangen door een andere versie) start de download nu echt opnieuw: de engine antwoordde "al geïmporteerd" zonder iets te downloaden, en de titel bleef "bezig met downloaden" zonder in de wachtrij te verschijnen.
+
 ## v1.27.46 — 25 oktober 2026
 
 ### Ondertitels en afspelen

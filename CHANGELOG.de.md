@@ -1,3 +1,9 @@
+## v1.27.47 — 25. Oktober 2026
+
+### Downloads
+
+- Das erneute Herunterladen eines bereits importierten Releases, dessen Datei gelöscht (oder durch eine andere Version ersetzt) wurde, startet den Download jetzt wirklich neu: Die Engine meldete „bereits importiert“, ohne etwas herunterzuladen, und der Titel blieb „wird heruntergeladen“, ohne in der Warteschlange zu erscheinen.
+
 ## v1.27.46 — 25. Oktober 2026
 
 ### Untertitel und Wiedergabe
