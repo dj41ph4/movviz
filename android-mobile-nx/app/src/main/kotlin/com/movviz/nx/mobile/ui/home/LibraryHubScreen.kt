@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -134,8 +135,8 @@ fun LibraryHubScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) { MovvizEmptyState("Aucun historique pour le moment.", "Vos films et épisodes vus apparaîtront ici.") }
                 } else {
                     item(span = { GridItemSpan(maxLineSpan) }) { LibraryGridHeading("Historique récent (${history.size})") }
-                    items(history, key = { "history-${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }) { card ->
-                        LibraryMediaGridCard(card) { onOpenTitle(if (card.type == "series") "series" else card.type, card.tmdbId) }
+                    itemsIndexed(history, key = { index, it -> "history-${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}-$index" }) { _, card ->
+                        LibraryMediaGridCard(card) { onOpenTitle(if (card.type == "episode") "series" else card.type, card.tmdbId) }
                     }
                 }
             }

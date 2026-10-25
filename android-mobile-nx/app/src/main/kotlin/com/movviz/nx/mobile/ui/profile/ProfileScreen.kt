@@ -561,7 +561,7 @@ internal fun LazyListScope.profileRail(
                 }
             }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                itemsIndexed(cards, key = { _, card -> "${card.type}-${card.tmdbId}-${card.seasonNumber}-${card.episodeNumber}" }) { index, card ->
+                itemsIndexed(cards, key = { index, card -> "${card.type}-${card.tmdbId}-${card.seasonNumber}-${card.episodeNumber}-$index" }) { index, card ->
                     ProfilePosterCard(
                         card = card,
                         modifier = if (index == 0 && entryFocusRequester != null) Modifier.focusRequester(entryFocusRequester) else Modifier,

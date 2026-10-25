@@ -1,3 +1,9 @@
+## v1.27.51 — 25 oktober 2026
+
+### Profiel op Android TV en Android
+
+- Het profiel crasht niet meer bij het omlaag scrollen naar de geschiedenis: een titel die meerdere keren is bekeken verscheen dubbel, waardoor de rij crashte. De geschiedenis toont elke titel nog maar één keer (de meest recente weergave).
+
 ## v1.27.50 — 25 oktober 2026
 
 ### Profiel op Android TV, Android en Samsung

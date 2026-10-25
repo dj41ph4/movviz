@@ -1,3 +1,9 @@
+## v1.27.51 — 25 octobre 2026
+
+### Profil sur Android TV et Android
+
+- Le profil ne plante plus en descendant vers l'historique : un titre vu plusieurs fois y apparaissait en double, ce qui faisait planter la rangée. L'historique n'affiche plus qu'une fois chaque titre (le visionnage le plus récent).
+
 ## v1.27.50 — 25 octobre 2026
 
 ### Profil sur Android TV, Android et Samsung

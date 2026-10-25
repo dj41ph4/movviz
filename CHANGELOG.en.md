@@ -1,3 +1,9 @@
+## v1.27.51 — October 25, 2026
+
+### Profile on Android TV and Android
+
+- The profile no longer crashes when scrolling down to history: a title watched several times appeared twice, which crashed the row. History now shows each title only once (the most recent viewing).
+
 ## v1.27.50 — October 25, 2026
 
 ### Profile on Android TV, Android and Samsung

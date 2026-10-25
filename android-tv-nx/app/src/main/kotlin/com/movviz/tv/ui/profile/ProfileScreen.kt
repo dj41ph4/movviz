@@ -222,7 +222,7 @@ private fun LazyListScope.profileRail(
                 horizontalArrangement = Arrangement.spacedBy(if (beta) 12.dp else 15.dp),
                 contentPadding = if (beta) PaddingValues(8.dp) else PaddingValues(0.dp),
             ) {
-                itemsIndexed(cards, key = { _, card -> "${card.type}-${card.tmdbId}-${card.seasonNumber}-${card.episodeNumber}" }) { index, card ->
+                itemsIndexed(cards, key = { index, card -> "${card.type}-${card.tmdbId}-${card.seasonNumber}-${card.episodeNumber}-$index" }) { index, card ->
                     ProfilePosterCard(
                         card = card,
                         modifier = if (index == 0 && entryFocusRequester != null) Modifier.focusRequester(entryFocusRequester) else Modifier,

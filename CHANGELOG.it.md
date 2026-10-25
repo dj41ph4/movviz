@@ -1,3 +1,9 @@
+## v1.27.51 — 25 ottobre 2026
+
+### Profilo su Android TV e Android
+
+- Il profilo non si blocca più scorrendo verso la cronologia: un titolo visto più volte compariva due volte, facendo crashare la riga. La cronologia mostra ogni titolo una sola volta (la visione più recente).
+
 ## v1.27.50 — 25 ottobre 2026
 
 ### Profilo su Android TV, Android e Samsung

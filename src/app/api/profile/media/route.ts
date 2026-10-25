@@ -88,6 +88,16 @@ export async function GET(req: NextRequest) {
       title: item.title, subtitle: null, posterPath: artwork.posterPath, stillPath: null, year: artwork.year, watchedAt: item.watchedAt,
     };
   });
+  // Un même titre revu plusieurs fois n'apparaît qu'une fois dans la rangée
+  // (l'entrée la plus récente) : deux cartes identiques faisaient aussi
+  // planter les rangées Compose des applis Android (clé dupliquée).
+  const seenHistory = new Set<string>();
+  const uniqueWatchHistory = watchHistory.filter((item) => {
+    const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}`;
+    if (seenHistory.has(key)) return false;
+    seenHistory.add(key);
+    return true;
+  });
   const ratingItems = ratings.map((item) => {
     const artwork = resolvedArtwork.get(`${item.type}:${item.tmdbId}`) ?? libraryArtwork(item.tmdbId, item.type);
     return {
@@ -101,5 +111,5 @@ export async function GET(req: NextRequest) {
   const watchlistItems = watchlist.map((item) => ({ tmdbId: item.tmdbId, type: item.type, seasonNumber: item.seasonNumber ?? null, episodeNumber: item.episodeNumber ?? null, title: item.title, subtitle: item.parentTitle ?? null, posterPath: item.posterPath, stillPath: item.stillPath ?? null, year: item.year, addedAt: item.addedAt ?? 0 }));
   const watchedMovies = new Set(watchedStatus?.movies ?? []).size;
   const watchedSeries = new Set((watchedStatus?.episodes ?? []).map((episode) => episode.tmdbId)).size;
-  return NextResponse.json({ generatedAt: Date.now(), continueWatching: continueWatching.slice(0, 12), watchHistory: watchHistory.slice(0, 20), ratings: ratingItems.slice(0, 20), watchlist: watchlistItems.slice(0, 500), counts: { continueWatching: continueWatching.length, history: watchHistory.length, ratings: ratingItems.length, watchlist: watchlistItems.length, watchedMovies, watchedSeries } });
+  return NextResponse.json({ generatedAt: Date.now(), continueWatching: continueWatching.slice(0, 12), watchHistory: uniqueWatchHistory.slice(0, 20), ratings: ratingItems.slice(0, 20), watchlist: watchlistItems.slice(0, 500), counts: { continueWatching: continueWatching.length, history: uniqueWatchHistory.length, ratings: ratingItems.length, watchlist: watchlistItems.length, watchedMovies, watchedSeries } });
 }

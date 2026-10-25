@@ -1,3 +1,9 @@
+## v1.27.51 — 25. Oktober 2026
+
+### Profil auf Android TV und Android
+
+- Das Profil stürzt beim Herunterscrollen zum Verlauf nicht mehr ab: Ein mehrfach gesehener Titel erschien doppelt, was die Reihe abstürzen ließ. Der Verlauf zeigt jeden Titel nur noch einmal (die neueste Wiedergabe).
+
 ## v1.27.50 — 25. Oktober 2026
 
 ### Profil auf Android TV, Android und Samsung
