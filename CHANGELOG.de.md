@@ -1,3 +1,9 @@
+## v1.27.49 — 25. Oktober 2026
+
+### Trailer
+
+- Die YouTube-Ersatzsuche akzeptiert nur noch ein Video, dessen Titel den Filmtitel enthält: „The Good, the Bart, and the Loki“ übernimmt nicht mehr den Trailer der Loki-Serie. Bereits zwischengespeicherte Ergebnisse werden neu berechnet.
+
 ## v1.27.48 — 25. Oktober 2026
 
 ### Downloads

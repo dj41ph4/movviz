@@ -77,7 +77,11 @@ function rank(rows: Row[], title: string, language: string): Row[] {
     .sort((a, b) => b.score - a.score || a.index - b.index)
     // Never return an unverified result. If YouTube's markup no longer
     // exposes usable metadata, the safe answer is no fallback at all.
-    .filter(({ row, score }) => score >= 45 && !EXCLUDED.test(row.title))
+    // Le titre du film doit figurer dans celui de la vidéo : sans cette
+    // condition, « Loki - Bande-annonce officielle (VF) | Disney+ » cumulait
+    // assez de points (bande-annonce + VF + Disney + officielle) pour passer
+    // comme bande-annonce de « Le Bon, le Bart et le Loki ».
+    .filter(({ row, score }) => score >= 45 && !EXCLUDED.test(row.title) && !!normalizedTitle && fold(row.title).includes(normalizedTitle))
     .map(({ row }) => row);
 }
 

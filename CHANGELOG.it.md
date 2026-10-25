@@ -1,3 +1,9 @@
+## v1.27.49 — 25 ottobre 2026
+
+### Trailer
+
+- La ricerca YouTube di riserva accetta ormai solo un video il cui titolo contiene quello del film: «The Good, the Bart, and the Loki» non riprende più il trailer della serie Loki. I risultati già in cache vengono ricalcolati.
+
 ## v1.27.48 — 25 ottobre 2026
 
 ### Download

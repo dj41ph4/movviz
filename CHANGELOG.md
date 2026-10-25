@@ -1,3 +1,9 @@
+## v1.27.49 — 25 octobre 2026
+
+### Bandes-annonces
+
+- La recherche YouTube de secours n'accepte plus qu'une vidéo dont le titre contient celui du film : « Le Bon, le Bart et le Loki » ne reprend plus la bande-annonce de la série Loki. Les résultats déjà mis en cache sont recalculés.
+
 ## v1.27.48 — 25 octobre 2026
 
 ### Téléchargements

@@ -1,3 +1,9 @@
+## v1.27.49 — October 25, 2026
+
+### Trailers
+
+- The fallback YouTube search now only accepts a video whose title contains the movie's title: "The Good, the Bart, and the Loki" no longer picks up the Loki series trailer. Already-cached results are recomputed.
+
 ## v1.27.48 — October 25, 2026
 
 ### Downloads

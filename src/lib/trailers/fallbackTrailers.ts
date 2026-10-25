@@ -8,7 +8,7 @@ import { blockedVideoKeys, isBlockedVideo } from "./blockedVideos";
  * keys are filtered at read time so a newly reported block applies at once.
  */
 const TTL_MS = 24 * 60 * 60 * 1000;
-const cacheKey = (title: string, year: number | null, language: string) => `ytfb:v1:${title}:${year ?? 0}:${language}`;
+const cacheKey = (title: string, year: number | null, language: string) => `ytfb:v2:${title}:${year ?? 0}:${language}`;
 const cache = () => getCache("YouTube Fallback", TTL_MS);
 const g = globalThis as typeof globalThis & { __movvizTrailerFallbackInflight?: Map<string, Promise<string[]>> };
 const inflight = (g.__movvizTrailerFallbackInflight ??= new Map<string, Promise<string[]>>());

@@ -1466,7 +1466,7 @@ async function selectVideoCandidates(
       const lang = preferLanguage ?? "fr";
       // Bump the namespace whenever the selector changes so an old, wrongly
       // matched YouTube ID cannot survive in the 24h fallback cache.
-      const cacheKey = `yt:v2:${title}:${year ?? 0}:${lang}`;
+      const cacheKey = `yt:v3:${title}:${year ?? 0}:${lang}`;
       const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
       const cached = cache.getStale<string>(cacheKey);
       const found = cached !== undefined ? cached.value : await (async () => {
