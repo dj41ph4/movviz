@@ -276,6 +276,16 @@ function titleSimilarity(a, b, yearInfo = null) {
     // 0.72 threshold. Full containment + year-compatible → strong signal.
     // A conflicting stated year (a genuine different film) still kills it
     // via the year gate in step3 below.
+    // Le bonus ne vaut QUE si c'est la release qui raccourcit le titre
+    // officiel (mots de sous-titre retirés). Quand c'est la release qui
+    // AJOUTE des mots au titre attendu, c'est un autre film : « L Odyssee de
+    // Celeste 2026 » contient « L Odyssee » avec la même année, et l'ancien
+    // bonus (0.85) l'avait fait télécharger pour « L'Odyssée » (2026). En
+    // recherche de release (yearInfo fourni), ces mots en trop la rejettent ;
+    // le cas légitime « titre + titre original » collés reste couvert par
+    // matchesConcatenatedAlias (mirror de matching.ts).
+    const releaseAddsWords = !!yearInfo && longer === na && extraWords > 0;
+    if (releaseAddsWords) return Math.min(base, 0.6);
     const yearOk = yearInfo ? yearIsCompatible(yearInfo.year ?? null, yearInfo.targetYear ?? null) : true;
     return yearOk ? Math.max(base, 0.85) : base;
   }
@@ -307,12 +317,20 @@ function sequelNumbersConflict(parsedTitle, targetTitle) {
  *  extra-words penalty, not a loosening of it. */
 function matchesConcatenatedAlias(parsedTitle, targetTitle, aliases) {
   const np = normalizeTitle(parsedTitle);
-  const nt = normalizeTitle(targetTitle);
-  if (!np || !nt) return false;
+  if (!np) return false;
+  // Deux formes par nom : avec et sans article initial. normalizeTitle retire
+  // « the/a/an » en tête, mais au milieu d'un titre collé (« L Odyssee The
+  // Odyssey ») l'article reste — sans la forme complète, la concaténation
+  // exacte « titre + titre original » n'était jamais reconnue.
+  const forms = (name) => [...new Set([normalizeTitle(name), normalizeTitle(`zz ${name}`).replace(/^zz /, "")].filter(Boolean))];
+  const targets = forms(targetTitle);
+  if (targets.length === 0) return false;
   for (const alias of aliases) {
-    const na = normalizeTitle(alias);
-    if (!na) continue;
-    if (np === `${nt} ${na}`.trim() || np === `${na} ${nt}`.trim()) return true;
+    for (const na of forms(alias)) {
+      for (const nt of targets) {
+        if (np === `${nt} ${na}`.trim() || np === `${na} ${nt}`.trim()) return true;
+      }
+    }
   }
   return false;
 }

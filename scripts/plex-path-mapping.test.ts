@@ -51,31 +51,56 @@ test("applyLearnedPathMapping: aucune correspondance → chemin inchangé", () =
   assert.equal(applyLearnedPathMapping(p), p);
 });
 
+// Une correspondance n'est utilisée que si son dossier côté Movviz existe
+// réellement (isUsablePathMapping) : les cibles sont donc de vrais dossiers.
+const movvizDir = (...parts: string[]) => {
+  const dir = path.join(workDir, "movviz", ...parts);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+};
+const join = (base: string, ...parts: string[]) => [base, ...parts].join(base.includes("\\") ? "\\" : "/");
+
 test("applyLearnedPathMapping: un seul préfixe appris → chemin réécrit", () => {
-  learnPathMapping("/data/film", "/volume1/docker/plex/film");
-  const rewritten = applyLearnedPathMapping("/data/film/Movie (2020)/movie.mkv");
-  assert.equal(rewritten, "/volume1/docker/plex/film/Movie (2020)/movie.mkv");
+  const film = movvizDir("plex", "film");
+  learnPathMapping("/data/film", film);
+  assert.equal(applyLearnedPathMapping("/data/film/Movie (2020)/movie.mkv"), join(film, "Movie (2020)", "movie.mkv"));
 });
 
 test("applyLearnedPathMapping: préfixe le plus long l'emporte entre deux candidats qui se chevauchent", () => {
-  learnPathMapping("/data", "/mnt/generic");
-  learnPathMapping("/data/film/4k", "/mnt/uhd-film");
-  const rewritten = applyLearnedPathMapping("/data/film/4k/Movie (2020)/movie.mkv");
-  assert.equal(rewritten, "/mnt/uhd-film/Movie (2020)/movie.mkv");
+  const generic = movvizDir("generic");
+  const uhd = movvizDir("uhd-film");
+  learnPathMapping("/data", generic);
+  learnPathMapping("/data/film/4k", uhd);
+  assert.equal(applyLearnedPathMapping("/data/film/4k/Movie (2020)/movie.mkv"), join(uhd, "Movie (2020)", "movie.mkv"));
   // Un chemin sous /data mais PAS sous /data/film/4k ne doit prendre que le préfixe générique.
-  const other = applyLearnedPathMapping("/data/series/Show/S01E01.mkv");
-  assert.equal(other, "/mnt/generic/series/Show/S01E01.mkv");
+  assert.equal(applyLearnedPathMapping("/data/series/Show/S01E01.mkv"), join(generic, "series", "Show", "S01E01.mkv"));
 });
 
 test("applyLearnedPathMapping: insensible à la casse (style Windows)", () => {
-  learnPathMapping("Z:\\PLEX\\Films", "D:\\Movviz\\Films");
-  const rewritten = applyLearnedPathMapping("z:\\plex\\films\\Movie (2020)\\movie.mkv");
-  assert.equal(rewritten, "D:\\Movviz\\Films\\Movie (2020)\\movie.mkv");
+  const films = movvizDir("Films");
+  learnPathMapping("Z:\\PLEX\\Films", films);
+  assert.equal(applyLearnedPathMapping("z:\\plex\\films\\Movie (2020)\\movie.mkv"), join(films, "Movie (2020)", "movie.mkv"));
+});
+
+test("applyLearnedPathMapping: une correspondance vers un dossier absent est ignorée au profit d'une valide plus courte", () => {
+  // Cas réel (v1.27.46) : /volume1/docker/plex/films → /data/film (sans « s », inexistant)
+  // l'emportait sur /volume1/docker/plex → /data et 157 films gardaient le chemin vu par Plex.
+  const root = movvizDir("nas");
+  movvizDir("nas", "films");
+  learnPathMapping("/volume1/docker/plex", root);
+  learnPathMapping("/volume1/docker/plex/films", path.join(workDir, "movviz", "nas", "film-absent"));
+  assert.equal(applyLearnedPathMapping("/volume1/docker/plex/films/Buddy (2026)/Buddy.mkv"), join(root, "films", "Buddy (2026)", "Buddy.mkv"));
+});
+
+test("applyLearnedPathMapping: un préfixe ne capture pas un dossier voisin au nom plus long", () => {
+  const four = movvizDir("films-4k-cible");
+  learnPathMapping("/srv/films", four);
+  assert.equal(applyLearnedPathMapping("/srv/films-4k/Movie/movie.mkv"), "/srv/films-4k/Movie/movie.mkv");
 });
 
 test("learnPathMapping ne duplique pas une paire déjà connue", () => {
   const before = loadPathMappings().length;
-  learnPathMapping("/data/film", "/volume1/docker/plex/film"); // déjà appris plus haut
+  learnPathMapping("/data/film", path.join(workDir, "movviz", "plex", "film")); // déjà appris plus haut
   assert.equal(loadPathMappings().length, before);
 });
 

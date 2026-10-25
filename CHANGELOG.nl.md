@@ -1,3 +1,10 @@
+## v1.27.54 — 25 oktober 2026
+
+### Zoeken en Android TV
+
+- Een release waarvan de titel woorden toevoegt aan de gezochte titel wordt er niet meer voor aangezien: "The Odyssey" (2026) had "L'Odyssée de Céleste" (2026) gedownload, zelfde jaar maar een andere film. Het legitieme geval "Franse titel + originele titel" (L.Odyssee.The.Odyssey.2026) wordt nog steeds herkend.
+- De titelpagina op Android TV trilt niet meer bij het wisselen tussen knoppen.
+
 ## v1.27.53 — 25 oktober 2026
 
 ### Platforms op Android TV en Android

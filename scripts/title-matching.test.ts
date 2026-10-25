@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { titleSimilarity, releaseTitleMatches, pickSearchTitle, searchTitleVariants, seriesNeedsReleaseYear, seriesYearIsCompatible } from "@/lib/library/matching";
+import { titleSimilarity, releaseTitleMatches, yearIsCompatible, pickSearchTitle, searchTitleVariants, seriesNeedsReleaseYear, seriesYearIsCompatible } from "@/lib/library/matching";
 import { parseRelease } from "@/lib/naming/parser";
 import { sanitizeQuery } from "@/lib/indexers/torznab";
 
@@ -127,4 +127,25 @@ test("édition nationale : « Hot Ones Quebec » n'est pas « Hot Ones » (émis
   assert.equal(releaseTitleMatches("Hot Ones Quebec", "Hot Ones Québec"), true);
   // un tag « US » reste une variante du même titre
   assert.equal(releaseTitleMatches("The Office US", "The Office"), true);
+});
+
+test("L'Odyssée 2026 : une release qui AJOUTE des mots au titre (L'Odyssée de Céleste 2026) est un autre film", () => {
+  const target = { title: "L'Odyssée", originalTitle: "The Odyssey", year: 2026 };
+  const accept = (release: string) => {
+    const parsed = parseRelease(release);
+    // Même enchaînement que la recherche réelle (worker) : titre, puis année.
+    return releaseTitleMatches(parsed.title, target.title, [target.title, target.originalTitle], { year: parsed.year, targetYear: target.year })
+      && yearIsCompatible(parsed.year, target.year);
+  };
+  assert.equal(accept("L.Odyssee.de.Celeste.2026.AD.VFF.1080p.WEB.EAC3.5.1.H265-GL0P"), false);
+  assert.equal(accept("L.Odyssee.Celeste.2026.1080p.WEB"), false);
+  assert.equal(accept("L.Odyssee.2026.MULTi.VFF.1080p.WEB.H265"), true);
+  assert.equal(accept("The.Odyssey.2026.MULTi.2160p.WEB.H265"), true);
+  assert.equal(accept("L.Odyssee.The.Odyssey.2026.MULTi.1080p.WEB"), true);
+  assert.equal(accept("L.Odyssee.2016.FRENCH.1080p.BluRay"), false);
+});
+
+test("une release qui raccourcit le titre officiel reste acceptée (Tafiti)", () => {
+  const parsed = parseRelease("Tafiti.2026.MULTi.VFF.1080p.WEB.H264");
+  assert.equal(releaseTitleMatches(parsed.title, "Tafiti - Ab durch die Wüste", [], { year: parsed.year, targetYear: 2026 }), true);
 });

@@ -1,3 +1,10 @@
+## v1.27.54 — 25 octobre 2026
+
+### Recherche et Android TV
+
+- Une release dont le titre ajoute des mots au titre recherché n'est plus prise pour lui : « L'Odyssée » (2026) avait téléchargé « L'Odyssée de Céleste » (2026), même année mais autre film. Le cas légitime « titre français + titre original » (L.Odyssee.The.Odyssey.2026) reste reconnu.
+- La fiche d'un titre sur Android TV ne tremble plus en passant d'un bouton à l'autre.
+
 ## v1.27.53 — 25 octobre 2026
 
 ### Plateformes sur Android TV et Android

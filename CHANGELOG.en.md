@@ -1,3 +1,10 @@
+## v1.27.54 — October 25, 2026
+
+### Search and Android TV
+
+- A release whose title adds words to the searched title is no longer taken for it: "The Odyssey" (2026) had downloaded "Space Cadet" ("L'Odyssée de Céleste", 2026), same year but another film. The legitimate "French title + original title" case (L.Odyssee.The.Odyssey.2026) is still recognized.
+- A title page on Android TV no longer shakes when moving from one button to another.
+
 ## v1.27.53 — October 25, 2026
 
 ### Platforms on Android TV and Android
