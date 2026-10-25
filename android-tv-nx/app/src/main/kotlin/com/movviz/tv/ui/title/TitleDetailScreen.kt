@@ -44,6 +44,10 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.relocation.BringIntoViewModifierNode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -1029,7 +1033,11 @@ fun TitleDetailScreen(
                 snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
                     .collect { (index, offset) -> if (index != 0 || offset != 0) lazyListState.scrollToItem(0) }
             }
-            fun Modifier.keepsHeaderAtTop(row: String) = onFocusChanged { headerRowsFocused[row] = it.hasFocus }
+            // Les boutons de la rangée ne demandent plus jamais au pivot de
+            // défiler (voir SwallowBringIntoViewElement) : passer de l'un à
+            // l'autre ne fait plus sauter la fiche.
+            fun Modifier.keepsHeaderAtTop(row: String) =
+                onFocusChanged { headerRowsFocused[row] = it.hasFocus }.then(SwallowBringIntoViewElement)
             fun Modifier.detailActionEntry() =
                 focusRequester(initialFocusRequester)
                     .let { if (entryFocusRequester != null && !anyOverlayOpen) it.focusRequester(entryFocusRequester) else it }
@@ -1940,6 +1948,25 @@ private fun TitleDetailSkeleton(focusTargetModifier: Modifier) {
             }
         }
     }
+}
+
+/** Rangée d'actions de l'en-tête : absorbe les demandes « amener à l'écran »
+ *  que chaque bouton émet en prenant le focus, sans les transmettre à la
+ *  TvLazyColumn. Sans elle, chaque flèche GAUCHE/DROITE entre « Lire »,
+ *  « Bande-annonce » et « Vu » lançait le défilement du pivot (bouton placé à
+ *  30 % de l'écran) : toute la fiche montait d'une quarantaine de pixels
+ *  pendant une à deux images, puis `keepsHeaderAtTop` la ramenait en haut —
+ *  le tremblement vu à chaque changement de bouton. Le retour en haut quand
+ *  on remonte depuis plus bas reste assuré par `keepsHeaderAtTop`. */
+private object SwallowBringIntoViewElement : ModifierNodeElement<SwallowBringIntoViewNode>() {
+    override fun create() = SwallowBringIntoViewNode()
+    override fun update(node: SwallowBringIntoViewNode) = Unit
+    override fun hashCode(): Int = 0x5b1e
+    override fun equals(other: Any?): Boolean = other === this
+}
+
+private class SwallowBringIntoViewNode : Modifier.Node(), BringIntoViewModifierNode {
+    override suspend fun bringIntoView(childCoordinates: LayoutCoordinates, boundsProvider: () -> Rect?) = Unit
 }
 
 /** Groupe de focus dont la sortie GAUCHE mène à l'onglet actif de la barre
