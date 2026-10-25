@@ -1,3 +1,10 @@
+## v1.27.44 — October 25, 2026
+
+### Manual port forwarding
+
+- On every platform, the engine and WebTorrent no longer create UPnP/NAT-PMP rules. TCP peer and UDP DHT traffic use the configured port for manual forwarding.
+- Any existing rule or reservation on the router or NAS must be removed there; this update does not change that device's configuration.
+
 ## v1.27.43 — October 25, 2026
 
 ### Manual Docker port forwarding

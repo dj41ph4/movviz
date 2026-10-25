@@ -98,9 +98,9 @@ MOVVIZ_TORRENT_PORT_SERIES=55001
 
 Docker publie ces mêmes ports pour le moteur, même si les anciennes valeurs
 sont déjà enregistrées dans l'état de Movviz. Redémarrez ensuite la stack et
-redirigez les deux ports TCP et UDP dans le routeur ou pare-feu du NAS. Si le
-routeur prend en charge UPnP, Movviz demande aussi automatiquement ces quatre
-mappings au démarrage et les retire à l'arrêt.
+redirigez les deux ports TCP et UDP dans le routeur ou pare-feu du NAS.
+Movviz ne crée pas de redirections UPnP/NAT-PMP automatiquement. Les anciennes
+règles éventuelles doivent être retirées depuis le routeur ou le NAS.
 
 Sous Windows, passez ces deux variables avant `npm run service:install` ; sous
 Linux, utilisez l'override systemd documenté dans `linux/README-LINUX.md`.

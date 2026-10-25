@@ -30,9 +30,6 @@ function isContainer() {
 }
 
 export const CONTAINER_MODE = isContainer();
-// A bridge-network container cannot reliably discover the LAN gateway or
-// ask it to forward to the NAS host. Keep native installs' existing behavior.
-export const AUTO_PORT_MAPPING = !CONTAINER_MODE;
 
 function resolveDirs() {
   const envConfig = process.env.MOVVIZ_CONFIG_DIR;

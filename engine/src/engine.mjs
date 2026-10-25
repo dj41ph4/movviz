@@ -10,7 +10,6 @@ import {
   WEB_CALLBACK_URL,
   ENGINE_TOKEN,
   TORRENT_PORT_OVERRIDES,
-  AUTO_PORT_MAPPING,
   resolveClientType,
 } from "./config.mjs";
 import { loadState, scheduleSave, writeState, ensureDir } from "./store.mjs";
@@ -425,8 +424,5 @@ export class MovvizEngine {
       console.error("[engine] final state save failed:", e.message)
     );
     for (const inst of this.instances.values()) await inst.destroy();
-    if (AUTO_PORT_MAPPING) {
-      import("./upnp.mjs").then(({ close }) => close()).catch(() => {});
-    }
   }
 }

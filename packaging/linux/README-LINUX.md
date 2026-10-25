@@ -111,8 +111,9 @@ sudo systemctl daemon-reload
 sudo systemctl restart movviz
 ```
 
-UPnP demande automatiquement les mappings TCP et UDP de ces deux ports si le
-routeur le prend en charge ; sinon, redirigez-les manuellement dans le routeur.
+Redirigez manuellement les ports TCP et UDP dans le routeur. Movviz ne crée
+plus de règles UPnP/NAT-PMP ; les anciennes règles éventuelles doivent être
+retirées depuis le routeur ou le NAS.
 
 ## Utiliser un disque ou un NAS
 

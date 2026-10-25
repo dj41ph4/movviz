@@ -8,7 +8,7 @@ import {
   renderSegment,
   VIDEO_EXT_RE,
 } from "../naming.mjs";
-import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR, AUTO_PORT_MAPPING } from "../config.mjs";
+import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR } from "../config.mjs";
 import { ManualSeed, cacheMetainfo, retainMetainfo, torrentPath } from "../manualSeed.mjs";
 import { validateEpisodeTargets, resolveEpisodePlacement, ensurePresentationFolder } from "../episodePlacement.mjs";
 
@@ -105,12 +105,6 @@ export class AbstractBackend {
       this.client = null;
     });
     this._applyThrottle?.();
-    if (AUTO_PORT_MAPPING) {
-      import("../upnp.mjs").then(({ addMapping }) =>
-        addMapping(this._activeTorrentPort ?? this.cfg.torrentPort, this.cfg.name || this.cfg.id)
-      ).catch(() => {});
-    }
-
     const pi = this._clientPollIntervalMs;
     if (pi > 0) {
       this._pollTimer = setInterval(() => this._clientPoll().catch(() => {}), pi);
@@ -119,11 +113,6 @@ export class AbstractBackend {
 
   async destroy() {
     this._shuttingDown = true;
-    if (AUTO_PORT_MAPPING) {
-      import("../upnp.mjs").then(({ removeMapping }) =>
-        removeMapping(this._activeTorrentPort ?? this.cfg.torrentPort)
-      ).catch(() => {});
-    }
     clearInterval(this._pollTimer);
     await this.manualSeed.destroy();
     await this._seedClientPromise?.catch(() => {});
@@ -137,7 +126,7 @@ export class AbstractBackend {
     if (!this._seedClientPromise) this._seedClientPromise = (async () => {
       const { default: WebTorrent } = await import("webtorrent");
       if (this._shuttingDown) throw new Error("seed_client_stopped");
-      this._seedClient = new WebTorrent({ torrentPort: 0, utp: false, dht: this.cfg.dht !== false, tracker: { wrtc: false }, maxConns: this.cfg.maxPeers ?? 55, natUpnp: AUTO_PORT_MAPPING, natPmp: AUTO_PORT_MAPPING });
+      this._seedClient = new WebTorrent({ torrentPort: 0, utp: false, dht: this.cfg.dht !== false, tracker: { wrtc: false }, maxConns: this.cfg.maxPeers ?? 55, natUpnp: false, natPmp: false });
       this._seedClient.on("error", () => {});
       this._seedClient.throttleUpload((this.cfg.uploadLimitKbps || 0) * 1024 || -1);
       return this._seedClient;

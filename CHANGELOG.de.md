@@ -1,3 +1,10 @@
+## v1.27.44 — 25. Oktober 2026
+
+### Manuelle Portweiterleitung
+
+- Auf allen Plattformen erstellen Engine und WebTorrent keine UPnP/NAT-PMP-Regeln mehr. TCP-Peerverbindungen und UDP-DHT nutzen den konfigurierten Port für die manuelle Weiterleitung.
+- Bereits vorhandene Regeln oder Reservierungen auf dem Router oder NAS müssen dort entfernt werden; dieses Update ändert dessen Konfiguration nicht.
+
 ## v1.27.43 — 25. Oktober 2026
 
 ### Manuelle Docker-Portweiterleitung

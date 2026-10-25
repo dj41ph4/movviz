@@ -9,7 +9,6 @@
     "start": "node src/index.mjs"
   },
   "dependencies": {
-    "webtorrent": "^2.6.19",
-    "nat-upnp": "^1.1.1"
+    "webtorrent": "^2.6.19"
   }
 }

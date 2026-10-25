@@ -1,3 +1,10 @@
+## v1.27.44 — 25 ottobre 2026
+
+### Inoltro manuale delle porte
+
+- Su tutte le piattaforme, il motore e WebTorrent non creano più regole UPnP/NAT-PMP. Il traffico peer TCP e DHT UDP usa la porta configurata per l'inoltro manuale.
+- Le regole o prenotazioni già presenti sul router o NAS devono essere rimosse da quel dispositivo; questo aggiornamento non ne modifica la configurazione.
+
 ## v1.27.43 — 25 ottobre 2026
 
 ### Inoltro manuale delle porte Docker

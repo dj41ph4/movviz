@@ -1,3 +1,10 @@
+## v1.27.44 — 25 oktober 2026
+
+### Handmatige poortdoorsturing
+
+- Op alle platforms maken de engine en WebTorrent geen UPnP/NAT-PMP-regels meer aan. TCP-peerverkeer en UDP-DHT gebruiken de ingestelde poort voor handmatige doorsturing.
+- Bestaande regels of reserveringen op de router of NAS moeten daar worden verwijderd; deze update wijzigt de configuratie van dat apparaat niet.
+
 ## v1.27.43 — 25 oktober 2026
 
 ### Handmatige Docker-poortdoorsturing

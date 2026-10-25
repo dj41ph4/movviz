@@ -1,3 +1,10 @@
+## v1.27.44 — 25 octobre 2026
+
+### Redirections de ports manuelles
+
+- Sur toutes les plateformes, le moteur et WebTorrent ne créent plus de règles UPnP/NAT-PMP. Les ports pairs TCP et DHT UDP utilisent le port configuré pour permettre leur redirection manuelle.
+- Une règle ou réservation déjà présente sur le routeur ou le NAS doit être retirée dans cet appareil ; la mise à jour ne modifie pas sa configuration.
+
 ## v1.27.43 — 25 octobre 2026
 
 ### Mappage manuel des ports Docker
