@@ -96,7 +96,7 @@ fun ProviderHubScreen(
     suspend fun loadRows() {
         val repo = repository ?: return
         rowsFailed = false
-        when (val r = repo.providerRows()) {
+        when (val r = repo.providerRows(providerId)) {
             is ApiResult.Success -> rows = listOf(ProviderRowDescDto(FOR_YOU_KEY, "Sélection pour vous")) + r.data
             else -> rowsFailed = true
         }

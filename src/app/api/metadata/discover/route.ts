@@ -4,7 +4,8 @@ import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
 import { requireUser } from "@/lib/auth/guard";
 import { getRecommendationPool, recommendationsPending } from "@/lib/recommender/engine";
 import { getProviderRelationPool } from "@/lib/recommender/providerRelations";
-import { rankPersonalized } from "@/lib/metadata/personalizedSort";
+import { rankPersonalized, genreAffinityFrom, rankByTaste } from "@/lib/metadata/personalizedSort";
+import { getRecommendationPool as getUserPool } from "@/lib/recommender/engine";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,28 @@ export async function GET(req: NextRequest) {
       : getRecommendationPool(userId, type).then((results) => ({ results, pending: recommendationsPending(userId) }))).catch(() => ({ results: [], pending: false }))
     : null;
   const filtered = ["genre", "year", "company", "maxRuntime", "minRuntime"].some((key) => !!searchParams.get(key));
+  // « Pour vous » sur une plateforme : l'intersection recommandations ×
+  // catalogue de la plateforme ne donnait que quelques dizaines de titres puis
+  // plus rien. Chaque page garde d'abord les recommandations présentes sur la
+  // plateforme, puis complète avec le catalogue complet de la plateforme
+  // réordonné selon les goûts (genres du panel personnel) — liste illimitée,
+  // personnalisée de bout en bout.
+  if (recommendationPool && !filtered && Number.isInteger(providerId) && providerId > 0) {
+    const [pool, catalogue, userPool] = await Promise.all([
+      recommendationPool,
+      discoverByFilters(type, { sort: "popularity.desc", watchProvider: String(providerId), region }, page).catch(() => ({ results: [], page, totalPages: 0 })),
+      getUserPool(userId, type).catch(() => []),
+    ]);
+    const mine = filterSuggestable(pool.results);
+    const head = mine.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+    const seen = new Set(mine.map((item) => item.tmdbId));
+    const fill = rankByTaste(filterSuggestable(catalogue.results).filter((item) => !seen.has(item.tmdbId)), genreAffinityFrom(userPool));
+    return NextResponse.json({
+      results: [...head, ...fill],
+      page,
+      totalPages: Math.max(Math.ceil(mine.length / PER_PAGE), catalogue.totalPages, pool.pending ? page + 1 : 1),
+    });
+  }
   if (recommendationPool && !filtered) {
     const pool = await recommendationPool;
     const results = filterSuggestable(pool.results);

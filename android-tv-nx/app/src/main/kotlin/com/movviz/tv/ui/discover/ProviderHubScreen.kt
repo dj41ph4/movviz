@@ -93,7 +93,7 @@ fun ProviderHubScreen(
     suspend fun loadRows() {
         val repo = repository ?: return
         rowsFailed = false
-        when (val r = repo.providerRows()) {
+        when (val r = repo.providerRows(providerId)) {
             is ApiResult.Success -> rows = r.data
             else -> rowsFailed = true
         }

@@ -1,3 +1,13 @@
+## v1.27.55 — 26 oktober 2026
+
+### Platforms
+
+- Platformpagina's (Android TV en Android): Nieuw toont populaire titels van de afgelopen zes maanden uit Europa en de VS; Koreaanse en Franse content krijgen eigen rijen.
+- Elke categorie filtert onbekende titels weg, en er komen nieuwe rijen voor alle platforms: Superhelden, Gebaseerd op een waargebeurd verhaal, Romantische komedies, Korter dan 1 u 40, Grote films, jaren 2010, 2000 en 90, Grote klassiekers.
+- Disney+ krijgt eigen rijen: Marvel-universum, Pixar, Star Wars, Disney-klassiekers en National Geographic.
+- Rijen zijn bij het openen twee keer zo vol, met een servercache zodat alles direct blijft.
+- Ontdekken op de computer: de sortering "Voor jou" van een platform toont eerst je aanbevelingen en daarna de hele catalogus van het platform volgens je smaak, in plaats van na een paar titels te stoppen.
+
 ## v1.27.54 — 25 oktober 2026
 
 ### Zoeken en Android TV

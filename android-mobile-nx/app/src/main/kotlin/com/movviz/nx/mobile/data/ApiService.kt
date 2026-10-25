@@ -230,7 +230,7 @@ interface MovvizApiService {
     // dans la requête réelle sans rien faire de spécial ici.
     /** Rangées de la page « plateforme » (src/app/api/metadata/provider-rows). */
     @GET("api/metadata/provider-rows")
-    suspend fun providerRows(): Response<ProviderRowsResponseDto>
+    suspend fun providerRows(@Query("provider") provider: Int): Response<ProviderRowsResponseDto>
 
     /** Une page d'une rangée de plateforme : films et séries mélangés. */
     @GET("api/metadata/provider-row")

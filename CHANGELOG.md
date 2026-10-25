@@ -1,3 +1,13 @@
+## v1.27.55 — 26 octobre 2026
+
+### Plateformes
+
+- Pages plateformes (Android TV et Android) : les Nouveautés montrent les sorties populaires des six derniers mois en Europe et aux États-Unis ; le coréen et le français ont leurs propres rangées.
+- Chaque catégorie écarte les titres confidentiels, et de nouvelles rangées arrivent pour toutes les plateformes : Super-héros, Inspiré d'une histoire vraie, Comédies romantiques, Moins de 1 h 40, Grands films, années 2010, 2000 et 90, Grands classiques.
+- Disney+ gagne ses rangées dédiées : Univers Marvel, Pixar, Star Wars, Classiques Disney et National Geographic.
+- Rangées deux fois plus fournies dès l'ouverture, avec un cache serveur pour rester instantané.
+- Découverte sur ordinateur : le tri « Pour vous » d'une plateforme garde vos recommandations en tête puis enchaîne sur tout le catalogue de la plateforme classé selon vos goûts, au lieu de s'arrêter après quelques titres.
+
 ## v1.27.54 — 25 octobre 2026
 
 ### Recherche et Android TV

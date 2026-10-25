@@ -1,4 +1,4 @@
-import { discoverByFilters, getAnimeRow, type PagedResults } from "@/lib/metadata/tmdb";
+import { discoverByFilters, getAnimeRow, type DiscoverFilters, type PagedResults } from "@/lib/metadata/tmdb";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 
@@ -12,9 +12,17 @@ import { filterSuggestable } from "@/lib/metadata/suggestable";
  * « Action » nu côté séries, pas d'« Horreur » du tout) : chaque rangée porte
  * son propre filtre par type, `null` quand le type n'a pas d'équivalent — la
  * rangée ne contient alors que l'autre type.
+ *
+ * Qualité : chaque catégorie impose un nombre minimum de votes TMDb, pour
+ * qu'une rangée « grand public » ne remonte jamais un titre confidentiel. Les
+ * productions coréennes, japonaises ou françaises ont leurs rangées dédiées
+ * au lieu de s'imposer dans les Nouveautés.
  */
 
-type Side = { genre?: string; sort?: string } | null;
+/** Filtres d'un côté (films ou séries) d'une rangée — sous-ensemble de DiscoverFilters. */
+type Side = Pick<DiscoverFilters,
+  "genre" | "sort" | "company" | "keywords" | "originalLanguage" | "originCountries" |
+  "minVotes" | "releasedAfter" | "releasedBefore" | "minRuntime" | "maxRuntime"> | null;
 
 interface ProviderRowDef {
   key: string;
@@ -28,37 +36,105 @@ interface ProviderRowDef {
   nonFiction?: boolean;
   /** Animés : genre synthétique (Animation + langue japonaise). */
   anime?: boolean;
+  /** Rangée propre à certaines plateformes (ex. Marvel sur Disney+). */
+  providers?: number[];
 }
 
 const POPULAR = "popularity.desc";
+const DISNEY_PLUS = 337;
 
-export const PROVIDER_ROWS: ProviderRowDef[] = [
-  { key: "trending", label: "Tendances", movie: { sort: POPULAR }, series: { sort: POPULAR } },
-  { key: "new", label: "Nouveautés", rank: "date", movie: { sort: "primary_release_date.desc" }, series: { sort: "primary_release_date.desc" } },
-  { key: "top", label: "Les mieux notés", rank: "rating", movie: { sort: "vote_average.desc" }, series: { sort: "vote_average.desc" } },
-  { key: "action", label: "Action et aventure", movie: { genre: "28|12" }, series: { genre: "10759" } },
-  { key: "comedy", label: "Comédies", movie: { genre: "35" }, series: { genre: "35" } },
-  { key: "anime", label: "Animés", movie: {}, series: {}, anime: true },
-  { key: "animation", label: "Animation", movie: { genre: "16" }, series: { genre: "16" } },
-  { key: "scifi", label: "Science-fiction et fantastique", movie: { genre: "878|14" }, series: { genre: "10765" } },
-  { key: "crime", label: "Policier et thriller", movie: { genre: "80|53" }, series: { genre: "80|9648" } },
-  { key: "drama", label: "Drames", movie: { genre: "18" }, series: { genre: "18" } },
-  { key: "family", label: "En famille", movie: { genre: "10751" }, series: { genre: "10751|10762" } },
-  { key: "horror", label: "Horreur et frissons", movie: { genre: "27" }, series: null },
-  { key: "romance", label: "Romance", movie: { genre: "10749" }, series: { genre: "10766" } },
-  { key: "history", label: "Histoire et guerre", movie: { genre: "36|10752" }, series: { genre: "10768" } },
-  { key: "western", label: "Western", movie: { genre: "37" }, series: { genre: "37" } },
-  { key: "music", label: "Musique", movie: { genre: "10402" }, series: null },
-  { key: "documentary", label: "Documentaires", movie: { genre: "99" }, series: { genre: "99" }, nonFiction: true },
-  { key: "reality", label: "Téléréalité et émissions", movie: null, series: { genre: "10764|10767" }, nonFiction: true },
-];
+/** Productions occidentales — « Nouveautés » met en avant ce que le public
+ *  européen et américain attend, pas une série populaire au Japon ou en Corée. */
+const WESTERN = ["US", "GB", "FR", "CA", "DE", "IT", "ES", "BE", "IE", "AU", "NL", "SE", "DK", "NO", "CH"];
 
-const TMDB_MAX_PAGES = 500;
-
-export function providerRowDef(key: string): ProviderRowDef | undefined {
-  return PROVIDER_ROWS.find((row) => row.key === key);
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 }
 
+/** Les deux côtés avec le même filtre (genre propre à chaque côté ensuite). */
+const both = (side: NonNullable<Side>, movie: Partial<NonNullable<Side>> = {}, series: Partial<NonNullable<Side>> = {}) =>
+  ({ movie: { ...side, ...movie }, series: { ...side, ...series } });
+
+function buildRows(): ProviderRowDef[] {
+  const recent = isoDaysAgo(180);
+  return [
+    { key: "trending", label: "Tendances", ...both({ sort: POPULAR, minVotes: 40 }) },
+    { key: "new", label: "Nouveautés", ...both({ sort: POPULAR, releasedAfter: recent, originCountries: WESTERN, minVotes: 5 }) },
+    { key: "top", label: "Les mieux notés", rank: "rating", ...both({ sort: "vote_average.desc", minVotes: 400 }) },
+    // Spécial Disney+ : franchises et studios de la maison.
+    { key: "marvel", label: "Univers Marvel", providers: [DISNEY_PLUS], ...both({ company: "420", minVotes: 20 }) },
+    { key: "pixar", label: "Pixar", providers: [DISNEY_PLUS], ...both({ company: "3", minVotes: 20 }) },
+    { key: "starwars", label: "Star Wars", providers: [DISNEY_PLUS], ...both({ company: "1", minVotes: 20 }) },
+    { key: "disneyclassics", label: "Classiques Disney", providers: [DISNEY_PLUS], movie: { company: "6125", minVotes: 50 }, series: null },
+    { key: "natgeo", label: "National Geographic", providers: [DISNEY_PLUS], nonFiction: true, ...both({ company: "7521", minVotes: 5 }) },
+    { key: "action", label: "Action et aventure", ...both({ minVotes: 80 }, { genre: "28|12" }, { genre: "10759" }) },
+    { key: "comedy", label: "Comédies", ...both({ genre: "35", minVotes: 60 }) },
+    { key: "superhero", label: "Super-héros", ...both({ keywords: "9715", minVotes: 40 }) },
+    { key: "scifi", label: "Science-fiction et fantastique", ...both({ minVotes: 60 }, { genre: "878|14" }, { genre: "10765" }) },
+    { key: "crime", label: "Policier et thriller", ...both({ minVotes: 60 }, { genre: "80|53" }, { genre: "80|9648" }) },
+    { key: "truestory", label: "Inspiré d'une histoire vraie", ...both({ keywords: "9672", minVotes: 40 }) },
+    { key: "family", label: "En famille", ...both({ minVotes: 40 }, { genre: "10751" }, { genre: "10751|10762" }) },
+    { key: "animation", label: "Animation", ...both({ genre: "16", minVotes: 40 }) },
+    { key: "anime", label: "Animés", movie: {}, series: {}, anime: true },
+    { key: "drama", label: "Drames", ...both({ genre: "18", minVotes: 80 }) },
+    { key: "romcom", label: "Comédies romantiques", movie: { genre: "10749,35", minVotes: 60 }, series: { genre: "35,10766", minVotes: 20 } },
+    { key: "horror", label: "Horreur et frissons", movie: { genre: "27", minVotes: 60 }, series: null },
+    { key: "french", label: "Films et séries français", ...both({ originalLanguage: "fr", minVotes: 30 }) },
+    { key: "korean", label: "Corée : films et K-dramas", ...both({ originalLanguage: "ko", minVotes: 30 }) },
+    { key: "short", label: "Moins de 1 h 40", movie: { maxRuntime: 100, minRuntime: 60, minVotes: 150 }, series: null },
+    { key: "epic", label: "Grands films (plus de 2 h 30)", movie: { minRuntime: 150, minVotes: 150 }, series: null },
+    { key: "y2010", label: "Les années 2010", ...both({ releasedAfter: "2010-01-01", releasedBefore: "2019-12-31", minVotes: 200 }) },
+    { key: "y2000", label: "Les années 2000", ...both({ releasedAfter: "2000-01-01", releasedBefore: "2009-12-31", minVotes: 150 }) },
+    { key: "y1990", label: "Les années 90", ...both({ releasedAfter: "1990-01-01", releasedBefore: "1999-12-31", minVotes: 120 }) },
+    { key: "classics", label: "Grands classiques", movie: { releasedBefore: "1989-12-31", minVotes: 300 }, series: { releasedBefore: "1989-12-31", minVotes: 50 } },
+    { key: "history", label: "Histoire et guerre", ...both({ minVotes: 40 }, { genre: "36|10752" }, { genre: "10768" }) },
+    { key: "western", label: "Western", ...both({ genre: "37", minVotes: 30 }) },
+    { key: "music", label: "Musique et comédies musicales", movie: { genre: "10402", minVotes: 40 }, series: null },
+    { key: "documentary", label: "Documentaires", nonFiction: true, ...both({ genre: "99", minVotes: 10 }) },
+    { key: "reality", label: "Téléréalité et émissions", nonFiction: true, movie: null, series: { genre: "10764|10767", minVotes: 5 } },
+  ];
+}
+
+// Recalculé au plus une fois par jour : les dates relatives (Nouveautés)
+// glissent sans redémarrage du serveur.
+let rowsCache: { day: string; rows: ProviderRowDef[] } | null = null;
+function allRows(): ProviderRowDef[] {
+  const day = new Date().toISOString().slice(0, 10);
+  if (!rowsCache || rowsCache.day !== day) rowsCache = { day, rows: buildRows() };
+  return rowsCache.rows;
+}
+
+/** Rangées affichées pour une plateforme (les rangées spécifiques en plus). */
+export function providerRowsFor(providerId: number | null): { key: string; label: string }[] {
+  return allRows()
+    .filter((row) => !row.providers || (providerId != null && row.providers.includes(providerId)))
+    .map(({ key, label }) => ({ key, label }));
+}
+
+const TMDB_MAX_PAGES = 500;
+/** Pages TMDb (20 titres) lues par côté pour UNE page de rangée : rangées
+ *  plus fournies dès l'arrivée (jusqu'à ~80 titres films + séries). */
+const TMDB_PAGES_PER_ROW_PAGE = 2;
+
+export function providerRowDef(key: string): ProviderRowDef | undefined {
+  return allRows().find((row) => row.key === key);
+}
+
+async function fetchSidePage(
+  type: "movie" | "series",
+  def: ProviderRowDef,
+  side: NonNullable<Side>,
+  providerId: number,
+  region: string,
+  tmdbPage: number,
+): Promise<PagedResults> {
+  if (def.anime) {
+    return getAnimeRow(type, 20, undefined, tmdbPage, { sort: POPULAR, watchProvider: String(providerId), region });
+  }
+  return discoverByFilters(type, { ...side, sort: side.sort ?? POPULAR, watchProvider: String(providerId), region }, tmdbPage);
+}
+
+/** Une page de rangée = TMDB_PAGES_PER_ROW_PAGE pages TMDb consécutives d'un côté. */
 async function fetchSide(
   type: "movie" | "series",
   def: ProviderRowDef,
@@ -69,19 +145,18 @@ async function fetchSide(
 ): Promise<PagedResults> {
   const empty = { results: [], page, totalPages: 0 };
   if (!side) return empty;
-  try {
-    if (def.anime) {
-      return await getAnimeRow(type, 20, undefined, page, { sort: POPULAR, watchProvider: String(providerId), region });
-    }
-    return await discoverByFilters(type, {
-      genre: side.genre,
-      sort: side.sort ?? POPULAR,
-      watchProvider: String(providerId),
-      region,
-    }, page);
-  } catch {
-    return empty;
-  }
+  const first = (page - 1) * TMDB_PAGES_PER_ROW_PAGE + 1;
+  const pages = await Promise.all(
+    Array.from({ length: TMDB_PAGES_PER_ROW_PAGE }, (_, i) => fetchSidePage(type, def, side, providerId, region, first + i).catch(() => null)),
+  );
+  const ok = pages.filter((p): p is PagedResults => !!p);
+  if (ok.length === 0) return empty;
+  const tmdbTotal = Math.max(...ok.map((p) => p.totalPages));
+  return {
+    results: ok.flatMap((p) => (p.page <= tmdbTotal ? p.results : [])),
+    page,
+    totalPages: Math.ceil(Math.min(TMDB_MAX_PAGES, tmdbTotal) / TMDB_PAGES_PER_ROW_PAGE),
+  };
 }
 
 /**
@@ -143,9 +218,27 @@ export function interleaveByMerit(lists: MetaSearchResult[][], rank?: ProviderRo
   return out;
 }
 
-export async function providerRowPage(providerId: number, key: string, page: number, region: string): Promise<PagedResults> {
+// Cache mémoire des pages de rangée : revenir sur une plateforme, ou rouvrir
+// « Voir tout », ne refait aucun appel TMDb pendant ROW_CACHE_TTL_MS.
+const ROW_CACHE_TTL_MS = 20 * 60_000;
+const ROW_CACHE_MAX = 600;
+const rowCache = new Map<string, { at: number; value: Promise<PagedResults> }>();
+
+export function providerRowPage(providerId: number, key: string, page: number, region: string): Promise<PagedResults> {
+  const cacheKey = `${providerId}|${key}|${page}|${region}|${new Date().toISOString().slice(0, 10)}`;
+  const hit = rowCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < ROW_CACHE_TTL_MS) return hit.value;
+  const value = computeProviderRowPage(providerId, key, page, region);
+  rowCache.set(cacheKey, { at: Date.now(), value });
+  // Un échec n'est pas mis en cache.
+  value.then((r) => { if (r.results.length === 0 && r.totalPages === 0) rowCache.delete(cacheKey); }, () => rowCache.delete(cacheKey));
+  if (rowCache.size > ROW_CACHE_MAX) rowCache.delete(rowCache.keys().next().value!);
+  return value;
+}
+
+async function computeProviderRowPage(providerId: number, key: string, page: number, region: string): Promise<PagedResults> {
   const def = providerRowDef(key);
-  if (!def) return { results: [], page, totalPages: 0 };
+  if (!def || (def.providers && !def.providers.includes(providerId))) return { results: [], page, totalPages: 0 };
   const [movies, series] = await Promise.all([
     fetchSide("movie", def, def.movie, providerId, region, page),
     fetchSide("series", def, def.series, providerId, region, page),
@@ -158,6 +251,6 @@ export async function providerRowPage(providerId: number, key: string, page: num
   return {
     results: interleaveByMerit([withArt(movies.results), withArt(series.results)], def.rank),
     page,
-    totalPages: Math.min(TMDB_MAX_PAGES, Math.max(movies.totalPages, series.totalPages)),
+    totalPages: Math.max(movies.totalPages, series.totalPages),
   };
 }

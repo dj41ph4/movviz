@@ -1,3 +1,13 @@
+## v1.27.55 — October 26, 2026
+
+### Platforms
+
+- Platform pages (Android TV and Android): New releases show popular titles from the last six months in Europe and the US; Korean and French content have their own rows.
+- Every category filters out obscure titles, and new rows arrive for all platforms: Superheroes, Based on a true story, Romantic comedies, Under 1 h 40, Epic films, the 2010s, 2000s and 90s, Great classics.
+- Disney+ gets dedicated rows: Marvel Universe, Pixar, Star Wars, Disney Classics and National Geographic.
+- Rows are twice as full on opening, with a server cache so they stay instant.
+- Discover on desktop: a platform's "For you" sort keeps your recommendations first, then continues with the platform's whole catalogue ranked by your taste, instead of stopping after a few titles.
+
 ## v1.27.54 — October 25, 2026
 
 ### Search and Android TV

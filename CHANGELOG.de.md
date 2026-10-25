@@ -1,3 +1,13 @@
+## v1.27.55 — 26. Oktober 2026
+
+### Plattformen
+
+- Plattformseiten (Android TV und Android): Neuheiten zeigen beliebte Titel der letzten sechs Monate aus Europa und den USA; koreanische und französische Inhalte haben eigene Reihen.
+- Jede Kategorie filtert unbekannte Titel heraus, und für alle Plattformen kommen neue Reihen: Superhelden, Nach einer wahren Geschichte, Liebeskomödien, Unter 1 h 40, Große Filme, 2010er, 2000er und 90er, Große Klassiker.
+- Disney+ erhält eigene Reihen: Marvel-Universum, Pixar, Star Wars, Disney-Klassiker und National Geographic.
+- Reihen sind beim Öffnen doppelt so gefüllt, mit Server-Cache, damit alles sofort bleibt.
+- Entdecken am Computer: Die Sortierung „Für dich“ einer Plattform zeigt zuerst deine Empfehlungen und danach den gesamten Katalog der Plattform nach deinem Geschmack, statt nach wenigen Titeln aufzuhören.
+
 ## v1.27.54 — 25. Oktober 2026
 
 ### Suche und Android TV

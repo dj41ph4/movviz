@@ -214,8 +214,8 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun discoverByGenre(type: String, genre: String, page: Int): ApiResult<SearchResponseDto> =
         safeCall { api.discoverByGenre(type, genre, page = page) }
 
-    suspend fun providerRows(): ApiResult<List<ProviderRowDescDto>> =
-        safeCall { api.providerRows() }.map { it.rows }
+    suspend fun providerRows(providerId: Int): ApiResult<List<ProviderRowDescDto>> =
+        safeCall { api.providerRows(providerId) }.map { it.rows }
 
     suspend fun providerRow(providerId: Int, key: String, page: Int): ApiResult<SearchResponseDto> =
         safeCall { api.providerRow(providerId, key, page) }

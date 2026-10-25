@@ -761,6 +761,13 @@ export interface DiscoverFilters {
   region?: string;
   /** with_original_language — ISO 639-1 ("ja" for anime, "ko"…). */
   originalLanguage?: string;
+  /** Période de sortie (AAAA-MM-JJ) — date de sortie film / première diffusion série. */
+  releasedAfter?: string;
+  releasedBefore?: string;
+  /** vote_count.gte — écarte les titres confidentiels (quelques votes). */
+  minVotes?: number;
+  /** with_keywords — mots-clés TMDb (ex. super-héros, histoire vraie). */
+  keywords?: string;
 }
 
 const DEFAULT_WATCH_REGION = "FR";
@@ -828,6 +835,10 @@ export async function discoverByFilters(
   // Sorting by rating alone surfaces obscure titles with a single 10/10 vote;
   // TMDb's own "top rated" needs a minimum sample size to mean anything.
   if (sortBy === "vote_average.desc") params["vote_count.gte"] = "200";
+  if (filters.minVotes && Number(params["vote_count.gte"] ?? 0) < filters.minVotes) params["vote_count.gte"] = String(filters.minVotes);
+  if (filters.keywords) params.with_keywords = filters.keywords;
+  if (filters.releasedAfter) params[`${dateField}.gte`] = filters.releasedAfter;
+  if (filters.releasedBefore) params[`${dateField}.lte`] = filters.releasedBefore;
   // Sorting by date alone surfaces far-future placeholder entries (unreleased
   // titles registered years or decades ahead) — cap at today for "newest".
   if (sortBy === `${dateField}.desc`) params[`${dateField}.lte`] = new Date().toISOString().slice(0, 10);

@@ -1,3 +1,13 @@
+## v1.27.55 — 26 ottobre 2026
+
+### Piattaforme
+
+- Pagine piattaforma (Android TV e Android): le Novità mostrano i titoli popolari degli ultimi sei mesi in Europa e negli Stati Uniti; i contenuti coreani e francesi hanno righe dedicate.
+- Ogni categoria esclude i titoli poco noti, e arrivano nuove righe per tutte le piattaforme: Supereroi, Ispirato a una storia vera, Commedie romantiche, Meno di 1 h 40, Grandi film, anni 2010, 2000 e 90, Grandi classici.
+- Disney+ ottiene righe dedicate: Universo Marvel, Pixar, Star Wars, Classici Disney e National Geographic.
+- Righe due volte più ricche all'apertura, con una cache server per restare istantanee.
+- Scopri su computer: l'ordinamento «Per te» di una piattaforma mostra prima i tuoi consigli e poi tutto il catalogo della piattaforma ordinato secondo i tuoi gusti, invece di fermarsi dopo pochi titoli.
+
 ## v1.27.54 — 25 ottobre 2026
 
 ### Ricerca e Android TV
