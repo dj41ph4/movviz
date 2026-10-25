@@ -1,3 +1,11 @@
+## v1.27.53 — 25 oktober 2026
+
+### Platforms op Android TV en Android
+
+- Een platform openen (Netflix, Disney+, Prime Video…) toont nu een echte pagina per categorie: Trending, Nieuw, Best beoordeeld, daarna Actie en avontuur, Komedies, Anime, Sciencefiction, Misdaad en thriller, Drama's, Familie, Horror, Romantiek, Documentaires en nog veel meer.
+- Films en series worden in elke rij slim gemengd: de meest relevante titel komt eerst, nooit meer dan twee films of twee series na elkaar. Netflix toont eindelijk zijn series, die tot nu toe ontbraken.
+- Elke rij laadt bij het naderen, wordt eindeloos langer naar rechts en eindigt met "Alles bekijken"; op mobiel blijft "Selectie voor jou" bovenaan.
+
 ## v1.27.52 — 25 oktober 2026
 
 ### Platforms op Android TV

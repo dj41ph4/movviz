@@ -111,6 +111,10 @@ private const val ROUTE_PERSON = "person/{id}"
 // (ex. "acclaimed", "becauseYouWatched:123456"), soit l'id de genre (TMDb
 // numérique en string, ou l'un des deux synthétiques "anime"/"teen").
 private const val ROUTE_ROW = "row/{mode}/{mediaType}/{key}?label={label}"
+// Page « plateforme » : rangées par catégorie, films et séries mélangés.
+private const val ROUTE_PROVIDER = "provider/{id}?name={name}"
+
+fun providerRoute(id: Int, name: String): String = "provider/$id?name=${android.net.Uri.encode(name)}"
 
 /** Login ouvert en mode « ajouter un utilisateur au foyer » : après la
  *  connexion, le compte rejoint le foyer (ou est détecté déjà présent)
@@ -629,7 +633,13 @@ composable(ROUTE_PROFILES) {
                     navController.navigate(detailRoute("series", tmdbId, season, episode))
                 },
                 onSeeAllRow = { mediaType, key, label ->
-                    navController.navigate(rowDetailRoute("row", mediaType, key, label))
+                    val providerId = if (key.startsWith("providerSuggested:")) key.substringAfter(':').toIntOrNull() else null
+                    if (providerId != null) {
+                        // Plateforme : page par catégories (films + séries), « Sélection pour vous » en tête.
+                        navController.navigate(providerRoute(providerId, label.removePrefix("Sélection ").removeSuffix(" pour vous")))
+                    } else {
+                        navController.navigate(rowDetailRoute("row", mediaType, key, label))
+                    }
                 },
                 onOpenGenre = { mediaType, genreId, label ->
                     navController.navigate(rowDetailRoute("genre", mediaType, genreId, label))
@@ -745,6 +755,25 @@ composable(ROUTE_PROFILES) {
                 )
                 }
             }
+        }
+        composable(
+            route = ROUTE_PROVIDER,
+            arguments = listOf(
+                navArgument("id") { type = NavType.IntType },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { backStackEntry ->
+            val providerId = backStackEntry.arguments?.getInt("id") ?: 0
+            val name = android.net.Uri.decode(backStackEntry.arguments?.getString("name") ?: "")
+            com.movviz.nx.mobile.ui.discover.ProviderHubScreen(
+                viewModel = viewModel,
+                providerId = providerId,
+                providerName = name,
+                onOpenTitle = { type, tmdbId -> navController.navigate(detailRoute(type, tmdbId)) },
+                onSeeAll = { rowKey, label -> navController.navigate(rowDetailRoute("providerRow", "movie", "$providerId|$rowKey", label)) },
+                onSeeAllForYou = { navController.navigate(rowDetailRoute("row", "movie", "providerSuggested:$providerId", "Sélection $name pour vous")) },
+                onBack = { navController.popBackStack() },
+            )
         }
         composable(
             route = ROUTE_ROW,

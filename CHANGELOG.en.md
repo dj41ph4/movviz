@@ -1,3 +1,11 @@
+## v1.27.53 — October 25, 2026
+
+### Platforms on Android TV and Android
+
+- Opening a platform (Netflix, Disney+, Prime Video…) now shows a real page by category: Trending, New, Top rated, then Action and adventure, Comedies, Anime, Sci-fi, Crime and thriller, Dramas, Family, Horror, Romance, Documentaries and many more.
+- Movies and series are smartly mixed in each row: the most relevant title comes first, never more than two movies or two series in a row. Netflix finally shows its series, which were missing until now.
+- Each row loads as it comes into view, extends endlessly to the right and ends with "See all"; on mobile, "Picked for you" stays at the top.
+
 ## v1.27.52 — October 25, 2026
 
 ### Platforms on Android TV

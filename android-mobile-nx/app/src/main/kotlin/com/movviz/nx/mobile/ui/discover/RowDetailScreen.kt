@@ -133,6 +133,16 @@ fun RowDetailScreen(
                         else -> null
                     }
                 }
+            } else if (mode == "providerRow") {
+                // « Voir tout » d'une rangée de la page plateforme : rowKey =
+                // "<providerId>|<clé de rangée>", films et séries mélangés.
+                val providerId = rowKey.substringBefore("|").toIntOrNull() ?: return
+                repo.providerRow(providerId, rowKey.substringAfter("|"), target).let { r ->
+                    when (r) {
+                        is ApiResult.Success -> PageResult(r.data.results, r.data.page, r.data.totalPages, null)
+                        else -> null
+                    }
+                }
             } else {
                 repo.rowPage(mediaType, rowKey, target, if (isProviderPage) providerSort else null).let { r ->
                     when (r) {

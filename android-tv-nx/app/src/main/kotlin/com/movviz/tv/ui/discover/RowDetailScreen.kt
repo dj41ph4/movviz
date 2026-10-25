@@ -126,6 +126,16 @@ fun RowDetailScreen(
                         else -> null
                     }
                 }
+            } else if (mode == "providerRow") {
+                // « Voir tout » d'une rangée de la page plateforme : rowKey =
+                // "<providerId>|<clé de rangée>", films et séries mélangés.
+                val providerId = rowKey.substringBefore("|").toIntOrNull() ?: return
+                repo.providerRow(providerId, rowKey.substringAfter("|"), target).let { r ->
+                    when (r) {
+                        is ApiResult.Success -> PageResult(r.data.results, r.data.page, r.data.totalPages, null)
+                        else -> null
+                    }
+                }
             } else if (mode == "provider") {
                 val providerId = rowKey.toIntOrNull() ?: return
                 repo.discoverByProvider(mediaType, providerId, target).let { r ->
@@ -172,7 +182,7 @@ fun RowDetailScreen(
 
     LaunchedEffect(mode, mediaType, rowKey, baseUrl) {
         if (repository != null) {
-            if (mode == "provider" && providerTiles.isEmpty()) viewModel.loadDiscoverLogos()
+            if ((mode == "provider" || mode == "providerRow") && providerTiles.isEmpty()) viewModel.loadDiscoverLogos()
             val restoreThrough = page.coerceAtLeast(1)
             for (target in 1..restoreThrough) {
                 loadPage(target)
@@ -228,11 +238,11 @@ fun RowDetailScreen(
             .padding(start = 39.dp, top = 48.dp, end = 39.dp, bottom = 23.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (mode == "provider") {
+            if (mode == "provider" || mode == "providerRow") {
                 // Logo de marque transparent (même SVG que les tuiles Plateformes)
                 // plutôt que le carré TMDb sur fond de couleur ; repli TMDb pour
                 // les plateformes sans logo de marque embarqué.
-                val providerId = rowKey.toIntOrNull()
+                val providerId = rowKey.substringBefore("|").toIntOrNull()
                 val brandLogo = providerId?.let { com.movviz.tv.ui.theme.providerBrandAsset(it) }
                 val logoModel = brandLogo ?: providerTiles.firstOrNull { it.id == providerId }?.logoPath?.let { "https://image.tmdb.org/t/p/w500$it" }
                 if (logoModel != null) {

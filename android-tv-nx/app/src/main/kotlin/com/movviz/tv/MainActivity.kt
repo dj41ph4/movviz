@@ -89,6 +89,10 @@ private const val ROUTE_PERSON = "person/{id}"
 // (ex. "acclaimed", "becauseYouWatched:123456"), soit l'id de genre (TMDb
 // numérique en string, ou l'un des deux synthétiques "anime"/"teen").
 private const val ROUTE_ROW = "row/{mode}/{mediaType}/{key}?label={label}"
+// Page « plateforme » : rangées par catégorie, films et séries mélangés.
+private const val ROUTE_PROVIDER = "provider/{id}?name={name}"
+
+fun providerRoute(id: Int, name: String): String = "provider/$id?name=${android.net.Uri.encode(name)}"
 
 /** Login ouvert en mode « ajouter un utilisateur au foyer » : après la
  *  connexion, le compte rejoint le foyer (ou est détecté déjà présent)
@@ -99,7 +103,7 @@ private const val ROUTE_LOGIN_ADD = "login?add=true"
  *  titre, fiche acteur. Absente sur wizard/login/profils (avant qu'il y
  *  ait quoi que ce soit à naviguer). */
 private fun routeShowsNavRail(route: String?): Boolean =
-    route != null && (route.startsWith("home") || route.startsWith("detail/") || route.startsWith("person/") || route.startsWith("row/"))
+    route != null && (route.startsWith("home") || route.startsWith("detail/") || route.startsWith("person/") || route.startsWith("row/") || route.startsWith("provider/"))
 
 fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = null, seriesPart: String? = null): String {
     val part = com.movviz.tv.data.BleachPresentation.part(tmdbId, type, seriesPart, season)
@@ -600,8 +604,13 @@ composable(ROUTE_PROFILES) {
                     navController.navigate(detailRoute("series", tmdbId, season, episode))
                 },
                 onSeeAllRow = { mediaType, key, label ->
-                    val isProvider = key.startsWith("watchProvider:")
-                    navController.navigate(rowDetailRoute(if (isProvider) "provider" else "row", mediaType, if (isProvider) key.substringAfter(':') else key, label))
+                    val providerId = if (key.startsWith("watchProvider:")) key.substringAfter(':').toIntOrNull() else null
+                    if (providerId != null) {
+                        // Plateforme : page par catégories (films + séries), plus la grille brute films seuls.
+                        navController.navigate(providerRoute(providerId, label.removePrefix("Sur ")))
+                    } else {
+                        navController.navigate(rowDetailRoute("row", mediaType, key, label))
+                    }
                 },
                 onOpenGenre = { mediaType, genreId, label ->
                     navController.navigate(rowDetailRoute("genre", mediaType, genreId, label))
@@ -710,6 +719,26 @@ composable(ROUTE_PROFILES) {
                     onOpenTitle = { newType, newTmdbId ->
                         navController.navigate(detailRoute(newType, newTmdbId))
                     },
+                    entryFocusRequester = contentFocusRequester,
+                )
+            }
+        }
+        composable(
+            route = ROUTE_PROVIDER,
+            arguments = listOf(
+                navArgument("id") { type = NavType.IntType },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { backStackEntry ->
+            val providerId = backStackEntry.arguments?.getInt("id") ?: 0
+            val name = android.net.Uri.decode(backStackEntry.arguments?.getString("name") ?: "")
+            DetailFocusToNavHandler(navRailFocusRequester = navRailFocusRequester, reentryFocusRequester = contentReentryFocusRequester, fallbackFocusRequester = contentFocusRequester) {
+                com.movviz.tv.ui.discover.ProviderHubScreen(
+                    viewModel = viewModel,
+                    providerId = providerId,
+                    providerName = name,
+                    onOpenTitle = { type, tmdbId -> navController.navigate(detailRoute(type, tmdbId)) },
+                    onSeeAll = { rowKey, label -> navController.navigate(rowDetailRoute("providerRow", "movie", "$providerId|$rowKey", label)) },
                     entryFocusRequester = contentFocusRequester,
                 )
             }

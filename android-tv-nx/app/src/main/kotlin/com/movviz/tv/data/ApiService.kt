@@ -261,6 +261,18 @@ interface MovvizApiService {
         @Query("page") page: Int = 1,
     ): Response<SearchResponseDto>
 
+    /** Rangées de la page « plateforme » (src/app/api/metadata/provider-rows). */
+    @GET("api/metadata/provider-rows")
+    suspend fun providerRows(): Response<ProviderRowsResponseDto>
+
+    /** Une page d'une rangée de plateforme : films et séries mélangés. */
+    @GET("api/metadata/provider-row")
+    suspend fun providerRow(
+        @Query("provider") provider: Int,
+        @Query("key") key: String,
+        @Query("page") page: Int = 1,
+    ): Response<SearchResponseDto>
+
     /** Catalogue filtré par plateforme, identique au dashboard desktop. */
     @GET("api/metadata/discover")
     suspend fun discoverByProvider(

@@ -1,3 +1,11 @@
+## v1.27.53 — 25. Oktober 2026
+
+### Plattformen auf Android TV und Android
+
+- Das Öffnen einer Plattform (Netflix, Disney+, Prime Video…) zeigt jetzt eine echte Seite nach Kategorien: Trends, Neuheiten, Bestbewertet, dann Action und Abenteuer, Komödien, Anime, Science-Fiction, Krimi und Thriller, Dramen, Familie, Horror, Romantik, Dokumentationen und vieles mehr.
+- Filme und Serien werden in jeder Reihe intelligent gemischt: Der relevanteste Titel kommt zuerst, nie mehr als zwei Filme oder zwei Serien hintereinander. Netflix zeigt endlich seine Serien, die bisher fehlten.
+- Jede Reihe lädt beim Annähern, verlängert sich nach rechts endlos und endet mit „Alle ansehen“; auf dem Handy bleibt „Auswahl für dich“ oben.
+
 ## v1.27.52 — 25. Oktober 2026
 
 ### Plattformen auf Android TV

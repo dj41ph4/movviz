@@ -228,6 +228,18 @@ interface MovvizApiService {
     // quel : Retrofit form-encode chaque @Query au niveau OkHttp/HttpUrl,
     // donc le ':' de "becauseYouWatched:123456" est déjà pourcenté-encodé
     // dans la requête réelle sans rien faire de spécial ici.
+    /** Rangées de la page « plateforme » (src/app/api/metadata/provider-rows). */
+    @GET("api/metadata/provider-rows")
+    suspend fun providerRows(): Response<ProviderRowsResponseDto>
+
+    /** Une page d'une rangée de plateforme : films et séries mélangés. */
+    @GET("api/metadata/provider-row")
+    suspend fun providerRow(
+        @Query("provider") provider: Int,
+        @Query("key") key: String,
+        @Query("page") page: Int = 1,
+    ): Response<SearchResponseDto>
+
     @GET("api/metadata/row-page")
       suspend fun rowPage(
           @Query("type") type: String,
