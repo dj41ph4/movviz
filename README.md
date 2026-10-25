@@ -12,7 +12,7 @@
 
 ### Your catalog. Your server. Your rules.
 
-<p><strong>Current version: v1.27.41</strong></p>
+<p><strong>Current version: v1.27.42</strong></p>
 
 **A complete self-hosted media platform — from discovery to playback.**
 

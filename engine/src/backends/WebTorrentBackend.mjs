@@ -35,6 +35,7 @@ export class WebTorrentBackend extends AbstractBackend {
     for (const port of candidates) {
       try {
         const client = await this._tryBind(port);
+        this._activeTorrentPort = port;
         if (port !== preferred) {
           console.error(
             `[engine:${this.cfg.id}][${this.cfg.logTag}] port ${preferred} was already in use — fell back to auto-assigned port. Inbound peers won't be forwardable until freed.`

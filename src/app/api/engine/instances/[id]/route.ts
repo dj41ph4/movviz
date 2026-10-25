@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
-import { patchInstanceConfigOffline } from "@/lib/engine/stateFile";
+import { offlineInstancesSnapshot, patchInstanceConfigOffline } from "@/lib/engine/stateFile";
 import { requireAdmin } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,14 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id } = await params;
+  if (id !== "movies" && id !== "series") return NextResponse.json({ error: "no such instance" }, { status: 404 });
   const patch = await req.json();
+  if (Object.hasOwn(patch, "torrentPort")) {
+    const port = patch.torrentPort;
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+      return NextResponse.json({ error: "invalid_torrent_port" }, { status: 400 });
+    }
+  }
 
   try {
     const res = await fetch(`${ENGINE_BASE}/instances/${id}`, {
@@ -27,11 +34,17 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       headers: engineHeaders({ "content-type": "application/json" }),
       body: JSON.stringify(patch),
     });
-    if (res.ok) return NextResponse.json(await res.json());
+    return NextResponse.json(await res.json(), { status: res.status });
   } catch {
     // fall through to offline write
   }
 
-  patchInstanceConfigOffline(id, patch);
+  if (Object.hasOwn(patch, "torrentPort")
+    && offlineInstancesSnapshot().some((instance) => instance.id !== id && instance.torrentPort === patch.torrentPort)) {
+    return NextResponse.json({ error: "torrent_port_in_use" }, { status: 400 });
+  }
+
+  patchInstanceConfigOffline(id, Object.hasOwn(patch, "torrentPort")
+    ? { ...patch, torrentPortUserOverride: true } : patch);
   return NextResponse.json({ ok: true, offline: true });
 }

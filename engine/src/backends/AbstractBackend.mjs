@@ -106,7 +106,7 @@ export class AbstractBackend {
     });
     this._applyThrottle?.();
     import("../upnp.mjs").then(({ addMapping }) =>
-      addMapping(this.cfg.torrentPort, this.cfg.name || this.cfg.id)
+      addMapping(this._activeTorrentPort ?? this.cfg.torrentPort, this.cfg.name || this.cfg.id)
     ).catch(() => {});
 
     const pi = this._clientPollIntervalMs;
@@ -118,7 +118,7 @@ export class AbstractBackend {
   async destroy() {
     this._shuttingDown = true;
     import("../upnp.mjs").then(({ removeMapping }) =>
-      removeMapping(this.cfg.torrentPort)
+      removeMapping(this._activeTorrentPort ?? this.cfg.torrentPort)
     ).catch(() => {});
     clearInterval(this._pollTimer);
     await this.manualSeed.destroy();

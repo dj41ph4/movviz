@@ -1,3 +1,10 @@
+## v1.27.42 — 25 ottobre 2026
+
+### Porte WebTorrent configurabili
+
+- Le impostazioni dei client di download permettono di scegliere porte WebTorrent separate per film e serie. I valori vengono convalidati, conservati dopo il riavvio e applicati riavviando il client torrent senza cancellare la coda.
+- In Docker, la pubblicazione delle porte sull'host resta una configurazione separata, indicata accanto al controllo.
+
 ## v1.27.41 — 25 ottobre 2026
 
 ### Ricerca automatica e arrivi recenti

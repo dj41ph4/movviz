@@ -1,3 +1,10 @@
+## v1.27.42 — October 25, 2026
+
+### Configurable WebTorrent ports
+
+- Download client settings now let admins choose separate WebTorrent ports for movies and series. Values are validated, retained across restarts, and applied by restarting the torrent client without clearing the queue.
+- Docker host port publishing remains an external setting, explained beside the new control.
+
 ## v1.27.41 — October 25, 2026
 
 ### Automatic search and recent arrivals

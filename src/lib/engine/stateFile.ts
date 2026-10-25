@@ -72,17 +72,28 @@ const DEFAULT_INSTANCE_SHAPES: Record<string, Partial<EngineInstance>> = {
     id: "movies", category: "movie", name: "Movies",
     downloadPath: path.resolve(resolveConfigDir(), "..", "data", "torrents", "movies"),
     completedPath: path.resolve(resolveConfigDir(), "..", "data", "media", "movies"),
-    maxActive: 4, downloadLimitKbps: 0, uploadLimitKbps: 0, seedRatio: 2.0,
+    maxActive: 4, downloadLimitKbps: 0, uploadLimitKbps: 0, seedRatio: 2.0, torrentPort: 55000,
     sequential: false, autoStart: true, autoMoveOnComplete: true, dht: true, pex: true,
   },
   series: {
     id: "series", category: "series", name: "Series",
     downloadPath: path.resolve(resolveConfigDir(), "..", "data", "torrents", "tv"),
     completedPath: path.resolve(resolveConfigDir(), "..", "data", "media", "tv"),
-    maxActive: 6, downloadLimitKbps: 0, uploadLimitKbps: 0, seedRatio: 1.5,
+    maxActive: 6, downloadLimitKbps: 0, uploadLimitKbps: 0, seedRatio: 1.5, torrentPort: 55001,
     sequential: false, autoStart: true, autoMoveOnComplete: true, dht: true, pex: true,
   },
 };
+
+function environmentTorrentPort(id: string): number | null {
+  const value = process.env[id === "movies" ? "MOVVIZ_TORRENT_PORT" : "MOVVIZ_TORRENT_PORT_SERIES"];
+  const port = Number(value);
+  if (value && Number.isInteger(port) && port >= 1024 && port <= (id === "movies" ? 65534 : 65535)) return port;
+  if (id === "series") {
+    const moviesPort = environmentTorrentPort("movies");
+    if (moviesPort !== null && moviesPort < 65535) return moviesPort + 1;
+  }
+  return null;
+}
 
 /** Best-effort instance list to render in Settings while the engine is unreachable — persisted overrides merged over the built-in shapes, with live stats zeroed out. */
 export function offlineInstancesSnapshot(): EngineInstance[] {
@@ -90,6 +101,9 @@ export function offlineInstancesSnapshot(): EngineInstance[] {
   return Object.entries(DEFAULT_INSTANCE_SHAPES).map(([id, base]) => ({
     ...base,
     ...(saved[id] ?? {}),
+    ...(!saved[id]?.torrentPortUserOverride && environmentTorrentPort(id) !== null
+      ? { torrentPort: environmentTorrentPort(id)! }
+      : {}),
     active: 0,
     seeding: 0,
     total: 0,

@@ -1,3 +1,10 @@
+## v1.27.42 — 25. Oktober 2026
+
+### Konfigurierbare WebTorrent-Ports
+
+- In den Download-Client-Einstellungen lassen sich getrennte WebTorrent-Ports für Filme und Serien wählen. Die Werte werden geprüft, über Neustarts hinweg gespeichert und durch Neustart des Torrent-Clients angewendet, ohne die Warteschlange zu löschen.
+- In Docker bleibt die Veröffentlichung der Host-Ports eine separate Einstellung; ein Hinweis steht direkt am Feld.
+
 ## v1.27.41 — 25. Oktober 2026
 
 ### Automatische Suche und neue Zugänge

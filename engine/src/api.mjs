@@ -105,8 +105,12 @@ export function createApiServer(engine) {
         }
         if (method === "PATCH" && parts[1]) {
           const patch = await readBody(req);
-          const cfg = engine.patchInstance(parts[1], patch);
-          return cfg ? send(res, 200, cfg) : send(res, 404, { error: "no such instance" });
+          try {
+            const cfg = engine.patchInstance(parts[1], patch);
+            return cfg ? send(res, 200, cfg) : send(res, 404, { error: "no such instance" });
+          } catch (e) {
+            return send(res, 400, { error: e.message });
+          }
         }
       }
 

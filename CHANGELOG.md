@@ -1,3 +1,10 @@
+## v1.27.42 — 25 octobre 2026
+
+### Ports WebTorrent configurables
+
+- Les paramètres des clients de téléchargement permettent de choisir séparément les ports WebTorrent des films et des séries. La valeur est validée, conservée après redémarrage et appliquée en relançant le client torrent sans effacer la file.
+- Dans Docker, le port publié reste à configurer sur l'hôte ; Movviz l'indique à côté du réglage.
+
 ## v1.27.41 — 25 octobre 2026
 
 ### Recherche automatique et ajouts récents

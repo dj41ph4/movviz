@@ -1,3 +1,10 @@
+## v1.27.42 — 25 oktober 2026
+
+### Instelbare WebTorrent-poorten
+
+- In de instellingen van downloadclients kun je aparte WebTorrent-poorten voor films en series kiezen. Waarden worden gecontroleerd, na een herstart bewaard en toegepast door de torrentclient te herstarten zonder de wachtrij te wissen.
+- In Docker blijft het publiceren van hostpoorten een aparte instelling, met uitleg naast het veld.
+
 ## v1.27.41 — 25 oktober 2026
 
 ### Automatisch zoeken en recente toevoegingen

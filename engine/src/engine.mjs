@@ -46,9 +46,10 @@ export class MovvizEngine {
       return {
         ...d,
         ...(saved[d.id] ?? {}),
-        // An environment override is intentional deployment configuration,
-        // so it must take priority over the port persisted by an older run.
-        ...(configuredPort === null ? {} : { torrentPort: configuredPort }),
+        // Explicit Settings changes win; legacy saved ports do not silently
+        // override the deployment's environment configuration.
+        ...(configuredPort === null || saved[d.id]?.torrentPortUserOverride
+          ? {} : { torrentPort: configuredPort }),
       };
     });
   }
@@ -247,14 +248,24 @@ export class MovvizEngine {
   patchInstance(id, patch) {
     const inst = this.instances.get(id);
     if (!inst) return null;
+    if (Object.hasOwn(patch, "torrentPort")) {
+      const port = patch.torrentPort;
+      if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+        throw new RangeError("torrentPort must be an integer between 1024 and 65535");
+      }
+      if ([...this.instances.values()].some((other) => other !== inst && other.cfg.torrentPort === port)) {
+        throw new RangeError("torrentPort is already used by another instance");
+      }
+    }
     const allowed = [
       "name", "downloadPath", "completedPath", "maxActive",
       "downloadLimitKbps", "uploadLimitKbps", "seedRatio", "autoStart",
       "sequential", "autoMoveOnComplete", "dht", "pex", "priority",
-      "maxPeers", "uploadSlots",
+      "maxPeers", "uploadSlots", "torrentPort",
     ];
     const clean = {};
     for (const k of allowed) if (k in patch) clean[k] = patch[k];
+    if (Object.hasOwn(clean, "torrentPort")) clean.torrentPortUserOverride = true;
     inst.applyConfig(clean);
     this.persist();
     return inst.cfg;

@@ -124,6 +124,8 @@ export interface EngineInstance {
   id: string;
   category: MediaType;
   name: string;
+  torrentPort: number;
+  torrentPortUserOverride?: boolean;
   downloadPath: string;
   completedPath: string;
   maxActive: number;

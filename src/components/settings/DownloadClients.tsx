@@ -9,7 +9,7 @@ import { FolderPicker } from "./FolderPicker";
 import {
   Film, Tv, Circle, FolderDown, FolderCheck, Layers, Zap, ArrowUpFromLine,
   Repeat, Power, WifiOff, Settings2, Check, X, Loader2, RefreshCw, Users,
-  Upload, HardDrive, Cpu, ArrowRight,
+  Upload, HardDrive, Cpu, Wifi,
 } from "lucide-react";
 
 /**
@@ -45,9 +45,9 @@ export function DownloadClients() {
   };
 
   useEffect(() => {
-    load();
+    const initial = setTimeout(load, 0);
     const id = setInterval(() => { if (!editing) load(); }, 3000);
-    return () => clearInterval(id);
+    return () => { clearTimeout(initial); clearInterval(id); };
   }, [editing]);
 
   const restart = async () => {
@@ -187,6 +187,7 @@ function InstanceCard({
               <ConfigRow icon={ArrowUpFromLine} label={t("settings.ulLimit")} value={ul} />
               <ConfigRow icon={Repeat} label={t("settings.seedRatio")} value={`${inst.seedRatio.toFixed(1)}×`} />
               <ConfigRow icon={Users} label={t("settings.maxPeers")} value={String(inst.maxPeers)} />
+              <ConfigRow icon={Wifi} label={t("settings.torrentPort")} value={String(inst.torrentPort)} />
               <ConfigRow icon={Upload} label={t("settings.uploadSlots")} value={String(inst.uploadSlots)} />
               <div className="flex items-center gap-3 p-4">
                 <Power className="h-4 w-4 text-ink-dim" />
@@ -220,14 +221,23 @@ function EditForm({ inst, pathMode, onClose, onSaved }: { inst: EngineInstance; 
     autoStart: inst.autoStart,
     maxPeers: inst.maxPeers,
     uploadSlots: inst.uploadSlots,
+    torrentPort: String(inst.torrentPort),
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const set = (k: keyof typeof f, v: unknown) => setF((p) => ({ ...p, [k]: v }));
 
   const save = async () => {
+    const port = Number(f.torrentPort);
+    if (!/^\d+$/.test(f.torrentPort.trim()) || !Number.isInteger(port) || port < 1024 || port > 65535) {
+      setError(t("settings.torrentPortInvalid"));
+      return;
+    }
+    setError("");
     setSaving(true);
     try {
-      await fetch(`/api/engine/instances/${inst.id}`, {
+      const portChanged = port !== inst.torrentPort;
+      const res = await fetch(`/api/engine/instances/${inst.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -240,9 +250,22 @@ function EditForm({ inst, pathMode, onClose, onSaved }: { inst: EngineInstance; 
           autoStart: !!f.autoStart,
           maxPeers: Number(f.maxPeers) || 0,
           uploadSlots: Number(f.uploadSlots) || 0,
+          ...(portChanged ? { torrentPort: port } : {}),
         }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error === "torrent_port_in_use" || body.error?.includes("already used")
+          ? t("settings.torrentPortInUse") : t("common.actionFailed"));
+      }
+      const result = await res.json();
+      if (portChanged && !result.offline) {
+        const restart = await fetch("/api/engine/client-restart", { method: "POST" });
+        if (!restart.ok) throw new Error(t("settings.torrentPortRestartFailed"));
+      }
       onSaved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("common.actionFailed"));
     } finally {
       setSaving(false);
     }
@@ -276,6 +299,10 @@ function EditForm({ inst, pathMode, onClose, onSaved }: { inst: EngineInstance; 
           <p className="mt-1 text-[11px] text-ink-dim">{t("settings.peersHint")}</p>
         </div>
         <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("settings.torrentPort")}</label>
+          <input type="number" min={1024} max={65535} step={1} value={f.torrentPort} onChange={(e) => set("torrentPort", e.target.value)} className={input} />
+        </div>
+        <div>
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("settings.uploadSlots")}</label>
           <input type="number" min={0} value={f.uploadSlots} onChange={(e) => set("uploadSlots", e.target.value)} className={input} />
           <p className="mt-1 text-[11px] text-ink-dim">{t("settings.uploadSlotsHint")}</p>
@@ -289,6 +316,8 @@ function EditForm({ inst, pathMode, onClose, onSaved }: { inst: EngineInstance; 
           <input type="number" min={0} value={f.uploadLimitKbps} onChange={(e) => set("uploadLimitKbps", e.target.value)} className={input} />
         </div>
       </div>
+      <p className="text-[11px] text-ink-dim">{t("settings.torrentPortHint")}</p>
+      {error && <p role="alert" className="text-xs text-down">{error}</p>}
       <p className="text-[11px] text-ink-dim">{t("settings.kbpsHint")}</p>
       <div className="flex items-center gap-3">
         <Power className="h-4 w-4 text-ink-dim" />
