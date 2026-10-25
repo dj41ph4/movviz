@@ -970,7 +970,12 @@ data class ProfileMediaCardDto(
     val stillPath: String? = null,
     val userRating: Double? = null,
     val progress: ProfileMediaProgressDto? = null,
-    val addedAt: Long = 0,
+    // Nullable : le serveur a longtemps envoyé `"addedAt": null` pour les notes,
+    // et Moshi rejette un null explicite sur un champ non nullable — toute la
+    // page profil restait alors bloquée sur « Chargement de votre activité… ».
+    val addedAt: Long? = null,
+    val subtitle: String? = null,
+    val watchedAt: Long? = null,
     val seriesPart: String? = null,
     val parentTitle: String? = null,
     val year: Int? = null,

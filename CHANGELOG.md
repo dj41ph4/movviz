@@ -1,3 +1,11 @@
+## v1.27.50 — 25 octobre 2026
+
+### Profil sur Android TV, Android et Samsung
+
+- Le profil ne reste plus bloqué sur « Chargement de votre activité… » : le serveur envoyait une date vide pour les notes, que les applis Android refusaient en bloc. Le serveur envoie la vraie date et les applis tolèrent ce cas ; en cas d'échec, un bouton Réessayer remplace le chargement sans fin.
+- Profil TV refait : avatar cerclé, nom, rôle du compte et cinq compteurs réels (en cours, films vus, séries vues, dans ma liste, notes données), puis Continuer à regarder, Ma liste, Historique et Mes évaluations — même ordre sur mobile et Samsung, qui gagne aussi ses compteurs et ses évaluations.
+- Une reprise d'épisode ouvre bien l'épisode, et l'historique affiche le titre de l'épisode.
+
 ## v1.27.49 — 25 octobre 2026
 
 ### Bandes-annonces

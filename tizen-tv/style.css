@@ -76,3 +76,5 @@ progress::-webkit-progress-bar{background:#ffffff26}progress::-webkit-progress-v
 @media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important}}
 @media(max-width:1300px){.episode-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .watch-reset-check{display:block;width:100%;text-align:left;font-size:24px;margin:28px 0 0;white-space:normal}.watch-reset-check[aria-pressed="true"]{border-color:#e87c7c;color:#fff}
+
+.profile-stats{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 36px}.profile-stat{background:#0e1330;border:2px solid #1e2440;border-radius:16px;padding:18px 26px;min-width:190px}.profile-stat strong{display:block;font-size:36px;line-height:1.1}.profile-stat span{color:var(--dim);font-size:18px}

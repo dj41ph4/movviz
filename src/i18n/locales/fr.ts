@@ -68,6 +68,7 @@ export const fr = {
     profile: "Profil", continueWatching: "Reprendre", recentMovies: "Films récemment ajoutés", recentSeries: "Séries récemment ajoutées",
     movies: "Films", series: "Séries", suggestions: "Suggestions", back: "Retour", play: "Lecture", season: "Saison", similar: "Titres similaires",
     history: "Historique", watchlist: "Ma liste", signOut: "Se déconnecter", devicePlayerOnly: "La lecture AVPlay nécessite une télévision Samsung.",
+    statWatching: "En cours", statMovies: "Films vus", statSeries: "Séries vues", statWatchlist: "Dans ma liste", statRatings: "Notes données", ratings: "Mes évaluations", profileFailed: "Impossible de charger votre activité pour le moment.", retry: "Réessayer",
     invalidStream: "Adresse du flux invalide.", playbackFailed: "La lecture a échoué.", pausePlay: "Pause / Lecture", stop: "Arrêter",
   },
   brand: { tagline: "Media Core" },

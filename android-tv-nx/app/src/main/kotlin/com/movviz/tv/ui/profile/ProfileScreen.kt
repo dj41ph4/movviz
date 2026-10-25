@@ -50,6 +50,10 @@ import com.movviz.tv.data.ProfileMediaCardDto
 import com.movviz.tv.data.ProfileMediaResponseDto
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.ui.theme.MovvizBackground
+import com.movviz.tv.ui.theme.MovvizBrand
+import com.movviz.tv.ui.theme.MovvizBrand2
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
@@ -66,6 +70,8 @@ fun ProfileScreen(
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
     val data by viewModel.profileMedia.collectAsState()
+    val failed by viewModel.profileMediaFailed.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadProfileMedia() }
@@ -96,59 +102,102 @@ fun ProfileScreen(
         verticalArrangement = Arrangement.spacedBy(23.dp),
     ) {
         if (profileData == null) {
-            item { ProfileLoadingDashboard() }
+            // Échec : bouton « Réessayer » focalisable (entrée D-pad de la page)
+            // au lieu d'un squelette de chargement éternel.
+            item { if (failed) ProfileErrorDashboard(activeProfile, entryFocusRequester) { viewModel.loadProfileMedia() } else ProfileLoadingDashboard(activeProfile) }
             return@LazyColumn
         }
-        item { ProfileDashboardHeader(profileData, activeProfile) }
+        item { ProfileDashboardHeader(profileData, activeProfile, isAdmin = currentUser?.role == "admin") }
         if (profileData.continueWatching.isEmpty() && profileData.watchHistory.isEmpty() && profileData.ratings.isEmpty() && profileData.watchlist.isEmpty()) item {
             Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 12.sp)
         }
+        // Ordre du profil web : reprises, liste, historique, notes.
         var entryAssigned = false
         profileRail("Continuer à regarder", profileData.continueWatching, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode, isResumeRail = true, heroLogos = heroLogos)
         if (profileData.continueWatching.isNotEmpty()) entryAssigned = true
+        profileRail("Ma liste", profileData.watchlist, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
+        if (profileData.watchlist.isNotEmpty()) entryAssigned = true
         profileRail("Historique de visionnage", profileData.watchHistory, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
         if (profileData.watchHistory.isNotEmpty()) entryAssigned = true
         profileRail("Mes évaluations", profileData.ratings, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
-        if (profileData.ratings.isNotEmpty()) entryAssigned = true
-        profileRail("Ma Watchlist", profileData.watchlist, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
     }
 }
 
-@Composable private fun ProfileLoadingDashboard() {
-    Column {
-        Text("Mon espace", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-        Text("Chargement de votre activité…", color = Color(0xFFA7A7A7), fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.padding(top = 15.dp)) {
-            repeat(3) { ProfileMetric("…", 0, loading = true) }
+/** Identité du profil : avatar cerclé du dégradé de marque, nom, rôle réel
+ *  du compte — même en-tête que le profil mobile. */
+@Composable private fun ProfileIdentity(profile: TvProfile?, subtitle: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (profile != null) {
+            Box(
+                Modifier
+                    .border(2.dp, Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape)
+                    .padding(3.dp),
+            ) { ProfileAvatar(profile, Modifier.size(72.dp), cornerRadius = 36.dp) }
+        }
+        Column(modifier = Modifier.padding(start = if (profile != null) 16.dp else 0.dp)) {
+            Text(
+                profile?.name?.takeIf { it.isNotBlank() } ?: "Mon espace",
+                color = Color.White,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(subtitle, color = Color(0xFFA7A7A7), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
 
-@Composable private fun ProfileDashboardHeader(data: ProfileMediaResponseDto, profile: TvProfile?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        profile?.let { ProfileAvatar(it, Modifier.size(66.dp), cornerRadius = 33.dp) }
-        Column(modifier = Modifier.padding(start = if (profile != null) 14.dp else 0.dp)) {
-            Text(
-                if (profile?.name.isNullOrBlank()) "Mon espace" else "${profile?.name} · mon espace",
-                color = Color.White,
-                fontSize = 23.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Text("Vos reprises, votre historique et vos listes.", color = Color(0xFFA7A7A7), fontSize = 12.sp, modifier = Modifier.padding(top = 5.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.padding(top = 14.dp)) {
-                ProfileMetric("EN COURS", data.continueWatching.size)
-                ProfileMetric("VUS", data.watchHistory.size)
-                ProfileMetric("NOTES", data.ratings.size)
-                ProfileMetric("LISTES", data.watchlist.size)
-            }
+@Composable private fun ProfileLoadingDashboard(profile: TvProfile?) {
+    Column {
+        ProfileIdentity(profile, "Chargement de votre activité…")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 18.dp)) {
+            repeat(5) { ProfileMetric("", 0, loading = true) }
+        }
+    }
+}
+
+@Composable private fun ProfileErrorDashboard(profile: TvProfile?, entryFocusRequester: FocusRequester, onRetry: () -> Unit) {
+    Column {
+        ProfileIdentity(profile, "Impossible de charger votre activité pour le moment.")
+        ProfileRetryButton(Modifier.padding(top = 18.dp).focusRequester(entryFocusRequester), onRetry)
+    }
+}
+
+@Composable private fun ProfileRetryButton(modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Card(
+        onClick = onClick,
+        modifier = modifier.height(40.dp),
+        shape = CardDefaults.shape(shape = shape),
+        // Bouton gris au repos, blanc seulement au focus (règle Movviz).
+        colors = CardDefaults.colors(containerColor = Color(0xFF2A2A31), focusedContainerColor = Color.White, contentColor = Color.White, focusedContentColor = Color.Black),
+        scale = CardDefaults.scale(focusedScale = 1.03f),
+    ) {
+        Box(Modifier.fillMaxHeight().padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+            Text("Réessayer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable private fun ProfileDashboardHeader(data: ProfileMediaResponseDto, profile: TvProfile?, isAdmin: Boolean) {
+    Column {
+        ProfileIdentity(profile, if (isAdmin) "Compte admin · vos reprises, votre liste et votre historique" else "Vos reprises, votre liste et votre historique")
+        // Totaux réels du serveur (counts), pas la taille des listes tronquées.
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 18.dp)) {
+            ProfileMetric("EN COURS", data.counts.continueWatching ?: data.continueWatching.size)
+            ProfileMetric("FILMS VUS", data.counts.watchedMovies)
+            ProfileMetric("SÉRIES VUES", data.counts.watchedSeries)
+            ProfileMetric("DANS MA LISTE", data.counts.watchlist ?: data.watchlist.size)
+            ProfileMetric("NOTES DONNÉES", data.counts.ratings ?: data.ratings.size)
         }
     }
 }
 
 @Composable private fun ProfileMetric(label: String, value: Int, loading: Boolean = false) {
-    Column(Modifier.width(107.dp).background(Color(0xFF1B1B20), RoundedCornerShape(8.dp)).padding(horizontal = 13.dp, vertical = 10.dp)) {
-        Text(if (loading) "—" else value.toString(), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = Color(0xFFA7A7A7), fontSize = 8.sp, modifier = Modifier.padding(top = 2.dp))
+    Column(Modifier.width(118.dp).background(Color(0xFF1B1B20), RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 11.dp)) {
+        Text(if (loading) "—" else value.toString(), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+        Text(if (loading) " " else label, color = Color(0xFFA7A7A7), fontSize = 8.sp, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
@@ -182,10 +231,10 @@ private fun LazyListScope.profileRail(
                         onClick = {
                             val season = card.seasonNumber
                             val episode = card.episodeNumber
-                            if (card.type == "series" && season != null && episode != null) {
+                            if ((card.type == "series" || card.type == "episode") && season != null && episode != null) {
                                 onOpenEpisode(card.tmdbId, season, episode)
                             } else {
-                                onOpenTitle(card.type, card.tmdbId)
+                                onOpenTitle(if (card.type == "episode") "series" else card.type, card.tmdbId)
                             }
                         },
                     )
@@ -277,7 +326,9 @@ private fun LazyListScope.profileRail(
                 if (seriesLogoPath == null || !usesEpisodeResumeArtwork) {
                     Text(card.title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" } ?: card.userRating?.let { "★ $it / 5" }
+                val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" }
+                    ?: card.userRating?.let { "★ ${if (it % 1.0 == 0.0) it.toInt() else it} / 5" }
+                    ?: card.subtitle
                 if (detail != null) Text(detail, color = Color(0xFFD1D1D1), fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
                 card.progress?.let { progress ->
                     Box(Modifier.fillMaxWidth().height(3.dp).padding(top = 7.dp).background(Color.White.copy(alpha = 0.35f), RoundedCornerShape(2.dp))) {

@@ -1,3 +1,11 @@
+## v1.27.50 — 25 oktober 2026
+
+### Profiel op Android TV, Android en Samsung
+
+- Het profiel blijft niet meer hangen op "Je activiteit wordt geladen…": de server stuurde een lege datum voor beoordelingen, die de Android-apps volledig weigerden. De server stuurt nu de echte datum en de apps verdragen dit geval; bij een fout vervangt een knop Opnieuw proberen het eindeloze laden.
+- TV-profiel vernieuwd: omrande avatar, naam, accountrol en vijf echte tellers (bezig, films gezien, series gezien, in mijn lijst, gegeven beoordelingen), daarna Verder kijken, Mijn lijst, Geschiedenis en Mijn beoordelingen — dezelfde volgorde op mobiel en Samsung, dat ook tellers en beoordelingen krijgt.
+- Een aflevering hervatten opent die aflevering, en de geschiedenis toont de titel van de aflevering.
+
 ## v1.27.49 — 25 oktober 2026
 
 ### Trailers

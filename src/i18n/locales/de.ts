@@ -70,6 +70,7 @@ export const de: Dictionary = {
     profile: "Profil", continueWatching: "Weiterschauen", recentMovies: "Zuletzt hinzugefügte Filme", recentSeries: "Zuletzt hinzugefügte Serien",
     movies: "Filme", series: "Serien", suggestions: "Vorschläge", back: "Zurück", play: "Wiedergabe", season: "Staffel", similar: "Ähnliche Titel",
     history: "Verlauf", watchlist: "Meine Liste", signOut: "Abmelden", devicePlayerOnly: "Die AVPlay-Wiedergabe erfordert einen Samsung-Fernseher.",
+    statWatching: "Laufend", statMovies: "Gesehene Filme", statSeries: "Gesehene Serien", statWatchlist: "In meiner Liste", statRatings: "Abgegebene Bewertungen", ratings: "Meine Bewertungen", profileFailed: "Deine Aktivität kann gerade nicht geladen werden.", retry: "Erneut versuchen",
     invalidStream: "Ungültige Stream-Adresse.", playbackFailed: "Wiedergabe fehlgeschlagen.", pausePlay: "Pause / Wiedergabe", stop: "Stoppen",
   },
   brand: { tagline: "Media Core" },

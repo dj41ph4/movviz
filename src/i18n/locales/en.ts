@@ -70,6 +70,7 @@ export const en: Dictionary = {
     profile: "Profile", continueWatching: "Continue watching", recentMovies: "Recently added movies", recentSeries: "Recently added series",
     movies: "Movies", series: "Series", suggestions: "Suggestions", back: "Back", play: "Play", season: "Season", similar: "Similar titles",
     history: "History", watchlist: "My list", signOut: "Sign out", devicePlayerOnly: "AVPlay playback requires a Samsung TV.",
+    statWatching: "In progress", statMovies: "Movies watched", statSeries: "Series watched", statWatchlist: "In my list", statRatings: "Ratings given", ratings: "My ratings", profileFailed: "Could not load your activity right now.", retry: "Retry",
     invalidStream: "Invalid stream address.", playbackFailed: "Playback failed.", pausePlay: "Pause / Play", stop: "Stop",
   },
   brand: { tagline: "Media Core" },

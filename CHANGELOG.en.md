@@ -1,3 +1,11 @@
+## v1.27.50 — October 25, 2026
+
+### Profile on Android TV, Android and Samsung
+
+- The profile no longer gets stuck on "Loading your activity…": the server sent an empty date for ratings, which the Android apps rejected entirely. The server now sends the real date and the apps tolerate this case; on failure, a Retry button replaces the endless loading.
+- TV profile redesigned: ringed avatar, name, account role and five real counters (in progress, movies watched, series watched, in my list, ratings given), then Continue watching, My list, History and My ratings — same order on mobile and Samsung, which also gains its counters and ratings.
+- Resuming an episode now opens that episode, and history shows the episode title.
+
 ## v1.27.49 — October 25, 2026
 
 ### Trailers

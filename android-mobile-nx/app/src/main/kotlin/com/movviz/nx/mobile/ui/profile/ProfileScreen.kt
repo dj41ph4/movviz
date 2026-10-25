@@ -81,6 +81,7 @@ fun ProfileScreen(
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val data by viewModel.profileMedia.collectAsState()
+    val failed by viewModel.profileMediaFailed.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
@@ -175,7 +176,8 @@ fun ProfileScreen(
         verticalArrangement = Arrangement.spacedBy(if (narrow) 22.dp else 30.dp),
     ) {
         if (profileData == null) {
-            item { ProfileLoadingDashboard() }
+            // Échec : « Réessayer » au lieu d'un squelette de chargement éternel.
+            item { if (failed) ProfileErrorDashboard { viewModel.loadProfileMedia() } else ProfileLoadingDashboard() }
             return@LazyColumn
         }
         item {
@@ -193,11 +195,12 @@ fun ProfileScreen(
         var entryAssigned = false
         profileRail("Continuer à regarder", profileData.continueWatching, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode, isResumeRail = true, heroLogos = heroLogos)
         if (profileData.continueWatching.isNotEmpty()) entryAssigned = true
+        // Ordre du profil web : reprises, liste, historique, notes.
+        profileRail("Ma liste", profileData.watchlist, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
+        if (profileData.watchlist.isNotEmpty()) entryAssigned = true
         profileRail("Historique de visionnage", profileData.watchHistory, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
         if (profileData.watchHistory.isNotEmpty()) entryAssigned = true
         profileRail("Mes évaluations", profileData.ratings, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
-        if (profileData.ratings.isNotEmpty()) entryAssigned = true
-        profileRail("Ma Watchlist", profileData.watchlist, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
 
         item {
             ProfileSettingsList(
@@ -379,6 +382,24 @@ private fun ProfileSettingsRow(
     }
 }
 
+@Composable private fun ProfileErrorDashboard(onRetry: () -> Unit) {
+    Column {
+        Text("Mon espace", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text("Impossible de charger votre activité pour le moment.", color = Color(0xFFA7A7A7), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
+        // Bouton gris au repos (règle Movviz : le blanc est réservé au focus).
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .padding(top = 18.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF2A2A31))
+                .hapticClickable(onClick = onRetry)
+                .padding(horizontal = 22.dp, vertical = 12.dp),
+        ) {
+            Text("Réessayer", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
 @Composable private fun ProfileLoadingDashboard() {
     Column {
         Text("Mon espace", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
@@ -549,10 +570,10 @@ internal fun LazyListScope.profileRail(
                         onClick = {
                             val season = card.seasonNumber
                             val episode = card.episodeNumber
-                            if (card.type == "series" && season != null && episode != null) {
+                            if ((card.type == "series" || card.type == "episode") && season != null && episode != null) {
                                 onOpenEpisode(card.tmdbId, season, episode)
                             } else {
-                                onOpenTitle(card.type, card.tmdbId)
+                                onOpenTitle(if (card.type == "episode") "series" else card.type, card.tmdbId)
                             }
                         },
                     )
@@ -626,7 +647,9 @@ internal fun LazyListScope.profileRail(
                 if (seriesLogoPath == null || !usesEpisodeResumeArtwork) {
                     Text(card.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" } ?: card.userRating?.let { "★ $it / 5" }
+                val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" }
+                    ?: card.userRating?.let { "★ ${if (it % 1.0 == 0.0) it.toInt() else it} / 5" }
+                    ?: card.subtitle
                 if (detail != null) Text(detail, color = Color(0xFFD1D1D1), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                 card.progress?.let { progress ->
                     Box(Modifier.fillMaxWidth().height(4.dp).padding(top = 9.dp).background(Color.White.copy(alpha = 0.35f), RoundedCornerShape(2.dp))) {

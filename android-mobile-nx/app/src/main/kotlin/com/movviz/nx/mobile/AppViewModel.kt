@@ -656,6 +656,10 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val _profileMedia = MutableStateFlow<ProfileMediaResponseDto?>(null)
     val profileMedia: StateFlow<ProfileMediaResponseDto?> = _profileMedia.asStateFlow()
+    // Échec du chargement du profil (réseau, serveur, réponse illisible) : sans
+    // cet état l'écran restait sur son squelette de chargement indéfiniment.
+    private val _profileMediaFailed = MutableStateFlow(false)
+    val profileMediaFailed: StateFlow<Boolean> = _profileMediaFailed.asStateFlow()
 
     private val _dashboardWatchlist = MutableStateFlow<List<com.movviz.nx.mobile.data.ProfileMediaCardDto>>(emptyList())
     val dashboardWatchlist = _dashboardWatchlist.asStateFlow()
@@ -675,10 +679,13 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     }
 
     fun loadProfileMedia() {
+        _profileMediaFailed.value = false
         viewModelScope.launch {
             when (val result = repository?.profileMedia()) {
                 is ApiResult.Success -> _profileMedia.value = result.data
-                else -> Unit // Profile remains usable when Plex or an old server is unavailable.
+                // Des données déjà affichées restent à l'écran ; sinon l'écran
+                // passe en erreur avec « Réessayer » au lieu de charger sans fin.
+                else -> if (_profileMedia.value == null) _profileMediaFailed.value = true
             }
         }
     }

@@ -616,10 +616,28 @@ interface Window {
   async function profile() {
     const version = begin(saved?.user.username || t("tizen.profile"));
     interface ProfileMedia extends Omit<Media, "type" | "progress"> { type: "movie" | "series" | "episode"; progress?: { ratio: number } | null; stillPath?: string; subtitle?: string }
-    const data = await call<{ continueWatching: ProfileMedia[]; watchHistory: ProfileMedia[]; watchlist: ProfileMedia[] }>("/api/profile/media");
+    type Counts = { continueWatching?: number; watchedMovies?: number; watchedSeries?: number; watchlist?: number; ratings?: number };
+    let data: { continueWatching: ProfileMedia[]; watchHistory: ProfileMedia[]; watchlist: ProfileMedia[]; ratings?: ProfileMedia[]; counts?: Counts };
+    try { data = await call("/api/profile/media"); }
+    catch {
+      // Échec réseau/serveur : message + « Réessayer » plutôt qu'une page vide.
+      if (version !== generation) return;
+      content.append(el("p", t("tizen.profileFailed"), "muted"), button(t("tizen.retry"), profile)); focusFirst(); return;
+    }
     if (version !== generation) return;
+    // Totaux réels du serveur (les listes sont tronquées pour l'affichage).
+    const counts = data.counts ?? {};
+    const stats = el("div", "", "profile-stats");
+    for (const [label, value] of [
+      [t("tizen.statWatching"), counts.continueWatching ?? data.continueWatching?.length ?? 0],
+      [t("tizen.statMovies"), counts.watchedMovies ?? 0],
+      [t("tizen.statSeries"), counts.watchedSeries ?? 0],
+      [t("tizen.statWatchlist"), counts.watchlist ?? data.watchlist?.length ?? 0],
+      [t("tizen.statRatings"), counts.ratings ?? data.ratings?.length ?? 0],
+    ] as const) { const stat = el("div", "", "profile-stat"); stat.append(el("strong", String(value)), el("span", label)); stats.append(stat); }
+    content.append(stats);
     function normalize(items: ProfileMedia[]): Media[] { return items.map(item => ({ ...item, type: item.type === "episode" ? "series" : item.type, progress: (item.progress?.ratio || 0) * 100, backdropPath: item.stillPath || item.backdropPath, episodeTitle: item.subtitle })); }
-    row(t("tizen.continueWatching"), normalize(data.continueWatching || [])); row(t("tizen.history"), normalize(data.watchHistory || [])); row(t("tizen.watchlist"), normalize(data.watchlist || []));
+    row(t("tizen.continueWatching"), normalize(data.continueWatching || [])); row(t("tizen.watchlist"), normalize(data.watchlist || [])); row(t("tizen.history"), normalize(data.watchHistory || [])); row(t("tizen.ratings"), normalize(data.ratings || []));
     const reset = el("section", "", "settings-section"); reset.append(el("h2", t("profile.watchReset.title")), el("p", t("profile.watchReset.hint"), "muted"));
     reset.append(button(t("profile.watchReset.button"), watchResetFirst, "danger")); content.append(reset); focusFirst();
   }

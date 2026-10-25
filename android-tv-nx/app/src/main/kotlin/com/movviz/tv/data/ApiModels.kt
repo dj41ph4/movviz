@@ -1029,7 +1029,12 @@ data class ProfileMediaCardDto(
     val stillPath: String? = null,
     val userRating: Double? = null,
     val progress: ProfileMediaProgressDto? = null,
-    val addedAt: Long = 0,
+    // Nullable : le serveur a longtemps envoyé `"addedAt": null` pour les notes,
+    // et Moshi rejette un null explicite sur un champ non nullable — toute la
+    // page profil restait alors bloquée sur « Chargement de votre activité… ».
+    val addedAt: Long? = null,
+    val subtitle: String? = null,
+    val watchedAt: Long? = null,
     val seriesPart: String? = null,
     val parentTitle: String? = null,
     val year: Int? = null,
@@ -1042,6 +1047,19 @@ data class ProfileMediaResponseDto(
     val watchHistory: List<ProfileMediaCardDto> = emptyList(),
     val ratings: List<ProfileMediaCardDto> = emptyList(),
     val watchlist: List<ProfileMediaCardDto> = emptyList(),
+    val counts: ProfileMediaCountsDto = ProfileMediaCountsDto(),
+)
+
+/** Totaux réels du profil (src/app/api/profile/media/route.ts) — les listes,
+ *  elles, sont tronquées pour l'affichage. */
+@JsonClass(generateAdapter = true)
+data class ProfileMediaCountsDto(
+    val continueWatching: Int? = null,
+    val history: Int? = null,
+    val watchedMovies: Int = 0,
+    val watchedSeries: Int = 0,
+    val watchlist: Int? = null,
+    val ratings: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)

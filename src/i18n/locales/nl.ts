@@ -70,6 +70,7 @@ export const nl: Dictionary = {
     profile: "Profiel", continueWatching: "Verder kijken", recentMovies: "Recent toegevoegde films", recentSeries: "Recent toegevoegde series",
     movies: "Films", series: "Series", suggestions: "Suggesties", back: "Terug", play: "Afspelen", season: "Seizoen", similar: "Vergelijkbare titels",
     history: "Geschiedenis", watchlist: "Mijn lijst", signOut: "Uitloggen", devicePlayerOnly: "AVPlay-weergave vereist een Samsung-televisie.",
+    statWatching: "Bezig", statMovies: "Films gezien", statSeries: "Series gezien", statWatchlist: "In mijn lijst", statRatings: "Gegeven beoordelingen", ratings: "Mijn beoordelingen", profileFailed: "Je activiteit kan nu niet worden geladen.", retry: "Opnieuw proberen",
     invalidStream: "Ongeldig streamadres.", playbackFailed: "Afspelen mislukt.", pausePlay: "Pauze / Afspelen", stop: "Stoppen",
   },
   brand: { tagline: "Media Core" },

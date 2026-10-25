@@ -1,3 +1,11 @@
+## v1.27.50 — 25. Oktober 2026
+
+### Profil auf Android TV, Android und Samsung
+
+- Das Profil bleibt nicht mehr bei „Deine Aktivität wird geladen…“ hängen: Der Server schickte ein leeres Datum für Bewertungen, das die Android-Apps komplett ablehnten. Der Server schickt jetzt das echte Datum und die Apps tolerieren diesen Fall; bei einem Fehler ersetzt eine Schaltfläche „Erneut versuchen“ das endlose Laden.
+- TV-Profil neu gestaltet: umrandeter Avatar, Name, Kontorolle und fünf echte Zähler (laufend, gesehene Filme, gesehene Serien, in meiner Liste, abgegebene Bewertungen), danach Weiterschauen, Meine Liste, Verlauf und Meine Bewertungen — gleiche Reihenfolge auf Mobil und Samsung, das ebenfalls Zähler und Bewertungen erhält.
+- Das Fortsetzen einer Episode öffnet diese Episode, und der Verlauf zeigt den Episodentitel.
+
 ## v1.27.49 — 25. Oktober 2026
 
 ### Trailer
