@@ -1,6 +1,6 @@
 import path from "node:path";
 import fsp from "node:fs/promises";
-import { AbstractBackend } from "./AbstractBackend.mjs";
+import { AbstractBackend, removeDanglingSymlinks } from "./AbstractBackend.mjs";
 import { ensureDir, movePath } from "../store.mjs";
 
 /** Lazy-loaded — webtorrent is optional, only imported when this backend is chosen. */
@@ -111,6 +111,10 @@ export class WebTorrentBackend extends AbstractBackend {
       });
       this._installPauseGuard(t);
       t.on("error", reject);
+      t.once("metadata", () => {
+        const removed = removeDanglingSymlinks(this.cfg.downloadPath, (t.files ?? []).map((f) => f.path));
+        if (removed) console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}] ${removed} lien(s) cassé(s) d'un ancien seed retiré(s) avant téléchargement de ${t.name}`);
+      });
       let waited = 0;
       const settle = () => {
         if (t.infoHash) {

@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { ensureDir, movePath, linkOrCopy } from "../store.mjs";
 import {
@@ -48,6 +49,32 @@ async function avoidCollision(dest) {
  * Shared WebTorrent download/import/queue/naming logic. Subclasses implement the
  * `_client*` abstract methods for transport-specific operations.
  */
+/**
+ * Supprime les liens symboliques cassés aux emplacements où un torrent va
+ * écrire. Après un import avec seed, _swapForSymlink remplace le fichier du
+ * dossier de téléchargement par un lien vers la bibliothèque ; si le fichier de
+ * la bibliothèque est supprimé ensuite, le lien pointe dans le vide et
+ * retélécharger la même release échouait aussitôt (open avec O_CREAT sur un lien
+ * dont le dossier cible n'existe plus → ENOENT, torrent détruit). Synchrone :
+ * appelé à la réception des métadonnées, avant toute écriture de pièce. Ne touche
+ * jamais un lien valide ni un fichier réel, ni rien hors de `root`.
+ */
+export function removeDanglingSymlinks(root, relativePaths) {
+  const base = path.resolve(root);
+  let removed = 0;
+  for (const rel of relativePaths) {
+    if (!rel) continue;
+    const target = path.resolve(base, rel);
+    if (target === base || !target.startsWith(base + path.sep)) continue;
+    let st;
+    try { st = fs.lstatSync(target); } catch { continue; }
+    if (!st.isSymbolicLink()) continue;
+    try { fs.statSync(target); continue; } catch { /* cible absente : lien cassé */ }
+    try { fs.unlinkSync(target); removed++; } catch { /* laissé tel quel */ }
+  }
+  return removed;
+}
+
 /** Le ou les fichiers d'un import passé sont-ils toujours sur disque, à la
  *  bonne taille ? Un chemin inconnu compte comme absent. Exporté pour les tests. */
 export async function importedFilesStillPresent(hist) {

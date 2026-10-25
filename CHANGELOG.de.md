@@ -1,3 +1,9 @@
+## v1.27.48 — 25. Oktober 2026
+
+### Downloads
+
+- Das erneute Herunterladen eines bereits importierten und danach geseedeten Releases schlägt nicht mehr sofort fehl: Der im Download-Ordner verbliebene Link auf die Bibliotheksdatei, der nach deren Löschung ins Leere zeigte, wird vor dem Schreiben entfernt.
+
 ## v1.27.47 — 25. Oktober 2026
 
 ### Downloads

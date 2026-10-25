@@ -1,3 +1,9 @@
+## v1.27.48 — October 25, 2026
+
+### Downloads
+
+- Re-downloading a release that had already been imported and then seeded no longer fails instantly: the link left in the download folder to the library file, broken once that file was deleted, is removed before writing.
+
 ## v1.27.47 — October 25, 2026
 
 ### Downloads

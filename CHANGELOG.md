@@ -1,3 +1,9 @@
+## v1.27.48 — 25 octobre 2026
+
+### Téléchargements
+
+- Retélécharger une release qui avait déjà été importée puis mise en seed n'échoue plus aussitôt : le lien laissé dans le dossier de téléchargement vers le fichier de la bibliothèque, devenu cassé après sa suppression, est retiré avant d'écrire.
+
 ## v1.27.47 — 25 octobre 2026
 
 ### Téléchargements

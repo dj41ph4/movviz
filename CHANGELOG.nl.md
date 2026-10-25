@@ -1,3 +1,9 @@
+## v1.27.48 — 25 oktober 2026
+
+### Downloads
+
+- Een release die al geïmporteerd en daarna geseed was opnieuw downloaden mislukt niet meer meteen: de koppeling in de downloadmap naar het bibliotheekbestand, die na het verwijderen ervan niet meer werkte, wordt vóór het schrijven verwijderd.
+
 ## v1.27.47 — 25 oktober 2026
 
 ### Downloads

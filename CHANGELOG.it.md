@@ -1,3 +1,9 @@
+## v1.27.48 — 25 ottobre 2026
+
+### Download
+
+- Riscaricare una release già importata e poi messa in seed non fallisce più subito: il collegamento lasciato nella cartella di download verso il file della libreria, rotto dopo la sua eliminazione, viene rimosso prima di scrivere.
+
 ## v1.27.47 — 25 ottobre 2026
 
 ### Download
