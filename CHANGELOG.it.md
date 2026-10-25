@@ -1,3 +1,10 @@
+## v1.27.43 — 25 ottobre 2026
+
+### Inoltro manuale delle porte Docker
+
+- In Docker, Movviz e WebTorrent non tentano più la mappatura UPnP/NAT-PMP. Le porte pubblicate da Docker e l'inoltro sul router restano manuali; le installazioni native mantengono il comportamento precedente.
+- Il traffico DHT UDP usa ora la porta WebTorrent configurata, così gli inoltri TCP e UDP corrispondono alle porte effettivamente in ascolto.
+
 ## v1.27.42 — 25 ottobre 2026
 
 ### Porte WebTorrent configurabili

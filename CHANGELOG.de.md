@@ -1,3 +1,10 @@
+## v1.27.43 — 25. Oktober 2026
+
+### Manuelle Docker-Portweiterleitung
+
+- In Docker versuchen Movviz und WebTorrent keine UPnP/NAT-PMP-Portfreigabe mehr. Docker-Ports und Router-Weiterleitungen bleiben manuell; native Installationen behalten ihr bisheriges Verhalten.
+- DHT über UDP nutzt nun den konfigurierten WebTorrent-Port, damit TCP- und UDP-Weiterleitungen zu den tatsächlich verwendeten Ports passen.
+
 ## v1.27.42 — 25. Oktober 2026
 
 ### Konfigurierbare WebTorrent-Ports

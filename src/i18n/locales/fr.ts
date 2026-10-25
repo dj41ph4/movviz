@@ -1677,7 +1677,7 @@ export const fr = {
     ulLimit: "Limite montante",
     maxPeers: "Pairs max",
     torrentPort: "Port WebTorrent",
-    torrentPortHint: "Films et séries ont chacun leur port. Le client redémarre après modification. Dans Docker, publie aussi ce port en TCP et UDP : Movviz ne peut pas changer ce mappage.",
+    torrentPortHint: "Films et séries ont chacun leur port. Le client redémarre après modification. Dans Docker, publie ce port en TCP et UDP et redirige-le manuellement sur le routeur.",
     torrentPortInvalid: "Choisis un port entier entre 1024 et 65535.",
     torrentPortInUse: "Ce port est déjà utilisé par l'autre client WebTorrent.",
     torrentPortRestartFailed: "Port enregistré, mais le redémarrage du client a échoué. Relance le client torrent pour l'appliquer.",

@@ -1679,7 +1679,7 @@ export const en: Dictionary = {
     ulLimit: "Upload limit",
     maxPeers: "Max peers",
     torrentPort: "WebTorrent port",
-    torrentPortHint: "Movies and series use separate ports. The client restarts after a change. In Docker, publish this port for TCP and UDP too; Movviz cannot change that mapping.",
+    torrentPortHint: "Movies and series use separate ports. The client restarts after a change. In Docker, publish this port for TCP and UDP and forward it manually on your router.",
     torrentPortInvalid: "Choose a whole-number port from 1024 to 65535.",
     torrentPortInUse: "The other WebTorrent client already uses this port.",
     torrentPortRestartFailed: "Port saved, but the client could not restart. Restart the torrent client to apply it.",

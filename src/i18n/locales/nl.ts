@@ -1679,7 +1679,7 @@ export const nl: Dictionary = {
     ulLimit: "Uploadlimiet",
     maxPeers: "Max. peers",
     torrentPort: "WebTorrent-poort",
-    torrentPortHint: "Films en series gebruiken aparte poorten. De client herstart na een wijziging. Publiceer deze poort in Docker ook voor TCP en UDP; Movviz kan die koppeling niet wijzigen.",
+    torrentPortHint: "Films en series gebruiken aparte poorten. De client herstart na een wijziging. Publiceer deze poort in Docker voor TCP en UDP en stuur hem handmatig door op de router.",
     torrentPortInvalid: "Kies een geheel poortnummer tussen 1024 en 65535.",
     torrentPortInUse: "De andere WebTorrent-client gebruikt deze poort al.",
     torrentPortRestartFailed: "Poort opgeslagen, maar de client kon niet herstarten. Herstart de torrentclient om de wijziging toe te passen.",

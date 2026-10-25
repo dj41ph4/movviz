@@ -1,3 +1,10 @@
+## v1.27.43 — 25 octobre 2026
+
+### Mappage manuel des ports Docker
+
+- Dans Docker, Movviz et WebTorrent ne tentent plus d'ouvrir les ports par UPnP/NAT-PMP. Les ports publiés par Docker et les redirections du routeur restent configurés manuellement ; les installations natives conservent leur comportement.
+- Le trafic DHT UDP utilise le port WebTorrent configuré, afin que les redirections TCP et UDP pointent vers les ports réellement écoutés.
+
 ## v1.27.42 — 25 octobre 2026
 
 ### Ports WebTorrent configurables

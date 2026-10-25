@@ -1,3 +1,10 @@
+## v1.27.43 — 25 oktober 2026
+
+### Handmatige Docker-poortdoorsturing
+
+- In Docker proberen Movviz en WebTorrent geen UPnP/NAT-PMP-poorten meer te openen. Gepubliceerde Docker-poorten en routerdoorsturing blijven handmatig; native installaties behouden hun bestaande werking.
+- DHT via UDP gebruikt nu de ingestelde WebTorrent-poort, zodat TCP- en UDP-doorsturing overeenkomen met de werkelijk gebruikte poorten.
+
 ## v1.27.42 — 25 oktober 2026
 
 ### Instelbare WebTorrent-poorten

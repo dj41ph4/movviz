@@ -9,12 +9,14 @@ import {
   CONFIG_DIR,
   DATA_DIR,
   PATH_MODE,
+  CONTAINER_MODE,
 } from "./config.mjs";
 
 async function main() {
   console.log(`[engine] storage layout (${PATH_MODE}):`);
   console.log(`[engine]   config → ${CONFIG_DIR}`);
   console.log(`[engine]   media  → ${DATA_DIR}`);
+  if (CONTAINER_MODE) console.log("[engine] automatic UPnP/NAT-PMP disabled in Docker; publish and forward WebTorrent ports manually");
 
   const engine = new MovvizEngine();
   await engine.start();

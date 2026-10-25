@@ -6,7 +6,7 @@ import { ensureDir, movePath } from "../store.mjs";
 /** Lazy-loaded — webtorrent is optional, only imported when this backend is chosen. */
 let WebTorrent; // eslint-disable-line
 import { parseRelease } from "../naming.mjs";
-import { TORRENT_CACHE_DIR } from "../config.mjs";
+import { TORRENT_CACHE_DIR, CONTAINER_MODE, AUTO_PORT_MAPPING } from "../config.mjs";
 
 /**
  * WebTorrent backend — wraps the WebTorrent client for all P2P transport.
@@ -59,6 +59,9 @@ export class WebTorrentBackend extends AbstractBackend {
         maxConns: Math.max(1, this.cfg.maxPeers ?? 55),
         dht: this.cfg.dht !== false,
         torrentPort: port,
+        dhtPort: CONTAINER_MODE ? port : 0,
+        natUpnp: AUTO_PORT_MAPPING,
+        natPmp: AUTO_PORT_MAPPING,
         utp: false,
         tracker: { wrtc: false },
       });

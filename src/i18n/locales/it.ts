@@ -1678,7 +1678,7 @@ export const it: Dictionary = {
     ulLimit: "Limite di upload",
     maxPeers: "Peer massimi",
     torrentPort: "Porta WebTorrent",
-    torrentPortHint: "Film e serie usano porte separate. Il client si riavvia dopo la modifica. In Docker pubblica questa porta per TCP e UDP; Movviz non può modificare la mappatura.",
+    torrentPortHint: "Film e serie usano porte separate. Il client si riavvia dopo la modifica. In Docker pubblica questa porta per TCP e UDP e inoltrala manualmente sul router.",
     torrentPortInvalid: "Scegli una porta intera tra 1024 e 65535.",
     torrentPortInUse: "L'altro client WebTorrent usa già questa porta.",
     torrentPortRestartFailed: "Porta salvata, ma il client non si è riavviato. Riavvia il client torrent per applicarla.",
