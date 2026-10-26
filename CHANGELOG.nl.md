@@ -1,3 +1,9 @@
+## v1.27.61 — 27 oktober 2026
+
+### Startpagina
+
+- De genres in de uitgelichte titel op de startpagina (Animatie, Actie & avontuur…) hebben dezelfde grijze achtergrond als de redenen bij „Waarom deze titel?”.
+
 ## v1.27.60 — 27 oktober 2026
 
 ### Startpagina

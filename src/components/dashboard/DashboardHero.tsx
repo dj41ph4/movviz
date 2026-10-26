@@ -248,7 +248,8 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             {active.detail.runtime && <span>{active.detail.runtime} min</span>}
             {active.detail.rating > 0 && <span>★ {active.detail.rating.toFixed(1)}</span>}
             {(active.detail.genres ?? []).slice(0, 3).map((g) => (
-              <span key={g} className="rounded-full border border-white/20 px-2 py-0.5 text-xs">{g}</span>
+              // Même pastille que les raisons « Pourquoi ce contenu ? » plus bas.
+              <span key={g} className="rounded-full border border-white/15 bg-black/30 px-2.5 py-1 text-xs text-white/80 backdrop-blur">{g}</span>
             ))}
           </div>
           {/* Desktop: format badges (4K, HDR, MULTI…) get their own line under the genres. */}

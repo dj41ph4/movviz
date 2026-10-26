@@ -1,3 +1,9 @@
+## v1.27.61 — 27. Oktober 2026
+
+### Startseite
+
+- Die Genres im Startseiten-Spotlight (Animation, Action & Abenteuer…) haben denselben grauen Hintergrund wie die Gründe unter „Warum dieser Inhalt?“.
+
 ## v1.27.60 — 27. Oktober 2026
 
 ### Startseite

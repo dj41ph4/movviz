@@ -1,3 +1,9 @@
+## v1.27.61 — October 27, 2026
+
+### Home
+
+- Genres shown in the home spotlight (Animation, Action & Adventure…) now share the grey background of the "Why this title?" reasons.
+
 ## v1.27.60 — October 27, 2026
 
 ### Home

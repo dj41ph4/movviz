@@ -1,3 +1,9 @@
+## v1.27.61 — 27 ottobre 2026
+
+### Home
+
+- I generi mostrati nella vetrina della home (Animazione, Azione e avventura…) hanno lo stesso sfondo grigio dei motivi «Perché questo contenuto?».
+
 ## v1.27.60 — 27 ottobre 2026
 
 ### Home

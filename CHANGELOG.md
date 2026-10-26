@@ -1,3 +1,9 @@
+## v1.27.61 — 27 octobre 2026
+
+### Accueil
+
+- Les genres affichés dans la vedette de l'accueil (Animation, Action & Aventure…) ont le même fond gris que les raisons « Pourquoi ce contenu ? ».
+
 ## v1.27.60 — 27 octobre 2026
 
 ### Accueil
