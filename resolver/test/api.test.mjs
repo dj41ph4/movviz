@@ -67,6 +67,8 @@ test("rejects invalid commands, missing URL and invalid timeout", async () => {
 test("integrated EXT.to API rejects requests without its private key", async () => {
   const response = await app.inject({ method: "GET", url: "/extto/api?t=caps" });
   assert.equal(response.statusCode, 403);
+  const testResponse = await app.inject({ method: "POST", url: "/extto/test", payload: { username: "example", password: "example" } });
+  assert.equal(testResponse.statusCode, 403);
 });
 
 test("EXT.to search rows retain detail URL, size, seeds and category", () => {

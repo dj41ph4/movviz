@@ -36,6 +36,12 @@ interface Row {
   caps?: IndexerCapabilities | null;
 }
 
+const EXTTO_CATEGORIES: CategoryNode[] = [
+  { id: 2000, name: "Movies" },
+  { id: 5000, name: "TV" },
+  { id: 5070, name: "Anime" },
+];
+
 export function IndexerManager() {
   const t = useT();
   const [rows, setRows] = useState<Row[]>([]);
@@ -175,7 +181,7 @@ export function IndexerManager() {
                         {status === "ok" ? t("indexerMgr.testOk") : status === "fail" ? `${t("indexerMgr.testFail")}${r.lastTest?.detail ? " · " + r.lastTest.detail : ""}` : t("indexerMgr.untested")}
                       </span>
                     </span>
-                    {r.hasApiKey && (
+                    {r.hasApiKey && r.key !== "extto" && (
                       <span title={t("indexerMgr.apiKey")}><KeyRound className="h-3 w-3 shrink-0 text-ink-dim" /></span>
                     )}
                     {r.hasCredentials && (
@@ -262,7 +268,7 @@ export function IndexerManager() {
                     className="overflow-hidden"
                   >
                     <div className="mt-4 border-t border-white/8 pt-4">
-                      <div className="mb-3 flex items-center justify-between gap-2">
+                      {r.key !== "extto" && <div className="mb-3 flex items-center justify-between gap-2">
                         <p className="text-[11px] text-ink-dim">{t("indexerMgr.categoriesRefreshHint")}</p>
                         <button
                           onClick={() => test(r.id)}
@@ -272,8 +278,8 @@ export function IndexerManager() {
                           {testing === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                           {t("indexerMgr.categoriesRefresh")}
                         </button>
-                      </div>
-                      <CategoryPicker value={r.categories} onChange={(cats) => saveCategories(r.id, cats)} indexerCategories={r.caps?.categories ?? undefined} />
+                      </div>}
+                      <CategoryPicker value={r.categories} onChange={(cats) => saveCategories(r.id, cats)} indexerCategories={r.key === "extto" ? EXTTO_CATEGORIES : r.caps?.categories ?? undefined} />
                     </div>
                   </motion.div>
                 )}
@@ -440,7 +446,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
   const [categories, setCategories] = useState<number[]>(existing?.categories ?? entry.categories ?? [2000, 5000]);
   const [saving, setSaving] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  const [realCategories, setRealCategories] = useState<CategoryNode[] | null>(null);
+  const [realCategories, setRealCategories] = useState<CategoryNode[] | null>(isExtTo ? EXTTO_CATEGORIES : null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ testing: boolean; ok?: boolean; detail?: string } | null>(null);
@@ -452,10 +458,10 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
   // edit form never shows stored apiKey/password (only "••••"), so "key in
   // memory" is hasApiKey/hasCredentials on the row, not a non-empty field.
   const hasStoredKey = isEdit && !!existing && (existing.hasApiKey || existing.hasCredentials);
-  const keyInMemory = isEdit && (apiKey.trim() !== "" || !!existing?.hasApiKey);
+  const keyInMemory = !isExtTo && isEdit && (apiKey.trim() !== "" || !!existing?.hasApiKey);
 
   const testDraft = async () => {
-    if (!baseUrl.trim()) return null;
+    if (!baseUrl.trim() || (isExtTo && !existing)) return null;
     // Skip the round trip entirely when the credentials field is empty AND
     // nothing is stored server-side — the indexer would just reject with an
     // HTTP 401 that means nothing to most users ("HTTP 401" isn't
@@ -474,6 +480,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           id: isEdit ? existing.id : undefined,
+          key: entry.key,
           kind: entry.kind,
           protocol: entry.protocol,
           baseUrl: baseUrl.trim(),
@@ -495,14 +502,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
   };
 
   const loadCategories = async () => {
-    if (isExtTo) {
-      setRealCategories([
-        { id: 2000, name: "Movies" },
-        { id: 5000, name: "TV" },
-        { id: 5070, name: "Anime" },
-      ]);
-      return;
-    }
+    if (isExtTo) return;
     const result = await testDraft();
     if (!result) return;
     if (!result.ok) {
@@ -600,11 +600,11 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
         <>
           <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.username")}</label>
-              <input value={username} onChange={(e) => { setUsername(e.target.value); setRealCategories(null); }} autoComplete="off" className={field} />
+              <input value={username} onChange={(e) => { setUsername(e.target.value); if (!isExtTo) setRealCategories(null); }} autoComplete="off" className={field} />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.password")}</label>
-              <input value={password} onChange={(e) => { setPassword(e.target.value); setRealCategories(null); }} type="password" placeholder={isEdit ? "••••••••" : ""} autoComplete="off" className={field} />
+              <input value={password} onChange={(e) => { setPassword(e.target.value); if (!isExtTo) setRealCategories(null); }} type="password" placeholder={isEdit ? "••••••••" : ""} autoComplete="off" className={field} />
           </div>
         </>
       )}
@@ -686,7 +686,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
         <div className="mb-1.5 flex items-center justify-between gap-3">
           <label className="text-xs font-semibold text-ink-soft">{t("indexerMgr.categories")}</label>
           <div className="flex flex-wrap items-center gap-2">
-            <button
+            {(!isExtTo || isEdit) && <button
               onClick={async () => {
                 setTestResult({ testing: true });
                 const result = await testDraft();
@@ -701,15 +701,15 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
             >
               {testResult?.testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SlidersHorizontal className="h-3.5 w-3.5" />}
               {t("indexerMgr.testConnection")}
-            </button>
-            <button
+            </button>}
+            {!isExtTo && <button
               onClick={loadCategories}
               disabled={loadingCategories || !baseUrl.trim()}
               className="flex h-8 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
             >
               {loadingCategories ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
               {t("indexerMgr.loadCategories")}
-            </button>
+            </button>}
           </div>
         </div>
         {keyInMemory && isEdit && <p className="mb-2 text-xs text-ink-dim">{t("indexerMgr.keyInMemory")}</p>}
@@ -718,7 +718,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
             <Circle className={cn("h-2 w-2 fill-current", testResult.ok ? "text-up" : "text-down")} />
             {testResult.ok
               ? t("indexerMgr.testOk")
-              : testResult.detail === "HTTP 401" || testResult.detail === "HTTP 403"
+              : !isExtTo && (testResult.detail === "HTTP 401" || testResult.detail === "HTTP 403")
                 ? t("indexerMgr.categoriesInvalidKey")
                 : testResult.detail ?? t("indexerMgr.testFail")}
           </p>

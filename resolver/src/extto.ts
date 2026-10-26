@@ -10,11 +10,11 @@ const BASE = "https://ext.to";
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 type ExtToIndexer = { id: string; key?: string; enabled: boolean; apiKey: string; username: string; password: string };
 
-function findIndexer(key: string): ExtToIndexer | null {
+function findIndexer(key: string, allowDisabled = false): ExtToIndexer | null {
   if (!key) return null;
   try {
     const indexers = JSON.parse(readFileSync(path.join(CONFIG_DIR, "indexers.json"), "utf8")) as ExtToIndexer[];
-    return indexers.find((ix) => ix.key === "extto" && ix.enabled && ix.apiKey === key) ?? null;
+    return indexers.find((ix) => ix.key === "extto" && (allowDisabled || ix.enabled) && ix.apiKey === key) ?? null;
   } catch {
     return null;
   }
@@ -140,6 +140,27 @@ async function magnetFor(session: ResolverSession, detailPath: string): Promise<
 }
 
 export async function registerExtToRoutes(app: FastifyInstance): Promise<void> {
+  app.post<{ Body: { username?: string; password?: string } }>("/extto/test", async (req, reply) => {
+    const ix = findIndexer(String(req.headers["x-api-key"] ?? ""), true);
+    if (!ix) return reply.status(403).send({ ok: false, detail: "EXT.to indexer not found" });
+    const draft = { ...ix, username: req.body?.username?.trim() || ix.username, password: req.body?.password || ix.password };
+    if (!draft.username || !draft.password) return reply.status(400).send({ ok: false, detail: "EXT.to login and password required" });
+    try {
+      await useNamedSession(sessionId(draft), async (session) => {
+        await ensureLogin(session, draft);
+        await loadPage(session, `${BASE}/browse/?q=test&with_adult=1`);
+        if (await session.page.getByText(/^Log In$/i).first().isVisible().catch(() => false)) {
+          session.exttoAuthenticated = false;
+          throw new Error("EXT.to session did not stay signed in");
+        }
+      });
+      return { ok: true, detail: "EXT.to login and search OK" };
+    } catch (err) {
+      req.log.warn({ err }, "EXT.to connection test failed");
+      return reply.status(502).send({ ok: false, detail: err instanceof Error ? err.message : "EXT.to unavailable" });
+    }
+  });
+
   app.get<{ Querystring: { apikey?: string; t?: string; q?: string; offset?: string; season?: string; ep?: string } }>("/extto/api", async (req, reply) => {
     const ix = findIndexer(String(req.headers["x-api-key"] ?? ""));
     if (!ix) return reply.status(403).send({ error: "forbidden" });

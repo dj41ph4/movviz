@@ -1,3 +1,9 @@
+## v1.27.63 — 26 oktober 2026
+
+### Indexers
+
+- EXT.to toont zijn eigen categorieën zonder verwijzing naar een API-sleutel. De verbindingstest gebruikt de ingebouwde resolver, ook voordat de indexer wordt ingeschakeld, en meldt de werkelijke oorzaak van een fout.
+
 ## v1.27.62 — 26 oktober 2026
 
 ### Indexers

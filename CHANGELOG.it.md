@@ -1,3 +1,9 @@
+## v1.27.63 — 26 ottobre 2026
+
+### Indicizzatori
+
+- EXT.to mostra le proprie categorie senza riferimenti a una chiave API. Il test di connessione usa il resolver integrato, anche prima dell'attivazione dell'indicizzatore, e indica la causa effettiva di un errore.
+
 ## v1.27.62 — 26 ottobre 2026
 
 ### Indicizzatori

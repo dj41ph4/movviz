@@ -1,3 +1,9 @@
+## v1.27.63 — 26 octobre 2026
+
+### Indexeurs
+
+- EXT.to affiche ses catégories propres sans mention de clé API. Le test de connexion passe par le resolver intégré, même avant l'activation de l'indexeur, et indique la cause réelle d'un échec.
+
 ## v1.27.62 — 26 octobre 2026
 
 ### Indexeurs
