@@ -72,6 +72,9 @@ interface Window {
   }
   let closeModal: (() => void) | null = null;
   let lastContentFocus: HTMLElement | null = null;
+  // Épisodes enchaînés seuls depuis la dernière touche de télécommande.
+  const STILL_WATCHING_AFTER_EPISODES = 2;
+  let autoAdvancesWithoutInput = 0;
   let loginServer = saved?.server || localStorage.getItem("movviz.tv.server") || "";
   function remember() {
     if (!saved?.session) return;
@@ -874,7 +877,27 @@ interface Window {
     const show = await call<Series>(`/api/library/series/${encodeURIComponent(player.media.id!)}?view=playback${partQuery(player.media, "series")}`);
     const next = show.seasons.flatMap(s => s.episodes).filter(e => e.status === "available" && (e.file || e.plexRatingKey)).sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber).find(e => e.seasonNumber > player.episode!.seasonNumber || (e.seasonNumber === player.episode!.seasonNumber && e.episodeNumber > player.episode!.episodeNumber));
     if (activePlayer !== player || player.closing) return;
-    await stopPlayer(ended); if (next) await play(player.media, "series", next);
+    // « Vous regardez toujours ? » (comme Netflix et l'app Android TV) : au
+    // 2e épisode enchaîné seul sans aucune touche, le suivant attend la
+    // réponse. Sans réponse rien ne joue : la veille de la TV reprend.
+    if (ended && next) autoAdvancesWithoutInput++;
+    await stopPlayer(ended);
+    if (!next) return;
+    if (ended && autoAdvancesWithoutInput >= STILL_WATCHING_AFTER_EPISODES) { stillWatchingPrompt(player.media, next); return; }
+    await play(player.media, "series", next);
+  }
+  function stillWatchingPrompt(media: Media, next: Episode) {
+    if (closeModal) closeModal();
+    const overlay = el("div", "", "modal still-watching"), box = el("section", "", "still-watching-box");
+    box.append(el("p", t("tizen.stillWatching"), "still-watching-kicker"), el("h2", `${media.title} ?`));
+    const label = `S${String(next.seasonNumber).padStart(2, "0")} · E${String(next.episodeNumber).padStart(2, "0")}${next.title ? `  —  ${next.title}` : ""}`;
+    box.append(el("p", t("tizen.stillWatchingNext").replace("{episode}", label), "still-watching-next"));
+    const close = () => { overlay.remove(); closeModal = null; };
+    closeModal = () => { close(); lastContentFocus?.focus(); };
+    const actions = el("div", "", "still-watching-actions");
+    const keep = button(t("tizen.keepWatching"), () => { close(); autoAdvancesWithoutInput = 0; void play(media, "series", next).catch(report); });
+    actions.append(keep, button(t("tizen.stopWatching"), () => closeModal?.()));
+    box.append(actions); overlay.append(box); app.append(overlay); keep.focus();
   }
   async function stopPlayer(ended: boolean) {
     const player = activePlayer; if (!player || player.closing) return; player.closing = true; window.clearInterval(player.timer);
@@ -914,6 +937,8 @@ interface Window {
     });
     if (best) { (best as HTMLElement).focus(); (best as HTMLElement).scrollIntoView({ block: "nearest", inline: "nearest" }); }
   }
+  // Toute touche de télécommande : quelqu'un est bien là.
+  document.addEventListener("keydown", () => { autoAdvancesWithoutInput = 0; }, true);
   document.addEventListener("keydown", event => {
     const key = event.keyCode;
     if ([37, 38, 39, 40].includes(key)) {

@@ -298,6 +298,9 @@ private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
 )
 
 private const val TAG = "MovvizPlayer"
+/** « Vous regardez toujours ? » : épisodes enchaînés seuls, sans aucune
+ *  touche de télécommande, avant de demander (comme Netflix). */
+private const val STILL_WATCHING_AFTER_EPISODES = 2
 /** Sans générique connu : « Épisode suivant » sur les dernières secondes. */
 private const val NEXT_FALLBACK_MS = 45_000L
 private const val SEEK_STEP_MS = 10_000L
@@ -495,6 +498,12 @@ private fun PlayerScreen(
     var networkRetryCount by remember { mutableStateOf(0) }
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
+    // Épisodes enchaînés automatiquement depuis la dernière touche. Au seuil,
+    // l'épisode suivant est chargé EN PAUSE derrière la question : sans
+    // réponse, rien ne joue et l'écran n'est plus maintenu allumé
+    // (keepScreenOn suit isPlaying) — la mise en veille de la TV reprend.
+    var autoAdvancesWithoutInput by remember { mutableStateOf(0) }
+    var stillWatchingPrompt by remember { mutableStateOf(false) }
     var tracksVersion by remember { mutableStateOf(0) } // force la recomposition des dialogues pistes
     var subtitlePreferenceAppliedFor by remember { mutableStateOf<String?>(null) }
     // Indicateur flottant centré quand on seek — feedback visuel immédiat
@@ -869,7 +878,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             seasonNumber = current.seasonNumber.takeIf { it >= 0 },
             episodeNumber = current.episodeNumber.takeIf { it >= 0 },
         ) ?: 0L
-        load(current, resume, level = startLevel)
+        load(current, resume, level = startLevel, autoplay = !stillWatchingPrompt)
     }
 
     DisposableEffect(exoPlayer) {
@@ -901,6 +910,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     // lisant le code : `hasNext` figé à true incrémentait
                     // currentIndex au-delà de queue.size - 1).
                     if (currentIndex < queue.size - 1) {
+                        autoAdvancesWithoutInput++
+                        if (autoAdvancesWithoutInput >= STILL_WATCHING_AFTER_EPISODES) stillWatchingPrompt = true
                         advanceTo(currentIndex + 1, markOutgoingWatched = true)
                     } else {
                         exitPlayerAction(forceCompleted = true)
@@ -1139,7 +1150,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
 
     // Auto-hide des contrôles — toute interaction relance le minuteur.
     var lastInteraction by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog) {
+    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, stillWatchingPrompt) {
+        if (stillWatchingPrompt) { showControls = false; return@LaunchedEffect }
         if (showAudioDialog || showSubtitleDialog) return@LaunchedEffect
         showControls = true
         delay(CONTROLS_TIMEOUT_MS)
@@ -1147,6 +1159,13 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
     fun poke() {
         lastInteraction = System.currentTimeMillis()
+        // Une vraie touche de télécommande : quelqu'un est bien là.
+        autoAdvancesWithoutInput = 0
+    }
+    fun continueWatchingAction() {
+        stillWatchingPrompt = false
+        autoAdvancesWithoutInput = 0
+        exoPlayer.play()
     }
 
     // Actions du lecteur — factorisées pour être appelées à la fois par les
@@ -1214,7 +1233,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     // aussitôt le saut au lieu d'une navigation jusqu'en bas à droite.
     val skipMarkerFocus = remember { FocusRequester() }
     var skipMarkerFocused by remember { mutableStateOf(false) }
-    val menuOpen = showAudioDialog || showSubtitleDialog || errorMessage != null
+    val menuOpen = showAudioDialog || showSubtitleDialog || errorMessage != null || stillWatchingPrompt
     val skipVisible = activeMarker != null && !menuOpen
     LaunchedEffect(activeMarker?.type, activeMarker?.startMs, activeMarker?.endMs) {
         if (activeMarker == null || errorMessage != null) return@LaunchedEffect
@@ -1225,7 +1244,10 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     val latestPauseForBackground by rememberUpdatedState(::pauseForBackground)
     LaunchedEffect(Unit) {
         onRegisterMediaKeyHandler?.invoke { keyCode ->
-            when (keyCode) {
+            // Touche Lecture pendant « Vous regardez toujours ? » = oui.
+            if (stillWatchingPrompt && (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY)) {
+                poke(); continueWatchingAction(); true
+            } else when (keyCode) {
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> { playPauseAction(); true }
                 KeyEvent.KEYCODE_MEDIA_PLAY -> { poke(); exoPlayer.play(); true }
                 KeyEvent.KEYCODE_MEDIA_PAUSE -> { poke(); exoPlayer.pause(); true }
@@ -1685,6 +1707,123 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 onDismiss = { showSubtitleDialog = false },
                 includeOffOption = true,
             )
+        }
+
+        if (stillWatchingPrompt) {
+            val next = queue.getOrNull(currentIndex)
+            StillWatchingOverlay(
+                title = mainTitle,
+                nextEpisode = next?.let { item ->
+                    listOfNotNull(
+                        if (item.seasonNumber >= 0 && item.episodeNumber >= 0) "S%02d · E%02d".format(item.seasonNumber, item.episodeNumber) else null,
+                        item.label?.takeIf { it.isNotBlank() },
+                    ).joinToString("  —  ").ifBlank { null }
+                },
+                onContinue = { continueWatchingAction() },
+                onStop = { exitPlayerAction() },
+            )
+        }
+    }
+}
+
+/**
+ * « Vous regardez toujours ? » — façon Netflix, après plusieurs épisodes
+ * enchaînés sans aucune touche. L'épisode suivant attend en pause derrière ;
+ * sans réponse rien ne joue et la veille de la TV reprend d'elle-même.
+ * Boutons : gris au repos, blancs à texte noir seulement au focus.
+ */
+@Composable
+private fun StillWatchingOverlay(
+    title: String,
+    nextEpisode: String?,
+    onContinue: () -> Unit,
+    onStop: () -> Unit,
+) {
+    val continueFocus = remember { FocusRequester() }
+    BackHandler { onStop() }
+    LaunchedEffect(Unit) {
+        repeat(20) {
+            if (runCatching { continueFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+            delay(50)
+        }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.92f), Color.Black.copy(alpha = 0.55f), Color.Black.copy(alpha = 0.25f))))
+            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)))),
+    ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 72.dp, end = 72.dp)
+                .widthIn(max = 620.dp),
+        ) {
+            Text(
+                text = "Vous regardez toujours",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
+                color = MovvizInkSoft,
+            )
+            Text(
+                text = "$title ?",
+                style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            if (nextEpisode != null) {
+                Text(
+                    text = "À suivre : $nextEpisode",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MovvizInkSoft,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(top = 32.dp),
+            ) {
+                StillWatchingButton(label = "Continuer à regarder", icon = MovvizIconPlay, onClick = onContinue, modifier = Modifier.focusRequester(continueFocus))
+                StillWatchingButton(label = "Arrêter", icon = null, onClick = onStop)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StillWatchingButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .tvFocusLift(focused, shape = shape)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.16f),
+            contentColor = Color.White,
+            focusedContainerColor = Color.White,
+            focusedContentColor = Color.Black,
+        ),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 26.dp, vertical = 13.dp),
+        ) {
+            if (icon != null) Icon(imageVector = icon, contentDescription = null, tint = if (focused) Color.Black else Color.White, modifier = Modifier.size(18.dp))
+            Text(text = label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
         }
     }
 }

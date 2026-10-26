@@ -23,6 +23,10 @@ export const nl: Dictionary = {
     adminRepair: "Een beheerder kan de seizoenen controleren en herstellen.",
   },
   tizen: {
+    stillWatching: "Kijk je nog",
+    stillWatchingNext: "Hierna: {episode}",
+    keepWatching: "Verder kijken",
+    stopWatching: "Stoppen",
     missingOne: "{count} ontbreekt",
     account: "Account",
     playback: "Afspelen",

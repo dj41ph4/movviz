@@ -21,6 +21,10 @@ export const fr = {
     adminRepair: "Un administrateur peut vérifier et réparer les saisons.",
   },
   tizen: {
+    stillWatching: "Vous regardez toujours",
+    stillWatchingNext: "À suivre : {episode}",
+    keepWatching: "Continuer à regarder",
+    stopWatching: "Arrêter",
     missingOne: "{count} manquant",
     account: "Compte",
     playback: "Lecture",

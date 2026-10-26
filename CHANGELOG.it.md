@@ -1,3 +1,9 @@
+## v1.27.59 — 27 ottobre 2026
+
+### Android TV e Samsung
+
+- «Stai ancora guardando?» come su Netflix: dopo due episodi riprodotti di seguito senza toccare il telecomando, l'episodio successivo aspetta la tua risposta (Continua a guardare o Interrompi). Senza risposta non parte nulla e lo standby della TV riprende normalmente. Qualsiasi tasto del telecomando azzera il conteggio; finché usi il telecomando non cambia nulla.
+
 ## v1.27.58 — 27 ottobre 2026
 
 ### Android

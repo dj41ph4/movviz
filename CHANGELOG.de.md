@@ -1,3 +1,9 @@
+## v1.27.59 — 27. Oktober 2026
+
+### Android TV und Samsung
+
+- „Schaust du noch?“ wie bei Netflix: Nach zwei automatisch nacheinander abgespielten Folgen ohne Tastendruck wartet die nächste Folge auf deine Antwort (Weiterschauen oder Beenden). Ohne Antwort läuft nichts und der Ruhemodus des Fernsehers greift wieder normal. Jeder Tastendruck setzt den Zähler zurück; solange du die Fernbedienung nutzt, ändert sich nichts.
+
 ## v1.27.58 — 27. Oktober 2026
 
 ### Android

@@ -23,6 +23,10 @@ export const en: Dictionary = {
     adminRepair: "An administrator can check and repair the seasons.",
   },
   tizen: {
+    stillWatching: "Are you still watching",
+    stillWatchingNext: "Up next: {episode}",
+    keepWatching: "Continue watching",
+    stopWatching: "Stop",
     missingOne: "{count} missing",
     account: "Account",
     playback: "Playback",

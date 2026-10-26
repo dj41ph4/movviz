@@ -1,3 +1,9 @@
+## v1.27.59 — October 27, 2026
+
+### Android TV and Samsung
+
+- "Are you still watching?" like on Netflix: after two episodes played back to back with no remote input, the next episode waits for your answer (Continue watching or Stop). With no answer nothing plays and the TV's sleep mode resumes normally. Any remote key resets the count; nothing changes while you use the remote.
+
 ## v1.27.58 — October 27, 2026
 
 ### Android

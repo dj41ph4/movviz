@@ -23,6 +23,10 @@ export const de: Dictionary = {
     adminRepair: "Ein Administrator kann die Staffeln prüfen und reparieren.",
   },
   tizen: {
+    stillWatching: "Schaust du noch",
+    stillWatchingNext: "Als Nächstes: {episode}",
+    keepWatching: "Weiterschauen",
+    stopWatching: "Beenden",
     missingOne: "{count} fehlt",
     account: "Konto",
     playback: "Wiedergabe",

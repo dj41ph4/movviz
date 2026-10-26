@@ -1,3 +1,9 @@
+## v1.27.59 — 27 oktober 2026
+
+### Android TV en Samsung
+
+- „Kijk je nog?” zoals bij Netflix: na twee automatisch achter elkaar afgespeelde afleveringen zonder toets op de afstandsbediening wacht de volgende aflevering op je antwoord (Verder kijken of Stoppen). Zonder antwoord speelt er niets en gaat de tv gewoon weer in slaapstand. Elke toets zet de teller terug; zolang je de afstandsbediening gebruikt, verandert er niets.
+
 ## v1.27.58 — 27 oktober 2026
 
 ### Android

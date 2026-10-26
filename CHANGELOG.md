@@ -1,3 +1,9 @@
+## v1.27.59 — 27 octobre 2026
+
+### Android TV et Samsung
+
+- « Vous regardez toujours ? » comme sur Netflix : après deux épisodes enchaînés tout seuls sans toucher la télécommande, l'épisode suivant attend votre réponse (Continuer à regarder ou Arrêter). Sans réponse, rien ne joue et la mise en veille de la TV reprend normalement. Toute touche de la télécommande remet le compteur à zéro ; rien ne change tant que vous utilisez la télécommande.
+
 ## v1.27.58 — 27 octobre 2026
 
 ### Android
