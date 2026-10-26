@@ -391,6 +391,10 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // films/séries puis filtrés contre movies/series une fois affichés (voir
     // HomeScreen), pour rester à jour dès qu'un ajout réussit sans refaire
     // d'appel réseau.
+    // « Prochainement » — films annoncés (TMDb), chargés avec la Découverte.
+    private val _announcedMovies = MutableStateFlow<List<com.movviz.nx.mobile.data.AnnouncedMovieDto>>(emptyList())
+    val announcedMovies: StateFlow<List<com.movviz.nx.mobile.data.AnnouncedMovieDto>> = _announcedMovies.asStateFlow()
+
     private val _trendingMovies = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val trendingMovies: StateFlow<List<SearchResultDto>> = _trendingMovies.asStateFlow()
 
@@ -2012,12 +2016,14 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 val seriesRows = async { repo.metadataRows("series") }
                 val movieRecommendations = async { repo.metadataRecommendations("movie") }
                 val seriesRecommendations = async { repo.metadataRecommendations("series") }
+                val announced = async { repo.announcedMovies() }
                 when (val m = movies.await()) { is ApiResult.Success -> _trendingMovies.value = m.data; else -> Unit }
                 when (val s = series.await()) { is ApiResult.Success -> _trendingSeries.value = s.data; else -> Unit }
                 when (val rows = movieRows.await()) { is ApiResult.Success -> _movieRows.value = rows.data; else -> Unit }
                 when (val rows = seriesRows.await()) { is ApiResult.Success -> _seriesRows.value = rows.data; else -> Unit }
                 when (val recommendations = movieRecommendations.await()) { is ApiResult.Success -> _movieLibraryRecommendations.value = recommendations.data; else -> Unit }
                 when (val recommendations = seriesRecommendations.await()) { is ApiResult.Success -> _seriesLibraryRecommendations.value = recommendations.data; else -> Unit }
+                when (val result = announced.await()) { is ApiResult.Success -> _announcedMovies.value = result.data; else -> Unit }
             }
         }
     }

@@ -25,6 +25,9 @@ export const DASHBOARD_SECTION_IDS = [
   "rewatch",
   "discover",
   "shortSessions",
+  // « Prochainement » — every announced film (TMDb), distinct from
+  // comingSoon (« Vos prochaines sorties »: the user's own requests).
+  "announced",
   "comingSoon",
   "upgradesAvailable",
 ] as const;
@@ -150,6 +153,11 @@ function sanitizeSections(raw: unknown): DashboardLayout["sections"] {
   for (const id of DASHBOARD_SECTION_IDS) {
     if (!seen.has(id)) {
       if (id === "watchlist") sections.splice(Math.min(3, sections.length), 0, { id, visible: true });
+      else if (id === "announced") {
+        // Beside its sibling « Vos prochaines sorties », wherever the user put it.
+        const sibling = sections.findIndex((s) => s.id === "comingSoon");
+        sections.splice(sibling >= 0 ? sibling : sections.length, 0, { id, visible: true });
+      }
       else sections.push({ id, visible: true });
     }
   }

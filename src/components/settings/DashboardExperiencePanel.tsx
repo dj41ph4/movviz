@@ -21,6 +21,7 @@ const SECTION_LABEL_KEY: Record<DashboardSectionId, string> = {
   rewatch: "dashboard.rowRewatch",
   shortSessions: "dashboard.shortSessions",
   availableNow: "dashboard.recentlyAdded",
+  announced: "dashboard.rowAnnounced",
   comingSoon: "dashboard.rowUpcoming",
   upgradesAvailable: "dashboard.upgradesAvailable",
   discover: "dashboard.rowTrending",

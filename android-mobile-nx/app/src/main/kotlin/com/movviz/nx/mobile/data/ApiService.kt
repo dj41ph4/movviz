@@ -220,6 +220,11 @@ interface MovvizApiService {
     // ces identifiants contre leur bibliothèque pour construire l'onglet
     // « Suggestions pour vous » local, exactement comme LibraryRecommendedRows
     // sur desktop : aucune œuvre externe ne s'y glisse.
+    // « Prochainement » : tous les films annoncés des 12 prochains mois,
+    // distincts de « Vos prochaines sorties » (demandes pas encore sorties).
+    @GET("api/metadata/announced")
+    suspend fun announcedMovies(): Response<AnnouncedResponseDto>
+
     @GET("api/metadata/recommendations")
     suspend fun metadataRecommendations(@Query("type") type: String): Response<SearchResponseDto>
 

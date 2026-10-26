@@ -579,6 +579,22 @@ data class SearchResultDto(
     val seriesPart: String? = null,
 )
 
+/** « Prochainement » — un film annoncé (GET /api/metadata/announced). */
+@JsonClass(generateAdapter = true)
+data class AnnouncedMovieDto(
+    val tmdbId: Int,
+    val title: String,
+    val year: Int? = null,
+    val releaseDate: String? = null,
+    val overview: String = "",
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val rating: Double = 0.0,
+)
+
+@JsonClass(generateAdapter = true)
+data class AnnouncedResponseDto(val results: List<AnnouncedMovieDto> = emptyList())
+
 @JsonClass(generateAdapter = true)
 data class SearchResponseDto(
     /** False only when TMDb is not configured on the Movviz server. */

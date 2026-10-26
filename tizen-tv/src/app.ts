@@ -26,7 +26,7 @@ interface Window {
     seasonNumber?: number; episodeNumber?: number; similar?: Media[]; runtime?: number; genres?: string[]; logoPath?: string;
     cast?: { id: number; name: string; character: string; profilePath?: string }[];
     seasons?: { seasonNumber: number; name: string; posterPath?: string; episodeCount?: number }[];
-    progress?: number; positionMs?: number; durationMs?: number; episodeTitle?: string;
+    progress?: number; positionMs?: number; durationMs?: number; episodeTitle?: string; releaseDate?: string | null; vfReleaseDate?: string | null;
     seriesPart?: SeriesPart; bleachRepairRequired?: boolean;
   }
   interface Episode { seasonNumber: number; episodeNumber: number; title: string; status: string; file?: { resolution?: string; hdr?: string; videoCodec?: string; audioCodec?: string; source?: string }; playbackSource?: string; plexRatingKey?: string; stillPath?: string; runtime?: number; overview?: string; rating?: number; airDate?: string }
@@ -140,10 +140,10 @@ interface Window {
     }
     return node;
   }
-  function row(label: string, items: Media[], type?: MediaType) {
+  function row(label: string, items: Media[], type?: MediaType, parent: HTMLElement = content) {
     if (!items.length) return;
     const section = el("section", "", "media-section"); section.append(el("h2", label)); const list = el("div", "", "row");
-    items.filter(Boolean).forEach(item => list.append(card(item, type || item.type || "movie", label === t("tizen.continueWatching")))); section.append(list); content.append(section);
+    items.filter(Boolean).forEach(item => list.append(card(item, type || item.type || "movie", label === t("tizen.continueWatching")))); section.append(list); parent.append(section);
   }
   function focusFirst() { content?.querySelector<HTMLElement>("button:not(:disabled), input, select")?.focus(); }
   function snapshot(): Page { return { title: heading.textContent || "", content, focusId: (document.activeElement as HTMLElement)?.dataset.focusId || "", scroll: window.scrollY }; }
@@ -300,7 +300,19 @@ interface Window {
     row(t("tizen.continueWatching"), normalizeDeck(onDeck.items || []));
     row(t("tizen.recentMovies"), (dashboard.movies || []).filter(Boolean).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 25), "movie");
     row(t("tizen.recentSeries"), (dashboard.series || []).filter(Boolean).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 25), "series");
-    if (!content.childElementCount) content.append(el("p", t("tizen.empty"), "muted")); focusFirst();
+    // Same order as the site and the Android apps: editorial rows, then
+    // « Prochainement » (every announced film), then « Vos prochaines
+    // sorties » (the user's requests not out yet). Slots keep that order
+    // whichever answer arrives first.
+    const editorialSlot = el("div"); const announcedSlot = el("div"); const mineSlot = el("div");
+    content.append(editorialSlot, announcedSlot, mineSlot);
+    const mine = (dashboard.movies || []).filter((m) => m?.status === "upcoming")
+      .sort((a, b) => (a.vfReleaseDate || a.releaseDate || "9999").localeCompare(b.vfReleaseDate || b.releaseDate || "9999")).slice(0, 20);
+    row(t("dashboard.rowUpcoming"), mine, "movie", mineSlot);
+    if (!content.querySelector(".media-section, .home-hero-container")) content.append(el("p", t("tizen.empty"), "muted")); focusFirst();
+    void call<{ results?: Media[] }>("/api/metadata/announced").then((data) => {
+      if (version === generation) row(t("dashboard.rowAnnounced"), data.results || [], "movie", announcedSlot);
+    }).catch(() => {});
     for (const type of ["movie", "series"] as const) {
       const shown = new Set<string>();
       void editorialRows(type, () => version === generation, rows => {
@@ -308,7 +320,7 @@ interface Window {
           if (shown.has(entry.key) || !entry.results?.length) continue;
           if (!["recommendedTop", "trendingPopular", "trending", "shortFormat"].includes(entry.key)) continue;
           shown.add(entry.key);
-          row(t(entry.key === "recommendedTop" ? "tizen.recommended" : entry.key === "shortFormat" ? "tizen.shortFormat" : "tizen.trending"), entry.results, type);
+          row(t(entry.key === "recommendedTop" ? "tizen.recommended" : entry.key === "shortFormat" ? "tizen.shortFormat" : "tizen.trending"), entry.results, type, editorialSlot);
         }
       }).catch(() => {});
     }

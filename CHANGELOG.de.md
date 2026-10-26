@@ -1,3 +1,10 @@
+## v1.27.57 — 27. Oktober 2026
+
+### Startseite
+
+- Neue Reihe „Demnächst“ auf allen Startseiten (Web, Android TV, Android, Samsung): alle für die nächsten zwölf Monate angekündigten Filme (mit bekanntem Erscheinungsdatum und Poster), nach Erscheinungsdatum sortiert, mit denselben Karten wie alle anderen Reihen. Projekte, die mehr als ein Jahr entfernt und oft hypothetisch sind, fehlen bewusst.
+- „Deine kommenden Veröffentlichungen“ zeigt weiterhin deine noch nicht erschienenen Anfragen, direkt danach und überall mit demselben Namen (Android TV nannte sie „Demnächst“). Samsung zeigt jetzt beide Reihen.
+
 ## v1.27.56 — 26. Oktober 2026
 
 ### Player

@@ -595,6 +595,7 @@ export const en: Dictionary = {
     rowRewatch: "Worth watching again",
     shortSessions: "Short on time? Under 40 minutes",
     rowUpcoming: "Your upcoming releases",
+    rowAnnounced: "Coming soon",
     rowTrending: "Trending on Movviz",
     upgradesAvailable: "Upgrades available",
     hero: {

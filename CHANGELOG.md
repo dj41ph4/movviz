@@ -1,3 +1,10 @@
+## v1.27.57 — 27 octobre 2026
+
+### Accueil
+
+- Nouvelle rangée « Prochainement » sur tous les accueils (site, Android TV, Android, Samsung) : tous les films annoncés pour les douze prochains mois (date de sortie connue et jaquette), dans l'ordre des sorties, avec les mêmes cartes que les autres rangées. Les projets datés au-delà d'un an, souvent hypothétiques, n'y figurent pas.
+- « Vos prochaines sorties » garde vos demandes pas encore sorties, juste après, avec le même nom partout (Android TV l'appelait « Prochainement »). Samsung affiche désormais ces deux rangées.
+
 ## v1.27.56 — 26 octobre 2026
 
 ### Lecteur

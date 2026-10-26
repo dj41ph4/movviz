@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
         case "/api/metadata/detail": response = await (await import("@/app/api/metadata/detail/route")).GET(delegated); break;
         case "/api/metadata/search": response = await (await import("@/app/api/metadata/search/route")).GET(delegated); break;
         case "/api/metadata/rows": response = await (await import("@/app/api/metadata/rows/route")).GET(delegated); break;
+        case "/api/metadata/announced": response = await (await import("@/app/api/metadata/announced/route")).GET(delegated); break;
         case "/api/plex/on-deck": response = await (await import("@/app/api/plex/on-deck/route")).GET(delegated); break;
         case "/api/profile/media": response = await (await import("@/app/api/profile/media/route")).GET(delegated); break;
         case "/api/watch-status": response = await (await import("@/app/api/watch-status/route")).GET(delegated); break;

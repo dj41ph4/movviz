@@ -1,3 +1,10 @@
+## v1.27.57 — 27 ottobre 2026
+
+### Home
+
+- Nuova riga «Prossimamente» in tutte le home (web, Android TV, Android, Samsung): tutti i film annunciati per i prossimi dodici mesi (data di uscita nota e locandina), in ordine di uscita, con le stesse schede delle altre righe. I progetti datati oltre un anno, spesso ipotetici, sono esclusi.
+- «Le tue prossime uscite» mantiene le tue richieste non ancora uscite, subito dopo, con lo stesso nome ovunque (Android TV la chiamava «Prossimamente»). Samsung ora mostra entrambe le righe.
+
 ## v1.27.56 — 26 ottobre 2026
 
 ### Lettore

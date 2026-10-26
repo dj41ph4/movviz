@@ -45,6 +45,7 @@ fun defaultDashboardSections(): List<DashboardSectionDto> = listOf(
     "rewatch",
     "discover",
     "shortSessions",
+    "announced",
     "comingSoon",
     "upgradesAvailable",
 ).map { DashboardSectionDto(it, true) }

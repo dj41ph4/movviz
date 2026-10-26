@@ -595,6 +595,7 @@ export const fr = {
     rowRewatch: "À revoir sans modération",
     shortSessions: "Vous avez peu de temps ? Moins de 40 minutes",
     rowUpcoming: "Vos prochaines sorties",
+    rowAnnounced: "Prochainement",
     rowTrending: "Tendances Movviz",
     upgradesAvailable: "Optimisations disponibles",
     hero: {

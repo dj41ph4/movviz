@@ -14,8 +14,7 @@ import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
-import { RecentEpisodesRow } from "./RecentEpisodesRow";
-import { WatchlistRow } from "./WatchlistRow";
+import { RecentEpisodesRow } from "./RecentEpisodesRow";import { WatchlistRow } from "./WatchlistRow";
 import type { WatchlistItem } from "@/lib/watchlist/types";
 import { useRowLayout } from "@/components/media/useRowLayout";
 import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
@@ -113,6 +112,9 @@ export function DashboardRows({
   );
   const { data: seriesRowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
     visible.has("discover") ? "/api/metadata/rows?type=series" : null
+  );
+  const { data: announcedData } = useSWR<{ results: MetaSearchResult[] }>(
+    visible.has("announced") ? "/api/metadata/announced" : null
   );
   const { data: recData } = useSWR<{ results: MetaSearchResult[] }>(
     visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=movie" : null
@@ -233,6 +235,16 @@ export function DashboardRows({
         .slice(0, 20),
     [movies, afterMinYear, isNotExcluded]
   );
+  // « Prochainement » : every film announced for the next 12 months (server
+  // side, release order) — same cards and countdown badge as the row above.
+  const announced = useMemo(
+    () =>
+      (announcedData?.results ?? [])
+        .filter((m) => isNotExcluded("movie", m.tmdbId))
+        .map((m) => ({ m, days: daysUntil(m.releaseDate) }))
+        .filter((x): x is { m: MetaSearchResult; days: number } => x.days !== null),
+    [announcedData, isNotExcluded]
+  );
 
   const upgrades = useMemo(() => {
     if (!upgradeData?.candidates.length) return [];
@@ -292,11 +304,12 @@ export function DashboardRows({
     if (visible.has("becauseYouLike")) recommended.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("rewatch")) rewatch.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("shortSessions")) shortSessions.forEach((item) => add("movie", item.tmdbId));
+    if (visible.has("announced")) announced.forEach(({ m }) => add("movie", m.tmdbId));
     if (visible.has("comingSoon")) upcoming.forEach(({ m }) => add("movie", m.tmdbId));
     if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
 
     return [...refs.values()];
-  }, [visible, continueWatching, recommended, rewatch, shortSessions, trending, recentlyAdded, upcoming, upgrades, localArtwork]);
+  }, [visible, continueWatching, recommended, rewatch, shortSessions, trending, recentlyAdded, announced, upcoming, upgrades, localArtwork]);
   const artworkData = useTitleArtworkBatch(artworkRefs, locale);
 
   const resolveArtwork = (type: "movie" | "series", tmdbId: number, fallbackBackdrop?: string | null): ResolvedArtwork => {
@@ -312,7 +325,7 @@ export function DashboardRows({
     };
   };
 
-  const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "watchlist", "rewatch", "discover", "shortSessions", "comingSoon", "upgradesAvailable"];
+  const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "watchlist", "rewatch", "discover", "shortSessions", "announced", "comingSoon", "upgradesAvailable"];
 
   const renderSection = (id: DashboardSectionId) => {
         if (!visible.has(id)) return null;
@@ -482,6 +495,33 @@ export function DashboardRows({
                       genres={movie.genres}
                       inLibrary={true}
                       playback={moviePlayback(movie)}
+                    />
+                  </CardErrorBoundary>
+                );
+              })}
+            </PosterRow>
+          );
+        }
+
+        if (id === "announced" && announced.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.rowAnnounced")}>
+              {announced.map(({ m, days }) => {
+                const artwork = resolveArtwork("movie", m.tmdbId, m.backdropPath);
+                return (
+                  <CardErrorBoundary key={m.tmdbId}>
+                    <DashboardPosterCard
+                      tmdbId={m.tmdbId}
+                      type="movie"
+                      title={m.title}
+                      posterPath={m.posterPath}
+                      backdropPath={artwork.backdropPath}
+                      logoPath={artwork.logoPath}
+                      titleEmbedded={artwork.titleEmbedded}
+                      badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
+                      year={m.year}
+                      rating={m.rating}
+                      overview={m.overview}
                     />
                   </CardErrorBoundary>
                 );

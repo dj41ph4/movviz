@@ -246,6 +246,7 @@ fun HomeScreen(
     val streamedRecentEpisodes by viewModel.recentEpisodes.collectAsState()
     val streamedContinueWatching by viewModel.continueWatching.collectAsState()
     val rewatchResults by viewModel.rewatch.collectAsState()
+    val announcedResults by viewModel.announcedMovies.collectAsState()
     val queue by viewModel.queue.collectAsState()
     val streamedMovieRows by viewModel.movieRows.collectAsState()
     val streamedSeriesRows by viewModel.seriesRows.collectAsState()
@@ -496,6 +497,18 @@ fun HomeScreen(
             }.withWatchedMovies(watchedMovieIds)
     }
 
+    // « Prochainement » : tous les films annoncés (serveur, 12 mois), dans
+    // l'ordre de sortie — distinct de « Vos prochaines sorties » ci-dessus.
+    val announcedCards = remember(announcedResults) {
+        announcedResults.map {
+            TvTitleCard(
+                id = "announced-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
+                backdropPath = it.backdropPath, tmdbId = it.tmdbId, isMovie = true,
+                year = it.year, rating = it.rating, overview = it.overview,
+            )
+        }
+    }
+
     val heroFallback = remember(availableNowCards, recommendationCards) {
         (recommendationCards + availableNowCards)
             .filter { it.backdropPath != null }
@@ -540,7 +553,7 @@ fun HomeScreen(
 
     val visibleSections = remember(
         dashboardLayout.sections, continueCards, recentEpisodeCards, recommendationCards, rewatchCards, shortSessionCards,
-        trendingCards, availableNowCards, comingSoonCards, watchlistCards,
+        trendingCards, availableNowCards, comingSoonCards, announcedCards, watchlistCards,
     ) {
         val configured = dashboardLayout.sections.filter { it.visible }.mapNotNull { section ->
             val hasContent = when (section.id) {
@@ -551,6 +564,7 @@ fun HomeScreen(
                 "shortSessions" -> shortSessionCards.isNotEmpty()
                 "discover" -> trendingCards.isNotEmpty()
                 "availableNow" -> availableNowCards.isNotEmpty()
+                "announced" -> announcedCards.isNotEmpty()
                 "comingSoon" -> comingSoonCards.isNotEmpty()
                 else -> false
             }
@@ -561,7 +575,7 @@ fun HomeScreen(
         // sessions courtes. Les réglages conservent seulement la visibilité.
         val canonicalOrder = listOf(
             "continueWatching", "availableNow", "becauseYouLike", "watchlist", "rewatch",
-            "discover", "shortSessions", "comingSoon", "upgradesAvailable",
+            "discover", "shortSessions", "announced", "comingSoon", "upgradesAvailable",
         )
         val ordered = canonicalOrder.filter { id ->
             id in configured || (id == "continueWatching" && continueCards.isNotEmpty())
@@ -821,9 +835,20 @@ fun HomeScreen(
                             onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
+                    "announced" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Prochainement", items = announcedCards,
+                            onClick = { onOpenTitle("movie", it.tmdbId) },
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.requestHeroLogo("movie", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview("movie", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
+                        )
+                    }
                     "comingSoon" -> item(contentType = "row") {
                         TitleRow(
-                            heading = "Prochainement", items = comingSoonCards,
+                            heading = "Vos prochaines sorties", items = comingSoonCards,
                             onClick = { onOpenTitle("movie", it.tmdbId) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,

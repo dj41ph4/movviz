@@ -597,6 +597,7 @@ export const nl: Dictionary = {
     rowRewatch: "Nog eens kijken",
     shortSessions: "Weinig tijd? Minder dan 40 minuten",
     rowUpcoming: "Jouw aankomende releases",
+    rowAnnounced: "Binnenkort",
     rowTrending: "Trending op Movviz",
     upgradesAvailable: "Beschikbare upgrades",
     hero: {

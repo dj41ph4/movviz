@@ -1,3 +1,10 @@
+## v1.27.57 — October 27, 2026
+
+### Home
+
+- New "Coming soon" row on every home screen (web, Android TV, Android, Samsung): every film announced for the next twelve months (known release date and poster), in release order, with the same cards as every other row. Projects dated more than a year out, often hypothetical, are left out.
+- "Your upcoming releases" keeps your requests not out yet, right after it, with the same name everywhere (Android TV called it "Coming soon"). Samsung now shows both rows.
+
 ## v1.27.56 — October 26, 2026
 
 ### Player

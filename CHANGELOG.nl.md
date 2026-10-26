@@ -1,3 +1,10 @@
+## v1.27.57 — 27 oktober 2026
+
+### Startpagina
+
+- Nieuwe rij „Binnenkort” op elke startpagina (web, Android TV, Android, Samsung): alle films die voor de komende twaalf maanden zijn aangekondigd (bekende releasedatum en poster), op volgorde van release, met dezelfde kaarten als alle andere rijen. Projecten die meer dan een jaar weg zijn, vaak hypothetisch, staan er niet in.
+- „Jouw aankomende releases” toont nog steeds je aanvragen die nog niet uit zijn, direct daarna en overal met dezelfde naam (Android TV noemde die „Binnenkort”). Samsung toont nu beide rijen.
+
 ## v1.27.56 — 26 oktober 2026
 
 ### Speler

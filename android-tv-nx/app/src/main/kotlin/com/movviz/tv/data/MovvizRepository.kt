@@ -198,6 +198,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun metadataLogos(kind: String): ApiResult<List<LogoTileDto>> =
         safeCall { api.metadataLogos(kind) }.map { it.tiles }
 
+    suspend fun announcedMovies(): ApiResult<List<AnnouncedMovieDto>> =
+        safeCall { api.announcedMovies() }.map { it.results }
+
     suspend fun metadataRecommendations(type: String): ApiResult<List<SearchResultDto>> =
         safeCall { api.metadataRecommendations(type) }.map { it.results }
 
