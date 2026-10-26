@@ -24,7 +24,7 @@ import { throttleIndexerRequest, throttleGlobalIndexerRequest } from "./rateLimi
  */
 
 function buildUrl(ix: ConfiguredIndexer, params: Record<string, string>) {
-  const url = new URL(ix.baseUrl);
+  const url = new URL(ix.key === "extto" ? `${loadResolverConfig().url}/extto/api` : ix.baseUrl);
   if (ix.authType === "apikey" && ix.apiKey) {
     url.searchParams.set("apikey", ix.apiKey);
   }
@@ -34,6 +34,7 @@ function buildUrl(ix: ConfiguredIndexer, params: Record<string, string>) {
 
 /** Basic Auth header for indexer instances protected by a login/password. */
 function authHeaders(ix: ConfiguredIndexer): Record<string, string> {
+  if (ix.key === "extto") return { "x-api-key": ix.apiKey };
   if (ix.authType === "credentials" && ix.username) {
     const token = Buffer.from(`${ix.username}:${ix.password}`).toString("base64");
     return { authorization: `Basic ${token}` };
@@ -76,6 +77,7 @@ async function resolveCookies(ix: ConfiguredIndexer): Promise<string | null> {
 }
 
 async function fetchXml(url: string, ix: ConfiguredIndexer, timeoutMs = 12000) {
+  if (ix.key === "extto") timeoutMs = 150000;
   // Global cross-indexer budget first, then per-indexer per-minute quota
   // (e.g. c411: 15 req/min) - wait for a free slot BEFORE sending, so the
   // documented quota is never exceeded.
@@ -85,7 +87,7 @@ async function fetchXml(url: string, ix: ConfiguredIndexer, timeoutMs = 12000) {
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const headers: Record<string, string> = { ...authHeaders(ix) };
-    if (ix.useFlareResolver) {
+    if (ix.useFlareResolver && ix.key !== "extto") {
       const cookies = await resolveCookies(ix);
       if (cookies) headers.cookie = cookies;
     }

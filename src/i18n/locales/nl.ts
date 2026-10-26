@@ -1724,6 +1724,7 @@ export const nl: Dictionary = {
     urlHint: "Torznab/Newznab-eindpunt (bijv. https://mijn-indexer/api)",
     apiKey: "API-sleutel",
     getApiKey: "Je API-sleutel ophalen",
+    extToIntegratedHint: "Vul je EXT.to-gebruikersnaam en wachtwoord in. Movviz beheert de resolver en de interne Torznab-sleutel zonder ze te tonen. De indexer blijft uitgeschakeld tot je hem activeert.",
     xApiKey: "X-API-Key",
     apiKeyOptional: "API-sleutel (indien vereist)",
     categories: "Categorieën",

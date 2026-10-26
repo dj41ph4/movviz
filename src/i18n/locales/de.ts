@@ -1742,6 +1742,7 @@ export const de: Dictionary = {
     urlHint: "Torznab/Newznab-Endpunkt (z. B. https://mein-indexer/api)",
     apiKey: "API-Schlüssel",
     getApiKey: "API-Schlüssel abrufen",
+    extToIntegratedHint: "Gib deinen EXT.to-Benutzernamen und dein Passwort ein. Movviz verwaltet den Resolver und den internen Torznab-Schlüssel unsichtbar. Der Indexer bleibt bis zur Aktivierung deaktiviert.",
     xApiKey: "X-API-Key",
     apiKeyOptional: "API-Schlüssel (falls erforderlich)",
     categories: "Kategorien",

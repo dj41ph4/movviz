@@ -1,10 +1,13 @@
 import type { FastifyInstance } from "fastify";
-import { createSession, closeSession, shutdown } from "./browser.js";
+import { createSession, closeSession, shutdown as shutdownBrowser } from "./browser.js";
 import { resolveChallenge } from "./solver.js";
+import { createNamedSession, destroyNamedSession, destroyAllSessions, useNamedSession } from "./sessions.js";
+import { registerExtToRoutes } from "./extto.js";
 
 interface V1Request {
   cmd?: string;
   url?: string;
+  session?: string;
   maxTimeout?: number;
   returnOnlyCookies?: boolean;
   blockMedia?: boolean;
@@ -40,9 +43,10 @@ interface V1Response {
   version: string;
 }
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
+  await registerExtToRoutes(app);
   app.get("/", async (_req, reply) => {
     return reply.redirect("/docs");
   });
@@ -53,7 +57,34 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: V1Request }>("/v1", async (req, reply) => {
     const startTimestamp = Date.now();
-    const { url, maxTimeout = 60, returnOnlyCookies = false, blockMedia = false, proxy } = req.body;
+    const { cmd, url, session: sessionId, returnOnlyCookies = false, blockMedia = false, proxy } = req.body ?? {};
+
+    if (cmd === "sessions.create") {
+      try {
+        const id = await createNamedSession(sessionId, proxy);
+        return { status: "ok", message: "Session created successfully.", session: id, startTimestamp, endTimestamp: Date.now(), version: VERSION };
+      } catch (err) {
+        return reply.status(500).send({ status: "error", message: String(err), startTimestamp, endTimestamp: Date.now(), version: VERSION });
+      }
+    }
+
+    if (cmd === "sessions.destroy") {
+      if (!sessionId) return reply.status(400).send({ status: "error", message: "Missing required field: session", startTimestamp, endTimestamp: Date.now(), version: VERSION });
+      const removed = await destroyNamedSession(sessionId);
+      if (!removed) return reply.status(404).send({ status: "error", message: "The session doesn't exist.", startTimestamp, endTimestamp: Date.now(), version: VERSION });
+      return { status: "ok", message: "The session has been removed.", startTimestamp, endTimestamp: Date.now(), version: VERSION };
+    }
+
+    if (cmd && cmd !== "request.get") {
+      return reply.status(400).send({ status: "error", message: `Unsupported command: ${cmd}`, startTimestamp, endTimestamp: Date.now(), version: VERSION });
+    }
+
+    // Requests without cmd retain Movviz's original seconds-based contract.
+    const rawTimeout = req.body?.maxTimeout ?? (cmd ? 60000 : 60);
+    const timeoutMs = cmd ? rawTimeout : rawTimeout * 1000;
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 300000) {
+      return reply.status(400).send({ status: "error", message: "Invalid maxTimeout", startTimestamp, endTimestamp: Date.now(), version: VERSION });
+    }
 
     if (!url) {
       return reply.status(400).send({
@@ -66,10 +97,17 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       } satisfies V1Response);
     }
 
-    let session;
+    let temporarySession;
     try {
-      session = await createSession(proxy);
-      const result = await resolveChallenge(session, url, maxTimeout, returnOnlyCookies, blockMedia);
+      const solve = async (browserSession: Awaited<ReturnType<typeof createSession>>) =>
+        resolveChallenge(browserSession, url, timeoutMs, returnOnlyCookies, blockMedia);
+      let result;
+      if (cmd === "request.get" && sessionId) {
+        result = await useNamedSession(sessionId, solve);
+      } else {
+        temporarySession = await createSession(proxy);
+        result = await solve(temporarySession);
+      }
 
       if (!result.success) {
         return reply.status(408).send({
@@ -106,8 +144,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         endTimestamp: Date.now(),
         version: VERSION,
       } satisfies V1Response;
+    } catch (err) {
+      return reply.status(500).send({ status: "error", message: err instanceof Error ? err.message : String(err), startTimestamp, endTimestamp: Date.now(), version: VERSION });
     } finally {
-      if (session) await closeSession(session);
+      if (temporarySession) await closeSession(temporarySession);
     }
   });
 
@@ -122,6 +162,11 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   "blockMedia": false,
   "proxy": { "server": "http://proxy:8080", "username": "", "password": "" }
 }</pre>
+<p>Existing requests without <code>cmd</code> use maxTimeout in seconds. FlareSolverr-compatible requests use milliseconds:</p>
+<pre>{"cmd":"sessions.create","session":"extto_persistent"}</pre>
+<pre>{"cmd":"request.get","url":"https://ext.to/","session":"extto_persistent","maxTimeout":120000}</pre>
+<pre>{"cmd":"sessions.destroy","session":"extto_persistent"}</pre>
+<p>Named sessions retain cookies for up to 60 minutes of inactivity. At most 10 named sessions are allowed.</p>
 <h3>Response:</h3>
 <pre>{
   "status": "ok",
@@ -137,10 +182,13 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   },
   "startTimestamp": ...,
   "endTimestamp": ...,
-  "version": "0.1.0"
+  "version": "0.2.0"
 }</pre>
-<h3>GET /health</h3><pre>{"status":"ok","version":"0.1.0"}</pre></body></html>`;
+<h3>GET /health</h3><pre>{"status":"ok","version":"0.2.0"}</pre></body></html>`;
   });
 }
 
-export { shutdown };
+export async function shutdown(): Promise<void> {
+  await destroyAllSessions();
+  await shutdownBrowser();
+}

@@ -221,7 +221,7 @@ export function IndexerManager() {
                   {testing === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
                   {testing === r.id ? t("indexerMgr.testing") : t("indexerMgr.test")}
                 </button>
-                <button
+                {r.key !== "extto" && <button
                   onClick={async () => {
                     setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, useFlareResolver: !x.useFlareResolver } : x)));
                     try {
@@ -239,7 +239,7 @@ export function IndexerManager() {
                 >
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                   CF
-                </button>
+                </button>}
                 <button
                   onClick={() => setEditingId(editingId === r.id ? null : r.id)}
                   className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors", editingId === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
@@ -427,8 +427,9 @@ function entryFromRow(r: Row): CatalogEntry {
 
 function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, params?: Record<string, string | number>) => string; entry: CatalogEntry; existing?: Row | null; onDone: () => void; onCancel: () => void }) {
   const isEdit = !!existing;
-  const isGeneric = existing ? entry.baseUrl === undefined : !entry.baseUrl;
+  const isGeneric = !entry.baseUrl;
   const isC411 = (existing?.key ?? entry.key) === "c411";
+  const isExtTo = (existing?.key ?? entry.key) === "extto";
   const [name, setName] = useState(existing?.name ?? entry.name);
   const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? entry.baseUrl ?? "");
   const [authType, setAuthType] = useState<IndexerAuthType>(existing?.authType ?? entry.authType);
@@ -494,6 +495,14 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
   };
 
   const loadCategories = async () => {
+    if (isExtTo) {
+      setRealCategories([
+        { id: 2000, name: "Movies" },
+        { id: 5000, name: "TV" },
+        { id: 5070, name: "Anime" },
+      ]);
+      return;
+    }
     const result = await testDraft();
     if (!result) return;
     if (!result.ok) {
@@ -510,6 +519,10 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
 
   const save = async () => {
     if (!baseUrl.trim() && !isEdit) return;
+    if (isExtTo && (!username.trim() || (!password && !existing?.hasCredentials))) {
+      setSaveError(t("indexerMgr.categoriesNeedCredentials"));
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -554,10 +567,11 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
         <input value={name} onChange={(e) => setName(e.target.value)} className={field} />
       </div>
 
-      <div className="sm:col-span-2">
+      {!isExtTo && <div className="sm:col-span-2">
         <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.url")}</label>
         <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={t("indexerMgr.urlHint")} className={cn(field, "font-mono text-xs")} />
-      </div>
+      </div>}
+      {isExtTo && <p className="sm:col-span-2 text-xs text-ink-dim">{t("indexerMgr.extToIntegratedHint")}</p>}
 
       {isGeneric && (
         <div className="sm:col-span-2">

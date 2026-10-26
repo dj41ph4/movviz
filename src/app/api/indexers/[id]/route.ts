@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { removeIndexer, updateIndexer, redact } from "@/lib/indexers/store";
+import { getIndexer, removeIndexer, updateIndexer, redact } from "@/lib/indexers/store";
+import { bootstrapResolver } from "@/lib/resolver/bootstrap";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -23,7 +24,17 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   ] as const;
   const clean: Record<string, unknown> = {};
   for (const k of allowed) if (k in patch) clean[k] = patch[k];
-  const updated = updateIndexer((await params).id, clean);
+  const id = (await params).id;
+  const current = getIndexer(id);
+  if (current?.key === "extto") {
+    clean.key = "extto";
+    clean.baseUrl = "https://ext.to";
+    clean.authType = "credentials";
+    clean.useFlareResolver = false;
+    delete clean.apiKey;
+  }
+  const updated = updateIndexer(id, clean);
+  if (updated?.key === "extto" && updated.enabled) await bootstrapResolver();
   return updated
     ? NextResponse.json(redact(updated))
     : NextResponse.json({ error: "not found" }, { status: 404 });

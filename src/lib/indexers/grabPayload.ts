@@ -1,6 +1,7 @@
 import { getIndexer } from "./store";
 import { markRateLimited } from "./rateLimit";
 import { throttleIndexerRequest } from "./rateLimit";
+import { loadResolverConfig } from "@/lib/resolver/store";
 
 /**
  * Resolve a release (magnet or a protected .torrent/nzb URL) into whatever
@@ -21,6 +22,20 @@ export async function buildGrabPayload({
 
   try {
     const source = indexerId ? getIndexer(indexerId) : null;
+    if (source?.key === "extto") {
+      const detail = new URL(downloadUrl);
+      if (detail.origin !== "https://ext.to" || !/^\/[a-z0-9-]+-\d+\/$/i.test(detail.pathname)) {
+        return { error: "invalid EXT.to detail URL" };
+      }
+      const endpoint = new URL(`${loadResolverConfig().url}/extto/magnet`);
+      endpoint.searchParams.set("path", detail.pathname);
+      const result = await fetch(endpoint, { cache: "no-store", headers: { "x-api-key": source.apiKey }, signal: AbortSignal.timeout(150000) });
+      if (!result.ok) return { error: `EXT.to magnet HTTP ${result.status}` };
+      const data = await result.json();
+      return typeof data.magnet === "string" && data.magnet.startsWith("magnet:?")
+        ? { torrentId: data.magnet }
+        : { error: "EXT.to magnet unavailable" };
+    }
     const headers: Record<string, string> = {};
     if (source?.authType === "credentials" && source.username) {
       headers.authorization = `Basic ${Buffer.from(`${source.username}:${source.password}`).toString("base64")}`;
