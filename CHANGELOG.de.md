@@ -1,3 +1,9 @@
+## v1.27.62 — 26. Oktober 2026
+
+### Indexer
+
+- EXT.to kann mit Benutzername und Passwort hinzugefügt werden. Movviz verwaltet die Browsersitzung und den internen Torznab-Schlüssel automatisch; der Indexer bleibt bis zur Aktivierung deaktiviert. Der Live-Zugriff unterliegt weiterhin der Cloudflare-Prüfung von EXT.to.
+
 ## v1.27.61 — 27. Oktober 2026
 
 ### Startseite
