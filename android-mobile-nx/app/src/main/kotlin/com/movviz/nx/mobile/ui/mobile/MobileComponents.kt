@@ -291,7 +291,19 @@ private fun MovvizPlatformTile(
             .tvPointerClick(onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (tile.logoPath != null) {
+        val brandAsset = com.movviz.nx.mobile.ui.theme.providerBrandAsset(tile.id)
+        if (brandAsset != null) {
+            // Icône carrée embarquée (fond de marque plein cadre, emblème
+            // officiel centré) : jamais d'initiales pour une plateforme connue.
+            coil.compose.SubcomposeAsyncImage(
+                model = brandAsset,
+                contentDescription = tile.name,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                loading = { PlatformTileFallback(tile.name) },
+                error = { PlatformTileFallback(tile.name) },
+            )
+        } else if (tile.logoPath != null) {
             coil.compose.SubcomposeAsyncImage(
                 model = "https://image.tmdb.org/t/p/w200${tile.logoPath}",
                 contentDescription = tile.name,

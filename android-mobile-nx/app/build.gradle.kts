@@ -130,6 +130,7 @@ dependencies {
     implementation(libs.moshi.kotlin)
 
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
 
     // Persistance légère : URL du serveur + préférences utilisateur (le
     // cookie de session, lui, vit dans le CookieJar OkHttp — voir ApiClient).

@@ -1,3 +1,9 @@
+## v1.27.58 — 27 ottobre 2026
+
+### Android
+
+- Home Android: i riquadri Piattaforme mostrano vere icone quadrate per ogni servizio (Netflix, Disney+, Prime Video, Max, Apple TV+, YouTube, Crunchyroll, OCS), incluse nell'app, invece delle iniziali «YO» e «OC» quando mancava il logo remoto.
+
 ## v1.27.57 — 27 ottobre 2026
 
 ### Home

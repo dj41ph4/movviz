@@ -1,3 +1,9 @@
+## v1.27.58 — 27 oktober 2026
+
+### Android
+
+- Android-startpagina: de Platform-tegels tonen nu echte vierkante pictogrammen voor elke dienst (Netflix, Disney+, Prime Video, Max, Apple TV+, YouTube, Crunchyroll, OCS), ingebouwd in de app, in plaats van de initialen „YO” en „OC” als het externe logo ontbrak.
+
 ## v1.27.57 — 27 oktober 2026
 
 ### Startpagina

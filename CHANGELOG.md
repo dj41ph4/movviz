@@ -1,3 +1,9 @@
+## v1.27.58 — 27 octobre 2026
+
+### Android
+
+- Accueil Android : les tuiles Plateformes affichent de vraies icônes carrées pour chaque service (Netflix, Disney+, Prime Video, Max, Apple TV+, YouTube, Crunchyroll, OCS), embarquées dans l'app, au lieu des initiales « YO » et « OC » quand le logo distant manquait.
+
 ## v1.27.57 — 27 octobre 2026
 
 ### Accueil

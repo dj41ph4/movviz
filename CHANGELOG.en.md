@@ -1,3 +1,9 @@
+## v1.27.58 — October 27, 2026
+
+### Android
+
+- Android home: Platforms tiles now show real square icons for every service (Netflix, Disney+, Prime Video, Max, Apple TV+, YouTube, Crunchyroll, OCS), bundled in the app, instead of the "YO" and "OC" initials when the remote logo was missing.
+
 ## v1.27.57 — October 27, 2026
 
 ### Home

@@ -1,3 +1,9 @@
+## v1.27.58 — 27. Oktober 2026
+
+### Android
+
+- Android-Startseite: Die Plattform-Kacheln zeigen jetzt echte quadratische Symbole für jeden Dienst (Netflix, Disney+, Prime Video, Max, Apple TV+, YouTube, Crunchyroll, OCS), in die App eingebettet, statt der Initialen „YO“ und „OC“, wenn das entfernte Logo fehlte.
+
 ## v1.27.57 — 27. Oktober 2026
 
 ### Startseite
