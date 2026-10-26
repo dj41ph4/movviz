@@ -3,7 +3,6 @@ import { requireAdmin } from "@/lib/auth/guard";
 import { testIndexer } from "@/lib/indexers/torznab";
 import { getIndexer } from "@/lib/indexers/store";
 import type { ConfiguredIndexer } from "@/lib/indexers/types";
-import { testExtToIndexer } from "@/lib/indexers/exttoTest";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +24,6 @@ export async function POST(req: NextRequest) {
 
   const id = String(body.id ?? "").trim();
   const stored = id ? getIndexer(id) : null;
-  if (body.key === "extto") {
-    if (stored?.key !== "extto") return NextResponse.json({ ok: false, detail: "Save EXT.to before testing the connection" });
-    const result = await testExtToIndexer(stored, String(body.username ?? "").trim() || stored.username, String(body.password ?? "") || stored.password);
-    return NextResponse.json(result);
-  }
 
   const draft: ConfiguredIndexer = {
     id: "draft",

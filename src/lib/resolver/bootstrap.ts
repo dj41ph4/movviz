@@ -17,10 +17,10 @@ async function ping(): Promise<boolean> {
   }
 }
 
-export async function bootstrapResolver(force = false) {
+export async function bootstrapResolver() {
   const indexers = loadIndexers();
-  const needsResolver = indexers.some((ix) => ix.enabled && (ix.useFlareResolver || ix.key === "extto"));
-  if (!needsResolver && !force) {
+  const needsResolver = indexers.some((ix) => (ix as any).useFlareResolver);
+  if (!needsResolver) {
     console.info(`[movviz] no indexer uses Cloudflare resolver — skipping resolver launch`);
     return;
   }

@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   const indexers = loadIndexers().filter((i) => i.enabled);
   const indexerResults = await Promise.all(
-    indexers.map(async (ix) => ({ name: ix.name, ok: ix.key === "extto" ? ix.lastTest?.ok === true : (await testIndexer(ix)).ok }))
+    indexers.map(async (ix) => ({ name: ix.name, ok: (await testIndexer(ix)).ok }))
   );
 
   let disk: { total: number; free: number } | null = null;

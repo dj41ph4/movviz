@@ -1723,7 +1723,6 @@ export const it: Dictionary = {
     urlHint: "Endpoint Torznab/Newznab (es. https://mio-indexer/api)",
     apiKey: "Chiave API",
     getApiKey: "Ottieni la tua chiave API",
-    extToIntegratedHint: "Inserisci nome utente e password EXT.to. Movviz gestisce il resolver e la chiave Torznab interna senza mostrarli. L'indicizzatore resta disattivato finché non lo abiliti.",
     xApiKey: "X-API-Key",
     apiKeyOptional: "Chiave API (se richiesta)",
     categories: "Categorie",

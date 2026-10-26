@@ -19,7 +19,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 # Install the download engine's own runtime dependencies.
 RUN cd engine && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund)
-RUN cd resolver && npm ci --no-audit --no-fund && npm run build
 
 # ---- Runtime ---------------------------------------------------------------
 FROM node:22-alpine3.20 AS runner
@@ -33,8 +32,7 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     MOVVIZ_CONFIG_DIR=/config \
     MOVVIZ_DATA_DIR=/data \
-    MOVVIZ_CONTAINER=1 \
-    MOVVIZ_CHROMIUM_EXECUTABLE=/usr/bin/movviz-chromium
+    MOVVIZ_CONTAINER=1
 
 # Non-root runtime user — default uid/gid, remapped at container start to
 # whatever PUID/PGID the NAS admin sets (see docker-entrypoint.sh) so writes
@@ -48,8 +46,7 @@ RUN addgroup -g 1001 movviz && adduser -u 1001 -G movviz -S movviz
 # tracks always go through burn-in, see decidePlayback.ts's subtitle
 # pipeline) either renders invisible text or fails the whole ffmpeg process
 # outright, found auditing the production image, not hypothetically.
-RUN apk add --no-cache su-exec ffmpeg fontconfig ttf-dejavu chromium
-RUN ln -s "$(command -v chromium-browser || command -v chromium)" /usr/bin/movviz-chromium
+RUN apk add --no-cache su-exec ffmpeg fontconfig ttf-dejavu
 RUN ffmpeg -version >/dev/null && ffprobe -version >/dev/null
 
 # Standalone server + assets only (small image).
@@ -58,9 +55,6 @@ COPY --from=builder --chown=movviz:movviz /app/.next/static ./.next/static
 COPY --from=builder --chown=movviz:movviz /app/public ./public
 # Download engine, bundled next to server.js so the web app spawns it on boot.
 COPY --from=builder --chown=movviz:movviz /app/engine ./engine
-COPY --from=builder --chown=movviz:movviz /app/resolver/dist ./resolver/dist
-COPY --from=builder --chown=movviz:movviz /app/resolver/node_modules ./resolver/node_modules
-COPY --from=builder --chown=movviz:movviz /app/resolver/package.json ./resolver/package.json
 # Read at runtime via process.cwd() (src/lib/changelog.ts) for the in-app
 # "what's new" popup — `.next/standalone` only contains what Next's build
 # tracer can statically detect, which a process.cwd()-joined path never is,

@@ -1722,7 +1722,6 @@ export const fr = {
     urlHint: "Point de terminaison Torznab/Newznab (ex : https://mon-indexeur/api)",
     apiKey: "Clé API",
     getApiKey: "Récupérer votre clé API",
-    extToIntegratedHint: "Saisis ton login et ton mot de passe EXT.to. Movviz gère le resolver et la clé Torznab interne sans te les afficher. L'indexeur reste désactivé jusqu'à ton activation.",
     xApiKey: "X-API-Key",
     apiKeyOptional: "Clé API (si requise)",
     categories: "Catégories",

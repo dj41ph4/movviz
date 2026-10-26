@@ -1,20 +1,8 @@
-## v1.27.64 — 26. Oktober 2026
+## v1.27.65 — 26. Oktober 2026
 
 ### Indexer
 
-- Die regelmäßige EXT.to-Prüfung nutzt jetzt den integrierten Resolver. Sie testet die Website nicht mehr als Torznab-API und überschreibt den Status nicht mehr mit einem falschen „unreachable“.
-
-## v1.27.63 — 26. Oktober 2026
-
-### Indexer
-
-- EXT.to zeigt seine eigenen Kategorien ohne Hinweis auf einen API-Schlüssel. Der Verbindungstest nutzt den integrierten Resolver, auch bevor der Indexer aktiviert wird, und meldet die tatsächliche Fehlerursache.
-
-## v1.27.62 — 26. Oktober 2026
-
-### Indexer
-
-- EXT.to kann mit Benutzername und Passwort hinzugefügt werden. Movviz verwaltet die Browsersitzung und den internen Torznab-Schlüssel automatisch; der Indexer bleibt bis zur Aktivierung deaktiviert. Der Live-Zugriff unterliegt weiterhin der Cloudflare-Prüfung von EXT.to.
+- Das Verhalten der Indexer und des Resolvers vor den letzten drei Versionen wurde wiederhergestellt.
 
 ## v1.27.61 — 27. Oktober 2026
 

@@ -4,7 +4,6 @@ import { loadIndexers, addIndexer, updateIndexer, redact } from "@/lib/indexers/
 import { catalogEntry } from "@/lib/indexers/catalog";
 import { testIndexer } from "@/lib/indexers/torznab";
 import type { ConfiguredIndexer } from "@/lib/indexers/types";
-import { randomBytes } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +19,10 @@ export async function POST(req: NextRequest) {
 
   // A predefined catalog entry already knows its endpoint; a generic entry
   // requires the user to supply one.
-  const baseUrl = entry?.key === "extto" ? "https://ext.to" : String(body.baseUrl ?? entry?.baseUrl ?? "").trim();
+  const baseUrl = String(body.baseUrl ?? entry?.baseUrl ?? "").trim();
   if (!baseUrl) return NextResponse.json({ error: "baseUrl required" }, { status: 400 });
-  if (entry?.key === "extto" && (!String(body.username ?? "").trim() || !String(body.password ?? ""))) {
-    return NextResponse.json({ error: "EXT.to login and password required" }, { status: 400 });
-  }
 
-  const authType = entry?.key === "extto" ? "credentials" : body.authType ?? entry?.authType ?? "apikey";
+  const authType = body.authType ?? entry?.authType ?? "apikey";
 
   const ix: ConfiguredIndexer = {
     id: `ix_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -36,21 +32,18 @@ export async function POST(req: NextRequest) {
     protocol: body.protocol ?? entry?.protocol ?? "torrent",
     baseUrl,
     authType,
-    apiKey: entry?.key === "extto" ? randomBytes(32).toString("hex") : String(body.apiKey ?? "").trim(),
+    apiKey: String(body.apiKey ?? "").trim(),
     username: String(body.username ?? "").trim(),
     password: String(body.password ?? ""),
     categories: body.categories ?? entry?.categories ?? [2000, 5000],
-    enabled: body.enabled ?? (entry?.key === "extto" ? false : true),
-    useFlareResolver: entry?.key === "extto" ? false : !!body.useFlareResolver,
+    enabled: body.enabled ?? true,
+    useFlareResolver: !!body.useFlareResolver,
     listsEnabled: body.listsEnabled === undefined ? undefined : !!body.listsEnabled,
     priority: Number(body.priority ?? 1),
     addedAt: Date.now(),
   };
 
   addIndexer(ix);
-
-  // The integrated EXT.to indexer starts only when the user enables it.
-  if (entry?.key === "extto") return NextResponse.json(redact(ix), { status: 201 });
 
   // Learn the indexer's real search capabilities right away instead of waiting
   // for the periodic health-check task, so movie/series search modes work immediately.

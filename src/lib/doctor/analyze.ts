@@ -59,16 +59,14 @@ export async function runDoctorAnalysis(): Promise<DoctorReport> {
 
   const enabledIndexers = loadIndexers().filter((i) => i.enabled);
   const indexerResults = await Promise.all(
-    enabledIndexers.map(async (ix) => ({ name: ix.name, key: ix.key, ok: ix.key === "extto" ? ix.lastTest?.ok === true : (await testIndexer(ix)).ok }))
+    enabledIndexers.map(async (ix) => ({ name: ix.name, ok: (await testIndexer(ix)).ok }))
   );
   const failing = indexerResults.filter((r) => !r.ok);
   if (enabledIndexers.length === 0) {
     recommendations.push({ severity: "critical", message: "Aucun indexeur configuré — la recherche automatique et manuelle ne peuvent rien trouver. Réglages → Indexeurs." });
   } else if (failing.length > 0) {
     for (const f of failing) {
-      recommendations.push({ severity: "warning", message: f.key === "extto"
-        ? `Indexeur « ${f.name} » en échec — tester la connexion EXT.to dans Réglages → Indexeurs pour voir l'erreur de session ou d'accès.`
-        : `Indexeur « ${f.name} » en échec — vérifier son URL/clé API, ou le désactiver s'il n'est plus valide. Réglages → Indexeurs.` });
+      recommendations.push({ severity: "warning", message: `Indexeur « ${f.name} » en échec — vérifier son URL/clé API, ou le désactiver s'il n'est plus valide. Réglages → Indexeurs.` });
     }
   }
 

@@ -31,17 +31,6 @@ export const INDEXER_CATALOG: CatalogEntry[] = [
     categories: [2000, 5000],
   },
   {
-    key: "extto",
-    name: "EXT.to",
-    kind: "torznab",
-    protocol: "torrent",
-    authType: "credentials",
-    siteUrl: "https://ext.to",
-    baseUrl: "https://ext.to",
-    description: "Built-in EXT.to indexer with a private Movviz resolver session.",
-    categories: [2000, 5000],
-  },
-  {
     key: "c411",
     name: "C411",
     kind: "torznab",

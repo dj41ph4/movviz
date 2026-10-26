@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import type { ConfiguredIndexer } from "./types";
 
@@ -17,7 +17,15 @@ const CONFIG_DIR =
 const FILE = path.join(CONFIG_DIR, "indexers.json");
 
 export function loadIndexers(): ConfiguredIndexer[] {
-  return readJsonCached<ConfiguredIndexer[]>(FILE, []);
+  const list = readJsonCached<ConfiguredIndexer[]>(FILE, []);
+  // Clean up only rows created by the removed built-in integration. Keep the
+  // rest of the indexer configuration intact, including generic entries.
+  if (!jsonCacheReadFailed(FILE) && list.some((ix) => ix.key === "extto")) {
+    const remaining = list.filter((ix) => ix.key !== "extto");
+    save(remaining);
+    return remaining;
+  }
+  return list;
 }
 
 function save(list: ConfiguredIndexer[]) {
