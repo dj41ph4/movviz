@@ -1,3 +1,9 @@
+## v1.27.64 — 26 ottobre 2026
+
+### Indicizzatori
+
+- Il controllo periodico di EXT.to ora usa il resolver integrato. Non verifica più il sito come API Torznab e non sovrascrive più lo stato con un falso «unreachable».
+
 ## v1.27.63 — 26 ottobre 2026
 
 ### Indicizzatori

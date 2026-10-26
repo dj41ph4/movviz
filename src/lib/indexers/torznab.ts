@@ -8,6 +8,7 @@ import { titleSimilarity } from "@/lib/library/matching";
 import { parseRelease } from "@/lib/naming/parser";
 import { markRateLimited } from "./rateLimit";
 import { throttleIndexerRequest, throttleGlobalIndexerRequest } from "./rateLimit";
+import { testExtToIndexer } from "./exttoTest";
 
 /**
  * Torznab / Newznab client. These share one query protocol (an RSS/XML API),
@@ -181,6 +182,10 @@ async function fetchCaps(ix: ConfiguredIndexer): Promise<{ ok: boolean; detail: 
 
 /** Verify credentials and refresh the indexer's cached search capabilities. */
 export async function testIndexer(ix: ConfiguredIndexer) {
+  if (ix.key === "extto") {
+    const result = await testExtToIndexer(ix);
+    return { ...result, caps: ix.caps ?? null };
+  }
   const { ok, detail, caps } = await fetchCaps(ix);
   if (!ok) return { ok, detail, caps };
   // Some indexers serve t=caps without any key (V3x does), so a caps-only

@@ -1,3 +1,9 @@
+## v1.27.64 — October 26, 2026
+
+### Indexers
+
+- The periodic EXT.to health check now uses the integrated resolver. It no longer tests the website as a Torznab API or overwrites the status with a false "unreachable" result.
+
 ## v1.27.63 — October 26, 2026
 
 ### Indexers

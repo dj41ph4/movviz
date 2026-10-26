@@ -1,3 +1,9 @@
+## v1.27.64 — 26 oktober 2026
+
+### Indexers
+
+- De periodieke controle van EXT.to gebruikt nu de ingebouwde resolver. De website wordt niet meer als Torznab-API getest en de status wordt niet meer overschreven met een onterecht „unreachable”.
+
 ## v1.27.63 — 26 oktober 2026
 
 ### Indexers

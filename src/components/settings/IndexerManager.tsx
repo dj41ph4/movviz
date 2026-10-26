@@ -159,7 +159,10 @@ export function IndexerManager() {
 
       <div className="space-y-3">
         {rows.map((r) => {
-          const status = r.lastTest ? (r.lastTest.ok ? "ok" : "fail") : "untested";
+          // Older EXT.to checks probed the website as Torznab and stored a false
+          // "unreachable" result. Show it as untested until the new test runs.
+          const lastTest = r.key === "extto" && r.lastTest?.detail === "unreachable" ? undefined : r.lastTest;
+          const status = lastTest ? (lastTest.ok ? "ok" : "fail") : "untested";
           const dot = status === "ok" ? "text-ok" : status === "fail" ? "text-down" : "text-ink-dim";
           return (
             <div key={r.id} className="rounded-2xl glass p-4">
@@ -178,7 +181,7 @@ export function IndexerManager() {
                     <span className="flex shrink-0 items-center gap-1.5">
                       <Circle className={cn("h-2 w-2 fill-current", dot)} />
                       <span className={cn("text-xs font-semibold", dot)}>
-                        {status === "ok" ? t("indexerMgr.testOk") : status === "fail" ? `${t("indexerMgr.testFail")}${r.lastTest?.detail ? " · " + r.lastTest.detail : ""}` : t("indexerMgr.untested")}
+                        {status === "ok" ? t("indexerMgr.testOk") : status === "fail" ? `${t("indexerMgr.testFail")}${lastTest?.detail ? " · " + lastTest.detail : ""}` : t("indexerMgr.untested")}
                       </span>
                     </span>
                     {r.hasApiKey && r.key !== "extto" && (

@@ -1,3 +1,9 @@
+## v1.27.64 — 26. Oktober 2026
+
+### Indexer
+
+- Die regelmäßige EXT.to-Prüfung nutzt jetzt den integrierten Resolver. Sie testet die Website nicht mehr als Torznab-API und überschreibt den Status nicht mehr mit einem falschen „unreachable“.
+
 ## v1.27.63 — 26. Oktober 2026
 
 ### Indexer

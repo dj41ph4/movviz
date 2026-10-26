@@ -1,3 +1,9 @@
+## v1.27.64 — 26 octobre 2026
+
+### Indexeurs
+
+- La vérification périodique d'EXT.to utilise désormais le resolver intégré. Elle ne teste plus le site comme une API Torznab et n'écrase plus le statut avec un faux « unreachable ».
+
 ## v1.27.63 — 26 octobre 2026
 
 ### Indexeurs
