@@ -57,27 +57,6 @@ export function isFfmpegQuality(v: unknown): v is FfmpegQuality {
 // en AAC, la garantie du remux local.
 const COPY_SAFE_AUDIO = ["aac", "mp4a", "mp3"];
 
-/**
- * Erreur typée : une session avec exactement la MÊME clé
- * (`ratingKey:userId:audioIndex:seekSec`) a déjà un process ffmpeg vivant.
- *
- * Décision de conception (laissée ouverte par le plan) : un `ReadableStream`
- * Web ne peut être lu que par UN seul consommateur — on ne peut pas
- * brancher une deuxième requête HTTP sur le même `proc.stdout` déjà piped
- * sans risquer une lecture partagée/corrompue. Plutôt que de faire semblant
- * de partager le flux (silencieusement faux), `startRemux` REFUSE la
- * duplication en levant cette erreur ; c'est à la ROUTE de décider comment
- * répondre (409 « déjà en cours de streaming » plutôt que de démarrer un
- * second process ou de renvoyer un flux inutilisable). Ce choix est plus
- * sûr que la réutilisation silencieuse et plus simple que du multiplexage.
- */
-export class DuplicateSessionError extends Error {
-  constructor(public readonly key: string) {
-    super(`[remux] session already active: ${key}`);
-    this.name = "DuplicateSessionError";
-  }
-}
-
 export interface StartRemuxOptions {
   audioIndex?: number;
   seekToSec?: number;
@@ -195,7 +174,9 @@ function abortedStreams(): WeakSet<ReadableStream<Uint8Array>> {
 }
 
 /** À appeler quand le client abandonne (abort de la requête HTTP) — le flux ne doit plus jamais être détruit avec erreur. */
-export function markStreamAborted(key: string): void {
+/** `stream` pins the mark to that request's own stream (it may have been replaced under the same key). */
+export function markStreamAborted(key: string, stream?: ReadableStream<Uint8Array>): void {
+  if (stream) { abortedStreams().add(stream); return; }
   const session = registry().get(key);
   if (session) abortedStreams().add(session.stream);
 }
@@ -251,8 +232,9 @@ export function activeSessionCount(): number {
 /**
  * Démarre (ou réutilise) une session de remux ffmpeg.
  *
- * - Session avec la MÊME clé déjà active (process vivant) → lève
- *   `DuplicateSessionError` (voir doc de la classe).
+ * - Session avec la MÊME clé déjà active (process vivant) → arrêtée puis
+ *   remplacée : un `ReadableStream` n'a qu'un seul lecteur, et c'est le même
+ *   spectateur qui redemande le flux (reprise après une longue pause, retry).
  * - `activeSessionCount() >= MAX_CONCURRENT` → retourne `null` (la route
  *   répond 429).
  */
@@ -271,7 +253,11 @@ export function startRemux(
   const reg = registry();
   const existing = reg.get(key);
   if (existing && existing.proc.exitCode === null && !existing.proc.killed) {
-    throw new DuplicateSessionError(key);
+    // Same viewer, same position: the browser reopening the stream after a
+    // long pause, or a retry. The previous response is already abandoned —
+    // replace it rather than refuse (a 409 ended playback on an error).
+    console.log(`[remux] ${key} redemandée — remplace la session précédente`);
+    stopRemux(key);
   }
   if (existing) {
     // Process déjà terminé mais pas encore purgé — nettoyage avant relance.
@@ -403,6 +389,10 @@ export function startRemux(
     } else {
       console.log(`[remux] ${key} exit code=${code} signal=${signal}`);
     }
+    // A replaced process exits after its successor registered under the
+    // same key: leave the successor's registry entry and subtitle file alone.
+    const current = reg.get(key);
+    if (current && current.proc !== proc) return;
     removeVttFile(vttPath);
     reg.delete(key);
   });
@@ -451,12 +441,23 @@ export function startRemux(
   return { proc, stream, key };
 }
 
-export function stopRemux(key: string): void {
+/**
+ * `onlyProc` scopes the stop to one process: a request aborting after a newer
+ * request replaced it under the same key must not kill its successor.
+ */
+export function stopRemux(key: string, onlyProc?: ChildProcess): void {
   const reg = registry();
   const session = reg.get(key);
+  if (onlyProc && session?.proc !== onlyProc) {
+    killRemuxProcess(key, onlyProc);
+    return;
+  }
   if (!session) return;
   reg.delete(key);
-  const { proc } = session;
+  killRemuxProcess(key, session.proc);
+}
+
+function killRemuxProcess(key: string, proc: ChildProcess): void {
   if (proc.exitCode !== null || proc.killed) return;
   console.log(`[remux] stop ${key} — SIGTERM`);
   try { proc.kill("SIGTERM"); } catch { /* déjà mort */ }

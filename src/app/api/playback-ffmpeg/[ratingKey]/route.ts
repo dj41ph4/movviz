@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { resolvePlexPartUrl } from "@/lib/playback/plexSource";
 import {
-  DuplicateSessionError,
   FFMPEG_QUALITY_PRESETS,
   isFfmpegAvailable,
   isFfmpegQuality,
@@ -13,7 +12,6 @@ import {
   touchSession as touchRemuxSession,
   type FfmpegQuality,
 } from "@/lib/playback/ffmpeg/remuxSession";
-import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -60,31 +58,14 @@ export async function GET(req: NextRequest, context: Ctx) {
     return NextResponse.json({ error: "invalid_quality" }, { status: 400 });
   }
 
-  // Garde de capacité AVANT de tenter startRemux : évite de tenter un spawn
-  // qu'on sait perdant. startRemux() re-vérifie de toute façon en interne
-  // (source de vérité) — cette vérification ici n'est qu'un fast-path pour
-  // le cas capacité pleine ET clé non déjà active (le cas "déjà active" est
-  // toujours autorisé à passer, c'est startRemux qui distingue via
-  // DuplicateSessionError).
-  // Shared ceiling with the local engine — see sharedTranscodeLimit.ts.
-  if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
-    console.error(`[remux] 429 capacité atteinte pour ${ratingKey}`);
-    return NextResponse.json({ error: "too_many_remux_sessions" }, { status: 429 });
-  }
-
+  // The shared ceiling (sharedTranscodeLimit.ts) is enforced by startRemux
+  // itself, AFTER it has replaced this viewer's own previous request for the
+  // same stream — checking it here first counted that abandoned request and
+  // refused its replacement with 429.
   let result: { proc: import("node:child_process").ChildProcess; stream: ReadableStream<Uint8Array>; key: string } | null;
   try {
     result = startRemux(ratingKey, user.id, ref, { audioIndex, seekToSec, quality });
   } catch (e) {
-    if (e instanceof DuplicateSessionError) {
-      // Une session avec la même clé (ratingKey:userId:audioIndex:seekSec)
-      // tourne déjà — un ReadableStream ne se partage pas entre deux
-      // consommateurs HTTP, donc on refuse plutôt que de brancher un second
-      // lecteur sur le même stdout. C'est une requête dupliquée (double
-      // montage du <video>, retry réseau...), pas une vraie erreur serveur.
-      console.error(`[remux] 409 session déjà active: ${e.key}`);
-      return NextResponse.json({ error: "session_already_active" }, { status: 409 });
-    }
     console.error(`[remux] erreur démarrage ${ratingKey}`, e);
     return NextResponse.json({ error: "remux_start_failed" }, { status: 502 });
   }
@@ -110,8 +91,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     stopped = true;
     clearInterval(activityTimer);
     console.log(`[remux] abort client — stop ${key}`);
-    markStreamAborted(key);
-    stopRemux(key);
+    markStreamAborted(key, stream);
+    stopRemux(key, proc);
   };
   req.signal.addEventListener("abort", onAbort);
 

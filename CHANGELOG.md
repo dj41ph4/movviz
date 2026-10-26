@@ -1,3 +1,12 @@
+## v1.27.56 — 26 octobre 2026
+
+### Lecteur
+
+- La reprise ne repart plus à 0 : un flux coupé avant la fin du film (serveur redémarré, connexion interrompue pendant une longue pause) était pris pour la fin du film, qui passait en « vu » et perdait sa position, dans Movviz comme dans Plex. Le lecteur relance maintenant le flux à la même seconde, et seule une vraie fin compte.
+- Plus de « Impossible de lire cette vidéo » en reprenant après plus de 5 minutes de lecture ou de pause, ni après un redémarrage du serveur : la lecture repart seule à l'endroit exact.
+- Fermer le lecteur sur « Reprendre ? » ou après une erreur ne remet plus la position de reprise à 0.
+- La qualité réellement affichée (4K, 1080p…) et la plage dynamique (HDR10, Dolby Vision, HLG) apparaissent au-dessus de la barre de progression.
+
 ## v1.27.55 — 26 octobre 2026
 
 ### Plateformes

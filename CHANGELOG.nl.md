@@ -1,3 +1,12 @@
+## v1.27.56 — 26 oktober 2026
+
+### Speler
+
+- Hervatten springt niet meer terug naar 0: een stream die vóór het einde van de film afbrak (herstart van de server, verbinding verbroken tijdens een lange pauze) werd voor het einde van de film aangezien, waardoor die als bekeken werd gemarkeerd en zijn positie verloor, in Movviz én in Plex. De speler herstart de stream nu op dezelfde seconde, en alleen een echt einde telt.
+- Geen „Kan deze video niet afspelen in de browser“ meer bij hervatten na meer dan 5 minuten afspelen of pauze, of na een herstart van de server: het afspelen gaat vanzelf verder op precies dezelfde plek.
+- De speler sluiten bij „Hervatten?“ of na een fout zet de hervatpositie niet meer op 0.
+- De werkelijk getoonde kwaliteit (4K, 1080p…) en het dynamisch bereik (HDR10, Dolby Vision, HLG) staan nu boven de voortgangsbalk.
+
 ## v1.27.55 — 26 oktober 2026
 
 ### Platforms

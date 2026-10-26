@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { completionBoundaryMs, canComplete, isPlausiblePlaybackAdvance, MIN_REAL_PLAYBACK_MS, type CompletionBoundarySource } from "./progressPolicy";
+import { completionBoundaryMs, canComplete, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition, MIN_REAL_PLAYBACK_MS, type CompletionBoundarySource } from "./progressPolicy";
 import { getPlaybackMarkers } from "./markers/store";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, syncPlaybackContext } from "@/lib/userContext/ingest";
@@ -382,6 +382,14 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
   if (input.sequence <= session.lastSequence) return get(session.userId, session.ratingKey, session.mediaId)!;
   const now = input.nowMs ?? Date.now(); const elapsed = Math.max(0, now - session.lastHeartbeatAt);
   const plausible = isPlausiblePlaybackAdvance(session.lastPositionMs, input.positionMs, elapsed, input.playbackRate ?? 1);
+  const p0 = get(session.userId, session.ratingKey, session.mediaId)!;
+  if (!p0.watched && isSpuriousRestartPosition({ positionMs: input.positionMs, resumeOffsetMs: p0.resumeOffsetMs, sessionPlayedMs: session.actualPlayedMs, previousSessionPositionMs: session.lastPositionMs })) {
+    // An emptied <video> reporting 0 (stream lost, engine restarting): not
+    // a position. Keep the session's last real one so the stop that
+    // follows is judged against it too.
+    session.lastSequence = input.sequence; session.lastHeartbeatAt = now;
+    return p0;
+  }
   if (input.isPlaying && !session.seekPending && plausible) session.actualPlayedMs += Math.min(elapsed, 30_000);
   session.seekPending = false; session.lastSequence = input.sequence; session.lastHeartbeatAt = now; session.lastPositionMs = Math.max(0, input.positionMs); session.lastIsPlaying = input.isPlaying;
    const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
@@ -441,13 +449,23 @@ export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBound
   recordPlaybackCompleted(p);
   return p;
 }
-export function completePlayback(sessionId: string): PlaybackProgress { const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found"); const p = get(s.userId, s.ratingKey, s.mediaId)!; markPlaybackWatched(p); persist(); return p; }
+export function completePlayback(sessionId: string): PlaybackProgress {
+  const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found");
+  const p = get(s.userId, s.ratingKey, s.mediaId)!;
+  if (!p.watched && !isCredibleEnd(s.lastPositionMs, p.completionBoundaryMs)) {
+    console.log(`[playback] fin reçue à ${Math.round(s.lastPositionMs / 1000)}s, loin de la fin (${Math.round((p.completionBoundaryMs ?? 0) / 1000)}s) — non marqué vu`);
+    return p;
+  }
+  markPlaybackWatched(p); persist(); return p;
+}
 export function stopPlayback(sessionId: string, positionMs?: number): PlaybackProgress {
   const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found");
   const p = get(s.userId, s.ratingKey, s.mediaId)!;
   let completedHere = false;
   const position = positionMs != null && Number.isFinite(positionMs) ? Math.max(0, positionMs) : null;
-  if (!p.watched && position != null) {
+  if (!p.watched && position != null && isSpuriousRestartPosition({ positionMs: position, resumeOffsetMs: p.resumeOffsetMs, sessionPlayedMs: s.actualPlayedMs, previousSessionPositionMs: s.lastPositionMs })) {
+    console.log(`[playback] arrêt à ${Math.round(position / 1000)}s ignoré — la reprise reste à ${Math.round((p.resumeOffsetMs ?? 0) / 1000)}s`);
+  } else if (!p.watched && position != null) {
     p.lastPositionMs = position;
     // Closing the player does not necessarily leave time for the next
     // 10-second heartbeat. Apply the same completion rule here, so stopping

@@ -1,3 +1,12 @@
+## v1.27.56 — October 26, 2026
+
+### Player
+
+- Resume no longer goes back to 0: a stream cut before the end of the film (server restart, connection dropped during a long pause) was taken for the end of the film, which was marked watched and lost its position, in Movviz as well as in Plex. The player now restarts the stream at the same second, and only a real ending counts.
+- No more "Cannot play this video in the browser" when resuming after more than 5 minutes of playback or pause, or after a server restart: playback picks up on its own at the exact spot.
+- Closing the player on "Resume?" or after an error no longer resets the resume position to 0.
+- The quality actually displayed (4K, 1080p…) and the dynamic range (HDR10, Dolby Vision, HLG) now appear above the progress bar.
+
 ## v1.27.55 — October 26, 2026
 
 ### Platforms

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canComplete, completionBoundaryMs, isPlausiblePlaybackAdvance, MIN_REAL_PLAYBACK_MS } from "../src/lib/playback/progressPolicy.ts";
+import { canComplete, completionBoundaryMs, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition, MIN_REAL_PLAYBACK_MS } from "../src/lib/playback/progressPolicy.ts";
 
 test("fallback uses five minutes for a feature film", () => {
   const result = completionBoundaryMs(7_200_000, [], "movie");
@@ -34,4 +34,28 @@ test("episodes become watched at exactly 80%, even with later Plex credits", () 
   assert.equal(boundaryMs, 1_152_000);
   assert.equal(canComplete(MIN_REAL_PLAYBACK_MS, 1_151_999, boundaryMs), false);
   assert.equal(canComplete(MIN_REAL_PLAYBACK_MS, 1_152_000, boundaryMs), true);
+});
+
+test("a near-zero position never replaces a resume point it did not really reach", () => {
+  // Closed on the resume prompt / an error before playback started.
+  assert.equal(isSpuriousRestartPosition({ positionMs: 0, resumeOffsetMs: 2_400_000, sessionPlayedMs: 0, previousSessionPositionMs: 0 }), true);
+  // Stream lost after playing 5 minutes from 40:00: element reports 0.
+  assert.equal(isSpuriousRestartPosition({ positionMs: 0, resumeOffsetMs: 2_700_000, sessionPlayedMs: 300_000, previousSessionPositionMs: 2_700_000 }), true);
+  // Restarted from the beginning on purpose and watched past 10 s.
+  assert.equal(isSpuriousRestartPosition({ positionMs: 95_000, resumeOffsetMs: 2_400_000, sessionPlayedMs: 95_000, previousSessionPositionMs: 85_000 }), false);
+  // Watching from the start, nothing further in to protect.
+  assert.equal(isSpuriousRestartPosition({ positionMs: 5_000, resumeOffsetMs: 30_000, sessionPlayedMs: 70_000, previousSessionPositionMs: 0 }), false);
+  // Genuinely playing from the start after a minute: the resume follows.
+  assert.equal(isSpuriousRestartPosition({ positionMs: 9_000, resumeOffsetMs: 2_400_000, sessionPlayedMs: 70_000, previousSessionPositionMs: 0 }), false);
+});
+
+test("ended only counts once the session really reached the end zone", () => {
+  // Stream cut at 25 min of a 2 h film (boundary 1h55): not an end.
+  assert.equal(isCredibleEnd(1_500_000, 6_900_000), false);
+  // Last heartbeat 10 s before the real end.
+  assert.equal(isCredibleEnd(7_190_000, 6_900_000), true);
+  // Just before the boundary, within one missed heartbeat.
+  assert.equal(isCredibleEnd(6_850_000, 6_900_000), true);
+  // Unknown boundary: keep the previous behaviour.
+  assert.equal(isCredibleEnd(0, null), true);
 });

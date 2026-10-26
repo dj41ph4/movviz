@@ -3,7 +3,6 @@ import { requireUser } from "@/lib/auth/guard";
 import { getSession, setTranscoderPid, touchSession } from "@/lib/playback/engine/sessionManager";
 import { getOrProbeMediaDescriptor, getOrProbeRemoteMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import {
-  DuplicateTranscoderSessionError,
   RemoteSubtitleBurnUnsupportedError,
   detectSubtitleCharenc,
   markStreamAborted,
@@ -12,7 +11,6 @@ import {
   stopTranscoderSession,
   touchTranscoderSession,
 } from "@/lib/playback/engine/transcoderExecutor";
-import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -50,11 +48,10 @@ export async function GET(req: NextRequest, context: Ctx) {
   const seekToRaw = Number(sp.get("seekTo"));
   const seekToSec = Number.isFinite(seekToRaw) && seekToRaw > 0 ? seekToRaw : 0;
 
-  // Shared ceiling with the Plex remux engine — see sharedTranscodeLimit.ts.
-  if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
-    console.error(`[transcoder] 429 capacité atteinte pour ${sessionId}`);
-    return NextResponse.json({ error: "too_many_sessions" }, { status: 429 });
-  }
+  // The shared ceiling (sharedTranscodeLimit.ts) is enforced by
+  // startTranscoderSession itself, AFTER it has replaced this viewer's own
+  // previous request for the same stream — checking it here first counted
+  // that abandoned request and refused its replacement with 429.
 
   // Non-UTF-8 SRT (Windows-1252/ISO-8859-1, common on older French releases)
   // otherwise crashes BURN outright and silently produces an empty sidecar
@@ -82,10 +79,6 @@ export async function GET(req: NextRequest, context: Ctx) {
     if (e instanceof RemoteSubtitleBurnUnsupportedError) {
       return NextResponse.json({ error: "remote_subtitle_burn_unsupported" }, { status: 422 });
     }
-    if (e instanceof DuplicateTranscoderSessionError) {
-      console.error(`[transcoder] 409 session déjà active: ${e.key}`);
-      return NextResponse.json({ error: "session_already_active" }, { status: 409 });
-    }
     console.error(`[transcoder] erreur démarrage ${sessionId}`, e);
     return NextResponse.json({ error: "start_failed" }, { status: 502 });
   }
@@ -101,8 +94,15 @@ export async function GET(req: NextRequest, context: Ctx) {
   // movie after ~5-6 minutes. Keep the TRANSCODER registry alive while the
   // client connection itself is alive; abort/ffmpeg exit stop the heartbeat,
   // so genuinely orphaned sessions still fall back to the normal TTL cleanup.
+  // The playback session itself (sessionManager, 5-minute TTL) was only
+  // touched by this GET: past 5 minutes of playback or pause it was purged,
+  // and the next request on it — a seek, the browser reopening the stream —
+  // got 404 and ended on « Impossible de lire ». Keep both alive together.
   touchTranscoderSession(key);
-  const activityTimer = setInterval(() => touchTranscoderSession(key), 60_000);
+  const activityTimer = setInterval(() => {
+    touchTranscoderSession(key);
+    touchSession(sessionId);
+  }, 60_000);
   if (typeof activityTimer.unref === "function") activityTimer.unref();
 
   let stopped = false;
@@ -111,8 +111,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     stopped = true;
     clearInterval(activityTimer);
     console.log(`[transcoder] abort client — stop ${key}`);
-    markStreamAborted(key);
-    stopTranscoderSession(key);
+    markStreamAborted(key, stream);
+    stopTranscoderSession(key, proc);
   };
   req.signal.addEventListener("abort", onAbort);
   proc.once("exit", () => {

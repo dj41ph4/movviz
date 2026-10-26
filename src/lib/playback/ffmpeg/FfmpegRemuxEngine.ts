@@ -48,6 +48,15 @@ export class FfmpegRemuxEngine {
   /** Monotonic counter guarding against overlapping seek() calls resolving
    *  out of order — see seek()'s own comment for the real bug this fixes. */
   private _seekSeq = 0;
+  /** Last real movie position played (seekBase + currentTime), seconds. */
+  private lastPosition = 0;
+  private hasPlayed = false;
+  /** Position an automatic restart started from — null while a restart is
+   *  allowed. Re-armed once playback has really moved on from it, so a
+   *  stream that fails again right away is reported instead of looping. */
+  private recoveryFrom: number | null = null;
+  /** Real length of the movie, seconds (0 = unknown). */
+  private expectedDurationSec = 0;
   /** Route prefix this engine streams from — defaults to the CURRENT
    *  Plex-backed production route. The new local decision-engine (Phases
    *  9-13, /api/playback/session/{id}/stream) reuses this exact client-side
@@ -77,6 +86,22 @@ export class FfmpegRemuxEngine {
 
   attach(video: HTMLVideoElement): void {
     this.video = video;
+  }
+
+  /** Last movie position really played, or null if nothing played yet. */
+  get playedPosition(): number | null {
+    return this.hasPlayed ? this.lastPosition : null;
+  }
+
+  setExpectedDuration(seconds: number): void {
+    this.expectedDurationSec = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  }
+
+  /** The pipe closed cleanly before the movie's end — ffmpeg stopped on the
+   *  server (restart, purge) or a proxy closed the response. The browser
+   *  reports that as `ended`; it is a lost stream, not the end of the film. */
+  isPrematureEnd(): boolean {
+    return this.expectedDurationSec > 0 && this.lastPosition < this.expectedDurationSec - 30;
   }
 
   async load(ratingKey: string, options: FfmpegEngineOptions): Promise<void> {
@@ -146,14 +171,48 @@ export class FfmpegRemuxEngine {
     this.cb.onBuffering(false);
   };
 
+  private onTimeUpdate = (): void => {
+    const video = this.video;
+    if (this.destroyed || !video || video.currentTime <= 0) return;
+    this.hasPlayed = true;
+    this.lastPosition = this._seekBase + video.currentTime;
+    if (this.recoveryFrom !== null && this.lastPosition - this.recoveryFrom >= 5) this.recoveryFrom = null;
+  };
+
   private onError = (): void => {
     if (this.destroyed) return;
     const video = this.video;
     const mediaError = video?.error;
     const code = mediaError?.code ?? "unknown";
     const message = mediaError?.message || "no detail";
-    this.cb.onError(`FFmpeg remux playback error (code ${code}): ${message}`, true);
+    this.recoverOrFail(`FFmpeg remux playback error (code ${code}): ${message}`);
   };
+
+  private onEnded = (): void => {
+    if (this.destroyed || !this.isPrematureEnd()) return;
+    // Deferred so every other `ended` listener (the player's own) still sees
+    // this engine active and can ask isPrematureEnd() before a fatal report
+    // tears it down.
+    const reason = `FFmpeg remux stream ended at ${Math.round(this.lastPosition)}s of ${Math.round(this.expectedDurationSec)}s`;
+    setTimeout(() => { if (!this.destroyed) this.recoverOrFail(reason); }, 0);
+  };
+
+  /**
+   * A stream that was playing and broke is restarted once at the same
+   * position — the same path as a seek — instead of ending playback. A
+   * stream that never played, or breaks again right after that restart, is
+   * reported as fatal.
+   */
+  private recoverOrFail(reason: string): void {
+    if (this.hasPlayed && this.recoveryFrom === null) {
+      this.recoveryFrom = this.lastPosition;
+      this.cb.onError(`${reason} — restarting at ${Math.round(this.lastPosition)}s`, false);
+      this.cb.onBuffering(true);
+      void this.seek(this.lastPosition);
+      return;
+    }
+    this.cb.onError(reason, true);
+  }
 
   private attachVideoListeners(): void {
     const video = this.video;
@@ -163,6 +222,8 @@ export class FfmpegRemuxEngine {
     video.addEventListener("canplay", this.onCanPlay);
     video.addEventListener("canplaythrough", this.onCanPlayThrough);
     video.addEventListener("error", this.onError);
+    video.addEventListener("timeupdate", this.onTimeUpdate);
+    video.addEventListener("ended", this.onEnded);
   }
 
   private detachVideoListeners(): void {
@@ -173,6 +234,8 @@ export class FfmpegRemuxEngine {
     video.removeEventListener("canplay", this.onCanPlay);
     video.removeEventListener("canplaythrough", this.onCanPlayThrough);
     video.removeEventListener("error", this.onError);
+    video.removeEventListener("timeupdate", this.onTimeUpdate);
+    video.removeEventListener("ended", this.onEnded);
   }
 
   private stats(): FfmpegDebugStats {

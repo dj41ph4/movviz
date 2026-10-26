@@ -50,3 +50,37 @@ export function isPlausiblePlaybackAdvance(
 export function canComplete(actualPlayedMs: number, positionMs: number, boundaryMs: number | null): boolean {
   return actualPlayedMs >= MIN_REAL_PLAYBACK_MS && boundaryMs != null && positionMs >= boundaryMs;
 }
+
+export const NEAR_START_MS = 10_000;
+
+/**
+ * A position near the start cannot replace a resume point further in when
+ * it does not come from real playback: a session that never played a full
+ * minute (closed on the resume prompt, or on an error before the first
+ * frame), or a sudden drop from a position already far in (the player lost
+ * its stream and reports its empty element at 0).
+ */
+export function isSpuriousRestartPosition(input: {
+  positionMs: number;
+  resumeOffsetMs: number | null;
+  sessionPlayedMs: number;
+  previousSessionPositionMs: number;
+}): boolean {
+  if (input.resumeOffsetMs == null || input.resumeOffsetMs <= MIN_REAL_PLAYBACK_MS) return false;
+  if (input.positionMs >= NEAR_START_MS) return false;
+  return input.sessionPlayedMs < MIN_REAL_PLAYBACK_MS || input.previousSessionPositionMs > MIN_REAL_PLAYBACK_MS;
+}
+
+/**
+ * `ended` from a player whose session never got near the completion
+ * boundary is a stream that stopped early (a live ffmpeg pipe closed by a
+ * server restart or a proxy), not the end of the film: marking it watched
+ * erased the resume point. Heartbeats arrive every 10 s, so a real end is
+ * always reported well within this margin of the boundary.
+ */
+export const ENDED_BOUNDARY_TOLERANCE_MS = 60_000;
+
+export function isCredibleEnd(lastPositionMs: number, boundaryMs: number | null): boolean {
+  if (boundaryMs == null || !Number.isFinite(lastPositionMs)) return true;
+  return lastPositionMs >= boundaryMs - ENDED_BOUNDARY_TOLERANCE_MS;
+}

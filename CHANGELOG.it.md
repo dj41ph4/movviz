@@ -1,3 +1,12 @@
+## v1.27.56 — 26 ottobre 2026
+
+### Lettore
+
+- La ripresa non torna più a 0: uno stream interrotto prima della fine del film (riavvio del server, connessione caduta durante una lunga pausa) veniva scambiato per la fine del film, che risultava visto e perdeva la sua posizione, in Movviz come in Plex. Il lettore ora riavvia lo stream allo stesso secondo, e conta solo una vera fine.
+- Niente più «Impossibile riprodurre questo video nel browser» riprendendo dopo più di 5 minuti di riproduzione o di pausa, o dopo un riavvio del server: la riproduzione riparte da sola nel punto esatto.
+- Chiudere il lettore su «Riprendere?» o dopo un errore non azzera più la posizione di ripresa.
+- La qualità realmente visualizzata (4K, 1080p…) e la gamma dinamica (HDR10, Dolby Vision, HLG) compaiono sopra la barra di avanzamento.
+
 ## v1.27.55 — 26 ottobre 2026
 
 ### Piattaforme

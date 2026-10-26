@@ -23,6 +23,10 @@ export async function POST(req: NextRequest, context: Ctx) {
     /* malformed body - defaults apply */
   }
 
+  // A stop at 0 is a player that lost (or never had) its stream, not a real
+  // position: mirrored to Plex it erased the viewer's resume point there.
+  if (offset <= 0 && state === "stopped") return NextResponse.json({ ok: true, skipped: true });
+
   // A timeline update is a best-effort Plex mirror. Never hold the player's
   // progress request while resolving a Plex identity or waiting on its HTTP.
   void (async () => {

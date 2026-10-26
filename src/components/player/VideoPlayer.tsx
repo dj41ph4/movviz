@@ -232,6 +232,16 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackSessionRef = useRef<string | null>(null);
   const playbackSequenceRef = useRef(0);
+  /** Last movie position read from a <video> really carrying a stream —
+   *  what closing the player reports once the stream is gone (error,
+   *  engine restart). Null until playback has produced one. */
+  const lastGoodPositionRef = useRef<number | null>(null);
+  /** Position a fresh prepare restarted the local engine from after it lost
+   *  its server session — null while that rescue is still available. */
+  const localEngineReprepareFromRef = useRef<number | null>(null);
+  /** Track/quality choice behind the current local-engine session, so that
+   *  rescue reopens exactly what was playing. */
+  const localEngineOverridesRef = useRef<UnifiedPlaybackOverrides>({});
   const infoRef = useRef<StreamInfo>({ videoCodec: null, audioCodec: null, container: null });
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeTrackRef = useRef<HTMLDivElement>(null);
@@ -312,6 +322,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     audioAction: string;
     hardwareEncoder: boolean | null;
   } | null>(null);
+  /** Size of the picture really decoded — the quality shown on the progress bar. */
+  const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
+  /** Dynamic range of the source, known from the local engine's probe. */
+  const [sourceHdr, setSourceHdr] = useState<"hdr10" | "hlg" | "dolby-vision" | null>(null);
   const [audioStreams, setAudioStreams] = useState<StreamTrack[]>([]);
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
@@ -326,7 +340,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // unmount) — sans ça un abort serait pris pour une erreur d'extraction
   // et déclencherait un repli HLS non voulu.
   const subtitleAbortRef = useRef<AbortController | null>(null);
-  const [currentLevel, setCurrentLevel] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState<null | "audio" | "subtitle" | "speed" | "quality" | "playback">(null);
   const [directMode, setDirectMode] = useState(false);
   const qualityMaxWidthRef = useRef<number | null>(null);
@@ -534,6 +547,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const prep = (await prepRes.json()) as { sessionId: string; plan?: { subtitleAction?: string }; tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] } };
       localEngineAudioTracksRef.current = prep.tracks?.audio ?? localEngineAudioTracksRef.current;
       localEngineSubtitleTracksRef.current = prep.tracks?.subtitle ?? localEngineSubtitleTracksRef.current;
+      localEngineOverridesRef.current = { audioTrack, subtitleTrack, quality: toPlannerQuality(qualityRef.current) };
       await engine.load(prep.sessionId, { seekTo: pos, debug: betaRef.current.debug });
       // Sous-titre texte « extrait » (EXTRACT/CONVERT) : le moteur ne le grave
       // pas dans la vidéo, c'est au lecteur de l'afficher depuis la session.
@@ -944,6 +958,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     const startDash = (djs: typeof import("dashjs"), tv: string, ta: string, extraParams?: string, isCopyNetworkRetry?: boolean) => {
       const elv = videoRef.current;
       if (!elv) return;
+      // Plex's transcoder may tonemap: the source's HDR is no longer known.
+      setSourceHdr(null);
       prebufferClearRef.current?.();
       if (hlsRef.current) {
         try { hlsRef.current.destroy(); } catch { /* ignore */ }
@@ -1059,6 +1075,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     startHlsRef.current = startHls;
 
     const runHlsLeg = (tv: string, ta: string, extraParams?: string, isCopyNetworkRetry?: boolean) => {
+      setSourceHdr(null);
       const mode = transcodeModeRef.current;
       let url = `${hlsUrl}?tv=${tv}&ta=${ta}`;
       if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
@@ -1173,7 +1190,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           }
         });
 
-        hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => setCurrentLevel(data.level));
       } else if (el.canPlayType("application/vnd.apple.mpegurl")) {
         el.src = url;
         void el.play().catch(() => void 0);
@@ -1604,6 +1620,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         setDirectMode(false);
         setBuffering(true);
         engine.attach(video);
+        engine.setExpectedDuration((infoRef.current.durationMs ?? 0) / 1000);
         try {
           await engine.load(ratingKey, {
             audioStreamId: audioStreamIdRef.current ? Number(audioStreamIdRef.current) : null,
@@ -1692,7 +1709,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           sessionId: string;
           plan: { mode: string; toneMap?: boolean; videoAction?: string; audioAction?: string; subtitleAction?: string; videoEncoderImpl?: string };
           stream: { url: string };
-          media: { durationMs?: number };
+          media: { durationMs?: number; video?: { hdr?: { type?: string } } };
           tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };
           selection?: { subtitle: number | null; subtitleAuto?: boolean };
         };
@@ -1704,6 +1721,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         // "hevc_nvenc" vs "libx265") — matches localExecutor.ts's own
         // HARDWARE_SUFFIXES convention for telling the two apart.
         const HARDWARE_ENCODER_SUFFIXES = ["_nvenc", "_qsv", "_vaapi", "_amf"];
+        // Shown beside the resolution only while it is really what plays: a
+        // tonemapped stream is SDR.
+        const hdrType = prep.media.video?.hdr?.type;
+        setSourceHdr(!prep.plan.toneMap && (hdrType === "hdr10" || hdrType === "hlg" || hdrType === "dolby-vision") ? hdrType : null);
         setLocalEnginePlanInfo({
           mode: prep.plan.mode,
           toneMap: !!prep.plan.toneMap,
@@ -1743,9 +1764,23 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         // échec honnête que ça. (hasRealPlexLink is computed once at
         // component scope — see its own comment there.)
         const onLocalEngineFailure = () => {
+          const playedPosition = ffmpegEngineRef.current?.playedPosition ?? lastGoodPositionRef.current;
           destroyFfmpeg();
           ffmpegSkippedRef.current = true;
           const isCodecFailure = lastMediaErrorCodeRef.current !== null && CODEC_MEDIA_ERROR_CODES.has(lastMediaErrorCodeRef.current);
+          // The engine already restarted this stream once in place; failing
+          // again usually means its server session is gone (a restart after
+          // a push, a purge) and answers 404. A fresh prepare at the position
+          // really reached brings playback back — once, until playback has
+          // moved on again (see saveProgress).
+          if (!isCodecFailure && playedPosition !== null && localEngineReprepareFromRef.current === null) {
+            localEngineReprepareFromRef.current = playedPosition;
+            setBuffering(true);
+            void tryStartLocalEngine(playedPosition, localEngineOverridesRef.current).then((ok) => {
+              if (!ok) setError(tRef.current("player.betaError"));
+            });
+            return;
+          }
           setError(tRef.current(isCodecFailure ? "player.betaErrorCodec" : "player.betaError"));
         };
 
@@ -1806,6 +1841,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         setDirectMode(false);
         setBuffering(true);
         engine.attach(video);
+        engine.setExpectedDuration((prep.media.durationMs ?? infoRef.current.durationMs ?? 0) / 1000);
+        localEngineOverridesRef.current = overrides;
         try {
           await engine.load(prep.sessionId, { seekTo, debug: b.debug });
         } catch {
@@ -1826,6 +1863,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
     tryStartUnifiedEngineRef.current = tryStartLocalEngine;
 
+    lastGoodPositionRef.current = null;
+    localEngineReprepareFromRef.current = null;
     let sessionReady = false;
     void fetch("/api/playback/sessions", {
       method: "POST",
@@ -1870,14 +1909,26 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     el.addEventListener("playing", onPlaying);
     el.addEventListener("canplay", onCanPlay);
 
+    // Real movie position, or null when the element carries no stream (not
+    // started yet, resume prompt still open, error, engine restarting): its
+    // currentTime is then a meaningless 0 that used to overwrite the resume
+    // point. Leg ffmpeg : la position navigateur repart de 0 à chaque reload
+    // (fMP4 fragmenté sans index) — la position réelle est
+    // seekBase + el.currentTime, voir FfmpegRemuxEngine.seekBase.
+    const readPosition = (ve: HTMLVideoElement | null): number | null => {
+      if (!ve || ve.error || !ve.currentSrc || ve.readyState < 1) return null;
+      const base = ffmpegActiveRef.current ? (ffmpegEngineRef.current?.seekBase ?? 0) : 0;
+      return base + ve.currentTime;
+    };
+
     const saveProgress = () => {
       const ve = videoRef.current;
       if (!ve || !ve.duration || Number.isNaN(ve.duration)) return;
-      // Leg ffmpeg : la position navigateur repart de 0 à chaque reload
-      // (fMP4 fragmenté sans index) — la position réelle est
-      // seekBase + el.currentTime, voir FfmpegRemuxEngine.seekBase.
-      const base = ffmpegEngineRef.current?.seekBase ?? 0;
-      const displayTime = (ffmpegActiveRef.current ? base + ve.currentTime : ve.currentTime);
+      const displayTime = readPosition(ve);
+      if (displayTime === null) return;
+      lastGoodPositionRef.current = displayTime;
+      const rescuedFrom = localEngineReprepareFromRef.current;
+      if (rescuedFrom !== null && displayTime - rescuedFrom >= 5) localEngineReprepareFromRef.current = null;
       const offset = Math.floor(displayTime * 1000);
       localStorage.setItem(PROGRESS_KEY(playbackId), String(displayTime));
       const sessionId = playbackSessionRef.current;
@@ -1916,12 +1967,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
     return () => {
       try {
-        const base = ffmpegEngineRef.current?.seekBase ?? 0;
-        const offset = Math.floor((ffmpegActiveRef.current ? base + el.currentTime : el.currentTime) * 1000);
-        void fetch(`/api/stream/${ratingKey}/progress`, {
+        // No reliable position (closed on the resume prompt, or on an error
+        // before anything played): report none, so the saved resume point
+        // stays untouched here and on Plex.
+        const position = readPosition(el) ?? lastGoodPositionRef.current;
+        const positionMs = position === null ? null : Math.round(position * 1000);
+        if (positionMs !== null) void fetch(`/api/stream/${ratingKey}/progress`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ offset, state: "stopped" }),
+          body: JSON.stringify({ offset: positionMs, state: "stopped" }),
           keepalive: true,
         }).catch(() => void 0);
         void fetch(`/api/stream/${ratingKey}/stop`, {
@@ -1929,7 +1983,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           keepalive: true,
         }).catch(() => void 0);
         const sessionId = playbackSessionRef.current;
-        if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/stop`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ positionMs: Math.round((ffmpegActiveRef.current ? base + el.currentTime : el.currentTime) * 1000) }), keepalive: true }).catch(() => void 0);
+        if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/stop`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(positionMs === null ? {} : { positionMs }), keepalive: true }).catch(() => void 0);
       } catch { /* ignore */ }
       if (mseEngineRef.current) {
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
@@ -2064,6 +2118,11 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     };
     const onRateChange = () => setPlaybackRate(el.playbackRate);
     const onEnded = () => {
+      // A live ffmpeg pipe that closed before the movie's end (server
+      // restart, purged session, proxy) reaches `ended` too: the engine
+      // restarts it. Treating it as the end marked the film watched and
+      // erased its resume point — « la reprise se remet à 0 ».
+      if (ffmpegActiveRef.current && ffmpegEngineRef.current?.isPrematureEnd()) return;
       const sessionId = playbackSessionRef.current;
       if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/ended`, { method: "POST", keepalive: true }).catch(() => void 0);
       localStorage.removeItem(PROGRESS_KEY(ratingKey));
@@ -2078,8 +2137,17 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     el.addEventListener("volumechange", onVolumeChange);
     el.addEventListener("ratechange", onRateChange);
     el.addEventListener("ended", onEnded);
+    // The picture actually decoded, whichever engine feeds the element —
+    // `resize` also follows HLS/DASH level switches.
+    const onFrameSize = () => setFrameSize(el.videoWidth > 0 && el.videoHeight > 0 ? { width: el.videoWidth, height: el.videoHeight } : null);
+    el.addEventListener("loadedmetadata", onFrameSize);
+    el.addEventListener("resize", onFrameSize);
+    el.addEventListener("emptied", onFrameSize);
 
     return () => {
+      el.removeEventListener("loadedmetadata", onFrameSize);
+      el.removeEventListener("resize", onFrameSize);
+      el.removeEventListener("emptied", onFrameSize);
       el.removeEventListener("timeupdate", onTimeUpdate);
       el.removeEventListener("loadeddata", onLoadedData);
       el.removeEventListener("progress", onProgress);
@@ -2140,24 +2208,19 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     };
   }, []);
 
+  // Read from the picture really decoded, whatever the engine. Width first:
+  // a 2.39:1 1080p film is 1920×800 and is still « 1080p ».
   const qualityLabel = (): string | null => {
-    let h = 0;
-    if (dashRef.current) {
-      h = dashHeightRef.current ?? 0;
-    } else {
-      const hls = hlsRef.current;
-      if (hls && currentLevel !== null) {
-        const level = hls.levels[currentLevel];
-        if (level) h = level.height || 0;
-      }
-    }
-    if (h >= 2000) return "4K";
-    if (h >= 1440) return "1440p";
-    if (h >= 1000) return "1080p";
-    if (h >= 700) return "720p";
-    if (h > 0) return `${h}p`;
-    return null;
+    if (!frameSize) return null;
+    const { width: w, height: h } = frameSize;
+    if (w >= 3200 || h >= 1800) return "4K";
+    if (w >= 2200 || h >= 1300) return "1440p";
+    if (w >= 1700 || h >= 950) return "1080p";
+    if (w >= 1150 || h >= 650) return "720p";
+    return `${h}p`;
   };
+  const HDR_LABELS = { hdr10: "HDR10", hlg: "HLG", "dolby-vision": "Dolby Vision" } as const;
+  const playbackQuality = qualityLabel();
 
   const resetHideTimer = useCallback(() => {
     setControlsVisible(true);
@@ -2957,6 +3020,20 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                     <div className="relative group rounded-[22px] border border-white/10 bg-[#0d0e14]/72 px-4 pt-3 pb-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:px-5">
                     <div className="mb-1.5 flex items-center justify-between gap-4 text-[11px] font-medium tabular-nums text-white/72">
                       <span>{formatTime(seekPreview ?? currentTime)}</span>
+                      {playbackQuality && (
+                        <span
+                          className="inline-flex h-[22px] select-none items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-2.5 text-[10px] font-semibold tracking-[0.06em] text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md animate-badge-pop"
+                          title={t("player.betaQuality")}
+                        >
+                          <span>{playbackQuality}</span>
+                          {sourceHdr && (
+                            <>
+                              <span className="h-2.5 w-px bg-white/20" aria-hidden="true" />
+                              <span className="bg-[linear-gradient(90deg,var(--color-brand),var(--color-brand-glow))] bg-clip-text text-transparent">{HDR_LABELS[sourceHdr]}</span>
+                            </>
+                          )}
+                        </span>
+                      )}
                       <span>{formatTime(duration)}</span>
                     </div>
                     {scrubPreview && (
@@ -3075,10 +3152,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                     </span>
 
                     <div className="flex-1" />
-
-                    {usingFallback && qualityLabel() && (
-                      <span className="hidden sm:inline-flex h-6 items-center rounded-full border border-white/10 bg-white/6 px-2.5 text-[10px] font-semibold text-white/75">{qualityLabel()}</span>
-                    )}
 
                     <span className="mx-1 hidden h-5 w-px bg-white/12 md:block" aria-hidden="true" />
 

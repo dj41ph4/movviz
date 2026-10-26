@@ -1,3 +1,12 @@
+## v1.27.56 — 26. Oktober 2026
+
+### Player
+
+- Das Fortsetzen springt nicht mehr auf 0 zurück: Ein vor dem Filmende abgebrochener Stream (Server-Neustart, Verbindungsabbruch während einer langen Pause) wurde für das Filmende gehalten, der Film als gesehen markiert und seine Position gelöscht, in Movviz wie in Plex. Der Player startet den Stream jetzt an derselben Sekunde neu, und nur ein echtes Ende zählt.
+- Kein „Dieses Video kann nicht im Browser abgespielt werden“ mehr beim Fortsetzen nach über 5 Minuten Wiedergabe oder Pause oder nach einem Server-Neustart: Die Wiedergabe läuft von selbst an genau der Stelle weiter.
+- Den Player bei „Fortsetzen?“ oder nach einem Fehler zu schließen setzt die Fortsetzungsposition nicht mehr auf 0.
+- Die tatsächlich angezeigte Qualität (4K, 1080p…) und der Dynamikumfang (HDR10, Dolby Vision, HLG) erscheinen über dem Fortschrittsbalken.
+
 ## v1.27.55 — 26. Oktober 2026
 
 ### Plattformen

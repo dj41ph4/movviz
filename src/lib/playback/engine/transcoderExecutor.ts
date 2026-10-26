@@ -57,13 +57,6 @@ function appendInputHeaders(args: string[], headers?: Record<string, string>): v
   args.push("-headers", raw);
 }
 
-export class DuplicateTranscoderSessionError extends Error {
-  constructor(public readonly key: string) {
-    super(`[transcoder] session already active: ${key}`);
-    this.name = "DuplicateTranscoderSessionError";
-  }
-}
-
 export interface StartTranscoderSessionOptions {
   audioIndex?: number;
   subtitleIndex?: number | null;
@@ -131,7 +124,9 @@ function abortedStreams(): WeakSet<ReadableStream<Uint8Array>> {
   return g.__movvizTranscoderAbortedStreams;
 }
 
-export function markStreamAborted(key: string): void {
+/** `stream` pins the mark to that request's own stream (it may have been replaced under the same key). */
+export function markStreamAborted(key: string, stream?: ReadableStream<Uint8Array>): void {
+  if (stream) { abortedStreams().add(stream); return; }
   const session = registry().get(key);
   if (session) abortedStreams().add(session.stream);
 }
@@ -300,7 +295,12 @@ export function startTranscoderSession(
   const reg = registry();
   const existing = reg.get(key);
   if (existing && existing.proc.exitCode === null && !existing.proc.killed) {
-    throw new DuplicateTranscoderSessionError(key);
+    // Same key = the same viewer asking again for the same position: the
+    // browser reopening the stream after a long pause, or a retry. Its
+    // previous response is already abandoned, so the new request replaces
+    // it — refusing with 409 left the player on « Impossible de lire ».
+    console.log(`[transcoder] ${key} redemandée — remplace la session précédente`);
+    stopTranscoderSession(key);
   }
   if (existing) reg.delete(key);
 
@@ -468,6 +468,11 @@ export function startTranscoderSession(
   proc.on("exit", (code, signal) => {
     if (code !== 0 && code !== null) console.error(`[transcoder] ${key} exit anormal code=${code} signal=${signal}`);
     else console.log(`[transcoder] ${key} exit code=${code} signal=${signal}`);
+    // A replaced process exits after its successor registered under the
+    // same key: it must not unregister it nor delete the subtitle file the
+    // successor is writing to the same path.
+    const current = reg.get(key);
+    if (current && current.proc !== proc) return;
     removeVttFile(vttPath);
     reg.delete(key);
   });
@@ -497,12 +502,24 @@ export function startTranscoderSession(
   return { proc, stream, key };
 }
 
-export function stopTranscoderSession(key: string): void {
+/**
+ * `onlyProc` scopes the stop to one process: a request that aborts after a
+ * newer request replaced it under the same key must stop its own ffmpeg,
+ * never its successor's.
+ */
+export function stopTranscoderSession(key: string, onlyProc?: ChildProcess): void {
   const reg = registry();
   const session = reg.get(key);
+  if (onlyProc && session?.proc !== onlyProc) {
+    killTranscoderProcess(key, onlyProc);
+    return;
+  }
   if (!session) return;
   reg.delete(key);
-  const { proc } = session;
+  killTranscoderProcess(key, session.proc);
+}
+
+function killTranscoderProcess(key: string, proc: ChildProcess): void {
   if (proc.exitCode !== null || proc.killed) return;
   console.log(`[transcoder] stop ${key} — SIGTERM`);
   try { proc.kill("SIGTERM"); } catch { /* déjà mort */ }
