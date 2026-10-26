@@ -1,3 +1,9 @@
+## v1.27.60 — 27 ottobre 2026
+
+### Home
+
+- «Prossimamente» non mostra più documentari: solo i film di finzione annunciati.
+
 ## v1.27.59 — 27 ottobre 2026
 
 ### Android TV e Samsung

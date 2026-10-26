@@ -1,3 +1,9 @@
+## v1.27.60 — 27. Oktober 2026
+
+### Startseite
+
+- „Demnächst“ zeigt keine Dokumentationen mehr: nur angekündigte Spielfilme.
+
 ## v1.27.59 — 27. Oktober 2026
 
 ### Android TV und Samsung

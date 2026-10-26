@@ -20,6 +20,7 @@ test("Prochainement keeps dated announcements of the next 12 months, in release 
     film(7, "2026-12-02", { overview: "" }), // no synopsis yet: still announced
     film(2, "2026-11-15"), // duplicate
     film(8, "2026-11-15", { popularity: 90 }),
+    film(9, "2026-11-20", { genreIds: [99] }), // documentary
   ], now);
   assert.deepEqual(picked.map((m) => m.tmdbId), [8, 2, 7, 1]);
 });

@@ -1,3 +1,9 @@
+## v1.27.60 — 27 octobre 2026
+
+### Accueil
+
+- « Prochainement » n'affiche plus de documentaires : seulement les films de fiction annoncés.
+
 ## v1.27.59 — 27 octobre 2026
 
 ### Android TV et Samsung

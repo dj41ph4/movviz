@@ -9,6 +9,8 @@ import type { MetaSearchResult } from "./types";
  */
 export const ANNOUNCED_HORIZON_MONTHS = 12;
 const PAGES = 5;
+/** TMDb « Documentaire » — pas de documentaires dans « Prochainement ». */
+const DOCUMENTARY_GENRE_ID = 99;
 const MEMO_TTL_MS = 30 * 60_000;
 
 function isoDay(date: Date): string {
@@ -34,7 +36,8 @@ export function selectAnnounced(results: MetaSearchResult[], now: Date): MetaSea
     .filter((r) => {
       if (seen.has(r.tmdbId)) return false;
       seen.add(r.tmdbId);
-      return !!r.releaseDate && r.releaseDate >= from && r.releaseDate <= to && !!r.posterPath;
+      return !!r.releaseDate && r.releaseDate >= from && r.releaseDate <= to && !!r.posterPath
+        && !r.genreIds?.includes(DOCUMENTARY_GENRE_ID);
     })
     .sort((a, b) => a.releaseDate!.localeCompare(b.releaseDate!) || (b.popularity ?? 0) - (a.popularity ?? 0));
 }

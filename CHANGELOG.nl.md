@@ -1,3 +1,9 @@
+## v1.27.60 — 27 oktober 2026
+
+### Startpagina
+
+- „Binnenkort” toont geen documentaires meer: alleen aangekondigde speelfilms.
+
 ## v1.27.59 — 27 oktober 2026
 
 ### Android TV en Samsung

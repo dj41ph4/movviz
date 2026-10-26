@@ -1,3 +1,9 @@
+## v1.27.60 — October 27, 2026
+
+### Home
+
+- "Coming soon" no longer shows documentaries: only announced fiction films.
+
 ## v1.27.59 — October 27, 2026
 
 ### Android TV and Samsung
