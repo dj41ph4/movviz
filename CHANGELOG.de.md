@@ -1,3 +1,11 @@
+## v1.27.71 — 27. Oktober 2026
+
+### Warteschlange
+
+- Eine wartende Aufgabe zeigt jetzt den Grund: Aktivität eines Benutzers (und auf welcher Seite), eine ladende Seite, eine laufende Wiedergabe, eine bereits laufende schwere Aufgabe oder ein freier Platz, auf den gewartet wird.
+- Neue Schaltfläche „Start erzwingen“ bei jeder wartenden Aufgabe: Sie hat Vorrang vor Benutzeraktivität und Wiedergaben. Zwei schwere Aufgaben laufen weiterhin nie gleichzeitig: Dann wird der Grund angezeigt.
+- Das Diagnoseprotokoll hält höchstens alle 5 Minuten fest, warum eine schwere Aufgabe noch wartet.
+
 ## v1.27.70 — 27. Oktober 2026
 
 ### Android TV

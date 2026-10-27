@@ -1,3 +1,11 @@
+## v1.27.71 — October 27, 2026
+
+### Queue
+
+- A queued task now says why it is waiting: a user's activity (and on which page), a page still loading, a playback in progress, a heavy task already running, or a free slot to wait for.
+- New "Force start" button on every queued task: it goes ahead of user activity and playbacks. Two heavy tasks still never run together: in that case the reason is shown.
+- The diagnostic log notes, at most every 5 minutes, why a heavy task is still waiting.
+
 ## v1.27.70 — October 27, 2026
 
 ### Android TV

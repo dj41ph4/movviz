@@ -24,7 +24,7 @@
  * exactement le comportement voulu (personne n'est actif à froid).
  */
 
-import { throwIfJobCancelled } from "@/lib/jobs/cancelScope";
+import { throwIfJobCancelled, isCurrentJobForced } from "@/lib/jobs/cancelScope";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { PLAYBACK_ACTIVE_HEARTBEAT_MS } from "@/lib/playback/sessionFreshness";
 
@@ -42,18 +42,23 @@ const YIELD_STEP_MS = 1_000;
 interface UserActivity {
   at: number;
   user: { id: string; username: string } | null;
+  /** Chemin de la requête qui a compté comme interaction (diagnostic de la file d'attente). */
+  path?: string;
 }
 
 const g = globalThis as typeof globalThis & {
   __movvizLastUserActivity?: UserActivity;
   __movvizForegroundLeases?: Map<string, number>;
+  __movvizForegroundNames?: Map<string, string>;
 };
 const foregroundLeases = (g.__movvizForegroundLeases ??= new Map());
+const foregroundNames = (g.__movvizForegroundNames ??= new Map<string, string>());
 const FOREGROUND_LEASE_MS = 5_000;
 
 /** Short renewable lease. A closed tab or failed ping cannot pause work forever. */
 export function markForegroundActivity(user: { id: string; username: string }) {
   foregroundLeases.set(user.id, Date.now() + FOREGROUND_LEASE_MS);
+  foregroundNames.set(user.id, user.username);
   markUserActivity(user);
 }
 
@@ -180,8 +185,40 @@ export function isUserInteraction(pathname: string, method: string, search = "",
  * avec l'utilisateur authentifié (nom + id) : c'est lui que les logs de
  * ralentissement désigneront.
  */
-export function markUserActivity(user?: { id: string; username: string }) {
-  g.__movvizLastUserActivity = { at: Date.now(), user: user ?? null };
+export function markUserActivity(user?: { id: string; username: string }, path?: string) {
+  g.__movvizLastUserActivity = { at: Date.now(), user: user ?? null, path };
+}
+
+export type BackgroundHold =
+  | { code: "user_active"; user?: string; path?: string }
+  | { code: "foreground"; users: string[] }
+  | { code: "playback"; count: number };
+
+/**
+ * Pourquoi une tâche lourde planifiée attend (même conditions que la file d'attente :
+ * interaction récente, page en chargement, lecture en cours), ou null si rien ne la retient.
+ * Sert à l'affichage de la file et au journal — aucune décision n'en dépend ici.
+ */
+export function describeBackgroundHold(): BackgroundHold | null {
+  const now = Date.now();
+  if (hasActivePlayback()) {
+    const playback = globalThis as typeof globalThis & {
+      __movvizPlaybackSessions?: Map<string, { lastHeartbeatAt: number; lastIsPlaying: boolean }>;
+    };
+    let count = 0;
+    for (const s of playback.__movvizPlaybackSessions?.values() ?? []) {
+      if (s.lastIsPlaying && now - s.lastHeartbeatAt <= PLAYBACK_ACTIVE_HEARTBEAT_MS) count++;
+    }
+    return { code: "playback", count };
+  }
+  if (hasForegroundActivity()) {
+    return { code: "foreground", users: [...foregroundLeases.keys()].map((id) => foregroundNames.get(id) ?? id) };
+  }
+  if (isUserActive()) {
+    const last = g.__movvizLastUserActivity;
+    return { code: "user_active", user: last?.user?.username, path: last?.path };
+  }
+  return null;
 }
 
 /** Un utilisateur a-t-il interagi dans les ACTIVE_WINDOW_MS dernières ms ? */
@@ -211,6 +248,8 @@ function formatDuration(ms: number): string {
 export async function yieldToUser(context?: string): Promise<void> {
   // Point d'arrêt : le bouton « Arrêter » d'une tâche prend effet ici.
   throwIfJobCancelled();
+  // Tâche lancée de force depuis la file d'attente : elle ne cède plus la main.
+  if (isCurrentJobForced()) return;
   const last = g.__movvizLastUserActivity;
   if (!hasForegroundActivity() && (last == null || Date.now() - last.at >= IDLE_RESUME_MS)) return;
   const start = Date.now();

@@ -1,3 +1,11 @@
+## v1.27.71 — 27 octobre 2026
+
+### File d'attente
+
+- Une tâche en attente indique maintenant pourquoi : activité d'un utilisateur (et sur quelle page), page en chargement, lecture en cours, tâche lourde déjà en cours ou place libre à attendre.
+- Nouveau bouton « Forcer le lancement » sur chaque tâche en attente : elle passe devant l'activité des utilisateurs et les lectures. Deux tâches lourdes ne tournent toujours jamais ensemble : dans ce cas, la raison s'affiche.
+- Le journal de diagnostic note, au plus toutes les 5 minutes, pourquoi une tâche lourde reste en attente.
+
 ## v1.27.70 — 27 octobre 2026
 
 ### Android TV

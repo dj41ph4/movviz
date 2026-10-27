@@ -4,7 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered, Ban, Square } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered, Ban, Square, Play } from "lucide-react";
+
+/** Pourquoi un job en file attend (voir getJobHolds côté serveur). */
+type JobHold =
+  | { code: "heavy_running"; task?: string }
+  | { code: "lane" }
+  | { code: "slot" }
+  | { code: "activity"; hold:
+      | { code: "user_active"; user?: string; path?: string }
+      | { code: "foreground"; users: string[] }
+      | { code: "playback"; count: number } };
 
 type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 type JobType =
@@ -76,10 +86,17 @@ export function JobQueuePanel() {
   const [priorities, setPriorities] = useState<Record<JobType, number> | null>(null);
   const [saving, setSaving] = useState<JobType | null>(null);
 
+  const [holds, setHolds] = useState<Record<string, JobHold>>({});
+  const [forceMessage, setForceMessage] = useState<string | null>(null);
+
   const loadJobs = () =>
     fetch("/api/jobs", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setJobs(d.jobs ?? []));
+      .then((d) => {
+        if (!d) return;
+        setJobs(d.jobs ?? []);
+        setHolds(d.holds ?? {});
+      });
 
   const loadPriorities = () =>
     fetch("/api/jobs/priorities", { cache: "no-store" })
@@ -120,6 +137,30 @@ export function JobQueuePanel() {
     await loadJobs();
   };
 
+  // Lance tout de suite un job en file, devant l'activité des utilisateurs et les lectures.
+  const forceJob = async (id: string) => {
+    setForceMessage(null);
+    const res = await fetch(`/api/jobs/${id}/force`, { method: "POST" }).catch(() => null);
+    if (res && !res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      setForceMessage(t(body?.error === "heavy_busy" ? "jobs.forceBusy" : body?.error === "queue_full" ? "jobs.forceFull" : "jobs.forceFailed"));
+    } else if (!res) setForceMessage(t("jobs.forceFailed"));
+    await loadJobs();
+  };
+
+  const holdText = (hold: JobHold | undefined): string | null => {
+    if (!hold) return null;
+    switch (hold.code) {
+      case "heavy_running": return t("jobs.holdHeavy", { task: hold.task ?? "…" });
+      case "lane": return t("jobs.holdLane");
+      case "slot": return t("jobs.holdSlot");
+      case "activity":
+        if (hold.hold.code === "playback") return t("jobs.holdPlayback", { count: String(hold.hold.count) });
+        if (hold.hold.code === "foreground") return t("jobs.holdForeground", { users: hold.hold.users.join(", ") });
+        return t("jobs.holdUserActive", { user: hold.hold.user ?? "?", path: hold.hold.path ? `(${hold.hold.path})` : "" }).trim();
+    }
+  };
+
   const active = jobs.filter((j) => j.status === "queued" || j.status === "running");
   const recent = jobs.filter((j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled").slice(0, 10);
 
@@ -138,6 +179,7 @@ export function JobQueuePanel() {
       <div>
         <h3 className="mb-1 text-sm font-bold text-ink">{t("jobs.queueTitle")}</h3>
         <p className="mb-3 text-xs text-ink-dim">{t("jobs.queueHint")}</p>
+        {forceMessage && <p className="mb-3 text-xs text-warn">{forceMessage}</p>}
 
         {active.length === 0 ? (
           <div className="flex items-center gap-2 rounded-2xl glass p-4 text-sm text-ink-dim">
@@ -165,6 +207,16 @@ export function JobQueuePanel() {
                       <span className="shrink-0 text-xs text-ink-dim">
                         {job.status === "queued" ? t("jobs.statusQueued") : `${job.current}/${job.total}`}
                       </span>
+                      {job.status === "queued" && (
+                        <button
+                          onClick={() => forceJob(job.id)}
+                          title={t("jobs.force")}
+                          aria-label={t("jobs.force")}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-dim transition-colors hover:bg-white/10 hover:text-brand-glow"
+                        >
+                          <Play className="h-3 w-3 fill-current" />
+                        </button>
+                      )}
                       <button
                         onClick={() => cancelJob(job.id)}
                         title={t("jobs.cancel")}
@@ -174,6 +226,9 @@ export function JobQueuePanel() {
                         <Square className="h-3 w-3 fill-current" />
                       </button>
                     </div>
+                    {job.status === "queued" && holdText(holds[job.id]) && (
+                      <p className="mt-1.5 pl-[26px] text-xs text-ink-dim">{holdText(holds[job.id])}</p>
+                    )}
                     {job.status === "running" && job.total > 0 && (
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/40">
                         <div className="h-full rounded-full brand-gradient transition-[width] duration-500" style={{ width: `${pct}%` }} />

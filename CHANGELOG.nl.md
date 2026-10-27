@@ -1,3 +1,11 @@
+## v1.27.71 — 27 oktober 2026
+
+### Wachtrij
+
+- Een wachtende taak toont nu waarom ze wacht: activiteit van een gebruiker (en op welke pagina), een pagina die nog laadt, een weergave bezig, een zware taak die al draait of een vrije plek om op te wachten.
+- Nieuwe knop 'Start forceren' bij elke wachtende taak: ze gaat voor op gebruikersactiviteit en weergaven. Twee zware taken draaien nog steeds nooit samen: dan wordt de reden getoond.
+- Het diagnoselogboek noteert hoogstens elke 5 minuten waarom een zware taak nog wacht.
+
 ## v1.27.70 — 27 oktober 2026
 
 ### Android TV

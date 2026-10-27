@@ -1,9 +1,9 @@
 import { engineGet } from "@/lib/engine/server";
 import { priorityOf } from "./priorities";
 import type { Job, JobType } from "./types";
-import { cancelledJobs, JobCancelledError, runInJobScope } from "./cancelScope";
+import { cancelledJobs, JobCancelledError, runInJobScope, forcedJobs } from "./cancelScope";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { hasActivePlayback, hasForegroundActivity, isUserActive } from "@/lib/priority/userActivity";
+import { hasActivePlayback, hasForegroundActivity, isUserActive, describeBackgroundHold, type BackgroundHold } from "@/lib/priority/userActivity";
 
 export { JobCancelledError };
 
@@ -203,6 +203,7 @@ function pickNextQueued(immediate = false): { job: Job; runner: Runner } | null 
     // playback to finish. Keep it queued and retry without polling the engine
     // while a video is playing; light automation remains eligible.
     if (options?.scheduled && options.heavy && (isUserActive() || hasForegroundActivity() || hasActivePlayback())) {
+      noteHeavyHold(job.label);
       retryHeavyWhenIdle();
       continue;
     }
@@ -252,6 +253,7 @@ function runJob(job: Job, runner: Runner) {
       heavyLive.delete(job.id);
       jobOptions.delete(job.id);
       clearCancellation(job.id);
+      forcedJobs.delete(job.id);
       // Lu par le planificateur dans le même tour (runTaskNow) — on le
       // retire un peu plus tard pour que l'ensemble ne grossisse pas.
       if (preempted.has(job.id)) setTimeout(() => preempted.delete(job.id), 60_000).unref?.();
@@ -341,4 +343,61 @@ export function isJobCancelled(jobId: string): boolean {
 
 function clearCancellation(jobId: string) {
   cancelled.delete(jobId);
+}
+
+// ── Pourquoi une tâche attend, et lancement forcé ────────────────────────────
+
+let lastHoldLogAt = 0;
+/**
+ * Trace (au plus une fois par 5 minutes) pourquoi une tâche lourde planifiée reste en attente :
+ * sur un serveur utilisé en continu par plusieurs personnes, elle peut attendre des heures
+ * sans qu'aucun log ne le dise.
+ */
+function noteHeavyHold(label: string) {
+  const now = Date.now();
+  if (now - lastHoldLogAt < 5 * 60_000) return;
+  lastHoldLogAt = now;
+  recordSearchLog("info", "jobs.heavy_held", `Tâche lourde « ${label} » en attente : ${JSON.stringify(describeBackgroundHold())}`);
+}
+
+export type JobHold =
+  | { code: "heavy_running"; task?: string }
+  | { code: "lane" }
+  | { code: "slot" }
+  | { code: "activity"; hold: BackgroundHold };
+
+/** Raison d'attente de chaque job en file — mêmes conditions que pickNextQueued, sans effet de bord. */
+export function getJobHolds(): Record<string, JobHold> {
+  const holds: Record<string, JobHold> = {};
+  const heavyBusy = heavyLive.size > 0;
+  const scheduledBusy = [...live].some((id) => jobOptions.get(id)?.scheduled && !jobOptions.get(id)?.immediate);
+  const runningHeavy = [...heavyLive].map((id) => state.jobs.find((j) => j.id === id)?.label).find(Boolean);
+  const activity = describeBackgroundHold();
+  for (const job of state.jobs) {
+    if (job.status !== "queued") continue;
+    const options = jobOptions.get(job.id);
+    if ((heavyBusy && options?.heavy) || (options?.scheduled && heavyBusy)) holds[job.id] = { code: "heavy_running", task: runningHeavy };
+    else if (options?.scheduled && options.heavy && scheduledBusy) holds[job.id] = { code: "lane" };
+    else if (options?.scheduled && options.heavy && activity) holds[job.id] = { code: "activity", hold: activity };
+    else holds[job.id] = { code: "slot" };
+  }
+  return holds;
+}
+
+/**
+ * Lancement forcé d'un job en file (bouton « Forcer ») : il passe devant l'activité des
+ * utilisateurs, les lectures en cours et la règle « une tâche planifiée à la fois ». Restent
+ * respectés : jamais deux tâches lourdes ensemble (règle explicite) et la limite de
+ * places de la file — sinon on explique pourquoi au lieu de surcharger le serveur.
+ */
+export function forceStartJob(id: string): { ok: true } | { ok: false; error: "not_queued" | "heavy_busy" | "queue_full" } {
+  const job = state.jobs.find((j) => j.id === id);
+  const runner = state.pending.get(id);
+  if (!job || job.status !== "queued" || !runner) return { ok: false, error: "not_queued" };
+  if (jobOptions.get(id)?.heavy && heavyLive.size > 0) return { ok: false, error: "heavy_busy" };
+  if (state.runningCount >= MAX_CONCURRENT) return { ok: false, error: "queue_full" };
+  forcedJobs.add(id);
+  recordSearchLog("info", "jobs.forced", `« ${job.label} » lancée de force depuis la file d'attente`);
+  startJob(job, runner);
+  return { ok: true };
 }

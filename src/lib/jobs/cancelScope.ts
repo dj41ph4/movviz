@@ -62,3 +62,17 @@ export function yieldToEventLoop(): Promise<void> {
   throwIfJobCancelled();
   return new Promise((resolve) => setImmediate(resolve));
 }
+
+/**
+ * Jobs lancés de force (bouton « Forcer » de la file) : ils ne cèdent plus la main à
+ * l'activité des utilisateurs (yieldToUser) — l'administrateur a demandé de les faire passer
+ * maintenant. Partagé avec queue.ts ; vidé à la fin du job.
+ */
+const gForced = globalThis as typeof globalThis & { __movvizForcedJobs?: Set<string> };
+export const forcedJobs: Set<string> = (gForced.__movvizForcedJobs ??= new Set());
+
+/** Vrai si le job courant a été lancé de force. */
+export function isCurrentJobForced(): boolean {
+  const id = scope.getStore();
+  return id != null && forcedJobs.has(id);
+}

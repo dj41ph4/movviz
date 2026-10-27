@@ -1,3 +1,11 @@
+## v1.27.71 — 27 ottobre 2026
+
+### Coda
+
+- Un'attività in coda indica ora perché attende: attività di un utente (e su quale pagina), pagina in caricamento, riproduzione in corso, attività pesante già in esecuzione o un posto libero da attendere.
+- Nuovo pulsante «Forza l'avvio» su ogni attività in coda: passa davanti all'attività degli utenti e alle riproduzioni. Due attività pesanti non girano mai insieme: in tal caso viene mostrato il motivo.
+- Il registro diagnostico annota, al massimo ogni 5 minuti, perché un'attività pesante è ancora in attesa.
+
 ## v1.27.70 — 27 ottobre 2026
 
 ### Android TV
