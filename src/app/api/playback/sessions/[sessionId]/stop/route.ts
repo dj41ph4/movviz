@@ -7,7 +7,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ sessio
   const user = requireUser(req); if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { sessionId } = await context.params; const session = getPlaybackSession(sessionId);
   if (!session || session.userId !== user.id) return NextResponse.json({ error: "session_not_found" }, { status: 404 });
-  let b: any = {}; try { b = await req.json(); } catch { /* empty stop is valid */ }
+  let b: Record<string, unknown> = {}; try { b = await req.json(); } catch { /* empty stop is valid */ }
   const wasWatched = getPlaybackProgress(user.id, session.ratingKey, session.mediaId)?.watched === true;
   const p = stopPlayback(sessionId, Number.isFinite(Number(b?.positionMs)) ? Number(b.positionMs) : undefined);
   if (!wasWatched && p.watched && p.tmdbId != null) {

@@ -152,7 +152,7 @@ export function NotificationSettings() {
                 <div key={f.key}>
                   <label className="mb-1 block text-xs font-semibold text-ink-soft">{t(f.labelKey)}</label>
                   <input
-                    value={(transport as any)?.[f.key] ?? ""}
+                    value={(transport as unknown as Record<string, string | undefined> | undefined)?.[f.key] ?? ""}
                     onChange={(e) => setField(kind, f.key, e.target.value)}
                     type={f.secret ? "password" : "text"}
                     placeholder={f.placeholder}

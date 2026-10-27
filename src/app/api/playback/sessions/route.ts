@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const user = requireUser(req); if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  let body: any; try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid_json" }, { status: 400 }); }
+  let body: Record<string, unknown>; try { body = await req.json(); } catch { return NextResponse.json({ error: "invalid_json" }, { status: 400 }); }
   const ratingKey = typeof body?.ratingKey === "string" ? body.ratingKey.trim() : "";
   const mediaId = typeof body?.mediaId === "string" && body.mediaId.trim() ? body.mediaId.trim() : undefined;
   const mediaType = body?.mediaType === "episode" ? "episode" : body?.mediaType === "movie" ? "movie" : null;

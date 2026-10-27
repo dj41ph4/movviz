@@ -20,7 +20,7 @@ const REC_CACHE_TTL = 10 * 60 * 1000;
 const UPCOMING_KEYS = new Set(["upcoming", "upcomingVod"]);
 
 function getRecCache(): Map<string, { data: MetaSearchResult[]; ts: number }> {
-  return (globalThis as any).__movvizRecCache ??= new Map();
+  return (globalThis as typeof globalThis & { __movvizRecCache?: Map<string, { data: MetaSearchResult[]; ts: number }> }).__movvizRecCache ??= new Map();
 }
 
 export async function GET(req: NextRequest) {

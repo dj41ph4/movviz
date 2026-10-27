@@ -5,6 +5,23 @@ import { safePlexUrl } from "@/lib/plex/safeUrl";
 
 export const dynamic = "force-dynamic";
 
+/** Ce que le code lit d'une session de lecture renvoyée par Plex (/status/sessions). */
+interface PlexSessionRaw {
+  title?: string;
+  grandparentTitle?: string;
+  type?: string;
+  viewOffset?: number;
+  duration?: number;
+  grandparentThumb?: string;
+  thumb?: string;
+  User?: { title?: string; thumb?: string };
+  Player?: { state?: string; title?: string };
+  session?: { bitrate?: number; bandwidth?: number };
+  Session?: { location?: string };
+  Media?: { videoCodec?: string; audioCodec?: string; videoResolution?: string };
+  TranscodeSession?: { videoDecision?: string };
+}
+
 export async function GET(req: NextRequest) {
   const admin = requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -16,7 +33,7 @@ export async function GET(req: NextRequest) {
   const plexUrl = safePlexUrl(`${scheme}://${cfg.hostname}:${cfg.port}`);
   if (!plexUrl) return NextResponse.json({ sessions: [] });
 
-  let data: any;
+  let data: { MediaContainer?: { Metadata?: PlexSessionRaw[] } };
   try {
     const res = await fetch(`${plexUrl}/status/sessions`, {
       headers: { "X-Plex-Token": cfg.adminToken, accept: "application/json" },
@@ -28,13 +45,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sessions: [] });
   }
 
-  const sessions = (data.MediaContainer?.Metadata ?? []).map((s: any) => ({
+  const sessions = (data.MediaContainer?.Metadata ?? []).map((s: PlexSessionRaw) => ({
     title: s.title || s.grandparentTitle || "Inconnu",
     type: s.type,
     user: s.User?.title || "Inconnu",
     userThumb: s.User?.thumb || null,
     state: s.Player?.state || "paused",
-    progress: s.viewOffset ? Math.round((s.viewOffset / s.duration) * 100) : 0,
+    progress: s.viewOffset ? Math.round((s.viewOffset / (s.duration as number)) * 100) : 0,
     duration: s.duration || 0,
     bitrate: s.session?.bitrate || 0,
     bandwidth: s.session?.bandwidth || 0,
