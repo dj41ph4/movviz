@@ -46,7 +46,7 @@ import { DashboardExperiencePanel } from "@/components/settings/DashboardExperie
 import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
 import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
 import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
-import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, type SettingsJourney } from "@/lib/settingsNav";
+import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, settingsContentSnippet, type SettingsJourney } from "@/lib/settingsNav";
 import { SettingsHome } from "@/components/settings/SettingsHome";
 import { SettingsJourneyOverview } from "@/components/settings/SettingsJourneyOverview";
 import { SettingsContextHeader } from "@/components/settings/SettingsContextHeader";
@@ -181,6 +181,8 @@ function SettingsPageInner() {
               const Icon = tb.icon;
               const active = tab === tb.id;
               const dangerous = "dangerous" in tb && tb.dangerous === true;
+              // Réglage qui a fait trouver l'onglet quand le titre ne suffit pas.
+              const snippet = q ? settingsContentSnippet(tb, q, t) : null;
               return (
                 <div key={tb.id}>
                   {dangerous && idx > 0 && <div className="mb-1.5 border-t border-white/8 pt-3" />}
@@ -205,7 +207,10 @@ function SettingsPageInner() {
                       />
                     )}
                     <Icon className={cn("h-4 w-4 shrink-0", !active && !dangerous && SETTINGS_GROUP_ACCENT[g.id])} />
-                    <span className="break-words leading-snug">{t(tb.labelKey)}</span>
+                    <span className="min-w-0">
+                      <span className="block break-words leading-snug">{t(tb.labelKey)}</span>
+                      {snippet && <span className="mt-0.5 block break-words text-[11px] font-normal leading-snug text-ink-dim">{snippet}</span>}
+                    </span>
                   </button>
                 </div>
               );

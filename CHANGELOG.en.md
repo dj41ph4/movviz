@@ -1,3 +1,9 @@
+## v1.27.67 — October 27, 2026
+
+### Settings
+
+- Search now finds a setting by its content, not just by the tab title: every word you type must appear in the tab's labels and descriptions, ignoring accents and word order. The matching setting is shown under the title.
+
 ## v1.27.66 — October 27, 2026
 
 ### Scheduled tasks

@@ -1,3 +1,9 @@
+## v1.27.67 — 27 oktober 2026
+
+### Instellingen
+
+- Zoeken vindt nu een instelling op basis van de inhoud, niet alleen op de titel van het tabblad: elk ingevoerd woord moet voorkomen in de labels en beschrijvingen van het tabblad, ongeacht accenten en volgorde. De gevonden instelling wordt onder de titel getoond.
+
 ## v1.27.66 — 27 oktober 2026
 
 ### Geplande taken

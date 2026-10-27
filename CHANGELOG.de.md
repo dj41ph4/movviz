@@ -1,3 +1,9 @@
+## v1.27.67 — 27. Oktober 2026
+
+### Einstellungen
+
+- Die Suche findet eine Einstellung jetzt über ihren Inhalt, nicht nur über den Titel des Tabs: Jedes eingegebene Wort muss in den Bezeichnungen und Beschreibungen des Tabs vorkommen, unabhängig von Akzenten und Reihenfolge. Die gefundene Einstellung wird unter dem Titel angezeigt.
+
 ## v1.27.66 — 27. Oktober 2026
 
 ### Geplante Aufgaben

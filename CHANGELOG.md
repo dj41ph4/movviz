@@ -1,3 +1,9 @@
+## v1.27.67 — 27 octobre 2026
+
+### Réglages
+
+- La recherche trouve maintenant un réglage par son contenu, pas seulement par le titre de l'onglet : chaque mot saisi doit se retrouver dans les libellés et descriptions de l'onglet, sans tenir compte des accents ni de l'ordre. Le réglage trouvé s'affiche sous le titre.
+
 ## v1.27.66 — 27 octobre 2026
 
 ### Tâches planifiées

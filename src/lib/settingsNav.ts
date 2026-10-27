@@ -28,6 +28,7 @@ import {
   MonitorPlay,
   type LucideIcon,
 } from "lucide-react";
+import { SETTINGS_SEARCH_KEYS } from "@/lib/settingsSearchIndex.generated";
 
 /**
  * Single source of truth for every Settings tab — shared by the Settings
@@ -122,17 +123,69 @@ export const SETTINGS_GROUP_LABEL_KEY: Record<SettingsGroup, string> = {
 };
 
 /**
+ * Recherche normalisée : sans accents ni majuscules, mot par mot. « Relance manquants »
+ * trouve un onglet dont le contenu parle de relance ET de manquants, où que ce soit.
+ */
+export function normalizeSearch(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/** Mots de la requête ; un mot d'une seule lettre est ignoré quand il y en a d'autres (bruit). */
+export function searchWords(query: string): string[] {
+  const words = normalizeSearch(query).split(/\s+/).filter(Boolean);
+  const long = words.filter((w) => w.length > 1);
+  return long.length > 0 ? long : words;
+}
+
+/** Textes affichés dans les panneaux de l'onglet (libellés, descriptions, boutons), dans la langue courante. */
+export function settingsContentTexts(tab: SettingsTab, t: (key: string) => string): string[] {
+  const texts: string[] = [];
+  for (const key of SETTINGS_SEARCH_KEYS[tab.id] ?? []) {
+    const text = t(key);
+    if (text && text !== key) texts.push(text);
+  }
+  return texts;
+}
+
+function tabHeadText(tab: SettingsTab, t: (key: string) => string): string {
+  return normalizeSearch([t(tab.labelKey), t(tab.hintKey), ...(tab.keywords ?? [])].join("\n"));
+}
+
+/**
  * The one place "does this tab match this search query" is decided — used
- * by the Settings page's own sidebar filter. Checks label, hint AND
- * keywords, so intent-based terms ("film absent", "lenteur") surface a tab
- * even when its own name/description never uses that wording.
+ * by the Settings page's sidebar filter and the home search. Every word of the
+ * query must be found somewhere in the tab: its label, hint, intent keywords
+ * (so "film absent", "lenteur" surface a tab whose name never uses that wording)
+ * AND the content of its panels — the individual settings, not just the title.
  */
 export function matchesSettingsQuery(tab: SettingsTab, query: string, t: (key: string) => string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  if (t(tab.labelKey).toLowerCase().includes(q)) return true;
-  if (t(tab.hintKey).toLowerCase().includes(q)) return true;
-  return (tab.keywords ?? []).some((k) => k.toLowerCase().includes(q));
+  const words = searchWords(query);
+  if (words.length === 0) return true;
+  const head = tabHeadText(tab, t);
+  const missing = words.filter((w) => !head.includes(w));
+  if (missing.length === 0) return true;
+  const content = normalizeSearch(settingsContentTexts(tab, t).join("\n"));
+  return missing.every((w) => content.includes(w));
+}
+
+/**
+ * Le réglage qui a fait trouver l'onglet, quand le titre/la description ne suffisent pas
+ * (« Relance des films manquants » sous « Automatisation ») ; null si le titre explique déjà le résultat.
+ */
+export function settingsContentSnippet(tab: SettingsTab, query: string, t: (key: string) => string): string | null {
+  const words = searchWords(query);
+  if (words.length === 0) return null;
+  const head = tabHeadText(tab, t);
+  const missing = words.filter((w) => !head.includes(w));
+  if (missing.length === 0) return null;
+  let best: { text: string; hits: number } | null = null;
+  for (const text of settingsContentTexts(tab, t)) {
+    const norm = normalizeSearch(text);
+    const hits = missing.filter((w) => norm.includes(w)).length;
+    if (hits > 0 && (!best || hits > best.hits || (hits === best.hits && text.length < best.text.length))) best = { text, hits };
+  }
+  if (!best) return null;
+  return best.text.length > 90 ? `${best.text.slice(0, 87)}…` : best.text;
 }
 
 /** Tasteful per-group accent so the sidebar reads as organized sections at a glance, not one long undifferentiated list. */

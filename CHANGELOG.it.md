@@ -1,3 +1,9 @@
+## v1.27.67 — 27 ottobre 2026
+
+### Impostazioni
+
+- La ricerca trova ora un'impostazione dal suo contenuto, non solo dal titolo della scheda: ogni parola digitata deve comparire nelle etichette e nelle descrizioni della scheda, senza tenere conto di accenti e ordine. L'impostazione trovata appare sotto il titolo.
+
 ## v1.27.66 — 27 ottobre 2026
 
 ### Attività pianificate

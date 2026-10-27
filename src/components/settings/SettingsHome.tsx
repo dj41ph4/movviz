@@ -7,7 +7,7 @@ import { Search, Play, HardDrive, BookOpen, Zap, ChevronRight, ShieldCheck, Aler
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_JOURNEYS, matchesSettingsQuery } from "@/lib/settingsNav";
+import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_JOURNEYS, matchesSettingsQuery, settingsContentSnippet } from "@/lib/settingsNav";
 
 type Tone = "ok" | "amber" | "down";
 function StatusLine({
@@ -133,6 +133,7 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
               <div className="flex flex-col gap-0.5">
                 {g.items.map((tb) => {
                   const Icon = tb.icon;
+                  const snippet = settingsContentSnippet(tb, q, t);
                   return (
                     <button
                       key={tb.id}
@@ -141,7 +142,7 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
                     >
                       <Icon className="h-4 w-4 shrink-0" />
                       <span className="min-w-0 flex-1 break-words">{t(tb.labelKey)}</span>
-                      <span className="max-w-[55%] break-words text-right text-xs font-normal leading-relaxed text-ink-dim">{t(tb.hintKey)}</span>
+                      <span className="max-w-[55%] break-words text-right text-xs font-normal leading-relaxed text-ink-dim">{snippet ?? t(tb.hintKey)}</span>
                     </button>
                   );
                 })}

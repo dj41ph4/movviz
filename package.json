@@ -1,6 +1,6 @@
 {
   "name": "movviz",
-  "version": "1.27.66",
+  "version": "1.27.67",
   "private": true,
   "description": "Movviz — centre de commande média unifié. Découvrez, demandez, indexez et gérez films et séries depuis une interface unique et cinématographique.",
   "scripts": {
@@ -12,6 +12,7 @@
     "engine": "node engine/src/index.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "gen:settings-search": "node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs scripts/generate-settings-search-index.ts",
     "test": "node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test \"scripts/*.test.ts\"",
     "service:install": "node packaging/windows/service.js install",
     "service:uninstall": "node packaging/windows/service.js uninstall"
