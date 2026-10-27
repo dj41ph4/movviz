@@ -138,6 +138,11 @@ private const val EXTRA_INDEX = "extra_index"
 private const val EXTRA_POSTER_PATH = "extra_poster_path"
 private const val EXTRA_LOCAL_KEYS = "extra_local_keys"
 private const val EXTRA_PROFILE_ID = "extra_profile_id"
+// Épisode et position réellement en cours, sauvegardés quand Android met le
+// lecteur de côté (touche Accueil, autre app) : une app tuée en arrière-plan
+// ou un écran recréé repart de là, jamais de l'épisode du lancement.
+private const val STATE_INDEX = "state_index"
+private const val STATE_POSITION_MS = "state_position_ms"
 
 /**
  * Une seule Activity dédiée à la lecture, quel que soit le contenu (film ou
@@ -159,6 +164,16 @@ class PlayerActivity : ComponentActivity() {
     // Activity owns lifecycle while PlayerScreen owns ExoPlayer: pause on
     // Home/app-switch without converting the item into a completed view.
     private var lifecyclePauseHandler: (() -> Unit)? = null
+    // Épisode courant de la file et sa position, lus à l'instant de la sauvegarde.
+    private var playbackSnapshot: (() -> Pair<Int, Long>)? = null
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        playbackSnapshot?.invoke()?.let { (index, positionMs) ->
+            outState.putInt(STATE_INDEX, index)
+            outState.putLong(STATE_POSITION_MS, positionMs)
+        }
+    }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (isMediaKey(keyCode) && mediaKeyHandler?.invoke(keyCode) == true) return true
@@ -174,14 +189,17 @@ class PlayerActivity : ComponentActivity() {
         val labels = intent.getStringArrayListExtra(EXTRA_LABELS) ?: arrayListOf()
         val seasons = intent.getIntArrayExtra(EXTRA_SEASONS) ?: IntArray(keys.size) { -1 }
         val episodes = intent.getIntArrayExtra(EXTRA_EPISODES) ?: IntArray(keys.size) { -1 }
-        val startIndex = intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, keys.size - 1)
+        val restoredIndex = savedInstanceState?.getInt(STATE_INDEX, -1)?.takeIf { it in keys.indices }
+        val startIndex = restoredIndex ?: intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, keys.size - 1)
 val mainTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
         val type = intent.getStringExtra(EXTRA_TYPE) ?: "movie"
         val tmdbId = intent.getIntExtra(EXTRA_TMDB_ID, 0)
-        val startFromBeginning = intent.getBooleanExtra(EXTRA_START_FROM_BEGINNING, false)
+        val startFromBeginning = restoredIndex == null && intent.getBooleanExtra(EXTRA_START_FROM_BEGINNING, false)
         // Position annoncée par le bouton « Reprendre à … » : elle vient de la
         // même source que le libellé, jamais recalculée autrement.
-        val explicitResumeMs = intent.getLongExtra(EXTRA_RESUME_MS, -1L).takeIf { it > 0L }
+        // Écran recréé : la position sauvegardée, sinon celle du serveur.
+        val explicitResumeMs = if (restoredIndex != null) savedInstanceState.getLong(STATE_POSITION_MS, -1L).takeIf { it > 0L }
+            else intent.getLongExtra(EXTRA_RESUME_MS, -1L).takeIf { it > 0L }
         val posterPath = intent.getStringExtra(EXTRA_POSTER_PATH)
         val profileId = intent.getStringExtra(EXTRA_PROFILE_ID) ?: "anonymous"
 
@@ -212,6 +230,7 @@ PlayerScreen(
                         onExit = { finish() },
                         onRegisterMediaKeyHandler = { handler -> mediaKeyHandler = handler },
                         onRegisterLifecyclePauseHandler = { handler -> lifecyclePauseHandler = handler },
+                        onRegisterPlaybackSnapshot = { snapshot -> playbackSnapshot = snapshot },
                     )
                 }
             }
@@ -450,6 +469,7 @@ private fun PlayerScreen(
     onExit: () -> Unit,
     onRegisterMediaKeyHandler: (((Int) -> Boolean) -> Unit)? = null,
     onRegisterLifecyclePauseHandler: (((() -> Unit) -> Unit))? = null,
+    onRegisterPlaybackSnapshot: (((() -> Pair<Int, Long>) -> Unit))? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1242,6 +1262,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
 
     val latestPauseForBackground by rememberUpdatedState(::pauseForBackground)
+    val latestPlaybackSnapshot by rememberUpdatedState({ currentIndex to timelinePos() })
     LaunchedEffect(Unit) {
         onRegisterMediaKeyHandler?.invoke { keyCode ->
             // Touche Lecture pendant « Vous regardez toujours ? » = oui.
@@ -1260,6 +1281,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             }
         }
         onRegisterLifecyclePauseHandler?.invoke { latestPauseForBackground() }
+        onRegisterPlaybackSnapshot?.invoke { latestPlaybackSnapshot() }
     }
 
     val playPauseFocus = remember { FocusRequester() }

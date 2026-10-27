@@ -1,3 +1,9 @@
+## v1.27.79 — 27 oktober 2026
+
+### Android TV en Android
+
+- Terugkeren naar Movviz via het Android-menu tijdens een serie hervat weer de aflevering waar je was, op de juiste positie. Als Android de app op de achtergrond had gesloten, begon de speler opnieuw bij de eerst gestarte aflevering (en de oude positie) in plaats van de aflevering die je al had bereikt.
+
 ## v1.27.78 — 27 oktober 2026
 
 ### Movviz AI

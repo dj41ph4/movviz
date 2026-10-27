@@ -1,3 +1,9 @@
+## v1.27.79 — October 27, 2026
+
+### Android TV and Android
+
+- Coming back to Movviz after going through the Android menu during a series now resumes the episode you were on, at its position. When Android had closed the app in the background, the player restarted from the episode first launched (and its old position) instead of the one reached by playing episodes in a row.
+
 ## v1.27.78 — October 27, 2026
 
 ### Movviz AI

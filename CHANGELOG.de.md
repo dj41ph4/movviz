@@ -1,3 +1,9 @@
+## v1.27.79 — 27. Oktober 2026
+
+### Android TV und Android
+
+- Wer während einer Serie über das Android-Menü zu Movviz zurückkehrt, landet wieder in der laufenden Folge an der richtigen Stelle. Hatte Android die App im Hintergrund geschlossen, startete der Player bisher mit der zuerst gestarteten Folge (und deren alter Position) statt mit der zuletzt erreichten.
+
 ## v1.27.78 — 27. Oktober 2026
 
 ### Movviz AI
