@@ -2,7 +2,7 @@
 
 ### Android Mobil und TV
 
-- Einen Titel aus „Weiterschauen“ entfernen: auf dem Smartphone die Karte lange drücken; am TV auf der Karte die Menü- oder Info-Taste der Fernbedienung. Eine einfache Bestätigung fragt nach dem Entfernen: Die laufende Wiedergabe wird gelöscht (Movviz und Plex), der Fortschritt beginnt wieder bei null und der Titel wird nicht als gesehen markiert. Bei einer Serie ist nur die laufende Folge betroffen. Ihre anderen Geräte aktualisieren sich.
+- Einen Titel aus „Weiterschauen“ entfernen: auf dem Smartphone die Karte lange drücken; am TV auf der Karte OK lange drücken (oder die Menü- oder Info-Taste). Eine einfache Bestätigung fragt nach dem Entfernen: Die laufende Wiedergabe wird gelöscht (Movviz und Plex), der Fortschritt beginnt wieder bei null und der Titel wird nicht als gesehen markiert. Bei einer Serie ist nur die laufende Folge betroffen. Ihre anderen Geräte aktualisieren sich.
 
 ## v1.27.76 — 27. Oktober 2026
 

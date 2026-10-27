@@ -2,7 +2,7 @@
 
 ### Android mobile et TV
 
-- Retirer un titre de « Continuer à regarder » : sur mobile, un appui long sur la carte ; sur TV, la touche Menu ou Info de la télécommande sur la carte. Une confirmation simple demande de retirer : la lecture en cours est effacée (Movviz et Plex), la progression repart de zéro et le titre n'est pas marqué comme vu. Pour une série, seul l'épisode en cours est concerné. Les autres appareils se mettent à jour.
+- Retirer un titre de « Continuer à regarder » : sur mobile, un appui long sur la carte ; sur TV, un appui long sur OK (ou la touche Menu ou Info) sur la carte. Une confirmation simple demande de retirer : la lecture en cours est effacée (Movviz et Plex), la progression repart de zéro et le titre n'est pas marqué comme vu. Pour une série, seul l'épisode en cours est concerné. Les autres appareils se mettent à jour.
 
 ## v1.27.76 — 27 octobre 2026
 

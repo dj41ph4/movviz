@@ -2758,8 +2758,19 @@ private fun ResumeCard(
                 .onFocusChanged { focused = it.isFocused }
                 .movvizFocusRing(tileShape, enabled = beta)
                 .let { base ->
+                    // Menu / Info, ou appui long sur OK : le premier appui et un appui court restent un clic normal.
+                    val longFired = remember { booleanArrayOf(false) }
                     if (onMenuKey == null) base else base.onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown && (event.key == Key.Menu || event.key == Key.Info)) { onMenuKey(); true } else false
+                        val isOk = event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
+                        when {
+                            event.type == KeyEventType.KeyDown && (event.key == Key.Menu || event.key == Key.Info) -> { onMenuKey(); true }
+                            isOk && event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount > 0 -> {
+                                if (!longFired[0]) { longFired[0] = true; onMenuKey() }
+                                true
+                            }
+                            isOk && event.type == KeyEventType.KeyUp && longFired[0] -> { longFired[0] = false; true }
+                            else -> false
+                        }
                     }
                 }
                 .tvPointerClick(onClick),
