@@ -467,7 +467,7 @@ export async function buildManifest(
       while (start < trk.dts.length) {
         const startSec = trk.dts[start] / trk.timescale;
         let end = start + 1;
-        let boundary = trk.dts[start] + target;
+        const boundary = trk.dts[start] + target;
         // extend to keyframe boundary ≥ target
         while (end < trk.dts.length) {
           if (trk.kind === "video" && trk.isKey[end] && trk.dts[end] >= boundary) break;

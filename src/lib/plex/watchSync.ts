@@ -594,7 +594,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean; skipSnapshot
       }
       // Bootstrap: treat ALL entries oldest-first in batches, resumable with upperBound; incremental: newest 20
       let entriesToProcess: (typeof historyRes.entries)[number][];
-      let bootstrapEligibleTotal = bootstrapState?.expectedTotal ?? 0;
+      const bootstrapEligibleTotal = bootstrapState?.expectedTotal ?? 0;
       if (bootstrapNeeded) {
         const recent = await pollHistory(ctx, { start: 0, size: 20, sortDirection: "desc" });
         const pageKeys = new Set(dedupedAll.map((entry) => entry.ratingKey ?? `${entry.type}:${entry.viewedAt}`));

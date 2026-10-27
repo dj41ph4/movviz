@@ -214,10 +214,9 @@ async function doResolve(movvizUserId: string): Promise<ResolveResult> {
   // 2) Managed Home user: need switch -> accountToken -> serverToken
   if (user.plexManagedUserId) {
     let serverToken = user.plexServerToken ?? null;
-    let plexTitle: string | undefined;
     const homeUsers = await getPlexHomeUsers(cfg.adminToken);
     const homeEntry = homeUsers.find((h) => h.id === user.plexManagedUserId);
-    plexTitle = homeEntry?.title;
+    const plexTitle: string | undefined = homeEntry?.title;
     if (!homeEntry) {
       recordSearchLog("warn", "plex.identity", `plex.identity user=${user.username} plexManagedUserId=${user.plexManagedUserId} status=unresolved reason=not_in_home homeUsers=${homeUsers.length}`);
       return { ok: false, reason: `${user.username} (managed ${user.plexManagedUserId}): not in Plex Home`, code: "NOT_IN_HOME" };

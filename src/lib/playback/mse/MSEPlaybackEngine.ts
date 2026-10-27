@@ -343,7 +343,7 @@ export class MSEPlaybackEngine {
     const manifest = this.manifest;
     if (!video || !manifest || this.destroyed) return;
 
-    let seek = this.pendingSeek;
+    const seek = this.pendingSeek;
     if (seek !== null) {
       this.pendingSeek = null;
       this.retries = 0;

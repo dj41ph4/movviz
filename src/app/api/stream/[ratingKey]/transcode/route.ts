@@ -229,7 +229,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   const sp = req.nextUrl.searchParams;
   const audioStreamID = sp.get("audioStreamID");
   const subtitleStreamID = sp.get("subtitleStreamID");
-  let videoCodec = (media?.videoCodec as string)?.toLowerCase() ?? "";
+  const videoCodec = (media?.videoCodec as string)?.toLowerCase() ?? "";
   let audioCodec = (media?.audioCodec as string)?.toLowerCase() ?? "";
   // The default audioCodec is the FIRST track's codec — but audioStreamID may
   // target a different track (e.g. DTS default + AC3 second track, the common
