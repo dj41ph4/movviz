@@ -11,6 +11,7 @@
     "start": "next start -p 9810",
     "engine": "node engine/src/index.mjs",
     "lint": "eslint .",
+    "lint:prune": "eslint . --prune-suppressions",
     "typecheck": "tsc --noEmit",
     "gen:settings-search": "node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs scripts/generate-settings-search-index.ts",
     "test": "node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test \"scripts/*.test.ts\"",

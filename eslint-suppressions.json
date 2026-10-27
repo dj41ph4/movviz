@@ -1,0 +1,278 @@
+{
+  "resolver/src/browser.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/app/discover/page.tsx": {
+    "react-hooks/immutability": {
+      "count": 1
+    },
+    "react-hooks/preserve-manual-memoization": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    }
+  },
+  "src/app/library/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/app/search/page.tsx": {
+    "react-hooks/immutability": {
+      "count": 3
+    }
+  },
+  "src/app/settings/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/app/setup/page.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/activity/v2/TitleTargetPicker.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/activity/v2/WantedTab.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/ai/ChatWidget.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/dashboard/DashboardPosterCard.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/dashboard/RecentEpisodesRow.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/layout/Sidebar.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    }
+  },
+  "src/components/library/LibraryGrid.tsx": {
+    "react-hooks/immutability": {
+      "count": 2
+    },
+    "react-hooks/refs": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/library/SearchAndReplacePanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/media/AdaptiveTitleLogo.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/media/TitleMark.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/media/TmdbImage.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/media/TrailerHeader.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 18
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 4
+    }
+  },
+  "src/components/media/YouTubeVirtualPlayer.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/player/TheaterModePlayer.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/player/VideoPlayer.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    }
+  },
+  "src/components/search/IntegralSearchModal.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/search/ManualSearchModal.tsx": {
+    "react-hooks/immutability": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/BenchmarkPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/BlocklistPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/EngineLogsPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/FolderPicker.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/HealthPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/IndexationPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    }
+  },
+  "src/components/settings/IndexerManager.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/settings/NetflixImportPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/PerfPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/PlayerSettings.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/components/settings/PlexPathMappings.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/PlexSettings.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    }
+  },
+  "src/components/settings/ReleaseRulesPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/settings/RepairFileBrowserModal.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/ResolverLogsPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/SearchLogsPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/settings/TranscodeLogsPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/title/VersionsPanel.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/ui/CardMenu.tsx": {
+    "react-hooks/refs": {
+      "count": 1
+    }
+  },
+  "src/components/ui/PageLoader.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/lib/c411/session.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/lib/gpu/GpuProvider.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/lib/media/useCroppedBackdrop.ts": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/lib/media/useSmoothProgress.ts": {
+    "react-hooks/purity": {
+      "count": 1
+    }
+  },
+  "src/lib/player/mp4Demuxer.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
+    }
+  },
+  "src/lib/player/webcodecs.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "src/lib/settings/useActivitySettings.ts": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/lib/trailers/providers/primeVideo.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  }
+}
