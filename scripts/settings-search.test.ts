@@ -17,9 +17,7 @@ const tabsFor = (query: string) => SETTINGS_TABS.filter((x) => matchesSettingsQu
 
 test("l'index généré est à jour avec le code des panneaux (npm run gen:settings-search)", () => {
   // Sous Windows, git peut convertir les fins de ligne : on compare sans elles.
-  const onDisk = fs.readFileSync(INDEX_FILE, "utf8").replace(/
-/g, "
-");
+  const onDisk = fs.readFileSync(INDEX_FILE, "utf8").split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
   assert.equal(onDisk, renderIndexFile(buildSettingsSearchIndex()));
 });
 
