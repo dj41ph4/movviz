@@ -662,6 +662,8 @@ export interface RawLibraryItem {
   viewOffset?: number; // ms, present while in progress
   duration?: number;
   leafCount?: number; // shows : nombre total d'épisodes
+  grandparentRatingKey?: string; // épisodes : clé Plex de la série
+  grandparentTitle?: string; // épisodes : titre de la série
   addedAt?: number;
   updatedAt?: number;
   guid?: string;
@@ -922,6 +924,51 @@ export async function batchTmdbIds(cfg: PlexServerConfig, token: string, ratingK
           ...info,
           mediaDetail: parseMediaDetail(item),
           mediaVersions: mediaVersions.length > 1 ? mediaVersions : [],
+        });
+      }
+    } catch {
+      continue;
+    }
+  }
+  return result;
+}
+
+export interface PlexEpisodeIdentity {
+  ratingKey: string;
+  title: string;
+  showKey: string;
+  showTitle: string;
+  season: number;
+  episode: number;
+}
+
+/**
+ * Série, saison et numéro d'épisodes connus seulement par leur clé Plex (lecture seule, par paquets
+ * de 50). Sert à nommer les épisodes vus dans Plex mais absents de la bibliothèque. Un paquet qui
+ * échoue est simplement ignoré : ces clés seront redemandées au prochain passage.
+ */
+export async function getEpisodeIdentities(cfg: PlexServerConfig, token: string, ratingKeys: string[]): Promise<Map<string, PlexEpisodeIdentity>> {
+  const result = new Map<string, PlexEpisodeIdentity>();
+  const chunkSize = 50;
+  for (let i = 0; i < ratingKeys.length; i += chunkSize) {
+    const chunk = ratingKeys.slice(i, i + chunkSize);
+    try {
+      const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${chunk.join(",")}`, {
+        headers: serverHeaders(cfg, token),
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+      for (const item of raw) {
+        if (item.type !== "episode" || !item.grandparentRatingKey || item.parentIndex == null || item.index == null) continue;
+        result.set(item.ratingKey, {
+          ratingKey: item.ratingKey,
+          title: item.title ?? "",
+          showKey: String(item.grandparentRatingKey),
+          showTitle: item.grandparentTitle ?? "",
+          season: item.parentIndex,
+          episode: item.index,
         });
       }
     } catch {

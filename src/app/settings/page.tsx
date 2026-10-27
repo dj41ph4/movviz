@@ -21,6 +21,7 @@ import { AutomationSettings } from "@/components/settings/AutomationSettings";
 import { CachePanel } from "@/components/settings/CachePanel";
 import { StatsPanel } from "@/components/settings/StatsPanel";
 import { PlexSettings } from "@/components/settings/PlexSettings";
+import { PlexUnmappedPanel } from "@/components/settings/PlexUnmappedPanel";
 import { PlayerSettings } from "@/components/settings/PlayerSettings";
 import { MetadataSettings } from "@/components/settings/MetadataSettings";
 import { AnimeSettings } from "@/components/settings/AnimeSettings";
@@ -361,7 +362,12 @@ function SettingsPageInner() {
 
           {tab === "player" && <PlayerSettings />}
 
-          {tab === "plex" && user?.role === "admin" && <PlexSettings />}
+          {tab === "plex" && user?.role === "admin" && (
+            <div className="space-y-6">
+              <PlexSettings />
+              <PlexUnmappedPanel />
+            </div>
+          )}
 
           {tab === "naming" && user?.role === "admin" && <NamingSettings />}
 

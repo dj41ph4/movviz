@@ -1,3 +1,10 @@
+## v1.27.72 — 27 ottobre 2026
+
+### Plex
+
+- Nuovo elenco in Impostazioni → Plex: le serie con episodi visti in Plex (dal proprietario del server) che non hanno una scheda nella libreria Movviz. Spunta quelle da aggiungere: l'aggiunta non avvia alcuna ricerca di download e collega gli episodi a Plex. Nulla viene aggiunto automaticamente e una serie può essere ignorata per non essere più proposta.
+- Le serie già presenti in Movviz i cui episodi non sono collegati a Plex possono essere collegate con un clic.
+
 ## v1.27.71 — 27 ottobre 2026
 
 ### Coda

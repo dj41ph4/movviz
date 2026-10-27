@@ -1,3 +1,10 @@
+## v1.27.72 — 27. Oktober 2026
+
+### Plex
+
+- Neue Liste unter Einstellungen → Plex: Serien mit in Plex gesehenen Folgen (vom Serverbesitzer), die keinen Eintrag in der Movviz-Bibliothek haben. Wähle die zu ergänzenden aus: Das Hinzufügen startet keine Download-Suche und verknüpft die Folgen mit Plex. Es wird nichts automatisch hinzugefügt, und eine Serie lässt sich ignorieren, damit sie nicht mehr vorgeschlagen wird.
+- Serien, die schon in Movviz sind, deren Folgen aber nicht mit Plex verknüpft sind, lassen sich mit einem Klick verknüpfen.
+
 ## v1.27.71 — 27. Oktober 2026
 
 ### Warteschlange

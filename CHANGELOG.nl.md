@@ -1,3 +1,10 @@
+## v1.27.72 — 27 oktober 2026
+
+### Plex
+
+- Nieuwe lijst in Instellingen → Plex: series met in Plex bekeken afleveringen (door de servereigenaar) zonder item in de Movviz-bibliotheek. Vink aan wat je wilt toevoegen: toevoegen start geen downloadzoekopdracht en koppelt de afleveringen aan Plex. Er wordt niets automatisch toegevoegd en een serie kan genegeerd worden zodat ze niet meer wordt voorgesteld.
+- Series die al in Movviz staan maar waarvan de afleveringen niet aan Plex zijn gekoppeld, kunnen met één klik worden gekoppeld.
+
 ## v1.27.71 — 27 oktober 2026
 
 ### Wachtrij

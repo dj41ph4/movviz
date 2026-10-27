@@ -18,6 +18,7 @@ import { getUserMediaSyncStates, updateUserMediaSyncState } from "@/lib/userCont
 import { mediaStateKey } from "@/lib/userContext/reconcile";
 import { getBootstrapState, ensureBootstrapPending, startBootstrap, updateBootstrapProgress, completeBootstrap } from "./plexHistoryBootstrap";
 import { formatCanonical } from "./mediaIdentityMap";
+import { refreshUnmappedRegistry } from "./unmappedEpisodes";
 
 function getPendingIntentForMedia(
   userId: string,
@@ -1001,6 +1002,16 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean; skipSnapshot
           } else if (result.decision !== "UNCHANGED" && result.decision !== "STALE_OBSERVATION" && result.decision !== "BASELINE") {
             recordSearchLog("info", "plex.reconciler", `plex.reconciler snapshot user=${user.username} ratingKey=${rk} decision=${result.decision} ${result.reason}`);
           }
+        }
+
+        // Épisodes VUS dans Plex mais sans fiche Movviz : tenus dans un registre que l'administrateur
+        // consulte dans Réglages → Plex (ajout manuel). Lecture seule, jamais bloquant pour la synchro.
+        try {
+          const unmappedWatched = [...diff.watchedNow].filter((rk) => episodeRkSet.has(rk) && !episodeHit(rk));
+          const registry = await refreshUnmappedRegistry(cfg, ctx.serverToken, unmappedWatched);
+          if (unmappedWatched.length > 0) recordSearchLog("info", "plex.snapshot", `plex.snapshot unmapped registry user=${user.username} watchedWithoutEntry=${unmappedWatched.length} shows=${registry.shows} episodes=${registry.episodes}`);
+        } catch (e) {
+          recordSearchLog("warn", "plex.snapshot", `plex.snapshot unmapped registry failed user=${user.username} ${e instanceof Error ? e.message : String(e)}`);
         }
 
         // Atomic persistence (§29, §95) – replace observed snapshot atomically

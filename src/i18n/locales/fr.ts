@@ -1282,6 +1282,28 @@ export const fr = {
     edit: "Modifier l'intervalle",
   },
 
+  plexUnmapped: {
+    title: "Épisodes vus dans Plex absents de Movviz",
+    hint: "Séries dont des épisodes ont été vus dans Plex (par le propriétaire du serveur) sans avoir de fiche dans la bibliothèque Movviz. Rien n'est ajouté automatiquement : cochez celles à ajouter.",
+    loading: "Chargement…",
+    refresh: "Actualiser",
+    empty: "Aucun épisode vu sans fiche Movviz.",
+    episodesSeen: "{count} épisode(s) vu(s)",
+    statusAbsent: "Absente de la bibliothèque Movviz",
+    statusLinkable: "Dans la bibliothèque, mais ses épisodes ne sont pas reliés à Plex",
+    statusUnmatched: "Plex ne l'a pas associée à TMDb : ajout impossible d'ici",
+    add: "Ajouter à la bibliothèque ({count})",
+    link: "Relier à Plex ({count})",
+    dismiss: "Ignorer ({count})",
+    restore: "Rétablir ({count})",
+    showDismissed: "Afficher les séries ignorées ({count})",
+    hideDismissed: "Masquer les séries ignorées",
+    done: "{count} série(s) traitée(s).",
+    doneWithFailures: "{ok} série(s) traitée(s), {failed} en échec.",
+    failed: "Échec du traitement de {count} série(s).",
+    note: "L'ajout ne lance aucune recherche de téléchargement. Une série ajoutée suit ensuite vos règles habituelles pour ses épisodes absents de Plex. Une série ignorée n'est plus proposée.",
+  },
+
   jobs: {
     title: "File d'attente",
     queueTitle: "Tâches en arrière-plan",

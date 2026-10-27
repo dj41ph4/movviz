@@ -1284,6 +1284,28 @@ export const de: Dictionary = {
     edit: "Intervall bearbeiten",
   },
 
+  plexUnmapped: {
+    title: "In Plex gesehene Folgen, die in Movviz fehlen",
+    hint: "Serien mit in Plex gesehenen Folgen (vom Serverbesitzer) ohne Eintrag in der Movviz-Bibliothek. Nichts wird automatisch hinzugefügt: Wähle die gewünschten Serien aus.",
+    loading: "Wird geladen…",
+    refresh: "Aktualisieren",
+    empty: "Keine gesehene Folge ohne Movviz-Eintrag.",
+    episodesSeen: "{count} Folge(n) gesehen",
+    statusAbsent: "Nicht in der Movviz-Bibliothek",
+    statusLinkable: "In der Bibliothek, aber die Folgen sind nicht mit Plex verknüpft",
+    statusUnmatched: "Plex hat sie nicht TMDb zugeordnet: Hinzufügen von hier nicht möglich",
+    add: "Zur Bibliothek hinzufügen ({count})",
+    link: "Mit Plex verknüpfen ({count})",
+    dismiss: "Ignorieren ({count})",
+    restore: "Wiederherstellen ({count})",
+    showDismissed: "Ignorierte Serien anzeigen ({count})",
+    hideDismissed: "Ignorierte Serien ausblenden",
+    done: "{count} Serie(n) verarbeitet.",
+    doneWithFailures: "{ok} Serie(n) verarbeitet, {failed} fehlgeschlagen.",
+    failed: "Verarbeitung von {count} Serie(n) fehlgeschlagen.",
+    note: "Das Hinzufügen startet keine Download-Suche. Eine hinzugefügte Serie folgt danach deinen üblichen Regeln für in Plex fehlende Folgen. Eine ignorierte Serie wird nicht mehr vorgeschlagen.",
+  },
+
   jobs: {
     title: "Aufgabenwarteschlange",
     queueTitle: "Hintergrundaufgaben",

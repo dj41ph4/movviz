@@ -1,3 +1,10 @@
+## v1.27.72 — October 27, 2026
+
+### Plex
+
+- New list in Settings → Plex: series with episodes watched in Plex (by the server owner) that have no entry in the Movviz library. Tick the ones to add: adding starts no download search and links the episodes to Plex. Nothing is added automatically, and a series can be ignored so it is no longer suggested.
+- Series already in Movviz whose episodes are not linked to Plex can be linked in one click.
+
 ## v1.27.71 — October 27, 2026
 
 ### Queue

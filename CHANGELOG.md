@@ -1,3 +1,10 @@
+## v1.27.72 — 27 octobre 2026
+
+### Plex
+
+- Nouvelle liste dans Réglages → Plex : les séries dont des épisodes ont été vus dans Plex (par le propriétaire du serveur) mais qui n'ont pas de fiche dans la bibliothèque Movviz. Cochez celles à ajouter : l'ajout ne lance aucune recherche de téléchargement et relie les épisodes à Plex. Rien n'est ajouté automatiquement, et une série peut être ignorée pour ne plus être proposée.
+- Les séries déjà dans Movviz dont les épisodes ne sont pas reliés à Plex peuvent être reliées d'un clic.
+
 ## v1.27.71 — 27 octobre 2026
 
 ### File d'attente

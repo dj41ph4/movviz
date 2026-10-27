@@ -1284,6 +1284,28 @@ export const en: Dictionary = {
     edit: "Edit interval",
   },
 
+  plexUnmapped: {
+    title: "Episodes watched in Plex but missing from Movviz",
+    hint: "Series with episodes watched in Plex (by the server owner) that have no entry in the Movviz library. Nothing is added automatically: tick the ones to add.",
+    loading: "Loading…",
+    refresh: "Refresh",
+    empty: "No watched episode without a Movviz entry.",
+    episodesSeen: "{count} episode(s) watched",
+    statusAbsent: "Not in the Movviz library",
+    statusLinkable: "In the library, but its episodes are not linked to Plex",
+    statusUnmatched: "Plex did not match it to TMDb: cannot be added from here",
+    add: "Add to library ({count})",
+    link: "Link to Plex ({count})",
+    dismiss: "Ignore ({count})",
+    restore: "Restore ({count})",
+    showDismissed: "Show ignored series ({count})",
+    hideDismissed: "Hide ignored series",
+    done: "{count} series processed.",
+    doneWithFailures: "{ok} series processed, {failed} failed.",
+    failed: "Processing failed for {count} series.",
+    note: "Adding does not start any download search. An added series then follows your usual rules for episodes missing from Plex. An ignored series is no longer suggested.",
+  },
+
   jobs: {
     title: "Job queue",
     queueTitle: "Background jobs",

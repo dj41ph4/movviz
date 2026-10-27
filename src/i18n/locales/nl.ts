@@ -1284,6 +1284,28 @@ export const nl: Dictionary = {
     edit: "Interval bewerken",
   },
 
+  plexUnmapped: {
+    title: "In Plex bekeken afleveringen die in Movviz ontbreken",
+    hint: "Series met in Plex bekeken afleveringen (door de servereigenaar) zonder item in de Movviz-bibliotheek. Er wordt niets automatisch toegevoegd: vink aan wat je wilt toevoegen.",
+    loading: "Laden…",
+    refresh: "Vernieuwen",
+    empty: "Geen bekeken aflevering zonder Movviz-item.",
+    episodesSeen: "{count} aflevering(en) bekeken",
+    statusAbsent: "Niet in de Movviz-bibliotheek",
+    statusLinkable: "In de bibliotheek, maar de afleveringen zijn niet aan Plex gekoppeld",
+    statusUnmatched: "Plex heeft ze niet aan TMDb gekoppeld: hier toevoegen niet mogelijk",
+    add: "Aan bibliotheek toevoegen ({count})",
+    link: "Aan Plex koppelen ({count})",
+    dismiss: "Negeren ({count})",
+    restore: "Herstellen ({count})",
+    showDismissed: "Genegeerde series tonen ({count})",
+    hideDismissed: "Genegeerde series verbergen",
+    done: "{count} serie(s) verwerkt.",
+    doneWithFailures: "{ok} serie(s) verwerkt, {failed} mislukt.",
+    failed: "Verwerking van {count} serie(s) mislukt.",
+    note: "Toevoegen start geen downloadzoekopdracht. Een toegevoegde serie volgt daarna je gebruikelijke regels voor afleveringen die in Plex ontbreken. Een genegeerde serie wordt niet meer voorgesteld.",
+  },
+
   jobs: {
     title: "Taakwachtrij",
     queueTitle: "Achtergrondtaken",

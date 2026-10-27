@@ -1284,6 +1284,28 @@ export const it: Dictionary = {
     edit: "Modifica intervallo",
   },
 
+  plexUnmapped: {
+    title: "Episodi visti in Plex assenti da Movviz",
+    hint: "Serie con episodi visti in Plex (dal proprietario del server) senza scheda nella libreria Movviz. Nulla viene aggiunto automaticamente: spunta quelle da aggiungere.",
+    loading: "Caricamento…",
+    refresh: "Aggiorna",
+    empty: "Nessun episodio visto senza scheda Movviz.",
+    episodesSeen: "{count} episodio/i visto/i",
+    statusAbsent: "Assente dalla libreria Movviz",
+    statusLinkable: "Nella libreria, ma i suoi episodi non sono collegati a Plex",
+    statusUnmatched: "Plex non l'ha associata a TMDb: impossibile aggiungerla da qui",
+    add: "Aggiungi alla libreria ({count})",
+    link: "Collega a Plex ({count})",
+    dismiss: "Ignora ({count})",
+    restore: "Ripristina ({count})",
+    showDismissed: "Mostra le serie ignorate ({count})",
+    hideDismissed: "Nascondi le serie ignorate",
+    done: "{count} serie elaborata/e.",
+    doneWithFailures: "{ok} serie elaborata/e, {failed} non riuscita/e.",
+    failed: "Elaborazione non riuscita per {count} serie.",
+    note: "L'aggiunta non avvia alcuna ricerca di download. Una serie aggiunta segue poi le tue regole abituali per gli episodi assenti da Plex. Una serie ignorata non viene più proposta.",
+  },
+
   jobs: {
     title: "Coda delle attività",
     queueTitle: "Attività in background",
