@@ -1,11 +1,15 @@
 import type { Locale } from "@/i18n/config";
 
 const languageWords: Record<Locale, RegExp> = {
-  fr: /\b(?:je|tu|vous|est|avec|pour|quoi|quel|quelle|bonjour|merci|regarder|film|série)\b/gi,
-  en: /\b(?:i|you|the|what|which|where|why|how|please|watch|movie|show|can|would|recommend)\b/gi,
-  it: /\b(?:io|tu|che|quale|come|perché|guardare|film|serie|grazie|ciao)\b/gi,
-  nl: /\b(?:ik|jij|wat|welke|waarom|hoe|kijken|film|serie|alsjeblieft|bedankt)\b/gi,
-  de: /\b(?:ich|du|was|welche|warum|wie|sehen|film|serie|bitte|danke)\b/gi,
+  // Seen live: « donne moi des film belge du premier janvier 2025 au 31
+  // decembre 2025 » only matched « film » (in every list), so the reply came
+  // back in the account's German. Each list now also has everyday verbs,
+  // function words and month names that belong to one language only.
+  fr: /\b(?:je|tu|vous|est|avec|pour|quoi|quel|quelle|bonjour|merci|regarder|film|série|donne|donnez|moi|toi|les|une|au|aux|dans|qui|que|mon|mes|propose|proposes|cherche|trouve|montre|premier|janvier|fevrier|février|avril|juin|juillet|aout|août|decembre|décembre)\b/gi,
+  en: /\b(?:i|you|the|what|which|where|why|how|please|watch|movie|show|can|would|recommend|give|find|some|from|with|and|january|february|april|june|july|august)\b/gi,
+  it: /\b(?:io|tu|che|quale|come|perché|guardare|film|serie|grazie|ciao|dammi|mostrami|cerco|dal|nel|gennaio|febbraio|aprile|giugno|luglio|agosto|dicembre|marzo)\b/gi,
+  nl: /\b(?:ik|jij|wat|welke|waarom|hoe|kijken|film|serie|alsjeblieft|bedankt|geef|toon|zoek|een|met|naar|januari|februari|maart|augustus)\b/gi,
+  de: /\b(?:ich|du|was|welche|warum|wie|sehen|film|serie|bitte|danke|gib|mir|zeig|suche|einen|eine|und|mit|von|januar|februar|märz|dezember)\b/gi,
 };
 
 /** Only override the profile when a message contains clear language evidence. */
