@@ -1,3 +1,9 @@
+## v1.27.74 — 27 oktober 2026
+
+### Onderhoud
+
+- Strengere codekwaliteitscontrole: 44 stijlfouten opgelost zonder het gedrag te wijzigen, en elke nieuwe fout wordt nu automatisch geweigerd.
+
 ## v1.27.73 — 27 oktober 2026
 
 ### Platforms

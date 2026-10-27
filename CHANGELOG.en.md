@@ -1,3 +1,9 @@
+## v1.27.74 — October 27, 2026
+
+### Maintenance
+
+- Stronger code quality checks: 44 style errors fixed without changing behavior, and any new error is now rejected automatically.
+
 ## v1.27.73 — October 27, 2026
 
 ### Platforms

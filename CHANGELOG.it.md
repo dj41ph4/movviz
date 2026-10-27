@@ -1,3 +1,9 @@
+## v1.27.74 — 27 ottobre 2026
+
+### Manutenzione
+
+- Controlli di qualità del codice rafforzati: 44 errori di stile corretti senza cambiare il comportamento, e qualsiasi nuovo errore viene ora rifiutato automaticamente.
+
 ## v1.27.73 — 27 ottobre 2026
 
 ### Piattaforme

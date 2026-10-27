@@ -1,3 +1,9 @@
+## v1.27.74 — 27. Oktober 2026
+
+### Wartung
+
+- Strengere Codequalitätsprüfung: 44 Stilfehler behoben, ohne das Verhalten zu ändern; jeder neue Fehler wird jetzt automatisch abgelehnt.
+
 ## v1.27.73 — 27. Oktober 2026
 
 ### Plattformen
