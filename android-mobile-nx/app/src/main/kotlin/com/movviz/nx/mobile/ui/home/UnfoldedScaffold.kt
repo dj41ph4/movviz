@@ -85,11 +85,20 @@ fun rememberUnfoldedLandscape(): Boolean {
     return windowClass == MovvizWindowClass.LANDSCAPE_SHORT || windowClass.isLargeTouch
 }
 
-/** Panneau Activité (téléchargements) : Fold ouvert à plat et tablettes
- *  seulement. Sur un téléphone tourné il mangeait 28 % de la largeur. */
+/** Plus petit côté à partir duquel l'écran est une vraie tablette (Pixel Tablet, Galaxy Tab… : ≥ 800 dp). Le
+ *  Fold ouvert fait ≈ 700 dp de plus petit côté et n'en est pas une. */
+private const val TABLET_MIN_SMALLEST_WIDTH_DP = 720
+
+/** Vraie tablette : barre latérale agrandie, pas de panneau latéral droit. */
+@Composable
+fun rememberTablet(): Boolean =
+    androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= TABLET_MIN_SMALLEST_WIDTH_DP
+
+/** Panneau Activité (téléchargements) : Fold ouvert à plat seulement. Sur un téléphone tourné il mangeait 28 %
+ *  de la largeur, et sur une tablette le contenu garde désormais toute la largeur. */
 @Composable
 fun rememberUnfoldedWithPanel(): Boolean =
-    rememberMovvizWindowClass() == MovvizWindowClass.FOLD_FLAT
+    rememberMovvizWindowClass() == MovvizWindowClass.FOLD_FLAT && !rememberTablet()
 
 /** Contenu étroit tactile : portrait compact OU colonne centrale dépliée.
  *  Partout où le code distinguait `compactPortrait` vs "TV grand écran"
@@ -101,8 +110,8 @@ fun rememberNarrowContent(): Boolean =
 
 /** Rail en verre de 60 dp posé dans une colonne de 76 dp en paysage bas ;
  *  rail à libellés de 88 dp sur Fold ouvert et tablette. */
-internal fun unfoldedRailWidth(windowClass: MovvizWindowClass) =
-    if (windowClass.isLargeTouch) 100.dp else 76.dp
+internal fun unfoldedRailWidth(windowClass: MovvizWindowClass, tablet: Boolean = false) =
+    if (tablet) 128.dp else if (windowClass.isLargeTouch) 100.dp else 76.dp
 
 internal fun unfoldedPanelWidth(availableWidth: Float) =
     (availableWidth * 0.3f).coerceIn(260f, 320f).dp
@@ -132,6 +141,8 @@ fun SlimRail(
 ) {
     val windowClass = rememberMovvizWindowClass()
     val labelled = windowClass.isLargeTouch
+    // Tablette : barre latérale agrandie (icônes, libellés, logo, avatar) pour la distance et le doigt.
+    val tablet = rememberTablet()
     val railDisplayName = activeProfile?.name?.takeIf { it.isNotBlank() } ?: fallbackName
     val items = listOf(
         RailItem(HomeTab.HOME, "Accueil", MovvizIconHome),
@@ -156,13 +167,13 @@ fun SlimRail(
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (labelled) 6.dp else 2.dp),
+            verticalArrangement = Arrangement.spacedBy(if (tablet) 12.dp else if (labelled) 6.dp else 2.dp),
         ) {
             Image(
                 painter = painterResource(R.drawable.movviz_mark),
                 contentDescription = "Movviz",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.padding(bottom = 8.dp).size(if (labelled) 30.dp else 26.dp),
+                modifier = Modifier.padding(bottom = 8.dp).size(if (tablet) 42.dp else if (labelled) 30.dp else 26.dp),
             )
             items.forEach { item ->
                 val active = item.tab != null && selected == item.tab
@@ -170,6 +181,7 @@ fun SlimRail(
                     item = item,
                     active = active,
                     labelled = labelled,
+                    tablet = tablet,
                     progress = if (item.tab == HomeTab.DOWNLOADS) downloadProgress else null,
                     onClick = { if (item.tab != null) onSelectTab(item.tab) else onOpenSearch() },
                 )
@@ -202,7 +214,7 @@ fun SlimRail(
             }
             Box(
                 modifier = Modifier
-                    .size(if (labelled) 40.dp else 36.dp)
+                    .size(if (tablet) 54.dp else if (labelled) 40.dp else 36.dp)
                     .clip(CircleShape)
                     .border(1.5.dp, MovvizElectricBorder, CircleShape)
                     .hapticClickable(onClick = onAvatarClick),
@@ -233,6 +245,7 @@ private fun RailButton(
     item: RailItem,
     active: Boolean,
     labelled: Boolean,
+    tablet: Boolean,
     progress: Float?,
     onClick: () -> Unit,
 ) {
@@ -246,8 +259,8 @@ private fun RailButton(
     ) {
         Box(
             modifier = Modifier
-                .size(width = if (labelled) 56.dp else 44.dp, height = if (labelled) 32.dp else 36.dp)
-                .clip(RoundedCornerShape(if (labelled) 16.dp else 13.dp))
+                .size(width = if (tablet) 80.dp else if (labelled) 56.dp else 44.dp, height = if (tablet) 46.dp else if (labelled) 32.dp else 36.dp)
+                .clip(RoundedCornerShape(if (tablet) 23.dp else if (labelled) 16.dp else 13.dp))
                 .background(if (active) MovvizBrand.copy(alpha = 0.30f) else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) {
@@ -255,10 +268,10 @@ private fun RailButton(
                 imageVector = item.icon,
                 contentDescription = if (labelled) null else item.label,
                 tint = tint,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(if (tablet) 30.dp else 20.dp),
             )
             if (progress != null) {
-                androidx.compose.foundation.Canvas(modifier = Modifier.size(30.dp)) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(if (tablet) 42.dp else 30.dp)) {
                     val stroke = 2.dp.toPx()
                     drawArc(
                         color = Color.White.copy(alpha = 0.12f),
@@ -278,7 +291,7 @@ private fun RailButton(
             Text(
                 text = item.label,
                 style = TextStyle(
-                    fontSize = 11.sp,
+                    fontSize = if (tablet) 15.sp else 11.sp,
                     fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                     color = if (active) Color.White else UnfoldedInactive,
                 ),
@@ -308,7 +321,7 @@ fun UnfoldedRouteScaffold(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val railWidth = unfoldedRailWidth(rememberMovvizWindowClass())
+    val railWidth = unfoldedRailWidth(rememberMovvizWindowClass(), rememberTablet())
     Box(modifier = modifier.fillMaxSize()) {
     Row(modifier = Modifier.fillMaxSize()) {
         SlimRail(

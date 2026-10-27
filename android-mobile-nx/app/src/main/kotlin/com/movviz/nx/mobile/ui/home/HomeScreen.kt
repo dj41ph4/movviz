@@ -699,7 +699,7 @@ fun HomeScreen(
             if (!compactPortrait && watchProviderTiles.isNotEmpty()) {
                 item(contentType = "platforms-wide") {
                     val platformEdge = if (rememberUnfoldedLandscape()) 16.dp else 52.dp
-                    Column(modifier = Modifier.padding(bottom = 28.dp)) {
+                    Column(modifier = Modifier.padding(top = 22.dp, bottom = 28.dp)) {
                         RowHeading("Plateformes", start = platformEdge)
                         com.movviz.nx.mobile.ui.mobile.MovvizPlatformRow(
                             tiles = watchProviderTiles,

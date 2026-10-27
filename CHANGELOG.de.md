@@ -1,3 +1,10 @@
+## v1.27.76 — 27. Oktober 2026
+
+### Android Mobil
+
+- Tablet: Das rechte Panel („Laufend“ und „Abgeschlossen“) entfällt, der Inhalt behält die volle Breite. Die linke Seitenleiste ist größer: Symbole, Beschriftungen, Logo und Avatar. Aufgeklapptes Fold und Smartphones bleiben unverändert.
+- Startseite: etwas Abstand zwischen dem oberen Bild und der Leiste „Plattformen“.
+
 ## v1.27.75 — 27. Oktober 2026
 
 ### Android Mobil

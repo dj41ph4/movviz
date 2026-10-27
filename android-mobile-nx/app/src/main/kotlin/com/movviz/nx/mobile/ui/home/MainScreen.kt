@@ -95,7 +95,7 @@ fun MainScreen(
         val windowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
         val panelAllowed = rememberUnfoldedWithPanel()
         androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val railWidth = unfoldedRailWidth(windowClass)
+        val railWidth = unfoldedRailWidth(windowClass, rememberTablet())
         val panelWidth = unfoldedPanelWidth(maxWidth.value)
         val showPanel = panelAllowed && maxWidth - railWidth - panelWidth >= 420.dp
         Row(modifier = Modifier.fillMaxSize()) {

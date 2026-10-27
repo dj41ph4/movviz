@@ -1,3 +1,10 @@
+## v1.27.76 — 27 oktober 2026
+
+### Android mobiel
+
+- Tablet: het rechterpaneel ('Bezig' en 'Voltooid') verdwijnt, de inhoud behoudt de volle breedte. De linkerzijbalk is groter: pictogrammen, labels, logo en avatar. De opengevouwen Fold en telefoons blijven ongewijzigd.
+- Startscherm: wat ruimte tussen de afbeelding bovenaan en de rij 'Platforms'.
+
 ## v1.27.75 — 27 oktober 2026
 
 ### Android mobiel

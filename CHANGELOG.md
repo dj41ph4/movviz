@@ -1,3 +1,10 @@
+## v1.27.76 — 27 octobre 2026
+
+### Android mobile
+
+- Tablette : le panneau de droite (« En cours » et « Terminés ») disparaît, le contenu garde toute la largeur. La barre latérale de gauche est agrandie : icônes, libellés, logo et avatar. Le Fold ouvert et les téléphones ne changent pas.
+- Accueil : un peu d'espace entre l'image du haut et le rail « Plateformes ».
+
 ## v1.27.75 — 27 octobre 2026
 
 ### Android mobile

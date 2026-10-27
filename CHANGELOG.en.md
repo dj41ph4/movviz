@@ -1,3 +1,10 @@
+## v1.27.76 — October 27, 2026
+
+### Android mobile
+
+- Tablet: the right-hand panel ("In progress" and "Completed") is gone, so the content keeps the full width. The left sidebar is larger: icons, labels, logo and avatar. The unfolded Fold and phones are unchanged.
+- Home: a little space between the top image and the "Platforms" rail.
+
 ## v1.27.75 — October 27, 2026
 
 ### Android mobile
