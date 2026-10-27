@@ -766,6 +766,8 @@ export interface DiscoverFilters {
   releasedBefore?: string;
   /** vote_count.gte — écarte les titres confidentiels (quelques votes). */
   minVotes?: number;
+  /** Plancher de votes du tri par note (200 par défaut) : trop haut pour un cinéma de niche (belge, d'auteur), où 200 votes écartent presque tout. */
+  voteCountFloor?: number;
   /** with_keywords — mots-clés TMDb (ex. super-héros, histoire vraie). */
   keywords?: string;
 }
@@ -834,7 +836,7 @@ export async function discoverByFilters(
   if (filters.minRuntime && type === "movie") params["with_runtime.gte"] = String(filters.minRuntime);
   // Sorting by rating alone surfaces obscure titles with a single 10/10 vote;
   // TMDb's own "top rated" needs a minimum sample size to mean anything.
-  if (sortBy === "vote_average.desc") params["vote_count.gte"] = "200";
+  if (sortBy === "vote_average.desc") params["vote_count.gte"] = String(filters.voteCountFloor ?? 200);
   if (filters.minVotes && Number(params["vote_count.gte"] ?? 0) < filters.minVotes) params["vote_count.gte"] = String(filters.minVotes);
   if (filters.keywords) params.with_keywords = filters.keywords;
   if (filters.releasedAfter) params[`${dateField}.gte`] = filters.releasedAfter;

@@ -1,3 +1,9 @@
+## v1.27.78 — 27 oktober 2026
+
+### Movviz AI
+
+- Verzoeken met criteria worden nu uitgevoerd op echte TMDb-gegevens in plaats van het geheugen van het model: periode ("van 1 januari 2025 tot vandaag", "sinds", "voor", "in 2025"), productie- of coproductieland ("Belgische film"…), het gevraagde aantal en sorteren op "best beoordeeld". Titels buiten de periode of het land worden niet meer voorgesteld en zowel het land als de datum worden per titel opnieuw gecontroleerd. Een korte klacht ("je hield je niet aan mijn voorwaarden") hergebruikt de criteria van het laatste verzoek.
+
 ## v1.27.77 — 27 oktober 2026
 
 ### Android mobiel en TV

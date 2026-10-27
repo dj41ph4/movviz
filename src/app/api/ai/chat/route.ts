@@ -5,6 +5,8 @@ import { asksToAddToWatchlist, pickShownCards, watchlistReply } from "@/lib/ai/w
 import { addWatchlistItem } from "@/lib/watchlist/store";
 import { syncPlexWatchlistMutation } from "@/lib/plex/userMediaSync";
 import { loadPlexConfig } from "@/lib/plex/store";
+import { resolveCriteriaRequest } from "@/lib/ai/criteriaRequest";
+import { searchByCriteria, criteriaIntro } from "@/lib/ai/criteriaSearch";
 import { extractPersonListFollowUp, extractCountedPersonRequest, personNameMatches, buildPersonListCards, personListIntro, type PersonCredit } from "@/lib/ai/personList";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
@@ -486,6 +488,25 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // Best-effort: the model answers as before.
+    }
+  }
+
+  // « 10 films de production belge sortis du 1er janvier 2025 à aujourd'hui,
+  // les mieux notés » — période, pays, nombre et tri sont lus par le code et
+  // exécutés sur TMDb. Confirmé en direct : le modèle répondait de mémoire,
+  // hors période et hors pays, et ne tenait ni le nombre ni le tri.
+  if (!personCards && !groundedAnswer) {
+    const previousUserMessages = session.messages.slice(0, -1).filter((m) => m.role === "user").map((m) => m.content);
+    const criteria = resolveCriteriaRequest(looseMessage, previousUserMessages);
+    if (criteria) {
+      try {
+        const found = await searchByCriteria(criteria);
+        personCards = found.cards;
+        groundedAnswer = criteriaIntro(criteria, found.cards.length, found.cards.filter((c) => c.inLibrary).length, replyLocale);
+        console.log(`[ai] criteria scope=${criteria.scope} countries=${criteria.countries.join(",")} from=${criteria.from ?? "-"} to=${criteria.to ?? "-"} count=${criteria.count} best=${criteria.best} found=${found.cards.length} examined=${found.examined} user=${user.username}`);
+      } catch {
+        // Best-effort: TMDb indisponible, le modèle répond comme avant.
+      }
     }
   }
 

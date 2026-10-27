@@ -1,3 +1,9 @@
+## v1.27.78 — 27 ottobre 2026
+
+### Movviz AI
+
+- Le richieste con criteri vengono ora eseguite sui dati reali di TMDb invece che sulla memoria del modello: periodo («dal 1° gennaio 2025 a oggi», «da», «prima del», «nel 2025»), paese di produzione o coproduzione («film belga»…), numero richiesto e ordinamento «più apprezzati». I titoli fuori periodo o fuori paese non vengono più proposti e sia il paese sia la data sono ricontrollati su ogni scheda. Una breve lamentela («non hai rispettato le mie condizioni») riprende i criteri dell'ultima richiesta.
+
 ## v1.27.77 — 27 ottobre 2026
 
 ### Android mobile e TV
