@@ -10,7 +10,7 @@ export function addMediaSilent(tmdbId: number, type: "movie" | "series"): boolea
       runtime: null, genres: [], monitored: true, qualityProfileId: "qp_hd",
       status: "missing", file: null, activeInfoHash: null, addedAt: Date.now(),
       plexRatingKey: null, vfReleaseDate: null, originalLanguage: null,
-    } as any);
+    } as unknown as Parameters<typeof addMovie>[0]);
     return true;
   }
   if (loadSeries().some((s) => s.tmdbId === tmdbId)) return false;
@@ -20,6 +20,6 @@ export function addMediaSilent(tmdbId: number, type: "movie" | "series"): boolea
     overview: "", posterPath: null, backdropPath: null, rating: 0,
     genres: [], tvStatus: "unknown", monitored: true, qualityProfileId: "qp_hd",
     seasons: [], addedAt: Date.now(), plexRatingKey: null,
-  } as any);
+  } as unknown as Parameters<typeof addSeries>[0]);
   return true;
 }

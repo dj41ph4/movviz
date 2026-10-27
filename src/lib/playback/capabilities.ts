@@ -32,7 +32,7 @@ export async function detectCapabilities(): Promise<BrowserCapabilities> {
 
   const ms =
     typeof window !== "undefined" && "MediaSource" in window
-      ? (window as any).MediaSource
+      ? window.MediaSource
       : null;
   const msIsSupported = (mime: string) => !!ms?.isTypeSupported && ms.isTypeSupported(mime);
 
@@ -64,7 +64,7 @@ export async function detectCapabilities(): Promise<BrowserCapabilities> {
 export function probeMseVideo(codec: string): boolean {
   const ms =
     typeof window !== "undefined" && "MediaSource" in window
-      ? (window as any).MediaSource
+      ? window.MediaSource
       : null;
   return !!ms?.isTypeSupported && ms.isTypeSupported(`video/mp4; codecs="${codec}"`);
 }
@@ -72,7 +72,7 @@ export function probeMseVideo(codec: string): boolean {
 export function probeMseAudio(codec: string): boolean {
   const ms =
     typeof window !== "undefined" && "MediaSource" in window
-      ? (window as any).MediaSource
+      ? window.MediaSource
       : null;
   return !!ms?.isTypeSupported && ms.isTypeSupported(`audio/mp4; codecs="${codec}"`);
 }

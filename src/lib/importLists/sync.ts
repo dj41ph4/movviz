@@ -11,16 +11,23 @@ async function fetchTrakt(url: string): Promise<ImportListEntry[]> {
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) return [];
-  const data = await res.json();
+  // Ce que le code lit d'un élément de liste Trakt.
+  interface TraktItem {
+    type?: string;
+    movie?: { ids?: { tmdb?: number }; title?: string; year?: number | string };
+    show?: { ids?: { tmdb?: number }; title?: string; year?: number | string };
+  }
+  const data = (await res.json()) as TraktItem[];
   return data
-    .filter((item: any) => item.type === "movie" || (item.type === "show" && item.show?.ids?.tmdb))
-    .map((item: any) => ({
+    .filter((item) => item.type === "movie" || (item.type === "show" && item.show?.ids?.tmdb))
+    .map((item) => ({
       tmdbId: item.movie?.ids?.tmdb ?? item.show?.ids?.tmdb,
-      type: item.type === "show" ? "series" : "movie" as const,
+      type: (item.type === "show" ? "series" : "movie") as ImportListEntry["type"],
       title: item.movie?.title ?? item.show?.title ?? "",
       year: (item.movie?.year ?? item.show?.year) ? Number(item.movie?.year ?? item.show?.year) : null,
     }))
-    .filter((e: ImportListEntry) => e.tmdbId);
+    // Les éléments sans identifiant TMDb sont écartés : ceux qui restent ont bien un tmdbId.
+    .filter((e) => e.tmdbId) as ImportListEntry[];
 }
 
 async function fetchImdb(url: string): Promise<ImportListEntry[]> {

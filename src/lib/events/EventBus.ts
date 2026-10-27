@@ -20,10 +20,17 @@ export type AppEvent =
 
 const BUS_KEY = "__movviz_event_bus__";
 
-function getBus() {
-  if (!(globalThis as any)[BUS_KEY]) {
+interface Bus {
+  listeners: Set<Listener>;
+  emit: (event: AppEvent) => void;
+  on: (fn: Listener) => () => void;
+}
+
+function getBus(): Bus {
+  const holder = globalThis as unknown as Record<string, Bus | undefined>;
+  if (!holder[BUS_KEY]) {
     const listeners = new Set<Listener>();
-    (globalThis as any)[BUS_KEY] = {
+    holder[BUS_KEY] = {
       listeners,
       emit(event: AppEvent) {
         for (const fn of listeners) fn(event);
@@ -34,11 +41,7 @@ function getBus() {
       },
     };
   }
-  return (globalThis as any)[BUS_KEY] as {
-    listeners: Set<Listener>;
-    emit: (event: AppEvent) => void;
-    on: (fn: Listener) => () => void;
-  };
+  return holder[BUS_KEY] as Bus;
 }
 
 export const eventBus = {
