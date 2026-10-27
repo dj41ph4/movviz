@@ -12,7 +12,7 @@
 
 ### Jouw catalogus. Jouw server. Jouw regels.
 
-<p><strong>Huidige versie: v1.27.69</strong></p>
+<p><strong>Huidige versie: v1.27.70</strong></p>
 
 **Een compleet self-hosted mediaplatform — van ontdekking tot afspelen.**
 

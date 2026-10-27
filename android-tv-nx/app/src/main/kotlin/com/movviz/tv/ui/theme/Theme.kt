@@ -152,7 +152,7 @@ private val MovvizColorScheme = darkColorScheme(
 )
 
 // ────────────────────────────────────────────────────────────────
-// Interface Bêta « Salle obscure » (Paramètres > Apparence). Tout ce qui
+// Interface Bêta « Salle obscure », permanente (plus de réglage Apparence). Tout ce qui
 // suit ne s'applique que lorsque l'utilisateur l'active : l'apparence Stable
 // reste strictement celle d'avant. Jetons : Color.kt (palette par rôle),
 // BetaTokens.kt (typographie, formes), MovvizMotion.kt (mouvement),

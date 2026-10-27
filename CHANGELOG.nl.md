@@ -1,3 +1,9 @@
+## v1.27.70 — 27 oktober 2026
+
+### Android TV
+
+- De bètainterface wordt de enige interface van Movviz TV: de keuze 'Bètainterface' verdwijnt uit de instellingen en de bètalook geldt vanaf de start.
+
 ## v1.27.69 — 27 oktober 2026
 
 ### Plex

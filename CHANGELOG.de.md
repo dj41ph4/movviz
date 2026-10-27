@@ -1,3 +1,9 @@
+## v1.27.70 — 27. Oktober 2026
+
+### Android TV
+
+- Die Beta-Oberfläche wird zur einzigen Oberfläche von Movviz TV: Die Auswahl „Beta-Oberfläche“ entfällt in den Einstellungen und das Beta-Design gilt ab dem Start.
+
 ## v1.27.69 — 27. Oktober 2026
 
 ### Plex

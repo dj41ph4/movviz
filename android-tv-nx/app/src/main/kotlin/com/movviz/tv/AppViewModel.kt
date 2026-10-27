@@ -311,15 +311,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { prefs.setAutoUpdateEnabled(enabled) }
     }
 
-    // null means DataStore has not loaded yet: never render Stable before Beta.
-    val betaUiEnabled: StateFlow<Boolean?> = prefs.betaUiEnabled.stateIn(
-        viewModelScope, SharingStarted.Eagerly, null
-    )
-
-    fun setBetaUiEnabled(enabled: Boolean) {
-        viewModelScope.launch { prefs.setBetaUiEnabled(enabled) }
-    }
-
     private val _currentUser = MutableStateFlow<MovvizUserDto?>(null)
     val currentUser: StateFlow<MovvizUserDto?> = _currentUser.asStateFlow()
 

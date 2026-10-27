@@ -204,22 +204,6 @@ fun SettingsScreen(
             }
         }
 
-        item(key = "appearance", contentType = "appearance") {
-            SettingsSection(title = "Apparence", navRailFocusRequester = navRailFocusRequester) {
-                val betaUi by viewModel.betaUiEnabled.collectAsState()
-                Text(
-                    text = "Une mise en scène cinéma : grand écran, typographie immersive et navigation à la télécommande. Désactivez-la pour retrouver l’interface classique.",
-                    style = TextStyle(fontSize = if (beta) 13.sp else 10.sp, color = if (beta) MovvizTheme.palette.inkSoft else MovvizInkSoft),
-                )
-                Spacer(modifier = Modifier.height(9.dp))
-                SettingsToggle(
-                    label = if (betaUi == true) "Interface Bêta : activée" else "Interface Bêta : désactivée",
-                    enabled = betaUi == true,
-                    onToggle = { viewModel.setBetaUiEnabled(betaUi != true) },
-                )
-            }
-        }
-
         item(key = "about", contentType = "about") {
             SettingsSection(title = "À propos", navRailFocusRequester = navRailFocusRequester) {
                 InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)

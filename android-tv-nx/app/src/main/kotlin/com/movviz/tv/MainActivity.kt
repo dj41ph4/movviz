@@ -135,19 +135,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         pendingDeepLink = intent
         setContent {
-            val betaUi by appViewModel.betaUiEnabled.collectAsState()
-            val resolvedAppearance = betaUi
-            if (resolvedAppearance == null) {
-                // Bêta connue d'avance (lue au lancement du processus) : on montre déjà le décor du splash
-                // (fond + M à leur place définitive), pour que l'écran ne passe pas par un aplat sombre.
-                if (com.movviz.tv.ui.theme.CinemaSplashAssets.betaHint == true) {
-                    com.movviz.tv.ui.theme.CinemaSplashBackdrop()
-                } else {
-                    Box(Modifier.fillMaxSize().background(Color(0xFF05070F)))
-                }
-                return@setContent
-            }
-            MovvizTvTheme(beta = resolvedAppearance) {
+            // Interface Bêta permanente : plus de choix Stable/Bêta, donc plus d'attente de la
+            // préférence — le thème Bêta s'applique dès la première image.
+            MovvizTvTheme(beta = true) {
                 MovvizNavHost(appViewModel)
             }
         }

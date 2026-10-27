@@ -33,9 +33,9 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
         // Splash Bêta : lire la préférence puis décoder les images PENDANT que l'activité se crée,
         // hors du thread principal. Quand le splash est composé, tout est déjà prêt.
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            val beta = runCatching { ServerPrefs(applicationContext).betaUiEnabled.first() }.getOrDefault(false)
-            CinemaSplashAssets.betaHint = beta
-            if (beta) CinemaSplashAssets.preload(applicationContext)
+            // Interface Bêta permanente : plus de préférence à lire.
+            CinemaSplashAssets.betaHint = true
+            CinemaSplashAssets.preload(applicationContext)
         }
     }
 
