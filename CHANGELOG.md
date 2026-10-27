@@ -1,3 +1,10 @@
+## v1.27.68 — 27 octobre 2026
+
+### Android TV
+
+- Les fiches s'affichent plus vite : la fiche est demandée en même temps que le reste au lieu d'attendre la bibliothèque, et elle est préchargée dès 300 ms d'arrêt sur une tuile (aussi depuis la recherche).
+- Au retour d'un film ou d'un épisode, l'accueil ne se fige plus : la relecture des rangées personnalisées attend 15 s après la fin de la lecture et ne bloque plus l'interface.
+
 ## v1.27.67 — 27 octobre 2026
 
 ### Réglages

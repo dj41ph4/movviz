@@ -50,6 +50,9 @@ import kotlinx.coroutines.withContext
 import android.os.SystemClock
 import android.util.Log
 
+/** Délai avant de relire les rangées personnalisées après un événement « watch » (voir schedulePersonalizedRefresh). */
+private const val PERSONALIZED_REFRESH_DELAY_MS = 15_000L
+
 sealed interface SearchState {
     data object Idle : SearchState
     data object Loading : SearchState
@@ -117,8 +120,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             liveRefreshJob?.cancel()
             liveRefreshJob = null
             liveEvents?.stop()
-        } else if (queuePollingWanted) {
-            startQueuePolling()
+        } else {
+            if (queuePollingWanted) startQueuePolling()
+            if (personalizedRefreshPending) { personalizedRefreshPending = false; schedulePersonalizedRefresh() }
         }
     }
 
@@ -153,7 +157,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             delay(400L)
             val channels = pendingLiveChannels.toSet()
             pendingLiveChannels.clear()
-            if ("recommendations" in channels || "watch" in channels) refreshPersonalizedRows()
+            if ("recommendations" in channels || "watch" in channels) schedulePersonalizedRefresh()
             if ("download" in channels || "resync" in channels) downloadSignal.trySend(Unit)
             if ("watch" in channels || "resync" in channels) {
                 loadContinueWatching()
@@ -214,6 +218,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private var recommendationRefresh: Job? = null
+    private var personalizedRefreshDebounce: Job? = null
+    private var personalizedRefreshPending = false
+
+    /** Les rangées personnalisées coûtent 4 requêtes lourdes au serveur puis
+     *  republient tout l'accueil d'un coup. Les lancer à +400 ms d'un événement
+     *  « watch » tombait pile au retour du lecteur : l'accueil semblait figé
+     *  pendant la relecture et le serveur, déjà occupé par la synchro des vues,
+     *  répondait lentement. On laisse l'utilisateur retrouver ses tuiles : la
+     *  relecture part 15 s après le dernier événement, et seulement si l'app
+     *  est à l'écran (sinon elle attend le retour). */
+    private fun schedulePersonalizedRefresh() {
+        if (!appVisible) { personalizedRefreshPending = true; return }
+        personalizedRefreshDebounce?.cancel()
+        personalizedRefreshDebounce = viewModelScope.launch {
+            delay(PERSONALIZED_REFRESH_DELAY_MS)
+            if (appVisible) refreshPersonalizedRows() else personalizedRefreshPending = true
+        }
+    }
 
     private fun refreshPersonalizedRows() {
         if (recommendationRefresh?.isActive == true) return
@@ -239,7 +261,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         movieRecommendations = (mr as? ApiResult.Success)?.data ?: snapshot.movieRecommendations,
                         seriesRecommendations = (sr as? ApiResult.Success)?.data ?: snapshot.seriesRecommendations,
                     )
-                    if (updated != snapshot) {
+                    // Comparer deux snapshots (des milliers de titres) sur le fil
+                    // principal figeait l'interface : calcul hors du fil UI, et on
+                    // ne publie que si l'accueil n'a pas changé entre-temps.
+                    val changed = withContext(Dispatchers.Default) { updated != snapshot }
+                    if (changed && _homeUiState.value.snapshot === snapshot) {
                         publishHomeSnapshot(updated)
                         persistHomeSnapshot(updated)
                     }
@@ -759,7 +785,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     /** Précharge silencieuse dans le cache de fiches : appelée à chaque
      *  carte qui prend le focus (même signal que requestHeroLogo), mais le
-     *  vrai appel réseau n'a lieu que si le focus reste dessus 750 ms sans
+     *  vrai appel réseau n'a lieu que si le focus reste dessus 300 ms sans
      *  bouger — un balayage rapide de rangée au D-pad ne doit jamais
      *  déclencher une requête par carte survolée. Le job unique annule
      *  automatiquement la tentative de la carte précédente dès qu'une
@@ -769,7 +795,10 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         if (detailCache.containsKey(key)) return
         detailPrefetchJob?.cancel()
         detailPrefetchJob = viewModelScope.launch {
-            delay(750)
+            // 300 ms : un utilisateur qui s'arrête sur une carte l'ouvre le plus
+            // souvent juste après ; à 750 ms la fiche n'était presque jamais
+            // prête. Le balayage rapide de rangée reste sans requête (job unique).
+            delay(300)
             val repo = repository ?: return@launch
             if (detailCache.containsKey(key)) return@launch
             when (val d = repo.detail(type, tmdbId, key.third)) {

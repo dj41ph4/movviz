@@ -1,3 +1,10 @@
+## v1.27.68 — October 27, 2026
+
+### Android TV
+
+- Title pages open faster: the page is requested at the same time as everything else instead of waiting for the library, and it is preloaded after 300 ms on a tile (from search too).
+- When you come back from a movie or an episode, the home screen no longer freezes: the personalized rows are reloaded 15 s after playback ends and no longer block the interface.
+
 ## v1.27.67 — October 27, 2026
 
 ### Settings

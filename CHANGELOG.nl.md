@@ -1,3 +1,10 @@
+## v1.27.68 — 27 oktober 2026
+
+### Android TV
+
+- Detailpagina's openen sneller: de pagina wordt tegelijk met de rest opgevraagd in plaats van op de bibliotheek te wachten, en wordt na 300 ms op een tegel alvast geladen (ook vanuit zoeken).
+- Na een film of aflevering bevriest het startscherm niet meer: de gepersonaliseerde rijen worden 15 s na het einde van het afspelen herladen en blokkeren de interface niet meer.
+
 ## v1.27.67 — 27 oktober 2026
 
 ### Instellingen

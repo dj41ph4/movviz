@@ -328,10 +328,11 @@ fun TitleDetailScreen(
     }
 
     LaunchedEffect(type, tmdbId, part) {
-        viewModel.resolveTitleLibraryEntry(type, tmdbId, part)
-        libraryResolved = true
+        // Tout part en même temps : la fiche (ce qui remplit l'écran) ne doit
+        // pas attendre le premier aller-retour de la bibliothèque, comme avant
+        // où resolveTitleLibraryEntry bloquait loadDetail et tout le reste.
         viewModel.loadDetail(type, tmdbId, part)
-        viewModel.loadHeroLogo(type, tmdbId)
+        launch { viewModel.loadHeroLogo(type, tmdbId) }
         // On-deck chargé pour les DEUX types : le libellé « S1 · Ép 3 — titre »
         // + le CTA « Reprendre » d'une série en cours dépendent de
         // continueWatching (il n'était chargé que pour les films — une série
@@ -344,6 +345,10 @@ fun TitleDetailScreen(
         // c'est la seule vue où plusieurs épisodes entamés coexistent et
         // méritent chacun leur barre de progression.
         if (type == "series") viewModel.loadPlaybackProgress()
+        // Les boutons attendent libraryResolved : « Ajouter » ne doit pas
+        // clignoter avant de savoir si le titre est déjà dans la bibliothèque.
+        viewModel.resolveTitleLibraryEntry(type, tmdbId, part)
+        libraryResolved = true
     }
 
     // PlayerActivity vit au-dessus de cette fiche. Quand elle se ferme, la

@@ -1,3 +1,10 @@
+## v1.27.68 — 27 ottobre 2026
+
+### Android TV
+
+- Le schede si aprono più in fretta: la scheda viene richiesta insieme al resto senza aspettare la libreria, ed è precaricata dopo 300 ms su una tessera (anche dalla ricerca).
+- Tornando da un film o da un episodio la schermata iniziale non si blocca più: le righe personalizzate vengono ricaricate 15 s dopo la fine della riproduzione e non bloccano più l'interfaccia.
+
 ## v1.27.67 — 27 ottobre 2026
 
 ### Impostazioni

@@ -1,3 +1,10 @@
+## v1.27.68 — 27. Oktober 2026
+
+### Android TV
+
+- Detailseiten öffnen schneller: Die Seite wird gleichzeitig mit allem anderen angefordert, statt auf die Bibliothek zu warten, und schon nach 300 ms auf einer Kachel vorgeladen (auch aus der Suche).
+- Nach einem Film oder einer Folge friert der Startbildschirm nicht mehr ein: Die personalisierten Reihen werden 15 s nach Ende der Wiedergabe neu geladen und blockieren die Oberfläche nicht mehr.
+
 ## v1.27.67 — 27. Oktober 2026
 
 ### Einstellungen

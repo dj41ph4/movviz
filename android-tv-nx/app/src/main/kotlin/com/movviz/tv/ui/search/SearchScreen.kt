@@ -373,7 +373,11 @@ fun SearchScreen(
                     val resultKey = BleachPresentation.key(result)
                     SearchResultCard(
                         result,
-                        onFocus = { focusedTmdbId = result.tmdbId; focusedType = result.type; focusedPart = result.seriesPart },
+                        onFocus = {
+                            focusedTmdbId = result.tmdbId; focusedType = result.type; focusedPart = result.seriesPart
+                            // Même précharge que les rangées : la fiche est prête à l'appui sur OK.
+                            viewModel.scheduleDetailPrefetch(result.type, result.tmdbId, result.seriesPart)
+                        },
                         // Le même FocusRequester ne peut être attaché qu'à
                         // un seul nœud Compose. Quand le champ est affiché,
                         // c'est lui qui reçoit BAS depuis la barre ; le

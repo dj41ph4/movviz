@@ -2255,7 +2255,7 @@ private fun ambientTrailerHtml(key: String, title: String): String = """
 
 /** Même signal de focus que le logo hero (déjà déclenché carte par carte,
  *  sans coût réseau notable) : en profiter pour lancer aussi la précharge
- *  de la fiche, qui s'auto-annule si le focus repart avant 750 ms — voir
+ *  de la fiche, qui s'auto-annule si le focus repart avant 300 ms — voir
  *  AppViewModel.scheduleDetailPrefetch. */
 internal fun requestHeroLogoAndPrefetch(viewModel: AppViewModel, type: String, tmdbId: Int) {
     viewModel.requestHeroLogo(type, tmdbId)
