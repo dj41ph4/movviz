@@ -60,6 +60,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.data.ApiResult
 import com.movviz.nx.mobile.data.episodePlaybackTarget
@@ -710,7 +715,7 @@ fun TitleDetailScreen(
 
         if (detail == null) {
             if (detailError == null) {
-                com.movviz.nx.mobile.ui.theme.MovvizLoader(modifier = Modifier.fillMaxSize(), size = 72.dp)
+                TitleLoadingScreen(logoPath = if (part == "tybw") null else heroLogos["$type-$tmdbId"], modifier = Modifier.fillMaxSize())
             } else {
                 Column(
                     modifier = Modifier.padding(start = 112.dp, top = 310.dp),
@@ -2519,4 +2524,56 @@ private fun friendlyAddError(raw: String): String = when {
     raw.contains("alreadyInLibrary") -> "Déjà dans la bibliothèque"
     raw.contains("duplicateRequest") -> "Demande déjà envoyée pour ce titre"
     else -> "Échec de l'ajout : $raw"
+}
+
+/** Écran de chargement de la fiche (mobile) : le logo du titre, grand et centré (pas pleine page), et une
+ *  barre de chargement fine dessous — à la place du loader animé. La barre avance en continu, sans battement
+ *  d'opacité ; le logo apparaît en fondu dès qu'il est connu, sans rien décaler. */
+@Composable
+private fun TitleLoadingScreen(logoPath: String?, modifier: Modifier = Modifier) {
+    val infinite = rememberInfiniteTransition(label = "titleLoading")
+    val sweep by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1300, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "titleLoadingSweep",
+    )
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = Modifier.width(300.dp).height(120.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = logoPath != null,
+                    enter = androidx.compose.animation.fadeIn(tween(250)),
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$logoPath"),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            val barWidth = 240.dp
+            val segment = 90.dp
+            Box(
+                modifier = Modifier
+                    .width(barWidth)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.12f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = (barWidth + segment) * sweep - segment)
+                        .width(segment)
+                        .height(3.dp)
+                        .background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(50)),
+                )
+            }
+        }
+    }
 }

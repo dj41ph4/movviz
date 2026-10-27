@@ -698,6 +698,7 @@ export const nl: Dictionary = {
     genreAnime: "Anime",
     genreTeen: "Tienerromantiek",
     loadMore: "Meer laden",
+    backToCategories: "Terug naar de categorieën",
     seeAll: "Alles bekijken",
     genres: "Genres",
     moodFilter: "Stemming",
@@ -1286,11 +1287,12 @@ export const nl: Dictionary = {
 
   plexUnmapped: {
     title: "In Plex bekeken afleveringen die in Movviz ontbreken",
-    hint: "Series met in Plex bekeken afleveringen (door de servereigenaar) zonder item in de Movviz-bibliotheek. Er wordt niets automatisch toegevoegd: vink aan wat je wilt toevoegen.",
+    hint: "Series met in Plex bekeken afleveringen (door een account op de server) zonder item in de Movviz-bibliotheek. Er wordt niets automatisch toegevoegd: vink aan wat je wilt toevoegen.",
     loading: "Laden…",
     refresh: "Vernieuwen",
     empty: "Geen bekeken aflevering zonder Movviz-item.",
     episodesSeen: "{count} aflevering(en) bekeken",
+    watchedBy: "Bekeken door: {users}",
     statusAbsent: "Niet in de Movviz-bibliotheek",
     statusLinkable: "In de bibliotheek, maar de afleveringen zijn niet aan Plex gekoppeld",
     statusUnmatched: "Plex heeft ze niet aan TMDb gekoppeld: hier toevoegen niet mogelijk",

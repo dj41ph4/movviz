@@ -1,3 +1,20 @@
+## v1.27.73 — October 27, 2026
+
+### Platforms
+
+- Netflix now has as many categories as Disney+: Netflix Originals, Studio Ghibli, Spain and Latin America, United Kingdom and German productions join the common categories.
+- Discover (desktop): choosing a platform shows the same categories as on mobile and TV. The "All" tab mixes movies and series; "Movies" and "Series" each show only their own type. "See all" opens a category's full grid.
+- Mobile: a platform's categories appear right away, with empty slots that fill in. Each row shows 8 posters then grows as you scroll; the next ones and their posters are preloaded.
+
+### Android TV and mobile
+
+- Loading a title page: the title's logo in the center of the screen with a loading bar underneath, instead of the flashing silhouette.
+
+### Plex
+
+- The list of episodes watched in Plex without a Movviz entry now includes every account's views, with "Watched by". "Link to Plex" now really links the episodes of a series already in Movviz, without touching their files or status.
+- An ignored series no longer produces any warning in the log.
+
 ## v1.27.72 — October 27, 2026
 
 ### Plex

@@ -797,6 +797,7 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
     "plexUnmapped.refresh",
     "plexUnmapped.showDismissed",
     "plexUnmapped.title",
+    "plexUnmapped.watchedBy",
     "settings.saved",
   ],
   "qualite": [

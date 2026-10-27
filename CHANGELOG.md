@@ -1,3 +1,20 @@
+## v1.27.73 — 27 octobre 2026
+
+### Plateformes
+
+- Netflix a maintenant autant de catégories que Disney+ : Créations Netflix, Studio Ghibli, Espagne et Amérique latine, Royaume-Uni et Productions allemandes s'ajoutent aux catégories communes.
+- Découverte (bureau) : choisir une plateforme affiche les mêmes catégories que sur mobile et TV. L'onglet « Tout » mêle films et séries ; « Films » et « Séries » ne montrent chacun que leur type. « Voir tout » ouvre la grille complète d'une catégorie.
+- Mobile : les catégories d'une plateforme s'affichent tout de suite, avec des emplacements vides qui se remplissent. Chaque rangée montre 8 affiches puis s'allonge au fil du défilement ; les suivantes et leurs affiches sont préchargées.
+
+### Android TV et mobile
+
+- Chargement d'une fiche : le logo du titre au centre de l'écran avec une barre de chargement dessous, à la place de la silhouette clignotante.
+
+### Plex
+
+- La liste des épisodes vus dans Plex sans fiche Movviz inclut maintenant les vues de tous les comptes, avec « Vu par ». « Relier à Plex » relie vraiment les épisodes d'une série déjà dans Movviz, sans toucher à leurs fichiers ni à leur statut.
+- Une série ignorée ne produit plus aucun avertissement dans le journal.
+
 ## v1.27.72 — 27 octobre 2026
 
 ### Plex

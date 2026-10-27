@@ -1,3 +1,20 @@
+## v1.27.73 — 27. Oktober 2026
+
+### Plattformen
+
+- Netflix hat jetzt so viele Kategorien wie Disney+: Netflix-Eigenproduktionen, Studio Ghibli, Spanien und Lateinamerika, Vereinigtes Königreich und deutsche Produktionen ergänzen die gemeinsamen Kategorien.
+- Entdecken (Desktop): Die Wahl einer Plattform zeigt dieselben Kategorien wie auf Mobilgerät und TV. Der Tab „Alle“ mischt Filme und Serien; „Filme“ und „Serien“ zeigen jeweils nur ihren Typ. „Alle anzeigen“ öffnet das vollständige Raster einer Kategorie.
+- Mobil: Die Kategorien einer Plattform erscheinen sofort, mit leeren Platzhaltern, die sich füllen. Jede Reihe zeigt 8 Poster und wird beim Scrollen länger; die nächsten und ihre Poster werden vorgeladen.
+
+### Android TV und Mobil
+
+- Beim Laden einer Detailseite: das Logo des Titels in der Bildschirmmitte mit einem Ladebalken darunter, statt der blinkenden Silhouette.
+
+### Plex
+
+- Die Liste der in Plex gesehenen Folgen ohne Movviz-Eintrag enthält jetzt die Wiedergaben aller Konten, mit „Gesehen von“. „Mit Plex verknüpfen“ verknüpft jetzt wirklich die Folgen einer Serie, die schon in Movviz ist, ohne Dateien oder Status zu ändern.
+- Eine ignorierte Serie erzeugt keine Warnung mehr im Protokoll.
+
 ## v1.27.72 — 27. Oktober 2026
 
 ### Plex

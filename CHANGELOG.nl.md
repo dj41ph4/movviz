@@ -1,3 +1,20 @@
+## v1.27.73 — 27 oktober 2026
+
+### Platforms
+
+- Netflix heeft nu evenveel categorieën als Disney+: Netflix-producties, Studio Ghibli, Spanje en Latijns-Amerika, Verenigd Koninkrijk en Duitse producties komen bij de gemeenschappelijke categorieën.
+- Ontdekken (desktop): een platform kiezen toont dezelfde categorieën als op mobiel en tv. Het tabblad 'Alles' mengt films en series; 'Films' en 'Series' tonen elk alleen hun eigen type. 'Alles bekijken' opent het volledige raster van een categorie.
+- Mobiel: de categorieën van een platform verschijnen meteen, met lege plekken die zich vullen. Elke rij toont 8 posters en wordt langer tijdens het scrollen; de volgende en hun posters worden vooraf geladen.
+
+### Android TV en mobiel
+
+- Laden van een detailpagina: het logo van de titel midden op het scherm met een laadbalk eronder, in plaats van het knipperende silhouet.
+
+### Plex
+
+- De lijst met in Plex bekeken afleveringen zonder Movviz-item bevat nu de weergaven van alle accounts, met 'Bekeken door'. 'Aan Plex koppelen' koppelt nu echt de afleveringen van een serie die al in Movviz staat, zonder bestanden of status aan te raken.
+- Een genegeerde serie veroorzaakt geen waarschuwing meer in het logboek.
+
 ## v1.27.72 — 27 oktober 2026
 
 ### Plex

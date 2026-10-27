@@ -13,6 +13,7 @@ interface UnmappedShow {
   episodes: { season: number; episode: number; title: string }[];
   status: "absent" | "linkable" | "unmatched";
   dismissed: boolean;
+  watchedBy: string[];
 }
 
 type Action = "add" | "link" | "dismiss" | "restore";
@@ -150,6 +151,9 @@ export function PlexUnmappedPanel() {
                         {" · "}
                         {show.episodes.map((e) => `S${pad(e.season)}E${pad(e.episode)}`).join(", ")}{show.episodeCount > show.episodes.length ? "…" : ""}
                       </span>
+                      {show.watchedBy.length > 0 && (
+                        <span className="block text-xs text-ink-dim">{t("plexUnmapped.watchedBy", { users: show.watchedBy.join(", ") })}</span>
+                      )}
                       <span className={cn("mt-0.5 block text-xs", show.status === "unmatched" ? "text-warn" : "text-ink-dim")}>{t(STATUS_KEY[show.status])}</span>
                     </span>
                   </label>

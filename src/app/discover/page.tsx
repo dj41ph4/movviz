@@ -183,6 +183,9 @@ function DiscoverPageInner() {
   const [personResults, setPersonResults] = useState<MetaPersonSearchResult[]>([]);
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!watchProvider || !!rowCategory || !!duration;
+  // Une plateforme choisie SEULE (sans recherche ni autre filtre) s'affiche en catégories, comme sur
+  // mobile et TV, au lieu d'une grille : voir ProviderCategoryRows.
+  const providerRowsMode = !!watchProvider && !q.trim() && !genre && !year && sort === "popularity.desc" && !company && !rowCategory && !duration;
   const sentinelRef = useRef<HTMLDivElement>(null);
   const textSearch = !!q.trim();
   const awaitingSearch = textSearch && settledQuery !== q;
@@ -491,7 +494,7 @@ function DiscoverPageInner() {
   // as the URL query changes; another 350 ms here only delays the answer.
   useEffect(() => {
     const requestId = ++browseRequestId.current;
-    if (!configured || !isBrowsing) return;
+    if (!configured || !isBrowsing || providerRowsMode) return;
     const controller = new AbortController();
     const id = setTimeout(() => {
       // A text search keeps the previous grid on screen (dimmed) until the
@@ -502,7 +505,7 @@ function DiscoverPageInner() {
     }, 0);
     return () => { clearTimeout(id); controller.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory, exactSearch]);
+  }, [configured, isBrowsing, providerRowsMode, q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory, exactSearch]);
 
   // Same debounce as the browse grid above, kept as its own request since
   // people aren't paginated/filtered the same way movies and series are.
@@ -617,7 +620,7 @@ function DiscoverPageInner() {
 
   // Infinite scroll for the browse grid.
   useEffect(() => {
-    if (!isBrowsing) return;
+    if (!isBrowsing || providerRowsMode) return;
     const el = sentinelRef.current;
     if (!el) return;
     const io = new IntersectionObserver((entries) => {
@@ -628,7 +631,7 @@ function DiscoverPageInner() {
     io.observe(el);
     return () => io.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBrowsing, loading, loadingMore, page, totalPages]);
+  }, [isBrowsing, providerRowsMode, loading, loadingMore, page, totalPages]);
 
   const rowLabel = (key: string, meta?: RowMeta) => sharedRowLabel(t, key, meta);
 
@@ -1060,7 +1063,21 @@ function DiscoverPageInner() {
             />
           )}
 
-          {isBrowsing && (
+          {isBrowsing && providerRowsMode && watchProvider && (
+            <ProviderCategoryRows
+              key={`${watchProvider.id}:${forYou ? "all" : mediaType}`}
+              providerId={Number(watchProvider.id)}
+              providerName={watchProvider.name}
+              type={forYou ? undefined : mediaType}
+              libStatus={libStatus}
+              libPlayback={libPlayback}
+              libLoaded={libLoaded}
+              watchedSet={watchedSet}
+              onAdded={(key) => setLibStatus((m) => new Map(m).set(key, "missing"))}
+            />
+          )}
+
+          {isBrowsing && !providerRowsMode && (
             <>
               {results.length === 0 && ((loading && page === 1) || awaitingSearch) && (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
@@ -1888,5 +1905,234 @@ function DiscoverCard({
         {feedback && <span className="truncate text-amber">{feedback}</span>}
       </div>
     </motion.article>
+  );
+}
+
+/**
+ * Page plateforme du bureau : les MÊMES catégories que sur mobile et TV (providerRowsFor côté serveur),
+ * dans l'onglet actif. « Tout » mêle films et séries ; « Films » et « Séries » ne montrent chacun que
+ * leur type — jamais un film dans les séries, ni l'inverse. Une catégorie sans titre pour ce type
+ * (ex. « Moins de 1 h 40 » côté séries) n'est simplement pas affichée.
+ */
+function ProviderCategoryRows({
+  providerId, providerName, type, libStatus, libPlayback, libLoaded, watchedSet, onAdded,
+}: {
+  providerId: number;
+  providerName: string;
+  type: "movie" | "series" | undefined;
+  libStatus: Map<string, string>;
+  libPlayback: Map<string, DashboardCardPlayback>;
+  libLoaded: boolean;
+  watchedSet: Set<number>;
+  onAdded: (key: string) => void;
+}) {
+  const { data } = useSWR<{ rows: { key: string; label: string }[] }>(`/api/metadata/provider-rows?provider=${providerId}`);
+  const rows = data?.rows ?? [];
+  // Les rangées se montent par paquets au fil du défilement : pas trente requêtes d'un coup.
+  const [mounted, setMounted] = useState(6);
+  const [expanded, setExpanded] = useState<{ key: string; label: string } | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || expanded) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) setMounted((m) => m + 4);
+    }, { rootMargin: "800px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [expanded, rows.length]);
+
+  if (expanded) {
+    return (
+      <ProviderRowGrid
+        key={expanded.key}
+        providerId={providerId}
+        rowKey={expanded.key}
+        label={`${expanded.label} · ${providerName}`}
+        type={type}
+        onBack={() => setExpanded(null)}
+        libStatus={libStatus}
+        libPlayback={libPlayback}
+        libLoaded={libLoaded}
+        watchedSet={watchedSet}
+        onAdded={onAdded}
+      />
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="space-y-9">
+        {[...Array(4)].map((_, i) => (
+          <section key={i} className="space-y-3">
+            <div className="h-6 w-48 animate-pulse rounded-lg bg-white/8" />
+            <div className="flex gap-4 overflow-hidden">
+              {[...Array(6)].map((_, j) => (
+                <div key={j} className="w-[375px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
+                  <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-9">
+      {rows.slice(0, mounted).map((row) => (
+        <ProviderCategoryRow
+          key={`${row.key}:${type ?? "all"}`}
+          providerId={providerId}
+          rowKey={row.key}
+          label={row.label}
+          type={type}
+          libStatus={libStatus}
+          libPlayback={libPlayback}
+          libLoaded={libLoaded}
+          watchedSet={watchedSet}
+          onAdded={onAdded}
+          onSeeAll={() => setExpanded({ key: row.key, label: row.label })}
+        />
+      ))}
+      <div ref={sentinelRef} className="h-1" />
+    </div>
+  );
+}
+
+function ProviderCategoryRow({
+  providerId, rowKey, label, type, libStatus, libPlayback, libLoaded, watchedSet, onAdded, onSeeAll,
+}: {
+  providerId: number;
+  rowKey: string;
+  label: string;
+  type: "movie" | "series" | undefined;
+  libStatus: Map<string, string>;
+  libPlayback: Map<string, DashboardCardPlayback>;
+  libLoaded: boolean;
+  watchedSet: Set<number>;
+  onAdded: (key: string) => void;
+  onSeeAll: () => void;
+}) {
+  const { locale } = useI18n();
+  const { data, isLoading } = useSWR<{ results: MetaSearchResult[] }>(
+    `/api/metadata/provider-row?provider=${providerId}&key=${encodeURIComponent(rowKey)}&page=1${type ? `&type=${type}` : ""}`,
+  );
+  // La première page peut compter ~80 titres : on n'en monte que 24 dans la rangée, « Voir tout » ouvre la suite.
+  const results = useMemo(() => (data?.results ?? []).slice(0, 24), [data]);
+  const artworkRefs = useMemo(() => results.map((r) => ({ tmdbId: r.tmdbId, type: r.type, seriesPart: r.seriesPart })), [results]);
+  const artwork = useTitleArtworkBatch(artworkRefs, locale);
+
+  if (isLoading) {
+    return (
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-ink">{label}</h2>
+        <div className="flex gap-4 overflow-hidden">
+          {[...Array(6)].map((_, j) => (
+            <div key={j} className="w-[275px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
+              <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+  // Catégorie sans titre pour ce type : PosterRow ne rend rien.
+  return (
+    <PosterRow
+      title={label}
+      results={results}
+      artwork={artwork}
+      libStatus={libStatus}
+      libPlayback={libPlayback}
+      libLoaded={libLoaded}
+      watchedSet={watchedSet}
+      onAdded={onAdded}
+      onSeeAll={onSeeAll}
+    />
+  );
+}
+
+/** « Voir tout » d'une catégorie de plateforme : la grille complète, page par page. */
+function ProviderRowGrid({
+  providerId, rowKey, label, type, onBack, libStatus, libPlayback, libLoaded, watchedSet, onAdded,
+}: {
+  providerId: number;
+  rowKey: string;
+  label: string;
+  type: "movie" | "series" | undefined;
+  onBack: () => void;
+  libStatus: Map<string, string>;
+  libPlayback: Map<string, DashboardCardPlayback>;
+  libLoaded: boolean;
+  watchedSet: Set<number>;
+  onAdded: (key: string) => void;
+}) {
+  const { t, locale } = useI18n();
+  const [results, setResults] = useState<MetaSearchResult[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const url = (p: number) => `/api/metadata/provider-row?provider=${providerId}&key=${encodeURIComponent(rowKey)}&page=${p}${type ? `&type=${type}` : ""}`;
+  const apply = (data: { results?: MetaSearchResult[]; page?: number; totalPages?: number } | null, requested: number) => {
+    setResults((prev) => {
+      const seen = new Set(prev.map((r) => bleachPresentationKey(r)));
+      return [...prev, ...(data?.results ?? []).filter((r) => !seen.has(bleachPresentationKey(r)))];
+    });
+    setPage(data?.page ?? requested);
+    setTotalPages(data?.totalPages ?? 1);
+    setLoading(false);
+  };
+
+  // Première page : la réponse arrive de façon asynchrone, hors du corps de l'effet.
+  useEffect(() => {
+    let alive = true;
+    fetch(url(1)).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => { if (alive) apply(d, 1); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerId, rowKey, type]);
+
+  const loadMore = () => {
+    setLoading(true);
+    const next = page + 1;
+    fetch(url(next)).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => apply(d, next));
+  };
+
+  const artworkRefs = useMemo(() => results.map((r) => ({ tmdbId: r.tmdbId, type: r.type, seriesPart: r.seriesPart })), [results]);
+  const artwork = useTitleArtworkBatch(artworkRefs, locale);
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={onBack} className="rounded-xl glass px-3.5 py-2 text-sm font-semibold text-ink-soft hover:text-ink">
+          ← {t("discover.backToCategories")}
+        </button>
+        <h2 className="text-lg font-bold text-ink">{label}</h2>
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        {results.map((r, i) => (
+          <DiscoverCard
+            key={bleachPresentationKey(r)}
+            index={i}
+            result={r}
+            status={libLoaded ? (libStatus.get(bleachPresentationKey(r)) ?? null) : null}
+            playback={libPlayback.get(`${r.type}:${r.tmdbId}`)}
+            watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
+            backdropPath={artwork[bleachPresentationKey(r)]?.backdropPath ?? r.backdropPath}
+            logoPath={artwork[bleachPresentationKey(r)]?.logoPath ?? null}
+            onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
+          />
+        ))}
+      </div>
+      <div className="flex items-center justify-center py-6">
+        {loading && <Loader2 className="h-5 w-5 animate-spin text-ink-dim" />}
+        {!loading && page < totalPages && (
+          <button onClick={loadMore} className="rounded-xl glass px-5 py-2.5 text-sm font-semibold text-ink-soft hover:text-ink">
+            {t("discover.loadMore")}
+          </button>
+        )}
+      </div>
+    </section>
   );
 }

@@ -42,6 +42,7 @@ interface ProviderRowDef {
 
 const POPULAR = "popularity.desc";
 const DISNEY_PLUS = 337;
+const NETFLIX = 8;
 
 /** Productions occidentales — « Nouveautés » met en avant ce que le public
  *  européen et américain attend, pas une série populaire au Japon ou en Corée. */
@@ -67,6 +68,13 @@ function buildRows(): ProviderRowDef[] {
     { key: "starwars", label: "Star Wars", providers: [DISNEY_PLUS], ...both({ company: "1", minVotes: 20 }) },
     { key: "disneyclassics", label: "Classiques Disney", providers: [DISNEY_PLUS], movie: { company: "6125", minVotes: 50 }, series: null },
     { key: "natgeo", label: "National Geographic", providers: [DISNEY_PLUS], nonFiction: true, ...both({ company: "7521", minVotes: 5 }) },
+    // Spécial Netflix : autant de rangées propres que Disney+ (5) — ses créations, Ghibli et
+    // les grandes productions étrangères qui font son catalogue.
+    { key: "netflixoriginals", label: "Créations Netflix", providers: [NETFLIX], ...both({ company: "178464", minVotes: 5 }) },
+    { key: "ghibli", label: "Studio Ghibli", providers: [NETFLIX], movie: { company: "10342", minVotes: 20 }, series: null },
+    { key: "spanish", label: "Espagne et Amérique latine", providers: [NETFLIX], ...both({ originalLanguage: "es", minVotes: 30 }) },
+    { key: "british", label: "Royaume-Uni", providers: [NETFLIX], ...both({ originCountries: ["GB"], originalLanguage: "en", minVotes: 60 }) },
+    { key: "german", label: "Productions allemandes", providers: [NETFLIX], ...both({ originalLanguage: "de", minVotes: 30 }) },
     { key: "action", label: "Action et aventure", ...both({ minVotes: 80 }, { genre: "28|12" }, { genre: "10759" }) },
     { key: "comedy", label: "Comédies", ...both({ genre: "35", minVotes: 60 }) },
     { key: "superhero", label: "Super-héros", ...both({ keywords: "9715", minVotes: 40 }) },
@@ -224,11 +232,15 @@ const ROW_CACHE_TTL_MS = 20 * 60_000;
 const ROW_CACHE_MAX = 600;
 const rowCache = new Map<string, { at: number; value: Promise<PagedResults> }>();
 
-export function providerRowPage(providerId: number, key: string, page: number, region: string): Promise<PagedResults> {
-  const cacheKey = `${providerId}|${key}|${page}|${region}|${new Date().toISOString().slice(0, 10)}`;
+/**
+ * `type` : seulement les films ou seulement les séries de la rangée (page Découverte du bureau, onglets
+ * Films / Séries) ; absent = films ET séries mélangés (clients Android, onglet « Tout »).
+ */
+export function providerRowPage(providerId: number, key: string, page: number, region: string, type?: "movie" | "series"): Promise<PagedResults> {
+  const cacheKey = `${providerId}|${key}|${page}|${region}|${type ?? "all"}|${new Date().toISOString().slice(0, 10)}`;
   const hit = rowCache.get(cacheKey);
   if (hit && Date.now() - hit.at < ROW_CACHE_TTL_MS) return hit.value;
-  const value = computeProviderRowPage(providerId, key, page, region);
+  const value = computeProviderRowPage(providerId, key, page, region, type);
   rowCache.set(cacheKey, { at: Date.now(), value });
   // Un échec n'est pas mis en cache.
   value.then((r) => { if (r.results.length === 0 && r.totalPages === 0) rowCache.delete(cacheKey); }, () => rowCache.delete(cacheKey));
@@ -236,12 +248,13 @@ export function providerRowPage(providerId: number, key: string, page: number, r
   return value;
 }
 
-async function computeProviderRowPage(providerId: number, key: string, page: number, region: string): Promise<PagedResults> {
+async function computeProviderRowPage(providerId: number, key: string, page: number, region: string, type?: "movie" | "series"): Promise<PagedResults> {
   const def = providerRowDef(key);
   if (!def || (def.providers && !def.providers.includes(providerId))) return { results: [], page, totalPages: 0 };
+  const none: PagedResults = { results: [], page, totalPages: 0 };
   const [movies, series] = await Promise.all([
-    fetchSide("movie", def, def.movie, providerId, region, page),
-    fetchSide("series", def, def.series, providerId, region, page),
+    type === "series" ? none : fetchSide("movie", def, def.movie, providerId, region, page),
+    type === "movie" ? none : fetchSide("series", def, def.series, providerId, region, page),
   ]);
   const clean = (results: MetaSearchResult[]) => def.nonFiction
     ? results.filter((r) => r.rating > 0 || !!r.posterPath)

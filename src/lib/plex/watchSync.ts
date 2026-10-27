@@ -4,11 +4,12 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import { getCurrentWatchState } from "@/lib/userContext/watchBridge";
 import type { User } from "@/lib/auth/types";
+import { loadUsers } from "@/lib/auth/store";
 import { refreshPlexAvatar } from "./avatarSync";
 import { resolvePlexUserContext } from "./plexUserContext";
 import { pollHistory, getHistoryCursor, setHistoryCursor } from "./plexHistoryObserver";
 import { snapshotWatchState, verifyWatchState, diffSnapshots } from "./plexWatchStateObserver";
-import { getObservedStatesForUser, setObservedStates, getObservedState, upsertObservedState, replaceObservedStatesForUserServer } from "./plexObservedState";
+import { getObservedStatesForUser, setObservedStates, getObservedState, upsertObservedState, replaceObservedStatesForUserServer, getAllObservedStates } from "./plexObservedState";
 import { reconcile, applyReconcileDecision } from "./plexReconciler";
 import { resolveEpisode, resolveMovie } from "./episodeResolver";
 import { isCircuitOpen, recordCircuitFailure, recordCircuitSuccess } from "./plexCircuitBreaker";
@@ -18,7 +19,7 @@ import { getUserMediaSyncStates, updateUserMediaSyncState } from "@/lib/userCont
 import { mediaStateKey } from "@/lib/userContext/reconcile";
 import { getBootstrapState, ensureBootstrapPending, startBootstrap, updateBootstrapProgress, completeBootstrap } from "./plexHistoryBootstrap";
 import { formatCanonical } from "./mediaIdentityMap";
-import { refreshUnmappedRegistry } from "./unmappedEpisodes";
+import { refreshUnmappedRegistry, dismissedEpisodeKeys } from "./unmappedEpisodes";
 
 function getPendingIntentForMedia(
   userId: string,
@@ -892,6 +893,7 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean; skipSnapshot
           return episodeIndex.get(rk) ?? null;
         };
         let transitions = 0;
+        let ignoredEpisodes: Set<string> | null = null;
         const allTransitions = [...diff.newWatched, ...diff.newUnwatched];
         // Gros lot d'un coup (2026-10-12, 8,7 min et 6,9 s de gel en prod
         // après une grosse mise à jour Plex) : typiquement des identifiants
@@ -934,7 +936,10 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean; skipSnapshot
               // We'll attempt to resolve via library store's allLeaves that we already have? But snapshot discards that.
               // As fallback, we can fetch show episodes again to find mapping.
               // Simplify: if not in Movviz library, we cannot map to tmdb – skip but log.
-              recordSearchLog("warn", "plex.snapshot", `plex.snapshot unmapped episode user=${user.username} ratingKey=${rk} – no Movviz library entry, skipping reconcile`);
+              // Série ignorée dans Réglages → Plex : plus aucun avertissement à son sujet.
+              if (!(ignoredEpisodes ??= dismissedEpisodeKeys()).has(rk)) {
+                recordSearchLog("warn", "plex.snapshot", `plex.snapshot unmapped episode user=${user.username} ratingKey=${rk} – no Movviz library entry, skipping reconcile`);
+              }
               continue;
             }
           }
@@ -1007,9 +1012,23 @@ async function doSync(user: User, opts?: { forceSnapshot?: boolean; skipSnapshot
         // Épisodes VUS dans Plex mais sans fiche Movviz : tenus dans un registre que l'administrateur
         // consulte dans Réglages → Plex (ajout manuel). Lecture seule, jamais bloquant pour la synchro.
         try {
-          const unmappedWatched = [...diff.watchedNow].filter((rk) => episodeRkSet.has(rk) && !episodeHit(rk));
-          const registry = await refreshUnmappedRegistry(cfg, ctx.serverToken, unmappedWatched);
-          if (unmappedWatched.length > 0) recordSearchLog("info", "plex.snapshot", `plex.snapshot unmapped registry user=${user.username} watchedWithoutEntry=${unmappedWatched.length} shows=${registry.shows} episodes=${registry.episodes}`);
+          const watchers = new Map<string, Set<string>>();
+          const addWatcher = (rk: string, username: string) => {
+            const set = watchers.get(rk) ?? new Set<string>();
+            set.add(username);
+            watchers.set(rk, set);
+          };
+          for (const rk of diff.watchedNow) if (episodeRkSet.has(rk) && !episodeHit(rk)) addWatcher(rk, user.username);
+          // Les autres comptes : leurs vues connues de Plex (historique suivi à chaque passage). Leur
+          // snapshot complet n'existe pas, mais tout épisode qu'ils ont vu sans fiche reliée compte aussi.
+          const usernameById = new Map(loadUsers().map((u) => [u.id, u.username] as const));
+          for (const state of getAllObservedStates()) {
+            if (state.userId === user.id || state.machineIdentifier !== ctx.machineIdentifier || state.state !== "WATCHED") continue;
+            const username = usernameById.get(state.userId);
+            if (username && !episodeHit(state.ratingKey) && !movieRkSet.has(state.ratingKey)) addWatcher(state.ratingKey, username);
+          }
+          const registry = await refreshUnmappedRegistry(cfg, cfg.adminToken ?? ctx.serverToken, watchers);
+          if (watchers.size > 0) recordSearchLog("info", "plex.snapshot", `plex.snapshot unmapped registry user=${user.username} watchedWithoutEntry=${watchers.size} shows=${registry.shows} episodes=${registry.episodes}`);
         } catch (e) {
           recordSearchLog("warn", "plex.snapshot", `plex.snapshot unmapped registry failed user=${user.username} ${e instanceof Error ? e.message : String(e)}`);
         }

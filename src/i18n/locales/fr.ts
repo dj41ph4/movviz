@@ -696,6 +696,7 @@ export const fr = {
     genreAnime: "Anime",
     genreTeen: "Romance ado",
     loadMore: "Charger plus",
+    backToCategories: "Retour aux catégories",
     seeAll: "Tout voir",
     genres: "Genres",
     moodFilter: "Humeur",
@@ -1284,11 +1285,12 @@ export const fr = {
 
   plexUnmapped: {
     title: "Épisodes vus dans Plex absents de Movviz",
-    hint: "Séries dont des épisodes ont été vus dans Plex (par le propriétaire du serveur) sans avoir de fiche dans la bibliothèque Movviz. Rien n'est ajouté automatiquement : cochez celles à ajouter.",
+    hint: "Séries dont des épisodes ont été vus dans Plex (par un compte du serveur) sans avoir de fiche dans la bibliothèque Movviz. Rien n'est ajouté automatiquement : cochez celles à ajouter.",
     loading: "Chargement…",
     refresh: "Actualiser",
     empty: "Aucun épisode vu sans fiche Movviz.",
     episodesSeen: "{count} épisode(s) vu(s)",
+    watchedBy: "Vu par : {users}",
     statusAbsent: "Absente de la bibliothèque Movviz",
     statusLinkable: "Dans la bibliothèque, mais ses épisodes ne sont pas reliés à Plex",
     statusUnmatched: "Plex ne l'a pas associée à TMDb : ajout impossible d'ici",

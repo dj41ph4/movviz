@@ -698,6 +698,7 @@ export const en: Dictionary = {
     genreAnime: "Anime",
     genreTeen: "Teen romance",
     loadMore: "Load more",
+    backToCategories: "Back to categories",
     seeAll: "See all",
     genres: "Genres",
     moodFilter: "Mood",
@@ -1286,11 +1287,12 @@ export const en: Dictionary = {
 
   plexUnmapped: {
     title: "Episodes watched in Plex but missing from Movviz",
-    hint: "Series with episodes watched in Plex (by the server owner) that have no entry in the Movviz library. Nothing is added automatically: tick the ones to add.",
+    hint: "Series with episodes watched in Plex (by any account on the server) that have no entry in the Movviz library. Nothing is added automatically: tick the ones to add.",
     loading: "Loading…",
     refresh: "Refresh",
     empty: "No watched episode without a Movviz entry.",
     episodesSeen: "{count} episode(s) watched",
+    watchedBy: "Watched by: {users}",
     statusAbsent: "Not in the Movviz library",
     statusLinkable: "In the library, but its episodes are not linked to Plex",
     statusUnmatched: "Plex did not match it to TMDb: cannot be added from here",

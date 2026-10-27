@@ -39,6 +39,8 @@ export interface UnmappedShow {
   updatedAt: number;
   /** Ignorée par l'administrateur : masquée de la liste tant qu'il ne la rétablit pas. */
   dismissed: boolean;
+  /** Comptes Movviz qui ont vu au moins un de ces épisodes dans Plex. */
+  watchedBy: string[];
 }
 
 export interface UnmappedRegistry {
@@ -50,7 +52,10 @@ const empty = (): UnmappedRegistry => ({ version: 1, shows: {} });
 
 export function loadUnmappedRegistry(): UnmappedRegistry {
   const raw = readJsonCached<UnmappedRegistry | null>(FILE, null);
-  return raw && raw.version === 1 && raw.shows ? raw : empty();
+  if (!raw || raw.version !== 1 || !raw.shows) return empty();
+  // Registre écrit par une version qui ne suivait pas encore qui a vu les épisodes.
+  for (const show of Object.values(raw.shows)) show.watchedBy ??= [];
+  return raw;
 }
 
 function saveUnmappedRegistry(registry: UnmappedRegistry) {
@@ -59,13 +64,13 @@ function saveUnmappedRegistry(registry: UnmappedRegistry) {
 }
 
 /**
- * Fusion pure : le registre précédent + ce que Plex vient de dire. Seuls les épisodes encore vus ET
- * toujours sans fiche restent ; les séries ignorées, la date de première apparition et l'identité déjà
+ * Fusion pure : le registre précédent + ce que Plex vient de dire. `watchers` dit qui a vu chaque épisode
+ * (clé Plex → comptes Movviz). Seuls les épisodes encore vus ET toujours sans fiche restent ; les séries ignorées, la date de première apparition et l'identité déjà
  * résolue sont conservées. Une clé dont l'identité n'est pas (encore) connue est sautée, pas perdue.
  */
 export function mergeUnmappedRegistry(
   previous: UnmappedRegistry,
-  unmappedRatingKeys: Iterable<string>,
+  watchers: Map<string, Set<string>>,
   identities: Map<string, PlexEpisodeIdentity>,
   tmdbByShow: Map<string, number | null>,
   now: number,
@@ -79,7 +84,7 @@ export function mergeUnmappedRegistry(
   for (const [rk, identity] of identities) known.set(rk, identity);
 
   const grouped = new Map<string, PlexEpisodeIdentity[]>();
-  for (const rk of new Set(unmappedRatingKeys)) {
+  for (const rk of watchers.keys()) {
     const identity = known.get(rk);
     if (!identity) continue;
     const list = grouped.get(identity.showKey) ?? [];
@@ -102,6 +107,7 @@ export function mergeUnmappedRegistry(
       firstSeenAt: before?.firstSeenAt ?? now,
       updatedAt: now,
       dismissed: before?.dismissed === true,
+      watchedBy: [...new Set(episodes.flatMap((e) => [...(watchers.get(e.ratingKey) ?? [])]))].sort(),
     };
   }
   return { version: 1, shows };
@@ -114,14 +120,14 @@ export function mergeUnmappedRegistry(
 export async function refreshUnmappedRegistry(
   cfg: PlexServerConfig,
   token: string,
-  unmappedRatingKeys: string[],
+  watchers: Map<string, Set<string>>,
   now = Date.now(),
 ): Promise<{ shows: number; episodes: number }> {
   const previous = loadUnmappedRegistry();
   const known = new Set<string>();
   for (const show of Object.values(previous.shows)) for (const e of show.episodes) known.add(e.ratingKey);
 
-  const fresh = unmappedRatingKeys.filter((rk) => !known.has(rk)).slice(0, MAX_NEW_LOOKUPS);
+  const fresh = [...watchers.keys()].filter((rk) => !known.has(rk)).slice(0, MAX_NEW_LOOKUPS);
   const identities = fresh.length > 0 ? await getEpisodeIdentities(cfg, token, fresh) : new Map<string, PlexEpisodeIdentity>();
 
   // Séries à interroger côté TMDb : celles qu'on vient de découvrir et celles jamais résolues.
@@ -135,7 +141,7 @@ export async function refreshUnmappedRegistry(
     for (const key of toResolve) if (infos.has(key)) tmdbByShow.set(key, infos.get(key)?.tmdbId ?? null);
   }
 
-  const merged = mergeUnmappedRegistry(previous, unmappedRatingKeys, identities, tmdbByShow, now);
+  const merged = mergeUnmappedRegistry(previous, watchers, identities, tmdbByShow, now);
   const changed = JSON.stringify(stripTimes(merged)) !== JSON.stringify(stripTimes(previous));
   if (changed) saveUnmappedRegistry(merged);
   return { shows: Object.keys(merged.shows).length, episodes: Object.values(merged.shows).reduce((n, s) => n + s.episodes.length, 0) };
@@ -167,4 +173,17 @@ export function removeUnmappedShows(showKeys: string[]): void {
     if (key in registry.shows) { delete registry.shows[key]; changed = true; }
   }
   if (changed) saveUnmappedRegistry(registry);
+}
+
+/**
+ * Clés Plex des épisodes des séries IGNORÉES : la synchro ne journalise plus d'avertissement pour eux
+ * (« unmapped episode ») — une série ignorée ne doit plus rien signaler.
+ */
+export function dismissedEpisodeKeys(): Set<string> {
+  const keys = new Set<string>();
+  for (const show of Object.values(loadUnmappedRegistry().shows)) {
+    if (!show.dismissed) continue;
+    for (const e of show.episodes) keys.add(e.ratingKey);
+  }
+  return keys;
 }

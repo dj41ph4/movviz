@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/guard";
 import { getSeriesByTmdbId, updateSeries } from "@/lib/library/store";
 import { requestMedia } from "@/lib/requests/requestMedia";
 import { reconcileSeriesPlayback } from "@/lib/plex/librarySync";
+import { linkSeriesEpisodesToPlex } from "@/lib/plex/linkSeriesToPlex";
 import { loadUnmappedRegistry, removeUnmappedShows, setShowsDismissed } from "@/lib/plex/unmappedEpisodes";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
         status: show.tmdbId == null ? ("unmatched" as const) : inLibrary ? ("linkable" as const) : ("absent" as const),
         dismissed: show.dismissed,
         firstSeenAt: show.firstSeenAt,
+        watchedBy: show.watchedBy,
       };
     })
     .sort((a, b) => Number(a.dismissed) - Number(b.dismissed) || a.title.localeCompare(b.title));
@@ -76,7 +78,11 @@ export async function POST(req: NextRequest) {
       if (!series) { results.push({ showKey, ok: false, error: "not_in_library" }); continue; }
       // reconcileSeriesPlayback ne consulte Plex que pour une série qui porte sa clé Plex.
       if (!series.plexRatingKey) series = updateSeries(series.id, { plexRatingKey: showKey }) ?? series;
-      await reconcileSeriesPlayback(series.id);
+      // Série qu'on vient d'ajouter : ses épisodes présents chez Plex deviennent disponibles. Une série déjà
+      // dans Movviz n'est pas retouchée (statuts et fichiers restent tels quels), seul le lien est posé.
+      if (action === "add") await reconcileSeriesPlayback(series.id);
+      const link = await linkSeriesEpisodesToPlex(series.id, showKey);
+      if (!link.ok) { results.push({ showKey, ok: false, error: link.error }); continue; }
       results.push({ showKey, ok: true });
       done.push(showKey);
     } catch (error) {

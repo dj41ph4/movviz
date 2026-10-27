@@ -871,6 +871,8 @@ fun TitleDetailScreen(
                         .focusRequester(initialFocusRequester)
                         .let { if (entryFocusRequester != null) it.focusRequester(entryFocusRequester) else it }
                         .onFocusChanged { if (it.isFocused) userLeftDuringLoading = false },
+                    // Logo déjà connu (préchargé au focus de la carte) : il s'affiche dès le premier instant.
+                    logoPath = if (part == "tybw") null else heroLogos["$type-$tmdbId"],
                 )
             } else {
                 Column(
@@ -1902,54 +1904,64 @@ private fun BetaCastCard(member: com.movviz.tv.data.MetaCastMemberDto, modifier:
     }
 }
 
-/** Silhouette de la fiche (jaquette, titre, boutons, synopsis) affichée
- *  pendant le tout premier chargement — jamais pour un titre déjà en cache
- *  (voir AppViewModel.loadDetail). Un souffle lent (alpha 0.35 → 0.65) dit
- *  "ça charge" sans le spinner générique qui masquait toute la mise en page
- *  réelle en dessous.
+/** Écran de chargement de la fiche : le logo du titre, grand et centré (pas pleine page), et une barre de
+ *  chargement fine dessous — à la place de la silhouette clignotante d'avant. La barre avance en continu
+ *  (aucun battement d'opacité) ; le logo apparaît en fondu dès qu'il est connu, sans rien décaler.
+ *  Pour un titre déjà en cache, cet écran n'apparaît jamais (voir AppViewModel.loadDetail).
  *
- *  La silhouette du bouton principal est la cible de focus du chargement,
- *  avec un repère visible ([MovvizFocusTarget]). */
+ *  Le focus reste SUR CET ÉCRAN pendant le chargement (sans cible focusable, Compose le donnait à la barre
+ *  latérale) : [focusTargetModifier] porte la cible d'entrée de la barre. */
 @Composable
-private fun TitleDetailSkeleton(focusTargetModifier: Modifier) {
-    val infinite = rememberInfiniteTransition(label = "titleSkeleton")
-    val pulse by infinite.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.65f,
+private fun TitleDetailSkeleton(focusTargetModifier: Modifier, logoPath: String?) {
+    val infinite = rememberInfiniteTransition(label = "titleLoading")
+    val sweep by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 900, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
+            animation = tween(durationMillis = 1300, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = RepeatMode.Restart,
         ),
-        label = "titleSkeletonPulse",
+        label = "titleLoadingSweep",
     )
-    val blockColor = MovvizInkDim.copy(alpha = pulse * 0.3f)
-    @Composable
-    fun Block(width: androidx.compose.ui.unit.Dp, height: androidx.compose.ui.unit.Dp, shape: RoundedCornerShape = RoundedCornerShape(6.dp)) {
-        Box(modifier = Modifier.width(width).height(height).background(blockColor, shape))
-    }
-    Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxWidth().height(BACKDROP_HEIGHT).background(MovvizInkDim.copy(alpha = pulse * 0.18f)))
-        Column(
-            modifier = Modifier.padding(start = 84.dp, top = 40.dp, end = 84.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Block(width = 420.dp, height = 52.dp)
-            Block(width = 260.dp, height = 16.dp)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val pillShape = RoundedCornerShape(20.dp)
-                MovvizFocusTarget(
-                    modifier = focusTargetModifier.semantics { contentDescription = "Chargement de la fiche" },
-                    shape = pillShape,
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(focusTargetModifier)
+            .semantics { contentDescription = "Chargement de la fiche" }
+            .focusable(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = Modifier.width(380.dp).height(150.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = logoPath != null,
+                    enter = androidx.compose.animation.fadeIn(tween(250)),
                 ) {
-                    Block(width = 130.dp, height = 40.dp, shape = pillShape)
+                    Image(
+                        painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$logoPath"),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
-                Block(width = 130.dp, height = 40.dp, shape = pillShape)
-                Block(width = 40.dp, height = 40.dp, shape = pillShape)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Block(width = 560.dp, height = 12.dp)
-                Block(width = 520.dp, height = 12.dp)
-                Block(width = 380.dp, height = 12.dp)
+            Spacer(modifier = Modifier.height(22.dp))
+            val barWidth = 300.dp
+            val segment = 110.dp
+            Box(
+                modifier = Modifier
+                    .width(barWidth)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.12f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = (barWidth + segment) * sweep - segment)
+                        .width(segment)
+                        .height(3.dp)
+                        .background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(50)),
+                )
             }
         }
     }

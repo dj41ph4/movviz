@@ -2042,7 +2042,7 @@ internal fun TitleRow(
  *  padding start identique au padding de la LazyRow pour un alignement
  *  parfait avec la première carte. */
 @Composable
-private fun RowHeading(text: String, start: androidx.compose.ui.unit.Dp? = null) {
+internal fun RowHeading(text: String, start: androidx.compose.ui.unit.Dp? = null) {
         val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
             it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
         }
@@ -2053,6 +2053,48 @@ private fun RowHeading(text: String, start: androidx.compose.ui.unit.Dp? = null)
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = start ?: if (narrow) 16.dp else 52.dp, bottom = 12.dp),
         )
+}
+
+/**
+ * Rangée « en attente » : le titre de la catégorie et des emplacements d'affiches vides, affichés
+ * AVANT que les titres arrivent — la page existe tout de suite et les rangées se remplissent.
+ * Mêmes marges et mêmes largeurs que [TitleRow], pour qu'aucune mise en page ne bouge au remplissage.
+ */
+@Composable
+internal fun TitleRowSkeleton(heading: String) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    val unfoldedNarrow = rememberUnfoldedLandscape()
+    val rowWindowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
+    val narrowRow = compactPortrait || unfoldedNarrow
+    val edge = if (narrowRow) 16.dp else 52.dp
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+        RowHeading(heading, start = edge)
+        androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val fitWidth = if (compactPortrait) {
+                ((maxWidth - edge - 27.dp) / 3).coerceAtLeast(88.dp)
+            } else if (unfoldedNarrow) {
+                if (rowWindowClass.isLargeTouch) 128.dp else 112.dp
+            } else {
+                132.dp
+            }
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth().padding(start = edge).clipToBounds(),
+                horizontalArrangement = Arrangement.spacedBy(if (narrowRow) 10.dp else 12.dp),
+            ) {
+                repeat(4) {
+                    Box(
+                        Modifier
+                            .width(fitWidth)
+                            .aspectRatio(2f / 3f)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.06f)),
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** Dernière affiche de la rangée : indication « voir plus » légère, au format

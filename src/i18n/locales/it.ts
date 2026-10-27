@@ -698,6 +698,7 @@ export const it: Dictionary = {
     genreAnime: "Anime",
     genreTeen: "Romance per teenager",
     loadMore: "Carica altri",
+    backToCategories: "Torna alle categorie",
     seeAll: "Vedi tutti",
     genres: "Generi",
     moodFilter: "Umore",
@@ -1286,11 +1287,12 @@ export const it: Dictionary = {
 
   plexUnmapped: {
     title: "Episodi visti in Plex assenti da Movviz",
-    hint: "Serie con episodi visti in Plex (dal proprietario del server) senza scheda nella libreria Movviz. Nulla viene aggiunto automaticamente: spunta quelle da aggiungere.",
+    hint: "Serie con episodi visti in Plex (da un account del server) senza scheda nella libreria Movviz. Nulla viene aggiunto automaticamente: spunta quelle da aggiungere.",
     loading: "Caricamento…",
     refresh: "Aggiorna",
     empty: "Nessun episodio visto senza scheda Movviz.",
     episodesSeen: "{count} episodio/i visto/i",
+    watchedBy: "Visto da: {users}",
     statusAbsent: "Assente dalla libreria Movviz",
     statusLinkable: "Nella libreria, ma i suoi episodi non sono collegati a Plex",
     statusUnmatched: "Plex non l'ha associata a TMDb: impossibile aggiungerla da qui",
