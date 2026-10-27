@@ -49,8 +49,8 @@ export function RepairPathsPanel() {
       setSelected(
         new Set(data.candidates.map((c, i) => (c.matches.length === 1 && !c.contested ? i : -1)).filter((i) => i >= 0))
       );
-    } catch (e: any) {
-      setError(e.message ?? "Scan failed");
+    } catch (e) {
+      setError((e as Error).message ?? "Scan failed");
     } finally {
       setScanning(false);
     }
@@ -107,8 +107,8 @@ export function RepairPathsPanel() {
           setCleaning(false);
         }
       }
-    } catch (e: any) {
-      setError(e.message ?? "Network error");
+    } catch (e) {
+      setError((e as Error).message ?? "Network error");
     } finally {
       setApplying(false);
     }

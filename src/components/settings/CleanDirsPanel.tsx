@@ -26,8 +26,8 @@ export function CleanDirsPanel() {
       const data: { emptyDirs: string[] } = await res.json();
       setEmptyDirs(data.emptyDirs);
       setSelected(new Set(data.emptyDirs.map((_, i) => i)));
-    } catch (e: any) {
-      setError(e.message ?? "Scan failed");
+    } catch (e) {
+      setError((e as Error).message ?? "Scan failed");
     } finally {
       setScanning(false);
     }
@@ -54,8 +54,8 @@ export function CleanDirsPanel() {
       setResult(data);
       setEmptyDirs((prev) => (prev ? prev.filter((_, i) => !selected.has(i)) : prev));
       setSelected(new Set());
-    } catch (e: any) {
-      setError(e.message ?? "Network error");
+    } catch (e) {
+      setError((e as Error).message ?? "Network error");
     } finally {
       setDeleting(false);
     }

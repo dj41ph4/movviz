@@ -232,8 +232,8 @@ export function RenamePanel() {
         return;
       }
       setRunning(true);
-    } catch (e: any) {
-      setError(e.message ?? "Network error");
+    } catch (e) {
+      setError((e as Error).message ?? "Network error");
     }
   }, [language]);
 
@@ -289,8 +289,8 @@ export function RenamePanel() {
         return;
       }
       setExecuting(true);
-    } catch (e: any) {
-      setError(e.message ?? "Network error");
+    } catch (e) {
+      setError((e as Error).message ?? "Network error");
     }
   }, [candidates, selected, language]);
 

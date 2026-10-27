@@ -80,8 +80,8 @@ async function rmRetry(src: string, log: LogFn, maxRetries = 3): Promise<void> {
     try {
       await fs.promises.rm(src, { recursive: true, force: true });
       return;
-    } catch (err: any) {
-      log(`[RM] attempt ${i}/${maxRetries} failed: ${err.message}`);
+    } catch (err) {
+      log(`[RM] attempt ${i}/${maxRetries} failed: ${(err as Error).message}`);
       if (i < maxRetries) await new Promise((r) => setTimeout(r, 1000 * i));
       else throw err;
     }
@@ -105,8 +105,8 @@ function rmShellFallback(src: string, log: LogFn): void {
       log(`[RM] shell fallback: rm -rf "${src}"`);
       execFileSync("rm", ["-rf", src], { timeout: 30000 });
     }
-  } catch (err: any) {
-    log(`[RM] shell fallback failed: ${err.message}`);
+  } catch (err) {
+    log(`[RM] shell fallback failed: ${(err as Error).message}`);
     throw err;
   }
 }
@@ -140,8 +140,8 @@ async function safeMove(src: string, dst: string, log: LogFn): Promise<void> {
       else throw new Error(`Source still exists after rename: ${ns}`);
     }
     return;
-  } catch (err: any) {
-    if (err.code !== "EXDEV") throw err;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
   }
 
   // EXDEV — cross-device copy + remove
@@ -188,8 +188,8 @@ function removeEmptyDirsRecursive(dir: string, log: LogFn): boolean {
     fs.rmdirSync(dir);
     log(`[RM] removed empty residual folder: ${dir}`);
     return true;
-  } catch (err: any) {
-    log(`[WARN] could not remove residual folder ${dir}: ${err.message}`);
+  } catch (err) {
+    log(`[WARN] could not remove residual folder ${dir}: ${(err as Error).message}`);
     return false;
   }
 }
@@ -222,8 +222,8 @@ async function sweepResidualFolder(dir: string, target: string, log: LogFn): Pro
     }
     try {
       await safeMove(src, dst, log);
-    } catch (err: any) {
-      log(`[WARN] could not move leftover ${src}: ${err.message}`);
+    } catch (err) {
+      log(`[WARN] could not move leftover ${src}: ${(err as Error).message}`);
     }
   }
   removeEmptyDirsRecursive(dir, log);
@@ -299,9 +299,9 @@ async function renameMovie(id: string, language: string, log: LogFn): Promise<Re
     });
     log(`[DONE] ${movie.title} → ${expectedFolder}/${expectedFile}${ext}`);
     return { success: true, id, type: "movie", title: translated };
-  } catch (err: any) {
-    log(`[ERROR] ${movie.title}: ${err.message}`);
-    return { success: false, id, type: "movie", title: movie.title, error: err.message };
+  } catch (err) {
+    log(`[ERROR] ${movie.title}: ${(err as Error).message}`);
+    return { success: false, id, type: "movie", title: movie.title, error: (err as Error).message };
   }
 }
 
@@ -423,8 +423,8 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
         } else {
           log(`[ERROR] episode S${r.season}E${r.episode}: introuvable à ${r.oldPath} — fiche bibliothèque laissée inchangée pour cet épisode`);
         }
-      } catch (err: any) {
-        log(`[ERROR] episode S${r.season}E${r.episode}: ${err.message}`);
+      } catch (err) {
+        log(`[ERROR] episode S${r.season}E${r.episode}: ${(err as Error).message}`);
       }
     }
 
@@ -475,9 +475,9 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
 
     log(`[DONE] ${series.title} → ${expectedFolder}`);
     return { success: true, id, type: "series", title: translated };
-  } catch (err: any) {
-    log(`[ERROR] ${series.title}: ${err.message}`);
-    return { success: false, id, type: "series", title: series.title, error: err.message };
+  } catch (err) {
+    log(`[ERROR] ${series.title}: ${(err as Error).message}`);
+    return { success: false, id, type: "series", title: series.title, error: (err as Error).message };
   }
 }
 

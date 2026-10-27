@@ -103,8 +103,8 @@ export async function scanRenames(
         affectedItems: 1,
       });
       logLn(`[MOVIE] ${movie.title} → ${expectedFolder} (renomme)`);
-    } catch (err: any) {
-      logLn(`[MOVIE] ${movie.title} — ERREUR: ${err.message ?? err}`);
+    } catch (err) {
+      logLn(`[MOVIE] ${movie.title} — ERREUR: ${(err as Error).message ?? err}`);
     }
     setProgress?.(idx, total);
   }
@@ -200,8 +200,8 @@ export async function scanRenames(
         affectedItems: changedCount,
       });
       logLn(`[SERIES] ${series.title} → ${expectedFolder} (${changedCount} fichier${changedCount > 1 ? "s" : ""})`);
-    } catch (err: any) {
-      logLn(`[SERIES] ${series.title} — ERREUR: ${err.message ?? err}`);
+    } catch (err) {
+      logLn(`[SERIES] ${series.title} — ERREUR: ${(err as Error).message ?? err}`);
     }
     setProgress?.(idx, total);
   }
