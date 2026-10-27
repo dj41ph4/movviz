@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { waitForServerBack } from "@/lib/playback/waitForServerBack";
 import Hls from "hls.js";
 // dashjs est importé dynamiquement côté navigateur uniquement (window au
 // niveau module — pas SSR-safe) ; seul le TYPE est importé statiquement.
@@ -239,6 +240,12 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   /** Position a fresh prepare restarted the local engine from after it lost
    *  its server session — null while that rescue is still available. */
   const localEngineReprepareFromRef = useRef<number | null>(null);
+  // Vrai une fois le lecteur fermé : l'attente du serveur (waitForServerBack) s'arrête alors.
+  const playerDisposedRef = useRef(false);
+  useEffect(() => {
+    playerDisposedRef.current = false;
+    return () => { playerDisposedRef.current = true; };
+  }, []);
   /** Track/quality choice behind the current local-engine session, so that
    *  rescue reopens exactly what was playing. */
   const localEngineOverridesRef = useRef<UnifiedPlaybackOverrides>({});
@@ -1776,9 +1783,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           if (!isCodecFailure && playedPosition !== null && localEngineReprepareFromRef.current === null) {
             localEngineReprepareFromRef.current = playedPosition;
             setBuffering(true);
-            void tryStartLocalEngine(playedPosition, localEngineOverridesRef.current).then((ok) => {
-              if (!ok) setError(tRef.current("player.betaError"));
-            });
+            void (async () => {
+              // Serveur redémarré (mise à jour) : on attend son retour — chargement affiché —
+              // avant de relancer la préparation à la position atteinte. Serveur déjà
+              // joignable : le test répond aussitôt, rien ne change par rapport à avant.
+              const back = await waitForServerBack(() => playerDisposedRef.current);
+              if (playerDisposedRef.current) return;
+              const ok = back && await tryStartLocalEngine(playedPosition, localEngineOverridesRef.current);
+              if (!ok && !playerDisposedRef.current) setError(tRef.current("player.betaError"));
+            })();
             return;
           }
           setError(tRef.current(isCodecFailure ? "player.betaErrorCodec" : "player.betaError"));

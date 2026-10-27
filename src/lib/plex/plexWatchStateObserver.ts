@@ -9,6 +9,8 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { batchTmdbIds } from "./client";
 import { runPlexSnapshotWorker } from "@/lib/workers/plexSnapshotPool";
+import type { RawLibraryItem } from "./client";
+import { viewMapFromListings, numberedEpisodes, episodesListingConsistent } from "./plexSnapshotViewMap";
 
 type SnapshotResult =
   | { ok: true; states: PlexObservedState[]; movieRatingKeys: string[]; showRatingKeys: string[]; episodeRatingKeys: string[] }
@@ -71,6 +73,9 @@ export async function collectSnapshotWatchState(ctx: PlexUserContext): Promise<C
 async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnType<typeof getLibrarySections>>): Promise<CollectedSnapshot> {
   const cfg = loadPlexConfig();
   const allMovieKeys = new Set<string>();
+  const movieItems: RawLibraryItem[] = [];
+  /** Total d'épisodes annoncé par les séries (leafCount), pour vérifier le listing rapide. */
+  let announcedEpisodes = 0;
   const allShowKeys = new Set<string>();
   const allEpisodeKeys = new Set<string>(); // will be fetched via allLeaves per show
 
@@ -82,17 +87,42 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
       return { ok: false, reason: `listing_incomplete section=${section.key} ${result.error ?? ""}`.trim() };
     }
     for (const it of result.items) {
-      if (section.type === "movie") allMovieKeys.add(it.ratingKey);
-      else if (section.type === "show") allShowKeys.add(it.ratingKey);
+      if (section.type === "movie") { allMovieKeys.add(it.ratingKey); movieItems.push(it); }
+      else if (section.type === "show") { allShowKeys.add(it.ratingKey); announcedEpisodes += it.leafCount ?? 0; }
+    }
+  }
+
+  const showKeyList = [...allShowKeys];
+  // Voie rapide : un listing d'épisodes par section de séries (type=4) porte déjà leurs vues.
+  // Avant : 708 requêtes « allLeaves » (une par série) puis ~760 lectures de métadonnées par
+  // paquets de 50, soit ~10 minutes pour 38 000 médias. Maintenant : quelques dizaines de pages.
+  // Au moindre doute (listing incomplet, aucun épisode alors qu'il y a des séries), on retombe
+  // sur l'ancien parcours, plus lent mais éprouvé — jamais de snapshot partiel.
+  let fastEpisodes: RawLibraryItem[] | null = null;
+  const showSections = sections.filter((s) => s.type === "show");
+  if (showSections.length > 0) {
+    try {
+      const collected: RawLibraryItem[] = [];
+      for (const section of showSections) {
+        const result = await getSectionRawItemsAtomic(cfg, section.key, ctx.serverToken, { type: 4, pageSize: 500 });
+        if (!result.complete) throw new Error(`episodes listing incomplete section=${section.key} expected=${result.expectedTotal} received=${result.receivedTotal} ${result.error ?? ""}`.trim());
+        collected.push(...numberedEpisodes(result.items));
+      }
+      if (showKeyList.length > 0 && collected.length === 0) throw new Error("episodes listing empty");
+      if (!episodesListingConsistent(collected.length, announcedEpisodes)) throw new Error(`episodes listing inconsistent listed=${collected.length} announced=${announcedEpisodes}`);
+      fastEpisodes = collected;
+      for (const e of collected) allEpisodeKeys.add(e.ratingKey);
+    } catch (e) {
+      allEpisodeKeys.clear();
+      recordSearchLog("warn", "plex.snapshot", `plex.snapshot fast episode listing failed user=${ctx.movvizUserId} ${e instanceof Error ? e.message : String(e)} – fallback to per-show scan`);
     }
   }
 
   // For shows, we need episodes leaves – ATOMIC per §3: one failed show invalidates the whole snapshot
   const { mapWithConcurrency } = await import("@/lib/concurrency");
-  const showKeyList = [...allShowKeys];
   const episodeKeysByShow = new Map<string, string[]>();
   let episodesFailed: { showKey: string; error: string } | null = null;
-  await mapWithConcurrency(showKeyList, 5, async (showKey) => {
+  if (!fastEpisodes) await mapWithConcurrency(showKeyList, 5, async (showKey) => {
     if (episodesFailed) return;
     const { getShowEpisodesAtomic } = await import("./client");
     const result = await getShowEpisodesAtomic(cfg, showKey, ctx.serverToken);
@@ -124,7 +154,8 @@ async function snapshotViaBatch(ctx: PlexUserContext, sections: Awaited<ReturnTy
   let viewMap: Map<string, import("./client").PlexViewState>;
   const mappings: Parameters<typeof upsertMappings>[0] = [];
   try {
-    viewMap = await batchPlexViewState(cfg, ctx.serverToken, allRatingKeys);
+    // Voie rapide : les vues viennent des listings déjà lus ; sinon lecture par paquets (lente).
+    viewMap = fastEpisodes ? viewMapFromListings(movieItems, fastEpisodes) : await batchPlexViewState(cfg, ctx.serverToken, allRatingKeys);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.startsWith("plex_auth_failed")) {

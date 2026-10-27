@@ -1,3 +1,13 @@
+## v1.27.69 — 27 oktober 2026
+
+### Plex
+
+- De synchronisatie van Plex-weergaven leest de bibliotheek via sectielijsten in plaats van ongeveer 1.500 verzoeken (een per serie, daarna pakketten van 50 items): veel minder belasting voor Plex en de server. Lijkt een lijst onvolledig, dan valt ze terug op de vorige scan, identiek aan voorheen.
+
+### Speler
+
+- Als de server tijdens een update opnieuw start, wacht de desktopspeler op zijn terugkeer (minder dan een minuut) en toont het laden, in plaats van te melden dat je in Plex moet afspelen.
+
 ## v1.27.68 — 27 oktober 2026
 
 ### Android TV

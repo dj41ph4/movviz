@@ -1,3 +1,13 @@
+## v1.27.69 — 27. Oktober 2026
+
+### Plex
+
+- Die Synchronisierung der Plex-Wiedergaben liest die Bibliothek jetzt über Abschnittslisten statt mit etwa 1.500 Anfragen (eine pro Serie, dann Pakete zu 50 Einträgen): deutlich weniger Last für Plex und den Server. Wirkt eine Liste unvollständig, wird wie bisher der frühere Durchlauf verwendet.
+
+### Player
+
+- Startet der Server bei einem Update neu, wartet der Desktop-Player auf seine Rückkehr (unter einer Minute) und zeigt dabei den Ladezustand, statt zu melden, dass man in Plex abspielen muss.
+
 ## v1.27.68 — 27. Oktober 2026
 
 ### Android TV

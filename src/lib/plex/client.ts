@@ -652,12 +652,16 @@ interface RawChapter {
   title?: string;
   startTimeOffset: number;
 }
-interface RawLibraryItem {
+export interface RawLibraryItem {
   ratingKey: string;
   title: string;
   year?: number;
   type?: string;
   viewCount?: number;
+  lastViewedAt?: number; // epoch seconds, present once watched
+  viewOffset?: number; // ms, present while in progress
+  duration?: number;
+  leafCount?: number; // shows : nombre total d'épisodes
   addedAt?: number;
   updatedAt?: number;
   guid?: string;
@@ -1197,11 +1201,11 @@ export async function getSectionRawItemsAtomic(
   cfg: PlexServerConfig,
   sectionKey: string,
   token: string,
-  opts?: { sinceUnixSeconds?: number },
+  opts?: { sinceUnixSeconds?: number; type?: number; pageSize?: number },
   managedUserId?: string
 ): Promise<SectionRawItemsResult> {
   const raw: RawLibraryItem[] = [];
-  const pageSize = 200;
+  const pageSize = opts?.pageSize ?? 200;
   let start = 0;
   let expectedTotal: number | null = null;
   const incremental = opts?.sinceUnixSeconds != null;
@@ -1212,6 +1216,8 @@ export async function getSectionRawItemsAtomic(
       const url = new URL(`${serverBase(cfg)}/library/sections/${sectionKey}/all`);
       if (incremental) url.searchParams.set("sort", "updatedAt:desc");
       url.searchParams.set("includeExternalMedia", "1");
+      // type=4 : les épisodes de toute la section en un seul listing (vues comprises).
+      if (opts?.type != null) url.searchParams.set("type", String(opts.type));
       const res = await fetchWithRetry(url.toString(), {
         headers: {
           ...serverHeaders(cfg, token, managedUserId),

@@ -1,3 +1,13 @@
+## v1.27.69 — 27 ottobre 2026
+
+### Plex
+
+- La sincronizzazione delle visualizzazioni Plex legge la libreria tramite gli elenchi di sezione invece di circa 1.500 richieste (una per serie, poi pacchetti da 50 elementi): molto meno carico su Plex e sul server. Se un elenco sembra incompleto, torna alla scansione precedente, identica a prima.
+
+### Lettore
+
+- Quando il server si riavvia durante un aggiornamento, il lettore desktop attende il suo ritorno (meno di un minuto) mostrando il caricamento, invece di dire che bisogna riprodurre in Plex.
+
 ## v1.27.68 — 27 ottobre 2026
 
 ### Android TV

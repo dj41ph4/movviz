@@ -1,3 +1,13 @@
+## v1.27.69 — October 27, 2026
+
+### Plex
+
+- Plex watch sync now reads the library through section listings instead of about 1,500 requests (one per series, then batches of 50 items): much less load on Plex and on the server. If a listing looks incomplete, it falls back to the previous scan, identical to before.
+
+### Player
+
+- When the server restarts during an update, the desktop player waits for it to come back (under a minute) while showing the loading state, instead of saying you have to play it in Plex.
+
 ## v1.27.68 — October 27, 2026
 
 ### Android TV

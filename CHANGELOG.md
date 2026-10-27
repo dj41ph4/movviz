@@ -1,3 +1,13 @@
+## v1.27.69 — 27 octobre 2026
+
+### Plex
+
+- La synchronisation des vues Plex lit la bibliothèque par listings de section au lieu d'environ 1 500 requêtes (une par série, puis des paquets de 50 médias) : beaucoup moins de charge sur Plex et sur le serveur. Si le listing semble incomplet, elle reprend l'ancien parcours, identique à avant.
+
+### Lecteur
+
+- Quand le serveur redémarre pendant une mise à jour, le lecteur du bureau attend son retour (moins d'une minute) en affichant le chargement, au lieu d'indiquer qu'il faut lire dans Plex.
+
 ## v1.27.68 — 27 octobre 2026
 
 ### Android TV
