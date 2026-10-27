@@ -1,3 +1,9 @@
+## v1.27.77 — 27 ottobre 2026
+
+### Android mobile e TV
+
+- Rimuovere un titolo da «Continua a guardare»: su mobile, pressione lunga sulla scheda; su TV, il tasto Menu o Info del telecomando sulla scheda. Una semplice conferma chiede di rimuoverlo: la riproduzione in corso viene cancellata (Movviz e Plex), il progresso riparte da zero e il titolo non viene segnato come visto. Per una serie, riguarda solo l'episodio in corso. Gli altri dispositivi si aggiornano.
+
 ## v1.27.76 — 27 ottobre 2026
 
 ### Android mobile

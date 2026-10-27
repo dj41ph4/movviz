@@ -816,6 +816,16 @@ data class OnDeckEntryDto(
     val episodeTitle: String? = null,
     val episodeStillPath: String? = null,
     val lastPlayedAt: Long = 0L,
+    /** Clé Plex et identifiant Movviz de l'élément : nécessaires pour le retirer de la reprise. */
+    val plexRatingKey: String? = null,
+    val movvizId: String? = null,
+)
+
+/** Corps de POST /api/plex/continue-watching/remove (« Retirer de la reprise »). */
+@JsonClass(generateAdapter = true)
+data class RemoveContinueWatchingRequest(
+    val plexRatingKey: String,
+    val movvizId: String? = null,
 )
 
 /** Contrat compact /api/tv/preview : même ordre de sources que le desktop,

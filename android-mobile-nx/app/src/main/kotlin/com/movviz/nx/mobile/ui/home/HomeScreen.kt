@@ -112,6 +112,8 @@ import com.movviz.nx.mobile.ui.theme.statusTone
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
 import com.movviz.nx.mobile.ui.theme.tvCardFocusHalo
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
+import com.movviz.nx.mobile.ui.theme.tvPointerClickWithLongPress
+import com.movviz.nx.mobile.ui.theme.hapticClickable
 import com.movviz.nx.mobile.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.delay
 import androidx.media3.common.MediaItem
@@ -371,6 +373,21 @@ fun HomeScreen(
                 episodeTitle = resume.episodeTitle,
             )
         }.distinctBy { it.id }.withWatchedMovies(watchedMovieIds)
+    }
+    // Appui long sur une carte de reprise : confirmation simple, puis la lecture en cours est effacée.
+    var removalCandidate by remember { mutableStateOf<TvTitleCard?>(null) }
+    val resumeLongPress: (TvTitleCard) -> Unit = { card ->
+        if (viewModel.canRemoveFromContinueWatching(card.tmdbId, card.isMovie, card.resumeSeasonNumber, card.resumeEpisodeNumber)) removalCandidate = card
+    }
+    removalCandidate?.let { card ->
+        ResumeRemovalDialog(
+            title = card.title,
+            onCancel = { removalCandidate = null },
+            onConfirm = {
+                removalCandidate = null
+                viewModel.removeFromContinueWatching(card.tmdbId, card.isMovie, card.resumeSeasonNumber, card.resumeEpisodeNumber)
+            },
+        )
     }
     val recentEpisodeCards = remember(recentEpisodes) {
         // Même regroupement que TV/desktop : un lot d'épisodes d'une série
@@ -727,6 +744,7 @@ fun HomeScreen(
                             item(contentType = "row") {
                                 TitleRow(
                                     heading = "Reprendre vos films", items = resumeMovies,
+                                    onLongClickCard = resumeLongPress,
                                     onClick = { card -> onOpenTitle("movie", card.tmdbId) },
                                     firstItemFocusRequester = if (firstVisibleSection == sectionId) contentFocus else null,
                                     titleLogoPaths = heroLogos,
@@ -740,6 +758,7 @@ fun HomeScreen(
                             item(contentType = "row") {
                                 TitleRow(
                                     heading = "Reprendre vos séries", items = resumeSeries,
+                                    onLongClickCard = resumeLongPress,
                                     onClick = { card ->
                                         val season = card.resumeSeasonNumber
                                         val episode = card.resumeEpisodeNumber
@@ -757,6 +776,7 @@ fun HomeScreen(
                     } else item(contentType = "row") {
                         TitleRow(
                             heading = "Continuer à regarder", items = continueCards,
+                            onLongClickCard = resumeLongPress,
                             onClick = { card ->
                                 val season = card.resumeSeasonNumber
                                 val episode = card.resumeEpisodeNumber
@@ -1893,6 +1913,8 @@ internal fun TitleRow(
      *  seconde marge interne en portrait/déplié — sinon elle se décalait de
      *  16 dp par rapport au reste de la page. */
     insetInParent: Boolean = false,
+    /** Appui long sur une carte (rangées de reprise : « Retirer de la reprise »). */
+    onLongClickCard: ((TvTitleCard) -> Unit)? = null,
 ) {
     val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
         it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
@@ -2007,6 +2029,7 @@ internal fun TitleRow(
                     // En 16:9, cela donne 352×198dp, un vrai passage au
                     // paysage plutôt qu'une carte qui rétrécit au focus.
                     expandedWidth = 352.dp,
+                    onLongClick = onLongClickCard?.let { longClick -> { longClick(card) } },
                     // En étroit (portrait + déplié) aucune affiche n'est anonyme :
                     // le titre reste hors image, comme la maquette dépliée qui
                     // légende chaque carte. TV/paysage large sans légende.
@@ -2071,6 +2094,36 @@ internal fun RowHeading(text: String, start: androidx.compose.ui.unit.Dp? = null
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = start ?: if (narrow) 16.dp else 52.dp, bottom = 12.dp),
         )
+}
+
+/** Confirmation simple avant de retirer un élément de la reprise. */
+@Composable
+private fun ResumeRemovalDialog(title: String, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onCancel) {
+        val shape = RoundedCornerShape(20.dp)
+        Column(
+            modifier = Modifier
+                .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, shape)
+                .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
+                .padding(horizontal = 22.dp, vertical = 20.dp),
+        ) {
+            Text("Retirer de la reprise ?", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "« $title » disparaît de « Continuer à regarder » et sa lecture en cours est effacée (Movviz et Plex) : la progression repart de zéro. Il n'est pas marqué comme vu.",
+                style = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = MovvizInkDim),
+            )
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.08f)).hapticClickable(onClick = onCancel).padding(horizontal = 18.dp, vertical = 11.dp),
+                ) { Text("Annuler", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk)) }
+                Box(
+                    modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(com.movviz.nx.mobile.ui.theme.MovvizBrand).hapticClickable(onClick = onConfirm).padding(horizontal = 18.dp, vertical = 11.dp),
+                ) { Text("Retirer", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)) }
+            }
+        }
+    }
 }
 
 /**
@@ -2175,6 +2228,8 @@ internal fun PosterCard(
     showCaption: Boolean = true,
     showTechnicalBadges: Boolean = true,
     titleLogoPath: String? = null,
+    /** Appui long tactile (ex. « Retirer de la reprise ») ; absent = aucun détecteur d'appui long. */
+    onLongClick: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
@@ -2215,7 +2270,7 @@ internal fun PosterCard(
                     focused = it.isFocused
                     onFocusedChange?.invoke(it.isFocused)
                 }
-                .tvPointerClick(onClick),
+                .tvPointerClickWithLongPress(onClick, onLongClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = MovvizCardShape),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(

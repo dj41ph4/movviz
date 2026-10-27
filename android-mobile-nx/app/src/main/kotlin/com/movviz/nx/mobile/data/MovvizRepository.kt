@@ -162,6 +162,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun onDeckItems(): ApiResult<List<OnDeckEntryDto>> =
         safeCall { api.onDeck() }.map { it.items }
 
+    suspend fun removeFromContinueWatching(plexRatingKey: String, movvizId: String?): ApiResult<Unit> =
+        safeCall { api.removeFromContinueWatching(RemoveContinueWatchingRequest(plexRatingKey, movvizId)) }.map { }
+
     /** File de téléchargement en cours — voir QueueItemDto. */
     suspend fun queue(): ApiResult<List<QueueItemDto>> =
         safeCall { api.queue() }.map { it.items }

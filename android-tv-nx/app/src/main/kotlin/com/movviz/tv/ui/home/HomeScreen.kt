@@ -46,7 +46,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
@@ -453,6 +455,21 @@ fun HomeScreen(
                 episodeTitle = resume.episodeTitle,
             )
         }.distinctBy { it.id }.withWatchedMovies(watchedMovieIds)
+    }
+    // Touche Menu / Info sur une carte de reprise : confirmation simple, puis la lecture en cours est effacée.
+    var removalCandidate by remember { mutableStateOf<TvTitleCard?>(null) }
+    val resumeMenuKey: (TvTitleCard) -> Unit = { card ->
+        if (viewModel.canRemoveFromContinueWatching(card.tmdbId, card.isMovie, card.resumeSeasonNumber, card.resumeEpisodeNumber)) removalCandidate = card
+    }
+    removalCandidate?.let { card ->
+        ResumeRemovalDialog(
+            title = card.title,
+            onCancel = { removalCandidate = null },
+            onConfirm = {
+                removalCandidate = null
+                viewModel.removeFromContinueWatching(card.tmdbId, card.isMovie, card.resumeSeasonNumber, card.resumeEpisodeNumber)
+            },
+        )
     }
     val watchedEpisodeTriples = remember(homeWatchStatus) {
         homeWatchStatus?.episodes.orEmpty().map { Triple(it.tmdbId, it.season, it.episode) }.toSet()
@@ -861,6 +878,7 @@ fun HomeScreen(
                             firstItemFocusRequester = if (firstVisibleSection == sectionId) { if (showHero) firstRowFocus else contentFocus } else null,
                             navRailFocusRequester = navRailFocusRequester,
                             titleLogoPaths = heroLogos,
+                            onMenuKey = resumeMenuKey,
                         )
                     }
                     "recentEpisodes" -> item(key = sectionId, contentType = "row") {
@@ -2592,6 +2610,55 @@ private fun PlatformTileFallback(name: String, focused: Boolean) {
     )
 }
 
+/** Confirmation simple avant de retirer un élément de la reprise (touche Menu / Info de la télécommande). */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun ResumeRemovalDialog(title: String, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    val cancelFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        repeat(20) { attempt ->
+            if (runCatching { cancelFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (attempt < 19) withFrameNanos { }
+        }
+    }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onCancel,
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = false),
+    ) {
+        val shape = RoundedCornerShape(14.dp)
+        Column(
+            modifier = Modifier
+                .widthIn(max = 460.dp)
+                .background(MovvizTheme.palette.surface, shape)
+                .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
+                .padding(horizontal = 24.dp, vertical = 22.dp)
+                .focusProperties { exit = { FocusRequester.Cancel } }
+                .focusGroup(),
+        ) {
+            Text("Retirer de la reprise ?", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MovvizTheme.palette.ink))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "« $title » disparaît de « Continuer à regarder » et sa lecture en cours est effacée (Movviz et Plex) : la progression repart de zéro. Il n'est pas marqué comme vu.",
+                style = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = MovvizTheme.palette.inkSoft),
+            )
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(
+                    onClick = onCancel,
+                    modifier = Modifier.focusRequester(cancelFocus),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = Color.White.copy(alpha = 0.22f)),
+                ) { Text("Annuler", modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizTheme.palette.ink)) }
+                Surface(
+                    onClick = onConfirm,
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = MovvizTheme.palette.brand, focusedContainerColor = MovvizTheme.palette.brandGlow),
+                ) { Text("Retirer", modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)) }
+            }
+        }
+    }
+}
+
 /** Rangée "Continuer à regarder" maquette : cartes paysage fixes 270x150
  *  (still d'épisode quand il existe, sinon backdrop, sinon poster recadré),
  *  titre + contexte d'épisode sous la carte, fine barre de progression
@@ -2607,6 +2674,8 @@ internal fun ContinueWatchingRow(
     firstItemFocusRequester: FocusRequester? = null,
     navRailFocusRequester: FocusRequester? = null,
     titleLogoPaths: Map<String, String> = emptyMap(),
+    /** Touche Menu / Info de la télécommande sur une carte (« Retirer de la reprise »). */
+    onMenuKey: ((TvTitleCard) -> Unit)? = null,
 ) {
     val rowItems = remember(items) { uniqueTvRowCards(items) }
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
@@ -2634,6 +2703,7 @@ internal fun ContinueWatchingRow(
                     onClick = { onClick(card) },
                     navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
                     titleLogoPath = if (card.seriesPart == "tybw") null else titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
+                    onMenuKey = onMenuKey?.let { menu -> { menu(card) } },
                 )
             }
         }
@@ -2650,6 +2720,8 @@ private fun ResumeCard(
     focusRequester: FocusRequester? = null,
     navRailFocusRequester: FocusRequester? = null,
     titleLogoPath: String? = null,
+    /** Touche Menu / Info : demande de retrait de la reprise. Absent = aucune écoute de ces touches. */
+    onMenuKey: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var focused by remember(card.id) { mutableStateOf(false) }
@@ -2685,6 +2757,11 @@ private fun ResumeCard(
                 }
                 .onFocusChanged { focused = it.isFocused }
                 .movvizFocusRing(tileShape, enabled = beta)
+                .let { base ->
+                    if (onMenuKey == null) base else base.onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && (event.key == Key.Menu || event.key == Key.Info)) { onMenuKey(); true } else false
+                    }
+                }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape = tileShape),
             scale = if (beta) movvizBetaSurfaceScale() else ClickableSurfaceDefaults.scale(focusedScale = 1f),

@@ -160,6 +160,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun onDeckItems(): ApiResult<List<OnDeckEntryDto>> =
         safeCall { api.onDeck() }.map { it.items }
 
+    suspend fun removeFromContinueWatching(plexRatingKey: String, movvizId: String?): ApiResult<Unit> =
+        safeCall { api.removeFromContinueWatching(RemoveContinueWatchingRequest(plexRatingKey, movvizId)) }.map { }
+
     /** Toutes les positions de reprise encore valides — voir
      *  PlaybackProgressDto pour la différence avec onDeckItems(). */
     suspend fun playbackProgress(): ApiResult<List<PlaybackProgressDto>> =

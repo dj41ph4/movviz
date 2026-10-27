@@ -1713,6 +1713,38 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     /** Rangée "Continuer à regarder" — chargée une fois par entrée sur
      *  l'accueil, comme la bibliothèque (pas de polling seconde par
      *  seconde, contrairement à la file de téléchargement). */
+    private fun continueWatchingEntry(tmdbId: Int, isMovie: Boolean, seasonNumber: Int?, episodeNumber: Int?): OnDeckEntryDto? =
+        _continueWatching.value.firstOrNull {
+            it.tmdbId == tmdbId && (it.type == "movie") == isMovie && it.seasonNumber == seasonNumber && it.episodeNumber == episodeNumber
+        }
+
+    /** Vrai si l'élément de reprise peut être retiré : le serveur n'efface que ceux qui portent une clé Plex. */
+    fun canRemoveFromContinueWatching(tmdbId: Int, isMovie: Boolean, seasonNumber: Int?, episodeNumber: Int?): Boolean =
+        continueWatchingEntry(tmdbId, isMovie, seasonNumber, episodeNumber)?.plexRatingKey != null
+
+    /** Retire un élément de « Reprendre » : sa lecture en cours est effacée (Movviz et Plex) et sa progression
+     *  repart de zéro, sans le marquer comme vu. La carte disparaît tout de suite ; si le serveur refuse, elle revient. */
+    fun removeFromContinueWatching(tmdbId: Int, isMovie: Boolean, seasonNumber: Int?, episodeNumber: Int?) {
+        val repo = repository ?: return
+        val before = _continueWatching.value
+        val entry = continueWatchingEntry(tmdbId, isMovie, seasonNumber, episodeNumber) ?: return
+        val key = entry.plexRatingKey ?: return
+        _continueWatching.value = before - entry
+        viewModelScope.launch {
+            when (val result = repo.removeFromContinueWatching(key, entry.movvizId)) {
+                is ApiResult.Success -> loadContinueWatching()
+                ApiResult.Unauthorized -> {
+                    _continueWatching.value = before
+                    _sessionExpired.value = true
+                }
+                is ApiResult.Failure -> {
+                    _continueWatching.value = before
+                    android.widget.Toast.makeText(getApplication(), "Impossible de retirer cet élément de la reprise.", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     fun loadContinueWatching() {
         val repo = repository ?: return
         viewModelScope.launch {

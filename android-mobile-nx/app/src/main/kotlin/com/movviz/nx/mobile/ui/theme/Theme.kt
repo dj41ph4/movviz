@@ -50,7 +50,11 @@ import com.movviz.nx.mobile.R
  * aucun double-déclenchement possible, DPAD et pointeur restent tous deux
  * fonctionnels.
  */
-fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier = composed {
+/** Clic pointeur/D-pad ; avec appui long optionnel : voir tvPointerClickWithLongPress. */
+fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier = tvPointerClickWithLongPress(onClick, null)
+
+/** Même détecteur que tvPointerClick, plus un appui long tactile (nul = aucun détecteur d'appui long, comportement inchangé). */
+fun Modifier.tvPointerClickWithLongPress(onClick: () -> Unit, onLongClick: (() -> Unit)?): Modifier = composed {
     // Retour haptique sur chaque appui tactile (demande explicite : « il
     // manque cruellement de retour haptique »). Vibration « touche de
     // clavier » : discrète, et respecte le réglage système de l'utilisateur.
@@ -69,12 +73,19 @@ fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier = composed {
         // carte pleine largeur) où le mouvement deviendrait un tremblement.
         .onSizeChanged { large = it.width > with(density) { PRESS_MAX_WIDTH.toPx() } }
         .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
-        .pointerInput(onClick) {
+        .pointerInput(onClick, onLongClick) {
             detectTapGestures(
                 onPress = {
                     pressed = true
                     tryAwaitRelease()
                     pressed = false
+                },
+                // Sans appui long fourni, aucun détecteur d'appui long : comportement inchangé.
+                onLongPress = onLongClick?.let { longClick ->
+                    {
+                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        longClick()
+                    }
                 },
                 onTap = {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)

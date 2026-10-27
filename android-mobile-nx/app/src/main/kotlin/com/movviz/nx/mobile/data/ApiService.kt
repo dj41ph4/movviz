@@ -169,6 +169,10 @@ interface MovvizApiService {
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>
 
+    /** Efface la lecture en cours de l'élément (Movviz et Plex) : sa progression repart de zéro, sans le marquer vu. */
+    @POST("api/plex/continue-watching/remove")
+    suspend fun removeFromContinueWatching(@Body body: RemoveContinueWatchingRequest): Response<Map<String, Any?>>
+
     // Recherche manuelle "maintenant" pour un titre déjà en bibliothèque —
     // voir SearchTriggerResponseDto. Pas encore branché à l'UI TV, disponible
     // pour l'écran de découverte/téléchargement.

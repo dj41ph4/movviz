@@ -1,3 +1,9 @@
+## v1.27.77 — 27 oktober 2026
+
+### Android mobiel en TV
+
+- Een titel verwijderen uit 'Verder kijken': op mobiel de kaart lang indrukken; op tv de Menu- of Info-toets van de afstandsbediening op de kaart. Een eenvoudige bevestiging vraagt om te verwijderen: de lopende weergave wordt gewist (Movviz en Plex), de voortgang begint weer bij nul en de titel wordt niet als bekeken gemarkeerd. Bij een serie geldt het alleen voor de lopende aflevering. Je andere apparaten worden bijgewerkt.
+
 ## v1.27.76 — 27 oktober 2026
 
 ### Android mobiel

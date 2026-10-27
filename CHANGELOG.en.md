@@ -1,3 +1,9 @@
+## v1.27.77 — October 27, 2026
+
+### Android mobile and TV
+
+- Remove a title from "Continue watching": on mobile, long-press the card; on TV, press the remote's Menu or Info key on the card. A simple confirmation asks to remove it: the playback in progress is cleared (Movviz and Plex), progress starts again from zero and the title is not marked as watched. For a series, only the episode in progress is affected. Your other devices update.
+
 ## v1.27.76 — October 27, 2026
 
 ### Android mobile

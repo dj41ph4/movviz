@@ -171,6 +171,10 @@ interface MovvizApiService {
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>
 
+    /** Efface la lecture en cours de l'élément (Movviz et Plex) : sa progression repart de zéro, sans le marquer vu. */
+    @POST("api/plex/continue-watching/remove")
+    suspend fun removeFromContinueWatching(@Body body: RemoveContinueWatchingRequest): Response<Map<String, Any?>>
+
     // Toutes les positions de reprise de l'utilisateur, sans la dédup "une
     // par série" de /api/plex/on-deck — voir PlaybackProgressDto.
     @GET("api/playback/continue-watching")
