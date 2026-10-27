@@ -176,12 +176,18 @@ export function extractCriteriaRequest(message: string, now: Date = new Date()):
 // « tu n'as pas respecté mes conditions », « tu te trompes dans les dates »,
 // « c'est pas belge » : un reproche court, sans nouvelle demande. Les critères
 // sont alors ceux de la dernière demande qui en avait.
-const COMPLAINT_RE = /\b(?:pas respecte\w*|conditions?|criteres?|te trompes?|dates?|periode|faux|rate\w*|pas belges?|pas bon\w*|refais|recommence)\b/;
+// Uniquement un vrai reproche sur la réponse précédente : un simple mot comme
+// « date » ou « période » dans une autre question (« quelle est la date de
+// sortie du premier ? ») ne doit jamais relancer la recherche — vu en direct,
+// la liste revenait à l'identique et le nouveau message était ignoré.
+const COMPLAINT_RE = /\b(?:tu (?:n'?as|nas|ne) pas respecte\w*|pas respecte\w* mes|mes (?:conditions|criteres)|(?:ti|tu|t') ?te trompes?|c'est faux|c'est pas (?:belges?|dans la periode)|hors (?:periode|criteres)|refais|recommence)\b/;
 const COMPLAINT_MAX_WORDS = 14;
 
-export function resolveCriteriaRequest(message: string, previousUserMessages: string[], now: Date = new Date()): CriteriaRequest | null {
+export function resolveCriteriaRequest(message: string, previousUserMessages: string[], now: Date = new Date(), previousReplyHadCards = true): CriteriaRequest | null {
   const direct = extractCriteriaRequest(message, now);
   if (direct) return direct;
+  // Un reproche ne vise que la liste qui vient d'être donnée.
+  if (!previousReplyHadCards) return null;
   const text = normalize(message);
   if (text.split(/\s+/).filter(Boolean).length > COMPLAINT_MAX_WORDS || !COMPLAINT_RE.test(text)) return null;
   for (let i = previousUserMessages.length - 1; i >= Math.max(0, previousUserMessages.length - 6); i--) {

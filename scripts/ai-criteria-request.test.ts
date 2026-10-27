@@ -48,3 +48,19 @@ test("un reproche court reprend les critères de la dernière vraie demande", ()
   assert.equal(resolveCriteriaRequest("tu nas pas respectés mes conditions de recherches", ["bonjour"], NOW), null);
   assert.equal(resolveCriteriaRequest("merci beaucoup", earlier, NOW), null);
 });
+
+test("une autre question qui mentionne une date ou la liste ne relance jamais la recherche", () => {
+  const earlier = ["je cherche un film de production belges sortie entre le 1er Janvier 2025 et le 26 octobre 2026."];
+  for (const m of [
+    "quelle est la date de sortie du premier ?",
+    "ajoute le premier à ma liste",
+    "parle-moi du deuxième",
+    "c'est quoi la période de tournage",
+    "il est bon celui-là ?",
+    "j'ai déjà vu le troisième",
+  ]) {
+    assert.equal(resolveCriteriaRequest(m, earlier, NOW), null, m);
+  }
+  // Un vrai reproche sans liste affichée juste avant : rien à reprendre.
+  assert.equal(resolveCriteriaRequest("tu te trompes dans les dates", earlier, NOW, false), null);
+});

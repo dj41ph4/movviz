@@ -497,7 +497,7 @@ export async function POST(req: NextRequest) {
   // hors période et hors pays, et ne tenait ni le nombre ni le tri.
   if (!personCards && !groundedAnswer) {
     const previousUserMessages = session.messages.slice(0, -1).filter((m) => m.role === "user").map((m) => m.content);
-    const criteria = resolveCriteriaRequest(looseMessage, previousUserMessages);
+    const criteria = resolveCriteriaRequest(looseMessage, previousUserMessages, new Date(), previousAssistant?.role === "assistant" && !!previousAssistant.recommendations?.length);
     if (criteria) {
       try {
         const found = await searchByCriteria(criteria);

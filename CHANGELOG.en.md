@@ -2,7 +2,7 @@
 
 ### Movviz AI
 
-- Requests with criteria are now run against real TMDb data instead of the model's memory: period ("from January 1, 2025 to today", "since", "before", "in 2025"), production or co-production country ("Belgian film"…), the number asked for and "highest-rated" ordering. Titles outside the period or country are no longer suggested, and both the country and the date are re-checked on each title. Films with no French title (a Flemish film, for example) show their English title, with the original title mentioned. The reply language follows the message language more reliably: a quickly typed French request no longer falls back to the account's language. A short complaint ("you didn't follow my conditions") reuses the criteria of the last request.
+- Requests with criteria are now run against real TMDb data instead of the model's memory: period ("from January 1, 2025 to today", "since", "before", "in 2025"), production or co-production country ("Belgian film"…), the number asked for and "highest-rated" ordering. Titles outside the period or country are no longer suggested, and both the country and the date are re-checked on each title. Films with no French title (a Flemish film, for example) show their English title, with the original title mentioned. The reply language follows the message language more reliably: a quickly typed French request no longer falls back to the account's language. A message right after a list ("what's the release date of the first one?") is taken into account again: only real complaints ("you didn't follow my conditions") reuse the previous list's criteria. A short complaint ("you didn't follow my conditions") reuses the criteria of the last request.
 
 ## v1.27.77 — October 27, 2026
 
