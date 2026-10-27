@@ -52,6 +52,7 @@ function getPendingIntentForMedia(
 }
 
 function getWatchRevisionForMedia(userId: string, canonical: import("./mediaIdentityMap").CanonicalMediaIdentity): number | null {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardif voulu : évite un cycle d'import au chargement
   const { withUserContextDb } = require("@/lib/userContext/database") as typeof import("@/lib/userContext/database");
   return withUserContextDb((db) => {
     const key =

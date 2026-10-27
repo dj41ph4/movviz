@@ -152,6 +152,7 @@ function collectIncrementalCandidates(state: ReturnType<typeof loadMarkerSyncSta
 function collectFullCandidates(): string[] {
   // Source = bibliothèque Movviz (pas une re-liste des sections Plex).
   // Import tardif pour éviter tout cycle plex↔library au chargement.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardif voulu : évite un cycle d'import au chargement
   const { loadMovies, loadSeries } = require("@/lib/library/store") as typeof import("@/lib/library/store");
   const keys = new Set<string>();
   for (const m of loadMovies()) if (m.plexRatingKey) keys.add(m.plexRatingKey);

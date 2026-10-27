@@ -288,6 +288,7 @@ async function resolveEpisodeRaw(
 
 function resolveViaMovvizLibrary(showTitle: string, season: number, episode: number, ratingKey: string): EpisodeResolveResult | null {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardif voulu : évite un cycle d'import au chargement
     const { loadSeries } = require("@/lib/library/store") as typeof import("@/lib/library/store");
     const seriesList = loadSeries() as Array<{ tmdbId: number; title: string; seasons: Array<{ seasonNumber: number; episodes: Array<{ episodeNumber: number }> }> }>;
     const candidates = seriesList.filter((s) => s.title.trim().localeCompare(showTitle.trim(), undefined, { sensitivity: "base" }) === 0);
@@ -480,6 +481,7 @@ export async function resolveMovie(
 
   // 2) Bibliothèque Movviz : titre exact → tmdbId + plexRatingKey connu.
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardif voulu : évite un cycle d'import au chargement
     const { loadMovies } = require("@/lib/library/store") as typeof import("@/lib/library/store");
     const movies = loadMovies() as Array<{ tmdbId: number; title: string; plexRatingKey?: string | null }>;
     const candidates = movies.filter((m) => eqTitle(m.title, title));
