@@ -906,6 +906,18 @@ export async function getTitleInLanguage(tmdbId: number, type: "movie" | "series
   return data?.title ?? data?.name ?? data?.original_title ?? data?.original_name ?? null;
 }
 
+/** English title + synopsis, for a title TMDb has no French translation of
+ *  (a Flemish film then shows its Dutch title and an empty synopsis). */
+export async function getEnglishFallback(tmdbId: number, type: "movie" | "series"): Promise<{ title: string; overview: string } | null> {
+  const data = await tmdbGet<{ title?: string; name?: string; overview?: string }>(
+    type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`,
+    {},
+    "en-US"
+  );
+  const title = data?.title ?? data?.name;
+  return title ? { title, overview: data?.overview ?? "" } : null;
+}
+
 /** A person's profile + full filmography — powers "see everything with this
  *  actor/réalisateur". Reads BOTH cast and crew from combined_credits (only
  *  cast used to be read at all) — a title only ends up marked isDirector

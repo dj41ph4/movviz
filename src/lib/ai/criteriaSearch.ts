@@ -1,6 +1,6 @@
 import type { AiRecommendation } from "@/lib/ai/types";
 import type { CriteriaRequest } from "@/lib/ai/criteriaRequest";
-import { discoverByFilters, getTitleOriginCountries } from "@/lib/metadata/tmdb";
+import { discoverByFilters, getEnglishFallback, getTitleOriginCountries } from "@/lib/metadata/tmdb";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
@@ -67,16 +67,33 @@ export async function searchByCriteria(request: CriteriaRequest): Promise<Criter
   const parts = await Promise.all(types.map((t) => searchOneType(t, request)));
   let pool = parts.flatMap((p) => p.kept);
   pool = request.best ? pool.sort((a, b) => b.rating - a.rating) : pool.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-  const cards: AiRecommendation[] = pool.slice(0, request.count).map((r) => ({
-    title: r.title,
-    year: r.year ?? undefined,
-    type: r.type,
-    tmdbId: r.tmdbId,
-    overview: r.overview,
-    posterPath: r.posterPath,
-    rating: r.rating,
-    inLibrary: inLibrary(r),
-  }));
+  const cards = await mapWithConcurrency(pool.slice(0, request.count), VERIFY_CONCURRENCY, async (r): Promise<AiRecommendation> => {
+    const card: AiRecommendation = {
+      title: r.title,
+      year: r.year ?? undefined,
+      type: r.type,
+      tmdbId: r.tmdbId,
+      overview: r.overview,
+      posterPath: r.posterPath,
+      rating: r.rating,
+      inLibrary: inLibrary(r),
+    };
+    // Sans traduction française, TMDb renvoie le titre d'origine (néerlandais
+    // pour un film flamand) : repli sur le titre anglais, le titre d'origine
+    // reste affiché en mention. Le synopsis anglais n'est pas repris : une
+    // carte mi-français mi-anglais serait pire qu'un synopsis absent.
+    const untranslated = !r.overview && !!r.originalLanguage && r.originalLanguage !== "fr";
+    if (untranslated) {
+      const english = await getEnglishFallback(r.tmdbId, r.type).catch(() => null);
+      if (english) {
+        if (english.title && r.originalTitle && english.title !== r.title && r.title === r.originalTitle) {
+          card.title = english.title;
+          card.reason = `Titre original : ${r.originalTitle}`;
+        }
+      }
+    }
+    return card;
+  });
   return { cards, examined: parts.reduce((n, p) => n + p.examined, 0) };
 }
 
