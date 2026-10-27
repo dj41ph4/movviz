@@ -693,6 +693,24 @@ fun HomeScreen(
                 }
             }
 
+            // Tablette et paysage : le rail Plateformes n'existait qu'en portrait, aucune plateforme n'était donc
+            // accessible sur ces écrans. Même icônes carrées et même action (la page catégories de la plateforme),
+            // à une taille adaptée au grand écran et alignées sur les marges des rangées.
+            if (!compactPortrait && watchProviderTiles.isNotEmpty()) {
+                item(contentType = "platforms-wide") {
+                    val platformEdge = if (rememberUnfoldedLandscape()) 16.dp else 52.dp
+                    Column(modifier = Modifier.padding(bottom = 28.dp)) {
+                        RowHeading("Plateformes", start = platformEdge)
+                        com.movviz.nx.mobile.ui.mobile.MovvizPlatformRow(
+                            tiles = watchProviderTiles,
+                            onSelect = { tile -> onSeeAllRow("movie", "providerSuggested:${tile.id}", "Sélection ${tile.name} pour vous") },
+                            modifier = Modifier.padding(start = platformEdge),
+                            maxTileSize = 104.dp,
+                        )
+                    }
+                }
+            }
+
             visibleSections.forEach { sectionId ->
                 when (sectionId) {
                     "continueWatching" -> if (compactPortrait) {

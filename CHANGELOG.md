@@ -1,3 +1,9 @@
+## v1.27.75 — 27 octobre 2026
+
+### Android mobile
+
+- Tablette et paysage : le rail « Plateformes » apparaît maintenant sur l'accueil (il n'existait qu'en portrait, aucune plateforme n'était accessible). Les icônes carrées ont une taille adaptée au grand écran et ouvrent la page catégories de la plateforme, comme sur Android TV. Le portrait téléphone ne change pas.
+
 ## v1.27.74 — 27 octobre 2026
 
 ### Maintenance

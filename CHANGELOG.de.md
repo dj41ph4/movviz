@@ -1,3 +1,9 @@
+## v1.27.75 — 27. Oktober 2026
+
+### Android Mobil
+
+- Tablet und Querformat: Die Leiste „Plattformen“ erscheint jetzt auf dem Startbildschirm (sie gab es nur im Hochformat, daher war keine Plattform erreichbar). Die quadratischen Symbole sind für große Bildschirme dimensioniert und öffnen die Kategorienseite der Plattform, wie auf Android TV. Das Hochformat am Smartphone bleibt unverändert.
+
 ## v1.27.74 — 27. Oktober 2026
 
 ### Wartung

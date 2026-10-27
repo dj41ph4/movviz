@@ -1,3 +1,9 @@
+## v1.27.75 — 27 oktober 2026
+
+### Android mobiel
+
+- Tablet en liggend: de rij 'Platforms' verschijnt nu op het startscherm (ze bestond alleen in portret, waardoor geen enkel platform bereikbaar was). De vierkante pictogrammen zijn afgestemd op grote schermen en openen de categoriepagina van het platform, zoals op Android TV. Portret op een telefoon verandert niet.
+
 ## v1.27.74 — 27 oktober 2026
 
 ### Onderhoud

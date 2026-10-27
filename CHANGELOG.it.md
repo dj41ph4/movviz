@@ -1,3 +1,9 @@
+## v1.27.75 — 27 ottobre 2026
+
+### Android mobile
+
+- Tablet e orizzontale: la barra «Piattaforme» compare ora nella schermata iniziale (esisteva solo in verticale, quindi nessuna piattaforma era raggiungibile). Le icone quadrate hanno una dimensione adatta ai grandi schermi e aprono la pagina delle categorie della piattaforma, come su Android TV. Il verticale su telefono non cambia.
+
 ## v1.27.74 — 27 ottobre 2026
 
 ### Manutenzione

@@ -1,3 +1,9 @@
+## v1.27.75 — October 27, 2026
+
+### Android mobile
+
+- Tablet and landscape: the "Platforms" rail now appears on the home screen (it only existed in portrait, so no platform was reachable). The square icons are sized for large screens and open the platform's categories page, as on Android TV. Phone portrait is unchanged.
+
 ## v1.27.74 — October 27, 2026
 
 ### Maintenance
