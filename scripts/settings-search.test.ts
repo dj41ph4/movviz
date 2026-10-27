@@ -16,7 +16,11 @@ const tab = (id: string) => SETTINGS_TABS.find((x) => x.id === id)!;
 const tabsFor = (query: string) => SETTINGS_TABS.filter((x) => matchesSettingsQuery(x, query, t)).map((x) => x.id);
 
 test("l'index généré est à jour avec le code des panneaux (npm run gen:settings-search)", () => {
-  assert.equal(fs.readFileSync(INDEX_FILE, "utf8"), renderIndexFile(buildSettingsSearchIndex()));
+  // Sous Windows, git peut convertir les fins de ligne : on compare sans elles.
+  const onDisk = fs.readFileSync(INDEX_FILE, "utf8").replace(/
+/g, "
+");
+  assert.equal(onDisk, renderIndexFile(buildSettingsSearchIndex()));
 });
 
 test("chaque onglet a du contenu indexé, et ses clés existent en français", () => {
