@@ -18,6 +18,8 @@ interface TaskRun {
 export interface TaskConfig {
   /** Custom interval override (ms). null = use hardcoded default. */
   intervalMs: number | null;
+  /** Plage horaire de démarrage (voir window.ts). Absente/null = n'importe quand. */
+  window?: { startHour: number; endHour: number } | null;
 }
 
 interface SchedulerData {

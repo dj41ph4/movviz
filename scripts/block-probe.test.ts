@@ -30,3 +30,24 @@ test("sans gel, la mesure reste faible", async () => {
 test("une erreur de la tâche est propagée et la fenêtre refermée", async () => {
   await assert.rejects(measureBlocking("tâche en échec", async () => { throw new Error("boom"); }), /boom/);
 });
+
+test("un gel journalise l'étape suivie en cours, le tas et le total de la fenêtre", async () => {
+  const { trackOp, openBlockWindow: open } = await import("@/lib/blockProbe");
+  const w = open("tâche test-étape");
+  await trackOp("relance film : Test", async () => {
+    await wait(150);
+    blockFor(700);
+    await wait(250);
+  });
+  const { blockedMs, blockCount } = w.end();
+  assert.ok(blockCount >= 1 && blockedMs >= 450, `gels ${blockCount} pour ${blockedMs} ms`);
+  const entry = getBlockLog().find((e) => e.during.includes("tâche test-étape"));
+  assert.ok(entry?.ops?.some((o) => o.startsWith("relance film : Test")), JSON.stringify(entry?.ops));
+  assert.ok(typeof entry?.heapMb === "number" && entry.heapMb > 0);
+});
+
+test("une étape terminée n'est plus listée comme en cours", async () => {
+  const { trackOp, getActiveOps } = await import("@/lib/blockProbe");
+  await trackOp("étape brève", async () => { await wait(10); });
+  assert.ok(!getActiveOps().ops.some((o) => o.startsWith("étape brève")));
+});

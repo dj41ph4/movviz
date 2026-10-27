@@ -13,6 +13,7 @@ import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { recordDecision } from "@/lib/library/decisionLog";
+import { trackOp } from "@/lib/blockProbe";
 import { buildGrabPayload } from "@/lib/indexers/grabPayload";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
 import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
@@ -2048,7 +2049,7 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
       // 1. Intégrale d'abord — limitée aux saisons du budget (seasonFilter) :
       //    l'engine ne sélectionne que les fichiers de ces saisons.
       const seasonFilter = new Set(freshSeasons.keys());
-      const seriesPack = await tryGrabSeriesPack(fresh, profile, seasonFilter);
+      const seriesPack = await trackOp(`relance intégrale : ${fresh.title}`, () => tryGrabSeriesPack(fresh, profile, seasonFilter));
       if (seriesPack) {
         setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), {
           status: "downloading",
@@ -2064,7 +2065,7 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
       // 2. Par saison : pack de saison d'abord, sinon épisode par épisode
       //    (skipPackRetry — l'intégrale vient d'être épuisée pour cette série).
       for (const [seasonNumber, episodeNumbers] of freshSeasons) {
-        const pack = await tryGrabSeasonPack(fresh, seasonNumber, profile, episodeNumbers);
+        const pack = await trackOp<Awaited<ReturnType<typeof tryGrabSeasonPack>>>(`relance pack : ${fresh.title} S${seasonNumber}`, () => tryGrabSeasonPack(fresh, seasonNumber, profile, episodeNumbers));
         if (pack) {
           setEpisodesStatus(fresh, seasonNumber, pack.coverage, {
             status: "downloading",
@@ -2075,7 +2076,7 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
           continue;
         }
         for (const episodeNumber of episodeNumbers) {
-          await searchAndGrabEpisode(fresh.id, seasonNumber, episodeNumber, { skipPackRetry: true });
+          await trackOp(`relance épisode : ${fresh.title} S${seasonNumber}E${episodeNumber}`, () => searchAndGrabEpisode(fresh.id, seasonNumber, episodeNumber, { skipPackRetry: true }));
           searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
           await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
         }

@@ -5,11 +5,48 @@ import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import { useJobRunning } from "@/lib/jobs/useJobRunning";
 import { RotateCw, Loader2, Pencil, Check, X, ListTodo, Square } from "lucide-react";
+import type { TaskWindow } from "@/lib/scheduler/window";
+
+const DEFAULT_WINDOW: TaskWindow = { startHour: 4, endHour: 6 };
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+function formatWindow(w: TaskWindow) {
+  return `${w.startHour}h–${w.endHour}h`;
+}
+
+/** Case « Limiter à une plage horaire » + deux heures (début inclus, fin exclue). */
+function WindowFields({ value, onChange, compact }: { value: TaskWindow | null; onChange: (w: TaskWindow | null) => void; compact?: boolean }) {
+  const t = useT();
+  const select = `rounded-lg border border-white/8 bg-black/30 px-1.5 text-xs text-ink outline-none ${compact ? "h-8" : "h-7"}`;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-dim">
+      <label className="flex items-center gap-1.5">
+        <input type="checkbox" checked={value != null} onChange={(e) => onChange(e.target.checked ? DEFAULT_WINDOW : null)} />
+        {t("tasks.windowOn")}
+      </label>
+      {value && (
+        <>
+          <span>{t("tasks.windowFrom")}</span>
+          <select aria-label={t("tasks.windowFrom")} value={value.startHour} onChange={(e) => onChange({ ...value, startHour: Number(e.target.value) })} className={select}>
+            {HOURS.map((hr) => <option key={hr} value={hr}>{hr}h</option>)}
+          </select>
+          <span>{t("tasks.windowTo")}</span>
+          <select aria-label={t("tasks.windowTo")} value={value.endHour} onChange={(e) => onChange({ ...value, endHour: Number(e.target.value) })} className={select}>
+            {HOURS.map((hr) => <option key={hr} value={hr}>{hr}h</option>)}
+          </select>
+          {value.startHour === value.endHour && <span className="text-warn">{t("tasks.windowInvalid")}</span>}
+        </>
+      )}
+    </div>
+  );
+}
 
 interface TaskStatus {
   id: string;
   name: string;
   intervalMs: number;
+  /** Plage horaire de démarrage (heure du serveur), ou null. */
+  window: TaskWindow | null;
   lastRunAt: number | null;
   lastDurationMs: number | null;
   /** Pire gel du serveur pendant la dernière exécution (ms). */
@@ -71,11 +108,16 @@ export function TasksPanel() {
   const [tasks, setTasks] = useState<TaskStatus[]>([]);
   const [running, setRunning] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [timeZone, setTimeZone] = useState("");
 
   const load = useCallback(() =>
     fetch("/api/tasks", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setTasks(d.tasks ?? [])),
+      .then((d) => {
+        if (!d) return;
+        setTasks(d.tasks ?? []);
+        if (typeof d.timeZone === "string") setTimeZone(d.timeZone);
+      }),
   []);
 
   useEffect(() => {
@@ -99,11 +141,13 @@ export function TasksPanel() {
     }
   };
 
-  const saveInterval = async (id: string, intervalMs: number | null) => {
+  const saveInterval = async (id: string, intervalMs: number | null, window: TaskWindow | null) => {
+    // Une plage invalide (début = fin) n'est pas envoyée : on garde la précédente.
+    if (window && window.startHour === window.endHour) return;
     await fetch("/api/tasks", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ tasks: [{ id, intervalMs }] }),
+      body: JSON.stringify({ tasks: [{ id, intervalMs, window }] }),
     });
     setEditing(null);
     await load();
@@ -118,6 +162,7 @@ export function TasksPanel() {
         <div>
           <h3 className="font-bold text-ink">{t("tasks.title")}</h3>
           <p className="mt-0.5 text-xs text-ink-dim">{t("tasks.hint")}</p>
+          {timeZone && <p className="mt-0.5 text-xs text-ink-dim">{t("tasks.windowHint", { tz: timeZone })}</p>}
         </div>
       </div>
       {/* Table on sm+ — a data-dense grid works fine once there's room for
@@ -144,7 +189,7 @@ export function TasksPanel() {
               <EditRow
                 key={task.id}
                 task={task}
-                onSave={(ms) => saveInterval(task.id, ms)}
+                onSave={(ms, win) => saveInterval(task.id, ms, win)}
                 onCancel={() => setEditing(null)}
               />
             ) : (
@@ -169,7 +214,7 @@ export function TasksPanel() {
             <EditCard
               key={task.id}
               task={task}
-              onSave={(ms) => saveInterval(task.id, ms)}
+              onSave={(ms, win) => saveInterval(task.id, ms, win)}
               onCancel={() => setEditing(null)}
             />
           ) : (
@@ -188,8 +233,9 @@ export function TasksPanel() {
   );
 }
 
-function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: number | null) => void; onCancel: () => void }) {
+function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: number | null, win: TaskWindow | null) => void; onCancel: () => void }) {
   const t = useT();
+  const [win, setWin] = useState<TaskWindow | null>(task.window);
   const split = splitInterval(task.intervalMs);
   const [d, setD] = useState(split.days);
   const [h, setH] = useState(split.hours);
@@ -210,11 +256,12 @@ function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: nu
       </td>
       <td className="px-4 py-3 text-ink-dim" colSpan={3}>
         <p className="text-xs text-ink-dim">{formatInterval(parseInterval(d, h, m))}</p>
+        <WindowFields value={win} onChange={setWin} />
       </td>
       <td className="px-4 py-3 text-ink-dim" />
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
-          <button onClick={() => onSave(parseInterval(d, h, m))} aria-label={t("common.save")} className="flex h-7 w-7 items-center justify-center rounded-lg text-ok hover:bg-white/10">
+          <button onClick={() => onSave(parseInterval(d, h, m), win)} aria-label={t("common.save")} className="flex h-7 w-7 items-center justify-center rounded-lg text-ok hover:bg-white/10">
             <Check className="h-3.5 w-3.5" />
           </button>
           <button onClick={onCancel} aria-label={t("common.cancel")} className="flex h-7 w-7 items-center justify-center rounded-lg text-down hover:bg-white/10">
@@ -226,8 +273,9 @@ function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: nu
   );
 }
 
-function EditCard({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: number | null) => void; onCancel: () => void }) {
+function EditCard({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: number | null, win: TaskWindow | null) => void; onCancel: () => void }) {
   const t = useT();
+  const [win, setWin] = useState<TaskWindow | null>(task.window);
   const split = splitInterval(task.intervalMs);
   const [d, setD] = useState(split.days);
   const [h, setH] = useState(split.hours);
@@ -244,7 +292,7 @@ function EditCard({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: n
         <input value={m} onChange={(e) => setM(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))} className="h-8 w-14 rounded-lg border border-white/8 bg-black/30 px-1.5 text-center text-xs text-ink outline-none" />
         <span className="text-xs text-ink-dim">min</span>
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => onSave(parseInterval(d, h, m))} aria-label={t("common.save")} className="flex h-8 w-8 items-center justify-center rounded-lg text-ok hover:bg-white/10">
+          <button onClick={() => onSave(parseInterval(d, h, m), win)} aria-label={t("common.save")} className="flex h-8 w-8 items-center justify-center rounded-lg text-ok hover:bg-white/10">
             <Check className="h-3.5 w-3.5" />
           </button>
           <button onClick={onCancel} aria-label={t("common.cancel")} className="flex h-8 w-8 items-center justify-center rounded-lg text-down hover:bg-white/10">
@@ -252,6 +300,7 @@ function EditCard({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: n
           </button>
         </div>
       </div>
+      <WindowFields value={win} onChange={setWin} compact />
     </div>
   );
 }
@@ -333,7 +382,7 @@ function TaskCard({ task, localRunning, onRun, onStop, onEdit }: { task: TaskSta
         </div>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-dim">
-        <span>{t("tasks.interval")} : {formatInterval(task.intervalMs)}</span>
+        <span>{t("tasks.interval")} : {formatInterval(task.intervalMs)}{task.window ? ` · ${formatWindow(task.window)}` : ""}</span>
         <span>{t("tasks.lastDuration")} : {formatDuration(task.lastDurationMs)}</span>
         <span>{t("tasks.lastRun")} : {task.lastRunAt ? relativeTime(new Date(task.lastRunAt).toISOString(), locale) : t("tasks.never")}</span>
         <span>{t("tasks.nextRun")} : {nextRun}</span>
@@ -352,7 +401,10 @@ function TaskRow({ task, localRunning, onRun, onStop, onEdit }: { task: TaskStat
   return (
     <tr className="border-b border-white/5 last:border-0">
       <td className="px-4 py-3 font-semibold text-ink"><TaskName task={task} /></td>
-      <td className="px-4 py-3 text-ink-soft">{formatInterval(task.intervalMs)}</td>
+      <td className="px-4 py-3 text-ink-soft">
+        {formatInterval(task.intervalMs)}
+        {task.window && <span className="ml-1.5 text-xs text-ink-dim" title={t("tasks.windowOn")}>· {formatWindow(task.window)}</span>}
+      </td>
       <td className="px-4 py-3 text-ink-dim">
         {task.lastRunAt ? relativeTime(new Date(task.lastRunAt).toISOString(), locale) : t("tasks.never")}
       </td>

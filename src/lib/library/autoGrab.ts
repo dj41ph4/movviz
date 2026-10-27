@@ -30,6 +30,7 @@ import { movieHasReleased, movieReleasedRecently } from "@/lib/library/releaseSc
 import { withSearchLock } from "@/lib/library/autoGrabSeries";
 import { runBackground } from "@/lib/priority/lane";
 import { yieldToUser } from "@/lib/priority/userActivity";
+import { trackOp } from "@/lib/blockProbe";
 import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBackoff";
 
 const RESOLUTION_ORDER = ["480p", "720p", "1080p", "2160p"];
@@ -686,7 +687,7 @@ async function searchMissingMoviesInner(max: number) {
   const searched: string[] = [];
   for (const movie of batch) {
     await yieldToUser("recherche films manquants");
-    await searchAndGrabMovie(movie.id);
+    await trackOp(`relance film : ${movie.title}`, () => searchAndGrabMovie(movie.id));
     searched.push(movie.id);
   }
   const stillMissing = searched.filter((id) => { const status = getMovie(id)?.status; return status === "missing" || status === "upcoming"; }).map((id) => `movie:${id}`);

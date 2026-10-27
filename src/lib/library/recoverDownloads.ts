@@ -13,6 +13,7 @@ import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules
 import { loadActivityV2, logActivityV2, createImportRef } from "@/lib/activity/v2/store";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { yieldToUser } from "@/lib/priority/userActivity";
+import { trackOp } from "@/lib/blockProbe";
 
 /**
  * Shared implementation of the "Récupérer les téléchargements" maintenance
@@ -369,8 +370,8 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
   try {
     const batchSize = Math.min(200, Math.max(1, opts.batchSize ?? Number.MAX_SAFE_INTEGER));
     const processed = new Set(opts.processed ?? []);
-    const instances = await fetchInstances();
-    const torrents = await fetchTorrents();
+    const instances = await trackOp("récupération : liste des instances", () => fetchInstances());
+    const torrents = await trackOp("récupération : liste des torrents", () => fetchTorrents());
 
     const movies = loadMovies();
     const series = loadSeries();
@@ -466,7 +467,7 @@ export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOpt
         }
       }
 
-      const files = await scanVideoFiles(inst.downloadPath, opts.background === true);
+      const files = await trackOp(`récupération : scan ${inst.downloadPath}`, () => scanVideoFiles(inst.downloadPath, opts.background === true));
       for (const fp of files) {
         // Batch mode — a file a previous batch of this run already attempted
         // (moved, duplicate, or failed) is skipped without being examined

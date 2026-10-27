@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { aggregatePerf, recordPerf, perfLabel, getPerfEntries } from "@/lib/perf";
 import { getEventLoopHistory, getEventLoopLive } from "@/lib/eventLoopMonitor";
-import { getBlockLog, getBlockTimeline } from "@/lib/blockProbe";
+import { getBlockLog, getBlockTimeline, getActiveOps, getGcLog, getGcTotals } from "@/lib/blockProbe";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,10 @@ export async function GET(req: NextRequest) {
     // Gels ≥ 500 ms attribués aux tâches / étapes de démarrage ouvertes à ce moment.
     blocks: getBlockLog(),
     timeline: getBlockTimeline(),
+    // Pauses du ramasse-miettes ≥ 100 ms et cumul depuis le démarrage ; étapes et appels
+    // sortants en cours à l'instant de la lecture.
+    gc: { recent: getGcLog(), totals: getGcTotals() },
+    activeOps: getActiveOps(),
     memory: {
       rssMb: mb(mem.rss),
       heapUsedMb: mb(mem.heapUsed),

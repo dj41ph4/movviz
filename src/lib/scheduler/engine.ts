@@ -7,6 +7,7 @@ import { openBlockWindow } from "@/lib/blockProbe";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { runBackground } from "@/lib/priority/lane";
 import { acquisitionInterval } from "./interval";
+import { isInTaskWindow, nextInTaskWindow, type TaskWindow } from "./window";
 
 /** Effective interval for a task — persisted override or hardcoded default. */
 export function getEffectiveInterval(id: string, defaultMs: number): number {
@@ -18,6 +19,8 @@ export interface TaskStatus {
   id: string;
   name: string;
   intervalMs: number;
+  /** Plage horaire de démarrage choisie (heure du serveur), ou null. */
+  window: TaskWindow | null;
   lastRunAt: number | null;
   lastDurationMs: number | null;
   /** Pire gel du serveur pendant la dernière exécution (null = pas encore mesuré). */
@@ -33,14 +36,16 @@ export function listTaskStatus(): TaskStatus[] {
   return TASKS.map((t) => {
     const run = getTaskRun(t.id);
     const intervalMs = getEffectiveInterval(t.id, t.intervalMs);
+    const window = getTaskConfig(t.id).window ?? null;
     return {
       id: t.id,
       name: t.name,
       intervalMs,
+      window,
       lastRunAt: run.lastRunAt,
       lastDurationMs: run.lastDurationMs,
       lastMaxBlockMs: run.lastMaxBlockMs ?? null,
-      nextRunAt: run.lastRunAt != null ? run.lastRunAt + intervalMs : null,
+      nextRunAt: run.lastRunAt != null ? nextInTaskWindow(run.lastRunAt + intervalMs, window) : null,
       heavy: HEAVY_TASKS.has(t.id),
       state: taskQueueState(t.id),
     };
@@ -54,12 +59,20 @@ export async function runTaskNow(id: string): Promise<{ ok: true } | { ok: false
   const start = Date.now();
   // Mesure seule (blockProbe.ts) : quelle tâche fige le serveur, et combien.
   const probe = openBlockWindow(`tâche ${id}`);
+  const heapBeforeMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
   try {
     // Every scheduled task runs in the « background » lane: shared limited
     // resources (the TMDb queue…) serve a user's request before it.
     await runBackground(() => task.run());
   } finally {
-    const { maxBlockMs, overlapping } = probe.end();
+    const { maxBlockMs, overlapping, blockedMs, blockCount } = probe.end();
+    // Une ligne par passage lent ou gênant : durée, gel cumulé, tas avant/après et tâches
+    // en parallèle. Les gels détaillés (avec l'étape en cours) sont dans /api/perf → blocks.
+    const durationMs = Date.now() - start;
+    if (durationMs >= 10_000 || blockedMs >= 500) {
+      const heapAfterMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+      recordSearchLog("info", "perf.task_run", `tâche ${id} : durée ${Math.round(durationMs / 1000)} s, ${blockCount} gel(s) ≥ 200 ms pour ${Math.round(blockedMs / 1000)} s cumulées (pire ${maxBlockMs} ms), tas ${heapBeforeMb} → ${heapAfterMb} Mo${overlapping.length ? `, en parallèle : ${overlapping.join(", ")}` : ""}`, durationMs);
+    }
     // Mise en pause par une action lourde de l'utilisateur : on n'enregistre
     // pas de passage, le planificateur la relance juste après.
     const jobId = currentJobId();
@@ -186,6 +199,8 @@ function tick() {
     const intervalMs = getEffectiveInterval(task.id, task.intervalMs);
     const dueAt = run.lastRunAt == null ? 0 : run.lastRunAt + intervalMs;
     if (now < dueAt) continue;
+    // Plage horaire choisie : la tâche attend son créneau, l'intervalle reste inchangé.
+    if (!isInTaskWindow(now, getTaskConfig(task.id).window)) continue;
     enqueueTask(task);
   }
 }

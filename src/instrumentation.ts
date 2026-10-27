@@ -18,10 +18,16 @@ export async function register() {
     const { startEventLoopMonitor } = await import("@/lib/eventLoopMonitor");
     startEventLoopMonitor();
 
+    // Diagnostic des gels : horloge de 100 ms permanente (gels hors tâche compris) et pauses
+    // du ramasse-miettes ; les incidents ≥ 1 s vont aussi dans perf-incidents.jsonl.
+    const { startBlockWatch, startGcWatch } = await import("@/lib/blockProbe");
+    startBlockWatch();
+    startGcWatch();
+
     // Mesure du démarrage (blockProbe.ts) : chaque étape chronométrée, et tout
     // gel ≥ 500 ms des 2 premières minutes noté avec ce qui tournait alors —
     // un gel de 11 s au démarrage restait inexpliqué (2026-09-24).
-    const { openBlockWindow, measureBlocking } = await import("@/lib/blockProbe");
+    const { openBlockWindow, measureBlocking, beginOp } = await import("@/lib/blockProbe");
     const { recordSearchLog: logBootPhase } = await import("@/lib/diagnostic/searchLog");
     const bootWatch = openBlockWindow("démarrage (2 premières minutes)");
     setTimeout(() => {
@@ -47,6 +53,8 @@ export async function register() {
         const url =
           typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
         const start = performance.now();
+        // Appel en attente = visible dans les gels (« en attente de tel indexeur depuis 40 s »).
+        const endOp = beginOp(`fetch ${perfLabel(url)}`, "net");
         try {
           const res = await origFetch(input, init);
           recordPerf({
@@ -66,6 +74,8 @@ export async function register() {
             status: null,
           });
           throw e;
+        } finally {
+          endOp();
         }
       };
     }
