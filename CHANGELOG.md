@@ -1,3 +1,13 @@
+## v1.27.66 — 27 octobre 2026
+
+### Tâches planifiées
+
+- Chaque tâche peut démarrer seulement dans une plage horaire (par exemple entre 4 h et 6 h), sans changer son intervalle. À régler dans Réglages → Tâches ; l'heure est celle du serveur.
+
+### Diagnostic
+
+- Les gels du serveur indiquent maintenant ce qui tournait à cet instant (film ou épisode recherché, dossier scanné), la mémoire utilisée et les pauses du ramasse-miettes. Les incidents d'au moins 1 s sont gardés dans un fichier qui survit aux redémarrages.
+
 ## v1.27.65 — 26 octobre 2026
 
 ### Indexeurs

@@ -1,3 +1,13 @@
+## v1.27.66 — 27 ottobre 2026
+
+### Attività pianificate
+
+- Ogni attività può ora partire solo in una fascia oraria (ad esempio tra le 4 e le 6), senza cambiare il suo intervallo. Si imposta in Impostazioni → Attività; l'ora è quella del server.
+
+### Diagnostica
+
+- I blocchi del server indicano ora cosa era in esecuzione in quel momento (film o episodio in ricerca, cartella in scansione), la memoria usata e le pause del garbage collector. Gli incidenti di almeno 1 s sono conservati in un file che sopravvive ai riavvii.
+
 ## v1.27.65 — 26 ottobre 2026
 
 ### Indicizzatori

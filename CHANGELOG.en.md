@@ -1,3 +1,13 @@
+## v1.27.66 — October 27, 2026
+
+### Scheduled tasks
+
+- Each task can now start only within a time window (for example between 4 AM and 6 AM) without changing its interval. Set it in Settings → Tasks; the time is the server's.
+
+### Diagnostics
+
+- Server freezes now record what was running at that moment (movie or episode being searched, folder being scanned), the memory in use and garbage-collector pauses. Incidents of at least 1 s are kept in a file that survives restarts.
+
 ## v1.27.65 — October 26, 2026
 
 ### Indexers

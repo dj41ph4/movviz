@@ -1,3 +1,13 @@
+## v1.27.66 — 27 oktober 2026
+
+### Geplande taken
+
+- Elke taak kan nu alleen binnen een tijdvenster starten (bijvoorbeeld tussen 4 en 6 uur), zonder haar interval te wijzigen. Instellen via Instellingen → Taken; de tijd is die van de server.
+
+### Diagnose
+
+- Bij serverbevriezingen wordt nu vastgelegd wat er op dat moment draaide (gezochte film of aflevering, gescande map), het geheugengebruik en de pauzes van de garbage collector. Incidenten van minstens 1 s worden bewaard in een bestand dat herstarts overleeft.
+
 ## v1.27.65 — 26 oktober 2026
 
 ### Indexers

@@ -1,3 +1,13 @@
+## v1.27.66 — 27. Oktober 2026
+
+### Geplante Aufgaben
+
+- Jede Aufgabe kann jetzt nur in einem Zeitfenster starten (zum Beispiel zwischen 4 und 6 Uhr), ohne ihr Intervall zu ändern. Einstellbar unter Einstellungen → Aufgaben; maßgeblich ist die Serverzeit.
+
+### Diagnose
+
+- Bei Server-Einfrierungen wird jetzt festgehalten, was in dem Moment lief (gesuchter Film oder gesuchte Folge, gescannter Ordner), der Speicherverbrauch und die Pausen der Speicherbereinigung. Vorfälle ab 1 s werden in einer Datei gespeichert, die Neustarts überdauert.
+
 ## v1.27.65 — 26. Oktober 2026
 
 ### Indexer
