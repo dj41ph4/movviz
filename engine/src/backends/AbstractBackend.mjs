@@ -237,6 +237,8 @@ export class AbstractBackend {
       year: opts.year ?? null,
       episodeTarget: opts.episodeTarget ?? null,
       episodeTargets: opts.episodeTargets ?? null,
+      rejectMissingSeriesPack: opts.rejectMissingSeriesPack === true && opts.libraryRef?.startsWith("series:"),
+      autoPackReleaseTitle: opts.autoPackReleaseTitle ?? null,
       selectedFileIndices: null,
     });
 
@@ -556,12 +558,38 @@ export class AbstractBackend {
     for (const t of this._clientList()) {
       const m = this.meta.get(t.infoHash);
       if (m?.completed) continue;
+      if (m?.missingSeriesPack && !m.rejectionInFlight && !m.finishing &&
+          (!m.lastRejectionAttempt || Date.now() - m.lastRejectionAttempt > 15_000)) {
+        m.lastRejectionAttempt = Date.now();
+        m.rejectionInFlight = true;
+        this._rejectMissingSeriesPack(t.infoHash, m).catch(() => {}).finally(() => { m.rejectionInFlight = false; });
+      }
       this._checkStall(t);
       if (this._isDone(t) && !m?.finishing) {
         this.onComplete(t.infoHash).catch((e) =>
           console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] onComplete tick failed:`, e.message)
         );
       }
+    }
+  }
+
+  async _rejectMissingSeriesPack(infoHash, m) {
+    if (!m.rejectionAcknowledged) {
+      const response = await fetch(`${WEB_CALLBACK_URL}/api/library/reject-series-pack`, {
+        method: "POST", headers: { "content-type": "application/json", "x-movviz-token": ENGINE_TOKEN },
+        body: JSON.stringify({ libraryRef: m.libraryRef, infoHash, releaseTitle: m.autoPackReleaseTitle ?? this._clientSnapshot(infoHash)?.name ?? "" }),
+      });
+      if (!response.ok) return;
+      m.rejectionAcknowledged = true;
+    }
+    // Keep all files: this only removes the torrent from the queue.
+    const removed = await this.remove(infoHash, false);
+    if (removed) {
+      // Resume the same acquisition after the queue has actually been cleared.
+      fetch(`${WEB_CALLBACK_URL}/api/library/reject-series-pack`, {
+        method: "POST", headers: { "content-type": "application/json", "x-movviz-token": ENGINE_TOKEN },
+        body: JSON.stringify({ libraryRef: m.libraryRef, infoHash, retry: true }),
+      }).catch(() => {});
     }
   }
 
@@ -887,6 +915,8 @@ export class AbstractBackend {
         year: m.year ?? null,
         episodeTarget: m.episodeTarget ?? null,
         episodeTargets: m.episodeTargets ?? null,
+        rejectMissingSeriesPack: m.rejectMissingSeriesPack === true,
+        autoPackReleaseTitle: m.autoPackReleaseTitle ?? null,
         userPaused: m.userPaused,
         sequential: m.sequential,
         priority: m.priority,
@@ -1521,6 +1551,17 @@ export class AbstractBackend {
     const targets = meta.episodeTargets ?? (meta.episodeTarget ? [meta.episodeTarget] : []);
     if (targets.length === 0 || !handle.files?.length) return;
 
+    // An automatic whole-series pack can safely be rejected only when every
+    // video has explicit episode coordinates and none covers a target.
+    if (meta.rejectMissingSeriesPack && !meta.completed && !meta.movedFiles) {
+      const videos = handle.files.filter((f) => VIDEO_EXT_RE.test(f.name));
+      const parsed = videos.map((f) => parseRelease(f.name));
+      if (videos.length && parsed.every((p) => p.season != null && p.episode != null) &&
+          !parsed.some((p) => targets.some((t) => p.season === t.season && t.episode >= p.episode && t.episode <= (p.episodeEnd ?? p.episode)))) {
+        meta.missingSeriesPack = true;
+        return;
+      }
+    }
     const matches = [];
     handle.files.forEach((f, i) => {
       for (const target of targets) {

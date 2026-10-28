@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { mutate } from "swr";
@@ -10,9 +10,11 @@ import { FlagIcon } from "@/components/ui/FlagIcon";
 import { Toggle } from "@/components/ui/Toggle";
 import { cn } from "@/lib/utils";
 import { IndexerManager } from "@/components/settings/IndexerManager";
-import { DownloadClients } from "@/components/settings/DownloadClients";
+import { FolderPicker } from "@/components/settings/FolderPicker";
 import { PlexSettings } from "@/components/settings/PlexSettings";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
+import { useWatchRegion, WATCH_REGION_OPTIONS } from "@/lib/settings/useWatchRegion";
+import { PlexLoginDialog } from "@/components/auth/PlexLoginDialog";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { resetSwrCache } from "@/lib/swrCacheReset";
@@ -107,7 +109,8 @@ function SetupWizardPageInner() {
     if (currentUser === undefined || needsAccountStep !== null) return;
     setNeedsAccountStep(currentUser === null);
   }, [currentUser, needsAccountStep]);
-  const steps = needsAccountStep === false ? STEPS.filter((s) => s !== "account") : STEPS;
+  const activeSteps = smartMode ? STEPS : STEPS.filter((s) => !["hardware", "personalization", "tmdb", "tvdb", "ai"].includes(s));
+  const steps = needsAccountStep === false ? activeSteps.filter((s) => s !== "account") : activeSteps;
   const step = steps[stepIndex];
 
   // Starts false on both server and first client render (no hydration
@@ -195,7 +198,7 @@ function SetupWizardPageInner() {
           )}
           {step === "downloads" && (
             <StepShell title={t("setup.downloadsTitle")} hint={t("setup.downloadsHint")}>
-              <DownloadClients />
+              <SetupFolders />
             </StepShell>
           )}
           {step === "plex" && (
@@ -209,7 +212,7 @@ function SetupWizardPageInner() {
               <h2 className="text-xl font-black text-ink">{t("setup.doneTitle")}</h2>
               <p className="max-w-sm text-sm text-ink-dim">{t("setup.doneHint")}</p>
               <button
-                onClick={() => { window.location.href = "/"; }}
+                onClick={async () => { const response = await fetch("/api/setup/complete", { method: "POST" }); if (response.ok) window.location.href = "/"; }}
                 className="mt-2 flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white"
               >
                 {t("setup.goToDashboard")} <ArrowRight className="h-4 w-4" />
@@ -257,6 +260,37 @@ function StepShell({ title, hint, children }: { title: string; hint: string; chi
       {children}
     </div>
   );
+}
+
+function SetupFolders() {
+  const t = useT();
+  const [folders, setFolders] = useState<{ id: string; category: string; path: string }[] | null>(null);
+  const [mode, setMode] = useState<"browse" | "write">("write");
+  const [saving, setSaving] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/system", { cache: "no-store" }).then((r) => r.json()).then((d) => setMode(d.mode === "browse" ? "browse" : "write")).catch(() => {});
+    fetch("/api/engine/instances", { cache: "no-store" }).then((r) => r.json()).then((d) => setFolders((d.instances ?? []).map((i: { id: string; category: string; completedPath: string }) => ({ id: i.id, category: i.category, path: i.completedPath })))).catch(() => setFolders([]));
+  }, []);
+  const save = async (id: string, path: string) => {
+    setSaving(id); setMessage(null);
+    try {
+      const response = await fetch(`/api/engine/instances/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ completedPath: path.trim() }) });
+      setMessage(response.ok ? t("settings.saved") : t("common.actionFailed"));
+    } catch { setMessage(t("common.actionFailed")); }
+    finally { setSaving(null); }
+  };
+  if (!folders) return <Loader2 className="h-5 w-5 animate-spin text-ink-dim" />;
+  return <div className="space-y-4 rounded-2xl glass p-5">
+    {folders.length === 0 && <p className="text-sm text-down">{t("downloads.engineOffline")}</p>}
+    {folders.map((folder) => <div key={folder.id}>
+      <label className="mb-2 block text-sm font-bold text-ink">{folder.category === "movie" ? t("setup.movieFolder") : t("setup.seriesFolder")}</label>
+      <div className="flex gap-2"><div className="min-w-0 flex-1"><FolderPicker value={folder.path} mode={mode} onChange={(path) => setFolders(folders.map((f) => f.id === folder.id ? { ...f, path } : f))} /></div>
+        <button disabled={!!saving || !folder.path.trim()} onClick={() => void save(folder.id, folder.path)} className="rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">{t("common.save")}</button>
+      </div>
+    </div>)}
+    {message && <p className="text-xs text-ink-soft" role="status">{message}</p>}
+  </div>;
 }
 
 /** Première installation : ce choix est appliqué avant la fin du wizard,
@@ -322,6 +356,35 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [plexDialogOpen, setPlexDialogOpen] = useState(false);
+  const completePlex = useCallback(async () => {
+    await resetSwrCache();
+    await mutate("/api/auth/me");
+    setPlexDialogOpen(false);
+    onCreated();
+  }, [onCreated]);
+  const plexBrowser = async () => {
+    setPlexDialogOpen(false);
+    const popup = window.open("", "_blank", "width=500,height=600");
+    if (!popup || popup.closed) { setError(t("auth.plexPopupBlocked")); return; }
+    setBusy(true);
+    try {
+      const response = await fetch("/api/auth/plex/pin", { method: "POST" });
+      const pin = await response.json();
+      if (!response.ok) { popup.close(); setError(t("auth.plexUnreachable")); return; }
+      popup.location.href = pin.authUrl;
+      const deadline = Date.now() + 120_000;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const poll = await fetch("/api/auth/plex/poll", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: pin.id }) });
+        const result = await poll.json();
+        if (result.done && result.user) { await completePlex(); return; }
+        if (!poll.ok) { setError(t(poll.status === 403 ? "auth.plexNoAccess" : "auth.plexUnreachable")); return; }
+      }
+      setError(t("auth.plexTimeout"));
+    } catch { setError(t("auth.plexUnreachable")); }
+    finally { setBusy(false); }
+  };
 
   const submit = async () => {
     if (!username.trim() || !password) return;
@@ -397,7 +460,10 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
           {t("auth.createAccount")}
         </button>
+        <div className="flex items-center gap-3 py-1"><span className="h-px flex-1 bg-white/8" /><span className="text-xs text-ink-dim">{t("auth.or")}</span><span className="h-px flex-1 bg-white/8" /></div>
+        <button onClick={() => { setError(null); setPlexDialogOpen(true); }} disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl glass-strong text-sm font-bold text-amber disabled:opacity-40"><Play className="h-4 w-4 fill-amber" />{t("auth.loginWithPlex")}</button>
       </div>
+      {plexDialogOpen && <PlexLoginDialog onAuthenticated={completePlex} onClose={() => setPlexDialogOpen(false)} onUseBrowser={() => { void plexBrowser(); }} />}
     </StepShell>
   );
 }
@@ -405,6 +471,8 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
 function LanguageStep() {
   const t = useT();
   const { locale, setLocale } = useI18n();
+  const region = useWatchRegion();
+  const countryNames = new Intl.DisplayNames([locale], { type: "region" });
 
   return (
     <StepShell title={t("setup.languageTitle")} hint={t("setup.languageHint")}>
@@ -424,8 +492,40 @@ function LanguageStep() {
           </button>
         ))}
       </div>
+      <label className="mt-5 block text-sm font-semibold text-ink-soft" htmlFor="setup-country">{t("setup.countryTitle")}</label>
+      <p className="mt-1 text-xs text-ink-dim">{t("setup.countryHint")}</p>
+      <select id="setup-country" value={region.value} disabled={!region.loaded} onChange={(event) => void region.set(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-[#121525] px-3 py-3 text-sm text-ink">
+        {WATCH_REGION_OPTIONS.map((code) => <option key={code} value={code}>{countryNames.of(code) ?? code}</option>)}
+      </select>
+      <OriginalLanguageOption locale={locale} />
     </StepShell>
   );
+}
+
+function OriginalLanguageOption({ locale }: { locale: string }) {
+  const t = useT();
+  const words = ({ fr: ["VOSTFR", "VOST", "SUBFRENCH"], en: ["VOSTEN", "ENGSUB", "SUBENGLISH"], de: ["VOSTDE", "GERSUB", "SUBGERMAN"], it: ["VOSTIT", "ITSUB", "SUBITALIAN"], nl: ["VOSTNL", "NLSUB", "SUBDUTCH"] } as Record<string, string[]>)[locale] ?? ["VOST"];
+  const word = words[0];
+  const [blocked, setBlocked] = useState<string[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch("/api/settings/release-rules", { cache: "no-store" }).then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (Array.isArray(data?.blockedWords)) setBlocked(data.blockedWords); }).catch(() => {});
+  }, []);
+  const toggle = async () => {
+    if (!blocked || saving) return;
+    const exists = blocked.some((item) => words.includes(item.toUpperCase()));
+    const next = exists ? blocked.filter((item) => !words.includes(item.toUpperCase())) : [...blocked, ...words];
+    setSaving(true);
+    try {
+      const response = await fetch("/api/settings/release-rules", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ blockedWords: next }) });
+      if (response.ok) setBlocked(next);
+    } finally { setSaving(false); }
+  };
+  return <div className="mt-5 flex items-start justify-between gap-4 rounded-2xl glass p-4">
+    <div><p className="text-sm font-bold text-ink">{t("setup.originalAudioTitle")}</p><p className="mt-1 text-xs text-ink-dim">{t("setup.originalAudioHint", { tag: word })}</p></div>
+    <Toggle on={!!blocked && !blocked.some((item) => words.includes(item.toUpperCase()))} disabled={!blocked || saving} onChange={toggle} />
+  </div>;
 }
 
 interface HardwarePreset {

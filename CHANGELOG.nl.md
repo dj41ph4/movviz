@@ -1,3 +1,10 @@
+## v1.28.00 — 28 oktober 2026
+
+### Installatie en downloads
+
+- De installatiewizard biedt een lokaal of Plex-account, land, ondertitelde originele versies en opslagmappen voor films en series. Plex is optioneel. Bestaande instellingen blijven behouden.
+- Aanbevelingen verschijnen ook bij een lege bibliotheek. Complete series worden aangeduid in de wachtrij; een automatisch pakket zonder de gezochte afleveringen wordt zonder bestanden te verwijderen uit de wachtrij gehaald en de zoekopdracht wordt hervat.
+
 ## v1.27.81 — 28 oktober 2026
 
 ### NAS

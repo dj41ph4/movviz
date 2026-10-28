@@ -27,6 +27,8 @@ export interface ActivityMedia {
   displayEpisode?: number | null;
   /** Number of episodes sharing this same torrent (a season pack) — omitted/1 for a single episode. */
   packEpisodeCount?: number;
+  /** The download was explicitly linked to a whole series, even if only one episode is missing. */
+  isCompleteSeriesPack?: boolean;
   /** Number of distinct seasons covered by this same torrent (a complete-series pack) — set alongside packEpisodeCount when the download is a whole-series intégrale. */
   seasonCount?: number;
   posterPath?: string | null;

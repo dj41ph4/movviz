@@ -23,17 +23,19 @@ const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 interface FailedRelease {
   infoHash: string;
   failedAt: number;
+  seriesId?: string;
+  releaseTitle?: string;
 }
 
 function read(): FailedRelease[] {
   return readJsonCached<FailedRelease[]>(FILE, []);
 }
 
-export function recordFailedRelease(infoHash: string) {
+export function recordFailedRelease(infoHash: string, details?: { seriesId: string; releaseTitle: string }) {
   if (!infoHash) return;
   const now = Date.now();
   const list = read().filter((r) => now - r.failedAt < COOLDOWN_MS && r.infoHash !== infoHash);
-  list.push({ infoHash, failedAt: now });
+  list.push({ infoHash, failedAt: now, ...details });
   fs.mkdirSync(CONFIG_DIR, { recursive: true });
   writeJsonCached(FILE, list);
 }
@@ -42,4 +44,13 @@ export function isRecentlyFailedRelease(infoHash: string | null | undefined): bo
   if (!infoHash) return false;
   const now = Date.now();
   return isBlockedRelease(infoHash) || read().some((r) => r.infoHash === infoHash && now - r.failedAt < COOLDOWN_MS);
+}
+
+/** Indexers may omit the info hash. An exact title scoped to the same series
+ * is a fallback for the same source during the short failed-release cooldown. */
+export function isRecentlyFailedSeriesPack(seriesId: string, release: { infoHash: string | null; title: string }): boolean {
+  if (isRecentlyFailedRelease(release.infoHash)) return true;
+  if (release.infoHash) return false;
+  const title = release.title.trim().toLocaleLowerCase();
+  return !!title && read().some((r) => r.seriesId === seriesId && r.releaseTitle?.trim().toLocaleLowerCase() === title && Date.now() - r.failedAt < COOLDOWN_MS);
 }

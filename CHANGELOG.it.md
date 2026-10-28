@@ -1,3 +1,10 @@
+## v1.28.00 — 28 ottobre 2026
+
+### Installazione e download
+
+- La procedura guidata propone un account locale o Plex, il paese, le versioni originali sottotitolate e le cartelle di film e serie. Plex è facoltativo. Le impostazioni esistenti vengono conservate.
+- I suggerimenti appaiono anche con una libreria vuota. Le serie complete sono identificate nella coda; un pacchetto automatico privo degli episodi cercati viene rimosso senza cancellare i file e la ricerca riprende.
+
 ## v1.27.81 — 28 ottobre 2026
 
 ### NAS

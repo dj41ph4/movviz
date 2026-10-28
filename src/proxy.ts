@@ -25,6 +25,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/auth/plex/poll",
   "/api/healthz",
   "/api/library/import",
+  "/api/library/reject-series-pack",
   "/api/activity/log",
   "/api/extension", // Extension navigateur : jeton Bearer vérifié dans la route, pas de cookie.
 ];
@@ -43,7 +44,7 @@ export function proxy(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  if (isStaticAsset || pathname === "/login") return NextResponse.next();
+  if (isStaticAsset || pathname === "/login" || pathname === "/setup") return NextResponse.next();
 
   if (!isValidSessionCookie(cookie)) {
     const url = req.nextUrl.clone();

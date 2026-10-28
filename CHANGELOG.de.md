@@ -1,3 +1,10 @@
+## v1.28.00 — 28. Oktober 2026
+
+### Einrichtung und Downloads
+
+- Der Assistent bietet ein lokales oder Plex-Konto, Land, untertitelte Originalfassungen und die Speicherordner für Filme und Serien. Plex ist optional. Bestehende Einstellungen bleiben erhalten.
+- Empfehlungen erscheinen auch bei leerer Bibliothek. Gesamtpakete werden in der Warteschlange gekennzeichnet; ein automatisches Paket ohne die gesuchten Folgen wird ohne Löschen seiner Dateien entfernt und die Suche fortgesetzt.
+
 ## v1.27.81 — 28. Oktober 2026
 
 ### NAS

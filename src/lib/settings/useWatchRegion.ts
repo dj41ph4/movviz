@@ -10,7 +10,7 @@ interface PreferencesData {
  *  pas les ~250 pays ISO-3166, juste ceux qu'un utilisateur Movviz est
  *  susceptible de choisir. La valeur reste un simple code ISO stocké tel
  *  quel, donc rien n'empêche d'en ajouter d'autres plus tard. */
-export const WATCH_REGION_OPTIONS = ["FR", "BE", "CH", "LU", "CA", "GB", "US", "DE", "ES", "IT", "NL"] as const;
+export const WATCH_REGION_OPTIONS = ["FR", "BE", "CH", "LU", "CA", "GB", "US", "DE", "ES", "IT", "NL", "AT", "PT", "IE", "AU", "NZ", "BR", "MX", "AR", "JP", "KR", "IN", "ZA", "MA", "DZ", "TN", "SE", "NO", "DK", "FI", "PL", "CZ", "GR", "TR"] as const;
 
 const DEFAULT_WATCH_REGION = "FR";
 
@@ -23,7 +23,7 @@ const DEFAULT_WATCH_REGION = "FR";
  * à un compte belge).
  */
 export function useWatchRegion() {
-  const { data, mutate } = useSWR<PreferencesData>("/api/settings/preferences");
+  const { data, mutate } = useSWR<PreferencesData>("/api/settings/preferences", (url: string) => fetch(url, { cache: "no-store" }).then((response) => { if (!response.ok) throw new Error("preferences unavailable"); return response.json(); }));
 
   const value = data?.prefs?.watchRegion ?? DEFAULT_WATCH_REGION;
   const loaded = data !== undefined;

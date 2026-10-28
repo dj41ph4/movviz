@@ -17,8 +17,6 @@ export function MetadataSettings() {
   const [tmdbRestoring, setTmdbRestoring] = useState(false);
   const [tmdbTesting, setTmdbTesting] = useState(false);
   const [tmdbTestResult, setTmdbTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
-  const [discoverLayout, setDiscoverLayout] = useState<"movviz" | "allocine">("movviz");
-  const [savingLayout, setSavingLayout] = useState(false);
   const [omdbConfigured, setOmdbConfigured] = useState(false);
   const [omdbHasStoredKey, setOmdbHasStoredKey] = useState(false);
   const [omdbApiKey, setOmdbApiKey] = useState("");
@@ -38,11 +36,6 @@ export function MetadataSettings() {
         setTmdbIsDefault(d.isDefault);
       });
 
-  const loadLayout = () =>
-    fetch("/api/metadata/discover-layout", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setDiscoverLayout(d.layout ?? "movviz"));
-
   const loadOmdb = () =>
     fetch("/api/metadata/omdb", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -61,7 +54,7 @@ export function MetadataSettings() {
         setTvdbHasStoredKey(d.hasStoredKey);
       });
 
-  useEffect(() => { loadTmdb(); loadLayout(); loadOmdb(); loadTvdb(); }, []);
+  useEffect(() => { loadTmdb(); loadOmdb(); loadTvdb(); }, []);
 
   const saveTvdb = async () => {
     if (!tvdbApiKey.trim()) return;
@@ -107,20 +100,6 @@ export function MetadataSettings() {
       setOmdbTestResult({ ok: false, error: "network" });
     } finally {
       setOmdbTesting(false);
-    }
-  };
-
-  const saveLayout = async (layout: "movviz" | "allocine") => {
-    setSavingLayout(true);
-    try {
-      await fetch("/api/metadata/discover-layout", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ layout }),
-      });
-      setDiscoverLayout(layout);
-    } finally {
-      setSavingLayout(false);
     }
   };
 
@@ -324,29 +303,6 @@ export function MetadataSettings() {
         >
           {t("metadata.tvdbGetKey")} <ExternalLink className="h-3 w-3" />
         </a>
-      </div>
-
-      <div className="mt-6 border-t border-white/5 pt-5">
-        <h3 className="text-sm font-bold text-ink">{t("metadata.discoverLayout")}</h3>
-        <p className="mt-1 text-xs text-ink-dim">{t("metadata.discoverLayoutHint")}</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {(["movviz", "allocine"] as const).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => saveLayout(opt)}
-              disabled={savingLayout}
-              className={cn(
-                "rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors disabled:opacity-60",
-                discoverLayout === opt ? "border-brand/40 bg-brand/12 text-brand-glow" : "border-white/8 bg-black/20 text-ink-soft hover:text-ink"
-              )}
-            >
-              {opt === "movviz" ? t("metadata.discoverLayoutMovviz") : t("metadata.discoverLayoutAllocine")}
-              <p className="mt-0.5 text-xs font-normal text-ink-dim">
-                {opt === "movviz" ? t("metadata.discoverLayoutMovvizHint") : t("metadata.discoverLayoutAllocineHint")}
-              </p>
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="mt-6 border-t border-white/5 pt-5">

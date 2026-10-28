@@ -1,3 +1,4 @@
+import { initializeFreshDefaults } from "@/lib/setup/freshDefaults";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { hasAnyUser, getUserByPlexId, addUser, updateUser, createSession } from "@/lib/auth/store";
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
       createdAt: Date.now(),
     };
     addUser(user);
+    if (isFirstUser) { try { initializeFreshDefaults(user.id); } catch (error) { console.error("[setup] defaults:", error); } }
 
     if (isFirstUser) {
       savePlexConfig({ ...cfg, adminToken: token });

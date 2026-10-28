@@ -1,3 +1,10 @@
+## v1.28.00 — 28 octobre 2026
+
+### Installation et téléchargements
+
+- L'assistant propose un compte local ou Plex, le pays, les versions originales sous-titrées et les dossiers où les films et séries seront conservés. Plex reste facultatif. Les nouveaux réglages ne remplacent pas ceux des installations existantes.
+- Les propositions du tableau de bord apparaissent même si la bibliothèque est vide. Les intégrales sont identifiées dans la file et une intégrale automatique clairement dépourvue des épisodes recherchés est retirée sans effacer ses fichiers, avant une nouvelle recherche.
+
 ## v1.27.81 — 28 octobre 2026
 
 ### NAS

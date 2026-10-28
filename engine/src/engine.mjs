@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { WebTorrentBackend } from "./backends/WebTorrentBackend.mjs";
 import { retainMetainfo } from "./manualSeed.mjs";
@@ -21,7 +22,13 @@ function createBackend(cfg, deps) {
 export class MovvizEngine {
   constructor() {
     this.instances = new Map();
-    this.state = loadState() ?? {};
+    const savedState = loadState();
+    this.state = savedState ?? {};
+    // Only a genuinely new data directory receives the new limits. A missing
+    // or unreadable engine state on an existing installation is not a reset.
+    const fresh = !savedState && !fs.existsSync(path.join(CONFIG_DIR, "engine-state.json")) && !fs.existsSync(path.join(CONFIG_DIR, "users.json"));
+    this._freshInstall = fresh;
+    if (fresh) this.state.instances = { movies: { maxActive: 2, maxPeers: 1000, seedRatio: 2 }, series: { maxActive: 4, maxPeers: 1000, seedRatio: 2 } };
     // A bounded, real speed trace for the desktop download monitor.  It is
     // sampled by the engine itself (not by browser polling), so every client
     // sees the same graph and a busy browser cannot manufacture samples.
@@ -98,6 +105,7 @@ export class MovvizEngine {
       this._recordStats();
     }, 5000);
     this._recordStats();
+    if (this._freshInstall) this.persist();
     this.started = true;
     console.log(
       `[engine] started with ${this.instances.size} instance(s) [client: ${this._clientType}]: ` +
@@ -147,6 +155,8 @@ export class MovvizEngine {
           year: rec.year,
           episodeTarget: rec.episodeTarget,
           episodeTargets: rec.episodeTargets,
+          rejectMissingSeriesPack: rec.rejectMissingSeriesPack === true,
+          autoPackReleaseTitle: rec.autoPackReleaseTitle,
         });
         resumed++;
       } catch (e) {
@@ -182,7 +192,7 @@ export class MovvizEngine {
 
   // ---- Commands ----------------------------------------------------------
 
-  async add({ torrentId, category, instanceId, sequential, paused, libraryRef, title, year, episodeTarget, episodeTargets }) {
+  async add({ torrentId, category, instanceId, sequential, paused, libraryRef, title, year, episodeTarget, episodeTargets, rejectMissingSeriesPack, autoPackReleaseTitle }) {
     let inst = instanceId ? this.instances.get(instanceId) : null;
     if (instanceId && !inst) throw new Error(`unknown instance id: ${instanceId}`);
     if (!inst && category) {
@@ -192,7 +202,7 @@ export class MovvizEngine {
     if (!inst) inst = this.instances.values().next().value;
     if (!inst) throw new Error("no download instance available");
     if (!torrentId) throw new Error("missing torrentId (magnet, URL or infohash)");
-    return inst.add(torrentId, { sequential, paused, libraryRef, title, year, episodeTarget, episodeTargets });
+    return inst.add(torrentId, { sequential, paused, libraryRef, title, year, episodeTarget, episodeTargets, rejectMissingSeriesPack, autoPackReleaseTitle });
   }
 
   pause(infoHash) { return this.findByInfoHash(infoHash)?.pause(infoHash) ?? false; }

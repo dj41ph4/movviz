@@ -34,7 +34,7 @@ import {
  *  season/episode/packEpisodeCount fields, not a pre-encoded ref. */
 function queueItemLibraryRef(media: QueueItem["media"]): string {
   if (media.type === "movie") return encodeLibraryRef({ kind: "movie", movieId: media.id });
-  if (media.packEpisodeCount && media.season === 0) return encodeLibraryRef({ kind: "series", seriesId: media.id });
+  if (media.isCompleteSeriesPack || (media.packEpisodeCount && media.season === 0)) return encodeLibraryRef({ kind: "series", seriesId: media.id });
   if (media.packEpisodeCount && media.season != null) return encodeLibraryRef({ kind: "season", seriesId: media.id, season: media.season });
   if (media.season != null && media.episode != null) return encodeLibraryRef({ kind: "episode", seriesId: media.id, season: media.season, episode: media.episode });
   return encodeLibraryRef({ kind: "series", seriesId: media.id });
@@ -49,7 +49,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
  *  conventions from TitleContent's openManualSearch{,Season,Episode}. */
 function queueItemSearchQuery(media: QueueItem["media"]): string {
   if (media.type === "movie") return media.title;
-  if (media.packEpisodeCount && media.season === 0) return media.title; // full series pack
+  if (media.isCompleteSeriesPack || (media.packEpisodeCount && media.season === 0)) return media.title; // full series pack
   if (media.packEpisodeCount && media.season != null) return `${media.title} S${pad(media.season)}`;
   if (media.season != null && media.episode != null) return `${media.title} S${pad(media.season)}E${pad(media.episode)}`;
   return media.title;
@@ -57,7 +57,7 @@ function queueItemSearchQuery(media: QueueItem["media"]): string {
 
 function queueItemSearchTitle(media: QueueItem["media"]): string {
   if (media.type === "movie") return media.title;
-  if (media.packEpisodeCount && media.season === 0) return media.title;
+  if (media.isCompleteSeriesPack || (media.packEpisodeCount && media.season === 0)) return media.title;
   if (media.packEpisodeCount && media.season != null) return `${media.title} — S${pad(media.season)}`;
   if (media.season != null && media.episode != null) return `${media.title} — ${media.season}x${pad(media.episode)}`;
   return media.title;
@@ -720,7 +720,7 @@ const QueueItemRow = memo(function QueueItemRow({
           <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="block truncate">{activityTitle(item.media)}</Link>
         )}
         <p className="nx-dl-meta truncate">
-          {activitySeason(item.media) != null && <>{activityEpisode(item.media) != null ? `S${pad(activitySeason(item.media)!)}E${pad(activityEpisode(item.media)!)}` : `S${pad(activitySeason(item.media)!)}`} · </>}
+          {item.media.isCompleteSeriesPack ? <>{t("search.fullPack")} · </> : activitySeason(item.media) != null && <>{activityEpisode(item.media) != null ? `S${pad(activitySeason(item.media)!)}E${pad(activityEpisode(item.media)!)}` : `S${pad(activitySeason(item.media)!)}`} · </>}
           {detailText} · {formatBytes(item.release.size)}
           {item.release.indexer && item.release.indexer !== "Inconnu" && ` · ${item.release.indexer}`}
         </p>
@@ -791,7 +791,9 @@ const QueueItemRow = memo(function QueueItemRow({
               ) : (
                 <Link href={item.media?.href ?? "#"} className="truncate font-semibold text-ink hover:text-brand-glow">
                   {activityTitle(item.media)}
-                  {item.media.packEpisodeCount ? (
+                  {item.media.isCompleteSeriesPack ? (
+                    <span className="text-ink-dim">{" — "}{t("search.fullPack")}</span>
+                  ) : item.media.packEpisodeCount ? (
                     <span className="text-ink-dim">
                       {" — "}
                       {item.media.season === 0 || item.media.displaySeason === null

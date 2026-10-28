@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-fresh-defaults-"));
+process.env.MOVVIZ_CONFIG_DIR = dir;
+fs.writeFileSync(path.join(dir, "naming.json"), JSON.stringify({ movieFile: "custom" }));
+fs.writeFileSync(path.join(dir, "cdn-images.json"), JSON.stringify({ enabled: false }));
+const { initializeFreshDefaults } = await import("../src/lib/setup/freshDefaults.ts");
+const { getTaskConfig } = await import("../src/lib/scheduler/state.ts");
+const { loadDashboardLayout } = await import("../src/lib/dashboard/store.ts");
+const { loadUserPrefs } = await import("../src/lib/userPrefs/store.ts");
+test("first account defaults preserve pre-existing files and establish the agreed preferences", () => {
+  initializeFreshDefaults("first-user");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "naming.json"), "utf8")).movieFile, "custom");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "cdn-images.json"), "utf8")).enabled, false);
+  assert.equal(fs.readFileSync(path.join(dir, "setup-pending"), "utf8"), "first-user");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "discover-layout.json"), "utf8")).layout, "allocine");
+  assert.equal(loadUserPrefs("first-user").autoSubtitles, true);
+  assert.equal(loadDashboardLayout("first-user").hero.slideshowSpeedSec, 60);
+  assert.deepEqual(getTaskConfig("plex-full-reconcile").window, { startHour: 3, endHour: 6 });
+  assert.equal(getTaskConfig("plex-watch-sync").intervalMs, 1800000);
+});

@@ -21,7 +21,7 @@ import { emitNotification } from "@/lib/notifications/store";
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createFailureRef, createReleaseRef } from "@/lib/activity/v2/store";
 import { getTvdbEpisodesFor, getTvdbSeasonNames, groupTvdbEpisodesBySeason, tvdbConfigured, specialsEnabled, type TvdbEpisode } from "@/lib/metadata/tvdb";
-import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
+import { isRecentlyFailedRelease, isRecentlyFailedSeriesPack } from "@/lib/library/failedReleases";
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
@@ -765,7 +765,8 @@ async function sendToEngine(
   libraryRef: string,
   title: string,
   episodeTarget?: { season: number; episode: number },
-  episodeTargets?: { season: number; episode: number }[]
+  episodeTargets?: { season: number; episode: number }[],
+  rejectMissingSeriesPack = false
 ) {
   const payload = await buildGrabPayload({
     magnetUrl: release.magnetUrl,
@@ -778,7 +779,7 @@ async function sendToEngine(
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
       headers: engineHeaders({ "content-type": "application/json" }),
-      body: JSON.stringify({ ...payload, category, libraryRef, title, episodeTarget: planned.single, episodeTargets: planned.multiple }),
+      body: JSON.stringify({ ...payload, category, libraryRef, title, episodeTarget: planned.single, episodeTargets: planned.multiple, rejectMissingSeriesPack, autoPackReleaseTitle: rejectMissingSeriesPack ? release.title : undefined }),
       signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
     });
     const torrent = await res.json();
@@ -1538,7 +1539,7 @@ export async function searchCompleteSeriesCandidates(
     .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
     .filter(({ release }) => release.score >= profile.minScore)
     .filter(({ release }) => withinSizeLimit(release.size, "series"))
-    .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
+    .filter(({ release }) => !isRecentlyFailedSeriesPack(series.id, release))
     .sort(compareCompletePackCandidates);
   const scoreMs = Math.round(performance.now() - tS);
   recordSearchLog("debug", "series_pack.scoring", `${series.title} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms)`, scoreMs);
@@ -1580,7 +1581,7 @@ export async function searchCompleteSeriesCandidates(
       .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ release }) => release.score >= profile.minScore)
       .filter(({ release }) => withinSizeLimit(release.size, "series"))
-      .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
+      .filter(({ release }) => !isRecentlyFailedSeriesPack(series.id, release))
         .sort(compareCompletePackCandidates);
       if (directCandidates.length > 0) break;
     }
@@ -1630,7 +1631,8 @@ async function tryGrabSeriesPackImpl(
     encodeLibraryRef({ kind: "series", seriesId: series.id }),
     series.title,
     undefined,
-    targets
+    targets,
+    true
   );
   if (!("ok" in sent)) {
     const detail = JSON.stringify(sent.detail);

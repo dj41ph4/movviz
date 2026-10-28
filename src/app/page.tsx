@@ -251,7 +251,7 @@ export default function DashboardPage() {
       )}
 
       {richMode ? (
-        !loading && !hasError && movies.length + series.length > 0 && (
+        !loading && !hasError && (
           <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} onRowsReady={handleRowsReady} />
         )
       ) : (

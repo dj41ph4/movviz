@@ -23,6 +23,7 @@ export default function LoginPage() {
   const t = useT();
   const router = useRouter();
   const [setupRequired, setSetupRequired] = useState<boolean | null>(null);
+  const [plexLoginAvailable, setPlexLoginAvailable] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -56,7 +57,9 @@ export default function LoginPage() {
     fetch("/api/auth/me", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
-        if (d.user) router.replace("/");
+        if (d.user) { router.replace(d.setupPending ? "/setup" : "/"); return; }
+        if (d.setupRequired) { router.replace("/setup"); return; }
+        setPlexLoginAvailable(d.plexLoginAvailable === true);
         setSetupRequired(d.setupRequired);
         setMode(d.setupRequired ? "register" : "login");
       });
@@ -99,7 +102,8 @@ export default function LoginPage() {
         // registering after that lands on the "pending" screen instead.
         router.push(data.user?.status === "pending" ? "/" : "/setup");
       } else {
-        router.push("/");
+        const me = await fetch("/api/auth/me", { cache: "no-store" }).then((r) => r.json());
+        router.push(me.setupPending ? "/setup" : "/");
       }
       router.refresh();
     } finally {
@@ -217,6 +221,7 @@ export default function LoginPage() {
             {mode === "register" ? t("auth.createAccount") : t("auth.login")}
           </button>
 
+          {plexLoginAvailable && <>
           <div className="flex items-center gap-3 py-1">
             <span className="h-px flex-1 bg-white/8" />
             <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-dim">{t("auth.or")}</span>
@@ -231,6 +236,7 @@ export default function LoginPage() {
             {plexBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-amber" />}
             {t("auth.loginWithPlex")}
           </button>
+          </>}
         </motion.div>
 
         {!setupRequired && (

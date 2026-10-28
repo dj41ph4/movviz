@@ -1,3 +1,10 @@
+## v1.28.00 — 28 October 2026
+
+### Setup and downloads
+
+- The setup wizard offers a local or Plex account, country, subtitled original versions and the folders where movies and series are stored. Plex is optional. New defaults do not replace existing settings.
+- Dashboard suggestions appear with an empty library. Full series packs are labelled in the queue; an automatic pack clearly missing the requested episodes is removed without deleting its files before another search.
+
 ## v1.27.81 — October 28, 2026
 
 ### NAS

@@ -9,7 +9,7 @@ import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_JOURNEYS, matchesSettingsQuery, settingsContentSnippet } from "@/lib/settingsNav";
 
-type Tone = "ok" | "amber" | "down";
+type Tone = "ok" | "amber" | "down" | "optional";
 function StatusLine({
   icon: Icon, title, tone, label, onClick, index,
 }: { icon: React.ElementType; title: string; tone: Tone | null; label: string; onClick: () => void; index: number }) {
@@ -27,7 +27,7 @@ function StatusLine({
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.36 + index * 0.16, type: "spring", stiffness: 420 }}
-          className={cn("absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#0d1022]", tone === "ok" ? "bg-ok shadow-[0_0_12px_rgba(52,211,153,.8)]" : tone === "amber" ? "bg-amber" : tone === "down" ? "bg-down" : "animate-pulse bg-white/30")}
+          className={cn("absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#0d1022]", tone === "ok" ? "bg-ok shadow-[0_0_12px_rgba(52,211,153,.8)]" : tone === "amber" ? "bg-amber" : tone === "down" ? "bg-down" : tone === "optional" ? "bg-white/30" : "animate-pulse bg-white/30")}
         />
       </span>
       <span className="min-w-0 flex-1">
@@ -45,7 +45,7 @@ function usePlexStatus(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    fetch("/api/plex/config").then((r) => (r.ok ? r.json() : { connected: false })).then((d) => { if (!cancelled) setConnected(!!d.connected); }).catch(() => { if (!cancelled) setConnected(false); });
+    fetch("/api/plex/config").then((r) => (r.ok ? r.json() : { connected: false })).then((d) => { if (!cancelled) setConnected(!!d.connected && !!d.hostname); }).catch(() => { if (!cancelled) setConnected(false); });
     return () => { cancelled = true; };
   }, [enabled]);
   return connected;
@@ -102,13 +102,13 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
   const diskTone: Tone | null = stats?.disk ? (stats.disk.free / stats.disk.total < 0.1 ? "down" : stats.disk.free / stats.disk.total < 0.2 ? "amber" : "ok") : stats || statsError ? "down" : null;
   const diskPercent = stats?.disk ? Math.round((stats.disk.free / stats.disk.total) * 100) : null;
   const checks = [
-    { icon: Play, title: t("plex.title"), tone: plexConnected === null ? null : plexConnected ? "ok" as const : "amber" as const, label: plexConnected === null ? t("settings.homeChecking") : plexConnected ? t("plex.connected") : t("plex.notLinked"), tab: "plex" },
+    { icon: Play, title: t("plex.title"), tone: plexConnected === null ? null : plexConnected ? "ok" as const : "optional" as const, label: plexConnected === null ? t("settings.homeChecking") : plexConnected ? t("plex.connected") : t("settings.plexOptional"), tab: "plex" },
     { icon: HardDrive, title: t("settings.tabClients"), tone: engineOffline === null ? null : engineOffline ? "down" as const : "ok" as const, label: engineOffline === null ? t("settings.homeChecking") : engineOffline ? t("downloads.engineOffline") : t("common.active"), tab: "clients" },
     { icon: BookOpen, title: t("metadata.title"), tone: tmdbConfigured === null ? null : tmdbConfigured ? "ok" as const : "amber" as const, label: tmdbConfigured === null ? t("settings.homeChecking") : tmdbConfigured ? t("metadata.tmdbConfigured") : t("metadata.tmdbNotConfigured"), tab: "metadata" },
     { icon: Zap, title: t("settings.homeCardStorage"), tone: diskTone, label: diskTone === null ? t("settings.homeChecking") : diskPercent !== null ? t("settings.homeStorageFree", { percent: diskPercent }) : t("settings.homeUnavailable"), tab: "performance" },
   ];
   const loadedChecks = checks.filter((check) => check.tone !== null);
-  const readyCount = loadedChecks.filter((check) => check.tone === "ok").length;
+  const readyCount = loadedChecks.filter((check) => check.tone === "ok" || check.tone === "optional").length;
   const hasAttention = loadedChecks.some((check) => check.tone === "down" || check.tone === "amber");
   const allLoaded = loadedChecks.length === checks.length;
 

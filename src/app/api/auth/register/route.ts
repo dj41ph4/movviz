@@ -1,3 +1,4 @@
+import { initializeFreshDefaults } from "@/lib/setup/freshDefaults";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { hasAnyUser, getUserByUsername, addUser, createSession } from "@/lib/auth/store";
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
     createdAt: Date.now(),
   };
   addUser(user);
+  if (isFirstUser) { try { initializeFreshDefaults(user.id); } catch (error) { console.error("[setup] defaults:", error); } }
   if (user.status === "pending") {
     emitNotification("user_registered", `${username} a demandé un compte`, "/users", { username });
   }

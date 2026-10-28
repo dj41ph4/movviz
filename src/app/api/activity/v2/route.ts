@@ -235,6 +235,7 @@ async function getQueue(user: User): Promise<NextResponse> {
           ? {
               id: seriesMatch.series.id, title: seriesMatch.series.title, type: "series",
               season: seriesMatch.season, episode: seriesMatch.episode,
+              isCompleteSeriesPack: !!t.libraryRef && decodeLibraryRef(t.libraryRef)?.kind === "series",
               posterPath: seriesMatch.series.posterPath,
               packEpisodeCount: seriesMatch.count > 1 ? seriesMatch.count : undefined,
               // season === 0 = the torrent spans multiple seasons (an

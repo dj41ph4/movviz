@@ -142,6 +142,8 @@ export function createApiServer(engine) {
               year: body.year,
               episodeTarget: body.episodeTarget,
               episodeTargets: body.episodeTargets,
+              rejectMissingSeriesPack: body.rejectMissingSeriesPack === true,
+              autoPackReleaseTitle: body.autoPackReleaseTitle,
             });
             return send(res, 201, t);
           } catch (e) {
