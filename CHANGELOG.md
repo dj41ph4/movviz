@@ -1,3 +1,9 @@
+## v1.27.81 — 28 octobre 2026
+
+### NAS
+
+- Corrige le manifeste UGREEN UPK pour que le contrôle officiel `ugcli` accepte la version minimale du firmware. Les paquets NAS restent construits depuis le même code Movviz et associés à cette release. Le SPK Synology reste expérimental jusqu’aux essais sur un NAS DSM réel.
+
 ## v1.27.80 — 28 octobre 2026
 
 ### NAS
