@@ -1,3 +1,9 @@
+## v1.27.80 — October 28, 2026
+
+### NAS
+
+- Added UGREEN UPK (Docker App) and native Synology SPK packages, built by GitHub Actions from the same source and published with the other files of each version. The SPK is experimental pending real DSM testing; some FFmpeg or Playwright features may be unavailable.
+
 ## v1.27.79 — October 27, 2026
 
 ### Android TV and Android

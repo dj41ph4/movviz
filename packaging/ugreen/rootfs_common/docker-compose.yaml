@@ -1,6 +1,6 @@
 services:
   movviz:
-    image: docker.io/dj41ph4/movviz:0.0.0-ugreen
+    image: dj41ph4/movviz:0.0.0-ugreen
     restart: unless-stopped
     ports:
       - "9810:9810"

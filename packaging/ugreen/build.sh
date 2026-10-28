@@ -16,7 +16,7 @@ sed -i "s/movviz:0\.0\.0-ugreen/movviz:${VERSION}-ugreen/" "$WORK/rootfs_common/
 if [[ "$ARCH" == amd64 ]]; then sed -i '/^  - arm64$/d' "$WORK/project.yaml"; fi
 if [[ "$ARCH" == arm64 ]]; then sed -i '/^  - amd64$/d' "$WORK/project.yaml"; fi
 build_one() {
-  local arch="$1" image="docker.io/dj41ph4/movviz:${VERSION}-ugreen"
+  local arch="$1" image="dj41ph4/movviz:${VERSION}-ugreen"
   docker buildx build --platform "linux/$arch" --load -f "$ROOT/packaging/docker/Dockerfile" -t "$image" "$ROOT"
   mkdir -p "$WORK/rootfs_${arch}/images"
   docker save -o "$WORK/rootfs_${arch}/images/movviz.tar" "$image"
