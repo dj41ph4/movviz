@@ -1293,6 +1293,15 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
 
     val playPauseFocus = remember { FocusRequester() }
+    var trackDialogWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(showAudioDialog, showSubtitleDialog) {
+        val isOpen = showAudioDialog || showSubtitleDialog
+        if (!isOpen && trackDialogWasOpen && showControls && errorMessage == null && !stillWatchingPrompt) {
+            withFrameNanos { }
+            runCatching { playPauseFocus.requestFocus() }
+        }
+        trackDialogWasOpen = isOpen
+    }
     // Le curseur est un véritable arrêt dans le graphe D-pad : il ne dépend
     // pas du choix spatial implicite de Compose, qui varie selon les TV.
     val progressFocus = remember { FocusRequester() }
@@ -2577,6 +2586,7 @@ private fun TrackDialog(
     includeOffOption: Boolean = false,
 ) {
     val firstFocus = remember { FocusRequester() }
+    BackHandler(onBack = onDismiss)
     LaunchedEffect(Unit) {
         repeat(5) { attempt ->
             val ok = runCatching { firstFocus.requestFocus() }.getOrDefault(false)
@@ -2588,6 +2598,12 @@ private fun TrackDialog(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.75f))
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Back) {
+                    if (event.type == KeyEventType.KeyUp) onDismiss()
+                    true
+                } else false
+            }
             .tvPointerClick { onDismiss() },
         contentAlignment = Alignment.Center,
     ) {
