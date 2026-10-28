@@ -1,3 +1,12 @@
+## v1.28.3 — 28 October 2026
+
+### Setup and playback
+
+- Reset clears accounts, settings, library records and history while keeping movie, series and downloaded files.
+- The Synology package includes FFmpeg, FFprobe and the resolver; DSM compatibility remains to be checked on each architecture.
+- Android TV retries direct playback after a decoding error immediately following a pause before falling back to transcoding.
+- The Windows build checks the FFmpeg download and retries on failure.
+
 ## v1.28.2 — 28 October 2026
 
 ### Setup and playback

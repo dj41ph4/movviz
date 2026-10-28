@@ -123,10 +123,28 @@ New-Item -ItemType Directory -Force $ffmpegRuntimeDir | Out-Null
 $ffmpegZip = Join-Path $stage ".tools\ffmpeg.zip"
 $ffmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-lgpl-9.0.zip"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest -Uri $ffmpegUrl -OutFile $ffmpegZip -UseBasicParsing
 $ffmpegExtract = Join-Path $stage ".tools\ffmpeg-extract"
-if (Test-Path $ffmpegExtract) { Remove-Item $ffmpegExtract -Recurse -Force }
-Expand-Archive -Path $ffmpegZip -DestinationPath $ffmpegExtract -Force
+$ffmpegReady = $false
+for ($attempt = 1; $attempt -le 4; $attempt++) {
+  try {
+    if (Test-Path $ffmpegZip) { Remove-Item -LiteralPath $ffmpegZip -Force }
+    if (Test-Path $ffmpegExtract) { Remove-Item -LiteralPath $ffmpegExtract -Recurse -Force }
+    # curl retries interrupted transfers; validating the ZIP also catches a
+    # successful HTTP response with a truncated or invalid body.
+    & curl.exe --fail --location --show-error --retry 3 --retry-all-errors --connect-timeout 30 --max-time 600 --output $ffmpegZip $ffmpegUrl
+    if ($LASTEXITCODE -ne 0) { throw "FFmpeg download failed with exit code $LASTEXITCODE" }
+    Expand-Archive -LiteralPath $ffmpegZip -DestinationPath $ffmpegExtract -Force -ErrorAction Stop
+    foreach ($name in @("ffmpeg.exe", "ffprobe.exe")) {
+      if (-not (Get-ChildItem -Path $ffmpegExtract -Recurse -Filter $name | Select-Object -First 1)) { throw "$name missing from archive" }
+    }
+    $ffmpegReady = $true
+    break
+  } catch {
+    Write-Warning "FFmpeg download/extraction attempt $attempt failed: $_"
+    if ($attempt -lt 4) { Start-Sleep -Seconds (5 * $attempt) }
+  }
+}
+if (-not $ffmpegReady) { throw "Unable to download and verify the FFmpeg archive after 4 attempts" }
 foreach ($name in @("ffmpeg.exe", "ffprobe.exe")) {
   $found = Get-ChildItem -Path $ffmpegExtract -Recurse -Filter $name | Select-Object -First 1
   if (-not $found) { throw "$name not found in downloaded FFmpeg archive" }

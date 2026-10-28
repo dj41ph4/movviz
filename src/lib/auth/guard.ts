@@ -4,6 +4,7 @@ import { getUserById } from "./store";
 import { resolveTokenUserId } from "@/lib/tokens/store";
 import type { User } from "./types";
 import { isUserInteraction, markUserActivity } from "@/lib/priority/userActivity";
+import { factoryResetActive } from "@/lib/system/resetBarrier";
 
 /**
  * Session cookie first (browser), falling back to a personal API token
@@ -12,6 +13,7 @@ import { isUserInteraction, markUserActivity } from "@/lib/priority/userActivity
  * /api/auth/me to show the "waiting for approval" screen, but nothing else.
  */
 export function requireUser(req: NextRequest): User | null {
+  if (factoryResetActive()) return null;
   // Point de marquage d'activité utilisateur : TOUTES les routes API
   // authentifiées passent par ce garde (les pages chargent ensuite des
   // fetchs /api/*). requireAdmin délègue à requireUser, donc un seul appel

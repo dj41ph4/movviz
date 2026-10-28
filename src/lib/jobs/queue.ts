@@ -1,4 +1,5 @@
 import { engineGet } from "@/lib/engine/server";
+import { factoryResetActive } from "@/lib/system/resetBarrier";
 import { priorityOf } from "./priorities";
 import type { Job, JobType } from "./types";
 import { cancelledJobs, JobCancelledError, runInJobScope, forcedJobs } from "./cancelScope";
@@ -125,6 +126,7 @@ function nextId(): string {
 }
 
 export function enqueueJob(type: JobType, label: string, total: number, runner: Runner, sourceId?: string, options: EnqueueOptions = {}): Job {
+  if (factoryResetActive()) throw new Error("factory_reset_in_progress");
   const job: Job = {
     id: nextId(),
     type,
@@ -158,6 +160,7 @@ export function enqueueJob(type: JobType, label: string, total: number, runner: 
 }
 
 async function dispatch() {
+  if (factoryResetActive()) return;
   // One explicit acquisition may start even when scheduled jobs occupy all
   // normal slots. Keep this lane serial and start it before the engine check.
   if (![...live].some((id) => jobOptions.get(id)?.immediate)) {
@@ -165,6 +168,7 @@ async function dispatch() {
     if (next) startJob(next.job, next.runner);
   }
   const throttled = (await isDownloadActive()) && priorityOf("download") >= DOWNLOAD_THROTTLE_THRESHOLD;
+  if (factoryResetActive()) return;
   const limit = throttled ? MAX_CONCURRENT_WHILE_DOWNLOADING : MAX_CONCURRENT;
   while (state.runningCount < limit) {
     const next = pickNextQueued();
@@ -172,6 +176,11 @@ async function dispatch() {
     const { job, runner } = next;
     startJob(job, runner);
   }
+}
+
+/** Includes runners that the queue watchdog no longer counts as running. */
+export function hasUnfinishedJobs(): boolean {
+  return live.size > 0 || state.pending.size > 0;
 }
 
 function startJob(job: Job, runner: Runner) {

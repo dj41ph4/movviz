@@ -35,7 +35,9 @@ function readBody(req) {
 }
 
 export function createApiServer(engine) {
+  let activeMutations = 0;
   const server = http.createServer(async (req, res) => {
+    let trackedMutation = false;
     try {
       if (ENGINE_TOKEN && req.headers["x-movviz-token"] !== ENGINE_TOKEN) {
         return send(res, 401, { error: "unauthorized" });
@@ -44,6 +46,14 @@ export function createApiServer(engine) {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const parts = url.pathname.split("/").filter(Boolean);
       const method = req.method;
+
+      if (method === "POST" && parts.length === 1 && parts[0] === "factory-reset") {
+        if (activeMutations) return send(res, 409, { error: "engine_busy" });
+        try { await engine.factoryReset(); return send(res, 200, { ok: true }); }
+        catch (error) { return send(res, 409, { error: error.message }); }
+      }
+      if (method !== "GET" && engine._factoryResetInProgress) return send(res, 503, { error: "factory_reset_in_progress" });
+      if (method !== "GET") { activeMutations++; trackedMutation = true; }
 
       if (parts[0] === "client-restart" && parts.length === 1) {
         if (method === "POST") {
@@ -202,6 +212,8 @@ export function createApiServer(engine) {
     } catch (e) {
       console.error("[engine:api] error:", e);
       send(res, 500, { error: "internal error" });
+    } finally {
+      if (trackedMutation) activeMutations--;
     }
   });
 

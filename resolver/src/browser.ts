@@ -6,7 +6,7 @@ import fs from "fs";
 // Use a fixed browsers path relative to the resolver's working directory
 // so Playwright works identically regardless of the user running the service
 // (Windows SYSTEM, Docker, Linux, NAS).
-const BROWSERS_PATH = path.join(process.cwd(), ".playwright-browsers");
+const BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(process.cwd(), ".playwright-browsers");
 process.env.PLAYWRIGHT_BROWSERS_PATH = BROWSERS_PATH;
 
 const CHALLENGE_TITLES = ["Just a moment...", "Please stand by...", "Checking your browser before accessing"];

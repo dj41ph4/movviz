@@ -3,6 +3,7 @@ import zlib from "node:zlib";
 import path from "node:path";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { getJsonWritePool, stopJsonWritePool } from "./workers/jsonWritePool";
+import { factoryResetActive } from "./system/resetBarrier";
 
 /**
  * Process-wide cache for the JSON files that back every Movviz store.
@@ -93,6 +94,19 @@ export async function prepareJsonShutdown(): Promise<void> {
   g.__movvizJsonWritesStopping = true;
   await stopJsonWritePool();
   await Promise.allSettled([...writePromises.values()]);
+}
+
+/** Quiesce writes before deleting application stores; never shut down the worker pool. */
+export async function prepareJsonReset(): Promise<void> {
+  g.__movvizJsonWritesStopping = true;
+  for (const { timer } of pendingWrites.values()) clearTimeout(timer);
+  await Promise.allSettled([...writePromises.values()]);
+  flushPendingJsonWritesSync(true);
+}
+
+export function finishJsonReset(): void {
+  g.__movvizJsonWritesStopping = false;
+  for (const [file, entry] of cache) if (entry.pending) startFileWrite(file, entry.value);
 }
 
 /** True if the last read of `file` hit a parse error instead of the file being absent. */
@@ -228,6 +242,7 @@ export function resetAllCaches(): void {
  * N of them.
  */
 export function writeJsonCached(file: string, value: unknown): void {
+  if (factoryResetActive()) throw new Error("factory_reset_in_progress");
   cache.set(file, { mtimeMs: -1, size: -1, value, pending: true });
   readFailures.delete(file);
 
@@ -255,7 +270,7 @@ export function writeJsonCached(file: string, value: unknown): void {
  * usually kills the process outright, which no handler sees, so write
  * delays are NEVER lengthened on the strength of this flush.
  */
-export function flushPendingJsonWritesSync(): number {
+export function flushPendingJsonWritesSync(strict = false): number {
   let flushed = 0;
   const values = new Map<string, unknown>();
   for (const [file, pending] of pendingWrites) {
@@ -284,6 +299,7 @@ export function flushPendingJsonWritesSync(): number {
       flushed++;
     } catch (err) {
       console.error(`[fsJsonCache] shutdown flush failed for ${file}:`, err);
+      if (strict) throw err;
     }
   }
   return flushed;

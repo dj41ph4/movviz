@@ -66,7 +66,7 @@ export function AboutPanel() {
       const res = await fetch("/api/system/reset", { method: "POST" });
       if (!res.ok) {
         const error = await res.json().catch(() => ({}));
-        toast("error", t(error.error === "safe_reset_unavailable" ? "settings.factoryResetUnavailable" : "settings.factoryResetFailed"));
+        toast("error", t(error.error === "reset_busy" || error.error === "reset_engine_unavailable" ? "settings.factoryResetBusy" : "settings.factoryResetFailed"));
         return;
       }
       // Même correction que le logout : purge du SWR cache partagé avant la
@@ -149,10 +149,10 @@ export function AboutPanel() {
           <h4 className="flex items-center gap-1.5 text-sm font-bold text-down">
             <Trash2 className="h-4 w-4" /> {t("settings.factoryReset")}
           </h4>
-          <p className="mt-1 mb-4 text-sm text-ink-dim">{t("settings.factoryResetUnavailable")}</p>
+          <p className="mt-1 mb-4 text-sm text-ink-dim">{t("settings.factoryResetHint")}</p>
           <button
             onClick={factoryReset}
-            disabled
+            disabled={resetting}
             className="flex h-10 items-center gap-2 rounded-xl border border-down/30 px-4 text-sm font-bold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
           >
             {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}

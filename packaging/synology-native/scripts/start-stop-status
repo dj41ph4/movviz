@@ -36,6 +36,7 @@ case "${1:-}" in
     export PORT=9810 HOSTNAME=0.0.0.0 MOVVIZ_WEB_PORT=9810
     export MOVVIZ_ENGINE_PORT=9820 MOVVIZ_RESOLVER_PORT=9830
     export MOVVIZ_CONFIG_DIR="$VAR" MOVVIZ_DATA_DIR="$VAR"
+    export PLAYWRIGHT_BROWSERS_PATH="$APP/runtime/playwright"
     export HOME="$PKG/home" TMPDIR="$PKG/tmp"
     cd "$APP"
     "$NODE" server.js >> "$VAR/log/server.log" 2>&1 &

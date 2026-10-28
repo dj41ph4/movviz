@@ -18,6 +18,8 @@ import { eventBus } from "@/lib/events/EventBus";
 export const dynamic = "force-dynamic";
 
 async function forward(req: NextRequest, path: string[]) {
+  // Full reset is coordinated by /api/system/reset, never by the generic proxy.
+  if (path[0] === "factory-reset") return NextResponse.json({ error: "not_found" }, { status: 404 });
   const authed = req.method === "GET" ? requireUser(req) : requireAdmin(req);
   if (!authed) return NextResponse.json({ error: req.method === "GET" ? "unauthorized" : "forbidden" }, { status: req.method === "GET" ? 401 : 403 });
   const target = `${ENGINE_BASE}/${path.join("/")}${req.nextUrl.search}`;

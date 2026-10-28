@@ -250,6 +250,48 @@ export function withUserContextDb<T>(fn: (db: DatabaseSync) => T, fallback: T): 
   }
 }
 
+/** Erase account context and watch history without deleting the DB directory. */
+export function validateUserContextForReset(): void {
+  if (!fs.existsSync(USER_CONTEXT_DB_FILE)) return;
+  const stat = fs.lstatSync(USER_CONTEXT_DB_FILE);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("invalid_context_database");
+  const cached = g.__movvizUserContextDb ?? null;
+  const Database = cached ? null : loadDatabaseSync();
+  if (!cached && !Database) throw new Error("context_database_unavailable");
+  const db = cached ?? new Database!(USER_CONTEXT_DB_FILE);
+  try { db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all(); }
+  finally { if (!cached) db.close(); }
+}
+
+export function clearUserContextForReset(): void {
+  if (!fs.existsSync(USER_CONTEXT_DB_FILE)) return;
+  const stat = fs.lstatSync(USER_CONTEXT_DB_FILE);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("invalid_context_database");
+  let db = g.__movvizUserContextDb ?? null;
+  let temporary = false;
+  if (!db) {
+    const Database = loadDatabaseSync();
+    if (!Database) throw new Error("context_database_unavailable");
+    db = new Database(USER_CONTEXT_DB_FILE);
+    temporary = true;
+  }
+  try {
+    const tables = new Set((db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map((row) => row.name));
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const name of ["context_events", "user_media_state", "user_preferences", "context_sync_state", "user_media_sync_state"]) {
+        if (tables.has(name)) db.exec(`DELETE FROM ${name}`);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  } finally {
+    if (temporary) db.close();
+  }
+}
+
 export function getUserContextHealth(): UserContextHealth {
   const db = getUserContextDb();
   return {

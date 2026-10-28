@@ -1,3 +1,12 @@
+## v1.28.3 — 28. Oktober 2026
+
+### Einrichtung und Wiedergabe
+
+- Das Zurücksetzen löscht Konten, Einstellungen, Bibliothekseinträge und Verlauf; Film-, Serien- und Downloaddateien bleiben erhalten.
+- Das Synology-Paket enthält FFmpeg, FFprobe und den Resolver; die DSM-Kompatibilität muss je Architektur geprüft werden.
+- Android TV versucht nach einem Dekodierfehler direkt nach einer Pause die direkte Wiedergabe erneut, bevor transkodiert wird.
+- Der Windows-Build prüft den FFmpeg-Download und wiederholt ihn bei Fehlern.
+
 ## v1.28.2 — 28. Oktober 2026
 
 ### Einrichtung und Wiedergabe

@@ -43,6 +43,34 @@ jobs:
           test -f node_modules/node-datachannel/build/Release/node_datachannel.node
       - name: Build Next standalone
         run: npm run build
+      - name: Prepare resolver and Chromium
+        working-directory: resolver
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/movviz-playwright
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          npx playwright install chromium --only-shell
+          node --input-type=module -e "import { chromium } from 'playwright'; const b=await chromium.launch({headless:true,args:['--no-sandbox']}); await b.close();"
+          npm prune --omit=dev --no-audit --no-fund
+          test -f dist/index.js
+          test -d "$PLAYWRIGHT_BROWSERS_PATH"
+          echo "MOVVIZ_SPK_BROWSER_DIR=$PLAYWRIGHT_BROWSERS_PATH" >> "$GITHUB_ENV"
+      - name: Download FFmpeg runtime for DSM
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ '${{ matrix.arch }}' == x86_64 ]]; then ffarch=linux64; else ffarch=linuxarm64; fi
+          archive="ffmpeg-n9.0-latest-${ffarch}-lgpl-9.0.tar.xz"
+          curl --fail --location --show-error --retry 4 --retry-all-errors --connect-timeout 30 --max-time 600 \
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${archive}" -o "$RUNNER_TEMP/ffmpeg.tar.xz"
+          mkdir -p "$RUNNER_TEMP/ffmpeg-runtime"
+          tar -xJf "$RUNNER_TEMP/ffmpeg.tar.xz" -C "$RUNNER_TEMP/ffmpeg-runtime" --strip-components=2 --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
+          "$RUNNER_TEMP/ffmpeg-runtime/ffmpeg" -version > "$RUNNER_TEMP/ffmpeg-version.txt"
+          "$RUNNER_TEMP/ffmpeg-runtime/ffprobe" -version > "$RUNNER_TEMP/ffprobe-version.txt"
+          head -n 1 "$RUNNER_TEMP/ffmpeg-version.txt" "$RUNNER_TEMP/ffprobe-version.txt"
+          echo "MOVVIZ_SPK_FFMPEG_DIR=$RUNNER_TEMP/ffmpeg-runtime" >> "$GITHUB_ENV"
       - name: Create DSM package
         run: bash packaging/synology-native/build.sh '${{ matrix.arch }}'
       - name: Inspect package contents
@@ -58,6 +86,10 @@ jobs:
           tar -xOf "${spk[0]}" package.tgz > "$RUNNER_TEMP/package.tgz"
           tar -tzf "$RUNNER_TEMP/package.tgz" > "$RUNNER_TEMP/package-contents.txt"
           grep -Fxq './app/engine/src/index.mjs' "$RUNNER_TEMP/package-contents.txt"
+          grep -Fxq './app/runtime/ffmpeg/ffmpeg' "$RUNNER_TEMP/package-contents.txt"
+          grep -Fxq './app/runtime/ffmpeg/ffprobe' "$RUNNER_TEMP/package-contents.txt"
+          grep -Fxq './app/resolver/dist/index.js' "$RUNNER_TEMP/package-contents.txt"
+          grep -q '^./app/runtime/playwright/chromium_headless_shell-' "$RUNNER_TEMP/package-contents.txt"
           if grep -E '(^|/)(\.env|\.git|\.movviz-data|keystore)(/|$)|\.(pem|jks)$' "$RUNNER_TEMP/package-contents.txt"; then
             echo 'Secret or local state in package' >&2
             exit 1

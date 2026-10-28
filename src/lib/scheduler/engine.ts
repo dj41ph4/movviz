@@ -8,6 +8,7 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { runBackground } from "@/lib/priority/lane";
 import { acquisitionInterval } from "./interval";
 import { isInTaskWindow, nextInTaskWindow, type TaskWindow } from "./window";
+import { factoryResetActive } from "@/lib/system/resetBarrier";
 
 /** Effective interval for a task — persisted override or hardcoded default. */
 export function getEffectiveInterval(id: string, defaultMs: number): number {
@@ -190,6 +191,7 @@ const TICK_MS = 30_000;
  * promptly and compete fairly (by priority) with everything else queued.
  */
 function tick() {
+  if (factoryResetActive()) return;
   const now = Date.now();
   const quiet = now - bootAt < BOOT_QUIET_MS;
   for (const task of TASKS) {

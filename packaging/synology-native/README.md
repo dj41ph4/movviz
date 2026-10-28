@@ -15,16 +15,20 @@ service DSM doit recevoir les permissions d'accès aux dossiers partagés via
 interne**. Aucun `chmod -R` n'est exécuté sur les médias.
 
 Le build local est seulement un outil de diagnostic : après `npm ci`, `npm ci`
-dans `engine/` et `npm run build`, exécuter
-`bash packaging/synology-native/build.sh x86_64` sur Linux AMD64 ou `armv8`
+dans `engine/` et `npm run build`, définir `MOVVIZ_SPK_FFMPEG_DIR` vers un
+dossier contenant `ffmpeg` et `ffprobe` exécutables pour l'architecture visée,
+puis `MOVVIZ_SPK_BROWSER_DIR` vers le navigateur Chromium téléchargé par
+Playwright et compiler le résolveur avec ses dépendances,
+puis exécuter `bash packaging/synology-native/build.sh x86_64` sur Linux AMD64 ou `armv8`
 sur Linux ARM64. Le build officiel est assuré par GitHub Actions.
 
 **Limites à valider sur DSM réel avant installation de production :** les
 modules natifs du moteur WebTorrent ont été construits dans l'environnement du
 runner GitHub, pas avec la toolchain DSM ; leur compatibilité ABI/glibc doit
-être prouvée sur un NAS. FFmpeg/FFprobe et le navigateur Playwright du
-résolveur ne sont pas embarqués dans ce premier SPK. Les fonctions qui en
-dépendent ne sont donc pas garanties. La conservation de `var` lors d'une
+être prouvée sur un NAS. Le workflow embarque FFmpeg et FFprobe, mais leur
+compatibilité avec DSM doit être testée sur chaque architecture. Le résolveur
+et Chromium sont embarqués ; leur fonctionnement et les bibliothèques système
+requises restent à vérifier sur DSM. La conservation de `var` lors d'une
 désinstallation dépend du comportement DSM et doit être vérifiée. Le SPK doit
 être considéré comme expérimental jusqu'aux essais installation, démarrage,
 arrêt, mise à jour, désinstallation et permissions sur un NAS.

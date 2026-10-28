@@ -1,3 +1,12 @@
+## v1.28.3 — 28 ottobre 2026
+
+### Installazione e riproduzione
+
+- Il ripristino cancella account, impostazioni, voci della libreria e cronologia, conservando i file di film, serie e download.
+- Il pacchetto Synology include FFmpeg, FFprobe e il resolver; la compatibilità DSM resta da verificare per ogni architettura.
+- Android TV riprova la riproduzione diretta dopo un errore di decodifica subito dopo una pausa, prima della transcodifica.
+- La compilazione Windows verifica il download di FFmpeg e lo ripete in caso di errore.
+
 ## v1.28.2 — 28 ottobre 2026
 
 ### Installazione e riproduzione

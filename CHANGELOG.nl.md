@@ -1,3 +1,12 @@
+## v1.28.3 — 28 oktober 2026
+
+### Installatie en afspelen
+
+- Resetten wist accounts, instellingen, bibliotheekgegevens en geschiedenis, maar bewaart films, series en downloadbestanden.
+- Het Synology-pakket bevat FFmpeg, FFprobe en de resolver; de DSM-compatibiliteit moet per architectuur worden gecontroleerd.
+- Android TV probeert direct afspelen opnieuw na een decodeerfout vlak na een pauze, voordat het gaat transcoderen.
+- De Windows-build controleert de FFmpeg-download en probeert opnieuw bij een fout.
+
 ## v1.28.2 — 28 oktober 2026
 
 ### Installatie en afspelen

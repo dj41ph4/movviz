@@ -23,6 +23,7 @@ export function loadState() {
 
 let saveTimer = null;
 let pending = null;
+const inFlightWrites = new Set();
 
 /** Debounced atomic save — coalesces bursts of mutations into one write. */
 export function scheduleSave(state) {
@@ -38,7 +39,22 @@ export function scheduleSave(state) {
   }, 800);
 }
 
-export async function writeState(state) {
+export function writeState(state) {
+  const operation = writeStateImpl(state);
+  inFlightWrites.add(operation);
+  operation.finally(() => inFlightWrites.delete(operation)).catch(() => {});
+  return operation;
+}
+
+/** Cancel queued snapshots and let already-started writes finish before reset. */
+export async function quiesceStateWrites() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
+  pending = null;
+  await Promise.allSettled([...inFlightWrites]);
+}
+
+async function writeStateImpl(state) {
   await ensureDir(CONFIG_DIR);
   // Unique per call — two writeState()s can overlap (scheduleSave's debounce
   // only prevents redundant SCHEDULING, not a slow write still in flight

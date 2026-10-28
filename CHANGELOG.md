@@ -1,3 +1,12 @@
+## v1.28.3 — 28 octobre 2026
+
+### Installation et lecture
+
+- La réinitialisation efface les comptes, réglages, entrées de bibliothèque et historique tout en conservant les films, séries et fichiers téléchargés.
+- Le paquet Synology inclut FFmpeg, FFprobe et le résolveur ; leur compatibilité sur DSM reste à vérifier sur chaque architecture.
+- Android TV retente la lecture directe après une erreur de décodage survenant juste après une pause, avant le repli en transcodage.
+- La compilation Windows vérifie le téléchargement de FFmpeg et le retente en cas d'échec.
+
 ## v1.28.2 — 28 octobre 2026
 
 ### Installation et lecture

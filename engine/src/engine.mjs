@@ -13,7 +13,7 @@ import {
   TORRENT_PORT_OVERRIDES,
   resolveClientType,
 } from "./config.mjs";
-import { loadState, scheduleSave, writeState, ensureDir } from "./store.mjs";
+import { loadState, scheduleSave, writeState, quiesceStateWrites, ensureDir } from "./store.mjs";
 
 function createBackend(cfg, deps) {
   return new WebTorrentBackend(cfg, deps);
@@ -100,7 +100,7 @@ export class MovvizEngine {
       console.error("[engine] WebTorrent migration incomplete; saved queue retained:", this.clientRestart.error);
     }
     this.ticker = setInterval(() => {
-      if (this._preserveRestartState) return;
+      if (this._preserveRestartState || this._factoryResetInProgress) return;
       for (const inst of this.instances.values()) inst.tick();
       this._recordStats();
     }, 5000);
@@ -253,6 +253,33 @@ export class MovvizEngine {
     }
     this.persist();
     return cleared;
+  }
+
+  /** Clear engine metadata without deleting torrent data or media files. */
+  async factoryReset() {
+    if (this._factoryResetInProgress || this._preserveRestartState || this.clientRestart.restarting) throw new Error("engine_busy");
+    if (!this.started || DEFAULT_INSTANCES.some((cfg) => !this.instances.has(cfg.id))) throw new Error("engine_unavailable");
+    for (const inst of this.instances.values()) {
+      if ([...inst.meta.values()].some((m) => m.processing || m.finishing || m.rejectionInFlight)) throw new Error("engine_busy");
+    }
+    this._factoryResetInProgress = true;
+    try {
+      await quiesceStateWrites();
+      for (const inst of this.instances.values()) {
+        for (const torrent of inst.list()) {
+          if (!(await inst.remove(torrent.infoHash, false))) throw new Error("torrent_remove_failed");
+        }
+      }
+      const defaults = { movies: { maxActive: 2, maxPeers: 1000, seedRatio: 2 }, series: { maxActive: 4, maxPeers: 1000, seedRatio: 2 } };
+      this._statsHistory = [];
+      this.state = { clientType: this._clientType, instances: defaults, torrents: [], statsHistory: [] };
+      await writeState(this.state);
+      await this._recreateInstances(createBackend, true);
+      await quiesceStateWrites();
+      await writeState(this.state);
+    } finally {
+      this._factoryResetInProgress = false;
+    }
   }
 
   patchInstance(id, patch) {
@@ -414,7 +441,7 @@ export class MovvizEngine {
   persist() {
     // Callbacks during destruction/restoration cannot overwrite the saved queue.
     // Failed restarts retain this snapshot for a safe retry.
-    if (this._preserveRestartState) return;
+    if (this._preserveRestartState || this._factoryResetInProgress) return;
     const instances = {};
     const torrents = [];
     for (const inst of this.instances.values()) {
