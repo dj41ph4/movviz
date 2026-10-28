@@ -41,7 +41,9 @@ tar -C "$STAGE" -czf "$WORK/spk/package.tgz" .
 FILE="$OUT/movviz-${VERSION}-synology-${ARCH}.spk"
 tar -C "$WORK/spk" -cf "$FILE" INFO package.tgz scripts conf PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG
 test -s "$FILE"
-tar -tf "$FILE" | grep -qx 'package.tgz'
-tar -tzf "$WORK/spk/package.tgz" | grep -qx './app/server.js'
+tar -tf "$FILE" > "$WORK/spk-contents.txt"
+grep -Fxq 'package.tgz' "$WORK/spk-contents.txt"
+tar -tzf "$WORK/spk/package.tgz" > "$WORK/package-contents.txt"
+grep -Fxq './app/server.js' "$WORK/package-contents.txt"
 (cd "$OUT" && sha256sum "$(basename "$FILE")" > "$(basename "$FILE").sha256")
 printf '%s\n' "$FILE"

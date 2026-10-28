@@ -50,12 +50,15 @@ jobs:
           set -euo pipefail
           spk=(dist/nas/*.spk)
           test "${#spk[@]}" -eq 1
-          tar -tf "${spk[0]}" | sort
+          tar -tf "${spk[0]}" > "$RUNNER_TEMP/spk-contents.txt"
+          sort "$RUNNER_TEMP/spk-contents.txt"
           for item in INFO package.tgz scripts/start-stop-status conf/privilege PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
-            tar -tf "${spk[0]}" | grep -qx "$item"
+            grep -Fxq "$item" "$RUNNER_TEMP/spk-contents.txt"
           done
-          tar -xOf "${spk[0]}" package.tgz | tar -tzf - | grep -qx './app/engine/src/index.mjs'
-          if tar -xOf "${spk[0]}" package.tgz | tar -tzf - | grep -E '(^|/)(\.env|\.git|\.movviz-data|keystore)(/|$)|\.(pem|jks)$'; then
+          tar -xOf "${spk[0]}" package.tgz > "$RUNNER_TEMP/package.tgz"
+          tar -tzf "$RUNNER_TEMP/package.tgz" > "$RUNNER_TEMP/package-contents.txt"
+          grep -Fxq './app/engine/src/index.mjs' "$RUNNER_TEMP/package-contents.txt"
+          if grep -E '(^|/)(\.env|\.git|\.movviz-data|keystore)(/|$)|\.(pem|jks)$' "$RUNNER_TEMP/package-contents.txt"; then
             echo 'Secret or local state in package' >&2
             exit 1
           fi
