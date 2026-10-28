@@ -1,3 +1,9 @@
+## v1.28.1 — 28. Oktober 2026
+
+### Einstellungen
+
+- Aktualisiert die Einstellungssuche nach der Vereinfachung von Entdecken in Version 1.28.00.
+
 ## v1.28.00 — 28. Oktober 2026
 
 ### Einrichtung und Downloads

@@ -535,12 +535,6 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
   ],
   "metadata": [
     "discover.saveKey",
-    "metadata.discoverLayout",
-    "metadata.discoverLayoutAllocine",
-    "metadata.discoverLayoutAllocineHint",
-    "metadata.discoverLayoutHint",
-    "metadata.discoverLayoutMovviz",
-    "metadata.discoverLayoutMovvizHint",
     "metadata.intro",
     "metadata.keyInvalid",
     "metadata.keyValid",

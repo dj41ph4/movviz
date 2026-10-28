@@ -1,3 +1,9 @@
+## v1.28.1 — 28 October 2026
+
+### Settings
+
+- Updates settings search after the Discover simplification in version 1.28.00.
+
 ## v1.28.00 — 28 October 2026
 
 ### Setup and downloads

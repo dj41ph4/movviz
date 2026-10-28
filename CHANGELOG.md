@@ -1,3 +1,9 @@
+## v1.28.1 — 28 octobre 2026
+
+### Réglages
+
+- Actualise la recherche des réglages après la simplification de Découvrir dans la version 1.28.00.
+
 ## v1.28.00 — 28 octobre 2026
 
 ### Installation et téléchargements

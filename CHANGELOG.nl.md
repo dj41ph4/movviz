@@ -1,3 +1,9 @@
+## v1.28.1 — 28 oktober 2026
+
+### Instellingen
+
+- Werkt het zoeken in instellingen bij na de vereenvoudiging van Ontdekken in versie 1.28.00.
+
 ## v1.28.00 — 28 oktober 2026
 
 ### Installatie en downloads

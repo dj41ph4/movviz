@@ -1,3 +1,9 @@
+## v1.28.1 — 28 ottobre 2026
+
+### Impostazioni
+
+- Aggiorna la ricerca nelle impostazioni dopo la semplificazione di Scopri nella versione 1.28.00.
+
 ## v1.28.00 — 28 ottobre 2026
 
 ### Installazione e download
