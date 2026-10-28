@@ -1,3 +1,11 @@
+## v1.28.5 — 28 October 2026
+
+### Android TV
+
+- Remote navigation uses the system navigation sound.
+- Back closes the audio and subtitle track menus.
+- Restores the direct playback retry after a decoding error on resume from pause.
+
 ## v1.28.4 — 28 October 2026
 
 ### Android TV

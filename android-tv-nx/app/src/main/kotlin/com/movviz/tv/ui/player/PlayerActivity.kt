@@ -561,6 +561,10 @@ private fun PlayerScreen(
     // transcode) — le client se contente de basculer d'URL et de reprendre
     // à la même position.
     var fallbackLevel by remember { mutableStateOf(0) }
+    var hasActuallyPlayed by remember { mutableStateOf(false) }
+    var pausedAfterPlayback by remember { mutableStateOf(false) }
+    var lastResumeAtMs by remember { mutableStateOf(0L) }
+    var resumeDirectRetryUsed by remember { mutableStateOf(false) }
     var fallbackNotice by remember { mutableStateOf<String?>(null) }
     // Repli "audio-seul" niveau 1 : remux ffmpeg local au serveur quand
     // disponible (voir MovvizRepository.ffmpegRemuxUrl), sinon repli sur le
@@ -826,6 +830,10 @@ ExoPlayer.Builder(context)
 LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, current.episodeNumber) {
         networkRetryCount = 0
         fallbackLevel = 0
+        hasActuallyPlayed = false
+        pausedAfterPlayback = false
+        lastResumeAtMs = 0L
+        resumeDirectRetryUsed = false
         fallbackNotice = null
         val localEpisode = current.localKey != null && current.seasonNumber > 0 && current.episodeNumber > 0
         val localInfo = if (localEpisode) {
@@ -915,9 +923,18 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             // pendant un rebuffering l'icône reste sur Pause et l'appui met bien
             // en pause (isPlaying d'ExoPlayer, lui, est faux tant que ça charge).
             override fun onIsPlayingChanged(playing: Boolean) {
+                if (playing) hasActuallyPlayed = true
                 isPlaying = exoPlayer.playWhenReady && exoPlayer.playbackState != Player.STATE_ENDED
             }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (!playWhenReady && hasActuallyPlayed) {
+                    pausedAfterPlayback = true
+                    lastResumeAtMs = 0L
+                } else if (playWhenReady && pausedAfterPlayback) {
+                    pausedAfterPlayback = false
+                    lastResumeAtMs = android.os.SystemClock.elapsedRealtime()
+                    resumeDirectRetryUsed = false
+                }
                 isPlaying = playWhenReady && exoPlayer.playbackState != Player.STATE_ENDED
             }
             override fun onPlaybackStateChanged(state: Int) {
@@ -967,6 +984,17 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         // direct-play pour reproduire la même erreur.
                         load(item, resumePos, level = fallbackLevel, autoplay = wasPlayWhenReady)
                     }
+                    return
+                }
+                // A codec can fail transiently while the TV wakes its audio
+                // device. Retry direct play once if this occurred just after
+                // a pause; a second failure keeps the normal codec fallback.
+                val sinceResume = android.os.SystemClock.elapsedRealtime() - lastResumeAtMs
+                if (kind == PlayerErrorKind.UNSUPPORTED && fallbackLevel == 0 && lastResumeAtMs > 0L && sinceResume in 0L..15_000L && !resumeDirectRetryUsed) {
+                    resumeDirectRetryUsed = true
+                    val resumePos = timelinePos()
+                    Log.w(TAG, "Retry direct play after pause at ${resumePos}ms before codec fallback", error)
+                    load(queue[currentIndex], resumePos, level = 0, autoplay = wasPlayWhenReady)
                     return
                 }
                 // Format/codec non décodable nativement par ce boîtier : le

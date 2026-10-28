@@ -1,3 +1,11 @@
+## v1.28.5 — 28 oktober 2026
+
+### Android TV
+
+- Navigatie met de afstandsbediening gebruikt het systeemgeluid.
+- Terug sluit de menu’s voor audio en ondertiteling.
+- Herstelt de poging om direct afspelen te hervatten na een decoderingsfout.
+
 ## v1.28.4 — 28 oktober 2026
 
 ### Android TV

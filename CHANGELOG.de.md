@@ -1,3 +1,11 @@
+## v1.28.5 — 28. Oktober 2026
+
+### Android TV
+
+- Die Navigation mit der Fernbedienung verwendet den Systemton.
+- Zurück schließt die Menüs für Audio und Untertitel.
+- Der erneute Versuch der direkten Wiedergabe nach einem Dekodierfehler beim Fortsetzen ist wiederhergestellt.
+
 ## v1.28.4 — 28. Oktober 2026
 
 ### Android TV

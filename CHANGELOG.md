@@ -1,3 +1,11 @@
+## v1.28.5 — 28 octobre 2026
+
+### Android TV
+
+- Les déplacements à la télécommande utilisent le son de navigation du système.
+- Retour ferme les menus des pistes audio et des sous-titres.
+- Rétablit la tentative de lecture directe après une erreur de décodage à la reprise après pause.
+
 ## v1.28.4 — 28 octobre 2026
 
 ### Android TV

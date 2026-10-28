@@ -1,3 +1,11 @@
+## v1.28.5 — 28 ottobre 2026
+
+### Android TV
+
+- La navigazione con il telecomando usa il suono di sistema.
+- Indietro chiude i menu delle tracce audio e dei sottotitoli.
+- Ripristina il nuovo tentativo di riproduzione diretta dopo un errore di decodifica alla ripresa.
+
 ## v1.28.4 — 28 ottobre 2026
 
 ### Android TV
