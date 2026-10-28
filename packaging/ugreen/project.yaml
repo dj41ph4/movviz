@@ -1,0 +1,76 @@
+spec_version: "2.1"
+app_id: com.dj41ph4.movviz
+version: 0.0.0
+support_arch:
+  - amd64
+  - arm64
+product_series:
+  - nasync
+is_docker_app: true
+only_admin: true
+port: 9810
+open_type: tab
+tag_types:
+  - media
+  - download
+depend_docker_version: 1.7.0.0000
+license_agreement_link:
+  - https://github.com/dj41ph4/movviz/blob/main/LICENSE
+source_code_link:
+  - https://github.com/dj41ph4/movviz
+parameters:
+  - key: CONFIG_PATH
+    type: path
+    required: true
+    changeable: false
+    i18n:
+      en-US:
+        name: Configuration folder
+        description: Persistent application state and database.
+      fr-FR:
+        name: Dossier de configuration
+        description: État et base de données conservés lors des mises à jour.
+  - key: DATA_PATH
+    type: path
+    required: true
+    changeable: false
+    i18n:
+      en-US:
+        name: Media folder
+        description: One shared root for downloads and the media library.
+      fr-FR:
+        name: Dossier multimédia
+        description: Racine unique pour téléchargements et médiathèque.
+  - key: PUID
+    type: number
+    required: true
+    changeable: true
+    i18n:
+      en-US:
+        name: User ID
+        description: ID of the account allowed to write to the selected folders.
+      fr-FR:
+        name: ID utilisateur
+        description: ID du compte autorisé à écrire dans les dossiers choisis.
+  - key: PGID
+    type: number
+    required: true
+    changeable: true
+    i18n:
+      en-US:
+        name: Group ID
+        description: Group allowed to write to the selected folders.
+      fr-FR:
+        name: ID groupe
+        description: Groupe autorisé à écrire dans les dossiers choisis.
+i18n:
+  en-US:
+    name: Movviz
+    description: Media library, discovery and downloads.
+    author: dj41ph4
+    official: https://github.com/dj41ph4/movviz
+  fr-FR:
+    name: Movviz
+    description: Médiathèque, découvertes et téléchargements.
+    author: dj41ph4
+    official: https://github.com/dj41ph4/movviz

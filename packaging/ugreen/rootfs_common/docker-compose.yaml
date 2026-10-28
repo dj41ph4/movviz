@@ -1,0 +1,24 @@
+services:
+  movviz:
+    image: docker.io/dj41ph4/movviz:0.0.0-ugreen
+    restart: unless-stopped
+    ports:
+      - "9810:9810"
+      - "9820:9820"
+      - "9830:9830"
+      - "55000:55000/tcp"
+      - "55000:55000/udp"
+      - "55001:55001/tcp"
+      - "55001:55001/udp"
+    environment:
+      MOVVIZ_WEB_PORT: "9810"
+      MOVVIZ_ENGINE_PORT: "9820"
+      MOVVIZ_RESOLVER_PORT: "9830"
+      MOVVIZ_TORRENT_PORT: "55000"
+      MOVVIZ_TORRENT_PORT_SERIES: "55001"
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    volumes:
+      - ${CONFIG_PATH}:/config
+      - ${DATA_PATH}:/data

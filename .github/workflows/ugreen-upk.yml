@@ -1,0 +1,83 @@
+name: Build UGREEN UPK
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.arch == 'arm64'
+        with:
+          image: tonistiigi/binfmt:qemu-v7.0.0-28
+      - uses: docker/setup-buildx-action@v3
+      - name: Install official UGREEN CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL https://osswaf.ugnas.com/pro/ugcli/download/ugcli-v1.1.0.25-linux-amd64 -o "$RUNNER_TEMP/ugcli"
+          chmod +x "$RUNNER_TEMP/ugcli"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/ugcli" --version | tee "$RUNNER_TEMP/ugcli-version.txt"
+          grep -Fq '1.1.0.25' "$RUNNER_TEMP/ugcli-version.txt"
+      - name: Build and validate UPK
+        run: bash packaging/ugreen/build.sh "${{ matrix.arch }}"
+      - name: Verify UPK output
+        run: |
+          set -euo pipefail
+          cd dist/nas
+          test "$(find . -maxdepth 1 -name '*.upk' | wc -l)" -eq 1
+          sha256sum -c ugreen-SHA256SUMS
+          printf 'commit=%s\nversion=%s\narch=%s\nugcli=%s\nnode=%s\ndate=%s\n' \
+            "$GITHUB_SHA" "$(node -p "require('../../package.json').version")" \
+            '${{ matrix.arch }}' '1.1.0.25' "$(node --version)" "$(date -u -Iseconds)" > build-info.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: movviz-ugreen-${{ matrix.arch }}
+          path: |
+            dist/nas/*.upk
+            dist/nas/ugreen-SHA256SUMS
+            dist/nas/build-info.txt
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: movviz-ugreen-*
+          path: dist/nas
+          merge-multiple: true
+      - name: Publish to existing Movviz release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd dist/nas
+          sha256sum ./*.upk > SHA256SUMS-ugreen
+          for attempt in $(seq 1 20); do
+            if gh release view "$TAG" >/dev/null 2>&1; then break; fi
+            gh release create "$TAG" --title "$TAG" --generate-notes >/dev/null 2>&1 || true
+            sleep 5
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" ./*.upk SHA256SUMS-ugreen --clobber

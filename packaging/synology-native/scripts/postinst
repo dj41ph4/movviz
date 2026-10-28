@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+mkdir -p /var/packages/movviz/var/log
+exit 0

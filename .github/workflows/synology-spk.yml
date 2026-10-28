@@ -1,0 +1,102 @@
+name: Build Synology native SPK
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: armv8
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Verify source version and SQLite
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+          fi
+          node -e "const s=require('node:sqlite'); if(typeof s.DatabaseSync!=='function') process.exit(1)"
+      - name: Install web dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install native engine dependencies
+        working-directory: engine
+        run: |
+          set -euo pipefail
+          npm ci --omit=optional --no-audit --no-fund
+          node --input-type=module -e "await import('node-datachannel'); await import('webtorrent')"
+          test -f node_modules/node-datachannel/build/Release/node_datachannel.node
+      - name: Build Next standalone
+        run: npm run build
+      - name: Create DSM package
+        run: bash packaging/synology-native/build.sh '${{ matrix.arch }}'
+      - name: Inspect package contents
+        run: |
+          set -euo pipefail
+          spk=(dist/nas/*.spk)
+          test "${#spk[@]}" -eq 1
+          tar -tf "${spk[0]}" | sort
+          for item in INFO package.tgz scripts/start-stop-status conf/privilege PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG; do
+            tar -tf "${spk[0]}" | grep -qx "$item"
+          done
+          tar -xOf "${spk[0]}" package.tgz | tar -tzf - | grep -qx './app/engine/src/index.mjs'
+          if tar -xOf "${spk[0]}" package.tgz | tar -tzf - | grep -E '(^|/)(\.env|\.git|\.movviz-data|keystore)(/|$)|\.(pem|jks)$'; then
+            echo 'Secret or local state in package' >&2
+            exit 1
+          fi
+          (cd dist/nas && sha256sum -c ./*.sha256)
+          printf 'commit=%s\nversion=%s\narch=%s\nnode=%s\ndate=%s\n' \
+            "$GITHUB_SHA" "$(node -p "require('./package.json').version")" \
+            '${{ matrix.arch }}' "$(node --version)" "$(date -u -Iseconds)" > dist/nas/build-info.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: movviz-synology-${{ matrix.arch }}
+          path: |
+            dist/nas/*.spk
+            dist/nas/*.sha256
+            dist/nas/build-info.txt
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: movviz-synology-*
+          path: dist/nas
+          merge-multiple: true
+      - name: Publish to the Movviz release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd dist/nas
+          sha256sum ./*.spk > SHA256SUMS-synology
+          for attempt in $(seq 1 20); do
+            if gh release view "$TAG" >/dev/null 2>&1; then break; fi
+            gh release create "$TAG" --title "$TAG" --generate-notes >/dev/null 2>&1 || true
+            sleep 5
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" ./*.spk SHA256SUMS-synology --clobber

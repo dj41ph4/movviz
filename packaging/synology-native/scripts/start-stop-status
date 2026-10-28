@@ -1,0 +1,62 @@
+#!/bin/sh
+set -eu
+
+PKG=/var/packages/movviz
+APP="${SYNOPKG_PKGDEST:-$PKG/target}/app"
+VAR="$PKG/var"
+PID="$VAR/movviz.pid"
+NODE=/var/packages/Node.js_v22/target/usr/local/bin/node
+
+running() {
+  [ -s "$PID" ] || return 1
+  server_pid="$(cat "$PID")"
+  kill -0 "$server_pid" 2>/dev/null || return 1
+  [ "$(readlink "/proc/$server_pid/cwd" 2>/dev/null)" = "$APP" ]
+}
+
+stop_children() {
+  for proc in /proc/[0-9]*; do
+    child_pid="${proc##*/}"
+    [ "$child_pid" = "$$" ] && continue
+    [ -r "$proc/cmdline" ] || continue
+    command_line="$(tr '\000' ' ' < "$proc/cmdline" 2>/dev/null || true)"
+    case "$command_line" in
+      *"$APP/engine/src/index.mjs"*|*"$APP/resolver/dist/index.js"*)
+        kill -TERM "$child_pid" 2>/dev/null || true ;;
+    esac
+  done
+}
+
+case "${1:-}" in
+  start)
+    running && exit 0
+    [ -x "$NODE" ] || { echo "Node.js v22 package is required: $NODE" >&2; exit 1; }
+    mkdir -p "$VAR/log"
+    export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+    export PORT=9810 HOSTNAME=0.0.0.0 MOVVIZ_WEB_PORT=9810
+    export MOVVIZ_ENGINE_PORT=9820 MOVVIZ_RESOLVER_PORT=9830
+    export MOVVIZ_CONFIG_DIR="$VAR" MOVVIZ_DATA_DIR="$VAR"
+    export HOME="$PKG/home" TMPDIR="$PKG/tmp"
+    cd "$APP"
+    "$NODE" server.js >> "$VAR/log/server.log" 2>&1 &
+    echo $! > "$PID"
+    sleep 2
+    running || { cat "$VAR/log/server.log" >&2; exit 1; }
+    ;;
+  stop)
+    stop_children
+    if running; then
+      kill -TERM "$(cat "$PID")"
+      count=0
+      while running && [ "$count" -lt 45 ]; do sleep 1; count=$((count + 1)); done
+      if running; then kill -KILL "$(cat "$PID")"; fi
+    fi
+    rm -f "$PID"
+    ;;
+  status)
+    if running; then exit 0; fi
+    if [ -e "$PID" ]; then exit 1; fi
+    exit 3
+    ;;
+  *) exit 0 ;;
+esac

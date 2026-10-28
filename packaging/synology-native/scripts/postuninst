@@ -1,0 +1,3 @@
+#!/bin/sh
+# DSM owns the package's persistent var/etc directories. Never remove media or data here.
+exit 0
