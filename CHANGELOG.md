@@ -1,3 +1,9 @@
+## v1.28.4 — 28 octobre 2026
+
+### Android TV
+
+- Restaure le comportement de lecture de la version 1.28.1, en conservant le retour aux profils après la veille.
+
 ## v1.28.3 — 28 octobre 2026
 
 ### Installation et lecture

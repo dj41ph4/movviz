@@ -1,3 +1,9 @@
+## v1.28.4 — 28 October 2026
+
+### Android TV
+
+- Restores playback behavior from version 1.28.1 while retaining the return to profiles after sleep.
+
 ## v1.28.3 — 28 October 2026
 
 ### Setup and playback

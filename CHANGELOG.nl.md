@@ -1,3 +1,9 @@
+## v1.28.4 — 28 oktober 2026
+
+### Android TV
+
+- Herstelt het afspeelgedrag van versie 1.28.1 en behoudt de profielkeuze na de slaapstand.
+
 ## v1.28.3 — 28 oktober 2026
 
 ### Installatie en afspelen

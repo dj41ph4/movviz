@@ -1,3 +1,9 @@
+## v1.28.4 — 28 ottobre 2026
+
+### Android TV
+
+- Ripristina il comportamento di riproduzione della versione 1.28.1, mantenendo il ritorno ai profili dopo la sospensione.
+
 ## v1.28.3 — 28 ottobre 2026
 
 ### Installazione e riproduzione

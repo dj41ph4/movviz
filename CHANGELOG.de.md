@@ -1,3 +1,9 @@
+## v1.28.4 — 28. Oktober 2026
+
+### Android TV
+
+- Stellt das Wiedergabeverhalten von Version 1.28.1 wieder her und behält die Profilauswahl nach dem Ruhemodus bei.
+
 ## v1.28.3 — 28. Oktober 2026
 
 ### Einrichtung und Wiedergabe
