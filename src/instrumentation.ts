@@ -6,6 +6,9 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { CONFIG_DIR } = await import("@/lib/auth/store");
+    const { recoverInterruptedResets } = await import("@/lib/system/resetStores");
+    recoverInterruptedResets(CONFIG_DIR);
     // Phase 0 gate – prouver quel build tourne (§2)
     try {
       const { startupLogLine } = await import("@/lib/system");

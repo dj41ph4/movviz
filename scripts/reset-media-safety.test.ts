@@ -10,6 +10,18 @@ process.env.MOVVIZ_CONFIG_DIR = dir;
 process.env.MOVVIZ_DATA_DIR = dir;
 const { addUser, createSession, hasAnyUser } = await import("../src/lib/auth/store.ts");
 const { POST } = await import("../src/app/api/system/reset/route.ts");
+const { stageResetStores, recoverInterruptedResets } = await import("../src/lib/system/resetStores.ts");
+test("interrupted reset restores staged settings without touching media", () => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-reset-recovery-"));
+  const settings = path.join(fixture, "users.json");
+  fs.writeFileSync(settings, "accounts");
+  fs.writeFileSync(path.join(fixture, "film.mkv"), "video");
+  stageResetStores(fixture, [settings]);
+  assert.equal(fs.existsSync(settings), false);
+  recoverInterruptedResets(fixture);
+  assert.equal(fs.readFileSync(settings, "utf8"), "accounts");
+  assert.equal(fs.readFileSync(path.join(fixture, "film.mkv"), "utf8"), "video");
+});
 test("reset clears library and accounts without deleting media in the same directory", async () => {
   fs.mkdirSync(path.join(dir, "media"));
   fs.writeFileSync(path.join(dir, "media", "film.mkv"), "media");

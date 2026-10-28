@@ -138,11 +138,16 @@ export function inspectResetStores(configDir: string, userIds: readonly string[]
 /** Move only explicitly identified files; restore them if a later step fails. */
 export function stageResetStores(configDir: string, targets: readonly string[]) {
   const staging = fs.mkdtempSync(path.join(configDir, ".movviz-reset-"));
+  const relative = targets.map((target) => path.relative(configDir, target));
+  if (!relative.every(validResetPath)) throw new Error("invalid_reset_target");
+  const manifest = path.join(staging, "manifest.json");
+  fs.writeFileSync(manifest, JSON.stringify({ phase: "prepared", targets: relative }), { flag: "wx" });
   const moved: Array<{ original: string; staged: string }> = [];
   const rollback = () => {
     for (const item of [...moved].reverse()) {
       if (fs.existsSync(item.staged)) fs.renameSync(item.staged, item.original);
     }
+    fs.unlinkSync(manifest);
     fs.rmdirSync(staging);
   };
   try {
@@ -158,8 +163,47 @@ export function stageResetStores(configDir: string, targets: readonly string[]) 
   return {
     rollback,
     commit() {
+      fs.writeFileSync(path.join(staging, "committed"), "1", { flag: "wx" });
       for (const item of moved) fs.unlinkSync(item.staged);
+      fs.unlinkSync(manifest);
+      fs.unlinkSync(path.join(staging, "committed"));
       fs.rmdirSync(staging);
     },
   };
+}
+
+function validResetPath(relative: string): boolean {
+  if ((RESET_STORE_FILES as readonly string[]).includes(relative)) return true;
+  return /^avatars[\\/][A-Za-z0-9_-]{1,64}\.(?:png|jpg|jpeg|webp|gif)$/.test(relative);
+}
+
+/** Recover only a journal we created, before any stores are opened at startup. */
+export function recoverInterruptedResets(configDir: string): void {
+  if (!fs.existsSync(configDir)) return;
+  for (const entry of fs.readdirSync(configDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^\.movviz-reset-[A-Za-z0-9]{6}$/.test(entry.name)) continue;
+    const staging = path.join(configDir, entry.name);
+    const manifest = path.join(staging, "manifest.json");
+    if (!fs.existsSync(manifest)) continue;
+    const parsed: unknown = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    if (!parsed || typeof parsed !== "object" || !("targets" in parsed) || !Array.isArray(parsed.targets) ||
+        !parsed.targets.every((target: unknown) => typeof target === "string" && validResetPath(target))) {
+      throw new Error("invalid_reset_manifest");
+    }
+    const committed = fs.existsSync(path.join(staging, "committed"));
+    for (const [index, target] of (parsed.targets as string[]).entries()) {
+      const staged = path.join(staging, String(index));
+      if (!fs.existsSync(staged)) continue;
+      if (!fs.lstatSync(staged).isFile()) throw new Error("invalid_staged_reset_file");
+      if (committed) fs.unlinkSync(staged);
+      else {
+        const original = path.join(configDir, target);
+        if (fs.existsSync(original)) throw new Error("reset_recovery_conflict");
+        fs.renameSync(staged, original);
+      }
+    }
+    fs.unlinkSync(manifest);
+    if (committed) fs.unlinkSync(path.join(staging, "committed"));
+    fs.rmdirSync(staging);
+  }
 }
