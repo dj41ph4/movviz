@@ -2,6 +2,8 @@ package com.movviz.tv
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
+import android.view.SoundEffectConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -127,6 +129,21 @@ fun rowDetailRoute(mode: String, mediaType: String, key: String, label: String):
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
     private var wakePending by mutableStateOf(false)
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val handled = super.dispatchKeyEvent(event)
+        if (handled && event.action == KeyEvent.ACTION_DOWN) {
+            val sound = when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP -> SoundEffectConstants.NAVIGATION_UP
+                KeyEvent.KEYCODE_DPAD_DOWN -> SoundEffectConstants.NAVIGATION_DOWN
+                KeyEvent.KEYCODE_DPAD_LEFT -> SoundEffectConstants.NAVIGATION_LEFT
+                KeyEvent.KEYCODE_DPAD_RIGHT -> SoundEffectConstants.NAVIGATION_RIGHT
+                else -> null
+            }
+            if (sound != null) window.decorView.playSoundEffect(sound)
+        }
+        return handled
+    }
 
     // Deep link reçu (carte du dashboard TvProvider, movviz://title/...) —
     // consommé par le NavHost une fois la navigation prête.
