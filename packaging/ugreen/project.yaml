@@ -14,6 +14,7 @@ tag_types:
   - media
   - download
 depend_docker_version: 1.7.0.0000
+depend_fw_version: 1.13.0.0000
 license_agreement_link:
   - https://github.com/dj41ph4/movviz/blob/main/LICENSE
 source_code_link:
