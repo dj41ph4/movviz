@@ -242,6 +242,14 @@ PlayerScreen(
         super.onStop()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if ((application as com.movviz.tv.MovvizTvApplication).screenSleepTracker.hasPendingWake()) {
+            startActivity(Intent(this, com.movviz.tv.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            finish()
+        }
+    }
+
     override fun onDestroy() {
         mediaKeyHandler = null
         lifecyclePauseHandler = null

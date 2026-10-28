@@ -12,6 +12,7 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
  */
 export interface MovvizSession {
   origin: "movviz";
+  href: string | null;
   title: string;
   type: "movie" | "episode";
   user: string;

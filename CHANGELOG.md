@@ -1,3 +1,11 @@
+## v1.28.2 — 28 octobre 2026
+
+### Installation et lecture
+
+- L'assistant propose les dossiers de bibliothèque et de téléchargement, l'espace libre et l'import des fichiers existants. Les chemins configurés sont préservés.
+- La recherche privilégie les saisons et épisodes avant une intégrale. Les titres des sessions actives ouvrent leur fiche lorsqu'ils sont identifiés.
+- Après la veille de la TV, Movviz revient au choix des profils. La réinitialisation complète est temporairement désactivée afin de protéger les fichiers multimédias.
+
 ## v1.28.1 — 28 octobre 2026
 
 ### Réglages

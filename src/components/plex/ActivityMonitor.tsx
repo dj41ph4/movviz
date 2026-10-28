@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Activity, Play, Pause, Monitor, Wifi, Globe, Film, Tv, Radio } from "lucide-react";
 import { usePlexActivity } from "@/lib/plex/usePlexActivity";
 import type { PlexSession } from "@/lib/plex/usePlexActivity";
@@ -38,7 +39,7 @@ function formatDuration(ms: number): string {
   return h > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${m} min`;
 }
 
-function SessionRow({ s, t }: { s: AnySession; t: (k: string, params?: Record<string, string | number>) => string }) {
+function SessionRow({ s, t, onNavigate }: { s: AnySession; t: (k: string, params?: Record<string, string | number>) => string; onNavigate: () => void }) {
   const isPlaying = s.state === "playing";
   // Movviz origin's `device` is a raw clientType code (route.ts has no
   // request locale to translate against), Plex origin's is already the real
@@ -99,7 +100,7 @@ function SessionRow({ s, t }: { s: AnySession; t: (k: string, params?: Record<st
       {/* Details */}
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{s.title}</p>
+          {s.href ? <Link href={s.href} onClick={onNavigate} className="min-w-0 flex-1 truncate text-sm font-semibold text-ink hover:text-brand-glow focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">{s.title}</Link> : <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{s.title}</p>}
           <span className={cn("shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide", stateColor)}>
             {isPlaying && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" />}
             {stateLabel}
@@ -297,7 +298,7 @@ export function ActivityMonitor() {
               <p className="p-6 text-center text-sm text-ink-dim">{t("plexActivity.empty")}</p>
             )}
             {sessions.map((s, i) => (
-              <SessionRow key={`${s.title}-${s.user}-${i}`} s={s} t={t} />
+              <SessionRow key={`${s.title}-${s.user}-${i}`} s={s} t={t} onNavigate={() => setOpen(false)} />
             ))}
           </div>
           </div>,

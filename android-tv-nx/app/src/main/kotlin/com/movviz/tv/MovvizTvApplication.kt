@@ -26,9 +26,12 @@ import java.io.File
  *  TMDb, chargés en dizaines d'exemplaires dans les TvLazyRow). */
 class MovvizTvApplication : Application(), ImageLoaderFactory {
     private var videoCacheInstance: SimpleCache? = null
+    lateinit var screenSleepTracker: ScreenSleepTracker
+        private set
 
     override fun onCreate() {
         super.onCreate()
+        screenSleepTracker = ScreenSleepTracker(this).also { it.register() }
         ApiClient.initialize(this)
         // Splash Bêta : lire la préférence puis décoder les images PENDANT que l'activité se crée,
         // hors du thread principal. Quand le splash est composé, tout est déjà prêt.

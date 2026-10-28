@@ -65,7 +65,8 @@ export async function importMovieCandidate(
 
   const existing = getMovieByTmdbId(tmdbId);
   if (existing) {
-    updateMovie(existing.id, { status: "available", file, monitored });
+    if (existing.file && pathFor(existing.file.path).normalize(existing.file.path) !== pathFor(file.path).normalize(file.path)) return { ok: false, error: "existing_file_conflict" };
+    updateMovie(existing.id, { status: "available", file: existing.file ?? file });
     void notifySeerrStatus("movie", tmdbId, "available").catch(() => {});
     return { ok: true, kind: "movie", id: existing.id };
   }
@@ -78,7 +79,8 @@ export async function importMovieCandidate(
   // même tmdbId ou même chemin physique = on fusionne, pas de 2e entrée.
   const raced = getMovieByTmdbId(tmdbId);
   if (raced) {
-    updateMovie(raced.id, { status: "available", file, monitored });
+    if (raced.file && pathFor(raced.file.path).normalize(raced.file.path) !== pathFor(file.path).normalize(file.path)) return { ok: false, error: "existing_file_conflict" };
+    updateMovie(raced.id, { status: "available", file: raced.file ?? file });
     void notifySeerrStatus("movie", tmdbId, "available").catch(() => {});
     return { ok: true, kind: "movie", id: raced.id };
   }
@@ -125,10 +127,13 @@ export async function importSeriesCandidate(
   const videos = walkVideoFiles(folderPath);
   // season -> episode -> file, from whatever season/episode markers the filenames carry (SxxExx, 1x01, …).
   const byEpisode = new Map<string, string>();
+  const ambiguous = new Set<string>();
   for (const v of videos) {
     const parsed = parseRelease(pathFor(v).basename(v));
     if (parsed.season == null || parsed.episode == null) continue; // ambiguous — left for a later reconciliation pass
-    byEpisode.set(`${parsed.season}.${parsed.episode}`, v);
+    const key = `${parsed.season}.${parsed.episode}`;
+    if (byEpisode.has(key)) { byEpisode.delete(key); ambiguous.add(key); continue; }
+    if (!ambiguous.has(key)) byEpisode.set(key, v);
   }
   if (byEpisode.size === 0) return { ok: false, error: "no_episode_files" };
 
@@ -138,10 +143,10 @@ export async function importSeriesCandidate(
       ...season,
       episodes: season.episodes.map((ep) => {
         const match = byEpisode.get(`${season.seasonNumber}.${ep.episodeNumber}`);
-        return match ? { ...ep, status: "available" as const, file: buildFile(match) } : ep;
+        return match && !ep.file ? { ...ep, status: "available" as const, file: buildFile(match) } : ep;
       }),
     }));
-    updateSeries(existing.id, { seasons, monitored });
+    updateSeries(existing.id, { seasons });
     return { ok: true, kind: "series", id: existing.id };
   }
 
@@ -157,10 +162,10 @@ export async function importSeriesCandidate(
       ...season,
       episodes: season.episodes.map((ep) => {
         const match = byEpisode.get(`${season.seasonNumber}.${ep.episodeNumber}`);
-        return match ? { ...ep, status: "available" as const, file: buildFile(match) } : ep;
+        return match && !ep.file ? { ...ep, status: "available" as const, file: buildFile(match) } : ep;
       }),
     }));
-    updateSeries(racedSeries.id, { seasons, monitored });
+    updateSeries(racedSeries.id, { seasons });
     return { ok: true, kind: "series", id: racedSeries.id };
   }
 

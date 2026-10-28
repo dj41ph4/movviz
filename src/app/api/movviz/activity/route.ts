@@ -113,6 +113,7 @@ export async function GET(req: NextRequest) {
 
       return {
         origin: "movviz",
+        href: progress?.tmdbId ? `/title/${progress.mediaType === "episode" ? "series" : "movie"}/${progress.tmdbId}` : null,
         title: progress?.title || "Inconnu",
         type: hb.mediaType,
         user: user?.username || "Inconnu",

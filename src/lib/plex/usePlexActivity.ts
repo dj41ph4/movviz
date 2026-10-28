@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 
 export interface PlexSession {
+  href: string | null;
   title: string;
   type: string;
   user: string;

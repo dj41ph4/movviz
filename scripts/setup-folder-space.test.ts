@@ -1,0 +1,44 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { NextRequest } from "next/server";
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-folders-"));
+process.env.MOVVIZ_CONFIG_DIR = path.join(root, "config");
+fs.mkdirSync(process.env.MOVVIZ_CONFIG_DIR);
+const { addUser, createSession } = await import("../src/lib/auth/store.ts");
+const { chooseSynologyStorage } = await import("../src/lib/setup/synologyStorage.ts");
+const space = await import("../src/app/api/setup/folder-space/route.ts");
+const check = await import("../src/app/api/setup/check-folders/route.ts");
+addUser({ id: "admin", username: "admin", role: "admin", status: "approved", createdAt: Date.now() } as never);
+const token = createSession("admin").token;
+const cookie = { cookie: `movviz_session=${token}` };
+test("Synology suggestions use a writable shared folder, including volumes other than volume1", () => {
+  const suggestions = chooseSynologyStorage(["/volume1", "/volume2"], (p) => p === "/volume2/video");
+  assert.equal(suggestions?.movies.completedPath, "/volume2/video/Films");
+  assert.equal(suggestions?.series.downloadPath, "/volume2/video/Telechargements/Series");
+  assert.equal(chooseSynologyStorage(["/volume1"], () => false), null);
+});
+test("space is measured on the existing parent without creating the proposed directory", async () => {
+  const proposed = path.join(root, "not-created", "Films");
+  const response = await space.GET(new NextRequest(`http://localhost/api/setup/folder-space?path=${encodeURIComponent(proposed)}`, { headers: cookie }));
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.basedOnParent, true);
+  assert.ok(data.free >= 0 && data.total > 0);
+  assert.equal(fs.existsSync(proposed), false);
+  const forbidden = await space.GET(new NextRequest(`http://localhost/api/setup/folder-space?path=${encodeURIComponent(root)}`));
+  assert.equal(forbidden.status, 401);
+});
+test("saving creates explicitly requested folders; invalid or unauthenticated requests do not", async () => {
+  const completedPath = path.join(root, "movies");
+  const downloadPath = path.join(root, "temp", "movies");
+  const request = (headers: Record<string,string>, body: unknown) => new NextRequest("http://localhost/api/setup/check-folders", { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify(body) });
+  assert.equal((await check.POST(request({}, { completedPath, downloadPath }))).status, 401);
+  assert.equal(fs.existsSync(completedPath), false);
+  assert.equal((await check.POST(request(cookie, { completedPath: "relative", downloadPath }))).status, 400);
+  assert.equal((await check.POST(request(cookie, { completedPath, downloadPath }))).status, 200);
+  assert.ok(fs.statSync(completedPath).isDirectory());
+  assert.ok(fs.statSync(downloadPath).isDirectory());
+});

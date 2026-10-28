@@ -407,6 +407,7 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
     "indexation.seriesTitle",
     "settings.diskWarningHint",
     "settings.diskWarningTitle",
+    "setup.importResult",
   ],
   "indexers": [
     "indexerMgr.add",

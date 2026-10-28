@@ -1,3 +1,11 @@
+## v1.28.2 — 28. Oktober 2026
+
+### Einrichtung und Wiedergabe
+
+- Der Assistent bietet Bibliotheks- und Downloadordner, freien Speicher und den Import vorhandener Dateien. Gespeicherte Pfade bleiben erhalten.
+- Die Suche bevorzugt Staffeln und Episoden vor Gesamtpaketen. Erkannte Titel aktiver Sitzungen öffnen ihre Details.
+- Nach dem TV-Ruhemodus zeigt Movviz die Profilauswahl. Das vollständige Zurücksetzen ist zum Schutz der Mediendateien vorübergehend deaktiviert.
+
 ## v1.28.1 — 28. Oktober 2026
 
 ### Einstellungen

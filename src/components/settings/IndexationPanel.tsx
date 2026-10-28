@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
-import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw, Search, Check, X, FolderOpen, Film, Tv, ShieldAlert, HardDrive, Scan } from "lucide-react";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { TmdbImage } from "@/components/media/TmdbImage";
@@ -38,13 +37,15 @@ interface SearchHit {
  * them in without going through indexer search — the files are already on
  * disk. See src/lib/library/indexScan.ts / indexImport.ts.
  */
-export function IndexationPanel({ type }: { type: "movie" | "series" }) {
+export function IndexationPanel({ type, autoScan = false, simple = false }: { type: "movie" | "series"; autoScan?: boolean; simple?: boolean }) {
   const t = useT();
   const [candidates, setCandidates] = useState<IndexCandidate[] | null>(null);
   const [scanning, setScanning] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [overrides, setOverrides] = useState<Map<string, IndexMatch>>(new Map());
   const [importing, setImporting] = useState(false);
+  const [operationError, setOperationError] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [monitored, setMonitored] = useState(true);
   const [diskScanning, setDiskScanning] = useState(false);
@@ -85,16 +86,16 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
     setScanning(true);
     setSelected(new Set());
     setOverrides(new Map());
-    await fetch("/api/library/index-scan", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ type }),
-    });
-    pollScan();
+    setOperationError(false);
+    try {
+      const response = await fetch("/api/library/index-scan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type }) });
+      if (!response.ok) throw new Error("scan failed");
+      await pollScan();
+    } catch { setScanning(false); setOperationError(true); }
   };
 
   useEffect(() => {
-    loadStatus().then((running) => { if (running) pollScan(); });
+    loadStatus().then((running) => { if (running) void pollScan(); else if (autoScan) void startScan(); }).catch(() => { setScanning(false); setOperationError(true); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
@@ -123,19 +124,22 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
     if (!(await confirmDialog(t("indexation.confirmImport", { count: items.length })))) return;
     setImporting(true);
     try {
-      await fetch("/api/library/index-import", {
+      setOperationError(false); setImportResult(null);
+      const response = await fetch("/api/library/index-import", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ type, items, monitored }),
       });
+      if (!response.ok) throw new Error("import failed");
       for (;;) {
         const res = await fetch(`/api/library/index-import?type=${type}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("import status failed");
         const data = await res.json();
-        if (!data.running) break;
+        if (!data.running) { const results = Array.isArray(data.results) ? data.results : []; setImportResult({ success: results.filter((r: { ok: boolean }) => r.ok).length, failed: results.filter((r: { ok: boolean }) => !r.ok).length }); break; }
         await new Promise((r) => setTimeout(r, 1500));
       }
       await startScan();
-    } finally {
+    } catch { setOperationError(true); } finally {
       setImporting(false);
     }
   };
@@ -155,7 +159,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
           </p>
         </div>
       </div>
-      <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
+      {!simple && <><div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
         <div>
           <p className="text-sm font-bold text-down">{t("settings.diskWarningTitle")}</p>
@@ -191,7 +195,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
             {t("diskScan.result", { scanned: diskScanResult.scanned, matched: diskScanResult.matched, updated: diskScanResult.updated })}
           </p>
         )}
-      </div>
+      </div></>}
 
       <div className="flex items-start justify-between gap-4">
         <button
@@ -204,6 +208,8 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
         </button>
       </div>
 
+      {operationError && <p className="text-sm text-down" role="alert">{t("common.actionFailed")}</p>}
+      {importResult && <p className="text-sm text-ink-soft" role="status">{t("setup.importResult", importResult)}</p>}
       {candidates === null ? (
         <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
           <Loader2 className="h-5 w-5 animate-spin" />

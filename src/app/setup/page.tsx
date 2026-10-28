@@ -8,8 +8,10 @@ import { useT, useI18n } from "@/i18n/provider";
 import { LOCALES, LOCALE_META } from "@/i18n/config";
 import { FlagIcon } from "@/components/ui/FlagIcon";
 import { Toggle } from "@/components/ui/Toggle";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 import { IndexerManager } from "@/components/settings/IndexerManager";
+import { IndexationPanel } from "@/components/settings/IndexationPanel";
+import { RenamePanel } from "@/components/settings/RenamePanel";
 import { FolderPicker } from "@/components/settings/FolderPicker";
 import { PlexSettings } from "@/components/settings/PlexSettings";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
@@ -21,12 +23,12 @@ import { resetSwrCache } from "@/lib/swrCacheReset";
 import type { WizardTrackedField } from "@/lib/setup/wizardProvenance";
 import {
   Clapperboard, Languages, KeyRound, Tv, Magnet, HardDrive, Play, PartyPopper, ShieldCheck,
-  Check, Loader2, ArrowRight, ExternalLink, ChevronRight, MonitorSmartphone,
+  Check, Loader2, ArrowRight, ExternalLink, ChevronRight, MonitorSmartphone, FolderOpen,
   Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot, UserPlus,
 } from "lucide-react";
 import { DEVICE_TYPES, type DeviceType } from "@/lib/setup/deviceTypes";
 
-const STEPS = ["account", "language", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "plex", "done"] as const;
+const STEPS = ["account", "language", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "libraryImport", "plex", "done"] as const;
 type Step = (typeof STEPS)[number];
 
 const STEP_ICON: Record<Step, React.ElementType> = {
@@ -39,6 +41,7 @@ const STEP_ICON: Record<Step, React.ElementType> = {
   ai: Bot,
   indexers: Magnet,
   downloads: HardDrive,
+  libraryImport: FolderOpen,
   plex: Play,
   done: PartyPopper,
 };
@@ -91,6 +94,7 @@ function SetupWizardPageInner() {
   // with ?mode=smart — see HardwareStep for what that changes.
   const smartMode = searchParams.get("mode") === "smart";
   const [stepIndex, setStepIndex] = useState(0);
+  const [foldersDirty, setFoldersDirty] = useState(false);
 
   // The "account" step only makes sense for a truly fresh install (or after
   // a factory reset): a signed-in user re-running the wizard from Settings
@@ -198,9 +202,10 @@ function SetupWizardPageInner() {
           )}
           {step === "downloads" && (
             <StepShell title={t("setup.downloadsTitle")} hint={t("setup.downloadsHint")}>
-              <SetupFolders />
+              <SetupFolders onDirtyChange={setFoldersDirty} />
             </StepShell>
           )}
+          {step === "libraryImport" && <SetupLibraryImport />}
           {step === "plex" && (
             <StepShell title={t("setup.plexTitle")} hint={t("setup.plexHint")}>
               <PlexSettings />
@@ -229,20 +234,21 @@ function SetupWizardPageInner() {
         </motion.div>
       </AnimatePresence>
 
+      {step === "downloads" && foldersDirty && <p className="mt-4 text-sm text-amber" role="status">{t("setup.saveFoldersFirst")}</p>}
       {step !== "done" && step !== "account" && (
         <div className="mt-6 flex items-center justify-between">
           <button
             onClick={back}
-            disabled={stepIndex === 0}
+            disabled={stepIndex === 0 || (step === "downloads" && foldersDirty)}
             className="rounded-xl glass px-4 py-2.5 text-sm font-semibold text-ink-soft disabled:opacity-30"
           >
             {t("setup.back")}
           </button>
           <div className="flex gap-2">
-            <button onClick={next} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-dim hover:text-ink">
+            <button onClick={next} disabled={step === "downloads" && foldersDirty} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-dim hover:text-ink disabled:opacity-30">
               {t("setup.skip")}
             </button>
-            <button onClick={next} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white">
+            <button onClick={next} disabled={step === "downloads" && foldersDirty} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white disabled:opacity-30">
               {t("setup.next")} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -262,35 +268,117 @@ function StepShell({ title, hint, children }: { title: string; hint: string; chi
   );
 }
 
-function SetupFolders() {
+function SetupFolders({ onDirtyChange }: { onDirtyChange: (dirty: boolean) => void }) {
   const t = useT();
-  const [folders, setFolders] = useState<{ id: string; category: string; path: string }[] | null>(null);
+  const [folders, setFolders] = useState<{ id: string; category: string; completedPath: string; downloadPath: string }[] | null>(null);
+  const [savedFolders, setSavedFolders] = useState<Record<string, { completedPath: string; downloadPath: string }>>({});
+  const [synology, setSynology] = useState(false);
+  const [synologyMissingShare, setSynologyMissingShare] = useState(false);
+  const [synologyBrowseStart, setSynologyBrowseStart] = useState<string | undefined>();
   const [mode, setMode] = useState<"browse" | "write">("write");
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
-    fetch("/api/system", { cache: "no-store" }).then((r) => r.json()).then((d) => setMode(d.mode === "browse" ? "browse" : "write")).catch(() => {});
-    fetch("/api/engine/instances", { cache: "no-store" }).then((r) => r.json()).then((d) => setFolders((d.instances ?? []).map((i: { id: string; category: string; completedPath: string }) => ({ id: i.id, category: i.category, path: i.completedPath })))).catch(() => setFolders([]));
+    Promise.all([
+      fetch("/api/system", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/engine/instances", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/auth/me", { cache: "no-store" }).then((r) => r.json()),
+    ]).then(([system, data, auth]) => {
+      setMode(system.mode === "browse" ? "browse" : "write");
+      const isSynology = !!system.synologyStorage;
+      setSynology(isSynology);
+      setSynologyBrowseStart(system.synologyStorage?.volumes?.[0]);
+      const items = (data.instances ?? []).map((i: { id: string; category: string; completedPath: string; downloadPath: string }) => ({ id: i.id, category: i.category, completedPath: i.completedPath, downloadPath: i.downloadPath }));
+      setSavedFolders(Object.fromEntries(items.map((i: { id: string; completedPath: string; downloadPath: string }) => [i.id, { completedPath: i.completedPath, downloadPath: i.downloadPath }])));
+      const firstSetup = isSynology && auth.setupPending === true;
+      if (firstSetup) {
+        const config = String(system.configDir).replace(/\/$/, "");
+        const suggested = system.synologyStorage.suggestions;
+        setSynologyMissingShare(!suggested);
+        setFolders(items.map((item: { id: string; category: string; completedPath: string; downloadPath: string }) => {
+          const type = item.category === "movie" ? "movies" : "series";
+          const defaultComplete = config + (type === "movies" ? "/media/movies" : "/media/tv");
+          const defaultDownload = config + (type === "movies" ? "/torrents/movies" : "/torrents/tv");
+          const offlineBase = config.slice(0, config.lastIndexOf("/")) + "/data";
+          const offlineComplete = offlineBase + (type === "movies" ? "/media/movies" : "/media/tv");
+          const offlineDownload = offlineBase + (type === "movies" ? "/torrents/movies" : "/torrents/tv");
+          const proposal = suggested?.[type];
+          return { ...item,
+            completedPath: item.completedPath === defaultComplete || (data.offline && item.completedPath === offlineComplete) ? proposal?.completedPath ?? "" : item.completedPath,
+            downloadPath: item.downloadPath === defaultDownload || (data.offline && item.downloadPath === offlineDownload) ? proposal?.downloadPath ?? "" : item.downloadPath,
+          };
+        }));
+      } else setFolders(items);
+    }).catch(() => setFolders([]));
   }, []);
-  const save = async (id: string, path: string) => {
-    setSaving(id); setMessage(null);
+  useEffect(() => { onDirtyChange(!!saving || !!folders?.some((folder) => savedFolders[folder.id] && (folder.completedPath !== savedFolders[folder.id].completedPath || folder.downloadPath !== savedFolders[folder.id].downloadPath))); }, [folders, savedFolders, saving, onDirtyChange]);
+  const save = async (folder: NonNullable<typeof folders>[number]) => {
+    setSaving(folder.id); setMessage(null);
     try {
-      const response = await fetch(`/api/engine/instances/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ completedPath: path.trim() }) });
+      const check = await fetch("/api/setup/check-folders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ completedPath: folder.completedPath.trim(), downloadPath: folder.downloadPath.trim() }) });
+      if (!check.ok) { setMessage(t(synology ? "setup.folderPermissionError" : "setup.folderPermissionGeneric")); return; }
+      const response = await fetch(`/api/engine/instances/${folder.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ completedPath: folder.completedPath.trim(), downloadPath: folder.downloadPath.trim() }) });
+      if (response.ok) setSavedFolders((old) => ({ ...old, [folder.id]: { completedPath: folder.completedPath, downloadPath: folder.downloadPath } }));
       setMessage(response.ok ? t("settings.saved") : t("common.actionFailed"));
     } catch { setMessage(t("common.actionFailed")); }
     finally { setSaving(null); }
   };
   if (!folders) return <Loader2 className="h-5 w-5 animate-spin text-ink-dim" />;
-  return <div className="space-y-4 rounded-2xl glass p-5">
+  return <div className="space-y-5">
+    {synology && <p className="rounded-xl glass p-4 text-sm text-ink-soft">{t(synologyMissingShare ? "setup.synologyChooseShare" : "setup.synologySuggestion")}</p>}
     {folders.length === 0 && <p className="text-sm text-down">{t("downloads.engineOffline")}</p>}
-    {folders.map((folder) => <div key={folder.id}>
-      <label className="mb-2 block text-sm font-bold text-ink">{folder.category === "movie" ? t("setup.movieFolder") : t("setup.seriesFolder")}</label>
-      <div className="flex gap-2"><div className="min-w-0 flex-1"><FolderPicker value={folder.path} mode={mode} onChange={(path) => setFolders(folders.map((f) => f.id === folder.id ? { ...f, path } : f))} /></div>
-        <button disabled={!!saving || !folder.path.trim()} onClick={() => void save(folder.id, folder.path)} className="rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">{t("common.save")}</button>
-      </div>
+    {folders.map((folder) => <div key={folder.id} className="space-y-4 rounded-2xl glass p-5">
+      <h3 className="font-bold text-ink">{folder.category === "movie" ? t("common.movies") : t("common.series")}</h3>
+      {(["completedPath", "downloadPath"] as const).map((field) => <div key={field}>
+        <label className="mb-1 block text-sm font-semibold text-ink">{field === "completedPath" ? t("setup.storageFolder") : t("setup.temporaryFolder")}</label>
+        <p className="mb-2 text-xs text-ink-dim">{field === "completedPath" ? t("setup.storageFolderHint") : t("setup.temporaryFolderHint")}</p>
+        <FolderPicker value={folder[field] ?? ""} mode={mode} browseStart={synologyBrowseStart} onChange={(value) => setFolders((old) => old?.map((f) => f.id === folder.id ? { ...f, [field]: value } : f) ?? null)} />
+        <FolderSpace target={folder[field] ?? ""} />
+      </div>)}
+      <button disabled={!!saving || !folder.completedPath?.trim() || !folder.downloadPath?.trim()} onClick={() => void save(folder)} className="h-10 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">{t("common.save")}</button>
     </div>)}
     {message && <p className="text-xs text-ink-soft" role="status">{message}</p>}
   </div>;
+}
+
+function FolderSpace({ target }: { target: string }) {
+  const t = useT();
+  const [result, setResult] = useState<{ target: string; space: { free: number; total: number; basedOnParent: boolean } | null } | null>(null);
+  useEffect(() => {
+    if (!target.trim()) return;
+    let active = true;
+    const controller = new AbortController();
+    const refresh = async () => {
+      try {
+        const response = await fetch(`/api/setup/folder-space?path=${encodeURIComponent(target)}`, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("unavailable");
+        const result = await response.json();
+        if (active) setResult({ target, space: result });
+      } catch { if (active) setResult({ target, space: null }); }
+    };
+    const initial = setTimeout(() => { void refresh(); }, 400);
+    const timer = setInterval(() => { void refresh(); }, 10_000);
+    return () => { active = false; controller.abort(); clearTimeout(initial); clearInterval(timer); };
+  }, [target]);
+  if (!target.trim()) return null;
+  const current = result?.target === target ? result : null;
+  const space = current?.space;
+  return <p className="mt-1 text-xs text-ink-dim" role="status">{space ? t("setup.folderSpace", { free: formatBytes(space.free), total: formatBytes(space.total) }) + (space.basedOnParent ? " " + t("setup.folderSpaceParent") : "") : current ? t("setup.folderSpaceUnavailable") : t("common.loading")}</p>;
+}
+
+function SetupLibraryImport() {
+  const t = useT();
+  const [started, setStarted] = useState(false);
+  const [rename, setRename] = useState(false);
+  return <StepShell title={t("setup.importTitle")} hint={t("setup.importHint")}>
+    <p className="mb-4 text-sm text-ink-soft">{t("setup.importLaterHint")}</p>
+    {!started ? <button onClick={() => setStarted(true)} className="h-11 rounded-xl brand-gradient px-5 text-sm font-bold text-white">{t("setup.importNow")}</button> : <div className="space-y-4">
+      <IndexationPanel type="movie" autoScan simple />
+      <IndexationPanel type="series" autoScan simple />
+      <button onClick={() => setRename(!rename)} className="rounded-xl glass px-4 py-3 text-sm font-semibold text-ink-soft">{t("setup.reviewNames")}</button>
+      {rename && <RenamePanel />}
+    </div>}
+  </StepShell>;
 }
 
 /** Première installation : ce choix est appliqué avant la fin du wizard,

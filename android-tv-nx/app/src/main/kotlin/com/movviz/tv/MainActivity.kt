@@ -126,6 +126,7 @@ fun rowDetailRoute(mode: String, mediaType: String, key: String, label: String):
 
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
+    private var wakePending by mutableStateOf(false)
 
     // Deep link reçu (carte du dashboard TvProvider, movviz://title/...) —
     // consommé par le NavHost une fois la navigation prête.
@@ -138,7 +139,7 @@ class MainActivity : ComponentActivity() {
             // Interface Bêta permanente : plus de choix Stable/Bêta, donc plus d'attente de la
             // préférence — le thème Bêta s'applique dès la première image.
             MovvizTvTheme(beta = true) {
-                MovvizNavHost(appViewModel)
+                MovvizNavHost(appViewModel, wakePending) { wakePending = false }
             }
         }
     }
@@ -146,6 +147,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pendingDeepLink = intent
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if ((application as MovvizTvApplication).screenSleepTracker.consumeWake()) wakePending = true
     }
 
     /** Récupère (et vide) le deep link en attente, s'il y en a un. */
@@ -157,7 +163,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun MovvizNavHost(viewModel: AppViewModel) {
+private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeHandled: () -> Unit) {
     val navController = rememberNavController()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
@@ -323,6 +329,14 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // serveur. Un compte invité (user) va directement à l'accueil — il ne
     // voit pas la liste du foyer.
     var startDestination by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(wakePending, startDestination) {
+        if (!wakePending || startDestination == null) return@LaunchedEffect
+        val profiles = viewModel.loadCachedProfiles()
+        if (profiles.isNotEmpty()) {
+            navController.navigate(ROUTE_PROFILES) { popUpTo(0) { inclusive = true }; launchSingleTop = true }
+        }
+        onWakeHandled()
+    }
     LaunchedEffect(Unit) {
         // viewModel.serverUrl.first() renverrait la valeur COURANTE du
         // StateFlow sans attendre — potentiellement `null` si le init{} du

@@ -83,7 +83,7 @@ test("phone adds queue acquisition after approval, including existing missing se
   `);
 });
 
-test("Gintama: real series creation and queued search fall back from integral to season packs and send each season to the engine", () => {
+test("Gintama: season packs take priority over an available integral", () => {
   isolated(`
     import { mock } from 'node:test';
     import assert from 'node:assert/strict';
@@ -92,6 +92,7 @@ test("Gintama: real series creation and queued search fall back from integral to
     const library = new Map(), jobs = [], sent = [], requests = [];
     const releases = [1, 2].map(season => ({ title: 'Gintama.S0' + season + '.MULTi.1080p.WEB-DL.x264-GRP',
       guid: 'season-' + season, infoHash: String(season).repeat(40), score: 100, size: 1000000000, indexerId: 'fixture', magnetUrl: 'magnet:?xt=urn:btih:' + String(season).repeat(40) }));
+    releases.push({ ...releases[0], title: 'Gintama.Integrale.MULTi.1080p.WEB-DL.x264-GRP', guid: 'integral', infoHash: 'f'.repeat(40), magnetUrl: 'magnet:?xt=urn:btih:' + 'f'.repeat(40) });
     const overrides = {
       getSeries: id => library.get(id), getSeriesByTmdbId: () => [...library.values()][0],
       addSeries: item => { library.set(item.id, item); return item; },
@@ -149,8 +150,23 @@ test("Gintama: real series creation and queued search fall back from integral to
     assert.equal(result.searchResult.queued, true); assert.equal(sent.length, 0); assert.equal(requests.length, 1);
     await jobs[0].runner(() => {}, { jobId: 'acquire' });
     assert.equal(sent.length, 2, 'both season packs must be handed to the engine');
+    assert.ok(sent.every(b => !b.rejectMissingSeriesPack), 'the integral must not be selected before season packs');
     assert.deepEqual(sent.map(b => b.episodeTargets), [[{season:1,episode:1},{season:1,episode:2}], [{season:2,episode:1},{season:2,episode:2}]]);
     assert.ok([...library.values()][0].seasons.every(s => s.episodes.every(e => e.status === 'downloading' && e.activeInfoHash)));
+
+    // One episode exists individually; the integral must only target the
+    // other episode after the individual search has completed.
+    const previous = [...library.values()][0];
+    const partial = { ...previous, id: 'partial', seasons: [{ ...previous.seasons[0], episodes: previous.seasons[0].episodes.map(e => ({ ...e, status: 'missing', activeInfoHash: null })) }] };
+    library.clear(); library.set(partial.id, partial);
+    const integral = releases[2];
+    releases.splice(0, releases.length, { ...releases[0], title: 'Gintama.S01E01.MULTi.1080p.WEB-DL.x264-GRP' }, integral);
+    const { searchAndGrabSeason } = await import('@/lib/library/autoGrabSeries');
+    const partialStart = sent.length;
+    await searchAndGrabSeason(partial.id, 1);
+    assert.equal(sent.length, partialStart + 2);
+    assert.deepEqual(sent[partialStart].episodeTarget, { season: 1, episode: 1 });
+    assert.deepEqual(sent[partialStart + 1].episodeTargets, [{ season: 1, episode: 2 }]);
 
     // The real auto-grab pipeline must not take the classic show's yearless
     // season pack just because both shows are called Scrubs and have an S02.
@@ -164,7 +180,7 @@ test("Gintama: real series creation and queued search fall back from integral to
     library.set('scrubs-2001', { ...template, id: 'scrubs-2001', tmdbId: 4556, title: 'Scrubs', originalTitle: 'Scrubs', year: 2001 });
     const release = title => ({ ...releases[0], title });
     releases.splice(0, releases.length, release('Scrubs.S02.MULTi.1080p.WEB-DL'), release('Scrubs.2001.S02.MULTi.1080p.WEB-DL'));
-    const { searchAndGrabSeason, searchCompleteSeriesCandidates } = await import('@/lib/library/autoGrabSeries');
+    const { searchCompleteSeriesCandidates } = await import('@/lib/library/autoGrabSeries');
     const before = sent.length;
     await searchAndGrabSeason(reboot.id, 2, { skipSeriesPackRetry: true });
     assert.equal(sent.length, before, 'ambiguous and classic packs must never reach the engine');

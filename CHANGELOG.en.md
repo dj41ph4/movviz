@@ -1,3 +1,11 @@
+## v1.28.2 — 28 October 2026
+
+### Setup and playback
+
+- Setup offers library and download folders, free space and import of existing files. Configured paths are preserved.
+- Searches prefer seasons and episodes before complete series packs. Identified active session titles open their details.
+- After TV sleep, Movviz returns to profile selection. Full reset is temporarily disabled to protect media files.
+
 ## v1.28.1 — 28 October 2026
 
 ### Settings

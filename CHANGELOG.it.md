@@ -1,3 +1,11 @@
+## v1.28.2 — 28 ottobre 2026
+
+### Installazione e riproduzione
+
+- La procedura propone cartelle della libreria e dei download, spazio libero e importazione dei file esistenti. I percorsi configurati sono conservati.
+- La ricerca preferisce stagioni ed episodi prima delle raccolte complete. I titoli identificati nelle sessioni attive aprono la scheda.
+- Dopo la sospensione della TV, Movviz torna alla scelta del profilo. Il ripristino completo è temporaneamente disabilitato per proteggere i file multimediali.
+
 ## v1.28.1 — 28 ottobre 2026
 
 ### Impostazioni

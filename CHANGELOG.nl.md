@@ -1,3 +1,11 @@
+## v1.28.2 — 28 oktober 2026
+
+### Installatie en afspelen
+
+- De installatiewizard biedt bibliotheek- en downloadmappen, vrije ruimte en import van bestaande bestanden. Ingestelde paden blijven behouden.
+- Zoeken geeft voorrang aan seizoenen en afleveringen boven complete series. Herkende titels van actieve sessies openen hun fiche.
+- Na de slaapstand van de tv toont Movviz de profielkeuze. Volledig resetten is tijdelijk uitgeschakeld om mediabestanden te beschermen.
+
 ## v1.28.1 — 28 oktober 2026
 
 ### Instellingen

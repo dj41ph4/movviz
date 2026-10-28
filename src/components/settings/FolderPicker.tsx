@@ -24,11 +24,13 @@ export function FolderPicker({
   onChange,
   mode,
   mono = true,
+  browseStart,
 }: {
   value: string;
   onChange: (v: string) => void;
   mode: "browse" | "write";
   mono?: boolean;
+  browseStart?: string;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -60,7 +62,7 @@ export function FolderPicker({
       <AnimatePresence>
         {open && (
           <BrowseModal
-            initial={value}
+            initial={value || browseStart || value}
             onCancel={() => setOpen(false)}
             onChoose={(p) => { onChange(p); setOpen(false); }}
           />

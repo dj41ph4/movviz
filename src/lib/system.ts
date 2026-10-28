@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { synologyStorageSuggestions } from "@/lib/setup/synologyStorage";
 import path from "node:path";
 import { execSync } from "node:child_process";
 
@@ -102,6 +103,7 @@ export function systemInfo() {
     nodeEnv: process.env.NODE_ENV ?? "unknown",
     dataDir,
     configDir,
+    synologyStorage: synologyStorageSuggestions(configDir, container),
     pid: process.pid,
   };
 }

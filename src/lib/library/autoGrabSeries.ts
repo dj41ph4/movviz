@@ -925,36 +925,9 @@ async function searchAndGrabEpisodeCascade(
   missingEpisodeNumbers: number[],
   options?: { skipPackRetry?: boolean }
 ) {
-  // RÈGLE ABSOLUE — cascade stricte : intégrale d'abord, sinon saison, sinon
-  // épisode seul. skipPackRetry (posé par les boucles batch) signifie que
-  // l'intégrale ET la saison ont déjà été cherchées et épuisées pour cette
-  // série dans ce même run → on ne cherche que l'épisode seul.
+  // Les recherches groupées gèrent elles-mêmes les packs.
   if (!options?.skipPackRetry) {
-    // Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
-    const seriesPack = series.tmdbId === BLEACH_TMDB_ID ? null : await tryGrabSeriesPack(series, profile);
-    if (seriesPack) {
-      setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
-      logActivity("grabbed", "system", `${series.title} — intégrale (${seriesPack.targets.length} ép.)`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
-        releaseTitle: seriesPack.release.title,
-        indexer: seriesPack.release.indexerId,
-        infoHash: seriesPack.torrent.infoHash,
-      });
-      logSeriesGrabV2(
-        series,
-        "series",
-        seriesPack.release,
-        seriesPack.targets.length,
-        new Set(seriesPack.targets.map((t) => t.season)).size
-      );
-      return { ok: true as const, release: seriesPack.release, torrent: seriesPack.torrent };
-    }
-
-    await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-
-    // Pas d'intégrale — un pack de saison vaut le coup : il amène aussi tous
-    // les autres épisodes manquants de la saison.
+    // Un pack de saison peut contenir les autres épisodes manquants.
     const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missingEpisodeNumbers);
     if (pack && (series.tmdbId !== BLEACH_TMDB_ID || pack.coverage.includes(episodeNumber))) {
       setEpisodesStatus(series, seasonNumber, pack.coverage, { status: "downloading", activeInfoHash: pack.torrent.infoHash });
@@ -972,7 +945,7 @@ async function searchAndGrabEpisodeCascade(
     await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
   }
 
-  // Ni intégrale ni saison — l'épisode seul, en dernier.
+  // Si aucun pack de saison ne convient, rechercher l'épisode seul.
   const single = await grabRelease(series, seasonNumber, episodeNumber, profile, false);
   if (single.ok) {
     // Same season-part translation as tryGrabSeasonPackImpl: a part release
@@ -1016,6 +989,34 @@ async function searchAndGrabEpisodeCascade(
     return { ok: true as const, release: single.release, torrent: sent.torrent };
   }
 
+  if (!options?.skipPackRetry && series.tmdbId !== BLEACH_TMDB_ID) {
+    const fresh = getSeries(seriesId);
+    if (fresh) {
+      const seriesPack = await tryGrabSeriesPack(fresh, profile, new Set([seasonNumber]));
+      if (seriesPack) {
+        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+        void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
+        logActivity("grabbed", "system", `${series.title} — intégrale (${seriesPack.targets.length} ép.)`, `/title/series/${series.tmdbId}`, {
+          libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
+          releaseTitle: seriesPack.release.title,
+          indexer: seriesPack.release.indexerId,
+          infoHash: seriesPack.torrent.infoHash,
+        });
+        logSeriesGrabV2(
+          series,
+          "series",
+          seriesPack.release,
+          seriesPack.targets.length,
+          new Set(seriesPack.targets.map((t) => t.season)).size
+        );
+        return { ok: true as const, release: seriesPack.release, torrent: seriesPack.torrent };
+      }
+
+      await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+
+    }
+  }
+
   setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "missing" });
   logActivityV2({
     kind: "failed",
@@ -1024,7 +1025,7 @@ async function searchAndGrabEpisodeCascade(
     failure: createFailureRef(
       single.error === "no_indexers" ? "no_indexers" : "no_release_found",
       options?.skipPackRetry
-        ? `Aucune release exploitable trouvée pour cet épisode (pack de saison et intégrale déjà écartés pour cette série). ${describeGrabFailure(single)}`
+        ? `Aucune release exploitable trouvée pour cet épisode. ${describeGrabFailure(single)}`
         : `Aucune release exploitable trouvée, ni pour une intégrale, ni pour un pack de saison, ni pour l'épisode seul. ${describeGrabFailure(single)}`
     ),
   });
@@ -1241,46 +1242,7 @@ async function searchAndGrabSeasonCascade(
   missing: LibraryEpisode[],
   options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean; bleachPart?: number }
 ) {
-  // RÈGLE ABSOLUE — intégrale d'abord : si elle existe, elle couvre toute la
-  // série d'un coup. Skipped when a prior season in this same searchAndGrabSeries
-  // run already searched for this exact pack and found nothing — whether a
-  // complete-series pack exists can't change between one season and the next
-  // in the same run, so re-searching it per season (measured live: 6
-  // identical, empty direct searches for one 8-season show) is pure wasted
-  // indexer load.
-  if (!options?.skipSeriesPackRetry) {
-    const seriesPack = series.tmdbId === BLEACH_TMDB_ID ? null : await tryGrabSeriesPack(series, profile);
-    if (seriesPack) {
-      setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
-      logActivity("grabbed", "system", `${series.title} — intégrale (${seriesPack.targets.length} ép.)`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
-        releaseTitle: seriesPack.release.title,
-        indexer: seriesPack.release.indexerId,
-        infoHash: seriesPack.torrent.infoHash,
-      });
-      logSeriesGrabV2(
-        series,
-        "series",
-        seriesPack.release,
-        seriesPack.targets.length,
-        new Set(seriesPack.targets.map((t) => t.season)).size
-      );
-      return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
-    }
-
-    // Real pause before the next fallback stage — confirmed live as still
-    // necessary even with the per-item pacing above: one series with no cache
-    // hit chains series-pack, season-pack, then per-episode attempts, each
-    // querying every configured indexer in parallel with no gap between
-    // stages. That's several near-simultaneous request bursts for a SINGLE
-    // series, which alone was enough to trip an indexer's rate limit (a
-    // second series barely added to it before the 429 hit).
-    await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-  }
-
-  // Pas d'intégrale — le pack de saison, qui amène aussi tous les autres
-  // épisodes manquants de la saison.
+  // Chercher d’abord le pack de la saison demandée.
   const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missing.map((e) => e.episodeNumber));
   if (pack) {
     if (series.tmdbId === BLEACH_TMDB_ID) setEpisodesStatus(series, seasonNumber, missing.filter(e => !pack.coverage.includes(e.episodeNumber)).map(e => e.episodeNumber), { status: "missing" });
@@ -1296,27 +1258,37 @@ async function searchAndGrabSeasonCascade(
       infoHash: pack.torrent.infoHash,
     });
     logSeriesGrabV2(series, "season", pack.release, pack.coverage.length, 1, seasonNumber);
-    return { ok: true as const, mode: "pack" as const, release: pack.release, torrent: pack.torrent };
+    if (missing.every((episode) => pack.coverage.includes(episode.episodeNumber))) {
+      return { ok: true as const, mode: "pack" as const, release: pack.release, torrent: pack.torrent };
+    }
   }
 
   // Real pause before moving to the per-episode fallback stage.
   await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
 
-  // Ni intégrale ni pack de saison — les épisodes un par un. skipPackRetry:
-  // true since the season pack and series pack were both just searched for,
-  // right above, for this exact season — re-searching either one again for
-  // every single missing episode found nothing new (same cache, same indexer
-  // availability) while multiplying both the request count and the pacing
-  // delays by 3x per episode. Confirmed live: a show with dozens of missing
-  // episodes took hours under that redundancy.
+  // Ensuite les épisodes un par un, sans répéter les recherches de packs.
   const perEpisode = [];
   for (const ep of missing) {
+    if (pack?.coverage.includes(ep.episodeNumber)) continue;
     // Cancellation checkpoint between episodes — see searchAndGrabSeries's
     // season loop. Remaining episodes stay "missing" (restored by the
     // finally in searchAndGrabSeason) and are retried on a later run.
     if (options?.shouldCancel?.()) break;
     perEpisode.push(await searchAndGrabEpisode(seriesId, seasonNumber, ep.episodeNumber, { skipPackRetry: true }));
     await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+  }
+  // L’intégrale ne vise que les épisodes toujours manquants de cette saison.
+  if (!options?.skipSeriesPackRetry && !options?.shouldCancel?.() && series.tmdbId !== BLEACH_TMDB_ID) {
+    const fresh = getSeries(seriesId);
+    if (fresh) {
+      const seriesPack = await tryGrabSeriesPack(fresh, profile, new Set([seasonNumber]));
+      if (seriesPack) {
+        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+        void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
+        logSeriesGrabV2(fresh, "series", seriesPack.release, seriesPack.targets.length, new Set(seriesPack.targets.map(t => t.season)).size);
+        return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
+      }
+    }
   }
   return { ok: true as const, mode: "per_episode" as const, results: perEpisode };
 }
@@ -1679,10 +1651,8 @@ function tryGrabSeriesPack(
 }
 
 /**
- * Search + grab a complete-series pack that covers every monitored season.
- * Falls back to searching per-season when no pack is found. Serialized per
- * series via withSearchLock, like every other series-level search entry
- * point.
+ * Search each monitored season and its missing episodes before trying an
+ * integral for the remaining targets. Serialized per series.
  */
 export async function searchAndGrabCompleteSeries(seriesId: string, part?: BleachSeriesPart | null) {
   return withSearchLock(`series:${seriesId}`, async () => {
@@ -1695,29 +1665,8 @@ export async function searchAndGrabCompleteSeries(seriesId: string, part?: Bleac
     const targets = collectMissingTargets(series);
     if (targets.length === 0) return { ok: true as const, skipped: "nothing missing" };
 
-    const seriesPack = await tryGrabSeriesPack(series, profile);
-    if (seriesPack) {
-      setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
-      logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
-        releaseTitle: seriesPack.release.title,
-        indexer: seriesPack.release.indexerId,
-        infoHash: seriesPack.torrent.infoHash,
-      });
-      logSeriesGrabV2(
-        series,
-        "series",
-        seriesPack.release,
-        seriesPack.targets.length,
-        new Set(seriesPack.targets.map((t) => t.season)).size
-      );
-      return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
-    }
 
-    // No complete pack — search each season individually. skipSeriesPackRetry:
-    // true — l'intégrale vient d'être épuisée au niveau série, chaque saison ne
-    // doit pas la re-chercher (même cache, même réponse).
+    // One integral search after all seasons avoids repeating it per season.
     // Real pause between seasons, same pacing as searchAndGrabSeries: the engine
     // needs a beat to start a grabbed pack before the next search chain fires.
     // Ordre chronologique imposé (S01 → S02 → …) : le store ne garantit pas
@@ -1731,16 +1680,38 @@ export async function searchAndGrabCompleteSeries(seriesId: string, part?: Bleac
       await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
       results.push(await searchAndGrabSeason(seriesId, season.seasonNumber, { skipSeriesPackRetry: true }));
     }
+    const current = getSeries(seriesId);
+    const fresh = current?.tmdbId === BLEACH_TMDB_ID ? scopedBleachSeries(current, part) : current;
+    if (fresh) {
+      const seriesPack = await tryGrabSeriesPack(fresh, profile);
+      if (seriesPack) {
+        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+        void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
+        logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
+          libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
+          releaseTitle: seriesPack.release.title,
+          indexer: seriesPack.release.indexerId,
+          infoHash: seriesPack.torrent.infoHash,
+        });
+        logSeriesGrabV2(
+          series,
+          "series",
+          seriesPack.release,
+          seriesPack.targets.length,
+          new Set(seriesPack.targets.map((t) => t.season)).size
+        );
+        return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
+      }
+
+    }
     return { ok: true as const, mode: "per_season" as const, results };
   });
 }
 
 /**
  * Search every monitored season that still has missing episodes — the "search
- * whole series" / "rechercher les manquants" action. RÈGLE ABSOLUE :
- * l'intégrale est cherchée en premier systématiquement (plus de seuil de
- * complétion) — si elle est trouvée, STOP ; sinon saison par saison, chaque
- * saison essayant intégrale(skip) → pack saison → épisodes.
+ * whole series" / "rechercher les manquants" action: season packs, then
+ * individual episodes, then a single integral for any remaining targets.
  *
  * Serialized per series via withSearchLock: a bulk job and a scheduled
  * retry searching the same show at the same time would otherwise each run
@@ -1764,31 +1735,8 @@ export async function searchAndGrabSeries(
     const missingCount = monitoredEpisodes.filter((e) => e.status === "missing").length;
     if (missingCount === 0) return { ok: true as const, results: [] };
 
-    // Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
-    const seriesPack = series.tmdbId === BLEACH_TMDB_ID && series.seasons.some(s => s.seasonNumber === 17) ? null : await tryGrabSeriesPack(series, profile);
-    if (seriesPack) {
-      setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
-      logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
-        releaseTitle: seriesPack.release.title,
-        indexer: seriesPack.release.indexerId,
-        infoHash: seriesPack.torrent.infoHash,
-      });
-      logSeriesGrabV2(
-        series,
-        "series",
-        seriesPack.release,
-        seriesPack.targets.length,
-        new Set(seriesPack.targets.map((t) => t.season)).size
-      );
-      return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
-    }
-
     const results = [];
-    // L'intégrale vient d'être épuisée pour ce run — toutes les saisons passent
-    // skipSeriesPackRetry: true (la réponse ne peut pas changer entre deux
-    // saisons dans le même run). Ordre chronologique imposé (S01 → S02 → …).
+    // Rechercher l'intégrale une seule fois après les saisons.
     const orderedSeasons = [...series.seasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
     for (const season of orderedSeasons) {
       // Cooperative cancellation checkpoint — the bulk "rechercher les
@@ -1809,6 +1757,30 @@ export async function searchAndGrabSeries(
       // instead of one sustained burst — see the matching comment in
       // searchMissing.ts's runBatch.
       await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+    }
+    const current = getSeries(seriesId);
+    const fresh = current?.tmdbId === BLEACH_TMDB_ID ? scopedBleachSeries(current, options?.seriesPart) : current;
+    if (fresh && !options?.shouldCancel?.()) {
+      const seriesPack = series.tmdbId === BLEACH_TMDB_ID && series.seasons.some(s => s.seasonNumber === 17) ? null : await tryGrabSeriesPack(fresh, profile);
+      if (seriesPack) {
+        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+        void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
+        logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
+          libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
+          releaseTitle: seriesPack.release.title,
+          indexer: seriesPack.release.indexerId,
+          infoHash: seriesPack.torrent.infoHash,
+        });
+        logSeriesGrabV2(
+          series,
+          "series",
+          seriesPack.release,
+          seriesPack.targets.length,
+          new Set(seriesPack.targets.map((t) => t.season)).size
+        );
+        return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
+      }
+
     }
     return { ok: true as const, results };
   });
@@ -1909,22 +1881,7 @@ async function searchReleasedMissingEpisodesInner() {
       const { series: fresh, seasons: freshSeasons } = current;
       const profile = profileFor(fresh.qualityProfileId);
 
-      // 1. Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
-      const seriesPack = await tryGrabSeriesPack(fresh, profile);
-      if (seriesPack) {
-        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), {
-          status: "downloading",
-          activeInfoHash: seriesPack.torrent.infoHash,
-        });
-        void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
-        for (const [seasonNumber, episodeNumbers] of freshSeasons) {
-          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
-        }
-        return;
-      }
-
-      // 2. Par saison : pack de saison d'abord, sinon épisode par épisode
-      // (skipPackRetry — l'intégrale vient d'être épuisée pour cette série).
+      // Pack de saison, puis épisodes individuels.
       for (const [seasonNumber, episodeNumbers] of freshSeasons) {
         const pack = await tryGrabSeasonPack(fresh, seasonNumber, profile, episodeNumbers);
         if (pack) {
@@ -1933,15 +1890,33 @@ async function searchReleasedMissingEpisodesInner() {
             activeInfoHash: pack.torrent.infoHash,
           });
           void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
-          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
-          continue;
+          for (const episodeNumber of pack.coverage) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
         }
         for (const episodeNumber of episodeNumbers) {
+          if (pack?.coverage.includes(episodeNumber)) continue;
           await searchAndGrabEpisode(fresh.id, seasonNumber, episodeNumber, { skipPackRetry: true });
           searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
           await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
         }
       }
+      const remaining = getSeries(fresh.id);
+      if (remaining) {
+        // Les autres saisons ne font pas partie de cette recherche.
+        const seriesPack = await tryGrabSeriesPack(remaining, profile, new Set(freshSeasons.keys()));
+        if (seriesPack) {
+          setMultiSeasonEpisodesStatus(remaining, groupTargetsBySeason(seriesPack.targets), {
+            status: "downloading",
+            activeInfoHash: seriesPack.torrent.infoHash,
+          });
+          void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
+          for (const [seasonNumber, episodeNumbers] of freshSeasons) {
+            for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+          }
+          return;
+        }
+
+      }
+
     });
   }
 
@@ -2048,24 +2023,7 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
       const { series: fresh, seasons: freshSeasons } = current;
       const profile = profileFor(fresh.qualityProfileId);
 
-      // 1. Intégrale d'abord — limitée aux saisons du budget (seasonFilter) :
-      //    l'engine ne sélectionne que les fichiers de ces saisons.
-      const seasonFilter = new Set(freshSeasons.keys());
-      const seriesPack = await trackOp(`relance intégrale : ${fresh.title}`, () => tryGrabSeriesPack(fresh, profile, seasonFilter));
-      if (seriesPack) {
-        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), {
-          status: "downloading",
-          activeInfoHash: seriesPack.torrent.infoHash,
-        });
-        void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
-        for (const [seasonNumber, episodeNumbers] of freshSeasons) {
-          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
-        }
-        return;
-      }
-
-      // 2. Par saison : pack de saison d'abord, sinon épisode par épisode
-      //    (skipPackRetry — l'intégrale vient d'être épuisée pour cette série).
+      // Pack de saison, puis épisodes individuels.
       for (const [seasonNumber, episodeNumbers] of freshSeasons) {
         const pack = await trackOp<Awaited<ReturnType<typeof tryGrabSeasonPack>>>(`relance pack : ${fresh.title} S${seasonNumber}`, () => tryGrabSeasonPack(fresh, seasonNumber, profile, episodeNumbers));
         if (pack) {
@@ -2074,15 +2032,35 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
             activeInfoHash: pack.torrent.infoHash,
           });
           void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
-          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
-          continue;
+          for (const episodeNumber of pack.coverage) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
         }
         for (const episodeNumber of episodeNumbers) {
+          if (pack?.coverage.includes(episodeNumber)) continue;
           await trackOp(`relance épisode : ${fresh.title} S${seasonNumber}E${episodeNumber}`, () => searchAndGrabEpisode(fresh.id, seasonNumber, episodeNumber, { skipPackRetry: true }));
           searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
           await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
         }
       }
+      const remaining = getSeries(fresh.id);
+      if (remaining) {
+        // Intégrale limitée aux saisons du budget (seasonFilter) :
+        //    l'engine ne sélectionne que les fichiers de ces saisons.
+        const seasonFilter = new Set(freshSeasons.keys());
+        const seriesPack = await trackOp(`relance intégrale : ${fresh.title}`, () => tryGrabSeriesPack(remaining, profile, seasonFilter));
+        if (seriesPack) {
+          setMultiSeasonEpisodesStatus(remaining, groupTargetsBySeason(seriesPack.targets), {
+            status: "downloading",
+            activeInfoHash: seriesPack.torrent.infoHash,
+          });
+          void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
+          for (const [seasonNumber, episodeNumbers] of freshSeasons) {
+            for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+          }
+          return;
+        }
+
+      }
+
     });
   }
 

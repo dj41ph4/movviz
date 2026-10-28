@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { NextRequest } from "next/server";
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-reset-safety-"));
+process.env.MOVVIZ_CONFIG_DIR = dir;
+process.env.MOVVIZ_DATA_DIR = dir;
+const { addUser, createSession } = await import("../src/lib/auth/store.ts");
+const { POST } = await import("../src/app/api/system/reset/route.ts");
+test("reset never recursively deletes a shared media and configuration directory", async () => {
+  fs.mkdirSync(path.join(dir, "media"));
+  fs.writeFileSync(path.join(dir, "media", "film.mkv"), "media");
+  addUser({ id: "admin", username: "admin", role: "admin", status: "approved", createdAt: Date.now() } as never);
+  const session = createSession("admin").token;
+  const response = await POST(new NextRequest("http://localhost/api/system/reset", { method: "POST", headers: { cookie: `movviz_session=${session}` } }));
+  assert.equal(response.status, 503);
+  assert.equal(fs.readFileSync(path.join(dir, "media", "film.mkv"), "utf8"), "media");
+});
