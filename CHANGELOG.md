@@ -3,6 +3,7 @@
 ### Lecteur
 
 - Les pistes audio et sous-titres des épisodes pas encore scannés par Plex sont désormais lues depuis le fichier : le menu Audio liste toutes les langues et le français est choisi par défaut.
+- La langue affichée (MULTI · VF, VO…) des fichiers sans Plex est détectée depuis les pistes du fichier.
 
 ## v1.28.7 — 29 octobre 2026
 

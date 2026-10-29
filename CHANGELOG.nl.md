@@ -3,6 +3,7 @@
 ### Speler
 
 - Audio- en ondertitelsporen van afleveringen die Plex nog niet heeft gescand, worden nu uit het bestand gelezen: het audiomenu toont alle talen en Frans wordt standaard gekozen.
+- De getoonde taal (MULTI · VF, VO…) van bestanden zonder Plex wordt uit de sporen van het bestand gehaald.
 
 ## v1.28.7 — 29 oktober 2026
 

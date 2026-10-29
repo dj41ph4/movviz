@@ -71,6 +71,18 @@ export function deriveLanguageFromPlex(info: PlexLanguageSource | null | undefin
   return null;
 }
 
+/** Même règle que deriveLanguageFromPlex, appliquée aux pistes de la sonde
+ *  ffprobe (codes ISO 639-2 : "fre"/"fra"/"eng"…) — source locale, sans Plex. */
+export function deriveLanguageFromTracks(
+  audio: { language?: string | null }[],
+  subtitles: { language?: string | null }[],
+): string | null {
+  return deriveLanguageFromPlex({
+    audioStreams: audio.map((s) => ({ language: s.language ?? null })),
+    subtitleStreams: subtitles.map((s) => ({ language: s.language ?? null })),
+  } as PlexLanguageSource);
+}
+
 export function detectFileLanguage(file: LibraryFile | null | undefined, plexInfo?: PlexLanguageSource | null): string | null {
   if (!file) return null;
   const plexLang = deriveLanguageFromPlex(plexInfo);

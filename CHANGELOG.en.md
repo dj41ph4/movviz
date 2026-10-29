@@ -3,6 +3,7 @@
 ### Player
 
 - Audio and subtitle tracks of episodes Plex has not scanned yet are now read from the file: the Audio menu lists every language and French is picked by default.
+- The displayed language (MULTI · VF, VO…) of files without Plex is detected from the file's own tracks.
 
 ## v1.28.7 — 29 October 2026
 

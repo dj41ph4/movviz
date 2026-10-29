@@ -3,6 +3,7 @@
 ### Player
 
 - Audio- und Untertitelspuren von Episoden, die Plex noch nicht gescannt hat, werden jetzt aus der Datei gelesen: Das Audiomenü listet alle Sprachen und Französisch wird standardmäßig gewählt.
+- Die angezeigte Sprache (MULTI · VF, VO …) von Dateien ohne Plex wird aus den Spuren der Datei erkannt.
 
 ## v1.28.7 — 29. Oktober 2026
 
