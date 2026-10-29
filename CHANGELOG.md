@@ -1,3 +1,9 @@
+## v1.28.8 — 29 octobre 2026
+
+### Lecteur
+
+- Les pistes audio et sous-titres des épisodes pas encore scannés par Plex sont désormais lues depuis le fichier : le menu Audio liste toutes les langues et le français est choisi par défaut.
+
 ## v1.28.7 — 29 octobre 2026
 
 ### Bibliothèque

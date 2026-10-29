@@ -1,3 +1,9 @@
+## v1.28.8 — 29. Oktober 2026
+
+### Player
+
+- Audio- und Untertitelspuren von Episoden, die Plex noch nicht gescannt hat, werden jetzt aus der Datei gelesen: Das Audiomenü listet alle Sprachen und Französisch wird standardmäßig gewählt.
+
 ## v1.28.7 — 29. Oktober 2026
 
 ### Bibliothek

@@ -21,7 +21,12 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (resolved.value.path) {
     try { size = fs.statSync(resolved.value.path).size; } catch { /* stream route reports availability */ }
   }
-  const streamInfo = await getLocalStreamInfo(resolved.value.plexRatingKey, user.id);
+  const streamInfo = await getLocalStreamInfo(
+    resolved.value.plexRatingKey, user.id,
+    // Même identifiant que /api/playback/prepare : la sonde ffprobe (déjà en
+    // cache) fournit les pistes quand Plex n'a pas encore scanné le fichier.
+    `${seriesId}:s${seasonNumber}e${episodeNumber}`, resolved.value.path ?? undefined,
+  );
   return NextResponse.json({
     seriesId, seasonNumber, episodeNumber,
     movvizId: resolved.value.movvizId,

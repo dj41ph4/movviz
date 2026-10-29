@@ -1,3 +1,9 @@
+## v1.28.8 — 29 October 2026
+
+### Player
+
+- Audio and subtitle tracks of episodes Plex has not scanned yet are now read from the file: the Audio menu lists every language and French is picked by default.
+
 ## v1.28.7 — 29 October 2026
 
 ### Library

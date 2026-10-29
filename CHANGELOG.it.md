@@ -1,3 +1,9 @@
+## v1.28.8 — 29 ottobre 2026
+
+### Lettore
+
+- Le tracce audio e sottotitoli degli episodi non ancora scansionati da Plex vengono ora lette dal file: il menu Audio elenca tutte le lingue e il francese è scelto per impostazione predefinita.
+
 ## v1.28.7 — 29 ottobre 2026
 
 ### Libreria
