@@ -1,3 +1,10 @@
+## v1.28.9 — 29 octobre 2026
+
+### Reprendre et fiches
+
+- Retirer un film ou une série de Reprendre est mémorisé par Movviz : le titre ne revient plus juste après, sur desktop comme sur Android, avec ou sans Plex, et réapparaît dès qu’il est regardé de nouveau.
+- Les bords de la lumière d’ambiance du hero s’estompent même en plein écran, sans cadre rectangulaire visible.
+
 ## v1.28.8 — 29 octobre 2026
 
 ### Lecteur

@@ -1,3 +1,10 @@
+## v1.28.9 — 29 oktober 2026
+
+### Verder kijken en titelpagina’s
+
+- Het verwijderen van een film of serie uit ‘Verder kijken’ wordt door Movviz onthouden: de titel komt niet meteen terug, op desktop en Android, met of zonder Plex, en verschijnt weer zodra hij opnieuw wordt bekeken.
+- De randen van het sfeerlicht van de hero vervagen ook op volledig scherm, zonder zichtbaar rechthoekig kader.
+
 ## v1.28.8 — 29 oktober 2026
 
 ### Speler

@@ -25,7 +25,7 @@
   html[data-movviz-design="beta"] .nx-title-page-hero-wrap .nx-title-video-gradient-left { opacity: .1; }
   html[data-movviz-design="beta"] .nx-title-page-hero-wrap .mv-hero-ambilight {
     display: block; filter: blur(34px) saturate(1.5); opacity: .9;
-    transform: scale(1.1) translateZ(0); border-radius: 24px; overflow: hidden;
+    transform: scale(1.16) translateZ(0); border-radius: 24px; overflow: hidden;
   }
   html[data-movviz-design="beta"] .nx-title-page-hero-wrap:has(.mv-hero-ambilight) .nx-title-page-hero {
     box-shadow: none; border-color: #ffffff12;

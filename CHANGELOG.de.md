@@ -1,3 +1,10 @@
+## v1.28.9 — 29. Oktober 2026
+
+### Weiterschauen und Titelseiten
+
+- Das Entfernen eines Films oder einer Serie aus „Weiterschauen“ merkt sich Movviz: Der Titel kehrt nicht sofort zurück, auf Desktop und Android, mit oder ohne Plex, und erscheint wieder, sobald er erneut angesehen wird.
+- Die Ränder des Umgebungslichts im Hero blenden auch im Vollbild weich aus, ohne sichtbaren rechteckigen Rahmen.
+
 ## v1.28.8 — 29. Oktober 2026
 
 ### Player

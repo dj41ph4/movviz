@@ -1,3 +1,10 @@
+## v1.28.9 — 29 October 2026
+
+### Continue watching and title pages
+
+- Removing a movie or series from Continue Watching is remembered by Movviz: the title no longer comes back right away, on desktop and Android, with or without Plex, and reappears as soon as it is watched again.
+- The edges of the hero ambient light now fade out even in fullscreen, with no visible rectangular frame.
+
 ## v1.28.8 — 29 October 2026
 
 ### Player

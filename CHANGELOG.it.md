@@ -1,3 +1,10 @@
+## v1.28.9 — 29 ottobre 2026
+
+### Continua a guardare e schede
+
+- La rimozione di un film o di una serie da «Continua a guardare» è memorizzata da Movviz: il titolo non ricompare subito, su desktop e Android, con o senza Plex, e torna appena viene guardato di nuovo.
+- I bordi della luce ambientale dell’hero sfumano anche a schermo intero, senza cornice rettangolare visibile.
+
 ## v1.28.8 — 29 ottobre 2026
 
 ### Lettore

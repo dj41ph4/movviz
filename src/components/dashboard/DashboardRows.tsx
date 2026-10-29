@@ -373,12 +373,12 @@ export function DashboardRows({
                       mutateOnDeck();
                     }
                   : undefined;
-                const removeFromResume = item.plexRatingKey
+                const removeFromResume = item.plexRatingKey || item.movvizId
                   ? async () => {
                       await fetch("/api/plex/continue-watching/remove", {
                         method: "POST",
                         headers: { "content-type": "application/json" },
-                        body: JSON.stringify({ plexRatingKey: item.plexRatingKey, movvizId: item.movvizId }),
+                        body: JSON.stringify({ plexRatingKey: item.plexRatingKey ?? undefined, movvizId: item.movvizId }),
                       });
                       mutateOnDeck();
                     }

@@ -92,7 +92,7 @@
        starts exactly where the image ends, then fades out. */
     filter: blur(34px) saturate(1.5);
     opacity: .9;
-    transform: scale(1.1) translateZ(0);
+    transform: scale(1.16) translateZ(0);
     border-radius: 24px;
     overflow: hidden;
   }

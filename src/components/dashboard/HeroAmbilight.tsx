@@ -1,12 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { videoPositionNow } from "@/lib/player/heroVideoClock";
 
 const YOUTUBE_ORIGIN = "https://www.youtube.com";
 /** Re-align the mirror as soon as it drifts this far from the visible video. */
 const MAX_DRIFT_SEC = 0.3;
 const SEEK_COOLDOWN_MS = 800;
+
+/** Les quatre bords s'estompent par masque, indépendamment du flou : si le
+ *  navigateur abandonne le filtre sur ce très grand calque (plein écran), le
+ *  halo garde des bords doux au lieu de montrer son rectangle net. */
+const EDGE_FADE = "linear-gradient(to right, transparent, #000 12%, #000 88%, transparent)";
+const EDGE_FADE_Y = "linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent)";
+const AMBILIGHT_STYLE = {
+  containerType: "size",
+  maskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
+  WebkitMaskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
+  maskComposite: "intersect",
+  WebkitMaskComposite: "source-in",
+} as CSSProperties;
 
 /**
  * Ambilight behind the desktop dashboard hero: a blurred copy of what the
@@ -88,7 +101,7 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
   return (
     // Same box and same "cover" framing as the hero video, so each edge of the
     // glow continues the colours sitting right at that edge of the card.
-    <div aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={{ containerType: "size" }}>
+    <div aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={AMBILIGHT_STYLE}>
       {backdropUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={backdropUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300" style={{ opacity: videoKey ? 0 : 1 }} />

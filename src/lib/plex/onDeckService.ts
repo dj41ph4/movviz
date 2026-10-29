@@ -5,6 +5,7 @@ import { isEarlierEpisode, hasEpisodeSource, nextAvailableEpisode, availableEpis
 import { getMovieByPlexRatingKey, findEpisodeByPlexLocator, getSeriesByTmdbId } from "@/lib/library/store";
 import { resolvePlaybackEpisode } from "@/lib/playback/episodeIdentity";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
+import { resumeDismissals, resumeIdentity } from "@/lib/playback/resumeDismissals";
 import { getCanonicalWatchStatus } from "@/lib/userContext/watchBridge";
 import { getWatchStatus } from "./watchStore";
 import { completionBoundaryMs } from "@/lib/playback/progressPolicy";
@@ -241,7 +242,12 @@ export async function listOnDeckEntries(user: User, options?: {
     if (!current || (item.offsetMs > 0 && current.offsetMs === 0) ||
       ((item.offsetMs > 0) === (current.offsetMs > 0) && item.lastPlayedAt > current.lastPlayedAt)) newest.set(identity, item);
   }
-  const visible = [...newest.values()];
+  // Retiré par l'utilisateur : masqué tant qu'aucune lecture plus récente n'existe.
+  const dismissed = resumeDismissals(user.id);
+  const visible = [...newest.values()].filter((item) => {
+    const at = dismissed[resumeIdentity(item.type === "movie" ? "movie" : "series", item.tmdbId)];
+    return at === undefined || item.lastPlayedAt > at;
+  });
   return (options?.includeStills === false ? visible : await attachEpisodeStills(visible))
     .sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
 }
