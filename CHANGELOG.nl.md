@@ -1,3 +1,9 @@
+## v1.28.13 — 29 oktober 2026
+
+### Onderhoud
+
+- In de lijst „Beschadigde bestanden” vink je regels aan en kies je „Verwijderen” of „Verwijderen en vervangen”. Bestanden gaan naar de prullenbak als die is ingesteld. Bij vervangen worden titels weer ontbrekend en één voor één gezocht, zoals bij het zoeken naar ontbrekende titels. Een bestand dat intussen in orde, bezig of gedeeld is, wordt nooit verwijderd.
+
 ## v1.28.12 — 29 oktober 2026
 
 ### Publicatie

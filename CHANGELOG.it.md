@@ -1,3 +1,9 @@
+## v1.28.13 — 29 ottobre 2026
+
+### Manutenzione
+
+- Nell’elenco «File danneggiati» si selezionano le righe e si sceglie «Elimina» o «Elimina e sostituisci». I file vanno nel cestino se configurato. Con la sostituzione, i titoli tornano mancanti e vengono cercati uno per uno, come la ricerca dei mancanti. Un file diventato integro, occupato o condiviso non viene mai eliminato.
+
 ## v1.28.12 — 29 ottobre 2026
 
 ### Pubblicazione

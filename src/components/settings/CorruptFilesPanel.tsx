@@ -1,10 +1,12 @@
 "use client";
 
 import useSWR from "swr";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { formatBytes } from "@/lib/utils";
-import { FileWarning, Loader2, Check, Search } from "lucide-react";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { toast } from "@/components/ui/Toast";
+import { FileWarning, Loader2, Check, Search, Trash2, RefreshCw } from "lucide-react";
 
 interface Job {
   id: string;
@@ -35,16 +37,22 @@ interface Report {
   items: Item[];
 }
 
-const SOURCE_ID = "corrupt-files-scan";
+type Action = "delete" | "replace";
 
-/** Réglages > Maintenance — liste des fichiers vides ou incomplets de la
- *  bibliothèque (lecture seule : rien n'est supprimé ni modifié). */
+const SOURCE_ID = "corrupt-files-scan";
+const keyOf = (i: Item) => `${i.kind}:${i.id}:${i.seasonNumber ?? ""}:${i.episodeNumber ?? ""}`;
+
+/** Réglages > Maintenance — fichiers vides ou incomplets de la bibliothèque.
+ *  Le balayage est en lecture seule ; supprimer ou remplacer ne part que d'un
+ *  clic confirmé, sur les lignes cochées. */
 export function CorruptFilesPanel() {
   const t = useT();
   const { data: jobsData, mutate: mutateJobs } = useSWR<{ jobs: Job[] }>("/api/jobs", { refreshInterval: 2000 });
   const { data: report, mutate: mutateReport } = useSWR<Report>("/api/library/corrupt-files");
   const [starting, setStarting] = useState(false);
   const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [working, setWorking] = useState<Action | null>(null);
 
   const job = jobsData?.jobs.find((j) => j.sourceId === SOURCE_ID);
   const active = job?.status === "queued" || job?.status === "running";
@@ -66,7 +74,59 @@ export function CorruptFilesPanel() {
     if (doneId) void mutateReport();
   }, [doneId, mutateReport]);
 
-  const items = (report?.items ?? []).filter((i) => !filter || `${i.title} ${i.path}`.toLowerCase().includes(filter.toLowerCase()));
+  const items = useMemo(
+    () => (report?.items ?? []).filter((i) => !filter || `${i.title} ${i.path}`.toLowerCase().includes(filter.toLowerCase())),
+    [report, filter]
+  );
+  const chosen = useMemo(() => (report?.items ?? []).filter((i) => selected.has(keyOf(i))), [report, selected]);
+  const allShownSelected = items.length > 0 && items.every((i) => selected.has(keyOf(i)));
+
+  const toggle = (i: Item) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(keyOf(i))) next.add(keyOf(i));
+      return next;
+    });
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const i of items) {
+        if (allShownSelected) next.delete(keyOf(i));
+        else next.add(keyOf(i));
+      }
+      return next;
+    });
+
+  const run = async (action: Action) => {
+    if (chosen.length === 0 || working) return;
+    const ok = await confirmDialog(t(action === "delete" ? "corruptFiles.confirmDelete" : "corruptFiles.confirmReplace", { count: chosen.length }), {
+      tone: action === "delete" ? "danger" : "default",
+    });
+    if (!ok) return;
+    setWorking(action);
+    try {
+      const res = await fetch("/api/library/corrupt-files/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          items: chosen.map((i) => ({ kind: i.kind, id: i.id, seasonNumber: i.seasonNumber, episodeNumber: i.episodeNumber })),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { done?: number; failed?: unknown[]; searchQueued?: boolean } | null;
+      if (!res.ok || !data) {
+        toast("error", t("corruptFiles.error"));
+      } else {
+        const failed = data.failed?.length ?? 0;
+        toast(failed > 0 ? "error" : "success", t(failed > 0 ? "corruptFiles.partial" : action === "replace" && data.searchQueued ? "corruptFiles.replaced" : "corruptFiles.deleted", { count: data.done ?? 0, failed }));
+        setSelected(new Set());
+      }
+    } finally {
+      setWorking(null);
+      await Promise.all([mutateReport(), mutateJobs()]);
+    }
+  };
+
   const label = (i: Item) =>
     i.kind === "episode" ? `${i.title} · S${String(i.seasonNumber ?? 0).padStart(2, "0")}E${String(i.episodeNumber ?? 0).padStart(2, "0")}` : i.title;
 
@@ -106,25 +166,62 @@ export function CorruptFilesPanel() {
       )}
 
       {report && report.items.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder={t("corruptFiles.filter")}
             className="h-10 w-full rounded-xl glass px-3 text-sm text-ink placeholder:text-ink-dim"
           />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl glass px-3 text-sm font-semibold text-ink-soft">
+              <input type="checkbox" checked={allShownSelected} onChange={toggleAll} className="h-4 w-4 accent-[var(--brand,#8b5cf6)]" />
+              {t("corruptFiles.selectAll")}
+            </label>
+            <span className="text-xs text-ink-dim">{t("corruptFiles.selected", { count: chosen.length })}</span>
+            <div className="ml-auto flex flex-wrap gap-2">
+              <button
+                onClick={() => run("delete")}
+                disabled={chosen.length === 0 || !!working}
+                className="flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
+              >
+                {working === "delete" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {t("corruptFiles.delete")}
+              </button>
+              <button
+                onClick={() => run("replace")}
+                disabled={chosen.length === 0 || !!working}
+                className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {working === "replace" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {t("corruptFiles.replace")}
+              </button>
+            </div>
+          </div>
+
           <ul className="max-h-[28rem] divide-y divide-white/8 overflow-y-auto rounded-xl glass-strong">
             {items.map((i) => (
-              <li key={`${i.id}:${i.seasonNumber ?? ""}:${i.episodeNumber ?? ""}:${i.path}`} className="space-y-0.5 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-ink">{label(i)}</span>
-                  <span className="rounded-full bg-down/12 px-2 py-0.5 text-[11px] font-semibold text-down">
-                    {t(`corruptFiles.reason.${i.reason}`)}
-                    {i.reason === "partial" ? ` · ${Math.round(i.zeroRatio * 100)} %` : ""}
+              <li key={keyOf(i)}>
+                <label className="flex cursor-pointer items-start gap-3 p-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(keyOf(i))}
+                    onChange={() => toggle(i)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-[var(--brand,#8b5cf6)]"
+                  />
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <span className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-ink">{label(i)}</span>
+                      <span className="rounded-full bg-down/12 px-2 py-0.5 text-[11px] font-semibold text-down">
+                        {t(`corruptFiles.reason.${i.reason}`)}
+                        {i.reason === "partial" ? ` · ${Math.round(i.zeroRatio * 100)} %` : ""}
+                      </span>
+                    </span>
+                    <span className="block break-all text-xs text-ink-dim">{i.path}</span>
+                    <span className="block text-xs text-ink-dim">{formatBytes(i.size)}</span>
                   </span>
-                </div>
-                <p className="break-all text-xs text-ink-dim">{i.path}</p>
-                <p className="text-xs text-ink-dim">{formatBytes(i.size)}</p>
+                </label>
               </li>
             ))}
           </ul>

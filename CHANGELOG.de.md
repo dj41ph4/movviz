@@ -1,3 +1,9 @@
+## v1.28.13 — 29. Oktober 2026
+
+### Wartung
+
+- In der Liste „Defekte Dateien“ markiert man Zeilen und wählt „Löschen“ oder „Löschen und ersetzen“. Die Dateien kommen in den Papierkorb, falls einer eingerichtet ist. Beim Ersetzen gelten die Titel wieder als fehlend und werden einzeln gesucht, wie bei der Suche nach fehlenden Titeln. Eine inzwischen intakte, beschäftigte oder geteilte Datei wird nie gelöscht.
+
 ## v1.28.12 — 29. Oktober 2026
 
 ### Veröffentlichung

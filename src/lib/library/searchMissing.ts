@@ -84,6 +84,43 @@ function shuffle<T>(items: T[]): T[] {
 type QueueItem = { type: "movie"; id: string } | { type: "series"; id: string };
 
 /**
+ * Recherche ciblée : mêmes recherches, même rythme (un titre à la fois, pause
+ * entre chaque, voie « arrière-plan ») que la recherche des manquants, mais
+ * limitée aux films et séries donnés — utilisée après le remplacement de
+ * fichiers corrompus.
+ */
+export async function searchMissingFor(
+  targets: { movieIds: string[]; seriesIds: string[] },
+  onProgress?: (current: number, total: number) => void,
+  options?: { shouldCancel?: () => boolean }
+) {
+  const queue: QueueItem[] = [
+    ...targets.movieIds.map((id): QueueItem => ({ type: "movie", id })),
+    ...targets.seriesIds.map((id): QueueItem => ({ type: "series", id })),
+  ];
+  let current = 0;
+  onProgress?.(current, queue.length || 1);
+  await runBackground(() =>
+    runBatch(
+      queue,
+      async (item) => {
+        try {
+          if (item.type === "movie") await searchAndGrabMovie(item.id);
+          else await searchAndGrabSeries(item.id, { shouldCancel: options?.shouldCancel });
+        } finally {
+          current++;
+          onProgress?.(current, queue.length || 1);
+        }
+      },
+      CONCURRENCY,
+      () => {},
+      options?.shouldCancel
+    )
+  );
+  if (options?.shouldCancel?.()) throw new JobCancelledError();
+}
+
+/**
  * Manual "search everything missing" action — every monitored movie still
  * missing, and every monitored series with at least one monitored+missing
  * episode. Reuses the same pack-first (season pack, or a complete-series

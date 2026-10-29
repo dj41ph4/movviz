@@ -1,3 +1,9 @@
+## v1.28.13 — 29 October 2026
+
+### Maintenance
+
+- In the “Corrupt files” list, tick rows then choose “Delete” or “Delete and replace”. Files go to the trash if one is configured. With replace, titles become missing again and are searched one by one, like the missing search. A file that became healthy, busy or shared is never deleted.
+
 ## v1.28.12 — 29 October 2026
 
 ### Release

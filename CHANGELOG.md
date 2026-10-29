@@ -1,3 +1,9 @@
+## v1.28.13 — 29 octobre 2026
+
+### Maintenance
+
+- Dans la liste « Fichiers corrompus », on coche des lignes puis on choisit « Supprimer » ou « Supprimer et remplacer ». Les fichiers partent à la corbeille si elle est configurée. Avec le remplacement, les titres redeviennent manquants et sont recherchés un par un, comme la recherche des manquants. Un fichier redevenu sain, occupé ou partagé n’est jamais supprimé.
+
 ## v1.28.12 — 29 octobre 2026
 
 ### Publication

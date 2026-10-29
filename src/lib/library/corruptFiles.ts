@@ -93,6 +93,11 @@ export async function inspectFile(filePath: string): Promise<FileInspection | nu
   }
 }
 
+export function saveCorruptReport(report: CorruptReport): void {
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  writeJsonCached(FILE, report);
+}
+
 export function loadCorruptReport(): CorruptReport {
   return readJsonCached<CorruptReport>(FILE, { scannedAt: null, checked: 0, missing: 0, items: [] });
 }
@@ -155,7 +160,6 @@ export async function scanCorruptFiles(
   }
   onProgress?.(candidates.length, candidates.length);
   const report: CorruptReport = { scannedAt: Date.now(), checked, missing, items };
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  writeJsonCached(FILE, report);
+  saveCorruptReport(report);
   return report;
 }
