@@ -29,6 +29,7 @@ import { findUpgradeCandidates } from "@/lib/library/searchAndReplace";
 import { loadReleaseRules } from "@/lib/library/releaseRules";
 import { findEpisodeUpgradeCandidates } from "@/lib/library/searchAndReplaceSeries";
 import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/languageDetectionTask";
+import { probeAllLibraryMovies, probeAllLibrarySeries } from "@/lib/playback/engine/probeLibrary";
 import { syncPlexMarkers } from "@/lib/plex/markerSync";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
 import { JobCancelledError } from "@/lib/jobs/cancelScope";
@@ -124,11 +125,24 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "language-detection",
-    name: "Détection des langues (Plex + nom de fichier)",
+    name: "Détection des langues (fichier, Plex, nom de fichier)",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       await backfillMovieLanguages();
       await backfillSeriesLanguages();
+    },
+  },
+  {
+    id: "media-probe-library",
+    name: "Analyse technique des fichiers (pistes, langues, codecs)",
+    // Incrémentale : getOrProbeMediaDescriptor saute tout fichier inchangé
+    // (chemin/taille/date), donc seuls les fichiers jamais analysés coûtent un
+    // ffprobe. Ancre dans la mémoire de Movviz ce que Plex avait fourni — la
+    // bibliothèque ne dépend alors plus de Plex pour ses pistes ni ses langues.
+    intervalMs: 6 * 60 * 60 * 1000,
+    run: async () => {
+      await probeAllLibraryMovies();
+      await probeAllLibrarySeries();
     },
   },
   {

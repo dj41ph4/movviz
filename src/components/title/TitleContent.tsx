@@ -319,6 +319,12 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
     return bleachProjectionPresent(projected) ? projected : null;
   }, [libraryMatchRaw, seriesPart]);
   const libraryId = libraryMatch?.id;
+  // Pistes lues dans le fichier (ffprobe, mises en cache) : source prioritaire
+  // du bloc « infos techniques » ; Plex n'est qu'un complément / repli.
+  const { data: localTracks } = useSWR<{
+    audioStreams?: { codec: string; channels: number; language: string; title: string }[];
+    subtitleStreams?: { codec: string; language: string; forced: boolean }[];
+  }>(type === "movie" && libraryMatch?.id && libraryMatch.file ? `/api/stream/local/${libraryMatch.id}/info` : null, fetcher, { revalidateOnFocus: false });
 
   const libraryStatus: LibraryStatus | null = libraryMatch
     ? type === "movie"
@@ -1024,42 +1030,50 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
   const daysToRelease =
     type === "movie" && libraryStatus === "upcoming" ? daysUntil(detail?.vfReleaseDate ?? detail?.releaseDateFull ?? null) : null;
 
+  const techAudio = localTracks?.audioStreams?.length
+    ? localTracks.audioStreams.map((a) => ({ language: a.language, title: a.title, codec: a.codec, layout: null as string | null, channels: a.channels }))
+    : libraryMatch?.plexMediaInfo?.audioStreams ?? [];
+  const techSubtitles = localTracks?.subtitleStreams?.length
+    ? localTracks.subtitleStreams
+    : libraryMatch?.plexMediaInfo?.subtitleStreams ?? [];
+  const showTechnical = type === "movie" && !!libraryMatch && (!!libraryMatch.plexMediaInfo || techAudio.length > 0 || techSubtitles.length > 0);
+
   const technicalContent = (
     <>
 
-      {libraryMatch?.plexMediaInfo && type === "movie" && (
+      {showTechnical && libraryMatch && (
         <div className="rounded-2xl glass p-5">
           <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-dim">
             {t("title.technicalInfo")}
           </h3>
           <div className="space-y-2 text-xs text-ink">
-            {libraryMatch.plexMediaInfo.container && (
+            {libraryMatch.plexMediaInfo?.container && (
               <div className="flex items-center justify-between">
                 <span className="text-ink-dim">
                   {t("title.container")}
                 </span>
                 <span className="font-semibold uppercase">
-                  {libraryMatch.plexMediaInfo.container}
+                  {libraryMatch.plexMediaInfo?.container}
                 </span>
               </div>
             )}
-            {libraryMatch.plexMediaInfo.bitrate != null && (
+            {libraryMatch.plexMediaInfo?.bitrate != null && (
               <div className="flex items-center justify-between">
                 <span className="text-ink-dim">
                   {t("title.bitrate")}
                 </span>
                 <span className="font-semibold">
-                  {formatBitrate(libraryMatch.plexMediaInfo.bitrate)}
+                  {formatBitrate(libraryMatch.plexMediaInfo?.bitrate)}
                 </span>
               </div>
             )}
-            {libraryMatch.plexMediaInfo.audioStreams.length > 0 && (
+            {techAudio.length > 0 && (
               <div>
                 <p className="mb-1 text-ink-dim">
                   {t("title.audioTracks")}
                 </p>
                 <div className="space-y-1">
-                  {libraryMatch.plexMediaInfo.audioStreams.map(
+                  {techAudio.map(
                     (a, i) => (
                       <div
                         key={i}
@@ -1081,13 +1095,13 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 </div>
               </div>
             )}
-            {libraryMatch.plexMediaInfo.subtitleStreams.length > 0 && (
+            {techSubtitles.length > 0 && (
               <div>
                 <p className="mb-1 text-ink-dim">
                   {t("title.subtitles")}
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  {libraryMatch.plexMediaInfo.subtitleStreams.map(
+                  {techSubtitles.map(
                     (s, i) => (
                       <span
                         key={i}
@@ -1101,11 +1115,11 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 </div>
               </div>
             )}
-            {libraryMatch.plexMediaInfo.chapters.length > 0 && (
+            {(libraryMatch.plexMediaInfo?.chapters.length ?? 0) > 0 && (
               <div>
                 <p className="mb-1 text-ink-dim">
                   {t("title.chapters")} (
-                  {libraryMatch.plexMediaInfo.chapters.length})
+                  {(libraryMatch.plexMediaInfo?.chapters.length ?? 0)})
                 </p>
               </div>
             )}

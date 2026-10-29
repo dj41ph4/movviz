@@ -4,6 +4,7 @@
 
 - Le tracce audio e sottotitoli degli episodi non ancora scansionati da Plex vengono ora lette dal file: il menu Audio elenca tutte le lingue e il francese è scelto per impostazione predefinita.
 - La lingua mostrata (MULTI · VF, VO…) dei file senza Plex viene rilevata dalle tracce del file.
+- La scheda film elenca le tracce audio e sottotitoli lette dal file; una scansione tecnica incrementale conserva in Movviz le informazioni di tutti i file, senza dipendere da Plex.
 
 ## v1.28.7 — 29 ottobre 2026
 

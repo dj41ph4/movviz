@@ -4,6 +4,7 @@
 
 - Audio and subtitle tracks of episodes Plex has not scanned yet are now read from the file: the Audio menu lists every language and French is picked by default.
 - The displayed language (MULTI · VF, VO…) of files without Plex is detected from the file's own tracks.
+- The movie page lists the audio and subtitle tracks read from the file; an incremental technical scan stores every file's information in Movviz, independent of Plex.
 
 ## v1.28.7 — 29 October 2026
 

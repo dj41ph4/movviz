@@ -4,6 +4,7 @@
 
 - Audio- und Untertitelspuren von Episoden, die Plex noch nicht gescannt hat, werden jetzt aus der Datei gelesen: Das Audiomenü listet alle Sprachen und Französisch wird standardmäßig gewählt.
 - Die angezeigte Sprache (MULTI · VF, VO …) von Dateien ohne Plex wird aus den Spuren der Datei erkannt.
+- Die Filmseite listet die aus der Datei gelesenen Audio- und Untertitelspuren; ein inkrementeller technischer Scan speichert die Informationen aller Dateien in Movviz, unabhängig von Plex.
 
 ## v1.28.7 — 29. Oktober 2026
 

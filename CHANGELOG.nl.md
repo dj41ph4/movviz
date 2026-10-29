@@ -4,6 +4,7 @@
 
 - Audio- en ondertitelsporen van afleveringen die Plex nog niet heeft gescand, worden nu uit het bestand gelezen: het audiomenu toont alle talen en Frans wordt standaard gekozen.
 - De getoonde taal (MULTI · VF, VO…) van bestanden zonder Plex wordt uit de sporen van het bestand gehaald.
+- De filmpagina toont de uit het bestand gelezen audio- en ondertitelsporen; een incrementele technische scan bewaart de gegevens van alle bestanden in Movviz, onafhankelijk van Plex.
 
 ## v1.28.7 — 29 oktober 2026
 

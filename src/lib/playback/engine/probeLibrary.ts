@@ -12,6 +12,7 @@ import { getPrimaryFile, setPrimaryFile } from "@/lib/library/versions";
 import type { LibraryFile } from "@/lib/library/types";
 import { getOrProbeMediaDescriptor } from "./mediaProbeCache";
 import { fileFieldsFromDescriptor } from "./mediaDescriptorEnrich";
+import { deriveLanguageFromTracks } from "@/lib/library/detectLanguage";
 import type { MediaDescriptor } from "./mediaDescriptor";
 
 /**
@@ -57,12 +58,15 @@ function enrichMovieFromDescriptor(movieId: string, descriptor: MediaDescriptor)
     // own "no tag = SDR" convention), so it should correct a wrong existing
     // guess rather than defer to it.
     hdr: enriched.hdr,
+    // Langue lue dans le fichier : prioritaire, Plex n'est qu'un complément.
+    language: deriveLanguageFromTracks(descriptor.audioTracks, descriptor.subtitleTracks) ?? current.language,
   };
   if (
     nextFile.resolution === current.resolution &&
     nextFile.videoCodec === current.videoCodec &&
     nextFile.audioCodec === current.audioCodec &&
-    nextFile.hdr === current.hdr
+    nextFile.hdr === current.hdr &&
+    nextFile.language === current.language
   ) {
     return;
   }
@@ -91,12 +95,14 @@ function enrichEpisodeFromDescriptor(seriesId: string, seasonNumber: number, epi
         videoCodec: enriched.videoCodec ?? current.videoCodec,
         audioCodec: enriched.audioCodec ?? current.audioCodec,
         hdr: enriched.hdr, // see enrichMovieFromDescriptor's identical comment — ffprobe's "no HDR" is authoritative
+        language: deriveLanguageFromTracks(descriptor.audioTracks, descriptor.subtitleTracks) ?? current.language,
       };
       if (
         nextFile.resolution === current.resolution &&
         nextFile.videoCodec === current.videoCodec &&
         nextFile.audioCodec === current.audioCodec &&
-        nextFile.hdr === current.hdr
+        nextFile.hdr === current.hdr &&
+        nextFile.language === current.language
       ) {
         return ep;
       }
