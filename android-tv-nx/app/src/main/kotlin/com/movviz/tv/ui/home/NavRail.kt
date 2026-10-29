@@ -231,7 +231,13 @@ fun NavRail(
                     modifier = Modifier.fillMaxWidth().height(46.dp).padding(bottom = 8.dp),
                     contentAlignment = if (expanded) Alignment.CenterStart else Alignment.Center,
                 ) {
-                    if (expanded) MovvizFullLogo(height = 27.dp) else AnimatedLogo(size = 30.dp, symbolOnly = true)
+                    androidx.compose.animation.Crossfade(
+                        targetState = expanded,
+                        animationSpec = if (reduceMotion) androidx.compose.animation.core.snap() else tween(180),
+                        label = "navRailLogo",
+                    ) { open ->
+                        if (open) MovvizFullLogo(height = 27.dp) else AnimatedLogo(size = 30.dp, symbolOnly = true)
+                    }
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(palette.navEdge))
             }
@@ -657,7 +663,7 @@ private fun BetaNavItem(
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .let { if (expanded) it.fillMaxWidth().height(NAV_ITEM_BETA_HEIGHT) else it.size(NAV_ITEM_BETA_HEIGHT) }
+            .fillMaxWidth().height(NAV_ITEM_BETA_HEIGHT)
             .semantics { contentDescription = tab.label }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .movvizFocusRing(shape)
@@ -679,23 +685,29 @@ private fun BetaNavItem(
         val iconTint = if (active) palette.navSelectedIcon else content
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = if (expanded) Arrangement.Start else Arrangement.Center,
-            modifier = Modifier.fillMaxSize().padding(horizontal = if (expanded) 14.dp else 0.dp),
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 13.dp),
         ) {
             if (tab == HomeTab.LIBRARY) {
                 BookmarkIcon(color = iconTint, modifier = Modifier.size(18.dp))
             } else {
                 Icon(imageVector = tab.icon(), contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
             }
-            if (expanded) {
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = tab.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = content,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(if (MovvizTheme.reduceMotion) androidx.compose.animation.core.snap() else tween(180)),
+                exit = fadeOut(if (MovvizTheme.reduceMotion) androidx.compose.animation.core.snap() else tween(120)),
+            ) {
+                Row {
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = tab.label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = content,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

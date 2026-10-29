@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -236,9 +235,6 @@ private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeH
     // splash qui rejouerait l'intro). `true` d'emblée : l'accueil qui
     // s'ouvre au démarrage n'a pas encore pu le confirmer à sa 1re frame.
     var homeBooting by remember { mutableStateOf(true) }
-    // Largeur réelle de la barre : le splash ne recouvre que le contenu dès
-    // qu'elle est affichée (jamais de focus invisible sous la surcouche).
-    var railWidthPx by remember { mutableStateOf(0) }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
     // Une fiche/grille doit toujours revenir dans Movviz avant de laisser
@@ -516,8 +512,7 @@ private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeH
                 navRailFocusRequester = navRailFocusRequester,
                 contentReentryFocusRequester = if (homeReentryAtTop && currentRoute == ROUTE_HOME) contentFocusRequester else contentReentryFocusRequester,
                 modifier = Modifier
-                    .onFocusChanged { railHasFocus = it.hasFocus }
-                    .onSizeChanged { railWidthPx = it.width },
+                    .onFocusChanged { railHasFocus = it.hasFocus },
             )
         }
         Box(
