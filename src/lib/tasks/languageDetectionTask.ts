@@ -15,7 +15,7 @@ export async function backfillMovieLanguages(): Promise<void> {
   const patches = new Map<string, Partial<LibraryMovie>>();
   for (const movie of movies) {
     if (!movie.file || movie.file.language) continue;
-    const lang = detectFileLanguage(movie.file, movie.plexMediaInfo) ?? (await languageFromProbe(movie.id, movie.file.diskPath ?? movie.file.path));
+    const lang = (await languageFromProbe(movie.id, movie.file.diskPath ?? movie.file.path)) ?? detectFileLanguage(movie.file, movie.plexMediaInfo);
     if (!lang) continue;
     patches.set(movie.id, { file: { ...movie.file, language: lang } });
   }

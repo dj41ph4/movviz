@@ -125,24 +125,34 @@ export async function getLocalStreamInfo(plexRatingKey: string | null, userId: s
     };
   }
 
-  const audioStreams = part.audioStreams.map((stream, i) => ({
-    id: String(stream.id ?? ""),
-    codec: stream.codec ?? "",
-    language: correctedLanguage(stream.language ?? "", media?.audioTracks[i]?.language),
-    title: media?.audioTracks[i]?.title ?? stream.title ?? "",
-    channels: media?.audioTracks[i]?.channels ?? stream.channels ?? 0,
-    forced: !!media?.audioTracks[i]?.forced,
-    selected: stream.selected,
-  }));
-  const subtitleStreams = part.subtitleStreams.map((stream, i) => ({
-    id: String(stream.id ?? ""),
-    codec: stream.codec ?? "",
-    language: correctedLanguage(stream.language ?? "", media?.subtitleTracks[i]?.language),
-    title: media?.subtitleTracks[i]?.title ?? stream.title ?? "",
-    forced: media?.subtitleTracks[i]?.forced ?? stream.forced ?? false,
-    toTextConvertible: isSubtitleToTextCodec(stream.codec),
-    selected: stream.selected,
-  }));
+  // Priorité aux informations propres à Movviz (ffprobe sur le fichier) : langue,
+  // titre, codec, canaux et piste par défaut viennent d'abord de la sonde.
+  // Plex ne complète que ce qui manque, et fournit l'id de la piste de même
+  // position (nécessaire à ses propres routes de repli) — la position reste
+  // le lien entre les deux, comme partout dans le lecteur.
+  const probed = media ? streamsFromDescriptor(media) : null;
+  const audioStreams = probed && probed.audioStreams.length > 0
+    ? probed.audioStreams.map((stream, i) => ({ ...stream, id: String(part.audioStreams[i]?.id ?? stream.id) }))
+    : part.audioStreams.map((stream) => ({
+      id: String(stream.id ?? ""),
+      codec: stream.codec ?? "",
+      language: stream.language ?? "",
+      title: stream.title ?? "",
+      channels: stream.channels ?? 0,
+      forced: false,
+      selected: stream.selected,
+    }));
+  const subtitleStreams = probed && probed.subtitleStreams.length > 0
+    ? probed.subtitleStreams.map((stream, i) => ({ ...stream, id: String(part.subtitleStreams[i]?.id ?? stream.id) }))
+    : part.subtitleStreams.map((stream) => ({
+      id: String(stream.id ?? ""),
+      codec: stream.codec ?? "",
+      language: stream.language ?? "",
+      title: stream.title ?? "",
+      forced: stream.forced ?? false,
+      toTextConvertible: isSubtitleToTextCodec(stream.codec),
+      selected: stream.selected,
+    }));
 
   return {
     videoCodec: part.videoCodec,

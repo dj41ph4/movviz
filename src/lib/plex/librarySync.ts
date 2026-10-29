@@ -501,7 +501,8 @@ async function backfillMissingMediaInfo(cfg: PlexServerConfig, token: string) {
       const patch: Partial<LibraryMovie> & { file?: Partial<LibraryFile> } = { plexMediaInfo: info.mediaDetail };
       if (movie.file) {
         const lang = detectFileLanguage(movie.file, info.mediaDetail);
-        if (lang) patch.file = { ...movie.file, language: lang };
+        // Plex complète seulement : une langue déjà lue dans le fichier n'est pas écrasée.
+        if (lang && !movie.file.language) patch.file = { ...movie.file, language: lang };
       }
       patches.set(movie.id, patch as Partial<LibraryMovie>);
     }
