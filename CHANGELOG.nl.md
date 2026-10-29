@@ -5,6 +5,10 @@
 - Het verwijderen van een film of serie uit ‘Verder kijken’ wordt door Movviz onthouden: de titel komt niet meteen terug, op desktop en Android, met of zonder Plex, en verschijnt weer zodra hij opnieuw wordt bekeken.
 - De randen van het sfeerlicht van de hero vervagen ook op volledig scherm, zonder zichtbaar rechthoekig kader.
 
+### Bestandsanalyse
+
+- De automatische technische analyse start ffprobe niet meer opnieuw voor bestanden die Plex al beschrijft, noch voor echt kapotte bestanden (leeg begin, afgekapte MP4): ze worden na één poging onthouden, ook na een herstart, totdat het bestand verandert. Dit maakt een einde aan de duizenden herhaalde ffprobe-fouten die de server bij het opstarten overbelastten. Afspelen onderzoekt het bestand nog steeds op aanvraag.
+
 ## v1.28.8 — 29 oktober 2026
 
 ### Speler

@@ -26,6 +26,12 @@ function episodeMediaId(seriesId: string, seasonNumber: number, episodeNumber: n
   return `${seriesId}:s${seasonNumber}e${episodeNumber}`;
 }
 
+/** Une ligne lisible au lieu de la pile ffprobe complète (des milliers de lignes par passage). */
+function probeErrorSummary(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.split(/\r?\n/)[0].replace(/^ffprobe exited with code \d+: /, "").slice(0, 200);
+}
+
 export interface ProbeLibraryResult {
   probed: number;
   skipped: number;
@@ -129,7 +135,7 @@ export async function probeAllLibrarySeries(
     series.seasons.flatMap((season) =>
       season.episodes
         .filter((ep) => ep.file)
-        .map((ep) => ({ seriesId: series.id, seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber, file: ep.file! }))
+        .map((ep) => ({ seriesId: series.id, seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber, file: ep.file!, plexLinked: !!ep.plexRatingKey }))
     )
   );
   const total = episodeRefs.length;
@@ -158,7 +164,7 @@ export async function probeAllLibrarySeries(
       }
     } catch (err) {
       failed++;
-      console.error(`[media-probe] échec pour l'épisode S${ref.seasonNumber}E${ref.episodeNumber} (${ref.seriesId}):`, err);
+      console.error(`[media-probe] échec pour l'épisode S${ref.seasonNumber}E${ref.episodeNumber} (${ref.seriesId}) : ${probeErrorSummary(err)}`);
     }
   }
 
@@ -210,7 +216,7 @@ export async function probeAllLibraryMovies(
       }
     } catch (err) {
       failed++;
-      console.error(`[media-probe] échec pour "${movie.title}" (${movie.id}):`, err);
+      console.error(`[media-probe] échec pour "${movie.title}" (${movie.id}) : ${probeErrorSummary(err)}`);
     }
   }
 

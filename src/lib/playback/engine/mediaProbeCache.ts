@@ -91,6 +91,39 @@ const inflight = (g.__movvizProbeInflight ??= new Map());
  *  night) never turns into a retry on every sync. Foreground callers always
  *  retry. In-memory only: a restart gives every failure one fresh attempt. */
 const failed = (g.__movvizProbeFailed ??= new Map());
+const FAILED_FILE = path.join(CONFIG_DIR, "media-probe-failed.json");
+let failedLoaded = false;
+
+/** Les échecs survivent au redémarrage : un fichier réellement cassé (début
+ *  vide, mp4 tronqué…) ne redevient candidat que s'il change sur le disque. */
+function ensureFailedLoaded(): void {
+  if (failedLoaded) return;
+  failedLoaded = true;
+  const saved = readJson<Record<string, FailedProbe>>(FAILED_FILE, {});
+  for (const [id, f] of Object.entries(saved)) if (!failed.has(id)) failed.set(id, f);
+}
+function persistFailed(): void {
+  writeJson(FAILED_FILE, Object.fromEntries(failed));
+}
+
+const ZERO_HEAD_BYTES = 4096;
+
+/** Un média valide ne commence jamais par 4 Ko de zéros (en-têtes EBML/MP4/AVI
+ *  non nuls) : c'est un fichier pré-alloué, jamais rempli ou écrasé. Inutile de
+ *  lancer ffprobe pour obtenir « EBML header parsing failed ». */
+function assertReadableHead(filePath: string): void {
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(filePath, "r");
+    const buf = Buffer.alloc(ZERO_HEAD_BYTES);
+    const n = fs.readSync(fd, buf, 0, ZERO_HEAD_BYTES, 0);
+    if (n > 0 && buf.subarray(0, n).every((b) => b === 0)) {
+      throw new Error("début du fichier vide (téléchargement incomplet ou fichier corrompu)");
+    }
+  } finally {
+    if (fd !== null) try { fs.closeSync(fd); } catch { /* already closed */ }
+  }
+}
 
 function cacheMatches(existing: CacheEntry | undefined, filePath: string, stat: fs.Stats, ffprobeVersion: string | null): existing is CacheEntry {
   return (
@@ -127,6 +160,7 @@ export async function getOrProbeMediaDescriptor(
   if (!force && cacheMatches(existing, filePath, stat, ffprobeVersion)) return existing.descriptor;
 
   if (priority === "background" && !force) {
+    ensureFailedLoaded();
     const f = failed.get(mediaId);
     if (f && f.path === filePath && f.size === stat.size && f.mtimeMs === stat.mtimeMs) return null;
   }
@@ -151,12 +185,16 @@ export async function getOrProbeMediaDescriptor(
     const cached = loadAll().find((e) => e.mediaId === mediaId);
     if (!force && cacheMatches(cached, filePath, fresh, ffprobeVersion)) return cached.descriptor;
     try {
+      assertReadableHead(filePath);
       const descriptor = await probeMediaFile(mediaId, filePath);
-      failed.delete(mediaId);
+      ensureFailedLoaded();
+      if (failed.delete(mediaId)) persistFailed();
       saveEntry(mediaId, filePath, fresh, ffprobeVersion, descriptor);
       return descriptor;
     } catch (err) {
+      ensureFailedLoaded();
       failed.set(mediaId, { path: filePath, size: fresh.size, mtimeMs: fresh.mtimeMs });
+      persistFailed();
       throw err;
     }
   });

@@ -5,6 +5,10 @@
 - Removing a movie or series from Continue Watching is remembered by Movviz: the title no longer comes back right away, on desktop and Android, with or without Plex, and reappears as soon as it is watched again.
 - The edges of the hero ambient light now fade out even in fullscreen, with no visible rectangular frame.
 
+### File analysis
+
+- The automatic technical scan no longer re-runs ffprobe on files Plex already describes, nor on files that are genuinely broken (empty file start, truncated MP4): they are remembered after a single attempt, even across restarts, until the file changes. This ends the thousands of repeated ffprobe errors that overloaded the server at startup. Playback still probes the file on demand.
+
 ## v1.28.8 — 29 October 2026
 
 ### Player

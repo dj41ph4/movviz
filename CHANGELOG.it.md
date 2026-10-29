@@ -5,6 +5,10 @@
 - La rimozione di un film o di una serie da «Continua a guardare» è memorizzata da Movviz: il titolo non ricompare subito, su desktop e Android, con o senza Plex, e torna appena viene guardato di nuovo.
 - I bordi della luce ambientale dell’hero sfumano anche a schermo intero, senza cornice rettangolare visibile.
 
+### Analisi dei file
+
+- L’analisi tecnica automatica non rilancia più ffprobe sui file che Plex descrive già, né su quelli realmente danneggiati (inizio del file vuoto, MP4 troncato): vengono memorizzati dopo un solo tentativo, anche dopo un riavvio, finché il file non cambia. Finiscono le migliaia di errori ffprobe ripetuti che sovraccaricavano il server all’avvio. La riproduzione analizza comunque il file su richiesta.
+
 ## v1.28.8 — 29 ottobre 2026
 
 ### Lettore

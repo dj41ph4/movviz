@@ -5,6 +5,10 @@
 - Retirer un film ou une série de Reprendre est mémorisé par Movviz : le titre ne revient plus juste après, sur desktop comme sur Android, avec ou sans Plex, et réapparaît dès qu’il est regardé de nouveau.
 - Les bords de la lumière d’ambiance du hero s’estompent même en plein écran, sans cadre rectangulaire visible.
 
+### Analyse des fichiers
+
+- L’analyse technique automatique ne relance plus ffprobe sur les fichiers que Plex décrit déjà, ni sur ceux qui sont réellement cassés (début du fichier vide, MP4 tronqué) : ils sont mémorisés après un seul essai, y compris après un redémarrage, jusqu’à ce que le fichier change. Fin des milliers d’erreurs ffprobe répétées qui saturaient le serveur au démarrage. La lecture, elle, sonde toujours le fichier à la demande.
+
 ## v1.28.8 — 29 octobre 2026
 
 ### Lecteur
