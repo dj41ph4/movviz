@@ -1,3 +1,9 @@
+## v1.28.12 — 29 October 2026
+
+### Release
+
+- The installers, images and apps of versions 1.28.10 and 1.28.11 could not be published (inconsistent lockfile version). This version bundles them: the “Automatic ffprobe analysis” setting, off by default, and the “Corrupt files” list.
+
 ## v1.28.11 — 29 October 2026
 
 ### Maintenance

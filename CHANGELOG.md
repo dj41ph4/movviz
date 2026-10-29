@@ -1,3 +1,9 @@
+## v1.28.12 — 29 octobre 2026
+
+### Publication
+
+- Les installateurs, images et applications des versions 1.28.10 et 1.28.11 n’avaient pas pu être publiés (version du fichier de verrouillage incohérente). Cette version les regroupe : réglage « Analyse automatique ffprobe » désactivé par défaut et liste « Fichiers corrompus ».
+
 ## v1.28.11 — 29 octobre 2026
 
 ### Maintenance

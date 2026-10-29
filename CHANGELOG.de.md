@@ -1,3 +1,9 @@
+## v1.28.12 — 29. Oktober 2026
+
+### Veröffentlichung
+
+- Die Installer, Images und Apps der Versionen 1.28.10 und 1.28.11 konnten nicht veröffentlicht werden (uneinheitliche Version der Lock-Datei). Diese Version bündelt sie: die Einstellung „Automatische ffprobe-Analyse“, standardmäßig aus, und die Liste „Defekte Dateien“.
+
 ## v1.28.11 — 29. Oktober 2026
 
 ### Wartung

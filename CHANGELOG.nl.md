@@ -1,3 +1,9 @@
+## v1.28.12 — 29 oktober 2026
+
+### Publicatie
+
+- De installers, images en apps van versies 1.28.10 en 1.28.11 konden niet worden gepubliceerd (inconsistente versie van het lockbestand). Deze versie bundelt ze: de instelling „Automatische ffprobe-analyse”, standaard uit, en de lijst „Beschadigde bestanden”.
+
 ## v1.28.11 — 29 oktober 2026
 
 ### Onderhoud

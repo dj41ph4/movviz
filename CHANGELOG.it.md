@@ -1,3 +1,9 @@
+## v1.28.12 — 29 ottobre 2026
+
+### Pubblicazione
+
+- Gli installer, le immagini e le app delle versioni 1.28.10 e 1.28.11 non erano state pubblicate (versione del file di blocco incoerente). Questa versione le riunisce: l’impostazione «Analisi automatica ffprobe», disattivata per impostazione predefinita, e l’elenco «File danneggiati».
+
 ## v1.28.11 — 29 ottobre 2026
 
 ### Manutenzione
