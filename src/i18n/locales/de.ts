@@ -437,6 +437,14 @@ export const de: Dictionary = {
       title: "Eintrag bearbeiten",
       remove: "Aus Bibliothek entfernen",
       removeConfirm: "Entfernen bestätigen",
+
+      verifyFiles: "Dateien auf Vorhandensein prüfen",
+
+      verifyFilesDone: "{count} fehlende Datei(en) aus der Bibliothek entfernt.",
+
+      verifyFilesNone: "Alle Dateien sind vorhanden.",
+
+      verifyFilesFailed: "Prüfung fehlgeschlagen.",
       monitored: "Überwacht",
       qualityProfile: "Qualitätsprofil",
       location: "Dateispeicherort",

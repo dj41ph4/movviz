@@ -1,3 +1,10 @@
+## v1.28.7 — 29 octobre 2026
+
+### Bibliothèque
+
+- Supprimer un épisode dont le fichier a déjà été effacé retire désormais l’entrée de la bibliothèque au lieu d’afficher une erreur.
+- Un bouton de la fiche série vérifie la présence de chaque fichier et retire de la bibliothèque ceux qui ont disparu.
+
 ## v1.28.6 — 29 octobre 2026
 
 ### Fiches desktop

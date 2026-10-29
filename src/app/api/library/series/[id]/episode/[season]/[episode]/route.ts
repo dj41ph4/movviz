@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { requireAdmin } from "@/lib/auth/guard";
 import { getSeries, loadSeries, loadMovies, clearEpisodeFile } from "@/lib/library/store";
 import { withKeyLock } from "@/lib/library/locks";
@@ -31,7 +32,6 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       return NextResponse.json({ error: "episode_busy" }, { status: 409 });
     }
     const filePath = ep.file?.diskPath ?? ep.file?.path;
-    if (deleteFiles && !filePath) return NextResponse.json({ error: "no_file" }, { status: 409 });
     if (deleteFiles && ep.file) {
       const paths = new Set([ep.file.path, ep.file.diskPath].filter((p): p is string => !!p));
       const shared = loadSeries().some((candidate) => candidate.seasons.some((s) => s.episodes.some((other) => {
@@ -42,7 +42,10 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     }
 
     let trashedPath: string | null = null;
-    if (deleteFiles && filePath) {
+    // Fichier déjà effacé à la main : rien à supprimer sur disque, mais l'entrée
+    // de bibliothèque doit quand même partir.
+    const fileStillExists = !!filePath && existsSync(filePath);
+    if (deleteFiles && filePath && fileStillExists) {
       try {
         const trashPath = getTrashConfig().seriesPath;
         if (trashPath) trashedPath = await moveToTrash(filePath, trashPath);

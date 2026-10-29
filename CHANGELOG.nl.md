@@ -1,3 +1,10 @@
+## v1.28.7 — 29 oktober 2026
+
+### Bibliotheek
+
+- Een aflevering verwijderen waarvan het bestand al is gewist, haalt het item nu uit de bibliotheek in plaats van een fout te tonen.
+- Een knop op de seriepagina controleert elk bestand en verwijdert verdwenen bestanden uit de bibliotheek.
+
 ## v1.28.6 — 29 oktober 2026
 
 ### Desktoppagina’s

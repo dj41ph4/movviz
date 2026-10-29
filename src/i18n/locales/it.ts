@@ -437,6 +437,14 @@ export const it: Dictionary = {
       title: "Modifica scheda",
       remove: "Rimuovi dalla libreria",
       removeConfirm: "Conferma rimozione",
+
+      verifyFiles: "Verifica la presenza dei file",
+
+      verifyFilesDone: "{count} file mancanti rimossi dalla libreria.",
+
+      verifyFilesNone: "Tutti i file sono presenti.",
+
+      verifyFilesFailed: "Verifica non riuscita.",
       monitored: "Monitorato",
       qualityProfile: "Profilo qualità",
       location: "Posizione del file",

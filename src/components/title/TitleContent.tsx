@@ -789,6 +789,23 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
     }
   }, [libraryMatch?.id, mutateLibrary, seriesPart]);
 
+  const [verifyingFiles, setVerifyingFiles] = useState(false);
+  const verifyFiles = useCallback(async () => {
+    if (!libraryMatch?.id || verifyingFiles) return;
+    setVerifyingFiles(true);
+    try {
+      const res = await fetch(`/api/library/series/${libraryMatch.id}/verify-files`, { method: "POST" });
+      if (!res.ok) throw new Error("verify_failed");
+      const data = await res.json() as { removed: number };
+      toast("success", data.removed > 0 ? t("title.edit.verifyFilesDone", { count: data.removed }) : t("title.edit.verifyFilesNone"));
+      mutateLibrary();
+    } catch {
+      toast("error", t("title.edit.verifyFilesFailed"));
+    } finally {
+      setVerifyingFiles(false);
+    }
+  }, [libraryMatch?.id, verifyingFiles, mutateLibrary, t]);
+
   const resyncAnime = useCallback(async () => {
     if (!libraryMatch?.id) return;
     setResyncingAnime(true);
@@ -1317,6 +1334,17 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 className="h-10 w-10 backdrop-blur"
               />
               {seriesPart && !partActionBlocked && <button onClick={togglePartMonitoring} title={t("title.edit.monitored")} aria-label={t("title.edit.monitored")} aria-pressed={(libraryMatch.seasons ?? []).some(s => s.episodes.some(e => e.monitored))} className="flex h-11 w-11 items-center justify-center rounded-xl glass text-ink-soft"><Eye className="h-4 w-4" /></button>}
+              {type === "series" && user?.role === "admin" && (
+                <button
+                  onClick={verifyFiles}
+                  disabled={verifyingFiles}
+                  title={t("title.edit.verifyFiles")}
+                  aria-label={t("title.edit.verifyFiles")}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${verifyingFiles ? "animate-spin" : ""}`} />
+                </button>
+              )}
               <button
                 onClick={() => setEditOpen(true)}
                 title={t("title.edit.title")}

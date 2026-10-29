@@ -1,3 +1,10 @@
+## v1.28.7 — 29. Oktober 2026
+
+### Bibliothek
+
+- Das Entfernen einer Episode, deren Datei bereits gelöscht wurde, entfernt jetzt den Bibliothekseintrag, statt einen Fehler anzuzeigen.
+- Eine Schaltfläche auf der Serienseite prüft jede Datei und entfernt verschwundene aus der Bibliothek.
+
 ## v1.28.6 — 29. Oktober 2026
 
 ### Desktop-Titelseiten

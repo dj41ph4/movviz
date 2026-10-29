@@ -1,3 +1,10 @@
+## v1.28.7 — 29 October 2026
+
+### Library
+
+- Removing an episode whose file was already deleted now removes the library entry instead of showing an error.
+- A button on the series page checks every file and removes from the library those that have disappeared.
+
 ## v1.28.6 — 29 October 2026
 
 ### Desktop title pages

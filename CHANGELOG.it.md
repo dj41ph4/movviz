@@ -1,3 +1,10 @@
+## v1.28.7 — 29 ottobre 2026
+
+### Libreria
+
+- Rimuovere un episodio il cui file è già stato eliminato ora toglie la voce dalla libreria invece di mostrare un errore.
+- Un pulsante nella scheda della serie verifica ogni file e rimuove dalla libreria quelli scomparsi.
+
 ## v1.28.6 — 29 ottobre 2026
 
 ### Schede desktop

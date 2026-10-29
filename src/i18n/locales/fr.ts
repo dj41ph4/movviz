@@ -435,6 +435,14 @@ export const fr = {
       title: "Modifier la fiche",
       remove: "Retirer de la bibliothèque",
       removeConfirm: "Confirmer le retrait",
+
+      verifyFiles: "Vérifier la présence des fichiers",
+
+      verifyFilesDone: "{count} fichier(s) introuvable(s) retiré(s) de la bibliothèque.",
+
+      verifyFilesNone: "Tous les fichiers sont bien présents.",
+
+      verifyFilesFailed: "Vérification impossible.",
       monitored: "Surveillé",
       qualityProfile: "Profil de qualité",
       location: "Emplacement du fichier",

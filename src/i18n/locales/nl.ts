@@ -437,6 +437,14 @@ export const nl: Dictionary = {
       title: "Item bewerken",
       remove: "Verwijderen uit bibliotheek",
       removeConfirm: "Verwijdering bevestigen",
+
+      verifyFiles: "Aanwezigheid van bestanden controleren",
+
+      verifyFilesDone: "{count} ontbrekende bestand(en) uit de bibliotheek verwijderd.",
+
+      verifyFilesNone: "Alle bestanden zijn aanwezig.",
+
+      verifyFilesFailed: "Controle mislukt.",
       monitored: "Gevolgd",
       qualityProfile: "Kwaliteitsprofiel",
       location: "Bestandslocatie",
