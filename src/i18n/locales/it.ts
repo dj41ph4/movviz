@@ -2015,6 +2015,22 @@ export const it: Dictionary = {
     disabledNotice: "Analisi ffprobe disattivata: Movviz si comporta come prima della v1.28.8 e si affida a Plex per tracce e lingue.",
   },
 
+  corruptFiles: {
+    title: "File danneggiati",
+    intro: "Individua i file della libreria vuoti o incompleti (download mai terminato, copia interrotta) leggendo alcuni blocchi di ogni file. Sola lettura: nulla viene eliminato o modificato e ffprobe non viene usato.",
+    scan: "Cerca file danneggiati",
+    scanning: "Analisi in corso…",
+    summary: "{checked} file controllati, {count} danneggiati — {date}",
+    none: "Nessun file danneggiato rilevato.",
+    filter: "Filtra per titolo o percorso",
+    reason: {
+      empty: "File vuoto (0 byte)",
+      zero_head: "Inizio del file vuoto",
+      partial: "File incompleto",
+      unreadable: "Illeggibile",
+    },
+  },
+
   customFormats: {
     title: "Formati",
     intro: "Ogni termine che aggiungi qui dà punti bonus a una release che lo contiene — o gliene toglie. Ad esempio: più punti per l'audio italiano, meno per le tracce con soli sottotitoli. Sono solo esempi: le regole sono tutte tue.",

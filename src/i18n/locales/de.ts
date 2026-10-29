@@ -2034,6 +2034,22 @@ export const de: Dictionary = {
     disabledNotice: "ffprobe-Analyse aus: Movviz verhält sich wie vor v1.28.8 und stützt sich für Spuren und Sprachen auf Plex.",
   },
 
+  corruptFiles: {
+    title: "Defekte Dateien",
+    intro: "Findet leere oder unvollständige Dateien der Bibliothek (nie beendeter Download, abgebrochene Kopie), indem einige Blöcke jeder Datei gelesen werden. Nur Lesen: nichts wird gelöscht oder geändert, ffprobe wird nicht verwendet.",
+    scan: "Defekte Dateien suchen",
+    scanning: "Analyse läuft…",
+    summary: "{checked} Dateien geprüft, {count} defekt — {date}",
+    none: "Keine defekte Datei gefunden.",
+    filter: "Nach Titel oder Pfad filtern",
+    reason: {
+      empty: "Leere Datei (0 Byte)",
+      zero_head: "Dateianfang leer",
+      partial: "Unvollständige Datei",
+      unreadable: "Nicht lesbar",
+    },
+  },
+
   customFormats: {
     title: "Formate",
     intro: "Jeder hier hinzugefügte Begriff gibt einer passenden Release Bonuspunkte — oder zieht welche ab. Zum Beispiel: mehr Punkte für deutsche Tonspuren, weniger für reine Untertitel-Releases. Das sind nur Beispiele: die Regeln gehören ganz dir.",

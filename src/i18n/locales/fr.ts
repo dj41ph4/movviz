@@ -2014,6 +2014,22 @@ export const fr = {
     disabledNotice: "Analyse ffprobe désactivée : Movviz se comporte comme avant la v1.28.8 et s’appuie sur Plex pour les pistes et les langues.",
   },
 
+  corruptFiles: {
+    title: "Fichiers corrompus",
+    intro: "Repère les fichiers de la bibliothèque vides ou incomplets (téléchargement jamais terminé, copie interrompue) en lisant quelques blocs de chaque fichier. Lecture seule : rien n’est supprimé ni modifié, et ffprobe n’est pas utilisé.",
+    scan: "Rechercher les fichiers corrompus",
+    scanning: "Analyse en cours…",
+    summary: "{checked} fichiers vérifiés, {count} corrompu(s) — {date}",
+    none: "Aucun fichier corrompu détecté.",
+    filter: "Filtrer par titre ou chemin",
+    reason: {
+      empty: "Fichier vide (0 octet)",
+      zero_head: "Début du fichier vide",
+      partial: "Fichier incomplet",
+      unreadable: "Illisible",
+    },
+  },
+
   customFormats: {
     title: "Formats",
     intro: "Chaque terme ajouté ici donne des points bonus à une release qui le contient — ou lui en retire. Par exemple : plus de points pour l'audio français (VFF, MULTI, VOSTFR), moins pour les pistes sous-titrées seules (SUBFRENCH). Ce sont des exemples : les règles vous appartiennent entièrement.",

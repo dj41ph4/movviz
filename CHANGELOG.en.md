@@ -1,3 +1,9 @@
+## v1.28.11 — 29 October 2026
+
+### Maintenance
+
+- A “Corrupt files” list (Settings > Maintenance) finds empty or incomplete library files, such as a download that never finished: title, path, size and cause. Read-only, without ffprobe: nothing is deleted or changed.
+
 ## v1.28.10 — 29 October 2026
 
 ### File analysis

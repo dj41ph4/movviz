@@ -1,3 +1,9 @@
+## v1.28.11 — 29 octobre 2026
+
+### Maintenance
+
+- Une liste « Fichiers corrompus » (Réglages > Maintenance) repère les fichiers de la bibliothèque vides ou incomplets, comme un téléchargement jamais terminé : titre, chemin, taille et cause. Lecture seule, sans ffprobe : rien n’est supprimé ni modifié.
+
 ## v1.28.10 — 29 octobre 2026
 
 ### Analyse des fichiers

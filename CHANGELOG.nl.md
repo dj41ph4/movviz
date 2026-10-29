@@ -1,3 +1,9 @@
+## v1.28.11 — 29 oktober 2026
+
+### Onderhoud
+
+- Een lijst „Beschadigde bestanden” (Instellingen > Onderhoud) vindt lege of onvolledige bibliotheekbestanden, zoals een download die nooit klaar was: titel, pad, grootte en oorzaak. Alleen lezen, zonder ffprobe: er wordt niets verwijderd of gewijzigd.
+
 ## v1.28.10 — 29 oktober 2026
 
 ### Bestandsanalyse

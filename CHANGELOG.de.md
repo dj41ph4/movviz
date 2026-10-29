@@ -1,3 +1,9 @@
+## v1.28.11 — 29. Oktober 2026
+
+### Wartung
+
+- Eine Liste „Defekte Dateien“ (Einstellungen > Wartung) findet leere oder unvollständige Dateien der Bibliothek, etwa einen nie beendeten Download: Titel, Pfad, Größe und Ursache. Nur Lesen, ohne ffprobe: Es wird nichts gelöscht oder geändert.
+
 ## v1.28.10 — 29. Oktober 2026
 
 ### Dateianalyse

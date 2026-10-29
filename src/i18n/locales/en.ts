@@ -2016,6 +2016,22 @@ export const en: Dictionary = {
     disabledNotice: "ffprobe analysis is off: Movviz behaves as it did before v1.28.8 and relies on Plex for tracks and languages.",
   },
 
+  corruptFiles: {
+    title: "Corrupt files",
+    intro: "Finds empty or incomplete library files (a download that never finished, an interrupted copy) by reading a few blocks of each file. Read-only: nothing is deleted or changed, and ffprobe is not used.",
+    scan: "Find corrupt files",
+    scanning: "Scanning…",
+    summary: "{checked} files checked, {count} corrupt — {date}",
+    none: "No corrupt file detected.",
+    filter: "Filter by title or path",
+    reason: {
+      empty: "Empty file (0 bytes)",
+      zero_head: "File start is empty",
+      partial: "Incomplete file",
+      unreadable: "Unreadable",
+    },
+  },
+
   customFormats: {
     title: "Formats",
     intro: "Every term you add here gives a matching release bonus points — or takes points away. For example: more points for French audio (VFF, MULTI, VOSTFR), fewer for subtitle-only tracks (SUBFRENCH). These are just examples — the rules are entirely yours.",

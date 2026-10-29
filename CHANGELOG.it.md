@@ -1,3 +1,9 @@
+## v1.28.11 — 29 ottobre 2026
+
+### Manutenzione
+
+- Un elenco «File danneggiati» (Impostazioni > Manutenzione) individua i file della libreria vuoti o incompleti, come un download mai terminato: titolo, percorso, dimensione e causa. Sola lettura, senza ffprobe: nulla viene eliminato o modificato.
+
 ## v1.28.10 — 29 ottobre 2026
 
 ### Analisi dei file

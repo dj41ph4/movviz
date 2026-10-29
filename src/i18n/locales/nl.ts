@@ -2016,6 +2016,22 @@ export const nl: Dictionary = {
     disabledNotice: "ffprobe-analyse uit: Movviz gedraagt zich als vóór v1.28.8 en vertrouwt op Plex voor sporen en talen.",
   },
 
+  corruptFiles: {
+    title: "Beschadigde bestanden",
+    intro: "Vindt lege of onvolledige bibliotheekbestanden (een download die nooit klaar was, een onderbroken kopie) door enkele blokken van elk bestand te lezen. Alleen lezen: er wordt niets verwijderd of gewijzigd en ffprobe wordt niet gebruikt.",
+    scan: "Beschadigde bestanden zoeken",
+    scanning: "Analyseren…",
+    summary: "{checked} bestanden gecontroleerd, {count} beschadigd — {date}",
+    none: "Geen beschadigd bestand gevonden.",
+    filter: "Filter op titel of pad",
+    reason: {
+      empty: "Leeg bestand (0 byte)",
+      zero_head: "Begin van het bestand is leeg",
+      partial: "Onvolledig bestand",
+      unreadable: "Onleesbaar",
+    },
+  },
+
   customFormats: {
     title: "Formaten",
     intro: "Elke term die je hier toevoegt geeft een release bonuspunten wanneer hij matcht — of trekt er punten af. Bijvoorbeeld: meer punten voor Nederlandse audio, minder voor releases met alleen ondertitels. Dit zijn maar voorbeelden: de regels zijn helemaal van jou.",
