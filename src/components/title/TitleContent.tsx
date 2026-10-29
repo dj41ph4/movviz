@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import useSWR, { mutate as mutateSWR } from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +24,8 @@ import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { MediaBadges, buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
+import { HeroAmbilight } from "@/components/dashboard/HeroAmbilight";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
@@ -201,11 +203,39 @@ export interface TitleContentProps {
   tmdbId: number;
   type: "movie" | "series";
   seriesPart?: BleachPart;
+  standalonePage?: boolean;
+}
+
+const subscribeDesktop = (callback: () => void) => {
+  const query = window.matchMedia("(min-width: 1024px)");
+  query.addEventListener("change", callback);
+  return () => query.removeEventListener("change", callback);
+};
+const desktopSnapshot = () => window.matchMedia("(min-width: 1024px)").matches;
+const serverDesktopSnapshot = () => false;
+
+function TitleHeroFrame({ standalone, showAmbilight, backdrop, videoKey, children }: {
+  standalone: boolean;
+  showAmbilight: boolean;
+  backdrop: string | null;
+  videoKey: string | null;
+  children: ReactNode;
+}) {
+  if (!standalone) return <>{children}</>;
+  return (
+    <div className="nx-title-page-hero-wrap">
+      {showAmbilight && <HeroAmbilight backdropUrl={backdrop} videoKey={videoKey} />}
+      {children}
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────────── component ─────── */
 
-export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleContentProps) {
+export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalonePage = false }: TitleContentProps) {
+  const isDesktop = useSyncExternalStore(subscribeDesktop, desktopSnapshot, serverDesktopSnapshot);
+  const reduceMotion = useShouldReduceMotion();
+  const [ambilightKey, setAmbilightKey] = useState<string | null>(null);
   const seriesPart = tmdbId === BLEACH_TMDB_ID && type === "series" ? requestedPart ?? "original" : undefined;
   const fetcher = useForegroundFetcher(titleFetcher);
   const { locale, t } = useI18n();
@@ -1234,11 +1264,12 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
        * regardless of how tall the panel/page happens to be, instead of
        * drifting wider/narrower than the source video on a very
        * short/tall viewport the way a vh-based height did. */}
+      <TitleHeroFrame standalone={standalonePage} showAmbilight={isDesktop && !reduceMotion} backdrop={backdrop} videoKey={titlePageVideoEnabled ? ambilightKey : null}>
       <div
         // Pull the following void background up by one pixel so the final
         // opaque gradient row overlaps the panel edge instead of leaving a
         // hairline seam between the backdrop and the fiche.
-        className="relative -mx-6 -mt-6 mb-[31px] h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:aspect-video sm:h-auto sm:min-h-0"
+        className={cn("relative -mx-6 -mt-6 mb-[31px] h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:aspect-video sm:h-auto sm:min-h-0", standalonePage && "nx-title-page-hero")}
         style={{ contain: "paint" }}
       >
           <ErrorBoundary onError={(e) => reportIssue(`Trailer crash: ${e.message}`)} fallback={
@@ -1252,6 +1283,8 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
               title={detail.title}
               trigger="immediate"
               youtubeProfile="detail"
+              onActiveVideo={standalonePage && isDesktop ? setAmbilightKey : undefined}
+              hideTopGradient={standalonePage && isDesktop}
               enabled={titlePageVideoEnabled}
               className="h-full w-full"
             />
@@ -1267,8 +1300,8 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
            * opaque right at the edge to still blend seamlessly into the
            * content below. Confirmed live: the even 3-stop spread read as
            * "too dark overall", not just dark at the seam. */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void from-0% via-void/15 via-35% to-transparent to-60%" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-void/48 via-transparent to-transparent" />
+          <div className="nx-title-video-gradient-bottom pointer-events-none absolute inset-0 bg-gradient-to-t from-void from-0% via-void/15 via-35% to-transparent to-60%" />
+          <div className="nx-title-video-gradient-left pointer-events-none absolute inset-0 bg-gradient-to-r from-void/48 via-transparent to-transparent" />
           {/* top-16/sm:top-20 (not top-4/top-8) — the panel's own sticky
            * "Fermer" close button floats over this same top-right corner at
            * a fixed ~64px height (see TitlePanel.tsx); without this offset
@@ -1669,6 +1702,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart }: TitleC
             </div>
           </div>
       </div>
+      </TitleHeroFrame>
 
     {/*
      * ── BODY ─────────────────────────────────────────────────────────

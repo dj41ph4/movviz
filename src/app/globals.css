@@ -1,5 +1,38 @@
 @import "tailwindcss";
 
+/* Standalone desktop title page: match the dashboard hero without changing
+   the shared title panel or the mobile full-bleed header. */
+.nx-title-page-hero-wrap { display: contents; }
+@media (min-width: 1024px) {
+  .nx-title-page-hero-wrap { display: block; position: relative; isolation: isolate; margin-bottom: 31px; }
+  .nx-title-page-hero-wrap .nx-title-page-hero {
+    margin: 0;
+    aspect-ratio: auto;
+    height: clamp(510px, 58vh, 700px);
+    border: 1px solid #ffffff1a;
+    border-radius: 24px;
+    background: #14151e;
+    box-shadow: 0 24px 60px -36px #000;
+  }
+  .nx-title-page-hero-wrap .nx-title-video-gradient-bottom {
+    background-image: linear-gradient(0deg, #11121b 0%, #11121b33 42%, #11121b0a 75%, #11121b22);
+  }
+  .nx-title-page-hero-wrap .nx-title-video-gradient-left {
+    background-image: linear-gradient(90deg, #11121bf5 0%, #11121bd9 26%, #11121b75 48%, #11121b00 78%);
+  }
+  .nx-title-page-hero-wrap .mv-hero-ambilight { display: none; }
+  html[data-movviz-design="beta"] .nx-title-page-hero-wrap .nx-title-video-gradient-bottom,
+  html[data-movviz-design="beta"] .nx-title-page-hero-wrap .nx-title-video-gradient-left { opacity: .1; }
+  html[data-movviz-design="beta"] .nx-title-page-hero-wrap .mv-hero-ambilight {
+    display: block; filter: blur(34px) saturate(1.5); opacity: .9;
+    transform: scale(1.1) translateZ(0); border-radius: 24px; overflow: hidden;
+  }
+  html[data-movviz-design="beta"] .nx-title-page-hero-wrap:has(.mv-hero-ambilight) .nx-title-page-hero {
+    box-shadow: none; border-color: #ffffff12;
+  }
+  html[data-movviz-design="beta"] .nx-title-page-hero-wrap .mv-trailer-sound { left: auto; right: 1rem; }
+}
+
 /* ============================================================
    Movviz design system — cinematic, dark-first, neon-glass
    ============================================================ */
