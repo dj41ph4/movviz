@@ -1,3 +1,9 @@
+## v1.28.6 — 29 October 2026
+
+### Desktop title pages
+
+- Movie and series page videos adopt the hero presentation, with rounded corners, border, gradients and ambient glow.
+
 ## v1.28.5 — 28 October 2026
 
 ### Android TV

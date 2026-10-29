@@ -1,3 +1,9 @@
+## v1.28.6 — 29 oktober 2026
+
+### Desktoppagina’s
+
+- Video’s op film- en seriepagina’s krijgen de hero-weergave met afgeronde hoeken, rand, kleurverlopen en omgevingslicht.
+
 ## v1.28.5 — 28 oktober 2026
 
 ### Android TV

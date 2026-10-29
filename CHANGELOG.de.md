@@ -1,3 +1,9 @@
+## v1.28.6 — 29. Oktober 2026
+
+### Desktop-Titelseiten
+
+- Videos auf Film- und Serienseiten übernehmen die Hero-Darstellung mit abgerundeten Ecken, Rand, Farbverläufen und Umgebungslicht.
+
 ## v1.28.5 — 28. Oktober 2026
 
 ### Android TV

@@ -1,3 +1,9 @@
+## v1.28.6 — 29 octobre 2026
+
+### Fiches desktop
+
+- La vidéo des pages de films et séries reprend la présentation du hero : coins arrondis, contour, dégradés et lumière d’ambiance.
+
 ## v1.28.5 — 28 octobre 2026
 
 ### Android TV

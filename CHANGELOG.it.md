@@ -1,3 +1,9 @@
+## v1.28.6 — 29 ottobre 2026
+
+### Schede desktop
+
+- I video delle pagine di film e serie adottano la presentazione del hero con angoli arrotondati, bordo, sfumature e luce ambientale.
+
 ## v1.28.5 — 28 ottobre 2026
 
 ### Android TV
