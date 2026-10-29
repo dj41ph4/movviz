@@ -18,6 +18,7 @@ import { getBleachPlexSnapshot, bleachPlexKeysPatch, type BleachPlexSnapshot } f
 import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
+import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, pruneContradictedMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
@@ -502,7 +503,7 @@ async function backfillMissingMediaInfo(cfg: PlexServerConfig, token: string) {
       if (movie.file) {
         const lang = detectFileLanguage(movie.file, info.mediaDetail);
         // Plex complète seulement : une langue déjà lue dans le fichier n'est pas écrasée.
-        if (lang && !movie.file.language) patch.file = { ...movie.file, language: lang };
+        if (lang && (!movie.file.language || !isFfprobeEnabled())) patch.file = { ...movie.file, language: lang };
       }
       patches.set(movie.id, patch as Partial<LibraryMovie>);
     }

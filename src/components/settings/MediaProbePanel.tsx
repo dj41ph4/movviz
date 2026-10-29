@@ -1,6 +1,7 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
+import { Toggle } from "@/components/ui/Toggle";
 import { useState } from "react";
 import { useT } from "@/i18n/provider";
 import { ScanLine, Loader2, Check, AlertTriangle } from "lucide-react";
@@ -106,6 +107,23 @@ function ProbeKindRow({ kind, jobs, mutate }: { kind: Kind; jobs: Job[] | undefi
 export function MediaProbePanel() {
   const t = useT();
   const { data: jobsData, mutate } = useSWR<{ jobs: Job[] }>("/api/jobs", { refreshInterval: 2000 });
+  const { data: ffprobe, mutate: mutateFfprobe } = useSWR<{ enabled: boolean }>("/api/settings/ffprobe");
+  const enabled = ffprobe?.enabled ?? false;
+
+  const setEnabled = async (next: boolean) => {
+    mutateFfprobe({ enabled: next }, { revalidate: false });
+    try {
+      await fetch("/api/settings/ffprobe", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+    } finally {
+      mutateFfprobe();
+      // Le lecteur Movviz dépend de ffprobe : son réglage serveur change avec lui.
+      globalMutate("/api/settings/beta-player");
+    }
+  };
 
   return (
     <div className="rounded-2xl glass p-5 space-y-4">
@@ -118,7 +136,22 @@ export function MediaProbePanel() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flex items-center justify-between gap-3 rounded-xl glass-strong p-4">
+        <div>
+          <p className="text-sm font-semibold text-ink">{t("mediaProbe.enable")}</p>
+          <p className="text-xs leading-relaxed text-ink-dim">{t("mediaProbe.enableHint")}</p>
+        </div>
+        <Toggle on={enabled} onChange={() => setEnabled(!enabled)} />
+      </div>
+
+      {!enabled && (
+        <div className="flex items-center gap-2 rounded-xl border border-white/10 p-3 text-sm text-ink-soft">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {t("mediaProbe.disabledNotice")}
+        </div>
+      )}
+
+      <div className={`grid gap-3 sm:grid-cols-2`}>
         <ProbeKindRow kind="movies" jobs={jobsData?.jobs} mutate={mutate} />
         <ProbeKindRow kind="series" jobs={jobsData?.jobs} mutate={mutate} />
       </div>

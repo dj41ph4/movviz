@@ -2009,7 +2009,10 @@ export const it: Dictionary = {
     full: "Analisi completa",
     fullHint: "Ignora la cache e ri-analizza tutto, anche i film già analizzati",
     fullHintSeries: "Ignora la cache e ri-analizza tutto, anche gli episodi già analizzati",
-    resultSummary: "{probed} analizzati, {skipped} saltati, {failed} falliti su {total}.",
+    resultSummary: "{probed} analizzati, {skipped} saltati, {failed} falliti su {total}.",
+    enable: "Analisi automatica ffprobe",
+    enableHint: "Disattivata: come prima della v1.28.8. Nessuna analisi automatica dei file né tracce e lingue lette dal file; fa fede Plex. Riproduzione e importazione restano invariate.",
+    disabledNotice: "Analisi ffprobe disattivata: Movviz si comporta come prima della v1.28.8 e si affida a Plex per tracce e lingue.",
   },
 
   customFormats: {

@@ -1,3 +1,9 @@
+## v1.28.10 — 29 octobre 2026
+
+### Analyse des fichiers
+
+- Un réglage « Analyse automatique ffprobe » (Réglages > Maintenance) remet Movviz comme avant la v1.28.8 quand il est désactivé : plus d’analyse automatique des fichiers, plus de pistes ni de langues lues dans le fichier, Plex fait foi. Il est désactivé par défaut, y compris sur les serveurs qui se mettent à jour, le temps de traiter les fichiers vides ou incomplets de la bibliothèque. La lecture et l’import restent inchangés.
+
 ## v1.28.9 — 29 octobre 2026
 
 ### Reprendre et fiches

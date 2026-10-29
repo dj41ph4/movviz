@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { resolveEpisodePlayback } from "@/lib/playback/sourceResolver";
+import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { getLocalStreamInfo } from "@/lib/playback/localStreamInfo";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     resolved.value.plexRatingKey, user.id,
     // Même identifiant que /api/playback/prepare : la sonde ffprobe (déjà en
     // cache) fournit les pistes quand Plex n'a pas encore scanné le fichier.
-    `${seriesId}:s${seasonNumber}e${episodeNumber}`, resolved.value.path ?? undefined,
+    ...(isFfprobeEnabled() ? ([`${seriesId}:s${seasonNumber}e${episodeNumber}`, resolved.value.path ?? undefined] as const) : []),
   );
   return NextResponse.json({
     seriesId, seasonNumber, episodeNumber,

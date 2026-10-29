@@ -2010,7 +2010,10 @@ export const nl: Dictionary = {
     full: "Volledige analyse",
     fullHint: "Negeert de cache en analyseert alles opnieuw, ook al geanalyseerde films",
     fullHintSeries: "Negeert de cache en analyseert alles opnieuw, ook al geanalyseerde afleveringen",
-    resultSummary: "{probed} geanalyseerd, {skipped} overgeslagen, {failed} mislukt van {total}.",
+    resultSummary: "{probed} geanalyseerd, {skipped} overgeslagen, {failed} mislukt van {total}.",
+    enable: "Automatische ffprobe-analyse",
+    enableHint: "Uit: zoals vóór v1.28.8. Geen automatische bestandsanalyse en geen sporen of talen uit het bestand; Plex is leidend. Afspelen en importeren blijven ongewijzigd.",
+    disabledNotice: "ffprobe-analyse uit: Movviz gedraagt zich als vóór v1.28.8 en vertrouwt op Plex voor sporen en talen.",
   },
 
   customFormats: {

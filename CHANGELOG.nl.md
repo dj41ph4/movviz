@@ -1,3 +1,9 @@
+## v1.28.10 — 29 oktober 2026
+
+### Bestandsanalyse
+
+- Een instelling „Automatische ffprobe-analyse” (Instellingen > Onderhoud) zet Movviz, wanneer uitgeschakeld, terug zoals vóór v1.28.8: geen automatische bestandsanalyse, geen sporen of talen uit het bestand, Plex is leidend. Standaard staat ze uit, ook op servers die updaten, totdat lege of onvolledige bestanden in de bibliotheek zijn opgelost. Afspelen en importeren blijven ongewijzigd.
+
 ## v1.28.9 — 29 oktober 2026
 
 ### Verder kijken en titelpagina’s

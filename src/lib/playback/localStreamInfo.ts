@@ -1,6 +1,7 @@
 import { isFfmpegAvailable } from "@/lib/playback/ffmpeg/remuxSession";
 import { getPlaybackMarkers } from "@/lib/playback/markers/store";
 import { isSubtitleToTextCodec, resolvePlexPartUrl } from "@/lib/playback/plexSource";
+import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 
 /**
@@ -130,26 +131,26 @@ export async function getLocalStreamInfo(plexRatingKey: string | null, userId: s
   // Plex ne complète que ce qui manque, et fournit l'id de la piste de même
   // position (nécessaire à ses propres routes de repli) — la position reste
   // le lien entre les deux, comme partout dans le lecteur.
-  const probed = media ? streamsFromDescriptor(media) : null;
+  const probed = media && isFfprobeEnabled() ? streamsFromDescriptor(media) : null;
   const audioStreams = probed && probed.audioStreams.length > 0
     ? probed.audioStreams.map((stream, i) => ({ ...stream, id: String(part.audioStreams[i]?.id ?? stream.id) }))
-    : part.audioStreams.map((stream) => ({
+    : part.audioStreams.map((stream, i) => ({
       id: String(stream.id ?? ""),
       codec: stream.codec ?? "",
-      language: stream.language ?? "",
-      title: stream.title ?? "",
-      channels: stream.channels ?? 0,
-      forced: false,
+      language: correctedLanguage(stream.language ?? "", media?.audioTracks[i]?.language),
+      title: media?.audioTracks[i]?.title ?? stream.title ?? "",
+      channels: media?.audioTracks[i]?.channels ?? stream.channels ?? 0,
+      forced: !!media?.audioTracks[i]?.forced,
       selected: stream.selected,
     }));
   const subtitleStreams = probed && probed.subtitleStreams.length > 0
     ? probed.subtitleStreams.map((stream, i) => ({ ...stream, id: String(part.subtitleStreams[i]?.id ?? stream.id) }))
-    : part.subtitleStreams.map((stream) => ({
+    : part.subtitleStreams.map((stream, i) => ({
       id: String(stream.id ?? ""),
       codec: stream.codec ?? "",
-      language: stream.language ?? "",
-      title: stream.title ?? "",
-      forced: stream.forced ?? false,
+      language: correctedLanguage(stream.language ?? "", media?.subtitleTracks[i]?.language),
+      title: media?.subtitleTracks[i]?.title ?? stream.title ?? "",
+      forced: media?.subtitleTracks[i]?.forced ?? stream.forced ?? false,
       toTextConvertible: isSubtitleToTextCodec(stream.codec),
       selected: stream.selected,
     }));

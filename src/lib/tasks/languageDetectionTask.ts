@@ -1,11 +1,12 @@
 import { loadMovies, updateMovies, loadSeries, updateSeriesList } from "@/lib/library/store";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { detectFileLanguage, deriveLanguageFromTracks } from "@/lib/library/detectLanguage";
+import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 
 /** Langue lue dans le fichier lui-même (ffprobe, mise en cache) : Plex n'est jamais requis. */
 async function languageFromProbe(mediaId: string, path: string | undefined | null): Promise<string | null> {
-  if (!path) return null;
+  if (!path || !isFfprobeEnabled()) return null;
   const media = await getOrProbeMediaDescriptor(mediaId, path).catch(() => null);
   return media ? deriveLanguageFromTracks(media.audioTracks, media.subtitleTracks) : null;
 }

@@ -29,6 +29,7 @@ import { findUpgradeCandidates } from "@/lib/library/searchAndReplace";
 import { loadReleaseRules } from "@/lib/library/releaseRules";
 import { findEpisodeUpgradeCandidates } from "@/lib/library/searchAndReplaceSeries";
 import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/languageDetectionTask";
+import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { probeAllLibraryMovies, probeAllLibrarySeries } from "@/lib/playback/engine/probeLibrary";
 import { syncPlexMarkers } from "@/lib/plex/markerSync";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
@@ -141,6 +142,7 @@ export const TASKS: ScheduledTask[] = [
     // bibliothèque ne dépend alors plus de Plex pour ses pistes ni ses langues.
     intervalMs: 6 * 60 * 60 * 1000,
     run: async () => {
+      if (!isFfprobeEnabled()) return;
       await probeAllLibraryMovies();
       await probeAllLibrarySeries();
     },

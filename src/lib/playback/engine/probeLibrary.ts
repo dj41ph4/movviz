@@ -13,6 +13,7 @@ import type { LibraryFile } from "@/lib/library/types";
 import { getOrProbeMediaDescriptor } from "./mediaProbeCache";
 import { fileFieldsFromDescriptor } from "./mediaDescriptorEnrich";
 import { deriveLanguageFromTracks } from "@/lib/library/detectLanguage";
+import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import type { MediaDescriptor } from "./mediaDescriptor";
 
 /**
@@ -22,6 +23,11 @@ import type { MediaDescriptor } from "./mediaDescriptor";
  * stable synthetic id instead — collision-free against real movie/series ids
  * (those are prefixed "mv_"/"sr_", this always has a literal ":s"/"e" in it).
  */
+/** Langue lue dans les pistes du fichier — uniquement quand ffprobe est activé dans les réglages. */
+function probedLanguage(descriptor: MediaDescriptor): string | null {
+  return isFfprobeEnabled() ? deriveLanguageFromTracks(descriptor.audioTracks, descriptor.subtitleTracks) : null;
+}
+
 function episodeMediaId(seriesId: string, seasonNumber: number, episodeNumber: number): string {
   return `${seriesId}:s${seasonNumber}e${episodeNumber}`;
 }
@@ -65,7 +71,7 @@ function enrichMovieFromDescriptor(movieId: string, descriptor: MediaDescriptor)
     // guess rather than defer to it.
     hdr: enriched.hdr,
     // Langue lue dans le fichier : prioritaire, Plex n'est qu'un complément.
-    language: deriveLanguageFromTracks(descriptor.audioTracks, descriptor.subtitleTracks) ?? current.language,
+    language: probedLanguage(descriptor) ?? current.language,
   };
   if (
     nextFile.resolution === current.resolution &&
@@ -101,7 +107,7 @@ function enrichEpisodeFromDescriptor(seriesId: string, seasonNumber: number, epi
         videoCodec: enriched.videoCodec ?? current.videoCodec,
         audioCodec: enriched.audioCodec ?? current.audioCodec,
         hdr: enriched.hdr, // see enrichMovieFromDescriptor's identical comment — ffprobe's "no HDR" is authoritative
-        language: deriveLanguageFromTracks(descriptor.audioTracks, descriptor.subtitleTracks) ?? current.language,
+        language: probedLanguage(descriptor) ?? current.language,
       };
       if (
         nextFile.resolution === current.resolution &&

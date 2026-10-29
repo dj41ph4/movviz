@@ -2008,7 +2008,10 @@ export const fr = {
     full: "Analyse complète",
     fullHint: "Ignore le cache et ré-analyse tout, même les films déjà analysés",
     fullHintSeries: "Ignore le cache et ré-analyse tout, même les épisodes déjà analysés",
-    resultSummary: "{probed} analysé(s), {skipped} ignoré(s), {failed} échoué(s) sur {total}.",
+    resultSummary: "{probed} analysé(s), {skipped} ignoré(s), {failed} échoué(s) sur {total}.",
+    enable: "Analyse automatique ffprobe",
+    enableHint: "Désactivé : comme avant la v1.28.8. Plus d’analyse automatique des fichiers ni de pistes et langues lues dans le fichier ; Plex fait foi. La lecture et l’import restent inchangés.",
+    disabledNotice: "Analyse ffprobe désactivée : Movviz se comporte comme avant la v1.28.8 et s’appuie sur Plex pour les pistes et les langues.",
   },
 
   customFormats: {

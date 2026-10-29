@@ -2028,7 +2028,10 @@ export const de: Dictionary = {
     full: "Vollständige Analyse",
     fullHint: "Ignoriert den Cache und analysiert alles neu, auch bereits analysierte Filme",
     fullHintSeries: "Ignoriert den Cache und analysiert alles neu, auch bereits analysierte Episoden",
-    resultSummary: "{probed} analysiert, {skipped} übersprungen, {failed} fehlgeschlagen von {total}.",
+    resultSummary: "{probed} analysiert, {skipped} übersprungen, {failed} fehlgeschlagen von {total}.",
+    enable: "Automatische ffprobe-Analyse",
+    enableHint: "Aus: wie vor v1.28.8. Keine automatische Dateianalyse und keine aus der Datei gelesenen Spuren oder Sprachen; Plex ist maßgeblich. Wiedergabe und Import bleiben unverändert.",
+    disabledNotice: "ffprobe-Analyse aus: Movviz verhält sich wie vor v1.28.8 und stützt sich für Spuren und Sprachen auf Plex.",
   },
 
   customFormats: {

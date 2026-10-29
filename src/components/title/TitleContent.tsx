@@ -321,10 +321,11 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
   const libraryId = libraryMatch?.id;
   // Pistes lues dans le fichier (ffprobe, mises en cache) : source prioritaire
   // du bloc « infos techniques » ; Plex n'est qu'un complément / repli.
+  const { data: ffprobeSetting } = useSWR<{ enabled: boolean }>("/api/settings/ffprobe", fetcher, { revalidateOnFocus: false });
   const { data: localTracks } = useSWR<{
     audioStreams?: { codec: string; channels: number; language: string; title: string }[];
     subtitleStreams?: { codec: string; language: string; forced: boolean }[];
-  }>(type === "movie" && libraryMatch?.id && libraryMatch.file ? `/api/stream/local/${libraryMatch.id}/info` : null, fetcher, { revalidateOnFocus: false });
+  }>(type === "movie" && ffprobeSetting?.enabled && libraryMatch?.id && libraryMatch.file ? `/api/stream/local/${libraryMatch.id}/info` : null, fetcher, { revalidateOnFocus: false });
 
   const libraryStatus: LibraryStatus | null = libraryMatch
     ? type === "movie"

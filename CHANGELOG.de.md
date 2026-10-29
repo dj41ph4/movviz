@@ -1,3 +1,9 @@
+## v1.28.10 — 29. Oktober 2026
+
+### Dateianalyse
+
+- Eine Einstellung „Automatische ffprobe-Analyse“ (Einstellungen > Wartung) stellt Movviz im ausgeschalteten Zustand auf den Stand vor v1.28.8 zurück: keine automatische Dateianalyse, keine aus der Datei gelesenen Spuren oder Sprachen, Plex ist maßgeblich. Sie ist standardmäßig aus, auch auf Servern, die aktualisieren, bis leere oder unvollständige Dateien der Bibliothek bearbeitet sind. Wiedergabe und Import bleiben unverändert.
+
 ## v1.28.9 — 29. Oktober 2026
 
 ### Weiterschauen und Titelseiten

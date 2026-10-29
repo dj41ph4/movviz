@@ -19,6 +19,7 @@ export const RESET_STORE_FILES = [
   "auto-update.json",
   "automation-config.json",
   "beta-player.json",
+  "ffprobe.json",
   "blocked-releases.json",
   "blocked-youtube-videos.json",
   "blocklist.json",
