@@ -1,3 +1,10 @@
+## v1.28.17 — 30 oktober 2026
+
+### Downloads
+
+- Een geweigerde vervanging van een aflevering (onvolledig nieuw bestand, naam bezet…) loopt niet meer in een lus: ze volgt hetzelfde budget als films, één poging en drie herhalingen met 10 minuten ertussen, waarna het nieuwe bestand wordt verworpen en het oude blijft. Voorheen probeerde de engine het elke 15 seconden eindeloos opnieuw (860 keer in 4 uur bij één pakket).
+- Mislukt de terugroep naar de bibliotheek om een andere reden, dan spreidt de engine zijn pogingen (15 s, daarna verdubbelen tot 15 minuten) in plaats van ze op een vast ritme te herhalen.
+
 ## v1.28.16 — 30 oktober 2026
 
 ### Downloads

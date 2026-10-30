@@ -1,4 +1,4 @@
-import { runReplacementAttempt } from "@/lib/library/replacementRetry";
+import { runReplacementAttempt, isReplacementError, hasReplacementRecord } from "@/lib/library/replacementRetry";
 import { getMovie, updateMovie, getSeries, updateSeries, loadMovies, loadSeries } from "@/lib/library/store";
 import { encodeLibraryRef, type LibraryFile } from "@/lib/library/types";
 import { pathFor } from "@/lib/library/renamePath";
@@ -609,8 +609,11 @@ export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedF
   const lockKey = ref.kind === "movie" ? `movie:${ref.movieId}` : `series:${ref.seriesId}`;
   return withKeyLock(lockKey, async () => {
     const replacingMovie = ref.kind === "movie" && !!getMovie(ref.movieId)?.file && !!infoHash;
-    const result = replacingMovie
-      ? await runReplacementAttempt(infoHash!, () => applyImportedFilesLocked(ref, files, infoHash), async () => {
+    // Épisodes : même budget que les films (1 essai + 3 reprises espacées de 10 min, puis le
+    // nouveau fichier est écarté et l'ancien gardé). Sans lui, un refus de remplacement
+    // renvoyait une erreur 500 que le moteur réessayait toutes les 15 s sans fin.
+    const budgeted = replacingMovie || (ref.kind !== "movie" && !!infoHash && hasReplacementRecord(infoHash));
+    const discard = async () => {
           const protectedPaths = [
             ...loadMovies().flatMap(movie => [movie.file, ...(movie.versions ?? [])]),
             ...loadSeries().flatMap(series => series.seasons.flatMap(season => season.episodes.map(ep => ep.file))),
@@ -622,10 +625,23 @@ export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedF
           }
           if (ref.kind === "movie") {
             const current = getMovie(ref.movieId);
-            if (current?.activeInfoHash === infoHash) updateMovie(current.id, { status: current.file ? "available" : "missing", activeInfoHash: null });
+            if (current && current.activeInfoHash === infoHash) updateMovie(current.id, { status: current.file ? "available" : "missing", activeInfoHash: null });
           }
-        })
-      : await applyImportedFilesLocked(ref, files, infoHash);
+    };
+    let result;
+    if (budgeted) {
+      result = await runReplacementAttempt(infoHash!, () => applyImportedFilesLocked(ref, files, infoHash), discard);
+    } else if (ref.kind !== "movie" && infoHash) {
+      try {
+        result = await applyImportedFilesLocked(ref, files, infoHash);
+      } catch (error) {
+        if (!isReplacementError(error)) throw error;
+        // Premier refus : il entre dans le budget (409 structuré au moteur, prochaine tentative dans 10 min).
+        result = await runReplacementAttempt(infoHash, async () => { throw error; }, discard);
+      }
+    } else {
+      result = await applyImportedFilesLocked(ref, files, infoHash);
+    }
     if (result.ok) { takeManualGrab(infoHash); takePendingVersionIntent(infoHash); }
     // Anthologie Plex (Monster) : ranger aussitôt les fichiers là où Plex les
     // attend — voir anthology.ts.

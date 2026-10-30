@@ -1,3 +1,10 @@
+## v1.28.17 — 30 octobre 2026
+
+### Téléchargements
+
+- Un remplacement d’épisode refusé (nouveau fichier incomplet, nom occupé…) ne boucle plus : il suit le même budget que les films, une tentative puis trois reprises espacées de 10 minutes, après quoi le nouveau fichier est écarté et l’ancien conservé. Auparavant le moteur réessayait toutes les 15 secondes sans fin (860 fois en 4 heures sur un pack).
+- Si le rappel vers la bibliothèque échoue pour une autre raison, le moteur espace ses tentatives (15 s, puis doublement jusqu’à 15 minutes) au lieu de les répéter à cadence fixe.
+
 ## v1.28.16 — 30 octobre 2026
 
 ### Téléchargements

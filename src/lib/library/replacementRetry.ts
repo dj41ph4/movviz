@@ -9,6 +9,16 @@ export interface ReplacementFailure {
 }
 const FILE = path.join(process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"), "replacement-retries.json");
 const INTERVAL = 10 * 60 * 1000;
+/** Un refus de remplacement (fichier incomplet, nom occupé, ancien introuvable…), par opposition à un bug. */
+export function isReplacementError(error: unknown): boolean {
+  return error instanceof Error && /^Remplacement (refusé|interrompu)/.test(error.message);
+}
+
+/** Cet import a déjà échoué au moins une fois : ses nouvelles tentatives restent dans le budget. */
+export function hasReplacementRecord(infoHash: string): boolean {
+  return !!readJsonCached<Record<string, ReplacementFailure>>(FILE, {})[infoHash];
+}
+
 export class ReplacementRefused extends Error {
   constructor(public failure: ReplacementFailure) { super("replacement_refused"); }
 }

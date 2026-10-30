@@ -21,6 +21,11 @@ const JUNK_EXT_RE = /\.(nfo|txt|url|torrent|tmp|sfv|md5|jpg|jpeg|png|gif|db)$/i;
 
 /** Below 20 bytes/s for 2 minutes is stalled, even with connected peers. */
 const STALL_MS = 120_000;
+
+/** Délai avant de renotifier la bibliothèque : 15 s, puis ×2 à chaque échec, plafonné à 15 min. */
+export function notifyRetryDelayMs(failures) {
+  return Math.min(15 * 60_000, 15_000 * 2 ** Math.min(Math.max(0, failures | 0), 6));
+}
 const MIN_ACTIVE_BYTES_PER_SECOND = 20;
 
 /** After this many consecutive import failures for the same torrent, stop retrying automatically — see onComplete's `err` branch. */
@@ -547,11 +552,11 @@ export class AbstractBackend {
       // silently never retrying because [] is falsy-length.
       if (m?.libraryRef && m?.movedFiles && !m.notifiedLibrary && !m.replacementFailure?.discarded
           && (!m.replacementFailure?.retryAt || Date.now() >= m.replacementFailure.retryAt)
-          && !m.notifyInFlight && (!m.lastNotifyAttempt || Date.now() - m.lastNotifyAttempt > 15_000)) {
+          && !m.notifyInFlight && (!m.lastNotifyAttempt || Date.now() - m.lastNotifyAttempt > notifyRetryDelayMs(m.notifyFailures))) {
         m.lastNotifyAttempt = Date.now();
         m.notifyInFlight = true;
         this._notifyLibrary(m.libraryRef, m.movedFiles, infoHash)
-          .then((ok) => { if (ok) { m.notifiedLibrary = true; m.completed = true; } })
+          .then((ok) => { if (ok) { m.notifiedLibrary = true; m.completed = true; m.notifyFailures = 0; } else m.notifyFailures = (m.notifyFailures ?? 0) + 1; })
           .catch(() => {})
           .finally(() => { m.notifyInFlight = false; });
       }

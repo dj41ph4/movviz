@@ -1,3 +1,10 @@
+## v1.28.17 — 30. Oktober 2026
+
+### Downloads
+
+- Ein abgelehnter Episoden-Ersatz (unvollständige neue Datei, Name belegt…) läuft nicht mehr in einer Schleife: Er folgt demselben Budget wie Filme, ein Versuch und drei Wiederholungen im Abstand von 10 Minuten, danach wird die neue Datei verworfen und die alte behalten. Zuvor versuchte die Engine alle 15 Sekunden ohne Ende (860 Mal in 4 Stunden bei einem Paket).
+- Schlägt der Rückruf an die Bibliothek aus einem anderen Grund fehl, dehnt die Engine ihre Versuche aus (15 s, dann Verdopplung bis 15 Minuten) statt sie im festen Takt zu wiederholen.
+
 ## v1.28.16 — 30. Oktober 2026
 
 ### Downloads

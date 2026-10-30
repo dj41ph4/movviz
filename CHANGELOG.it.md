@@ -1,3 +1,10 @@
+## v1.28.17 — 30 ottobre 2026
+
+### Download
+
+- Una sostituzione di episodio rifiutata (nuovo file incompleto, nome occupato…) non va più in loop: segue lo stesso budget dei film, un tentativo e tre riprese a 10 minuti di distanza, poi il nuovo file viene scartato e il vecchio conservato. Prima il motore riprovava ogni 15 secondi senza fine (860 volte in 4 ore su un pacchetto).
+- Se la richiamata verso la libreria fallisce per un altro motivo, il motore dirada i tentativi (15 s, poi raddoppio fino a 15 minuti) invece di ripeterli a cadenza fissa.
+
 ## v1.28.16 — 30 ottobre 2026
 
 ### Download

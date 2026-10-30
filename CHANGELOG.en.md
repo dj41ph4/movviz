@@ -1,3 +1,10 @@
+## v1.28.17 — 30 October 2026
+
+### Downloads
+
+- A refused episode replacement (incomplete new file, name taken…) no longer loops: it follows the same budget as movies, one attempt then three retries 10 minutes apart, after which the new file is discarded and the old one kept. Previously the engine retried every 15 seconds without end (860 times in 4 hours on one pack).
+- If the callback to the library fails for another reason, the engine spaces out its attempts (15 s, then doubling up to 15 minutes) instead of repeating at a fixed rate.
+
 ## v1.28.16 — 30 October 2026
 
 ### Downloads
