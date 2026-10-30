@@ -1,3 +1,10 @@
+## v1.28.18 — 30 oktober 2026
+
+### NAS-pakketten
+
+- UGREEN: het pakket stelt nog alleen de webinterface (9810) en de BitTorrent-poorten (55000, 55001) beschikbaar; de engine en de resolver blijven intern in de container, wat het risico op een poortconflict bij activering verkleint. Het gebruikt het standaard bridge-netwerk, zoals het officiële UGREEN-voorbeeld.
+- De container stopt niet meer wanneer het bestandssysteem een `chown` op een gekoppelde map weigert (UGOS, ACL’s, netwerkshares). Hij controleert of de configuratiemap beschrijfbaar is en schrijft anders een duidelijke melding in de logs (PUID/PGID aanpassen).
+
 ## v1.28.17 — 30 oktober 2026
 
 ### Downloads

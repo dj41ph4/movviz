@@ -73,8 +73,17 @@ if [ -n "${MOVVIZ_RENDER_GID:-}" ]; then
   esac
 fi
 
-mkdir -p /config /data
-chown movviz:movviz /config /data
+# Sur certains NAS (UGOS, ACL, partages réseau) le chown d'un dossier monté peut être refusé.
+# Ce n'est pas fatal : si le dossier est déjà accessible en écriture, l'application démarre.
+# Un échec ici faisait tomber tout le conteneur (set -e) sans autre message.
+mkdir -p /config /data 2>/dev/null || true
+for dir in /config /data; do
+  chown movviz:movviz "$dir" 2>/dev/null || echo "[movviz] chown $dir refusé par le système de fichiers — poursuite du démarrage." >&2
+done
+# /config doit être inscriptible (état, base, jetons) : sinon rien ne peut fonctionner, autant le dire
+# clairement dans les logs du conteneur. /data : simple avertissement, le dossier peut être préparé après coup.
+su-exec movviz test -w /config || { echo "[movviz] ERREUR : /config n'est pas accessible en écriture pour uid=$PUID gid=$PGID. Choisir un PUID/PGID propriétaire du dossier de configuration." >&2; exit 1; }
+su-exec movviz test -w /data || echo "[movviz] ATTENTION : /data n'est pas accessible en écriture pour uid=$PUID gid=$PGID — téléchargements et bibliothèque échoueront." >&2
 
 # Specifying "movviz:movviz" makes su-exec discard supplementary groups.
 # The account's primary group is already movviz; using its name also retains

@@ -1,3 +1,10 @@
+## v1.28.18 — 30 October 2026
+
+### NAS packages
+
+- UGREEN: the package now exposes only the web interface (9810) and the BitTorrent ports (55000, 55001); the engine and the resolver stay internal to the container, reducing the risk of a port conflict on activation. It uses the default bridge network, like the official UGREEN example.
+- The container no longer stops when the file system refuses a `chown` on a mounted folder (UGOS, ACLs, network shares). It checks that the configuration folder is writable and writes a clear message to the logs otherwise (adjust PUID/PGID).
+
 ## v1.28.17 — 30 October 2026
 
 ### Downloads

@@ -1,3 +1,10 @@
+## v1.28.18 — 30 octobre 2026
+
+### Paquets NAS
+
+- UGREEN : le paquet n’expose plus que l’interface web (9810) et les ports BitTorrent (55000, 55001) ; le moteur et le résolveur restent internes au conteneur, ce qui réduit les risques de conflit de port à l’activation. Il utilise le réseau pont par défaut, comme l’exemple officiel UGREEN.
+- Le conteneur ne s’arrête plus quand le système de fichiers refuse un `chown` sur un dossier monté (UGOS, ACL, partages réseau). Il vérifie que la configuration est inscriptible et écrit un message clair dans les journaux sinon (PUID/PGID à ajuster).
+
 ## v1.28.17 — 30 octobre 2026
 
 ### Téléchargements

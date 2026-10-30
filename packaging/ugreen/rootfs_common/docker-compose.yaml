@@ -2,10 +2,12 @@ services:
   movviz:
     image: dj41ph4/movviz:0.0.0-ugreen
     restart: unless-stopped
+    # Réseau pont par défaut, comme dans l'exemple officiel UGREEN (pas de réseau Compose dédié).
+    network_mode: bridge
     ports:
+      # Interface web uniquement. Le moteur (9820) et le résolveur (9830) restent internes
+      # au conteneur : les publier n'apportait rien et ajoutait un risque de port déjà pris.
       - "9810:9810"
-      - "9820:9820"
-      - "9830:9830"
       - "55000:55000/tcp"
       - "55000:55000/udp"
       - "55001:55001/tcp"

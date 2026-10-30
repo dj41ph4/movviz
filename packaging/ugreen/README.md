@@ -13,9 +13,23 @@ accès en écriture à ces dossiers. Ne pas pointer sur un dossier temporaire de
 l'application UGOS.
 
 L'application utilise la suite Docker UGOS Pro (`com.ugreen.docker`, version
-minimale déclarée `1.7.0.0000`). Ports : web 9810, moteur 9820, résolveur 9830,
-pairs BitTorrent TCP/UDP 55000 et 55001. Une installation peut échouer si ces
-ports sont déjà utilisés. Une mise à jour conserve les dossiers sélectionnés.
+minimale déclarée `1.7.0.0000`). Ports publiés : web 9810 et pairs BitTorrent
+TCP/UDP 55000 et 55001 (le moteur et le résolveur restent internes au
+conteneur). Une installation peut échouer si l'un de ces ports est déjà utilisé.
+Une mise à jour conserve les dossiers sélectionnés.
+
+## Si l'activation échoue (« Operation Failed »)
+
+Relever le message exact dans les journaux du conteneur (Docker UGOS > Conteneurs >
+movviz > Journaux) :
+
+- `address already in use` / `port is already allocated` : un des ports ci-dessus
+  est pris ; libérer le port ou arrêter l'application qui l'utilise.
+- `/config n'est pas accessible en écriture` : renseigner un PUID/PGID propriétaire
+  du dossier de configuration choisi (ou changer le propriétaire du dossier).
+- `/data n'est pas accessible en écriture` : même remède pour le dossier multimédia.
+- Rien dans les journaux et le conteneur n'existe pas : la création a échoué avant
+  le démarrage ; vérifier que les deux dossiers choisis existent bien sur un volume.
 
 Le build officiel se fait sur GitHub Actions. Pour déboguer, il faut Docker,
 Buildx, Node 22 et l'outil officiel `ugcli` 1.1.0.25 :
