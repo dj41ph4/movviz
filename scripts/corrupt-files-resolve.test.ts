@@ -39,7 +39,7 @@ const movieOk = good("movie-ok.mkv");
 const movieDel = bad("movie-del.mkv");
 const epDel = bad("ep-del.mkv");
 const epNew = bad("ep-new.mkv");
-const movieOld = bad("movie-old.mkv");
+const movieOld = good("movie-old.mkv");
 
 const movie = (id: string, p: string) => ({
   id, tmdbId: Number(id.replace(/\D/g, "")) || 1, imdbId: null, title: id, year: 2020, releaseDate: null, vfReleaseDate: null, overview: "",
@@ -94,9 +94,9 @@ test("un fichier remplacé depuis le balayage n'est jamais supprimé", async () 
   assert.equal(getSeries("sr_1")?.seasons[0].episodes[3].status, "available");
 });
 
-test("un rapport sans empreinte (ancien) impose un nouveau balayage", async () => {
+test("un ancien rapport (sans empreinte) reste utilisable mais ne supprime jamais un fichier sain", async () => {
   const r = await resolveCorruptFiles([{ kind: "movie", id: "mv_old" }], "delete", "admin");
-  assert.equal(r.failed[0].error, "rescan_needed");
+  assert.equal(r.failed[0].error, "file_now_healthy");
   assert.ok(fs.existsSync(movieOld));
 });
 

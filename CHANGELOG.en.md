@@ -1,3 +1,10 @@
+## v1.28.15 — 30 October 2026
+
+### Corrupt files
+
+- Delete or replace also works with a report made before v1.28.14: the file is read again on the spot and is only deleted if it is still empty or incomplete.
+- On failure, the notification gives the most frequent reason in plain words (file changed since the scan, already healthy, shared, being downloaded…).
+
 ## v1.28.14 — 30 October 2026
 
 ### Library and maintenance

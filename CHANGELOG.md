@@ -1,3 +1,10 @@
+## v1.28.15 — 30 octobre 2026
+
+### Fichiers corrompus
+
+- Supprimer ou remplacer fonctionne aussi avec un rapport établi avant la v1.28.14 : le fichier est relu à l’instant et n’est supprimé que s’il est toujours vide ou incomplet.
+- En cas d’échec, la notification donne la raison la plus fréquente en clair (fichier modifié depuis le scan, déjà sain, partagé, en cours de téléchargement…).
+
 ## v1.28.14 — 30 octobre 2026
 
 ### Bibliothèque et maintenance

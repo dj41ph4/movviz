@@ -127,8 +127,15 @@ export function CorruptFilesPanel() {
       } else {
         // Fiches titre, bibliothèque et activité reflètent aussitôt les fichiers retirés.
         void globalMutate((key) => typeof key === "string" && key.startsWith("/api/library/"));
-        const failed = data.failed?.length ?? 0;
-        toast(failed > 0 ? "error" : "success", t(failed > 0 ? "corruptFiles.partial" : action === "replace" && data.searchQueued ? "corruptFiles.replaced" : "corruptFiles.deleted", { count: data.done ?? 0, failed }));
+        const failures = (data.failed ?? []) as { error?: string }[];
+        const failed = failures.length;
+        // Raison la plus fréquente, en clair : « occupé, partagé ou déjà sain » ne disait rien.
+        const counts = new Map<string, number>();
+        for (const f of failures) counts.set(f.error ?? "unknown", (counts.get(f.error ?? "unknown") ?? 0) + 1);
+        const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+        const reasonKey = top ? `corruptFiles.err_${top}` : "";
+        const reason = reasonKey && t(reasonKey) !== reasonKey ? t(reasonKey) : top ?? "";
+        toast(failed > 0 ? "error" : "success", t(failed > 0 ? "corruptFiles.partial" : action === "replace" && data.searchQueued ? "corruptFiles.replaced" : "corruptFiles.deleted", { count: data.done ?? 0, failed, reason }));
       }
     } finally {
       setWorking(null);

@@ -1,3 +1,10 @@
+## v1.28.15 — 30 ottobre 2026
+
+### File danneggiati
+
+- Eliminare o sostituire funziona anche con un rapporto creato prima della v1.28.14: il file viene riletto all’istante ed è eliminato solo se è ancora vuoto o incompleto.
+- In caso di errore, la notifica indica in chiaro il motivo più frequente (file modificato dopo la scansione, già integro, condiviso, in download…).
+
 ## v1.28.14 — 30 ottobre 2026
 
 ### Libreria e manutenzione

@@ -1,3 +1,10 @@
+## v1.28.15 — 30 oktober 2026
+
+### Beschadigde bestanden
+
+- Verwijderen of vervangen werkt ook met een rapport van vóór v1.28.14: het bestand wordt ter plekke opnieuw gelezen en alleen verwijderd als het nog leeg of onvolledig is.
+- Bij een fout noemt de melding de meest voorkomende reden in gewone woorden (bestand gewijzigd sinds de scan, al in orde, gedeeld, wordt gedownload…).
+
 ## v1.28.14 — 30 oktober 2026
 
 ### Bibliotheek en onderhoud

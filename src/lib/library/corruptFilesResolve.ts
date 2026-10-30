@@ -151,9 +151,10 @@ export async function resolveCorruptFiles(targets: CorruptTarget[], action: Corr
     try {
       // Le fichier doit être EXACTEMENT celui du balayage (taille + date) : un
       // téléchargement arrivé depuis, même au même chemin, n'est jamais touché.
-      if (item.mtimeMs === undefined) throw new Error("rescan_needed");
+      // Rapport d'avant l'empreinte (mtimeMs absent) : pas de comparaison possible, mais le
+      // fichier est relu à l'instant et doit être encore vide/incomplet pour être supprimé.
       const check = await inspectFile(item.path);
-      if (check && (check.size !== item.size || check.mtimeMs !== item.mtimeMs)) throw new Error("file_changed");
+      if (check && item.mtimeMs !== undefined && (check.size !== item.size || check.mtimeMs !== item.mtimeMs)) throw new Error("file_changed");
       if (check && check.ok) throw new Error("file_now_healthy");
       if (item.kind === "episode") await removeEpisode(item, action, username);
       else await removeMovieFile(item, action, username);

@@ -1,3 +1,10 @@
+## v1.28.15 — 30. Oktober 2026
+
+### Defekte Dateien
+
+- Löschen oder Ersetzen funktioniert auch mit einem Bericht von vor v1.28.14: Die Datei wird sofort neu gelesen und nur gelöscht, wenn sie noch leer oder unvollständig ist.
+- Bei einem Fehler nennt die Meldung den häufigsten Grund im Klartext (Datei seit der Analyse geändert, bereits intakt, geteilt, wird geladen…).
+
 ## v1.28.14 — 30. Oktober 2026
 
 ### Bibliothek und Wartung
