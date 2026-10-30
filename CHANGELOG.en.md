@@ -1,3 +1,10 @@
+## v1.28.16 — 30 October 2026
+
+### Downloads
+
+- A season pack downloaded for a few episodes no longer blocks the queue: once the wanted episodes are received and imported, the torrent frees its slot and stops downloading the rest of the pack.
+- A pack's contents are read from its metadata: if the wanted episode is not in it, the pack is discarded before any download and another release is searched (season packs and episode releases, as already done for complete-series packs).
+
 ## v1.28.15 — 30 October 2026
 
 ### Corrupt files

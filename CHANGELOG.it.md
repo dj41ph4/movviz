@@ -1,3 +1,10 @@
+## v1.28.16 — 30 ottobre 2026
+
+### Download
+
+- Un pacchetto di stagione scaricato per pochi episodi non blocca più la coda: ricevuti e importati gli episodi voluti, il torrent libera lo slot e smette di scaricare il resto del pacchetto.
+- Il contenuto di un pacchetto viene letto dai metadati: se l’episodio voluto non c’è, il pacchetto viene scartato prima di qualsiasi download e se ne cerca un altro (pacchetti di stagione e release di episodio, come già per le serie complete).
+
 ## v1.28.15 — 30 ottobre 2026
 
 ### File danneggiati

@@ -322,6 +322,9 @@ export class WebTorrentBackend extends AbstractBackend {
       if (!targets.every((f) => f.done)) return;
       for (const f of targets) f.removeListener("done", checkDone);
       clearInterval(stallTimer);
+      // Les fichiers visés sont complets : on cesse de télécharger le reste du pack
+      // (sélectionné par le repli ci-dessous pour récupérer des pièces de bord).
+      t.files.forEach((f, i) => { if (!matchSet.has(i)) f.deselect(); });
       this.onComplete(infoHash).catch((e) =>
         console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] onComplete failed:`, e.message)
       );
@@ -355,9 +358,11 @@ export class WebTorrentBackend extends AbstractBackend {
         return;
       }
       if (stage === 1) {
+        // Repli : tout le pack est sélectionné pour obtenir les pièces partagées avec les
+        // fichiers voisins. On GARDE selectedFileIndices : c'est lui qui dit quand le travail
+        // est fini (_isDone). Le mettre à null faisait attendre le pack entier — épisodes
+        // importés, mais torrent à 36 % qui télécharge le reste et garde son slot.
         t.files.forEach((f) => f.select());
-        const meta = this.meta.get(infoHash);
-        if (meta) meta.selectedFileIndices = null;
         stage = 2;
         lastDownloaded = -1;
         return;

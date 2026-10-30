@@ -1,3 +1,10 @@
+## v1.28.16 — 30 octobre 2026
+
+### Téléchargements
+
+- Un pack de saison téléchargé pour quelques épisodes ne bloque plus la file : une fois les épisodes voulus reçus et importés, le torrent libère son slot et arrête de télécharger le reste du pack.
+- Le contenu d’un pack est lu dès les métadonnées : si l’épisode voulu n’y est pas, le pack est écarté avant tout téléchargement et une autre release est cherchée (packs de saison et releases d’épisode, comme déjà pour les intégrales).
+
 ## v1.28.15 — 30 octobre 2026
 
 ### Fichiers corrompus

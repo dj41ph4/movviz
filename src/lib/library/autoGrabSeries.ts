@@ -964,7 +964,11 @@ async function searchAndGrabEpisodeCascade(
       "series",
       encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       series.title,
-      episodeTarget
+      episodeTarget,
+      undefined,
+      // Le contenu est lu dès les métadonnées : une release sans l'épisode est écartée
+      // avant tout téléchargement et une autre est cherchée.
+      true
     );
     if ("error" in sent) {
       setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "missing" });
@@ -1095,7 +1099,10 @@ async function tryGrabSeasonPackImpl(
     encodeLibraryRef({ kind: "season", seriesId: series.id, season: seasonNumber }),
     series.title,
     undefined,
-    episodeTargets
+    episodeTargets,
+    // Pack de saison : si aucun fichier ne correspond aux épisodes voulus, le pack est
+    // écarté sur ses seules métadonnées, sans rien télécharger, puis une autre release est cherchée.
+    true
   );
   if (!("ok" in sent)) return null;
   // Placed here (the deduped Impl function), not at each of the several

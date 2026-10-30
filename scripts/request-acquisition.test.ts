@@ -150,7 +150,10 @@ test("Gintama: season packs take priority over an available integral", () => {
     assert.equal(result.searchResult.queued, true); assert.equal(sent.length, 0); assert.equal(requests.length, 1);
     await jobs[0].runner(() => {}, { jobId: 'acquire' });
     assert.equal(sent.length, 2, 'both season packs must be handed to the engine');
-    assert.ok(sent.every(b => !b.rejectMissingSeriesPack), 'the integral must not be selected before season packs');
+    // L'intégrale se reconnaît à sa référence de bibliothèque (series:…), pas au drapeau de rejet :
+    // les packs de saison le portent aussi, pour être écartés sur leurs métadonnées s'ils n'ont pas l'épisode.
+    assert.ok(sent.every(b => !String(b.libraryRef).startsWith('series:')), 'the integral must not be selected before season packs');
+    assert.ok(sent.every(b => b.rejectMissingSeriesPack === true), 'season packs are rejected on their metadata when the wanted episodes are absent');
     assert.deepEqual(sent.map(b => b.episodeTargets), [[{season:1,episode:1},{season:1,episode:2}], [{season:2,episode:1},{season:2,episode:2}]]);
     assert.ok([...library.values()][0].seasons.every(s => s.episodes.every(e => e.status === 'downloading' && e.activeInfoHash)));
 

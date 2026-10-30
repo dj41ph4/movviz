@@ -1,3 +1,10 @@
+## v1.28.16 — 30 oktober 2026
+
+### Downloads
+
+- Een seizoenspakket dat voor enkele afleveringen wordt gedownload blokkeert de wachtrij niet meer: zodra de gewenste afleveringen binnen en geïmporteerd zijn, geeft de torrent zijn slot vrij en stopt met de rest van het pakket.
+- De inhoud van een pakket wordt uit de metadata gelezen: ontbreekt de gewenste aflevering, dan wordt het pakket vóór elke download verworpen en een andere release gezocht (seizoenspakketten en aflevering-releases, zoals al voor complete series).
+
 ## v1.28.15 — 30 oktober 2026
 
 ### Beschadigde bestanden

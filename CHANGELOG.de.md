@@ -1,3 +1,10 @@
+## v1.28.16 — 30. Oktober 2026
+
+### Downloads
+
+- Ein für wenige Episoden geladenes Staffelpaket blockiert die Warteschlange nicht mehr: Sind die gewünschten Episoden empfangen und importiert, gibt der Torrent seinen Slot frei und lädt den Rest des Pakets nicht weiter.
+- Der Inhalt eines Pakets wird aus den Metadaten gelesen: Fehlt die gewünschte Episode, wird das Paket vor jedem Download verworfen und eine andere Release gesucht (Staffelpakete und Episoden-Releases, wie bisher bei Komplettpaketen).
+
 ## v1.28.15 — 30. Oktober 2026
 
 ### Defekte Dateien

@@ -499,7 +499,9 @@ export class AbstractBackend {
     if (max <= 0) return;
     const all = this._clientList().filter((t) => {
       const m = this.meta.get(t.infoHash);
-      return m && !m.completed && !m.userPaused && !this._isDone(t);
+      // completedAt = le travail demandé est fait (import lancé) : ce torrent ne doit plus
+      // occuper un slot de la file, même s'il reste des octets à recevoir.
+      return m && !m.completed && !m.userPaused && !m.completedAt && !this._isDone(t);
     });
     all.sort((a, b) => {
       const ma = this.meta.get(a.infoHash);
@@ -1594,7 +1596,15 @@ export class AbstractBackend {
       }
     }
 
-    if (matches.length === 0) return;
+    if (matches.length === 0) {
+      // Aucun fichier du pack ne correspond aux épisodes voulus. Tout est déjà désélectionné :
+      // sans ce rejet le torrent resterait à 0 octet pour toujours en gardant son slot.
+      // On l'écarte (les métadonnées suffisent, rien n'a été téléchargé) et le web cherche une autre release.
+      if (meta.rejectMissingSeriesPack && !meta.completed && !meta.movedFiles && handle.files.some((f) => VIDEO_EXT_RE.test(f.name))) {
+        meta.missingSeriesPack = true;
+      }
+      return;
+    }
     const matchSet = new Set(matches);
     this._clientSelectFiles(handle, matchSet);
     meta.selectedFileIndices = matchSet;

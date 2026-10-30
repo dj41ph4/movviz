@@ -7,14 +7,14 @@ import { isRecentlyFailedRelease, recordFailedRelease } from "@/lib/library/fail
 
 export const dynamic = "force-dynamic";
 
-/** Called only for an automatically grabbed pack whose metadata proves that
- * none of the requested episodes exists. Replays are safe after a restart. */
+/** Called only for an automatically grabbed pack (intégrale, saison ou épisode) whose
+ * metadata proves that none of the requested episodes exists. Replays are safe after a restart. */
 export async function POST(req: NextRequest) {
   if (req.headers.get("x-movviz-token") !== getEngineToken()) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null);
   const ref = decodeLibraryRef(String(body?.libraryRef ?? ""));
   const hash = String(body?.infoHash ?? "").toLowerCase();
-  if (!ref || ref.kind !== "series" || !/^[a-f0-9]{40,64}$/.test(hash)) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  if (!ref || ref.kind === "movie" || !/^[a-f0-9]{40,64}$/.test(hash)) return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   if (body?.retry === true) {
     if (!isRecentlyFailedRelease(hash)) return NextResponse.json({ error: "not_rejected" }, { status: 409 });
     const seriesId = ref.seriesId;
