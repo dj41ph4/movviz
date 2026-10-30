@@ -28,6 +28,7 @@ export interface FileInspection {
   ok: boolean;
   reason: CorruptReason | null;
   size: number;
+  mtimeMs: number;
   zeroBlocks: number;
   sampled: number;
 }
@@ -41,6 +42,8 @@ export interface CorruptItem {
   episodeNumber?: number;
   path: string;
   size: number;
+  /** Date de modification au moment du balayage : un fichier remplacé depuis n'est plus celui du rapport. */
+  mtimeMs?: number;
   reason: CorruptReason;
   /** Part des blocs échantillonnés entièrement nuls (0 à 1). */
   zeroRatio: number;
@@ -56,12 +59,15 @@ export interface CorruptReport {
 
 export async function inspectFile(filePath: string): Promise<FileInspection | null> {
   let size: number;
+  let mtimeMs: number;
   try {
-    size = (await fs.promises.stat(filePath)).size;
+    const st = await fs.promises.stat(filePath);
+    size = st.size;
+    mtimeMs = st.mtimeMs;
   } catch {
     return null; // absent : ce n'est pas un fichier corrompu
   }
-  if (size === 0) return { ok: false, reason: "empty", size, zeroBlocks: 0, sampled: 0 };
+  if (size === 0) return { ok: false, reason: "empty", size, mtimeMs, zeroBlocks: 0, sampled: 0 };
 
   let handle: fs.promises.FileHandle | null = null;
   try {
@@ -85,9 +91,9 @@ export async function inspectFile(filePath: string): Promise<FileInspection | nu
     }
     const ratio = zeroBlocks / sampled;
     const reason: CorruptReason | null = headZero ? "zero_head" : ratio >= ZERO_RATIO_LIMIT ? "partial" : null;
-    return { ok: reason === null, reason, size, zeroBlocks, sampled };
+    return { ok: reason === null, reason, size, mtimeMs, zeroBlocks, sampled };
   } catch {
-    return { ok: false, reason: "unreadable", size, zeroBlocks: 0, sampled: 0 };
+    return { ok: false, reason: "unreadable", size, mtimeMs, zeroBlocks: 0, sampled: 0 };
   } finally {
     await handle?.close().catch(() => undefined);
   }
@@ -154,6 +160,7 @@ export async function scanCorruptFiles(
       episodeNumber: c.episodeNumber,
       path: c.path,
       size: result.size,
+      mtimeMs: result.mtimeMs,
       reason: result.reason,
       zeroRatio: result.sampled > 0 ? result.zeroBlocks / result.sampled : 0,
     });

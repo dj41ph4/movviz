@@ -2035,6 +2035,7 @@ export const de: Dictionary = {
   },
 
   corruptFiles: {
+    replacing: "Suche nach Ersatz: {current} / {total}",
     selectAll: "Alle auswählen",
     selected: "{count} ausgewählt",
     delete: "Löschen",

@@ -26,6 +26,20 @@ const EVENT_MUTATIONS: Record<string, string[]> = {
  *  of it reloads at once, whatever its query string. */
 const WATCH_KEY_RE = /^\/api\/(?:plex\/on-deck|watch-status|watchlist|profile\/media|dashboard\/rewatch|playback\/items)/;
 
+/** Les fiches titre lisent `/api/library/series?tmdbId=…` : seule la clé exacte était
+ *  relue, donc compteurs de saison et statuts d'épisodes restaient figés jusqu'à
+ *  une analyse manuelle. Une rafale d'événements (import d'un pack) ne déclenche
+ *  qu'une relecture. */
+const LIBRARY_KEY_RE = /^\/api\/library\/(?:movies|series)(?:[/?]|$)/;
+let libraryRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+function refreshLibraryKeys() {
+  if (libraryRefreshTimer) return;
+  libraryRefreshTimer = setTimeout(() => {
+    libraryRefreshTimer = null;
+    void mutate((key) => typeof key === "string" && LIBRARY_KEY_RE.test(key));
+  }, 400);
+}
+
 export const AI_CHAT_CHANGED_EVENT = "movviz:ai-chat-changed";
 
 let globalRetryMs = BACKOFF_MIN_MS;
@@ -70,6 +84,7 @@ export function useLibrarySSE(enabled = true) {
         es.addEventListener(channel, (event) => {
           for (const key of keys) mutate(key);
           if (channel === "library") {
+            refreshLibraryKeys();
             try {
               if (JSON.parse((event as MessageEvent).data)?.arrival === true) {
                 void mutate((key) => typeof key === "string" && key.startsWith("/api/plex/on-deck"));

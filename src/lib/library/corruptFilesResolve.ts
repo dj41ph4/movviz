@@ -29,8 +29,9 @@ export interface CorruptTarget {
 export interface ResolveResult {
   done: CorruptTarget[];
   failed: { target: CorruptTarget; error: string }[];
-  /** Films et séries à rechercher une fois les fichiers retirés (action « replace »). */
+  /** Films à rechercher une fois les fichiers retirés (action « replace »). */
   movieIds: string[];
+  /** Séries à rechercher une fois les fichiers retirés (action « replace »). */
   seriesIds: string[];
 }
 
@@ -148,7 +149,11 @@ export async function resolveCorruptFiles(targets: CorruptTarget[], action: Corr
     const item = report.items.find((i) => sameTarget(i, target));
     if (!item) { result.failed.push({ target, error: "not_in_report" }); continue; }
     try {
+      // Le fichier doit être EXACTEMENT celui du balayage (taille + date) : un
+      // téléchargement arrivé depuis, même au même chemin, n'est jamais touché.
+      if (item.mtimeMs === undefined) throw new Error("rescan_needed");
       const check = await inspectFile(item.path);
+      if (check && (check.size !== item.size || check.mtimeMs !== item.mtimeMs)) throw new Error("file_changed");
       if (check && check.ok) throw new Error("file_now_healthy");
       if (item.kind === "episode") await removeEpisode(item, action, username);
       else await removeMovieFile(item, action, username);

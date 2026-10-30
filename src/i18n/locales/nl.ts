@@ -2017,6 +2017,7 @@ export const nl: Dictionary = {
   },
 
   corruptFiles: {
+    replacing: "Zoeken naar vervangers: {current} / {total}",
     selectAll: "Alles selecteren",
     selected: "{count} geselecteerd",
     delete: "Verwijderen",

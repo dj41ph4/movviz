@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { formatBytes } from "@/lib/utils";
@@ -40,6 +40,7 @@ interface Report {
 type Action = "delete" | "replace";
 
 const SOURCE_ID = "corrupt-files-scan";
+const REPLACE_SOURCE_ID = "corrupt-files-replace";
 const keyOf = (i: Item) => `${i.kind}:${i.id}:${i.seasonNumber ?? ""}:${i.episodeNumber ?? ""}`;
 
 /** Réglages > Maintenance — fichiers vides ou incomplets de la bibliothèque.
@@ -48,7 +49,11 @@ const keyOf = (i: Item) => `${i.kind}:${i.id}:${i.seasonNumber ?? ""}:${i.episod
 export function CorruptFilesPanel() {
   const t = useT();
   const { data: jobsData, mutate: mutateJobs } = useSWR<{ jobs: Job[] }>("/api/jobs", { refreshInterval: 2000 });
-  const { data: report, mutate: mutateReport } = useSWR<Report>("/api/library/corrupt-files");
+  const replaceJob = jobsData?.jobs.find((j) => j.sourceId === REPLACE_SOURCE_ID);
+  const replaceActive = replaceJob?.status === "queued" || replaceJob?.status === "running";
+  const { data: report, mutate: mutateReport } = useSWR<Report>("/api/library/corrupt-files", { refreshInterval: replaceActive ? 4000 : 0 });
+  // Lignes en cours de traitement : elles disparaissent tout de suite, sans attendre le serveur.
+  const [pending, setPending] = useState<Set<string>>(new Set());
   const [starting, setStarting] = useState(false);
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -75,10 +80,10 @@ export function CorruptFilesPanel() {
   }, [doneId, mutateReport]);
 
   const items = useMemo(
-    () => (report?.items ?? []).filter((i) => !filter || `${i.title} ${i.path}`.toLowerCase().includes(filter.toLowerCase())),
-    [report, filter]
+    () => (report?.items ?? []).filter((i) => !pending.has(keyOf(i)) && (!filter || `${i.title} ${i.path}`.toLowerCase().includes(filter.toLowerCase()))),
+    [report, filter, pending]
   );
-  const chosen = useMemo(() => (report?.items ?? []).filter((i) => selected.has(keyOf(i))), [report, selected]);
+  const chosen = useMemo(() => (report?.items ?? []).filter((i) => selected.has(keyOf(i)) && !pending.has(keyOf(i))), [report, selected, pending]);
   const allShownSelected = items.length > 0 && items.every((i) => selected.has(keyOf(i)));
 
   const toggle = (i: Item) =>
@@ -104,6 +109,9 @@ export function CorruptFilesPanel() {
     });
     if (!ok) return;
     setWorking(action);
+    const keys = chosen.map(keyOf);
+    setPending((prev) => new Set([...prev, ...keys]));
+    setSelected(new Set());
     try {
       const res = await fetch("/api/library/corrupt-files/resolve", {
         method: "POST",
@@ -117,13 +125,19 @@ export function CorruptFilesPanel() {
       if (!res.ok || !data) {
         toast("error", t("corruptFiles.error"));
       } else {
+        // Fiches titre, bibliothèque et activité reflètent aussitôt les fichiers retirés.
+        void globalMutate((key) => typeof key === "string" && key.startsWith("/api/library/"));
         const failed = data.failed?.length ?? 0;
         toast(failed > 0 ? "error" : "success", t(failed > 0 ? "corruptFiles.partial" : action === "replace" && data.searchQueued ? "corruptFiles.replaced" : "corruptFiles.deleted", { count: data.done ?? 0, failed }));
-        setSelected(new Set());
       }
     } finally {
       setWorking(null);
       await Promise.all([mutateReport(), mutateJobs()]);
+      setPending((prev) => {
+        const next = new Set(prev);
+        for (const k of keys) next.delete(k);
+        return next;
+      });
     }
   };
 
@@ -157,6 +171,13 @@ export function CorruptFilesPanel() {
           </span>
         )}
       </div>
+
+      {replaceActive && (
+        <div className="flex items-center gap-2 rounded-xl glass p-3 text-sm text-ink-soft">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          {t("corruptFiles.replacing", { current: replaceJob?.current ?? 0, total: replaceJob?.total ?? 0 })}
+        </div>
+      )}
 
       {report?.scannedAt && report.items.length === 0 && (
         <div className="flex items-center gap-2 rounded-xl glass p-3 text-sm text-ok">

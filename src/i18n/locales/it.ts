@@ -2016,6 +2016,7 @@ export const it: Dictionary = {
   },
 
   corruptFiles: {
+    replacing: "Ricerca dei sostituti: {current} / {total}",
     selectAll: "Seleziona tutto",
     selected: "{count} selezionati",
     delete: "Elimina",

@@ -1,3 +1,10 @@
+## v1.28.14 — 30 ottobre 2026
+
+### Libreria e manutenzione
+
+- Le schede dei titoli si aggiornano da sole: contatori delle stagioni e stati degli episodi seguono subito un’importazione, un’eliminazione o una sostituzione, senza analisi manuale.
+- File danneggiati: le righe elaborate scompaiono subito, l’avanzamento della ricerca dei sostituti appare in tempo reale e un file modificato dopo la scansione (ad esempio un nuovo download nella stessa posizione) non viene mai eliminato; un vecchio rapporto richiede una nuova scansione.
+
 ## v1.28.13 — 29 ottobre 2026
 
 ### Manutenzione

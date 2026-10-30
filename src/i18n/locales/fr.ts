@@ -2015,6 +2015,7 @@ export const fr = {
   },
 
   corruptFiles: {
+    replacing: "Recherche des remplaçants : {current} / {total}",
     selectAll: "Tout sélectionner",
     selected: "{count} sélectionné(s)",
     delete: "Supprimer",

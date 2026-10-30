@@ -1,3 +1,10 @@
+## v1.28.14 — 30 oktober 2026
+
+### Bibliotheek en onderhoud
+
+- Titelpagina’s werken zichzelf bij: seizoenstellers en afleveringsstatussen volgen meteen een import, verwijdering of vervanging, zonder handmatige analyse.
+- Beschadigde bestanden: verwerkte regels verdwijnen meteen, de voortgang van het zoeken naar vervangers verschijnt live en een bestand dat sinds de scan is gewijzigd (bijvoorbeeld een nieuwe download op dezelfde plek) wordt nooit verwijderd; een oud rapport vereist een nieuwe scan.
+
 ## v1.28.13 — 29 oktober 2026
 
 ### Onderhoud

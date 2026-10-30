@@ -502,6 +502,7 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
     "corruptFiles.reason.unreadable",
     "corruptFiles.reason.zero_head",
     "corruptFiles.replace",
+    "corruptFiles.replacing",
     "corruptFiles.scan",
     "corruptFiles.scanning",
     "corruptFiles.selectAll",

@@ -38,6 +38,8 @@ const epOk = good("ep-ok.mkv");
 const movieOk = good("movie-ok.mkv");
 const movieDel = bad("movie-del.mkv");
 const epDel = bad("ep-del.mkv");
+const epNew = bad("ep-new.mkv");
+const movieOld = bad("movie-old.mkv");
 
 const movie = (id: string, p: string) => ({
   id, tmdbId: Number(id.replace(/\D/g, "")) || 1, imdbId: null, title: id, year: 2020, releaseDate: null, vfReleaseDate: null, overview: "",
@@ -49,21 +51,27 @@ const episode = (n: number, p: string | null) => ({
   file: p ? file(p) : null, activeInfoHash: null, plexRatingKey: p ? "7" : null,
 });
 
-fs.writeFileSync(path.join(config, "library-movies.json"), JSON.stringify([movie("mv_bad", movieBad), movie("mv_ok", movieOk), movie("mv_del", movieDel)]));
+fs.writeFileSync(path.join(config, "library-movies.json"), JSON.stringify([movie("mv_bad", movieBad), movie("mv_ok", movieOk), movie("mv_del", movieDel), movie("mv_old", movieOld)]));
 fs.writeFileSync(
   path.join(config, "library-series.json"),
   JSON.stringify([{
     id: "sr_1", tmdbId: 9, title: "Serie", year: 2020, overview: "", posterPath: null, backdropPath: null, rating: 0, monitored: true,
-    seasons: [{ seasonNumber: 1, monitored: true, episodes: [episode(1, epBad), episode(2, epOk), episode(3, epDel)] }],
+    seasons: [{ seasonNumber: 1, monitored: true, episodes: [episode(1, epBad), episode(2, epOk), episode(3, epDel), episode(4, epNew)] }],
   }])
 );
 
-const reportItem = (over: Record<string, unknown>) => ({ size: 2 * MB, reason: "zero_head", zeroRatio: 1, ...over });
+const reportItem = (over: Record<string, unknown>) => {
+  const st = fs.statSync(over.path as string);
+  return { size: st.size, mtimeMs: st.mtimeMs, reason: "zero_head", zeroRatio: 1, ...over };
+};
 fs.writeFileSync(
   path.join(config, "corrupt-files.json"),
   JSON.stringify({
     scannedAt: 1, checked: 4, missing: 0,
     items: [
+      // Rapport d'une ancienne version : pas d'empreinte (mtimeMs).
+      { kind: "movie", id: "mv_old", title: "mv_old", path: movieOld, size: 2 * MB, reason: "zero_head", zeroRatio: 1 },
+      reportItem({ kind: "episode", id: "sr_1", title: "Serie", seasonNumber: 1, episodeNumber: 4, path: epNew }),
       reportItem({ kind: "movie", id: "mv_del", title: "mv_del", path: movieDel }),
       reportItem({ kind: "episode", id: "sr_1", title: "Serie", seasonNumber: 1, episodeNumber: 3, path: epDel }),
       reportItem({ kind: "movie", id: "mv_bad", title: "mv_bad", path: movieBad }),
@@ -73,6 +81,24 @@ fs.writeFileSync(
     ],
   })
 );
+
+// Un nouveau téléchargement arrive au même chemin APRÈS le balayage (le fichier
+// corrompu a été remplacé) : il ne doit jamais être supprimé par un clic tardif.
+fs.writeFileSync(epNew, crypto.randomBytes(3 * MB));
+
+test("un fichier remplacé depuis le balayage n'est jamais supprimé", async () => {
+  const r = await resolveCorruptFiles([{ kind: "episode", id: "sr_1", seasonNumber: 1, episodeNumber: 4 }], "replace", "admin");
+  assert.equal(r.done.length, 0);
+  assert.equal(r.failed[0].error, "file_changed");
+  assert.ok(fs.existsSync(epNew));
+  assert.equal(getSeries("sr_1")?.seasons[0].episodes[3].status, "available");
+});
+
+test("un rapport sans empreinte (ancien) impose un nouveau balayage", async () => {
+  const r = await resolveCorruptFiles([{ kind: "movie", id: "mv_old" }], "delete", "admin");
+  assert.equal(r.failed[0].error, "rescan_needed");
+  assert.ok(fs.existsSync(movieOld));
+});
 
 test("un fichier hors rapport n'est pas touché", async () => {
   const r = await resolveCorruptFiles([{ kind: "movie", id: "mv_ok" }], "delete", "admin");

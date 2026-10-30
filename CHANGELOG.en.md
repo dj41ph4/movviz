@@ -1,3 +1,10 @@
+## v1.28.14 — 30 October 2026
+
+### Library and maintenance
+
+- Title pages now update on their own: season counters and episode statuses follow an import, a deletion or a replacement right away, with no manual analysis.
+- Corrupt files: processed rows disappear immediately, the replacement search progress shows live, and a file modified since the scan (for example a new download at the same location) is never deleted; an old report requires a new scan.
+
 ## v1.28.13 — 29 October 2026
 
 ### Maintenance

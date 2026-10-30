@@ -1,3 +1,10 @@
+## v1.28.14 — 30. Oktober 2026
+
+### Bibliothek und Wartung
+
+- Titelseiten aktualisieren sich selbst: Staffelzähler und Episodenstatus folgen sofort einem Import, einer Löschung oder einem Ersatz, ohne manuelle Analyse.
+- Defekte Dateien: bearbeitete Zeilen verschwinden sofort, der Fortschritt der Ersatzsuche erscheint live, und eine seit der Analyse geänderte Datei (etwa ein neuer Download am selben Ort) wird nie gelöscht; ein alter Bericht erfordert eine neue Analyse.
+
 ## v1.28.13 — 29. Oktober 2026
 
 ### Wartung

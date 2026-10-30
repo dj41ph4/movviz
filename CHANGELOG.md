@@ -1,3 +1,10 @@
+## v1.28.14 — 30 octobre 2026
+
+### Bibliothèque et maintenance
+
+- Les fiches titre se mettent à jour toutes seules : compteurs de saison et statuts d’épisodes suivent aussitôt un import, une suppression ou un remplacement, sans lancer d’analyse manuelle.
+- Fichiers corrompus : les lignes traitées disparaissent immédiatement, la progression de la recherche des remplaçants s’affiche en direct, et un fichier modifié depuis le scan (par exemple un nouveau téléchargement au même emplacement) n’est jamais supprimé ; un ancien rapport impose un nouveau scan.
+
 ## v1.28.13 — 29 octobre 2026
 
 ### Maintenance
