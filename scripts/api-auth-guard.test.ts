@@ -57,6 +57,9 @@ const AUTH_MARKERS = /requireAdmin|requireUser|getCurrentUser|getEngineToken|req
 const EXEMPT = new Set([
   "auth/login", "auth/logout", "auth/register",
   "auth/plex/pin", "auth/plex/tv-pin", "auth/plex/poll",
+  // Consentement de la toute première configuration (paquet UGREEN) : aucun compte n'existe encore.
+  // La route refuse (409) dès qu'un compte existe — voir scripts/privacy-consent.test.ts.
+  "privacy/consent",
 ]);
 
 function routeFiles(dir: string): string[] {

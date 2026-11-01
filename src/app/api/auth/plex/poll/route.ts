@@ -7,6 +7,7 @@ import { toPublicUser, type User } from "@/lib/auth/types";
 import { loadPlexConfig, savePlexConfig } from "@/lib/plex/store";
 import { checkPin, getPlexAccount } from "@/lib/plex/client";
 import { getPlexServerAccounts } from "@/lib/plex/serverAccounts";
+import { privacyConsentRequired, hasCurrentInstanceConsent, recordUserConsent } from "@/lib/privacy/consent";
 import { syncPlexUserMedia } from "@/lib/plex/userMediaSync";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,10 @@ export async function POST(req: NextRequest) {
 
   if (!user) {
     const isFirstUser = !hasAnyUser();
+    // UPK UGREEN : pas de premier compte sans consentement (posé par l'écran de configuration).
+    if (isFirstUser && privacyConsentRequired() && !hasCurrentInstanceConsent()) {
+      return NextResponse.json({ error: "privacy_consent_required" }, { status: 400 });
+    }
 
     if (!isFirstUser) {
       // Only auto-provision accounts that actually have access to the
@@ -77,6 +82,7 @@ export async function POST(req: NextRequest) {
       createdAt: Date.now(),
     };
     addUser(user);
+    if (isFirstUser && privacyConsentRequired()) recordUserConsent(user.id);
     if (isFirstUser) { try { initializeFreshDefaults(user.id); } catch (error) { console.error("[setup] defaults:", error); } }
 
     if (isFirstUser) {

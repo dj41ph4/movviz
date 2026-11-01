@@ -1,3 +1,11 @@
+## v1.28.19 — 1 november 2026
+
+### Openbare pagina’s en UGREEN-pakket
+
+- Twee openbare pagina’s, leesbaar zonder account: `/privacy` (privacybeleid in het Engels en Frans, opgesteld na een controle van de code) en `/help` (installatie en gebruik). De links staan ook onder Instellingen > Over.
+- Alleen UGREEN-pakket: het eerste account wordt aangemaakt met uitdrukkelijke toestemming (niet vooraf aangevinkt vakje, links naar het beleid en de GPL-licentie), ook door de server afgedwongen, met versie van het beleid en datum van acceptatie vastgelegd. Andere installaties veranderen niet: geen vakje, geen weigering.
+- UGREEN-pakket: beschrijving en links voor privacy, help, support en uitgever ingevuld voor de App Center.
+
 ## v1.28.18 — 30 oktober 2026
 
 ### NAS-pakketten

@@ -14,6 +14,7 @@ import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink, Sparkles, Ro
 import { useVersion } from "@/lib/version/VersionContext";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 import { installSystemUpdate } from "@/lib/updates/installSystemUpdate";
+import { LegalLinks } from "@/components/legal/PrivacyConsent";
 
 interface UpdateCheck {
   currentVersion: string;
@@ -159,6 +160,11 @@ export function AboutPanel() {
             {resetting ? t("settings.factoryResetInProgress") : t("settings.factoryReset")}
           </button>
         </div>
+      </div>
+
+      <div className="rounded-2xl glass p-5">
+        <h3 className="mb-2 text-sm font-bold text-ink">{t("legal.aboutTitle")}</h3>
+        <LegalLinks className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-semibold text-ink-soft" />
       </div>
 
       <div className="rounded-2xl glass p-5">

@@ -2016,6 +2016,24 @@ export const en: Dictionary = {
     disabledNotice: "ffprobe analysis is off: Movviz behaves as it did before v1.28.8 and relies on Plex for tracks and languages.",
   },
 
+  legal: {
+    consentTitle: "Privacy and license",
+    consentLabel: "I have read and accept the {privacy} and acknowledge the {license}.",
+    privacyLinkText: "Privacy Policy",
+    licenseLinkText: "MOVVIZ software license (GNU GPL v3)",
+    consentHint: "Optional services (TMDb, indexers, Plex, notifications, AI…) stay off until you configure them.",
+    consentRequired: "Tick the box to continue.",
+    footerPrivacy: "Privacy",
+    footerLicense: "License",
+    footerHelp: "Help",
+    footerSupport: "Support",
+    back: "Back to MOVVIZ",
+    aboutTitle: "Legal information",
+    aboutPrivacy: "Privacy Policy",
+    aboutHelp: "Help",
+    aboutLicense: "License (GNU GPL v3)",
+  },
+
   corruptFiles: {
     err_not_in_report: "not in the last report: run the scan again",
     err_file_changed: "file changed since the scan",

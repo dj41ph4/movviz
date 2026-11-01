@@ -27,6 +27,7 @@ import {
   Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot, UserPlus,
 } from "lucide-react";
 import { DEVICE_TYPES, type DeviceType } from "@/lib/setup/deviceTypes";
+import { PrivacyConsentField, usePrivacyConsentInfo } from "@/components/legal/PrivacyConsent";
 
 const STEPS = ["account", "language", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "libraryImport", "plex", "done"] as const;
 type Step = (typeof STEPS)[number];
@@ -445,6 +446,11 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [plexDialogOpen, setPlexDialogOpen] = useState(false);
+  // Paquet UGREEN uniquement : consentement explicite, case jamais pré-cochée.
+  const consent = usePrivacyConsentInfo();
+  const consentNeeded = consent?.required === true;
+  const [consentChecked, setConsentChecked] = useState(false);
+  const consentBlocked = consentNeeded && !consentChecked;
   const completePlex = useCallback(async () => {
     await resetSwrCache();
     await mutate("/api/auth/me");
@@ -453,10 +459,16 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
   }, [onCreated]);
   const plexBrowser = async () => {
     setPlexDialogOpen(false);
+    if (consentBlocked) { setError(t("legal.consentRequired")); return; }
     const popup = window.open("", "_blank", "width=500,height=600");
     if (!popup || popup.closed) { setError(t("auth.plexPopupBlocked")); return; }
     setBusy(true);
     try {
+      // Le premier compte Plex ne se crée qu'une fois le consentement enregistré côté serveur.
+      if (consentNeeded) {
+        const recorded = await fetch("/api/privacy/consent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accept: true }) });
+        if (!recorded.ok) { popup.close(); setError(t("legal.consentRequired")); return; }
+      }
       const response = await fetch("/api/auth/plex/pin", { method: "POST" });
       const pin = await response.json();
       if (!response.ok) { popup.close(); setError(t("auth.plexUnreachable")); return; }
@@ -476,13 +488,14 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
 
   const submit = async () => {
     if (!username.trim() || !password) return;
+    if (consentBlocked) { setError(t("legal.consentRequired")); return; }
     setError(null);
     setBusy(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password }),
+        body: JSON.stringify({ username: username.trim(), password, ...(consentNeeded ? { privacyConsent: true } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -490,6 +503,7 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
           data.error === "username_taken" ? t("auth.usernameTaken")
           : data.error === "username_too_short" ? t("auth.usernameTooShort")
           : data.error === "password_too_short" ? t("auth.passwordTooShort")
+          : data.error === "privacy_consent_required" ? t("legal.consentRequired")
           : t("auth.invalidCredentials")
         );
         return;
@@ -539,17 +553,18 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
             autoComplete="new-password"
           />
         </div>
+        {consentNeeded && <PrivacyConsentField checked={consentChecked} onChange={setConsentChecked} />}
         {error && <p className="text-xs font-semibold text-down">{error}</p>}
         <button
           onClick={submit}
-          disabled={busy || !username.trim() || !password}
+          disabled={busy || !username.trim() || !password || consentBlocked}
           className="flex h-11 w-full items-center justify-center gap-2 rounded-xl brand-gradient text-sm font-bold text-white disabled:opacity-40"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
           {t("auth.createAccount")}
         </button>
         <div className="flex items-center gap-3 py-1"><span className="h-px flex-1 bg-white/8" /><span className="text-xs text-ink-dim">{t("auth.or")}</span><span className="h-px flex-1 bg-white/8" /></div>
-        <button onClick={() => { setError(null); setPlexDialogOpen(true); }} disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl glass-strong text-sm font-bold text-amber disabled:opacity-40"><Play className="h-4 w-4 fill-amber" />{t("auth.loginWithPlex")}</button>
+        <button onClick={() => { setError(null); setPlexDialogOpen(true); }} disabled={busy || consentBlocked} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl glass-strong text-sm font-bold text-amber disabled:opacity-40"><Play className="h-4 w-4 fill-amber" />{t("auth.loginWithPlex")}</button>
       </div>
       {plexDialogOpen && <PlexLoginDialog onAuthenticated={completePlex} onClose={() => setPlexDialogOpen(false)} onUseBrowser={() => { void plexBrowser(); }} />}
     </StepShell>

@@ -114,7 +114,7 @@ function PendingApprovalScreen({ username }: { username: string }) {
 export function AppShell({ children, version, initialDesignMode = "beta" }: { children: React.ReactNode; version: string; initialDesignMode?: DesignMode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isAuthPage = pathname === "/login" || pathname === "/setup";
+  const isAuthPage = pathname === "/login" || pathname === "/setup" || pathname === "/privacy" || pathname === "/help";
   const currentUser = useCurrentUser();
   const setupRequired = useSetupRequired();
   const isPending = !!currentUser && currentUser.status === "pending";

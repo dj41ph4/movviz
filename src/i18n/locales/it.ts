@@ -2015,6 +2015,24 @@ export const it: Dictionary = {
     disabledNotice: "Analisi ffprobe disattivata: Movviz si comporta come prima della v1.28.8 e si affida a Plex per tracce e lingue.",
   },
 
+  legal: {
+    consentTitle: "Privacy e licenza",
+    consentLabel: "Ho letto e accetto l'{privacy} e prendo atto della {license}.",
+    privacyLinkText: "informativa sulla privacy",
+    licenseLinkText: "licenza software di MOVVIZ (GNU GPL v3)",
+    consentHint: "I servizi opzionali (TMDb, indexer, Plex, notifiche, IA…) restano disattivati finché non li configuri.",
+    consentRequired: "Seleziona la casella per continuare.",
+    footerPrivacy: "Privacy",
+    footerLicense: "Licenza",
+    footerHelp: "Aiuto",
+    footerSupport: "Supporto",
+    back: "Torna a MOVVIZ",
+    aboutTitle: "Informazioni legali",
+    aboutPrivacy: "Informativa sulla privacy",
+    aboutHelp: "Aiuto",
+    aboutLicense: "Licenza (GNU GPL v3)",
+  },
+
   corruptFiles: {
     err_not_in_report: "assente dall’ultimo rapporto: rilancia la scansione",
     err_file_changed: "file modificato dopo la scansione",

@@ -1,3 +1,11 @@
+## v1.28.19 — 1 novembre 2026
+
+### Pagine pubbliche e pacchetto UGREEN
+
+- Due pagine pubbliche, leggibili senza account: `/privacy` (informativa sulla privacy in inglese e francese, scritta dopo una verifica del codice) e `/help` (installazione e uso). I link sono anche in Impostazioni > Informazioni.
+- Solo pacchetto UGREEN: il primo account si crea con un consenso esplicito (casella non preselezionata, link all’informativa e alla licenza GPL), imposto anche dal server, con versione dell’informativa e data di accettazione registrate. Le altre installazioni non cambiano: nessuna casella, nessun rifiuto.
+- Pacchetto UGREEN: descrizione e link a privacy, aiuto, supporto ed editore compilati per l’App Center.
+
 ## v1.28.18 — 30 ottobre 2026
 
 ### Pacchetti NAS

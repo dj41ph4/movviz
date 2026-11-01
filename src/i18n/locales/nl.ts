@@ -2016,6 +2016,24 @@ export const nl: Dictionary = {
     disabledNotice: "ffprobe-analyse uit: Movviz gedraagt zich als vóór v1.28.8 en vertrouwt op Plex voor sporen en talen.",
   },
 
+  legal: {
+    consentTitle: "Privacy en licentie",
+    consentLabel: "Ik heb het {privacy} gelezen en ga ermee akkoord, en neem kennis van de {license}.",
+    privacyLinkText: "privacybeleid",
+    licenseLinkText: "MOVVIZ-softwarelicentie (GNU GPL v3)",
+    consentHint: "Optionele diensten (TMDb, indexers, Plex, meldingen, AI…) blijven uit tot je ze configureert.",
+    consentRequired: "Vink het vakje aan om door te gaan.",
+    footerPrivacy: "Privacy",
+    footerLicense: "Licentie",
+    footerHelp: "Help",
+    footerSupport: "Ondersteuning",
+    back: "Terug naar MOVVIZ",
+    aboutTitle: "Juridische informatie",
+    aboutPrivacy: "Privacybeleid",
+    aboutHelp: "Help",
+    aboutLicense: "Licentie (GNU GPL v3)",
+  },
+
   corruptFiles: {
     err_not_in_report: "niet in het laatste rapport: start de scan opnieuw",
     err_file_changed: "bestand gewijzigd sinds de scan",

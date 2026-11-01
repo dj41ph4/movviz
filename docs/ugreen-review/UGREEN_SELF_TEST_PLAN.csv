@@ -1,0 +1,41 @@
+ID;Test;Category;Architecture;Expected result;Status;UGOS/device;Package version;Evidence;Notes
+T01;Install AMD64 UPK;Functional;AMD64;UPK installs without error;NOT TESTED;;;;Requires a UGOS Pro device. UPK is built and `ugcli check` runs in CI (Build UGREEN UPK workflow).
+T02;Enable/start AMD64;Functional;AMD64;App enters running state and container starts;NOT TESTED;;;;Requires UGOS. Start-up hardened (bridge network, only 9810/55000/55001 published, tolerant chown).
+T03;Open Web UI AMD64;Workflow;AMD64;MOVVIZ opens successfully on port 9810;NOT TESTED;;;;Requires UGOS. Web UI verified on a local build only.
+T04;Install ARM64 UPK;Functional;ARM64;UPK installs without error;NOT TESTED;;;;Requires an ARM64 UGOS device.
+T05;Enable/start ARM64;Functional;ARM64;App enters running state and container starts;NOT TESTED;;;;Requires an ARM64 UGOS device.
+T06;Open Web UI ARM64;Workflow;ARM64;MOVVIZ opens successfully on port 9810;NOT TESTED;;;;Requires an ARM64 UGOS device.
+T07;First-run setup;Workflow;Both;Setup wizard is displayed;PASS (app level, local build);Windows dev build (not UGOS);see CHANGELOG;Browser check of /setup on an empty configuration;Container/arch not covered.
+T08;Privacy/license consent;Compliance;Both;Consent is explicit and not preselected;PASS (app level, local build);Windows dev build (not UGOS);see CHANGELOG;scripts/privacy-consent.test.ts (4 tests) + browser check: box unticked, create button disabled until ticked, server answers 400 privacy_consent_required without consent;Consent enabled by MOVVIZ_REQUIRE_PRIVACY_CONSENT=1 (set only by the UPK compose).
+T09;Create administrator;Workflow;Both;Admin account is created and login succeeds;PASS (app level, local build);Windows dev build (not UGOS);see CHANGELOG;Browser check: account created with consent, role admin;
+T10;Restart application;Resilience;Both;App restarts without data loss;NOT TESTED;;;;Requires UGOS.
+T11;Reboot NAS;Resilience;Both;App returns to healthy running state;NOT TESTED;;;;Requires UGOS.
+T12;Config persistence;Resilience;Both;Settings survive restart/reboot;NOT TESTED;;;;Requires UGOS (CONFIG_PATH bind mount).
+T13;Media folder access;Functional;Both;Configured media folder is readable/writable as required;NOT TESTED;;;;Requires UGOS.
+T14;Invalid media path;Exception;Both;"Clear error; no crash";NOT TESTED;;;;Requires UGOS.
+T15;Insufficient folder permissions;Exception;Both;"Clear error; no uncontrolled permission escalation";NOT TESTED;;;;Entrypoint now logs "/config is not writable for uid/gid" and stops; not yet run on a container.
+T16;Port 9810 already occupied;Exception;Both;Install/start failure is understandable and recoverable;NOT TESTED;;;;Requires UGOS.
+T17;No Internet connection;Exception;Both;"Local app remains stable; network-dependent features fail cleanly";NOT TESTED;;;;Requires UGOS.
+T18;Invalid external API credentials;Exception;Both;"Readable error; application remains stable";NOT TESTED;;;;Requires UGOS.
+T19;Library scan;Functional;Both;Configured media is detected correctly;NOT TESTED;;;;Requires UGOS.
+T20;Metadata lookup;Functional;Both;Metadata loads when network/service is available;NOT TESTED;;;;Requires UGOS and a TMDb key.
+T21;Search configured sources;Functional;Both;Search runs with configured legitimate source;NOT TESTED;;;;Requires a configured source.
+T22;Download workflow;Workflow;Both;Download can start and status is visible;NOT TESTED;;;;Requires UGOS.
+T23;Import/organize;Workflow;Both;Completed media imports into library correctly;NOT TESTED;;;;Requires UGOS.
+T24;Direct Play;Playback;Both;Compatible media plays without unnecessary transcode;NOT TESTED;;;;Requires UGOS.
+T25;Transcoding;Playback;Both;Unsupported media transcodes successfully when supported;NOT TESTED;;;;Requires UGOS (software FFmpeg in the image).
+T26;Playback resume;Functional;Both;Resume position is preserved;NOT TESTED;;;;Requires UGOS.
+T27;Multiple profiles/users;Functional;Both;User/profile state remains isolated as designed;NOT TESTED;;;;Requires UGOS.
+T28;Logout/login;Functional;Both;Session lifecycle behaves correctly;NOT TESTED;;;;Not exercised in this pass.
+T29;Logs/diagnostics;Security;Both;Useful errors are available without exposing secrets;NOT TESTED;;;;Logs not reviewed on a UGOS device.
+T30;Privacy URL;Compliance;Both;Public HTTPS privacy page opens without login;PASS (app level, local build);Windows dev build (not UGOS);see CHANGELOG;/privacy answers 200 without a session on a local instance (English HTML, EN/FR switch); scripts/privacy-consent.test.ts proxy test;The final HTTPS URL https://movviz.dj41ph4.ovh/privacy answers only once this version is deployed on that host.
+T31;Help URL;Compliance;Both;Public help page opens;PASS (app level, local build);Windows dev build (not UGOS);see CHANGELOG;/help answers 200 without a session on a local instance;Same remark: final URL after deployment.
+T32;Technical Support URL;Compliance;Both;Support link opens;PASS;n/a;n/a;HTTP 200 on https://github.com/dj41ph4/movviz/issues, issues enabled;
+T33;License URL;Compliance;Both;GPL license link opens;PASS;n/a;n/a;HTTP 200 on https://github.com/dj41ph4/movviz/blob/main/LICENSE;GitHub does not auto-detect the license (spdx id empty); the file is GNU GPL v3 text.
+T34;Source code URL;Compliance;Both;Source code link opens;PASS;n/a;n/a;HTTP 200 on https://github.com/dj41ph4/movviz;
+T35;Update package;Upgrade;Both;Update succeeds and preserves config/data;NOT TESTED;;;;Requires UGOS and two UPK builds.
+T36;Uninstall;Lifecycle;Both;Uninstall completes according to declared data-retention behavior;NOT TESTED;;;;Requires UGOS. Declared behavior: user-selected folders are kept.
+T37;Reinstall;Lifecycle;Both;Clean reinstall succeeds;NOT TESTED;;;;Requires UGOS.
+T38;Idle resource use;Performance;Both;No abnormal CPU/RAM use at idle;NOT TESTED;;;;Requires UGOS.
+T39;Normal load resource use;Performance;Both;No uncontrolled resource growth during normal use;NOT TESTED;;;;Requires UGOS.
+T40;No secret in package/logs;Security;Both;No API key/token/private identity shipped accidentally;NOT TESTED;;;;Package content to be listed once the UPK is built; no key is shipped in project.yaml or the compose file.

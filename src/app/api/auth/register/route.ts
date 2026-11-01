@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { setSessionCookie } from "@/lib/auth/session";
 import { toPublicUser, type User } from "@/lib/auth/types";
 import { emitNotification } from "@/lib/notifications/store";
+import { privacyConsentRequired, hasCurrentInstanceConsent, recordUserConsent } from "@/lib/privacy/consent";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,12 @@ export async function POST(req: NextRequest) {
   }
 
   const isFirstUser = !hasAnyUser();
+  // Consentement actif exigé par le paquet UGREEN : jamais déduit de l'usage. Le premier compte peut
+  // l'avoir déjà donné (connexion Plex, via /api/privacy/consent) ; les suivants le cochent à l'inscription.
+  const consentGiven = body.privacyConsent === true || (isFirstUser && hasCurrentInstanceConsent());
+  if (privacyConsentRequired() && !consentGiven) {
+    return NextResponse.json({ error: "privacy_consent_required" }, { status: 400 });
+  }
   const user: User = {
     // randomUUID() — voir le commentaire dans auth/plex/poll/route.ts pour
     // la collision réelle qu'a produite l'ancien schéma faible.
@@ -52,6 +59,7 @@ export async function POST(req: NextRequest) {
     createdAt: Date.now(),
   };
   addUser(user);
+  if (privacyConsentRequired()) recordUserConsent(user.id);
   if (isFirstUser) { try { initializeFreshDefaults(user.id); } catch (error) { console.error("[setup] defaults:", error); } }
   if (user.status === "pending") {
     emitNotification("user_registered", `${username} a demandé un compte`, "/users", { username });

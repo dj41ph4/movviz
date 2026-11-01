@@ -18,6 +18,19 @@ TCP/UDP 55000 et 55001 (le moteur et le résolveur restent internes au
 conteneur). Une installation peut échouer si l'un de ces ports est déjà utilisé.
 Une mise à jour conserve les dossiers sélectionnés.
 
+## Confidentialité, aide et consentement
+
+Le compose de ce paquet pose `MOVVIZ_REQUIRE_PRIVACY_CONSENT=1` : à la création d'un compte, une case
+non pré-cochée (liens vers la politique et la licence GPL) est exigée par l'interface **et** par le
+serveur, et la version de la politique ainsi que la date d'acceptation sont enregistrées dans
+`privacy-consent.json`. Les autres installations (Docker, Synology, Windows, Linux) ne posent pas cette
+variable et n'en sont pas affectées.
+
+Pages publiques servies par l'application : `/privacy` et `/help`. Les liens du `project.yaml`
+(confidentialité, aide, support, licence, code source) en dépendent ; les documents de revue
+(audit des flux de données, workflow, plan de self-test) sont dans `docs/ugreen-review/`, hors de ce
+dossier car `build.sh` le copie tel quel dans le projet `ugcli`.
+
 ## Si l'activation échoue (« Operation Failed »)
 
 Relever le message exact dans les journaux du conteneur (Docker UGOS > Conteneurs >
@@ -25,9 +38,9 @@ movviz > Journaux) :
 
 - `address already in use` / `port is already allocated` : un des ports ci-dessus
   est pris ; libérer le port ou arrêter l'application qui l'utilise.
-- `/config n'est pas accessible en écriture` : renseigner un PUID/PGID propriétaire
+- `ATTENTION : /config n'est pas accessible en écriture` (le démarrage continue, mais rien ne pourra être enregistré) : renseigner un PUID/PGID propriétaire
   du dossier de configuration choisi (ou changer le propriétaire du dossier).
-- `/data n'est pas accessible en écriture` : même remède pour le dossier multimédia.
+- `ATTENTION : /data n'est pas accessible en écriture` : même remède pour le dossier multimédia.
 - Rien dans les journaux et le conteneur n'existe pas : la création a échoué avant
   le démarrage ; vérifier que les deux dossiers choisis existent bien sur un volume.
 

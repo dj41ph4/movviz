@@ -2014,6 +2014,24 @@ export const fr = {
     disabledNotice: "Analyse ffprobe désactivée : Movviz se comporte comme avant la v1.28.8 et s’appuie sur Plex pour les pistes et les langues.",
   },
 
+  legal: {
+    consentTitle: "Confidentialité et licence",
+    consentLabel: "J'ai lu et j'accepte la {privacy} et je prends acte de la {license}.",
+    privacyLinkText: "politique de confidentialité",
+    licenseLinkText: "licence logicielle de MOVVIZ (GNU GPL v3)",
+    consentHint: "Les services optionnels (TMDb, indexeurs, Plex, notifications, IA…) restent inactifs tant que vous ne les configurez pas.",
+    consentRequired: "Cochez la case pour continuer.",
+    footerPrivacy: "Confidentialité",
+    footerLicense: "Licence",
+    footerHelp: "Aide",
+    footerSupport: "Support",
+    back: "Retour à MOVVIZ",
+    aboutTitle: "Informations légales",
+    aboutPrivacy: "Politique de confidentialité",
+    aboutHelp: "Aide",
+    aboutLicense: "Licence (GNU GPL v3)",
+  },
+
   corruptFiles: {
     err_not_in_report: "absent du dernier rapport : relancez le scan",
     err_file_changed: "fichier modifié depuis le scan",

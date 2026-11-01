@@ -21,6 +21,9 @@ services:
       PUID: ${PUID}
       PGID: ${PGID}
       TZ: ${TZ}
+      # Consentement explicite à la politique de confidentialité et à la licence au premier lancement
+      # (exigé par l'App Center UGREEN). Propre à ce paquet : les autres installations ne le posent pas.
+      MOVVIZ_REQUIRE_PRIVACY_CONSENT: "1"
     volumes:
       - ${CONFIG_PATH}:/config
       - ${DATA_PATH}:/data

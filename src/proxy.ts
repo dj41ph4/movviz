@@ -24,6 +24,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/auth/plex/tv-pin",
   "/api/auth/plex/poll",
   "/api/healthz",
+  "/api/privacy", // Consentement : lu et posé avant la création du premier compte.
   "/api/library/import",
   "/api/library/reject-series-pack",
   "/api/activity/log",
@@ -44,7 +45,8 @@ export function proxy(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  if (isStaticAsset || pathname === "/login" || pathname === "/setup") return NextResponse.next();
+  // /privacy et /help : pages publiques (liens de l'App Center UGREEN, de l'écran de connexion).
+  if (isStaticAsset || pathname === "/login" || pathname === "/setup" || pathname === "/privacy" || pathname === "/help") return NextResponse.next();
 
   if (!isValidSessionCookie(cookie)) {
     const url = req.nextUrl.clone();

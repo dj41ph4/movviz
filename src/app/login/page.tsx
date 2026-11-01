@@ -8,6 +8,7 @@ import { resetSwrCache } from "@/lib/swrCacheReset";
 import { useT } from "@/i18n/provider";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { PlexLoginDialog } from "@/components/auth/PlexLoginDialog";
+import { LegalLinks, PrivacyConsentField, usePrivacyConsentInfo } from "@/components/legal/PrivacyConsent";
 import { Loader2, ShieldCheck, Play } from "lucide-react";
 
 const cardVariants = {
@@ -25,6 +26,10 @@ export default function LoginPage() {
   const [setupRequired, setSetupRequired] = useState<boolean | null>(null);
   const [plexLoginAvailable, setPlexLoginAvailable] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
+  // Paquet UGREEN uniquement : consentement explicite pour créer un compte, jamais pré-coché.
+  const consent = usePrivacyConsentInfo();
+  const [consentChecked, setConsentChecked] = useState(false);
+  const consentBlocked = mode === "register" && consent?.required === true && !consentChecked;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +71,7 @@ export default function LoginPage() {
   }, [router]);
 
   const submit = async () => {
+    if (consentBlocked) { setError(t("legal.consentRequired")); return; }
     setError(null);
     setBusy(true);
     try {
@@ -73,7 +79,7 @@ export default function LoginPage() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, ...(mode === "register" && consent?.required ? { privacyConsent: true } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -81,6 +87,7 @@ export default function LoginPage() {
           data.error === "username_taken" ? t("auth.usernameTaken")
           : data.error === "username_too_short" ? t("auth.usernameTooShort")
           : data.error === "password_too_short" ? t("auth.passwordTooShort")
+          : data.error === "privacy_consent_required" ? t("legal.consentRequired")
           : t("auth.invalidCredentials")
         );
         return;
@@ -210,11 +217,13 @@ export default function LoginPage() {
             />
           </div>
 
+          {mode === "register" && consent?.required && <PrivacyConsentField checked={consentChecked} onChange={setConsentChecked} />}
+
           {error && <p className="text-xs font-semibold text-down">{error}</p>}
 
           <button
             onClick={submit}
-            disabled={busy || !username.trim() || !password}
+            disabled={busy || !username.trim() || !password || consentBlocked}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-xl brand-gradient text-sm font-bold text-white disabled:opacity-40"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -251,6 +260,8 @@ export default function LoginPage() {
             </span>
           </motion.button>
         )}
+
+        {consent?.required && <LegalLinks className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-semibold text-ink-dim" />}
       </motion.div>
       {plexDialogOpen && (
         <PlexLoginDialog

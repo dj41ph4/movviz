@@ -9,6 +9,7 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
     "backup.restoreWarning",
     "backup.restored",
     "backup.title",
+    "legal.aboutTitle",
     "settings.aboutCheckUpdate",
     "settings.aboutCredit",
     "settings.aboutLicenseHint",

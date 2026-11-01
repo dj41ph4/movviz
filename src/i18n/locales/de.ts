@@ -2034,6 +2034,24 @@ export const de: Dictionary = {
     disabledNotice: "ffprobe-Analyse aus: Movviz verhält sich wie vor v1.28.8 und stützt sich für Spuren und Sprachen auf Plex.",
   },
 
+  legal: {
+    consentTitle: "Datenschutz und Lizenz",
+    consentLabel: "Ich habe die {privacy} gelesen und akzeptiere sie und nehme die {license} zur Kenntnis.",
+    privacyLinkText: "Datenschutzerklärung",
+    licenseLinkText: "MOVVIZ-Softwarelizenz (GNU GPL v3)",
+    consentHint: "Optionale Dienste (TMDb, Indexer, Plex, Benachrichtigungen, KI …) bleiben aus, bis Sie sie einrichten.",
+    consentRequired: "Kreuzen Sie das Kästchen an, um fortzufahren.",
+    footerPrivacy: "Datenschutz",
+    footerLicense: "Lizenz",
+    footerHelp: "Hilfe",
+    footerSupport: "Support",
+    back: "Zurück zu MOVVIZ",
+    aboutTitle: "Rechtliche Hinweise",
+    aboutPrivacy: "Datenschutzerklärung",
+    aboutHelp: "Hilfe",
+    aboutLicense: "Lizenz (GNU GPL v3)",
+  },
+
   corruptFiles: {
     err_not_in_report: "nicht im letzten Bericht: Analyse erneut starten",
     err_file_changed: "Datei seit der Analyse geändert",
