@@ -1,3 +1,11 @@
+## v1.28.27 — 2. November 2026
+
+### Leistung
+
+- Das animierte Leuchten hinter dem Dashboard-Hero nutzt jetzt einen kleinen Spiegel-Player (hochskaliert und dann weichgezeichnet): gleicher Effekt, deutlich weniger Videodekodierung.
+- Die Randausblendung des Leuchtens ist an den Enden vollständig transparent: die dünne senkrechte Linie links vom Hero verschwindet.
+- Bewertungs- und Badge-Pillen auf Karten nutzen keine Hintergrundunschärfe mehr (ihr Hintergrund ist fast deckend, das Aussehen bleibt gleich), und Logos und Titel auf Karten ersetzen den gefilterten Schlagschatten durch einen Farbverlauf bzw. einen Textschatten: Scrollen im Dashboard und in Entdecken ist wieder flüssig.
+
 ## v1.28.26 — 2. November 2026
 
 ### Downloads

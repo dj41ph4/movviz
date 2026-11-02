@@ -1,3 +1,11 @@
+## v1.28.27 — 2 November 2026
+
+### Performance
+
+- The animated glow behind the dashboard hero now uses a small mirror player (scaled up, then blurred): same effect, far less video decoding.
+- The glow's edge fade is fully transparent at the extremities: the thin vertical line visible to the left of the hero is gone.
+- Rating and badge pills on cards no longer use a backdrop blur (their background is almost opaque, so the look is identical), and card logos and titles replace the filtered drop-shadow with a gradient scrim or a text shadow: scrolling the dashboard and Discover is smooth again.
+
 ## v1.28.26 — 2 November 2026
 
 ### Downloads

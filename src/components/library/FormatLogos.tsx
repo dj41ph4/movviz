@@ -17,7 +17,7 @@ function BaseBadge({ className, children }: LogoProps & { children: React.ReactN
   return (
     <span
       className={cn(
-        "inline-flex h-[21px] shrink-0 items-center rounded-full border border-white/15 bg-black/70 px-2.5 leading-none backdrop-blur-sm",
+        "inline-flex h-[21px] shrink-0 items-center rounded-full border border-white/15 bg-black/70 px-2.5 leading-none",
         className,
       )}
     >

@@ -11,15 +11,24 @@ const SEEK_COOLDOWN_MS = 800;
 /** Les quatre bords s'estompent par masque, indépendamment du flou : si le
  *  navigateur abandonne le filtre sur ce très grand calque (plein écran), le
  *  halo garde des bords doux au lieu de montrer son rectangle net. */
-const EDGE_FADE = "linear-gradient(to right, transparent, #000 12%, #000 88%, transparent)";
-const EDGE_FADE_Y = "linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent)";
+const EDGE_FADE = "linear-gradient(to right, transparent 0, transparent 4%, #000 16%, #000 84%, transparent 96%, transparent 100%)";
+const EDGE_FADE_Y = "linear-gradient(to bottom, transparent 0, transparent 4%, #000 16%, #000 84%, transparent 96%, transparent 100%)";
+// The fade is fully transparent over the first/last 4%: starting it exactly at
+// the layer edge left a thin visible line where the blur is cut.
 const AMBILIGHT_STYLE = {
   containerType: "size",
   maskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
   WebkitMaskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
+  maskRepeat: "no-repeat",
+  maskSize: "100% 100%",
   maskComposite: "intersect",
   WebkitMaskComposite: "source-in",
 } as CSSProperties;
+
+/** The mirror plays in a small player (cheap to decode) and is scaled up to
+ *  the hero's cover framing: once blurred, nobody can tell the resolution. */
+const MIRROR_W = 480;
+const MIRROR_H = 270;
 
 /**
  * Ambilight behind the desktop dashboard hero: a blurred copy of what the
@@ -35,7 +44,24 @@ const AMBILIGHT_STYLE = {
  */
 export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string | null; videoKey: string | null }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const [alignedKey, setAlignedKey] = useState<string | null>(null);
+  const [mirrorScale, setMirrorScale] = useState(3);
+
+  // Same "cover" framing as before (max(100cqw, 177.78cqh) wide, +15%), obtained
+  // by scaling the small player instead of sizing a full-resolution one.
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    const update = () => {
+      const full = Math.max(box.offsetWidth, box.offsetHeight * (MIRROR_W / MIRROR_H));
+      if (full > 0) setMirrorScale((full / MIRROR_W) * 1.15);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -101,7 +127,7 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
   return (
     // Same box and same "cover" framing as the hero video, so each edge of the
     // glow continues the colours sitting right at that edge of the card.
-    <div aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={AMBILIGHT_STYLE}>
+    <div ref={boxRef} aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={AMBILIGHT_STYLE}>
       {backdropUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={backdropUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300" style={{ opacity: videoKey ? 0 : 1 }} />
@@ -114,8 +140,8 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
           tabIndex={-1}
           allow="autoplay; encrypted-media"
           src={`${YOUTUBE_ORIGIN}/embed/${encodeURIComponent(videoKey)}?${params}`}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[1.15] border-0 transition-opacity duration-500"
-          style={{ width: "max(100cqw, 177.78cqh)", height: "max(100cqh, 56.25cqw)", opacity: alignedKey === videoKey ? 1 : 0 }}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-0 transition-opacity duration-500"
+          style={{ width: MIRROR_W, height: MIRROR_H, scale: mirrorScale, opacity: alignedKey === videoKey ? 1 : 0 }}
         />
       )}
     </div>

@@ -1,3 +1,11 @@
+## v1.28.27 — 2 november 2026
+
+### Prestaties
+
+- De geanimeerde gloed achter de dashboardhero gebruikt nu een kleine spiegelspeler (vergroot en daarna vervaagd): hetzelfde effect, veel minder videodecodering.
+- De randfade van de gloed is aan de uiteinden volledig transparant: de dunne verticale lijn links van de hero verdwijnt.
+- Beoordelings- en badgepillen op kaarten gebruiken geen achtergrondvervaging meer (hun achtergrond is bijna ondoorzichtig, het uiterlijk blijft gelijk) en logo's en titels op kaarten vervangen de gefilterde slagschaduw door een verloop of een tekstschaduw: scrollen in het dashboard en in Ontdekken is weer vloeiend.
+
 ## v1.28.26 — 2 november 2026
 
 ### Downloads

@@ -1,3 +1,11 @@
+## v1.28.27 — 2 novembre 2026
+
+### Performance
+
+- Le halo animé derrière le héros du tableau de bord utilise maintenant un lecteur miroir de petite taille (agrandi puis flouté) : même effet, beaucoup moins de décodage vidéo.
+- Le fondu des bords du halo est entièrement transparent sur les extrémités : la fine ligne verticale visible à gauche du héros disparaît.
+- Les pastilles de note et de badge des cartes n'utilisent plus de flou d'arrière-plan (leur fond est presque opaque, le rendu est identique) et les logos et titres de cartes remplacent l'ombre portée filtrée par un voile dégradé ou une ombre de texte : le défilement du tableau de bord et de Découverte redevient fluide.
+
 ## v1.28.26 — 2 novembre 2026
 
 ### Téléchargements

@@ -1,3 +1,11 @@
+## v1.28.27 — 2 novembre 2026
+
+### Prestazioni
+
+- L'alone animato dietro l'hero della dashboard usa ora un piccolo player specchio (ingrandito e poi sfocato): stesso effetto, molta meno decodifica video.
+- La dissolvenza dei bordi dell'alone è completamente trasparente agli estremi: la sottile linea verticale a sinistra dell'hero scompare.
+- Le pillole di voto e badge sulle schede non usano più la sfocatura dello sfondo (lo sfondo è quasi opaco, l'aspetto è identico) e i loghi e i titoli delle schede sostituiscono l'ombra filtrata con un velo sfumato o un'ombra del testo: lo scorrimento della dashboard e di Scopri torna fluido.
+
 ## v1.28.26 — 2 novembre 2026
 
 ### Download

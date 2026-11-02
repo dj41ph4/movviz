@@ -57,7 +57,7 @@ function extractBadges(file: LibraryFile | null | undefined, plexMediaInfo: Plex
  * scale, so a resolution pill next to a Dolby logo next to a corner status
  * chip never look like three different design systems stitched together.
  */
-export const BADGE_SHAPE = "inline-flex h-[21px] shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-bold leading-none backdrop-blur-sm";
+export const BADGE_SHAPE = "inline-flex h-[21px] shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-bold leading-none";
 
 export function TextPill({ text, cls }: { text: string; cls: string }) {
   return <span className={cn(BADGE_SHAPE, cls)}>{text}</span>;

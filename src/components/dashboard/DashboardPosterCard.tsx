@@ -570,12 +570,15 @@ export function DashboardPosterCard({
               className={cn(
                 "pointer-events-none absolute bottom-3 left-3 z-10 flex min-h-8 items-end",
                 reserveBottomRight ? "right-14" : "right-3",
+                // Legibility scrim instead of a per-image drop-shadow filter: a
+                // static gradient costs nothing while scrolling hundreds of cards.
+                logoPath && "before:pointer-events-none before:absolute before:-z-10 before:inset-[-18px_-12px_-12px] before:content-[''] before:bg-[radial-gradient(120%_100%_at_0%_100%,rgba(0,0,0,0.62),rgba(0,0,0,0.28)_55%,transparent_80%)]",
               )}
             >
               {logoPath ? (
-                <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-10 max-w-[78%] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+                <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-10 max-w-[78%]" />
               ) : !titleEmbedded ? (
-                <span className="line-clamp-2 text-sm font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
+                <span className="line-clamp-2 text-sm font-black leading-tight text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
               ) : null}
             </div>
           )}
@@ -586,7 +589,7 @@ export function DashboardPosterCard({
             </div>
           )}
           {badge && (
-            <div data-premium-badge className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 z-10 border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
+            <div data-premium-badge className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 z-10 border-white/15 bg-black/70 text-white/85")}>
               {badge}
             </div>
           )}
@@ -596,7 +599,7 @@ export function DashboardPosterCard({
             </div>
           )}
           {!showRank && episodeBadge && (
-            <div data-premium-badge className={cn(BADGE_SHAPE, "pointer-events-none absolute bottom-2 right-2 z-10 border border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
+            <div data-premium-badge className={cn(BADGE_SHAPE, "pointer-events-none absolute bottom-2 right-2 z-10 border border-white/15 bg-black/70 text-white/85")}>
               {episodeBadge}
             </div>
           )}
