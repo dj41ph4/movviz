@@ -10,7 +10,7 @@
 
 ### Einstellungen
 
-- Die aktive Schaltfläche Essenziell / Experte folgt jetzt der Rundung ihres Rahmens.
+- Die aktive Schaltfläche Wesentlich / Experte folgt jetzt der Rundung ihres Rahmens.
 
 ## v1.28.20 — 2. November 2026
 
