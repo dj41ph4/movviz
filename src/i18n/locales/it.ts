@@ -711,6 +711,8 @@ export const it: Dictionary = {
     rowNewSeries: "Nuove serie",
     sortTopRated: "Migliori",
     sortForYou: "Per te",
+    providerBannerHint: "Tutto il catalogo della piattaforma, film e serie",
+    providerBannerExit: "Esci dalla piattaforma",
     sortNewest: "Più recenti",
     rowRenewed: "Serie rinnovate",
     c411Popular: "Popolari su C411",

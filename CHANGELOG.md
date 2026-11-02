@@ -1,3 +1,11 @@
+## v1.28.22 — 2 novembre 2026
+
+### Découverte
+
+- Nouvelle barre de contrôles sur grand écran : une capsule vitrée regroupe le sélecteur Tout / Films / Séries, les plateformes, « Filtres », le tri et « Personnaliser » (la grande bande qui n’hébergeait que ce bouton disparaît). Les logos sont grisés au repos et reprennent leurs couleurs, avec un halo de la marque, au survol et pour la plateforme active ; sous 1500 px, les logos passent sur une seconde ligne de la capsule.
+- Quand une plateforme est sélectionnée, une bannière affiche son grand logo, un halo aux couleurs de la marque et un bouton « Quitter la plateforme ».
+- Le mobile et la tablette ne changent pas.
+
 ## v1.28.21 — 2 novembre 2026
 
 ### Bibliothèque

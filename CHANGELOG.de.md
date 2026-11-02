@@ -1,3 +1,11 @@
+## v1.28.22 — 2. November 2026
+
+### Entdecken
+
+- Neue Steuerleiste auf großen Bildschirmen: Eine gläserne Kapsel vereint den Schalter Alle / Filme / Serien, die Plattformen, „Filter“, die Sortierung und „Anpassen“ (die große Leiste, die nur diese Schaltfläche enthielt, entfällt). Logos sind im Ruhezustand ausgegraut und erhalten beim Überfahren und bei der aktiven Plattform ihre Farben samt Markenschimmer zurück; unter 1500 px rutschen die Logos in eine zweite Zeile der Kapsel.
+- Ist eine Plattform ausgewählt, zeigt ein Banner ihr großes Logo, einen Schimmer in den Markenfarben und die Schaltfläche „Plattform verlassen“.
+- Smartphones und Tablets bleiben unverändert.
+
 ## v1.28.21 — 2. November 2026
 
 ### Bibliothek

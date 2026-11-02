@@ -1,3 +1,11 @@
+## v1.28.22 — 2 November 2026
+
+### Discover
+
+- New control bar on large screens: a glass capsule groups the All / Movies / Series switch, the platforms, "Filters", sorting and "Customize" (the big band that only held that button is gone). Logos are greyed out at rest and regain their colours, with a brand glow, on hover and for the active platform; below 1500 px the logos move to a second line of the capsule.
+- When a platform is selected, a banner shows its large logo, a glow in the brand's colours and a "Leave platform" button.
+- Phones and tablets are unchanged.
+
 ## v1.28.21 — 2 November 2026
 
 ### Library

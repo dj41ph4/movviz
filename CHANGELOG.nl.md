@@ -1,3 +1,11 @@
+## v1.28.22 — 2 november 2026
+
+### Ontdekken
+
+- Nieuwe bedieningsbalk op grote schermen: een glazen capsule bundelt de schakelaar Alles / Films / Series, de platforms, “Filters”, het sorteren en “Aanpassen” (de grote balk die alleen die knop bevatte verdwijnt). Logo’s zijn in rust grijs en krijgen bij hover en voor het actieve platform hun kleuren terug, met een merkgloed; onder 1500 px verhuizen de logo’s naar een tweede regel van de capsule.
+- Is een platform geselecteerd, dan toont een banner het grote logo, een gloed in de merkkleuren en een knop “Platform verlaten”.
+- Telefoons en tablets blijven ongewijzigd.
+
 ## v1.28.21 — 2 november 2026
 
 ### Bibliotheek

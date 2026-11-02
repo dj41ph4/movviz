@@ -711,6 +711,8 @@ export const nl: Dictionary = {
     rowNewSeries: "Nieuwe series",
     sortTopRated: "Beste",
     sortForYou: "Voor jou",
+    providerBannerHint: "De hele catalogus van het platform, films en series",
+    providerBannerExit: "Platform verlaten",
     sortNewest: "Nieuwste",
     rowRenewed: "Verlengde series",
     c411Popular: "Populair op C411",

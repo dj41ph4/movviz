@@ -26,7 +26,8 @@ import type { MetaSearchResult, MetaPersonSearchResult, MetaDetail } from "@/lib
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
-import { PROVIDER_LIGHT_TILE, PROVIDER_SVG } from "@/lib/metadata/providerSvg";
+import { PROVIDER_BRAND_RGB, PROVIDER_LIGHT_TILE, PROVIDER_SVG } from "@/lib/metadata/providerSvg";
+import "./discover-capsule.css";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import { rowLabel as sharedRowLabel, type RowMeta } from "@/components/media/rowLabel";
 import { useRowLayout, type RowLayoutApi } from "@/components/media/useRowLayout";
@@ -891,7 +892,7 @@ function DiscoverPageInner() {
             {watchProviderTiles.slice(0, 8).map((tile) => {
               const localSvg = PROVIDER_SVG[tile.id];
               return (
-                <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} className={cn("nx-discover-provider-tab", String(tile.id) === watchProvider?.id && "nx-discover-provider-tab-active", localSvg && PROVIDER_LIGHT_TILE.has(tile.id) && "nx-discover-provider-tab-light")}>
+                <button key={tile.id} type="button" onClick={() => handleWatchProviderClick(tile)} title={tile.name} style={{ "--brand": PROVIDER_BRAND_RGB[tile.id] } as React.CSSProperties} className={cn("nx-discover-provider-tab", String(tile.id) === watchProvider?.id && "nx-discover-provider-tab-active", localSvg && PROVIDER_LIGHT_TILE.has(tile.id) && "nx-discover-provider-tab-light")}>
                   {localSvg ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={localSvg} alt={tile.name} className="h-8 w-11 object-contain" />
@@ -935,8 +936,41 @@ function DiscoverPageInner() {
               <option value="for_you">{t("discover.sortForYou")}</option>
             </select>
           </label>
+          {!isBrowsing && (
+            <div className="nx-discover-bar-layout shrink-0">
+              <RowLayoutToggle layout={rowLayout} />
+            </div>
+          )}
         </div>
       )}
+
+      {configured && !textSearch && watchProvider && (() => {
+        const providerId = Number(watchProvider.id);
+        const logo = PROVIDER_SVG[providerId];
+        const tile = watchProviderTiles.find((x) => String(x.id) === watchProvider.id);
+        return (
+          <div className="nx-provider-banner hidden lg:flex" style={{ "--brand": PROVIDER_BRAND_RGB[providerId] } as React.CSSProperties}>
+            <div className="nx-provider-banner-logo">
+              {logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logo} alt={watchProvider.name} />
+              ) : tile?.logoPath ? (
+                <TmdbImage path={tile.logoPath} size="w185" alt={watchProvider.name} className="h-[54px] w-auto object-contain" />
+              ) : (
+                <span>{watchProvider.name}</span>
+              )}
+            </div>
+            <div className="nx-provider-banner-text">
+              <strong>{watchProvider.name}</strong>
+              <span>{t("discover.providerBannerHint")}</span>
+            </div>
+            <button type="button" onClick={() => setWatchProvider(null)} className="nx-provider-banner-exit">
+              {t("discover.providerBannerExit")}
+              <X className="h-4 w-4 text-ink-dim" />
+            </button>
+          </div>
+        );
+      })()}
 
       {configured === false && (
         <TmdbSetup onSaved={() => mutateConfigured()} />
@@ -1036,7 +1070,7 @@ function DiscoverPageInner() {
           </div>
 
           {!isBrowsing && (
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 lg:hidden">
               <RowLayoutToggle layout={rowLayout} />
             </div>
           )}

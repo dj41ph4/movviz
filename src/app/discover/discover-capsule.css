@@ -1,0 +1,357 @@
+/* Découverte, bureau : barre de contrôles en capsule vitrée + bannière de
+   plateforme. Les thèmes (premium.css, salle-obscure.css) stylent les mêmes
+   classes avec jusqu'à 5 niveaux de spécificité : la répétition de :root est
+   là pour passer devant eux sans !important. --brand = "R,G,B" de la marque
+   (PROVIDER_BRAND_RGB), posé en style inline sur l'onglet et la bannière. */
+@media (min-width: 1024px) {
+  :root:root:root:root:root .nx-desktop-shell {
+    & .nx-discover-desktop-bar {
+      position: relative;
+      flex-wrap: nowrap;
+      gap: 0;
+      min-height: 0;
+      height: 68px;
+      padding: 0 10px;
+      align-items: center;
+      border-radius: 34px;
+      border: 1px solid rgba(255, 255, 255, .09);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .028));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 18px 40px -12px rgba(0, 0, 0, .6);
+      backdrop-filter: blur(22px) saturate(1.3);
+    }
+
+    & .nx-discover-mode-tabs {
+      order: 1;
+      flex: 0 0 auto;
+      gap: 2px;
+      padding: 4px;
+      border-radius: 999px;
+      border: 0;
+      background: rgba(0, 0, 0, .32);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, .45);
+    }
+
+    & .nx-discover-mode-tabs button {
+      height: 44px;
+      min-width: 80px;
+      border-radius: 999px;
+      padding: 0 1.1rem;
+      font-size: .92rem;
+      font-weight: 600;
+      letter-spacing: .01em;
+    }
+
+    & .nx-discover-mode-tabs button.brand-gradient {
+      box-shadow: 0 6px 18px -4px rgba(124, 92, 255, .7), inset 0 1px 0 rgba(255, 255, 255, .28);
+    }
+
+    & .nx-discover-provider-tabs {
+      order: 2;
+      flex: 1 1 auto;
+      min-width: 0;
+      justify-content: center;
+      gap: .25rem;
+      overflow: visible;
+      margin: 0 14px;
+      padding: 0 14px;
+      position: relative;
+    }
+
+    /* Filets verticaux entre les groupes (ligne unique). */
+    & .nx-discover-provider-tabs::before,
+    & .nx-discover-provider-tabs::after {
+      content: "";
+      position: absolute;
+      top: 14px;
+      bottom: 14px;
+      width: 1px;
+      background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .16), transparent);
+    }
+
+    & .nx-discover-provider-tabs::before { left: 0; }
+    & .nx-discover-provider-tabs::after { right: 0; }
+
+    /* Logos nus : grisés au repos, couleur et lueur de la marque au survol / actif. */
+    & .nx-discover-provider-tab {
+      position: relative;
+      width: 66px;
+      height: 52px;
+      border: 0;
+      border-radius: 16px;
+      background: transparent;
+      overflow: visible;
+      box-shadow: none;
+      transition: transform .2s cubic-bezier(.2, .8, .2, 1), background .2s;
+    }
+
+    & .nx-discover-provider-tab img,
+    & .nx-discover-provider-tab > span {
+      width: 48px;
+      height: 24px;
+      filter: grayscale(1) brightness(1.5) contrast(.9);
+      opacity: .5;
+      transition: filter .2s, opacity .2s, transform .2s;
+    }
+
+    & .nx-discover-provider-tab:hover {
+      transform: translateY(-2px);
+      border: 0;
+      background: rgba(255, 255, 255, .05);
+      box-shadow: none;
+    }
+
+    & .nx-discover-provider-tab:hover img,
+    & .nx-discover-provider-tab:hover > span {
+      filter: none;
+      opacity: 1;
+      transform: scale(1.08);
+    }
+
+    & .nx-discover-provider-tab.nx-discover-provider-tab-active {
+      border: 0;
+      box-shadow: none;
+      background:
+        radial-gradient(ellipse at 50% 120%, rgba(var(--brand, 139, 123, 255), .5), transparent 70%),
+        rgba(255, 255, 255, .06);
+    }
+
+    & .nx-discover-provider-tab-active img,
+    & .nx-discover-provider-tab-active > span {
+      filter: none;
+      opacity: 1;
+      transform: scale(1.08);
+    }
+
+    & .nx-discover-provider-tab::after {
+      content: "";
+      position: absolute;
+      left: 22%;
+      right: 22%;
+      bottom: 3px;
+      height: 3px;
+      border-radius: 3px;
+      pointer-events: none;
+      background: rgb(var(--brand, 139, 123, 255));
+      box-shadow: 0 0 12px rgb(var(--brand, 139, 123, 255));
+      opacity: 0;
+      transform: scaleX(.3);
+      transition: transform .18s ease, opacity .18s ease;
+    }
+
+    & .nx-discover-provider-tab-active::after {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+
+    & .nx-discover-desktop-bar > .relative { order: 3; }
+
+    & .nx-discover-desktop-bar > .nx-discover-sort {
+      order: 4;
+      margin-left: 8px;
+    }
+
+    & .nx-discover-bar-layout {
+      order: 5;
+      margin-left: 8px;
+    }
+
+    /* Pastilles : Filtres, tri, Personnaliser / Réinitialiser. */
+    & :is(.nx-discover-filter-button, .nx-discover-bar-layout button) {
+      height: 48px;
+      min-height: 48px;
+      padding: 0 1.2rem;
+      border-radius: 999px;
+      font-size: .92rem;
+      font-weight: 600;
+      color: #f4f4f8;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+    }
+
+    & :is(.nx-discover-filter-button, .nx-discover-bar-layout button):hover {
+      background: rgba(255, 255, 255, .1);
+      border-color: rgba(255, 255, 255, .22);
+    }
+
+    & .nx-discover-sort {
+      height: 48px;
+      padding: 0;
+      overflow: hidden;
+      gap: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+    }
+
+    & .nx-discover-sort > span { display: none; }
+
+    & .nx-discover-sort select {
+      appearance: none;
+      height: 46px;
+      min-width: 132px;
+      padding: 0 2rem 0 1.1rem;
+      border: 0;
+      outline: 0;
+      box-shadow: none;
+      border-radius: 999px;
+      font-size: .92rem;
+      font-weight: 600;
+      color: #f4f4f8;
+      cursor: pointer;
+      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8a98' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right .8rem center;
+    }
+
+    & .nx-discover-sort select option {
+      background: #14141c;
+      color: #f4f4f8;
+    }
+
+    /* Bannière de plateforme : grand logo + halo de la marque. */
+    & .nx-provider-banner {
+      position: relative;
+      align-items: center;
+      gap: 26px;
+      height: 104px;
+      margin-top: 14px;
+      padding: 0 28px;
+      border-radius: 28px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .09);
+      background:
+        radial-gradient(ellipse 520px 220px at 9% 50%, rgba(var(--brand, 139, 123, 255), .42), transparent 70%),
+        linear-gradient(100deg, rgba(var(--brand, 139, 123, 255), .14), rgba(255, 255, 255, .025) 60%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 18px 40px -16px rgba(0, 0, 0, .6);
+    }
+
+    & .nx-provider-banner-logo {
+      flex: 0 0 auto;
+      width: 190px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    & .nx-provider-banner-logo img {
+      height: 54px;
+      width: auto;
+      max-width: 190px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 22px rgba(var(--brand, 139, 123, 255), .75));
+    }
+
+    & .nx-provider-banner-logo > span {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #f6f6fa;
+    }
+
+    & .nx-provider-banner-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-left: 26px;
+      border-left: 1px solid rgba(255, 255, 255, .14);
+    }
+
+    & .nx-provider-banner-text strong {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      color: #f6f6fa;
+    }
+
+    & .nx-provider-banner-text span {
+      font-size: .86rem;
+      color: #a2a2b2;
+    }
+
+    & .nx-provider-banner-exit {
+      flex: none;
+      white-space: nowrap;
+      margin-left: auto;
+      height: 44px;
+      padding: 0 1.1rem;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      font-size: .88rem;
+      font-weight: 600;
+      color: #f4f4f8;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid rgba(255, 255, 255, .12);
+    }
+
+    & .nx-provider-banner-exit:hover { background: rgba(255, 255, 255, .12); }
+  }
+}
+
+/* Largeurs < 1500 px : les logos passent sur une seconde ligne de la capsule. */
+@media (min-width: 1024px) and (max-width: 1500px) {
+  :root:root:root:root:root .nx-desktop-shell {
+    & .nx-discover-desktop-bar {
+      flex-wrap: wrap;
+      height: auto;
+      padding: 10px 12px 8px;
+      border-radius: 30px;
+      row-gap: 6px;
+    }
+
+    & .nx-discover-mode-tabs { margin-right: auto; }
+
+    & .nx-discover-provider-tabs {
+      order: 6;
+      flex: 0 0 100%;
+      margin: 0;
+      padding: 8px 0 0;
+      border-top: 1px solid rgba(255, 255, 255, .07);
+      justify-content: flex-start;
+      gap: .5rem;
+    }
+
+    & .nx-discover-provider-tabs::before,
+    & .nx-discover-provider-tabs::after { display: none; }
+
+    & .nx-discover-provider-tab {
+      width: 92px;
+      height: 50px;
+    }
+
+    & .nx-discover-provider-tab img,
+    & .nx-discover-provider-tab > span {
+      width: 58px;
+      height: 28px;
+    }
+  }
+}
+
+/* 1024-1280 px : bannière resserrée pour que le bouton de sortie reste sur une ligne. */
+@media (min-width: 1024px) and (max-width: 1280px) {
+  :root:root:root:root:root .nx-desktop-shell {
+    & .nx-provider-banner {
+      gap: 18px;
+      padding: 0 22px;
+    }
+
+    & .nx-provider-banner-logo { width: 140px; }
+
+    & .nx-provider-banner-logo img { max-width: 140px; }
+
+    & .nx-provider-banner-text {
+      min-width: 0;
+      padding-left: 18px;
+    }
+
+    & .nx-provider-banner-text strong { font-size: 1.2rem; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:root:root:root:root .nx-desktop-shell .nx-discover-provider-tab,
+  :root:root:root:root:root .nx-desktop-shell .nx-discover-provider-tab img,
+  :root:root:root:root:root .nx-desktop-shell .nx-discover-provider-tab::after {
+    transition: none;
+  }
+}

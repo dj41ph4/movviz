@@ -709,6 +709,8 @@ export const fr = {
     rowNewSeries: "Nouvelles séries",
     sortTopRated: "Meilleur",
     sortForYou: "Pour vous",
+    providerBannerHint: "Tout le catalogue de la plateforme, films et séries",
+    providerBannerExit: "Quitter la plateforme",
     sortNewest: "Nouveautés",
     rowRenewed: "Séries renouvelées",
     c411Popular: "Populaires sur C411",

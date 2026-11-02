@@ -1,3 +1,11 @@
+## v1.28.22 — 2 novembre 2026
+
+### Scopri
+
+- Nuova barra di controllo su schermi grandi: una capsula di vetro riunisce il selettore Tutto / Film / Serie, le piattaforme, «Filtri», l’ordinamento e «Personalizza» (la grande barra che ospitava solo questo pulsante scompare). I loghi sono in grigio a riposo e ritrovano i colori, con un alone del marchio, al passaggio e per la piattaforma attiva; sotto i 1500 px i loghi passano su una seconda riga della capsula.
+- Quando una piattaforma è selezionata, un banner mostra il suo grande logo, un alone nei colori del marchio e un pulsante «Esci dalla piattaforma».
+- Smartphone e tablet non cambiano.
+
 ## v1.28.21 — 2 novembre 2026
 
 ### Libreria
