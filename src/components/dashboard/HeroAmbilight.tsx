@@ -8,14 +8,23 @@ const YOUTUBE_ORIGIN = "https://www.youtube.com";
 const MAX_DRIFT_SEC = 0.3;
 const SEEK_COOLDOWN_MS = 800;
 
-/** Les quatre bords s'estompent par masque, indépendamment du flou : si le
- *  navigateur abandonne le filtre sur ce très grand calque (plein écran), le
- *  halo garde des bords doux au lieu de montrer son rectangle net. */
-const EDGE_FADE = "linear-gradient(to right, transparent 0, transparent 4%, #000 14%, #000 86%, transparent 96%, transparent 100%)";
-const EDGE_FADE_Y = "linear-gradient(to bottom, transparent 0, transparent 4%, #000 14%, #000 86%, transparent 96%, transparent 100%)";
-// The fade is fully transparent over the first/last 4%, and the layer is drawn
-// larger than the visible glow (scale 1.24): the cut of the blurred layer
-// itself never falls on a visible pixel, so no thin vertical line appears.
+/** Le halo déborde du héros d'une distance fixe (px) sur chaque côté : il est
+ *  étiré séparément en largeur et en hauteur (--ambi-sx / --ambi-sy) plutôt
+ *  qu'agrandi uniformément. La déformation est invisible sous le flou et les
+ *  quatre côtés prolongent la scène sur la même épaisseur. */
+const OVERSHOOT_X = 200;
+const OVERSHOOT_Y = 150;
+
+/** Fondu des bords par masque, indépendamment du flou : si le navigateur
+ *  abandonne le filtre sur ce très grand calque (plein écran), le halo garde des
+ *  bords doux. Entièrement transparent sur le tiers extérieur de la zone qui
+ *  dépasse du héros (--ambi-fx / --ambi-fy = part de cette zone, en % du calque) :
+ *  la coupe du calque flouté ne tombe jamais sur un pixel visible, donc plus de
+ *  fine ligne verticale. */
+const fade = (dir: string, f: string) =>
+  `linear-gradient(${dir}, transparent 0, transparent calc(var(${f}) * 0.35), #000 calc(var(${f}) * 1.1), #000 calc(100% - var(${f}) * 1.1), transparent calc(100% - var(${f}) * 0.35), transparent 100%)`;
+const EDGE_FADE = fade("to right", "--ambi-fx");
+const EDGE_FADE_Y = fade("to bottom", "--ambi-fy");
 const AMBILIGHT_STYLE = {
   containerType: "size",
   maskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
@@ -55,6 +64,14 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
     const box = boxRef.current;
     if (!box) return;
     const update = () => {
+      const width = box.offsetWidth;
+      const height = box.offsetHeight;
+      if (width > 0 && height > 0) {
+        box.style.setProperty("--ambi-sx", String(1 + (2 * OVERSHOOT_X) / width));
+        box.style.setProperty("--ambi-sy", String(1 + (2 * OVERSHOOT_Y) / height));
+        box.style.setProperty("--ambi-fx", `${(OVERSHOOT_X / (width + 2 * OVERSHOOT_X)) * 100}%`);
+        box.style.setProperty("--ambi-fy", `${(OVERSHOOT_Y / (height + 2 * OVERSHOOT_Y)) * 100}%`);
+      }
       const full = Math.max(box.offsetWidth, box.offsetHeight * (MIRROR_W / MIRROR_H));
       if (full > 0) setMirrorScale((full / MIRROR_W) * 1.15);
     };

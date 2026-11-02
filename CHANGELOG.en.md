@@ -1,3 +1,9 @@
+## v1.28.32 — 3 November 2026
+
+### Dashboard
+
+- The animated glow behind the hero now extends by the same distance on all four sides: it is stretched separately in width and height (the distortion disappears under the blur) instead of being enlarged uniformly, which made it very thin at the top and bottom. Its fade is transparent on the outer edge, so no thin line shows on the left.
+
 ## v1.28.31 — 3 November 2026
 
 ### Search

@@ -1,3 +1,9 @@
+## v1.28.32 — 3 novembre 2026
+
+### Dashboard
+
+- L'alone animato dietro l'hero sporge ora della stessa distanza sui quattro lati: viene allungato separatamente in larghezza e altezza (la deformazione sparisce sotto la sfocatura) invece di essere ingrandito in modo uniforme, cosa che lo rendeva molto sottile in alto e in basso. La sua dissolvenza è trasparente sul bordo esterno, così a sinistra non compare nessuna linea sottile.
+
 ## v1.28.31 — 3 novembre 2026
 
 ### Ricerca

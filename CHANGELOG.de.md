@@ -1,3 +1,9 @@
+## v1.28.32 — 3. November 2026
+
+### Dashboard
+
+- Das animierte Leuchten hinter dem Hero ragt nun auf allen vier Seiten gleich weit hinaus: Es wird in Breite und Höhe getrennt gestreckt (die Verzerrung verschwindet unter der Unschärfe), statt gleichmäßig vergrößert zu werden, wodurch es oben und unten sehr schmal war. Seine Ausblendung ist am äußeren Rand transparent, sodass links keine dünne Linie sichtbar ist.
+
 ## v1.28.31 — 3. November 2026
 
 ### Suche

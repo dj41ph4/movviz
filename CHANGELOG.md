@@ -1,3 +1,9 @@
+## v1.28.32 — 3 novembre 2026
+
+### Tableau de bord
+
+- Le halo animé derrière le héros déborde maintenant de la même distance sur les quatre côtés : il est étiré séparément en largeur et en hauteur (la déformation disparaît sous le flou) au lieu d'être agrandi uniformément, ce qui le rendait très fin en haut et en bas. Son fondu est transparent sur le bord extérieur, pour qu'aucune fine ligne ne soit visible à gauche.
+
 ## v1.28.31 — 3 novembre 2026
 
 ### Recherche

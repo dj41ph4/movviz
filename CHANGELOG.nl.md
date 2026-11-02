@@ -1,3 +1,9 @@
+## v1.28.32 — 3 november 2026
+
+### Dashboard
+
+- De geanimeerde gloed achter de hero steekt nu aan alle vier de zijden even ver uit: hij wordt apart in breedte en hoogte uitgerekt (de vervorming verdwijnt onder de vervaging) in plaats van gelijkmatig vergroot, waardoor hij boven en onder erg dun was. De fade is aan de buitenrand transparant, zodat links geen dunne lijn zichtbaar is.
+
 ## v1.28.31 — 3 november 2026
 
 ### Zoeken
