@@ -4,16 +4,9 @@ import { libraryFilePaths, loadMovies, loadSeries } from "@/lib/library/store";
 import { memoizeByFileMtimes } from "@/lib/fsJsonCache";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
+import { seriesLibraryStatus } from "@/lib/library/seriesLibraryStatus";
 
 export const dynamic = "force-dynamic";
-
-function seriesStatus(series: ReturnType<typeof loadSeries>[number]): string {
-  const monitored = series.seasons.flatMap((season) => season.episodes).filter((episode) => episode.monitored);
-  if (monitored.length === 0) return "missing";
-  if (monitored.some((episode) => episode.status === "downloading" || episode.status === "searching" || episode.activeInfoHash)) return "downloading";
-  if (monitored.every((episode) => episode.status === "upcoming")) return "upcoming";
-  return monitored.every((episode) => episode.status === "available" || episode.status === "upcoming") ? "available" : "missing";
-}
 
 export async function GET(req: NextRequest) {
   if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -26,7 +19,7 @@ export async function GET(req: NextRequest) {
         hasFile: !!movie.file,
         plexRatingKey: movie.plexRatingKey,
       })),
-      series: loadSeries().map((series) => ({ tmdbId: series.tmdbId, status: seriesStatus(series) })),
+      series: loadSeries().map((series) => ({ tmdbId: series.tmdbId, status: seriesLibraryStatus(series) })),
     }));
   const machineIdentifier = loadPlexConfig().machineIdentifier;
   return NextResponse.json(

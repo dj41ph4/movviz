@@ -138,7 +138,7 @@ function SettingsPageInner() {
   const renderModeToggle = () => (
     <div className="grid grid-cols-2 rounded-xl border border-white/8 bg-black/15 p-1">
       {(["essential", "expert"] as SettingsMode[]).map((item) => (
-        <button key={item} onClick={() => changeMode(item)} className={cn("rounded-lg px-2 py-2 text-xs font-bold ring-focus transition", mode === item ? "bg-white/10 text-ink shadow-sm" : "text-ink-dim hover:text-ink-soft")}>
+        <button key={item} onClick={() => changeMode(item)} className={cn("rounded-full px-2 py-2 text-xs font-bold ring-focus transition", mode === item ? "bg-white/10 text-ink shadow-sm" : "text-ink-dim hover:text-ink-soft")}>
           {item === "essential" ? t("settings.modeEssential") : t("settings.modeExpert")}
         </button>
       ))}

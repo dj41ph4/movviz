@@ -1,3 +1,17 @@
+## v1.28.21 — 2 November 2026
+
+### Library
+
+- Discover: a complete series no longer shows the "downloading" badge because of an old torrent link left on its already-present episodes (105 series were affected while only one torrent was active).
+
+### Trash
+
+- New "Purge files" button, always visible to administrators on the Trash page even when the list is empty: it permanently deletes from disk the files moved into the trash folders (the Maintenance counter counted them, but no screen showed them). Confirmation required; a file outside the trash folders is never deleted.
+
+### Settings
+
+- The active Essential / Expert button now follows the rounding of its outline.
+
 ## v1.28.20 — 2 November 2026
 
 ### Stability

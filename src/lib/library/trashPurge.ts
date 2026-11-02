@@ -13,8 +13,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * its files are actually gone.
  */
 export async function purgeExpiredTrash(): Promise<{ purged: number; failed: number }> {
-  const { retentionDays, moviesPath, seriesPath } = getTrashConfig();
-  const cutoff = Date.now() - retentionDays * DAY_MS;
+  const { retentionDays } = getTrashConfig();
+  return purgeTrashEntries(Date.now() - retentionDays * DAY_MS);
+}
+
+/** Manual purge from the Trash page: every trashed file, whatever its age. Same root safety as the scheduled purge. */
+export async function purgeAllTrashFiles(): Promise<{ purged: number; failed: number }> {
+  return purgeTrashEntries(Infinity);
+}
+
+async function purgeTrashEntries(cutoff: number): Promise<{ purged: number; failed: number }> {
+  const { moviesPath, seriesPath } = getTrashConfig();
   // Collect configured trash roots for path validation
   const trashRoots = [moviesPath, seriesPath].filter(Boolean).map((r) => path.resolve(r as string));
   let purged = 0;

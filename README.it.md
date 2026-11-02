@@ -12,7 +12,7 @@
 
 ### Il tuo catalogo. Il tuo server. Le tue regole.
 
-<p><strong>Versione attuale: v1.28.20</strong></p>
+<p><strong>Versione attuale: v1.28.21</strong></p>
 
 **Una piattaforma multimediale self-hosted completa — dalla scoperta alla riproduzione.**
 

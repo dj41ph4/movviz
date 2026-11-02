@@ -1,3 +1,17 @@
+## v1.28.21 — 2. November 2026
+
+### Bibliothek
+
+- Entdecken: Eine vollständige Serie zeigt nicht mehr das Badge „wird heruntergeladen“ wegen eines alten Torrent-Verweises an bereits vorhandenen Episoden (105 Serien waren betroffen, obwohl nur ein Torrent aktiv war).
+
+### Papierkorb
+
+- Neue Schaltfläche „Dateien löschen“, für Administratoren auf der Papierkorb-Seite immer sichtbar, auch bei leerer Liste: Sie löscht die in die Papierkorb-Ordner verschobenen Dateien endgültig von der Festplatte (der Zähler in der Wartung zählte sie, aber kein Bildschirm zeigte sie). Bestätigung erforderlich; eine Datei außerhalb der Papierkorb-Ordner wird nie gelöscht.
+
+### Einstellungen
+
+- Die aktive Schaltfläche Essenziell / Experte folgt jetzt der Rundung ihres Rahmens.
+
 ## v1.28.20 — 2. November 2026
 
 ### Stabilität

@@ -1,3 +1,17 @@
+## v1.28.21 — 2 novembre 2026
+
+### Bibliothèque
+
+- Découvrir : une série complète n’affiche plus la pastille « en téléchargement » à cause d’un ancien lien vers un torrent resté sur ses épisodes déjà présents (105 séries étaient touchées alors qu’un seul torrent était actif).
+
+### Corbeille
+
+- Nouveau bouton « Purger les fichiers », toujours visible pour les administrateurs sur la page Corbeille, même quand la liste est vide : il supprime définitivement du disque les fichiers déplacés dans les dossiers de corbeille (le compteur de Maintenance les comptait, mais aucun écran ne les montrait). Confirmation obligatoire ; un fichier hors des dossiers de corbeille n’est jamais supprimé.
+
+### Réglages
+
+- Le bouton actif Essentiel / Expert suit maintenant l’arrondi du contour.
+
 ## v1.28.20 — 2 novembre 2026
 
 ### Stabilité

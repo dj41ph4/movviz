@@ -1,3 +1,17 @@
+## v1.28.21 — 2 november 2026
+
+### Bibliotheek
+
+- Ontdekken: een complete serie toont niet langer de badge “wordt gedownload” door een oude torrentkoppeling die op reeds aanwezige afleveringen was blijven staan (105 series waren getroffen terwijl maar één torrent actief was).
+
+### Prullenbak
+
+- Nieuwe knop “Bestanden wissen”, altijd zichtbaar voor beheerders op de prullenbakpagina, ook bij een lege lijst: hij verwijdert de naar de prullenbakmappen verplaatste bestanden definitief van schijf (de teller bij Onderhoud telde ze, maar geen enkel scherm toonde ze). Bevestiging vereist; een bestand buiten de prullenbakmappen wordt nooit verwijderd.
+
+### Instellingen
+
+- De actieve knop Essentieel / Expert volgt nu de afronding van zijn omlijning.
+
 ## v1.28.20 — 2 november 2026
 
 ### Stabiliteit

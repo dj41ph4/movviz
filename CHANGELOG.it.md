@@ -1,3 +1,17 @@
+## v1.28.21 — 2 novembre 2026
+
+### Libreria
+
+- Scopri: una serie completa non mostra più il badge «in download» a causa di un vecchio collegamento a un torrent rimasto sugli episodi già presenti (105 serie erano interessate mentre un solo torrent era attivo).
+
+### Cestino
+
+- Nuovo pulsante «Elimina i file», sempre visibile agli amministratori nella pagina Cestino anche con l’elenco vuoto: elimina definitivamente dal disco i file spostati nelle cartelle del cestino (il contatore di Manutenzione li contava, ma nessuna schermata li mostrava). Conferma obbligatoria; un file fuori dalle cartelle del cestino non viene mai eliminato.
+
+### Impostazioni
+
+- Il pulsante attivo Essenziale / Esperto segue ora l’arrotondamento del suo contorno.
+
 ## v1.28.20 — 2 novembre 2026
 
 ### Stabilità

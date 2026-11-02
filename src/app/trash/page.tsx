@@ -9,6 +9,7 @@ import { Trash2, RotateCcw, Loader2, AlertTriangle, Film, Tv, Check, X, HardDriv
 import { cn } from "@/lib/utils";
 import type { TrashItem } from "@/lib/library/trashStore";
 import { TmdbImage } from "@/components/media/TmdbImage";
+import { toast } from "@/components/ui/Toast";
 
 function fetcher(url: string) { return fetch(url, { cache: "no-store" }).then((r) => r.json()); }
 
@@ -23,6 +24,11 @@ type OriginFilter = "all" | "manual" | "externalDeletion";
 export default function TrashPage() {
   const t = useT();
   const { data, isLoading, mutate } = useSWR<{ items: TrashItem[] }>("/api/library/trash", fetcher);
+  // Disk trash (files moved out of the library) — a different store from the
+  // titles listed below; only an admin can read it, so it is absent otherwise.
+  const { data: diskTrash, mutate: mutateDisk } = useSWR<{ itemCount?: number }>("/api/settings/trash", fetcher);
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const [purging, setPurging] = useState(false);
   const [restoring, setRestoring] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
   const [confirmClear, setConfirmClear] = useState(false);
@@ -61,12 +67,48 @@ export default function TrashPage() {
     await mutate();
   };
 
+  const purgeFiles = async () => {
+    setPurging(true);
+    try {
+      const res = await fetch("/api/library/trash/files", { method: "DELETE" });
+      if (!res.ok) throw new Error(String(res.status));
+      const { purged, failed } = await res.json() as { purged: number; failed: number };
+      toast(failed ? "error" : "success", t("trash.purgeFilesDone", { purged, failed }));
+    } catch {
+      toast("error", t("trash.purgeFilesFailed"));
+    } finally {
+      setPurging(false);
+      setConfirmPurge(false);
+      await mutateDisk();
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1200px]">
       <PageHeader
         title={t("nav.trash")}
         description={t("trash.description", { n: items.length })}
       >
+        <div className="flex flex-wrap items-center justify-end gap-2">
+        {diskTrash?.itemCount !== undefined && (
+          confirmPurge ? (
+            <>
+              <span className="text-sm text-down">{t("trash.purgeFilesConfirm", { count: diskTrash.itemCount })}</span>
+              <button onClick={purgeFiles} disabled={purging} className="flex h-9 items-center gap-2 rounded-xl bg-down px-4 text-sm font-bold text-white disabled:opacity-60">
+                {purging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {t("trash.purgeFiles")}
+              </button>
+              <button onClick={() => setConfirmPurge(false)} disabled={purging} className="flex h-9 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-ink-soft">
+                {t("settings.cancel")}
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setConfirmPurge(true)} className="flex h-9 items-center gap-2 rounded-xl border border-down/30 px-4 text-sm font-semibold text-down hover:bg-down/10">
+              <Trash2 className="h-4 w-4" />
+              {t("trash.purgeFiles")} ({diskTrash.itemCount})
+            </button>
+          )
+        )}
         {items.length > 0 && (
           <div className="flex items-center gap-2">
             {confirmClear ? (
@@ -87,6 +129,7 @@ export default function TrashPage() {
             )}
           </div>
         )}
+        </div>
       </PageHeader>
 
       {allItems.length > 0 && (
