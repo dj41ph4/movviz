@@ -66,6 +66,13 @@ export interface ActivityDownload {
   ratio: number;
   peers: number;
   state: "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled" | "verifying";
+  /** Octets reçus / envoyés depuis l'ajout. */
+  downloaded?: number;
+  uploaded?: number;
+  /** Admin uniquement : dossier de sauvegarde et fichiers du torrent (12 premiers). */
+  savePath?: string;
+  fileCount?: number;
+  files?: { name: string; length: number; progress: number }[];
 }
 
 export interface ActivityImport {

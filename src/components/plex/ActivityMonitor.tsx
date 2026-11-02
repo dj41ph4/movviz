@@ -10,6 +10,7 @@ import { useMovvizActivity } from "@/lib/playback/useMovvizActivity";
 import type { MovvizSession } from "@/lib/playback/useMovvizActivity";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
+import { useLiveRate } from "@/lib/downloads/liveRate";
 
 // A row from either live session store, tagged with its source so the popover
 // can show one combined list (both hooks already independently admin-gate
@@ -225,6 +226,14 @@ export function ActivityMonitor() {
   const activeCount = sessions.length;
   const playingCount = sessions.filter((s) => s.state === "playing").length;
   const eegSpeed = playingCount > 0 ? "0.6s" : "1.5s";
+  // Les 5 barres suivent le débit réel (2 mesures par seconde, échelle
+  // logarithmique sur le pic récent) ; au repos, l'ancienne respiration lente.
+  const live = useLiveRate();
+  const totals = live.downs.map((d, i) => d + (live.ups[i] ?? 0));
+  const peak = Math.max(256 * 1024, ...totals);
+  const lastFive: number[] = [...Array<number>(Math.max(0, 5 - totals.length)).fill(0), ...totals.slice(-5)];
+  const liveBars = live.active;
+  const barScale = (v: number) => 0.2 + 0.8 * (Math.log1p(v / 16384) / Math.log1p(peak / 16384));
   const plural = activeCount === 1 ? "" : "s";
 
   return (
@@ -235,19 +244,17 @@ export function ActivityMonitor() {
         aria-label={t("plexActivity.title")}
         className={cn(
           "relative flex h-11 w-11 items-center justify-center rounded-full glass transition-colors hover:text-brand-glow",
-          playingCount > 0 && "text-ok"
+          playingCount > 0 ? "text-ok" : liveBars && "text-brand-glow"
         )}
       >
         <div className="flex items-center gap-[2px]">
           {[0, 1, 2, 3, 4].map((i) => (
             <span
               key={i}
-              className="eeg-bar block w-[3px] rounded-full bg-current"
-              style={{
-                height: "16px",
-                animationDuration: eegSpeed,
-                animationDelay: `${i * (playingCount > 0 ? 0.1 : 0.2)}s`,
-              }}
+              className={cn("block w-[3px] rounded-full bg-current", liveBars ? "transition-transform duration-[450ms] ease-out" : "eeg-bar")}
+              style={liveBars
+                ? { height: "18px", transform: `scaleY(${barScale(lastFive[i]).toFixed(3)})`, boxShadow: "0 0 8px currentColor", opacity: 0.55 + 0.45 * barScale(lastFive[i]) }
+                : { height: "16px", animationDuration: eegSpeed, animationDelay: `${i * (playingCount > 0 ? 0.1 : 0.2)}s` }}
             />
           ))}
         </div>

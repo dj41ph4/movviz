@@ -1,3 +1,13 @@
+## v1.28.26 — 2 novembre 2026
+
+### Téléchargements
+
+- File d’attente repensée : trois tuiles (débit en direct, file active, espace libre), onglets soulignés, capsule collante avec filtres à compteurs, recherche instantanée, réglages rapides et menu d’actions groupées. « File actuelle » et « En cours » fusionnent en « En cours ».
+- Débit en direct fluide : 2 mesures par seconde tant que ça transfère (une toutes les 4 s au repos), un seul sondage partagé par toute l’application, graphe lissé qui glisse par animation CSS. L’icône du moniteur dans la barre du haut suit désormais le débit réel.
+- Cartes de téléchargement : état lisible, barre de progression, bloc débit / reste / sources. Un téléchargement sans source est signalé avec « Relancer » et « Remplacer ».
+- Le nom du fichier (release) est visible sur chaque carte avec un bouton Copier ; au clic, les détails montrent le dossier, le hash, les fichiers avec leur avancement, les octets transférés, la priorité et les actions avancées (bloquer, supprimer avec les données).
+- Le titre « Téléchargements » n’apparaît plus en double en haut de page.
+
 ## v1.28.25 — 2 novembre 2026
 
 ### Tableau de bord

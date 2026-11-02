@@ -310,7 +310,12 @@ async function getQueue(user: User): Promise<NextResponse> {
           eta,
           ratio: t.ratio ?? 0,
           peers: t.numPeers,
-          state: torrentActivityStatus(t)
+          state: torrentActivityStatus(t),
+          downloaded: t.downloaded,
+          uploaded: t.uploaded,
+          ...(user.role === "admin"
+            ? { savePath: t.savePath, fileCount: t.files?.length ?? 0, files: (t.files ?? []).slice(0, 12) }
+            : {}),
         },
         status: torrentActivityStatus(t),
         replacementFailure: t.replacementFailure,

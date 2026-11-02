@@ -16,6 +16,9 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
+import { QueueDesktopCard } from "./QueueDesktopCard";
+import { LiveRateTile } from "./LiveRateTile";
+import { QuickDownloadSettings } from "@/components/media/DownloadLiveStats";
 import { parseRelease } from "@/lib/naming/parser";
 import { buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TmdbImage } from "@/components/media/TmdbImage";
@@ -24,8 +27,8 @@ import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
 import {
   Film, Tv, Download, Pause, Play, PauseCircle, PlayCircle, RotateCw, Search, Ban, Check,
-  Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge, Wand2,
-  CheckCircle2, Share2, ChevronDown,
+  Users, AlertCircle, Loader, List, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge, Wand2,
+  Share2, Settings2, Ellipsis,
 } from "lucide-react";
 
 /** Builds the libraryRef the manual-search grab needs from a queue item's
@@ -71,7 +74,8 @@ async function api(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-const FILTERS = ["current", "all", "downloading", "seeding", "stalled", "completed"] as const;
+// « En cours » regroupe tout ce qui n'est pas terminé (actifs, en attente, en pause, bloqués).
+const FILTERS = ["current", "seeding", "stalled", "completed", "all"] as const;
 type Filter = (typeof FILTERS)[number];
 
 const RENDER_BATCH_INITIAL = 50;
@@ -82,13 +86,8 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const { locale } = useI18n();
   const router = useRouter();
   const user = useCurrentUser();
-  const reduceMotion = useShouldReduceMotion();
   const { optimized } = useInterfaceDataMode();
   const pageVisible = usePageVisible();
-  const btnSpring = reduceMotion ? {} : {
-    whileTap: { scale: 0.95 },
-    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
-  };
   const [clearingAll, setClearingAll] = useState(false);
   const SWR_KEY = "/api/activity/v2?tab=queue";
   const { data, error, mutate } = useSWR<{ items: QueueItem[]; engineUnavailable?: boolean }>(
@@ -105,6 +104,9 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("current");
+  const [query, setQuery] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [manualSearchItem, setManualSearchItem] = useState<QueueItem | null>(null);
   const [bulkReplacing, setBulkReplacing] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
@@ -133,10 +135,11 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     return 6;
   };
 
+  const needle = query.trim().toLowerCase();
   const filtered = useMemo(() => items
     .filter((item) => {
+      if (needle && !(activityTitle(item.media) + " " + item.release.releaseTitle).toLowerCase().includes(needle)) return false;
       if (filter === "current") return item.status !== "completed" && item.status !== "seeding";
-      if (filter === "downloading") return item.status === "downloading" || item.status === "importing" || item.status === "verifying";
       if (filter === "seeding") return item.status === "seeding";
       if (filter === "stalled") return item.status === "stalled";
       if (filter === "completed") return item.status === "completed";
@@ -147,7 +150,30 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       const pb = statusPriority(b.status);
       if (pa !== pb) return pa - pb;
       return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
-    }), [items, filter]);
+    }), [items, filter, needle]);
+
+  const filterCounts: Record<Filter, number> = {
+    current: items.length - completedItems.length,
+    seeding: items.filter((item) => item.status === "seeding").length,
+    stalled: stalledItems.length,
+    completed: items.filter((item) => item.status === "completed").length,
+    all: items.length,
+  };
+  const { data: systemStats } = useSWR<{ disk: { total: number; free: number } | null }>(active && pageVisible ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
+  const disk = systemStats?.disk;
+  const diskUsedPct = disk && disk.total > 0 ? Math.round(((disk.total - disk.free) / disk.total) * 100) : null;
+
+  // Menus : fermeture au clic extérieur et sur Échap.
+  useEffect(() => {
+    if (!menuOpen && !settingsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as Element).closest("[data-dlq-menu]")) { setMenuOpen(false); setSettingsOpen(false); }
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenuOpen(false); setSettingsOpen(false); } };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [menuOpen, settingsOpen]);
 
   // Visual sections: active downloads first, then WAITING (queued — the
   // user can force-start them), then stalled/paused, completed last.
@@ -438,112 +464,97 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           {t("activity.queueSnapshotWarning")}
         </p>
       )}
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="nx-dl-filter flex gap-1 overflow-x-auto rounded-xl glass p-0.5">
+      {/* Tuiles : débit en direct, file active, espace disque */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="sm:col-span-2 lg:col-span-1"><LiveRateTile /></div>
+        <div className="rounded-3xl border border-white/8 bg-gradient-to-br from-white/[.07] to-white/[.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_20px_40px_-24px_#000] sm:p-5">
+          <p className="text-[10.5px] font-bold uppercase tracking-[.08em] text-ink-dim">{t("downloads.queueTile")}</p>
+          <p className="mt-1.5 flex items-baseline gap-2"><span className="text-2xl font-extrabold tabular-nums text-ink sm:text-3xl">{activeItems.length}</span><span className="text-sm font-semibold text-ink-dim">{t("downloads.inProgress")}</span></p>
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-ink-dim">
+            <span>{t("activity.status.queued")} <b className="text-ink">{queuedItems.length}</b></span>
+            <span>{t("activity.status.paused")} <b className="text-ink">{pausedItems.length}</b></span>
+            <span className={stalledItems.length > 0 ? "text-amber" : undefined}>{t("downloads.states.stalled")} <b className={stalledItems.length > 0 ? "text-amber" : "text-ink"}>{stalledItems.length}</b></span>
+          </p>
+        </div>
+        <div className="rounded-3xl border border-white/8 bg-gradient-to-br from-white/[.07] to-white/[.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_20px_40px_-24px_#000] sm:p-5">
+          <p className="text-[10.5px] font-bold uppercase tracking-[.08em] text-ink-dim">{t("stats.free")}</p>
+          <p className="mt-1.5 text-2xl font-extrabold tabular-nums text-ink sm:text-3xl">{disk ? formatBytes(disk.free) : "—"}</p>
+          {diskUsedPct != null && (
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10" aria-hidden>
+              <div className={cn("h-full rounded-full", diskUsedPct >= 90 ? "bg-down" : diskUsedPct >= 75 ? "bg-amber" : "brand-gradient")} style={{ width: `${diskUsedPct}%` }} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Capsule : filtres (avec compteurs), recherche, réglages, actions groupées */}
+      <div className="nx-dlq-bar sticky top-[calc(var(--nx-topbar-h,3.5rem)+0.5rem)] z-20 flex flex-wrap items-center gap-2 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)] backdrop-blur-xl lg:flex-nowrap">
+        <div className="nx-dl-filter no-scrollbar flex min-w-0 max-w-full gap-0.5 overflow-x-auto rounded-full bg-black/30 p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,.45)]">
           {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => { setFilter(f); setVisibleCount(RENDER_BATCH_INITIAL); }}
               aria-pressed={filter === f}
               className={cn(
-                "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                filter === f ? "brand-gradient text-white shadow" : "text-ink-dim hover:text-ink"
+                "inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold transition-colors lg:min-h-8",
+                filter === f ? "brand-gradient text-white shadow-lg" : "text-ink-soft hover:text-ink"
               )}
             >
-              {t(`downloads.filter.${f}`)}
-              {f === "stalled" && stalledItems.length > 0 && (
-                <span className="ml-1.5 rounded-full bg-down/20 px-1.5 py-0.5 text-[10px] text-down">
-                  {stalledItems.length}
-                </span>
-              )}
+              {f === "current" ? t("downloads.filter.downloading") : t(`downloads.filter.${f}`)}
+              <span className={cn("rounded-full px-1.5 text-[11px] font-bold tabular-nums", f === "stalled" && filterCounts.stalled > 0 && filter !== f ? "bg-down/25 text-down" : "bg-white/15")}>{filterCounts[f]}</span>
             </button>
           ))}
         </div>
-        <div className="nx-dl-bulk flex shrink-0 items-center gap-2">
-          {user?.role === "admin" && (pausableItems.length > 0 || pausedItems.length > 0) && (
-            <motion.button
-              {...btnSpring}
-              onClick={toggleAll}
-              disabled={bulkPausing || bulkReplacing || clearingAll}
-              title={resumeAllMode ? t("downloads.resumeAllHint") : t("downloads.pauseAllHint")}
-              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl glass px-3.5 py-2 text-xs font-semibold text-ink-soft transition-colors hover:bg-white/10 disabled:opacity-50"
-            >
-              {bulkPausing ? (
-                <Loader className="h-3.5 w-3.5 animate-spin" />
-              ) : resumeAllMode ? (
-                <PlayCircle className="h-3.5 w-3.5" />
-              ) : (
-                <PauseCircle className="h-3.5 w-3.5" />
-              )}
-              {resumeAllMode ? t("downloads.resumeAll") : t("downloads.pauseAll")}
-            </motion.button>
-          )}
-          {user?.role === "admin" && stalledItems.length > 0 && (
-            <motion.button
-              {...btnSpring}
-              onClick={replaceAllStalled}
-              disabled={bulkReplacing || clearingAll}
-              title={t("downloads.replaceBlockedHint")}
-              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl glass px-3.5 py-2 text-xs font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
-            >
-              {bulkReplacing ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-              {bulkReplacing && bulkProgress ? `${t("downloads.replaceBlocked")} (${bulkProgress.current}/${bulkProgress.total})` : t("downloads.replaceBlocked")}
-            </motion.button>
-          )}
-          {user?.role === "admin" && items.length > 0 && (
-            <motion.button
-              {...btnSpring}
-              onClick={clearAll}
-              disabled={clearingAll || bulkReplacing}
-              title={t("downloads.clearAllHint")}
-              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl glass px-3.5 py-2 text-xs font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
-            >
-              {clearingAll ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              {t("downloads.clearAll")}
-            </motion.button>
+        <label className="flex h-11 min-w-0 flex-1 basis-44 items-center gap-2 rounded-full bg-black/30 px-3.5 shadow-[inset_0_1px_3px_rgba(0,0,0,.45)] lg:h-10">
+          <Search aria-hidden className="h-4 w-4 shrink-0 text-ink-dim" />
+          <input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setVisibleCount(RENDER_BATCH_INITIAL); }}
+            placeholder={t("downloads.searchQueue")}
+            aria-label={t("downloads.searchQueue")}
+            className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-dim"
+          />
+        </label>
+        <div data-dlq-menu className="relative shrink-0">
+          <button type="button" onClick={() => { setSettingsOpen((o) => !o); setMenuOpen(false); }} aria-expanded={settingsOpen} title={t("downloads.settings")} aria-label={t("downloads.settings")} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[.06] text-ink-soft transition-colors hover:bg-white/12 hover:text-ink lg:h-10 lg:w-10">
+            <Settings2 className="h-4 w-4" />
+          </button>
+          {settingsOpen && (
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/12 bg-[#12121c]/95 p-4 shadow-2xl backdrop-blur-xl">
+              <QuickDownloadSettings bare />
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <div className="rounded-xl glass p-4 text-center">
-          <Download className="mx-auto mb-2 h-5 w-5 text-cyan" />
-          <p className="text-sm text-ink-dim">{t("activity.status.downloading")}</p>
-          <p className="text-2xl font-bold text-cyan">{activeItems.length}</p>
-        </div>
-        <div className="rounded-xl glass p-4 text-center">
-          <Clock className="mx-auto mb-2 h-5 w-5 text-brand-glow" />
-          <p className="text-sm text-ink-dim">{t("activity.status.queued")}</p>
-          <p className="text-2xl font-bold text-brand-glow">{queuedItems.length}</p>
-        </div>
-        <div className="rounded-xl glass p-4 text-center">
-          <Pause className="mx-auto mb-2 h-5 w-5 text-amber" />
-          <p className="text-sm text-ink-dim">{t("activity.status.paused")}</p>
-          <p className="text-2xl font-bold text-amber">{pausedItems.length}</p>
-        </div>
-        <div className="rounded-xl glass p-4 text-center">
-          <AlertCircle className="mx-auto mb-2 h-5 w-5 text-down" />
-          <p className="text-sm text-ink-dim">{t("downloads.states.stalled")}</p>
-          <p className="text-2xl font-bold text-down">{stalledItems.length}</p>
-        </div>
-        <div className="rounded-xl glass p-4 text-center">
-          <CheckCircle2 className="mx-auto mb-2 h-5 w-5 text-ok" />
-          <p className="text-sm text-ink-dim">{t("activity.status.completed")}</p>
-          <p className="text-2xl font-bold text-ok">{completedItems.length}</p>
-        </div>
-        <div className="col-span-2 rounded-xl glass p-4 text-center sm:col-span-3 lg:col-span-1">
-          <List className="mx-auto mb-2 h-5 w-5 text-ink-dim" />
-          <p className="text-sm text-ink-dim">{t("common.all")}</p>
-          <p className="text-2xl font-bold text-ink">{items.length}</p>
-        </div>
+        {user?.role === "admin" && items.length > 0 && (
+          <div data-dlq-menu className="relative shrink-0">
+            <button type="button" onClick={() => { setMenuOpen((o) => !o); setSettingsOpen(false); }} aria-haspopup="menu" aria-expanded={menuOpen} title={t("downloads.moreActions")} aria-label={t("downloads.moreActions")} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[.06] text-ink-soft transition-colors hover:bg-white/12 hover:text-ink lg:h-10 lg:w-10">
+              {bulkPausing || bulkReplacing || clearingAll ? <Loader className="h-4 w-4 animate-spin" /> : <Ellipsis className="h-4 w-4" />}
+            </button>
+            {menuOpen && (
+              <div role="menu" className="absolute right-0 top-[calc(100%+8px)] z-40 w-64 rounded-2xl border border-white/12 bg-[#12121c]/95 p-1.5 shadow-2xl backdrop-blur-xl">
+                {(pausableItems.length > 0 || pausedItems.length > 0) && (
+                  <button type="button" role="menuitem" disabled={bulkPausing || bulkReplacing || clearingAll} onClick={() => { setMenuOpen(false); void toggleAll(); }} title={resumeAllMode ? t("downloads.resumeAllHint") : t("downloads.pauseAllHint")} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-white/8 disabled:opacity-50">
+                    {resumeAllMode ? <PlayCircle className="h-4 w-4 text-ink-dim" /> : <PauseCircle className="h-4 w-4 text-ink-dim" />}
+                    {resumeAllMode ? t("downloads.resumeAll") : t("downloads.pauseAll")}
+                  </button>
+                )}
+                {stalledItems.length > 0 && (
+                  <button type="button" role="menuitem" disabled={bulkReplacing || clearingAll} onClick={() => { setMenuOpen(false); void replaceAllStalled(); }} title={t("downloads.replaceBlockedHint")} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-white/8 disabled:opacity-50">
+                    <Wand2 className="h-4 w-4 text-ink-dim" />
+                    {bulkReplacing && bulkProgress ? `${t("downloads.replaceBlocked")} (${bulkProgress.current}/${bulkProgress.total})` : t("downloads.replaceBlocked")}
+                  </button>
+                )}
+                <button type="button" role="menuitem" disabled={clearingAll || bulkReplacing} onClick={() => { setMenuOpen(false); void clearAll(); }} title={t("downloads.clearAllHint")} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50">
+                  <Trash2 className="h-4 w-4" />
+                  {t("downloads.clearAll")}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">
-          <div className="nx-download-table-head nx-dl-head hidden lg:grid" aria-hidden="true">
-            <span /><span>{t("downloads.colContent")}</span><span>{t("downloads.colProgress")}</span><span>{t("downloads.colRate")}</span><span>{t("downloads.colEta")}</span><span>{t("downloads.colSources")}</span><span />
-          </div>
         {(() => {
           let lastSection: string | null = null;
           const rows: React.ReactNode[] = [];
@@ -694,76 +705,22 @@ const QueueItemRow = memo(function QueueItemRow({
     { resolution: parsed.resolution, videoCodec: parsed.videoCodec, audioCodec: parsed.audioCodec, hdr: parsed.hdr, source: parsed.source, language: parsed.language },
     "surface",
   );
-  // Desktop row: plain, sober text rather than the colored pill badges
-  // (those stayed for the mobile card above, where there's more room and
-  // less competing detail on screen at once) — confirmed live: the pills
-  // read as loud/cheap at this density, next to five other columns.
-  const detailText = [parsed.resolution, parsed.source, parsed.videoCodec, parsed.audioCodec, parsed.hdr]
-    .filter(Boolean)
-    .join(" · ") || item.release.quality;
-
   return (
     <>
-    {/* Desktop (Salle obscure) : une ligne alignée sur la maquette —
-       contenu, progression, débit, reste, sources, actions discrètes. */}
-    <div className="nx-download-desktop-row nx-dl-row hidden lg:grid" data-status={item.status} onClick={() => onToggleExpand(item.id)}>
-      {item.media.linked === false ? (
-        <span className="nx-download-poster flex shrink-0 items-center justify-center overflow-hidden" title={t("activity.queueUnlinkedHint")}>
-          {item.media.posterPath ? <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" /> : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
-        </span>
-      ) : (
-        <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="nx-download-poster flex shrink-0 items-center justify-center overflow-hidden">
-          {item.media.posterPath ? <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" /> : item.media.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
-        </Link>
-      )}
-      <div className="nx-dl-title min-w-0">
-        {item.media.linked === false ? (
-          <p className="truncate" title={t("activity.queueUnlinkedHint")}>{item.media.title}</p>
-        ) : (
-          <Link href={item.media?.href ?? "#"} onClick={(e) => e.stopPropagation()} className="block truncate">{activityTitle(item.media)}</Link>
-        )}
-        <p className="nx-dl-meta truncate">
-          {item.media.isCompleteSeriesPack ? <>{t("search.fullPack")} · </> : activitySeason(item.media) != null && <>{activityEpisode(item.media) != null ? `S${pad(activitySeason(item.media)!)}E${pad(activityEpisode(item.media)!)}` : `S${pad(activitySeason(item.media)!)}`} · </>}
-          {detailText} · {formatBytes(item.release.size)}
-          {item.release.indexer && item.release.indexer !== "Inconnu" && ` · ${item.release.indexer}`}
-        </p>
-      </div>
-      <div className="nx-dl-progress min-w-0">
-        <div className="nx-dl-bar"><div style={{ width: `${Math.round(displayProgress * 100)}%` }} /></div>
-        <span className="nx-dl-state">
-          {isActive && item.status === "downloading" ? `${Math.round(displayProgress * 100)} %` : item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}
-        </span>
-      </div>
-      <span className="nx-dl-num">{item.download.downloadSpeed > 0 ? formatSpeed(item.download.downloadSpeed) : "—"}</span>
-      <span className="nx-dl-num">{item.status === "downloading" && item.download.eta > 0 ? formatEta(Math.round(item.download.eta / 60)) : "—"}</span>
-      <span className="nx-dl-num">{item.download.peers > 0 ? item.download.peers : "—"}</span>
-      <div className="nx-dl-actions flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
-        {(item.status === "downloading" || item.status === "paused" || item.status === "queued") && (
-          <button type="button" onClick={() => onAction(item.id, item.status === "downloading" ? "pause" : "resume")} disabled={actionLoading !== null} title={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")} aria-label={item.status === "downloading" ? t("downloads.pause") : t("downloads.resume")}>
-            {actionLoading === `pause_${item.id}` || actionLoading === `resume_${item.id}` ? <Loader className="h-3.5 w-3.5 animate-spin" /> : item.status === "downloading" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-          </button>
-        )}
-        {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
-          <button type="button" onClick={() => onAction(item.id, "search")} disabled={actionLoading !== null} data-danger={item.status === "stalled" || undefined} title={item.status === "stalled" ? t("downloads.replace") : t("downloads.manual")} aria-label={item.status === "stalled" ? t("downloads.replace") : t("downloads.manual")}>
-            <Search className="h-3.5 w-3.5" />
-          </button>
-        )}
-        <button type="button" onClick={() => onRemove(item.id, false)} disabled={actionLoading !== null} data-remove title={t("downloads.remove")} aria-label={t("downloads.remove")}>
-          {actionLoading === `remove_${item.id}` ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-        </button>
-        <button type="button" onClick={() => onToggleExpand(item.id)} aria-expanded={isExpanded} title={t("common.details")} aria-label={t("common.details")}>
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
-        </button>
-      </div>
-    </div>
-    {isExpanded && (
-      <div className="nx-download-desktop-details hidden lg:flex">
-        <span>{item.release.releaseTitle}</span>
-        <span>{formatDateTime(item.addedAt, locale)}</span>
-        {item.download.eta > 0 && <span>{t("downloads.eta")}: {formatEta(Math.round(item.download.eta / 60))}</span>}
-        <span>↑{formatSpeed(item.download.uploadSpeed)} · Ratio {item.download.ratio.toFixed(2)}</span>
-      </div>
-    )}
+    <QueueDesktopCard
+      item={item}
+      isExpanded={isExpanded}
+      actionLoading={actionLoading}
+      t={t}
+      locale={locale}
+      progress={displayProgress}
+      canManage={canManage}
+      onToggleExpand={onToggleExpand}
+      onAction={onAction}
+      onSetPriority={onSetPriority}
+      onToggleSeed={onToggleSeed}
+      onRemove={onRemove}
+    />
     <div className="nx-download-row rounded-2xl glass overflow-hidden lg:hidden">
       <div
         className="p-4 cursor-pointer hover:bg-white/5"
@@ -815,6 +772,7 @@ const QueueItemRow = memo(function QueueItemRow({
               )}
               <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-ink-dim">{formatDateTime(item.addedAt, locale)}</span>
             </div>
+            <p className="mt-0.5 truncate font-mono text-[11px] text-ink-dim" title={item.release.releaseTitle}>{item.release.releaseTitle}</p>
             {item.media.linked === false && (
               <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-amber/25 bg-amber/12 px-2 py-0.5 text-[10px] font-bold text-amber">
                 <AlertCircle className="h-2.5 w-2.5" /> {t("activity.queueUnlinkedBadge")}

@@ -1,3 +1,13 @@
+## v1.28.26 — 2 novembre 2026
+
+### Download
+
+- Coda ridisegnata: tre riquadri (velocità in tempo reale, coda attiva, spazio libero), schede sottolineate, capsula fissa con filtri e contatori, ricerca istantanea, impostazioni rapide e menu delle azioni di gruppo. «Coda attuale» e «In corso» si fondono in «In corso».
+- Velocità in tempo reale fluida: 2 misurazioni al secondo mentre i dati fluiscono (una ogni 4 s a riposo), un solo polling condiviso da tutta l’app, grafico levigato che scorre con un’animazione CSS. L’icona del monitor nella barra superiore segue ora la velocità reale.
+- Schede di download: stato leggibile, barra di avanzamento, blocco velocità / rimanente / fonti. Un download senza fonti è segnalato con «Riavvia» e «Sostituisci».
+- Il nome del file della release è visibile su ogni scheda con un pulsante Copia; al clic i dettagli mostrano cartella, hash, file con avanzamento, byte trasferiti, priorità e azioni avanzate (blocca, elimina con i dati).
+- Il titolo «Download» non compare più due volte in cima alla pagina.
+
 ## v1.28.25 — 2 novembre 2026
 
 ### Dashboard

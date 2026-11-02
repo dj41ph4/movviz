@@ -1,3 +1,13 @@
+## v1.28.26 — 2 November 2026
+
+### Downloads
+
+- Queue redesigned: three tiles (live rate, active queue, free space), underlined tabs, sticky capsule with filters and counters, instant search, quick settings and a bulk-actions menu. “Current queue” and “In progress” merge into “In progress”.
+- Smooth live rate: 2 samples per second while data flows (one every 4 s when idle), a single polling shared by the whole app, a smoothed graph that slides via a CSS animation. The monitor icon in the top bar now follows the real rate.
+- Download cards: readable state, progress bar, rate / remaining / sources block. A download with no sources is flagged with “Restart” and “Replace”.
+- The release file name is visible on every card with a Copy button; on click, details show the folder, hash, files with their progress, transferred bytes, priority and advanced actions (block, delete with data).
+- The “Downloads” title no longer appears twice at the top of the page.
+
 ## v1.28.25 — 2 November 2026
 
 ### Dashboard

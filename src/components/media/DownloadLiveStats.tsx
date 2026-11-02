@@ -26,8 +26,9 @@ function linePoints(history: SpeedSample[], key: "downloadSpeed" | "uploadSpeed"
   }).join(" ");
 }
 
-/** Real engine samples, shared by every browser through /api/engine/stats. */
-export function DownloadLiveStats({ active = true }: { active?: boolean }) {
+/** Réglages rapides du client (démarrage auto, séquentiel, redémarrage) :
+ *  seuls (popover de la file) ou dans la colonne `DownloadLiveStats`. */
+export function QuickDownloadSettings({ active = true, bare = false }: { active?: boolean; bare?: boolean }) {
   const t = useT();
   const user = useCurrentUser();
   const pageVisible = usePageVisible();
@@ -37,6 +38,7 @@ export function DownloadLiveStats({ active = true }: { active?: boolean }) {
     polling && user?.role === "admin" ? "/api/engine/client-restart" : null,
     { refreshInterval: (status) => status?.restarting ? 1000 : 15_000, dedupingInterval: 500, revalidateOnFocus: true },
   );
+  const { data: instanceData, mutate: mutateInstances } = useSWR<{ instances: EngineInstance[] }>(polling ? "/api/engine/instances" : null, { refreshInterval: 15_000, revalidateOnFocus: false });
   const restarting = requestingRestart || !!restartStatus?.restarting;
   const restartClient = async () => {
     if (restarting) return;
@@ -53,13 +55,6 @@ export function DownloadLiveStats({ active = true }: { active?: boolean }) {
       await mutateInstances();
     }
   };
-  const { data } = useSWR<EngineStats>(polling ? "/api/engine/stats" : null, { refreshInterval: 5000, revalidateOnFocus: false });
-  const { data: systemStats } = useSWR<SystemStats>(polling ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
-  const { data: instanceData, mutate: mutateInstances } = useSWR<{ instances: EngineInstance[] }>(polling ? "/api/engine/instances" : null, { refreshInterval: 15_000, revalidateOnFocus: false });
-  const history = data?.history?.slice(-60) ?? [];
-  const down = linePoints(history, "downloadSpeed");
-  const up = linePoints(history, "uploadSpeed");
-  const downEnd = down ? down.split(" ").at(-1)?.split(",").map(Number) : undefined;
   const primary = instanceData?.instances?.[0];
   const updatePrimary = async (patch: Partial<Pick<EngineInstance, "autoStart" | "sequential">>) => {
     if (!primary || !instanceData) return;
@@ -82,6 +77,50 @@ export function DownloadLiveStats({ active = true }: { active?: boolean }) {
       await mutateInstances();
     }
   };
+
+  return (
+    <section className={bare ? "" : "rounded-xl glass p-4"}>
+      <div className="mb-3 text-sm font-bold text-ink">{t("settings.quickDownloadSettings")}</div>
+      {primary ? (
+        <div className="space-y-3 text-xs">
+          <div className="flex min-h-8 items-center justify-between gap-3">
+            <span className="text-ink-soft">{t("settings.autoStart")}</span>
+            <Toggle on={primary.autoStart} onChange={() => updatePrimary({ autoStart: !primary.autoStart })} />
+          </div>
+          <div className="flex min-h-8 items-center justify-between gap-3">
+            <span className="text-ink-soft">{t("downloads.seq")}</span>
+            <Toggle on={primary.sequential} onChange={() => updatePrimary({ sequential: !primary.sequential })} />
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-white/8 pt-3 text-ink-dim"><span>{t("settings.speedLimit")}</span><span className="font-semibold text-ink">{primary.downloadLimitKbps > 0 ? `${primary.downloadLimitKbps} KB/s` : "∞"}</span></div>
+        </div>
+      ) : <p className="text-xs text-ink-dim">—</p>}
+      {user?.role === "admin" && (
+        <div className="mt-3" aria-live="polite">
+          <button type="button" onClick={restartClient} disabled={restarting} className="nx-dl-restart flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/10 px-3 text-xs font-bold text-brand-glow hover:bg-brand/20 disabled:cursor-wait disabled:opacity-70">
+            <RotateCw className={`h-4 w-4 shrink-0 ${restarting ? "animate-spin" : ""}`} />
+            {t(restarting ? "settings.restartingTorrentClient" : "settings.restartTorrentClient")}
+          </button>
+          {!restarting && restartStatus?.error && <p role="alert" className="mt-2 text-xs text-red-400">{t("common.actionFailed")}</p>}
+        </div>
+      )}
+      <Link href="/settings?tab=clients" className="mt-3 inline-flex min-h-11 items-center text-xs font-bold text-brand-glow hover:text-white">
+        {t("settings.manageDownloadClients")} <span aria-hidden="true" className="ml-1">→</span>
+      </Link>
+    </section>
+  );
+}
+
+/** Real engine samples, shared by every browser through /api/engine/stats. */
+export function DownloadLiveStats({ active = true }: { active?: boolean }) {
+  const t = useT();
+  const pageVisible = usePageVisible();
+  const polling = active && pageVisible;
+  const { data } = useSWR<EngineStats>(polling ? "/api/engine/stats" : null, { refreshInterval: 5000, revalidateOnFocus: false });
+  const { data: systemStats } = useSWR<SystemStats>(polling ? "/api/stats" : null, { refreshInterval: 30_000, revalidateOnFocus: false });
+  const history = data?.history?.slice(-60) ?? [];
+  const down = linePoints(history, "downloadSpeed");
+  const up = linePoints(history, "uploadSpeed");
+  const downEnd = down ? down.split(" ").at(-1)?.split(",").map(Number) : undefined;
 
   return (
     <aside className="space-y-4">
@@ -122,34 +161,7 @@ export function DownloadLiveStats({ active = true }: { active?: boolean }) {
           <div><dt className="text-ink-dim">{t("stats.free")}</dt><dd className="mt-0.5 text-sm font-black text-ok">{systemStats?.disk ? formatBytes(systemStats.disk.free) : "—"}</dd></div>
         </dl>
       </section>
-      <section className="rounded-xl glass p-4">
-        <div className="mb-3 text-sm font-bold text-ink">{t("settings.quickDownloadSettings")}</div>
-        {primary ? (
-          <div className="space-y-3 text-xs">
-            <div className="flex min-h-8 items-center justify-between gap-3">
-              <span className="text-ink-soft">{t("settings.autoStart")}</span>
-              <Toggle on={primary.autoStart} onChange={() => updatePrimary({ autoStart: !primary.autoStart })} />
-            </div>
-            <div className="flex min-h-8 items-center justify-between gap-3">
-              <span className="text-ink-soft">{t("downloads.seq")}</span>
-              <Toggle on={primary.sequential} onChange={() => updatePrimary({ sequential: !primary.sequential })} />
-            </div>
-            <div className="flex items-center justify-between gap-2 border-t border-white/8 pt-3 text-ink-dim"><span>{t("settings.speedLimit")}</span><span className="font-semibold text-ink">{primary.downloadLimitKbps > 0 ? `${primary.downloadLimitKbps} KB/s` : "∞"}</span></div>
-          </div>
-        ) : <p className="text-xs text-ink-dim">—</p>}
-        {user?.role === "admin" && (
-          <div className="mt-3" aria-live="polite">
-            <button type="button" onClick={restartClient} disabled={restarting} className="nx-dl-restart flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/10 px-3 text-xs font-bold text-brand-glow hover:bg-brand/20 disabled:cursor-wait disabled:opacity-70">
-              <RotateCw className={`h-4 w-4 shrink-0 ${restarting ? "animate-spin" : ""}`} />
-              {t(restarting ? "settings.restartingTorrentClient" : "settings.restartTorrentClient")}
-            </button>
-            {!restarting && restartStatus?.error && <p role="alert" className="mt-2 text-xs text-red-400">{t("common.actionFailed")}</p>}
-          </div>
-        )}
-        <Link href="/settings?tab=clients" className="mt-3 inline-flex min-h-11 items-center text-xs font-bold text-brand-glow hover:text-white">
-          {t("settings.manageDownloadClients")} <span aria-hidden="true" className="ml-1">→</span>
-        </Link>
-      </section>
+      <QuickDownloadSettings active={active} />
     </aside>
   );
 }

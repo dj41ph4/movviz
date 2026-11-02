@@ -1,3 +1,13 @@
+## v1.28.26 — 2 november 2026
+
+### Downloads
+
+- Wachtrij opnieuw ontworpen: drie tegels (live snelheid, actieve wachtrij, vrije ruimte), onderstreepte tabs, vaste capsule met filters en tellers, direct zoeken, snelle instellingen en een menu voor groepsacties. „Huidige wachtrij” en „Bezig” worden samengevoegd tot „Bezig”.
+- Vloeiende live snelheid: 2 metingen per seconde zolang er data stroomt (één per 4 s in rust), één gedeelde polling voor de hele app, afgevlakte grafiek die via een CSS-animatie schuift. Het monitorpictogram in de bovenbalk volgt nu de echte snelheid.
+- Downloadkaarten: leesbare status, voortgangsbalk, blok snelheid / resterend / bronnen. Een download zonder bronnen wordt gemarkeerd met „Herstarten” en „Vervangen”.
+- De bestandsnaam van de release is zichtbaar op elke kaart met een Kopieer-knop; bij een klik tonen de details map, hash, bestanden met voortgang, overgedragen bytes, prioriteit en geavanceerde acties (blokkeren, met data verwijderen).
+- De titel „Downloads” staat bovenaan de pagina niet meer dubbel.
+
 ## v1.28.25 — 2 november 2026
 
 ### Dashboard

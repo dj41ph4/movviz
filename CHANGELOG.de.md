@@ -1,3 +1,13 @@
+## v1.28.26 — 2. November 2026
+
+### Downloads
+
+- Warteschlange neu gestaltet: drei Kacheln (Live-Rate, aktive Warteschlange, freier Speicher), unterstrichene Tabs, fixierte Kapsel mit Filtern und Zählern, Sofortsuche, Schnelleinstellungen und ein Menü für Sammelaktionen. „Aktuelle Warteschlange“ und „Aktiv“ werden zu „Aktiv“.
+- Flüssige Live-Rate: 2 Messungen pro Sekunde, solange Daten fließen (eine alle 4 s im Leerlauf), eine einzige gemeinsame Abfrage für die ganze App, geglätteter Graph mit CSS-Gleitanimation. Das Monitor-Symbol in der oberen Leiste folgt nun der echten Rate.
+- Download-Karten: lesbarer Status, Fortschrittsbalken, Block Rate / Verbleibend / Quellen. Ein Download ohne Quellen wird mit „Neustart“ und „Ersetzen“ markiert.
+- Der Dateiname des Releases ist auf jeder Karte sichtbar, mit Kopieren-Button; per Klick zeigen die Details Ordner, Hash, Dateien mit Fortschritt, übertragene Bytes, Priorität und erweiterte Aktionen (sperren, mit Daten löschen).
+- Der Titel „Downloads“ erscheint oben auf der Seite nicht mehr doppelt.
+
 ## v1.28.25 — 2. November 2026
 
 ### Dashboard
