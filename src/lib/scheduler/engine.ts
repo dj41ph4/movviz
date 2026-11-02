@@ -142,6 +142,8 @@ export const HEAVY_TASKS = new Set<string>([
   "plex-watch-bootstrap",
   "library-health-check",
   "server-benchmark",
+  // Boucle sur toute la bibliothèque : jamais en même temps que les autres tâches lourdes.
+  "media-probe-library",
 ]);
 
 /**

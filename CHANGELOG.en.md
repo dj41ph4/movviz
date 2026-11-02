@@ -1,3 +1,10 @@
+## v1.28.29 — 2 November 2026
+
+### Performance
+
+- The technical analysis of library files no longer freezes the server: its loop yields to other requests on every file and it now runs in the heavy-task queue. After a restart it caused 2 to 15 s freezes that made pages nearly unusable for several minutes.
+- The animated glow behind the dashboard hero is fully visible again: the veil added in 1.28.28 hid it. The thin vertical line on the left is now removed differently, by slightly enlarging the glow layer and making its fade transparent at the edges.
+
 ## v1.28.28 — 2 November 2026
 
 ### Downloads

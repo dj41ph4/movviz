@@ -1,3 +1,10 @@
+## v1.28.29 — 2 november 2026
+
+### Prestaties
+
+- De technische analyse van de bibliotheekbestanden bevriest de server niet meer: de lus geeft bij elk bestand andere verzoeken voorrang en draait nu in de wachtrij voor zware taken. Na een herstart veroorzaakte ze vastlopers van 2 tot 15 s waardoor pagina's enkele minuten nauwelijks bruikbaar waren.
+- De geanimeerde gloed achter de dashboardhero is weer volledig zichtbaar: de in 1.28.28 toegevoegde sluier verborg hem. De dunne verticale lijn links wordt nu anders weggewerkt, door de gloedlaag iets te vergroten en de fade aan de randen transparant te maken.
+
 ## v1.28.28 — 2 november 2026
 
 ### Downloads

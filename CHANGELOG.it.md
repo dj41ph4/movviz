@@ -1,3 +1,10 @@
+## v1.28.29 — 2 novembre 2026
+
+### Prestazioni
+
+- L'analisi tecnica dei file della libreria non blocca più il server: il suo ciclo cede il passo alle altre richieste a ogni file e ora passa nella coda delle attività pesanti. Dopo un riavvio causava blocchi da 2 a 15 s che rendevano le pagine quasi inutilizzabili per diversi minuti.
+- L'alone animato dietro l'hero della dashboard torna pienamente visibile: il velo aggiunto in 1.28.28 lo nascondeva. La sottile linea verticale a sinistra viene eliminata in un altro modo, ingrandendo leggermente il livello dell'alone e rendendo trasparente la sua dissolvenza ai bordi.
+
 ## v1.28.28 — 2 novembre 2026
 
 ### Download

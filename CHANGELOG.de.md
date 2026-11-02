@@ -1,3 +1,10 @@
+## v1.28.29 — 2. November 2026
+
+### Leistung
+
+- Die technische Analyse der Bibliotheksdateien friert den Server nicht mehr ein: Ihre Schleife gibt bei jeder Datei anderen Anfragen den Vortritt und läuft jetzt in der Warteschlange für schwere Aufgaben. Nach einem Neustart verursachte sie Aussetzer von 2 bis 15 s, die Seiten mehrere Minuten lang kaum nutzbar machten.
+- Das animierte Leuchten hinter dem Dashboard-Hero ist wieder voll sichtbar: Der in 1.28.28 hinzugefügte Schleier verdeckte es. Die dünne senkrechte Linie links wird nun anders beseitigt, indem die Leuchtebene etwas vergrößert und ihre Ausblendung an den Rändern transparent gemacht wird.
+
 ## v1.28.28 — 2. November 2026
 
 ### Downloads

@@ -11,10 +11,11 @@ const SEEK_COOLDOWN_MS = 800;
 /** Les quatre bords s'estompent par masque, indépendamment du flou : si le
  *  navigateur abandonne le filtre sur ce très grand calque (plein écran), le
  *  halo garde des bords doux au lieu de montrer son rectangle net. */
-const EDGE_FADE = "linear-gradient(to right, transparent 0, transparent 4%, #000 16%, #000 84%, transparent 96%, transparent 100%)";
-const EDGE_FADE_Y = "linear-gradient(to bottom, transparent 0, transparent 4%, #000 16%, #000 84%, transparent 96%, transparent 100%)";
-// The fade is fully transparent over the first/last 4%: starting it exactly at
-// the layer edge left a thin visible line where the blur is cut.
+const EDGE_FADE = "linear-gradient(to right, transparent 0, transparent 4%, #000 14%, #000 86%, transparent 96%, transparent 100%)";
+const EDGE_FADE_Y = "linear-gradient(to bottom, transparent 0, transparent 4%, #000 14%, #000 86%, transparent 96%, transparent 100%)";
+// The fade is fully transparent over the first/last 4%, and the layer is drawn
+// larger than the visible glow (scale 1.24): the cut of the blurred layer
+// itself never falls on a visible pixel, so no thin vertical line appears.
 const AMBILIGHT_STYLE = {
   containerType: "size",
   maskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
@@ -24,12 +25,6 @@ const AMBILIGHT_STYLE = {
   maskComposite: "intersect",
   WebkitMaskComposite: "source-in",
 } as CSSProperties;
-
-/** Voile de la couleur du fond posé sur les bords du halo, à la même géométrie
- *  que lui (agrandi de 16 %) : quel que soit le navigateur ou le GPU, la coupe
- *  nette du calque flouté ne peut plus apparaître comme une ligne verticale. */
-const PAGE_BG = "var(--color-bg, #0b0c10)";
-const EDGE_COVER = `linear-gradient(to right, ${PAGE_BG} 0, ${PAGE_BG} 3%, transparent 12%, transparent 88%, ${PAGE_BG} 97%, ${PAGE_BG} 100%), linear-gradient(to bottom, ${PAGE_BG} 0, ${PAGE_BG} 3%, transparent 12%, transparent 88%, ${PAGE_BG} 97%, ${PAGE_BG} 100%)`;
 
 /** The mirror plays in a small player (cheap to decode) and is scaled up to
  *  the hero's cover framing: once blurred, nobody can tell the resolution. */
@@ -133,7 +128,6 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
   // Same box and same "cover" framing as the hero video, so each edge of the
   // glow continues the colours sitting right at that edge of the card.
   return (
-    <>
     <div ref={boxRef} aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={AMBILIGHT_STYLE}>
       {backdropUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -152,7 +146,5 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
         />
       )}
     </div>
-    <div aria-hidden className="mv-hero-ambilight-edge pointer-events-none absolute inset-0 z-[-9]" style={{ backgroundImage: EDGE_COVER }} />
-    </>
   );
 }

@@ -1,3 +1,10 @@
+## v1.28.29 — 2 novembre 2026
+
+### Performance
+
+- L'analyse technique des fichiers de la bibliothèque ne gèle plus le serveur : sa boucle rend la main aux autres requêtes à chaque fichier et elle passe dans la file des tâches lourdes. Après un redémarrage, elle provoquait des gels de 2 à 15 s qui rendaient les pages quasi inutilisables pendant plusieurs minutes.
+- Le halo animé du héros du tableau de bord retrouve toute sa visibilité : le voile ajouté en 1.28.28 le masquait. La fine ligne verticale à gauche est supprimée autrement, en agrandissant légèrement le calque du halo et en rendant son fondu transparent sur les bords.
+
 ## v1.28.28 — 2 novembre 2026
 
 ### Téléchargements

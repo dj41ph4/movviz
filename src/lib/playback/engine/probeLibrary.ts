@@ -15,6 +15,7 @@ import { fileFieldsFromDescriptor } from "./mediaDescriptorEnrich";
 import { deriveLanguageFromTracks } from "@/lib/library/detectLanguage";
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import type { MediaDescriptor } from "./mediaDescriptor";
+import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
 
 /**
  * Episodes have no versions[]/multi-version concept (see LibraryEpisode in
@@ -152,6 +153,9 @@ export async function probeAllLibrarySeries(
   for (let i = 0; i < episodeRefs.length; i++) {
     if (opts?.shouldCancel?.()) break;
     onProgress?.(i, total);
+    // Un descripteur déjà en cache se résout sans jamais rendre la main : sur des
+    // milliers d'épisodes la boucle gelait le serveur plus de 10 s d'affilée.
+    await yieldToEventLoop();
 
     const ref = episodeRefs[i];
     const filePath = ref.file.diskPath ?? ref.file.path;
@@ -205,6 +209,7 @@ export async function probeAllLibraryMovies(
   for (let i = 0; i < movies.length; i++) {
     if (opts?.shouldCancel?.()) break;
     onProgress?.(i, total);
+    await yieldToEventLoop();
 
     const movie = movies[i];
     const filePath = movie.file?.diskPath ?? movie.file?.path;
