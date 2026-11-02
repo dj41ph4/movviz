@@ -129,7 +129,7 @@ const TMDb_FETCH_RETRY_DELAYS_MS = [300, 800];
 // rejection the existing retry loop already knows how to handle.
 const TMDb_FETCH_TIMEOUT_MS = 8000;
 
-async function fetchAndCache<T>(url: string): Promise<T | null> {
+async function fetchAndCache<T>(url: string, slim?: (data: T) => T): Promise<T | null> {
   const cache = tmdbCache();
   const logUrl = url.replace(/\?api_key=[^&]+/, "?api_key=***");
   for (let attempt = 1; attempt <= TMDb_FETCH_MAX_ATTEMPTS; attempt++) {
@@ -147,7 +147,8 @@ async function fetchAndCache<T>(url: string): Promise<T | null> {
         console.log(`[tmdb] fetchAndCache — ${logUrl} status=${res.status}`);
         return null;
       }
-      const data = (await res.json()) as T;
+      const raw = (await res.json()) as T;
+      const data = slim ? slim(raw) : raw;
       cache.set(url, data);
       return data;
     } catch (e) {
@@ -165,7 +166,14 @@ async function fetchAndCache<T>(url: string): Promise<T | null> {
   return null;
 }
 
-async function tmdbGet<T>(path: string, params: Record<string, string> = {}, language?: string): Promise<T | null> {
+/**
+ * `slim`, when given, reduces the response to the fields its callers read
+ * BEFORE it is cached and returned. Only for endpoints bulk-fetched per
+ * candidate (recommendation provider/origin filters: tens of thousands of
+ * titles), where the full payload — every country's rent/buy lists, whole
+ * detail records — filled the heap while only a few fields were ever read.
+ */
+async function tmdbGet<T>(path: string, params: Record<string, string> = {}, language?: string, slim?: (data: T) => T): Promise<T | null> {
   const key = apiKey();
   if (!key) {
     console.log("[tmdb] tmdbGet — no API key configured, path=" + path);
@@ -190,7 +198,7 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, lan
     // scenes — the response the user is waiting on never blocks on TMDb.
     if (!cached.fresh && !refreshing.has(cacheKey)) {
       refreshing.add(cacheKey);
-      void runBackground(() => fetchAndCache<T>(cacheKey)).finally(() => refreshing.delete(cacheKey));
+      void runBackground(() => fetchAndCache<T>(cacheKey, slim)).finally(() => refreshing.delete(cacheKey));
     }
     return cached.value;
   }
@@ -200,7 +208,7 @@ async function tmdbGet<T>(path: string, params: Record<string, string> = {}, lan
   // sockets (the stale-cache path above already has its own refresh guard).
   const pending = tmdbInFlight.get(cacheKey) as Promise<T | null> | undefined;
   if (pending) return pending;
-  const request = fetchAndCache<T>(cacheKey).finally(() => tmdbInFlight.delete(cacheKey));
+  const request = fetchAndCache<T>(cacheKey, slim).finally(() => tmdbInFlight.delete(cacheKey));
   tmdbInFlight.set(cacheKey, request);
   return request;
 }
@@ -620,9 +628,32 @@ export async function getMovie(tmdbId: number): Promise<MetaMovie | null> {
  */
 /** ISO countries for preserving Discover's continent preference in a
  * history-related pool. Language is never used as a proxy for country. */
+interface OriginDetail {
+  title?: string;
+  name?: string;
+  original_title?: string;
+  original_name?: string;
+  overview?: string;
+  origin_country?: string[];
+  production_countries?: { iso_3166_1: string }[];
+}
+function slimOriginDetail(d: OriginDetail): OriginDetail {
+  return {
+    title: d.title,
+    name: d.name,
+    original_title: d.original_title,
+    original_name: d.original_name,
+    overview: d.overview,
+    origin_country: d.origin_country,
+    production_countries: d.production_countries?.map((c) => ({ iso_3166_1: c.iso_3166_1 })),
+  };
+}
+
 export async function getTitleOriginCountries(type: "movie" | "series", tmdbId: number): Promise<string[]> {
-  const data = await tmdbGet<{ origin_country?: string[]; production_countries?: { iso_3166_1: string }[] }>(
-    `/${type === "movie" ? "movie" : "tv"}/${tmdbId}`);
+  // Same cache entry as getTitleInLanguage()/getEnglishFallback() (plain detail
+  // URL): keep every field those read too, drop the rest of the record.
+  const data = await tmdbGet<OriginDetail>(
+    `/${type === "movie" ? "movie" : "tv"}/${tmdbId}`, {}, undefined, slimOriginDetail);
   if (!data) throw new Error("origin_country_metadata_unavailable");
   return type === "series" ? data.origin_country ?? [] : (data.production_countries ?? []).map((c) => c.iso_3166_1);
 }
@@ -1528,6 +1559,17 @@ interface RawProvider {
   logo_path: string | null;
 }
 
+/** Only subscription-style access is ever read (see getWatchProviders): drop rent/buy and links. */
+function slimWatchProviders(d: RawWatchProviders): RawWatchProviders {
+  if (!d.results) return d;
+  const pick = (list?: RawProvider[]) => list?.map((p) => ({ provider_id: p.provider_id, provider_name: p.provider_name, logo_path: p.logo_path }));
+  const results: NonNullable<RawWatchProviders["results"]> = {};
+  for (const [region, r] of Object.entries(d.results)) {
+    results[region] = { flatrate: pick(r.flatrate), ads: pick(r.ads), free: pick(r.free) };
+  }
+  return { results };
+}
+
 /**
  * "Where to watch" for a title — TMDb's data is region-specific and doesn't
  * distinguish rent/buy from actually-included-in-a-subscription, so this only
@@ -1537,7 +1579,7 @@ interface RawProvider {
  */
 export async function getWatchProviders(type: "movie" | "series", tmdbId: number, watchRegion = DEFAULT_WATCH_REGION, fallbackToUs = true): Promise<MetaWatchProvider[]> {
   const kind = type === "movie" ? "movie" : "tv";
-  const data = await tmdbGet<RawWatchProviders>(`/${kind}/${tmdbId}/watch/providers`);
+  const data = await tmdbGet<RawWatchProviders>(`/${kind}/${tmdbId}/watch/providers`, {}, undefined, slimWatchProviders);
   if (!data && !fallbackToUs) throw new Error("watch_provider_metadata_unavailable");
   const byRegion = data?.results?.[watchRegion];
   const region = byRegion?.flatrate?.length || byRegion?.ads?.length || byRegion?.free?.length

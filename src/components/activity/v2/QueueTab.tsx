@@ -300,6 +300,9 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       await api(`${BASE}/torrents/${itemId}?deleteData=${withData ? 1 : 0}`, { method: "DELETE" });
     } catch (e) {
       console.error(`[queue] remove failed:`, e);
+      // The engine refuses a removal it cannot safely complete (404): say so
+      // instead of letting the row silently reappear on the next poll.
+      toast("error", t("downloads.removeRefused"));
     } finally {
       setActionLoading(null);
       await mutate();

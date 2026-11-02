@@ -613,7 +613,14 @@ export class AbstractBackend {
     // torrent's import metadata until that association is confirmed; clearing
     // the download queue must never erase the only recovery path for it.
     if (pendingImport?.libraryRef && pendingImport.movedFiles && !pendingImport.notifiedLibrary && !pendingImport.replacementFailure?.discarded) {
-      if (!(await this._notifyLibrary(pendingImport.libraryRef, pendingImport.movedFiles, infoHash))) return false;
+      if (pendingImport.replacementFailure) {
+        // The library already refused this replacement and kept its existing
+        // file, so this download is not the only copy of anything. Notifying
+        // would just be refused again until the retry budget runs out, leaving
+        // the row undeletable for ~40 min: a user remove abandons it now with
+        // the same cleanup the exhausted budget performs.
+        await this._abandonRefusedReplacement(infoHash, pendingImport);
+      } else if (!(await this._notifyLibrary(pendingImport.libraryRef, pendingImport.movedFiles, infoHash))) return false;
     }
     if (!m) {
       // Completed/imported torrent: clean the history entry.
@@ -1279,6 +1286,16 @@ export class AbstractBackend {
       console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] symlink swap failed after removing ${src} — seeding source for this file is now missing (library copy at ${dest} is unaffected)`);
     }
     return linked;
+  }
+
+  /** Stop sharing, then delete only this download's uninstalled source files (never the library's file). */
+  async _abandonRefusedReplacement(infoHash, rec) {
+    const snap = (() => { try { return this._clientSnapshot(infoHash); } catch { return { files: (rec.movedFiles ?? []).map(file => ({ path: file.originalPath })) }; } })();
+    const removed = await this._clientRemove(infoHash, false).catch(() => false);
+    if (removed || !this._clientGet(infoHash)) {
+      await this._cleanupReplacementSource(snap, rec.movedFiles);
+      await this._dropCachedTorrentFile?.(infoHash);
+    }
   }
 
   async _cleanupReplacementSource(snap, movedFiles = []) {

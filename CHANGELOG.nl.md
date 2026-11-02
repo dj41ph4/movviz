@@ -1,3 +1,14 @@
+## v1.28.20 — 2 november 2026
+
+### Stabiliteit
+
+- Geheugen: de TMDB-cache bewaart nog alleen de abonnementsbeschikbaarheid (per land) voor “Beschikbaar op” en alleen titels en herkomstlanden voor de Ontdekken-filters, in plaats van volledige antwoorden. Het platformfilter vulde de heap in enkele minuten met meer dan 1,5 GB en liet de webserver vastlopen.
+
+### Downloads
+
+- Een import waarvan de vervanging door de bibliotheek werd geweigerd, kan weer meteen worden verwijderd: hij was ongeveer 40 minuten niet te wissen (de duur van de nieuwe pogingen) en de rij “Geblokkeerd” verscheen zonder uitleg opnieuw. De opruiming raakt alleen de bronbestanden van de download, nooit het bestand van de bibliotheek.
+- Weigert de engine een verwijdering, dan verschijnt een foutmelding in plaats van dat de rij stilletjes terugkomt.
+
 ## v1.28.19 — 1 november 2026
 
 ### Openbare pagina’s en UGREEN-pakket

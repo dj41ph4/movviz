@@ -1,3 +1,14 @@
+## v1.28.20 — 2 novembre 2026
+
+### Stabilità
+
+- Memoria: la cache TMDB conserva solo la disponibilità in abbonamento (per paese) per «Disponibile su» e solo titoli e paesi d’origine per i filtri di Scopri, invece delle risposte complete. Il filtro per piattaforma riempiva l’heap con oltre 1,5 GB in pochi minuti e bloccava il server web.
+
+### Download
+
+- Un’importazione il cui rimpiazzo è stato rifiutato dalla libreria può essere di nuovo rimossa subito: restava non eliminabile per circa 40 minuti (la durata dei tentativi) e la riga «Bloccato» ricompariva senza spiegazioni. La pulizia tocca solo i file sorgente del download, mai il file della libreria.
+- Quando il motore rifiuta una rimozione, viene mostrato un messaggio di errore invece di lasciare ricomparire la riga in silenzio.
+
 ## v1.28.19 — 1 novembre 2026
 
 ### Pagine pubbliche e pacchetto UGREEN

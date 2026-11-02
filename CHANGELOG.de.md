@@ -1,3 +1,14 @@
+## v1.28.20 — 2. November 2026
+
+### Stabilität
+
+- Speicher: Der TMDB-Cache behält nur noch die Abo-Verfügbarkeit (je Land) für „Verfügbar auf“ sowie Titel und Herkunftsländer für die Discover-Filter, statt vollständiger Antworten. Der Plattformfilter füllte den Heap in wenigen Minuten mit über 1,5 GB und ließ den Webserver einfrieren.
+
+### Downloads
+
+- Ein Import, dessen Ersetzung die Bibliothek abgelehnt hat, lässt sich wieder sofort entfernen: Er war etwa 40 Minuten lang (Dauer der Wiederholungen) nicht löschbar, und die Zeile „Blockiert“ erschien ohne Erklärung erneut. Die Bereinigung betrifft nur die Quelldateien des Downloads, nie die Datei der Bibliothek.
+- Verweigert die Engine eine Entfernung, erscheint eine Fehlermeldung, statt dass die Zeile stillschweigend wiederkehrt.
+
 ## v1.28.19 — 1. November 2026
 
 ### Öffentliche Seiten und UGREEN-Paket

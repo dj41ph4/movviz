@@ -1,3 +1,14 @@
+## v1.28.20 — 2 November 2026
+
+### Stability
+
+- Memory: the TMDB cache now keeps only subscription availability (per country) for "available on" and only titles and origin countries for the Discover filters, instead of full responses. The platform filter filled the heap with over 1.5 GB within minutes and froze the web server.
+
+### Downloads
+
+- An import whose replacement the library refused can be removed right away again: it was undeletable for about 40 minutes (the retry window) and the "Blocked" row reappeared without explanation. Cleanup only touches the download's source files, never the library's file.
+- When the engine refuses a removal, an error message is shown instead of letting the row silently reappear.
+
 ## v1.28.19 — 1 November 2026
 
 ### Public pages and UGREEN package
