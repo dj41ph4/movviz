@@ -1,3 +1,9 @@
+## v1.28.33 — 3 novembre 2026
+
+### Dashboard
+
+- Le sottili linee verticali ai due lati dell'alone dell'hero scompaiono: la dissolvenza dei bordi segue ora una curva morbida (pendenza nulla alle due estremità) invece di un gradiente lineare il cui avvio brusco si vedeva come una linea, soprattutto su un'immagine chiara.
+
 ## v1.28.32 — 3 novembre 2026
 
 ### Dashboard

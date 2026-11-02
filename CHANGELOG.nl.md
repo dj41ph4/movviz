@@ -1,3 +1,9 @@
+## v1.28.33 — 3 november 2026
+
+### Dashboard
+
+- De dunne verticale lijnen aan weerszijden van de herogloed verdwijnen: de fade van de randen volgt nu een zachte curve (helling nul aan beide uiteinden) in plaats van een lineair verloop waarvan de abrupte start als lijn zichtbaar was, vooral op een lichte afbeelding.
+
 ## v1.28.32 — 3 november 2026
 
 ### Dashboard

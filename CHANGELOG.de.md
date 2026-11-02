@@ -1,3 +1,9 @@
+## v1.28.33 — 3. November 2026
+
+### Dashboard
+
+- Die dünnen senkrechten Linien beidseits des Hero-Leuchtens verschwinden: Die Ausblendung der Ränder folgt jetzt einer sanften Kurve (Steigung null an beiden Enden) statt eines linearen Verlaufs, dessen abrupter Beginn als Linie sichtbar war, besonders bei hellen Bildern.
+
 ## v1.28.32 — 3. November 2026
 
 ### Dashboard

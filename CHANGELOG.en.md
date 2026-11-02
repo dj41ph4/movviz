@@ -1,3 +1,9 @@
+## v1.28.33 — 3 November 2026
+
+### Dashboard
+
+- The thin vertical lines on either side of the hero glow are gone: the fade on its edges now follows a smooth curve (zero slope at both ends) instead of a linear gradient whose abrupt start showed up as a line, especially on a bright image.
+
 ## v1.28.32 — 3 November 2026
 
 ### Dashboard

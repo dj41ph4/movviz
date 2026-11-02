@@ -1,3 +1,9 @@
+## v1.28.33 — 3 novembre 2026
+
+### Tableau de bord
+
+- Les fines lignes verticales de part et d'autre du halo du héros disparaissent : le fondu de ses bords suit maintenant une courbe douce (pente nulle aux deux extrémités) au lieu d'un dégradé linéaire dont le départ brusque se voyait comme une ligne, surtout sur une image claire.
+
 ## v1.28.32 — 3 novembre 2026
 
 ### Tableau de bord

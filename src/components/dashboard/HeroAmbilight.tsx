@@ -17,12 +17,24 @@ const OVERSHOOT_Y = 150;
 
 /** Fondu des bords par masque, indépendamment du flou : si le navigateur
  *  abandonne le filtre sur ce très grand calque (plein écran), le halo garde des
- *  bords doux. Entièrement transparent sur le tiers extérieur de la zone qui
- *  dépasse du héros (--ambi-fx / --ambi-fy = part de cette zone, en % du calque) :
- *  la coupe du calque flouté ne tombe jamais sur un pixel visible, donc plus de
- *  fine ligne verticale. */
-const fade = (dir: string, f: string) =>
-  `linear-gradient(${dir}, transparent 0, transparent calc(var(${f}) * 0.35), #000 calc(var(${f}) * 1.1), #000 calc(100% - var(${f}) * 1.1), transparent calc(100% - var(${f}) * 0.35), transparent 100%)`;
+ *  bords doux. Le dégradé suit une courbe « smootherstep » (pente nulle aux deux
+ *  extrémités) : un dégradé linéaire qui démarre d'un coup crée un coude de pente
+ *  que l'œil lit comme une fine ligne verticale, surtout sur une image claire.
+ *  --ambi-fx / --ambi-fy = part du calque qui dépasse du héros, en % ; le fondu
+ *  est plein juste avant le bord du héros. */
+const FADE_STEPS = 8;
+const smootherstep = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
+const fade = (dir: string, f: string) => {
+  const rise = Array.from({ length: FADE_STEPS + 1 }, (_, i) => {
+    const t = i / FADE_STEPS;
+    return `rgba(0,0,0,${smootherstep(t).toFixed(4)}) calc(var(${f}) * ${(t * 1.1).toFixed(4)})`;
+  });
+  const fall = Array.from({ length: FADE_STEPS + 1 }, (_, i) => {
+    const t = 1 - i / FADE_STEPS;
+    return `rgba(0,0,0,${smootherstep(t).toFixed(4)}) calc(100% - var(${f}) * ${(t * 1.1).toFixed(4)})`;
+  });
+  return `linear-gradient(${dir}, ${[...rise, ...fall].join(", ")})`;
+};
 const EDGE_FADE = fade("to right", "--ambi-fx");
 const EDGE_FADE_Y = fade("to bottom", "--ambi-fy");
 const AMBILIGHT_STYLE = {
