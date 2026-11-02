@@ -1,3 +1,10 @@
+## v1.28.30 — 3 november 2026
+
+### Zoeken
+
+- Recente releases van een titel met een lange geschiedenis (Chicago Fire S14E13 t/m E15, zichtbaar op C411) werden nooit gevonden: handmatig zoeken las alleen de eerste 100 resultaten van de indexer. Nu leest het tot 3 pagina's en vraagt de indexer ook naar het exacte seizoen en de exacte aflevering (ID-zoekopdracht), zoals Jackett.
+- Ook de automatische zoekterugval leest tot 2 pagina's als de eerste vol is.
+
 ## v1.28.29 — 2 november 2026
 
 ### Prestaties

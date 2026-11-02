@@ -1,3 +1,10 @@
+## v1.28.30 — 3. November 2026
+
+### Suche
+
+- Neue Releases eines langlaufenden Titels (Chicago Fire S14E13 bis E15, auf C411 sichtbar) wurden nie gefunden: Die manuelle Suche las nur die ersten 100 Ergebnisse des Indexers. Sie liest jetzt bis zu 3 Seiten und fragt den Indexer außerdem gezielt nach Staffel und Folge (ID-Suche), wie Jackett.
+- Auch der automatische Such-Fallback liest bis zu 2 Seiten, wenn die erste voll ist.
+
 ## v1.28.29 — 2. November 2026
 
 ### Leistung

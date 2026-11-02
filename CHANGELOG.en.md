@@ -1,3 +1,10 @@
+## v1.28.30 — 3 November 2026
+
+### Search
+
+- Recent releases of a long-running title (Chicago Fire S14E13 to E15, visible on C411) were never found: manual search only read the indexer's first 100 results. It now reads up to 3 pages and also queries the indexer for the exact season and episode (ID search), like Jackett does.
+- The automatic search fallback also reads up to 2 pages when the first one is full.
+
 ## v1.28.29 — 2 November 2026
 
 ### Performance

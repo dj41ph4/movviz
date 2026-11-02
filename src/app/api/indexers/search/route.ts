@@ -4,7 +4,7 @@ import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS, TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { loadIndexers } from "@/lib/indexers/store";
 import { countNewlyRateLimited } from "@/lib/indexers/rateLimit";
-import { searchIndexer, searchMovie, sanitizeQuery, rescoreRelease } from "@/lib/indexers/torznab";
+import { searchIndexer, searchMovie, searchTv, sanitizeQuery, rescoreRelease } from "@/lib/indexers/torznab";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { loadReleaseRules, matchesBlockedWord } from "@/lib/library/releaseRules";
 import type { IndexerRelease } from "@/lib/indexers/types";
@@ -86,6 +86,9 @@ function bleachSequelExtraQuery(req: NextRequest, category: MediaType | null, tm
   if (ref.kind === "episode") return ref.season === 17 ? `Bleach S17E${String(ref.episode).padStart(2, "0")}` : null;
   return "Bleach S17";
 }
+
+/** Pages de 100 résultats lues par indexeur pour une recherche manuelle (300 au plus, tant qu une page revient pleine). */
+const MANUAL_SEARCH_PAGES = 3;
 
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
@@ -188,6 +191,25 @@ export async function GET(req: NextRequest) {
       // searchMovie (t=movie&tmdbid=XXX with text fallback) — far more
       // accurate than a plain text query for titles with accents or special
       // chars like "Team Démolition".
+      // Série dont la saison (et l'épisode) sont connus : la recherche par
+      // identifiant (tvsearch season/ep/tmdbid) interroge l'indexeur sur CET
+      // épisode précisément. La recherche texte seule (titre nu) ne renvoie que
+      // les 100 premiers résultats d'un titre qui en compte des centaines : les
+      // épisodes récents en étaient absents (Chicago Fire S14E13-E15 visibles sur
+      // C411, introuvables ici). Les deux se complètent et sont fusionnées.
+      const seasonEpisode = category === "series" ? /\bS(\d{1,2})(?:E(\d{1,3}))?\b/i.exec(matchQuery) : null;
+      const searchSeriesAndText = async (ix: (typeof indexers)[number]): Promise<IndexerRelease[]> => {
+        const text = searchIndexer(ix, searchQuery, scope, matchQuery, MANUAL_SEARCH_PAGES).catch(() => [] as IndexerRelease[]);
+        if (!seasonEpisode || !tmdbId) return text;
+        const byId = searchTv(ix, {
+          title: refTitle || qRaw,
+          season: Number(seasonEpisode[1]),
+          episode: seasonEpisode[2] ? Number(seasonEpisode[2]) : null,
+          tmdbId,
+          imdbId: imdbIdParam,
+        }, scope).catch(() => [] as IndexerRelease[]);
+        return (await Promise.all([byId, text])).flat();
+      };
       const releaseSlot = await acquireManualSearchSlot();
       let directResults: IndexerRelease[][] = [];
       try {
@@ -195,7 +217,7 @@ export async function GET(req: NextRequest) {
           indexers.map((ix) =>
             (category === "movie" && tmdbId
               ? searchMovie(ix, { title: refTitle || qRaw, year, tmdbId, imdbId: imdbIdParam }, scope)
-              : searchIndexer(ix, searchQuery, scope, matchQuery)
+              : searchSeriesAndText(ix)
             ).catch(() => [] as IndexerRelease[])
           )
         );

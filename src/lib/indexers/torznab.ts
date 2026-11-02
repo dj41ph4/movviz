@@ -593,11 +593,15 @@ export function sanitizeQuery(q: string): string {
 // taxonomy has never heard of, don't touch it".
 const KNOWN_STANDARD_CATEGORY_IDS = new Set([...MOVIE_CATEGORY_IDS, ...TV_CATEGORY_IDS]);
 
+/** Taille d'une page demandée à l'indexeur (limit=100). */
+const PAGE_SIZE = 100;
+
 async function runSearch(
   ix: ConfiguredIndexer,
   params: Record<string, string>,
   scopeCategories?: number[],
-  query?: string
+  query?: string,
+  pages = 1
 ): Promise<IndexerRelease[]> {
   // Bug fix (confirmed live: C411's own "Émission" category, correctly
   // checked by the user in Réglages → Indexeurs — real id read straight from
@@ -622,29 +626,40 @@ async function runSearch(
   // web search exposes the full recent result set. Always request the largest
   // useful first page for interactive searches so fresh episodes are not
   // hidden simply because older releases filled the server default page.
-  const paged = { ...params, limit: "100" };
-  const withCat = effective.length ? { ...paged, cat: effective.join(",") } : paged;
-  let r;
-  try {
-    r = await fetchXml(buildUrl(ix, withCat), ix);
-  } catch {
-    return [];
+  // Une recherche texte sur un titre à longue histoire (« Chicago Fire » :
+  // 15 saisons, plusieurs versions par épisode) dépasse largement une page : les
+  // épisodes récents peuvent se trouver au-delà des 100 premiers résultats, donc
+  // invisibles dans Movviz alors qu'ils sont bien sur le site de l'indexeur.
+  // Tant qu'une page revient pleine, la suivante est demandée (offset), dans la
+  // limite de `pages`.
+  const collected: IndexerRelease[] = [];
+  for (let page = 0; page < Math.max(1, pages); page++) {
+    const paged = { ...params, limit: String(PAGE_SIZE), ...(page > 0 ? { offset: String(page * PAGE_SIZE) } : {}) };
+    const withCat = effective.length ? { ...paged, cat: effective.join(",") } : paged;
+    let r;
+    try {
+      r = await fetchXml(buildUrl(ix, withCat), ix);
+    } catch {
+      break;
+    }
+    if (r.status === 429) {
+      markRateLimited(ix.id);
+      break;
+    }
+    // A refused key (401/403) is an indexer error, not « no results » — same
+    // path as an <error> answered with HTTP 200 below. Confirmed live: V3x
+    // refused every search with 401 "Invalid API Key" for days while the RSS
+    // log only ever showed « V3x:0 ».
+    if (r.status === 401 || r.status === 403) {
+      throw new Error(`HTTP ${r.status}${extractIndexerError(r.text) ? ` : ${extractIndexerError(r.text)}` : ""}`);
+    }
+    if (!r.ok) break;
+    const indexerError = extractIndexerError(r.text);
+    if (indexerError) throw new Error(indexerError);
+    collected.push(...parseReleases(r.text, ix, effective, query));
+    if ((r.text.match(/<item[\s>]/g) ?? []).length < PAGE_SIZE) break;
   }
-  if (r.status === 429) {
-    markRateLimited(ix.id);
-    return [];
-  }
-  // A refused key (401/403) is an indexer error, not « no results » — same
-  // path as an <error> answered with HTTP 200 below. Confirmed live: V3x
-  // refused every search with 401 "Invalid API Key" for days while the RSS
-  // log only ever showed « V3x:0 ».
-  if (r.status === 401 || r.status === 403) {
-    throw new Error(`HTTP ${r.status}${extractIndexerError(r.text) ? ` : ${extractIndexerError(r.text)}` : ""}`);
-  }
-  if (!r.ok) return [];
-  const indexerError = extractIndexerError(r.text);
-  if (indexerError) throw new Error(indexerError);
-  return filterBySizeAge(parseReleases(r.text, ix, effective, query), ix);
+  return filterBySizeAge(collected, ix);
 }
 
 /**
@@ -660,10 +675,11 @@ export async function searchIndexer(
   ix: ConfiguredIndexer,
   query: string,
   scopeCategories?: number[],
-  matchQuery?: string
+  matchQuery?: string,
+  pages = 1
 ): Promise<IndexerRelease[]> {
   const q = sanitizeQuery(query);
-  return runSearch(ix, { t: "search", q }, scopeCategories, matchQuery ?? q);
+  return runSearch(ix, { t: "search", q }, scopeCategories, matchQuery ?? q, pages);
 }
 
 /** Query-less recent-releases feed, starting `offset` releases back — the RSS
@@ -758,7 +774,8 @@ export async function searchTv(
       if (results.length > 0) return results;
     }
   }
-  return runSearch(ix, { t: "search", q: searchQuery }, scopeCategories, matchQuery);
+  // Repli texte : deux pages au plus (une page pleine laisse supposer des résultats au-delà).
+  return runSearch(ix, { t: "search", q: searchQuery }, scopeCategories, matchQuery, 2);
 }
 
 /**
