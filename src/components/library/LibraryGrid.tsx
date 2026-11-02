@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X, Clapperboard, Sparkles, Heart, Grid2X2, ListFilter } from "lucide-react";
+import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, Clapperboard, Heart, Grid2X2, Layers, ChevronDown, Ellipsis } from "lucide-react";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
 export const RENDER_BATCH_INITIAL = 200;
@@ -65,6 +65,31 @@ function alphabetKeyOf(title: string): string {
   return /[A-Z]/.test(first) ? first : "#";
 }
 const ALPHABET_KEYS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
+
+/** Pastille de sélection native (genre, tri) : même rendu que les segments de la capsule. */
+function PillSelect({
+  value, onChange, label, className, children,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("relative", className)}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        className="h-11 w-full min-w-0 cursor-pointer appearance-none rounded-full border border-white/10 bg-white/[.05] pl-3.5 pr-9 text-sm font-semibold text-ink outline-none transition-colors hover:bg-white/10 focus:border-brand/60 focus:ring-2 focus:ring-brand/20 lg:h-9 [&>option]:bg-[#14141c]"
+      >
+        {children}
+      </select>
+      <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-dim" />
+    </div>
+  );
+}
 
 /**
  * The existing library grid: /library filters movies/series in place via
@@ -432,180 +457,193 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   const progressFor = (movie: LibraryMovie) =>
     movie.activeInfoHash ? torrents.find((t) => t.infoHash === movie.activeInfoHash) : null;
 
+  // --- Barre de contrôles : une capsule collante sur desktop, trois rangées
+  // compactes (cibles de 44 px) sur mobile. Mêmes éléments, deux mises en page.
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as Element).closest("[data-lib-menu]")) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  const segWrap = "no-scrollbar flex min-w-0 shrink-0 gap-0.5 overflow-x-auto rounded-full bg-black/30 p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,.45)]";
+  const segBtn = (active: boolean) => cn(
+    "inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-sm font-semibold transition-colors lg:min-h-8",
+    active ? "brand-gradient text-white shadow-lg" : "text-ink-soft hover:text-ink"
+  );
+  const chipBtn = (active: boolean) => cn(
+    "inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-xs font-semibold transition-colors lg:min-h-8",
+    active ? "border-brand/60 bg-brand/25 text-white" : "border-white/10 bg-white/[.05] text-ink-soft hover:bg-white/10 hover:text-ink"
+  );
+
+  const typesSeg = fixedType === "all" ? (
+    <div className={segWrap}>
+      {TYPES.map((item) => (
+        <Link key={item.id} href={item.href} className={segBtn(item.id === type)}>
+          {item.id === "movie" ? <Film className="h-3.5 w-3.5" /> : item.id === "series" ? <Clapperboard className="h-3.5 w-3.5" /> : <Grid2X2 className="h-3.5 w-3.5" />}
+          {t(item.key)}
+        </Link>
+      ))}
+      <Link href="/library?tab=collection" className={segBtn(false)}>
+        <Layers className="h-3.5 w-3.5" />{t("nav.collections")}
+      </Link>
+    </div>
+  ) : null;
+  const statusSeg = (
+    <div className={segWrap}>
+      {FILTERS.map((f) => (
+        <button key={f.id} type="button" onClick={() => setFilter(f.id)} aria-pressed={filter === f.id} className={segBtn(filter === f.id)}>
+          {t(f.key)}
+        </button>
+      ))}
+    </div>
+  );
+  const sortSeg = (
+    <div className={segWrap}>
+      {SORTS.map((s) => (
+        <button key={s.id} type="button" onClick={() => setSort(s.id)} aria-pressed={sort === s.id} className={segBtn(sort === s.id)}>
+          {t(s.key)}
+        </button>
+      ))}
+    </div>
+  );
+  const techChips = (
+    <>
+      <button type="button" onClick={() => setTechnicalFilter((v) => v === "4k" ? "all" : "4k")} aria-pressed={technicalFilter === "4k"} className={chipBtn(technicalFilter === "4k")}>4K</button>
+      <button type="button" onClick={() => setTechnicalFilter((v) => v === "hdr" ? "all" : "hdr")} aria-pressed={technicalFilter === "hdr"} className={chipBtn(technicalFilter === "hdr")}>HDR</button>
+      <button type="button" onClick={() => setTechnicalFilter((v) => v === "watched" ? "all" : "watched")} aria-pressed={technicalFilter === "watched"} className={chipBtn(technicalFilter === "watched")}>
+        <Heart className="h-3.5 w-3.5" />{t("watchlist.added")}
+      </button>
+    </>
+  );
+  const genreOptions = (
+    <>
+      <option value="">{t("discover.genres")} · {t("common.all")}</option>
+      <option value={ANIME_GENRE_ID}>{t("discover.genreAnime")}</option>
+      <option value={TEEN_GENRE_ID}>{t("discover.genreTeen")}</option>
+      {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
+    </>
+  );
+  const countLabel = (
+    <span className="shrink-0 whitespace-nowrap px-1.5 text-sm font-semibold text-ink-dim">
+      <b className="text-ink">{total}</b> {t("common.titles")}
+    </span>
+  );
+
+  const menuItem = "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-white/8 disabled:opacity-50";
+  const busyMenu = searchingMissing || rescanning;
+  const actionsMenu = user?.role === "admin" ? (
+    <div data-lib-menu className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setMenuOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label={t("library.moreActions")}
+        title={t("library.moreActions")}
+        className="relative flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[.05] text-ink-soft transition-colors hover:bg-white/10 hover:text-ink lg:h-9 lg:w-9"
+      >
+        {busyMenu ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ellipsis className="h-4 w-4" />}
+        {searchingMissing && searchMissingJob && searchMissingJob.total > 1 && (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
+            {searchMissingJob.current}/{searchMissingJob.total}
+          </span>
+        )}
+      </button>
+      {menuOpen && (
+        <div role="menu" className="absolute right-0 top-[calc(100%+8px)] z-40 w-64 rounded-2xl border border-white/12 bg-[#12121c]/95 p-1.5 shadow-2xl backdrop-blur-xl">
+          <button
+            type="button"
+            role="menuitem"
+            disabled={searchingMissing}
+            onClick={() => { setMenuOpen(false); searchMissing(); }}
+            title={
+              searchMissingJob?.status === "queued"
+                ? t("library.searchMissingWaiting")
+                : searchingMissing && searchMissingJob && searchMissingJob.total > 1
+                  ? `${searchMissingLabel} — ${searchMissingJob.current} / ${searchMissingJob.total}`
+                  : searchMissingLabel
+            }
+            className={menuItem}
+          >
+            {searchingMissing ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4 text-ink-dim" />}
+            {searchMissingLabel}
+          </button>
+          <button type="button" role="menuitem" disabled={rescanning} onClick={() => { setMenuOpen(false); rescan(); }} className={menuItem}>
+            {rescanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4 text-ink-dim" />}
+            {t("library.rescan")}
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setSearchAndReplaceOpen(true); }} className={menuItem}>
+            <RefreshCw className="h-4 w-4 text-ink-dim" />
+            {t("library.searchAndReplace")}
+          </button>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  const issuesPanel = issues && (
+    <div className="mb-4 rounded-2xl border border-white/8 bg-black/20 p-3.5">
+      {issues.length === 0 ? (
+        <p className="text-sm text-ok">{t("library.rescanClean")}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {issues.map((issue, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs text-ink-soft">
+              <span className={cn("shrink-0 rounded-full px-2 py-0.5 font-semibold", issue.kind === "missing" ? "bg-down/12 text-down" : issue.kind === "duplicate" ? "bg-cyan/12 text-cyan" : "bg-amber/12 text-amber")}>
+                {issue.kind === "missing" ? t("library.fileMissing") : issue.kind === "duplicate" ? t("library.duplicateMerged") : t("library.untrackedFile")}
+              </span>
+              <span className="truncate font-mono">{issue.path}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="nx-library-grid">
       <div className="nx-library-main min-w-0">
-      <div className="nx-library-toolbar hidden lg:flex">
-        <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
-          {TYPES.map((item) => <Link key={item.id} href={item.href} className={cn("nx-library-tool", item.id === type && "nx-library-tool-active")}>{item.id === "movie" ? <Film className="h-3.5 w-3.5" /> : item.id === "series" ? <Clapperboard className="h-3.5 w-3.5" /> : <Grid2X2 className="h-3.5 w-3.5" />}{t(item.key)}</Link>)}
-          <Link href="/library?tab=collection" className="nx-library-tool"><Grid2X2 className="h-3.5 w-3.5" />{t("nav.collections")}</Link>
-          <button type="button" onClick={() => setTechnicalFilter((value) => value === "4k" ? "all" : "4k")} className={cn("nx-library-tool", technicalFilter === "4k" && "nx-library-tool-active")}>4K</button>
-          <button type="button" onClick={() => setTechnicalFilter((value) => value === "hdr" ? "all" : "hdr")} className={cn("nx-library-tool", technicalFilter === "hdr" && "nx-library-tool-active")}>HDR</button>
-          <button type="button" onClick={() => setSort("recent")} className={cn("nx-library-tool", sort === "recent" && "nx-library-tool-active")}><Sparkles className="h-3.5 w-3.5" />{t("library.sortRecent")}</button>
-          <button type="button" onClick={() => setTechnicalFilter((value) => value === "watched" ? "all" : "watched")} className={cn("nx-library-tool", technicalFilter === "watched" && "nx-library-tool-active")}><Heart className="h-3.5 w-3.5" />{t("watchlist.added")}</button>
-        </div>
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-          <span className="nx-library-tool text-ink-dim"><ListFilter className="h-3.5 w-3.5" />{t("library.sortTitle")}</span>
-          {SORTS.map((item) => <button key={item.id} type="button" onClick={() => setSort(item.id)} className={cn("nx-library-sort", sort === item.id && "nx-library-sort-active")}>{t(item.key)}</button>)}
+      {/* Desktop : une capsule collante unique (type, filtres, statut, genre, tri, actions). */}
+      <div className="nx-lib-bar sticky top-14 z-20 mb-4 hidden flex-wrap items-center gap-2.5 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)]! backdrop-blur-xl lg:flex">
+        {typesSeg}
+        <div className="flex items-center gap-1.5">{techChips}</div>
+        <div className="ml-auto flex flex-wrap items-center gap-2.5">
+          {countLabel}
+          {statusSeg}
+          <PillSelect value={genreFilter} onChange={setGenreFilter} label={t("discover.genres")} className="max-w-44">{genreOptions}</PillSelect>
+          <PillSelect value={sort} onChange={(v) => setSort(v as (typeof SORTS)[number]["id"])} label={t("library.sortTitle")}>
+            {SORTS.map((s) => <option key={s.id} value={s.id}>{t(s.key)}</option>)}
+          </PillSelect>
+          {actionsMenu}
         </div>
       </div>
-      <div className="mb-4 space-y-2.5 rounded-2xl glass p-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-ink">
-            <Film className="h-4 w-4 text-brand-glow" />
-            <span className="text-sm font-semibold">{total} {t("common.titles")}</span>
-          </div>
-          <label className="flex w-full max-w-[calc(100vw-2rem)] items-center gap-2 sm:w-auto">
-            <span className="shrink-0 text-xs font-semibold text-ink-soft">{t("discover.genres")}</span>
-          <select
-            value={genreFilter}
-            onChange={(event) => setGenreFilter(event.target.value)}
-            className="h-10 min-w-0 flex-1 rounded-xl border border-white/15 bg-surface px-3 text-sm font-semibold text-ink outline-none focus:border-brand/60 focus:ring-2 focus:ring-brand/20 sm:w-56 sm:flex-none"
-          >
-            <option value="">{t("common.all")}</option>
-            <option value={ANIME_GENRE_ID}>{t("discover.genreAnime")}</option>
-            <option value={TEEN_GENRE_ID}>{t("discover.genreTeen")}</option>
-            {allGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
-          </select>
-          </label>
+
+      {/* Mobile / tablette : trois rangées compactes, cibles de 44 px. */}
+      <div className="mb-4 space-y-2 rounded-3xl border border-white/10 bg-white/[.035] p-2.5 backdrop-blur-xl lg:hidden">
+        <div className="flex items-center gap-2">
+          {countLabel}
+          <PillSelect value={genreFilter} onChange={setGenreFilter} label={t("discover.genres")} className="min-w-0 flex-1">{genreOptions}</PillSelect>
+          {actionsMenu}
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {user?.role === "admin" && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                onClick={searchMissing}
-                disabled={searchingMissing}
-                title={
-                  searchMissingJob?.status === "queued"
-                    ? t("library.searchMissingWaiting")
-                    : searchingMissing && searchMissingJob && searchMissingJob.total > 1
-                      ? `${searchMissingLabel} — ${searchMissingJob.current} / ${searchMissingJob.total}`
-                      : searchMissingLabel
-                }
-                className="relative flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
-              >
-                {searchingMissing ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}
-                {searchingMissing && searchMissingJob && searchMissingJob.total > 1 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
-                    {searchMissingJob.current}/{searchMissingJob.total}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={rescan}
-                disabled={rescanning}
-                title={t("library.rescan")}
-                className="flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
-              >
-                {rescanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
-              </button>
-              <button
-                onClick={() => setSearchAndReplaceOpen(true)}
-                title={t("library.searchAndReplace")}
-                className="flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+        <div className="no-scrollbar -mx-0.5 flex gap-2 overflow-x-auto px-0.5">
+          {typesSeg}
+          {statusSeg}
         </div>
-
-        {issues && (
-          <div className="rounded-xl bg-black/20 p-3.5">
-            {issues.length === 0 ? (
-              <p className="text-sm text-ok">{t("library.rescanClean")}</p>
-            ) : (
-              <div className="space-y-1.5">
-                {issues.map((issue, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-ink-soft">
-                    <span className={cn("shrink-0 rounded-full px-2 py-0.5 font-semibold", issue.kind === "missing" ? "bg-down/12 text-down" : issue.kind === "duplicate" ? "bg-cyan/12 text-cyan" : "bg-amber/12 text-amber")}>
-                      {issue.kind === "missing" ? t("library.fileMissing") : issue.kind === "duplicate" ? t("library.duplicateMerged") : t("library.untrackedFile")}
-                    </span>
-                    <span className="truncate font-mono">{issue.path}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="h-px bg-white/5" />
-
-        {/* Bêta desktop : type et tri vivent déjà dans la barre d'outils du
-            dessus, on ne garde ici que ce qu'elle n'a pas (les statuts). */}
-        <div className={cn("flex flex-wrap items-center justify-between gap-1.5", fixedType === "all" && "lg:hidden")}>
-          {fixedType === "all" ? (
-            <div className="flex flex-wrap gap-1.5">
-              {TYPES.map((tp) => {
-                const active = tp.id === type;
-                return (
-                  <Link
-                    key={tp.id}
-                    href={tp.href}
-                    className={cn(
-                      "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                      active ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
-                    )}
-                  >
-                    {t(tp.key)}
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            // No type toggle needed here (the page itself is fixed to movies
-            // or series) — the status filters take this slot instead of
-            // leaving it an empty placeholder div, so /movies and /series
-            // don't waste a whole row on nothing next to the sort pills.
-            <div className="flex flex-wrap gap-1.5">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setFilter(f.id)}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                    filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
-                  )}
-                >
-                  {t(f.key)}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className={"flex flex-wrap items-center gap-1 rounded-lg glass-strong p-1 lg:hidden"}>
-            {SORTS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSort(s.id)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                  sort === s.id ? "brand-gradient text-white" : "text-ink-soft hover:text-ink"
-                )}
-              >
-                {t(s.key)}
-              </button>
-            ))}
-          </div>
+        <div className="no-scrollbar -mx-0.5 flex items-center gap-2 overflow-x-auto px-0.5">
+          {sortSeg}
+          {techChips}
         </div>
-
-        {fixedType === "all" && (
-          <div className="flex flex-wrap gap-1.5">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setFilter(f.id)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                  filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
-                )}
-              >
-                {t(f.key)}
-              </button>
-            ))}
-          </div>
-        )}
-
       </div>
+      {issuesPanel}
 
       {sort === "title" && total > RENDER_BATCH_INITIAL && (
         <div

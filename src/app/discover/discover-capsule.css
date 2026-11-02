@@ -122,6 +122,16 @@
       transform: scale(1.08);
     }
 
+    /* Fin contour sombre : lisibilité du logo sur le halo coloré. */
+    & .nx-discover-provider-tab-active img,
+    & .nx-discover-provider-tab-active:hover img {
+      filter: drop-shadow(0 0 1px rgba(0, 0, 0, .5)) drop-shadow(0 1px 2px rgba(0, 0, 0, .35));
+    }
+
+    & .nx-discover-provider-tab-active > span {
+      text-shadow: 0 0 1px rgba(0, 0, 0, .5), 0 1px 2px rgba(0, 0, 0, .35);
+    }
+
     & .nx-discover-provider-tab::after {
       content: "";
       position: absolute;
@@ -238,13 +248,14 @@
       width: auto;
       max-width: 190px;
       object-fit: contain;
-      filter: drop-shadow(0 6px 22px rgba(var(--brand, 139, 123, 255), .75));
+      filter: drop-shadow(0 0 1px rgba(0, 0, 0, .55)) drop-shadow(0 1px 3px rgba(0, 0, 0, .45)) drop-shadow(0 6px 22px rgba(var(--brand, 139, 123, 255), .75));
     }
 
     & .nx-provider-banner-logo > span {
       font-size: 1.5rem;
       font-weight: 800;
       color: #f6f6fa;
+      text-shadow: 0 0 1px rgba(0, 0, 0, .55), 0 1px 3px rgba(0, 0, 0, .45);
     }
 
     & .nx-provider-banner-text {

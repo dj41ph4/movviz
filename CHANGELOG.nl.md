@@ -1,3 +1,24 @@
+## v1.28.24 — 2 november 2026
+
+### Bibliotheek
+
+- Op grote schermen bundelt één vaste capsule het type, de filters 4K / HDR / In mijn lijst, de teller, status, genre, sortering en een „⋯”-menu voor beheeracties. De sortering verschijnt niet meer dubbel.
+- Op mobiel passen de bediening in drie compacte rijen met knoppen van 44 px; 4K / HDR / In mijn lijst zijn nu bereikbaar.
+
+### Collecties
+
+- Zoeken naar een saga, filters Alle / Onvolledig / Volledig en sortering „Meeste ontbrekend” of „Bijna klaar”.
+- Titels op twee regels zonder het achtervoegsel „- Saga”, dikkere voortgangsbalk (groen als de saga compleet is).
+
+### Gezocht
+
+- Direct zoeken en een filter Alle / Films / Series; „Selectie opnieuw zoeken” werkt op de getoonde titels, met bevestiging boven 50 zoekopdrachten.
+- Rijen laden tijdens het scrollen in plaats van duizenden tegelijk te plaatsen.
+
+### Ontdekken
+
+- Dunne donkere rand rond het logo van het gekozen platform (banner en actieve tab) voor betere leesbaarheid op de gekleurde gloed.
+
 ## v1.28.23 — 2 november 2026
 
 ### Agenda

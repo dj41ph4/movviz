@@ -1,3 +1,24 @@
+## v1.28.24 — 2 novembre 2026
+
+### Libreria
+
+- Su schermi grandi, un’unica capsula fissa riunisce tipo, filtri 4K / HDR / Nella mia lista, contatore, stato, genere, ordinamento e un menu «⋯» per le azioni di amministrazione. L’ordinamento non compare più due volte.
+- Su mobile i controlli stanno in tre righe compatte con pulsanti da 44 px; 4K / HDR / Nella mia lista ora sono raggiungibili.
+
+### Collezioni
+
+- Ricerca di una saga, filtri Tutte / Incomplete / Complete e ordinamento «Più mancanti» o «Quasi complete».
+- Titoli su due righe senza il suffisso «- Saga», barra di avanzamento più spessa (verde quando la saga è completa).
+
+### Ricercati
+
+- Ricerca istantanea e filtro Tutto / Film / Serie; «Riprova la selezione» agisce sui titoli mostrati, con conferma oltre 50 ricerche.
+- Le righe si caricano durante lo scorrimento invece di montarne migliaia in una volta.
+
+### Scopri
+
+- Sottile contorno scuro attorno al logo della piattaforma selezionata (banner e scheda attiva) per leggerlo meglio sull’alone colorato.
+
 ## v1.28.23 — 2 novembre 2026
 
 ### Calendario

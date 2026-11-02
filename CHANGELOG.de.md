@@ -1,3 +1,24 @@
+## v1.28.24 — 2. November 2026
+
+### Bibliothek
+
+- Auf großen Bildschirmen fasst eine einzige fixierte Kapsel Typ, die Filter 4K / HDR / In meiner Liste, Zähler, Status, Genre, Sortierung und ein „⋯“-Menü für Admin-Aktionen zusammen. Die Sortierung erscheint nicht mehr doppelt.
+- Auf dem Handy passen die Bedienelemente in drei kompakte Zeilen mit 44-px-Schaltflächen; 4K / HDR / In meiner Liste sind jetzt erreichbar.
+
+### Sammlungen
+
+- Saga-Suche, Filter Alle / Unvollständig / Vollständig und Sortierung „Meiste fehlend“ oder „Fast fertig“.
+- Titel in zwei Zeilen ohne das Suffix „- Saga“, dickerer Fortschrittsbalken (grün, wenn die Saga vollständig ist).
+
+### Gesucht
+
+- Sofortsuche und Filter Alle / Filme / Serien; „Auswahl erneut suchen“ wirkt auf die angezeigten Titel, mit Bestätigung ab 50 Suchen.
+- Die Zeilen werden beim Scrollen geladen, statt Tausende auf einmal einzubinden.
+
+### Entdecken
+
+- Feine dunkle Kontur um das Logo der gewählten Plattform (Banner und aktiver Tab) für bessere Lesbarkeit auf dem farbigen Schein.
+
 ## v1.28.23 — 2. November 2026
 
 ### Kalender

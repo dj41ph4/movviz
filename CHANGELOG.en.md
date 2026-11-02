@@ -1,3 +1,24 @@
+## v1.28.24 — 2 November 2026
+
+### Library
+
+- On large screens, a single sticky capsule groups the type, the 4K / HDR / In my list filters, the counter, status, genre, sort and a “⋯” menu for admin actions. Sorting no longer appears twice.
+- On mobile, controls fit in three compact rows with 44 px buttons, and 4K / HDR / In my list are now reachable.
+
+### Collections
+
+- Saga search, All / Incomplete / Complete filters and “Most missing” or “Nearly done” sorting.
+- Titles on two lines without the “- Saga” suffix, thicker progress bar (green when the saga is complete).
+
+### Wanted
+
+- Instant search and an All / Movies / Series filter; “Retry selection” acts on the displayed titles, with a confirmation above 50 searches.
+- Rows load as you scroll instead of mounting thousands at once.
+
+### Discover
+
+- Thin dark outline around the selected platform’s logo (banner and active tab) so it reads better on the coloured glow.
+
 ## v1.28.23 — 2 November 2026
 
 ### Calendar

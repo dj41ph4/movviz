@@ -1,3 +1,24 @@
+## v1.28.24 — 2 novembre 2026
+
+### Bibliothèque
+
+- Sur grand écran, une capsule collante unique regroupe le type, les filtres 4K / HDR / Dans ma liste, le compteur, le statut, le genre, le tri et un menu « ⋯ » pour les actions d’administration. Le tri n’apparaît plus en double.
+- Sur mobile, les contrôles tiennent sur trois rangées compactes avec des boutons de 44 px, et 4K / HDR / Dans ma liste deviennent accessibles.
+
+### Collections
+
+- Recherche d’une saga, filtres Toutes / Incomplètes / Complètes et tri « Plus de manquants » ou « Presque finies ».
+- Titres sur deux lignes sans le suffixe « - Saga », barre de progression plus épaisse (verte quand la saga est complète).
+
+### Recherchés
+
+- Recherche instantanée et filtre Tout / Films / Séries ; « Relancer la sélection » agit sur les titres affichés, avec confirmation au-delà de 50 recherches.
+- Les lignes se chargent au fil du défilement au lieu d’en monter des milliers d’un coup.
+
+### Découverte
+
+- Fin contour sombre autour du logo de la plateforme sélectionnée (bannière et onglet actif) pour mieux le lire sur le halo coloré.
+
 ## v1.28.23 — 2 novembre 2026
 
 ### Calendrier
