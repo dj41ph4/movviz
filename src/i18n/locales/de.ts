@@ -865,6 +865,7 @@ export const de: Dictionary = {
     description: "Kommende Filmveröffentlichungen und Ausstrahlungstermine für alles, was du überwachst.",
     empty: "Noch keine anstehenden Veröffentlichungen.",
     today: "Heute",
+    todo: "Zu erledigen",
     movieRelease: "Filmveröffentlichung",
     vo: "Original",
     vf: "Synchronisiert",

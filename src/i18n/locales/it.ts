@@ -865,6 +865,7 @@ export const it: Dictionary = {
     description: "Prossime uscite di film e date di messa in onda degli episodi per tutto ciò che monitori.",
     empty: "Nessuna uscita prevista per ora.",
     today: "Oggi",
+    todo: "Da fare",
     movieRelease: "Uscita film",
     vo: "Originale",
     vf: "Doppiato",

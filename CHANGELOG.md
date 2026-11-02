@@ -1,3 +1,14 @@
+## v1.28.23 — 2 novembre 2026
+
+### Calendrier
+
+- Correction du décalage d’un jour : sous un fuseau à l’est de UTC (Bruxelles, Paris…), le jour affiché « aujourd’hui » et le titre du panneau d’un jour pouvaient tomber la veille. Les dates sont désormais calculées en heure locale.
+- Filtres mémorisés (type, statuts, vue semaine ou mois) et nouveau préréglage « À traiter » (Manquant, Recherche, Téléchargement) avec compteurs sur chaque statut.
+- Barre de navigation collante dont le libellé suit la semaine visible, et rangée des 7 jours pour sauter directement à un jour.
+- Jours vides réduits à une ligne, sorties en deux colonnes sur grand écran, barre de couleur du statut sur chaque carte ; le texte « Centre de pilotage » est retiré.
+- La loupe de recherche n’apparaît plus sur les sorties à venir, et Échap ferme la fenêtre de recherche et le panneau d’un jour.
+- Mobile : en-tête compact et boutons de 44 px.
+
 ## v1.28.22 — 2 novembre 2026
 
 ### Découverte

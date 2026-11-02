@@ -1,3 +1,14 @@
+## v1.28.23 — 2 November 2026
+
+### Calendar
+
+- Fixed the one-day offset: in time zones east of UTC (Brussels, Paris…), the day shown as “today” and the day panel title could land on the previous day. Dates are now computed in local time.
+- Filters (type, statuses, week or month view) are remembered, and a new “To do” preset (Missing, Searching, Downloading) shows counts on every status.
+- Sticky navigation bar whose label follows the visible week, plus a 7-day strip to jump straight to a day.
+- Empty days collapse to one line, releases use two columns on large screens, each card has a status colour bar; the “Control center” text is removed.
+- The search magnifier no longer appears on upcoming releases, and Esc closes the search window and the day panel.
+- Mobile: compact header and 44 px buttons.
+
 ## v1.28.22 — 2 November 2026
 
 ### Discover

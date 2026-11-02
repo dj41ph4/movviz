@@ -18,6 +18,15 @@ export const CALENDAR_STATUS_TONE: Record<LibraryStatus, string> = {
   upcoming: "text-ink-dim bg-white/6 border-white/10",
 };
 
+/** Left accent bar of a full row — same hue as the status pill. */
+const STATUS_BAR: Record<LibraryStatus, string> = {
+  available: "bg-ok",
+  downloading: "bg-cyan",
+  searching: "bg-brand-glow",
+  missing: "bg-amber",
+  upcoming: "bg-white/20",
+};
+
 interface CalendarEntryChipProps {
   entry: CalendarEntry;
   onQuickSearch?: (entry: CalendarEntry) => void;
@@ -30,7 +39,9 @@ export function CalendarEntryChip({ entry, onQuickSearch, searching, compact }: 
   const t = useT();
   // Anime-VF-launch rows (kind "series") are informational — there's no
   // single grabbable file behind "the dub launched", so no quick action.
-  const canQuickSearch = entry.libraryRef && entry.kind !== "series";
+  // Not-yet-aired titles have nothing to grab either — the search button is
+  // reserved for what can actually be fetched now.
+  const canQuickSearch = entry.libraryRef && entry.kind !== "series" && entry.status !== "upcoming";
 
   if (compact) {
     return (
@@ -49,9 +60,10 @@ export function CalendarEntryChip({ entry, onQuickSearch, searching, compact }: 
   }
 
   return (
-    <div className={cn("flex items-center gap-3 rounded-xl glass px-3 py-2.5 transition-colors hover:bg-white/5")}>
+    <div className="relative flex min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.04] py-2.5 pl-4 pr-2.5 transition-colors hover:bg-white/[0.07]">
+      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", STATUS_BAR[entry.status])} />
       <Link href={entry.href} className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-surface">
+        <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg bg-surface">
           {entry.posterPath ? (
             <TmdbImage path={entry.posterPath} size="w92" alt={entry.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
@@ -89,7 +101,8 @@ export function CalendarEntryChip({ entry, onQuickSearch, searching, compact }: 
           }}
           disabled={searching}
           title={t("calendar.quickSearch")}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow disabled:opacity-50"
+          aria-label={t("calendar.quickSearch")}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-ink-soft transition-colors hover:text-brand-glow disabled:opacity-50"
         >
           {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
         </button>

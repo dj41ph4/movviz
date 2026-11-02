@@ -1,3 +1,14 @@
+## v1.28.23 — 2. November 2026
+
+### Kalender
+
+- Ein-Tages-Versatz behoben: In Zeitzonen östlich von UTC (Brüssel, Paris …) konnten der als „heute“ markierte Tag und der Titel des Tagesfensters auf den Vortag fallen. Daten werden nun in Ortszeit berechnet.
+- Filter (Typ, Status, Wochen- oder Monatsansicht) werden gespeichert, dazu die neue Voreinstellung „Zu erledigen“ (Fehlend, Suche, Download) mit Zählern an jedem Status.
+- Fixierte Navigationsleiste, deren Beschriftung der sichtbaren Woche folgt, und eine 7-Tage-Leiste zum direkten Springen zu einem Tag.
+- Leere Tage werden auf eine Zeile reduziert, Veröffentlichungen stehen auf großen Bildschirmen in zwei Spalten, jede Karte hat einen Statusfarbbalken; der Text „Kontrollzentrum“ entfällt.
+- Die Suchlupe erscheint nicht mehr bei kommenden Veröffentlichungen, und Esc schließt das Suchfenster und das Tagesfenster.
+- Mobil: kompakter Kopfbereich und 44-px-Schaltflächen.
+
 ## v1.28.22 — 2. November 2026
 
 ### Entdecken

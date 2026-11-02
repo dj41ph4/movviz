@@ -1,3 +1,14 @@
+## v1.28.23 — 2 november 2026
+
+### Agenda
+
+- Verschuiving van één dag opgelost: in tijdzones ten oosten van UTC (Brussel, Parijs…) konden de als „vandaag” getoonde dag en de titel van het dagpaneel op de vorige dag vallen. Datums worden nu in lokale tijd berekend.
+- Filters (type, statussen, week- of maandweergave) worden onthouden, met een nieuwe voorinstelling „Te doen” (Ontbrekend, Zoeken, Downloaden) en tellers op elke status.
+- Vaste navigatiebalk waarvan het label de zichtbare week volgt, plus een 7-dagenrij om direct naar een dag te springen.
+- Lege dagen krimpen tot één regel, releases staan op grote schermen in twee kolommen, elke kaart heeft een statuskleurbalk; de tekst „Controlecentrum” is verwijderd.
+- Het zoekvergrootglas verschijnt niet meer bij aankomende releases, en Esc sluit het zoekvenster en het dagpaneel.
+- Mobiel: compacte kop en knoppen van 44 px.
+
 ## v1.28.22 — 2 november 2026
 
 ### Ontdekken

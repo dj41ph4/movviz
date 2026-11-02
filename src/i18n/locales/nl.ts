@@ -865,6 +865,7 @@ export const nl: Dictionary = {
     description: "Aankomende filmreleases en uitzenddata van afleveringen voor alles wat je volgt.",
     empty: "Nog geen aankomende releases.",
     today: "Vandaag",
+    todo: "Te doen",
     movieRelease: "Filmrelease",
     vo: "Origineel",
     vf: "Nagesynchroniseerd",

@@ -1,3 +1,14 @@
+## v1.28.23 — 2 novembre 2026
+
+### Calendario
+
+- Corretto lo scarto di un giorno: nei fusi orari a est di UTC (Bruxelles, Parigi…) il giorno indicato come «oggi» e il titolo del pannello del giorno potevano cadere il giorno prima. Le date sono ora calcolate in ora locale.
+- Filtri memorizzati (tipo, stati, vista settimana o mese) e nuovo preset «Da fare» (Mancante, Ricerca, Download) con contatori su ogni stato.
+- Barra di navigazione fissa la cui etichetta segue la settimana visibile, più una riga di 7 giorni per saltare direttamente a un giorno.
+- I giorni vuoti si riducono a una riga, le uscite usano due colonne su schermi grandi, ogni scheda ha una barra del colore dello stato; il testo «Centro di controllo» è rimosso.
+- La lente di ricerca non compare più sulle uscite future, e Esc chiude la finestra di ricerca e il pannello del giorno.
+- Mobile: intestazione compatta e pulsanti da 44 px.
+
 ## v1.28.22 — 2 novembre 2026
 
 ### Scopri

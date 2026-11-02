@@ -863,6 +863,7 @@ export const fr = {
     description: "Sorties de films et diffusions d'épisodes à venir pour tout ce que vous surveillez.",
     empty: "Aucune sortie à venir pour l'instant.",
     today: "Aujourd'hui",
+    todo: "À traiter",
     movieRelease: "Sortie du film",
     vo: "VO",
     vf: "VF",

@@ -3,21 +3,24 @@ export function PageHeader({
   title,
   description,
   children,
+  compact,
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   children?: React.ReactNode;
+  /** Tighter vertical rhythm for pages whose controls matter more than the hero. */
+  compact?: boolean;
 }) {
   return (
-    <div data-nx-page-header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div data-nx-page-header className={compact ? "mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between" : "mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"}>
       <div>
         {eyebrow && (
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.25em] text-brand-glow">
             {eyebrow}
           </p>
         )}
-        <h1 className="text-3xl font-black tracking-tight text-gradient md:text-4xl">
+        <h1 className={compact ? "text-2xl font-black tracking-tight text-gradient sm:text-3xl md:text-4xl" : "text-3xl font-black tracking-tight text-gradient md:text-4xl"}>
           {title}
         </h1>
         {description && (

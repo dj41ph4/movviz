@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useT, useI18n } from "@/i18n/provider";
 import { X } from "lucide-react";
 import type { CalendarEntry } from "@/app/api/calendar/route";
 import { CalendarEntryChip } from "./CalendarEntryChip";
+import { localIso, monthCells, parseLocalIso } from "@/lib/calendar/localDate";
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const MAX_PER_CELL = 3;
@@ -30,32 +31,26 @@ export function CalendarMonthGrid({ entries, monthDate, todayIso, onQuickSearch,
     return m;
   }, [entries]);
 
-  const cells = useMemo(() => {
-    const year = monthDate.getFullYear();
-    const month = monthDate.getMonth();
-    const firstOfMonth = new Date(year, month, 1);
-    // Monday-first grid: JS getDay() is 0=Sunday, shift so Monday=0.
-    const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const totalCells = Math.ceil((leadingBlanks + daysInMonth) / 7) * 7;
-    return Array.from({ length: totalCells }, (_, i) => {
-      const dayNum = i - leadingBlanks + 1;
-      if (dayNum < 1 || dayNum > daysInMonth) return null;
-      const date = new Date(year, month, dayNum);
-      return { iso: date.toISOString().slice(0, 10), dayNum };
-    });
-  }, [monthDate]);
+  const cells = useMemo(() => monthCells(monthDate), [monthDate]);
+
+  // Escape closes the day panel (it is a modal-like overlay).
+  useEffect(() => {
+    if (!expandedDate) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpandedDate(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expandedDate]);
 
   const expandedEntries = expandedDate ? byDate.get(expandedDate) ?? [] : [];
 
   return (
-    <div>
+    <div data-cal-period={localIso(monthDate)} className="scroll-mt-48">
       <div className="mb-1.5 grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-wide text-ink-dim">
         {WEEKDAY_KEYS.map((k) => <div key={k}>{t(`calendar.weekday.${k}`)}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-1.5">
         {cells.map((cell, i) => {
-          if (!cell) return <div key={i} className="min-h-[5.5rem] rounded-xl bg-transparent" />;
+          if (!cell) return <div key={i} className="min-h-[5.5rem] rounded-2xl bg-transparent" />;
           const dayEntries = byDate.get(cell.iso) ?? [];
           const visible = dayEntries.slice(0, MAX_PER_CELL);
           const hiddenCount = dayEntries.length - visible.length;
@@ -65,8 +60,8 @@ export function CalendarMonthGrid({ entries, monthDate, todayIso, onQuickSearch,
               key={cell.iso}
               onClick={() => dayEntries.length > 0 && setExpandedDate(cell.iso)}
               className={cn(
-                "flex min-h-[5.5rem] flex-col gap-1 rounded-xl border p-1.5 text-left transition-colors",
-                isToday ? "border-brand/40 bg-brand/8" : "border-white/5 bg-black/10 hover:bg-white/5"
+                "flex min-h-[5.5rem] flex-col gap-1 rounded-2xl border p-1.5 text-left transition-colors",
+                isToday ? "border-brand/40 bg-brand/8" : "border-white/8 bg-white/[0.03] hover:bg-white/[0.07]"
               )}
             >
               <span className={cn("text-xs font-bold", isToday ? "text-brand-glow" : "text-ink-dim")}>{cell.dayNum}</span>
@@ -100,9 +95,9 @@ export function CalendarMonthGrid({ entries, monthDate, todayIso, onQuickSearch,
             >
               <div className="mb-3 flex items-center justify-between">
                 <p className="font-bold text-ink">
-                  {new Date(expandedDate).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
+                  {parseLocalIso(expandedDate).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
                 </p>
-                <button onClick={() => setExpandedDate(null)} className="flex h-9 w-9 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
+                <button onClick={() => setExpandedDate(null)} aria-label={t("common.close")} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-ink-dim hover:text-ink sm:h-9 sm:w-9">
                   <X className="h-4 w-4" />
                 </button>
               </div>

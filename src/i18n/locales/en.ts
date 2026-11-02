@@ -865,6 +865,7 @@ export const en: Dictionary = {
     description: "Upcoming movie releases and episode air dates for everything you're monitoring.",
     empty: "No upcoming releases yet.",
     today: "Today",
+    todo: "To do",
     movieRelease: "Movie release",
     vo: "Original",
     vf: "Dubbed",
