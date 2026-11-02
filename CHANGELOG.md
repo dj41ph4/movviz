@@ -1,3 +1,10 @@
+## v1.28.31 — 3 novembre 2026
+
+### Recherche
+
+- Les recherches de remplacement et de mise à niveau des séries (langue, codec, remplacement suggéré) interrogent maintenant l'indexeur par identifiants de la série, comme la recherche automatique : les versions récentes d'un titre à longue histoire ne sont plus perdues au-delà des 100 premiers résultats.
+- Ces remplacements vérifient l'année de la release quand la bibliothèque contient un homonyme (une série animée et sa version live action, par exemple), pour ne jamais installer la mauvaise. Sans homonyme, l'année n'écarte aucune release.
+
 ## v1.28.30 — 3 novembre 2026
 
 ### Recherche

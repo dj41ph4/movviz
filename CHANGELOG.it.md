@@ -1,3 +1,10 @@
+## v1.28.31 — 3 novembre 2026
+
+### Ricerca
+
+- Le ricerche di sostituzione e aggiornamento delle serie (lingua, codec, sostituzione suggerita) interrogano ora l'indexer tramite gli identificativi della serie, come la ricerca automatica: le versioni recenti di un titolo con lunga storia non si perdono più oltre i primi 100 risultati.
+- Queste sostituzioni controllano l'anno della release quando la libreria contiene un omonimo (una serie animata e il suo remake live action, ad esempio), per non installare mai quella sbagliata. Senza omonimo, l'anno non esclude nessuna release.
+
 ## v1.28.30 — 3 novembre 2026
 
 ### Ricerca

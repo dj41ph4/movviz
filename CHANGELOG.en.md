@@ -1,3 +1,10 @@
+## v1.28.31 — 3 November 2026
+
+### Search
+
+- Series replacement and upgrade searches (language, codec, suggested replacement) now query the indexer by the series identifiers, like automatic search: recent versions of a long-running title are no longer lost beyond the first 100 results.
+- These replacements check the release year when the library holds a homonym (an animated series and its live-action remake, for instance), so the wrong one is never installed. Without a homonym, the year rules out no release.
+
 ## v1.28.30 — 3 November 2026
 
 ### Search

@@ -1,3 +1,10 @@
+## v1.28.31 — 3 november 2026
+
+### Zoeken
+
+- De vervangings- en upgradezoekopdrachten voor series (taal, codec, voorgestelde vervanging) bevragen de indexer nu via de identificaties van de serie, zoals automatisch zoeken: recente versies van een titel met een lange geschiedenis gaan niet meer verloren voorbij de eerste 100 resultaten.
+- Deze vervangingen controleren het jaar van de release wanneer de bibliotheek een naamgenoot bevat (bijvoorbeeld een animatieserie en de live-action remake), zodat nooit de verkeerde wordt geïnstalleerd. Zonder naamgenoot sluit het jaar geen release uit.
+
 ## v1.28.30 — 3 november 2026
 
 ### Zoeken

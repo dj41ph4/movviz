@@ -1,3 +1,10 @@
+## v1.28.31 — 3. November 2026
+
+### Suche
+
+- Die Ersetzungs- und Upgrade-Suchen für Serien (Sprache, Codec, vorgeschlagene Ersetzung) fragen den Indexer jetzt über die Serien-Kennungen ab, wie die automatische Suche: Neue Versionen eines langlaufenden Titels gehen nicht mehr jenseits der ersten 100 Ergebnisse verloren.
+- Diese Ersetzungen prüfen das Jahr der Release, wenn die Bibliothek einen Homonym enthält (etwa eine Zeichentrickserie und ihr Live-Action-Remake), damit nie die falsche installiert wird. Ohne Homonym schließt das Jahr keine Release aus.
+
 ## v1.28.30 — 3. November 2026
 
 ### Suche
