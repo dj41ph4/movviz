@@ -636,6 +636,10 @@ export const de: Dictionary = {
     rowUpcoming: "Deine kommenden Veröffentlichungen",
     rowAnnounced: "Demnächst",
     rowTrending: "Angesagt auf Movviz",
+    expandRow: "Alle anzeigen",
+    collapseRow: "Einklappen",
+    jumpTo: "Zu einer Reihe springen",
+    jumpShortSessions: "Wenig Zeit?",
     upgradesAvailable: "Verfügbare Upgrades",
     hero: {
       whyThisTitle: "Warum dieser Titel?",

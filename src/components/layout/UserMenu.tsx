@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, LogOut, ShieldCheck, UserCog } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { effectiveAvatar } from "@/lib/auth/types";
 import { resetSwrCache } from "@/lib/swrCacheReset";
 import { useI18n, useT } from "@/i18n/provider";
 import { LOCALES, LOCALE_META } from "@/i18n/config";
@@ -32,6 +33,7 @@ export function UserMenu() {
   if (!user) return null;
 
   const initials = user.username.slice(0, 2).toUpperCase();
+  const avatar = effectiveAvatar(user);
   const logout = async () => {
     // Close the dropdown FIRST and let its exit animation finish before any
     // navigation: AppShell swaps to the auth branch on push("/login"), which
@@ -62,10 +64,10 @@ export function UserMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl glass py-2 pl-1.5 pr-3 transition-colors hover:border-brand/30"
+        className="flex items-center gap-2 rounded-full glass py-1.5 pl-1.5 pr-3.5 transition-colors hover:border-brand/30"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg brand-gradient text-xs font-black text-white">
-          {initials}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full brand-gradient text-xs font-black text-white">
+          {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : initials}
         </span>
         <span className="hidden text-sm font-semibold text-ink sm:block">{user.username}</span>
       </button>

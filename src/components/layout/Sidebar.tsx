@@ -19,6 +19,7 @@ import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 import { installSystemUpdate } from "@/lib/updates/installSystemUpdate";
 import { SidebarReleaseFooter, isNewerVersion, type SidebarUpdateInfo } from "./SidebarReleaseFooter";
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import "./sidebar-premium.css";
 
 type LiveBadge = NonNullable<NavItem["liveBadge"]>;
 const SIDEBAR_STORAGE_KEY = "movviz.sidebar.collapsed";
@@ -164,7 +165,7 @@ function GestionNavItem({ pathname, searchParams, counts, pulseBadge, isAdmin, c
   </button>;
   return <div ref={groupRef} className="relative shrink-0">
     {collapsed ? <SidebarTooltip label={t("nav.management")}>{parent}</SidebarTooltip> : parent}
-    {collapsed ? <AnimatePresence>{flyoutOpen && <motion.div ref={flyoutRef} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -4 }} transition={{ duration: 0.16 }} onKeyDown={trapFlyoutTab} style={{ top: flyoutTop, left: 84 }} className="fixed z-[70] w-60 rounded-xl border border-brand/20 bg-[#11172d] p-1.5 shadow-2xl"><div className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-dim">{t("nav.management")}</div>{rows(true)}</motion.div>}</AnimatePresence>
+    {collapsed ? <AnimatePresence>{flyoutOpen && <motion.div ref={flyoutRef} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -4 }} transition={{ duration: 0.16 }} onKeyDown={trapFlyoutTab} style={{ top: flyoutTop, left: 100 }} className="fixed z-[70] w-60 rounded-xl border border-brand/20 bg-[#11172d] p-1.5 shadow-2xl"><div className="px-2.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-ink-dim">{t("nav.management")}</div>{rows(true)}</motion.div>}</AnimatePresence>
       : <AnimatePresence initial={false}>{expandedGroupOpen && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden"><div className="flex flex-col gap-1 pt-1">{rows()}</div></motion.div>}</AnimatePresence>}
   </div>;
 }

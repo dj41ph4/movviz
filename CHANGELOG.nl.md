@@ -1,3 +1,18 @@
+## v1.28.25 — 2 november 2026
+
+### Dashboard
+
+- Vaste snelkoppelingenbalk: één klik springt naar een rij (in jouw volgorde), de knop van de huidige rij licht op en „Aanpassen” zit erin als pil en blijft zichtbaar in bewerkmodus.
+- Knop „Alles tonen” op rijen: ze worden een raster (eerste 24 titels) in plaats van een horizontale strook. Niet bij „Trending op Movviz”, dat zijn strook houdt.
+- De storende verticale schuifbalk rechts van de rijen verdwijnt.
+
+### Interface
+
+- Zwevende glazen zijbalk (donker ontwerp): zonder scheidingslijnen, oplichtend actief item, ingeklapte modus op één regel met verfijnde tooltip.
+- Knoppen bovenaan (Plex-monitor, meldingen, profiel) als pillen; de profielfoto vervangt de initialen.
+- De vaste balken van agenda, bibliotheek en dashboard sluiten nu aan op de echte hoogte van de bovenbalk: geen afgesneden eerste regel meer.
+- Bibliotheek: gelijke ruimte van 16 px tussen de posters.
+
 ## v1.28.24 — 2 november 2026
 
 ### Bibliotheek

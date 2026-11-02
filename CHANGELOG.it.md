@@ -1,3 +1,18 @@
+## v1.28.25 — 2 novembre 2026
+
+### Dashboard
+
+- Barra di scorciatoie fissa: un clic salta a una riga (nel tuo ordine), il pulsante della riga corrente si illumina e «Personalizza» ne fa parte, a pillola, e resta visibile in modalità modifica.
+- Pulsante «Mostra tutto» sulle righe: diventano una griglia (primi 24 titoli) invece di una striscia orizzontale. Assente da «Di tendenza su Movviz», che mantiene la striscia.
+- Sparisce la barra di scorrimento verticale parassita a destra delle righe.
+
+### Interfaccia
+
+- Sidebar flottante in vetro (design scuro): senza separatori, voce attiva luminosa, modalità ridotta su una riga con tooltip curato.
+- Pulsanti in alto (monitor Plex, notifiche, profilo) a pillola; la foto profilo sostituisce le iniziali.
+- Le barre fisse di calendario, libreria e dashboard ora si posizionano sotto l’altezza reale della barra superiore: niente più prima riga tagliata.
+- Libreria: spazio uniforme di 16 px tra le locandine.
+
 ## v1.28.24 — 2 novembre 2026
 
 ### Libreria

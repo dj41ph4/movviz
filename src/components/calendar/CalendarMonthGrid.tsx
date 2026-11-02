@@ -44,7 +44,7 @@ export function CalendarMonthGrid({ entries, monthDate, todayIso, onQuickSearch,
   const expandedEntries = expandedDate ? byDate.get(expandedDate) ?? [] : [];
 
   return (
-    <div data-cal-period={localIso(monthDate)} className="scroll-mt-48">
+    <div data-cal-period={localIso(monthDate)} className="scroll-mt-56">
       <div className="mb-1.5 grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-wide text-ink-dim">
         {WEEKDAY_KEYS.map((k) => <div key={k}>{t(`calendar.weekday.${k}`)}</div>)}
       </div>

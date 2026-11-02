@@ -196,7 +196,7 @@ export default function CalendarPage() {
     const pick = () => {
       let current = nodes[0].dataset.calPeriod ?? null;
       for (const n of nodes) {
-        if (n.getBoundingClientRect().top <= 220) current = n.dataset.calPeriod ?? current;
+        if (n.getBoundingClientRect().top <= 260) current = n.dataset.calPeriod ?? current;
       }
       setActivePeriod(current);
     };
@@ -241,7 +241,7 @@ export default function CalendarPage() {
         onViewChange={(v) => { setView(v); resetCount(v); }}
       />
 
-      <div className="sticky top-[3.75rem] z-20 pb-2 pt-1 lg:top-14">
+      <div className="sticky top-[calc(var(--nx-topbar-h,3.5rem)+0.5rem)] z-20 pb-2 pt-1">
         <div className="rounded-3xl border border-white/10 bg-[#0b1024]/80 p-1.5 shadow-[0_12px_30px_-12px_rgba(0,0,0,.6)] backdrop-blur-xl">
           <div className="flex items-center gap-1.5">
             <button

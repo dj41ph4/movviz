@@ -1,0 +1,28 @@
+/* Barre du haut (design « beta », sombre) : les trois boutons de droite
+   (moniteur Plex, notifications, profil) reprennent la forme en pilule et le
+   verre de la sidebar flottante. Même technique de spécificité que
+   sidebar-premium.css : les thèmes stylent ces boutons jusqu'à (0,3,1). */
+@media (min-width: 1024px) {
+  html[data-movviz-design="beta"]:root:root:root:root .nx-topbar > div:last-child > div > button {
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03)), rgba(13, 13, 19, .6);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 10px 24px -14px rgba(0, 0, 0, .7);
+    backdrop-filter: blur(14px) saturate(1.2);
+    transition: background .2s, border-color .2s, color .2s, transform .15s;
+
+    &:hover {
+      border-color: rgba(139, 123, 255, .45);
+      background: linear-gradient(180deg, rgba(124, 92, 255, .22), rgba(124, 92, 255, .08)), rgba(13, 13, 19, .6);
+    }
+
+    &:active { transform: scale(.96); }
+  }
+
+  /* Profil : avatar rond + nom dans une pilule. */
+  html[data-movviz-design="beta"]:root:root:root:root .nx-topbar > div:last-child > div:last-child > button {
+    padding: 0 16px 0 5px;
+    gap: 10px;
+  }
+}

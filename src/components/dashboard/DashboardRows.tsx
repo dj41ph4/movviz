@@ -18,6 +18,7 @@ import { RecentEpisodesRow } from "./RecentEpisodesRow";import { WatchlistRow } 
 import type { WatchlistItem } from "@/lib/watchlist/types";
 import { useRowLayout } from "@/components/media/useRowLayout";
 import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
+import { DashboardJumpBar, dashboardRowAnchor } from "./DashboardJumpBar";
 
 interface UpgradeCandidate {
   movieId: string;
@@ -335,7 +336,7 @@ export function DashboardRows({
 
         if (id === "continueWatching" && continueWatching.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.continueWatching")}>
+            <PosterRow expandable key={id} title={t("dashboard.continueWatching")}>
               {continueWatching.map((item, i) => {
                 const type = item.type === "movie" ? "movie" : "series";
                 const artwork = resolveArtwork(type, item.tmdbId);
@@ -415,7 +416,7 @@ export function DashboardRows({
         if (id === "availableNow" && (recentEpisodes.length > 0 || recentlyAdded.length > 0)) {
           return (
             <div key={id} className="space-y-8">
-              {recentlyAdded.length > 0 && <PosterRow title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
+              {recentlyAdded.length > 0 && <PosterRow expandable title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
                 {recentlyAdded.map(({ type, item }) => {
                   const artwork = resolveArtwork(type, item.tmdbId, item.backdropPath);
                   return (
@@ -446,7 +447,7 @@ export function DashboardRows({
 
         if (id === "becauseYouLike" && recommended.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
+            <PosterRow expandable key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
               {recommended.map((r) => {
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
@@ -461,7 +462,7 @@ export function DashboardRows({
 
         if (id === "rewatch" && rewatch.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.rowRewatch")}>
+            <PosterRow expandable key={id} title={t("dashboard.rowRewatch")}>
               {rewatch.map((r) => {
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
@@ -476,7 +477,7 @@ export function DashboardRows({
 
         if (id === "shortSessions" && shortSessions.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.shortSessions")}>
+            <PosterRow expandable key={id} title={t("dashboard.shortSessions")}>
               {shortSessions.map((movie) => {
                 const artwork = resolveArtwork("movie", movie.tmdbId, movie.backdropPath);
                 return (
@@ -505,7 +506,7 @@ export function DashboardRows({
 
         if (id === "announced" && announced.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.rowAnnounced")}>
+            <PosterRow expandable key={id} title={t("dashboard.rowAnnounced")}>
               {announced.map(({ m, days }) => {
                 const artwork = resolveArtwork("movie", m.tmdbId, m.backdropPath);
                 return (
@@ -532,7 +533,7 @@ export function DashboardRows({
 
         if (id === "comingSoon" && upcoming.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.rowUpcoming")} onSeeAll={() => router.push("/library?filter=upcoming")}>
+            <PosterRow expandable key={id} title={t("dashboard.rowUpcoming")} onSeeAll={() => router.push("/library?filter=upcoming")}>
               {upcoming.map(({ m, days }) => {
                 const artwork = resolveArtwork("movie", m.tmdbId, m.backdropPath);
                 return (
@@ -564,7 +565,7 @@ export function DashboardRows({
         // from the existing library/quality workflow.
         if (id === "upgradesAvailable" && upgrades.length > 1) {
           return (
-            <PosterRow key={id} title={t("dashboard.upgradesAvailable")}>
+            <PosterRow expandable key={id} title={t("dashboard.upgradesAvailable")}>
               {upgrades.map(({ candidate, movie }) => {
                 const artwork = resolveArtwork("movie", movie.tmdbId, movie.backdropPath);
                 return (
@@ -611,15 +612,36 @@ export function DashboardRows({
   const availableRows = sectionOrder.map((id) => ({ key: id, content: renderSection(id) })).filter((row) => row.content != null);
   const arrangedRows = rowLayout.arrange(availableRows);
 
+  const rowLabels: Record<string, string> = {
+    continueWatching: t("dashboard.continueWatching"),
+    availableNow: t("dashboard.recentlyAdded"),
+    becauseYouLike: t("dashboard.rowRecommended"),
+    watchlist: t("watchlist.title"),
+    rewatch: t("dashboard.rowRewatch"),
+    discover: t("dashboard.rowTrending"),
+    shortSessions: t("dashboard.jumpShortSessions"),
+    announced: t("dashboard.rowAnnounced"),
+    comingSoon: t("dashboard.rowUpcoming"),
+    upgradesAvailable: t("dashboard.upgradesAvailable"),
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <RowLayoutToggle layout={rowLayout} />
-      </div>
+      {arrangedRows.length >= 3 ? (
+        <DashboardJumpBar items={arrangedRows.map((row) => ({ id: row.key, label: rowLabels[row.key] ?? row.key }))}>
+          <RowLayoutToggle layout={rowLayout} variant="pill" />
+        </DashboardJumpBar>
+      ) : (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <RowLayoutToggle layout={rowLayout} />
+        </div>
+      )}
       {arrangedRows.map((row) => (
-        <EditableRow key={row.key} rowKey={row.key} rows={arrangedRows} layout={rowLayout}>
-          {row.content}
-        </EditableRow>
+        <div key={row.key} id={dashboardRowAnchor(row.key)} className="scroll-mt-56">
+          <EditableRow rowKey={row.key} rows={arrangedRows} layout={rowLayout}>
+            {row.content}
+          </EditableRow>
+        </div>
       ))}
       {availableRows.length > 0 && arrangedRows.length === 0 && (
         <p className="rounded-xl border border-brand/20 bg-surface/45 p-6 text-sm text-ink-dim">{t("rowLayout.allHidden")}</p>

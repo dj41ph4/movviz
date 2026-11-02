@@ -1,3 +1,18 @@
+## v1.28.25 — 2. November 2026
+
+### Dashboard
+
+- Fixierte Schnellleiste: Ein Klick springt zu einer Reihe (in deiner eigenen Reihenfolge), der Button der aktuellen Reihe leuchtet, und „Anpassen“ ist darin als Pille enthalten und bleibt im Bearbeitungsmodus sichtbar.
+- Button „Alle anzeigen“ auf den Reihen: Sie werden zu einem Raster (erste 24 Titel) statt zu einem horizontalen Streifen. Nicht bei „Angesagt auf Movviz“, das seinen Streifen behält.
+- Die störende vertikale Bildlaufleiste rechts neben den Reihen entfällt.
+
+### Oberfläche
+
+- Schwebende Glas-Seitenleiste (dunkles Design): ohne Trennlinien, leuchtender aktiver Eintrag, einzeiliger eingeklappter Modus mit überarbeitetem Tooltip.
+- Obere Buttons (Plex-Monitor, Benachrichtigungen, Profil) als Pillen; das Profilfoto ersetzt die Initialen.
+- Die fixierten Leisten von Kalender, Bibliothek und Dashboard richten sich nun nach der echten Höhe der oberen Leiste: keine abgeschnittene erste Zeile mehr.
+- Bibliothek: einheitlicher Abstand von 16 px zwischen den Postern.
+
 ## v1.28.24 — 2. November 2026
 
 ### Bibliothek

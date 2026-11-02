@@ -10,6 +10,7 @@ import { NotificationBell } from "./NotificationBell";
 import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
+import "./topbar-premium.css";
 
 export function Topbar() {
   const user = useCurrentUser();
@@ -67,6 +68,17 @@ export function Topbar() {
   // entirely and is the standard, battle-tested pattern for exactly
   // this "am I at the top of the page" question.
   const [scrolled, setScrolled] = useState(false);
+  // Sticky bars below the topbar (calendar, library, dashboard) read its real height.
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const publish = () => document.documentElement.style.setProperty("--nx-topbar-h", `${el.getBoundingClientRect().height}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     const sentinel = document.getElementById("topbar-scroll-sentinel");
     if (!sentinel) return;
@@ -80,6 +92,7 @@ export function Topbar() {
 
   return (
     <header
+      ref={headerRef}
       data-scrolled={scrolled ? "true" : undefined}
       className={cn(
         "nx-topbar sticky top-0 z-30 flex h-15 items-center gap-2 border-b border-transparent px-4 transition-colors duration-300 sm:gap-4 sm:px-6 lg:h-14",

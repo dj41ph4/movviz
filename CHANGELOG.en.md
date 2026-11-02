@@ -1,3 +1,18 @@
+## v1.28.25 — 2 November 2026
+
+### Dashboard
+
+- Sticky shortcut bar: one click jumps to a row (in your own order), the current row’s button lights up, and “Customize” lives in it as a pill and stays visible in edit mode.
+- “Show all” button on rows: they turn into a grid (first 24 titles) instead of a horizontal strip. Not on “Trending on Movviz”, which keeps its strip.
+- The stray vertical scrollbar at the right of rows is gone.
+
+### Interface
+
+- Floating glass sidebar (dark design): no separators, glowing active entry, single-line collapsed mode with a refined tooltip.
+- Top buttons (Plex monitor, notifications, profile) are pills; the profile photo replaces the initials.
+- Sticky bars on the calendar, library and dashboard now sit below the real height of the top bar: no more cut-off first line.
+- Library: uniform 16 px gap between posters.
+
 ## v1.28.24 — 2 November 2026
 
 ### Library

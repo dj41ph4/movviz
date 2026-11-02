@@ -1,3 +1,18 @@
+## v1.28.25 — 2 novembre 2026
+
+### Tableau de bord
+
+- Barre de raccourcis collante : un clic saute à une rangée (dans l’ordre de ton affichage), le bouton de la rangée courante s’allume, et « Personnaliser » en fait partie, en pilule, et reste visible en mode édition.
+- Bouton « Tout afficher » sur les rangées : elles passent en grille (24 premiers titres) au lieu du défilement horizontal. Absent de « Tendances Movviz », qui garde son défilement.
+- La barre de défilement verticale parasite à droite des rangées disparaît.
+
+### Interface
+
+- Sidebar flottante en verre (design sombre) : sans séparateurs, entrée active lumineuse, mode réduit sur une seule ligne avec info-bulle soignée.
+- Boutons du haut (moniteur Plex, notifications, profil) en pilules ; la photo de profil remplace les initiales.
+- Les barres collantes du calendrier, de la bibliothèque et du tableau de bord se calent maintenant sous la vraie hauteur de la barre du haut : plus de première ligne coupée.
+- Bibliothèque : écart uniforme de 16 px entre les affiches.
+
 ## v1.28.24 — 2 novembre 2026
 
 ### Bibliothèque

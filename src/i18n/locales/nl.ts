@@ -636,6 +636,10 @@ export const nl: Dictionary = {
     rowUpcoming: "Jouw aankomende releases",
     rowAnnounced: "Binnenkort",
     rowTrending: "Trending op Movviz",
+    expandRow: "Alles tonen",
+    collapseRow: "Inklappen",
+    jumpTo: "Ga naar een rij",
+    jumpShortSessions: "Weinig tijd?",
     upgradesAvailable: "Beschikbare upgrades",
     hero: {
       whyThisTitle: "Waarom deze titel?",

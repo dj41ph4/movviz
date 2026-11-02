@@ -42,7 +42,7 @@ export function CalendarWeekGrid({ entries, weekStart, todayIso, onQuickSearch, 
               key={iso}
               id={`cal-day-${iso}`}
               className={cn(
-                "flex scroll-mt-48 items-baseline gap-2 rounded-2xl border px-4 py-2",
+                "flex scroll-mt-56 items-baseline gap-2 rounded-2xl border px-4 py-2",
                 isToday ? "border-brand/40 bg-brand/8" : "border-white/5 bg-white/[0.02]"
               )}
             >
@@ -59,7 +59,7 @@ export function CalendarWeekGrid({ entries, weekStart, todayIso, onQuickSearch, 
             key={iso}
             id={`cal-day-${iso}`}
             className={cn(
-              "scroll-mt-48 rounded-3xl border p-3 sm:p-4",
+              "scroll-mt-56 rounded-3xl border p-3 sm:p-4",
               isToday ? "border-brand/40 bg-brand/8 shadow-[0_0_0_1px_rgba(139,123,255,.15),0_18px_40px_-20px_rgba(124,92,255,.5)]" : "border-white/8 bg-white/[0.03]"
             )}
           >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { createRowImagePreloader } from "./rowImagePreloader";
@@ -27,16 +27,20 @@ export function PosterRow({
   title,
   onSeeAll,
   onNearEnd,
+  expandable,
   children,
 }: {
   title: string;
   onSeeAll?: () => void;
   onNearEnd?: () => void;
+  /** Adds a "show all" toggle that lays the row out as a wrapping grid (first 24 cards) instead of a swipe strip. */
+  expandable?: boolean;
   children: React.ReactNode;
 }) {
   const t = useT();
   const playbackActive = usePlaybackActive();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const [scrollState, setScrollState] = useState({ overflowing: false, atStart: true, atEnd: true });
 
   const measure = useCallback(() => {
@@ -81,11 +85,25 @@ export function PosterRow({
     <section className="nx-poster-row group/row space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
-        {onSeeAll && (
-          <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-brand-glow hover:text-brand-2 transition-colors">
-            {t("discover.seeAll")} <ChevronRight className="h-4 w-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {expandable && (expanded || scrollState.overflowing) && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              title={expanded ? t("dashboard.collapseRow") : t("dashboard.expandRow")}
+              className="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-white/12 bg-white/[.05] px-3 text-xs font-semibold text-ink-soft transition-colors hover:bg-brand/25 hover:text-white sm:h-8"
+            >
+              {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{expanded ? t("dashboard.collapseRow") : t("dashboard.expandRow")}</span>
+            </button>
+          )}
+          {onSeeAll && (
+            <button onClick={onSeeAll} className="flex h-11 items-center gap-1 text-sm font-semibold text-brand-glow hover:text-brand-2 transition-colors sm:h-auto">
+              {t("discover.seeAll")} <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative">
@@ -107,7 +125,7 @@ export function PosterRow({
             <ChevronRight className="h-6 w-6" />
           </button>
         )}
-        <div ref={scrollRef} onScroll={measure} className={cn("flex gap-4 overflow-x-auto pb-2")}>
+        <div ref={scrollRef} onScroll={measure} className={cn("flex gap-4 pb-2", expanded ? "flex-wrap [&>*:nth-child(n+25)]:hidden" : "overflow-x-auto overflow-y-hidden")}>
           <CarouselImageContext.Provider value={true}>{children}</CarouselImageContext.Provider>
         </div>
       </div>

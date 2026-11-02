@@ -1,0 +1,227 @@
+/* Sidebar desktop (design « beta », sombre) : panneau flottant en verre, sans
+   séparateurs, entrée active lumineuse, info-bulle soignée en mode réduit.
+   Les thèmes (premium.css, salle-obscure.css, design-beta*.css) stylent déjà
+   .nx-sidebar avec jusqu'à (0,2,1) : la répétition de :root passe devant eux
+   sans !important. Le verre dépoli est porté par ::before et non par l'aside :
+   un backdrop-filter sur l'aside en ferait le repère des enfants en
+   position:fixed (info-bulle, menu Gestion) et les décalerait. */
+@media (min-width: 1024px) {
+  html[data-movviz-design="beta"]:root:root:root:root .nx-sidebar {
+    isolation: isolate;
+    margin: 12px 0 12px 12px;
+    top: 12px;
+    height: calc(100vh - 24px);
+    padding-top: 16px;
+    padding-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 26px;
+    background: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 24px 50px -18px rgba(0, 0, 0, .75);
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02)), rgba(13, 13, 19, .78);
+      backdrop-filter: blur(22px) saturate(1.3);
+    }
+
+    &:not([data-collapsed]) {
+      width: 236px;
+      min-width: 236px;
+    }
+
+    & .mv-brand-name {
+      text-transform: uppercase;
+      letter-spacing: .22em;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    & nav { gap: 2px; }
+
+    & :is(nav a, nav > div > button) {
+      height: 46px;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 500;
+      gap: 12px;
+      padding-left: 14px;
+      color: #a4a4b4;
+      background: transparent;
+      transition: background .2s, color .2s;
+    }
+
+    & :is(nav a, nav > div > button):hover {
+      background: rgba(255, 255, 255, .055);
+      color: #f2f2f6;
+    }
+
+    & :is(nav a svg, nav > div > button svg) { transition: transform .2s, color .2s; }
+    & nav a:hover svg { transform: translateX(1px) scale(1.07); }
+
+    & nav a[aria-current="page"] {
+      color: #fff;
+      background: linear-gradient(90deg, rgba(124, 92, 255, .32), rgba(124, 92, 255, .05));
+      box-shadow: inset 0 0 0 1px rgba(170, 150, 255, .22), 0 10px 26px -14px rgba(124, 92, 255, .9);
+    }
+
+    & nav a[aria-current="page"] svg { color: #cdc2ff; }
+
+    & nav a[aria-current="page"] > span[aria-hidden="true"] {
+      left: 0;
+      width: 4px;
+      height: 22px;
+      border-radius: 0 4px 4px 0;
+      background: #b6a8ff;
+      box-shadow: 0 0 14px 1px rgba(160, 140, 255, .9);
+    }
+
+    /* Pastille du compteur : à droite de la ligne (étendu), sur l'icône (réduit). */
+    & nav a > span.relative:has(> .brand-gradient) { position: static; }
+
+    & nav a > span.relative > .brand-gradient {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      box-shadow: 0 0 12px rgba(124, 92, 255, .7);
+    }
+
+    /* Bouton réduire / ouvrir : pastille ronde sur le bord du panneau. */
+    & footer > button {
+      position: absolute;
+      z-index: 5;
+      right: -14px;
+      top: 78px;
+      width: 28px;
+      height: 28px;
+      margin: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: #171722;
+      color: #cfcfdc;
+      box-shadow: 0 6px 16px -4px rgba(0, 0, 0, .7);
+    }
+
+    & footer > button:hover { background: #222233; }
+
+    & footer > div:nth-of-type(1) {
+      border: 0;
+      padding: 0;
+      margin-top: 8px;
+    }
+
+    & footer > div:nth-of-type(1) > a {
+      height: 58px;
+      padding: 0 12px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .045);
+      border: 1px solid rgba(255, 255, 255, .07);
+    }
+
+    & footer > div:nth-of-type(1) > a:hover { background: rgba(255, 255, 255, .07); }
+
+    & footer > div:nth-of-type(1) > a > span:first-child {
+      width: 38px;
+      height: 38px;
+      box-shadow: 0 0 0 2px #0d0d13, 0 0 0 3.5px #7c5cff;
+    }
+
+    & footer > div:nth-of-type(2) {
+      border: 0;
+      padding-top: 0;
+      margin-top: 6px;
+    }
+
+    & footer > div:nth-of-type(2) > a:first-child { color: #7d7d8c; }
+
+    & footer > div:nth-of-type(2) > a:first-child > span:first-child {
+      background: #35d07f;
+      box-shadow: 0 0 10px #35d07f;
+      opacity: 1;
+    }
+
+    & footer > div:nth-of-type(2) > a:last-child {
+      border-radius: 16px;
+      border: 1px solid rgba(170, 150, 255, .2);
+      background: linear-gradient(90deg, rgba(124, 92, 255, .2), rgba(124, 92, 255, .06));
+    }
+
+    /* Mode réduit : une seule ligne par bouton, pas de texte de version. */
+    &[data-collapsed] :is(nav a, nav > div > button) {
+      justify-content: center;
+      padding: 0;
+      gap: 0;
+    }
+
+    &[data-collapsed] nav a > span.relative > .brand-gradient {
+      right: 12px;
+      top: 9px;
+      transform: none;
+      width: 9px;
+      min-width: 9px;
+      height: 9px;
+      padding: 0;
+      font-size: 0;
+    }
+
+    &[data-collapsed] footer > div:nth-of-type(1) > a {
+      padding: 0;
+      justify-content: center;
+      background: transparent;
+      border-color: transparent;
+      height: 50px;
+    }
+
+    &[data-collapsed] footer > div:nth-of-type(2) > a:first-child { display: none; }
+    &[data-collapsed] footer > div:nth-of-type(2) { margin-top: 4px; }
+    &[data-collapsed] footer > button { top: 70px; }
+
+    /* Info-bulle du mode réduit. */
+    & span[role="tooltip"] {
+      display: flex;
+      align-items: center;
+      margin-left: 6px;
+      padding: 9px 16px;
+      border-radius: 14px;
+      font-size: 13.5px;
+      font-weight: 500;
+      letter-spacing: .01em;
+      color: #f6f6fa;
+      border: 1px solid rgba(255, 255, 255, .12);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .04)), rgba(16, 16, 24, .92);
+      backdrop-filter: blur(18px) saturate(1.4);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 14px 32px -10px rgba(0, 0, 0, .8), 0 0 24px -6px rgba(124, 92, 255, .55);
+      animation: nx-sidebar-tip-in .18s cubic-bezier(.2, .8, .2, 1) both;
+    }
+
+    & span[role="tooltip"]::before {
+      content: "";
+      position: absolute;
+      left: -5px;
+      top: 50%;
+      width: 9px;
+      height: 9px;
+      margin-top: -5px;
+      transform: rotate(45deg);
+      border-left: 1px solid rgba(255, 255, 255, .12);
+      border-bottom: 1px solid rgba(255, 255, 255, .12);
+      background: rgb(34, 32, 52);
+      border-radius: 0 0 0 3px;
+    }
+  }
+
+  @keyframes nx-sidebar-tip-in {
+    /* Le centrage vertical vient de la classe -translate-y-1/2 (propriete translate) : seul transform est anime. */
+    from { opacity: 0; transform: translateX(-8px) scale(.96); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+  html[data-movviz-design="beta"]:root:root:root:root .nx-sidebar span[role="tooltip"] { animation: none; }
+}

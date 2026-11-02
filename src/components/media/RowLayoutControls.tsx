@@ -6,14 +6,18 @@ import { cn } from "@/lib/utils";
 import type { RowLayoutApi } from "./useRowLayout";
 
 /** Bouton crayon (et, en édition, « Terminé » / « Réinitialiser ») à placer dans l'en-tête de la page. */
-export function RowLayoutToggle({ layout }: { layout: RowLayoutApi }) {
+export function RowLayoutToggle({ layout, variant = "default" }: { layout: RowLayoutApi; variant?: "default" | "pill" }) {
   const t = useT();
+  const pill = variant === "pill";
   return (
     <div className="flex items-center gap-2">
       {layout.editing && layout.customized && (
         <button
           onClick={layout.reset}
-          className="flex h-10 items-center gap-1.5 rounded-xl glass px-3 text-sm font-semibold text-ink-soft hover:text-ink"
+          className={cn(
+            "flex items-center gap-1.5 px-3 text-sm font-semibold text-ink-soft hover:text-ink",
+            pill ? "h-11 rounded-full border border-white/15 bg-white/[.08] transition-colors hover:bg-white/15 sm:h-9" : "h-10 rounded-xl glass",
+          )}
         >
           <RotateCcw className="h-4 w-4" /> {t("rowLayout.reset")}
         </button>
@@ -24,12 +28,17 @@ export function RowLayoutToggle({ layout }: { layout: RowLayoutApi }) {
         aria-label={layout.editing ? t("rowLayout.done") : t("rowLayout.edit")}
         aria-pressed={layout.editing}
         className={cn(
-          "flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-bold transition-transform",
-          layout.editing ? "brand-gradient text-white shadow hover:scale-105" : "glass text-ink-soft hover:text-ink",
+          "flex items-center gap-1.5 px-3 text-sm font-bold transition active:scale-95",
+          pill ? "h-11 rounded-full sm:h-9 sm:px-4" : "h-10 rounded-xl",
+          layout.editing
+            ? "brand-gradient text-white shadow hover:scale-105"
+            : pill
+              ? "border border-white/15 bg-white/[.08] text-ink hover:border-brand/50 hover:bg-brand/25 hover:text-white"
+              : "glass text-ink-soft hover:text-ink",
         )}
       >
         {layout.editing ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-        <span className={layout.editing ? "" : "hidden sm:inline"}>{layout.editing ? t("rowLayout.done") : t("rowLayout.edit")}</span>
+        <span className={layout.editing || pill ? "" : "hidden sm:inline"}>{layout.editing ? t("rowLayout.done") : t("rowLayout.edit")}</span>
       </button>
     </div>
   );

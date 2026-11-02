@@ -634,6 +634,10 @@ export const fr = {
     rowUpcoming: "Vos prochaines sorties",
     rowAnnounced: "Prochainement",
     rowTrending: "Tendances Movviz",
+    expandRow: "Tout afficher",
+    collapseRow: "Réduire",
+    jumpTo: "Aller à une rangée",
+    jumpShortSessions: "Peu de temps ?",
     upgradesAvailable: "Optimisations disponibles",
     hero: {
       whyThisTitle: "Pourquoi ce contenu ?",

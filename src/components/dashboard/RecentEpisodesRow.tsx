@@ -48,7 +48,7 @@ export function RecentEpisodesRow({ episodes, series }: {
   const artwork = useTitleArtworkBatch(refs, locale);
 
   if (!groups.length) return null;
-  return <PosterRow title={t("dashboard.recentEpisodes")} onNearEnd={loadMore}>
+  return <PosterRow expandable title={t("dashboard.recentEpisodes")} onNearEnd={loadMore}>
     {groups.map(({ key, latest: episode, seriesPart, grouped, displaySeason, displayEpisode, unwatchedCount, fullyWatched }) => {
       const art = artwork[bleachPresentationKey({ type: "series", tmdbId: episode.tmdbId, seriesPart })];
       const seasonLabel = displaySeason === 0 ? t("title.edit.specials") : `${t("title.season")} ${displaySeason}`;

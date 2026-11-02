@@ -179,7 +179,7 @@ const barSegBtn = (active: boolean) => cn(
   "inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3.5 text-sm font-semibold transition-colors lg:min-h-8",
   active ? "brand-gradient text-white shadow-lg" : "text-ink-soft hover:text-ink"
 );
-const BAR_WRAP = "mb-4 flex flex-wrap items-center gap-2 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)] backdrop-blur-xl lg:sticky lg:top-14 lg:z-20";
+const BAR_WRAP = "mb-4 flex flex-wrap items-center gap-2 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)] backdrop-blur-xl lg:sticky lg:top-[calc(var(--nx-topbar-h,3.5rem)+0.5rem)] lg:z-20";
 
 function BarSearch({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (

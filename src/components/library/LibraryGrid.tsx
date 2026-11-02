@@ -613,7 +613,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     <div className="nx-library-grid">
       <div className="nx-library-main min-w-0">
       {/* Desktop : une capsule collante unique (type, filtres, statut, genre, tri, actions). */}
-      <div className="nx-lib-bar sticky top-14 z-20 mb-4 hidden flex-wrap items-center gap-2.5 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)]! backdrop-blur-xl lg:flex">
+      <div className="nx-lib-bar sticky top-[calc(var(--nx-topbar-h,3.5rem)+0.5rem)] z-20 mb-4 hidden flex-wrap items-center gap-2.5 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)]! backdrop-blur-xl lg:flex">
         {typesSeg}
         <div className="flex items-center gap-1.5">{techChips}</div>
         <div className="ml-auto flex flex-wrap items-center gap-2.5">
@@ -671,7 +671,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       )}
 
-        <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div ref={gridRef} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {visibleItems.map((entry, i) => {
             const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[bleachPresentationKey({ tmdbId: entry.series.tmdbId, seriesPart: entry.series.seriesPart })];
             return entry.kind === "movie" ? (
@@ -727,7 +727,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
 
       {loading && total === 0 && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {[...Array(12)].map((_, i) => (
             <div key={i}>
               <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />

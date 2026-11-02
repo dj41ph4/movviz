@@ -16,7 +16,7 @@ export function WatchlistRow({ items: source, libraryTitleKeys, moviePlaybackByT
   const refs = useMemo(() => items.map((item) => ({ type: item.type === "movie" ? "movie" as const : "series" as const, tmdbId: item.tmdbId, seriesPart: item.seriesPart })), [items]);
   const artwork = useTitleArtworkBatch(refs, locale);
   if (!items.length) return null;
-  return <PosterRow title={t("watchlist.title")}>
+  return <PosterRow expandable title={t("watchlist.title")}>
     {items.map((item) => {
       const type = item.type === "movie" ? "movie" : "series";
       const art = artwork[bleachPresentationKey({ type, tmdbId: item.tmdbId, seriesPart: item.seriesPart })];
