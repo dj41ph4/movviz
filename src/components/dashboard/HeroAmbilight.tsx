@@ -18,8 +18,7 @@ const OVERSHOOT_Y = 150;
 /** Fondu des bords par masque, indépendamment du flou : si le navigateur
  *  abandonne le filtre sur ce très grand calque (plein écran), le halo garde des
  *  bords doux. Le dégradé suit une courbe « smootherstep » (pente nulle aux deux
- *  extrémités) : un dégradé linéaire qui démarre d'un coup crée un coude de pente
- *  que l'œil lit comme une fine ligne verticale, surtout sur une image claire.
+ *  extrémités) : le halo naît progressivement, sans début marqué.
  *  --ambi-fx / --ambi-fy = part du calque qui dépasse du héros, en % ; le fondu
  *  est plein juste avant le bord du héros. */
 const FADE_STEPS = 8;
@@ -37,14 +36,23 @@ const fade = (dir: string, f: string) => {
 };
 const EDGE_FADE = fade("to right", "--ambi-fx");
 const EDGE_FADE_Y = fade("to bottom", "--ambi-fy");
-const AMBILIGHT_STYLE = {
-  containerType: "size",
-  maskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
-  WebkitMaskImage: `${EDGE_FADE}, ${EDGE_FADE_Y}`,
+// Un masque par élément, jamais deux masques combinés (mask-composite) sur
+// l'élément flouté : le masque du dessus ne s'applique que dans son propre
+// rectangle, alors que le flou déborde de ce rectangle. La traîne du flou restait
+// donc visible, réduite par le seul masque du dessous : une fine ligne au bord du
+// calque (mesuré : 17 sur un fond à 12, quelle que soit la courbe du dégradé).
+const AMBILIGHT_FRAME_STYLE = {
+  maskImage: EDGE_FADE_Y,
+  WebkitMaskImage: EDGE_FADE_Y,
   maskRepeat: "no-repeat",
   maskSize: "100% 100%",
-  maskComposite: "intersect",
-  WebkitMaskComposite: "source-in",
+} as CSSProperties;
+const AMBILIGHT_STYLE = {
+  containerType: "size",
+  maskImage: EDGE_FADE,
+  WebkitMaskImage: EDGE_FADE,
+  maskRepeat: "no-repeat",
+  maskSize: "100% 100%",
 } as CSSProperties;
 
 /** The mirror plays in a small player (cheap to decode) and is scaled up to
@@ -67,6 +75,7 @@ const MIRROR_H = 270;
 export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string | null; videoKey: string | null }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const [alignedKey, setAlignedKey] = useState<string | null>(null);
   const [mirrorScale, setMirrorScale] = useState(3);
 
@@ -74,15 +83,16 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
   // by scaling the small player instead of sizing a full-resolution one.
   useEffect(() => {
     const box = boxRef.current;
-    if (!box) return;
+    const frame = frameRef.current;
+    if (!box || !frame) return;
     const update = () => {
       const width = box.offsetWidth;
       const height = box.offsetHeight;
       if (width > 0 && height > 0) {
-        box.style.setProperty("--ambi-sx", String(1 + (2 * OVERSHOOT_X) / width));
-        box.style.setProperty("--ambi-sy", String(1 + (2 * OVERSHOOT_Y) / height));
-        box.style.setProperty("--ambi-fx", `${(OVERSHOOT_X / (width + 2 * OVERSHOOT_X)) * 100}%`);
-        box.style.setProperty("--ambi-fy", `${(OVERSHOOT_Y / (height + 2 * OVERSHOOT_Y)) * 100}%`);
+        frame.style.setProperty("--ambi-sx", String(1 + (2 * OVERSHOOT_X) / width));
+        frame.style.setProperty("--ambi-sy", String(1 + (2 * OVERSHOOT_Y) / height));
+        frame.style.setProperty("--ambi-fx", `${(OVERSHOOT_X / (width + 2 * OVERSHOOT_X)) * 100}%`);
+        frame.style.setProperty("--ambi-fy", `${(OVERSHOOT_Y / (height + 2 * OVERSHOOT_Y)) * 100}%`);
       }
       const full = Math.max(box.offsetWidth, box.offsetHeight * (MIRROR_W / MIRROR_H));
       if (full > 0) setMirrorScale((full / MIRROR_W) * 1.15);
@@ -157,7 +167,8 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
   // Same box and same "cover" framing as the hero video, so each edge of the
   // glow continues the colours sitting right at that edge of the card.
   return (
-    <div ref={boxRef} aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={AMBILIGHT_STYLE}>
+    <div ref={frameRef} aria-hidden className="mv-hero-ambilight-frame pointer-events-none absolute inset-0 -z-10" style={AMBILIGHT_FRAME_STYLE}>
+    <div ref={boxRef} className="mv-hero-ambilight absolute inset-0" style={AMBILIGHT_STYLE}>
       {backdropUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={backdropUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300" style={{ opacity: videoKey ? 0 : 1 }} />
@@ -174,6 +185,7 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
           style={{ width: MIRROR_W, height: MIRROR_H, scale: mirrorScale, opacity: alignedKey === videoKey ? 1 : 0 }}
         />
       )}
+    </div>
     </div>
   );
 }

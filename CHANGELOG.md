@@ -1,14 +1,20 @@
+## v1.28.34 — 3 novembre 2026
+
+### Tableau de bord
+
+- Les fines lignes verticales à gauche et à droite du halo du héros disparaissent. Les deux masques de fondu (horizontal et vertical) étaient combinés sur l'élément flouté : le masque du dessus ne s'applique que dans son propre rectangle, et la traîne du flou qui en dépasse restait visible. Chaque masque a maintenant son propre élément.
+
 ## v1.28.33 — 3 novembre 2026
 
 ### Tableau de bord
 
-- Les fines lignes verticales de part et d'autre du halo du héros disparaissent : le fondu de ses bords suit maintenant une courbe douce (pente nulle aux deux extrémités) au lieu d'un dégradé linéaire dont le départ brusque se voyait comme une ligne, surtout sur une image claire.
+- Le fondu des bords du halo suit une courbe douce : il naît progressivement, sans début marqué.
 
 ## v1.28.32 — 3 novembre 2026
 
 ### Tableau de bord
 
-- Le halo animé derrière le héros déborde maintenant de la même distance sur les quatre côtés : il est étiré séparément en largeur et en hauteur (la déformation disparaît sous le flou) au lieu d'être agrandi uniformément, ce qui le rendait très fin en haut et en bas. Son fondu est transparent sur le bord extérieur, pour qu'aucune fine ligne ne soit visible à gauche.
+- Le halo animé derrière le héros déborde maintenant de la même distance sur les quatre côtés : il est étiré séparément en largeur et en hauteur (la déformation disparaît sous le flou) au lieu d'être agrandi uniformément, ce qui le rendait très fin en haut et en bas.
 
 ## v1.28.31 — 3 novembre 2026
 
@@ -29,7 +35,6 @@
 ### Performance
 
 - L'analyse technique des fichiers de la bibliothèque ne gèle plus le serveur : sa boucle rend la main aux autres requêtes à chaque fichier et elle passe dans la file des tâches lourdes. Après un redémarrage, elle provoquait des gels de 2 à 15 s qui rendaient les pages quasi inutilisables pendant plusieurs minutes.
-- Le halo animé du héros du tableau de bord retrouve toute sa visibilité : le voile ajouté en 1.28.28 le masquait. La fine ligne verticale à gauche est supprimée autrement, en agrandissant légèrement le calque du halo et en rendant son fondu transparent sur les bords.
 
 ## v1.28.28 — 2 novembre 2026
 
@@ -37,14 +42,12 @@
 
 - Quand le nom final d'un épisode importé est déjà pris par un autre fichier, le nouveau le remplace (l'occupant est mis de côté puis supprimé, et restauré si l'installation échoue) au lieu de bloquer l'import.
 - Un téléchargement terminé dont l'import est en attente s'affiche « Import en attente » avec la raison, et non plus « Aucune source active : la release est peut-être morte ».
-- Le halo du héros du tableau de bord reçoit un voile aux couleurs du fond sur ses bords : la fine ligne verticale à gauche du halo ne peut plus apparaître.
 
 ## v1.28.27 — 2 novembre 2026
 
 ### Performance
 
 - Le halo animé derrière le héros du tableau de bord utilise maintenant un lecteur miroir de petite taille (agrandi puis flouté) : même effet, beaucoup moins de décodage vidéo.
-- Le fondu des bords du halo est entièrement transparent sur les extrémités : la fine ligne verticale visible à gauche du héros disparaît.
 - Les pastilles de note et de badge des cartes n'utilisent plus de flou d'arrière-plan (leur fond est presque opaque, le rendu est identique) et les logos et titres de cartes remplacent l'ombre portée filtrée par un voile dégradé ou une ombre de texte : le défilement du tableau de bord et de Découverte redevient fluide.
 
 ## v1.28.26 — 2 novembre 2026

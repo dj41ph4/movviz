@@ -1,14 +1,20 @@
+## v1.28.34 — 3 november 2026
+
+### Dashboard
+
+- De dunne verticale lijnen links en rechts van de herogloed verdwijnen. De twee fademaskers (horizontaal en verticaal) waren gecombineerd op het vervaagde element: het bovenste masker werkt alleen binnen zijn eigen rechthoek, waardoor de vervagingsstaart daarbuiten zichtbaar bleef. Elk masker heeft nu zijn eigen element.
+
 ## v1.28.33 — 3 november 2026
 
 ### Dashboard
 
-- De dunne verticale lijnen aan weerszijden van de herogloed verdwijnen: de fade van de randen volgt nu een zachte curve (helling nul aan beide uiteinden) in plaats van een lineair verloop waarvan de abrupte start als lijn zichtbaar was, vooral op een lichte afbeelding.
+- De fade van de randen van de gloed volgt een zachte curve: hij begint geleidelijk, zonder duidelijke aanzet.
 
 ## v1.28.32 — 3 november 2026
 
 ### Dashboard
 
-- De geanimeerde gloed achter de hero steekt nu aan alle vier de zijden even ver uit: hij wordt apart in breedte en hoogte uitgerekt (de vervorming verdwijnt onder de vervaging) in plaats van gelijkmatig vergroot, waardoor hij boven en onder erg dun was. De fade is aan de buitenrand transparant, zodat links geen dunne lijn zichtbaar is.
+- De geanimeerde gloed achter de hero steekt nu aan alle vier de zijden even ver uit: hij wordt apart in breedte en hoogte uitgerekt (de vervorming verdwijnt onder de vervaging) in plaats van gelijkmatig vergroot, waardoor hij boven en onder erg dun was.
 
 ## v1.28.31 — 3 november 2026
 
@@ -29,7 +35,6 @@
 ### Prestaties
 
 - De technische analyse van de bibliotheekbestanden bevriest de server niet meer: de lus geeft bij elk bestand andere verzoeken voorrang en draait nu in de wachtrij voor zware taken. Na een herstart veroorzaakte ze vastlopers van 2 tot 15 s waardoor pagina's enkele minuten nauwelijks bruikbaar waren.
-- De geanimeerde gloed achter de dashboardhero is weer volledig zichtbaar: de in 1.28.28 toegevoegde sluier verborg hem. De dunne verticale lijn links wordt nu anders weggewerkt, door de gloedlaag iets te vergroten en de fade aan de randen transparant te maken.
 
 ## v1.28.28 — 2 november 2026
 
@@ -37,14 +42,12 @@
 
 - Als de definitieve naam van een geïmporteerde aflevering al door een ander bestand wordt gebruikt, vervangt het nieuwe die (het bezettende bestand wordt apart gezet, daarna verwijderd en hersteld als de installatie mislukt) in plaats van de import te blokkeren.
 - Een voltooide download met een import in afwachting toont nu „Import in afwachting” met de reden, in plaats van „Geen actieve bron: de release is misschien dood”.
-- De gloed van de dashboardhero krijgt aan de randen een sluier in de achtergrondkleur: de dunne verticale lijn links van de gloed kan niet meer verschijnen.
 
 ## v1.28.27 — 2 november 2026
 
 ### Prestaties
 
 - De geanimeerde gloed achter de dashboardhero gebruikt nu een kleine spiegelspeler (vergroot en daarna vervaagd): hetzelfde effect, veel minder videodecodering.
-- De randfade van de gloed is aan de uiteinden volledig transparant: de dunne verticale lijn links van de hero verdwijnt.
 - Beoordelings- en badgepillen op kaarten gebruiken geen achtergrondvervaging meer (hun achtergrond is bijna ondoorzichtig, het uiterlijk blijft gelijk) en logo's en titels op kaarten vervangen de gefilterde slagschaduw door een verloop of een tekstschaduw: scrollen in het dashboard en in Ontdekken is weer vloeiend.
 
 ## v1.28.26 — 2 november 2026

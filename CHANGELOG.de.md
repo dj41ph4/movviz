@@ -1,14 +1,20 @@
+## v1.28.34 — 3. November 2026
+
+### Dashboard
+
+- Die dünnen senkrechten Linien links und rechts des Hero-Leuchtens verschwinden. Die beiden Ausblendmasken (horizontal und vertikal) waren auf dem weichgezeichneten Element kombiniert: Die obere Maske wirkt nur in ihrem eigenen Rechteck, sodass der darüber hinausragende Ausläufer der Unschärfe sichtbar blieb. Jede Maske hat jetzt ihr eigenes Element.
+
 ## v1.28.33 — 3. November 2026
 
 ### Dashboard
 
-- Die dünnen senkrechten Linien beidseits des Hero-Leuchtens verschwinden: Die Ausblendung der Ränder folgt jetzt einer sanften Kurve (Steigung null an beiden Enden) statt eines linearen Verlaufs, dessen abrupter Beginn als Linie sichtbar war, besonders bei hellen Bildern.
+- Die Ausblendung der Ränder des Leuchtens folgt einer sanften Kurve: Sie beginnt allmählich, ohne sichtbaren Ansatz.
 
 ## v1.28.32 — 3. November 2026
 
 ### Dashboard
 
-- Das animierte Leuchten hinter dem Hero ragt nun auf allen vier Seiten gleich weit hinaus: Es wird in Breite und Höhe getrennt gestreckt (die Verzerrung verschwindet unter der Unschärfe), statt gleichmäßig vergrößert zu werden, wodurch es oben und unten sehr schmal war. Seine Ausblendung ist am äußeren Rand transparent, sodass links keine dünne Linie sichtbar ist.
+- Das animierte Leuchten hinter dem Hero ragt nun auf allen vier Seiten gleich weit hinaus: Es wird in Breite und Höhe getrennt gestreckt (die Verzerrung verschwindet unter der Unschärfe), statt gleichmäßig vergrößert zu werden, wodurch es oben und unten sehr schmal war.
 
 ## v1.28.31 — 3. November 2026
 
@@ -29,7 +35,6 @@
 ### Leistung
 
 - Die technische Analyse der Bibliotheksdateien friert den Server nicht mehr ein: Ihre Schleife gibt bei jeder Datei anderen Anfragen den Vortritt und läuft jetzt in der Warteschlange für schwere Aufgaben. Nach einem Neustart verursachte sie Aussetzer von 2 bis 15 s, die Seiten mehrere Minuten lang kaum nutzbar machten.
-- Das animierte Leuchten hinter dem Dashboard-Hero ist wieder voll sichtbar: Der in 1.28.28 hinzugefügte Schleier verdeckte es. Die dünne senkrechte Linie links wird nun anders beseitigt, indem die Leuchtebene etwas vergrößert und ihre Ausblendung an den Rändern transparent gemacht wird.
 
 ## v1.28.28 — 2. November 2026
 
@@ -37,14 +42,12 @@
 
 - Ist der endgültige Name einer importierten Folge bereits von einer anderen Datei belegt, ersetzt die neue sie (die belegende Datei wird beiseitegelegt, dann gelöscht und bei Fehlschlag wiederhergestellt), statt den Import zu blockieren.
 - Ein abgeschlossener Download mit ausstehendem Import zeigt jetzt „Import ausstehend“ mit Grund statt „Keine aktive Quelle: Das Release ist vielleicht tot“.
-- Das Leuchten des Dashboard-Heros erhält an den Rändern einen Schleier in der Hintergrundfarbe: die dünne senkrechte Linie links des Leuchtens kann nicht mehr erscheinen.
 
 ## v1.28.27 — 2. November 2026
 
 ### Leistung
 
 - Das animierte Leuchten hinter dem Dashboard-Hero nutzt jetzt einen kleinen Spiegel-Player (hochskaliert und dann weichgezeichnet): gleicher Effekt, deutlich weniger Videodekodierung.
-- Die Randausblendung des Leuchtens ist an den Enden vollständig transparent: die dünne senkrechte Linie links vom Hero verschwindet.
 - Bewertungs- und Badge-Pillen auf Karten nutzen keine Hintergrundunschärfe mehr (ihr Hintergrund ist fast deckend, das Aussehen bleibt gleich), und Logos und Titel auf Karten ersetzen den gefilterten Schlagschatten durch einen Farbverlauf bzw. einen Textschatten: Scrollen im Dashboard und in Entdecken ist wieder flüssig.
 
 ## v1.28.26 — 2. November 2026

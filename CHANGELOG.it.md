@@ -1,14 +1,20 @@
+## v1.28.34 — 3 novembre 2026
+
+### Dashboard
+
+- Le sottili linee verticali a sinistra e a destra dell’alone dell’hero scompaiono. Le due maschere di dissolvenza (orizzontale e verticale) erano combinate sull’elemento sfocato: la maschera superiore agisce solo nel proprio rettangolo, quindi la coda della sfocatura che lo oltrepassava restava visibile. Ogni maschera ha ora il proprio elemento.
+
 ## v1.28.33 — 3 novembre 2026
 
 ### Dashboard
 
-- Le sottili linee verticali ai due lati dell'alone dell'hero scompaiono: la dissolvenza dei bordi segue ora una curva morbida (pendenza nulla alle due estremità) invece di un gradiente lineare il cui avvio brusco si vedeva come una linea, soprattutto su un'immagine chiara.
+- La dissolvenza dei bordi dell’alone segue una curva morbida: nasce gradualmente, senza un inizio marcato.
 
 ## v1.28.32 — 3 novembre 2026
 
 ### Dashboard
 
-- L'alone animato dietro l'hero sporge ora della stessa distanza sui quattro lati: viene allungato separatamente in larghezza e altezza (la deformazione sparisce sotto la sfocatura) invece di essere ingrandito in modo uniforme, cosa che lo rendeva molto sottile in alto e in basso. La sua dissolvenza è trasparente sul bordo esterno, così a sinistra non compare nessuna linea sottile.
+- L'alone animato dietro l'hero sporge ora della stessa distanza sui quattro lati: viene allungato separatamente in larghezza e altezza (la deformazione sparisce sotto la sfocatura) invece di essere ingrandito in modo uniforme, cosa che lo rendeva molto sottile in alto e in basso.
 
 ## v1.28.31 — 3 novembre 2026
 
@@ -29,7 +35,6 @@
 ### Prestazioni
 
 - L'analisi tecnica dei file della libreria non blocca più il server: il suo ciclo cede il passo alle altre richieste a ogni file e ora passa nella coda delle attività pesanti. Dopo un riavvio causava blocchi da 2 a 15 s che rendevano le pagine quasi inutilizzabili per diversi minuti.
-- L'alone animato dietro l'hero della dashboard torna pienamente visibile: il velo aggiunto in 1.28.28 lo nascondeva. La sottile linea verticale a sinistra viene eliminata in un altro modo, ingrandendo leggermente il livello dell'alone e rendendo trasparente la sua dissolvenza ai bordi.
 
 ## v1.28.28 — 2 novembre 2026
 
@@ -37,14 +42,12 @@
 
 - Se il nome finale di un episodio importato è già occupato da un altro file, quello nuovo lo sostituisce (l'occupante viene messo da parte, poi eliminato, e ripristinato se l'installazione fallisce) invece di bloccare l'importazione.
 - Un download terminato con importazione in attesa mostra ora «Importazione in attesa» con il motivo, invece di «Nessuna fonte attiva: la release potrebbe essere morta».
-- L’alone dell’hero della dashboard riceve un velo del colore dello sfondo sui bordi: la sottile linea verticale a sinistra dell’alone non può più comparire.
 
 ## v1.28.27 — 2 novembre 2026
 
 ### Prestazioni
 
 - L'alone animato dietro l'hero della dashboard usa ora un piccolo player specchio (ingrandito e poi sfocato): stesso effetto, molta meno decodifica video.
-- La dissolvenza dei bordi dell'alone è completamente trasparente agli estremi: la sottile linea verticale a sinistra dell'hero scompare.
 - Le pillole di voto e badge sulle schede non usano più la sfocatura dello sfondo (lo sfondo è quasi opaco, l'aspetto è identico) e i loghi e i titoli delle schede sostituiscono l'ombra filtrata con un velo sfumato o un'ombra del testo: lo scorrimento della dashboard e di Scopri torna fluido.
 
 ## v1.28.26 — 2 novembre 2026

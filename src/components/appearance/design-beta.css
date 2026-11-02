@@ -92,9 +92,11 @@
        starts exactly where the image ends, then fades out. */
     filter: blur(34px) saturate(1.5);
     opacity: .9;
-    transform: scale(var(--ambi-sx, 1.24), var(--ambi-sy, 1.24)) translateZ(0);
     border-radius: 24px;
     overflow: hidden;
+  }
+  html[data-movviz-design="beta"] .nx-dashboard-premium .mv-hero-ambilight-frame {
+    transform: scale(var(--ambi-sx, 1.24), var(--ambi-sy, 1.24)) translateZ(0);
   }
   html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero:has(.mv-hero-ambilight) {
     box-shadow: none;

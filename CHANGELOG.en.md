@@ -1,14 +1,20 @@
+## v1.28.34 — 3 November 2026
+
+### Dashboard
+
+- The thin vertical lines to the left and right of the hero glow are gone. The two fade masks (horizontal and vertical) were combined on the blurred element: the top mask only applies inside its own rectangle, so the blur tail reaching past it stayed visible. Each mask now has its own element.
+
 ## v1.28.33 — 3 November 2026
 
 ### Dashboard
 
-- The thin vertical lines on either side of the hero glow are gone: the fade on its edges now follows a smooth curve (zero slope at both ends) instead of a linear gradient whose abrupt start showed up as a line, especially on a bright image.
+- The fade on the glow's edges follows a smooth curve: it starts gradually, with no marked beginning.
 
 ## v1.28.32 — 3 November 2026
 
 ### Dashboard
 
-- The animated glow behind the hero now extends by the same distance on all four sides: it is stretched separately in width and height (the distortion disappears under the blur) instead of being enlarged uniformly, which made it very thin at the top and bottom. Its fade is transparent on the outer edge, so no thin line shows on the left.
+- The animated glow behind the hero now extends by the same distance on all four sides: it is stretched separately in width and height (the distortion disappears under the blur) instead of being enlarged uniformly, which made it very thin at the top and bottom.
 
 ## v1.28.31 — 3 November 2026
 
@@ -29,7 +35,6 @@
 ### Performance
 
 - The technical analysis of library files no longer freezes the server: its loop yields to other requests on every file and it now runs in the heavy-task queue. After a restart it caused 2 to 15 s freezes that made pages nearly unusable for several minutes.
-- The animated glow behind the dashboard hero is fully visible again: the veil added in 1.28.28 hid it. The thin vertical line on the left is now removed differently, by slightly enlarging the glow layer and making its fade transparent at the edges.
 
 ## v1.28.28 — 2 November 2026
 
@@ -37,14 +42,12 @@
 
 - When the final name of an imported episode is already taken by another file, the new one replaces it (the occupant is set aside, then deleted, and restored if the installation fails) instead of blocking the import.
 - A finished download whose import is pending now reads “Import pending” with the reason, instead of “No active source: the release may be dead”.
-- The dashboard hero glow now gets a background-coloured veil on its edges: the thin vertical line to the left of the glow can no longer appear.
 
 ## v1.28.27 — 2 November 2026
 
 ### Performance
 
 - The animated glow behind the dashboard hero now uses a small mirror player (scaled up, then blurred): same effect, far less video decoding.
-- The glow's edge fade is fully transparent at the extremities: the thin vertical line visible to the left of the hero is gone.
 - Rating and badge pills on cards no longer use a backdrop blur (their background is almost opaque, so the look is identical), and card logos and titles replace the filtered drop-shadow with a gradient scrim or a text shadow: scrolling the dashboard and Discover is smooth again.
 
 ## v1.28.26 — 2 November 2026
