@@ -1,3 +1,11 @@
+## v1.28.28 — 2 november 2026
+
+### Downloads
+
+- Als de definitieve naam van een geïmporteerde aflevering al door een ander bestand wordt gebruikt, vervangt het nieuwe die (het bezettende bestand wordt apart gezet, daarna verwijderd en hersteld als de installatie mislukt) in plaats van de import te blokkeren.
+- Een voltooide download met een import in afwachting toont nu „Import in afwachting” met de reden, in plaats van „Geen actieve bron: de release is misschien dood”.
+- De gloed van de dashboardhero krijgt aan de randen een sluier in de achtergrondkleur: de dunne verticale lijn links van de gloed kan niet meer verschijnen.
+
 ## v1.28.27 — 2 november 2026
 
 ### Prestaties

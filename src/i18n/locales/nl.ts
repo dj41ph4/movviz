@@ -186,6 +186,8 @@ export const nl: Dictionary = {
     transfer: "Overdracht",
     noSources: "Geen actieve bron: de release is misschien dood.",
     waitingSources: "Wachten op bronnen",
+    importPending: "Import in afwachting",
+    importPendingHint: "Download voltooid, import in de bibliotheek in afwachting",
     settings: "Instellingen",
     moreActions: "Meer acties",
     queueTile: "Actieve wachtrij",

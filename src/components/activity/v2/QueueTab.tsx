@@ -790,7 +790,7 @@ const QueueItemRow = memo(function QueueItemRow({
                 item.status === "completed" ? "border-ok/30 bg-ok/12 text-ok" :
                 item.status === "queued" ? "border-white/20 bg-white/10 text-ink-soft" :
                 "border-white/10 bg-white/5 text-ink-dim")}>
-                {item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}
+                {item.status === "stalled" && item.replacementFailure && (item.download?.progress ?? 0) >= 1 ? t("downloads.importPending") : item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}
               </span>
               <span className="flex items-center gap-1">
                 <Download className="h-3 w-3" /> {item.release.indexer}

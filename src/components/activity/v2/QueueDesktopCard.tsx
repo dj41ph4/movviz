@@ -83,7 +83,10 @@ export function QueueDesktopCard({
   const parsed = parseRelease(item.release.releaseTitle);
   const isActive = item.status === "downloading" || item.status === "importing" || item.status === "verifying";
   const finished = item.status === "completed" || item.status === "seeding";
-  const stalled = item.status === "stalled";
+  // Téléchargement complet dont l'import en bibliothèque est refusé : le
+  // torrent est sain (il continue d'envoyer), ce n'est pas une source morte.
+  const importPending = item.status === "stalled" && !!item.replacementFailure && progress >= 1;
+  const stalled = item.status === "stalled" && !importPending;
   const pct = finished ? 100 : Math.round(progress * 100);
   const season = activitySeason(item.media);
   const episode = activityEpisode(item.media);
@@ -92,7 +95,7 @@ export function QueueDesktopCard({
     : season != null ? (episode != null ? `S${pad(season)}E${pad(episode)}` : `S${pad(season)}`) : null;
   const pills = [episodeTag, parsed.resolution, parsed.source, parsed.videoCodec, parsed.audioCodec, parsed.hdr, formatBytes(item.release.size), item.release.indexer && item.release.indexer !== "Inconnu" ? item.release.indexer : null]
     .filter(Boolean) as string[];
-  const statusLabel = stalled ? t("downloads.waitingSources") : t(`activity.status.${item.status}`);
+  const statusLabel = importPending ? t("downloads.importPending") : stalled ? t("downloads.waitingSources") : t(`activity.status.${item.status}`);
   const busy = actionLoading !== null;
   const loadingKey = (a: string) => actionLoading === `${a}_${item.id}`;
   const stats: { label: string; value: string }[] = finished
@@ -156,6 +159,11 @@ export function QueueDesktopCard({
             </div>
             <span className="w-11 text-right text-sm font-extrabold tabular-nums text-ink">{pct} %</span>
           </div>
+          {importPending && item.replacementFailure && (
+            <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-amber/25 bg-amber/10 py-2 pl-3.5 pr-3.5 text-sm font-semibold text-amber-100" onClick={(e) => e.stopPropagation()}>
+              <span className="min-w-0 flex-1">{t("downloads.importPendingHint")} · {t(`downloads.replacement.${item.replacementFailure.reason}`)}</span>
+            </div>
+          )}
           {stalled && (
             <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-amber/25 bg-amber/10 py-2 pl-3.5 pr-2 text-sm font-semibold text-amber-100" onClick={(e) => e.stopPropagation()}>
               <span className="min-w-0 flex-1">{t("downloads.noSources")}</span>
@@ -184,7 +192,7 @@ export function QueueDesktopCard({
               {loadingKey("pause") || loadingKey("resume") ? <Loader className="h-4 w-4 animate-spin" /> : item.status === "downloading" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
           )}
-          {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
+          {(item.status === "downloading" || item.status === "paused" || stalled) && (
             <button type="button" onClick={() => onAction(item.id, "search")} disabled={busy} title={stalled ? t("downloads.replace") : t("downloads.manual")} aria-label={stalled ? t("downloads.replace") : t("downloads.manual")} className={roundBtn}>
               <Search className="h-4 w-4" />
             </button>

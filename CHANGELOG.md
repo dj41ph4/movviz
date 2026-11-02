@@ -1,3 +1,11 @@
+## v1.28.28 — 2 novembre 2026
+
+### Téléchargements
+
+- Quand le nom final d'un épisode importé est déjà pris par un autre fichier, le nouveau le remplace (l'occupant est mis de côté puis supprimé, et restauré si l'installation échoue) au lieu de bloquer l'import.
+- Un téléchargement terminé dont l'import est en attente s'affiche « Import en attente » avec la raison, et non plus « Aucune source active : la release est peut-être morte ».
+- Le halo du héros du tableau de bord reçoit un voile aux couleurs du fond sur ses bords : la fine ligne verticale à gauche du halo ne peut plus apparaître.
+
 ## v1.28.27 — 2 novembre 2026
 
 ### Performance

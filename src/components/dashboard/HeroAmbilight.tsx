@@ -25,6 +25,12 @@ const AMBILIGHT_STYLE = {
   WebkitMaskComposite: "source-in",
 } as CSSProperties;
 
+/** Voile de la couleur du fond posé sur les bords du halo, à la même géométrie
+ *  que lui (agrandi de 16 %) : quel que soit le navigateur ou le GPU, la coupe
+ *  nette du calque flouté ne peut plus apparaître comme une ligne verticale. */
+const PAGE_BG = "var(--color-bg, #0b0c10)";
+const EDGE_COVER = `linear-gradient(to right, ${PAGE_BG} 0, ${PAGE_BG} 3%, transparent 12%, transparent 88%, ${PAGE_BG} 97%, ${PAGE_BG} 100%), linear-gradient(to bottom, ${PAGE_BG} 0, ${PAGE_BG} 3%, transparent 12%, transparent 88%, ${PAGE_BG} 97%, ${PAGE_BG} 100%)`;
+
 /** The mirror plays in a small player (cheap to decode) and is scaled up to
  *  the hero's cover framing: once blurred, nobody can tell the resolution. */
 const MIRROR_W = 480;
@@ -124,9 +130,10 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
     ? new URLSearchParams({ autoplay: "1", mute: "1", controls: "0", playsinline: "1", rel: "0", iv_load_policy: "3", disablekb: "1", fs: "0", enablejsapi: "1", origin: window.location.origin }).toString()
     : "";
 
+  // Same box and same "cover" framing as the hero video, so each edge of the
+  // glow continues the colours sitting right at that edge of the card.
   return (
-    // Same box and same "cover" framing as the hero video, so each edge of the
-    // glow continues the colours sitting right at that edge of the card.
+    <>
     <div ref={boxRef} aria-hidden className="mv-hero-ambilight pointer-events-none absolute inset-0 -z-10" style={AMBILIGHT_STYLE}>
       {backdropUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -145,5 +152,7 @@ export function HeroAmbilight({ backdropUrl, videoKey }: { backdropUrl: string |
         />
       )}
     </div>
+    <div aria-hidden className="mv-hero-ambilight-edge pointer-events-none absolute inset-0 z-[-9]" style={{ backgroundImage: EDGE_COVER }} />
+    </>
   );
 }

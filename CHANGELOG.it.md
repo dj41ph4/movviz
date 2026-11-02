@@ -1,3 +1,11 @@
+## v1.28.28 — 2 novembre 2026
+
+### Download
+
+- Se il nome finale di un episodio importato è già occupato da un altro file, quello nuovo lo sostituisce (l'occupante viene messo da parte, poi eliminato, e ripristinato se l'installazione fallisce) invece di bloccare l'importazione.
+- Un download terminato con importazione in attesa mostra ora «Importazione in attesa» con il motivo, invece di «Nessuna fonte attiva: la release potrebbe essere morta».
+- L’alone dell’hero della dashboard riceve un velo del colore dello sfondo sui bordi: la sottile linea verticale a sinistra dell’alone non può più comparire.
+
 ## v1.28.27 — 2 novembre 2026
 
 ### Prestazioni

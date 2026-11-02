@@ -705,6 +705,9 @@
     opacity: .9;
     border-radius: 24px
     }
+    html[data-movviz-design="beta"] .nx-dashboard-premium .mv-hero-ambilight-edge {
+    border-radius: 24px
+    }
     html[data-movviz-design="beta"] .nx-desktop-shell .nx-dashboard-premium .nx-premium-hero:has(.mv-hero-ambilight) {
     box-shadow: none;
     border-color: #ffffff12

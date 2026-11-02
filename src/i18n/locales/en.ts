@@ -186,6 +186,8 @@ export const en: Dictionary = {
     transfer: "Transfer",
     noSources: "No active source: the release may be dead.",
     waitingSources: "Waiting for sources",
+    importPending: "Import pending",
+    importPendingHint: "Download complete, library import pending",
     settings: "Settings",
     moreActions: "More actions",
     queueTile: "Active queue",

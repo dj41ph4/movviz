@@ -186,6 +186,8 @@ export const it: Dictionary = {
     transfer: "Trasferimento",
     noSources: "Nessuna fonte attiva: la release potrebbe essere morta.",
     waitingSources: "In attesa di fonti",
+    importPending: "Importazione in attesa",
+    importPendingHint: "Download completato, importazione nella libreria in attesa",
     settings: "Impostazioni",
     moreActions: "Altre azioni",
     queueTile: "Coda attiva",

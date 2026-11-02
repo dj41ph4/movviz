@@ -40,18 +40,19 @@ test("un épisode déjà présent est remplacé : ancien fichier supprimé, nouv
   await cleanup(root);
 });
 
-test("le nom final occupé par un fichier tiers n'est jamais écrasé", async () => {
+test("le nom final occupé par un fichier tiers est remplacé par le nouveau", async () => {
   const { root, season } = await makeLibrary();
   const squatter = path.join(season, "Une menace plane - S01E01.mkv");
   const newFile = path.join(season, "Une menace plane - S01E01 (2).mkv");
   await fsp.writeFile(squatter, "fichier tiers");
   await fsp.writeFile(newFile, "nouvelle release");
 
-  // Aucun ancien fichier connu de la bibliothèque : rien à supprimer.
-  await assert.rejects(finalizeReplacedFiles([], [newFile], [root]), /occupé/);
+  // Aucun ancien fichier connu de la bibliothèque : l'occupant du nom est remplacé.
+  await finalizeReplacedFiles([], [newFile], [root]);
 
-  assert.equal(await fsp.readFile(squatter, "utf8"), "fichier tiers");
-  assert.equal(await exists(newFile), true);
+  assert.equal(await fsp.readFile(squatter, "utf8"), "nouvelle release");
+  assert.equal(await exists(newFile), false);
+  assert.deepEqual((await fsp.readdir(season)).filter((name) => name.includes("movviz-replace")), []);
   await cleanup(root);
 });
 
@@ -163,15 +164,16 @@ test("nouvelle qualité : supprimer l'ancien seulement après installation au no
   } finally { await cleanup(root); }
 });
 
-test("nom final tiers : conserver l'ancien et refuser le remplacement", async () => {
+test("nom final tiers : l'ancien et l'occupant sont remplacés par le nouveau", async () => {
   const { root, season } = await makeLibrary();
   try {
     const old = path.join(season, "Film-1080p.mkv"), incoming = path.join(season, "Film-2160p (2).mkv"), occupied = path.join(season, "Film-2160p.mkv");
     await fsp.writeFile(old, "ancien");
     await fsp.writeFile(incoming, "nouveau");
     await fsp.writeFile(occupied, "tiers");
-    await assert.rejects(finalizeReplacedFiles([old], [incoming], [root]), /occupé/);
-    assert.equal(await fsp.readFile(old, "utf8"), "ancien");
-    assert.equal(await fsp.readFile(occupied, "utf8"), "tiers");
+    await finalizeReplacedFiles([old], [incoming], [root]);
+    assert.equal(await exists(old), false);
+    assert.equal(await fsp.readFile(occupied, "utf8"), "nouveau");
+    assert.equal(await exists(incoming), false);
   } finally { await cleanup(root); }
 });

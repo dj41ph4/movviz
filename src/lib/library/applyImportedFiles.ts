@@ -315,10 +315,17 @@ export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string
   for (const file of incoming) {
     if (incoming.some(other => other !== file && samePath(other.destination, file.destination))) throw new Error("Remplacement refusé : noms finaux identiques");
     if (samePath(file.source, file.destination)) continue;
-    try {
-      await fsp.lstat(file.destination);
-      if (!oldFiles.some(old => samePath(old, file.destination))) throw new Error(`Remplacement refusé : nom final occupé (${file.destination})`);
-    } catch (err) { if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err; }
+    const occupant = await fsp.lstat(file.destination).catch((err: NodeJS.ErrnoException) => {
+      if (err.code === "ENOENT") return null;
+      throw err;
+    });
+    // Nom final déjà pris par un autre fichier : il est remplacé comme un
+    // ancien fichier (mis de côté, restauré en cas d'échec, supprimé ensuite).
+    if (occupant && !oldFiles.some(old => samePath(old, file.destination))) {
+      if (!occupant.isFile()) throw new Error(`Remplacement refusé : destination non régulière (${file.destination})`);
+      validate(file.destination);
+      oldFiles.push(file.destination);
+    }
   }
   const backups = new Map<string, string>();
   const installed: typeof incoming = [];
@@ -432,7 +439,10 @@ async function replaceOneEpisodeFile(oldPath: string, newPath: string, expectedS
     if (err.code === "ENOENT") return null;
     throw err;
   });
-  if (occupied && !samePath(destination, old)) throw new Error(`Remplacement refusé : destination occupée (${destination})`);
+  // Un autre fichier occupe déjà le nom final : il est remplacé (mis de côté,
+  // restauré si l'installation échoue, supprimé une fois le nouveau en place).
+  const occupant = occupied && !samePath(destination, old) ? occupied : null;
+  if (occupant && !occupant.isFile()) throw new Error(`Remplacement refusé : destination non régulière (${destination})`);
   const oldStat = await fsp.lstat(old).catch((err: NodeJS.ErrnoException) => {
     if (err.code === "ENOENT") return null;
     throw err;
@@ -456,14 +466,26 @@ async function replaceOneEpisodeFile(oldPath: string, newPath: string, expectedS
     throw err;
   }
   const backup = `${old}.movviz-replace-${randomUUID()}`;
+  const occupantBackup = `${destination}.movviz-replace-${randomUUID()}`;
   let oldStaged = false;
+  let occupantStaged = false;
   try {
     if (oldStat) {
       await fsp.rename(old, backup);
       oldStaged = true;
     }
+    if (occupant) {
+      await fsp.rename(destination, occupantBackup);
+      occupantStaged = true;
+    }
     await fsp.rename(pending, destination);
   } catch (err) {
+    if (occupantStaged) {
+      try { await fsp.rename(occupantBackup, destination); }
+      catch (restoreError) {
+        throw new Error(`Remplacement interrompu : fichier existant conservé dans ${occupantBackup}; restauration impossible : ${(restoreError as Error).message}`, { cause: err });
+      }
+    }
     if (oldStaged) {
       try { await fsp.rename(backup, old); }
       catch (restoreError) {
@@ -477,6 +499,7 @@ async function replaceOneEpisodeFile(oldPath: string, newPath: string, expectedS
   // Le nouveau est maintenant au chemin canonique. Un échec de nettoyage ne
   // doit pas faire retenter le callback avec un chemin entrant déjà déplacé.
   if (oldStaged) await fsp.unlink(backup).catch((err) => console.error(`[import] ancien épisode installé mais sauvegarde temporaire non supprimée (${backup}): ${(err as Error).message}`));
+  if (occupantStaged) await fsp.unlink(occupantBackup).catch((err) => console.error(`[import] fichier remplacé mais sauvegarde temporaire non supprimée (${occupantBackup}): ${(err as Error).message}`));
   if (copied) await fsp.unlink(incoming).catch((err) => console.error(`[import] épisode installé mais copie d'arrivée non supprimée (${incoming}): ${(err as Error).message}`));
   return destination;
 }

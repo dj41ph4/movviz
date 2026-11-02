@@ -1,3 +1,11 @@
+## v1.28.28 — 2 November 2026
+
+### Downloads
+
+- When the final name of an imported episode is already taken by another file, the new one replaces it (the occupant is set aside, then deleted, and restored if the installation fails) instead of blocking the import.
+- A finished download whose import is pending now reads “Import pending” with the reason, instead of “No active source: the release may be dead”.
+- The dashboard hero glow now gets a background-coloured veil on its edges: the thin vertical line to the left of the glow can no longer appear.
+
 ## v1.28.27 — 2 November 2026
 
 ### Performance

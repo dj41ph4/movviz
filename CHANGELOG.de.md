@@ -1,3 +1,11 @@
+## v1.28.28 — 2. November 2026
+
+### Downloads
+
+- Ist der endgültige Name einer importierten Folge bereits von einer anderen Datei belegt, ersetzt die neue sie (die belegende Datei wird beiseitegelegt, dann gelöscht und bei Fehlschlag wiederhergestellt), statt den Import zu blockieren.
+- Ein abgeschlossener Download mit ausstehendem Import zeigt jetzt „Import ausstehend“ mit Grund statt „Keine aktive Quelle: Das Release ist vielleicht tot“.
+- Das Leuchten des Dashboard-Heros erhält an den Rändern einen Schleier in der Hintergrundfarbe: die dünne senkrechte Linie links des Leuchtens kann nicht mehr erscheinen.
+
 ## v1.28.27 — 2. November 2026
 
 ### Leistung

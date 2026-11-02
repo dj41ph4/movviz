@@ -184,6 +184,8 @@ export const fr = {
     transfer: "Transfert",
     noSources: "Aucune source active : la release est peut-être morte.",
     waitingSources: "En attente de sources",
+    importPending: "Import en attente",
+    importPendingHint: "Téléchargement terminé, import dans la bibliothèque en attente",
     settings: "Réglages",
     moreActions: "Plus d'actions",
     queueTile: "File active",
