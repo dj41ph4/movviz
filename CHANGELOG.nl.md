@@ -1,3 +1,9 @@
+## v1.28.37 — 3 november 2026
+
+### Android-speler
+
+- Op Android TV en mobiel toont het audiomenu alle talen van het bestand, net als op desktop, ongeacht de afspeelmodus. Kies je een taal die in de huidige stream ontbreekt, dan start het afspelen daarmee opnieuw op dezelfde positie, en de profieltaal wordt ook in compatibiliteitsmodus gevolgd.
+
 ## v1.28.36 — 3 november 2026
 
 ### Interface

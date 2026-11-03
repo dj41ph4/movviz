@@ -271,7 +271,8 @@ class MovvizRepository(private val baseUrl: String) {
      *  transcodée à ce niveau, ffmpeg ne s'occupe que du son. Le client
      *  bascule sur ce niveau dès qu'un codec non décodable est détecté
      *  (pré-décision) ou qu'ExoPlayer signale une erreur de décodage. */
-    fun transcodeUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=0&ta=1&fmt=dash"
+    fun transcodeUrl(plexRatingKey: String, audioStreamID: String? = null): String =
+        "$baseUrl/api/stream/$plexRatingKey/transcode?tv=0&ta=1&fmt=dash" + audioStreamQuery(audioStreamID)
 
     /** Repli "audio-seul" par remux ffmpeg LOCAL au serveur — même route que
      *  le desktop (src/app/api/playback-ffmpeg/[ratingKey]/route.ts) :
@@ -302,7 +303,11 @@ class MovvizRepository(private val baseUrl: String) {
      *  (h264/aac) servi en HLS — réservé aux boîtiers qui ne décodent même
      *  pas la vidéo copiée (AV1 par exemple). Voir transcode/route.ts pour
      *  toute la logique de décision copy/transcode. */
-    fun transcodeFullUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=1&ta=1"
+    fun transcodeFullUrl(plexRatingKey: String, audioStreamID: String? = null): String =
+        "$baseUrl/api/stream/$plexRatingKey/transcode?tv=1&ta=1" + audioStreamQuery(audioStreamID)
+
+    private fun audioStreamQuery(audioStreamID: String?): String =
+        audioStreamID?.takeIf { it.isNotBlank() }?.let { "&audioStreamID=$it" }.orEmpty()
 
     suspend fun streamInfo(plexRatingKey: String): ApiResult<StreamInfoDto> =
         safeCall { api.streamInfo(plexRatingKey) }

@@ -1,3 +1,9 @@
+## v1.28.37 — 3. November 2026
+
+### Android-Player
+
+- Auf Android TV und Mobilgeräten zeigt das Audiomenü wie am Desktop alle Sprachen der Datei an, unabhängig vom Wiedergabemodus. Wird eine Sprache gewählt, die im aktuellen Stream fehlt, startet die Wiedergabe mit ihr an derselben Stelle neu, und die Profilsprache gilt auch im Kompatibilitätsmodus.
+
 ## v1.28.36 — 3. November 2026
 
 ### Oberfläche

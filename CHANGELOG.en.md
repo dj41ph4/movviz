@@ -1,3 +1,9 @@
+## v1.28.37 — 3 November 2026
+
+### Android player
+
+- On Android TV and mobile, the audio menu lists every language in the file, as on desktop, whatever the playback mode. Picking a language missing from the current stream restarts playback with it at the same position, and the profile language is also respected in compatibility mode.
+
 ## v1.28.36 — 3 November 2026
 
 ### Interface

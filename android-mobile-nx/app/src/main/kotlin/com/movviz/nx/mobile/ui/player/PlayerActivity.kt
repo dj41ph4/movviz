@@ -104,6 +104,7 @@ import androidx.media3.ui.PlayerView
 import com.movviz.nx.mobile.data.ApiResult
 import com.movviz.nx.mobile.data.MovvizRepository
 import com.movviz.nx.mobile.data.PlaybackPrefs
+import com.movviz.nx.mobile.data.StreamAudioTrackDto
 import com.movviz.nx.mobile.data.UserPrefsDto
 import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
@@ -561,6 +562,17 @@ private fun PlayerScreen(
     // sélectionnée pour que le remux ré-encode la bonne piste audio.
     var level1FfmpegAvailable by remember { mutableStateOf(false) }
     var level1AudioStreamId by remember { mutableStateOf<String?>(null) }
+    // Pistes audio du titre selon le serveur, comme le menu du desktop : un flux
+    // remuxé ou transcodé ne contient qu'une seule piste, le lecteur ne peut donc
+    // pas être la source de la liste.
+    var serverAudioStreams by remember { mutableStateOf<List<StreamAudioTrackDto>>(emptyList()) }
+    var chosenAudioStreamId by remember { mutableStateOf<String?>(null) }
+    fun activeAudioStreamId(): String? = chosenAudioStreamId
+        ?: preferredServerAudioTrack(
+            serverAudioStreams,
+            accountPrefs?.preferredAudioLanguage?.takeIf { it.isNotBlank() && it != "auto" } ?: (accountPrefs?.locale ?: "fr").lowercase(),
+        )?.id
+        ?: level1AudioStreamId
     // Markers intro/credits venus du backend Movviz (via streamInfo — ZÉRO
     // appel Plex ici). Associés au ratingKey courant : changement d'épisode
     // → nouveau StreamInfo → anciens markers remplacés intégralement.
@@ -685,14 +697,14 @@ ExoPlayer.Builder(context)
                 // progressif simple (video/mp4) : pas de manifeste, le
                 // ProgressiveMediaSource par défaut suffit, inférence MIME
                 // normale suffisante ici (contrairement à DASH/HLS ci-dessous).
-                val url = repository.ffmpegRemuxUrl(item.ratingKey, level1AudioStreamId)
+                val url = repository.ffmpegRemuxUrl(item.ratingKey, activeAudioStreamId())
                 Log.i(TAG, "load() remux ffmpeg local (audio-seul): $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
                     .setMediaMetadata(metadata)
                     .build()
             } else {
-                val url = repository.transcodeUrl(item.ratingKey)
+                val url = repository.transcodeUrl(item.ratingKey, activeAudioStreamId())
                 // Repli audio seul, toujours en DASH (fMP4) quel que soit le
                 // codec source — le seul format où Plex honore le copy
                 // bitstream vidéo (voir MovvizRepository.transcodeUrl). Le
@@ -710,7 +722,7 @@ ExoPlayer.Builder(context)
                     .build()
             }
             2 -> {
-                val url = repository.transcodeFullUrl(item.ratingKey)
+                val url = repository.transcodeFullUrl(item.ratingKey, activeAudioStreamId())
                 Log.i(TAG, "load() transcode complet HLS: $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
@@ -801,6 +813,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             (repository.localEpisodeInfo(current.localKey!!, current.seasonNumber, current.episodeNumber) as? ApiResult.Success)?.data
         } else null
         val plexInfo = if (!localEpisode) (repository.streamInfo(current.ratingKey) as? ApiResult.Success)?.data else null
+        chosenAudioStreamId = null
+        serverAudioStreams = localInfo?.audioStreams?.takeIf { it.isNotEmpty() } ?: plexInfo?.audioStreams.orEmpty()
         // Markers du média — store local Movviz. Absence = [] = player
         // strictement identique à avant, aucun message, aucune requête.
         markers = (localInfo?.markers ?: plexInfo?.markers).orEmpty()
@@ -845,7 +859,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         val videoDecodable = videoMime == null || hasPlatformVideoDecoder(videoMime)
         val audioDecodable = audioMime == null || hasPlatformAudioDecoder(audioMime)
         level1FfmpegAvailable = info?.ffmpegAvailable == true
-        level1AudioStreamId = selectedAudio?.id
+        level1AudioStreamId = selectedAudio?.id ?: serverAudioStreams.firstOrNull { it.selected }?.id
         val startLevel = when {
             info != null && !videoDecodable -> 2
             info != null && !audioDecodable -> 1
@@ -1641,9 +1655,21 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             @Suppress("UNUSED_EXPRESSION") tracksVersion // souscrit cette recomposition aux changements de pistes
             TrackDialog(
                 title = "Piste audio",
-                tracks = audioTrackOptions(exoPlayer),
+                tracks = serverAudioTrackOptions(exoPlayer, serverAudioStreams, activeAudioStreamId()),
                 onSelect = { groupIndex, trackIndex ->
-                    applyTrackOverride(exoPlayer, C.TRACK_TYPE_AUDIO, exoPlayer.currentTracks.groups[groupIndex])
+                    val stream = serverAudioStreams.getOrNull(trackIndex)
+                    val group = exoPlayer.currentTracks.groups.getOrNull(groupIndex)
+                    val alreadyActive = stream != null && stream.id == activeAudioStreamId()
+                    if (stream != null) chosenAudioStreamId = stream.id
+                    // Piste absente du flux, ou que cet appareil ne décode pas :
+                    // le serveur relance le flux avec elle, à la même position.
+                    val canReload = level1FfmpegAvailable || fallbackLevel > 0
+                    if (group != null && (group.isTrackSupported(0) || !canReload)) {
+                        applyTrackOverride(exoPlayer, C.TRACK_TYPE_AUDIO, group)
+                    } else if (stream != null && canReload && !(group == null && alreadyActive)) {
+                        fallbackLevel = maxOf(fallbackLevel, 1)
+                        load(queue[currentIndex], exoPlayer.currentPosition, level = fallbackLevel, autoplay = exoPlayer.playWhenReady)
+                    }
                     showAudioDialog = false
                 },
                 onDismiss = { showAudioDialog = false },
@@ -1739,6 +1765,75 @@ private fun subtitleTrackLabel(format: androidx.media3.common.Format): String {
     val title = format.label?.takeIf { it.isNotBlank() && !it.equals(language, ignoreCase = true) }
     val forced = if (format.selectionFlags and C.SELECTION_FLAG_FORCED != 0) "Forcé" else null
     return trackLabelParts(listOf(language, codec, title, forced)).ifEmpty { "Sous-titres" }
+}
+
+/** Libellé d'une piste décrite par le serveur : mêmes noms et même nettoyage du
+ *  titre que le desktop (src/lib/playback/trackLabels.ts). */
+private val AUDIO_CODEC_NAMES = mapOf(
+    "aac" to "AAC", "ac3" to "AC-3", "eac3" to "E-AC-3", "dts" to "DTS", "dca" to "DTS", "truehd" to "TrueHD",
+    "mlp" to "TrueHD", "flac" to "FLAC", "opus" to "Opus", "vorbis" to "Vorbis", "mp3" to "MP3", "mp2" to "MP2",
+    "pcm" to "PCM", "alac" to "ALAC",
+)
+private val TRACK_TITLE_NOISE = setOf(
+    "fr", "fre", "fra", "en", "eng", "de", "ger", "deu", "it", "ita", "es", "spa", "nl", "dut", "nld", "pt", "por",
+    "full", "forced", "forcé", "forcés", "forces", "complet", "complets", "srt", "subrip", "pgs", "ass", "ssa",
+    "vobsub", "sub", "subs", "subtitle", "subtitles", "audio",
+)
+
+private fun serverAudioCodecName(codec: String): String {
+    val key = codec.lowercase().replace(Regex("[. _-]"), "")
+    return when {
+        key.isEmpty() -> ""
+        key.startsWith("pcm") -> "PCM"
+        else -> AUDIO_CODEC_NAMES[key] ?: key.uppercase()
+    }
+}
+
+private fun serverAudioTrackLabel(track: StreamAudioTrackDto): String {
+    val codecName = serverAudioCodecName(track.codec)
+    val codec = listOfNotNull(codecName.ifEmpty { null }, audioChannelLayout(track.channels)).joinToString(" ")
+    val redundant = listOf(track.language, codecName, track.codec)
+        .flatMap { it.lowercase().split(Regex("[^\\p{L}\\p{N}]+")) }
+        .filter { it.isNotEmpty() }
+        .toSet()
+    val title = track.title.orEmpty().split(Regex("[^\\p{L}\\p{N}.+]+"))
+        .filter { it.isNotEmpty() }
+        .filter { token ->
+            val lower = token.lowercase()
+            lower !in TRACK_TITLE_NOISE && lower !in redundant && !lower.matches(Regex("\\d+(\\.\\d+)?"))
+        }
+        .joinToString(" ")
+    return trackLabelParts(listOf(track.language, codec, title)).ifEmpty { "Piste audio" }
+}
+
+private val AUDIO_LANGUAGE_PREFIXES = mapOf(
+    "fr" to listOf("french", "fr", "fre", "fra"),
+    "en" to listOf("english", "en", "eng"),
+    "it" to listOf("italian", "it", "ita"),
+    "nl" to listOf("dutch", "nl", "nld", "dut", "nederlands"),
+    "de" to listOf("german", "de", "ger", "deu"),
+    "es" to listOf("spanish", "es", "spa"),
+)
+
+private fun preferredServerAudioTrack(tracks: List<StreamAudioTrackDto>, language: String): StreamAudioTrackDto? {
+    val prefixes = AUDIO_LANGUAGE_PREFIXES[language] ?: return null
+    return tracks.firstOrNull { track ->
+        val name = track.language.lowercase()
+        name.isNotEmpty() && prefixes.any { name.startsWith(it) }
+    }
+}
+
+/** Le menu liste toujours les pistes du serveur. Quand le flux lu les contient
+ *  toutes, chacune est reliée par position au groupe du lecteur ; sinon le groupe
+ *  est négatif et choisir la piste relance le flux avec elle. */
+private fun serverAudioTrackOptions(player: ExoPlayer, tracks: List<StreamAudioTrackDto>, activeId: String?): List<TrackOption> {
+    if (tracks.isEmpty()) return audioTrackOptions(player)
+    val groups = player.currentTracks.groups.withIndex().filter { it.value.type == C.TRACK_TYPE_AUDIO }
+    val aligned = groups.size == tracks.size
+    return tracks.mapIndexed { i, track ->
+        val group = groups.getOrNull(i)?.takeIf { aligned }
+        TrackOption(group?.index ?: (-1 - i), i, serverAudioTrackLabel(track), group?.value?.isSelected ?: (track.id == activeId))
+    }
 }
 
 private fun audioTrackOptions(player: ExoPlayer): List<TrackOption> =

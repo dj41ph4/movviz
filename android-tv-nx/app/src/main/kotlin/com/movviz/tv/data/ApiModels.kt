@@ -732,6 +732,7 @@ data class StreamAudioTrackDto(
     val language: String,
     val channels: Int = 0,
     val selected: Boolean = false,
+    val title: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -785,6 +786,9 @@ data class LocalPlaybackInfoDto(
     val plexRatingKey: String? = null,
     val size: Long? = null,
     val markers: List<PlaybackMarkerDto> = emptyList(),
+    val audioStreams: List<StreamAudioTrackDto> = emptyList(),
+    val ffmpegAvailable: Boolean = false,
+    val durationMs: Long? = null,
 )
 
 @JsonClass(generateAdapter = true)

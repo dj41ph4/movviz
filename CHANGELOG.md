@@ -1,3 +1,9 @@
+## v1.28.37 — 3 novembre 2026
+
+### Lecteur Android
+
+- Sur Android TV et mobile, le menu audio affiche toutes les langues du fichier, comme sur desktop, quel que soit le mode de lecture. Choisir une langue absente du flux en cours relance la lecture avec elle, à la même position, et la langue du profil est aussi respectée en mode compatibilité.
+
 ## v1.28.36 — 3 novembre 2026
 
 ### Interface
