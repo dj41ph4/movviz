@@ -1,3 +1,9 @@
+## v1.28.45 — 3 novembre 2026
+
+### Android
+
+- Une nouvelle version n’est annoncée qu’une fois ses applications publiées : Android TV et mobile ne se disent plus « à jour » pendant sa compilation. Ils prennent la version la plus récente qui contient leur application, et signalent une vérification impossible au lieu d’annoncer « à jour ».
+
 ## v1.28.44 — 3 novembre 2026
 
 ### Séries

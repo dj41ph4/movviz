@@ -172,7 +172,7 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         delay(250)
         val info = updateManager.checkForUpdate()
         if (info == null) {
-            viewModel?.setAvailableUpdateTag(null)
+            if (!updateManager.lastCheckFailed) viewModel?.setAvailableUpdateTag(null)
             return@LaunchedEffect
         }
         pending = info
@@ -190,7 +190,7 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         while (true) {
             if (state == UpdateUiState.Hidden) {
                 val info = updateManager.checkForUpdate()
-                viewModel?.setAvailableUpdateTag(info?.tag)
+                if (info != null || !updateManager.lastCheckFailed) viewModel?.setAvailableUpdateTag(info?.tag)
             }
             delay(BACKGROUND_UPDATE_CHECK_MS)
         }
@@ -208,6 +208,10 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         viewModel.setUpdateCheckStatus("Vérification…")
         val info = updateManager.checkForUpdate()
         if (info == null) {
+            if (updateManager.lastCheckFailed) {
+                viewModel.setUpdateCheckStatus("Vérification impossible, réessaie dans un moment")
+                return@LaunchedEffect
+            }
             viewModel.setAvailableUpdateTag(null)
             viewModel.setUpdateCheckStatus("Movviz est à jour (${BuildConfig.VERSION_NAME})")
             return@LaunchedEffect
@@ -224,6 +228,10 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         if (installTrigger == null || installTrigger == 0) return@LaunchedEffect
         val info = pending ?: updateManager.checkForUpdate()
         if (info == null) {
+            if (updateManager.lastCheckFailed) {
+                viewModel.setUpdateCheckStatus("Vérification impossible, réessaie dans un moment")
+                return@LaunchedEffect
+            }
             viewModel.setAvailableUpdateTag(null)
             viewModel.setUpdateCheckStatus("Movviz est à jour (${BuildConfig.VERSION_NAME})")
             return@LaunchedEffect

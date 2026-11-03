@@ -12,6 +12,7 @@ import com.movviz.tv.BuildConfig
 import com.movviz.tv.UpdateReceiver
 import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,6 +32,8 @@ data class UpdateInfo(
 
 private data class ReleaseDto(
     @Json(name = "tag_name") val tagName: String? = null,
+    @Json(name = "draft") val draft: Boolean? = null,
+    @Json(name = "prerelease") val prerelease: Boolean? = null,
     @Json(name = "assets") val assets: List<AssetDto>? = null,
 )
 
@@ -45,7 +48,7 @@ private data class AssetDto(
  * Auto-update Android TV sans magasin d'applications.
  *
  * Le repo Movviz est public : on interroge directement l'API GitHub
- * (`releases/latest`), on compare la version à la nôtre, on télécharge
+ * (liste des releases), on compare la version à la nôtre, on télécharge
  * l'APK de la release (SHA-256 vérifié contre le digest publié) et on
  * ouvre l'installeur système (FileProvider + ACTION_VIEW). L'APK se
  * remplace lui-même (même package, même clé de signature) sans perte de
@@ -60,42 +63,57 @@ class UpdateManager(private val context: Context) {
     // que la connexion passait sous 6,5 Mbit/s, et la mise à jour échouait.
     private val downloadClient = ApiClient.streamingHttpClient()
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
-    private val releaseAdapter = moshi.adapter(ReleaseDto::class.java)
+    private val releasesAdapter = moshi.adapter<List<ReleaseDto>>(Types.newParameterizedType(List::class.java, ReleaseDto::class.java))
 
     /** Nom de l'asset publié par le workflow CI. */
     private val expectedAssetName = "Movviz-NX-Android-TV-client.apk"
 
-    /** Retourne la mise à jour à appliquer, ou null si à jour / indisponible. */
+    /** Vrai quand la dernière vérification n'a pas abouti : l'absence de mise à jour
+     *  ne doit pas s'afficher « à jour » si GitHub n'a simplement pas répondu. */
+    @Volatile
+    var lastCheckFailed = false
+        private set
+
+    /** Retourne la mise à jour à appliquer, ou null si à jour / indisponible.
+     *  Cherche la version la plus haute qui contient déjà notre APK : une release
+     *  toute neuve reste sans APK le temps de sa compilation. */
     suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {
+        lastCheckFailed = false
         try {
             val request = Request.Builder()
-                .url("https://api.github.com/repos/dj41ph4/movviz/releases/latest")
+                .url("https://api.github.com/repos/dj41ph4/movviz/releases?per_page=15")
                 .header("Accept", "application/vnd.github+json")
                 .header("User-Agent", "Movviz-AndroidTV/${BuildConfig.VERSION_NAME}")
                 .build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     android.util.Log.w("MovvizUpdate", "check: HTTP ${response.code}")
+                    lastCheckFailed = true
                     return@withContext null
                 }
-                val body = response.body?.string() ?: return@withContext null
-                val release = releaseAdapter.fromJson(body) ?: return@withContext null
-                val tag = release.tagName ?: return@withContext null
-                if (!isNewerVersion(tag, BuildConfig.VERSION_NAME)) {
-                    android.util.Log.i("MovvizUpdate", "check: à jour (local=${BuildConfig.VERSION_NAME}, latest=$tag)")
+                val releases = response.body?.string()?.let { releasesAdapter.fromJson(it) }
+                if (releases == null) {
+                    lastCheckFailed = true
                     return@withContext null
                 }
-                val asset = release.assets?.firstOrNull { it.name == expectedAssetName }
-                    ?: return@withContext null
-                val url = asset.url ?: return@withContext null
-                val digest = asset.digest ?: return@withContext null
-                android.util.Log.i("MovvizUpdate", "check: mise à jour trouvée $tag (local=${BuildConfig.VERSION_NAME})")
-                UpdateInfo(tag = tag, apkUrl = url, sha256 = digest, size = asset.size ?: 0L)
+                var best: UpdateInfo? = null
+                for (release in releases) {
+                    val tag = release.tagName ?: continue
+                    if (release.draft == true || release.prerelease == true) continue
+                    if (!isNewerVersion(tag, best?.tag ?: BuildConfig.VERSION_NAME)) continue
+                    val asset = release.assets?.firstOrNull { it.name == expectedAssetName } ?: continue
+                    val url = asset.url ?: continue
+                    val digest = asset.digest ?: continue
+                    best = UpdateInfo(tag = tag, apkUrl = url, sha256 = digest, size = asset.size ?: 0L)
+                }
+                android.util.Log.i("MovvizUpdate", "check: local=${BuildConfig.VERSION_NAME}, disponible=${best?.tag}")
+                best
             }
         } catch (e: Exception) {
             // Avant ce correctif : un échec réseau (DNS, timeout, TLS…) se refermait
             // ici sans aucune trace, indiscernable d'un simple "pas de mise à jour".
             android.util.Log.w("MovvizUpdate", "check: échec", e)
+            lastCheckFailed = true
             null
         }
     }

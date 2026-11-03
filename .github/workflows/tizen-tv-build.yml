@@ -96,11 +96,27 @@ jobs:
           set -euo pipefail
           for attempt in $(seq 1 20); do
             if gh release view "$TAG" >/dev/null 2>&1; then break; fi
-            gh release create "$TAG" --title "$TAG" --notes-file dist/release-notes.md >/dev/null 2>&1 || true
+            gh release create "$TAG" --title "$TAG" --latest=false --notes-file dist/release-notes.md >/dev/null 2>&1 || true
             sleep 5
           done
           gh release view "$TAG" >/dev/null
           gh release upload "$TAG" tizen-tv/dist/*.wgt tizen-tv/dist/*.sha256 --clobber
+      # Les apps demandent la release « Latest » : elle ne le devient qu'une fois
+      # tous les clients publiés, sinon elles se croient à jour entre-temps.
+      - name: Mark the release as latest once every client is published
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          for name in Movviz-NX-Android-TV-client.apk Movviz-NX-Mobile-client.apk Movviz-Samsung-Tizen-client-unsigned.wgt; do
+            grep -qx "$name" <<< "$assets" || { echo "$name pas encore publié"; exit 0; }
+          done
+          newest="$(gh release list --limit 30 --json tagName --jq '.[].tagName' | sort -V | tail -1)"
+          if [[ "$newest" == "$TAG" ]]; then gh release edit "$TAG" --latest; fi
+
       - uses: actions/upload-artifact@v6
         with:
           name: Movviz-Samsung-Tizen-client

@@ -1,3 +1,9 @@
+## v1.28.45 — 3 november 2026
+
+### Android
+
+- Een nieuwe versie wordt pas aangekondigd zodra de apps zijn gepubliceerd: Android TV en mobiel melden tijdens het bouwen niet meer dat ze up-to-date zijn. Ze nemen de nieuwste versie met hun app en melden een mislukte controle in plaats van up-to-date.
+
 ## v1.28.44 — 3 november 2026
 
 ### Series
