@@ -1,3 +1,9 @@
+## v1.28.38 — 3 November 2026
+
+### Android
+
+- On Android TV and mobile, a “Continue watching” card always opens the announced episode: right after another series, it could open the same episode number in an older season.
+
 ## v1.28.37 — 3 November 2026
 
 ### Android player

@@ -1,3 +1,9 @@
+## v1.28.38 — 3 november 2026
+
+### Android
+
+- Op Android TV en mobiel opent een ‘Verder kijken’-kaart altijd de aangekondigde aflevering: direct na een andere serie kon die hetzelfde afleveringsnummer in een ouder seizoen openen.
+
 ## v1.28.37 — 3 november 2026
 
 ### Android-speler

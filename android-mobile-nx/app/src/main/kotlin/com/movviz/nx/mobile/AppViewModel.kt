@@ -85,6 +85,14 @@ private data class PendingHomeP1(
     val startedAt: Long,
 )
 
+/** Saisons chargées et la série à laquelle elles appartiennent, publiées ensemble :
+ *  elles survivent à la fermeture d'une fiche, et la suivante ne doit jamais les
+ *  prendre pour les siennes le temps que les bonnes arrivent. */
+data class SeriesSeasonsState(
+    val owner: Pair<Int, String?>? = null,
+    val seasons: List<com.movviz.nx.mobile.data.SeriesSeasonDto> = emptyList(),
+)
+
 /**
  * État applicatif partagé entre les écrans (URL serveur, utilisateur
  * connecté, bibliothèque) — activity-scoped plutôt que porté par les
@@ -345,8 +353,8 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _addingToLibrary = MutableStateFlow(false)
     val addingToLibrary: StateFlow<Boolean> = _addingToLibrary.asStateFlow()
 
-    private val _seriesSeasons = MutableStateFlow<List<SeriesSeasonDto>>(emptyList())
-    val seriesSeasons: StateFlow<List<SeriesSeasonDto>> = _seriesSeasons.asStateFlow()
+    private val _seriesSeasons = MutableStateFlow(SeriesSeasonsState())
+    val seriesSeasons: StateFlow<SeriesSeasonsState> = _seriesSeasons.asStateFlow()
 
     private val _seasonMetadata = MutableStateFlow<Map<String, MetadataSeasonDto>>(emptyMap())
     val seasonMetadata: StateFlow<Map<String, MetadataSeasonDto>> = _seasonMetadata.asStateFlow()
@@ -844,7 +852,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         if (seasonsKey != key) {
             seasonsKey = key
             // Saisons déjà vues pour cette série : tout de suite à l'écran.
-            _seriesSeasons.value = seasonsCache[key] ?: emptyList()
+            _seriesSeasons.value = SeriesSeasonsState(key, seasonsCache[key] ?: emptyList())
         }
         viewModelScope.launch {
             when (val s = repo.seriesSeasons(seriesId, part)) {
@@ -855,7 +863,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
                 // constaté en direct).
                 is ApiResult.Success -> {
                     seasonsCache[key] = s.data
-                    if (seasonsKey == key) _seriesSeasons.value = s.data
+                    if (seasonsKey == key) _seriesSeasons.value = SeriesSeasonsState(key, s.data)
                 }
                 else -> Unit
             }
@@ -1373,7 +1381,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _detail.value = null
         _detailError.value = null
         _person.value = null
-        _seriesSeasons.value = emptyList()
+        _seriesSeasons.value = SeriesSeasonsState()
         _seasonMetadata.value = emptyMap()
         _searchResults.value = emptyList()
         _watchStatus.value = null

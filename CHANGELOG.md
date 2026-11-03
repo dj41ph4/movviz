@@ -1,3 +1,9 @@
+## v1.28.38 — 3 novembre 2026
+
+### Android
+
+- Sur Android TV et mobile, une carte « Reprendre » ouvre toujours l’épisode annoncé : juste après une autre série, elle pouvait ouvrir le même numéro d’épisode dans une saison plus ancienne.
+
 ## v1.28.37 — 3 novembre 2026
 
 ### Lecteur Android

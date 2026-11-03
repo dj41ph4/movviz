@@ -1,3 +1,9 @@
+## v1.28.38 — 3. November 2026
+
+### Android
+
+- Auf Android TV und Mobilgeräten öffnet eine „Weiterschauen“-Karte immer die angekündigte Folge: Direkt nach einer anderen Serie konnte sie dieselbe Folgennummer in einer älteren Staffel öffnen.
+
 ## v1.28.37 — 3. November 2026
 
 ### Android-Player

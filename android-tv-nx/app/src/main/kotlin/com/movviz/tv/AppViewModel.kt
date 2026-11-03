@@ -87,6 +87,14 @@ private data class PendingHomeP1(
     val startedAt: Long,
 )
 
+/** Saisons chargées et la série à laquelle elles appartiennent, publiées ensemble :
+ *  elles survivent à la fermeture d'une fiche, et la suivante ne doit jamais les
+ *  prendre pour les siennes le temps que les bonnes arrivent. */
+data class SeriesSeasonsState(
+    val owner: Pair<Int, String?>? = null,
+    val seasons: List<com.movviz.tv.data.SeriesSeasonDto> = emptyList(),
+)
+
 /**
  * État applicatif partagé entre les écrans (URL serveur, utilisateur
  * connecté, bibliothèque) — activity-scoped plutôt que porté par les
@@ -396,8 +404,8 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _addingToLibrary = MutableStateFlow(false)
     val addingToLibrary: StateFlow<Boolean> = _addingToLibrary.asStateFlow()
 
-    private val _seriesSeasons = MutableStateFlow<List<SeriesSeasonDto>>(emptyList())
-    val seriesSeasons: StateFlow<List<SeriesSeasonDto>> = _seriesSeasons.asStateFlow()
+    private val _seriesSeasons = MutableStateFlow(SeriesSeasonsState())
+    val seriesSeasons: StateFlow<SeriesSeasonsState> = _seriesSeasons.asStateFlow()
 
     private val _seasonMetadata = MutableStateFlow<Map<String, MetadataSeasonDto>>(emptyMap())
     val seasonMetadata: StateFlow<Map<String, MetadataSeasonDto>> = _seasonMetadata.asStateFlow()
@@ -653,7 +661,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         val requestKey = tmdbId to resolvedPart
         if (seasonsRequestKey != requestKey) {
             seasonsRequestKey = requestKey
-            _seriesSeasons.value = emptyList()
+            _seriesSeasons.value = SeriesSeasonsState(requestKey)
         }
         viewModelScope.launch {
             when (val s = repo.seriesSeasons(seriesId, resolvedPart)) {
@@ -662,7 +670,7 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
                 // les saisons de A venaient écraser celles de B à l'écran
                 // (« la saison n'est pas celle de la série choisie »,
                 // constaté en direct).
-                is ApiResult.Success -> if (seasonsRequestKey == requestKey) _seriesSeasons.value = s.data
+                is ApiResult.Success -> if (seasonsRequestKey == requestKey) _seriesSeasons.value = SeriesSeasonsState(requestKey, s.data)
                 else -> Unit
             }
         }
@@ -1175,7 +1183,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _detail.value = null
         _detailError.value = null
         _person.value = null
-        _seriesSeasons.value = emptyList()
+        _seriesSeasons.value = SeriesSeasonsState()
         _seasonMetadata.value = emptyMap()
         _searchResults.value = emptyList()
         _watchStatus.value = null

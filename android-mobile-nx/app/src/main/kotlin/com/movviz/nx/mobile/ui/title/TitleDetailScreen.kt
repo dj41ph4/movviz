@@ -186,7 +186,10 @@ fun TitleDetailScreen(
     // TMDb est préféré au texte brut, qui reste le repli si TMDb n'en a pas.
     val heroLogos by viewModel.heroLogos.collectAsState()
     val addingToLibrary by viewModel.addingToLibrary.collectAsState()
-    val rawSeasons by viewModel.seriesSeasons.collectAsState()
+    val seriesSeasonsState by viewModel.seriesSeasons.collectAsState()
+    val rawSeasons = remember(seriesSeasonsState, tmdbId, part) {
+        if (seriesSeasonsState.owner == (tmdbId to BleachPresentation.part(tmdbId, "series", part))) seriesSeasonsState.seasons else emptyList()
+    }
     val seasonMetadata by viewModel.seasonMetadata.collectAsState()
     val searchingSeason by viewModel.searchingSeason.collectAsState()
     val scope = rememberCoroutineScope()
@@ -480,6 +483,8 @@ fun TitleDetailScreen(
     LaunchedEffect(selectedSeason, seasonMetadata, initialEpisodeNumber) {
         if (didOpenInitialEpisode) return@LaunchedEffect
         if (initialEpisodeNumber == null || selectedSeason == null) return@LaunchedEffect
+        // Le numéro d'épisode ne vaut que dans la saison demandée : S14E13 n'est pas S1E13.
+        if (selectedSeason.seasonNumber != initialSeasonNumber) return@LaunchedEffect
         val episode = selectedSeason.episodes.firstOrNull { it.episodeNumber == initialEpisodeNumber } ?: return@LaunchedEffect
         didOpenInitialEpisode = true
         selectedEpisode = EpisodeSelection(selectedSeason, episode, null)

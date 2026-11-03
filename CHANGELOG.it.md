@@ -1,3 +1,9 @@
+## v1.28.38 — 3 novembre 2026
+
+### Android
+
+- Su Android TV e mobile, una scheda «Continua a guardare» apre sempre l’episodio indicato: subito dopo un’altra serie poteva aprire lo stesso numero di episodio in una stagione precedente.
+
 ## v1.28.37 — 3 novembre 2026
 
 ### Lettore Android
