@@ -471,7 +471,7 @@
     html[data-movviz-appearance="beta"] .glow-brand {
     box-shadow: 0 0 0 1px rgba(167, 123, 255, .35)
     }
-    html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-library-toolbar, .nx-library-genres, .nx-library-grid > div:first-child, .nx-discover-mode-tabs, .nx-discover-filter-menu) {
+    html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-library-toolbar, .nx-library-genres, .nx-discover-mode-tabs, .nx-discover-filter-menu) {
     border-color: var(--so-line);
     background: var(--so-ink-1);
     box-shadow: none

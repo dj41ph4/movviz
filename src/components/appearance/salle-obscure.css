@@ -426,7 +426,7 @@
   }
 
   /* Panneaux bleus hérités de la charte NX (bibliothèque, Découverte). */
-  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-library-toolbar, .nx-library-genres, .nx-library-grid > div:first-child, .nx-discover-mode-tabs, .nx-discover-filter-menu) {
+  html[data-movviz-appearance="beta"] .nx-desktop-shell :is(.nx-library-toolbar, .nx-library-genres, .nx-discover-mode-tabs, .nx-discover-filter-menu) {
     border-color: var(--so-line);
     background: var(--so-ink-1);
     box-shadow: none;

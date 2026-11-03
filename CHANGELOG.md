@@ -1,3 +1,9 @@
+## v1.28.40 — 3 novembre 2026
+
+### Interface
+
+- Bibliothèque, Films et Séries n’affichent plus de bloc plus clair derrière les cartes en apparence Bêta sur desktop : elles reposent directement sur le fond de la page.
+
 ## v1.28.39 — 3 novembre 2026
 
 ### Interface

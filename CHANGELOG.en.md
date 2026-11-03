@@ -1,3 +1,9 @@
+## v1.28.40 — 3 November 2026
+
+### Interface
+
+- Library, Movies and Series no longer show a lighter block behind the cards in the Beta appearance on desktop: cards now sit directly on the page background.
+
 ## v1.28.39 — 3 November 2026
 
 ### Interface

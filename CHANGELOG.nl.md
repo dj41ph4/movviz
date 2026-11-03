@@ -1,3 +1,9 @@
+## v1.28.40 — 3 november 2026
+
+### Interface
+
+- Bibliotheek, Films en Series tonen in de bèta-weergave op desktop geen lichter blok meer achter de kaarten: ze staan direct op de paginaachtergrond.
+
 ## v1.28.39 — 3 november 2026
 
 ### Interface

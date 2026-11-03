@@ -1,3 +1,9 @@
+## v1.28.40 — 3 novembre 2026
+
+### Interfaccia
+
+- Libreria, Film e Serie non mostrano più un blocco più chiaro dietro le schede nell’aspetto Beta su desktop: le schede poggiano direttamente sullo sfondo della pagina.
+
 ## v1.28.39 — 3 novembre 2026
 
 ### Interfaccia

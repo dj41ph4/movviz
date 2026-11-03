@@ -1,3 +1,9 @@
+## v1.28.40 — 3. November 2026
+
+### Oberfläche
+
+- Bibliothek, Filme und Serien zeigen im Beta-Design auf dem Desktop keinen helleren Block mehr hinter den Karten: Sie liegen direkt auf dem Seitenhintergrund.
+
 ## v1.28.39 — 3. November 2026
 
 ### Oberfläche
