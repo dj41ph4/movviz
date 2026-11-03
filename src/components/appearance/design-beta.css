@@ -55,7 +55,13 @@
     border-bottom: 1px solid transparent;
     transition: background-color .2s ease, border-color .2s ease;
   }
-  html[data-movviz-design="beta"] .nx-topbar[data-scrolled] { background: #0b0c10ed; border-bottom-color: #ffffff08; }
+  /* Fond déjà couvrant à 93 % : le flou derrière ne se voyait pas et coûtait à chaque image. */
+  html[data-movviz-design="beta"] .nx-topbar[data-scrolled],
+  html[data-movviz-design="beta"] .nx-topbar[data-scrolled] .glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html[data-movviz-design="beta"] .nx-topbar[data-scrolled] { background: #0b0c10; border-bottom-color: #ffffff08; }
   html[data-movviz-design="beta"] .nx-search-pill {
     height: 44px;
     border: 1px solid #ffffff13;

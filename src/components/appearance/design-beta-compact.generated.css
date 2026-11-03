@@ -681,7 +681,12 @@
     html[data-movviz-design="beta"] .nx-topbar {
     background: transparent
     }
-    html[data-movviz-design="beta"] .nx-topbar[data-scrolled] { background: #0b0c10ed; border-bottom-color: #ffffff08
+    html[data-movviz-design="beta"] .nx-topbar[data-scrolled],
+  html[data-movviz-design="beta"] .nx-topbar[data-scrolled] .glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none
+    }
+    html[data-movviz-design="beta"] .nx-topbar[data-scrolled] { background: #0b0c10; border-bottom-color: #ffffff08
     }
     html[data-movviz-design="beta"] .nx-search-pill {
     border-radius: 12px;

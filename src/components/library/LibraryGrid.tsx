@@ -50,6 +50,17 @@ const SORTS: { id: "title" | "recent" | "rating"; key: string }[] = [
 ];
 
 type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries & { seriesPart?: BleachPart } };
+/** Une seule surveillance pour toutes les cases d'attente : seules celles à l'écran
+ *  pulsent. Une bibliothèque en compte des milliers, presque toutes invisibles. */
+let skeletonPulseObserver: IntersectionObserver | null = null;
+function pulseWhileVisible(el: HTMLDivElement) {
+  skeletonPulseObserver ??= new IntersectionObserver((entries) => {
+    for (const entry of entries) entry.target.classList.toggle("animate-pulse", entry.isIntersecting);
+  });
+  skeletonPulseObserver.observe(el);
+  return () => skeletonPulseObserver?.unobserve(el);
+}
+
 function titleOf(c: CombinedItem): string {
   return c.kind === "movie" ? c.movie.title : c.series.title;
 }
@@ -331,28 +342,11 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
   const total = combinedItems.length;
 
-  // Progressive rendering: paint the first batch immediately so the page is
-  // interactive at once, then mount the rest in idle time. Rendering the whole
-  // library in one pass means thousands of DOM nodes before first paint — the
-  // page felt frozen on large libraries.
+  // Progressive rendering: paint the first batch immediately, then mount the
+  // rest only as the viewport approaches it (checkpoints below). Mounting the
+  // whole library in the background kept the page at about 10 fps: 40 000 nodes,
+  // and every artwork batch response re-rendered all of them.
   const [visibleCount, setVisibleCount] = useState(RENDER_BATCH_INITIAL);
-  useEffect(() => {
-    setVisibleCount(RENDER_BATCH_INITIAL);
-  }, [filter, type, sort]);
-  useEffect(() => {
-    if (visibleCount >= total) return;
-    const grow = () => setVisibleCount((c) => Math.min(totalRef.current, c + RENDER_BATCH_STEP));
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(grow);
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(grow, 50);
-    return () => window.clearTimeout(id);
-  }, [visibleCount, total]);
-  // requestIdleCallback only fires during genuinely idle periods — continuous
-  // scrolling keeps generating scroll/input events, so on a large library the
-  // browser can go a long time without ever considering itself idle, and
-  // growth visibly stalls partway through the alphabet.
   const totalRef = useRef(total);
   totalRef.current = total;
 
@@ -386,20 +380,31 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   // per frame, same batch size as every other growth path) reaches it in well
   // under 200ms while still letting the browser paint/breathe between each
   // chunk instead of blocking on one huge commit.
+  // A request made during a running ramp raises its target: dropping it would
+  // leave an A-Z jump waiting for cards that nothing mounts any more.
   const rampingRef = useRef(false);
+  const rampTargetRef = useRef(0);
   const rampVisibleCountTo = (target: number) => {
+    rampTargetRef.current = Math.max(rampTargetRef.current, target);
     if (rampingRef.current) return;
     rampingRef.current = true;
     const step = () => {
       setVisibleCount((c) => {
-        const next = Math.min(target, totalRef.current, c + RENDER_BATCH_STEP);
-        if (next < target && next < totalRef.current) requestAnimationFrame(step);
-        else rampingRef.current = false;
+        const next = Math.min(rampTargetRef.current, totalRef.current, c + RENDER_BATCH_STEP);
+        if (next < rampTargetRef.current && next < totalRef.current) requestAnimationFrame(step);
+        else {
+          rampingRef.current = false;
+          rampTargetRef.current = 0;
+        }
         return Math.max(c, next);
       });
     };
     requestAnimationFrame(step);
   };
+  useEffect(() => {
+    rampTargetRef.current = 0;
+    setVisibleCount(RENDER_BATCH_INITIAL);
+  }, [filter, type, sort]);
 
   useEffect(() => {
     if (checkpointIndices.length === 0) return;
@@ -720,7 +725,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
                   else checkpointElsRef.current.delete(absoluteIndex);
                 } : undefined}
               >
-                <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
+                <div ref={pulseWhileVisible} className="aspect-video rounded-2xl bg-white/6" />
               </div>
             );
           })}

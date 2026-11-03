@@ -1861,7 +1861,9 @@ function DiscoverCard({
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
     whileTap: { scale: 0.98 },
-    style: { willChange: "transform" } as React.CSSProperties,
+    // Pas de calque permanent par carte : framer-motion promeut pendant l'animation.
+    // L'isolation garde le contexte d'empilement que « will-change » créait.
+    style: { isolation: "isolate" } as React.CSSProperties,
   };
 
   const isBusy = adding || status === "downloading" || status === "searching";

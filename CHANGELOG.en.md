@@ -1,3 +1,10 @@
+## v1.28.39 — 3 November 2026
+
+### Interface
+
+- Smooth mode keeps the theme colours: cards and bars no longer turn grey, and only surfaces above the content become opaque.
+- The library no longer mounts every card in the background: only cards nearing the screen are created, and only visible placeholders pulse. Discover and Collections no longer keep a permanent graphics layer per card, and the top bar no longer blurs beneath its already covering background.
+
 ## v1.28.38 — 3 November 2026
 
 ### Android

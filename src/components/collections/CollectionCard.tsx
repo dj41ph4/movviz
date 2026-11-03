@@ -37,7 +37,9 @@ export function CollectionCard({ collection, index = 0, onEdit, onDelete }: Coll
     transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
     whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
     whileTap: { scale: 0.98 },
-    style: { willChange: "transform" } as React.CSSProperties,
+    // Pas de calque permanent par carte : framer-motion promeut pendant l'animation.
+    // L'isolation garde le contexte d'empilement que « will-change » créait.
+    style: { isolation: "isolate" } as React.CSSProperties,
   };
   const btnSpring = reduceMotion ? {} : {
     whileTap: { scale: 0.95 },

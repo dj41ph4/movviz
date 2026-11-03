@@ -1,3 +1,10 @@
+## v1.28.39 — 3. November 2026
+
+### Oberfläche
+
+- Der flüssige Modus behält die Farben des Themes: Karten und Leisten werden nicht mehr grau, und nur Flächen über dem Inhalt werden deckend.
+- Die Bibliothek erzeugt nicht mehr alle Karten im Hintergrund: Nur Karten nahe am Bildschirm werden erstellt, und nur sichtbare Platzhalter pulsieren. Entdecken und Sammlungen halten keine dauerhafte Grafikebene pro Karte mehr, und die obere Leiste weichzeichnet nicht mehr unter ihrem bereits deckenden Hintergrund.
+
 ## v1.28.38 — 3. November 2026
 
 ### Android

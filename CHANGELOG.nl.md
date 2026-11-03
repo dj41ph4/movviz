@@ -1,3 +1,10 @@
+## v1.28.39 — 3 november 2026
+
+### Interface
+
+- De vloeiende modus behoudt de themakleuren: kaarten en balken worden niet langer grijs, en alleen vlakken boven de inhoud worden ondoorzichtig.
+- De bibliotheek maakt niet langer alle kaarten op de achtergrond aan: alleen kaarten vlak bij het scherm worden gemaakt en alleen zichtbare plaatshouders pulseren. Ontdekken en Collecties houden geen permanente grafische laag per kaart meer aan, en de bovenbalk vervaagt niet langer onder zijn al dekkende achtergrond.
+
 ## v1.28.38 — 3 november 2026
 
 ### Android

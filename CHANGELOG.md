@@ -1,3 +1,10 @@
+## v1.28.39 — 3 novembre 2026
+
+### Interface
+
+- Le mode fluide garde les couleurs du thème : les cartes et les barres ne virent plus au gris, et seules les surfaces au-dessus du contenu deviennent opaques.
+- La bibliothèque ne monte plus toutes ses cartes en arrière-plan : seules celles à l'approche de l'écran sont créées, et seules les cases d'attente visibles pulsent. Découverte et Collections n'ont plus de calque graphique permanent par carte, et la barre du haut ne floute plus sous son fond déjà couvrant.
+
 ## v1.28.38 — 3 novembre 2026
 
 ### Android

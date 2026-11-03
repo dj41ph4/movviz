@@ -205,8 +205,9 @@
   scroll-behavior: auto !important;
 }
 
-/* « Sans animation » coupe aussi les flous, qui sollicitent la carte graphique
-   même immobiles. Les surfaces de verre deviennent opaques pour rester lisibles. */
+/* Le mode fluide coupe aussi les flous, qui sollicitent la carte graphique même
+   immobiles. Une surface posée sur le fond uni garde sa couleur de thème : sans
+   flou, le rendu est identique. Seul ce qui passe au-dessus du contenu devient opaque. */
 .reduce-motion *,
 .reduce-motion *::before,
 .reduce-motion *::after {
@@ -215,11 +216,19 @@
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
-html.reduce-motion :is(.glass, .glass-strong) {
-  background: var(--color-surface) !important;
+html.reduce-motion :is(.glass, .glass-strong):is(.fixed, .absolute, .sticky, [role="dialog"], [role="menu"], [role="listbox"]) {
+  background: color-mix(in oklab, var(--color-surface) 62%, var(--color-void)) !important;
 }
-/* Barres collantes : sans flou, le contenu qui défile passerait à travers le texte. */
-html.reduce-motion :is(.nx-discover-desktop-bar, .nx-cal-filters, [class*="sticky"][class*="backdrop-blur"], .sticky > [class*="backdrop-blur"]) {
+/* Même verre que le thème (rgba(13, 15, 26, .78)), aplati sur le fond de page. */
+html[data-movviz-appearance="beta"].reduce-motion .nx-desktop-shell :is(.glass, .glass-strong):is(.fixed, .absolute, .sticky, [role="dialog"], [role="menu"], [role="listbox"]) {
+  background: #0c0e17 !important;
+}
+/* Barres collantes : sans flou, le contenu qui défile passerait à travers le texte.
+   Couleur du fond de page, celle que ces barres montrent en mode normal. */
+html.reduce-motion :is(.nx-discover-desktop-bar, .nx-lib-bar, .nx-dlq-bar, [class*="sticky"][class*="backdrop-blur"], .sticky > [class*="backdrop-blur"]) {
+  background: var(--color-void) !important;
+}
+html.reduce-motion .nx-cal-filters {
   background: var(--color-surface) !important;
 }
 .reduce-motion :is(.blur-xl, .blur-2xl, .blur-3xl) {

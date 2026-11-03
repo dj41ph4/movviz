@@ -1,3 +1,10 @@
+## v1.28.39 — 3 novembre 2026
+
+### Interfaccia
+
+- La modalità fluida mantiene i colori del tema: schede e barre non diventano più grigie, e solo le superfici sopra il contenuto diventano opache.
+- La libreria non monta più tutte le schede in background: vengono create solo quelle vicine allo schermo e pulsano solo i segnaposto visibili. Scopri e Collezioni non mantengono più un livello grafico permanente per scheda, e la barra superiore non sfoca più sotto il suo sfondo già coprente.
+
 ## v1.28.38 — 3 novembre 2026
 
 ### Android
