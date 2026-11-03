@@ -1,3 +1,10 @@
+## v1.28.35 — 3. November 2026
+
+### Oberfläche
+
+- Das Monitorsymbol in der oberen Leiste ist nur noch animiert, wenn jemand auf Movviz oder Plex schaut. Sonst bleiben seine Balken unbewegt. Es folgt nicht mehr der Download-Rate.
+- Neue Einstellung „Keine Animationen“ unter Einstellungen → Erlebnis, standardmäßig aus: Sie schaltet Animationen, Übergänge, automatische Rotation, Hintergrundvideos und Videovorschauen, das Hero-Leuchten und Unschärfeeffekte ab. Von Hand gestartete Trailer und die Wiedergabe bleiben unverändert. Sie ersetzt den Experten-Tab „Animationen“ und übernimmt die bereits gespeicherte Wahl.
+
 ## v1.28.34 — 3. November 2026
 
 ### Dashboard

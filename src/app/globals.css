@@ -205,6 +205,27 @@
   scroll-behavior: auto !important;
 }
 
+/* « Sans animation » coupe aussi les flous, qui sollicitent la carte graphique
+   même immobiles. Les surfaces de verre deviennent opaques pour rester lisibles. */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  /* Dans cet ordre : préfixe après la propriété standard, la compilation CSS
+     ne garde que le préfixe et le flou reste actif dans Chrome. */
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html.reduce-motion :is(.glass, .glass-strong) {
+  background: var(--color-surface) !important;
+}
+/* Barres collantes : sans flou, le contenu qui défile passerait à travers le texte. */
+html.reduce-motion :is(.nx-discover-desktop-bar, .nx-cal-filters, [class*="sticky"][class*="backdrop-blur"], .sticky > [class*="backdrop-blur"]) {
+  background: var(--color-surface) !important;
+}
+.reduce-motion :is(.blur-xl, .blur-2xl, .blur-3xl) {
+  display: none;
+}
+
 @keyframes shimmer-progress {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }

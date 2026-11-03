@@ -46,7 +46,6 @@ import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
 import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
-import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
 import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
 import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, settingsContentSnippet, type SettingsJourney } from "@/lib/settingsNav";
 import { SettingsHome } from "@/components/settings/SettingsHome";
@@ -339,7 +338,6 @@ function SettingsPageInner() {
 
           {tab === "dashboard" && <DashboardExperiencePanel />}
           {tab === "experience" && <ExperiencePanel />}
-          {tab === "gpu" && <GpuSettingsPanel />}
           {tab === "netflix" && <NetflixImportPanel />}
 
           {tab === "clients" && user?.role === "admin" && <DownloadClients />}

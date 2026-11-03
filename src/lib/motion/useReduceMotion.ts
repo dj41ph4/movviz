@@ -20,14 +20,22 @@ if (typeof MutationObserver !== "undefined") {
   mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 }
 
-export function useShouldReduceMotion() {
-  const osPrefers = useReducedMotion();
+/** Réglage « Sans animation » seul : les vidéos d'arrière-plan en dépendent, pas
+ *  la préférence système, qui ne demande pas de couper une vidéo. */
+export function useNoAnimations() {
   const [app, setApp] = useState(() => appReduce);
 
   useEffect(() => {
     subscribers.push(setApp);
     return () => { subscribers = subscribers.filter((f) => f !== setApp); };
   }, []);
+
+  return app;
+}
+
+export function useShouldReduceMotion() {
+  const osPrefers = useReducedMotion();
+  const app = useNoAnimations();
 
   return osPrefers || app;
 }

@@ -18,6 +18,7 @@ import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
+import { useNoAnimations } from "@/lib/motion/useReduceMotion";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
@@ -200,7 +201,9 @@ export function DashboardPosterCard({
   const fetcher = useForegroundFetcher(previewFetcher);
   const { mutate } = useSWRConfig();
   const { enabled: betaPlayer } = useBetaPlayer();
-  const { enabled: videoPreviewEnabled } = useTitlePageVideo();
+  const { enabled: videoPreviewSetting } = useTitlePageVideo();
+  const noAnimations = useNoAnimations();
+  const videoPreviewEnabled = videoPreviewSetting && !noAnimations;
   const { play } = usePlayer();
   const [hovered, setHovered] = useState(false);
   const [videoReady, setVideoReady] = useState(false);

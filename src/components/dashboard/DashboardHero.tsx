@@ -20,7 +20,7 @@ import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
-import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useNoAnimations, useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { toast } from "@/components/ui/Toast";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null; movvizId?: string | null };
@@ -59,6 +59,7 @@ function reasonLabel(t: ReturnType<typeof useT>, reason: HeroSlide["score"]["rea
 export function DashboardHero({ settings }: { settings: DashboardHeroSettings }) {
   const t = useT();
   const reduceMotion = useShouldReduceMotion();
+  const noAnimations = useNoAnimations();
   const { locale } = useI18n();
   const heroUrl = settings.enabled ? `/api/dashboard/hero?locale=${locale}` : null;
   const { data } = useSWR<{ slides: HeroApiSlide[] }>(heroUrl);
@@ -166,7 +167,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
     active?.detail.year ?? null,
     active?.detail.imdbId ?? null
   );
-  const trailerEnabled = settings.trailerAutoplay;
+  const trailerEnabled = settings.trailerAutoplay && !noAnimations;
 
   // The YouTube embed is an enhancement, never a dependency of the hero.
   // A browser/iframe commit error must fall back to the artwork only; letting

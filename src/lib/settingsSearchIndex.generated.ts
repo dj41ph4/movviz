@@ -346,17 +346,15 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
     "health.tmdb",
   ],
   "experience": [
+    "settings.experience.noAnimationsEnabled",
+    "settings.experience.noAnimationsHint",
+    "settings.experience.noAnimationsTitle",
     "settings.experience.specialEpisodesEnabled",
     "settings.experience.specialEpisodesHint",
     "settings.experience.specialEpisodesTitle",
     "settings.experience.titlePageVideoEnabled",
     "settings.experience.titlePageVideoHint",
     "settings.experience.titlePageVideoTitle",
-  ],
-  "gpu": [
-    "settings.dashboardExperience.animationsEnabled",
-    "settings.dashboardExperience.animationsHint",
-    "settings.dashboardExperience.animationsTitle",
   ],
   "imports": [
     "indexerMgr.test",

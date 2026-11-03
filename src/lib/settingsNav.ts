@@ -59,9 +59,8 @@ export interface SettingsTab {
 export const SETTINGS_TABS: SettingsTab[] = [
   // Personnel
   { id: "dashboard", labelKey: "settings.tabDashboard", hintKey: "settings.tabDashboardHint", icon: LayoutGrid, group: "personal", journey: "experience" },
-  { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal", journey: "experience", keywords: ["lecteur", "sous-titres", "lenteur lecture", "transcodage", "apparence", "appearance", "design", "typographie", "stable", "beta", "bêta"] },
+  { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal", journey: "experience", keywords: ["lecteur", "sous-titres", "lenteur lecture", "transcodage", "apparence", "appearance", "design", "typographie", "stable", "beta", "bêta", "lenteur", "animations", "performance", "cpu", "gpu"] },
   { id: "player", labelKey: "settings.tabPlayer", hintKey: "settings.tabPlayerHint", icon: MonitorPlay, group: "personal", journey: "playback", keywords: ["lecteur", "lecture", "transcodage", "audio", "codec", "ffmpeg", "benchmark", "buffer", "hdr", "sous-titres"] },
-  { id: "gpu", labelKey: "settings.tabGpu", hintKey: "settings.tabGpuHint", icon: Zap, group: "personal", journey: "experience", expertOnly: true, keywords: ["lenteur", "animations", "performance"] },
   { id: "netflix", labelKey: "settings.tabNetflix", hintKey: "settings.tabNetflixHint", icon: Clapperboard, group: "personal", journey: "library" },
   // Téléchargement
   { id: "clients", labelKey: "settings.tabClients", hintKey: "settings.tabClientsHint", icon: HardDrive, group: "download", journey: "downloads", adminOnly: true, keywords: ["film absent", "nouveau titre", "téléchargement bloqué"] },
@@ -101,8 +100,8 @@ export interface SettingsJourneyDefinition {
 
 /** Five user goals replace the 25-entry wall in Essential mode. */
 export const SETTINGS_JOURNEYS: SettingsJourneyDefinition[] = [
-  { id: "experience", labelKey: "settings.journeyExperience", hintKey: "settings.journeyExperienceHint", icon: Wand2, accent: "from-fuchsia-500/24 via-purple-500/10 to-transparent", tabIds: ["dashboard", "experience", "gpu"] },
-  { id: "playback", labelKey: "settings.journeyPlayback", hintKey: "settings.journeyPlaybackHint", icon: Play, accent: "from-cyan-500/24 via-sky-500/10 to-transparent", tabIds: ["player", "performance", "gpu"] },
+  { id: "experience", labelKey: "settings.journeyExperience", hintKey: "settings.journeyExperienceHint", icon: Wand2, accent: "from-fuchsia-500/24 via-purple-500/10 to-transparent", tabIds: ["dashboard", "experience"] },
+  { id: "playback", labelKey: "settings.journeyPlayback", hintKey: "settings.journeyPlaybackHint", icon: Play, accent: "from-cyan-500/24 via-sky-500/10 to-transparent", tabIds: ["player", "performance"] },
   { id: "library", labelKey: "settings.journeyLibrary", hintKey: "settings.journeyLibraryHint", icon: Library, accent: "from-amber-500/24 via-orange-500/10 to-transparent", tabIds: ["plex", "metadata", "netflix", "imports", "naming", "anime", "blocklist", "indexation", "maintenance"] },
   { id: "downloads", labelKey: "settings.journeyDownloads", hintKey: "settings.journeyDownloadsHint", icon: Download, accent: "from-emerald-500/24 via-cyan-500/10 to-transparent", tabIds: ["clients", "indexers", "qualite"] },
   { id: "system", labelKey: "settings.journeySystem", hintKey: "settings.journeySystemHint", icon: ServerCog, accent: "from-violet-500/24 via-indigo-500/10 to-transparent", tabIds: ["notifications", "diagnostics", "automation", "ai", "about", "performance", "logs", "cache", "danger"] },

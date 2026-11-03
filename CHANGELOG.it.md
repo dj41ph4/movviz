@@ -1,3 +1,10 @@
+## v1.28.35 — 3 novembre 2026
+
+### Interfaccia
+
+- L’icona del monitor nella barra superiore si anima solo quando qualcuno sta guardando su Movviz o su Plex. Il resto del tempo le sue barre restano ferme. Non segue più la velocità dei download.
+- Nuova impostazione «Nessuna animazione» in Impostazioni → Esperienza, disattivata per impostazione predefinita: disattiva animazioni, transizioni, rotazione automatica, video di sfondo e anteprime video, l’alone dell’Hero e gli effetti di sfocatura. I trailer avviati a mano e la riproduzione non cambiano. Sostituisce la scheda esperta «Animazioni» e mantiene la scelta già salvata.
+
 ## v1.28.34 — 3 novembre 2026
 
 ### Dashboard

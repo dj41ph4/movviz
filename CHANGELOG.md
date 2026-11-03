@@ -1,3 +1,10 @@
+## v1.28.35 — 3 novembre 2026
+
+### Interface
+
+- L’icône du moniteur dans la barre du haut ne s’anime plus que lorsque quelqu’un regarde sur Movviz ou sur Plex. Le reste du temps, ses barres sont immobiles. Elle ne suit plus le débit des téléchargements.
+- Nouveau réglage « Sans animation » dans Réglages → Expérience, désactivé par défaut : il coupe les animations, les transitions, la rotation automatique, les vidéos d’arrière-plan et les aperçus vidéo, le halo du Hero et les flous. Les bandes-annonces lancées à la main et la lecture ne changent pas. Il remplace l’onglet expert « Animations » et conserve le choix déjà enregistré.
+
 ## v1.28.34 — 3 novembre 2026
 
 ### Tableau de bord

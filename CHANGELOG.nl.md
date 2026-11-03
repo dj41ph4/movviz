@@ -1,3 +1,10 @@
+## v1.28.35 — 3 november 2026
+
+### Interface
+
+- Het monitorpictogram in de bovenbalk beweegt alleen nog als iemand op Movviz of Plex kijkt. De rest van de tijd staan de balken stil. Het volgt de downloadsnelheid niet meer.
+- Nieuwe instelling ‘Geen animaties’ onder Instellingen → Ervaring, standaard uit: schakelt animaties, overgangen, automatische rotatie, achtergrondvideo’s en videovoorbeelden, de herogloed en vervagingseffecten uit. Zelf gestarte trailers en het afspelen veranderen niet. Vervangt het experttabblad ‘Animaties’ en behoudt de al opgeslagen keuze.
+
 ## v1.28.34 — 3 november 2026
 
 ### Dashboard

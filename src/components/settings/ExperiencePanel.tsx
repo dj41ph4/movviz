@@ -4,6 +4,7 @@ import { useT } from "@/i18n/provider";
 import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
+import { useGpu } from "@/lib/gpu/GpuProvider";
 
 /**
  * General viewing-experience preferences — cross-page personal toggles that
@@ -24,9 +25,19 @@ export function ExperiencePanel() {
   const t = useT();
   const titlePageVideo = useTitlePageVideo();
   const specialEpisodes = useSpecialEpisodes();
+  const gpu = useGpu();
 
   return (
     <div className="space-y-6">
+      <div className="rounded-2xl glass p-5">
+        <h3 className="mb-1 font-bold text-ink">{t("settings.experience.noAnimationsTitle")}</h3>
+        <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.noAnimationsHint")}</p>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-ink">{t("settings.experience.noAnimationsEnabled")}</span>
+          <Toggle on={gpu.reduceAnimations} onChange={() => gpu.setReduceAnimations(!gpu.reduceAnimations)} />
+        </div>
+      </div>
+
       <div className="rounded-2xl glass p-5">
         <h3 className="mb-1 font-bold text-ink">{t("settings.experience.titlePageVideoTitle")}</h3>
         <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.titlePageVideoHint")}</p>

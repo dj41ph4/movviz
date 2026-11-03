@@ -1,3 +1,10 @@
+## v1.28.35 — 3 November 2026
+
+### Interface
+
+- The monitor icon in the top bar now animates only when someone is watching on Movviz or Plex. The rest of the time its bars stay still. It no longer follows the download rate.
+- New “No animations” setting in Settings → Experience, off by default: it turns off animations, transitions, automatic rotation, background videos and video previews, the Hero glow and blur effects. Trailers you start yourself and playback are not affected. It replaces the expert “Animations” tab and keeps the choice already saved.
+
 ## v1.28.34 — 3 November 2026
 
 ### Dashboard

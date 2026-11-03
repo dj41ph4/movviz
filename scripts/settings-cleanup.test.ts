@@ -56,7 +56,7 @@ test("season 0 visibility is opt-in and never invents undefined/negative seasons
 test("dead controls and their help texts are removed, not animation reduction", () => {
   const dashboard = source("src/components/settings/DashboardExperiencePanel.tsx");
   for (const key of ["showStats", "showDownloads", "showTasks"]) assert.ok(!dashboard.includes(key));
-  const graphics = source("src/components/settings/GpuSettingsPanel.tsx");
+  const graphics = source("src/components/settings/ExperiencePanel.tsx");
   assert.ok(!graphics.includes("setTier"));
   assert.ok(graphics.includes("setReduceAnimations"));
   for (const locale of ["fr", "en", "de", "it", "nl"]) {

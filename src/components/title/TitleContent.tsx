@@ -25,7 +25,7 @@ import { BrandIcon } from "@/components/ui/BrandIcon";
 import { MediaBadges, buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
 import { HeroAmbilight } from "@/components/dashboard/HeroAmbilight";
-import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useNoAnimations, useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
@@ -512,7 +512,9 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
     };
   }, [showTrailer]);
   const usePlayLabelResult = usePlayLabel(playbackRatingKey, hasLocalPlayback);
-  const { enabled: titlePageVideoEnabled } = useTitlePageVideo();
+  const { enabled: titlePageVideoSetting } = useTitlePageVideo();
+  const noAnimations = useNoAnimations();
+  const titlePageVideoEnabled = titlePageVideoSetting && !noAnimations;
   const { enabled: includeSpecials } = useSpecialEpisodes();
   const enhancedTrailerSources = useTrailerSources(type, detail?.tmdbId ?? null, detail?.title ?? null, detail?.originalTitle, detail?.year ?? null, detail?.imdbId ?? null);
 
