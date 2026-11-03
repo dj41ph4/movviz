@@ -56,6 +56,9 @@ private data class AssetDto(
  */
 class UpdateManager(private val context: Context) {
     private val client = ApiClient.httpClient()
+    // Sans plafond de durée totale : les 20 s du client API coupaient l'APK dès
+    // que la connexion passait sous 6,5 Mbit/s, et la mise à jour échouait.
+    private val downloadClient = ApiClient.streamingHttpClient()
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     private val releaseAdapter = moshi.adapter(ReleaseDto::class.java)
 
@@ -111,7 +114,7 @@ class UpdateManager(private val context: Context) {
                 .url(info.apkUrl)
                 .header("User-Agent", "Movviz-AndroidTV/${BuildConfig.VERSION_NAME}")
                 .build()
-            client.newCall(request).execute().use { response ->
+            downloadClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
                 val body = response.body ?: throw IOException("empty body")
                 val total = if (info.size > 0) info.size else body.contentLength()

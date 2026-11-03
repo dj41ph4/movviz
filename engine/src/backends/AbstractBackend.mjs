@@ -1521,7 +1521,8 @@ export class AbstractBackend {
   }
 
   _matchesEpisode(f, target, allTargets = []) {
-    if (kaamelottLongEpisode(f.name) != null) return true;
+    const kaamelottEpisode = kaamelottLongEpisode(f.name);
+    if (kaamelottEpisode != null) return target.season === 5 && target.episode === kaamelottEpisode;
     const info = parseRelease(f.name);
     // Absolutely numbered packs (Bleach: 366 episodes, no season) are filed by
     // the target's absolute number — a local number would match one episode

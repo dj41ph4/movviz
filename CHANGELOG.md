@@ -1,3 +1,13 @@
+## v1.28.44 — 3 novembre 2026
+
+### Séries
+
+- Kaamelott : les fichiers longs du Livre V déjà importés sous un numéro de scène rejoignent leur épisode, et re-télécharger un épisode ne reprend que son fichier.
+
+### Android
+
+- Android TV et mobile : le téléchargement d’une mise à jour n’est plus interrompu au bout de 20 secondes sur une connexion lente.
+
 ## v1.28.43 — 3 novembre 2026
 
 ### Séries

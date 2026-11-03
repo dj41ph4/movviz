@@ -178,12 +178,11 @@ const KAAMELOTT_PACK = [
   "E01E02E03E04E05E06", "E07E08E09E10E11E12", "E13E14E15E16E17E18", "E19E20E21E22E23E24E25",
   "E26E27E28E29E30E31E32", "E33E34E35E36E37E38", "E39E40E41E42E43", "E44E45E46E47E48E49E50",
 ].map(scenes => `Kaamelott.S05${scenes}.FRENCH.1080p.BluRay.x264.AC3-Dam.mkv`);
-// Cibles réelles d'un téléchargement lancé avant le passage à 8 épisodes.
-const OLD_BROADCAST_TARGETS = [12, 15, 18, 25, 32, 38, 43, 50].map(episode => ({ season: 5, episode }));
+const LONG_CUT_TARGETS = [1, 2, 3, 4, 5, 6, 7, 8].map(episode => ({ season: 5, episode }));
 
 for (const [label, naming] of [["avec le renommage", {}], ["sans le renommage", { enabled: false }]]) {
-  test(`Kaamelott : les 8 fichiers du pack deviennent S05E01 à S05E08 ${label}, quelles que soient les cibles`, async t => {
-    const f = await fixture(KAAMELOTT_PACK, OLD_BROADCAST_TARGETS, naming);
+  test(`Kaamelott : les 8 fichiers du pack deviennent S05E01 à S05E08 ${label}`, async t => {
+    const f = await fixture(KAAMELOTT_PACK, LONG_CUT_TARGETS, naming);
     t.mock.method(globalThis, "fetch", async () => Response.json({ ok: true }));
     await f.backend._import(f.snap, movePath);
     const moved = f.backend.persistable()[0].movedFiles;
@@ -193,6 +192,14 @@ for (const [label, naming] of [["avec le renommage", {}], ["sans le renommage", 
     moved.forEach((file, index) => assert.equal(path.basename(file.path).includes(`S05E0${index + 1}`), true, file.path));
   });
 }
+
+test("Kaamelott : re-télécharger l'épisode 1 ne prend que son fichier", async t => {
+  const f = await fixture(KAAMELOTT_PACK, [{ season: 5, episode: 1 }]);
+  t.mock.method(globalThis, "fetch", async () => Response.json({ ok: true }));
+  await f.backend._import(f.snap, movePath);
+  const moved = f.backend.persistable()[0].movedFiles;
+  assert.deepEqual(moved.map(file => file.episode), [1]);
+});
 
 test("la règle Kaamelott ne change rien à une autre série au même format", async t => {
   const f = await fixture(["Autre.S05E01E02E03E04E05E06.1080p.mkv"], [{ season: 5, episode: 12 }]);

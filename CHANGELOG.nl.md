@@ -1,3 +1,13 @@
+## v1.28.44 — 3 november 2026
+
+### Series
+
+- Kaamelott: lange bestanden van Livre V die al onder een scènenummer zijn geïmporteerd, gaan naar hun aflevering, en een aflevering opnieuw downloaden neemt alleen het eigen bestand.
+
+### Android
+
+- Android TV en mobiel: het downloaden van een update stopt niet meer na 20 seconden op een trage verbinding.
+
 ## v1.28.43 — 3 november 2026
 
 ### Series

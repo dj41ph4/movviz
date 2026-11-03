@@ -55,7 +55,7 @@ test("une saison vide passe à 8 ; des épisodes courts présents sur le disque 
   assert.equal(shrinkToLongCut(KAAMELOTT, 5, shrunk), shrunk, "déjà à 8 : rien à réécrire");
 
   const withFile = libraryEpisodes();
-  withFile[20] = { ...withFile[20], status: "available", file: { path: "/x/S05E21.mkv" } as never };
+  withFile[20] = { ...withFile[20], status: "available", file: { path: "/x/S05E21.mkv", size: 90_000_000 } as never };
   assert.equal(shrinkToLongCut(KAAMELOTT, 5, withFile), withFile);
   const otherSeries = libraryEpisodes();
   assert.equal(shrinkToLongCut(1, 5, otherSeries), otherSeries);
@@ -69,6 +69,25 @@ test("un téléchargement en cours passe sur les 8 épisodes, même si les premi
   const shrunk = shrinkToLongCut(KAAMELOTT, 5, episodes);
   assert.equal(shrunk.length, 8);
   assert.equal(shrunk.every((episode) => episode.monitored && episode.status === "downloading" && episode.activeInfoHash === "6fa0d7cc"), true);
+});
+
+test("les 7 fichiers longs déjà importés sous un numéro de scène rejoignent leurs épisodes", () => {
+  // État réel relevé en prod : le premier fichier du pack n'a jamais été téléchargé.
+  const size = (mb: number) => mb * 1_000_000;
+  const filed = new Map([[12, 2069], [15, 1601], [21, 2484], [28, 1647], [35, 2249], [41, 1850], [46, 2281]]);
+  const episodes = libraryEpisodes().map((episode) => {
+    const mb = filed.get(episode.episodeNumber);
+    if (mb) return { ...episode, status: "available" as const, file: { path: `/x/S05E${episode.episodeNumber}.mkv`, size: size(mb) } as never };
+    return episode.episodeNumber <= 11 ? { ...episode, monitored: false } : episode;
+  });
+  const shrunk = shrinkToLongCut(KAAMELOTT, 5, episodes);
+  assert.deepEqual(shrunk.map((episode) => [episode.episodeNumber, episode.status, (episode.file as { path: string } | null)?.path ?? null]), [
+    [1, "missing", null], [2, "available", "/x/S05E12.mkv"], [3, "available", "/x/S05E15.mkv"], [4, "available", "/x/S05E21.mkv"],
+    [5, "available", "/x/S05E28.mkv"], [6, "available", "/x/S05E35.mkv"], [7, "available", "/x/S05E41.mkv"], [8, "available", "/x/S05E46.mkv"],
+  ]);
+  assert.equal(shrunk[1].title, "La Roche et le Fer");
+  assert.equal(shrunk.every((episode) => episode.monitored), true);
+  assert.equal(new Set(shrunk.map((episode) => episode.episodeNumber)).size, 8);
 });
 
 test("le moteur reconnaît les 8 fichiers du pack, et rien d'autre", async () => {

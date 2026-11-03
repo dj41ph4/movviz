@@ -1,3 +1,13 @@
+## v1.28.44 — 3 novembre 2026
+
+### Serie
+
+- Kaamelott: i file lunghi del Livre V già importati con un numero di scena passano al loro episodio, e riscaricare un episodio prende solo il suo file.
+
+### Android
+
+- Android TV e mobile: il download di un aggiornamento non si interrompe più dopo 20 secondi su una connessione lenta.
+
 ## v1.28.43 — 3 novembre 2026
 
 ### Serie

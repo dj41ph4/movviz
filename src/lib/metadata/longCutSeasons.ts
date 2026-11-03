@@ -53,11 +53,15 @@ export function toLongCutSeason(tmdbId: number, season: MetaSeason): MetaSeason 
   return { ...season, episodeCount: episodes.length, episodes };
 }
 
+/** No 7-minute broadcast episode reaches this size. */
+const MIN_LONG_FILE_BYTES = 400_000_000;
+
 /** A library season still holding the broadcast numbering becomes the long cut,
  * unless broadcast episodes really are on disk: those must never be dropped.
- * A download in progress moves over to the long episodes it now fills, and the
- * old per-scene monitoring means nothing for them. */
-export function shrinkToLongCut<T extends { episodeNumber: number; title: string; monitored: boolean; status: string; file: unknown; plexRatingKey: string | null; activeInfoHash: string | null }>(
+ * A long file already filed under one of its scene numbers (S05E12) moves to the
+ * long episode holding that scene. A download in progress moves over to the
+ * episodes it now fills, and the old per-scene monitoring means nothing for them. */
+export function shrinkToLongCut<T extends { episodeNumber: number; title: string; monitored: boolean; status: string; file: { size: number } | null; plexRatingKey: string | null; activeInfoHash: string | null }>(
   tmdbId: number,
   seasonNumber: number,
   episodes: T[],
@@ -65,15 +69,17 @@ export function shrinkToLongCut<T extends { episodeNumber: number; title: string
   const cut = longCut(tmdbId, seasonNumber);
   if (!cut || episodes.length <= cut.episodes.length) return episodes;
   const extra = episodes.filter((episode) => episode.episodeNumber > cut.episodes.length);
-  if (extra.some((episode) => episode.file || episode.plexRatingKey)) return episodes;
+  if (extra.some((episode) => (episode.file ? episode.file.size < MIN_LONG_FILE_BYTES : episode.plexRatingKey))) return episodes;
+  const filedByScene = extra.some((episode) => episode.file);
+  if (filedByScene && episodes.some((episode) => episode.file && episode.file.size < MIN_LONG_FILE_BYTES)) return episodes;
   const monitored = episodes.some((episode) => episode.monitored);
   const active = episodes.find((episode) => episode.activeInfoHash);
   return episodes
     .filter((episode) => episode.episodeNumber <= cut.episodes.length)
-    .map((episode) => ({
-      ...episode,
-      title: cut.episodes[episode.episodeNumber - 1].title,
-      monitored,
-      ...(active && !episode.file ? { status: active.status, activeInfoHash: active.activeInfoHash } : {}),
-    }));
+    .map((episode) => {
+      const { first, last, title } = cut.episodes[episode.episodeNumber - 1];
+      const source = filedByScene ? episodes.find((item) => item.file && item.episodeNumber >= first && item.episodeNumber <= last) : episode;
+      const moved = { ...episode, ...(filedByScene ? { ...source, status: source ? "available" : "missing", file: source?.file ?? null, plexRatingKey: source?.plexRatingKey ?? null, activeInfoHash: null } : {}), episodeNumber: episode.episodeNumber, title, monitored } as T;
+      return active && !moved.file ? { ...moved, status: active.status, activeInfoHash: active.activeInfoHash } : moved;
+    });
 }
