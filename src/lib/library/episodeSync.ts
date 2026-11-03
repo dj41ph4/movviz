@@ -4,6 +4,7 @@ import { specialsEnabled } from "@/lib/metadata/tvdb";
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { withKeyLock } from "@/lib/library/locks";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
+import { shrinkToLongCut } from "@/lib/metadata/longCutSeasons";
 import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
 import type { LibraryEpisode, LibrarySeason, LibrarySeries } from "@/lib/library/types";
 import type { MetaSeason } from "@/lib/metadata/types";
@@ -59,6 +60,21 @@ export async function syncSeriesEpisodes(): Promise<{ checked: number; updated: 
     else if (typeof outcome === "number") { updated++; episodesAdded += outcome; }
   }
   return { checked, updated, episodesAdded, skipped };
+}
+
+/** Brings seasons still in broadcast numbering to their long cut. Idempotent; run at boot. */
+export async function repairLongCutSeasons(): Promise<number> {
+  let repaired = 0;
+  for (const listed of loadSeries()) {
+    if (!listed.seasons.some((season) => shrinkToLongCut(listed.tmdbId, season.seasonNumber, season.episodes) !== season.episodes)) continue;
+    await withKeyLock(`series:${listed.id}`, async () => {
+      const current = getSeries(listed.id);
+      if (!current) return;
+      updateSeries(current.id, { seasons: current.seasons.map((season) => ({ ...season, episodes: shrinkToLongCut(current.tmdbId, season.seasonNumber, season.episodes) })) });
+      repaired++;
+    });
+  }
+  return repaired;
 }
 
 /** Returns null when the library structure is incompatible with TMDb's. */

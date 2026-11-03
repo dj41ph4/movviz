@@ -225,6 +225,7 @@ export const fr = {
     peers: "pairs",
     ratio: "Ratio",
     eta: "Restant",
+    etaShort: "Restant",
     up: "Envoi",
     down: "Réception",
     seq: "Séquentiel",

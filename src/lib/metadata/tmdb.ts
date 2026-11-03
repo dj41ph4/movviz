@@ -25,6 +25,7 @@ import { matchesAnimeByIds, matchesTeenByIds } from "./genreTaxonomy";
 import { loadUserPrefs } from "@/lib/userPrefs/store";
 import { BLEACH_TMDB_ID, bleachToTmdb, bleachFromTmdb, bleachSeasonSummaries, type BleachEpisodeOrder } from "./bleachEpisodeOrder";
 import { bleachSeasonContent } from "./bleachSeasonContent";
+import { longCutEpisodeCount, toLongCutSeason } from "./longCutSeasons";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -690,7 +691,7 @@ export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
       .map((s) => ({
         seasonNumber: s.season_number,
         name: s.name,
-        episodeCount: s.episode_count,
+        episodeCount: longCutEpisodeCount(data.id, s.season_number) ?? s.episode_count,
         airDate: s.air_date ?? null,
         posterPath: s.poster_path ?? null,
         episodes: [],
@@ -715,7 +716,7 @@ export async function getSeason(tmdbId: number, seasonNumber: number, preferLang
   const episodes = operationalBleach
     ? (data.episodes ?? []).filter((e) => bleachFromTmdb(e.season_number, e.episode_number)?.seasonNumber === seasonNumber)
     : data.episodes ?? [];
-  return {
+  return toLongCutSeason(tmdbId, {
     seasonNumber,
     ...(operationalBleach ? bleachSeasonContent(seasonNumber) : {}),
     name: operationalBleach && seasonNumber > 0 ? (seasonNumber === 17 ? "Bleach: Thousand-Year Blood War" : bleachSeasonContent(seasonNumber)?.name ?? `Bleach · ${seasonNumber}`) : data.name,
@@ -737,7 +738,7 @@ export async function getSeason(tmdbId: number, seasonNumber: number, preferLang
       runtime: e.runtime && e.runtime > 0 ? e.runtime : null,
       rating: e.vote_average ?? 0,
     })),
-  };
+  });
 }
 
 interface RawFindResult {
@@ -1270,7 +1271,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     }))) : (data.seasons ?? []).map((s) => ({
       seasonNumber: s.season_number,
       name: s.name,
-      episodeCount: s.episode_count,
+      episodeCount: longCutEpisodeCount(tmdbId, s.season_number) ?? s.episode_count,
       airDate: s.air_date,
     }))) : undefined,
   };

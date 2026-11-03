@@ -137,6 +137,12 @@ export async function register() {
       if (repaired > 0) logBootPhase("info", "plex.dates", `${repaired} dates de vues Plex converties de secondes en millisecondes`);
     }).catch(() => {});
 
+    await phase("saisons en version longue", async () => {
+      const { repairLongCutSeasons } = await import("@/lib/library/episodeSync");
+      const repaired = await repairLongCutSeasons();
+      if (repaired > 0) logBootPhase("info", "library.longCut", `${repaired} série(s) ramenée(s) à leur version longue`);
+    }).catch(() => {});
+
     const { startScheduler } = await import("@/lib/scheduler/engine");
     await phase("planificateur", () => startScheduler());
 

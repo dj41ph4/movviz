@@ -227,6 +227,7 @@ export const en: Dictionary = {
     peers: "peers",
     ratio: "Ratio",
     eta: "ETA",
+    etaShort: "ETA",
     up: "Up",
     down: "Down",
     seq: "Sequential",

@@ -1,3 +1,15 @@
+## v1.28.42 — 3 November 2026
+
+### Series
+
+- Kaamelott: Livre V now has its 8 long episodes instead of the 50 short ones aired on M6, each with its real title and a synopsis. Once the 8 files are downloaded, the season shows as complete and is no longer searched for.
+
+## v1.28.41 — 3 November 2026
+
+### Interface
+
+- On desktop download cards, the speed and its label now fit inside their pill in every language. In narrow windows, the pills move to their own row to leave room for the title.
+
 ## v1.28.40 — 3 November 2026
 
 ### Interface

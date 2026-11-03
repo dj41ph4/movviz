@@ -227,6 +227,7 @@ export const nl: Dictionary = {
     peers: "peers",
     ratio: "Ratio",
     eta: "Resterende tijd",
+    etaShort: "Resterend",
     up: "Upload",
     down: "Download",
     seq: "Sequentieel",

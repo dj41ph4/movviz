@@ -1,3 +1,15 @@
+## v1.28.42 — 3 november 2026
+
+### Series
+
+- Kaamelott: Livre V telt nu zijn 8 lange afleveringen in plaats van de 50 korte van de M6-uitzending, elk met de echte titel en een samenvatting. Zodra de 8 bestanden zijn gedownload, staat het seizoen als compleet en wordt het niet meer gezocht.
+
+## v1.28.41 — 3 november 2026
+
+### Interface
+
+- Op de downloadkaarten op desktop passen de snelheid en het label nu in elke taal volledig in hun vak. In smalle vensters staan de vakken op een eigen rij, zodat de titel meer ruimte krijgt.
+
 ## v1.28.40 — 3 november 2026
 
 ### Interface

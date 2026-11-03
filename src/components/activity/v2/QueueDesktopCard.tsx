@@ -106,7 +106,7 @@ export function QueueDesktopCard({
       ]
     : [
         { label: t("downloads.down"), value: item.download.downloadSpeed > 0 ? formatSpeed(item.download.downloadSpeed) : "—" },
-        { label: t("downloads.eta"), value: item.status === "downloading" && item.download.eta > 0 ? formatEta(Math.round(item.download.eta / 60)) : "—" },
+        { label: t("downloads.etaShort"), value: item.status === "downloading" && item.download.eta > 0 ? formatEta(Math.round(item.download.eta / 60)) : "—" },
         { label: t("downloads.colSources"), value: item.download.peers > 0 ? String(item.download.peers) : "—" },
       ];
   const priority = item.priority ?? "medium";
@@ -118,7 +118,7 @@ export function QueueDesktopCard({
     >
       <span aria-hidden className={cn("absolute bottom-[18px] left-0 top-[18px] w-[3px] rounded-r-full", tone.bar)} />
       <div
-        className="grid cursor-pointer grid-cols-[76px_minmax(0,1fr)_17.5rem_auto] items-center gap-5 p-3.5 pr-4"
+        className="grid cursor-pointer grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-5 p-3.5 pr-4 xl:grid-cols-[76px_minmax(0,1fr)_20.5rem_auto]"
         onClick={() => onToggleExpand(item.id)}
       >
         {item.media.linked === false ? (
@@ -177,11 +177,11 @@ export function QueueDesktopCard({
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="col-span-full row-start-2 grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)] gap-1.5 xl:col-span-1 xl:row-start-auto">
           {stats.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-white/5 bg-black/25 px-3 py-2">
+            <div key={s.label} className="min-w-0 rounded-2xl border border-white/5 bg-black/25 px-3 py-2">
               <p className="truncate text-[10px] font-bold uppercase tracking-[.07em] text-ink-dim">{s.label}</p>
-              <p className="mt-0.5 whitespace-nowrap text-sm font-bold tabular-nums text-ink">{s.value}</p>
+              <p className="mt-0.5 truncate text-sm font-bold tabular-nums text-ink">{s.value}</p>
             </div>
           ))}
         </div>

@@ -1,3 +1,15 @@
+## v1.28.42 — 3 novembre 2026
+
+### Serie
+
+- Kaamelott: il Livre V conta ora i suoi 8 episodi lunghi invece dei 50 episodi brevi trasmessi da M6, ciascuno con il titolo reale e una trama. Una volta scaricati gli 8 file, la stagione risulta completa e non viene più cercata.
+
+## v1.28.41 — 3 novembre 2026
+
+### Interfaccia
+
+- Nelle schede di download su desktop, la velocità e la sua etichetta entrano interamente nel riquadro in ogni lingua. Nelle finestre strette, i riquadri passano su una riga propria per lasciare spazio al titolo.
+
 ## v1.28.40 — 3 novembre 2026
 
 ### Interfaccia
