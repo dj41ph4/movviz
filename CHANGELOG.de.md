@@ -1,3 +1,11 @@
+## v1.28.36 — 3. November 2026
+
+### Oberfläche
+
+- Die Einstellung „Keine Animationen“ heißt jetzt „Flüssiger Modus“, ein Name ohne doppelte Verneinung. Sie bleibt standardmäßig aus, unter Einstellungen → Erlebnis.
+- Neuer Vorschlag: Kommt ein Gerät dauerhaft nicht mit den visuellen Effekten mit, schlägt Movviz den flüssigen Modus vor. Der Vorschlag erscheint nie während der Wiedergabe, und nach einer Ablehnung schweigt er 30 Tage.
+- Der flüssige Modus folgt jetzt wirklich jedem Konto: Ein Konto ohne eigene Wahl übernimmt nicht mehr die Wahl des vorherigen Kontos im selben Browser, und die Einstellung gilt sofort nach der Anmeldung, ohne Neuladen.
+
 ## v1.28.35 — 3. November 2026
 
 ### Oberfläche

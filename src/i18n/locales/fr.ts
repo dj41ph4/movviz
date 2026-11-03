@@ -77,6 +77,14 @@ export const fr = {
   },
   brand: { tagline: "Media Core" },
 
+  smoothness: {
+    title: "Et si on allégeait un peu le spectacle ?",
+    body: "Cet appareil peine à suivre les effets visuels de Movviz. En les coupant, tout devient plus fluide : vos films et séries, eux, ne changent pas.",
+    accept: "Activer le mode fluide",
+    decline: "Garder les effets",
+    note: "S'applique à votre compte, sur tous vos navigateurs. Modifiable à tout moment dans Réglages → Expérience.",
+    enabledToast: "Mode fluide activé",
+  },
   sidebar: {
     storage: "Bibliothèque",
     importsInProgress: "{n} imports en cours",
@@ -1730,9 +1738,9 @@ export const fr = {
       cdnImagesEnabled: "Activé",
       localNetworkPriorityTitle: "Priorité au réseau local",
       localNetworkPriorityHint: "Sur ton réseau domestique, utilise directement ton serveur plutôt qu'Internet — aucun intérêt à sortir du réseau local pour revenir dessus.",
-      noAnimationsTitle: "Sans animation",
-      noAnimationsHint: "Coupe tout ce qui sollicite le processeur et la carte graphique : animations, transitions, rotation automatique, vidéos d'arrière-plan et aperçus vidéo, halo du Hero et flous. Les bandes-annonces lancées à la main et la lecture ne changent pas. Sur navigateur uniquement.",
-      noAnimationsEnabled: "Activer",
+      smoothModeTitle: "Mode fluide",
+      smoothModeHint: "Pour un appareil qui rame. Coupe les animations, les transitions, la rotation automatique, les vidéos d'arrière-plan et les aperçus vidéo, le halo du Hero et les flous. Les bandes-annonces lancées à la main et la lecture ne changent pas. S'applique à votre compte, sur navigateur uniquement.",
+      smoothModeEnabled: "Activer le mode fluide",
       titlePageVideoTitle: "Aperçus vidéo",
       titlePageVideoHint: "Bande-annonce en fond animé sur les pages film/série, et au survol d'une affiche dans les carrousels. Désactive pour garder une image fixe partout.",
       titlePageVideoEnabled: "Vidéo activée",

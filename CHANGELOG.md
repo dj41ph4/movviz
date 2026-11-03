@@ -1,3 +1,11 @@
+## v1.28.36 — 3 novembre 2026
+
+### Interface
+
+- Le réglage « Sans animation » devient « Mode fluide », un nom sans double négation. Il reste désactivé par défaut, dans Réglages → Expérience.
+- Nouvelle proposition : si un appareil peine à suivre les effets visuels de façon durable, Movviz propose d’activer le mode fluide. Elle n’apparaît jamais pendant la lecture, et un refus la fait taire pendant 30 jours.
+- Le mode fluide suit bien chaque compte : un compte qui n’a rien choisi n’hérite plus du choix du compte précédent sur le même navigateur, et le réglage est appliqué dès la connexion, sans recharger la page.
+
 ## v1.28.35 — 3 novembre 2026
 
 ### Interface

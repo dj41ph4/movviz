@@ -1,3 +1,11 @@
+## v1.28.36 — 3 november 2026
+
+### Interface
+
+- De instelling ‘Geen animaties’ heet nu ‘Vloeiende modus’, een naam zonder dubbele ontkenning. Hij blijft standaard uit, onder Instellingen → Ervaring.
+- Nieuw voorstel: als een apparaat de visuele effecten blijvend moeilijk bijhoudt, stelt Movviz de vloeiende modus voor. Het voorstel verschijnt nooit tijdens het afspelen, en na een weigering blijft het 30 dagen stil.
+- De vloeiende modus volgt nu echt elk account: een account dat niet heeft gekozen, neemt niet langer de keuze van het vorige account in dezelfde browser over, en de instelling geldt direct na het inloggen, zonder herladen.
+
 ## v1.28.35 — 3 november 2026
 
 ### Interface

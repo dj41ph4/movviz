@@ -79,6 +79,14 @@ export const it: Dictionary = {
   },
   brand: { tagline: "Media Core" },
 
+  smoothness: {
+    title: "E se alleggerissimo un po' lo spettacolo?",
+    body: "Questo dispositivo fatica a seguire gli effetti visivi di Movviz. Disattivandoli, tutto diventa più fluido. I tuoi film e le tue serie restano identici.",
+    accept: "Attiva la modalità fluida",
+    decline: "Mantieni gli effetti",
+    note: "Vale per il tuo account, su tutti i tuoi browser. Modificabile in qualsiasi momento in Impostazioni → Esperienza.",
+    enabledToast: "Modalità fluida attivata",
+  },
   sidebar: {
     storage: "Libreria",
     importsInProgress: "{n} importazioni in corso",
@@ -1732,9 +1740,9 @@ export const it: Dictionary = {
       cdnImagesEnabled: "Attivo",
       localNetworkPriorityTitle: "Priorità alla rete locale",
       localNetworkPriorityHint: "Sulla tua rete domestica, usa direttamente il tuo server invece di Internet — nessun vantaggio a uscire dalla rete locale solo per tornarci.",
-      noAnimationsTitle: "Nessuna animazione",
-      noAnimationsHint: "Disattiva tutto ciò che impegna processore e scheda grafica: animazioni, transizioni, rotazione automatica, video di sfondo e anteprime video, alone dell'Hero ed effetti di sfocatura. I trailer avviati a mano e la riproduzione non cambiano. Solo nel browser.",
-      noAnimationsEnabled: "Attiva",
+      smoothModeTitle: "Modalità fluida",
+      smoothModeHint: "Per un dispositivo che fatica. Disattiva animazioni, transizioni, rotazione automatica, video di sfondo e anteprime video, l'alone dell'Hero e gli effetti di sfocatura. I trailer avviati a mano e la riproduzione non cambiano. Vale per il tuo account, solo nel browser.",
+      smoothModeEnabled: "Attiva la modalità fluida",
       titlePageVideoTitle: "Anteprime video",
       titlePageVideoHint: "Trailer animato sullo sfondo delle pagine film/serie e al passaggio del mouse su un poster nei caroselli. Disattiva per mantenere un'immagine fissa ovunque.",
       titlePageVideoEnabled: "Video attivo",

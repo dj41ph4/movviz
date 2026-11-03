@@ -1,3 +1,11 @@
+## v1.28.36 — 3 novembre 2026
+
+### Interfaccia
+
+- L’impostazione «Nessuna animazione» diventa «Modalità fluida», un nome senza doppia negazione. Resta disattivata per impostazione predefinita, in Impostazioni → Esperienza.
+- Nuovo suggerimento: se un dispositivo fatica a lungo a seguire gli effetti visivi, Movviz propone la modalità fluida. Non appare mai durante la riproduzione, e un rifiuto la silenzia per 30 giorni.
+- La modalità fluida segue davvero ogni account: un account che non ha scelto non eredita più la scelta dell’account precedente sullo stesso browser, e l’impostazione si applica subito dopo l’accesso, senza ricaricare.
+
 ## v1.28.35 — 3 novembre 2026
 
 ### Interfaccia

@@ -79,6 +79,14 @@ export const de: Dictionary = {
   },
   brand: { tagline: "Media Core" },
 
+  smoothness: {
+    title: "Wie wäre es mit etwas weniger Show?",
+    body: "Dieses Gerät kommt bei den visuellen Effekten von Movviz kaum mit. Ohne sie läuft alles flüssiger. Deine Filme und Serien bleiben genau gleich.",
+    accept: "Flüssigen Modus aktivieren",
+    decline: "Effekte behalten",
+    note: "Gilt für dein Konto in all deinen Browsern. Jederzeit änderbar unter Einstellungen → Erlebnis.",
+    enabledToast: "Flüssiger Modus aktiviert",
+  },
   sidebar: {
     storage: "Bibliothek",
     importsInProgress: "{n} Importe laufen",
@@ -1751,9 +1759,9 @@ export const de: Dictionary = {
       cdnImagesEnabled: "Aktiviert",
       localNetworkPriorityTitle: "Priorität für lokales Netzwerk",
       localNetworkPriorityHint: "In deinem Heimnetzwerk direkt deinen Server statt des Internets nutzen — kein Vorteil, das lokale Netzwerk zu verlassen, nur um wieder darauf zuzugreifen.",
-      noAnimationsTitle: "Keine Animationen",
-      noAnimationsHint: "Schaltet alles ab, was Prozessor und Grafikkarte belastet: Animationen, Übergänge, automatische Rotation, Hintergrundvideos und Videovorschauen, Hero-Leuchten und Unschärfeeffekte. Von Hand gestartete Trailer und die Wiedergabe bleiben unverändert. Nur im Browser.",
-      noAnimationsEnabled: "Aktivieren",
+      smoothModeTitle: "Flüssiger Modus",
+      smoothModeHint: "Für Geräte, die ins Stocken geraten. Schaltet Animationen, Übergänge, automatische Rotation, Hintergrundvideos und Videovorschauen, das Hero-Leuchten und Unschärfeeffekte ab. Von Hand gestartete Trailer und die Wiedergabe bleiben unverändert. Gilt für dein Konto, nur im Browser.",
+      smoothModeEnabled: "Flüssigen Modus aktivieren",
       titlePageVideoTitle: "Videovorschauen",
       titlePageVideoHint: "Animierter Trailer-Hintergrund auf Film-/Serienseiten und beim Überfahren eines Posters in Karussells. Deaktivieren für überall ein statisches Bild.",
       titlePageVideoEnabled: "Video aktiviert",

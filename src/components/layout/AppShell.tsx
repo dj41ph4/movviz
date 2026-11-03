@@ -21,6 +21,7 @@ import { VersionProvider } from "@/lib/version/VersionContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useSetupRequired } from "@/lib/auth/useSetupRequired";
 import { GpuProvider } from "@/lib/gpu/GpuProvider";
+import { SmoothnessAdvisor } from "@/components/system/SmoothnessAdvisor";
 import { PlayerProvider } from "@/lib/player/PlayerProvider";
 import { AppErrorBoundary } from "@/components/ui/AppErrorBoundary";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
@@ -201,6 +202,7 @@ export function AppShell({ children, version, initialDesignMode = "beta" }: { ch
                     <WhatsNewModal />
                     <ToastContainer />
                     <ConfirmDialogHost />
+                    <SmoothnessAdvisor />
                   </PageLoaderProvider>
                 </Suspense>
                 </AppearanceProvider>

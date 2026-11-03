@@ -30,10 +30,10 @@ export function ExperiencePanel() {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl glass p-5">
-        <h3 className="mb-1 font-bold text-ink">{t("settings.experience.noAnimationsTitle")}</h3>
-        <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.noAnimationsHint")}</p>
+        <h3 className="mb-1 font-bold text-ink">{t("settings.experience.smoothModeTitle")}</h3>
+        <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.smoothModeHint")}</p>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-ink">{t("settings.experience.noAnimationsEnabled")}</span>
+          <span className="text-sm text-ink">{t("settings.experience.smoothModeEnabled")}</span>
           <Toggle on={gpu.reduceAnimations} onChange={() => gpu.setReduceAnimations(!gpu.reduceAnimations)} />
         </div>
       </div>

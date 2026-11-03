@@ -346,9 +346,9 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
     "health.tmdb",
   ],
   "experience": [
-    "settings.experience.noAnimationsEnabled",
-    "settings.experience.noAnimationsHint",
-    "settings.experience.noAnimationsTitle",
+    "settings.experience.smoothModeEnabled",
+    "settings.experience.smoothModeHint",
+    "settings.experience.smoothModeTitle",
     "settings.experience.specialEpisodesEnabled",
     "settings.experience.specialEpisodesHint",
     "settings.experience.specialEpisodesTitle",

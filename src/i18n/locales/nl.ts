@@ -79,6 +79,14 @@ export const nl: Dictionary = {
   },
   brand: { tagline: "Media Core" },
 
+  smoothness: {
+    title: "Zullen we de show wat lichter maken?",
+    body: "Dit apparaat kan de visuele effecten van Movviz moeilijk bijhouden. Zonder die effecten loopt alles vloeiender. Je films en series blijven precies hetzelfde.",
+    accept: "Vloeiende modus inschakelen",
+    decline: "Effecten behouden",
+    note: "Geldt voor je account, in al je browsers. Altijd te wijzigen via Instellingen → Ervaring.",
+    enabledToast: "Vloeiende modus ingeschakeld",
+  },
   sidebar: {
     storage: "Bibliotheek",
     importsInProgress: "{n} importen bezig",
@@ -1733,9 +1741,9 @@ export const nl: Dictionary = {
       cdnImagesEnabled: "Ingeschakeld",
       localNetworkPriorityTitle: "Voorrang voor lokaal netwerk",
       localNetworkPriorityHint: "Gebruik op je thuisnetwerk rechtstreeks je server in plaats van internet — geen voordeel om het lokale netwerk te verlaten om er meteen weer op terug te komen.",
-      noAnimationsTitle: "Geen animaties",
-      noAnimationsHint: "Schakelt alles uit wat processor en videokaart belast: animaties, overgangen, automatische rotatie, achtergrondvideo's en videovoorbeelden, herogloed en vervagingseffecten. Zelf gestarte trailers en het afspelen veranderen niet. Alleen in de browser.",
-      noAnimationsEnabled: "Inschakelen",
+      smoothModeTitle: "Vloeiende modus",
+      smoothModeHint: "Voor een apparaat dat moeite heeft. Schakelt animaties, overgangen, automatische rotatie, achtergrondvideo's en videovoorbeelden, de herogloed en vervagingseffecten uit. Zelf gestarte trailers en het afspelen veranderen niet. Geldt voor je account, alleen in de browser.",
+      smoothModeEnabled: "Vloeiende modus inschakelen",
       titlePageVideoTitle: "Videovoorbeelden",
       titlePageVideoHint: "Geanimeerde trailer als achtergrond op film-/seriepagina's en bij het hoveren over een poster in carrousels. Schakel uit voor overal een statische afbeelding.",
       titlePageVideoEnabled: "Video ingeschakeld",

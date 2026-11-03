@@ -1,3 +1,11 @@
+## v1.28.36 — 3 November 2026
+
+### Interface
+
+- The “No animations” setting is now “Smooth mode”, a name without a double negative. It stays off by default, in Settings → Experience.
+- New suggestion: if a device keeps struggling with the visual effects, Movviz offers to enable smooth mode. It never appears during playback, and declining silences it for 30 days.
+- Smooth mode now truly follows each account: an account that never chose no longer inherits the previous account’s choice on the same browser, and the setting applies as soon as you sign in, without reloading.
+
 ## v1.28.35 — 3 November 2026
 
 ### Interface

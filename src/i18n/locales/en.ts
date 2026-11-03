@@ -79,6 +79,14 @@ export const en: Dictionary = {
   },
   brand: { tagline: "Media Core" },
 
+  smoothness: {
+    title: "How about lightening the show a little?",
+    body: "This device is struggling to keep up with Movviz's visual effects. Turn them off and everything gets smoother. Your films and series stay exactly the same.",
+    accept: "Enable smooth mode",
+    decline: "Keep the effects",
+    note: "Applies to your account, on all your browsers. You can change it anytime in Settings → Experience.",
+    enabledToast: "Smooth mode enabled",
+  },
   sidebar: {
     storage: "Library",
     importsInProgress: "{n} imports in progress",
@@ -1733,9 +1741,9 @@ export const en: Dictionary = {
       cdnImagesEnabled: "Enabled",
       localNetworkPriorityTitle: "Prefer local network",
       localNetworkPriorityHint: "On your home network, use your server directly rather than the internet — there's no benefit to leaving the local network only to come back to it.",
-      noAnimationsTitle: "No animations",
-      noAnimationsHint: "Turns off everything that loads the CPU and graphics card: animations, transitions, automatic rotation, background videos and video previews, Hero glow and blur effects. Trailers you start yourself and playback are not affected. Browser only.",
-      noAnimationsEnabled: "Enable",
+      smoothModeTitle: "Smooth mode",
+      smoothModeHint: "For a device that struggles. Turns off animations, transitions, automatic rotation, background videos and video previews, the Hero glow and blur effects. Trailers you start yourself and playback are not affected. Applies to your account, in the browser only.",
+      smoothModeEnabled: "Enable smooth mode",
       titlePageVideoTitle: "Video previews",
       titlePageVideoHint: "Animated trailer background on movie/series pages, and on hover over a poster in carousels. Disable to keep a static image everywhere.",
       titlePageVideoEnabled: "Video enabled",
