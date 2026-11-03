@@ -1,3 +1,9 @@
+## v1.28.43 — 3 November 2026
+
+### Series
+
+- Kaamelott: Livre V Blu-ray packs, whose files carry the scene numbers (S05E07E08…E12), now import as episodes 1 to 8. A download already in progress also moves to the 8 episodes.
+
 ## v1.28.42 — 3 November 2026
 
 ### Series

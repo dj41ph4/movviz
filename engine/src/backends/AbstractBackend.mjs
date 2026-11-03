@@ -10,6 +10,7 @@ import {
   VIDEO_EXT_RE,
 } from "../naming.mjs";
 import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR } from "../config.mjs";
+import { kaamelottLongEpisode } from "../kaamelottLongCut.mjs";
 import { ManualSeed, cacheMetainfo, retainMetainfo, torrentPath } from "../manualSeed.mjs";
 import { validateEpisodeTargets, resolveEpisodePlacement, ensurePresentationFolder } from "../episodePlacement.mjs";
 
@@ -1078,7 +1079,8 @@ export class AbstractBackend {
         }
         firstDest ??= path.join(this.cfg.completedPath, snap.name);
         // Keep the torrent's original identity independently of the library filename.
-        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length, originalPath: torrentPath(path.isAbsolute(file.path) ? path.relative(this.cfg.downloadPath, file.path) : file.path) });
+        const kaamelottEpisode = kaamelottLongEpisode(file.name);
+        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length, ...(kaamelottEpisode != null ? { season: 5, episode: kaamelottEpisode, episodeEnd: null } : {}), originalPath: torrentPath(path.isAbsolute(file.path) ? path.relative(this.cfg.downloadPath, file.path) : file.path) });
       }
       m.movedTo = firstDest ?? this.cfg.completedPath;
     } else {
@@ -1123,6 +1125,12 @@ export class AbstractBackend {
         const info = { ...(fileInfo.season != null || fileInfo.episode != null ? fileInfo : releaseInfo) };
         if (m.title) info.title = m.title;
         if (m.year) info.year = String(m.year);
+        const kaamelottEpisode = kaamelottLongEpisode(file.name);
+        if (kaamelottEpisode != null) {
+          info.season = 5;
+          info.episode = kaamelottEpisode;
+          info.episodeEnd = null;
+        }
         // Neither the filename nor the overall release name carried a season
         // and/or episode (e.g. an anime pack with absolute episode numbering,
         // or per-season subfolders but season-less filenames). Without a
@@ -1513,6 +1521,7 @@ export class AbstractBackend {
   }
 
   _matchesEpisode(f, target, allTargets = []) {
+    if (kaamelottLongEpisode(f.name) != null) return true;
     const info = parseRelease(f.name);
     // Absolutely numbered packs (Bleach: 366 episodes, no season) are filed by
     // the target's absolute number — a local number would match one episode
@@ -1580,7 +1589,7 @@ export class AbstractBackend {
     if (meta.rejectMissingSeriesPack && !meta.completed && !meta.movedFiles) {
       const videos = handle.files.filter((f) => VIDEO_EXT_RE.test(f.name));
       const parsed = videos.map((f) => parseRelease(f.name));
-      if (videos.length && parsed.every((p) => p.season != null && p.episode != null) &&
+      if (videos.length && !videos.some((f) => kaamelottLongEpisode(f.name) != null) && parsed.every((p) => p.season != null && p.episode != null) &&
           !parsed.some((p) => targets.some((t) => p.season === t.season && t.episode >= p.episode && t.episode <= (p.episodeEnd ?? p.episode)))) {
         meta.missingSeriesPack = true;
         return;

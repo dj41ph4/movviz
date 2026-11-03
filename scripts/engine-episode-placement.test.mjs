@@ -173,3 +173,30 @@ test("lost callback response survives restart with coordinates, original seed id
   } finally { await new Promise(resolve => store.destroy(resolve)); }
   assert.deepEqual(await fsp.readFile(moved.path), f.bytes);
 });
+
+const KAAMELOTT_PACK = [
+  "E01E02E03E04E05E06", "E07E08E09E10E11E12", "E13E14E15E16E17E18", "E19E20E21E22E23E24E25",
+  "E26E27E28E29E30E31E32", "E33E34E35E36E37E38", "E39E40E41E42E43", "E44E45E46E47E48E49E50",
+].map(scenes => `Kaamelott.S05${scenes}.FRENCH.1080p.BluRay.x264.AC3-Dam.mkv`);
+// Cibles réelles d'un téléchargement lancé avant le passage à 8 épisodes.
+const OLD_BROADCAST_TARGETS = [12, 15, 18, 25, 32, 38, 43, 50].map(episode => ({ season: 5, episode }));
+
+for (const [label, naming] of [["avec le renommage", {}], ["sans le renommage", { enabled: false }]]) {
+  test(`Kaamelott : les 8 fichiers du pack deviennent S05E01 à S05E08 ${label}, quelles que soient les cibles`, async t => {
+    const f = await fixture(KAAMELOTT_PACK, OLD_BROADCAST_TARGETS, naming);
+    t.mock.method(globalThis, "fetch", async () => Response.json({ ok: true }));
+    await f.backend._import(f.snap, movePath);
+    const moved = f.backend.persistable()[0].movedFiles;
+    assert.deepEqual(moved.map(file => [file.season, file.episode, file.episodeEnd ?? null]), [1, 2, 3, 4, 5, 6, 7, 8].map(episode => [5, episode, null]));
+    assert.equal(new Set(moved.map(file => file.path)).size, 8);
+    if (!naming.enabled && "enabled" in naming) return;
+    moved.forEach((file, index) => assert.equal(path.basename(file.path).includes(`S05E0${index + 1}`), true, file.path));
+  });
+}
+
+test("la règle Kaamelott ne change rien à une autre série au même format", async t => {
+  const f = await fixture(["Autre.S05E01E02E03E04E05E06.1080p.mkv"], [{ season: 5, episode: 12 }]);
+  t.mock.method(globalThis, "fetch", async () => Response.json({ ok: true }));
+  await f.backend._import(f.snap, movePath);
+  assert.equal((f.backend.persistable()[0].movedFiles ?? []).length, 0);
+});

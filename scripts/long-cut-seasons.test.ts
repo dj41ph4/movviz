@@ -57,11 +57,34 @@ test("une saison vide passe à 8 ; des épisodes courts présents sur le disque 
   const withFile = libraryEpisodes();
   withFile[20] = { ...withFile[20], status: "available", file: { path: "/x/S05E21.mkv" } as never };
   assert.equal(shrinkToLongCut(KAAMELOTT, 5, withFile), withFile);
-  const downloading = libraryEpisodes();
-  downloading[9] = { ...downloading[9], status: "downloading", activeInfoHash: "abc" };
-  assert.equal(shrinkToLongCut(KAAMELOTT, 5, downloading), downloading);
   const otherSeries = libraryEpisodes();
   assert.equal(shrinkToLongCut(1, 5, otherSeries), otherSeries);
+});
+
+test("un téléchargement en cours passe sur les 8 épisodes, même si les premiers n'étaient plus suivis", () => {
+  // État réel relevé en prod : 27 scènes réclamées par le pack, les autres retirées du suivi.
+  const episodes = libraryEpisodes().map((episode) => episode.episodeNumber >= 12
+    ? { ...episode, status: "downloading" as const, activeInfoHash: "6fa0d7cc" }
+    : { ...episode, monitored: false });
+  const shrunk = shrinkToLongCut(KAAMELOTT, 5, episodes);
+  assert.equal(shrunk.length, 8);
+  assert.equal(shrunk.every((episode) => episode.monitored && episode.status === "downloading" && episode.activeInfoHash === "6fa0d7cc"), true);
+});
+
+test("le moteur reconnaît les 8 fichiers du pack, et rien d'autre", async () => {
+  const { kaamelottLongEpisode } = await import("../engine/src/kaamelottLongCut.mjs");
+  const names = [
+    "S05E01E02E03E04E05E06", "S05E07E08E09E10E11E12", "S05E13E14E15E16E17E18", "S05E19E20E21E22E23E24E25",
+    "S05E26E27E28E29E30E31E32", "S05E33E34E35E36E37E38", "S05E39E40E41E42E43", "S05E44E45E46E47E48E49E50",
+  ];
+  assert.deepEqual(names.map((name) => kaamelottLongEpisode(`Kaamelott.${name}.FRENCH.1080p.BluRay.x264.AC3-Dam.mkv`)), [1, 2, 3, 4, 5, 6, 7, 8]);
+  for (const other of [
+    "Autre.Serie.S05E01E02E03E04E05E06.1080p.mkv",
+    "Kaamelott.S04E01E02E03E04E05E06.1080p.mkv",
+    "Kaamelott.S05E01E02.1080p.mkv",
+    "Kaamelott.S05E03.1080p.mkv",
+    "Kaamelott - S05E02.mkv",
+  ]) assert.equal(kaamelottLongEpisode(other), null, other);
 });
 
 test("une bibliothèque à 50 passe à 8 au démarrage, et le pack des 8 fichiers la rend complète", async () => {
