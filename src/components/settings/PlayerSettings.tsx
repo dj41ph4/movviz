@@ -44,11 +44,6 @@ export function PlayerSettings() {
           </div>
           <Toggle on={userEnabled} onChange={() => setUserEnabled(!userEnabled)} />
         </div>
-
-        <div className="mt-4 rounded-xl border border-brand/15 bg-brand/5 p-3">
-          <p className="text-sm font-semibold text-ink">{t("player.autoEngine")}</p>
-          <p className="mt-1 text-xs leading-relaxed text-ink-dim">{t("player.autoEngineHint")}</p>
-        </div>
       </div>
 
       {isAdmin && (

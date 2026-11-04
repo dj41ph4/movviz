@@ -10,7 +10,7 @@ export function SettingsContextHeader({ tab, onBack }: { tab: SettingsTab; onBac
   const Icon = tab.icon;
 
   return (
-    <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-white/8 bg-white/[0.025] p-4 sm:flex-row sm:items-center sm:p-5">
+    <div className="nx-settings-context mb-6 flex flex-col gap-4 rounded-2xl border border-white/8 bg-white/[0.025] p-4 sm:flex-row sm:items-center sm:p-5">
       <button onClick={() => onBack(tab.journey)} className="flex min-w-0 items-center gap-3 rounded-xl text-left ring-focus group">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <Icon className="h-5 w-5" />

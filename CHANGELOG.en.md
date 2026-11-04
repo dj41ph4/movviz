@@ -1,3 +1,11 @@
+## v1.28.51 — 4 November 2026
+
+### Settings
+
+- New look: colored control center and paths, page banner in the path's color, clearer cards and a full menu that fits on screen. A single search on desktop.
+- Texts describe what each setting does, and blocks with no choice at all (interface loading, torrent engine, playback engine) are gone.
+- Faint texts and buttons are now readable, the useless scrollbar is gone, and the active sidebar button has a sharper glow.
+
 ## v1.28.50 — 4 November 2026
 
 ### Interface

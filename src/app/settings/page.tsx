@@ -15,7 +15,6 @@ import { TranscodeLogsPanel } from "@/components/settings/TranscodeLogsPanel";
 import { EngineLogsPanel } from "@/components/settings/EngineLogsPanel";
 import { ResolverLogsPanel } from "@/components/settings/ResolverLogsPanel";
 import { PerfPanel } from "@/components/settings/PerfPanel";
-import { InterfaceDataModePanel } from "@/components/settings/InterfaceDataModePanel";
 import { BackupSettings } from "@/components/settings/BackupSettings";
 import { AutomationSettings } from "@/components/settings/AutomationSettings";
 import { CachePanel } from "@/components/settings/CachePanel";
@@ -47,6 +46,7 @@ import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
 import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
 import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
+import "@/components/settings/settings-premium.css";
 import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, settingsContentSnippet, type SettingsJourney } from "@/lib/settingsNav";
 import { SettingsHome } from "@/components/settings/SettingsHome";
 import { SettingsJourneyOverview } from "@/components/settings/SettingsJourneyOverview";
@@ -194,7 +194,7 @@ function SettingsPageInner() {
                       "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ring-focus",
                       active
                         ? dangerous ? "text-down" : "text-brand-glow"
-                        : dangerous ? "text-down/70 hover:text-down" : "text-ink-soft hover:text-ink"
+                        : dangerous ? "text-down/90 hover:text-down" : "text-ink-soft hover:text-ink"
                     )}
                   >
                     {active && (
@@ -223,7 +223,7 @@ function SettingsPageInner() {
   );
 
   return (
-    <div className="nx-settings-page mx-auto max-w-[1280px]">
+    <div data-journey={activeJourneyId ?? "experience"} className="nx-settings-page mx-auto max-w-[1280px]">
       <PageHeader
         eyebrow={t("settings.eyebrow")}
         title={t("settings.title")}
@@ -296,7 +296,7 @@ function SettingsPageInner() {
       </AnimatePresence>
 
       <div className="md:grid md:grid-cols-[268px_1fr] md:items-start md:gap-8">
-        <nav className="hidden flex-col gap-4 md:sticky md:top-24 md:flex">
+        <nav className="nx-settings-nav hidden flex-col gap-4 md:sticky md:top-24 md:flex">
           <button
             onClick={() => pushTab("home")}
             className={cn(
@@ -327,7 +327,7 @@ function SettingsPageInner() {
           )}
         </nav>
 
-        <div className="min-w-0">
+        <div className="nx-settings-content min-w-0">
           {tab === "home" && <SettingsHome onNavigate={pushTab} onOpenJourney={(id) => pushJourney(id as SettingsJourney)} />}
 
           {tab.startsWith("journey:") && (
@@ -408,7 +408,6 @@ function SettingsPageInner() {
 
           {tab === "performance" && user?.role === "admin" && (
             <div className="space-y-6">
-              <InterfaceDataModePanel />
               <PerfPanel />
               <StatsPanel />
             </div>

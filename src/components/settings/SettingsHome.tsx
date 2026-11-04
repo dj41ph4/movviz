@@ -114,7 +114,8 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
 
   return (
     <div className="space-y-8">
-      <div className="relative">
+      {/* Sur grand écran, la recherche du menu de gauche suffit. */}
+      <div className="relative md:hidden">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-dim" />
         <input
           value={query}
@@ -159,9 +160,9 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
                 <div className="flex min-h-72 flex-col justify-between border-b border-white/8 p-6 sm:p-8 lg:border-b-0 lg:border-r">
                   <div>
                     <div className="mb-6 flex items-center gap-3">
-                      <motion.span animate={{ boxShadow: allLoaded && !hasAttention ? ["0 0 0 rgba(52,211,153,0)", "0 0 38px rgba(52,211,153,.32)", "0 0 0 rgba(52,211,153,0)"] : undefined }} transition={{ duration: 2.4, repeat: Infinity }} className={cn("flex h-14 w-14 items-center justify-center rounded-2xl border", allLoaded && !hasAttention ? "border-ok/30 bg-ok/12 text-ok" : "border-brand/30 bg-brand/12 text-brand-glow")}>
+                      <span className={cn("flex h-14 w-14 items-center justify-center rounded-2xl border", allLoaded && !hasAttention ? "border-ok/30 bg-ok/12 text-ok shadow-[0_0_30px_rgba(52,211,153,.24)]" : "border-brand/30 bg-brand/12 text-brand-glow")}>
                         {allLoaded && !hasAttention ? <ShieldCheck className="h-7 w-7" /> : hasAttention ? <AlertTriangle className="h-7 w-7 text-amber" /> : <Sparkles className="h-7 w-7" />}
-                      </motion.span>
+                      </span>
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand-glow">{t("settings.controlCenter")}</p>
                         <h2 className="mt-1 text-2xl font-black tracking-tight text-ink">{t("settings.readinessTitle")}</h2>

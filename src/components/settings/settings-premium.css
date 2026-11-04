@@ -1,0 +1,174 @@
+/* Réglages (apparence Bêta) : matière et couleur sans effet coûteux. Aucun flou et
+   aucune animation sans fin : uniquement des dégradés fixes, peints une seule fois.
+   La répétition de :root passe devant premium.css et salle-obscure.css. */
+html[data-movviz-appearance="beta"]:root:root {
+  & .nx-settings-page { --j1: 217, 70, 239; --j2: 124, 92, 255; }
+  & .nx-settings-page[data-journey="playback"] { --j1: 34, 211, 238; --j2: 56, 130, 246; }
+  & .nx-settings-page[data-journey="library"] { --j1: 245, 158, 11; --j2: 239, 108, 60; }
+  & .nx-settings-page[data-journey="downloads"] { --j1: 16, 185, 129; --j2: 34, 211, 238; }
+  & .nx-settings-page[data-journey="system"] { --j1: 139, 92, 246; --j2: 79, 102, 241; }
+
+  /* Centre de contrôle */
+  & .nx-settings-readiness {
+    border: 1px solid #ffffff1a;
+    border-radius: 26px;
+    background: linear-gradient(135deg, #191530 0%, #10131f 55%, #0c1a22 100%);
+    box-shadow: inset 0 1px 0 #ffffff1f, 0 24px 60px -30px #000;
+  }
+  & .nx-settings-readiness h2 { font-size: 28px; }
+  & .nx-settings-readiness span.text-xl {
+    font-size: 30px;
+    line-height: 1;
+    background: linear-gradient(90deg, #34d399, #22d3ee);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  & .nx-settings-readiness .h-1\.5.overflow-hidden { height: 8px; }
+  & .nx-settings-readiness button.group {
+    margin-bottom: 8px;
+    border-color: #ffffff0f;
+    background: #ffffff08;
+  }
+  & .nx-settings-readiness button.group:hover {
+    border-color: rgba(184, 146, 255, .4);
+    background: #ffffff0f;
+  }
+
+  /* Parcours : chacun garde sa couleur */
+  & .nx-settings-journey {
+    border: 1px solid #ffffff17;
+    border-radius: 20px;
+    background: #12141c;
+    box-shadow: inset 0 1px 0 #ffffff14;
+    transition: border-color .15s, background-color .15s, transform .15s;
+  }
+  & .nx-settings-journey:hover {
+    border-color: rgba(184, 146, 255, .5);
+    background: #161924;
+    box-shadow: inset 0 1px 0 #ffffff1f;
+  }
+  & .nx-settings-journey > div.pointer-events-none:first-child { opacity: .95; }
+  & .nx-settings-journey span.h-11 {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    border-color: #ffffff1f;
+    background: #0009;
+    color: #fff;
+  }
+  & .nx-settings-journey h3 { font-size: 17px; }
+  & .nx-settings-journey p { font-size: 12.5px; color: #b5b2c6; }
+
+  /* Bandeau de page, à la couleur du parcours */
+  & .nx-settings-context {
+    border: 1px solid #ffffff1a;
+    border-radius: 22px;
+    padding: 22px 24px;
+    background: linear-gradient(115deg, rgba(var(--j1), .28), rgba(var(--j2), .10) 55%, transparent), #12141c;
+    box-shadow: inset 0 1px 0 #ffffff1f;
+  }
+  & .nx-settings-context > button > span:first-child {
+    width: 52px;
+    height: 52px;
+    border: 1px solid #ffffff24;
+    border-radius: 15px;
+    background: #0008;
+    color: #fff;
+  }
+  /* Sur le bandeau coloré, le violet de marque manque de contraste. */
+  & .nx-settings-context > button > span:last-child > span:first-child { color: #ece8f7; }
+  & .nx-settings-context > button > span:last-child > span:last-child {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -.01em;
+  }
+  & .nx-settings-context p { color: #d6d3e2; }
+  & .nx-settings-context p svg { color: #ece8f7; }
+
+  /* Cartes de réglages */
+  & .nx-settings-content :is(div, section).glass {
+    padding: 22px 24px;
+    border: 1px solid #ffffff14;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #181b25, #11131a);
+    box-shadow: inset 0 1px 0 #ffffff14;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  & .nx-settings-content :is(div, section).glass:hover { border-color: #ffffff24; }
+  & .nx-settings-content :is(div, section).glass :is(div, section).glass {
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #0d0f15;
+    box-shadow: none;
+  }
+  & .nx-settings-content .glass h3 { margin-bottom: 6px; font-size: 16px; font-weight: 800; }
+  & .nx-settings-content .glass > .flex.items-center.justify-between {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid #ffffff0f;
+    border-radius: 12px;
+    background: #0b0c10;
+  }
+
+  /* Interrupteurs : seule la pastille, jamais une ligne entière en role="switch". */
+  & .nx-settings-content [role="switch"].h-6[aria-checked="true"] { background: linear-gradient(90deg, #7458e8, #b892ff); }
+  & .nx-settings-content [role="switch"].h-6[aria-checked="false"] { background: #ffffff1f; }
+
+  & .nx-settings-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+    border: 1px solid #ffffff1a;
+    border-radius: 11px;
+    background: #0b0c10;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  & .nx-settings-page :is(input, select, textarea):focus { border-color: rgba(184, 146, 255, .6); }
+
+  /* Un bouton désactivé reste lisible. */
+  & .nx-settings-page button:disabled { opacity: .65; }
+
+  @media (max-width: 767.98px) {
+    & .nx-settings-content :is(div, section).glass { padding: 18px; }
+    & .nx-settings-readiness h2 { font-size: 24px; }
+  }
+
+  /* Menu : la liste complète, dans un panneau qui tient à l'écran, sans barre de défilement. */
+  @media (min-width: 768px) {
+    & .nx-settings-nav {
+      top: 84px;
+      /* En-tête au-dessus + marge sous la page : un pixel de plus ferait apparaître la barre de la page. */
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding: 14px 10px 40px;
+      border: 1px solid #ffffff14;
+      border-radius: 22px;
+      background: linear-gradient(180deg, #171a24, #101219);
+      box-shadow: inset 0 1px 0 #ffffff14;
+    }
+    & .nx-settings-nav::-webkit-scrollbar { display: none; }
+    & .nx-settings-nav::after {
+      content: "";
+      position: sticky;
+      bottom: -40px;
+      flex: none;
+      height: 44px;
+      margin: -44px -10px -40px;
+      border-radius: 0 0 22px 22px;
+      background: linear-gradient(180deg, rgba(16, 18, 25, 0), #101219 85%);
+      pointer-events: none;
+    }
+    & .nx-settings-nav p { font-size: 10.5px; letter-spacing: .17em; color: #8a879f; }
+    & .nx-settings-nav button.group { padding-top: 8px; padding-bottom: 8px; font-size: 13px; }
+    & .nx-settings-nav > .flex.flex-col.gap-6 { gap: 18px; }
+    & .nx-settings-nav input {
+      border: 1px solid #ffffff14;
+      background: #0b0c10;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+}

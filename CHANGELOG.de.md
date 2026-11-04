@@ -1,3 +1,11 @@
+## v1.28.51 — 4. November 2026
+
+### Einstellungen
+
+- Neue Darstellung: farbiges Kontrollzentrum und farbige Wege, Seitenbanner in der Farbe des Wegs, besser lesbare Karten und ein vollständiges Menü, das auf den Bildschirm passt. Nur noch eine Suche auf dem Desktop.
+- Die Texte beschreiben, was jede Einstellung tut, und Blöcke ohne jede Wahl (Laden der Oberfläche, Torrent-Engine, Wiedergabe-Engine) sind entfernt.
+- Zu blasse Texte und Schaltflächen sind jetzt lesbar, die unnötige Bildlaufleiste ist weg, und die aktive Schaltfläche der Seitenleiste leuchtet schärfer.
+
 ## v1.28.50 — 4. November 2026
 
 ### Oberfläche

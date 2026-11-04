@@ -1,3 +1,11 @@
+## v1.28.51 — 4 novembre 2026
+
+### Impostazioni
+
+- Nuova presentazione: centro di controllo e percorsi a colori, banner di pagina nel colore del percorso, schede più leggibili e un menu completo che sta nello schermo. Una sola ricerca su desktop.
+- I testi descrivono cosa fa ogni impostazione, e i blocchi senza alcuna scelta (caricamento dell’interfaccia, motore torrent, motore di riproduzione) sono stati rimossi.
+- Testi e pulsanti troppo chiari ora sono leggibili, la barra di scorrimento inutile è stata tolta e il pulsante attivo della barra laterale ha un bagliore più netto.
+
 ## v1.28.50 — 4 novembre 2026
 
 ### Interfaccia

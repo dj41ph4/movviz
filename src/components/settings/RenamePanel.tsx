@@ -390,7 +390,7 @@ export function RenamePanel() {
           {showLogs && (
             <div className="mt-2 max-h-48 overflow-y-auto rounded-xl bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-ink-dim">
               {logs.length === 0 && (
-                <span className="italic text-ink-dim/50">{t("rename.logsEmpty")}</span>
+                <span className="italic text-ink-dim">{t("rename.logsEmpty")}</span>
               )}
               {logs.map((line, i) => (
                 <div key={i} className={`${line.includes("ERREUR") ? "text-down" : line.includes("→") ? "text-ok" : ""}`}>
@@ -440,7 +440,7 @@ export function RenamePanel() {
           {showExecLogs && (
             <div className="mt-2 max-h-48 overflow-y-auto rounded-xl bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-ink-dim">
               {execLogs.length === 0 && (
-                <span className="italic text-ink-dim/50">{t("rename.logsEmpty")}</span>
+                <span className="italic text-ink-dim">{t("rename.logsEmpty")}</span>
               )}
               {execLogs.map((line, i) => (
                 <div key={i} className={`${line.includes("ERROR") || line.includes("ERREUR") ? "text-down" : line.includes("WARN") || line.includes("PARTIAL") ? "text-amber" : line.includes("DONE") || line.includes("SUMMARY") ? "text-ok" : ""}`}>

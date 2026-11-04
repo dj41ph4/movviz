@@ -464,22 +464,6 @@
     color: var(--so-fg-3);
   }
 
-  /* Accueil des réglages : mêmes surfaces que le reste, sans halos colorés. */
-  html[data-movviz-appearance="beta"] :is(.nx-settings-readiness, .nx-settings-journey) {
-    border-color: var(--so-line);
-    background: var(--so-ink-1);
-    box-shadow: none;
-  }
-
-  html[data-movviz-appearance="beta"] :is(.nx-settings-readiness, .nx-settings-journey) > div.pointer-events-none:first-child {
-    display: none;
-  }
-
-  html[data-movviz-appearance="beta"] .nx-settings-journey:hover {
-    border-color: var(--so-line-2);
-    background: var(--so-ink-2);
-  }
-
   /* Ligne de file Bêta (maquette « 5 · Téléchargements ») */
   html[data-movviz-appearance="beta"] .nx-downloads-page > [data-nx-page-header] p {
     font-family: var(--so-font-mono);

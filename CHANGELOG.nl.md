@@ -1,3 +1,11 @@
+## v1.28.51 — 4 november 2026
+
+### Instellingen
+
+- Nieuwe weergave: gekleurd controlecentrum en routes, paginabanner in de kleur van de route, duidelijkere kaarten en een volledig menu dat op het scherm past. Eén zoekveld op desktop.
+- De teksten beschrijven wat elke instelling doet, en blokken zonder enige keuze (laden van de interface, torrent-engine, afspeel-engine) zijn verwijderd.
+- Te vage teksten en knoppen zijn nu leesbaar, de overbodige schuifbalk is weg en de actieve knop in de zijbalk heeft een scherpere gloed.
+
 ## v1.28.50 — 4 november 2026
 
 ### Interface

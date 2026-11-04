@@ -1,3 +1,11 @@
+## v1.28.51 — 4 novembre 2026
+
+### Réglages
+
+- Nouvelle présentation : centre de contrôle et parcours en couleur, bandeau de page à la couleur du parcours, cartes plus lisibles et menu complet qui tient à l’écran. Une seule recherche sur ordinateur.
+- Les textes décrivent ce que fait chaque réglage, et les blocs sans aucun choix (chargement de l’interface, moteur torrent, moteur de lecture) disparaissent.
+- Textes et boutons trop pâles rendus lisibles, barre de défilement inutile retirée, lueur du bouton actif de la barre latérale plus nette.
+
 ## v1.28.50 — 4 novembre 2026
 
 ### Interface

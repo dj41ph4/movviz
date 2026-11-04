@@ -17,7 +17,7 @@ const LEVEL_TONE: Record<SearchLogLine["level"], string> = {
   info: "text-ink-soft",
   warn: "text-amber",
   error: "text-down",
-  debug: "text-ink-dim/60",
+  debug: "text-ink-dim",
 };
 
 const STEP_COLOR: Record<string, string> = {
@@ -187,18 +187,18 @@ export function SearchLogsPanel() {
           </button>
         ))}
             <div className="relative min-w-[220px] flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-dim/60" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-dim" />
               <input
                 type="text"
                 value={textFilter}
                 onChange={(e) => setTextFilter(e.target.value)}
                 placeholder={t("health.logsSearchPlaceholder")}
-                className="h-7 w-full rounded-lg glass-strong pl-8 pr-7 text-[11px] text-ink-soft placeholder:text-ink-dim/50 focus:outline-none focus:ring-1 focus:ring-brand-glow/50"
+                className="h-7 w-full rounded-lg glass-strong pl-8 pr-7 text-[11px] text-ink-soft placeholder:text-ink-dim focus:outline-none focus:ring-1 focus:ring-brand-glow/50"
               />
               {textFilter && (
                 <button
                   onClick={() => setTextFilter("")}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-ink-dim/60 hover:text-ink-soft"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-ink-dim hover:text-ink-soft"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -219,14 +219,14 @@ export function SearchLogsPanel() {
         ) : (
           displayed.map((l, i) => (
             <div key={i} className="flex gap-2 whitespace-pre-wrap break-all hover:bg-white/4">
-              <span className="shrink-0 text-ink-dim/50">{new Date(l.t).toLocaleTimeString()}</span>
+              <span className="shrink-0 text-ink-dim">{new Date(l.t).toLocaleTimeString()}</span>
               <span className={cn("shrink-0 font-bold", LEVEL_TONE[l.level])}>
                 {l.level === "debug" ? "DBG" : l.level.toUpperCase()}
               </span>
               <span className={cn("shrink-0 font-semibold", stepColor(l.step))}>{l.step}</span>
               <span className="text-ink-soft">{l.message}</span>
               {l.ms != null && (
-                <span className={cn("shrink-0", l.ms >= 2000 ? "text-down font-bold" : l.ms >= 500 ? "text-amber" : "text-ink-dim/50")}>
+                <span className={cn("shrink-0", l.ms >= 2000 ? "text-down font-bold" : l.ms >= 500 ? "text-amber" : "text-ink-dim")}>
                   +{l.ms}ms
                 </span>
               )}

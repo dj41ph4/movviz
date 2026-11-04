@@ -167,7 +167,7 @@ export function MetadataSettings() {
             {tmdbConfigured ? t("metadata.tmdbConfigured") : t("metadata.tmdbNotConfigured")}
           </span>
           {tmdbIsDefault && (
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-ink-dim">
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-ink-soft">
               {t("metadata.tmdbDefaultKey")}
             </span>
           )}

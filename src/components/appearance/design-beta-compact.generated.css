@@ -501,15 +501,6 @@
     background: var(--so-ink-2);
     color: var(--so-fg-3)
     }
-    html[data-movviz-appearance="beta"] :is(.nx-settings-readiness, .nx-settings-journey) {
-    border-color: var(--so-line);
-    background: var(--so-ink-1);
-    box-shadow: none
-    }
-    html[data-movviz-appearance="beta"] .nx-settings-journey:hover {
-    border-color: var(--so-line-2);
-    background: var(--so-ink-2)
-    }
     html[data-movviz-appearance="beta"] .nx-downloads-page > [data-nx-page-header] p {
     font-family: var(--so-font-mono);
     color: var(--so-fg-3);

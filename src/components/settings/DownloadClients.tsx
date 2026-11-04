@@ -9,7 +9,7 @@ import { FolderPicker } from "./FolderPicker";
 import {
   Film, Tv, Circle, FolderDown, FolderCheck, Layers, Zap, ArrowUpFromLine,
   Repeat, Power, WifiOff, Settings2, Check, X, Loader2, RefreshCw, Users,
-  Upload, HardDrive, Cpu, Wifi,
+  Upload, HardDrive, Wifi,
 } from "lucide-react";
 
 /**
@@ -72,12 +72,6 @@ export function DownloadClients() {
           <h3 className="font-bold text-ink">{t("settings.tabClients")}</h3>
           <p className="mt-0.5 max-w-3xl text-xs text-ink-dim">{t("settings.clientsIntro")}</p>
         </div>
-      </div>
-
-      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.02] p-4">
-        <Cpu className="h-5 w-5 shrink-0 text-ink-dim" />
-        <span className="text-sm font-semibold text-ink-soft">{t("settings.clientEngine")}</span>
-        <span className="rounded-xl border border-brand/40 bg-brand/15 px-4 py-2 text-sm font-semibold text-brand-glow">WebTorrent</span>
       </div>
 
       {offline && (
@@ -160,9 +154,6 @@ function InstanceCard({
             {offline ? t("downloads.engineOffline") : `${inst.active} ${t("common.active")}`}
           </p>
         </div>
-        <span className="rounded-lg bg-black/30 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-soft">
-          WebTorrent
-        </span>
       </div>
 
       {inst.folderError && (
