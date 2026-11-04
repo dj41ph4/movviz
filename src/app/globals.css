@@ -161,7 +161,9 @@
 }
 
 .eeg-bar {
-  animation: eeg 1.5s ease-in-out infinite;
+  /* Trois paliers par segment : 20 images/s suffisent sur des barres de 3 px, et
+     le fluide faisait recomposer toute la fenêtre à 60 images/s pendant une lecture. */
+  animation: eeg 1.5s steps(3) infinite;
   transform-origin: center;
 }
 

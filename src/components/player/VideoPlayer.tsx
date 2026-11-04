@@ -2736,7 +2736,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const menuItemClass = "flex w-full items-center rounded-xl px-3.5 py-3 text-left text-[13px] text-white/75 transition-all duration-150 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70";
 
   return (
-    <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-[#030407] backdrop-blur-sm", embedded && "h-full w-full overscroll-none")}>
+    <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-[#030407]", embedded && "h-full w-full overscroll-none")}>
       <div
         ref={playerRef}
         className={cn(

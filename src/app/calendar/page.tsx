@@ -242,7 +242,7 @@ export default function CalendarPage() {
       />
 
       <div className="sticky top-[calc(var(--nx-topbar-h,3.5rem)+0.5rem)] z-20 pb-2 pt-1">
-        <div className="rounded-3xl border border-white/10 bg-[#0b1024]/80 p-1.5 shadow-[0_12px_30px_-12px_rgba(0,0,0,.6)] backdrop-blur-xl">
+        <div className="rounded-3xl border border-white/10 bg-[#0b1024]/80 p-1.5 shadow-[0_12px_30px_-12px_rgba(0,0,0,.6)] [transform:translateZ(0)]">
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => shift(-1)}

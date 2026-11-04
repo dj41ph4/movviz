@@ -1,3 +1,9 @@
+## v1.28.50 — 4 november 2026
+
+### Interface
+
+- Het thema belast de processor en videokaart minder: de glans van het logo laat de pagina niet meer werken tussen twee passages, het activiteitspictogram is lichter geanimeerd en onzichtbare vervagingen zijn verwijderd uit de zijbalk, bovenbalk, kalender, menu’s en speler.
+
 ## v1.28.49 — 4 november 2026
 
 ### Speler

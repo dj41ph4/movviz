@@ -52,7 +52,7 @@ export function CalendarFilterBar({
   const todoActive = isTodoPreset(hiddenStatuses);
   const todoCount = TODO_STATUSES.reduce((n, s) => n + counts[s], 0);
   return (
-    <div className="nx-cal-filters mb-3 space-y-2 rounded-3xl border border-white/8 bg-white/[0.035] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,.06)] backdrop-blur-xl sm:mb-4 sm:p-3">
+    <div className="nx-cal-filters mb-3 space-y-2 rounded-3xl border border-white/8 bg-white/[0.035] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,.06)] [transform:translateZ(0)] sm:mb-4 sm:p-3">
       <div className="flex items-center gap-2">
         <div
           role="tablist"

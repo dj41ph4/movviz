@@ -626,7 +626,7 @@ export function DashboardPosterCard({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
         data-premium-preview
-        className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 backdrop-blur-xl sm:block"
+        className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 sm:block"
         style={{
           left: popover.left,
           top: popover.top,

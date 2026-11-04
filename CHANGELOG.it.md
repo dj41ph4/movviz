@@ -1,3 +1,9 @@
+## v1.28.50 — 4 novembre 2026
+
+### Interfaccia
+
+- Il tema sollecita meno processore e scheda grafica: il riflesso del logo non fa più lavorare la pagina tra un passaggio e l’altro, l’icona di attività è animata in modo più leggero e le sfocature invisibili sono state rimosse da barra laterale, barra superiore, calendario, menu e lettore.
+
 ## v1.28.49 — 4 novembre 2026
 
 ### Lettore

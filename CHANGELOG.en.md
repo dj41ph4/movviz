@@ -1,3 +1,9 @@
+## v1.28.50 — 4 November 2026
+
+### Interface
+
+- The theme uses less CPU and GPU: the logo shine no longer keeps the page working between passes, the activity icon animates more lightly, and blurs that could not be seen are gone from the sidebar, top bar, calendar, menus and player.
+
 ## v1.28.49 — 4 November 2026
 
 ### Player

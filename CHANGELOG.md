@@ -1,3 +1,9 @@
+## v1.28.50 — 4 novembre 2026
+
+### Interface
+
+- Le thème sollicite moins le processeur et la carte graphique : le reflet du logo ne fait plus travailler la page entre deux passages, l’icône d’activité s’anime plus légèrement, et les flous qui ne se voyaient pas sont retirés de la barre latérale, de la barre du haut, du calendrier, des menus et du lecteur.
+
 ## v1.28.49 — 4 novembre 2026
 
 ### Lecteur

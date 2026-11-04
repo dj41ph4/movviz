@@ -1,3 +1,9 @@
+## v1.28.50 — 4. November 2026
+
+### Oberfläche
+
+- Das Design beansprucht Prozessor und Grafikkarte weniger: Der Logo-Glanz lässt die Seite zwischen zwei Durchläufen nicht mehr arbeiten, das Aktivitätssymbol ist sparsamer animiert, und unsichtbare Unschärfen wurden aus Seitenleiste, oberer Leiste, Kalender, Menüs und Player entfernt.
+
 ## v1.28.49 — 4. November 2026
 
 ### Player

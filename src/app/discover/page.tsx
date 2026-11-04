@@ -719,7 +719,7 @@ function DiscoverPageInner() {
                 {selectedGenreName ?? t("discover.genres")} <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {openMenu === "genre" && (
-                <div className="absolute right-0 top-full z-30 mt-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                <div className="absolute right-0 top-full z-30 mt-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl">
                   <button
                     type="button"
                     onClick={() => { setGenre(""); setOpenMenu(null); }}
@@ -766,7 +766,7 @@ function DiscoverPageInner() {
                 {selectedMoodLabel ?? t("discover.moodFilter")} <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {openMenu === "mood" && (
-                <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl">
                   <button
                     type="button"
                     onClick={() => { setGenre(""); setOpenMenu(null); }}
@@ -811,7 +811,7 @@ function DiscoverPageInner() {
                   {selectedDurationLabel ?? t("discover.durationFilter")} <ChevronDown className="h-3.5 w-3.5" />
                 </button>
                 {openMenu === "duration" && (
-                  <div className="absolute right-0 top-full z-30 mt-2 w-52 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                  <div className="absolute right-0 top-full z-30 mt-2 w-52 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl">
                     {DURATION_OPTIONS.map((opt) => (
                       <button
                         type="button"
@@ -846,7 +846,7 @@ function DiscoverPageInner() {
                   {watchProvider?.name ?? t("discover.watchProviders")} <ChevronDown className="h-3.5 w-3.5" />
                 </button>
                 {openMenu === "platform" && (
-                  <div className="absolute right-0 top-full z-30 mt-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                  <div className="absolute right-0 top-full z-30 mt-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl">
                     <button
                       type="button"
                       onClick={() => { setWatchProvider(null); setOpenMenu(null); }}

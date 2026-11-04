@@ -65,7 +65,7 @@ export function CardMenu({
       {open && pos && typeof document !== "undefined" && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[90] w-56 overflow-hidden rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl"
+          className="fixed z-[90] w-56 overflow-hidden rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl"
           style={{ left: pos.left, top: pos.top }}
           onClick={() => setOpen(false)}
         >
