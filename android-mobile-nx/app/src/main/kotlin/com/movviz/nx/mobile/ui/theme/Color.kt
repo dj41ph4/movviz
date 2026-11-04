@@ -12,11 +12,11 @@ import androidx.compose.ui.graphics.Color
 // ────────────────────────────────────────────────────────────────
 
 // Brand — accent ET signature de fond (dégradés CTA, indicateurs actifs).
-// Déclinaison NX Mobile seule en mauve électrique (le web et les 3 autres
-// modules gardent #7c3aed) : violet plus saturé/lumineux avec pointe bleue.
-val MovvizBrand = Color(0xFF8B2FFF)
-val MovvizBrand2 = Color(0xFFBC3FFF)
-val MovvizBrandGlow = Color(0xFFA66BFF)
+// Mêmes valeurs que --color-brand/--color-brand-2/--color-brand-glow du desktop
+// (alignement 2026-11 : le mauve électrique #8B2FFF propre au mobile est retiré).
+val MovvizBrand = Color(0xFF7458E8)
+val MovvizBrand2 = Color(0xFFA77BFF)
+val MovvizBrandGlow = Color(0xFFB892FF)
 
 // Bordure électrique nuancée (ref visuel : halo bleu → violet → magenta sur
 // fond nuit, pas un aplat). Brush partagé par les contours visibles
@@ -30,33 +30,60 @@ val MovvizElectricBorder: androidx.compose.ui.graphics.Brush
 
 // Surfaces — bleu-nuit/violet profond, jamais un noir neutre. Mêmes valeurs
 // que --color-void/--color-abyss/--color-surface/--color-surface-2 côté web.
-val MovvizBackground = Color(0xFF0B1026)
-val MovvizAbyss = Color(0xFF0E1330)
-val MovvizSurface = Color(0xFF131836)
-val MovvizSurfaceStrong = Color(0xFF1A1F3D)
-val MovvizLine = Color(0xFF1E2440)
+val MovvizBackground = Color(0xFF0B0C10)
+val MovvizAbyss = Color(0xFF0A0C15)
+val MovvizSurface = Color(0xFF13151B)
+val MovvizSurfaceStrong = Color(0xFF1B1E27)
+val MovvizLine = Color(0xFF1F2233)
 
 // Fond de page unique NX Mobile (portrait + paysage, tous les écrans sans
 // exception) : le ton exact du bandeau logo/avatar (MovvizSurface à 55 % sur
 // MovvizBackground). Plus aucun noir ni à-plat différent qui casserait
 // l'immersion entre les pages.
-val MovvizPage = Color(0xFF0F142F)
+val MovvizPage = Color(0xFF0B0C10)
 
 // Text hierarchy — white for titles, progressively dimmer for secondary.
 // Secondaire et tertiaire teintés bleu-nuit comme le web (--color-ink-soft/
 // --color-ink-dim) : les gris neutres hérités de Netflix juraient avec le fond.
-val MovvizInk = Color(0xFFFFFFFF)
-val MovvizInkSoft = Color(0xFFAEB4D6)
-val MovvizInkDim = Color(0xFF6B7099)
+val MovvizInk = Color(0xFFF5F2EB)
+val MovvizInkSoft = Color(0xFFAAA7BD)
+val MovvizInkDim = Color(0xFF8A879F)
 
 // Semantic status pills — kept for functional indicators.
 val MovvizOk = Color(0xFF43E6A0)
 val MovvizAmber = Color(0xFFFFB84B)
-val MovvizDown = Color(0xFFE87C7C)
-val MovvizCyan = Color(0xFF5CE0D8)
+val MovvizDown = Color(0xFFFF5B78)
+val MovvizCyan = Color(0xFFA77BFF)
 
 // Animated logo flow — brand signature on the wordmark.
 val MovvizFlowInk = Color(0xFFEEF1FF)
 val MovvizFlowGlow = Color(0xFFA06BFF)
 val MovvizFlowMagenta = Color(0xFFFF4BD0)
 val MovvizFlowCyan = Color(0xFF34E2FF)
+
+// Dégradé de marque du desktop (.brand-gradient, Salle obscure) : lilas → violet clair → violet,
+// sans rose ; dans ce sens-là, jamais violet → clair.
+val MovvizBrandMagenta = Color(0xFFC9ADFF)
+val MovvizBrandGradientColors = listOf(MovvizBrandMagenta, MovvizBrand2, MovvizBrand)
+
+// Bordure des posters et tuiles plateformes : le filet blanc discret du desktop
+// (Salle obscure, --so-line : blanc à 8-14 %),
+// sans le halo bleu → magenta de MovvizElectricBorder réservé au champ de
+// recherche et aux pastilles rondes de l'en-tête.
+val MovvizPosterBorder: androidx.compose.ui.graphics.Brush
+    get() = androidx.compose.ui.graphics.Brush.linearGradient(
+        listOf(
+            Color.White.copy(alpha = 0.10f),
+            Color.White.copy(alpha = 0.10f),
+        ),
+    )
+
+// Remplissage des boutons principaux et des sélections actives : le lilas pâle
+// du bouton « Lire » du desktop (#E4D9FF, texte #211830), jamais du blanc pur.
+val MovvizPrimaryFill = Color(0xFFE4D9FF)
+val MovvizOnPrimaryFill = Color(0xFF211830)
+
+// Violet plein du desktop (#7458E8) pour les sélections actives et les boutons d'action
+// (puce « Tout » active, bouton « Ajouter ») ; le dégradé reste réservé aux barres de progression.
+val MovvizBrandSolid: androidx.compose.ui.graphics.Brush
+    get() = androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand))

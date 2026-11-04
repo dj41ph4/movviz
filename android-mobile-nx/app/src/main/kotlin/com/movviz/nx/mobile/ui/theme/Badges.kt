@@ -68,12 +68,12 @@ fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
         Icon(
             imageVector = MovvizIconStar,
             contentDescription = null,
-            tint = Color(0xFFF5C542),
+            tint = Color(0xFFFFB84B),
             modifier = Modifier.size(11.dp),
         )
         Text(
             text = "%.1f".format(rating),
-            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
+            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFB84B)),
         )
     }
 }

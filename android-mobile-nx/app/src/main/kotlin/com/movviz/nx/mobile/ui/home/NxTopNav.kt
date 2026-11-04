@@ -317,7 +317,7 @@ private fun CompactNxTopNav(
     }
     if (menuOpen) Popup(alignment = Alignment.TopEnd, properties = PopupProperties(focusable = true), onDismissRequest = { menuOpen = false }) {
         androidx.compose.foundation.layout.Column(Modifier.padding(top = 60.dp, end = 12.dp).width(210.dp).background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(14.dp)).padding(8.dp)) {
-            @Composable fun item(label: String, action: () -> Unit) { Surface(onClick = { menuOpen = false; action() }, modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick { menuOpen = false; action() }, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0xFF454650), contentColor = Color.White, focusedContentColor = Color.White)) { Text(label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) } }
+            @Composable fun item(label: String, action: () -> Unit) { Surface(onClick = { menuOpen = false; action() }, modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick { menuOpen = false; action() }, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0xFF252935), contentColor = Color.White, focusedContentColor = Color.White)) { Text(label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) } }
             item("Mon profil", onOpenProfile)
             item("Téléchargements", onOpenDownloads)
             item("Changer de profil", onSwitchProfile)

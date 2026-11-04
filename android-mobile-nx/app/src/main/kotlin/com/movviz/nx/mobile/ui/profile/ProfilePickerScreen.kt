@@ -195,7 +195,7 @@ private fun MaquetteAddTile(focusRequester: FocusRequester?, onClick: () -> Unit
             modifier = Modifier
                 .size(118.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF171B38))
+                .background(Color(0xFF13151B))
                 .border(
                     width = if (focused) 3.dp else 1.dp,
                     color = if (focused) Color.White else Color.White.copy(alpha = 0.10f),
@@ -211,7 +211,7 @@ private fun MaquetteAddTile(focusRequester: FocusRequester?, onClick: () -> Unit
                 modifier = Modifier
                     .size(46.dp)
                     .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                    .background(com.movviz.nx.mobile.ui.theme.MovvizBrandSolid),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(text = "+", style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White))

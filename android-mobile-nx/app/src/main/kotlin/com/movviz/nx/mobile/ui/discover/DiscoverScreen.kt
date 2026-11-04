@@ -507,7 +507,7 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
     ) {
         Box(
             modifier = Modifier.then(
-                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                if (active) Modifier.background(com.movviz.nx.mobile.ui.theme.MovvizBrandSolid, shape)
                 else Modifier,
             ),
         ) {

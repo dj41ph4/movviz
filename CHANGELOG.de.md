@@ -1,3 +1,13 @@
+## v1.28.53 — 5. November 2026
+
+### Android
+
+- Die mobile App übernimmt die Farben der Website: neutraler schwarzer Hintergrund, sanfteres Violett, cremefarbene Texte, dezente Rahmen.
+- Aktive Auswahlen (Filme/Serien, Filter, Chips) sind jetzt vollviolett, Aktionsschaltflächen hellflieder, wie auf der Website.
+- Die Plattform-Kacheln sind dunkles Glas mit dem Logo der Website; Zeilentitel und „Alle anzeigen“-Links sind angeglichen.
+- Symbol und Seite von Movviz AI folgen dem Stil der Website, und der aktive Tab der unteren Leiste wird zur violetten Pille.
+- Anmeldung neu gestaltet: echte Symbole, größere Texte, auf Tablets und aufgeklapptem Z Fold zentrierte Karte.
+
 ## v1.28.52 — 5. November 2026
 
 ### Verwaltung

@@ -88,7 +88,7 @@ fun MovvizSegmentedControl(
                     .then(
                         // Refonte premium : segment actif blanc, comme les
                         // autres puces actives de l'app.
-                        if (active) Modifier.background(Color.White)
+                        if (active) Modifier.background(com.movviz.nx.mobile.ui.theme.MovvizBrand)
                         else Modifier,
                     )
                     .tvPointerClick { onSelect(index) },
@@ -96,7 +96,7 @@ fun MovvizSegmentedControl(
             ) {
                 Text(
                     text = label,
-                    color = if (active) Color.Black else MovvizInkSoft,
+                    color = if (active) Color.White else MovvizInkSoft,
                     fontSize = 14.sp,
                     fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                     maxLines = 1,
@@ -121,14 +121,14 @@ fun MovvizSectionHeader(
     ) {
         Text(
             text = title,
-            style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
             modifier = Modifier.weight(1f),
         )
         if (onSeeAll != null) {
             Text(
-                text = "Tout voir",
-                color = MovvizInkSoft,
-                fontSize = 13.sp,
+                text = "Tout voir ›",
+                color = com.movviz.nx.mobile.ui.theme.MovvizBrandGlow,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.tvPointerClick(onSeeAll).padding(vertical = 4.dp, horizontal = 4.dp),
             )
@@ -222,7 +222,7 @@ fun MovvizProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     trackColor: Color = Color.White.copy(alpha = 0.12f),
-    brush: Brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+    brush: Brush = Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors),
 ) {
     Box(
         modifier = modifier
@@ -285,24 +285,32 @@ private fun MovvizPlatformTile(
     // icônes carrées en couleur avec leur propre fond intégré (rouge
     // Netflix, bleu Prime Video…) — un fond blanc supplémentaire ne fait
     // qu'ajouter un cadre inutile autour de l'icône.
-    val shape = RoundedCornerShape(16.dp)
+    // Tuile verre sombre du desktop (.nx-provider-tile) : dégradé 150° de
+    // rgba(24,29,49,.82) à rgba(9,13,27,.9), filet blanc à 11 %, mot-symbole du site dessus.
+    val shape = RoundedCornerShape(14.dp)
     Box(
         modifier = Modifier
             .size(size)
             .clip(shape)
-            .border(1.5.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder, shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFF181D31).copy(alpha = .82f), Color(0xFF090D1B).copy(alpha = .90f)),
+                ),
+                shape,
+            )
+            .border(1.dp, Color.White.copy(alpha = .11f), shape)
             .tvPointerClick(onClick),
         contentAlignment = Alignment.Center,
     ) {
-        val brandAsset = com.movviz.nx.mobile.ui.theme.providerBrandAsset(tile.id)
+        val brandAsset = com.movviz.nx.mobile.ui.theme.providerWordmarkAsset(tile.id)
         if (brandAsset != null) {
-            // Icône carrée embarquée (fond de marque plein cadre, emblème
-            // officiel centré) : jamais d'initiales pour une plateforme connue.
+            // Mot-symbole du site (SVG transparent) sur la tuile verre : jamais
+            // d'initiales pour une plateforme connue.
             coil.compose.SubcomposeAsyncImage(
                 model = brandAsset,
                 contentDescription = tile.name,
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().padding(10.dp),
                 loading = { PlatformTileFallback(tile.name) },
                 error = { PlatformTileFallback(tile.name) },
             )

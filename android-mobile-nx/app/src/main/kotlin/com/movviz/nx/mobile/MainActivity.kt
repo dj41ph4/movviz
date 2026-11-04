@@ -155,10 +155,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Barres système teintées page (#0F142F = MovvizPage) : jamais de
+        // Barres système teintées page (#0B0C10 = MovvizPage) : jamais de
         // bandeau noir sous le contenu, y compris hors immersif (login…).
         window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.parseColor("#0F142F")
+        window.navigationBarColor = android.graphics.Color.parseColor("#0B0C10")
         pendingDeepLink = intent
         setContent {
             MovvizTvTheme {
@@ -921,8 +921,8 @@ private fun PortraitBottomNav(
             // filet blanc discret. L'onglet actif n'est plus une pilule dégradée
             // (lourde, cassait la lecture du dock) mais une icône violette
             // soulignée, comme sur le web.
-            .background(MovvizSurfaceStrong.copy(alpha = .90f), RoundedCornerShape(24.dp))
-            .border(1.dp, Color.White.copy(alpha = .07f), RoundedCornerShape(24.dp))
+            .background(Color(0xFF101116).copy(alpha = .96f), RoundedCornerShape(24.dp))
+            .border(1.dp, Color.White.copy(alpha = .08f), RoundedCornerShape(24.dp))
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -934,6 +934,18 @@ private fun PortraitBottomNav(
                 modifier = Modifier
                     .weight(item.weight)
                     .height(60.dp)
+                    // Onglet actif du desktop (.nx-sidebar a[aria-current]) : pilule
+                    // dégradée violet 32 % → 5 % avec filet intérieur lilas.
+                    .then(
+                        if (active) {
+                            Modifier
+                                .background(
+                                    Brush.horizontalGradient(listOf(Color(0xFF7C5CFF).copy(alpha = .32f), Color(0xFF7C5CFF).copy(alpha = .05f))),
+                                    RoundedCornerShape(16.dp),
+                                )
+                                .border(1.dp, Color(0xFFAA96FF).copy(alpha = .24f), RoundedCornerShape(16.dp))
+                        } else Modifier,
+                    )
                     .tvPointerClick { onSelect(item.tab) },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
@@ -952,7 +964,7 @@ private fun PortraitBottomNav(
                         item.icon,
                         contentDescription = null,
                         modifier = Modifier.size(22.dp),
-                        tint = if (active) Color(0xFFC9A6FF) else Color(0xFFAEB4D6),
+                        tint = if (active) Color(0xFFC4B6FF) else Color(0xFFAAA7BD),
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(
@@ -961,7 +973,7 @@ private fun PortraitBottomNav(
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = if (active) Color.White else Color(0xFFAEB4D6),
+                        color = if (active) Color.White else Color(0xFFAAA7BD),
                     )
                     Spacer(Modifier.height(4.dp))
                     Box(
@@ -969,11 +981,7 @@ private fun PortraitBottomNav(
                             .width(18.dp)
                             .height(3.dp)
                             .background(
-                                if (active) {
-                                    Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))
-                                } else {
-                                    Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
-                                },
+                                Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)),
                                 RoundedCornerShape(2.dp),
                             ),
                     )

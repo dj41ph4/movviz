@@ -213,8 +213,8 @@ private val MovvizTypography = Typography(
     ),
     // Row heading — large white bold, Netflix-style category label
     titleLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.2).sp,
+        fontFamily = MovvizFonts, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.sp,
     ),
     // Card title
     titleMedium = TextStyle(

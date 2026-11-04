@@ -215,7 +215,7 @@ fun AvatarImage(
         )
     } else {
         Box(
-            modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
+            modifier.clip(shape).background(Brush.linearGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors)),
             contentAlignment = Alignment.Center,
         ) {
             Text(

@@ -190,7 +190,7 @@ fun ProfileScreen(
             )
         }
         if (profileData.continueWatching.isEmpty() && profileData.watchHistory.isEmpty() && profileData.ratings.isEmpty() && profileData.watchlist.isEmpty()) item {
-            Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 16.sp)
+            Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFAAA7BD), fontSize = 16.sp)
         }
         var entryAssigned = false
         profileRail("Continuer à regarder", profileData.continueWatching, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode, isResumeRail = true, heroLogos = heroLogos)
@@ -256,7 +256,7 @@ private fun WatchResetDialogFrame(onDismiss: () -> Unit, content: @Composable Co
             modifier = Modifier
                 .fillMaxWidth()
                 .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, RoundedCornerShape(20.dp))
-                .border(1.dp, Color(0xFFE87C7C).copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                .border(1.dp, Color(0xFFFF5B78).copy(alpha = 0.35f), RoundedCornerShape(20.dp))
                 .padding(20.dp),
             content = content,
         )
@@ -290,7 +290,7 @@ private fun WatchResetFirstDialog(onCancel: () -> Unit, onContinue: () -> Unit) 
         Text("Effacer la lecture ?", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text(
             "Le profil redevient vierge : titres vus, reprises, historique, liste, notes et goûts IA seront supprimés, dans Movviz et dans Plex pour ce compte. Le profil lui-même (nom, photo, mot de passe, réglages) reste. Les autres profils ne sont pas touchés.",
-            color = Color(0xFFD1D1D1), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp),
+            color = Color(0xFFB7B5BF), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 20.dp)) {
             WatchResetButton("Annuler", danger = false, modifier = Modifier.weight(1f), onClick = onCancel)
@@ -305,10 +305,10 @@ private fun WatchResetFinalDialog(busy: Boolean, onCancel: () -> Unit, onConfirm
     var typed by remember { mutableStateOf("") }
     val ready = typed.trim().uppercase() == WATCH_RESET_WORD
     WatchResetDialogFrame(onDismiss = onCancel) {
-        Text("Dernier avertissement", color = Color(0xFFE87C7C), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text("Dernier avertissement", color = Color(0xFFFF5B78), fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text(
             "C'est définitif, rien ne pourra être récupéré. Tape $WATCH_RESET_WORD pour confirmer.",
-            color = Color(0xFFD1D1D1), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp),
+            color = Color(0xFFB7B5BF), fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp),
         )
         Box(
             modifier = Modifier
@@ -354,8 +354,8 @@ private fun ProfileSettingsRow(
     onClick: (() -> Unit)?,
     danger: Boolean = false,
 ) {
-    val contentColor = if (danger) Color(0xFFE87C7C) else Color.White
-    val hintColor = if (danger) Color(0xFFE87C7C).copy(alpha = 0.75f) else Color(0xFFA7A7A7)
+    val contentColor = if (danger) Color(0xFFFF5B78) else Color.White
+    val hintColor = if (danger) Color(0xFFFF5B78).copy(alpha = 0.75f) else Color(0xFFAAA7BD)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -385,13 +385,13 @@ private fun ProfileSettingsRow(
 @Composable private fun ProfileErrorDashboard(onRetry: () -> Unit) {
     Column {
         Text("Mon espace", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Text("Impossible de charger votre activité pour le moment.", color = Color(0xFFA7A7A7), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
+        Text("Impossible de charger votre activité pour le moment.", color = Color(0xFFAAA7BD), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
         // Bouton gris au repos (règle Movviz : le blanc est réservé au focus).
         androidx.compose.foundation.layout.Box(
             modifier = Modifier
                 .padding(top = 18.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF2A2A31))
+                .background(Color(0xFF1B1E27))
                 .hapticClickable(onClick = onRetry)
                 .padding(horizontal = 22.dp, vertical = 12.dp),
         ) {
@@ -403,7 +403,7 @@ private fun ProfileSettingsRow(
 @Composable private fun ProfileLoadingDashboard() {
     Column {
         Text("Mon espace", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Text("Chargement de votre activité…", color = Color(0xFFA7A7A7), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
+        Text("Chargement de votre activité…", color = Color(0xFFAAA7BD), fontSize = 16.sp, modifier = Modifier.padding(top = 7.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ProfileMetric("…", 0, Modifier.weight(1f), loading = true)
@@ -487,7 +487,7 @@ private fun ProfileSettingsRow(
             )
             Text(
                 text = if (isAdmin) "Compte admin" else "Compte utilisateur",
-                color = Color(0xFFA7A7A7),
+                color = Color(0xFFAAA7BD),
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 2.dp),
             )
@@ -499,7 +499,7 @@ private fun ProfileSettingsRow(
             Icon(
                 imageVector = MovvizIconSettings,
                 contentDescription = "Paramètres",
-                tint = Color(0xFFA7A7A7),
+                tint = Color(0xFFAAA7BD),
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -526,7 +526,7 @@ private fun ProfileSettingsRow(
             .padding(horizontal = 17.dp, vertical = 13.dp),
     ) {
         Text(if (loading) "—" else value.toString(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = Color(0xFFA7A7A7), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+        Text(label, color = Color(0xFFAAA7BD), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
@@ -549,12 +549,12 @@ internal fun LazyListScope.profileRail(
     item {
         Column(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 14.dp)) {
-                Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(title, color = Color(0xFFF5F2EB), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 if (onSeeAll != null) {
                     Text(
-                        "Tout voir",
-                        color = Color(0xFFA7A7A7),
-                        fontSize = 13.sp,
+                        "Tout voir ›",
+                        color = com.movviz.nx.mobile.ui.theme.MovvizBrandGlow,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 8.dp).hapticClickable(onClick = onSeeAll),
                     )
@@ -650,7 +650,7 @@ internal fun LazyListScope.profileRail(
                 val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" }
                     ?: card.userRating?.let { "★ ${if (it % 1.0 == 0.0) it.toInt() else it} / 5" }
                     ?: card.subtitle
-                if (detail != null) Text(detail, color = Color(0xFFD1D1D1), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                if (detail != null) Text(detail, color = Color(0xFFB7B5BF), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                 card.progress?.let { progress ->
                     Box(Modifier.fillMaxWidth().height(4.dp).padding(top = 9.dp).background(Color.White.copy(alpha = 0.35f), RoundedCornerShape(2.dp))) {
                         Box(Modifier.fillMaxWidth(progress.ratio.toFloat().coerceIn(0f, 1f)).height(4.dp).background(Color(0xFFE84AD9), RoundedCornerShape(2.dp)))

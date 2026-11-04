@@ -1,3 +1,13 @@
+## v1.28.53 — 5 november 2026
+
+### Android
+
+- De mobiele app gebruikt nu de kleuren van de site: neutrale zwarte achtergrond, zachter paars, crèmekleurige teksten, discrete randen.
+- Actieve selecties (Films/Series, filters, chips) zijn nu effen paars en actieknoppen lichtlila, zoals op de site.
+- De platformtegels zijn donker glas met het logo van de site; rijtitels en „Alles tonen”-links zijn gelijkgetrokken.
+- Het pictogram en de pagina van Movviz AI volgen de stijl van de site, en het actieve tabblad van de onderbalk wordt een paarse pil.
+- Inloggen opnieuw opgezet: echte pictogrammen, grotere teksten, gecentreerde kaart op tablets en een uitgeklapte Z Fold.
+
 ## v1.28.52 — 5 november 2026
 
 ### Beheer

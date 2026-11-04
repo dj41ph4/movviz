@@ -359,7 +359,7 @@ private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
                             .size(14.dp)
-                            .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape),
+                            .background(Brush.linearGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(8.dp))
@@ -655,7 +655,7 @@ private fun SearchTypePill(label: String, active: Boolean, onClick: () -> Unit) 
         Box(
             modifier = Modifier.then(
                 // Refonte premium : puce active blanche, comme les saisons.
-                if (active) Modifier.background(Color.White, shape)
+                if (active) Modifier.background(com.movviz.nx.mobile.ui.theme.MovvizBrand, shape)
                 else Modifier.background(Color.White.copy(alpha = 0.07f), shape),
             ),
         ) {
@@ -663,7 +663,7 @@ private fun SearchTypePill(label: String, active: Boolean, onClick: () -> Unit) 
                 text = label,
                 fontSize = 13.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (active) Color.Black else Color.White,
+                color = if (active) Color.White else Color.White,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             )
         }

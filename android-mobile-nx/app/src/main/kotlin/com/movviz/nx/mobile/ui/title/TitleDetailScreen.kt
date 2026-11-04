@@ -898,12 +898,12 @@ fun TitleDetailScreen(
                     Icon(
                         imageVector = MovvizIconStar,
                         contentDescription = null,
-                        tint = Color(0xFFF5C144),
+                        tint = Color(0xFFFFB84B),
                         modifier = Modifier.size(14.dp),
                     )
                     Text(
                         text = "%.1f".format(d.rating),
-                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C144)),
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFB84B)),
                     )
                     MetaSep()
                 }
@@ -1003,7 +1003,7 @@ fun TitleDetailScreen(
                         } else if (!inLibrary) {
                             PrimaryPill(
                                 text = if (addingToLibrary) "Ajout…" else "Ajouter à la bibliothèque",
-                                brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                                brush = com.movviz.nx.mobile.ui.theme.MovvizBrandSolid,
                                 solidWhite = false,
                                 enabled = !addingToLibrary && !bleachRepairRequired,
                                 icon = if (addingToLibrary) null else MovvizIconPlus,
@@ -1090,7 +1090,7 @@ fun TitleDetailScreen(
                                 modifier = Modifier
                                     .fillMaxWidth(fraction = (resume.progressPercent / 100f).coerceIn(0f, 1f))
                                     .fillMaxHeight()
-                                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                                    .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), RoundedCornerShape(2.dp)),
                             )
                         }
                     }
@@ -1115,7 +1115,7 @@ fun TitleDetailScreen(
                 Row {
                     PrimaryPill(
                         text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
-                        brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                        brush = com.movviz.nx.mobile.ui.theme.MovvizBrandSolid,
                         solidWhite = false,
                         enabled = !addingToLibrary && !bleachRepairRequired,
                     ) {
@@ -1412,10 +1412,10 @@ private fun SeasonSelector(
                         shape = ClickableSurfaceDefaults.shape(chipShape),
                         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
                         colors = ClickableSurfaceDefaults.colors(
-                            containerColor = if (selected) Color.White else Color.White.copy(alpha = 0.08f),
-                            focusedContainerColor = if (selected) Color.White else Color.White.copy(alpha = 0.16f),
-                            contentColor = if (selected) Color.Black else MovvizInk,
-                            focusedContentColor = if (selected) Color.Black else MovvizInk,
+                            containerColor = if (selected) com.movviz.nx.mobile.ui.theme.MovvizBrand else Color.White.copy(alpha = 0.08f),
+                            focusedContainerColor = if (selected) com.movviz.nx.mobile.ui.theme.MovvizBrand else Color.White.copy(alpha = 0.16f),
+                            contentColor = if (selected) Color.White else MovvizInk,
+                            focusedContentColor = if (selected) Color.White else MovvizInk,
                         ),
                     ) {
                         Row(
@@ -1430,7 +1430,7 @@ private fun SeasonSelector(
                             Text(
                                 text = "  ·  ${season.episodes.size} ép.",
                                 style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                                color = if (selected) Color.Black.copy(alpha = 0.6f) else MovvizInkSoft,
+                                color = if (selected) Color.White.copy(alpha = 0.75f) else MovvizInkSoft,
                                 maxLines = 1,
                             )
                         }
@@ -1449,7 +1449,7 @@ private fun SeasonSelector(
                         .tvPointerClick { onSelect(BleachPresentation.seasonKey(season)) },
                     shape = ClickableSurfaceDefaults.shape(shape),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (selected) Color(0xFF29272F) else MovvizSurfaceStrong.copy(alpha = 0.94f),
+                        containerColor = if (selected) Color(0xFF1B1E27) else MovvizSurfaceStrong.copy(alpha = 0.94f),
                         contentColor = MovvizInk,
                     ),
                     border = ClickableSurfaceDefaults.border(
@@ -1654,8 +1654,8 @@ private fun EpisodeCard(
             // Les vignettes d'épisodes ne doivent jamais laisser le
             // backdrop clair traverser sous un titre blanc : surface opaque
             // au repos, puis simplement un cran plus clair au focus.
-            containerColor = Color(0xFF16161A),
-            focusedContainerColor = Color(0xFF24232A),
+            containerColor = Color(0xFF13151B),
+            focusedContainerColor = Color(0xFF1B1E27),
             contentColor = MovvizInk,
             focusedContentColor = MovvizInk,
         ),
@@ -1689,7 +1689,7 @@ private fun EpisodeCard(
             } else {
                 // Gabarit invariant : TMDb n'a pas toujours une capture, mais
                 // le titre ne doit jamais se décaler d'une ligne à l'autre.
-                Box(modifier = stillModifier.background(Color(0xFF29272F)), contentAlignment = Alignment.Center) {
+                Box(modifier = stillModifier.background(Color(0xFF1B1E27)), contentAlignment = Alignment.Center) {
                     Text(text = "ÉP. ${episode.displayEpisodeNumber ?: episode.episodeNumber}", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
                 }
             }
@@ -1754,7 +1754,7 @@ private fun EpisodeCard(
                                 modifier = Modifier
                                     .fillMaxWidth(fraction = queueItem.download.progress.coerceIn(0.0, 1.0).toFloat())
                                     .fillMaxHeight()
-                                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                                    .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), RoundedCornerShape(2.dp)),
                             )
                         }
                     }
@@ -1818,8 +1818,8 @@ private fun EpisodeCardPortrait(
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color(0xFF16161A),
-            focusedContainerColor = Color(0xFF24232A),
+            containerColor = Color(0xFF13151B),
+            focusedContainerColor = Color(0xFF1B1E27),
             contentColor = MovvizInk,
             focusedContentColor = MovvizInk,
         ),
@@ -1827,7 +1827,7 @@ private fun EpisodeCardPortrait(
         Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.width(128.dp).height(72.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF29272F)),
+                    modifier = Modifier.width(128.dp).height(72.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B1E27)),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (metadata?.stillPath != null) {
@@ -1910,7 +1910,7 @@ private fun EpisodeCardPortrait(
                     )
                     Spacer(modifier = Modifier.height(5.dp))
                     Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp))) {
-                        Box(modifier = Modifier.fillMaxWidth(fraction = progress.toFloat()).fillMaxHeight().background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)))
+                        Box(modifier = Modifier.fillMaxWidth(fraction = progress.toFloat()).fillMaxHeight().background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), RoundedCornerShape(2.dp)))
                     }
                 }
             }
@@ -2219,8 +2219,8 @@ private fun PrimaryPill(
             .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else MovvizInk.copy(alpha = 0.1f),
-            contentColor = if (solidWhite) Color.Black else MovvizInk,
+            containerColor = if (brush != null) Color.Transparent else if (solidWhite) com.movviz.nx.mobile.ui.theme.MovvizPrimaryFill else MovvizInk.copy(alpha = 0.1f),
+            contentColor = if (solidWhite) com.movviz.nx.mobile.ui.theme.MovvizOnPrimaryFill else MovvizInk,
         ),
         // Bordure de focus blanche invisible sur le variant "Lire" (fond
         // déjà blanc plein) — corrigé : bordure en dégradé de marque sur ce
@@ -2229,7 +2229,7 @@ private fun PrimaryPill(
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
                 border = if (solidWhite) {
-                    androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)))
+                    androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors))
                 } else {
                     androidx.compose.foundation.BorderStroke(2.dp, Color.White)
                 },
@@ -2262,7 +2262,7 @@ private fun PrimaryPill(
                     .align(Alignment.BottomStart)
                     .fillMaxWidth(progress)
                     .height(3.dp)
-                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                    .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors)),
             )
         }
         }
@@ -2386,7 +2386,7 @@ private fun DownloadProgressPill(
                         modifier = Modifier
                             .fillMaxWidth(fraction = progress.coerceIn(0.0, 1.0).toFloat())
                             .fillMaxHeight()
-                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                            .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), RoundedCornerShape(2.dp)),
                     )
                 }
             }
@@ -2478,7 +2478,7 @@ private fun DownloadAction(
         )
         else -> PrimaryPill(
             text = label,
-            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+            brush = com.movviz.nx.mobile.ui.theme.MovvizBrandSolid,
             solidWhite = false,
             icon = MovvizIconDownload,
             focusRequester = focusRequester,

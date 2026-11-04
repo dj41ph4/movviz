@@ -405,7 +405,7 @@ private fun ProgressBar(fraction: Float) {
             modifier = Modifier
                 .fillMaxWidth(fraction.coerceIn(0f, 1f))
                 .height(10.dp)
-                .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape),
+                .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), shape),
         )
     }
 }
@@ -433,7 +433,7 @@ private fun ActionButton(text: String, onClick: () -> Unit, focusRequester: Focu
         onClick = onClick,
         modifier = Modifier
             .tvFocusLift(focused, shape = shape)
-            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+            .background(com.movviz.nx.mobile.ui.theme.MovvizBrandSolid, shape)
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),

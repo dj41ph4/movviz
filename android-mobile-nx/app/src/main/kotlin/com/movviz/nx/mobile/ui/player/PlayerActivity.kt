@@ -2009,7 +2009,7 @@ private fun PlayerProgressBar(
                 val core = size.height
                 if (w > 0f) {
                     drawRoundRect(
-                        brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                        brush = Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors),
                         topLeft = Offset.Zero,
                         size = Size(w, core),
                         cornerRadius = CornerRadius(core / 2f),
@@ -2273,8 +2273,8 @@ private fun ControlButton(
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (primary || selected) Color.White else Color.White.copy(alpha = 0.12f),
-            contentColor = if (primary || selected) Color.Black else Color.White,
+            containerColor = if (primary) com.movviz.nx.mobile.ui.theme.MovvizPrimaryFill else if (selected) MovvizBrand else Color.White.copy(alpha = 0.12f),
+            contentColor = if (primary) com.movviz.nx.mobile.ui.theme.MovvizOnPrimaryFill else Color.White,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
@@ -2284,7 +2284,7 @@ private fun ControlButton(
         ),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            val tint = if (primary || selected) Color.Black else Color.White
+            val tint = if (primary) com.movviz.nx.mobile.ui.theme.MovvizOnPrimaryFill else Color.White
             if (icon != null) {
                 Icon(
                     imageVector = icon,

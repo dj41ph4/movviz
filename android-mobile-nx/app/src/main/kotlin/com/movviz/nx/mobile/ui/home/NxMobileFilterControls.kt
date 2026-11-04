@@ -86,7 +86,7 @@ fun MediaHubSegmentedPills(
                         .then(
                             // Refonte premium : segment actif blanc, comme les
                             // puces de saison et de recherche.
-                            if (isActive) Modifier.background(Color.White, RoundedCornerShape(26.dp))
+                            if (isActive) Modifier.background(com.movviz.nx.mobile.ui.theme.MovvizBrand, RoundedCornerShape(26.dp))
                             else Modifier,
                         ),
                     contentAlignment = Alignment.Center,
@@ -95,7 +95,7 @@ fun MediaHubSegmentedPills(
                         text = label,
                         fontSize = 13.sp,
                         fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                        color = if (isActive) Color.Black else Color.White,
+                        color = if (isActive) Color.White else Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

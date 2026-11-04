@@ -437,7 +437,7 @@ private fun ProfileMenuButton(
                     initialsFontSize = 13.sp,
                 )
             } else {
-                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().background(Brush.linearGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors)), contentAlignment = Alignment.Center) {
                     Text("?", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -489,7 +489,7 @@ private fun ProfileMenuButton(
                     Column(Modifier.padding(10.dp)) {
                         // En-tête : profil actif (avatar + nom).
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
-                            Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors)), contentAlignment = Alignment.Center) {
                                 if (active != null) {
                                     com.movviz.nx.mobile.ui.profile.AvatarImage(
                                         profile = active,

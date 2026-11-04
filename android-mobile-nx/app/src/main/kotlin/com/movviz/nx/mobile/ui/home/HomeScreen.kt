@@ -681,7 +681,7 @@ fun HomeScreen(
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text(
                                 text = "Plateformes",
-                                style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
                                 modifier = Modifier.padding(bottom = 12.dp),
                             )
                             // Icônes carrées (esquisse mobile section 8), pas les
@@ -988,7 +988,7 @@ private fun MovvizBootScreen(progress: Int, message: String, profileName: String
             ) {
                 Box(
                     modifier = Modifier.fillMaxHeight().fillMaxWidth((progress.coerceIn(0, 100) / 100f))
-                        .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(8.dp)),
+                        .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), RoundedCornerShape(8.dp)),
                 )
             }
             Spacer(Modifier.width(10.dp))
@@ -1362,10 +1362,10 @@ internal fun HeroCarousel(
                         Icon(
                             imageVector = MovvizIconStar,
                             contentDescription = null,
-                            tint = Color(0xFFF5C542),
+                            tint = Color(0xFFFFB84B),
                             modifier = Modifier.size(13.dp),
                         )
-                        Text(text = "%.1f".format(current.rating), style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
+                        Text(text = "%.1f".format(current.rating), style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFB84B)))
                     }
                     HeroMetaDot()
                 }
@@ -1414,10 +1414,10 @@ internal fun HeroCarousel(
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                         // Refonte premium : le blanc lance, le violet reste
                         // réservé à la marque et à la sélection.
-                        containerColor = Color.White,
-                        focusedContainerColor = Color.White,
-                        contentColor = com.movviz.nx.mobile.ui.theme.MovvizBackground,
-                        focusedContentColor = com.movviz.nx.mobile.ui.theme.MovvizBackground,
+                        containerColor = com.movviz.nx.mobile.ui.theme.MovvizPrimaryFill,
+                        focusedContainerColor = com.movviz.nx.mobile.ui.theme.MovvizPrimaryFill,
+                        contentColor = com.movviz.nx.mobile.ui.theme.MovvizOnPrimaryFill,
+                        focusedContentColor = com.movviz.nx.mobile.ui.theme.MovvizOnPrimaryFill,
                     ),
                     border = ClickableSurfaceDefaults.border(
                         focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(if (mobileStyle) 14.dp else 6.dp)),
@@ -2297,7 +2297,7 @@ internal fun PosterCard(
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 border = if (compactPortrait || rememberUnfoldedLandscape()) Border(
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, com.movviz.nx.mobile.ui.theme.MovvizElectricBorder),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, com.movviz.nx.mobile.ui.theme.MovvizPosterBorder),
                     shape = MovvizCardShape,
                 ) else Border.None,
                 focusedBorder = Border(
@@ -2369,7 +2369,7 @@ internal fun PosterCard(
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
                             .size(14.dp)
-                            .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape),
+                            .background(Brush.linearGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(imageVector = MovvizIconCheck, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(8.dp))
@@ -2485,7 +2485,7 @@ internal fun PosterCard(
                             modifier = Modifier
                                 .fillMaxWidth(fraction = (card.progressPercent / 100f).coerceIn(0f, 1f))
                                 .fillMaxHeight()
-                                .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                                .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors)),
                         )
                     }
                 }
@@ -2674,7 +2674,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth(fraction = item.download.progress.toFloat().coerceIn(0f, 1f))
                             .fillMaxHeight()
-                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(50)),
+                            .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), RoundedCornerShape(50)),
                     )
                 }
                 if (clickable) {

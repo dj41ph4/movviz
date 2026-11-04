@@ -1,3 +1,13 @@
+## v1.28.53 — 5 novembre 2026
+
+### Android
+
+- L’app mobile adotta i colori del sito: sfondo nero neutro, viola più morbido, testi color crema, bordi discreti.
+- Le selezioni attive (Film/Serie, filtri, chip) diventano viola pieno e i pulsanti d’azione lilla chiaro, come sul sito.
+- Le tessere delle piattaforme sono in vetro scuro con il logo del sito; titoli delle righe e link «Mostra tutto» sono allineati.
+- L’icona e la pagina di Movviz AI seguono lo stile del sito, e la scheda attiva della barra inferiore diventa una pillola viola.
+- Accesso rifatto: vere icone, testi più grandi, scheda centrata su tablet e Z Fold aperto.
+
 ## v1.28.52 — 5 novembre 2026
 
 ### Gestione

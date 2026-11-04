@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -104,37 +105,56 @@ fun ColumnScope.OnboardingTitles(title: String, subtitle: String) {
     Text(
         text = title,
         style = TextStyle(
-            fontSize = 21.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
             color = Color.White,
             textAlign = TextAlign.Center,
-            lineHeight = 27.sp,
+            lineHeight = 30.sp,
         ),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
     )
     Spacer(Modifier.height(8.dp))
     Text(
         text = subtitle,
-        style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.62f), textAlign = TextAlign.Center, lineHeight = 18.sp),
+        style = TextStyle(fontSize = 15.sp, color = Color.White.copy(alpha = 0.72f), textAlign = TextAlign.Center, lineHeight = 21.sp),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
     )
 }
 
-/** Carte sombre arrondie qui porte le formulaire. */
+/**
+ * Largeur à partir de laquelle le formulaire se pose dans une carte : tablette,
+ * Z Fold déplié, téléphone en paysage. En dessous (téléphone portrait, Z Fold
+ * replié) il occupe la page, sans cadre qui mange la largeur utile.
+ */
+const val OnboardingCardMinWidthDp = 600
+
+/** Carte sombre arrondie (grands écrans) ou page nue (téléphone étroit) qui porte le formulaire. */
 @Composable
 fun OnboardingCard(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .widthIn(max = 460.dp)
-            .clip(OnboardingCardShape)
-            .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong.copy(alpha = 0.92f))
-            .border(1.dp, Color.White.copy(alpha = 0.09f), OnboardingCardShape)
-            .padding(horizontal = 22.dp, vertical = 26.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        content = content,
-    )
+    val boxed = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= OnboardingCardMinWidthDp
+    if (boxed) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 460.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .clip(OnboardingCardShape)
+                .background(com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong.copy(alpha = 0.92f))
+                .border(1.dp, Color.White.copy(alpha = 0.09f), OnboardingCardShape)
+                .padding(horizontal = 22.dp, vertical = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
+    } else {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 460.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
+    }
 }
 
 /** Grand CTA dégradé violet avec chevron "›". */
@@ -150,7 +170,7 @@ fun OnboardingPrimaryButton(
         modifier = Modifier
             .fillMaxWidth()
             .clip(OnboardingCtaShape)
-            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), OnboardingCtaShape)
+            .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors), OnboardingCtaShape)
             .border(
                 if (focused) 2.dp else 0.dp,
                 Color.White.copy(alpha = if (focused) 0.9f else 0f),
@@ -160,24 +180,30 @@ fun OnboardingPrimaryButton(
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .hapticClickable(enabled = enabled, onClick = onClick)
             .tvPointerClick(onClick)
-            .padding(vertical = 15.dp),
+            .padding(vertical = 17.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = if (text.endsWith("›")) text else "$text   ›",
-            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
+            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White),
         )
     }
 }
 
-/** Séparateur "— ou —". */
+/** Séparateur "— ou —" : deux filets autour du libellé. */
 @Composable
 fun OnboardingOrDivider(label: String = "ou") {
-    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = Alignment.Center) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.12f)))
         Text(
             text = label,
-            style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.4f)),
+            style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.55f)),
+            modifier = Modifier.padding(horizontal = 14.dp),
         )
+        Box(Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.12f)))
     }
 }
 
@@ -187,7 +213,7 @@ fun OnboardingError(message: String?) {
         Spacer(Modifier.height(12.dp))
         Text(
             text = message,
-            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFE87C7C), textAlign = TextAlign.Center),
+            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFFF5B78), textAlign = TextAlign.Center),
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -198,7 +224,7 @@ fun OnboardingFootnote(text: String) {
     Spacer(Modifier.height(14.dp))
     Text(
         text = text,
-        style = TextStyle(fontSize = 11.sp, color = MovvizInkDim, textAlign = TextAlign.Center),
+        style = TextStyle(fontSize = 13.sp, color = MovvizInkDim, textAlign = TextAlign.Center),
         modifier = Modifier.fillMaxWidth(),
     )
 }

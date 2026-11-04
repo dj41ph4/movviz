@@ -94,7 +94,7 @@ fun rememberNarrowContent(): Boolean =
 internal fun unfoldedRailWidth(windowClass: MovvizWindowClass, tablet: Boolean = false) =
     if (tablet) 128.dp else if (windowClass.isLargeTouch) 100.dp else 76.dp
 
-private val UnfoldedInactive = Color(0xFFB7BCDC)
+private val UnfoldedInactive = Color(0xFFB7B5BF)
 
 private data class RailItem(val tab: HomeTab?, val label: String, val icon: ImageVector)
 

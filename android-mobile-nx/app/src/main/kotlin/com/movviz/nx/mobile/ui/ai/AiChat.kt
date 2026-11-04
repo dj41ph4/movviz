@@ -163,13 +163,14 @@ fun AiChatLauncher(
                     .navigationBarsPadding()
                     .padding(end = 16.dp, bottom = buttonBottomPadding)
                     .size(56.dp)
-                    .shadow(12.dp, CircleShape, clip = false)
-                    .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape)
+                    // Bouton verre sombre du desktop : surface-2 à 80 %, filet lilas, icône lilas.
+                    .background(Color(0xFF1B1E27).copy(alpha = .8f), CircleShape)
+                    .border(1.dp, Color(0xFFA77BFF).copy(alpha = .51f), CircleShape)
                     .clip(CircleShape)
                     .hapticClickable { open = true; viewModel.refreshAiSession() },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(MovvizIconSparkle, contentDescription = "Assistant Movviz", tint = Color.White, modifier = Modifier.size(26.dp))
+                Icon(MovvizIconSparkle, contentDescription = "Assistant Movviz", tint = MovvizBrandGlow, modifier = Modifier.size(26.dp))
             }
         }
     }
@@ -310,7 +311,7 @@ private fun AiChatScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    Modifier.size(36.dp).background(MovvizBrand.copy(alpha = .18f), RoundedCornerShape(12.dp)),
+                    Modifier.size(36.dp).background(Color(0xFF7A5CFF).copy(alpha = .15f), RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center,
                 ) { Icon(MovvizIconSparkle, contentDescription = null, tint = MovvizBrandGlow, modifier = Modifier.size(20.dp)) }
                 Spacer(Modifier.width(10.dp))
@@ -402,7 +403,7 @@ private fun AiChatScreen(
                 if (busy) {
                     item {
                         Box(
-                            Modifier.background(MovvizSurfaceStrong, RoundedCornerShape(18.dp, 18.dp, 18.dp, 6.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+                            Modifier.background(Color(0xFF12131F).copy(alpha = .62f), RoundedCornerShape(24.dp, 24.dp, 24.dp, 6.dp)).border(1.dp, MovvizBrandGlow.copy(alpha = .38f), RoundedCornerShape(24.dp, 24.dp, 24.dp, 6.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
                         ) { Text("Je réfléchis…", color = MovvizInkSoft, fontSize = 14.sp) }
                     }
                 }
@@ -417,8 +418,8 @@ private fun AiChatScreen(
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 48.dp)
-                        .border(1.dp, MovvizInk.copy(alpha = .18f), RoundedCornerShape(24.dp))
-                        .background(MovvizSurface, RoundedCornerShape(24.dp))
+                        .border(1.dp, Color(0xFFD3C7F1).copy(alpha = .18f), RoundedCornerShape(24.dp))
+                        .background(Color(0xFF0C101B), RoundedCornerShape(24.dp))
                         .padding(horizontal = 18.dp, vertical = 13.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
@@ -452,11 +453,12 @@ private fun AiChatScreen(
                     modifier = Modifier
                         .size(48.dp)
                         .alpha(if (canSend) 1f else .4f)
-                        .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), CircleShape)
+                        .background(Color(0xFF1B1E27).copy(alpha = .8f), CircleShape)
+                        .border(1.dp, Color(0xFFA77BFF).copy(alpha = .84f), CircleShape)
                         .clip(CircleShape)
                         .hapticClickable(enabled = canSend) { send(input) },
                     contentAlignment = Alignment.Center,
-                ) { Icon(MovvizIconSend, contentDescription = "Envoyer", tint = Color.White, modifier = Modifier.size(22.dp)) }
+                ) { Icon(MovvizIconSend, contentDescription = "Envoyer", tint = MovvizBrandGlow, modifier = Modifier.size(22.dp)) }
             }
         }
     }
@@ -520,7 +522,7 @@ private fun AssistantBubble(
             Box(
                 Modifier
                     .widthIn(max = 520.dp)
-                    .background(MovvizSurfaceStrong, RoundedCornerShape(18.dp, 18.dp, 18.dp, 6.dp))
+                    .background(Color(0xFF12131F).copy(alpha = .62f), RoundedCornerShape(24.dp, 24.dp, 24.dp, 6.dp)).border(1.dp, MovvizBrandGlow.copy(alpha = .38f), RoundedCornerShape(24.dp, 24.dp, 24.dp, 6.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             ) { AiFormattedText(message.content, message.linkedTitles.orEmpty(), onOpenTitle) }
         }

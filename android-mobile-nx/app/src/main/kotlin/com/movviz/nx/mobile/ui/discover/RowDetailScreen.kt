@@ -283,14 +283,14 @@ fun RowDetailScreen(
                         ),
                         border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                             border = androidx.tv.material3.Border(
-                                border = androidx.compose.foundation.BorderStroke(1.5.dp, MovvizElectricBorder),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, com.movviz.nx.mobile.ui.theme.MovvizPosterBorder),
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
                             ),
                         ),
                     ) {
                         Box(
                             Modifier.fillMaxSize()
-                                .then(if (providerSort == value) Modifier.background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) else Modifier)
+                                .then(if (providerSort == value) Modifier.background(com.movviz.nx.mobile.ui.theme.MovvizBrandSolid, androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) else Modifier)
                                 .padding(horizontal = 14.dp),
                             contentAlignment = Alignment.Center,
                         ) {

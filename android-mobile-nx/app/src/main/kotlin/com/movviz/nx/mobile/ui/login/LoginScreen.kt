@@ -12,6 +12,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.tv.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -121,7 +126,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     value = username,
                     onValueChange = { username = it; error = null },
                     placeholder = "Nom d'utilisateur",
-                    leading = "👤",
+                    leading = Icons.Filled.Person,
                     nextFocus = passwordFocus,
                     focusRequester = usernameFocus,
                 )
@@ -130,9 +135,9 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     value = password,
                     onValueChange = { password = it; error = null },
                     placeholder = "Mot de passe",
-                    leading = "🔒",
+                    leading = Icons.Filled.Lock,
                     isPassword = !passwordVisible,
-                    trailing = if (passwordVisible) "👁" else "👁‍🗨",
+                    trailing = if (passwordVisible) "Masquer" else "Afficher",
                     onTrailingClick = { passwordVisible = !passwordVisible },
                     nextFocus = loginButtonFocus,
                     focusRequester = passwordFocus,
@@ -228,12 +233,12 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = "Changer de serveur",
-                        style = TextStyle(fontSize = 11.sp, color = MovvizInkDim, textAlign = TextAlign.Center),
+                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk.copy(alpha = 0.75f), textAlign = TextAlign.Center),
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .hapticClickable(onClick = onChangeServer)
                             .tvPointerClick(onChangeServer)
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
                     )
                 }
             }
@@ -258,12 +263,12 @@ private fun PlexButton(busy: Boolean, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .hapticClickable(onClick = onClick)
             .tvPointerClick(onClick)
-            .padding(vertical = 14.dp),
+            .padding(vertical = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = if (busy) "Connexion à Plex…" else "❯   Se connecter avec Plex",
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizAmber, textAlign = TextAlign.Center),
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizAmber, textAlign = TextAlign.Center),
         )
     }
 }
@@ -273,7 +278,7 @@ private fun LoginField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    leading: String,
+    leading: ImageVector,
     isPassword: Boolean = false,
     trailing: String? = null,
     onTrailingClick: (() -> Unit)? = null,
@@ -293,25 +298,25 @@ private fun LoginField(
                 shape = OnboardingFieldShape,
             )
             .onFocusChanged { focused = it.isFocused }
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = leading, style = TextStyle(fontSize = 14.sp), modifier = Modifier.padding(end = 10.dp))
+        Icon(imageVector = leading, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.padding(end = 12.dp).size(20.dp))
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (value.isEmpty()) {
-                Text(text = placeholder, style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.38f)))
+                Text(text = placeholder, style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.45f)))
             }
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
-                textStyle = TextStyle(fontSize = 14.sp, color = MovvizInk),
+                textStyle = TextStyle(fontSize = 16.sp, color = MovvizInk),
                 singleLine = true,
                 visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Text,
-                    imeAction = ImeAction.Done,
+                    imeAction = if (isPassword || trailing != null) ImeAction.Done else ImeAction.Next,
                 ),
-                keyboardActions = KeyboardActions(onDone = {
+                keyboardActions = KeyboardActions(onNext = { nextFocus.requestFocus() }, onDone = {
                     nextFocus.requestFocus()
                     keyboardController?.hide()
                 }),
@@ -330,13 +335,13 @@ private fun LoginField(
         if (trailing != null) {
             Text(
                 text = trailing,
-                style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f)),
+                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f)),
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .hapticClickable(onClick = { onTrailingClick?.invoke() })
                     .tvPointerClick { onTrailingClick?.invoke() }
-                    .padding(4.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }
     }

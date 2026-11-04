@@ -262,7 +262,7 @@ fun ProviderHubScreen(
                     onClick = { scope.launch { loadRows() } },
                     modifier = Modifier.tvPointerClick { scope.launch { loadRows() } },
                     shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
-                    colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0xFF2A2A31), contentColor = Color.White),
+                    colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1B1E27), contentColor = Color.White),
                 ) {
                     Text("Impossible de charger $providerName — Réessayer", modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp))
                 }

@@ -1,3 +1,13 @@
+## v1.28.53 — 5 November 2026
+
+### Android
+
+- The mobile app now uses the site's colors: neutral black background, softer violet, cream text, discreet borders.
+- Active selections (Movies/Series, filters, chips) are solid violet and action buttons pale lilac, as on the site.
+- Platform tiles are dark glass with the site's logo; row titles and “See all” links are aligned.
+- The Movviz AI icon and page follow the site's style, and the active tab of the bottom bar becomes a violet pill.
+- Sign-in redone: real icons, larger text, card centered on tablets and an unfolded Z Fold.
+
 ## v1.28.52 — 5 November 2026
 
 ### Management
