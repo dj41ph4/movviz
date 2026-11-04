@@ -88,8 +88,8 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun person(id: Int): ApiResult<PersonDto> =
         safeCall { api.person(id) }
 
-    suspend fun dashboardHero(): ApiResult<List<DashboardHeroSlideDto>> =
-        safeCall { api.dashboardHero(locale = "fr", rich = "1") }.map { it.slides }
+    suspend fun dashboardHero(rich: Boolean = true): ApiResult<List<DashboardHeroSlideDto>> =
+        safeCall { api.dashboardHero(locale = "fr", rich = if (rich) "1" else "0") }.map { it.slides }
 
     suspend fun dashboardLayout(): ApiResult<DashboardLayoutDto> =
         safeCall { api.dashboardLayout() }.map { it.layout }
@@ -97,6 +97,10 @@ class MovvizRepository(private val baseUrl: String) {
     /** Bibliothèque compacte commune aux clients TV et mobile. */
     suspend fun interfaceDashboard(): ApiResult<InterfaceDashboardDto> =
         safeCall { api.interfaceDashboard() }
+
+    /** Tête de bibliothèque : de quoi remplir les premières rangées avant le reste. */
+    suspend fun interfaceHomeHead(): ApiResult<InterfaceDashboardDto> =
+        safeCall { api.interfaceHomeHead() }
 
     suspend fun interfaceRecentEpisodes(cursor: Int? = null): ApiResult<InterfaceDashboardDto> =
         safeCall { api.interfaceRecentEpisodes(cursor) }

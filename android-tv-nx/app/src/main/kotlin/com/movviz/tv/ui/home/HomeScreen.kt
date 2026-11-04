@@ -829,7 +829,7 @@ fun HomeScreen(
                 .tvRememberedEntry(homeListRequester) { homeFocusMemory.destinationOrNull() }
                 .focusGroup(),
             state = listState,
-            userScrollEnabled = !heroHasFocus,
+            userScrollEnabled = !heroHasFocus && !homeFocusMemory.holdBringIntoView,
             // Le rail possède désormais sa propre colonne hors de cet écran.
             // Le hero peut donc occuper toute la largeur de la zone contenu,
             // sans marge à gauche ni recouvrement sous la navigation. Les

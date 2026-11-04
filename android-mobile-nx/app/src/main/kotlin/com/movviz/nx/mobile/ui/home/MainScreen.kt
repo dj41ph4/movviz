@@ -83,8 +83,8 @@ fun MainScreen(
     onUpdateClick: () -> Unit = {},
 ) {
     // Mode déplié / paysage large (maquette MOVVIZ NX déplié) : rail tactile
-    // persistant + panneau latéral sur l'accueil. Les autres branches gardent
-    // leurs écrans existants tels quels dans la colonne centrale.
+    // persistant. Les autres branches gardent leurs écrans existants tels
+    // quels dans la colonne centrale.
     if (rememberUnfoldedLandscape()) {
         val activeProfile by viewModel.activeProfile.collectAsState()
         val unfoldedUsername by viewModel.currentUser.collectAsState()
@@ -93,11 +93,7 @@ fun MainScreen(
         val railDownloadProgress = unfoldedQueue.takeIf { it.isNotEmpty() }
             ?.map { it.download.progress.toFloat().coerceIn(0f, 1f) }?.average()?.toFloat()
         val windowClass = com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass()
-        val panelAllowed = rememberUnfoldedWithPanel()
-        androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val railWidth = unfoldedRailWidth(windowClass, rememberTablet())
-        val panelWidth = unfoldedPanelWidth(maxWidth.value)
-        val showPanel = panelAllowed && maxWidth - railWidth - panelWidth >= 420.dp
         Row(modifier = Modifier.fillMaxSize()) {
             SlimRail(
                 selected = tab,
@@ -142,15 +138,6 @@ fun MainScreen(
                     )
                 }
             }
-            if (tab == HomeTab.HOME && !searchOpen && showPanel) {
-                UnfoldedRightPanel(
-                    viewModel = viewModel,
-                    onOpenTitle = onOpenTitle,
-                    onOpenDownloadsTab = { onSelectTab(HomeTab.DOWNLOADS) },
-                    modifier = Modifier.width(panelWidth),
-                )
-            }
-        }
         }
         return
     }

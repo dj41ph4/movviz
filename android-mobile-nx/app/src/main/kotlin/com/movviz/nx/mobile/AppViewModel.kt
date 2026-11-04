@@ -34,6 +34,7 @@ import com.movviz.nx.mobile.data.ProfileMediaResponseDto
 import com.movviz.nx.mobile.data.RecentEpisodeDto
 import com.movviz.nx.mobile.data.HomeLocalStore
 import com.movviz.nx.mobile.data.HomeSnapshot
+import com.movviz.nx.mobile.data.withLibraryHead
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -44,6 +45,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -72,16 +75,19 @@ data class HomeUiState(
     val bootMessage: String = "Préparation de ton cinéma…",
 )
 
-private data class HomeP0Results(
-    val library: ApiResult<com.movviz.nx.mobile.data.InterfaceDashboardDto>,
+/** Vague rapide du démarrage : seulement ce que les premières rangées affichent. */
+private data class HomeFastResults(
+    val head: ApiResult<com.movviz.nx.mobile.data.InterfaceDashboardDto>,
     val onDeck: ApiResult<List<OnDeckEntryDto>>,
     val layout: ApiResult<com.movviz.nx.mobile.data.DashboardLayoutDto>,
-    val hero: ApiResult<List<DashboardHeroSlideDto>>,
-)
+    val quickHero: ApiResult<List<DashboardHeroSlideDto>>?,
+) {
+    val unauthorized: Boolean get() = listOf(head, onDeck, layout, quickHero).any { it is ApiResult.Unauthorized }
+    val serverAnswered: Boolean get() = listOf(head, onDeck, layout, quickHero).any { it is ApiResult.Success }
+}
 
 private data class PendingHomeP1(
     val repository: MovvizRepository,
-    val snapshot: HomeSnapshot,
     val startedAt: Long,
 )
 
@@ -107,6 +113,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private var homeP1Job: Job? = null
     private var pendingHomeP1: PendingHomeP1? = null
     private var homeFirstFrameDrawn = false
+    private var homeLibraryLoaded = false
+    private val homeSnapshotWriteLock = Mutex()
     private var queuePollingJob: Job? = null
     /** La file a été démarrée pour cette session (profil actif). */
     private var queuePollingWanted = false
@@ -1497,23 +1505,31 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
 
     /**
      * Point d'entrée unique de l'accueil. Le dernier état local est publié
-     * avant le réseau, puis P0 et P1 remplacent l'état de manière cohérente.
-     * Les écrans ne lancent plus une procession de loaders indépendants.
+     * avant le réseau, puis trois vagues le complètent, de la plus utile à la
+     * moins utile : Reprendre et derniers ajouts d'abord, puis la bibliothèque
+     * complète et le hero, enfin les rangées éditoriales. Aucune vague lente
+     * ne retient une vague rapide. Les écrans ne lancent plus une procession
+     * de loaders indépendants.
      */
     fun bootstrapHome() {
         if (homeBootstrapJob?.isActive == true) return
         val url = _serverUrl.value ?: return
         val user = _currentUser.value ?: return
         val profile = _activeProfile.value ?: return
+        val serverIdentity = url.trim().trimEnd('/')
         homeBootstrapStartedAt = SystemClock.elapsedRealtime()
         homeFirstFrameDrawn = false
+        homeLibraryLoaded = false
         loadWatchStatus()
         loadDashboardWatchlist()
         homeBootstrapJob = viewModelScope.launch {
             val started = homeBootstrapStartedAt
             Log.d("TV-PERF", "APP_START bootstrap")
-            _homeUiState.value = HomeUiState(refreshing = true, bootProgress = 15, bootMessage = "Lecture de l’état local…")
-            val local = withContext(Dispatchers.IO) { homeLocalStore.read(url, user.id, profile.id) }
+            // Retour sur l'accueil : l'état en mémoire est plus récent que le
+            // fichier. Le relire coûtait du temps et remontrait un ordre périmé.
+            val inMemory = currentHomeSnapshot()?.takeIf { it.serverIdentity == serverIdentity && it.userId == user.id && it.profileId == profile.id }
+            if (inMemory == null) _homeUiState.value = HomeUiState(refreshing = true, bootProgress = 15, bootMessage = "Lecture de l’état local…")
+            val local = inMemory ?: withContext(Dispatchers.IO) { homeLocalStore.read(url, user.id, profile.id) }
             if (local != null) {
                 publishHomeSnapshot(local)
                 _homeUiState.value = HomeUiState(
@@ -1530,18 +1546,54 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             _homeUiState.value = _homeUiState.value.copy(refreshing = true, offline = false, bootProgress = if (local == null) 45 else 100, bootMessage = if (local == null) "Connexion au serveur…" else "Accueil prêt")
             val repo = repository ?: return@launch
             Log.d("TV-PERF", "SERVER_REFRESH_START ${SystemClock.elapsedRealtime() - started} ms")
-            val p0 = coroutineScope {
-                val library = async { repo.interfaceDashboard() }
+            val emptySnapshot = HomeSnapshot(
+                generatedAt = System.currentTimeMillis(), serverIdentity = serverIdentity,
+                userId = user.id, profileId = profile.id,
+                movies = emptyList(), series = emptyList(), recentEpisodes = emptyList(), continueWatching = emptyList(),
+                dashboardLayout = com.movviz.nx.mobile.data.DashboardLayoutDto(), dashboardHero = emptyList(),
+                movieRows = emptyList(), seriesRows = emptyList(),
+                movieRecommendations = emptyList(), seriesRecommendations = emptyList(),
+            )
+
+            // Vague rapide. Publiée d'un seul tenant : l'accueil ne change
+            // d'ordre qu'une fois, tout de suite, et non à chaque réponse. Sans
+            // cache, le hero rapide (local au serveur) l'accompagne pour que le
+            // premier écran garde sa forme finale et son focus initial.
+            val fast = coroutineScope {
+                val head = async { repo.interfaceHomeHead() }
                 val onDeck = async { repo.onDeckItems() }
                 val layout = async { repo.dashboardLayout() }
-                val hero = async { repo.dashboardHero() }
-                HomeP0Results(library.await(), onDeck.await(), layout.await(), hero.await())
+                val quickHero = async { if (local == null) repo.dashboardHero(rich = false) else null }
+                HomeFastResults(head.await(), onDeck.await(), layout.await(), quickHero.await())
             }
-            val library = p0.library
-            val onDeck = p0.onDeck
-            val layout = p0.layout
-            val hero = p0.hero
-            if (listOf(library, onDeck, layout, hero).any { it is ApiResult.Unauthorized }) {
+            if (fast.unauthorized) {
+                _sessionExpired.value = true
+                return@launch
+            }
+            if (fast.serverAnswered) {
+                val base = currentHomeSnapshot() ?: emptySnapshot
+                val headData = (fast.head as? ApiResult.Success)?.data
+                if (headData != null) recentCursor = headData.recentEpisodesNextCursor
+                val merged = base.withLibraryHead(
+                    movies = headData?.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() },
+                    series = headData?.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() },
+                    recentEpisodes = headData?.recentEpisodes?.mapNotNull { it?.toRecentEpisodeOrNull() }?.sortedByDescending { it.addedAt },
+                ).copy(
+                    continueWatching = (fast.onDeck as? ApiResult.Success)?.data ?: base.continueWatching,
+                    dashboardLayout = (fast.layout as? ApiResult.Success)?.data ?: base.dashboardLayout,
+                    dashboardHero = (fast.quickHero as? ApiResult.Success)?.data ?: base.dashboardHero,
+                )
+                publishHomeSnapshot(merged)
+                _homeUiState.value = _homeUiState.value.copy(bootProgress = 100, bootMessage = "Accueil prêt")
+                Log.d("TV-PERF", "HOME_FAST_CONTENT ${SystemClock.elapsedRealtime() - started} ms")
+            }
+
+            // Vague suivante. Le hero « rich » interroge TMDb et peut prendre
+            // plusieurs secondes juste après un redémarrage du serveur : il se
+            // publie seul à son arrivée, sans retenir la bibliothèque ni P1.
+            if (fast.serverAnswered) launch { refreshHomeHero(repo) }
+            val library = if (fast.serverAnswered) repo.interfaceDashboard() else null
+            if (library is ApiResult.Unauthorized) {
                 _sessionExpired.value = true
                 return@launch
             }
@@ -1549,37 +1601,34 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             compact?.let { _rewatch.value = it.rewatch.orEmpty().filterNotNull() }
             if (compact != null) {
                 recentCursor = compact.recentEpisodesNextCursor
-                _homeUiState.value = _homeUiState.value.copy(bootProgress = 75, bootMessage = "Préparation du premier écran…")
-                val fresh = HomeSnapshot(
-                    generatedAt = System.currentTimeMillis(), serverIdentity = url.trim().trimEnd('/'),
-                    userId = user.id, profileId = profile.id,
-                    movies = compact.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() },
-                    series = compact.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() },
+                val freshMovies = withContext(Dispatchers.Default) { compact.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() } }
+                val freshSeries = withContext(Dispatchers.Default) { compact.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() } }
+                val fresh = (currentHomeSnapshot() ?: emptySnapshot).copy(
+                    generatedAt = System.currentTimeMillis(),
+                    movies = freshMovies,
+                    series = freshSeries,
                     recentEpisodes = compact.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt },
-                    continueWatching = (onDeck as? ApiResult.Success)?.data ?: local?.continueWatching.orEmpty(),
-                    dashboardLayout = (layout as? ApiResult.Success)?.data ?: local?.dashboardLayout ?: com.movviz.nx.mobile.data.DashboardLayoutDto(),
-                    dashboardHero = (hero as? ApiResult.Success)?.data ?: local?.dashboardHero.orEmpty(),
-                    movieRows = local?.movieRows.orEmpty(), seriesRows = local?.seriesRows.orEmpty(),
-                    movieRecommendations = local?.movieRecommendations.orEmpty(), seriesRecommendations = local?.seriesRecommendations.orEmpty(),
                 )
+                homeLibraryLoaded = true
                 publishHomeSnapshot(fresh)
-                _homeUiState.value = HomeUiState(snapshot = fresh, hasUsableContent = hasHomeContent(fresh), refreshing = true, bootProgress = 100, bootMessage = "Accueil prêt")
+                _homeUiState.value = _homeUiState.value.copy(hasUsableContent = hasHomeContent(fresh), refreshing = true, bootProgress = 100, bootMessage = "Accueil prêt")
                 Log.d("TV-PERF", "HOME_FIRST_CONTENT ${SystemClock.elapsedRealtime() - started} ms")
-                // P0 suffit à rendre le prochain démarrage instantané. Ne pas
-                // attendre P1 : recommandations lentes ou indisponibles ne
-                // doivent jamais priver l'app d'un cache de bibliothèque.
+                // La bibliothèque suffit à rendre le prochain démarrage
+                // instantané. Ne pas attendre P1 : recommandations lentes ou
+                // indisponibles ne doivent jamais priver l'app d'un cache.
                 persistHomeSnapshot(fresh)
-                pendingHomeP1 = PendingHomeP1(repo, fresh, started)
+                pendingHomeP1 = PendingHomeP1(repo, started)
                 // Si le cache avait déjà été dessiné, le premier frame est
-                // passé avant la fin de P0 : P1 peut démarrer tout de suite.
+                // passé avant cette vague : P1 peut démarrer tout de suite.
                 if (homeFirstFrameDrawn) onHomeFirstFrameDrawn()
             } else if (local != null) {
                 // Serveur indisponible : il serait contre-productif de
                 // relancer les endpoints historiques. Le snapshot complet
                 // vient déjà d'être rendu et reste navigable hors ligne.
+                val current = currentHomeSnapshot() ?: local
                 _homeUiState.value = HomeUiState(
-                    snapshot = local,
-                    hasUsableContent = hasHomeContent(local),
+                    snapshot = current,
+                    hasUsableContent = hasHomeContent(current),
                     offline = true,
                     bootProgress = 100,
                     bootMessage = "Accueil disponible hors ligne",
@@ -1590,7 +1639,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 // donc les endpoints historiques restent le repli.
                 refreshLibraryNow()
                 _homeUiState.value = _homeUiState.value.copy(
-                    hasUsableContent = _movies.value.isNotEmpty() || _series.value.isNotEmpty(),
+                    hasUsableContent = _homeUiState.value.hasUsableContent || _movies.value.isNotEmpty() || _series.value.isNotEmpty(),
                     refreshing = false,
                     bootProgress = 100,
                     bootMessage = "Accueil prêt",
@@ -1598,6 +1647,37 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             }
         }
     }
+
+    /** Hero complet (recommandations et bandes-annonces), publié dès qu'il arrive. */
+    private suspend fun refreshHomeHero(repo: MovvizRepository) {
+        when (val hero = repo.dashboardHero()) {
+            is ApiResult.Success -> {
+                val current = currentHomeSnapshot()
+                if (current == null) {
+                    _dashboardHero.value = hero.data
+                    return
+                }
+                if (current.dashboardHero == hero.data) return
+                val updated = current.copy(dashboardHero = hero.data)
+                publishHomeSnapshot(updated)
+                // Avant la bibliothèque, sans cache, l'instantané reste partiel :
+                // il sera écrit avec elle, jamais à moitié.
+                if (homeLibraryLoaded) persistHomeSnapshot(updated)
+            }
+            ApiResult.Unauthorized -> _sessionExpired.value = true
+            is ApiResult.Failure -> Unit
+        }
+    }
+
+    /** Instantané affiché, avec les listes vivantes qu'il n'a pas encore reçues
+     *  (voir homeSnapshotSync) : une vague qui s'y applique ne peut plus effacer
+     *  une mise à jour de Reprendre arrivée pendant qu'elle attendait le réseau. */
+    private fun currentHomeSnapshot(): HomeSnapshot? = _homeUiState.value.snapshot?.copy(
+        continueWatching = _continueWatching.value,
+        recentEpisodes = _recentEpisodes.value,
+        movies = _movies.value,
+        series = _series.value,
+    )
 
     fun homeBootstrapElapsedMs(): Long =
         (SystemClock.elapsedRealtime() - homeBootstrapStartedAt).coerceAtLeast(0L)
@@ -1610,7 +1690,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         pendingHomeP1 = null
         homeP1Job?.cancel()
         homeP1Job = viewModelScope.launch {
-            refreshHomeP1(pending.repository, pending.snapshot, pending.startedAt)
+            refreshHomeP1(pending.repository, pending.startedAt)
         }
     }
 
@@ -1619,21 +1699,27 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             snapshot.continueWatching.isNotEmpty() || snapshot.dashboardHero.isNotEmpty() ||
             snapshot.recentEpisodes.isNotEmpty()
 
-    private suspend fun refreshHomeP1(repo: MovvizRepository, p0: HomeSnapshot, started: Long) = coroutineScope {
+    private suspend fun refreshHomeP1(repo: MovvizRepository, started: Long) = coroutineScope {
         val movieRows = async { repo.metadataRows("movie") }
         val seriesRows = async { repo.metadataRows("series") }
         val movieRecommendations = async { repo.metadataRecommendations("movie") }
         val seriesRecommendations = async { repo.metadataRecommendations("series") }
-        val refreshed = p0.copy(
+        val movieRowsResult = movieRows.await()
+        val seriesRowsResult = seriesRows.await()
+        val movieRecommendationsResult = movieRecommendations.await()
+        val seriesRecommendationsResult = seriesRecommendations.await()
+        // Appliqué à l'instantané du moment, pas à celui d'avant ces requêtes.
+        val current = currentHomeSnapshot() ?: return@coroutineScope
+        val refreshed = current.copy(
             generatedAt = System.currentTimeMillis(),
-            movieRows = (movieRows.await() as? ApiResult.Success)?.data ?: p0.movieRows,
-            seriesRows = (seriesRows.await() as? ApiResult.Success)?.data ?: p0.seriesRows,
-            movieRecommendations = (movieRecommendations.await() as? ApiResult.Success)?.data ?: p0.movieRecommendations,
-            seriesRecommendations = (seriesRecommendations.await() as? ApiResult.Success)?.data ?: p0.seriesRecommendations,
+            movieRows = (movieRowsResult as? ApiResult.Success)?.data ?: current.movieRows,
+            seriesRows = (seriesRowsResult as? ApiResult.Success)?.data ?: current.seriesRows,
+            movieRecommendations = (movieRecommendationsResult as? ApiResult.Success)?.data ?: current.movieRecommendations,
+            seriesRecommendations = (seriesRecommendationsResult as? ApiResult.Success)?.data ?: current.seriesRecommendations,
         )
         publishHomeSnapshot(refreshed)
-        persistHomeSnapshot(refreshed)
         _homeUiState.value = HomeUiState(snapshot = refreshed, hasUsableContent = hasHomeContent(refreshed), bootProgress = 100, bootMessage = "Accueil prêt")
+        persistHomeSnapshot(refreshed)
         Log.d("TV-PERF", "SERVER_REFRESH_END ${SystemClock.elapsedRealtime() - started} ms")
         // P2, après première publication : la queue ne peut plus concurrencer
         // le premier viewport. La chaîne Android TV reste dans NX TV ; un
@@ -1661,10 +1747,13 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _seriesLibraryRecommendations.value = snapshot.seriesRecommendations
     }
 
+    /** Plusieurs vagues peuvent écrire en même temps et partagent le même fichier temporaire. */
     private suspend fun persistHomeSnapshot(snapshot: HomeSnapshot) {
-        withContext(Dispatchers.IO) {
-            runCatching { homeLocalStore.write(snapshot) }
-                .onFailure { Log.w("TV-PERF", "LOCAL_STATE_WRITE_FAILED", it) }
+        homeSnapshotWriteLock.withLock {
+            withContext(Dispatchers.IO) {
+                runCatching { homeLocalStore.write(snapshot) }
+                    .onFailure { Log.w("TV-PERF", "LOCAL_STATE_WRITE_FAILED", it) }
+            }
         }
     }
 

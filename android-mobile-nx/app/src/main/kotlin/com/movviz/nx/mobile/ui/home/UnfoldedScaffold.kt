@@ -3,7 +3,6 @@ package com.movviz.nx.mobile.ui.home
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,23 +10,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -38,22 +32,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
-import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.R
-import com.movviz.nx.mobile.data.QueueItemDto
 import com.movviz.nx.mobile.data.TvProfile
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizElectricBorder
 import com.movviz.nx.mobile.ui.theme.MovvizIconBookmark
-import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconCompass
 import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
 import com.movviz.nx.mobile.ui.theme.MovvizIconHome
 import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
-import com.movviz.nx.mobile.ui.theme.MovvizOk
 import com.movviz.nx.mobile.ui.theme.MovvizCyan
 import com.movviz.nx.mobile.ui.theme.MovvizPage
 import com.movviz.nx.mobile.ui.theme.MovvizRadius
@@ -62,12 +51,10 @@ import com.movviz.nx.mobile.ui.theme.isLargeTouch
 import com.movviz.nx.mobile.ui.theme.rememberMovvizWindowClass
 import com.movviz.nx.mobile.ui.theme.MovvizSurface
 import com.movviz.nx.mobile.ui.theme.hapticClickable
-import com.movviz.nx.mobile.ui.theme.tvPointerClick
 
 /**
  * Mode déplié / paysage large (maquette "MOVVIZ NX / MODE DÉPLIÉ") :
- * rail tactile gauche + contenu central existant + panneau latéral droit
- * ("En cours" / "Terminés").
+ * rail tactile gauche + contenu central existant.
  *
  * Règles communes au portrait : mêmes contours électriques
  * ([MovvizElectricBorder]), mêmes teintes de fond, hitbox 44-48dp. Le
@@ -94,12 +81,6 @@ private const val TABLET_MIN_SMALLEST_WIDTH_DP = 720
 fun rememberTablet(): Boolean =
     androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= TABLET_MIN_SMALLEST_WIDTH_DP
 
-/** Panneau Activité (téléchargements) : Fold ouvert à plat seulement. Sur un téléphone tourné il mangeait 28 %
- *  de la largeur, et sur une tablette le contenu garde désormais toute la largeur. */
-@Composable
-fun rememberUnfoldedWithPanel(): Boolean =
-    rememberMovvizWindowClass() == MovvizWindowClass.FOLD_FLAT && !rememberTablet()
-
 /** Contenu étroit tactile : portrait compact OU colonne centrale dépliée.
  *  Partout où le code distinguait `compactPortrait` vs "TV grand écran"
  *  pour les marges/tailles, le déplié doit prendre la branche compacte
@@ -113,11 +94,7 @@ fun rememberNarrowContent(): Boolean =
 internal fun unfoldedRailWidth(windowClass: MovvizWindowClass, tablet: Boolean = false) =
     if (tablet) 128.dp else if (windowClass.isLargeTouch) 100.dp else 76.dp
 
-internal fun unfoldedPanelWidth(availableWidth: Float) =
-    (availableWidth * 0.3f).coerceIn(260f, 320f).dp
-
 private val UnfoldedInactive = Color(0xFFB7BCDC)
-private const val TMDB_THUMB_BASE = "https://image.tmdb.org/t/p/w200"
 
 private data class RailItem(val tab: HomeTab?, val label: String, val icon: ImageVector)
 
@@ -339,219 +316,5 @@ fun UnfoldedRouteScaffold(
             content()
         }
     }
-    }
-}
-
-@Composable
-fun UnfoldedRightPanel(
-    viewModel: AppViewModel,
-    onOpenTitle: (type: String, tmdbId: Int) -> Unit,
-    onOpenDownloadsTab: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val queue by viewModel.queue.collectAsState()
-    val completedQueue by viewModel.completedQueue.collectAsState()
-    // Repli jaquettes : les items terminés n'ont pas toujours leur poster —
-    // on le retrouve via la bibliothèque (tmdbId), même source que l'accueil.
-    val movies by viewModel.movies.collectAsState()
-    val series by viewModel.series.collectAsState()
-    val posterFor: (QueueItemDto) -> String? = { item ->
-        item.media.posterPath
-            ?: movies.firstOrNull { it.tmdbId == item.media.tmdbId }?.posterPath
-            ?: series.firstOrNull { it.tmdbId == item.media.tmdbId }?.posterPath
-    }
-    LazyColumn(
-        modifier = modifier
-            .fillMaxHeight()
-            .background(com.movviz.nx.mobile.ui.theme.MovvizPage)
-            .padding(top = 8.dp, end = 8.dp, bottom = 8.dp)
-            .clip(MovvizRadius.large)
-            .background(MovvizSurface.copy(alpha = 0.72f), MovvizRadius.large)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            UnfoldedPanelSection(
-                title = "En cours (${queue.size})",
-                onSeeAll = onOpenDownloadsTab,
-            ) {
-                if (queue.isEmpty()) {
-                    Text(
-                        "Aucun téléchargement pour l'instant.",
-                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.68f)),
-                    )
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        queue.take(5).forEach { item ->
-                            UnfoldedQueueRow(
-                                item = item,
-                                posterPath = posterFor(item),
-                                completed = false,
-                                onClick = {
-                                    item.media.tmdbId?.let { onOpenTitle(item.media.type, it) }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            UnfoldedPanelSection(
-                title = "Terminés (${completedQueue.size})",
-                onSeeAll = onOpenDownloadsTab,
-            ) {
-                if (completedQueue.isEmpty()) {
-                    Text(
-                        "Rien de terminé pour l'instant.",
-                        style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.68f)),
-                    )
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        completedQueue.take(4).forEach { item ->
-                            UnfoldedQueueRow(
-                                item = item,
-                                posterPath = posterFor(item),
-                                completed = true,
-                                onClick = {
-                                    item.media.tmdbId?.let { onOpenTitle(item.media.type, it) }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UnfoldedPanelSection(
-    title: String,
-    onSeeAll: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
-            Text(
-                text = title,
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "Tout voir  >",
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrand2),
-                modifier = Modifier.hapticClickable(onClick = onSeeAll).padding(start = 8.dp),
-            )
-        }
-        content()
-    }
-}
-
-@Composable
-private fun UnfoldedQueueRow(
-    item: QueueItemDto,
-    posterPath: String?,
-    completed: Boolean,
-    onClick: () -> Unit,
-) {
-    val clickable = item.media.tmdbId != null
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp))
-            .let { if (clickable) it.hapticClickable(onClick = onClick) else it }
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val thumbUrl = posterPath?.let { "$TMDB_THUMB_BASE$it" }
-        if (thumbUrl != null) {
-            AsyncImage(
-                model = thumbUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(width = 48.dp, height = 72.dp).clip(RoundedCornerShape(10.dp)),
-            )
-        } else {
-            Box(
-                modifier = Modifier.size(width = 48.dp, height = 72.dp).clip(RoundedCornerShape(10.dp))
-                    .background(MovvizSurface),
-            )
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.media.displayTitle ?: item.media.title,
-                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val episodeSuffix = if (item.media.displayLabel != null) {
-                if (item.media.displayLabel.isEmpty()) "" else "${item.media.displayLabel} · "
-            } else if (item.media.season != null && item.media.episode != null) {
-                "S${item.media.season} · E${item.media.episode} · "
-            } else {
-                ""
-            }
-            Text(
-                text = if (completed) "${episodeSuffix}Terminé"
-                else "$episodeSuffix${(item.download.progress * 100).toInt()} %",
-                style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.68f)),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            if (!completed) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color.White.copy(alpha = 0.14f)),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(item.download.progress.toFloat().coerceIn(0f, 1f))
-                            .height(6.dp)
-                            .background(
-                                Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                                RoundedCornerShape(3.dp),
-                            ),
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.width(8.dp))
-        if (completed) {
-            Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape)
-                    .background(MovvizOk.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.tv.material3.Icon(
-                    imageVector = MovvizIconCheck,
-                    contentDescription = "Terminé",
-                    tint = MovvizOk,
-                    modifier = Modifier.size(15.dp),
-                )
-            }
-        } else {
-            // Le % vit déjà dans le sous-titre + la barre : pastille
-            // électrique compacte à la place du doublon.
-            Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape)
-                    .border(1.dp, MovvizElectricBorder, CircleShape)
-                    .background(MovvizBrand2.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.tv.material3.Icon(
-                    imageVector = MovvizIconDownload,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-        }
     }
 }

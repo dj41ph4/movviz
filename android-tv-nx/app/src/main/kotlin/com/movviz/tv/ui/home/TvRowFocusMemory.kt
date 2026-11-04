@@ -4,9 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -22,6 +24,15 @@ import androidx.compose.ui.layout.onPlaced
 internal fun rememberedTvItemIndex(keys: List<String>, selectedKey: String?, previousIndex: Int): Int =
     selectedKey?.let(keys::indexOf)?.takeIf { it >= 0 }
         ?: previousIndex.coerceIn(0, keys.lastIndex.coerceAtLeast(0))
+
+/**
+ * La tête de rangée a changé : l'utilisateur qui s'y trouvait (ou qui n'est
+ * jamais entré dans la rangée) doit y rester, sur la nouvelle première carte.
+ * Celui qui a navigué plus loin garde sa carte : elle ne lui est jamais retirée.
+ */
+internal fun shouldFollowRowHead(previousHead: String?, head: String?, selectedKey: String?): Boolean =
+    previousHead != null && head != null && previousHead != head &&
+        (selectedKey == null || selectedKey == previousHead)
 
 internal fun TvTitleCard.focusIdentity(): String =
     "${if (isMovie) "movie" else "series"}:$tmdbId:${seriesPart.orEmpty()}:$id"
@@ -86,6 +97,9 @@ internal class TvHomeFocusMemory(
     private val detailOrigin: MutableState<String?>,
 ) {
     private val rows = mutableMapOf<String, FocusRequester>()
+    /** Vrai pendant qu'une rangée rend le focus à sa nouvelle première carte :
+     *  ce changement ne vient pas de l'utilisateur, l'écran ne doit pas défiler. */
+    var holdBringIntoView by mutableStateOf(false)
     fun attach(key: String, requester: FocusRequester) { rows[key] = requester }
     fun detach(key: String, requester: FocusRequester) { if (rows[key] === requester) rows.remove(key) }
     fun select(key: String) {
@@ -94,6 +108,7 @@ internal class TvHomeFocusMemory(
         if (detailOrigin.value == key) detailOrigin.value = null
     }
     fun markDetailOrigin(key: String) { detailOrigin.value = key }
+    fun isDetailOrigin(key: String): Boolean = detailOrigin.value == key
     fun destination(): FocusRequester = destinationOrNull() ?: FocusRequester.Default
     /** Rangée mémorisée encore attachée, ou null (laisser la recherche par défaut). */
     fun destinationOrNull(): FocusRequester? = (detailOrigin.value ?: selectedRow.value)?.let(rows::get)
@@ -120,6 +135,9 @@ internal class TvRowFocusMemory(
     private val selectedIndex: MutableState<Int>,
     private val host: TvHomeFocusMemory?,
     private val rowKey: String,
+    // Première carte connue de la rangée. Sauvegardée : une rangée sortie de
+    // l'écran perd sa composition, pas le souvenir de sa tête.
+    private val headKey: MutableState<String?> = mutableStateOf(null),
 ) {
     private val attached = mutableMapOf<String, FocusRequester>()
     private var rowHasFocus = false
@@ -171,6 +189,47 @@ internal class TvRowFocusMemory(
      *  suivante ajoutée à la grille) : il n'y a rien à restaurer. */
     fun focusSurvives(keys: List<String>): Boolean = focusedKey?.let(keys::contains) == true
     fun rememberedKey(): String? = selectedKey.value
+
+    /**
+     * Enregistre la tête courante. Vrai si la rangée doit revenir sur sa
+     * nouvelle première carte (voir [shouldFollowRowHead]). Le retour d'une
+     * fiche ouverte depuis cette rangée reste prioritaire : il rend la carte
+     * ouverte, même si elle n'est plus en tête.
+     */
+    fun followHead(keys: List<String>): Boolean {
+        val head = keys.firstOrNull() ?: return false
+        val previous = headKey.value
+        headKey.value = head
+        if (host?.isDetailOrigin(rowKey) == true) return false
+        if (!shouldFollowRowHead(previous, head, selectedKey.value)) return false
+        if (selectedKey.value != null) {
+            selectedKey.value = head
+            selectedIndex.value = 0
+        }
+        return true
+    }
+
+    /** Donne le focus à la nouvelle première carte si la rangée l'avait déjà ;
+     *  en cas de refus, le focus reste simplement sur la carte actuelle. */
+    suspend fun focusHeadIfRowFocused(keys: List<String>) {
+        val head = keys.firstOrNull() ?: return
+        host?.holdBringIntoView = true
+        try {
+            // La colonne doit avoir recomposé avant la demande de focus.
+            withFrameNanos { }
+            repeat(RESTORE_FRAME_ATTEMPTS) {
+                withFrameNanos { }
+                if (!rowHasFocus || focusedKey == head) return
+                if (attached[head]?.requestFocusSafely() == true) {
+                    // Le défilement vers la carte focalisée se calcule aux frames suivantes.
+                    repeat(RESTORE_FRAME_ATTEMPTS) { withFrameNanos { } }
+                    return
+                }
+            }
+        } finally {
+            host?.holdBringIntoView = false
+        }
+    }
 
     /** Après un changement de clés pendant que la rangée a le focus : replace
      *  le focus sur la carte mémorisée (ou la plus proche survivante). */
@@ -227,7 +286,7 @@ internal fun rememberTvRowFocusMemory(
     keys: List<String>,
     isVisible: (Int) -> Boolean,
     scrollToItem: suspend (Int) -> Unit,
-): TvRowFocusMemory = rememberTvItemFocusMemory(rowKey, keys, LocalTvHomeFocusMemory.current, isVisible, scrollToItem)
+): TvRowFocusMemory = rememberTvItemFocusMemory(rowKey, keys, LocalTvHomeFocusMemory.current, isVisible, scrollToItem, followHead = true)
 
 /**
  * Mémoire de grille (catalogue, recherche, « Voir tout », personne).
@@ -254,12 +313,23 @@ private fun rememberTvItemFocusMemory(
     host: TvHomeFocusMemory?,
     isVisible: (Int) -> Boolean,
     scrollToItem: suspend (Int) -> Unit,
+    followHead: Boolean = false,
 ): TvRowFocusMemory {
     val selectedKey = rememberSaveable(key) { mutableStateOf<String?>(null) }
     val selectedIndex = rememberSaveable(key) { mutableStateOf(0) }
-    val memory = remember(host, key) { TvRowFocusMemory(selectedKey, selectedIndex, host, key) }
+    val headKey = rememberSaveable(key) { mutableStateOf<String?>(null) }
+    val memory = remember(host, key) { TvRowFocusMemory(selectedKey, selectedIndex, host, key, headKey) }
     DisposableEffect(memory) { onDispose { memory.detach() } }
     LaunchedEffect(memory, keys) {
+        // La liste garde en tête d'écran la carte qui y était, même déplacée :
+        // sans ce retour, la nouvelle première carte restait cachée à gauche.
+        // Défilement sans condition : à cet instant, l'état visible est celui
+        // d'avant le changement de clés.
+        if (followHead && memory.followHead(keys)) {
+            scrollToItem(0)
+            memory.focusHeadIfRowFocused(keys)
+            return@LaunchedEffect
+        }
         // Ne restaurer que si la carte focalisée a disparu (contenu remplacé)
         // ou au retour sur l'écran. Quand une page s'ajoute pendant que
         // l'utilisateur descend dans la grille, la carte focalisée est toujours

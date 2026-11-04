@@ -1886,6 +1886,11 @@ private fun ambientTrailerHtml(key: String, title: String): String = """
     </script></body></html>
 """.trimIndent()
 
+/** La tête de rangée a changé alors que la rangée était au début : elle y revient.
+ *  Glissée plus loin, elle garde sa position. */
+internal fun shouldReturnToRowHead(previousHead: String?, head: String?, wasAtStart: Boolean): Boolean =
+    previousHead != null && head != null && previousHead != head && wasAtStart
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 internal fun TitleRow(
@@ -1933,6 +1938,23 @@ internal fun TitleRow(
     val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
     val previewsByCardId = remember { mutableStateMapOf<String, TvPreviewDto>() }
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
+    // La liste garde en tête d'écran la carte qui y était, même déplacée : une
+    // rangée au début restait décalée, la nouvelle première carte cachée à
+    // gauche. Une rangée déjà glissée plus loin ne bouge pas.
+    val rowHead = remember { mutableStateOf<String?>(null) }
+    val rowAtStart = remember { mutableStateOf(true) }
+    LaunchedEffect(items.firstOrNull()?.id) {
+        val previousHead = rowHead.value
+        rowHead.value = items.firstOrNull()?.id
+        if (shouldReturnToRowHead(previousHead, rowHead.value, rowAtStart.value)) {
+            withFrameNanos { }
+            rowState.scrollToItem(0)
+        }
+        // Relevé arrêté dès que la tête change : `rowAtStart` reste donc la
+        // position d'avant le changement, jamais celle que l'ancre impose après.
+        snapshotFlow { rowState.firstVisibleItemIndex == 0 && rowState.firstVisibleItemScrollOffset == 0 }
+            .collect { rowAtStart.value = it }
+    }
     val currentOnNearEnd by rememberUpdatedState(onNearEnd)
     if (onNearEnd != null) LaunchedEffect(rowState, items.size) {
         snapshotFlow { rowState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }.collect { last ->

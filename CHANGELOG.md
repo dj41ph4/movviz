@@ -1,3 +1,18 @@
+## v1.28.47 — 4 novembre 2026
+
+### Android
+
+- Android TV et mobile : au démarrage, Reprendre et les derniers ajouts s’affichent d’abord. La bibliothèque complète, le hero et les rangées éditoriales suivent sans les retarder, même juste après un redémarrage du serveur.
+- Android TV : si tu étais sur la première carte d’une rangée quand une nouveauté arrive, tu restes sur la nouvelle première carte, sans revenir à gauche. Plus loin dans la rangée, tu gardes ta carte.
+- Android mobile : une rangée au début revient sur sa nouvelle première carte quand une nouveauté arrive, en portrait, en paysage et déplié. Une rangée déjà glissée ne bouge pas.
+- Android mobile : le volet « En cours / Terminés » disparaît de l’accueil déplié à plat, le contenu prend toute la largeur. Les téléchargements restent accessibles depuis la barre latérale.
+- Android mobile : RETOUR ferme d’abord la recherche, ramène à l’Accueil depuis un autre onglet, puis demande un second appui dans les 2 secondes avant de quitter Movviz.
+- Une mise à jour de Reprendre reçue pendant le chargement de l’accueil n’est plus annulée.
+
+### Samsung
+
+- Le hero ne retient plus les rangées de l’accueil : s’il tarde, il s’ajoute au-dessus sans déplacer la sélection.
+
 ## v1.28.46 — 4 novembre 2026
 
 ### Téléchargements

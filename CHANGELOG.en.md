@@ -1,3 +1,18 @@
+## v1.28.47 — 4 November 2026
+
+### Android
+
+- Android TV and mobile: at startup, Continue Watching and the latest additions appear first. The full library, the hero and the editorial rows follow without delaying them, even right after a server restart.
+- Android TV: if you were on the first card of a row when something new arrives, you stay on the new first card, with no need to go back left. Further along the row, you keep your card.
+- Android mobile: a row at its start returns to its new first card when something new arrives, in portrait, landscape and unfolded. A row already swiped does not move.
+- Android mobile: the “In progress / Completed” panel is gone from the home screen when unfolded flat, and the content takes the full width. Downloads remain available from the sidebar.
+- Android mobile: Back first closes the search, returns to Home from another tab, then asks for a second press within 2 seconds before leaving Movviz.
+- A Continue Watching update received while the home screen loads is no longer undone.
+
+### Samsung
+
+- The hero no longer holds back the home rows: if it is late, it appears above them without moving the selection.
+
 ## v1.28.46 — 4 November 2026
 
 ### Downloads

@@ -29,6 +29,34 @@ data class HomeSnapshot(
     companion object { const val SCHEMA_VERSION = 1 }
 }
 
+/** Applique les derniers ajouts sur l'instantané connu, sans toucher au reste
+ *  de la bibliothèque. Une liste inchangée garde son instance : les rangées qui
+ *  en dépendent ne sont alors pas recalculées. */
+internal fun HomeSnapshot.withLibraryHead(
+    movies: List<LibraryMovieDto>,
+    series: List<LibrarySeriesDto>,
+    recentEpisodes: List<RecentEpisodeDto>?,
+): HomeSnapshot = copy(
+    movies = this.movies.mergedBy(movies) { it.tmdbId },
+    series = this.series.mergedBy(series) { it.tmdbId to it.seriesPart },
+    recentEpisodes = recentEpisodes?.takeIf { it != this.recentEpisodes } ?: this.recentEpisodes,
+)
+
+internal fun <T, K> List<T>.mergedBy(head: List<T>, key: (T) -> K): List<T> {
+    if (head.isEmpty()) return this
+    val updates = head.associateBy(key)
+    val known = HashSet<K>(size)
+    var changed = false
+    val merged = map { item ->
+        val itemKey = key(item)
+        known += itemKey
+        val update = updates[itemKey]
+        if (update != null && update != item) { changed = true; update } else item
+    }
+    val added = head.filter { key(it) !in known }
+    return if (!changed && added.isEmpty()) this else merged + added
+}
+
 /** Fichier atomique interne, cloisonné par serveur + compte + profil. */
 class HomeLocalStore(context: Context) {
     private val root = File(context.applicationContext.filesDir, "home-snapshots")

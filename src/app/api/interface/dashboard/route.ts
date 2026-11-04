@@ -9,6 +9,7 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
 import { memoizeByFileMtimes } from "@/lib/fsJsonCache";
 import { buildRewatchRow } from "@/lib/dashboard/rewatch";
+import { selectDashboardHomeHead } from "@/lib/dashboard/homeHead";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
     );
     return compressedJson(req, { recentEpisodes: page.episodes, recentEpisodesNextCursor: page.nextCursor }, { headers: { "Cache-Control": "private, no-cache" } });
   }
-  const payload = memoizeByFileMtimes<DashboardInterfaceData>(
+  const loadPayload = () => memoizeByFileMtimes<DashboardInterfaceData>(
     `interface-dashboard:${cfg.machineIdentifier ?? "none"}`,
     libraryFilePaths(),
     () => {
@@ -165,7 +166,17 @@ export async function GET(req: NextRequest) {
       };
     },
   );
+  // Tête d'accueil : calculée depuis le même résultat mémorisé, donc jamais
+  // en désaccord avec la bibliothèque complète qui suit.
+  if (req.nextUrl.searchParams.get("only") === "head") {
+    const head = memoizeByFileMtimes(
+      `interface-head:${cfg.machineIdentifier ?? "none"}`,
+      libraryFilePaths(),
+      () => selectDashboardHomeHead(loadPayload()),
+    );
+    return compressedJson(req, head, { headers: { "Cache-Control": "private, no-cache" } });
+  }
   // « À revoir » dépend de l'utilisateur : calculé à chaque requête, hors
   // du cache partagé ci-dessus (données locales seulement, aucun appel TMDb).
-  return compressedJson(req, { ...payload, rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
+  return compressedJson(req, { ...loadPayload(), rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
 }

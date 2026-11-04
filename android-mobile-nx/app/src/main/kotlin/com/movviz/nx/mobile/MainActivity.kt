@@ -192,6 +192,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private const val EXIT_CONFIRM_WINDOW_MS = 2_000L
+
+internal enum class RootBackAction { CloseSearch, GoHome, ArmExit }
+
+/** Effet de RETOUR sur l'écran principal, du niveau le plus proche au plus lointain. */
+internal fun rootBackAction(searchOpen: Boolean, onHomeTab: Boolean): RootBackAction = when {
+    searchOpen -> RootBackAction.CloseSearch
+    !onHomeTab -> RootBackAction.GoHome
+    else -> RootBackAction.ArmExit
+}
+
 @Composable
 private fun MovvizNavHost(viewModel: AppViewModel) {
     val navController = rememberNavController()
@@ -236,6 +247,30 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         if (!navController.popBackStack()) {
             navController.navigate(ROUTE_HOME) {
                 popUpTo(0) { inclusive = true }
+            }
+        }
+    }
+
+    // Retour à la racine : la recherche se ferme, un autre onglet revient sur
+    // l'Accueil, puis l'Accueil demande un second appui avant de quitter. Une
+    // fois armé, ce gestionnaire s'efface et Android traite le second appui
+    // comme d'habitude. Déclaré après celui de la pile : il passe avant lui.
+    var exitArmed by remember { mutableStateOf(false) }
+    LaunchedEffect(exitArmed) {
+        if (exitArmed) {
+            delay(EXIT_CONFIRM_WINDOW_MS)
+            exitArmed = false
+        }
+    }
+    val backContext = androidx.compose.ui.platform.LocalContext.current
+    val backAction = rootBackAction(searchOpen, tab == HomeTab.HOME)
+    BackHandler(enabled = currentRoute == ROUTE_HOME && (backAction != RootBackAction.ArmExit || !exitArmed)) {
+        when (backAction) {
+            RootBackAction.CloseSearch -> { searchOpen = false; searchQuery = "" }
+            RootBackAction.GoHome -> { tab = HomeTab.HOME; headerHasScrolled = false }
+            RootBackAction.ArmExit -> {
+                exitArmed = true
+                android.widget.Toast.makeText(backContext, "Appuyez encore une fois pour quitter Movviz", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

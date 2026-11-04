@@ -98,6 +98,10 @@ interface MovvizApiService {
     @GET("api/interface/dashboard")
     suspend fun interfaceDashboard(): Response<InterfaceDashboardDto>
 
+    /** Les derniers ajouts seuls. Un ancien serveur ignore le paramètre et renvoie tout. */
+    @GET("api/interface/dashboard?only=head")
+    suspend fun interfaceHomeHead(): Response<InterfaceDashboardDto>
+
     /** Seulement « Épisodes récemment ajoutés » (même calcul serveur). */
     @GET("api/interface/dashboard?only=recent")
     suspend fun interfaceRecentEpisodes(@Query("cursor") cursor: Int? = null): Response<InterfaceDashboardDto>

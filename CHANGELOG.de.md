@@ -1,3 +1,18 @@
+## v1.28.47 — 4. November 2026
+
+### Android
+
+- Android TV und Mobil: Beim Start erscheinen „Weiterschauen“ und die neuesten Zugänge zuerst. Die vollständige Bibliothek, das Hero-Banner und die redaktionellen Reihen folgen, ohne sie zu verzögern, auch direkt nach einem Serverneustart.
+- Android TV: Warst du auf der ersten Karte einer Reihe, wenn etwas Neues eintrifft, bleibst du auf der neuen ersten Karte und musst nicht nach links zurück. Weiter hinten in der Reihe behältst du deine Karte.
+- Android Mobil: Eine Reihe am Anfang springt auf ihre neue erste Karte zurück, wenn etwas Neues eintrifft, im Hoch- und Querformat sowie aufgeklappt. Eine bereits gewischte Reihe bewegt sich nicht.
+- Android Mobil: Der Bereich „Laufend / Abgeschlossen“ entfällt auf der flach aufgeklappten Startseite, der Inhalt nutzt die volle Breite. Downloads bleiben über die Seitenleiste erreichbar.
+- Android Mobil: Zurück schließt zuerst die Suche, führt von einem anderen Tab zur Startseite und verlangt dann einen zweiten Druck innerhalb von 2 Sekunden, bevor Movviz beendet wird.
+- Eine „Weiterschauen“-Aktualisierung, die während des Ladens der Startseite eintrifft, wird nicht mehr rückgängig gemacht.
+
+### Samsung
+
+- Das Hero-Banner hält die Reihen der Startseite nicht mehr auf: Kommt es später, erscheint es darüber, ohne die Auswahl zu verschieben.
+
 ## v1.28.46 — 4. November 2026
 
 ### Downloads

@@ -39,6 +39,32 @@ class TvRowFocusMemoryTest {
     }
 }
 
+class TvRowHeadFollowTest {
+    @Test fun userOnFirstCardFollowsTheNewHead() {
+        assertEquals(true, shouldFollowRowHead(previousHead = "one", head = "new", selectedKey = "one"))
+    }
+
+    @Test fun rowNeverEnteredStartsOnTheNewHead() {
+        assertEquals(true, shouldFollowRowHead(previousHead = "one", head = "new", selectedKey = null))
+    }
+
+    @Test fun userFurtherInTheRowKeepsTheirCard() {
+        assertEquals(false, shouldFollowRowHead(previousHead = "one", head = "new", selectedKey = "three"))
+    }
+
+    @Test fun appendedPageNeverMovesTheFocus() {
+        assertEquals(false, shouldFollowRowHead(previousHead = "one", head = "one", selectedKey = "one"))
+    }
+
+    @Test fun firstCompositionHasNothingToFollow() {
+        assertEquals(false, shouldFollowRowHead(previousHead = null, head = "one", selectedKey = "four"))
+    }
+
+    @Test fun emptyRowHasNothingToFollow() {
+        assertEquals(false, shouldFollowRowHead(previousHead = "one", head = null, selectedKey = "one"))
+    }
+}
+
 class TvGridFocusMemoryTest {
     @Test fun seriesPartsGetDistinctGridIdentity() {
         assertEquals("30984", tvGridItemKey("30984", null))

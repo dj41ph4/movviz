@@ -1,3 +1,18 @@
+## v1.28.47 — 4 november 2026
+
+### Android
+
+- Android TV en mobiel: bij het starten verschijnen Verder kijken en de nieuwste toevoegingen eerst. De volledige bibliotheek, de hero en de redactionele rijen volgen zonder ze te vertragen, ook vlak na een herstart van de server.
+- Android TV: stond je op de eerste kaart van een rij toen er iets nieuws binnenkwam, dan blijf je op de nieuwe eerste kaart, zonder terug naar links te hoeven. Verderop in de rij behoud je je kaart.
+- Android mobiel: een rij aan het begin keert terug naar de nieuwe eerste kaart als er iets nieuws binnenkomt, in staand, liggend en uitgevouwen. Een al geswipete rij beweegt niet.
+- Android mobiel: het paneel “Bezig / Voltooid” verdwijnt van het startscherm als het toestel plat is uitgevouwen, en de inhoud gebruikt de volle breedte. Downloads blijven bereikbaar via de zijbalk.
+- Android mobiel: Terug sluit eerst het zoeken, gaat vanaf een ander tabblad naar het startscherm en vraagt daarna om een tweede druk binnen 2 seconden voordat Movviz wordt afgesloten.
+- Een update van Verder kijken die binnenkomt terwijl het startscherm laadt, wordt niet langer ongedaan gemaakt.
+
+### Samsung
+
+- De hero houdt de rijen van het startscherm niet langer op: komt hij later, dan verschijnt hij erboven zonder de selectie te verplaatsen.
+
 ## v1.28.46 — 4 november 2026
 
 ### Downloads

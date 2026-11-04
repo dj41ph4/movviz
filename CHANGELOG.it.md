@@ -1,3 +1,18 @@
+## v1.28.47 — 4 novembre 2026
+
+### Android
+
+- Android TV e mobile: all’avvio, Continua a guardare e le ultime aggiunte compaiono per primi. La libreria completa, l’hero e le righe editoriali seguono senza rallentarli, anche subito dopo un riavvio del server.
+- Android TV: se eri sulla prima scheda di una riga quando arriva una novità, resti sulla nuova prima scheda, senza dover tornare a sinistra. Più avanti nella riga, mantieni la tua scheda.
+- Android mobile: una riga all’inizio torna sulla nuova prima scheda quando arriva una novità, in verticale, in orizzontale e da aperto. Una riga già fatta scorrere non si muove.
+- Android mobile: il pannello «In corso / Completati» sparisce dalla home da aperto in piano e il contenuto occupa tutta la larghezza. I download restano accessibili dalla barra laterale.
+- Android mobile: Indietro chiude prima la ricerca, torna alla Home da un’altra scheda, poi chiede una seconda pressione entro 2 secondi prima di uscire da Movviz.
+- Un aggiornamento di Continua a guardare ricevuto durante il caricamento della home non viene più annullato.
+
+### Samsung
+
+- L’hero non trattiene più le righe della home: se tarda, compare sopra di esse senza spostare la selezione.
+
 ## v1.28.46 — 4 novembre 2026
 
 ### Download

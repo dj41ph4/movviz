@@ -74,6 +74,7 @@ interface Window {
   let lastContentFocus: HTMLElement | null = null;
   // Épisodes enchaînés seuls depuis la dernière touche de télécommande.
   const STILL_WATCHING_AFTER_EPISODES = 2;
+  const HOME_HERO_GRACE_MS = 800;
   let autoAdvancesWithoutInput = 0;
   let loginServer = saved?.server || localStorage.getItem("movviz.tv.server") || "";
   function remember() {
@@ -286,19 +287,35 @@ interface Window {
   }
   async function home() {
     const version = begin(t("nav.home")); content.classList.add("home-page"); document.querySelector(".shell")?.classList.add("home-shell"); content.append(el("p", t("tizen.loading"), "muted"));
-    const [dashboard, onDeck, slides] = await Promise.all([
+    // The rich hero asks TMDb and can take seconds right after a server restart: it never holds the
+    // rows back. On a warm server it answers within the grace delay and the first screen stays whole.
+    const heroRequest = call<{ slides: { detail: Media }[] }>(`/api/dashboard/hero?locale=${locale}&rich=1`).catch(() => ({ slides: [] }));
+    const [dashboard, onDeck] = await Promise.all([
       call<{ movies: Media[]; series: Media[] }>("/api/interface/dashboard"), call<{ items: DeckEntry[] }>("/api/plex/on-deck"),
-      call<{ slides: { detail: Media }[] }>(`/api/dashboard/hero?locale=${locale}&rich=1`).catch(() => ({ slides: [] })),
     ]);
     if (version !== generation) return;
+    const earlySlides = await Promise.race([heroRequest, new Promise<null>(resolve => window.setTimeout(() => resolve(null), HOME_HERO_GRACE_MS))]);
+    if (version !== generation) return;
     content.replaceChildren();
-    const featured = slides.slides?.map(slide => slide.detail).filter(Boolean) || [];
-    if (featured.length) {
-      const container = el("div", "", "home-hero-container"); content.append(container); let index = 0;
+    const heroSlot = el("div"); content.append(heroSlot);
+    const renderHero = (slides: { slides: { detail: Media }[] }) => {
+      const featured = slides.slides?.map(slide => slide.detail).filter(Boolean) || [];
+      if (!featured.length) return;
+      const container = el("div", "", "home-hero-container"); heroSlot.append(container); let index = 0;
       // Le fond suivant est chargé AVANT de remplacer le hero : sinon le nouveau bloc s'affiche sans image le temps du téléchargement (clignotement).
       let pending = 0;
       const showSlide = (i: number) => { const ticket = ++pending; let done = false; const swap = () => { if (done || ticket !== pending || !container.isConnected) return; done = true; index = i; render(); container.querySelector<HTMLElement>(`[data-slide="${i}"]`)?.focus(); }; const path = featured[i].backdropPath; if (!path) { swap(); return; } const preload = new Image(); preload.onload = swap; preload.onerror = swap; preload.src = imageUrl(path); window.setTimeout(swap, 1500); };
       const render = () => { container.replaceChildren(heroView(featured[index], featured[index].type || "movie", true)); const dots = el("div", "", "hero-dots"); featured.forEach((_, i) => { const dot = button("", () => showSlide(i), i === index ? "selected" : ""); dot.dataset.slide = String(i); dot.setAttribute("aria-label", `${t("tizen.featured")} ${i + 1}`); dots.append(dot); }); container.append(dots); }; render();
+    };
+    if (earlySlides) renderHero(earlySlides);
+    else {
+      // A late hero lands above the rows without taking the focus from a user who already moved.
+      void heroRequest.then(slides => {
+        const focused = heroSlot.isConnected ? document.activeElement as HTMLElement | null : null;
+        const top = focused?.getBoundingClientRect().top ?? 0;
+        renderHero(slides);
+        if (focused?.isConnected) window.scrollBy(0, focused.getBoundingClientRect().top - top);
+      });
     }
     row(t("tizen.continueWatching"), normalizeDeck(onDeck.items || []));
     row(t("tizen.recentMovies"), (dashboard.movies || []).filter(Boolean).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 25), "movie");
