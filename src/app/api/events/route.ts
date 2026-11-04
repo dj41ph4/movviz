@@ -61,6 +61,9 @@ export async function GET(req: NextRequest) {
           // client disconnected
         }
       });
+      // Sends the headers now: a device only learns the stream is open (and
+      // catches up on what it missed) when the first bytes arrive.
+      controller.enqueue(encoder.encode(": connected\n\n"));
       // A device is listening: the server now reports download changes itself.
       ensureDownloadWatcher();
       keepAlive = setInterval(() => {

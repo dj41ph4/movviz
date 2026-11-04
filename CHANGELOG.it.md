@@ -1,3 +1,9 @@
+## v1.28.46 — 4 novembre 2026
+
+### Download
+
+- Il contatore accanto a Download ora si aggiorna da solo: segue l’inizio e la fine dei download senza ricaricare la pagina e si riallinea dopo un’interruzione della connessione o al ritorno sulla scheda.
+
 ## v1.28.45 — 3 novembre 2026
 
 ### Android

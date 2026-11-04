@@ -70,6 +70,7 @@ export function useLibrarySSE(enabled = true) {
 
   useEffect(() => {
     if (!enabled) return;
+    let hasConnected = false;
     function connect() {
       esRef.current?.close();
 
@@ -78,6 +79,10 @@ export function useLibrarySSE(enabled = true) {
 
       es.onopen = () => {
         globalRetryMs = BACKOFF_MIN_MS;
+        // Whatever happened while disconnected (a server restart, a sleeping
+        // tab) sent no event to this device: counters would stay frozen.
+        if (hasConnected) for (const key of new Set(Object.values(EVENT_MUTATIONS).flat())) void mutate(key);
+        hasConnected = true;
       };
 
       for (const [channel, keys] of Object.entries(EVENT_MUTATIONS)) {

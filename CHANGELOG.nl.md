@@ -1,3 +1,9 @@
+## v1.28.46 — 4 november 2026
+
+### Downloads
+
+- De teller naast Downloads werkt zichzelf nu bij: hij volgt het starten en voltooien van downloads zonder de pagina te herladen en haalt bij na een verbroken verbinding of bij terugkeer naar het tabblad.
+
 ## v1.28.45 — 3 november 2026
 
 ### Android

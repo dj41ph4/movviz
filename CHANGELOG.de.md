@@ -1,3 +1,9 @@
+## v1.28.46 — 4. November 2026
+
+### Downloads
+
+- Der Zähler neben Downloads aktualisiert sich jetzt von selbst: Er folgt dem Start und Ende von Downloads ohne Neuladen der Seite und holt nach einem Verbindungsabbruch oder bei der Rückkehr zum Tab auf.
+
 ## v1.28.45 — 3. November 2026
 
 ### Android

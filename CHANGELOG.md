@@ -1,3 +1,9 @@
+## v1.28.46 — 4 novembre 2026
+
+### Téléchargements
+
+- Le compteur à côté de Téléchargements se met à jour tout seul : il suit la fin et le début d’un téléchargement sans recharger la page, et se recale après une coupure de connexion ou au retour sur l’onglet.
+
 ## v1.28.45 — 3 novembre 2026
 
 ### Android

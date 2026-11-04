@@ -13,7 +13,8 @@ export interface InterfaceSummary {
 export function useInterfaceSummary() {
   const { optimized, ready } = useInterfaceDataMode();
   const result = useSWR<InterfaceSummary>(ready && optimized ? "/api/interface/summary" : null, {
-    revalidateOnFocus: false,
+    // A few counters, cheap to re-read when the user comes back to the tab.
+    revalidateOnFocus: true,
     dedupingInterval: 15_000,
   });
   return { ...result, optimized, ready };

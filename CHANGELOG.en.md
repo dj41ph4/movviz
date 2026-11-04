@@ -1,3 +1,9 @@
+## v1.28.46 — 4 November 2026
+
+### Downloads
+
+- The counter next to Downloads now updates by itself: it follows downloads starting and finishing without reloading the page, and catches up after a lost connection or when you return to the tab.
+
 ## v1.28.45 — 3 November 2026
 
 ### Android

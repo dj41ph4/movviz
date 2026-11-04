@@ -1,3 +1,4 @@
+import { recordActiveDownloads } from "@/lib/downloads/activeDownloadsCount";
 import { engineGet } from "@/lib/engine/server";
 import { eventBus } from "./EventBus";
 
@@ -24,7 +25,7 @@ function signatureOf(torrents: EngineTorrent[]): string {
     .join("|");
 }
 
-async function check(): Promise<void> {
+export async function checkDownloads(): Promise<void> {
   watcher.timer = null;
   if (eventBus.listenerCount() === 0) {
     // Last device gone: stop, and forget the state so the next listener
@@ -35,7 +36,9 @@ async function check(): Promise<void> {
   const data = await engineGet<{ torrents?: EngineTorrent[] }>("torrents");
   if (data?.torrents) {
     const signature = signatureOf(data.torrents);
-    if (watcher.signature !== null && signature !== watcher.signature) eventBus.emit({ type: "download_changed" });
+    // The count is stored before the event: devices re-read it as soon as they hear it.
+    const countChanged = recordActiveDownloads(data.torrents);
+    if (countChanged || (watcher.signature !== null && signature !== watcher.signature)) eventBus.emit({ type: "download_changed" });
     watcher.signature = signature;
   }
   schedule();
@@ -43,7 +46,7 @@ async function check(): Promise<void> {
 
 function schedule(): void {
   if (watcher.timer) return;
-  watcher.timer = setTimeout(() => { void check(); }, CHECK_EVERY_MS);
+  watcher.timer = setTimeout(() => { void checkDownloads(); }, CHECK_EVERY_MS);
   watcher.timer.unref?.();
 }
 
