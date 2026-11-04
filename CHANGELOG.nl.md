@@ -1,3 +1,25 @@
+## v1.28.48 — 4 november 2026
+
+### Speler
+
+- De overslaanknoppen verwerken nu vier soorten markeringen: samenvatting, intro, aftiteling en voorvertoning. Elk type heeft zijn eigen label (“Samenvatting overslaan”, “Intro overslaan”, “Aftiteling overslaan”, “Voorvertoning overslaan”). Als meerdere markeringen overlappen, wordt één knop getoond: de aftiteling gaat voor de voorvertoning. Webspeler, Android TV en Android mobiel.
+- TheIntroDB wordt naast Plex een bron van markeringen: het vult de gaten van Plex aan, brengt de samenvatting en voorvertoning die Plex niet heeft en werkt ook zonder gekoppelde Plex. De markeringen van Plex behouden voorrang wanneer ze bestaan. Een titel die nog nooit is opgevraagd, wordt tijdens het afspelen opgevraagd, met hooguit 1,2 seconde wachttijd.
+
+### Android
+
+- Android TV en mobiel: dezelfde labels per type en dezelfde voorrang bij overlappende markeringen voor de vier soorten markeringen.
+
+### Samsung
+
+- De Samsung-speler toont eindelijk een knop “Overslaan…” (samenvatting, intro, aftiteling, voorvertoning). Bij de aftiteling van een serie met een volgende aflevering gaat hij door naar die aflevering.
+
+### Instellingen
+
+- Instellingen → Metadata → Overslaanmarkeringen: drie knoppen, “Alles”, “Alleen Plex” en “Alleen API”. “Alleen Plex” (standaard wanneer Plex is gekoppeld) stuurt niets naar een externe dienst. Zonder gekoppelde Plex geldt automatisch “Alleen API”. Bij “Alleen API” staat de Plex-taak voor markeringen op pauze en geeft een badge “Gepauzeerd” dat aan.
+- Twee geplande TheIntroDB-taken: een nachtelijke ronde (3 tot 6 uur) die de hele bibliotheek vult, beperkt tot 3.000 titels per nacht om het API-quotum te sparen en de volgende nacht hervat, en een taak elke 5 minuten die de markeringen ophaalt van een zojuist toegevoegde film of aflevering. Geen bestandsanalyse: de NAS wordt niet belast.
+- De namen van alle geplande taken zijn herschreven om te zeggen wat ze doen, in alle vijf de talen. Duits, Italiaans en Nederlands hadden er nog een twintigtal in het Engels, en de bestandsanalyse had helemaal geen naam.
+- Privacybeleid bijgewerkt: TheIntroDB, dat alleen de TMDb-id van de titel, het seizoen en de aflevering ontvangt, staat bij de externe diensten. Op het UGREEN-pakket wordt de toestemming eenmaal opnieuw gevraagd.
+
 ## v1.28.47 — 4 november 2026
 
 ### Android

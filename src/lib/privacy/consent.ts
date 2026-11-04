@@ -11,7 +11,7 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
  */
 
 /** À incrémenter quand la politique change de façon à justifier un nouveau consentement. */
-export const PRIVACY_POLICY_VERSION = "2026-10-30";
+export const PRIVACY_POLICY_VERSION = "2026-11-04";
 
 export function privacyConsentRequired(): boolean {
   return process.env.MOVVIZ_REQUIRE_PRIVACY_CONSENT === "1";

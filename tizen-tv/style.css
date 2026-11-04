@@ -87,3 +87,5 @@ progress::-webkit-progress-bar{background:#ffffff26}progress::-webkit-progress-v
 .still-watching-actions{display:flex;gap:20px;margin-top:40px}
 .still-watching-actions button{background:#ffffff29;color:#fff;border:2px solid transparent;border-radius:999px;padding:16px 34px;box-shadow:none;transition:transform .15s,background .15s}
 .still-watching-actions button:focus{background:#fff;color:#000;border-color:#fff;box-shadow:0 8px 28px #0008;transform:scale(1.04)}
+.skip-marker{position:fixed;right:55px;bottom:300px;background:#14131be6;border-color:#ffffff33;font-size:26px;padding:18px 36px;z-index:5}
+.skip-marker:focus{background:#fff;color:#000;border-color:#fff;box-shadow:0 8px 28px #0008}

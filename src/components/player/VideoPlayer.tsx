@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { waitForServerBack } from "@/lib/playback/waitForServerBack";
+import { markerSkipLabelKey, pickActiveMarker, type SkippableMarkerType } from "@/lib/playback/markers/active";
+import type { PlaybackMarkerType } from "@/lib/playback/markers/types";
 import Hls from "hls.js";
 // dashjs est importé dynamiquement côté navigateur uniquement (window au
 // niveau module — pas SSR-safe) ; seul le TYPE est importé statiquement.
@@ -100,7 +102,7 @@ interface StreamInfo {
   height?: number | null;
   ffmpegAvailable?: boolean;
   durationMs?: number | null;
-  markers?: { id: string; type: "intro" | "credits"; startMs: number; endMs: number; final?: boolean }[];
+  markers?: { id: string; type: PlaybackMarkerType; startMs: number; endMs: number; final?: boolean }[];
 }
 
 /**
@@ -2034,7 +2036,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   }, [ratingKey, useTranscode, localStreamPath]);
 
   useEffect(() => {
-    setActiveMarker(markers.find((m) => currentTime * 1000 >= m.startMs && currentTime * 1000 < m.endMs) ?? null);
+    setActiveMarker(pickActiveMarker(markers, currentTime * 1000));
   }, [markers, currentTime]);
 
   // Point d'entrée unique pour tout seek programmatique (barre de
@@ -2980,7 +2982,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                   onClick={handleSkipMarker}
                   className="pointer-events-auto absolute bottom-52 sm:bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
                 >
-                  {activeMarker.type === "intro" ? "Passer l’intro" : "Passer le générique"}
+                  {t(markerSkipLabelKey(activeMarker.type as SkippableMarkerType))}
                 </button>
               )}
 

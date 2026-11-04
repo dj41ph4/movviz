@@ -43,6 +43,7 @@ administrator has the interface open (periodic) or checks manually. No account d
 | Service | Data sent | Trigger |
 | --- | --- | --- |
 | TMDb (`api.themoviedb.org`, `image.tmdb.org`), TheTVDB, OMDb | titles, ids, searches + the administrator's API key | metadata; images by browser only if "CDN images" is enabled |
+| TheIntroDB (`api.theintrodb.org`) | TMDb id + season/episode of the title being played (only in "All" / "API only" mode or when Plex is not linked) | intro/recap/credits/preview timings; no user, account or file data |
 | Plex (`plex.tv`, `app.plex.tv`, Plex metadata providers) | sign-in, watchlist, library linking | administrator connects Plex |
 | Indexers (Torznab/Newznab, trackers) | search terms, release requests, credentials | administrator configures an indexer |
 | Import lists (Trakt/IMDb/Letterboxd URLs) | the list URL fetched by the server | administrator adds a list |

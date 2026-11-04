@@ -180,7 +180,7 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
   }
   const key = input.mediaId ?? ratingKey;
   const prior = get(userId, ratingKey, input.mediaId);
-  const markers = getPlaybackMarkers(ratingKey);
+  const markers = getPlaybackMarkers(ratingKey, input.mediaId);
   const boundary = completionBoundaryMs(input.durationMs, markers, input.mediaType);
   if (prior) {
     // Promote legacy Plex-keyed progress to the canonical Movviz identity as
@@ -365,7 +365,7 @@ export function updatePlaybackDuration(sessionId: string, durationMs: number): P
   const progress = get(session.userId, session.ratingKey, session.mediaId);
   if (!progress) return null;
   const normalized = Math.round(durationMs);
-  const boundary = completionBoundaryMs(normalized, getPlaybackMarkers(session.ratingKey), progress.mediaType);
+  const boundary = completionBoundaryMs(normalized, getPlaybackMarkers(session.ratingKey, session.mediaId), progress.mediaType);
   session.durationMs = normalized;
   progress.durationMs = normalized;
   progress.completionBoundaryMs = boundary.boundaryMs;

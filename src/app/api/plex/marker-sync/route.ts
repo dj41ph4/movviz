@@ -4,6 +4,7 @@ import { enqueueJob, getJobs, isSourceActive, isJobCancelled } from "@/lib/jobs/
 import { syncPlexMarkers, markerSyncSourceId, type MarkerSyncResult } from "@/lib/plex/markerSync";
 import { markerStats } from "@/lib/playback/markers/store";
 import { loadMarkerSyncState } from "@/lib/plex/markerSyncState";
+import { plexMarkersEnabled } from "@/lib/settings/markerSources";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -42,6 +43,11 @@ export async function POST(req: NextRequest) {
   }
   if (mode !== "incremental" && mode !== "full") {
     return NextResponse.json({ error: "invalid_mode" }, { status: 400 });
+  }
+
+  // Réglages → Métadonnées sur « API uniquement » : Plex n'est plus interrogé pour les repères.
+  if (!plexMarkersEnabled()) {
+    return NextResponse.json({ error: "plex_markers_disabled" }, { status: 409 });
   }
 
   if (isSourceActive(markerSyncSourceId())) {

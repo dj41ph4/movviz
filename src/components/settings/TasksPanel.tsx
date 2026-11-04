@@ -53,6 +53,8 @@ interface TaskStatus {
   lastMaxBlockMs: number | null;
   nextRunAt: number | null;
   heavy: boolean;
+  /** Mise en pause par un réglage (ex. Plex désactivé pour les repères de saut). */
+  disabled: boolean;
   state: "queued" | "running" | "stopping" | null;
 }
 
@@ -315,6 +317,21 @@ function TaskName({ task }: { task: TaskStatus }) {
           {t("tasks.heavy")}
         </span>
       )}
+      {task.disabled && (
+        <span title={t("tasks.pausedHint")} className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warn">
+          {t("tasks.paused")}
+        </span>
+      )}
+      {task.disabled && (
+        <span title={t("tasks.pausedHint")} className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warn">
+          {t("tasks.paused")}
+        </span>
+      )}
+      {task.disabled && (
+        <span title={t("tasks.pausedHint")} className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warn">
+          {t("tasks.paused")}
+        </span>
+      )}
       {task.state === "queued" && <span className="text-[11px] font-normal text-ink-dim">· {t("tasks.queued")}</span>}
       {task.state === "stopping" && <span className="text-[11px] font-normal text-warn">· {t("tasks.stopping")}</span>}
     </span>
@@ -348,9 +365,10 @@ function RunStopButton({ task, running, onRun, onStop }: { task: TaskStatus; run
   return (
     <button
       onClick={onRun}
-      title={t("tasks.runNow")}
+      disabled={task.disabled}
+      title={task.disabled ? t("tasks.pausedHint") : t("tasks.runNow")}
       aria-label={t("tasks.runNow")}
-      className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow"
+      className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-ink-soft"
     >
       <RotateCw className="h-3.5 w-3.5" />
     </button>

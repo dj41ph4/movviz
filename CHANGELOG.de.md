@@ -1,3 +1,25 @@
+## v1.28.48 — 4. November 2026
+
+### Player
+
+- Die Überspringen-Schaltflächen unterstützen jetzt vier Markertypen: Rückblick, Intro, Abspann und Vorschau. Jeder Typ hat seine eigene Beschriftung („Rückblick überspringen“, „Intro überspringen“, „Abspann überspringen“, „Vorschau überspringen“). Überlappen sich mehrere Marker, wird nur eine Schaltfläche angezeigt: Der Abspann hat Vorrang vor der Vorschau. Web-Player, Android TV und Android mobil.
+- TheIntroDB wird neben Plex zu einer Markerquelle: Sie füllt die Lücken von Plex, liefert den Rückblick und die Vorschau, die Plex nicht hat, und funktioniert auch ohne verknüpftes Plex. Die Marker von Plex behalten Vorrang, wenn sie vorhanden sind. Ein noch nie abgefragter Titel wird bei der Wiedergabe angefragt, mit höchstens 1,2 Sekunden Wartezeit.
+
+### Android
+
+- Android TV und mobil: gleiche Beschriftungen pro Typ und gleiche Priorität bei überlappenden Markern für die vier Markertypen.
+
+### Samsung
+
+- Der Samsung-Player zeigt endlich eine Schaltfläche „Überspringen…“ (Rückblick, Intro, Abspann, Vorschau). Beim Abspann einer Serie mit Folgefolge springt sie zur nächsten Folge.
+
+### Einstellungen
+
+- Einstellungen → Metadaten → Überspring-Marker: drei Schaltflächen, „Alle“, „Nur Plex“ und „Nur API“. „Nur Plex“ (Standard, wenn Plex verknüpft ist) sendet nichts an einen Drittdienst. Ohne verknüpftes Plex gilt automatisch „Nur API“. Bei „Nur API“ ist die Plex-Aufgabe für Marker pausiert, ein Abzeichen „Pausiert“ zeigt das an.
+- Zwei geplante TheIntroDB-Aufgaben: ein nächtlicher Durchlauf (3 bis 6 Uhr), der die gesamte Bibliothek füllt, auf 3.000 Titel pro Nacht begrenzt, um das API-Kontingent zu schonen, und in der nächsten Nacht fortgesetzt wird, sowie eine Aufgabe alle 5 Minuten, die die Marker eines gerade hinzugefügten Films oder einer Folge abruft. Keine Dateianalyse: Das NAS wird nicht belastet.
+- Die Namen aller geplanten Aufgaben sind neu formuliert und sagen, was sie tun, in allen fünf Sprachen. Deutsch, Italienisch und Niederländisch hatten noch etwa zwanzig davon auf Englisch, und die Dateianalyse hatte gar keinen Namen.
+- Datenschutzerklärung aktualisiert: TheIntroDB, das nur die TMDb-ID des Titels, die Staffel und die Folge erhält, steht unter den Drittdiensten. Beim UGREEN-Paket wird die Zustimmung einmal erneut abgefragt.
+
 ## v1.28.47 — 4. November 2026
 
 ### Android

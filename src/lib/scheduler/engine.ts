@@ -1,5 +1,5 @@
 import { TASKS } from "./tasks";
-import { getTaskRun, recordTaskRun, getTaskConfig } from "./state";
+import { getTaskRun, recordTaskRun, getTaskConfig, updateTaskConfig } from "./state";
 import { enqueueJob, isSourceActive, activeJobForSource, requestCancelJob, isStopRequested, wasPreempted } from "@/lib/jobs/queue";
 import { currentJobId } from "@/lib/jobs/cancelScope";
 import type { JobType } from "@/lib/jobs/types";
@@ -29,6 +29,8 @@ export interface TaskStatus {
   nextRunAt: number | null;
   /** Tâche lourde : une seule à la fois. */
   heavy: boolean;
+  /** Mise en pause par un réglage (ex. Plex désactivé pour les repères de saut) : elle ne démarre pas. */
+  disabled: boolean;
   /** État dans la file : en attente, en cours, arrêt demandé, ou rien. */
   state: "queued" | "running" | "stopping" | null;
 }
@@ -48,6 +50,7 @@ export function listTaskStatus(): TaskStatus[] {
       lastMaxBlockMs: run.lastMaxBlockMs ?? null,
       nextRunAt: run.lastRunAt != null ? nextInTaskWindow(run.lastRunAt + intervalMs, window) : null,
       heavy: HEAVY_TASKS.has(t.id),
+      disabled: t.isEnabled ? !t.isEnabled() : false,
       state: taskQueueState(t.id),
     };
   });
@@ -105,6 +108,8 @@ const TASK_JOB_TYPE: Record<string, JobType> = {
   "plex-watchlist-sync": "plexWatchlistSync",
   "plex-library-sync": "plexLibrarySync",
   "plex-marker-sync": "plexMarkerSync",
+  "introdb-marker-sync": "metadataRefresh",
+  "introdb-new-items": "metadataRefresh",
   "plex-watch-sync": "plexWatchlistSync",
   "plex-watch-bootstrap": "plexWatchlistSync",
   "plex-full-reconcile": "plexLibrarySync",
@@ -198,6 +203,7 @@ function tick() {
   const quiet = now - bootAt < BOOT_QUIET_MS;
   for (const task of TASKS) {
     if (quiet && !BOOT_EXEMPT_TASKS.has(task.id)) continue;
+    if (task.isEnabled && !task.isEnabled()) continue;
     if (isSourceActive(task.id)) continue;
     const run = getTaskRun(task.id);
     const intervalMs = getEffectiveInterval(task.id, task.intervalMs);
@@ -216,6 +222,7 @@ function tick() {
 export function queueTaskRun(id: string): { ok: true } | { ok: false; error: string } {
   const task = TASKS.find((t) => t.id === id);
   if (!task) return { ok: false, error: "not_found" };
+  if (task.isEnabled && !task.isEnabled()) return { ok: false, error: "disabled" };
   if (isSourceActive(id)) return { ok: true };
   enqueueTask(task);
   return { ok: true };
@@ -223,6 +230,13 @@ export function queueTaskRun(id: string): { ok: true } | { ok: false; error: str
 
 /** Start the scheduler's overdue-task ticker — called once at server boot. */
 export function startScheduler() {
+  // Plage horaire par défaut des nouvelles tâches (ex. la nuit), posée une
+  // seule fois : l'utilisateur la modifie ou la retire ensuite librement.
+  for (const task of TASKS) {
+    if (task.defaultWindow && !Object.hasOwn(getTaskConfig(task.id), "window")) {
+      updateTaskConfig(task.id, { window: task.defaultWindow });
+    }
+  }
   tick();
   setInterval(tick, TICK_MS);
 }

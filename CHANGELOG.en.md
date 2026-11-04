@@ -1,3 +1,25 @@
+## v1.28.48 — 4 November 2026
+
+### Player
+
+- The skip buttons now handle four types of markers: recap, intro, credits and preview. Each type has its own label (“Skip recap”, “Skip intro”, “Skip credits”, “Skip preview”). When several markers overlap, a single button is shown: credits take priority over the preview. Web player, Android TV and Android mobile.
+- TheIntroDB becomes a source of markers alongside Plex: it fills Plex’s gaps, brings the recap and preview Plex doesn’t have, and also works when Plex isn’t linked. Plex’s markers keep priority when they exist. A title that has never been queried is requested at playback, waiting 1.2 seconds at most.
+
+### Android
+
+- Android TV and mobile: same labels per type and same priority for overlapping markers across the four marker types.
+
+### Samsung
+
+- The Samsung player finally shows a “Skip…” button (recap, intro, credits, preview). On the credits of a series that has a next episode, it moves on to the next episode.
+
+### Settings
+
+- Settings → Metadata → Skip markers: three buttons, “All”, “Plex only” and “API only”. “Plex only” (the default when Plex is linked) sends nothing to a third-party service. Without a linked Plex, “API only” applies automatically. With “API only”, the Plex markers task is paused and a “Paused” badge says so.
+- Two scheduled TheIntroDB tasks: a nightly pass (3 am to 6 am) that fills the whole library, capped at 3,000 titles per night to protect the API quota and resumed the next night, and a task every 5 minutes that fetches the markers of a movie or episode that was just added. No file analysis: the NAS isn’t put to work.
+- The names of all scheduled tasks are rewritten to say what they do, in all five languages. German, Italian and Dutch still had about twenty in English, and the file analysis had no name at all.
+- Privacy policy updated: TheIntroDB, which only receives the title’s TMDb id, the season and the episode, is listed among the third-party services. On the UGREEN package, consent is requested once more.
+
 ## v1.28.47 — 4 November 2026
 
 ### Android

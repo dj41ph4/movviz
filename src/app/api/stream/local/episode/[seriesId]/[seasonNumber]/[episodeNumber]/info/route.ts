@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { resolveEpisodePlayback } from "@/lib/playback/sourceResolver";
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { getLocalStreamInfo } from "@/lib/playback/localStreamInfo";
+import { getSeries } from "@/lib/library/store";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ seriesId: string; seasonNumber: string; episodeNumber: string }> };
@@ -22,11 +23,18 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (resolved.value.path) {
     try { size = fs.statSync(resolved.value.path).size; } catch { /* stream route reports availability */ }
   }
+  const seriesTmdbId = getSeries(seriesId)?.tmdbId;
+  const episodeMediaId = `${seriesId}:s${seasonNumber}e${episodeNumber}`;
+  // Même identifiant que /api/playback/prepare : la sonde ffprobe (déjà en
+  // cache) fournit les pistes quand Plex n'a pas encore scanné le fichier.
+  const probe = isFfprobeEnabled();
   const streamInfo = await getLocalStreamInfo(
     resolved.value.plexRatingKey, user.id,
-    // Même identifiant que /api/playback/prepare : la sonde ffprobe (déjà en
-    // cache) fournit les pistes quand Plex n'a pas encore scanné le fichier.
-    ...(isFfprobeEnabled() ? ([`${seriesId}:s${seasonNumber}e${episodeNumber}`, resolved.value.path ?? undefined] as const) : []),
+    probe ? episodeMediaId : undefined,
+    probe ? resolved.value.path ?? undefined : undefined,
+    episodeMediaId,
+    // Repères de saut d'une source externe (réglage Métadonnées) — sans TMDb id, rien à demander.
+    seriesTmdbId ? { key: episodeMediaId, api: { kind: "episode", tmdbId: seriesTmdbId, season: seasonNumber, episode: episodeNumber } } : undefined,
   );
   return NextResponse.json({
     seriesId, seasonNumber, episodeNumber,
@@ -35,8 +43,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     playable: resolved.value.source === "movviz" ? size != null : Boolean(resolved.value.plexRatingKey),
     plexRatingKey: resolved.value.plexRatingKey,
     size,
-    // Markers are keyed by the Plex rating key when available. Local-only
-    // episodes simply return an empty list until a marker scan links them.
+    // Markers are looked up under the Plex rating key and the Movviz id
+    // (`seriesId:sXeY`), merged across sources.
     ...streamInfo,
   }, { headers: { "cache-control": "private, no-store" } });
 }

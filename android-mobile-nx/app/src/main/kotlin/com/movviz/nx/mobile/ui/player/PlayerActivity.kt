@@ -1165,7 +1165,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         while (true) {
             delay(500L)
             val pos = exoPlayer.currentPosition
-            activeMarker = markers.firstOrNull { pos >= it.startMs && pos < it.endMs }
+            activeMarker = pickActiveMarker(markers, pos)
         }
     }
 
@@ -1624,7 +1624,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 .align(Alignment.BottomEnd)
                 .padding(end = 56.dp, bottom = skipBottom),
         ) {
-            val label = if (activeMarker?.type == "intro") "Passer l'intro" else "Passer le générique"
+            val label = markerSkipLabel(activeMarker?.type ?: "credits")
             SkipMarkerButton(
                 label = label,
                 focusRequester = skipMarkerFocus,

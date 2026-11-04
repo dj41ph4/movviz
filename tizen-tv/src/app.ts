@@ -48,6 +48,7 @@ interface Window {
   interface Track { index: number; language?: string; title?: string; codec: string; channels?: number; forced?: boolean }
   interface Prepared { sessionId: string; media: { durationMs?: number }; plan: { mode: string }; stream: { url: string; protocol: string }; tracks: { audio: Track[]; subtitle: Track[] }; selection?: { subtitle: number | null } }
   interface Session { sessionId: string; resumeOffsetMs: number | null }
+  interface SkipMarker { type: string; startMs: number; endMs: number }
   interface PublicUser { id: string; username: string; role: string }
   interface Saved { server: string; session: string; cookieName: string; user: PublicUser; locale: string }
   interface Page { title: string; content: HTMLElement; focusId: string; scroll: number }
@@ -62,7 +63,7 @@ interface Window {
   let content: HTMLElement, heading: HTMLElement;
   let generation = 0, focusCounter = 0, toastTimer = 0;
   const history: Page[] = [];
-  let activePlayer: { position: number; duration: number; progressId: string; engineId: string; sequence: number; timer: number; closing: boolean; page: Page; frame: Node[]; prepared: Prepared; base: number; media: Media; type: MediaType; episode?: Episode; audio?: number; subtitle: number | null; changing: boolean } | null = null;
+  let activePlayer: { position: number; duration: number; progressId: string; engineId: string; sequence: number; timer: number; closing: boolean; page: Page; frame: Node[]; prepared: Prepared; base: number; media: Media; type: MediaType; episode?: Episode; audio?: number; subtitle: number | null; changing: boolean; markers: SkipMarker[]; hasNext: boolean } | null = null;
   let startingPlayer = false;
   let libraryType: MediaType = "movie";
   const libraryFilters = { movie: { query: "", sort: "title" }, series: { query: "", sort: "title" } };
@@ -794,11 +795,14 @@ interface Window {
       const session = await call<Session>("/api/playback/sessions", { ratingKey, mediaId, mediaType: episode ? "episode" : "movie", durationMs: duration, tmdbId: media.tmdbId, seasonNumber: episode?.seasonNumber, episodeNumber: episode?.episodeNumber, title: media.title });
       progressId = session.sessionId;
       if (generation !== startGeneration) throw new Error(t("tizen.playbackFailed"));
-      const page = snapshot(); activePlayer = { position: 0, duration, progressId, engineId, sequence: 0, timer: 0, closing: false, page, frame: Array.from(app.childNodes), prepared, base: 0, media, type, episode, subtitle: prepared.selection?.subtitle ?? null, changing: false };
+      const page = snapshot(); activePlayer = { position: 0, duration, progressId, engineId, sequence: 0, timer: 0, closing: false, page, frame: Array.from(app.childNodes), prepared, base: 0, media, type, episode, subtitle: prepared.selection?.subtitle ?? null, changing: false, markers: [], hasNext: false };
       document.body.classList.add("playing"); document.documentElement.classList.add("playing"); app.replaceChildren();
       const overlay = el("div", "", "player-overlay"); overlay.append(el("h1", episode ? `${media.title} · ${episode.title}` : media.title));
       const progress = el("progress"); progress.id = "timeline"; progress.max = duration; overlay.append(progress, el("div", "", "player-time"));
-      const controls = el("div", "", "actions"); controls.append(button(t("tizen.pausePlay"), togglePlay), button("−30 s", () => seek(-30000)), button("+30 s", () => seek(30000)), button(t("tizen.audio"), () => trackPicker("audio")), button(t("tizen.subtitles"), () => trackPicker("subtitle")), button(t("tizen.stop"), () => stopPlayer(false))); if (episode) controls.append(button(t("tizen.nextEpisode"), nextEpisode)); overlay.append(controls); app.append(overlay);
+      const controls = el("div", "", "actions"); controls.append(button(t("tizen.pausePlay"), togglePlay), button("−30 s", () => seek(-30000)), button("+30 s", () => seek(30000)), button(t("tizen.audio"), () => trackPicker("audio")), button(t("tizen.subtitles"), () => trackPicker("subtitle")), button(t("tizen.stop"), () => stopPlayer(false))); if (episode) controls.append(button(t("tizen.nextEpisode"), nextEpisode)); overlay.append(controls);
+      // Bouton « Passer… » : caché tant qu'aucun marqueur n'est actif (voir refreshSkip).
+      const skip = button("", skipMarker, "skip-marker"); skip.id = "skip-marker"; skip.style.display = "none"; overlay.append(skip); app.append(overlay);
+      if (activePlayer) void loadMarkers(activePlayer).catch(() => {});
       if (!fromStart && session.resumeOffsetMs && session.resumeOffsetMs > 0) await reposition(session.resumeOffsetMs, false);
       if (fromStart && session.resumeOffsetMs) await progressCall(`/api/playback/sessions/${session.sessionId}/seek`, { toMs: 0 });
       if (av.getState() === "READY" || av.getState() === "PAUSED") av.play(); controls.querySelector("button")?.focus();
@@ -828,6 +832,68 @@ interface Window {
     const time = document.querySelector(".player-time");
     function format(ms: number) { const seconds = Math.floor(ms / 1000); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }
     if (time) time.textContent = `${format(activePlayer.position)} / ${format(activePlayer.duration)}`;
+    refreshSkip();
+  }
+  // Marqueurs récap / intro / générique / aperçu — même règle que le lecteur
+  // web et les apps Android NX : un seul bouton, le type le plus prioritaire
+  // puis le plus tôt commencé ; le générique passe avant l'aperçu ; un type
+  // inconnu est ignoré. Aucun marqueur = lecteur strictement identique.
+  const SKIP_PRIORITY = ["recap", "intro", "credits", "preview"];
+  function pickActiveMarker(markers: SkipMarker[], positionMs: number): SkipMarker | null {
+    let best: SkipMarker | null = null, bestRank = Infinity;
+    for (const marker of markers) {
+      const rank = SKIP_PRIORITY.indexOf(marker.type);
+      if (rank < 0 || !(positionMs >= marker.startMs && positionMs < marker.endMs)) continue;
+      if (rank < bestRank || (rank === bestRank && best && marker.startMs < best.startMs)) { best = marker; bestRank = rank; }
+    }
+    return best;
+  }
+  function skipLabel(marker: SkipMarker, hasNext: boolean) {
+    switch (marker.type) {
+      case "recap": return t("player.skipRecap");
+      case "intro": return t("player.skipIntro");
+      case "preview": return t("player.skipPreview");
+      default: return hasNext ? t("tizen.nextEpisode") : t("player.skipCredits");
+    }
+  }
+  function refreshSkip() {
+    const player = activePlayer, node = document.getElementById("skip-marker") as HTMLButtonElement | null; if (!player || !node) return;
+    const marker = player.closing || player.changing ? null : pickActiveMarker(player.markers, player.position);
+    const id = marker ? `${marker.type}:${marker.startMs}` : "";
+    if (marker) node.textContent = skipLabel(marker, player.hasNext);
+    if (node.dataset.marker === id) return;
+    node.dataset.marker = id;
+    if (!marker) {
+      const hadFocus = document.activeElement === node; node.style.display = "none";
+      if (hadFocus) document.querySelector<HTMLElement>(".player-overlay .actions button")?.focus();
+      return;
+    }
+    // À l'entrée dans un marqueur le bouton prend le focus : OK saute aussitôt.
+    node.style.display = "block"; if (!closeModal) node.focus();
+  }
+  async function skipMarker() {
+    const player = activePlayer; if (!player || player.closing || player.changing) return;
+    const marker = pickActiveMarker(player.markers, player.position); if (!marker) return;
+    if (marker.type === "credits" && player.episode && player.hasNext) { await nextEpisode(); return; }
+    const from = player.position, target = Math.min(marker.endMs, Math.max(0, player.duration - 1000));
+    await reposition(target, false);
+    if (activePlayer !== player || player.closing) return;
+    player.position = target; updateTime();
+    await progressCall(`/api/playback/sessions/${player.progressId}/seek`, { fromMs: from, toMs: target, reason: "skip_marker", markerType: marker.type });
+  }
+  async function loadMarkers(player: NonNullable<typeof activePlayer>) {
+    try {
+      const path = player.episode
+        ? `/api/stream/local/episode/${encodeURIComponent(player.media.id!)}/${player.episode.seasonNumber}/${player.episode.episodeNumber}/info`
+        : `/api/stream/local/${encodeURIComponent(player.media.id!)}/info`;
+      const info = await call<{ markers?: SkipMarker[] }>(path);
+      if (activePlayer === player && Array.isArray(info.markers)) { player.markers = info.markers; refreshSkip(); }
+    } catch { /* sans marqueurs le lecteur reste identique */ }
+    if (!player.episode) return;
+    try {
+      const next = await findNextEpisode(player);
+      if (activePlayer === player) { player.hasNext = Boolean(next); refreshSkip(); }
+    } catch { /* le bouton reste « Passer le générique » */ }
   }
   function togglePlay() { const av = window.webapis?.avplay; if (av?.getState() === "PLAYING") av.pause(); else if (av?.getState() === "PAUSED") av.play(); }
   async function seek(delta: number) {
@@ -888,11 +954,14 @@ interface Window {
     if (kind === "subtitle") option(); for (const track of player.prepared.tracks[kind]) option(track);
     box.append(button(t("tizen.cancel"), cancel)); overlay.append(box); app.append(overlay); box.querySelector("button")?.focus();
   }
+  async function findNextEpisode(player: NonNullable<typeof activePlayer>) {
+    const show = await call<Series>(`/api/library/series/${encodeURIComponent(player.media.id!)}?view=playback${partQuery(player.media, "series")}`);
+    return show.seasons.flatMap(s => s.episodes).filter(e => e.status === "available" && (e.file || e.plexRatingKey)).sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber).find(e => e.seasonNumber > player.episode!.seasonNumber || (e.seasonNumber === player.episode!.seasonNumber && e.episodeNumber > player.episode!.episodeNumber));
+  }
   async function nextEpisode(ended = false) {
     const player = activePlayer; if (!player || player.changing) return;
     if (!player.episode) { await stopPlayer(ended); return; }
-    const show = await call<Series>(`/api/library/series/${encodeURIComponent(player.media.id!)}?view=playback${partQuery(player.media, "series")}`);
-    const next = show.seasons.flatMap(s => s.episodes).filter(e => e.status === "available" && (e.file || e.plexRatingKey)).sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber).find(e => e.seasonNumber > player.episode!.seasonNumber || (e.seasonNumber === player.episode!.seasonNumber && e.episodeNumber > player.episode!.episodeNumber));
+    const next = await findNextEpisode(player);
     if (activePlayer !== player || player.closing) return;
     // « Vous regardez toujours ? » (comme Netflix et l'app Android TV) : au
     // 2e épisode enchaîné seul sans aucune touche, le suivant attend la

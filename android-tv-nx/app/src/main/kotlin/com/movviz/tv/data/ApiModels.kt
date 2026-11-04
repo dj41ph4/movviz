@@ -750,7 +750,7 @@ data class StreamSubtitleTrackDto(
 @JsonClass(generateAdapter = true)
 data class PlaybackMarkerDto(
     val id: String,
-    val type: String, // "intro" | "credits"
+    val type: String, // "recap" | "intro" | "credits" | "preview" (inconnu ignoré)
     val startMs: Long,
     val endMs: Long,
     val final: Boolean = false,
@@ -1097,7 +1097,7 @@ data class BleachArtworkDto(val customBackdropPath: String? = null, val customLo
 
 @JsonClass(generateAdapter = true)
 data class DashboardWatchlistResponseDto(val items: List<ProfileMediaCardDto> = emptyList())
-
+
 /** Page « plateforme » : rangées par catégorie (voir providerCatalog.ts). */
 @JsonClass(generateAdapter = true)
 data class ProviderRowDescDto(val key: String, val label: String)

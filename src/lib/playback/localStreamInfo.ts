@@ -1,5 +1,6 @@
 import { isFfmpegAvailable } from "@/lib/playback/ffmpeg/remuxSession";
 import { getPlaybackMarkers } from "@/lib/playback/markers/store";
+import { ensureExternalMarkersWithin, type ExternalMarkerTarget } from "@/lib/playback/markers/externalSync";
 import { isSubtitleToTextCodec, resolvePlexPartUrl } from "@/lib/playback/plexSource";
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
@@ -93,8 +94,28 @@ function streamsFromDescriptor(media: MediaDescriptorLike) {
   };
 }
 
-export async function getLocalStreamInfo(plexRatingKey: string | null, userId: string, mediaId?: string, filePath?: string) {
-  const markers = getPlaybackMarkers(plexRatingKey ?? "");
+/** Temps maximal accordé à la source externe pour répondre avant d'ouvrir la
+ *  lecture : la requête part en parallèle des autres lectures (zéro latence
+ *  ajoutée dans le cas courant) et continue en arrière-plan si elle dépasse. */
+const EXTERNAL_MARKERS_WAIT_MS = 1_200;
+
+export async function getLocalStreamInfo(
+  plexRatingKey: string | null, userId: string, mediaId?: string, filePath?: string, markerMediaId?: string,
+  external?: ExternalMarkerTarget,
+) {
+  const pending = external ? ensureExternalMarkersWithin(external, EXTERNAL_MARKERS_WAIT_MS) : null;
+  const info = await buildLocalStreamInfo(plexRatingKey, userId, mediaId, filePath, markerMediaId);
+  if (!pending) return info;
+  await pending;
+  return { ...info, markers: getPlaybackMarkers(plexRatingKey, markerMediaId ?? mediaId) };
+}
+
+async function buildLocalStreamInfo(plexRatingKey: string | null, userId: string, mediaId?: string, filePath?: string, markerMediaId?: string) {
+  // Les deux clés possibles du média : ratingKey Plex (sync Plex) et id
+  // Movviz (sources sans Plex) — sans Plex, seule la seconde existe.
+  // `markerMediaId` : identifiant Movviz même quand la sonde ffprobe (qui
+  // consomme `mediaId`) est désactivée.
+  const markers = getPlaybackMarkers(plexRatingKey, markerMediaId ?? mediaId);
   if (!plexRatingKey) {
     const localMedia = mediaId && filePath ? await getOrProbeMediaDescriptor(mediaId, filePath).catch(() => null) : null;
     const local = localMedia ? streamsFromDescriptor(localMedia) : { audioStreams: [], subtitleStreams: [] };

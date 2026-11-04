@@ -1212,7 +1212,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             delay(500L)
             val pos = timelinePos()
             val dur = timelineDur()
-            activeMarker = markers.firstOrNull { pos >= it.startMs && pos < it.endMs }
+            activeMarker = pickActiveMarker(markers, pos)
                 ?: if (hasNext && !hasCreditsMarker && dur > NEXT_FALLBACK_MS && pos >= dur - NEXT_FALLBACK_MS && pos < dur) {
                     com.movviz.tv.data.PlaybackMarkerDto(id = "next-fallback", type = "credits", startMs = dur - NEXT_FALLBACK_MS, endMs = dur)
                 } else null
@@ -1738,11 +1738,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 .align(Alignment.BottomEnd)
                 .padding(end = 42.dp, bottom = skipBottom),
         ) {
-            val label = when {
-                activeMarker?.type == "intro" -> "Passer l'intro"
-                hasNext -> "Épisode suivant"
-                else -> "Passer le générique"
-            }
+            val label = markerSkipLabel(activeMarker?.type ?: "credits", hasNext)
             SkipMarkerButton(
                 label = label,
                 focusRequester = skipMarkerFocus,

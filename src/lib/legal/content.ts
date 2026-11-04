@@ -69,6 +69,7 @@ export const PRIVACY: Record<LegalLocale, LegalDocument> = {
         ],
         bullets: [
           "Metadata and artwork — TMDb (api.themoviedb.org, image.tmdb.org), TheTVDB, OMDb: titles, identifiers and searches, with the API key you provide. Posters are served by your server, or loaded from TMDb's image CDN by the browser if the administrator enables CDN images.",
+          "Skip markers — TheIntroDB (api.theintrodb.org): when the administrator chooses \"All\" or \"API only\" in Settings → Metadata (or when Plex is not linked), the TMDb id of the title being played, plus its season and episode, are sent to fetch intro, recap, credits and preview timings. No user, account or file information is sent.",
           "Plex (plex.tv and Plex metadata services): sign-in, watchlist and library linking, if you choose to connect Plex.",
           "Indexers and sources you configure (Torznab/Newznab or other trackers): search terms and release requests, with your credentials. You are responsible for configuring only legitimate sources.",
           "Import lists: the list addresses you provide (for example Trakt, IMDb or Letterboxd lists) are fetched by the server.",
@@ -164,6 +165,7 @@ export const PRIVACY: Record<LegalLocale, LegalDocument> = {
         ],
         bullets: [
           "Métadonnées et visuels — TMDb (api.themoviedb.org, image.tmdb.org), TheTVDB, OMDb : titres, identifiants et recherches, avec la clé d'API que vous fournissez. Les affiches sont servies par votre serveur, ou chargées par le navigateur depuis le CDN d'images de TMDb si l'administrateur active les images CDN.",
+          "Repères de saut — TheIntroDB (api.theintrodb.org) : lorsque l'administrateur choisit « Tout » ou « API uniquement » dans Réglages → Métadonnées (ou que Plex n'est pas lié), l'identifiant TMDb du titre lu, avec sa saison et son épisode, est envoyé pour obtenir les repères d'intro, de récap, de générique et d'aperçu. Aucune information sur l'utilisateur, le compte ou les fichiers n'est envoyée.",
           "Plex (plex.tv et services de métadonnées Plex) : connexion, liste de suivi et liaison de la bibliothèque, si vous choisissez de connecter Plex.",
           "Indexeurs et sources que vous configurez (Torznab/Newznab ou autres trackers) : termes de recherche et demandes de releases, avec vos identifiants. Vous êtes responsable de ne configurer que des sources légitimes.",
           "Listes d'import : les adresses de listes que vous fournissez (par exemple Trakt, IMDb ou Letterboxd) sont téléchargées par le serveur.",

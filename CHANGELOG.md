@@ -1,3 +1,25 @@
+## v1.28.48 — 4 novembre 2026
+
+### Lecteur
+
+- Les boutons de saut gèrent quatre types de repères : récap, intro, générique et aperçu. Chaque type a son libellé (« Passer le récap », « Passer l’intro », « Passer le générique », « Passer l’aperçu »). Si plusieurs repères se chevauchent, un seul bouton s’affiche : le générique passe avant l’aperçu. Lecteur web, Android TV et Android mobile.
+- TheIntroDB devient une source de repères, en plus de Plex : elle comble les trous de Plex, apporte le récap et l’aperçu que Plex n’a pas, et fonctionne aussi sans Plex lié. Les repères de Plex gardent la priorité quand ils existent. Un titre jamais interrogé est demandé à la lecture, avec 1,2 seconde d’attente au plus.
+
+### Android
+
+- Android TV et mobile : mêmes libellés par type et même priorité en cas de chevauchement pour les quatre types de repères.
+
+### Samsung
+
+- Le lecteur Samsung affiche enfin un bouton « Passer… » (récap, intro, générique, aperçu). Sur le générique d’une série qui a une suite, il enchaîne sur l’épisode suivant.
+
+### Réglages
+
+- Réglages → Métadonnées → Repères de saut : trois boutons, « Tout », « Plex uniquement » et « API uniquement ». « Plex uniquement » (le choix par défaut quand Plex est lié) n’envoie rien à un service tiers. Sans Plex lié, « API uniquement » s’applique d’office. Avec « API uniquement », la tâche Plex des repères est en pause et un badge « En pause » l’indique.
+- Deux tâches planifiées TheIntroDB : une passe de nuit (3 h à 6 h) qui remplit toute la bibliothèque, plafonnée à 3 000 titres par nuit pour ménager le quota de l’API et reprise la nuit suivante, et une tâche toutes les 5 minutes qui récupère les repères d’un film ou d’un épisode tout juste ajouté. Aucune analyse de fichier : le NAS n’est pas sollicité.
+- Les noms de toutes les tâches planifiées sont réécrits pour dire ce qu’elles font, dans les cinq langues. L’allemand, l’italien et le néerlandais en gardaient une vingtaine en anglais, et l’analyse des fichiers n’avait aucun nom.
+- Politique de confidentialité mise à jour : TheIntroDB, qui ne reçoit que l’identifiant TMDb du titre, la saison et l’épisode, figure parmi les services tiers. Sur le paquet UGREEN, le consentement est redemandé une fois.
+
 ## v1.28.47 — 4 novembre 2026
 
 ### Android

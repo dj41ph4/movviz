@@ -6,10 +6,12 @@ import { cn } from "@/lib/utils";
 import { Check, X, ExternalLink, Loader2, RotateCcw, BookOpen } from "lucide-react";
 import { Toggle } from "@/components/ui/Toggle";
 import { useEnhancedTrailerSources } from "@/lib/settings/useEnhancedTrailerSources";
+import { useMarkerSources } from "@/lib/settings/useMarkerSources";
 
 export function MetadataSettings() {
   const t = useT();
   const enhancedTrailerSources = useEnhancedTrailerSources();
+  const markerSources = useMarkerSources();
   const [tmdbConfigured, setTmdbConfigured] = useState(false);
   const [tmdbIsDefault, setTmdbIsDefault] = useState(true);
   const [tmdbApiKey, setTmdbApiKey] = useState("");
@@ -302,6 +304,53 @@ export function MetadataSettings() {
           className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-glow hover:underline"
         >
           {t("metadata.tvdbGetKey")} <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+
+      <div className="mt-6 border-t border-white/5 pt-5">
+        <h3 className="text-sm font-bold text-ink">{t("metadata.skipSourcesTitle")}</h3>
+        <p className="mt-1 mb-3 text-xs text-ink-dim">{t("metadata.skipSourcesHint")}</p>
+        <div role="radiogroup" aria-label={t("metadata.skipSourcesTitle")} className="flex flex-wrap gap-2">
+          {([
+            { id: "all", label: t("metadata.skipSourcesAll"), disabled: !markerSources.plexLinked },
+            { id: "plex-only", label: t("metadata.skipSourcesPlexOnly"), disabled: !markerSources.plexLinked },
+            { id: "api-only", label: t("metadata.skipSourcesApiOnly"), disabled: false },
+          ] as const).map((option) => {
+            const selected = markerSources.effectiveMode === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={option.disabled}
+                onClick={() => markerSources.setMode(option.id)}
+                className={cn(
+                  "h-10 rounded-xl px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                  selected ? "bg-white text-black" : "glass-strong text-ink-soft hover:text-ink"
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-ink-dim">
+          {!markerSources.plexLinked
+            ? t("metadata.skipSourcesNoPlex")
+            : markerSources.effectiveMode === "plex-only"
+              ? t("metadata.skipSourcesPlexOnlyHint")
+              : markerSources.effectiveMode === "api-only"
+                ? t("metadata.skipSourcesApiOnlyHint")
+                : t("metadata.skipSourcesAllHint")}
+        </p>
+        <a
+          href="https://theintrodb.org"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-glow hover:underline"
+        >
+          TheIntroDB <ExternalLink className="h-3 w-3" />
         </a>
       </div>
 

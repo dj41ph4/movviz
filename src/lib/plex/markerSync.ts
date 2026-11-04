@@ -22,12 +22,15 @@ import {
   type DirtyReason,
 } from "./markerSyncState";
 import {
-  getMarkerRecord,
-  getAllMarkerRatingKeys,
-  upsertMarkerRecord,
-  removeMarkerRecord,
+  getSourceState,
+  getSourceMarkers,
+  getKeysWithSource,
+  replaceSourceMarkers,
+  removeSourceMarkers,
+  touchSourceSync,
 } from "@/lib/playback/markers/store";
-import type { MediaMarkerRecord, PlaybackMarker, PlaybackMarkerType } from "@/lib/playback/markers/types";
+import type { PlaybackMarker, PlaybackMarkerType } from "@/lib/playback/markers/types";
+import { markerSignature } from "@/lib/playback/markers/signature";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { withKeyLock } from "@/lib/library/locks";
 
@@ -88,14 +91,6 @@ export function normalizePlexMarkers(raws: PlexMarker[]): PlaybackMarker[] {
   return out;
 }
 
-export function markerSignature(markers: PlaybackMarker[]): string {
-  // Trié par startMs déjà — l'ordre fait partie du contrat.
-  const canonical = JSON.stringify(
-    markers.map((m) => ({ t: m.type, s: m.startMs, e: m.endMs, f: m.final }))
-  );
-  return createHash("sha256").update(canonical).digest("hex").slice(0, 16);
-}
-
 /** Hash STABLE d'un redémarrage à l'autre (pas Math.random, pas Date.now) —
  *  le bucket d'audit d'un ratingKey doit être identique chaque jour. */
 export function stableHash(input: string): number {
@@ -134,16 +129,16 @@ function collectIncrementalCandidates(state: ReturnType<typeof loadMarkerSyncSta
   for (const key of Object.keys(state.dirty)) set.add(key);
   // Médias jamais synchronisés mais connus de la biblio Plex-side.
   for (const [key] of Object.entries(state.knownUpdatedAt)) {
-    if (!getMarkerRecord(key)) set.add(key);
+    if (!getSourceState(key, "plex")) set.add(key);
   }
   // Retries arrivés à échéance uniquement (les autres attendent demain).
   const now = Date.now();
   for (const [key, retry] of Object.entries(state.emptyRetry)) {
-    if (!getMarkerRecord(key)?.markers.length && retry.nextRetryAt <= now) set.add(key);
+    if (getSourceMarkers(key, "plex").length === 0 && retry.nextRetryAt <= now) set.add(key);
   }
-  // Audit tournant : bucket du jour, seulement les records déjà là.
+  // Audit tournant : bucket du jour, seulement les records Plex déjà là.
   const bucket = state.auditBucket % 7;
-  for (const key of getAllMarkerRatingKeys()) {
+  for (const key of getKeysWithSource("plex")) {
     if (stableHash(key) % 7 === bucket) set.add(key);
   }
   return [...set];
@@ -199,20 +194,16 @@ async function processBatch(
     }
 
     const markers = normalizePlexMarkers(res.markers);
-    const existing = getMarkerRecord(key);
+    const existing = getSourceState(key, "plex");
+    const existingMarkers = getSourceMarkers(key, "plex");
 
     if (markers.length === 0) {
       // Réponse VALIDE sans marker : Plex ne fournit actuellement rien.
-      // Remplacement légitime par [] + retry quotidien pendant 7 passages,
-      // puis couverture par l'audit tournant.
-      if (existing?.markers.length) acc.removed += 1;
-      upsertMarkerRecord({
-        ratingKey: key,
-        markers: [],
-        signature: "",
-        plexUpdatedAt: null,
-        lastSyncedAt: Date.now(),
-      });
+      // Remplacement légitime des marqueurs PLEX par [] (ceux des autres
+      // sources restent) + retry quotidien pendant 7 passages, puis
+      // couverture par l'audit tournant.
+      if (existingMarkers.length) acc.removed += 1;
+      replaceSourceMarkers(key, "plex", [], { signature: "", sourceUpdatedAt: null, lastSyncedAt: Date.now() });
       const prev = state.emptyRetry[key];
       const attempts = (prev?.attempts ?? 0) + 1;
       if (attempts < EMPTY_RETRY_MAX_ATTEMPTS) {
@@ -229,19 +220,12 @@ async function processBatch(
     delete state.emptyRetry[key]; // des markers existent enfin
 
     const signature = markerSignature(markers);
-    if (existing && existing.signature === signature && existing.markers.length > 0) {
+    if (existing && existing.signature === signature && existingMarkers.length > 0) {
       // UNCHANGED — aucune écriture inutile, on rafraîchit juste le tick.
       acc.unchanged += 1;
-      upsertMarkerRecord({ ...existing, lastSyncedAt: Date.now() });
+      touchSourceSync(key, "plex", Date.now());
     } else {
-      const rec: MediaMarkerRecord = {
-        ratingKey: key,
-        markers,
-        signature,
-        plexUpdatedAt: null,
-        lastSyncedAt: Date.now(),
-      };
-      upsertMarkerRecord(rec);
+      replaceSourceMarkers(key, "plex", markers, { signature, sourceUpdatedAt: null, lastSyncedAt: Date.now() });
       if (!existing) acc.added += 1;
       else acc.updated += 1;
       const intros = markers.filter((m) => m.type === "intro").length;
@@ -307,9 +291,11 @@ async function runSync(
     gcAllowed = candidates.every((k) => fullSeen.get(k) === true);
     if (gcAllowed) {
       const liveSet = new Set(candidates);
-      for (const key of getAllMarkerRatingKeys()) {
+      // GC limitée à la source Plex : un enregistrement porté par une autre
+      // source (clé Movviz, chapitres, TheIntroDB…) n'est jamais purgé ici.
+      for (const key of getKeysWithSource("plex")) {
         if (!liveSet.has(key)) {
-          removeMarkerRecord(key);
+          removeSourceMarkers(key, "plex");
           acc.removed += 1;
           console.log(`[PlexMarkers] GC ratingKey=${key} (absent de Movviz)`);
         }

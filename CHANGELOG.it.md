@@ -1,3 +1,25 @@
+## v1.28.48 — 4 novembre 2026
+
+### Lettore
+
+- I pulsanti di salto gestiscono ora quattro tipi di indicatori: riepilogo, intro, titoli di coda e anteprima. Ogni tipo ha la sua etichetta (“Salta il riepilogo”, “Salta l’intro”, “Salta i titoli di coda”, “Salta l’anteprima”). Se più indicatori si sovrappongono, viene mostrato un solo pulsante: i titoli di coda hanno la precedenza sull’anteprima. Lettore web, Android TV e Android mobile.
+- TheIntroDB diventa una fonte di indicatori accanto a Plex: colma le lacune di Plex, porta il riepilogo e l’anteprima che Plex non ha e funziona anche senza Plex collegato. Gli indicatori di Plex mantengono la priorità quando esistono. Un titolo mai interrogato viene richiesto durante la riproduzione, con un’attesa massima di 1,2 secondi.
+
+### Android
+
+- Android TV e mobile: stesse etichette per tipo e stessa priorità in caso di sovrapposizione per i quattro tipi di indicatori.
+
+### Samsung
+
+- Il lettore Samsung mostra finalmente un pulsante “Salta…” (riepilogo, intro, titoli di coda, anteprima). Sui titoli di coda di una serie con un episodio successivo, passa all’episodio successivo.
+
+### Impostazioni
+
+- Impostazioni → Metadati → Indicatori di salto: tre pulsanti, “Tutto”, “Solo Plex” e “Solo API”. “Solo Plex” (predefinito quando Plex è collegato) non invia nulla a servizi di terzi. Senza Plex collegato, “Solo API” si applica automaticamente. Con “Solo API”, l’attività Plex degli indicatori è in pausa e un badge “In pausa” lo indica.
+- Due attività pianificate TheIntroDB: un passaggio notturno (dalle 3 alle 6) che riempie l’intera libreria, limitato a 3.000 titoli per notte per preservare la quota dell’API e ripreso la notte successiva, e un’attività ogni 5 minuti che recupera gli indicatori di un film o di un episodio appena aggiunto. Nessuna analisi dei file: il NAS non viene sollecitato.
+- I nomi di tutte le attività pianificate sono riscritti per dire cosa fanno, in tutte e cinque le lingue. Tedesco, italiano e olandese ne avevano ancora una ventina in inglese, e l’analisi dei file non aveva alcun nome.
+- Informativa sulla privacy aggiornata: TheIntroDB, che riceve soltanto l’ID TMDb del titolo, la stagione e l’episodio, compare tra i servizi di terzi. Sul pacchetto UGREEN il consenso viene richiesto di nuovo una volta.
+
 ## v1.28.47 — 4 novembre 2026
 
 ### Android

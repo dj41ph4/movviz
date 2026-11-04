@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { resolveMoviePlayback } from "@/lib/playback/sourceResolver";
 import { getLocalStreamInfo } from "@/lib/playback/localStreamInfo";
+import { getMovie } from "@/lib/library/store";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ movvizId: string }> };
@@ -17,7 +18,12 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (resolved.value.path) {
     try { size = fs.statSync(resolved.value.path).size; } catch { /* stream route reports availability */ }
   }
-  const streamInfo = await getLocalStreamInfo(resolved.value.plexRatingKey, user.id, movvizId, resolved.value.path ?? undefined);
+  const tmdbId = getMovie(movvizId)?.tmdbId;
+  const streamInfo = await getLocalStreamInfo(
+    resolved.value.plexRatingKey, user.id, movvizId, resolved.value.path ?? undefined, undefined,
+    // Repères de saut d'une source externe (réglage Métadonnées) — sans TMDb id, rien à demander.
+    tmdbId ? { key: movvizId, api: { kind: "movie", tmdbId } } : undefined,
+  );
   return NextResponse.json({
     movvizId,
     source: resolved.value.source,

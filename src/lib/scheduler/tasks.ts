@@ -32,6 +32,8 @@ import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/lan
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { probeAllLibraryMovies, probeAllLibrarySeries } from "@/lib/playback/engine/probeLibrary";
 import { syncPlexMarkers } from "@/lib/plex/markerSync";
+import { syncIntroDbLibrary } from "@/lib/playback/markers/librarySync";
+import { externalMarkersEnabled, plexMarkersEnabled } from "@/lib/settings/markerSources";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
 import { JobCancelledError } from "@/lib/jobs/cancelScope";
 
@@ -39,6 +41,12 @@ export interface ScheduledTask {
   id: string;
   name: string;
   intervalMs: number;
+  /** Plage horaire appliquée une fois, la première fois que la tâche existe
+   *  (modifiable ensuite dans Réglages → Tâches planifiées). */
+  defaultWindow?: { startHour: number; endHour: number };
+  /** Tâche mise en pause par un réglage (ex. Plex désactivé pour les repères
+   *  de saut) : elle ne démarre pas et l'interface l'indique. */
+  isEnabled?: () => boolean;
   run: () => Promise<void>;
 }
 
@@ -46,7 +54,7 @@ export interface ScheduledTask {
 export const TASKS: ScheduledTask[] = [
   {
     id: "quality-upgrade-check",
-    name: "Vérification des mises à niveau qualité",
+    name: "Recherche de versions de meilleure qualité des titres déjà présents",
     intervalMs: 60 * 60 * 1000, // hourly
     run: async () => {
       await checkQualityUpgrades();
@@ -54,7 +62,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "indexer-health-check",
-    name: "Vérification des indexeurs",
+    name: "Test de connexion de chaque indexeur",
     intervalMs: 6 * 60 * 60 * 1000, // every 6 hours
     run: async () => {
       for (const ix of loadIndexers().filter((i) => i.enabled)) {
@@ -65,7 +73,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "library-reconcile",
-    name: "Réconciliation bibliothèque / disque",
+    name: "Vérification que chaque fichier de la bibliothèque existe encore sur le disque",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       const issues = await reconcileLibrary();
@@ -92,7 +100,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "search-and-replace-check",
-    name: "Vérification des remplacements suggérés",
+    name: "Repérage des remplacements possibles par une meilleure version (ne télécharge rien)",
     // "Rechercher et remplacer" (searchAndReplace.ts) was on-demand only —
     // nothing ever ran it unless an admin happened to open the panel. This
     // surfaces the same read-only candidates (language-upgrade target and
@@ -126,7 +134,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "language-detection",
-    name: "Détection des langues (fichier, Plex, nom de fichier)",
+    name: "Détection de la langue audio de chaque fichier (Plex et nom du fichier)",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       await backfillMovieLanguages();
@@ -135,7 +143,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "media-probe-library",
-    name: "Analyse technique des fichiers (pistes, langues, codecs)",
+    name: "Analyse des fichiers (ffprobe) : pistes audio, sous-titres, codecs",
     // Incrémentale : getOrProbeMediaDescriptor saute tout fichier inchangé
     // (chemin/taille/date), donc seuls les fichiers jamais analysés coûtent un
     // ffprobe. Ancre dans la mémoire de Movviz ce que Plex avait fourni — la
@@ -149,7 +157,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "auto-upgrade-all",
-    name: "Mise à niveau automatique (Rechercher et remplacer)",
+    name: "Remplacement automatique des fichiers par de meilleures versions",
     // Toutes les 12 h (était 6 h) : jusqu'à ~300 requêtes aux indexeurs par
     // passage pour améliorer des fichiers déjà présents — jamais urgent.
     intervalMs: 12 * 60 * 60 * 1000,
@@ -175,7 +183,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "session-cleanup",
-    name: "Nettoyage des sessions expirées",
+    name: "Suppression des sessions de connexion expirées",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       purgeExpiredSessions();
@@ -183,7 +191,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "plex-watchlist-sync",
-    name: "Synchronisation de la liste de suivi Plex",
+    name: "Plex : synchronisation des listes de suivi et envoi des statuts « vu »",
     // Toutes les 5 min (était 1 min) : un appel plex.tv par utilisateur à
     // chaque passage pour une liste de suivi qui change rarement.
     intervalMs: 5 * 60 * 1000,
@@ -210,7 +218,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "plex-library-sync",
-    name: "Synchronisation de la bibliothèque Plex",
+    name: "Plex : import des films et séries ajoutés ou modifiés (passage rapide)",
     intervalMs: 5 * 60 * 1000, // every 5 minutes — incremental (only recent adds/changes), so this stays cheap
     run: async () => {
       if (!plexConfigured()) return;
@@ -228,12 +236,14 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "plex-marker-sync",
-    name: "Synchronisation des intros et génériques Plex",
+    name: "Plex : récupération des repères d'intro et de générique",
     // Quotidien — PAS toutes les 5 minutes : la synchro bibliothèque
     // alimente la dirty-list à chaque passage, mais le fetch markers
     // n'a pas besoin de repartir si souvent (découplage voulu, on ne
     // surcharge pas Plex).
     intervalMs: 24 * 60 * 60 * 1000,
+    // En pause quand Réglages → Métadonnées est sur « API uniquement ».
+    isEnabled: plexMarkersEnabled,
     run: async () => {
       if (!plexConfigured()) return;
       if (!loadPlexConfig().markerSyncEnabled) return;
@@ -241,8 +251,35 @@ export const TASKS: ScheduledTask[] = [
     },
   },
   {
+    id: "introdb-marker-sync",
+    name: "TheIntroDB : repères de saut de toute la bibliothèque (récap, intro, générique, aperçu)",
+    // Une fois par nuit. La toute première passe est longue (un appel par
+    // titre) : plafonnée par nuit pour ménager le quota de l'API, elle se
+    // poursuit les nuits suivantes, puis ne traite plus que les nouveautés
+    // et les résultats anciens.
+    intervalMs: 24 * 60 * 60 * 1000,
+    defaultWindow: { startHour: 3, endHour: 6 },
+    isEnabled: externalMarkersEnabled,
+    run: async () => {
+      await syncIntroDbLibrary("full");
+    },
+  },
+  {
+    id: "introdb-new-items",
+    name: "TheIntroDB : repères de saut des titres tout juste ajoutés",
+    // Un film ou un épisode qui arrive dans la bibliothèque (Plex,
+    // téléchargement terminé, import) obtient ses repères en quelques minutes,
+    // sans attendre la nuit. Aucun effet tant que la première passe complète
+    // de nuit n'est pas terminée.
+    intervalMs: 5 * 60 * 1000,
+    isEnabled: externalMarkersEnabled,
+    run: async () => {
+      await syncIntroDbLibrary("new");
+    },
+  },
+  {
     id: "plex-watch-sync",
-    name: "Synchronisation des vues Plex",
+    name: "Plex : récupération du statut « vu » de chaque utilisateur",
     intervalMs: 2 * 60 * 60 * 1000, // every 2 hours
     run: async () => {
       if (!plexConfigured()) return;
@@ -272,7 +309,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "plex-watch-bootstrap",
-    name: "Rattrapage de l'historique Plex complet",
+    name: "Plex : reprise de l'historique de visionnage complet (première synchro)",
     intervalMs: 5 * 60 * 1000,
     run: async () => {
       if (!plexConfigured()) return;
@@ -291,7 +328,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "plex-full-reconcile",
-    name: "Réconciliation complète Plex",
+    name: "Plex : rapprochement complet de toute la bibliothèque (quotidien)",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     // The 5-minute plex-library-sync only looks at items Plex touched since the
     // last watermark, so a title added to Movviz's library *before* Plex ever
@@ -315,7 +352,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "release-day-search",
-    name: "Recherche des sorties du jour",
+    name: "Recherche des titres sortis aujourd'hui ou ces deux dernières semaines",
     intervalMs: 6 * 60 * 60 * 1000, // 4x/day (matin/midi/après-midi/soir)
     // 1. Flip anything "upcoming" whose release/air date has now passed to
     //    "missing" — this is what makes it eligible for search at all (see
@@ -338,7 +375,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "metadata-refresh",
-    name: "Rafraîchissement des métadonnées TMDb",
+    name: "Mise à jour des fiches TMDb (titres, synopsis, notes, affiches)",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       await refreshLibraryMetadata();
@@ -346,7 +383,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "series-episodes-sync",
-    name: "Mise à jour des épisodes des séries",
+    name: "Détection des nouveaux épisodes et saisons des séries",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     // New episodes/seasons, episode titles and air dates published after a
     // series was added (see episodeSync.ts).
@@ -356,7 +393,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "artwork-cache-refresh",
-    name: "Complément incrémental des visuels TMDb",
+    name: "Téléchargement des affiches et visuels TMDb manquants",
     intervalMs: 24 * 60 * 60 * 1000, // daily safety net; visible titles fill immediately
     run: async () => {
       // New library/search titles cache themselves in real time. This small
@@ -367,7 +404,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "rss-indexer-scan",
-    name: "Scan RSS des indexeurs",
+    name: "Lecture des flux RSS des indexeurs pour repérer les nouvelles sorties",
     // Every 15 min: indexers only expose their latest ~100 releases, so an
     // hourly read let busy hours slip past the feed window unseen. A pass is
     // one request per indexer (~1 s in prod) — the RSS feed, not the heavy
@@ -393,7 +430,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "retry-missing-movies",
-    name: "Relance des films manquants",
+    name: "Nouvelle recherche des films et épisodes manquants",
     // Every 8 h (was 6 h — 8 h is the acquisition floor, see interval.ts):
     // the 15-min RSS scan catches new releases, and titles already searched
     // in vain wait 1 then 3 days (missingSearchBackoff), so most passes only
@@ -413,7 +450,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "download-state-reconcile",
-    name: "Réconciliation des téléchargements en cours",
+    name: "Suivi des téléchargements : passage en « disponible » des fichiers terminés",
     intervalMs: 2 * 60 * 1000, // every 2 min — a finished file must flip to "available" fast so the Play button appears without waiting for Plex; this is a single engineGet("torrents") + in-memory loops, cheap enough to run often
     // Items stuck on "downloading" whose torrent no longer exists in the
     // engine (deleted, wiped, lost on crash) go back to "missing" so the
@@ -424,7 +461,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "stuck-downloads-recover",
-    name: "Récupération des téléchargements terminés non importés",
+    name: "Import des téléchargements terminés restés dans le dossier de téléchargement",
     intervalMs: 15 * 60 * 1000, // every 15 min — scans download folders for orphaned files; scheduled as heavy so it does not delay the interface
     // A completed torrent whose import callback never landed (engine crash
     // between completion and import, failed move, lost callback) leaves its
@@ -460,7 +497,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "anime-vf-calendar-refresh",
-    name: "Rafraîchissement du calendrier VF anime",
+    name: "Mise à jour du calendrier de sortie des doublages VF d'anime",
     intervalMs: 24 * 60 * 60 * 1000, // daily
     // Best-effort scrape of anime VF dub launch dates (no official API for
     // this exists — see animeVfCalendar.ts). Keeps the cache warm so the
@@ -471,7 +508,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "seerr-import",
-    name: "Import des demandes Overseerr/Seerr",
+    name: "Import des demandes Seerr / Overseerr (films et séries à télécharger)",
     intervalMs: 60 * 1000, // every minute
     run: async () => {
       if (!seerrConfigured()) return;
@@ -480,7 +517,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "disk-scan",
-    name: "Scan disque local",
+    name: "Détection des nouveaux fichiers sur le disque local",
     // Reste à 1 h : c'est lui qui donne l'emplacement disque local d'un
     // fichier arrivé par Plex (lecture directe). Désormais asynchrone et
     // limité aux fichiers pas encore rattachés, il ne fige plus le serveur.
@@ -491,7 +528,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "trash-purge",
-    name: "Purge de la corbeille",
+    name: "Vidage définitif des éléments trop anciens de la corbeille",
     intervalMs: 30 * 24 * 60 * 60 * 1000, // every 30 days
     run: async () => {
       await purgeExpiredTrash();
@@ -499,7 +536,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "library-health-check",
-    name: "Diagnostic bibliothèque",
+    name: "Diagnostic de la bibliothèque (statuts incohérents, langues, métadonnées incomplètes)",
     intervalMs: 30 * 24 * 60 * 60 * 1000, // every 30 days
     // Read-only: never searches, never downloads. Only prepares data
     // (statuses incohérents, langue non détectée, sorties pas rattrapées,
@@ -511,7 +548,7 @@ export const TASKS: ScheduledTask[] = [
   },
   {
     id: "server-benchmark",
-    name: "Benchmark des capacités du serveur",
+    name: "Mesure de la puissance du serveur (vitesse de transcodage)",
     intervalMs: 30 * 24 * 60 * 60 * 1000, // every 30 days — explicit user request (2026-08-24)
     // Third of the benchmark's three triggers (see serverBenchmark.ts's own
     // header) — hardware doesn't change often, but ffmpeg builds, kernel
