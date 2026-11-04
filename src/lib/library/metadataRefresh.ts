@@ -1,7 +1,7 @@
 import { loadMovies, updateMovies, loadSeries, updateSeriesList } from "@/lib/library/store";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries } from "@/lib/metadata/tmdb";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
-import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
+import { yieldToEventLoop, trackJobProgress } from "@/lib/jobs/cancelScope";
 
 /** Écritures groupées : une réécriture du fichier bibliothèque par lot, pas par titre. */
 const WRITE_BATCH = 50;
@@ -33,10 +33,14 @@ function changedFields<T extends object>(current: T, next: Partial<T>): Partial<
 export async function refreshLibraryMetadata() {
   let moviesUpdated = 0;
   let seriesUpdated = 0;
+  const allMovies = loadMovies();
+  const allSeries = loadSeries();
+  const tick = trackJobProgress(allMovies.length + allSeries.length);
 
   let moviePatches = new Map<string, Partial<LibraryMovie>>();
-  for (const movie of loadMovies()) {
+  for (const movie of allMovies) {
     await yieldToEventLoop();
+    tick();
     const meta = await fetchTmdbMovie(movie.tmdbId);
     if (!meta) continue;
     const patch = changedFields<LibraryMovie>(movie, {
@@ -68,8 +72,9 @@ export async function refreshLibraryMetadata() {
   updateMovies(moviePatches);
 
   let seriesPatches = new Map<string, Partial<LibrarySeries>>();
-  for (const series of loadSeries()) {
+  for (const series of allSeries) {
     await yieldToEventLoop();
+    tick();
     const meta = await fetchTmdbSeries(series.tmdbId);
     if (!meta) continue;
     const patch = changedFields<LibrarySeries>(series, {

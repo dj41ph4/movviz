@@ -149,6 +149,8 @@ export const HEAVY_TASKS = new Set<string>([
   "server-benchmark",
   // Boucle sur toute la bibliothèque : jamais en même temps que les autres tâches lourdes.
   "media-probe-library",
+  // 3 000 appels espacés, plus de 10 minutes : sans délai de garde, et à l'abri d'une lecture en cours.
+  "introdb-marker-sync",
 ]);
 
 /**

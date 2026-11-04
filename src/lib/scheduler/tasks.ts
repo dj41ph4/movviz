@@ -35,7 +35,7 @@ import { syncPlexMarkers } from "@/lib/plex/markerSync";
 import { syncIntroDbLibrary } from "@/lib/playback/markers/librarySync";
 import { externalMarkersEnabled, plexMarkersEnabled } from "@/lib/settings/markerSources";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
-import { JobCancelledError } from "@/lib/jobs/cancelScope";
+import { JobCancelledError, reportJobProgress, trackJobProgress } from "@/lib/jobs/cancelScope";
 
 export interface ScheduledTask {
   id: string;
@@ -65,7 +65,10 @@ export const TASKS: ScheduledTask[] = [
     name: "Test de connexion de chaque indexeur",
     intervalMs: 6 * 60 * 60 * 1000, // every 6 hours
     run: async () => {
-      for (const ix of loadIndexers().filter((i) => i.enabled)) {
+      const enabled = loadIndexers().filter((i) => i.enabled);
+      const tick = trackJobProgress(enabled.length);
+      for (const ix of enabled) {
+        tick();
         const result = await testIndexer(ix);
         updateIndexer(ix.id, { lastTest: { ok: result.ok, at: Date.now(), detail: result.detail }, caps: result.caps });
       }
@@ -151,8 +154,9 @@ export const TASKS: ScheduledTask[] = [
     intervalMs: 6 * 60 * 60 * 1000,
     run: async () => {
       if (!isFfprobeEnabled()) return;
-      await probeAllLibraryMovies();
-      await probeAllLibrarySeries();
+      // Avancement n/total : films puis épisodes (deux étapes, chacune son total).
+      await probeAllLibraryMovies(reportJobProgress);
+      await probeAllLibrarySeries(reportJobProgress);
     },
   },
   {
@@ -247,7 +251,7 @@ export const TASKS: ScheduledTask[] = [
     run: async () => {
       if (!plexConfigured()) return;
       if (!loadPlexConfig().markerSyncEnabled) return;
-      await syncPlexMarkers({ mode: "incremental" });
+      await syncPlexMarkers({ mode: "incremental", setProgress: reportJobProgress });
     },
   },
   {
@@ -304,7 +308,8 @@ export const TASKS: ScheduledTask[] = [
       // Full history bootstrap can involve thousands of events per user and must
       // not monopolize the process with 15 parallel full scans. Keep at most
       // one full bootstrap at a time (owner snapshot and history can both be heavy).
-      await mapWithConcurrency(users, 1, (user) => syncUserWatchStatus(user));
+      const tickUser = trackJobProgress(users.length);
+      await mapWithConcurrency(users, 1, async (user) => { try { await syncUserWatchStatus(user); } finally { tickUser(); } });
     },
   },
   {
@@ -323,7 +328,8 @@ export const TASKS: ScheduledTask[] = [
         const state = getBootstrapState(user.id, machineIdentifier);
           return state == null || state.status !== "COMPLETED";
       });
-      await mapWithConcurrency(users, 1, (user) => syncUserWatchStatus(user));
+      const tickUser = trackJobProgress(users.length);
+      await mapWithConcurrency(users, 1, async (user) => { try { await syncUserWatchStatus(user); } finally { tickUser(); } });
     },
   },
   {

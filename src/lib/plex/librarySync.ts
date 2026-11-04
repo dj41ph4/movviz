@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { plexArrivalDate } from "./arrivalDate";
 import { loadPlexConfig, savePlexConfig } from "./store";
 import { loadSyncState, saveSyncState } from "./syncState";
@@ -151,9 +152,11 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   let moviesAdded = 0, moviesMatched = 0, seriesAdded = 0, seriesMatched = 0;
 
   const seenMovieTmdbIds = new Set<number>();
+  const tickSection = trackJobProgress(sections.filter((s) => s.type === "movie" || s.type === "show").length);
   const moviesSince = force ? undefined : state.moviesLastSyncedAt || undefined;
   for (const section of sections.filter((s) => s.type === "movie")) {
     await yieldToUser("sync Plex films");
+    tickSection();
     setSyncStatus({ phase: "movies", sectionTitle: section.title });
     const r = await syncMovieSection(cfg, adminToken, section, moviesSince, seenMovieTmdbIds);
     moviesAdded += r.added;
@@ -169,6 +172,7 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   const bleachPass = { processed: false, snapshot: () => (bleachSnapshot ??= getBleachPlexSnapshot(cfg, adminToken)) };
   for (const section of sections.filter((s) => s.type === "show")) {
     await yieldToUser("sync Plex séries");
+    tickSection();
     setSyncStatus({ phase: "series", sectionTitle: section.title });
     const r = await syncShowSection(cfg, adminToken, section, seriesSince, seenSeriesTmdbIds, bleachPass);
     seriesAdded += r.added;

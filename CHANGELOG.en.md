@@ -1,3 +1,16 @@
+## v1.28.49 — 4 November 2026
+
+### Player
+
+- With “API only”, and when Plex isn’t linked, the markers Plex had already provided serve as a fallback behind TheIntroDB, for titles it doesn’t know. Plex is still not queried.
+
+### Settings
+
+- The 15 “priority points” sliders are gone: the order in which scheduled tasks run is now fixed, with the same values as before. They only ranked tasks that were already allowed to start, while the server is actually protected by heavy tasks running one at a time and by waiting during use and playback.
+- One setting remains, “Slow background tasks during a download”, on by default. An installation that had lowered the old “Downloads” slider below 50 keeps its choice.
+- Long scheduled tasks now show their progress, “n of total”, instead of “0/1”: TMDb details refresh, new episodes, audio language, file analysis, search for better versions, automatic replacement, retry of missing titles, TMDb artwork, library file check, new file detection, indexer test, Plex sync (library and watched status), Plex markers and TheIntroDB markers.
+- The nightly TheIntroDB pass becomes a heavy task: it is no longer marked as failed after 10 minutes and waits until nobody is browsing or watching before it starts. If you stop it, it resumes from where it stopped on the next run, without starting over.
+
 ## v1.28.48 — 4 November 2026
 
 ### Player

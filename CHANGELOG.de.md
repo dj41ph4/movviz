@@ -1,3 +1,16 @@
+## v1.28.49 — 4. November 2026
+
+### Player
+
+- Bei „Nur API“ und wenn Plex nicht verknüpft ist, dienen die von Plex bereits gelieferten Marker als Ersatz hinter TheIntroDB, für Titel, die es nicht kennt. Plex wird weiterhin nicht abgefragt.
+
+### Einstellungen
+
+- Die 15 Regler „Prioritätspunkte“ entfallen: Die Reihenfolge der geplanten Aufgaben ist jetzt fest, mit denselben Werten wie bisher. Sie ordneten nur Aufgaben, die ohnehin starten durften, während der Server tatsächlich durch einzeln laufende schwere Aufgaben und durch Warten bei Nutzung und Wiedergabe geschützt wird.
+- Eine einzige Einstellung bleibt, „Hintergrundaufgaben während eines Downloads drosseln“, standardmäßig aktiviert. Eine Installation, die den alten Regler „Downloads“ unter 50 gesetzt hatte, behält ihre Wahl.
+- Lange geplante Aufgaben zeigen jetzt ihren Fortschritt, „n von gesamt“, statt „0/1“: Aktualisierung der TMDb-Details, neue Folgen, Audiosprache, Dateianalyse, Suche nach besseren Versionen, automatischer Austausch, erneute Suche nach fehlenden Titeln, TMDb-Bilder, Prüfung der Bibliotheksdateien, Erkennung neuer Dateien, Indexer-Test, Plex-Synchronisierung (Bibliothek und „Gesehen“-Status), Plex-Marker und TheIntroDB-Marker.
+- Der nächtliche TheIntroDB-Durchlauf wird zu einer schweren Aufgabe: Er wird nach 10 Minuten nicht mehr als fehlgeschlagen markiert und wartet, bis niemand stöbert oder schaut, bevor er startet. Wenn du ihn stoppst, setzt er beim nächsten Start dort fort, wo er aufgehört hat, ohne von vorn zu beginnen.
+
 ## v1.28.48 — 4. November 2026
 
 ### Player

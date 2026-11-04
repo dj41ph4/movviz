@@ -76,3 +76,34 @@ export function isCurrentJobForced(): boolean {
   const id = scope.getStore();
   return id != null && forcedJobs.has(id);
 }
+
+/**
+ * Avancement « n sur total » d'un job : le runner (queue.ts) y inscrit sa
+ * fonction `setProgress`, et le corps d'une tâche planifiée — qui n'y a pas
+ * accès — publie son avancement par `reportJobProgress` / `trackJobProgress`.
+ * Sans effet hors d'un job.
+ */
+type ProgressFn = (current: number, total: number) => void;
+const gProgress = globalThis as typeof globalThis & { __movvizJobProgress?: Map<string, ProgressFn> };
+const progressFns: Map<string, ProgressFn> = (gProgress.__movvizJobProgress ??= new Map());
+
+export function registerJobProgress(jobId: string, fn: ProgressFn): void {
+  progressFns.set(jobId, fn);
+}
+
+export function unregisterJobProgress(jobId: string): void {
+  progressFns.delete(jobId);
+}
+
+export function reportJobProgress(current: number, total: number): void {
+  const id = scope.getStore();
+  if (id) progressFns.get(id)?.(current, total);
+}
+
+/** `const tick = trackJobProgress(items.length)` puis `tick()` à chaque élément traité. */
+export function trackJobProgress(total: number): () => void {
+  const sum = Math.max(1, total);
+  let done = 0;
+  reportJobProgress(0, sum);
+  return () => { done += 1; reportJobProgress(Math.min(done, sum), sum); };
+}

@@ -14,8 +14,9 @@ const FILE = path.join(CONFIG_DIR, "marker-sources.json");
  *  - "all"       : Plex quand il les a (intro et générique), et TheIntroDB qui
  *    comble les trous et fournit ce que Plex n'a pas (récap, aperçu) ;
  *  - "plex-only" : uniquement ceux de Plex — aucune requête vers un tiers ;
- *  - "api-only"  : uniquement TheIntroDB — Plex n'est pas interrogé pour ça
- *    (sa tâche planifiée est alors en pause).
+ *  - "api-only"  : TheIntroDB seul interroge un service — Plex n'est plus
+ *    interrogé (sa tâche planifiée est en pause), mais ses repères déjà en
+ *    cache servent de repli.
  *
  * Réglage GLOBAL, administrateur seulement. Défaut "plex-only" : aucune
  * nouvelle requête sortante tant que l'administrateur ne l'a pas choisi.
@@ -52,7 +53,9 @@ export function externalMarkersEnabled(): boolean {
 export function markerSourcePriority(): readonly PlaybackMarkerSource[] {
   switch (effectiveMarkerSourceMode()) {
     case "plex-only": return ["plex"];
-    case "api-only": return ["theintrodb"];
+    // Plex n'est plus interrogé, mais ses repères déjà enregistrés servent de repli
+    // pour les titres (ou les types) que TheIntroDB ne connaît pas.
+    case "api-only": return ["theintrodb", "plex"];
     default: return ["plex", "theintrodb"];
   }
 }

@@ -30,7 +30,6 @@ export function initializeFreshDefaults(userId: string) {
     "cdn-images.json": { enabled: true, localNetworkPriorityEnabled: true },
     "trailer-sources.json": { enabled: true },
     "beta-player.json": { hdrDvToSdrEnabled: false },
-    "job-priorities.json": { qualityUpgrade: 11, rssScan: 58 },
   };
   for (const [file, value] of Object.entries(newFiles)) {
     try { fs.writeFileSync(path.join(dir, file), JSON.stringify(value), { flag: "wx" }); }

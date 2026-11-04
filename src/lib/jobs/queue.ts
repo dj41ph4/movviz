@@ -1,8 +1,8 @@
 import { engineGet } from "@/lib/engine/server";
 import { factoryResetActive } from "@/lib/system/resetBarrier";
-import { priorityOf } from "./priorities";
+import { isBackgroundSlowedDuringDownload, priorityOf } from "./priorities";
 import type { Job, JobType } from "./types";
-import { cancelledJobs, JobCancelledError, runInJobScope, forcedJobs } from "./cancelScope";
+import { cancelledJobs, JobCancelledError, runInJobScope, forcedJobs, registerJobProgress, unregisterJobProgress } from "./cancelScope";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { hasActivePlayback, hasForegroundActivity, isUserActive, describeBackgroundHold, type BackgroundHold } from "@/lib/priority/userActivity";
 
@@ -30,10 +30,8 @@ const JOB_TIMEOUT_MS = 10 * 60 * 1000;
 // whatever's already running instead of queuing behind it, while still
 // leaving well short of MAX_CONCURRENT during active downloads.
 const MAX_CONCURRENT_WHILE_DOWNLOADING = 2;
-// Le curseur « Téléchargements » des points de priorité : au-dessus de ce
-// seuil, un téléchargement actif réduit la file à
-// MAX_CONCURRENT_WHILE_DOWNLOADING ; en dessous, il ne la réduit pas.
-const DOWNLOAD_THROTTLE_THRESHOLD = 50;
+// Réglage « ralentir les tâches de fond pendant un téléchargement » : activé,
+// un téléchargement actif réduit la file à MAX_CONCURRENT_WHILE_DOWNLOADING.
 // Tâches lourdes (scan disque, relance des manquants, mises à niveau…) :
 // jamais deux en même temps, quelle que soit la place libre dans la file
 // (demande explicite de Seb, 2026-10-12). Leur place ne se libère qu'à la
@@ -167,7 +165,7 @@ async function dispatch() {
     const next = pickNextQueued(true);
     if (next) startJob(next.job, next.runner);
   }
-  const throttled = (await isDownloadActive()) && priorityOf("download") >= DOWNLOAD_THROTTLE_THRESHOLD;
+  const throttled = (await isDownloadActive()) && isBackgroundSlowedDuringDownload();
   if (factoryResetActive()) return;
   const limit = throttled ? MAX_CONCURRENT_WHILE_DOWNLOADING : MAX_CONCURRENT;
   while (state.runningCount < limit) {
@@ -191,7 +189,7 @@ function startJob(job: Job, runner: Runner) {
   runJob(job, runner);
 }
 
-/** Ordre de passage : actions de l'utilisateur d'abord, puis points de priorité, puis ancienneté. */
+/** Ordre de passage : actions de l'utilisateur d'abord, puis ordre fixe des types de tâches, puis ancienneté. */
 function rankOf(job: Job): number {
   return (jobOptions.get(job.id)?.scheduled ? 0 : 1000) + priorityOf(job.type);
 }
@@ -233,6 +231,7 @@ function runJob(job: Job, runner: Runner) {
   const heavy = !!jobOptions.get(job.id)?.heavy;
   const immediate = !!jobOptions.get(job.id)?.immediate;
   live.add(job.id);
+  registerJobProgress(job.id, setProgress);
   if (heavy) heavyLive.add(job.id);
   let settled = false;
   // Une tâche lourde n'est jamais « libérée » par le délai de garde : elle
@@ -259,6 +258,7 @@ function runJob(job: Job, runner: Runner) {
       // Vraie fin du runner (même après le délai de garde) : seulement ici
       // la place lourde se libère et la tâche peut être relancée.
       live.delete(job.id);
+      unregisterJobProgress(job.id);
       heavyLive.delete(job.id);
       jobOptions.delete(job.id);
       clearCancellation(job.id);

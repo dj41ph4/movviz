@@ -1,29 +1,33 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { JOB_TYPES, type JobType } from "./types";
+import type { JobType } from "./types";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");
-const FILE = path.join(CONFIG_DIR, "job-priorities.json");
+const FILE = path.join(CONFIG_DIR, "background-tasks.json");
+/** Ancien réglage « points de priorité » : seule sa valeur « download » est encore lue, une fois, pour migrer. */
+const LEGACY_FILE = path.join(CONFIG_DIR, "job-priorities.json");
 
 /**
- * Higher runs first when several jobs are queued at once. `download` isn't
- * dispatched through this queue (torrents are handled by the engine
- * process) — its point value instead throttles how many background job
- * slots stay open while a download is active, so heavy library scans back
- * off in favor of active downloads instead of competing with them for CPU
- * and network I/O.
+ * Ordre de passage des tâches planifiées quand plusieurs attendent en même
+ * temps (surtout juste après un redémarrage) : le plus grand passe d'abord.
+ * Valeurs FIXES — l'ancien réglage par curseurs a été retiré : la protection
+ * du serveur vient des tâches lourdes une par une, de l'attente pendant
+ * l'usage et la lecture, et des voies de priorité des requêtes. Ce classement
+ * ne fait que départager des tâches déjà autorisées à démarrer.
+ *
+ * Les actions de l'utilisateur passent toujours devant (voir queue.ts).
  */
-export const DEFAULT_PRIORITIES: Record<JobType, number> = {
+const JOB_ORDER: Record<JobType, number> = {
   download: 100,
-  qualityUpgrade: 70,
+  qualityUpgrade: 11,
   reconcile: 60,
   plexWatchlistSync: 55,
   plexLibrarySync: 50,
   plexMarkerSync: 50,
-  rssScan: 45,
+  rssScan: 58,
   seerrImport: 40,
   importLists: 40,
   metadataRefresh: 30,
@@ -34,25 +38,23 @@ export const DEFAULT_PRIORITIES: Record<JobType, number> = {
   mediaProbe: 15,
 };
 
-export function getPriorities(): Record<JobType, number> {
-  const stored = readJsonCached<Partial<Record<JobType, number>>>(FILE, {});
-  const merged = { ...DEFAULT_PRIORITIES, ...stored };
-  // Drop anything from an older/renamed type set instead of surfacing stale keys.
-  const result = {} as Record<JobType, number>;
-  for (const type of JOB_TYPES) result[type] = merged[type] ?? DEFAULT_PRIORITIES[type];
-  return result;
-}
-
-export function setPriorities(patch: Partial<Record<JobType, number>>): Record<JobType, number> {
-  const current = getPriorities();
-  for (const type of JOB_TYPES) {
-    const v = patch[type];
-    if (typeof v === "number" && Number.isFinite(v)) current[type] = Math.max(0, Math.min(100, Math.round(v)));
-  }
-  writeJsonCached(FILE, current);
-  return current;
-}
-
 export function priorityOf(type: JobType): number {
-  return getPriorities()[type] ?? 0;
+  return JOB_ORDER[type] ?? 0;
+}
+
+/**
+ * Pendant un téléchargement actif, les tâches de fond se limitent à 2 en
+ * parallèle pour lui laisser la place. Activé par défaut. Une installation
+ * qui avait baissé l'ancien curseur « Téléchargements » sous 50 garde son
+ * choix : désactivé.
+ */
+export function isBackgroundSlowedDuringDownload(): boolean {
+  const stored = readJsonCached<{ slowDuringDownload?: unknown }>(FILE, {}).slowDuringDownload;
+  if (typeof stored === "boolean") return stored;
+  const legacy = readJsonCached<{ download?: unknown }>(LEGACY_FILE, {}).download;
+  return typeof legacy === "number" ? legacy >= 50 : true;
+}
+
+export function setBackgroundSlowedDuringDownload(enabled: boolean): void {
+  writeJsonCached(FILE, { slowDuringDownload: !!enabled });
 }

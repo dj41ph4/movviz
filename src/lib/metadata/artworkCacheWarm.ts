@@ -1,4 +1,5 @@
 import { loadMovies, loadSeries } from "@/lib/library/store";
+import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { getTitleImages, pickEditorialArtwork } from "@/lib/metadata/tmdb";
 import { prefetchTmdbImage } from "@/lib/metadata/tmdbImageCache";
 import { runBackground } from "@/lib/priority/lane";
@@ -83,7 +84,9 @@ export async function runArtworkCacheWarm(
   state.error = null;
 
   try {
+    const tick = trackJobProgress(targets.length);
     for (const target of targets) {
+      tick();
       try {
         const key = `${target.type}:${target.tmdbId}`;
         let artwork: { backdropPath: string | null; logoPath: string | null; titleEmbedded: boolean } | undefined =

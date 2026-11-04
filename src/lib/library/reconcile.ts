@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { loadMovies, loadSeries, pruneMovies, pruneSeries } from "@/lib/library/store";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
@@ -226,7 +227,8 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
   });
   const reachableRoots = roots.filter((_, i) => reachable[i]);
   const verifiable = [...trackedPaths].filter((p) => reachableRoots.some((root) => isUnderRoot(p, root))); // others aren't checkable from this filesystem — skip
-  const present = await mapWithConcurrency(verifiable, DISK_CONCURRENCY, exists);
+  const tickPresent = trackJobProgress(verifiable.length);
+  const present = await mapWithConcurrency(verifiable, DISK_CONCURRENCY, async (p) => { const found = await exists(p); tickPresent(); return found; });
   verifiable.forEach((p, i) => { if (!present[i]) issues.push({ kind: "missing", path: p }); });
 
   const trashPrefixes = trashRoots();
@@ -239,7 +241,8 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
       .map((rel) => pathFor(base).join(base, String(rel)))
       // a trashed file isn't "untracked" — it's deliberately awaiting purge, not a stray
       .filter((full) => VIDEO_EXT.test(full) && !isInTrash(full));
-    const files = await mapWithConcurrency(candidates, DISK_CONCURRENCY, isFile);
+    const tickFiles = trackJobProgress(candidates.length);
+    const files = await mapWithConcurrency(candidates, DISK_CONCURRENCY, async (full) => { const found = await isFile(full); tickFiles(); return found; });
     candidates.forEach((full, i) => { if (files[i]) onDisk.add(full); });
   }
   for (const p of onDisk) {

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import path from "node:path";
 import { getSeries, getSeriesByTmdbId, addSeries, updateSeries, loadSeries } from "@/lib/library/store";
 import { DEFAULT_QUALITY_PROFILES, defaultQualityProfile } from "@/lib/library/qualityProfiles";
@@ -2019,7 +2020,9 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
     seasonCount += seasons.size;
   }
 
+  const tick = trackJobProgress(entries.length);
   for (const { series, seasons } of entries) {
+    tick();
     await yieldToUser("recherche épisodes manquants");
     await withSearchLock(`series:${series.id}`, async () => {
       // Re-derive from fresh state: an earlier pass on this series (bulk job,

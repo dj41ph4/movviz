@@ -1,4 +1,5 @@
 import { loadMovies, updateMovies, loadSeries, updateSeriesList } from "@/lib/library/store";
+import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { detectFileLanguage, deriveLanguageFromTracks } from "@/lib/library/detectLanguage";
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
@@ -14,8 +15,10 @@ async function languageFromProbe(mediaId: string, path: string | undefined | nul
 export async function backfillMovieLanguages(): Promise<void> {
   const movies = loadMovies();
   const patches = new Map<string, Partial<LibraryMovie>>();
+  const tick = trackJobProgress(movies.filter((m) => m.file && !m.file.language).length);
   for (const movie of movies) {
     if (!movie.file || movie.file.language) continue;
+    tick();
     const lang = (await languageFromProbe(movie.id, movie.file.diskPath ?? movie.file.path)) ?? detectFileLanguage(movie.file, movie.plexMediaInfo);
     if (!lang) continue;
     patches.set(movie.id, { file: { ...movie.file, language: lang } });
@@ -26,6 +29,7 @@ export async function backfillMovieLanguages(): Promise<void> {
 export async function backfillSeriesLanguages(): Promise<void> {
   const seriesList = loadSeries();
   const patches = new Map<string, Partial<LibrarySeries>>();
+  const tick = trackJobProgress(seriesList.reduce((n, s) => n + s.seasons.reduce((m, season) => m + season.episodes.filter((ep) => ep.file && !ep.file.language).length, 0), 0));
   for (const series of seriesList) {
     let changed = false;
     const newSeasons = [];
@@ -33,6 +37,7 @@ export async function backfillSeriesLanguages(): Promise<void> {
       const episodes = [];
       for (const ep of s.episodes) {
         if (!ep.file || ep.file.language) { episodes.push(ep); continue; }
+        tick();
         // Pas de plexMediaInfo sur les épisodes : pistes du fichier (ffprobe), puis nom de fichier.
         const lang = (await languageFromProbe(`${series.id}:s${s.seasonNumber}e${ep.episodeNumber}`, ep.file.diskPath ?? ep.file.path)) ?? detectFileLanguage(ep.file, null);
         if (!lang) { episodes.push(ep); continue; }

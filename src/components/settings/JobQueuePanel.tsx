@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
+import { Toggle } from "@/components/ui/Toggle";
 import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered, Ban, Square, Play } from "lucide-react";
 
 /** Pourquoi un job en file attend (voir getJobHolds côté serveur). */
@@ -47,23 +48,6 @@ interface Job {
   error: string | null;
 }
 
-const JOB_TYPE_ORDER: JobType[] = [
-  "download",
-  "qualityUpgrade",
-  "reconcile",
-  "plexWatchlistSync",
-  "plexLibrarySync",
-  "plexMarkerSync",
-  "rssScan",
-  "seerrImport",
-  "importLists",
-  "metadataRefresh",
-  "sagaScan",
-  "libraryIndex",
-  "libraryRename",
-  "maintenance",
-  "mediaProbe",
-];
 
 const STATUS_ICON: Record<JobStatus, typeof Clock> = {
   queued: Clock,
@@ -83,8 +67,7 @@ const STATUS_TONE: Record<JobStatus, string> = {
 export function JobQueuePanel() {
   const t = useT();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [priorities, setPriorities] = useState<Record<JobType, number> | null>(null);
-  const [saving, setSaving] = useState<JobType | null>(null);
+  const [slowDuringDownload, setSlowDuringDownload] = useState<boolean | null>(null);
 
   const [holds, setHolds] = useState<Record<string, JobHold>>({});
   const [forceMessage, setForceMessage] = useState<string | null>(null);
@@ -98,38 +81,26 @@ export function JobQueuePanel() {
         setHolds(d.holds ?? {});
       });
 
-  const loadPriorities = () =>
-    fetch("/api/jobs/priorities", { cache: "no-store" })
+  const loadSlowSetting = () =>
+    fetch("/api/settings/background-tasks", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setPriorities(d.priorities));
+      .then((d) => d && setSlowDuringDownload(d.slowDuringDownload === true));
 
   useEffect(() => {
     loadJobs();
-    loadPriorities();
+    loadSlowSetting();
     const id = setInterval(loadJobs, 2500);
     return () => clearInterval(id);
   }, []);
 
-  // Le curseur envoyait une requête à chaque pixel glissé, et la réponse
-  // d'une requête plus ancienne pouvait ramener le curseur en arrière.
-  // On n'enregistre plus qu'une fois le curseur immobile.
-  const saveTimers = useRef<Partial<Record<JobType, ReturnType<typeof setTimeout>>>>({});
-  const setPriority = (type: JobType, value: number) => {
-    setPriorities((p) => (p ? { ...p, [type]: value } : p));
-    const timers = saveTimers.current;
-    if (timers[type]) clearTimeout(timers[type]);
-    timers[type] = setTimeout(async () => {
-      setSaving(type);
-      try {
-        await fetch("/api/jobs/priorities", {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ priorities: { [type]: value } }),
-        });
-      } finally {
-        setSaving(null);
-      }
-    }, 400);
+  const changeSlowDuringDownload = async (next: boolean) => {
+    setSlowDuringDownload(next);
+    await fetch("/api/settings/background-tasks", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slowDuringDownload: next }),
+    }).catch(() => null);
+    await loadSlowSetting();
   };
 
   const cancelJob = async (id: string) => {
@@ -270,32 +241,14 @@ export function JobQueuePanel() {
         )}
       </div>
 
-      <div>
-        <h3 className="mb-1 text-sm font-bold text-ink">{t("jobs.prioritiesTitle")}</h3>
-        <p className="mb-3 text-xs text-ink-dim">{t("jobs.prioritiesHint")}</p>
-        {priorities && (
-          <div className="space-y-3 rounded-2xl glass p-4">
-            {JOB_TYPE_ORDER.map((type) => (
-              <div key={type} className="flex items-center gap-4">
-                <div className="w-44 shrink-0">
-                  <p className="text-sm font-medium text-ink">{t(`jobs.types.${type}`)}</p>
-                  {type === "download" && <p className="text-[11px] text-ink-dim">{t("jobs.downloadHint")}</p>}
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={priorities[type] ?? 0}
-                  onChange={(e) => setPriority(type, Number(e.target.value))}
-                  className="h-1.5 flex-1 rounded-full appearance-none bg-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-brand-glow [&::-webkit-slider-thumb]:cursor-pointer"
-                />
-                <span className="w-10 shrink-0 text-right text-sm font-bold text-ink tabular-nums">
-                  {saving === type ? <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-ink-dim" /> : priorities[type]}
-                </span>
-              </div>
-            ))}
+      <div className="rounded-2xl glass p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-ink">{t("jobs.slowTitle")}</h3>
+            <p className="mt-1 text-xs text-ink-dim">{t("jobs.slowHint")}</p>
           </div>
-        )}
+          <Toggle on={slowDuringDownload === true} disabled={slowDuringDownload === null} onChange={() => changeSlowDuringDownload(!slowDuringDownload)} />
+        </div>
       </div>
     </div>
   );

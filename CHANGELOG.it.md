@@ -1,3 +1,16 @@
+## v1.28.49 — 4 novembre 2026
+
+### Lettore
+
+- Con “Solo API”, e quando Plex non è collegato, gli indicatori che Plex aveva già fornito fanno da ripiego dietro TheIntroDB, per i titoli che non conosce. Plex continua a non essere interrogato.
+
+### Impostazioni
+
+- I 15 cursori “punti di priorità” spariscono: l’ordine di esecuzione delle attività pianificate è ora fisso, con gli stessi valori di prima. Servivano solo a ordinare attività già autorizzate a partire, mentre il server è davvero protetto dalle attività pesanti eseguite una alla volta e dall’attesa durante l’uso e la riproduzione.
+- Resta una sola impostazione, “Rallenta le attività in background durante un download”, attiva per impostazione predefinita. Un’installazione che aveva abbassato il vecchio cursore “Download” sotto 50 mantiene la sua scelta.
+- Le attività pianificate lunghe mostrano ora il loro avanzamento, “n su totale”, invece di “0/1”: aggiornamento delle schede TMDb, nuovi episodi, lingua audio, analisi dei file, ricerca di versioni migliori, sostituzione automatica, nuova ricerca dei titoli mancanti, immagini TMDb, verifica dei file della libreria, rilevamento dei nuovi file, test degli indexer, sincronizzazione Plex (libreria e stato «visto»), indicatori Plex e indicatori TheIntroDB.
+- Il passaggio notturno di TheIntroDB diventa un’attività pesante: non viene più segnato come fallito dopo 10 minuti e aspetta che nessuno stia navigando o guardando prima di partire. Se lo interrompi, riprende all’avvio successivo da dove si era fermato, senza ricominciare da capo.
+
 ## v1.28.48 — 4 novembre 2026
 
 ### Lettore

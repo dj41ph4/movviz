@@ -1,4 +1,5 @@
 import { getSeries, loadSeries, updateSeries } from "@/lib/library/store";
+import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
 import { encodeLibraryRef, type LibrarySeries } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
@@ -126,7 +127,10 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
   let liveSearchesUsed = 0;
   let liveCodecSearchesUsed = 0;
 
-  for (const { series, seasonNumber, episodeNumber, file } of eligibleEpisodes(loadSeries())) {
+  const eligible = [...eligibleEpisodes(loadSeries())];
+  const tick = trackJobProgress(eligible.length);
+  for (const { series, seasonNumber, episodeNumber, file } of eligible) {
+    tick();
     if (needsBleachRepair(series)) continue;
     await yieldToEventLoop();
     const currentBasename = file.path.replace(/^.*[/\\]/, "");

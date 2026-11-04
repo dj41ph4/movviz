@@ -1,5 +1,5 @@
 import { loadMovies, loadSeries } from "@/lib/library/store";
-import { throwIfJobCancelled } from "@/lib/jobs/cancelScope";
+import { reportJobProgress, throwIfJobCancelled } from "@/lib/jobs/cancelScope";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { externalMarkersEnabled } from "@/lib/settings/markerSources";
 import { ensureExternalMarkers, externalCoolingDown, needsExternalSync, type ExternalMarkerTarget } from "./externalSync";
@@ -84,12 +84,15 @@ export async function syncIntroDbLibrary(
   result.candidates = candidates.length;
   const limit = opts.limit ?? (mode === "full" ? FULL_PASS_LIMIT : NEW_PASS_LIMIT);
 
+  const planned = Math.min(candidates.length, limit);
+  reportJobProgress(0, planned || 1);
   for (const target of candidates.slice(0, limit)) {
     throwIfJobCancelled();
     if (externalCoolingDown()) { result.skipped = "rate_limited"; break; }
     await yieldToUser("sync TheIntroDB");
     await ensureExternalMarkers(target);
     result.attempted += 1;
+    reportJobProgress(result.attempted, planned);
   }
   result.remaining = Math.max(0, candidates.length - result.attempted);
 

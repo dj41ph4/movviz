@@ -1,4 +1,4 @@
-import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
+import { yieldToEventLoop, trackJobProgress } from "@/lib/jobs/cancelScope";
 import path from "node:path";
 import { loadMovies, updateMovie } from "@/lib/library/store";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
@@ -295,8 +295,10 @@ export async function findUpgradeCandidates(liveSearch = true): Promise<UpgradeC
   let liveCodecSearchesUsed = 0;
   const index = getMediaIndex();
 
+  const tick = trackJobProgress(index.movies.length);
   for (const m of index.movies) {
     await yieldToEventLoop();
+    tick();
     if (!m.monitored) continue;
     if (m.movieId && isUpgradeIgnored(m.movieId)) continue;
     const profile = DEFAULT_QUALITY_PROFILES.find((p) => p.id === m.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];

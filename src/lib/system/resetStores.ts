@@ -37,6 +37,7 @@ export const RESET_STORE_FILES = [
   "indexers.json",
   "job-priorities.json",
   "library-health-report.json",
+  "background-tasks.json",
   "introdb-sync-state.json",
   "library-movies.json",
   "library-series.json",

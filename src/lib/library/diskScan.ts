@@ -8,7 +8,7 @@ import { pathFor } from "./renamePath";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import type { LibraryMovie, LibrarySeries } from "./types";
 import { mapWithConcurrency } from "@/lib/concurrency";
-import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
+import { yieldToEventLoop, trackJobProgress } from "@/lib/jobs/cancelScope";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -143,7 +143,9 @@ async function runScan(sinceMs?: number): Promise<DiskScanResult> {
   let compared = 0;
   for (const root of allRoots) {
     const videoFiles = await walkVideoFiles(root);
+    const tick = trackJobProgress(videoFiles.length);
     for (const { path: filePath, mtimeMs } of videoFiles) {
+      tick();
       scanned++;
       if (sinceMs != null && mtimeMs <= sinceMs) continue;
       if (knownPaths.has(filePath)) continue;

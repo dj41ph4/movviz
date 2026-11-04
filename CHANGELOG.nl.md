@@ -1,3 +1,16 @@
+## v1.28.49 — 4 november 2026
+
+### Speler
+
+- Met “Alleen API”, en wanneer Plex niet is gekoppeld, dienen de markeringen die Plex al had geleverd als terugval achter TheIntroDB, voor titels die het niet kent. Plex wordt nog steeds niet bevraagd.
+
+### Instellingen
+
+- De 15 schuifregelaars “prioriteitspunten” verdwijnen: de volgorde van de geplande taken ligt nu vast, met dezelfde waarden als voorheen. Ze rangschikten alleen taken die al mochten starten, terwijl de server echt wordt beschermd door zware taken die één voor één draaien en door wachten tijdens gebruik en afspelen.
+- Eén instelling blijft over, “Achtergrondtaken vertragen tijdens een download”, standaard ingeschakeld. Een installatie die de oude regelaar “Downloads” onder 50 had gezet, behoudt haar keuze.
+- Lange geplande taken tonen nu hun voortgang, “n van totaal”, in plaats van “0/1”: bijwerken van TMDb-gegevens, nieuwe afleveringen, audiotaal, bestandsanalyse, zoeken naar betere versies, automatische vervanging, opnieuw zoeken naar ontbrekende titels, TMDb-afbeeldingen, controle van bibliotheekbestanden, opsporen van nieuwe bestanden, test van indexers, Plex-synchronisatie (bibliotheek en 'gezien'-status), Plex-markeringen en TheIntroDB-markeringen.
+- De nachtelijke TheIntroDB-ronde wordt een zware taak: ze wordt na 10 minuten niet meer als mislukt gemarkeerd en wacht tot niemand aan het bladeren of kijken is voordat ze start. Als je haar stopt, gaat ze bij de volgende start verder waar ze was gebleven, zonder opnieuw te beginnen.
+
 ## v1.28.48 — 4 november 2026
 
 ### Speler

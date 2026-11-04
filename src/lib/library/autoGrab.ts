@@ -1,4 +1,5 @@
 import { getMovie, getMovieByTmdbId, addMovie, updateMovie, loadMovies } from "@/lib/library/store";
+import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { DEFAULT_QUALITY_PROFILES, defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import { encodeLibraryRef, type LibraryMovie } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
@@ -579,7 +580,9 @@ async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number
   // la tâche « remplacements suggérés » est court-circuitée quand la mise à
   // niveau auto est activée, c'est donc ici qu'ils sont signalés.
   let notGrabbed = 0;
+  const tickMovies = trackJobProgress(candidates.length);
   for (const c of candidates) {
+    tickMovies();
     await yieldToUser("auto-upgrade films");
     if (c.movieId && isUpgradeIgnored(c.movieId)) continue;
     const result = await grabUpgradeCandidate(c.movieId!);
@@ -592,7 +595,9 @@ async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number
 
   const epCandidates = await findEpisodeUpgradeCandidates();
   let epCount = 0;
+  const tickEpisodes = trackJobProgress(epCandidates.length);
   for (const c of epCandidates) {
+    tickEpisodes();
     await yieldToUser("auto-upgrade épisodes");
     const result = await grabEpisodeUpgradeCandidate(c.seriesId, c.seasonNumber, c.episodeNumber);
     if (result.ok) epCount++;
@@ -685,7 +690,9 @@ async function searchMissingMoviesInner(max: number) {
   }
   const batch = candidates.slice(0, max);
   const searched: string[] = [];
+  const tick = trackJobProgress(batch.length);
   for (const movie of batch) {
+    tick();
     await yieldToUser("recherche films manquants");
     await trackOp(`relance film : ${movie.title}`, () => searchAndGrabMovie(movie.id));
     searched.push(movie.id);

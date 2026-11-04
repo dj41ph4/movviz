@@ -1,3 +1,16 @@
+## v1.28.49 — 4 novembre 2026
+
+### Lecteur
+
+- En « API uniquement », et quand Plex n’est pas lié, les repères que Plex avait déjà fournis servent de repli derrière TheIntroDB, pour les titres qu’il ne connaît pas. Plex n’est toujours pas interrogé.
+
+### Réglages
+
+- Les 15 curseurs « points de priorité » disparaissent : l’ordre de passage des tâches planifiées est fixe, avec les mêmes valeurs qu’avant. Ils ne servaient qu’à départager des tâches déjà autorisées à démarrer, la protection du serveur venant des tâches lourdes une par une et de l’attente pendant l’usage et la lecture.
+- Un seul réglage reste, « Ralentir les tâches de fond pendant un téléchargement », activé par défaut. Une installation qui avait baissé l’ancien curseur « Téléchargements » sous 50 garde son choix.
+- Les tâches planifiées longues affichent leur avancement, « n sur total », au lieu de « 0/1 » : mise à jour des fiches TMDb, nouveaux épisodes, langue audio, analyse des fichiers, recherche de meilleures versions, remplacement automatique, relance des manquants, visuels TMDb, contrôle des fichiers de la bibliothèque, détection des nouveaux fichiers, test des indexeurs, synchronisation Plex (bibliothèque et vus), repères Plex et repères TheIntroDB.
+- La passe de nuit TheIntroDB devient une tâche lourde : elle n’est plus marquée en échec au bout de 10 minutes et attend que personne ne regarde ni ne lise avant de démarrer. Si tu l’arrêtes, elle reprend à la relance là où elle s’était arrêtée, sans repartir du début.
+
 ## v1.28.48 — 4 novembre 2026
 
 ### Lecteur

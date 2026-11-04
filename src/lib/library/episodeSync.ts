@@ -5,7 +5,7 @@ import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSched
 import { withKeyLock } from "@/lib/library/locks";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { shrinkToLongCut } from "@/lib/metadata/longCutSeasons";
-import { yieldToEventLoop } from "@/lib/jobs/cancelScope";
+import { yieldToEventLoop, trackJobProgress } from "@/lib/jobs/cancelScope";
 import type { LibraryEpisode, LibrarySeason, LibrarySeries } from "@/lib/library/types";
 import type { MetaSeason } from "@/lib/metadata/types";
 
@@ -31,9 +31,12 @@ export async function syncSeriesEpisodes(): Promise<{ checked: number; updated: 
   let episodesAdded = 0;
   let skipped = 0;
   const specials = specialsEnabled();
+  const allSeries = loadSeries();
+  const tick = trackJobProgress(allSeries.length);
 
-  for (const listed of loadSeries()) {
+  for (const listed of allSeries) {
     await yieldToEventLoop();
+    tick();
     if (listed.tmdbId === BLEACH_TMDB_ID || listed.episodeOrder === "tvdb") { skipped++; continue; }
     const meta = await fetchTmdbSeries(listed.tmdbId).catch(() => null);
     if (!meta) continue;

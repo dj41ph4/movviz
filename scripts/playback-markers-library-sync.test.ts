@@ -32,6 +32,9 @@ function fakeApi(body: unknown, status = 200) {
 }
 after(() => { globalThis.fetch = realFetch; });
 
+/** Le test 429 laisse une pause d'API active : chaque test qui a besoin de requêtes la remet à zéro. */
+const resetCooldown = () => { (globalThis as { __movvizExternalMarkers?: { cooldownUntil: number } }).__movvizExternalMarkers!.cooldownUntil = 0; };
+
 const movie = (n: number) => ({ key: `mv_${n}`, api: { kind: "movie" as const, tmdbId: 1000 + n } });
 const seven = [1, 2, 3, 4, 5, 6, 7].map(movie);
 
@@ -54,7 +57,8 @@ test("les trois modes : qui fournit les repères, et quelles tâches tournent", 
   settings.setMarkerSourceMode("api-only");
   // Plex désactivé : sa tâche planifiée doit être en pause, TheIntroDB seul alimente la lecture.
   assert.deepEqual([settings.plexMarkersEnabled(), settings.externalMarkersEnabled()], [false, true]);
-  assert.deepEqual([...settings.markerSourcePriority()], ["theintrodb"]);
+  // Repli : les repères Plex déjà en cache passent après TheIntroDB, sans requête Plex.
+  assert.deepEqual([...settings.markerSourcePriority()], ["theintrodb", "plex"]);
 });
 
 test("le mode nouveautés attend la fin de la première passe de nuit", async () => {
@@ -96,4 +100,48 @@ test("une limite d'API (429) arrête la passe sans rien écrire pour les titres 
   assert.equal(result.skipped, "rate_limited");
   assert.equal(calls.length, 1);
   assert.ok(batch.every((t) => store.getSourceState(t.key, "theintrodb") === null));
+});
+
+test("la tâche publie son avancement (n sur total) au lieu de rester à 0/1", async () => {
+  const { enqueueJob, getJobs } = await import("../src/lib/jobs/queue.ts");
+  resetCooldown();
+  fakeApi({ intro: [{ start_ms: 1_000, end_ms: 60_000 }] });
+  const batch = [31, 32, 33].map(movie);
+  const seen: string[] = [];
+  const job = enqueueJob("metadataRefresh", "test progression", 1, async () => {
+    const running = sync.syncIntroDbLibrary("full", { targets: batch, limit: 10 });
+    const poll = setInterval(() => { const j = getJobs().find((x) => x.id === job.id); if (j) seen.push(`${j.current}/${j.total}`); }, 100);
+    await running;
+    clearInterval(poll);
+  }, "test-progress");
+  while (getJobs().find((x) => x.id === job.id)?.status !== "completed") await new Promise((r) => setTimeout(r, 50));
+  assert.equal(getJobs().find((x) => x.id === job.id)?.current, 3);
+  assert.equal(getJobs().find((x) => x.id === job.id)?.total, 3);
+  assert.ok(seen.includes("1/3") || seen.includes("2/3"), "avancement intermédiaire visible : " + seen.join(","));
+});
+
+test("arrêtée en cours de route, la tâche reprend où elle s'était arrêtée, pas depuis le début", async () => {
+  const { enqueueJob, getJobs, requestCancelJob } = await import("../src/lib/jobs/queue.ts");
+  resetCooldown();
+  fakeApi({ intro: [{ start_ms: 1_000, end_ms: 60_000 }] });
+  const batch = [41, 42, 43, 44, 45, 46].map(movie);
+  const lastFullBefore = syncState.loadIntroDbSyncState().lastFullAt;
+  const job = enqueueJob("metadataRefresh", "test arrêt", 1, async () => {
+    // « Arrêter » dans la liste des tâches dès que deux titres sont traités.
+    const watcher = setInterval(() => { if (calls.length >= 2) requestCancelJob(job.id); }, 20);
+    try { await sync.syncIntroDbLibrary("full", { targets: batch, limit: 10 }); } finally { clearInterval(watcher); }
+  }, "test-stop");
+  while (!["cancelled", "completed", "failed"].includes(getJobs().find((x) => x.id === job.id)?.status ?? "")) await new Promise((r) => setTimeout(r, 50));
+  assert.equal(getJobs().find((x) => x.id === job.id)?.status, "cancelled");
+  const done = batch.filter((t) => store.getSourceState(t.key, "theintrodb")).length;
+  assert.ok(done >= 2 && done < batch.length, "traités avant l'arrêt : " + done);
+  // Une passe interrompue ne se déclare jamais terminée.
+  assert.equal(syncState.loadIntroDbSyncState().lastFullAt, lastFullBefore);
+
+  // Relance : uniquement le reste, aucune requête refaite pour ce qui est déjà enregistré.
+  fakeApi({ intro: [{ start_ms: 1_000, end_ms: 60_000 }] });
+  const again = await sync.syncIntroDbLibrary("full", { targets: batch, limit: 10 });
+  assert.deepEqual([again.candidates, again.attempted], [batch.length - done, batch.length - done]);
+  assert.equal(calls.length, batch.length - done);
+  assert.ok(batch.every((t) => store.getSourceState(t.key, "theintrodb")));
 });
