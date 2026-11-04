@@ -1,3 +1,16 @@
+## v1.28.52 — 5 November 2026
+
+### Management
+
+- New look for the Requests, History, Search, Issues, Exclusions, Blocked torrents, Users and Trash pages: a banner in each page's color and clearer cards.
+- History: the Movies and Series filters no longer fail, and empty “history.undefined” rows are gone.
+- On phones, names on the Users page are no longer squashed and History filters stay on screen.
+
+### Accessibility
+
+- Larger text: the sidebar, its icons and the Settings menu grow with the text, and the badge no longer touches the word.
+- All switches and icon buttons are named for screen readers.
+
 ## v1.28.51 — 4 November 2026
 
 ### Settings

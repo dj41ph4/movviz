@@ -101,10 +101,10 @@ export function ImportListsSettings() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => sync(l.id)} disabled={syncing === l.id} className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft">
+            <button type="button" aria-label={t("common.sync")} onClick={() => sync(l.id)} disabled={syncing === l.id} className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft">
               {syncing === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             </button>
-            <button onClick={() => remove(l.id)} className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-down">
+            <button type="button" aria-label={t("common.remove")} onClick={() => remove(l.id)} className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-down">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>

@@ -42,7 +42,7 @@ export default function ExclusionsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div data-manage="exclusions" className="nx-manage-page mx-auto max-w-[1200px]">
       <PageHeader eyebrow={t("nav.management")} title={t("exclusions.title")} description={t("exclusions.description")} />
       {isLoading ? (
         <div className="flex justify-center py-20 text-ink-dim"><Loader2 className="h-6 w-6 animate-spin" /></div>

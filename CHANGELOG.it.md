@@ -1,3 +1,16 @@
+## v1.28.52 — 5 novembre 2026
+
+### Gestione
+
+- Nuova presentazione delle pagine Richieste, Cronologia, Ricerca, Problemi, Esclusioni, Torrent bloccati, Utenti e Cestino: banner nel colore della pagina e schede più leggibili.
+- Cronologia: i filtri Film e Serie non vanno più in errore e le righe vuote “history.undefined” sono sparite.
+- Su telefono, i nomi nella pagina Utenti non sono più schiacciati e i filtri della Cronologia restano nello schermo.
+
+### Accessibilità
+
+- Testo ingrandito: la barra laterale, le sue icone e il menu Impostazioni crescono con il testo e il badge non tocca più la parola.
+- Tutti gli interruttori e i pulsanti a icona hanno un nome per gli screen reader.
+
 ## v1.28.51 — 4 novembre 2026
 
 ### Impostazioni

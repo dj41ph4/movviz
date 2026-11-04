@@ -1,3 +1,16 @@
+## v1.28.52 — 5 novembre 2026
+
+### Gestion
+
+- Nouvelle présentation des pages Demandes, Historique, Recherche, Problèmes, Exclusions, Torrents bloqués, Utilisateurs et Corbeille : bandeau à la couleur de la page, cartes plus lisibles.
+- Historique : les filtres Films et Séries ne tombent plus en erreur, et les lignes vides « history.undefined » disparaissent.
+- Sur téléphone, les noms de la page Utilisateurs ne sont plus écrasés et les filtres de l’Historique restent dans l’écran.
+
+### Accessibilité
+
+- Texte agrandi : la barre latérale, ses icônes et le menu des Réglages grandissent avec le texte, et la pastille ne colle plus au mot.
+- Tous les interrupteurs et boutons à icône sont nommés pour les lecteurs d’écran.
+
 ## v1.28.51 — 4 novembre 2026
 
 ### Réglages

@@ -64,6 +64,10 @@ export function AnimeSettings() {
 
         <label className="flex items-center gap-3">
           <button
+            type="button"
+            role="switch"
+            aria-checked={useForAnime}
+            aria-label={t("metadata.useTvdbForAnime")}
             onClick={() => saveTvdb({ useForAnime: !useForAnime })}
             disabled={saving}
             className={cn("relative h-6 w-11 rounded-full transition-colors", useForAnime ? "brand-gradient" : "bg-white/10")}
@@ -76,6 +80,10 @@ export function AnimeSettings() {
 
         <label className="mt-4 flex items-center gap-3">
           <button
+            type="button"
+            role="switch"
+            aria-checked={specialsEnabled}
+            aria-label={t("anime.specialsEnabled")}
             onClick={() => saveTvdb({ specialsEnabled: !specialsEnabled })}
             disabled={saving}
             className={cn("relative h-6 w-11 rounded-full transition-colors", specialsEnabled ? "brand-gradient" : "bg-white/10")}

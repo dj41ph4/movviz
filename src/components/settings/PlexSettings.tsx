@@ -253,7 +253,7 @@ export function PlexSettings() {
               <p className="text-sm font-semibold text-ink">{t("plex.syncLibrary")}</p>
               <p className="text-xs text-ink-dim">{t("plex.syncLibraryHint")}</p>
             </div>
-            <Toggle on={cfg.syncLibrary} onChange={() => save({ syncLibrary: !cfg.syncLibrary })} />
+            <Toggle label={t("plex.syncLibrary")} on={cfg.syncLibrary} onChange={() => save({ syncLibrary: !cfg.syncLibrary })} />
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -327,7 +327,7 @@ export function PlexSettings() {
               <p className="text-sm font-semibold text-ink">{t("plex.watchlistSyncGlobal")}</p>
               <p className="text-xs text-ink-dim">{t("plex.watchlistSyncGlobalHint")}</p>
             </div>
-            <Toggle on={cfg.watchlistSyncEnabled} onChange={() => save({ watchlistSyncEnabled: !cfg.watchlistSyncEnabled })} />
+            <Toggle label={t("plex.watchlistSyncGlobal")} on={cfg.watchlistSyncEnabled} onChange={() => save({ watchlistSyncEnabled: !cfg.watchlistSyncEnabled })} />
           </div>
         </div>
       )}
@@ -339,7 +339,7 @@ export function PlexSettings() {
               <p className="text-sm font-semibold text-ink">Intros et génériques</p>
               <p className="text-xs text-ink-dim">Synchroniser automatiquement les marqueurs détectés par Plex.</p>
             </div>
-            <Toggle on={!!cfg.markerSyncEnabled} onChange={() => save({ markerSyncEnabled: !cfg.markerSyncEnabled })} />
+            <Toggle label="Intros et génériques" on={!!cfg.markerSyncEnabled} onChange={() => save({ markerSyncEnabled: !cfg.markerSyncEnabled })} />
           </div>
           {cfg.markerSyncEnabled && markerInfo && (
             <div className="mt-3 space-y-2 text-xs text-ink-dim">
@@ -454,9 +454,9 @@ function ProfilePicker() {
   );
 }
 
-function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
+function Toggle({ on, onChange, disabled, label }: { on: boolean; onChange: () => void; disabled?: boolean; label: string }) {
   return (
-    <button onClick={onChange} disabled={disabled} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on && !disabled ? "brand-gradient" : "bg-white/10", disabled && "cursor-not-allowed opacity-40")}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onChange} disabled={disabled} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on && !disabled ? "brand-gradient" : "bg-white/10", disabled && "cursor-not-allowed opacity-40")}>
       <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
     </button>
   );

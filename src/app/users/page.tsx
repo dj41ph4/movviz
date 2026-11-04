@@ -105,7 +105,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px]">
+    <div data-manage="users" className="nx-manage-page mx-auto max-w-[1100px]">
       <PageHeader eyebrow={t("auth.usersEyebrow")} title={t("auth.users")} description={t("auth.usersDescription")}>
         <button
           onClick={() => setCreateOpen(true)}
@@ -191,7 +191,7 @@ export default function UsersPage() {
             <Hourglass className="h-4 w-4" /> {t("auth.pendingSection")}
           </h2>
           {users.filter((u) => u.status === "pending").map((u) => (
-            <div key={u.id} className="flex items-center gap-4 rounded-2xl border border-amber/20 bg-amber/5 p-4">
+            <div key={u.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-amber/20 bg-amber/5 p-4 md:flex-nowrap">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber/12 text-amber">
                 <UserIcon className="h-5 w-5" />
               </span>
@@ -220,14 +220,14 @@ export default function UsersPage() {
 
       <div className="space-y-3">
         {users.filter((u) => u.status !== "pending").map((u) => (
-          <div key={u.id} className="flex items-center gap-4 rounded-2xl glass p-4">
+          <div key={u.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl glass p-4 md:flex-nowrap">
             <span className={cn(
               "flex h-11 w-11 items-center justify-center rounded-xl",
               u.role === "admin" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan"
             )}>
               {u.role === "admin" ? <ShieldCheck className="h-5 w-5" /> : <UserIcon className="h-5 w-5" />}
             </span>
-            <Link href={`/users/${u.id}`} className="min-w-0 flex-1">
+            <Link href={`/users/${u.id}`} className="min-w-0 flex-1 basis-[calc(100%-60px)] md:basis-0">
               <h3 className="flex items-center gap-2 truncate font-bold text-ink">
                 {u.username}
                 {u.plexId ? (
@@ -244,13 +244,13 @@ export default function UsersPage() {
               </p>
             </Link>
 
-            <div className="flex items-center gap-1 rounded-xl glass p-1">
+            <div className="flex w-full items-center gap-1 rounded-xl glass p-1 md:w-auto">
               {(["user", "admin"] as const).map((r) => (
                 <button
                   key={r}
                   onClick={() => patch(u.id, { role: r })}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors md:flex-none",
                     u.role === r ? "brand-gradient text-white" : "text-ink-soft hover:text-ink"
                   )}
                 >
@@ -259,13 +259,14 @@ export default function UsersPage() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2" title={t("auth.autoApproveHint")}>
-              <span className="hidden text-xs font-semibold text-ink-soft sm:inline">{t("auth.autoApprove")}</span>
-              <Toggle on={u.autoApproveRequests} onChange={() => patch(u.id, { autoApproveRequests: !u.autoApproveRequests })} />
+            <div className="flex flex-1 items-center justify-between gap-2 md:flex-none md:justify-start" title={t("auth.autoApproveHint")}>
+              <span className="text-xs font-semibold text-ink-soft">{t("auth.autoApprove")}</span>
+              <Toggle label={t("auth.autoApprove")} on={u.autoApproveRequests} onChange={() => patch(u.id, { autoApproveRequests: !u.autoApproveRequests })} />
             </div>
 
             <Link
               href={`/users/${u.id}`}
+              aria-label={u.username}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg glass-strong text-ink-dim hover:text-ink"
             >
               <ChevronRight className="h-4 w-4" />
@@ -277,9 +278,9 @@ export default function UsersPage() {
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
   return (
-    <button onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
       <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
     </button>
   );

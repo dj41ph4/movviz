@@ -62,8 +62,8 @@ export function CustomFormatsPanel() {
               </div>
               <p className="break-all font-mono text-xs text-ink-dim">{cf.terms.join(", ")}</p>
             </div>
-            <Toggle on={cf.enabled} onChange={() => toggle(cf)} />
-            <button onClick={() => remove(cf.id)} className="flex h-9 w-9 items-center justify-center rounded-xl glass text-ink-dim transition-colors hover:bg-down/15 hover:text-down">
+            <Toggle label={cf.name} on={cf.enabled} onChange={() => toggle(cf)} />
+            <button type="button" aria-label={t("common.remove")} onClick={() => remove(cf.id)} className="flex h-9 w-9 items-center justify-center rounded-xl glass text-ink-dim transition-colors hover:bg-down/15 hover:text-down">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -146,9 +146,9 @@ function AddForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
   return (
-    <button onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
       <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
     </button>
   );

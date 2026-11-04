@@ -1,0 +1,81 @@
+/* Pages de Gestion (apparence Bêta) : même matière que les Réglages, une couleur par
+   page. Aucun flou et aucune animation sans fin : des dégradés fixes, peints une fois.
+   La répétition de :root passe devant premium.css et salle-obscure.css. */
+html[data-movviz-appearance="beta"]:root:root {
+  & .nx-manage-page { --g1: 124, 92, 255; --g2: 217, 70, 239; }
+  & .nx-manage-page[data-manage="requests"] { --g1: 217, 70, 239; --g2: 124, 92, 255; }
+  & .nx-manage-page[data-manage="history"] { --g1: 34, 211, 238; --g2: 56, 130, 246; }
+  & .nx-manage-page[data-manage="search"] { --g1: 16, 185, 129; --g2: 34, 211, 238; }
+  & .nx-manage-page[data-manage="issues"] { --g1: 245, 158, 11; --g2: 239, 108, 60; }
+  & .nx-manage-page[data-manage="exclusions"] { --g1: 244, 63, 94; --g2: 190, 60, 160; }
+  & .nx-manage-page[data-manage="blocked-torrents"] { --g1: 239, 68, 68; --g2: 245, 120, 60; }
+  & .nx-manage-page[data-manage="users"] { --g1: 99, 102, 241; --g2: 139, 92, 246; }
+  & .nx-manage-page[data-manage="trash"] { --g1: 120, 130, 160; --g2: 80, 90, 120; }
+
+  /* Bandeau de page */
+  & .nx-manage-page [data-nx-page-header] {
+    margin-bottom: 22px;
+    padding: 26px 28px;
+    border: 1px solid #ffffff1a;
+    border-radius: 24px;
+    background: linear-gradient(115deg, rgba(var(--g1), .30), rgba(var(--g2), .11) 55%, transparent), #12141c;
+    box-shadow: inset 0 1px 0 #ffffff1f, 0 22px 50px -32px #000;
+  }
+  & .nx-manage-page [data-nx-page-header] h1 {
+    background: none;
+    font-size: 32px;
+    letter-spacing: -.02em;
+    color: #f5f2eb;
+    -webkit-text-fill-color: #f5f2eb;
+  }
+  /* Sur le bandeau coloré, le violet de marque et le gris manquent de contraste. */
+  & .nx-manage-page [data-nx-page-header] p { color: #d6d3e2; }
+  & .nx-manage-page [data-nx-page-header] p:first-child { color: #ece8f7; }
+  & .nx-manage-page [data-nx-page-header] .rounded-full {
+    border-color: #ffffff24;
+    background: #0b0c10b3;
+    color: #ece8f7;
+  }
+  & .nx-manage-page [data-nx-page-header] :is(button, a):not(.brand-gradient) {
+    border-color: #ffffff24;
+    background: #0b0c10d9;
+  }
+
+  /* Cartes et lignes */
+  & .nx-manage-page :is(div, section).glass {
+    border: 1px solid #ffffff14;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #181b25, #11131a);
+    box-shadow: inset 0 1px 0 #ffffff14;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  & .nx-manage-page :is(div, section).glass:hover { border-color: rgba(var(--g1), .45); }
+  & .nx-manage-page .glass .text-ink-dim { color: #a9a6ba; }
+  & .nx-manage-page .space-y-2 > * + *,
+  & .nx-manage-page .space-y-3 > * + * { margin-top: 10px; }
+
+  /* Groupes de filtres et de rôles : un rail sombre, sans survol de carte. */
+  & .nx-manage-page div.glass.p-1 {
+    border-radius: 16px;
+    background: #101219;
+    box-shadow: none;
+  }
+  & .nx-manage-page div.glass.p-1:hover { border-color: #ffffff14; }
+
+  /* États vides */
+  & .nx-manage-page div.glass.py-20 {
+    background: linear-gradient(115deg, rgba(var(--g1), .10), transparent 60%), #12141c;
+    color: #c4c1d3;
+  }
+  & .nx-manage-page div.glass.py-20 svg { color: rgb(var(--g1)); }
+
+  /* Interrupteurs : seule la pastille. */
+  & .nx-manage-page [role="switch"].h-6[aria-checked="true"] { background: linear-gradient(90deg, #7458e8, #b892ff); }
+  & .nx-manage-page [role="switch"].h-6[aria-checked="false"] { background: #ffffff1f; }
+
+  @media (max-width: 767.98px) {
+    & .nx-manage-page [data-nx-page-header] { padding: 20px; border-radius: 20px; }
+    & .nx-manage-page [data-nx-page-header] h1 { font-size: 26px; }
+  }
+}

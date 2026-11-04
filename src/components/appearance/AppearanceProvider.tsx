@@ -8,6 +8,7 @@ import "./design-beta.css";
 import "./design-beta-compact.generated.css";
 import "./design-beta-compact.css";
 import "./design-classic.css";
+import "./management-premium.css";
 
 type DesignContextValue = { mode: DesignMode };
 const DesignContext = createContext<DesignContextValue | null>(null);

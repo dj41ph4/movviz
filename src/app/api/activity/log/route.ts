@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
       recordFailedRelease(body.infoHash);
     }
 
+    // Le moteur envoie { type, data } : sans kind ni media, la ligne serait vide.
+    if (!body.kind || !body.media) return NextResponse.json({ ok: true, ignored: true });
+
     const entry = logActivityV2({
       kind: body.kind,
       media: body.media,

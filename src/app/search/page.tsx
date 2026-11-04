@@ -239,7 +239,7 @@ function SearchPageInner() {
   };
 
   return (
-    <div className="mx-auto max-w-[1500px]">
+    <div data-manage="search" className="nx-manage-page mx-auto max-w-[1500px]">
       <PageHeader title={t("search.title")} description={t("search.description")} />
 
       {libraryRef && manualTitle && (
@@ -401,7 +401,7 @@ function SearchPageInner() {
                   {r.protocol === "torrent" ? <Magnet className="h-4 w-4" /> : <Server className="h-4 w-4" />}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-mono text-sm text-ink sm:truncate"><HighlightSeasonTitle title={r.title} targetSeason={extractSearchSeason(q)} /></p>
+                  <p className="break-all font-mono text-sm text-ink sm:break-normal sm:truncate"><HighlightSeasonTitle title={r.title} targetSeason={extractSearchSeason(q)} /></p>
                   <p className="text-[11px] text-ink-dim">
                     {t("search.score").toLowerCase()}{" "}
                     <span className={cn("font-bold", r.score >= 90 ? "text-ok" : r.score >= 75 ? "text-amber" : "text-ink-soft")}>{r.score}</span>

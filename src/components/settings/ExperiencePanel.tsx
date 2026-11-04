@@ -34,7 +34,7 @@ export function ExperiencePanel() {
         <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.smoothModeHint")}</p>
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm text-ink">{t("settings.experience.smoothModeEnabled")}</span>
-          <Toggle on={gpu.reduceAnimations} onChange={() => gpu.setReduceAnimations(!gpu.reduceAnimations)} />
+          <Toggle label={t("settings.experience.smoothModeEnabled")} on={gpu.reduceAnimations} onChange={() => gpu.setReduceAnimations(!gpu.reduceAnimations)} />
         </div>
       </div>
 
@@ -43,7 +43,7 @@ export function ExperiencePanel() {
         <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.titlePageVideoHint")}</p>
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.titlePageVideoEnabled")}</span>
-          <Toggle on={titlePageVideo.enabled} disabled={!titlePageVideo.loaded} onChange={() => titlePageVideo.setEnabled(!titlePageVideo.enabled)} />
+          <Toggle label={t("settings.experience.titlePageVideoEnabled")} on={titlePageVideo.enabled} disabled={!titlePageVideo.loaded} onChange={() => titlePageVideo.setEnabled(!titlePageVideo.enabled)} />
         </div>
       </div>
 
@@ -52,7 +52,7 @@ export function ExperiencePanel() {
         <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.specialEpisodesHint")}</p>
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.specialEpisodesEnabled")}</span>
-          <Toggle on={specialEpisodes.enabled} onChange={() => specialEpisodes.setEnabled(!specialEpisodes.enabled)} />
+          <Toggle label={t("settings.experience.specialEpisodesEnabled")} on={specialEpisodes.enabled} onChange={() => specialEpisodes.setEnabled(!specialEpisodes.enabled)} />
         </div>
       </div>
     </div>

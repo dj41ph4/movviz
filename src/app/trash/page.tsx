@@ -84,7 +84,7 @@ export default function TrashPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div data-manage="trash" className="nx-manage-page mx-auto max-w-[1200px]">
       <PageHeader
         title={t("nav.trash")}
         description={t("trash.description", { n: items.length })}

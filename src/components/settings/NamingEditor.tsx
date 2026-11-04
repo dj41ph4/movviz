@@ -92,6 +92,10 @@ export function NamingEditor() {
           <span className="mt-0.5 block text-xs font-normal text-ink-dim">{t("naming.enableHint")}</span>
         </span>
         <button
+          type="button"
+          role="switch"
+          aria-checked={templates.enabled}
+          aria-label={t("naming.enable")}
           onClick={() => set("enabled", !templates.enabled)}
           className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", templates.enabled ? "brand-gradient" : "bg-white/10")}
         >

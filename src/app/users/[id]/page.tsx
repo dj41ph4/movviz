@@ -207,7 +207,7 @@ function GeneralTab({
             <p className="text-sm font-semibold text-ink">{t("auth.autoApprove")}</p>
             <p className="text-xs text-ink-dim">{t("auth.autoApproveHint")}</p>
           </div>
-          <Toggle on={user.autoApproveRequests} onChange={() => onPatch({ autoApproveRequests: !user.autoApproveRequests })} />
+          <Toggle label={t("auth.autoApprove")} on={user.autoApproveRequests} onChange={() => onPatch({ autoApproveRequests: !user.autoApproveRequests })} />
         </div>
         {user.plexId && (
           <div className={cn("flex items-center justify-between py-2", !user.hasPlexToken && "opacity-40")}>
@@ -217,7 +217,7 @@ function GeneralTab({
                 {user.hasPlexToken ? t("plex.watchlistSyncHint") : t("plex.watchlistSyncNeedsOwnLogin")}
               </p>
             </div>
-            <Toggle
+            <Toggle label={t("plex.watchlistSync")}
               on={watchlistSyncEnabled}
               onChange={() => user.hasPlexToken && onPatch({ autoRequestFromWatchlist: !watchlistSyncEnabled })}
             />
@@ -306,7 +306,7 @@ function PermissionsTab({
             <p className="text-sm font-semibold text-ink">{t("auth.canManageRequests")}</p>
             <p className="text-xs text-ink-dim">{t("auth.canManageRequestsHint")}</p>
           </div>
-          <Toggle
+          <Toggle label={t("auth.canManageRequests")}
             on={user.role === "admin" || user.canManageRequests}
             onChange={() => user.role !== "admin" && onPatch({ canManageRequests: !user.canManageRequests })}
           />
@@ -371,9 +371,9 @@ function PasswordTab({ userId }: { userId: string }) {
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
   return (
-    <button onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
       <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
     </button>
   );

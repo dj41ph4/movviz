@@ -55,7 +55,7 @@ function AutoSearchKillSwitch() {
             <p className="mt-0.5 max-w-xl text-xs text-ink-dim">{t("automation.killSwitchHint")}</p>
           </div>
         </div>
-        <Toggle on={enabled === true} disabled={enabled === null || saving} onChange={toggle} />
+        <Toggle label={t("automation.killSwitchTitle")} on={enabled === true} disabled={enabled === null || saving} onChange={toggle} />
       </div>
     </div>
   );

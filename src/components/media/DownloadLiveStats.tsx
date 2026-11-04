@@ -85,11 +85,11 @@ export function QuickDownloadSettings({ active = true, bare = false }: { active?
         <div className="space-y-3 text-xs">
           <div className="flex min-h-8 items-center justify-between gap-3">
             <span className="text-ink-soft">{t("settings.autoStart")}</span>
-            <Toggle on={primary.autoStart} onChange={() => updatePrimary({ autoStart: !primary.autoStart })} />
+            <Toggle label={t("settings.autoStart")} on={primary.autoStart} onChange={() => updatePrimary({ autoStart: !primary.autoStart })} />
           </div>
           <div className="flex min-h-8 items-center justify-between gap-3">
             <span className="text-ink-soft">{t("downloads.seq")}</span>
-            <Toggle on={primary.sequential} onChange={() => updatePrimary({ sequential: !primary.sequential })} />
+            <Toggle label={t("downloads.seq")} on={primary.sequential} onChange={() => updatePrimary({ sequential: !primary.sequential })} />
           </div>
           <div className="flex items-center justify-between gap-2 border-t border-white/8 pt-3 text-ink-dim"><span>{t("settings.speedLimit")}</span><span className="font-semibold text-ink">{primary.downloadLimitKbps > 0 ? `${primary.downloadLimitKbps} KB/s` : "∞"}</span></div>
         </div>

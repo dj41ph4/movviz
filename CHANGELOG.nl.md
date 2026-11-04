@@ -1,3 +1,16 @@
+## v1.28.52 — 5 november 2026
+
+### Beheer
+
+- Nieuwe weergave van de pagina's Verzoeken, Geschiedenis, Zoeken, Problemen, Uitsluitingen, Geblokkeerde torrents, Gebruikers en Prullenbak: banner in de kleur van de pagina en duidelijkere kaarten.
+- Geschiedenis: de filters Films en Series geven geen fout meer en lege regels “history.undefined” zijn verdwenen.
+- Op de telefoon worden namen op de pagina Gebruikers niet meer samengedrukt en blijven de filters van Geschiedenis op het scherm.
+
+### Toegankelijkheid
+
+- Grotere tekst: de zijbalk, de pictogrammen en het menu Instellingen groeien mee met de tekst en de badge raakt het woord niet meer.
+- Alle schakelaars en pictogramknoppen hebben een naam voor schermlezers.
+
 ## v1.28.51 — 4 november 2026
 
 ### Instellingen

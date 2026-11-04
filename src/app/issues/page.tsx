@@ -67,7 +67,7 @@ export default function IssuesPage() {
   const openCount = issues.filter((i) => i.status !== "resolved").length;
 
   return (
-    <div className="mx-auto max-w-[1100px]">
+    <div data-manage="issues" className="nx-manage-page mx-auto max-w-[1100px]">
       <PageHeader
         eyebrow={isAdmin ? `${openCount} ${t("issues.eyebrow")}` : undefined}
         title={isAdmin ? t("issues.title") : t("issues.myIssues")}

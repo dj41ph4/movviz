@@ -141,7 +141,7 @@ export function MediaProbePanel() {
           <p className="text-sm font-semibold text-ink">{t("mediaProbe.enable")}</p>
           <p className="text-xs leading-relaxed text-ink-dim">{t("mediaProbe.enableHint")}</p>
         </div>
-        <Toggle on={enabled} onChange={() => setEnabled(!enabled)} />
+        <Toggle label={t("mediaProbe.enable")} on={enabled} onChange={() => setEnabled(!enabled)} />
       </div>
 
       {!enabled && (

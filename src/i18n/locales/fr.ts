@@ -331,6 +331,8 @@ export const fr = {
     online: "en ligne",
     episodesShort: "ép.",
     remove: "Retirer",
+    back: "Retour",
+    sync: "Synchroniser",
     reset: "Réinitialiser",
     add: "Ajouter",
     save: "Enregistrer",

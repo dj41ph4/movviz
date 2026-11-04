@@ -179,6 +179,7 @@ export function AboutPanel() {
             type="button"
             role="switch"
             aria-checked={autoUpdate.enabled}
+            aria-label={t("settings.autoUpdateLabel")}
             onClick={() => autoUpdate.setEnabled(!autoUpdate.enabled)}
             className={cn(
               "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200",

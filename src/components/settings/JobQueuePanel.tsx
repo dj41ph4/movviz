@@ -247,7 +247,7 @@ export function JobQueuePanel() {
             <h3 className="text-sm font-bold text-ink">{t("jobs.slowTitle")}</h3>
             <p className="mt-1 text-xs text-ink-dim">{t("jobs.slowHint")}</p>
           </div>
-          <Toggle on={slowDuringDownload === true} disabled={slowDuringDownload === null} onChange={() => changeSlowDuringDownload(!slowDuringDownload)} />
+          <Toggle label={t("jobs.slowTitle")} on={slowDuringDownload === true} disabled={slowDuringDownload === null} onChange={() => changeSlowDuringDownload(!slowDuringDownload)} />
         </div>
       </div>
     </div>

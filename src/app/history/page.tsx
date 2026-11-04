@@ -105,7 +105,7 @@ export default function HistoryPage() {
     : t("history.eventsPlural").replace("{n}", String(items.length));
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-6">
+    <div data-manage="history" className="nx-manage-page mx-auto max-w-[1100px] space-y-6">
       <PageHeader title={t("history.title")} description={t("history.description")}>
         {!isLoading && items.length > 0 && (
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-ink-dim">
@@ -116,7 +116,7 @@ export default function HistoryPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        <div className="flex items-center gap-0.5 rounded-2xl glass p-1">
+        <div className="flex flex-wrap items-center gap-0.5 rounded-2xl glass p-1">
           {TYPE_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -131,7 +131,7 @@ export default function HistoryPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-0.5 rounded-2xl glass p-1">
+        <div className="flex flex-wrap items-center gap-0.5 rounded-2xl glass p-1">
           {KIND_OPTIONS.map((opt) => (
             <button
               key={opt.value}

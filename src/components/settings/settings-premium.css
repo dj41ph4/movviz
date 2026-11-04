@@ -134,6 +134,12 @@ html[data-movviz-appearance="beta"]:root:root {
     & .nx-settings-readiness h2 { font-size: 24px; }
   }
 
+  /* Texte agrandi : le menu s'élargit pour garder ses entrées sur une ligne quand c'est possible. */
+  @media (min-width: 1024px) {
+    &[data-desktop-text-scale="110"] .nx-settings-page > .md\:grid { grid-template-columns: 296px minmax(0, 1fr); }
+    &[data-desktop-text-scale="120"] .nx-settings-page > .md\:grid { grid-template-columns: 324px minmax(0, 1fr); }
+  }
+
   /* Menu : la liste complète, dans un panneau qui tient à l'écran, sans barre de défilement. */
   @media (min-width: 768px) {
     & .nx-settings-nav {

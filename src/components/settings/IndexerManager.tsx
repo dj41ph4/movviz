@@ -247,8 +247,8 @@ export function IndexerManager() {
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
-                <Toggle on={r.enabled} onChange={() => toggle(r)} />
-                <button onClick={() => remove(r.id)} className="flex h-9 w-9 items-center justify-center rounded-xl glass text-ink-dim transition-colors hover:bg-down/15 hover:text-down">
+                <Toggle label={r.name} on={r.enabled} onChange={() => toggle(r)} />
+                <button type="button" aria-label={t("common.remove")} onClick={() => remove(r.id)} className="flex h-9 w-9 items-center justify-center rounded-xl glass text-ink-dim transition-colors hover:bg-down/15 hover:text-down">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -370,7 +370,7 @@ function AddFlow({ t, onDone, onCancel }: { t: (k: string, params?: Record<strin
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {picked && (
-              <button onClick={() => setPicked(null)} className="text-ink-dim hover:text-ink"><ArrowLeft className="h-4 w-4" /></button>
+              <button type="button" aria-label={t("common.back")} onClick={() => setPicked(null)} className="text-ink-dim hover:text-ink"><ArrowLeft className="h-4 w-4" /></button>
             )}
             <h3 className="font-bold text-ink">{picked ? picked.name : t("indexerMgr.addTitle")}</h3>
           </div>
@@ -609,7 +609,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
             </div>
           </div>
           <div className="mt-3 flex items-center gap-3">
-            <Toggle on={listsEnabled} onChange={() => setListsEnabled(!listsEnabled)} />
+            <Toggle label={t("indexerMgr.listsToggle")} on={listsEnabled} onChange={() => setListsEnabled(!listsEnabled)} />
             <span className="text-sm font-semibold text-ink">{t("indexerMgr.listsToggle")}</span>
           </div>
           {listsEnabled && !username.trim() && (
@@ -741,9 +741,9 @@ function FilterField({ label, value, onCommit }: { label: string; value: number 
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
   return (
-    <button onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
       <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
     </button>
   );

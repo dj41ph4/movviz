@@ -37,8 +37,8 @@ export function TranscodeLogsPanel() {
           </div>
         </div>
         <div className="flex gap-1">
-          <button onClick={load} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:text-ink transition-colors"><RefreshCw className="h-4 w-4" /></button>
-          <button onClick={clear} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:text-down transition-colors"><Trash2 className="h-4 w-4" /></button>
+          <button type="button" aria-label="Actualiser" onClick={load} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:text-ink transition-colors"><RefreshCw className="h-4 w-4" /></button>
+          <button type="button" aria-label="Vider" onClick={clear} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:text-down transition-colors"><Trash2 className="h-4 w-4" /></button>
         </div>
       </div>
 

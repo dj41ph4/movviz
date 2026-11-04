@@ -42,7 +42,7 @@ export function PlayerSettings() {
             <p className="text-sm font-semibold text-ink">{t("player.useMovviz")}</p>
             <p className="text-xs text-ink-dim">{t("player.useMovvizHint")}</p>
           </div>
-          <Toggle on={userEnabled} onChange={() => setUserEnabled(!userEnabled)} />
+          <Toggle label={t("player.useMovviz")} on={userEnabled} onChange={() => setUserEnabled(!userEnabled)} />
         </div>
       </div>
 
@@ -54,7 +54,7 @@ export function PlayerSettings() {
           </div>
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-sm font-semibold text-ink">{t("player.serverEnabled")}</p><p className="text-xs text-ink-dim">{t("player.serverEnabledHint")}</p></div>
-            <Toggle on={adminEnabled} onChange={() => setAdminEnabled(!adminEnabled)} />
+            <Toggle label={t("player.serverEnabled")} on={adminEnabled} onChange={() => setAdminEnabled(!adminEnabled)} />
           </div>
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
             <div>
@@ -63,7 +63,7 @@ export function PlayerSettings() {
                 Couvre HDR10, HDR10+, HLG et Dolby Vision. Activé : le tonemapping reste autorisé uniquement si le benchmark réel atteint au moins 3×. Désactivé : aucune conversion vers SDR n'est permise, même avec un benchmark supérieur à 3×.
               </p>
             </div>
-            <Toggle on={hdrDvToSdrEnabled} onChange={() => setHdrDvToSdrEnabled(!hdrDvToSdrEnabled)} />
+            <Toggle label="Conversion HDR / Dolby Vision → SDR" on={hdrDvToSdrEnabled} onChange={() => setHdrDvToSdrEnabled(!hdrDvToSdrEnabled)} />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-4">
             <div><p className="text-sm font-semibold text-ink">{t("player.bufferTtl")}</p><p className="text-xs text-ink-dim">{t("player.bufferTtlHint")}</p></div>
@@ -71,7 +71,7 @@ export function PlayerSettings() {
           </div>
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
             <div className="flex items-start gap-2"><Bug className="mt-0.5 h-4 w-4 text-ink-dim" /><div><p className="text-sm font-semibold text-ink">{t("player.debugToggle")}</p><p className="text-xs text-ink-dim">{t("player.debugToggleHint")}</p></div></div>
-            <Toggle on={debug} onChange={() => setDebug(!debug)} />
+            <Toggle label={t("player.debugToggle")} on={debug} onChange={() => setDebug(!debug)} />
           </div>
         </div>
       )}

@@ -1,3 +1,16 @@
+## v1.28.52 — 5. November 2026
+
+### Verwaltung
+
+- Neue Darstellung der Seiten Anfragen, Verlauf, Suche, Probleme, Ausschlüsse, Blockierte Torrents, Benutzer und Papierkorb: Banner in der Farbe der Seite und besser lesbare Karten.
+- Verlauf: Die Filter Filme und Serien schlagen nicht mehr fehl, und leere Zeilen „history.undefined“ sind verschwunden.
+- Auf dem Handy werden Namen auf der Benutzerseite nicht mehr gequetscht, und die Verlaufsfilter bleiben auf dem Bildschirm.
+
+### Barrierefreiheit
+
+- Vergrößerter Text: Seitenleiste, Symbole und Einstellungsmenü wachsen mit dem Text, und das Abzeichen berührt das Wort nicht mehr.
+- Alle Schalter und Symbolschaltflächen sind für Screenreader benannt.
+
 ## v1.28.51 — 4. November 2026
 
 ### Einstellungen

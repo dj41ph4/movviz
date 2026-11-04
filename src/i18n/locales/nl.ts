@@ -333,6 +333,8 @@ export const nl: Dictionary = {
     online: "online",
     episodesShort: "afl.",
     remove: "Verwijderen",
+    back: "Terug",
+    sync: "Synchroniseren",
     reset: "Resetten",
     add: "Toevoegen",
     save: "Opslaan",

@@ -333,6 +333,8 @@ export const it: Dictionary = {
     online: "online",
     episodesShort: "ep.",
     remove: "Rimuovi",
+    back: "Indietro",
+    sync: "Sincronizza",
     reset: "Reimposta",
     add: "Aggiungi",
     save: "Salva",

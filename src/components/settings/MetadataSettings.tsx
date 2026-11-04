@@ -359,7 +359,7 @@ export function MetadataSettings() {
         <p className="mt-1 mb-3 text-xs text-ink-dim">{t("settings.experience.enhancedTrailerSourcesHint")}</p>
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.enhancedTrailerSourcesEnabled")}</span>
-          <Toggle on={enhancedTrailerSources.enabled} onChange={() => enhancedTrailerSources.setEnabled(!enhancedTrailerSources.enabled)} />
+          <Toggle label={t("settings.experience.enhancedTrailerSourcesEnabled")} on={enhancedTrailerSources.enabled} onChange={() => enhancedTrailerSources.setEnabled(!enhancedTrailerSources.enabled)} />
         </div>
       </div>
     </div>

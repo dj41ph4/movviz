@@ -85,7 +85,7 @@ function RequestsPageInner() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-[1100px]">
+      <div data-manage="requests" className="nx-manage-page mx-auto max-w-[1100px]">
         <PageHeader title={t("requests.title")} />
         <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
           <AlertTriangle className="h-8 w-8 text-down" />
@@ -104,7 +104,7 @@ function RequestsPageInner() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-[1100px]">
+      <div data-manage="requests" className="nx-manage-page mx-auto max-w-[1100px]">
         <PageHeader title={t("requests.title")} />
         <div className="space-y-4">
           {[...Array(4)].map((_, i) => (
@@ -155,7 +155,7 @@ function RequestsPageInner() {
   const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
-    <div className="mx-auto max-w-[1100px]">
+    <div data-manage="requests" className="nx-manage-page mx-auto max-w-[1100px]">
       <PageHeader
         eyebrow={isAdmin ? `${pendingCount} ${t("requests.eyebrow")}` : undefined}
         title={isAdmin ? t("requests.title") : t("requests.myRequests")}

@@ -54,7 +54,7 @@ export function LanguagePanel() {
           <p className="text-sm font-semibold text-ink">{t("player.autoSubtitles")}</p>
           <p className="text-xs text-ink-dim">{t("player.autoSubtitlesHint")}</p>
         </div>
-        <Toggle on={autoSubtitles} onChange={() => setAutoSubtitles(!autoSubtitles)} />
+        <Toggle label={t("player.autoSubtitles")} on={autoSubtitles} onChange={() => setAutoSubtitles(!autoSubtitles)} />
       </div>
     </div>
   );

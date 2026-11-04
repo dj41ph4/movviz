@@ -23,12 +23,18 @@ function generateId(): string {
   return `ac_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** Le moteur a longtemps écrit ici des lignes sans kind ni media : elles affichaient
+ *  « history.undefined » et faisaient planter les filtres de l'historique. */
+function readEntries(): ActivityEntry[] {
+  return readJson<ActivityEntry[]>(FILE, []).filter((entry) => entry.kind && entry.media);
+}
+
 export function loadActivityV2(): ActivityEntry[] {
-  return readJson<ActivityEntry[]>(FILE, []).sort((a, b) => b.timestamp - a.timestamp);
+  return readEntries().sort((a, b) => b.timestamp - a.timestamp);
 }
 
 export function logActivityV2(entry: Omit<ActivityEntry, "id" | "timestamp">): ActivityEntry {
-  const list = readJson<ActivityEntry[]>(FILE, []);
+  const list = readEntries();
   const fullEntry: ActivityEntry = {
     ...entry,
     id: generateId(),
@@ -45,11 +51,11 @@ export function clearActivityV2() {
 }
 
 export function getActivityEntryV2(id: string): ActivityEntry | null {
-  return readJson<ActivityEntry[]>(FILE, []).find((e) => e.id === id) ?? null;
+  return readEntries().find((e) => e.id === id) ?? null;
 }
 
 export function updateActivityEntryV2(id: string, patch: Partial<ActivityEntry>): ActivityEntry | null {
-  const list = readJson<ActivityEntry[]>(FILE, []);
+  const list = readEntries();
   const i = list.findIndex((e) => e.id === id);
   if (i < 0) return null;
   list[i] = { ...list[i], ...patch };

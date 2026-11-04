@@ -27,7 +27,7 @@ export default function BlockedTorrentsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div data-manage="blocked-torrents" className="nx-manage-page mx-auto max-w-[1200px]">
       <PageHeader eyebrow={t("nav.management")} title={t("blockedTorrents.title")} description={t("blockedTorrents.description")} />
       {isLoading ? (
         <div className="flex justify-center py-20 text-ink-dim"><Loader2 className="h-6 w-6 animate-spin" /></div>

@@ -324,6 +324,10 @@ export function ReleaseRulesPanel() {
         <div className="mt-4 flex items-center justify-between gap-4">
           <span className="text-xs text-ink-soft">{rules.autoUpgradeEnabled ? t("common.enabled") : t("common.disabled")}</span>
           <button
+            type="button"
+            role="switch"
+            aria-checked={rules.autoUpgradeEnabled}
+            aria-label={t("releaseRules.autoUpgradeTitle")}
             onClick={() => save({ autoUpgradeEnabled: !rules.autoUpgradeEnabled })}
             className={cn(
               "relative h-6 w-11 shrink-0 rounded-full transition-colors",
@@ -345,6 +349,10 @@ export function ReleaseRulesPanel() {
         <div className="mt-4 flex items-center justify-between gap-4">
           <span className="text-xs text-ink-soft">{rules.dashboardUpgradeScanEnabled ? t("common.enabled") : t("common.disabled")}</span>
           <button
+            type="button"
+            role="switch"
+            aria-checked={rules.dashboardUpgradeScanEnabled}
+            aria-label={t("releaseRules.dashboardScanTitle")}
             onClick={() => save({ dashboardUpgradeScanEnabled: !rules.dashboardUpgradeScanEnabled })}
             className={cn(
               "relative h-6 w-11 shrink-0 rounded-full transition-colors",
@@ -454,7 +462,7 @@ function WordListEditor({
           placeholder={placeholder}
           className={cn(field, "flex-1")}
         />
-        <button onClick={add} disabled={!input.trim()} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">
+        <button type="button" aria-label={title} onClick={add} disabled={!input.trim()} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">
           <Plus className="h-4 w-4" />
         </button>
       </div>

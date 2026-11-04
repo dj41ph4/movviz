@@ -257,7 +257,7 @@ export function PerfPanel() {
         <p className="mt-1 text-[11px] leading-relaxed text-ink-dim">{t("health.timelineHint")}</p>
         <div className="mt-3 max-h-64 overflow-y-auto font-mono text-[9px] space-y-0.5">
           {timeline.slice(0, 100).map((e) => (
-            <div key={e.t + e.id} className="flex items-center gap-2 px-2 py-0.5 rounded-lg">
+            <div key={`${e.t}-${e.type}-${e.id}`} className="flex items-center gap-2 px-2 py-0.5 rounded-lg">
               <span className="w-[52px] text-ink-dim">{new Date(e.t).toLocaleTimeString()}</span>
               <span className={`w-10 shrink-0 rounded text-center ${e.windowType === "cpu" ? "bg-down/20 text-down" : e.windowType === "io" ? "bg-amber/20 text-amber" : "bg-white/10 text-ink-soft"}`}>{e.windowType ?? "—"}</span>
               <span className="w-20 shrink-0 truncate">{e.type === "open" ? t("health.timelineOpen") : t("health.timelineClose")}</span>

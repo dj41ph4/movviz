@@ -2,12 +2,13 @@
 
 import { cn } from "@/lib/utils";
 
-export function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
+export function Toggle({ on, onChange, disabled, label }: { on: boolean; onChange: () => void; disabled?: boolean; label: string }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
+      aria-label={label}
       onClick={onChange}
       disabled={disabled}
       className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on && !disabled ? "brand-gradient" : "bg-white/10", disabled && "cursor-not-allowed opacity-40")}

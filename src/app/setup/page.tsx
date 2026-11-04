@@ -424,7 +424,7 @@ function AutoSearchMissingSetupOption() {
           <h3 className="font-bold text-ink">{t("setup.autoSearchMissingTitle")}</h3>
           <p className="mt-0.5 max-w-xl text-xs text-ink-dim">{t("setup.autoSearchMissingHint")}</p>
         </div>
-        <Toggle on={enabled === true} disabled={enabled === null || saving} onChange={toggle} />
+        <Toggle label={t("setup.autoSearchMissingTitle")} on={enabled === true} disabled={enabled === null || saving} onChange={toggle} />
       </div>
     </div>
   );
@@ -627,7 +627,7 @@ function OriginalLanguageOption({ locale }: { locale: string }) {
   };
   return <div className="mt-5 flex items-start justify-between gap-4 rounded-2xl glass p-4">
     <div><p className="text-sm font-bold text-ink">{t("setup.originalAudioTitle")}</p><p className="mt-1 text-xs text-ink-dim">{t("setup.originalAudioHint", { tag: word })}</p></div>
-    <Toggle on={!!blocked && !blocked.some((item) => words.includes(item.toUpperCase()))} disabled={!blocked || saving} onChange={toggle} />
+    <Toggle label={t("setup.originalAudioTitle")} on={!!blocked && !blocked.some((item) => words.includes(item.toUpperCase()))} disabled={!blocked || saving} onChange={toggle} />
   </div>;
 }
 

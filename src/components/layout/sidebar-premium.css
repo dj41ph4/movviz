@@ -231,3 +231,27 @@
 @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
   html[data-movviz-design="beta"]:root:root:root:root .nx-sidebar span[role="tooltip"] { animation: none; }
 }
+
+/* Texte agrandi (accessibilité) : le cadre grandit avec le texte, sinon tout se tasse
+   et la pastille du compteur finit collée au mot. */
+@media (min-width: 1024px) {
+  html[data-movviz-design="beta"]:root:root:root:root[data-desktop-text-scale] .nx-sidebar {
+    & :is(nav a, nav > div > button) { height: auto; min-height: var(--mv-side-row); }
+    & nav a:has(.brand-gradient) { padding-right: 52px; }
+    & nav a .brand-gradient { height: 24px; min-width: 24px; }
+    & nav a > span.relative { width: var(--mv-side-icon); height: var(--mv-side-icon); }
+    & :is(nav a svg, nav > div > button svg) { width: var(--mv-side-icon); height: var(--mv-side-icon); }
+  }
+
+  html[data-movviz-design="beta"]:root:root:root:root[data-desktop-text-scale="110"] .nx-sidebar {
+    --mv-side-row: 50px;
+    --mv-side-icon: 21px;
+    &:not([data-collapsed]) { width: 256px; min-width: 256px; }
+  }
+
+  html[data-movviz-design="beta"]:root:root:root:root[data-desktop-text-scale="120"] .nx-sidebar {
+    --mv-side-row: 54px;
+    --mv-side-icon: 23px;
+    &:not([data-collapsed]) { width: 280px; min-width: 280px; }
+  }
+}

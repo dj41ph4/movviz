@@ -231,13 +231,13 @@ export function CachePanel() {
       <p className="mb-4 text-xs text-ink-dim">{t("settings.experience.cdnImagesHint")}</p>
       <div className="flex items-center justify-between">
         <span className="text-sm text-ink">{t("settings.experience.cdnImagesEnabled")}</span>
-        <Toggle on={cdnImages.enabled} onChange={() => cdnImages.setEnabled(!cdnImages.enabled)} />
+        <Toggle label={t("settings.experience.cdnImagesEnabled")} on={cdnImages.enabled} onChange={() => cdnImages.setEnabled(!cdnImages.enabled)} />
       </div>
       <div className={cn("mt-4 border-t border-white/8 pt-4", !cdnImages.enabled && "opacity-40")}>
         <p className="mb-3 text-xs text-ink-dim">{t("settings.experience.localNetworkPriorityHint")}</p>
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.localNetworkPriorityTitle")}</span>
-          <Toggle
+          <Toggle label={t("settings.experience.localNetworkPriorityTitle")}
             on={localNetworkPriority.enabled}
             disabled={!cdnImages.enabled}
             onChange={() => localNetworkPriority.setEnabled(!localNetworkPriority.enabled)}

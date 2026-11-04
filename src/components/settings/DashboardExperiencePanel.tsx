@@ -97,7 +97,7 @@ export function DashboardExperiencePanel() {
         <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.trailerSearchHint")}</p>
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.dashboardExperience.trailerSearchEnabled")}</span>
-          <Toggle on={layout.youtubeTrailerSearch} onChange={() => save({ youtubeTrailerSearch: !layout.youtubeTrailerSearch })} />
+          <Toggle label={t("settings.dashboardExperience.trailerSearchEnabled")} on={layout.youtubeTrailerSearch} onChange={() => save({ youtubeTrailerSearch: !layout.youtubeTrailerSearch })} />
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export function DashboardExperiencePanel() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-ink">{t("settings.dashboardExperience.heroEnabled")}</span>
-            <Toggle on={layout.hero.enabled} onChange={() => saveHero({ enabled: !layout.hero.enabled })} />
+            <Toggle label={t("settings.dashboardExperience.heroEnabled")} on={layout.hero.enabled} onChange={() => saveHero({ enabled: !layout.hero.enabled })} />
           </div>
 
           <div>
@@ -173,7 +173,7 @@ export function DashboardExperiencePanel() {
             <div className="space-y-2">
               <label className="flex items-center justify-between gap-2">
                 <span className="text-sm text-ink-soft">{t("settings.dashboardExperience.includeOwned")}</span>
-                <Toggle
+                <Toggle label={t("settings.dashboardExperience.includeOwned")}
                   on={layout.hero.includeOwned}
                   disabled={layout.hero.includeOwned && !layout.hero.includeUnowned}
                   onChange={() => saveHero({ includeOwned: !layout.hero.includeOwned })}
@@ -181,7 +181,7 @@ export function DashboardExperiencePanel() {
               </label>
               <label className="flex items-center justify-between gap-2">
                 <span className="text-sm text-ink-soft">{t("settings.dashboardExperience.includeUnowned")}</span>
-                <Toggle
+                <Toggle label={t("settings.dashboardExperience.includeUnowned")}
                   on={layout.hero.includeUnowned}
                   disabled={layout.hero.includeUnowned && !layout.hero.includeOwned}
                   onChange={() => saveHero({ includeUnowned: !layout.hero.includeUnowned })}
@@ -200,7 +200,7 @@ export function DashboardExperiencePanel() {
             return (
               <div key={id} className="flex items-center justify-between">
                 <span className="text-sm text-ink">{t(SECTION_LABEL_KEY[id])}</span>
-                <Toggle on={section?.visible ?? true} onChange={() => toggleSection(id)} />
+                <Toggle label={t(SECTION_LABEL_KEY[id])} on={section?.visible ?? true} onChange={() => toggleSection(id)} />
               </div>
             );
           })}

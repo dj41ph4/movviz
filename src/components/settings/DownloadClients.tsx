@@ -313,7 +313,7 @@ function EditForm({ inst, pathMode, onClose, onSaved }: { inst: EngineInstance; 
       <div className="flex items-center gap-3">
         <Power className="h-4 w-4 text-ink-dim" />
         <span className="flex-1 text-sm text-ink-soft">{t("settings.autoStart")}</span>
-        <button onClick={() => set("autoStart", !f.autoStart)} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", f.autoStart ? "brand-gradient" : "bg-white/10")}>
+        <button type="button" role="switch" aria-checked={f.autoStart} aria-label={t("settings.autoStart")} onClick={() => set("autoStart", !f.autoStart)} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", f.autoStart ? "brand-gradient" : "bg-white/10")}>
           <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", f.autoStart && "translate-x-5")} />
         </button>
       </div>
@@ -331,10 +331,10 @@ function EditForm({ inst, pathMode, onClose, onSaved }: { inst: EngineInstance; 
 
 function ConfigRow({ icon: Icon, label, value, mono }: { icon: React.ElementType; label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-center gap-3 p-4">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
       <Icon className="h-4 w-4 shrink-0 text-ink-dim" />
       <span className="shrink-0 text-sm text-ink-soft">{label}</span>
-      <span className={cn("ml-auto min-w-0 break-words text-right text-sm font-semibold text-ink", mono && "break-all font-mono text-xs")} title={value}>
+      <span className={cn("ml-auto min-w-0 break-words text-right text-sm font-semibold text-ink", mono && "flex-[1_1_14rem] break-all font-mono text-xs")} title={value}>
         {value}
       </span>
     </div>
