@@ -20,8 +20,8 @@ node browser-extension/scripts/build-firefox.mjs
 ```
 
 Ouvrir `about:debugging#/runtime/this-firefox`, **Charger un module complémentaire
-temporaire** et choisir `browser-extension/dist-firefox/manifest.json`. Le zip de
-release `Movviz-Companion-firefox.zip` doit être signé par Mozilla (AMO, en
+temporaire** et choisir `browser-extension/dist-firefox/manifest.json`. Le fichier de
+release `Movviz-Companion-firefox.xpi` doit être signé par Mozilla (AMO, en
 liste non répertoriée) pour s'installer durablement sur Firefox stable.
 
 ## Jeton
