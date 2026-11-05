@@ -1,3 +1,9 @@
+## v1.28.57 — 5. November 2026
+
+### Web-Player
+
+- Die in 1.28.56 hinzugefügte Direktwiedergabe von .mkv-Dateien wurde entfernt: Bei manchen Dateien lief sie ohne Ton. .mkv-Dateien laufen wieder wie zuvor über die Serverumwandlung, mit dem tiefen Puffer (bis zu 90 s Vorlauf).
+
 ## v1.28.56 — 5. November 2026
 
 ### Web-Player

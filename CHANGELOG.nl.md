@@ -1,3 +1,9 @@
+## v1.28.57 — 5 november 2026
+
+### Webspeler
+
+- Het rechtstreeks afspelen van .mkv-bestanden uit 1.28.56 is verwijderd: bij sommige bestanden speelde het zonder geluid. .mkv-bestanden lopen weer zoals eerder via de serveromzetting, met de diepe buffer (tot 90 s vooruit).
+
 ## v1.28.56 — 5 november 2026
 
 ### Webspeler

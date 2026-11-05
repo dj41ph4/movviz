@@ -1,3 +1,9 @@
+## v1.28.57 — 5 novembre 2026
+
+### Lecteur web
+
+- La lecture directe des fichiers .mkv ajoutée en 1.28.56 est retirée : sur certains fichiers elle donnait une lecture sans son. Les .mkv repassent par la conversion du serveur comme avant, avec le tampon profond (jusqu’à 90 s d’avance).
+
 ## v1.28.56 — 5 novembre 2026
 
 ### Lecteur web

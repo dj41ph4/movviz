@@ -1,3 +1,9 @@
+## v1.28.57 — 5 November 2026
+
+### Web player
+
+- The direct playback of .mkv files added in 1.28.56 is removed: on some files it played without sound. .mkv files go through the server conversion again as before, with the deep buffer (up to 90 s ahead).
+
 ## v1.28.56 — 5 November 2026
 
 ### Web player

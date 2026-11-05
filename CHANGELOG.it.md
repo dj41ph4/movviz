@@ -1,3 +1,9 @@
+## v1.28.57 — 5 novembre 2026
+
+### Lettore web
+
+- La riproduzione diretta dei file .mkv aggiunta nella 1.28.56 è stata rimossa: su alcuni file andava senza audio. I .mkv tornano a passare dalla conversione del server come prima, con il buffer profondo (fino a 90 s di anticipo).
+
 ## v1.28.56 — 5 novembre 2026
 
 ### Lettore web
