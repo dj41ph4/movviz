@@ -2,7 +2,8 @@ import fs from "node:fs";
 import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import path from "node:path";
 import { getSeries, getSeriesByTmdbId, addSeries, updateSeries, loadSeries } from "@/lib/library/store";
-import { DEFAULT_QUALITY_PROFILES, defaultQualityProfile } from "@/lib/library/qualityProfiles";
+import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
+import { configuredQualityProfile } from "@/lib/library/defaultQualityProfile";
 import { encodeLibraryRef, decodeLibraryRef, type LibrarySeries, type LibrarySeason, type LibraryEpisode } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import type { IndexerRelease } from "@/lib/indexers/types";
@@ -496,7 +497,7 @@ export async function addSeriesToLibrary(
     genres: meta.genres,
     tvStatus: meta.status,
     monitored: true,
-    qualityProfileId: qualityProfileId ?? defaultQualityProfile().id,
+    qualityProfileId: qualityProfileId ?? configuredQualityProfile().id,
     seasons: finalSeasons,
     addedAt: Date.now(),
     plexRatingKey: null,

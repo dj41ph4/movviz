@@ -9,7 +9,7 @@ import {
   getMovieByTmdbId, addMovie, updateMovie, updateMovies, loadMovies,
   getSeriesByTmdbId, addSeries, updateSeries, loadSeries,
 } from "@/lib/library/store";
-import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
+import { configuredQualityProfile } from "@/lib/library/defaultQualityProfile";
 import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeries, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
@@ -689,7 +689,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       runtime: meta.runtime,
       genres: meta.genres,
       monitored: true,
-      qualityProfileId: defaultQualityProfile().id,
+      qualityProfileId: configuredQualityProfile().id,
       status: "available",
       file: initialVersions ? stripVersionFields(initialVersions[0]) : file,
       versions: initialVersions,
@@ -810,7 +810,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         genres: meta.genres,
         tvStatus: meta.status,
         monitored: true,
-        qualityProfileId: defaultQualityProfile().id,
+        qualityProfileId: configuredQualityProfile().id,
         seasons,
         addedAt: Date.now(),
         plexRatingKey: show.ratingKey,

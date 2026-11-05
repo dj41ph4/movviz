@@ -1,5 +1,4 @@
 import type { QualityProfile } from "./types";
-import { loadReleaseRules } from "./releaseRules";
 
 export const DEFAULT_QUALITY_PROFILES: QualityProfile[] = [
   {
@@ -32,8 +31,7 @@ export const DEFAULT_QUALITY_PROFILES: QualityProfile[] = [
   },
 ];
 
+/** Valeur de repli côté client (aucun accès disque) ; le profil réellement réglé vient de configuredQualityProfile() côté serveur. */
 export function defaultQualityProfile(): QualityProfile {
-  // Réglable dans Réglages > Qualité ; "any" tant que rien n'est choisi, pour ne jamais écarter une release à cause de sa seule résolution.
-  const id = loadReleaseRules().defaultQualityProfileId;
-  return DEFAULT_QUALITY_PROFILES.find((p) => p.id === id) ?? DEFAULT_QUALITY_PROFILES[0];
+  return DEFAULT_QUALITY_PROFILES[0];
 }

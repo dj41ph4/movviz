@@ -1,18 +1,16 @@
-## v1.28.66 — 5 novembre 2026
+## v1.28.67 — 5 novembre 2026
+
+### Téléchargements
+
+- Le profil de qualité par défaut est réglable (Réglages > Qualité) et vaut « Any » : une release en 720p n'est plus refusée parce qu'elle n'est pas en 1080p. Un bouton applique ce profil à toute la bibliothèque.
+- Si aucune release n'existe dans les résolutions du profil, la recherche directe prend la meilleure résolution disponible au lieu de bloquer. Désactivable dans Réglages > Qualité (« Accepter une résolution inférieure si besoin »).
+- Une fois, au démarrage après cette mise à jour, toute la bibliothèque passe en « HD-720p » (720p minimum).
+- L'historique des échecs nomme maintenant la release écartée et la règle en cause.
 
 ### Sessions actives
 
 - Le navigateur utilisé (Chrome, Firefox, Edge…) est affiché à côté de l'appareil, pour les lectures lancées après cette mise à jour.
 - Un transcodage est maintenant précisé : « Transcodage audio », « Transcodage vidéo » ou « audio + vidéo », avec la raison au survol (par exemple codec audio non pris en charge par le lecteur).
-
-## v1.28.65 — 5 novembre 2026
-
-### Téléchargements
-
-- Le profil de qualité par défaut est réglable (Réglages > Qualité) et vaut « Any » : une release en 720p n'est plus refusée parce qu'elle n'est pas en 1080p. Un bouton applique ce profil à toute la bibliothèque.
-- Si aucune release n'existe dans les résolutions du profil, la recherche directe prend la meilleure résolution disponible au lieu de bloquer.  Désactivable dans Réglages > Qualité (« Accepter une résolution inférieure si besoin »).
-- Une fois, au démarrage après cette mise à jour, toute la bibliothèque passe en « HD-720p » (720p minimum).
-- L'historique des échecs nomme maintenant la release écartée et la règle en cause.
 
 ## v1.28.64 — 5 novembre 2026
 

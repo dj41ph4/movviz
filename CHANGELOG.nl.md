@@ -1,11 +1,4 @@
-## v1.28.66 — 5 november 2026
-
-### Actieve sessies
-
-- De gebruikte browser (Chrome, Firefox, Edge…) wordt naast het apparaat getoond, voor afspelingen die na deze update zijn gestart.
-- Transcodering wordt nu gespecificeerd: „Audio-transcodering”, „Video-transcodering” of „audio + video”, met de reden bij hover (bijvoorbeeld audiocodec niet ondersteund door de speler).
-
-## v1.28.65 — 5 november 2026
+## v1.28.67 — 5 november 2026
 
 ### Downloads
 
@@ -13,6 +6,11 @@
 - Bestaat er geen release in de resoluties van het profiel, dan neemt de directe zoekopdracht de beste beschikbare resolutie in plaats van te blokkeren. Uit te schakelen in Instellingen > Kwaliteit („Lagere resolutie accepteren indien nodig”).
 - Eenmalig bij het opstarten na deze update gaat de hele bibliotheek naar „HD-720p” (minimaal 720p).
 - De foutgeschiedenis noemt nu de geweigerde release en de verantwoordelijke regel.
+
+### Actieve sessies
+
+- De gebruikte browser (Chrome, Firefox, Edge…) wordt naast het apparaat getoond, voor afspelingen die na deze update zijn gestart.
+- Transcodering wordt nu gespecificeerd: „Audio-transcodering”, „Video-transcodering” of „audio + video”, met de reden bij hover (bijvoorbeeld audiocodec niet ondersteund door de speler).
 
 ## v1.28.64 — 5 november 2026
 

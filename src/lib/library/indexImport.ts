@@ -4,7 +4,7 @@ import {
   getMovieByTmdbId, addMovie, updateMovie,
   getSeriesByTmdbId, addSeries, updateSeries,
 } from "@/lib/library/store";
-import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
+import { configuredQualityProfile } from "@/lib/library/defaultQualityProfile";
 import type { LibraryMovie, LibraryFile, LibrarySeries, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
@@ -100,7 +100,7 @@ export async function importMovieCandidate(
     runtime: meta.runtime,
     genres: meta.genres,
     monitored,
-    qualityProfileId: qualityProfileId ?? defaultQualityProfile().id,
+    qualityProfileId: qualityProfileId ?? configuredQualityProfile().id,
     status: "available",
     file,
     activeInfoHash: null,
@@ -204,7 +204,7 @@ export async function importSeriesCandidate(
     genres: meta.genres,
     tvStatus: meta.status,
     monitored,
-    qualityProfileId: qualityProfileId ?? defaultQualityProfile().id,
+    qualityProfileId: qualityProfileId ?? configuredQualityProfile().id,
     seasons,
     addedAt: Date.now(),
     plexRatingKey: null,

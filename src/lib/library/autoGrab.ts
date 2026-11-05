@@ -1,6 +1,7 @@
 import { getMovie, getMovieByTmdbId, addMovie, updateMovie, loadMovies } from "@/lib/library/store";
 import { trackJobProgress } from "@/lib/jobs/cancelScope";
-import { DEFAULT_QUALITY_PROFILES, defaultQualityProfile } from "@/lib/library/qualityProfiles";
+import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
+import { configuredQualityProfile } from "@/lib/library/defaultQualityProfile";
 import { encodeLibraryRef, type LibraryMovie } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS } from "@/lib/indexers/categories";
@@ -105,7 +106,7 @@ export async function addMovieToLibrary(
     runtime: meta.runtime,
     genres: meta.genres,
     monitored: true,
-    qualityProfileId: qualityProfileId ?? defaultQualityProfile().id,
+    qualityProfileId: qualityProfileId ?? configuredQualityProfile().id,
     status: released ? "missing" : "upcoming",
     file: null,
     activeInfoHash: null,

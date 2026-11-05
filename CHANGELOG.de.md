@@ -1,11 +1,4 @@
-## v1.28.66 — 5. November 2026
-
-### Aktive Sitzungen
-
-- Der verwendete Browser (Chrome, Firefox, Edge…) wird neben dem Gerät angezeigt, für Wiedergaben, die nach diesem Update gestartet werden.
-- Die Transkodierung wird jetzt genauer angegeben: „Audio-Transkodierung“, „Video-Transkodierung“ oder „Audio + Video“, mit dem Grund beim Überfahren (z. B. Audio-Codec vom Player nicht unterstützt).
-
-## v1.28.65 — 5. November 2026
+## v1.28.67 — 5. November 2026
 
 ### Downloads
 
@@ -13,6 +6,11 @@
 - Gibt es keine Veröffentlichung in den Auflösungen des Profils, nimmt die direkte Suche die beste verfügbare Auflösung, statt zu blockieren. Abschaltbar unter Einstellungen > Qualität („Niedrigere Auflösung bei Bedarf akzeptieren“).
 - Einmalig beim Start nach diesem Update wechselt die gesamte Bibliothek zu „HD-720p“ (mindestens 720p).
 - Der Fehlerverlauf nennt jetzt die abgelehnte Veröffentlichung und die verantwortliche Regel.
+
+### Aktive Sitzungen
+
+- Der verwendete Browser (Chrome, Firefox, Edge…) wird neben dem Gerät angezeigt, für Wiedergaben, die nach diesem Update gestartet werden.
+- Die Transkodierung wird jetzt genauer angegeben: „Audio-Transkodierung“, „Video-Transkodierung“ oder „Audio + Video“, mit dem Grund beim Überfahren (z. B. Audio-Codec vom Player nicht unterstützt).
 
 ## v1.28.64 — 5. November 2026
 

@@ -1,11 +1,4 @@
-## v1.28.66 — 5 November 2026
-
-### Active sessions
-
-- The browser in use (Chrome, Firefox, Edge…) is shown next to the device, for playbacks started after this update.
-- Transcoding is now specified: “Audio transcoding”, “Video transcoding” or “audio + video”, with the reason on hover (for example audio codec not supported by the player).
-
-## v1.28.65 — 5 November 2026
+## v1.28.67 — 5 November 2026
 
 ### Downloads
 
@@ -13,6 +6,11 @@
 - When no release exists in the profile's resolutions, the direct search takes the best available resolution instead of blocking. Can be turned off in Settings > Quality (“Accept a lower resolution if needed”).
 - Once, at startup after this update, the whole library moves to “HD-720p” (720p minimum).
 - Failure history now names the rejected release and the rule responsible.
+
+### Active sessions
+
+- The browser in use (Chrome, Firefox, Edge…) is shown next to the device, for playbacks started after this update.
+- Transcoding is now specified: “Audio transcoding”, “Video transcoding” or “audio + video”, with the reason on hover (for example audio codec not supported by the player).
 
 ## v1.28.64 — 5 November 2026
 

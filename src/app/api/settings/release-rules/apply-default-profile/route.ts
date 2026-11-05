@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
+import { configuredQualityProfile } from "@/lib/library/defaultQualityProfile";
 import { loadMovies, loadSeries, updateMovies, updateSeriesList } from "@/lib/library/store";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const admin = requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const profileId = defaultQualityProfile().id;
+  const profileId = configuredQualityProfile().id;
   const series = loadSeries().filter((s) => s.qualityProfileId !== profileId);
   const movies = loadMovies().filter((m) => m.qualityProfileId !== profileId);
   updateSeriesList(new Map(series.map((s) => [s.id, { qualityProfileId: profileId }])));

@@ -1,11 +1,4 @@
-## v1.28.66 — 5 novembre 2026
-
-### Sessioni attive
-
-- Il browser in uso (Chrome, Firefox, Edge…) è mostrato accanto al dispositivo, per le riproduzioni avviate dopo questo aggiornamento.
-- La transcodifica è ora specificata: «Transcodifica audio», «Transcodifica video» o «audio + video», con il motivo al passaggio del mouse (ad esempio codec audio non supportato dal lettore).
-
-## v1.28.65 — 5 novembre 2026
+## v1.28.67 — 5 novembre 2026
 
 ### Download
 
@@ -13,6 +6,11 @@
 - Se non esiste nessuna release nelle risoluzioni del profilo, la ricerca diretta prende la migliore risoluzione disponibile invece di bloccarsi. Disattivabile in Impostazioni > Qualità («Accetta una risoluzione inferiore se necessario»).
 - Una sola volta, all'avvio dopo questo aggiornamento, tutta la libreria passa a «HD-720p» (almeno 720p).
 - La cronologia degli errori indica ora la release scartata e la regola responsabile.
+
+### Sessioni attive
+
+- Il browser in uso (Chrome, Firefox, Edge…) è mostrato accanto al dispositivo, per le riproduzioni avviate dopo questo aggiornamento.
+- La transcodifica è ora specificata: «Transcodifica audio», «Transcodifica video» o «audio + video», con il motivo al passaggio del mouse (ad esempio codec audio non supportato dal lettore).
 
 ## v1.28.64 — 5 novembre 2026
 
