@@ -119,6 +119,29 @@
       };
     },
 
+    // Netflix : bouton rond discret dans la rangée d'actions (fiche et grande
+    // fenêtre ouverte par ?jbv=). Netflix n'expose aucun identifiant TMDb : on
+    // cherche par titre et année. Jamais de bandeau flottant ici.
+    "www.netflix.com"() {
+      const id = /^\/title\/(\d+)/.exec(location.pathname)?.[1] || new URLSearchParams(location.search).get("jbv");
+      if (!id) return null;
+      const actions = $('[data-uia="add-to-my-list"], [data-uia="my-list-button"]');
+      const title =
+        $('[data-uia="video-title"]')?.textContent.trim() ||
+        $(".previewModal--player-titleTreatment-logo")?.getAttribute("alt") ||
+        $('meta[property="og:title"]')?.content ||
+        "";
+      if (!actions || !title) return null;
+      const length = text('[data-uia="item-length"], [data-uia="item-seasons"], .duration');
+      const isSeries = /saison|season|staffel|stagion|seizoen|épisode|episode|episod|folge|aflevering/i.test(length);
+      return {
+        query: { type: isSeries ? "series" : "movie", title, year: year(text('[data-uia="item-year"], .year')) },
+        anchor: { el: actions, where: "after" },
+        compact: true,
+        noFloat: true,
+      };
+    },
+
     "www.taste.io"() {
       const title = text("h1");
       if (!title) return null;
@@ -137,6 +160,7 @@
   let lastHref = "";
   let attempts = 0;
   let mountedKey = "";
+  const adapterWaits = location.hostname === "www.netflix.com"; // la fiche s'ouvre à tout moment sans changer de page
 
   function attempt() {
     if (location.href !== lastHref) {
@@ -145,14 +169,15 @@
       mountedKey = "";
       window.MovvizCompanion.unmount();
     }
-    if (mountedKey || attempts > 20) return;
+    if (mountedKey || (attempts > 20 && !adapterWaits)) return;
     attempts++;
     const found = adapter();
     if (!found) return;
     // Sans ancre au bout de 5 s (10 essais), on bascule en widget flottant.
+    if (!found.anchor && found.noFloat) return;
     if (!found.anchor && attempts < 10) return;
     mountedKey = lastHref;
-    const placement = found.anchor ? { mode: "anchor", ...found.anchor } : { mode: "float" };
+    const placement = found.anchor ? { mode: "anchor", compact: !!found.compact, ...found.anchor } : { mode: "float" };
     window.MovvizCompanion.mount(placement, found.query);
   }
 

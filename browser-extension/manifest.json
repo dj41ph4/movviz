@@ -53,7 +53,8 @@
         "https://trakt.tv/movies/*",
         "https://trakt.tv/shows/*",
         "https://www.taste.io/movies/*",
-        "https://www.taste.io/tv/*"
+        "https://www.taste.io/tv/*",
+        "https://www.netflix.com/*"
       ],
       "js": [
         "content/core.js",
@@ -77,7 +78,8 @@
         "https://www.rottentomatoes.com/*",
         "https://www.justwatch.com/*",
         "https://trakt.tv/*",
-        "https://www.taste.io/*"
+        "https://www.taste.io/*",
+        "https://www.netflix.com/*"
       ]
     }
   ]

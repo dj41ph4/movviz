@@ -5,7 +5,7 @@ sites de cinéma : un clic pour demander un film ou une série, avec le statut e
 direct (en attente, en cours, disponible).
 
 Sites pris en charge : TMDb, IMDb, AlloCiné, SensCritique, TheTVDB, Letterboxd,
-Rotten Tomatoes, JustWatch, Trakt, Taste.
+Rotten Tomatoes, JustWatch, Trakt, Taste, et Netflix (bouton rond discret dans la rangée d'actions de la fiche).
 
 ## Installation
 

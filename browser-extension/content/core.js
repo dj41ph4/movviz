@@ -44,9 +44,24 @@
       position: absolute; left: 0; bottom: 0; height: 3px; border-radius: 999px;
       background: linear-gradient(90deg, #7458e8, #b892ff); transition: width .6s ease;
     }
+    .nf .skeleton { width: var(--size, 40px); height: var(--size, 40px); border-radius: 50%; }
     .skeleton { width: 170px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, .08); animation: pulse 1.4s ease-in-out infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes pulse { 50% { opacity: .45; } }
+    /* Mode compact : un bouton rond posé dans la rangée d'actions du site hôte */
+    .wrap.nf { display: inline-flex; margin: 0 0 0 .6em; padding: 0; gap: 0; background: none; border: 0; box-shadow: none; border-radius: 50%; vertical-align: middle; }
+    .nf .round {
+      position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none;
+      width: var(--size, 40px); height: var(--size, 40px); padding: 0; border-radius: 50%; cursor: pointer;
+      border: 2px solid rgba(255, 255, 255, .5); background: rgba(42, 42, 42, .6); transition: border-color .15s ease, background .15s ease;
+    }
+    .nf .round:hover, .nf .round:focus-visible { border-color: #fff; background: rgba(255, 255, 255, .12); outline: none; }
+    .nf .round:disabled { cursor: default; opacity: .7; }
+    .nf .round .mark { width: 56%; height: 56%; }
+    .nf .round svg { width: 50%; height: 50%; color: #fff; }
+    .nf .dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid #181818; background: #b892ff; }
+    .nf .dot.ok { background: #43e6a0; } .nf .dot.amber { background: #ffb84b; } .nf .dot.down { background: #ff5b78; }
+    .nf .dot.pulse { animation: pulse 1.6s ease-in-out infinite; }
     @media (max-width: 480px) { .wrap.float { left: 8px; right: 8px; bottom: 8px; } }
   `;
 
@@ -78,6 +93,7 @@
     }
   });
 
+  let compact = false; // bouton rond discret (Netflix) au lieu du bandeau
   let host = null;
   let wrap = null;
   let token = 0; // invalide les réponses d'une page déjà quittée
@@ -97,7 +113,12 @@
     const style = document.createElement("style");
     style.textContent = CSS;
     wrap = document.createElement("div");
-    wrap.className = "wrap" + (placement.mode === "float" ? " float" : "");
+    compact = !!placement.compact;
+    wrap.className = "wrap" + (placement.mode === "float" ? " float" : "") + (compact ? " nf" : "");
+    if (compact) {
+      const h = placement.el.getBoundingClientRect().height;
+      if (h >= 24 && h <= 72) wrap.style.setProperty("--size", Math.round(h) + "px");
+    }
     root.append(style, wrap);
     if (placement.mode === "float") document.body.appendChild(host);
     else if (placement.where === "inside") placement.el.appendChild(host);
@@ -143,7 +164,44 @@
     wrap.replaceChildren(mark(), ...nodes);
   }
 
+  /** Bouton rond : l'état tient dans une pastille de couleur et une infobulle. */
+  function round(title, dot, onClick, href) {
+    const node = el(href ? "a" : "button", "round");
+    node.appendChild(mark());
+    node.title = title;
+    node.setAttribute("aria-label", title);
+    if (href) { node.href = href; node.target = "_blank"; node.rel = "noopener"; }
+    else { node.type = "button"; node.addEventListener("click", onClick); }
+    if (dot) node.appendChild(el("i", "dot " + dot));
+    wrap.replaceChildren(node);
+    return node;
+  }
+
+  function renderCompact(media, serverUrl) {
+    const href = `${serverUrl}/title/${media.type}/${media.tmdbId}`;
+    switch (media.status) {
+      case "available": return round(t("btnOpen"), "ok", null, href);
+      case "processing": return round(t("statusProcessing"), "pulse", null, href);
+      case "pending": return round(t("statusPending"), "amber", null, href);
+      default: {
+        const btn = round(t("btnRequest"), "", async () => {
+          const mine = token;
+          btn.disabled = true;
+          const res = await send({ type: "request", mediaType: media.type, tmdbId: media.tmdbId });
+          if (mine !== token) return;
+          if (!res.ok) return renderError(res.error);
+          renderMedia(res.data.media || { ...media, status: "pending" }, res.serverUrl || serverUrl);
+        });
+      }
+    }
+  }
+
   function renderError(error) {
+    if (compact) {
+      const setup = error === "not_configured" || error === "unauthorized";
+      const msg = setup ? t("btnSetup") : t(ERRORS[error] || "errGeneric");
+      return round(msg, "down", () => send({ type: "openOptions" }));
+    }
     render(pill(error === "not_found" ? "dim" : "down", ICONS.alert, t(ERRORS[error] || "errGeneric")));
   }
 
@@ -167,6 +225,7 @@
 
   function renderMedia(media, serverUrl) {
     schedulePoll(media, serverUrl);
+    if (compact) return renderCompact(media, serverUrl);
     const href = `${serverUrl}/title/${media.type}/${media.tmdbId}`;
     switch (media.status) {
       case "available":
@@ -206,12 +265,12 @@
   async function mount(placement, query) {
     create(placement);
     const mine = token;
-    wrap.replaceChildren(mark(), el("span", "skeleton"));
+    if (compact) wrap.replaceChildren(el("span", "skeleton")); else wrap.replaceChildren(mark(), el("span", "skeleton"));
 
     const res = await send({ type: "lookup", query });
     if (mine !== token) return;
     if (res.ok) return renderMedia(res.data.media, res.serverUrl);
-    if (res.error === "not_configured" || res.error === "unauthorized") {
+    if (!compact && (res.error === "not_configured" || res.error === "unauthorized")) {
       const btn = button("ghost", ICONS.cog, t("btnSetup"));
       btn.addEventListener("click", () => send({ type: "openOptions" }));
       return render(btn);
