@@ -23,7 +23,7 @@ export const NAV: NavItem[] = [
   { href: "/library", labelKey: "nav.library", hintKey: "nav.libraryHint", icon: LibraryBig },
   { href: "/downloads", labelKey: "nav.downloads", hintKey: "nav.activityHint", icon: Download, liveBadge: "activeDownloads" },
   { href: "/calendar", labelKey: "nav.calendar", hintKey: "nav.calendarHint", icon: CalendarDays },
-  { href: "/settings", labelKey: "nav.settings", hintKey: "nav.settingsHint", icon: Settings },
+  { href: "/settings", labelKey: "nav.settings", hintKey: "nav.settingsHint", icon: Settings, adminOnly: true },
 ];
 
 /** Operations and admin tools. Access rules are retained on their existing

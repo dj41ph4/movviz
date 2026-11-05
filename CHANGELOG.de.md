@@ -1,3 +1,27 @@
+## v1.28.72 — 6. November 2026
+
+### Einstellungen
+
+- Einstellungen neu geordnet: 10 Tabs nur für Administratoren statt 24, in 4 Pfaden gruppiert. Panels zum selben Thema sind Abschnitte eines Tabs (Downloads: Engine, Quellen, Qualität; Plex, Metadaten und Importe; Dateien und Pflege; Diagnose und Leistung; Version und Daten). Alte Links funktionieren weiter.
+- Persönliche Einstellungen (Startseite, Darstellung, Netflix- und LifeHub-Verlaufsimport) wandern nach Profil > Vorlieben. Nicht-Administratoren haben keinen Einstellungen-Eintrag mehr im Menü.
+
+### Bibliothek
+
+- Eine Folge, die verfügbar wird — von Movviz geladen, in den Ordner gelegt oder aus Plex importiert —, lädt sofort Titel und Handlung neu von TMDb, ohne die tägliche Synchronisierung abzuwarten. Eine neue leichte Aufgabe prüft alle 3 Stunden aktuelle Folgen ohne Titel.
+- Hat TMDb die Übersetzung einer Folge noch nicht, erscheinen englischer Titel und Handlung statt eines leeren Titels oder „Folge N“; der übersetzte Titel ersetzt sie, sobald er existiert.
+
+### Hintergrundaufgaben
+
+- Erkennung neuer Folgen: Die Details einer Staffel werden nur neu geladen, wenn die Folgenzahl abweicht oder eine Folge bevorsteht, titel- oder datumslos ist; vollständige Prüfung etwa einmal im Monat pro Serie, gestaffelt. Eine beendete, vollständige Serie wird nur alle 3 Tage geprüft.
+- Aktualisierung der TMDb-Einträge nach Alter des Titels: täglich für kommende, neue oder laufende Titel, wöchentlich bis 2 Jahre, danach monatlich.
+- Der Serverleistungstest startet nicht mehr bei jeder neuen Version, nur wenn sich ffmpeg, der Rechner oder die Hardwarebeschleunigung ändern (und alle 30 Tage).
+- Ergebnislose Ersetzungssuchen werden 3 Tage lang nicht wiederholt (das Suchbudget rückt weiter, statt immer dieselben Titel zu treffen), und der Zustand der Suche nach besseren Versionen überlebt einen Neustart.
+- Die Wiederherstellung im Ordner verbliebener Downloads liest den ganzen Ordner nur, wenn sich die Torrents der Engine geändert haben, oder alle 3 Stunden.
+
+### Aufräumen
+
+- Flüssiger Modus pro Gerät, vollständiges Zurücksetzen an einer Stelle, Schalter für den Movviz Player nur im Profil, Speicherplatz nur einmal angezeigt, Hilfetexte korrigiert, HDR-Optionen übersetzt, alte Übersetzungsschlüssel entfernt.
+
 ## v1.28.71 — 5. November 2026
 
 ### Einstellungen

@@ -107,6 +107,11 @@ export async function register() {
         .catch(() => {});
     }, 3 * 60_000).unref?.();
 
+    // Un épisode qui devient disponible (téléchargé, déposé dans le dossier, importé de Plex) fait recharger
+    // aussitôt son titre et son synopsis depuis TMDb.
+    const { registerEpisodeMetaListener } = await import("@/lib/library/episodeMeta");
+    registerEpisodeMetaListener();
+
     const { bootstrapEngine } = await import("@/lib/engine/bootstrap");
     await phase("moteur de téléchargement", () => bootstrapEngine());
 

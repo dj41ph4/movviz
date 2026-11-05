@@ -23,6 +23,11 @@ import { AiContextPanel } from "@/components/profile/AiContextPanel";
 import { LanguagePanel } from "@/components/profile/LanguagePanel";
 import { AccessibilityPanel } from "@/components/profile/AccessibilityPanel";
 import { WatchResetPanel } from "@/components/profile/WatchResetPanel";
+import { SettingsSections } from "@/components/settings/SettingsSections";
+import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
+import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
+import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
+import { LifehubImportPanel } from "@/components/settings/LifehubImportPanel";
 import { SignInMethodsPanel } from "@/components/profile/SignInMethodsPanel";
 import { watchlistLibraryKey } from "@/lib/watchlist/libraryKey";
 
@@ -54,6 +59,13 @@ interface ProfileMediaResponse {
   watchlist: ProfileMediaCard[];
   counts?: { watchedMovies: number; watchedSeries: number; watchlist: number; ratings: number };
 }
+
+const PREFERENCE_SECTIONS = [
+  { id: "general", labelKey: "profile.prefSectionGeneral" },
+  { id: "home", labelKey: "profile.prefSectionHome" },
+  { id: "display", labelKey: "profile.prefSectionDisplay" },
+  { id: "history", labelKey: "profile.prefSectionHistory" },
+];
 
 type ProfileTab = "activity" | "preferences" | "account";
 
@@ -114,11 +126,15 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<ProfileTab>("activity");
+  const [prefView, setPrefView] = useState("general");
 
   // Lien direct depuis les Réglages : /profile?tab=preferences
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("tab");
+    const query = new URLSearchParams(window.location.search);
+    const requested = query.get("tab");
     if (requested === "preferences" || requested === "account" || requested === "activity") setTab(requested);
+    const view = query.get("view");
+    if (PREFERENCE_SECTIONS.some((sec) => sec.id === view)) setPrefView(view as string);
   }, []);
 
   const uploadPhoto = async (file: File) => {
@@ -434,6 +450,9 @@ export default function ProfilePage() {
 
       {tab === "preferences" && (
         <div role="tabpanel" id="profile-panel-preferences" aria-labelledby="profile-tab-preferences">
+          <SettingsSections sections={PREFERENCE_SECTIONS} view={prefView} onView={setPrefView} expert>
+            {prefView === "general" && (
+              <>
       <LanguagePanel />
 
       <div className="mb-6 rounded-2xl glass p-5">
@@ -474,6 +493,17 @@ export default function ProfilePage() {
           <Toggle label={t("player.useMovviz")} on={betaPlayerOn} onChange={() => setBetaPlayerOn(!betaPlayerOn)} />
         </div>
       )}
+              </>
+            )}
+            {prefView === "home" && <DashboardExperiencePanel />}
+            {prefView === "display" && <ExperiencePanel />}
+            {prefView === "history" && (
+              <div className="space-y-10">
+                <NetflixImportPanel />
+                <LifehubImportPanel />
+              </div>
+            )}
+          </SettingsSections>
         </div>
       )}
 

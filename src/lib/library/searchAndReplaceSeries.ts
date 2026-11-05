@@ -16,6 +16,7 @@ import { emitNotification } from "@/lib/notifications/store";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { liveSearchRecentlyEmpty, noteLiveSearchEmpty } from "@/lib/library/liveSearchMemory";
 import { languageSatisfies, MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN, MAX_LIVE_CODEC_SEARCHES_PER_RUN, yieldToEventLoop, codecScore, parseReleases } from "@/lib/library/searchAndReplace";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
@@ -164,8 +165,13 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
       }
     }
 
+    // Recherche directe déjà faite sans résultat pour ce fichier, mêmes règles : inutile de la refaire avant 3 jours.
+    const liveKey = `${series.id}:${seasonNumber}:${episodeNumber}`;
+    const languageSig = `${targetLanguage}|${currentLanguage}|${file.size}`;
+    const codecSig = `${JSON.stringify(rules.codecScores ?? {})}|${file.videoCodec}|${file.size}`;
+
     // Live search fallback for language
-    if (liveSearch && wantsLanguageUpgrade && !best && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
+    if (liveSearch && wantsLanguageUpgrade && !best && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN && !liveSearchRecentlyEmpty("episode-lang", liveKey, languageSig)) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {
@@ -184,6 +190,8 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
         if (candidate && isMeaningfulEpisodeUpgrade(candidate.release.size, file.size)) {
           best = candidate;
           upgradeKind = "languageUpgrade";
+        } else {
+          noteLiveSearchEmpty("episode-lang", liveKey, languageSig);
         }
       }
     }
@@ -222,7 +230,7 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
     // almost never appear in it; the direct search below mirrors the grab
     // side so the panel doesn't stay empty while "Remplacer" would find one.
     // Bounded the same way as the language fallback above.
-    if (liveSearch && !best && wantsCodecScoreUpgrade && liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN) {
+    if (liveSearch && !best && wantsCodecScoreUpgrade && liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN && !liveSearchRecentlyEmpty("episode-codec", liveKey, codecSig)) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {
@@ -243,6 +251,8 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
         if (candidate && isMeaningfulEpisodeUpgrade(candidate.release.size, file.size)) {
           best = candidate;
           upgradeKind = "videoCodecUpgrade";
+        } else {
+          noteLiveSearchEmpty("episode-codec", liveKey, codecSig);
         }
       }
     }

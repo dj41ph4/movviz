@@ -1,3 +1,27 @@
+## v1.28.72 — 6 novembre 2026
+
+### Impostazioni
+
+- Impostazioni riorganizzate: 10 schede riservate agli amministratori invece di 24, raggruppate in 4 percorsi. I pannelli dello stesso argomento sono sezioni di una scheda (Download: Motore, Fonti, Qualità; Plex, metadati e importazioni; File e manutenzione; Diagnostica e prestazioni; Versione e dati). I vecchi link continuano a funzionare.
+- Le impostazioni personali (home, visualizzazione, importazione della cronologia Netflix e LifeHub) passano in Profilo > Preferenze. Un utente non amministratore non ha più la voce Impostazioni nel menu.
+
+### Libreria
+
+- Un episodio che diventa disponibile — scaricato da Movviz, messo nella cartella o importato da Plex — ricarica subito titolo e trama da TMDb, senza attendere la sincronizzazione giornaliera. Una nuova attività leggera ripassa ogni 3 ore sugli episodi recenti ancora senza titolo.
+- Quando TMDb non ha ancora la traduzione di un episodio, si mostrano titolo e trama in inglese invece di un titolo vuoto o «Episodio N»; il titolo tradotto li sostituisce appena esiste.
+
+### Attività in background
+
+- Rilevamento dei nuovi episodi: il dettaglio di una stagione viene ricaricato solo se il numero di episodi differisce o se un episodio è in arrivo, senza titolo o senza data; verifica completa circa una volta al mese per serie, distribuita. Una serie conclusa e completa viene rivista solo ogni 3 giorni.
+- Aggiornamento delle schede TMDb in base all'età del titolo: giornaliero per titoli in arrivo, recenti o in corso, settimanale fino a 2 anni, mensile oltre.
+- Il test di potenza del server non riparte più a ogni nuova versione, solo se cambiano ffmpeg, la macchina o l'accelerazione hardware (e ogni 30 giorni).
+- Le ricerche di sostituzione senza risultato non vengono ripetute per 3 giorni (il budget di ricerche avanza invece di cadere sempre sugli stessi titoli), e lo stato della ricerca di versioni migliori sopravvive al riavvio.
+- Il recupero dei download rimasti nella cartella rilegge tutta la cartella solo se i torrent del motore sono cambiati, o ogni 3 ore.
+
+### Pulizia
+
+- Modalità fluida per dispositivo, ripristino completo in un solo punto, interruttore del Movviz player solo nel profilo, spazio su disco mostrato una volta, testi di aiuto corretti, opzioni HDR tradotte e vecchie chiavi di traduzione rimosse.
+
 ## v1.28.71 — 5 novembre 2026
 
 ### Impostazioni

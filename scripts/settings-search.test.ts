@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { fr } from "../src/i18n/locales/fr.ts";
-import { SETTINGS_TABS, matchesSettingsQuery, settingsContentSnippet, searchWords, normalizeSearch } from "@/lib/settingsNav";
+import { SETTINGS_TABS, SETTINGS_JOURNEYS, resolveSettingsTarget, matchesSettingsQuery, settingsContentSnippet, searchWords, normalizeSearch } from "@/lib/settingsNav";
 import { SETTINGS_SEARCH_KEYS } from "@/lib/settingsSearchIndex.generated";
 import { buildSettingsSearchIndex, renderIndexFile, INDEX_FILE } from "./settings-search-index.ts";
 
@@ -52,4 +52,25 @@ test("une requête vide ou d'une lettre ne casse rien", () => {
   assert.equal(matchesSettingsQuery(tab("plex"), "   ", t), true);
   assert.deepEqual(searchWords("a  relance"), ["relance"]);
   assert.deepEqual(searchWords("é"), ["e"]);
+});
+
+test("les anciens liens ?tab=… mènent à l'onglet et à la section qui contiennent désormais le panneau", () => {
+  assert.deepEqual(resolveSettingsTarget("clients"), { tab: "downloads", view: "clients" });
+  assert.deepEqual(resolveSettingsTarget("plex"), { tab: "library", view: "plex" });
+  assert.deepEqual(resolveSettingsTarget("logs"), { tab: "diagnostics", view: "logs" });
+  assert.deepEqual(resolveSettingsTarget("about"), { tab: "system", view: "about" });
+  assert.deepEqual(resolveSettingsTarget("health"), { tab: "diagnostics", view: "health" });
+  assert.deepEqual(resolveSettingsTarget("downloads"), { tab: "downloads" });
+  assert.equal(resolveSettingsTarget("inexistant"), null);
+  assert.equal(resolveSettingsTarget(null), null);
+});
+
+test("chaque onglet appartient à un seul parcours, et chaque parcours ne liste que des onglets existants", () => {
+  const ids = SETTINGS_TABS.map((x) => x.id);
+  assert.equal(new Set(ids).size, ids.length, "identifiants uniques");
+  const listed = SETTINGS_JOURNEYS.flatMap((j) => j.tabIds);
+  assert.deepEqual([...listed].sort(), [...ids].sort());
+  for (const j of SETTINGS_JOURNEYS) for (const id of j.tabIds) assert.equal(tab(id).journey, j.id, id);
+  // Un identifiant de section ne doit pas masquer un onglet.
+  for (const tb of SETTINGS_TABS) for (const sec of tb.sections ?? []) assert.ok(!ids.includes(sec.id) || sec.id === tb.id, sec.id);
 });

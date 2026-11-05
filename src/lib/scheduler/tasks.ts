@@ -36,6 +36,9 @@ import { syncIntroDbLibrary } from "@/lib/playback/markers/librarySync";
 import { externalMarkersEnabled, plexMarkersEnabled } from "@/lib/settings/markerSources";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
 import { JobCancelledError, reportJobProgress, trackJobProgress } from "@/lib/jobs/cancelScope";
+import { refreshPendingEpisodeMeta } from "@/lib/library/episodeMeta";
+import { engineGet } from "@/lib/engine/server";
+import { readState, writeState } from "@/lib/library/taskMemory";
 
 export interface ScheduledTask {
   id: string;
@@ -48,6 +51,16 @@ export interface ScheduledTask {
    *  de saut) : elle ne démarre pas et l'interface l'indique. */
   isEnabled?: () => boolean;
   run: () => Promise<void>;
+}
+
+/** Empreinte des torrents du moteur (identifiant, avancement entier) : change quand un torrent est ajouté, terminé ou retiré. */
+async function currentEngineSignature(): Promise<string | null> {
+  const data = await engineGet<{ torrents?: { infoHash: string; progress?: number; state?: string }[] }>("torrents").catch(() => null);
+  if (!data?.torrents) return null;
+  return data.torrents
+    .map((t) => `${t.infoHash}:${(t.progress ?? 0) >= 1 ? "done" : "wip"}`)
+    .sort()
+    .join("|");
 }
 
 /** Every real background job Movviz runs, driven by the scheduler engine. */
@@ -398,6 +411,18 @@ export const TASKS: ScheduledTask[] = [
     },
   },
   {
+    id: "episode-metadata-pending",
+    name: "Titres et synopsis des épisodes récents encore sans titre",
+    // Légère : ne regarde que les épisodes sortis récemment (ou déjà présents) dont le titre manque,
+    // et recharge leur saison depuis TMDb en ignorant le cache. Un épisode qui devient disponible est
+    // de plus rechargé aussitôt (episodeMeta.ts), cette tâche rattrape ceux dont TMDb n'avait pas
+    // encore le titre à ce moment-là.
+    intervalMs: 3 * 60 * 60 * 1000,
+    run: async () => {
+      await refreshPendingEpisodeMeta();
+    },
+  },
+  {
     id: "artwork-cache-refresh",
     name: "Téléchargement des affiches et visuels TMDb manquants",
     intervalMs: 24 * 60 * 60 * 1000, // daily safety net; visible titles fill immediately
@@ -488,6 +513,13 @@ export const TASKS: ScheduledTask[] = [
     // fallback, post-import blocklist re-check) have made it safe and
     // reliable enough to trust unattended.
     run: async () => {
+      // Le balayage complet du dossier de téléchargement n'a de raison d'être que si quelque chose a
+      // changé côté moteur (torrent ajouté, terminé ou disparu), sinon il relit à l'identique des
+      // milliers de fichiers. Un balayage complet a quand même lieu toutes les 3 h pour les fichiers
+      // arrivés sans passer par le moteur ; moteur injoignable : comportement d'avant.
+      const engineSignature = await currentEngineSignature();
+      const previous = readState<{ signature: string; at: number } | null>("stuck-downloads-recover", null);
+      if (engineSignature && previous && previous.signature === engineSignature && Date.now() - previous.at < 3 * 60 * 60 * 1000) return;
       const { recoverDownloads } = await import("@/lib/library/recoverDownloads");
       try {
         const result = await recoverDownloads(undefined, { background: true });
@@ -495,6 +527,9 @@ export const TASKS: ScheduledTask[] = [
           emitNotification("downloads_recovered", `${result.recovered.length} téléchargement(s) terminé(s) récupéré(s) depuis le dossier de téléchargement`, "/downloads?tab=queue", { count: result.recovered.length });
         }
         console.log(`[scheduler] stuck-downloads-recover: ${result.recovered.length} récupéré(s), ${result.failed.length} ignoré(s), ${result.duplicates.length} doublon(s)`);
+        // Des fichiers ont été récupérés : le prochain passage ne doit pas être sauté.
+        if (engineSignature && result.recovered.length === 0) writeState("stuck-downloads-recover", { signature: engineSignature, at: Date.now() });
+        else writeState("stuck-downloads-recover", null);
       } catch (e) {
         if (e instanceof JobCancelledError) throw e;
         console.error("[scheduler] stuck-downloads-recover failed:", (e as Error).message);

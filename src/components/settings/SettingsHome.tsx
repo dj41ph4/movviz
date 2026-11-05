@@ -7,7 +7,7 @@ import { Search, Play, HardDrive, BookOpen, Zap, ChevronRight, ShieldCheck, Aler
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_JOURNEYS, matchesSettingsQuery, settingsContentSnippet } from "@/lib/settingsNav";
+import { SETTINGS_TABS, SETTINGS_JOURNEYS, matchesSettingsQuery, settingsContentSnippet } from "@/lib/settingsNav";
 
 type Tone = "ok" | "amber" | "down" | "optional";
 function StatusLine({
@@ -93,10 +93,10 @@ export function SettingsHome({ onNavigate, onOpenJourney }: { onNavigate: (id: s
 
   const visibleTabs = SETTINGS_TABS.filter((tb) => !tb.adminOnly || isAdmin);
   const results = q ? visibleTabs.filter((tb) => matchesSettingsQuery(tb, q, t)) : [];
-  const groupedResults = SETTINGS_GROUP_ORDER.map((g) => ({
-    id: g,
-    labelKey: SETTINGS_GROUP_LABEL_KEY[g],
-    items: results.filter((tb) => tb.group === g),
+  const groupedResults = SETTINGS_JOURNEYS.map((j) => ({
+    id: j.id,
+    labelKey: j.labelKey,
+    items: results.filter((tb) => tb.journey === j.id),
   })).filter((g) => g.items.length > 0);
 
   const diskTone: Tone | null = stats?.disk ? (stats.disk.free / stats.disk.total < 0.1 ? "down" : stats.disk.free / stats.disk.total < 0.2 ? "amber" : "ok") : stats || statsError ? "down" : null;

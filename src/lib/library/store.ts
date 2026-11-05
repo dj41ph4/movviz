@@ -351,10 +351,34 @@ export function addSeries(series: LibrarySeries): LibrarySeries {
   eventBus.emit({ type: "series_updated", seriesId: series.id, arrival: series.seasons.some((season) => season.episodes.some((episode) => episode.status === "available" && !!episode.file)) });
   return series;
 }
+/** Écouteurs d'arrivée d'épisodes (voir onEpisodeArrival). Sur globalThis : un seul jeu, même après un rechargement du module. */
+type EpisodeArrivalListener = (seriesId: string, episodes: { seasonNumber: number; episodeNumber: number }[]) => void;
+const arrivalHolder = globalThis as typeof globalThis & { __movvizEpisodeArrivalListeners?: EpisodeArrivalListener[] };
+
+/**
+ * Prévient quand des épisodes deviennent disponibles avec un fichier, quelle que soit la voie :
+ * téléchargement Movviz, fichier déposé dans le dossier (scan disque), import Plex. Les
+ * écouteurs doivent rester légers (ils tournent dans la mise à jour de la bibliothèque).
+ */
+export function onEpisodeArrival(listener: EpisodeArrivalListener): void {
+  (arrivalHolder.__movvizEpisodeArrivalListeners ??= []).push(listener);
+}
+
+function notifyEpisodeArrivals(seriesId: string, episodes: { seasonNumber: number; episodeNumber: number }[]): void {
+  if (episodes.length === 0) return;
+  // Différé : la bibliothèque n'est enregistrée qu'après ce calcul, l'écouteur doit la relire à jour.
+  setTimeout(() => {
+    for (const listener of arrivalHolder.__movvizEpisodeArrivalListeners ?? []) {
+      try { listener(seriesId, episodes); } catch { /* un écouteur ne doit jamais bloquer l'enregistrement */ }
+    }
+  }, 0);
+}
+
 /** Diffs old vs new episode statuses within a series and journals each change — shared by updateSeries/updateSeriesList. */
 function recordEpisodeStatusDiff(series: LibrarySeries, newSeasons: LibrarySeries["seasons"]): boolean {
   const previous = new Map<string, LibraryEpisode>();
   let arrival = false;
+  const arrived: { seasonNumber: number; episodeNumber: number }[] = [];
   for (const season of series.seasons) {
     for (const ep of season.episodes) previous.set(`${season.seasonNumber}:${ep.episodeNumber}`, ep);
   }
@@ -364,7 +388,10 @@ function recordEpisodeStatusDiff(series: LibrarySeries, newSeasons: LibrarySerie
       const old = previous.get(key);
       const from = old?.status;
       if (ep.status === "available" && ep.file &&
-        (from !== "available" || old?.file?.path !== ep.file.path || old?.file?.addedAt !== ep.file.addedAt)) arrival = true;
+        (from !== "available" || old?.file?.path !== ep.file.path || old?.file?.addedAt !== ep.file.addedAt)) {
+        arrival = true;
+        arrived.push({ seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber });
+      }
       if (from && from !== ep.status) {
         recordStatusTransition({
           refType: "episode",
@@ -376,6 +403,7 @@ function recordEpisodeStatusDiff(series: LibrarySeries, newSeasons: LibrarySerie
       }
     }
   }
+  notifyEpisodeArrivals(series.id, arrived);
   return arrival;
 }
 

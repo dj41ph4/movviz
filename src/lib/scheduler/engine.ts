@@ -119,6 +119,7 @@ const TASK_JOB_TYPE: Record<string, JobType> = {
   "retry-missing-movies": "rssScan",
   "metadata-refresh": "metadataRefresh",
   "artwork-cache-refresh": "metadataRefresh",
+  "episode-metadata-pending": "metadataRefresh",
   "language-detection": "metadataRefresh",
   "rss-indexer-scan": "rssScan",
   "download-state-reconcile": "reconcile",

@@ -1,27 +1,14 @@
 import {
-  LayoutGrid,
   HardDrive,
-  Magnet,
-  Gauge,
   BookOpen,
   Play,
-  Tag,
-  ExternalLink,
-  Film,
   Wrench,
   BellRing,
   Activity,
-  Zap,
-  ScrollText,
   ListOrdered,
   Database,
   Info,
-  Skull,
-  Sparkles,
-  Ban,
   Bot,
-  Wand2,
-  Clapperboard,
   Library,
   Download,
   ServerCog,
@@ -35,59 +22,105 @@ import { SETTINGS_SEARCH_KEYS } from "@/lib/settingsSearchIndex.generated";
  * page itself (sidebar + mobile sheet), its home overview and its context
  * header. There is deliberately no global command palette (no Ctrl/Cmd+K).
  *
+ * Une seule organisation : cinq parcours (SETTINGS_JOURNEYS) contiennent les onglets.
+ * Un onglet peut regrouper plusieurs sections (boutons en haut du contenu) ; les
+ * anciens identifiants d'onglet restent des liens valables (voir resolveSettingsTarget).
+ *
  * `hintKey` mirrors NAV's shape (src/lib/nav.ts) — a one-line "what's in
  * here" description, used wherever a quick description is useful.
  */
-export type SettingsGroup = "personal" | "download" | "library" | "disk" | "notifications" | "system";
-export type SettingsJourney = "experience" | "playback" | "library" | "downloads" | "system";
+export type SettingsJourney = "playback" | "library" | "downloads" | "system";
+
+export interface SettingsSection {
+  id: string;
+  labelKey: string;
+  expertOnly?: boolean;
+  dangerous?: boolean;
+}
 
 export interface SettingsTab {
   id: string;
   labelKey: string;
   hintKey: string;
   icon: LucideIcon;
-  group: SettingsGroup;
   journey: SettingsJourney;
   adminOnly?: boolean;
   expertOnly?: boolean;
-  dangerous?: boolean;
+  /** Plusieurs panneaux regroupés derrière des boutons ; le premier est affiché par défaut. */
+  sections?: SettingsSection[];
   /** Intent-based synonyms a user might actually type ("film absent", not
    *  "Indexation") — matched alongside label/hint, never displayed directly. */
   keywords?: string[];
 }
 
 export const SETTINGS_TABS: SettingsTab[] = [
-  // Personnel
-  { id: "dashboard", labelKey: "settings.tabDashboard", hintKey: "settings.tabDashboardHint", icon: LayoutGrid, group: "personal", journey: "experience" },
-  { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal", journey: "experience", keywords: ["lecteur", "sous-titres", "lenteur lecture", "transcodage", "apparence", "appearance", "design", "typographie", "lenteur", "animations", "sans animation", "fluide", "fluidité", "saccades", "performance", "cpu", "gpu"] },
-  { id: "player", labelKey: "settings.tabPlayer", hintKey: "settings.tabPlayerHint", icon: MonitorPlay, group: "personal", journey: "playback", adminOnly: true, keywords: ["lecteur", "lecture", "transcodage", "audio", "codec", "ffmpeg", "benchmark", "buffer", "hdr", "sous-titres"] },
-  { id: "netflix", labelKey: "settings.tabNetflix", hintKey: "settings.tabNetflixHint", icon: Clapperboard, group: "personal", journey: "library" },
-  // Téléchargement
-  { id: "clients", labelKey: "settings.tabClients", hintKey: "settings.tabClientsHint", icon: HardDrive, group: "download", journey: "downloads", adminOnly: true, keywords: ["film absent", "nouveau titre", "téléchargement bloqué"] },
-  { id: "indexers", labelKey: "settings.tabIndexers", hintKey: "settings.tabIndexersHint", icon: Magnet, group: "download", journey: "downloads", adminOnly: true, keywords: ["film absent", "nouveau titre", "aucune release"] },
-  { id: "qualite", labelKey: "settings.tabQualite", hintKey: "settings.tabQualiteHint", icon: Gauge, group: "download", journey: "downloads", adminOnly: true, keywords: ["renommage", "format de fichier", "mise à niveau"] },
+  // Lecture
+  { id: "player", labelKey: "settings.tabPlayer", hintKey: "settings.tabPlayerHint", icon: MonitorPlay, journey: "playback", adminOnly: true, keywords: ["lecteur", "lecture", "transcodage", "audio", "codec", "ffmpeg", "benchmark", "buffer", "hdr", "sous-titres"] },
   // Bibliothèque
-  { id: "metadata", labelKey: "settings.tabMetadata", hintKey: "settings.tabMetadataHint", icon: BookOpen, group: "library", journey: "library", adminOnly: true },
-  { id: "anime", labelKey: "settings.tabAnime", hintKey: "settings.tabAnimeHint", icon: Sparkles, group: "library", journey: "library", adminOnly: true, expertOnly: true },
-  { id: "plex", labelKey: "settings.tabPlex", hintKey: "settings.tabPlexHint", icon: Play, group: "library", journey: "library", adminOnly: true, keywords: ["connexion", "serveur", "bibliothèque Plex", "synchronisation", "profils Plex"] },
-  { id: "naming", labelKey: "settings.tabNaming", hintKey: "settings.tabNamingHint", icon: Tag, group: "library", journey: "library", adminOnly: true, expertOnly: true, keywords: ["renommage", "format de fichier"] },
-  { id: "imports", labelKey: "settings.tabImports", hintKey: "settings.tabImportsHint", icon: ExternalLink, group: "library", journey: "library", adminOnly: true },
-  { id: "blocklist", labelKey: "settings.tabBlocklist", hintKey: "settings.tabBlocklistHint", icon: Ban, group: "library", journey: "library", adminOnly: true, expertOnly: true },
-  // Disque
-  { id: "indexation", labelKey: "settings.tabIndexation", hintKey: "settings.tabIndexationHint", icon: Film, group: "disk", journey: "library", adminOnly: true, expertOnly: true },
-  { id: "maintenance", labelKey: "settings.tabMaintenance", hintKey: "settings.tabMaintenanceHint", icon: Wrench, group: "disk", journey: "library", adminOnly: true, expertOnly: true },
-  // Notifications
-  { id: "notifications", labelKey: "settings.tabNotifications", hintKey: "settings.tabNotificationsHint", icon: BellRing, group: "notifications", journey: "system", adminOnly: true },
-  // Système — l'ancien onglet "health" à 7 panneaux est scindé en 3 pour rester lisible.
-  { id: "diagnostics", labelKey: "settings.tabDiagnostics", hintKey: "settings.tabDiagnosticsHint", icon: Activity, group: "system", journey: "system", adminOnly: true },
-  { id: "performance", labelKey: "settings.tabPerformance", hintKey: "settings.tabPerformanceHint", icon: Zap, group: "system", journey: "system", adminOnly: true, expertOnly: true },
-  { id: "logs", labelKey: "settings.tabLogs", hintKey: "settings.tabLogsHint", icon: ScrollText, group: "system", journey: "system", adminOnly: true, expertOnly: true },
-  { id: "automation", labelKey: "settings.tabAutomation", hintKey: "settings.tabAutomationHint", icon: ListOrdered, group: "system", journey: "system", adminOnly: true },
-  { id: "ai", labelKey: "settings.tabAi", hintKey: "settings.tabAiHint", icon: Bot, group: "system", journey: "system", adminOnly: true },
-  { id: "cache", labelKey: "settings.tabCache", hintKey: "settings.tabCacheHint", icon: Database, group: "system", journey: "system", adminOnly: true, expertOnly: true, keywords: ["logo", "lenteur images", "vider le cache", "affiches manquantes"] },
-  { id: "about", labelKey: "settings.tabAbout", hintKey: "settings.tabAboutHint", icon: Info, group: "system", journey: "system", adminOnly: true },
-  { id: "danger", labelKey: "settings.tabDanger", hintKey: "settings.tabDangerHint", icon: Skull, group: "system", journey: "system", adminOnly: true, dangerous: true, expertOnly: true },
+  {
+    id: "library", labelKey: "settings.tabLibrary", hintKey: "settings.tabLibraryHint", icon: BookOpen, journey: "library", adminOnly: true,
+    keywords: ["connexion", "serveur", "bibliothèque Plex", "synchronisation", "profils Plex", "renommage", "format de fichier"],
+    sections: [
+      { id: "plex", labelKey: "settings.sectionPlex" },
+      { id: "metadata", labelKey: "settings.sectionMetadata" },
+      { id: "imports", labelKey: "settings.sectionImports" },
+      { id: "anime", labelKey: "settings.sectionAnime", expertOnly: true },
+      { id: "naming", labelKey: "settings.sectionNaming", expertOnly: true },
+      { id: "blocklist", labelKey: "settings.sectionBlocklist", expertOnly: true },
+    ],
+  },
+  {
+    id: "files", labelKey: "settings.tabFiles", hintKey: "settings.tabFilesHint", icon: Wrench, journey: "library", adminOnly: true, expertOnly: true,
+    keywords: ["film absent", "fichier introuvable", "chemin cassé", "dossier vide", "corbeille"],
+    sections: [
+      { id: "indexation", labelKey: "settings.sectionIndexation" },
+      { id: "maintenance", labelKey: "settings.sectionMaintenance" },
+    ],
+  },
+  // Téléchargements
+  {
+    id: "downloads", labelKey: "settings.tabDownloads", hintKey: "settings.tabDownloadsHint", icon: HardDrive, journey: "downloads", adminOnly: true,
+    keywords: ["film absent", "nouveau titre", "téléchargement bloqué", "aucune release", "renommage", "format de fichier", "mise à niveau"],
+    sections: [
+      { id: "clients", labelKey: "settings.sectionClients" },
+      { id: "indexers", labelKey: "settings.sectionIndexers" },
+      { id: "qualite", labelKey: "settings.sectionQualite" },
+    ],
+  },
+  // Serveur et données
+  { id: "notifications", labelKey: "settings.tabNotifications", hintKey: "settings.tabNotificationsHint", icon: BellRing, journey: "system", adminOnly: true },
+  { id: "automation", labelKey: "settings.tabAutomation", hintKey: "settings.tabAutomationHint", icon: ListOrdered, journey: "system", adminOnly: true },
+  { id: "ai", labelKey: "settings.tabAi", hintKey: "settings.tabAiHint", icon: Bot, journey: "system", adminOnly: true },
+  {
+    id: "diagnostics", labelKey: "settings.tabDiagnostics", hintKey: "settings.tabDiagnosticsHint", icon: Activity, journey: "system", adminOnly: true,
+    sections: [
+      { id: "health", labelKey: "settings.sectionHealth" },
+      { id: "performance", labelKey: "settings.sectionPerformance", expertOnly: true },
+      { id: "logs", labelKey: "settings.sectionLogs", expertOnly: true },
+    ],
+  },
+  { id: "cache", labelKey: "settings.tabCache", hintKey: "settings.tabCacheHint", icon: Database, journey: "system", adminOnly: true, expertOnly: true, keywords: ["logo", "lenteur images", "vider le cache", "affiches manquantes"] },
+  {
+    id: "system", labelKey: "settings.tabSystem", hintKey: "settings.tabSystemHint", icon: Info, journey: "system", adminOnly: true,
+    sections: [
+      { id: "about", labelKey: "settings.sectionAbout" },
+      { id: "danger", labelKey: "settings.sectionDanger", expertOnly: true, dangerous: true },
+    ],
+  },
 ];
+
+/** Anciens onglets personnels : ils vivent maintenant dans Profil > Préférences (section indiquée). */
+export const PERSONAL_SETTINGS_VIEW: Record<string, string> = { dashboard: "home", experience: "display", netflix: "history" };
+
+/** Où mène un lien `?tab=…` : l'onglet réel et, s'il y a lieu, la section à ouvrir. */
+export function resolveSettingsTarget(id: string | null | undefined): { tab: string; view?: string } | null {
+  if (!id) return null;
+  const direct = SETTINGS_TABS.find((tb) => tb.id === id);
+  if (direct) return { tab: direct.id };
+  // Anciens onglets devenus sections (clients, plex, logs, about…) et l'ancien « health ».
+  for (const tb of SETTINGS_TABS) if (tb.sections?.some((sec) => sec.id === id)) return { tab: tb.id, view: id };
+  return null;
+}
 
 export interface SettingsJourneyDefinition {
   id: SettingsJourney;
@@ -95,31 +128,22 @@ export interface SettingsJourneyDefinition {
   hintKey: string;
   icon: LucideIcon;
   accent: string;
+  /** Couleur de l'icône dans la liste complète du menu. */
+  tint: string;
   tabIds: string[];
 }
 
-/** Five user goals replace the 25-entry wall in Essential mode. */
+/** Five user goals: the only grouping, in the card view (Essential) as in the full list (Expert). */
 export const SETTINGS_JOURNEYS: SettingsJourneyDefinition[] = [
-  { id: "experience", labelKey: "settings.journeyExperience", hintKey: "settings.journeyExperienceHint", icon: Wand2, accent: "from-fuchsia-500/24 via-purple-500/10 to-transparent", tabIds: ["dashboard", "experience"] },
-  { id: "playback", labelKey: "settings.journeyPlayback", hintKey: "settings.journeyPlaybackHint", icon: Play, accent: "from-cyan-500/24 via-sky-500/10 to-transparent", tabIds: ["player", "performance"] },
-  { id: "library", labelKey: "settings.journeyLibrary", hintKey: "settings.journeyLibraryHint", icon: Library, accent: "from-amber-500/24 via-orange-500/10 to-transparent", tabIds: ["plex", "metadata", "netflix", "imports", "naming", "anime", "blocklist", "indexation", "maintenance"] },
-  { id: "downloads", labelKey: "settings.journeyDownloads", hintKey: "settings.journeyDownloadsHint", icon: Download, accent: "from-emerald-500/24 via-cyan-500/10 to-transparent", tabIds: ["clients", "indexers", "qualite"] },
-  { id: "system", labelKey: "settings.journeySystem", hintKey: "settings.journeySystemHint", icon: ServerCog, accent: "from-violet-500/24 via-indigo-500/10 to-transparent", tabIds: ["notifications", "diagnostics", "automation", "ai", "about", "performance", "logs", "cache", "danger"] },
+  { id: "playback", labelKey: "settings.journeyPlayback", hintKey: "settings.journeyPlaybackHint", icon: Play, accent: "from-cyan-500/24 via-sky-500/10 to-transparent", tint: "text-cyan", tabIds: ["player"] },
+  { id: "library", labelKey: "settings.journeyLibrary", hintKey: "settings.journeyLibraryHint", icon: Library, accent: "from-amber-500/24 via-orange-500/10 to-transparent", tint: "text-amber", tabIds: ["library", "files"] },
+  { id: "downloads", labelKey: "settings.journeyDownloads", hintKey: "settings.journeyDownloadsHint", icon: Download, accent: "from-emerald-500/24 via-cyan-500/10 to-transparent", tint: "text-ok", tabIds: ["downloads"] },
+  { id: "system", labelKey: "settings.journeySystem", hintKey: "settings.journeySystemHint", icon: ServerCog, accent: "from-violet-500/24 via-indigo-500/10 to-transparent", tint: "text-ink-dim", tabIds: ["notifications", "automation", "ai", "diagnostics", "cache", "system"] },
 ];
 
 export const SETTINGS_JOURNEY_BY_ID = Object.fromEntries(
   SETTINGS_JOURNEYS.map((journey) => [journey.id, journey]),
 ) as Record<SettingsJourney, SettingsJourneyDefinition>;
-
-export const SETTINGS_GROUP_ORDER: SettingsGroup[] = ["personal", "download", "library", "disk", "notifications", "system"];
-export const SETTINGS_GROUP_LABEL_KEY: Record<SettingsGroup, string> = {
-  personal: "settings.groupPersonal",
-  download: "settings.groupDownload",
-  library: "settings.groupLibrary",
-  disk: "settings.groupDisk",
-  notifications: "settings.groupNotifications",
-  system: "settings.groupSystem",
-};
 
 /**
  * Recherche normalisée : sans accents ni majuscules, mot par mot. « Relance manquants »
@@ -147,7 +171,7 @@ export function settingsContentTexts(tab: SettingsTab, t: (key: string) => strin
 }
 
 function tabHeadText(tab: SettingsTab, t: (key: string) => string): string {
-  return normalizeSearch([t(tab.labelKey), t(tab.hintKey), ...(tab.keywords ?? [])].join("\n"));
+  return normalizeSearch([t(tab.labelKey), t(tab.hintKey), ...(tab.sections ?? []).map((sec) => t(sec.labelKey)), ...(tab.keywords ?? [])].join("\n"));
 }
 
 /**
@@ -187,12 +211,3 @@ export function settingsContentSnippet(tab: SettingsTab, query: string, t: (key:
   return best.text.length > 90 ? `${best.text.slice(0, 87)}…` : best.text;
 }
 
-/** Tasteful per-group accent so the sidebar reads as organized sections at a glance, not one long undifferentiated list. */
-export const SETTINGS_GROUP_ACCENT: Record<SettingsGroup, string> = {
-  personal: "text-brand-glow",
-  download: "text-cyan",
-  library: "text-amber",
-  disk: "text-purple-400",
-  notifications: "text-ok",
-  system: "text-ink-dim",
-};

@@ -1,3 +1,27 @@
+## v1.28.72 — 6 november 2026
+
+### Instellingen
+
+- Instellingen herordend: 10 tabbladen alleen voor beheerders in plaats van 24, gegroepeerd in 4 paden. Panelen over hetzelfde onderwerp zijn secties van één tabblad (Downloads: Engine, Bronnen, Kwaliteit; Plex, metadata en imports; Bestanden en onderhoud; Diagnose en prestaties; Versie en gegevens). Oude links blijven werken.
+- Persoonlijke instellingen (start, weergave, import van de Netflix- en LifeHub-geschiedenis) verhuizen naar Profiel > Voorkeuren. Een niet-beheerder heeft geen Instellingen-item meer in het menu.
+
+### Bibliotheek
+
+- Een aflevering die beschikbaar wordt — gedownload door Movviz, in de map gezet of uit Plex geïmporteerd — laadt meteen titel en samenvatting opnieuw van TMDb, zonder de dagelijkse synchronisatie af te wachten. Een nieuwe lichte taak loopt elke 3 uur langs recente afleveringen zonder titel.
+- Heeft TMDb de vertaling van een aflevering nog niet, dan verschijnen de Engelse titel en samenvatting in plaats van een lege titel of „Aflevering N”; de vertaalde titel vervangt ze zodra die bestaat.
+
+### Achtergrondtaken
+
+- Detectie van nieuwe afleveringen: de details van een seizoen worden alleen opnieuw geladen als het aantal afleveringen afwijkt of een aflevering op komst, zonder titel of zonder datum is; volledige controle ongeveer eens per maand per serie, gespreid. Een afgeronde, complete serie wordt maar om de 3 dagen bekeken.
+- Bijwerken van TMDb-gegevens naar leeftijd van de titel: dagelijks voor titels op komst, recent of lopend, wekelijks tot 2 jaar, daarna maandelijks.
+- De serververmogentest start niet meer bij elke nieuwe versie, alleen als ffmpeg, de machine of de hardwareversnelling verandert (en elke 30 dagen).
+- Vervangingszoekopdrachten zonder resultaat worden 3 dagen niet herhaald (het zoekbudget schuift door in plaats van steeds dezelfde titels te raken), en de status van het zoeken naar betere versies overleeft een herstart.
+- Het herstellen van in de map achtergebleven downloads leest de hele map alleen opnieuw als de torrents van de engine zijn veranderd, of elke 3 uur.
+
+### Opruimen
+
+- Vloeiende modus per apparaat, volledig resetten op één plek, schakelaar voor de Movviz player alleen in het profiel, schijfruimte maar één keer getoond, helpteksten gecorrigeerd, HDR-opties vertaald en oude vertaalsleutels verwijderd.
+
 ## v1.28.71 — 5 november 2026
 
 ### Instellingen

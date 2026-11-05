@@ -43,19 +43,14 @@ import { ChevronDown, X, Search, LayoutGrid, SlidersHorizontal } from "lucide-re
 import { AboutPanel } from "@/components/settings/AboutPanel";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
-import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
-import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
-import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
-import { LifehubImportPanel } from "@/components/settings/LifehubImportPanel";
 import "@/components/settings/settings-premium.css";
-import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, settingsContentSnippet, type SettingsJourney } from "@/lib/settingsNav";
+import { SETTINGS_TABS, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, settingsContentSnippet, resolveSettingsTarget, PERSONAL_SETTINGS_VIEW, type SettingsJourney } from "@/lib/settingsNav";
+import { SettingsSections } from "@/components/settings/SettingsSections";
 import { SettingsHome } from "@/components/settings/SettingsHome";
 import { SettingsJourneyOverview } from "@/components/settings/SettingsJourneyOverview";
 import { SettingsContextHeader } from "@/components/settings/SettingsContextHeader";
 
 const TABS = SETTINGS_TABS;
-const GROUP_ORDER = SETTINGS_GROUP_ORDER;
-const GROUP_LABEL_KEY = SETTINGS_GROUP_LABEL_KEY;
 type SettingsMode = "essential" | "expert";
 type SettingsSelection = (typeof TABS)[number]["id"] | "home" | `journey:${SettingsJourney}`;
 
@@ -74,8 +69,12 @@ function SettingsPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const requestedJourney = SETTINGS_JOURNEYS.find((journey) => journey.id === params.get("section"))?.id;
-  const initialTab: SettingsSelection = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? (requestedJourney ? `journey:${requestedJourney}` : "home");
+  // Les anciens liens (?tab=clients, ?tab=about…) mènent à l'onglet qui contient désormais ce panneau.
+  const requestedTarget = resolveSettingsTarget(params.get("tab"));
+  const requestedView = params.get("view") ?? requestedTarget?.view ?? null;
+  const initialTab: SettingsSelection = (requestedTarget?.tab as SettingsSelection | undefined) ?? (requestedJourney ? `journey:${requestedJourney}` : "home");
   const [tab, setTab] = useState<SettingsSelection>(initialTab);
+  const [view, setView] = useState<string | null>(requestedView);
   const [mode, setMode] = useState<SettingsMode>("essential");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
@@ -86,6 +85,16 @@ function SettingsPageInner() {
   // sidebar/mobile header show a generic fallback instead of a highlighted tab.
   const activeTab = tab === "home" || tab.startsWith("journey:") ? null : (visibleTabs.find((tb) => tb.id === tab) ?? null);
   const activeJourneyId = tab.startsWith("journey:") ? tab.slice(8) as SettingsJourney : activeTab?.journey;
+  // Section affichée d'un onglet à sections : celle demandée si elle existe, sinon la première.
+  const sectionView = activeTab?.sections ? (activeTab.sections.find((sec) => sec.id === view)?.id ?? activeTab.sections[0].id) : "";
+
+  // Réglages personnels (accueil, affichage, import d'historique) : déplacés dans le profil.
+  // Un non-administrateur n'a plus rien ici ; un ancien lien ?tab=dashboard suit le même chemin.
+  const personalView = PERSONAL_SETTINGS_VIEW[params.get("tab") ?? ""];
+  useEffect(() => {
+    if (personalView) router.replace(`/profile?tab=preferences&view=${personalView}`);
+    else if (user && !isAdmin) router.replace("/profile?tab=preferences");
+  }, [personalView, user, isAdmin, router]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("movviz-settings-mode");
@@ -95,11 +104,15 @@ function SettingsPageInner() {
   // Un lien vers ?tab=… alors que la page est déjà ouverte (palette de
   // commandes, retour arrière) doit aussi changer l'onglet affiché.
   const urlTab = params.get("tab");
-  const [seenUrlTab, setSeenUrlTab] = useState(urlTab);
-  if (urlTab !== seenUrlTab) {
-    setSeenUrlTab(urlTab);
-    const next = TABS.find((tb) => tb.id === urlTab)?.id;
-    if (next) setTab(next);
+  const urlView = params.get("view");
+  const [seenUrl, setSeenUrl] = useState(`${urlTab}|${urlView}`);
+  if (`${urlTab}|${urlView}` !== seenUrl) {
+    setSeenUrl(`${urlTab}|${urlView}`);
+    const next = resolveSettingsTarget(urlTab);
+    if (next) {
+      setTab(next.tab as SettingsSelection);
+      setView(urlView ?? next.view ?? null);
+    }
   }
 
   const changeMode = (next: SettingsMode) => {
@@ -107,18 +120,31 @@ function SettingsPageInner() {
     window.localStorage.setItem("movviz-settings-mode", next);
   };
 
-  const pushTab = (id: (typeof TABS)[number]["id"] | "home") => {
-    setTab(id);
+  const pushTab = (id: string) => {
+    const target = id === "home" ? null : resolveSettingsTarget(id);
+    if (id !== "home" && !target) return;
+    setTab((target?.tab ?? "home") as SettingsSelection);
+    setView(target?.view ?? null);
     const p = new URLSearchParams(params.toString());
     p.delete("section");
-    if (id === "home") p.delete("tab"); else p.set("tab", id);
+    p.delete("view");
+    if (!target) p.delete("tab"); else p.set("tab", target.tab);
+    if (target?.view) p.set("view", target.view);
     router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
+
+  const pushView = (next: string) => {
+    setView(next);
+    const p = new URLSearchParams(params.toString());
+    p.set("view", next);
+    router.push(pathname + "?" + p.toString(), { scroll: false });
   };
 
   const pushJourney = (id: SettingsJourney) => {
     setTab(`journey:${id}`);
     const p = new URLSearchParams(params.toString());
     p.delete("tab");
+    p.delete("view");
     p.set("section", id);
     router.push(pathname + "?" + p.toString(), { scroll: false });
   };
@@ -129,10 +155,11 @@ function SettingsPageInner() {
   const q = filterQuery.trim().toLowerCase();
   const matchingTabs = q ? visibleTabs.filter((tb) => matchesSettingsQuery(tb, q, t)) : visibleTabs.filter((tb) => mode === "expert" || !tb.expertOnly);
 
-  const groups = GROUP_ORDER.map((g) => ({
-    id: g,
-    labelKey: GROUP_LABEL_KEY[g],
-    items: matchingTabs.filter((tb) => tb.group === g),
+  const groups = SETTINGS_JOURNEYS.map((j) => ({
+    id: j.id,
+    labelKey: j.labelKey,
+    tint: j.tint,
+    items: matchingTabs.filter((tb) => tb.journey === j.id),
   })).filter((g) => g.items.length > 0);
 
   const renderModeToggle = () => (
@@ -166,7 +193,7 @@ function SettingsPageInner() {
     </div>
   );
 
-  const renderGroups = (onPick: (id: (typeof TABS)[number]["id"]) => void, layoutId: string) => (
+  const renderGroups = (onPick: (id: string) => void, layoutId: string) => (
     <>
       {groups.length === 0 && (
         <p className="px-3 text-sm text-ink-dim">{t("settings.searchNoResults", { query: filterQuery })}</p>
@@ -179,36 +206,29 @@ function SettingsPageInner() {
             </p>
           )}
           <div className="flex flex-col gap-0.5">
-            {g.items.map((tb, idx) => {
+            {g.items.map((tb) => {
               const Icon = tb.icon;
               const active = tab === tb.id;
-              const dangerous = "dangerous" in tb && tb.dangerous === true;
               // Réglage qui a fait trouver l'onglet quand le titre ne suffit pas.
               const snippet = q ? settingsContentSnippet(tb, q, t) : null;
               return (
                 <div key={tb.id}>
-                  {dangerous && idx > 0 && <div className="mb-1.5 border-t border-white/8 pt-3" />}
                   <button
                     onClick={() => onPick(tb.id)}
                     title={t(tb.hintKey)}
                     className={cn(
                       "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ring-focus",
-                      active
-                        ? dangerous ? "text-down" : "text-brand-glow"
-                        : dangerous ? "text-down/90 hover:text-down" : "text-ink-soft hover:text-ink"
+                      active ? "text-brand-glow" : "text-ink-soft hover:text-ink"
                     )}
                   >
                     {active && (
                       <motion.span
                         layoutId={layoutId}
-                        className={cn(
-                          "absolute inset-0 -z-10 rounded-xl",
-                          dangerous ? "border border-down/30 bg-down/12" : "border border-brand/30 bg-brand/12"
-                        )}
+                        className="absolute inset-0 -z-10 rounded-xl border border-brand/30 bg-brand/12"
                         transition={{ type: "spring", stiffness: 380, damping: 32 }}
                       />
                     )}
-                    <Icon className={cn("h-4 w-4 shrink-0", !active && !dangerous && SETTINGS_GROUP_ACCENT[g.id])} />
+                    <Icon className={cn("h-4 w-4 shrink-0", !active && g.tint)} />
                     <span className="min-w-0">
                       <span className="block break-words leading-snug">{t(tb.labelKey)}</span>
                       {snippet && <span className="mt-0.5 block break-words text-[11px] font-normal leading-snug text-ink-dim">{snippet}</span>}
@@ -337,111 +357,111 @@ function SettingsPageInner() {
 
           {activeTab && <SettingsContextHeader tab={activeTab} onBack={pushJourney} />}
 
-          {tab === "dashboard" && <DashboardExperiencePanel />}
-          {tab === "experience" && <ExperiencePanel />}
-          {tab === "netflix" && (
-            <div className="space-y-10">
-              <NetflixImportPanel />
-              <LifehubImportPanel />
-            </div>
+          {tab === "player" && isAdmin && <PlayerSettings />}
+
+          {tab === "library" && isAdmin && activeTab?.sections && (
+            <SettingsSections sections={activeTab.sections} view={sectionView} onView={pushView} expert={mode === "expert"}>
+              {sectionView === "plex" && (
+                <div className="space-y-6">
+                  <PlexSettings />
+                  <PlexUnmappedPanel />
+                </div>
+              )}
+              {sectionView === "metadata" && <MetadataSettings />}
+              {sectionView === "imports" && (
+                <div className="space-y-6">
+                  <ImportListsSettings />
+                  <SeerrSettings />
+                </div>
+              )}
+              {sectionView === "anime" && <AnimeSettings />}
+              {sectionView === "naming" && <NamingSettings />}
+              {sectionView === "blocklist" && <BlocklistPanel />}
+            </SettingsSections>
           )}
 
-          {tab === "clients" && user?.role === "admin" && <DownloadClients />}
-
-          {tab === "indexers" && user?.role === "admin" && <IndexerManager />}
-
-          {tab === "qualite" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-bold text-ink">{t("settings.searchPreferencesTitle")}</h2>
-                <p className="mt-1 max-w-2xl text-sm text-ink-dim">{t("settings.searchPreferencesHint")}</p>
-              </div>
-              <ReleaseRulesPanel />
-              <CustomFormatsPanel />
-            </div>
+          {tab === "files" && isAdmin && activeTab?.sections && (
+            <SettingsSections sections={activeTab.sections} view={sectionView} onView={pushView} expert={mode === "expert"}>
+              {sectionView === "indexation" && (
+                <div className="space-y-6">
+                  <IndexationPanel type="movie" />
+                  <IndexationPanel type="series" />
+                </div>
+              )}
+              {sectionView === "maintenance" && (
+                <div className="space-y-6">
+                  <RecoverDownloadsPanel />
+                  <RepairPathsPanel />
+                  <CleanDirsPanel />
+                  <MediaProbePanel />
+                  <CorruptFilesPanel />
+                  <TrashPanel />
+                </div>
+              )}
+            </SettingsSections>
           )}
 
-          {tab === "metadata" && user?.role === "admin" && <MetadataSettings />}
-
-          {tab === "anime" && user?.role === "admin" && <AnimeSettings />}
-
-          {tab === "player" && <PlayerSettings />}
-
-          {tab === "plex" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <PlexSettings />
-              <PlexUnmappedPanel />
-            </div>
+          {tab === "downloads" && isAdmin && activeTab?.sections && (
+            <SettingsSections sections={activeTab.sections} view={sectionView} onView={pushView} expert={mode === "expert"}>
+              {sectionView === "clients" && <DownloadClients />}
+              {sectionView === "indexers" && <IndexerManager />}
+              {sectionView === "qualite" && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-ink">{t("settings.searchPreferencesTitle")}</h2>
+                    <p className="mt-1 max-w-2xl text-sm text-ink-dim">{t("settings.searchPreferencesHint")}</p>
+                  </div>
+                  <ReleaseRulesPanel />
+                  <CustomFormatsPanel />
+                </div>
+              )}
+            </SettingsSections>
           )}
 
-          {tab === "naming" && user?.role === "admin" && <NamingSettings />}
+          {tab === "notifications" && isAdmin && <NotificationSettings />}
 
-          {tab === "imports" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <ImportListsSettings />
-              <SeerrSettings />
-            </div>
+          {tab === "automation" && isAdmin && <AutomationSettings />}
+
+          {tab === "ai" && isAdmin && <AiSettingsPanel />}
+
+          {tab === "diagnostics" && isAdmin && activeTab?.sections && (
+            <SettingsSections sections={activeTab.sections} view={sectionView} onView={pushView} expert={mode === "expert"}>
+              {sectionView === "health" && (
+                <div className="space-y-6">
+                  <DoctorPanel />
+                  <HealthPanel />
+                </div>
+              )}
+              {sectionView === "performance" && (
+                <div className="space-y-6">
+                  <PerfPanel />
+                  <StatsPanel />
+                </div>
+              )}
+              {sectionView === "logs" && (
+                <div className="space-y-6">
+                  <SearchLogsPanel />
+                  <EngineLogsPanel />
+                  <ResolverLogsPanel />
+                  <TranscodeLogsPanel />
+                </div>
+              )}
+            </SettingsSections>
           )}
 
-          {tab === "blocklist" && user?.role === "admin" && <BlocklistPanel />}
+          {tab === "cache" && isAdmin && <CachePanel />}
 
-          {tab === "indexation" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <IndexationPanel type="movie" />
-              <IndexationPanel type="series" />
-            </div>
+          {tab === "system" && isAdmin && activeTab?.sections && (
+            <SettingsSections sections={activeTab.sections} view={sectionView} onView={pushView} expert={mode === "expert"}>
+              {sectionView === "about" && (
+                <div className="space-y-6">
+                  <AboutPanel />
+                  <BackupSettings />
+                </div>
+              )}
+              {sectionView === "danger" && <DangerZonePanel />}
+            </SettingsSections>
           )}
-
-          {tab === "maintenance" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <RecoverDownloadsPanel />
-              <RepairPathsPanel />
-              <CleanDirsPanel />
-              <MediaProbePanel />
-              <CorruptFilesPanel />
-              <TrashPanel />
-            </div>
-          )}
-
-          {tab === "notifications" && user?.role === "admin" && <NotificationSettings />}
-
-          {tab === "diagnostics" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <DoctorPanel />
-              <HealthPanel />
-            </div>
-          )}
-
-          {tab === "performance" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <PerfPanel />
-              <StatsPanel />
-            </div>
-          )}
-
-          {tab === "logs" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <SearchLogsPanel />
-              <EngineLogsPanel />
-              <ResolverLogsPanel />
-              <TranscodeLogsPanel />
-            </div>
-          )}
-
-          {tab === "automation" && user?.role === "admin" && <AutomationSettings />}
-
-          {tab === "cache" && user?.role === "admin" && <CachePanel />}
-
-          {tab === "about" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <AboutPanel />
-              <BackupSettings />
-            </div>
-          )}
-
-          {tab === "danger" && user?.role === "admin" && <DangerZonePanel />}
-
-          {tab === "ai" && user?.role === "admin" && <AiSettingsPanel />}
         </div>
       </div>
     </div>

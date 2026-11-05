@@ -1,3 +1,27 @@
+## v1.28.72 — 6 novembre 2026
+
+### Réglages
+
+- Réglages réorganisés : 10 onglets réservés aux administrateurs au lieu de 24, regroupés en 4 parcours. Les panneaux d'un même sujet sont des sections d'un même onglet (Téléchargements : Moteur, Sources, Qualité ; Plex, métadonnées et imports ; Fichiers et entretien ; Diagnostic et performance ; Version et données). Les anciens liens continuent de fonctionner.
+- Les réglages personnels (accueil, affichage, import d'historique Netflix et LifeHub) passent dans Profil > Préférences. Un utilisateur non administrateur n'a plus d'entrée Réglages dans le menu.
+
+### Bibliothèque
+
+- Un épisode qui devient disponible — téléchargé par Movviz, déposé dans le dossier ou importé de Plex — recharge aussitôt son titre et son synopsis depuis TMDb, sans attendre la synchronisation quotidienne. Une nouvelle tâche légère repasse toutes les 3 heures sur les épisodes récents encore sans titre.
+- Quand TMDb n'a pas encore la traduction d'un épisode, son titre et son synopsis anglais s'affichent à la place d'un titre vide ou « Épisode N » ; le titre français les remplace dès qu'il existe.
+
+### Tâches de fond
+
+- Détection des nouveaux épisodes : le détail d'une saison n'est rechargé que si le nombre d'épisodes diffère ou si un épisode est à venir, sans titre ou sans date ; vérification complète environ une fois par mois par série, étalée. Une série terminée et complète n'est revue que tous les 3 jours.
+- Mise à jour des fiches TMDb selon l'âge du titre : quotidienne pour un titre à venir, récent ou en cours, hebdomadaire jusqu'à 2 ans, mensuelle au-delà.
+- Le test de puissance du serveur ne repart plus à chaque nouvelle version, seulement si ffmpeg, la machine ou l'accélération matérielle change (et tous les 30 jours).
+- Les recherches de remplacement sans résultat ne sont plus refaites avant 3 jours (le budget de recherches avance au lieu de retomber sur les mêmes titres), et l'état de la recherche de meilleures versions survit au redémarrage.
+- La récupération des téléchargements restés dans le dossier ne relit tout le dossier que si les torrents du moteur ont changé, ou toutes les 3 heures.
+
+### Nettoyage
+
+- Mode fluide propre à chaque appareil, réinitialisation complète en un seul endroit, interrupteur du lecteur Movviz uniquement dans le profil, espace disque affiché une seule fois, textes d'aide corrigés, options HDR traduites et anciennes clés de traduction supprimées.
+
 ## v1.28.71 — 5 novembre 2026
 
 ### Réglages

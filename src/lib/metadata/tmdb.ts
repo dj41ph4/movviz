@@ -706,6 +706,35 @@ export async function getBleachSequelPresentation(preferLanguage?: string) {
   return data ? { overview: data.overview ?? "", posterPath: data.poster_path ?? null, releaseDateFull: data.air_date ?? "2022-10-11" } : null;
 }
 
+/** Titre qu'un épisode porte tant que sa traduction n'existe pas (« Épisode 5 »), ou titre vide. */
+const PLACEHOLDER_EPISODE_TITLE = /^\s*(?:épisode|episode|folge|aflevering|puntata|ep\.?)\s*\d+\s*$/i;
+export function isPlaceholderEpisodeTitle(title: string | null | undefined): boolean {
+  return !title || !title.trim() || PLACEHOLDER_EPISODE_TITLE.test(title);
+}
+
+/** Titres et synopsis anglais des épisodes dont la traduction manque (null s'il n'y a aucun manque). */
+async function englishEpisodeGaps(tmdbId: number, seasonNumber: number, data: RawSeasonDetail): Promise<Map<number, { name?: string; overview?: string }> | null> {
+  if (!(data.episodes ?? []).some((e) => !e.overview?.trim() || isPlaceholderEpisodeTitle(e.name))) return null;
+  const english = await tmdbGet<RawSeasonDetail>(`/tv/${tmdbId}/season/${seasonNumber}`, {}, "en-US");
+  if (!english?.episodes) return null;
+  return new Map(english.episodes.map((e) => [e.episode_number, { name: e.name, overview: e.overview }] as const));
+}
+
+/**
+ * Recharge une saison depuis TMDb en ignorant la copie en cache (langue demandée + anglais),
+ * pour qu'un épisode tout juste sorti affiche tout de suite son titre et son synopsis.
+ */
+export async function refreshSeasonFromTmdb(tmdbId: number, seasonNumber: number, preferLanguage?: string): Promise<void> {
+  const key = apiKey();
+  if (!key) return;
+  for (const language of new Set([toTmdbLanguage(preferLanguage), "en-US"])) {
+    const url = new URL(`${BASE}/tv/${tmdbId}/season/${seasonNumber}`);
+    url.searchParams.set("api_key", key);
+    url.searchParams.set("language", language);
+    await fetchAndCache<RawSeasonDetail>(url.toString());
+  }
+}
+
 export async function getSeason(tmdbId: number, seasonNumber: number, preferLanguage?: string, opts?: { bleachOrder?: BleachEpisodeOrder }): Promise<MetaSeason | null> {
   const operationalBleach = tmdbId === BLEACH_TMDB_ID && opts?.bleachOrder !== "tmdb";
   const mapped = operationalBleach ? bleachToTmdb(seasonNumber, 1) : null;
@@ -713,6 +742,8 @@ export async function getSeason(tmdbId: number, seasonNumber: number, preferLang
   const sourceSeason = mapped?.seasonNumber ?? seasonNumber;
   const data = await tmdbGet<RawSeasonDetail>(`/tv/${tmdbId}/season/${sourceSeason}`, {}, toTmdbLanguage(preferLanguage));
   if (!data) return null;
+  // Traduction manquante (épisode tout juste sorti, série peu traduite) : titre et synopsis anglais plutôt que rien.
+  const english = !operationalBleach && toTmdbLanguage(preferLanguage) !== "en-US" ? await englishEpisodeGaps(tmdbId, sourceSeason, data) : null;
   const episodes = operationalBleach
     ? (data.episodes ?? []).filter((e) => bleachFromTmdb(e.season_number, e.episode_number)?.seasonNumber === seasonNumber)
     : data.episodes ?? [];
@@ -727,9 +758,9 @@ export async function getSeason(tmdbId: number, seasonNumber: number, preferLang
       seasonNumber,
       episodeNumber: operationalBleach ? bleachFromTmdb(e.season_number, e.episode_number)!.episodeNumber : e.episode_number,
       ...(operationalBleach ? { tmdbSeasonNumber: e.season_number, tmdbEpisodeNumber: e.episode_number } : {}),
-      title: e.name,
+      title: isPlaceholderEpisodeTitle(e.name) && !isPlaceholderEpisodeTitle(english?.get(e.episode_number)?.name) ? english!.get(e.episode_number)!.name! : e.name,
       airDate: e.air_date ?? null,
-      overview: e.overview ?? "",
+      overview: e.overview?.trim() ? e.overview : english?.get(e.episode_number)?.overview ?? "",
       stillPath: e.still_path ?? null,
       // Deux champs que TMDb renvoie depuis toujours sur cette route et qui
       // étaient simplement jetés ici. Un `runtime` à 0 existe sur les

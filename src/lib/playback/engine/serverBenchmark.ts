@@ -62,6 +62,8 @@ export interface ServerBenchmarkResult {
    *  CURRENT version at boot to decide whether an update just installed and
    *  a fresh benchmark is due (see shouldAutoRunBenchmark() below). */
   appVersion: string;
+  /** Empreinte de ce qui conditionne la vitesse (ffmpeg, accélération matérielle exposée) : voir currentBenchmarkEnvironment(). */
+  environment?: string;
   hardwareAcceleration: {
     nvenc: boolean;
     qsv: boolean;
@@ -207,6 +209,7 @@ export async function runServerBenchmark(): Promise<ServerBenchmarkResult> {
     ranAt: Date.now(),
     durationMs: Date.now() - start,
     appVersion: currentAppVersion(),
+    environment: currentBenchmarkEnvironment(),
     hardwareAcceleration: server.hardwareAcceleration as ServerBenchmarkResult["hardwareAcceleration"],
     profiles,
   };
@@ -220,16 +223,32 @@ export function readServerBenchmark(): ServerBenchmarkResult | null {
 }
 
 /**
- * Called once at boot (instrumentation.ts). True when no benchmark has ever
- * run, OR the last one ran under a different app version — the update
- * either just installed (new version, no benchmark for it yet) or this is
- * a first boot. Deliberately does NOT compare timestamps/uptime — a
- * version bump is the actual signal an update happened, not "it's been a
- * while", which the monthly scheduled task already covers separately.
+ * Empreinte de ce qui change réellement la vitesse de transcodage : le binaire ffmpeg (taille et
+ * date), la plateforme, et l'accélération matérielle exposée au processus (GPU Intel/AMD via
+ * /dev/dri, NVIDIA). Une mise à jour de Movviz seule ne la change pas.
+ */
+export function currentBenchmarkEnvironment(): string {
+  let ffmpeg = "absent";
+  try {
+    const binary = resolveFfmpegBinary();
+    const stat = fs.statSync(binary);
+    ffmpeg = `${path.basename(binary)}:${stat.size}:${Math.floor(stat.mtimeMs)}`;
+  } catch { /* binaire résolu par le PATH ou absent : l'empreinte reste « absent » */ }
+  const render = fs.existsSync("/dev/dri") ? "dri" : "no-dri";
+  const nvidia = process.env.NVIDIA_VISIBLE_DEVICES ? "nvidia" : "no-nvidia";
+  return `${ffmpeg}|${process.platform}-${process.arch}|${render}|${nvidia}`;
+}
+
+/**
+ * Called once at boot (instrumentation.ts). True when no benchmark has ever run, or the
+ * environment that sets transcode speed changed since the last one (new ffmpeg build, another
+ * host, GPU newly exposed). A new Movviz version alone no longer triggers it: every release
+ * restarted the server and re-ran a heavy encode test on hardware that had not changed. The
+ * monthly scheduled task still covers slow drift.
  */
 export function shouldAutoRunBenchmark(): boolean {
   const last = readServerBenchmark();
-  return !last || last.appVersion !== currentAppVersion();
+  return !last || last.environment !== currentBenchmarkEnvironment();
 }
 
 

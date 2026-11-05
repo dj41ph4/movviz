@@ -1,5 +1,6 @@
 import { loadSeries, getSeries, updateSeries } from "@/lib/library/store";
-import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
+import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason, isPlaceholderEpisodeTitle } from "@/lib/metadata/tmdb";
+import { isFresh, markDone } from "@/lib/library/taskMemory";
 import { specialsEnabled } from "@/lib/metadata/tvdb";
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { withKeyLock } from "@/lib/library/locks";
@@ -24,13 +25,40 @@ import type { MetaSeason } from "@/lib/metadata/types";
  * - skips series whose structure doesn't match TMDb's (TVDB-ordered anime,
  *   Bleach, a library season TMDb doesn't have, more episodes than TMDb),
  *   since their numbering can't be safely reconciled automatically.
+ *
+ * Incrémental : ne redemande à TMDb que ce qui peut avoir changé.
+ * - une série terminée et complète n'est revérifiée que tous les 3 jours ;
+ * - pour une série revérifiée, le détail d'une saison n'est chargé que si le nombre
+ *   d'épisodes annoncé par la fiche série diffère de celui de la bibliothèque, ou si un
+ *   épisode est encore à venir, sans titre ou sans date ;
+ * - une vérification complète (toutes les saisons) a lieu environ une fois par mois et par série,
+ *   étalée dans le temps, pour rattraper un titre corrigé sur TMDb.
+ * Un nouvel épisode, une nouvelle saison ou un titre manquant restent donc détectés dès le
+ * prochain passage ; le titre d'un épisode qui vient d'arriver est de plus rechargé aussitôt
+ * (episodeMeta.ts).
  */
+const MEMORY_SCOPE = "series-episodes-sync";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ENDED_RECHECK_MS = 3 * DAY_MS;
+const DEEP_RECHECK_MS = 30 * DAY_MS;
+
+function isUnsettled(ep: LibraryEpisode): boolean {
+  return ep.status === "upcoming" || !ep.airDate || isPlaceholderEpisodeTitle(ep.title);
+}
+
+function seriesNeedsCheck(series: LibrarySeries, now: number): boolean {
+  const ended = /^(ended|canceled|cancelled)$/i.test(series.tvStatus ?? "");
+  const unsettled = series.seasons.some((season) => season.episodes.some(isUnsettled));
+  if (!ended || unsettled) return true;
+  return !isFresh(MEMORY_SCOPE, series.id, ENDED_RECHECK_MS, undefined, now);
+}
 export async function syncSeriesEpisodes(): Promise<{ checked: number; updated: number; episodesAdded: number; skipped: number }> {
   let checked = 0;
   let updated = 0;
   let episodesAdded = 0;
   let skipped = 0;
   const specials = specialsEnabled();
+  const now = Date.now();
   const allSeries = loadSeries();
   const tick = trackJobProgress(allSeries.length);
 
@@ -38,22 +66,30 @@ export async function syncSeriesEpisodes(): Promise<{ checked: number; updated: 
     await yieldToEventLoop();
     tick();
     if (listed.tmdbId === BLEACH_TMDB_ID || listed.episodeOrder === "tvdb") { skipped++; continue; }
+    if (!seriesNeedsCheck(listed, now)) continue;
     const meta = await fetchTmdbSeries(listed.tmdbId).catch(() => null);
     if (!meta) continue;
     checked++;
 
+    const deep = !isFresh(MEMORY_SCOPE, `${listed.id}:deep`, DEEP_RECHECK_MS, undefined, now);
     const tmdbSeasons: MetaSeason[] = [];
     for (const s of meta.seasons) {
       if (s.seasonNumber === 0 && !specials && !listed.seasons.some((ls) => ls.seasonNumber === 0)) continue;
+      const local = listed.seasons.find((ls) => ls.seasonNumber === s.seasonNumber);
+      const changed = !local || local.episodes.length !== s.episodeCount || local.episodes.some(isUnsettled);
+      if (!deep && !changed) continue;
       const detail = await fetchTmdbSeason(listed.tmdbId, s.seasonNumber).catch(() => null);
       if (detail) tmdbSeasons.push(detail);
     }
+    markDone(MEMORY_SCOPE, listed.id);
+    if (deep) markDone(MEMORY_SCOPE, `${listed.id}:deep`, undefined, 5 * DAY_MS);
     if (tmdbSeasons.length === 0) continue;
 
     const outcome = await withKeyLock(`series:${listed.id}`, async () => {
       const current = getSeries(listed.id);
       if (!current) return null;
-      const merged = mergeSeasons(current, tmdbSeasons);
+      // Passage partiel : seules certaines saisons ont été relues, les autres ne sont pas à valider.
+      const merged = mergeSeasons(current, tmdbSeasons, { partial: !deep });
       if (!merged) return "skip" as const;
       if (!merged.changed) return null;
       updateSeries(current.id, { seasons: merged.seasons });
@@ -81,13 +117,13 @@ export async function repairLongCutSeasons(): Promise<number> {
 }
 
 /** Returns null when the library structure is incompatible with TMDb's. */
-export function mergeSeasons(series: LibrarySeries, tmdbSeasons: MetaSeason[]): { seasons: LibrarySeason[]; changed: boolean; added: number } | null {
+export function mergeSeasons(series: LibrarySeries, tmdbSeasons: MetaSeason[], opts?: { partial?: boolean }): { seasons: LibrarySeason[]; changed: boolean; added: number } | null {
   const tmdbByNumber = new Map(tmdbSeasons.map((s) => [s.seasonNumber, s] as const));
   for (const ls of series.seasons) {
     const ts = tmdbByNumber.get(ls.seasonNumber);
     if (!ts) {
       // A library season TMDb doesn't know only matters if it holds episodes.
-      if (ls.episodes.length > 0) return null;
+      if (!opts?.partial && ls.episodes.length > 0) return null;
       continue;
     }
     const tmdbNumbers = new Set(ts.episodes.map((e) => e.episodeNumber));

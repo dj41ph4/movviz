@@ -31,6 +31,7 @@ import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLi
 import { movieHasReleased, movieReleasedRecently } from "@/lib/library/releaseSchedule";
 import { withSearchLock } from "@/lib/library/autoGrabSeries";
 import { runBackground } from "@/lib/priority/lane";
+import { readState, writeState } from "@/lib/library/taskMemory";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { trackOp } from "@/lib/blockProbe";
 import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBackoff";
@@ -448,6 +449,33 @@ interface QualityUpgradeState {
   lastFullPassAt: number;
 }
 const gq = globalThis as typeof globalThis & { __movvizQualityUpgradeState?: QualityUpgradeState };
+const QUALITY_STATE_SCOPE = "quality-upgrade-state";
+/** Au-delà, on garde les plus récentes : le cache RSS ne retient de toute façon que quelques centaines de releases. */
+const QUALITY_STATE_MAX_ENTRIES = 6000;
+
+/** État du dernier passage, relu du disque après un redémarrage (chaque mise à jour en provoque un) au lieu de refaire un passage complet. */
+function loadQualityUpgradeState(): QualityUpgradeState | undefined {
+  const inMemory = gq.__movvizQualityUpgradeState;
+  if (inMemory) return inMemory;
+  const saved = readState<{ seen: string[]; targets: string[]; rulesSignature: string; lastFullPassAt: number } | null>(QUALITY_STATE_SCOPE, null);
+  if (!saved) return undefined;
+  return (gq.__movvizQualityUpgradeState = {
+    seenReleases: new Set(saved.seen),
+    knownTargets: new Set(saved.targets),
+    rulesSignature: saved.rulesSignature,
+    lastFullPassAt: saved.lastFullPassAt,
+  });
+}
+
+function saveQualityUpgradeState(state: QualityUpgradeState): void {
+  gq.__movvizQualityUpgradeState = state;
+  writeState(QUALITY_STATE_SCOPE, {
+    seen: [...state.seenReleases].slice(-QUALITY_STATE_MAX_ENTRIES),
+    targets: [...state.knownTargets].slice(-QUALITY_STATE_MAX_ENTRIES),
+    rulesSignature: state.rulesSignature,
+    lastFullPassAt: state.lastFullPassAt,
+  });
+}
 
 async function checkQualityUpgradesInner() {
   const upgraded: string[] = [];
@@ -455,7 +483,7 @@ async function checkQualityUpgradesInner() {
   const rules = loadReleaseRules();
   const now = Date.now();
   const rulesSignature = JSON.stringify(rules);
-  const prev = gq.__movvizQualityUpgradeState;
+  const prev = loadQualityUpgradeState();
   const fullPass = !prev || prev.rulesSignature !== rulesSignature || now - prev.lastFullPassAt >= QUALITY_FULL_PASS_EVERY_MS;
   const releaseKey = (r: IndexerRelease) => r.guid || `${r.indexerId}|${r.title}`;
   const newReleases = fullPass ? allReleases : allReleases.filter((r) => !prev.seenReleases.has(releaseKey(r)));
@@ -552,12 +580,12 @@ async function checkQualityUpgradesInner() {
       continue;
     }
   }
-  gq.__movvizQualityUpgradeState = {
+  saveQualityUpgradeState({
     seenReleases: new Set(allReleases.map(releaseKey)),
     knownTargets: targets,
     rulesSignature,
     lastFullPassAt: fullPass ? now : prev!.lastFullPassAt,
-  };
+  });
   return { upgraded };
 }
 

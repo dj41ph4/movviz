@@ -17,6 +17,7 @@ import { emitNotification } from "@/lib/notifications/store";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { liveSearchRecentlyEmpty, noteLiveSearchEmpty } from "@/lib/library/liveSearchMemory";
 import { isUpgradeIgnored } from "@/lib/library/ignoredUpgrades";
 import { getMediaIndex, type MediaIndexEntry } from "@/lib/library/mediaIndex";
 import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
@@ -320,8 +321,12 @@ export async function findUpgradeCandidates(liveSearch = true): Promise<UpgradeC
     const safeMatches = computeSafeMatches(cachedReleases, { title: m.title, year: m.year }, m.resolution, rules, profile);
 
     let languageUpgrade = wantsLanguageUpgrade ? bestLanguageMatch(safeMatches, targetLanguage!) : undefined;
+    // Recherche directe déjà faite sans résultat pour ce fichier, mêmes règles : inutile de la refaire avant 3 jours.
+    const liveKey = m.movieId ?? m.title;
+    const languageSig = `${targetLanguage}|${m.language}|${m.size}`;
+    const codecSig = `${JSON.stringify(rules.codecScores ?? {})}|${m.videoCodec}|${m.size}`;
 
-    if (liveSearch && wantsLanguageUpgrade && !languageUpgrade && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
+    if (liveSearch && wantsLanguageUpgrade && !languageUpgrade && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN && !liveSearchRecentlyEmpty("movie-lang", liveKey, languageSig)) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {
@@ -336,6 +341,7 @@ export async function findUpgradeCandidates(liveSearch = true): Promise<UpgradeC
         }
         const directMatches = computeSafeMatches(parseReleases(directReleases), { title: m.title, year: m.year }, m.resolution, rules, profile);
         languageUpgrade = bestLanguageMatch(directMatches, targetLanguage!);
+        if (!languageUpgrade) noteLiveSearchEmpty("movie-lang", liveKey, languageSig);
       }
     }
 
@@ -381,7 +387,8 @@ export async function findUpgradeCandidates(liveSearch = true): Promise<UpgradeC
       liveSearch &&
       !languageUpgrade && !audioCodecUpgrade && !videoCodecUpgrade && !resolutionUpgrade &&
       !formatUpgrade && !codecUpgrade && currentCodecScore < bestPossibleCodecScore &&
-      liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN
+      liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN &&
+      !liveSearchRecentlyEmpty("movie-codec", liveKey, codecSig)
     ) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
@@ -405,6 +412,7 @@ export async function findUpgradeCandidates(liveSearch = true): Promise<UpgradeC
             .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
             .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0];
         }
+        if (!formatUpgrade && !codecUpgrade) noteLiveSearchEmpty("movie-codec", liveKey, codecSig);
       }
     }
 

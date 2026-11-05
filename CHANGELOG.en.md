@@ -1,3 +1,27 @@
+## v1.28.72 — 6 November 2026
+
+### Settings
+
+- Settings reorganised: 10 admin-only tabs instead of 24, grouped into 4 paths. Panels on the same subject are now sections of one tab (Downloads: Engine, Sources, Quality; Plex, metadata and imports; Files and upkeep; Diagnostics and performance; Version and data). Old links keep working.
+- Personal settings (home, display, Netflix and LifeHub history import) move to Profile > Preferences. A non-admin user no longer has a Settings entry in the menu.
+
+### Library
+
+- An episode that becomes available — downloaded by Movviz, dropped into the folder or imported from Plex — immediately reloads its title and synopsis from TMDb, without waiting for the daily sync. A new light task goes over recent episodes still missing a title every 3 hours.
+- When TMDb does not yet have an episode's translation, its English title and synopsis are shown instead of an empty title or “Episode N”; the translated title replaces them as soon as it exists.
+
+### Background tasks
+
+- New-episode detection: a season's detail is only reloaded when the episode count differs or an episode is upcoming, untitled or undated; a full check about once a month per series, spread out. A finished, complete series is only reviewed every 3 days.
+- TMDb record refresh depends on the title's age: daily for upcoming, recent or ongoing titles, weekly up to 2 years, monthly beyond.
+- The server power test no longer re-runs on every new version, only when ffmpeg, the machine or hardware acceleration changes (and every 30 days).
+- Replacement searches that found nothing are not repeated for 3 days (the search budget moves on instead of landing on the same titles), and the better-version search state survives a restart.
+- Recovery of downloads left in the folder only rereads the whole folder when the engine's torrents changed, or every 3 hours.
+
+### Cleanup
+
+- Smooth mode per device, full reset in one place, Movviz player switch only in the profile, disk space shown once, help texts fixed, HDR options translated and old translation keys removed.
+
 ## v1.28.71 — 5 November 2026
 
 ### Settings
