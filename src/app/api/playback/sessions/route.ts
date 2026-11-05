@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { openPlaybackSession } from "@/lib/playback/progressStore";
+import { browserFromUserAgent } from "@/lib/playback/browserName";
 import { mergePlexResume } from "@/lib/playback/plexResume";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   const mediaType = body?.mediaType === "episode" ? "episode" : body?.mediaType === "movie" ? "movie" : null;
   const durationMs = Number(body?.durationMs);
   if (!ratingKey || !mediaType || !Number.isFinite(durationMs) || durationMs <= 0) return NextResponse.json({ error: "invalid_media" }, { status: 400 });
-  const result = openPlaybackSession(user.id, { ratingKey, mediaId, mediaType, durationMs, tmdbId: Number.isInteger(Number(body?.tmdbId)) ? Number(body.tmdbId) : undefined, seasonNumber: Number.isInteger(Number(body?.seasonNumber)) ? Number(body.seasonNumber) : undefined, episodeNumber: Number.isInteger(Number(body?.episodeNumber)) ? Number(body.episodeNumber) : undefined, title: typeof body?.title === "string" ? body.title.slice(0, 200) : undefined, webClient: /Mozilla/i.test(req.headers.get("user-agent") ?? "") });
+  const result = openPlaybackSession(user.id, { ratingKey, mediaId, mediaType, durationMs, tmdbId: Number.isInteger(Number(body?.tmdbId)) ? Number(body.tmdbId) : undefined, seasonNumber: Number.isInteger(Number(body?.seasonNumber)) ? Number(body.seasonNumber) : undefined, episodeNumber: Number.isInteger(Number(body?.episodeNumber)) ? Number(body.episodeNumber) : undefined, title: typeof body?.title === "string" ? body.title.slice(0, 200) : undefined, webClient: /Mozilla/i.test(req.headers.get("user-agent") ?? ""), browser: browserFromUserAgent(req.headers.get("user-agent") ?? "") ?? undefined });
   // Movviz's local position is ready now. An already verified Plex snapshot
   // may enrich it, but starting playback never waits for Plex networking.
   let resumeOffsetMs = result.progress.watched ? null : result.progress.resumeOffsetMs;

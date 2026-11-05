@@ -131,6 +131,11 @@ export async function GET(req: NextRequest) {
         thumb,
         transcodeDecision: toTranscodeDecision(engine?.mode ?? null, hb.webClient),
         location: null,
+        browser: hb.browser ?? null,
+        transcodeKind: plan && (plan.videoAction === "TRANSCODE" || plan.audioAction === "TRANSCODE")
+          ? plan.videoAction === "TRANSCODE" ? (plan.audioAction === "TRANSCODE" ? "both" : "video") : "audio"
+          : null,
+        transcodeReasons: plan?.reasons ?? [],
       } satisfies MovvizSession;
     })
   );

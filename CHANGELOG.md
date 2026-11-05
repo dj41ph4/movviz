@@ -1,3 +1,10 @@
+## v1.28.66 — 5 novembre 2026
+
+### Sessions actives
+
+- Le navigateur utilisé (Chrome, Firefox, Edge…) est affiché à côté de l'appareil, pour les lectures lancées après cette mise à jour.
+- Un transcodage est maintenant précisé : « Transcodage audio », « Transcodage vidéo » ou « audio + vidéo », avec la raison au survol (par exemple codec audio non pris en charge par le lecteur).
+
 ## v1.28.65 — 5 novembre 2026
 
 ### Téléchargements

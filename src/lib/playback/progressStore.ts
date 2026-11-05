@@ -49,6 +49,8 @@ export interface PlaybackSession {
   id: string;
   /** Ouverte par un navigateur (true) ou une application native (false) ; absent sur les anciennes sessions. */
   webClient?: boolean;
+  /** Navigateur d’après le user-agent (« Chrome 130 ») ; absent hors navigateur. */
+  browser?: string;
   userId: string;
   ratingKey: string;
   mediaId?: string;
@@ -329,10 +331,10 @@ export function resetPlaybackForUser(userId: string): number {
   return cleared;
 }
 
-export function openPlaybackSession(userId: string, input: { ratingKey: string; mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string; webClient?: boolean }): { session: PlaybackSession; progress: PlaybackProgress } {
+export function openPlaybackSession(userId: string, input: { ratingKey: string; mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string; webClient?: boolean; browser?: string }): { session: PlaybackSession; progress: PlaybackProgress } {
   const progress = ensure(userId, input.ratingKey, input);
   const now = Date.now();
-  const session: PlaybackSession = { id: id(), webClient: input.webClient, userId, ratingKey: input.ratingKey, mediaId: input.mediaId, startedAt: now, lastHeartbeatAt: now, lastPositionMs: progress.watched ? 0 : (progress.resumeOffsetMs ?? 0), lastSequence: -1, actualPlayedMs: 0, seekPending: false, durationMs: input.durationMs, mediaType: input.mediaType, lastIsPlaying: true };
+  const session: PlaybackSession = { id: id(), webClient: input.webClient, browser: input.browser, userId, ratingKey: input.ratingKey, mediaId: input.mediaId, startedAt: now, lastHeartbeatAt: now, lastPositionMs: progress.watched ? 0 : (progress.resumeOffsetMs ?? 0), lastSequence: -1, actualPlayedMs: 0, seekPending: false, durationMs: input.durationMs, mediaType: input.mediaType, lastIsPlaying: true };
   rememberSession(session);
   persist();
   recordPlaybackStarted(session.id, progress, now);

@@ -1,3 +1,10 @@
+## v1.28.66 — 5 novembre 2026
+
+### Sessioni attive
+
+- Il browser in uso (Chrome, Firefox, Edge…) è mostrato accanto al dispositivo, per le riproduzioni avviate dopo questo aggiornamento.
+- La transcodifica è ora specificata: «Transcodifica audio», «Transcodifica video» o «audio + video», con il motivo al passaggio del mouse (ad esempio codec audio non supportato dal lettore).
+
 ## v1.28.65 — 5 novembre 2026
 
 ### Download

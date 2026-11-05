@@ -29,6 +29,12 @@ export interface MovvizSession {
   thumb: string | null;
   transcodeDecision: "transcode" | "copy" | "directplay" | "unknown";
   location: null;
+  /** Navigateur (« Chrome 130 ») quand la lecture se fait dans un navigateur. */
+  browser: string | null;
+  /** Ce qui est ré-encodé quand transcodeDecision vaut "transcode". */
+  transcodeKind: "audio" | "video" | "both" | null;
+  /** Codes des raisons du plan de lecture (PlaybackReasonCode). */
+  transcodeReasons: string[];
 }
 
 /** Same admin-gated SWR pattern as usePlexActivity.ts — see that file. */

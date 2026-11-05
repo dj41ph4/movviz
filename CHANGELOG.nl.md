@@ -1,3 +1,10 @@
+## v1.28.66 — 5 november 2026
+
+### Actieve sessies
+
+- De gebruikte browser (Chrome, Firefox, Edge…) wordt naast het apparaat getoond, voor afspelingen die na deze update zijn gestart.
+- Transcodering wordt nu gespecificeerd: „Audio-transcodering”, „Video-transcodering” of „audio + video”, met de reden bij hover (bijvoorbeeld audiocodec niet ondersteund door de speler).
+
 ## v1.28.65 — 5 november 2026
 
 ### Downloads

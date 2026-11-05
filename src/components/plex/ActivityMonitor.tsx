@@ -48,14 +48,31 @@ function SessionRow({ s, t, onNavigate }: { s: AnySession; t: (k: string, params
   // Movviz origin's `device` is a raw clientType code (route.ts has no
   // request locale to translate against), Plex origin's is already the real
   // player name reported by Plex — nothing to translate there.
-  const deviceLabel = s.origin === "movviz" ? t(MOVVIZ_DEVICE_KEYS[s.device] ?? "movvizActivity.deviceUnknown") : s.device;
+  const deviceLabel = s.origin === "movviz"
+    ? `${t(MOVVIZ_DEVICE_KEYS[s.device] ?? "movvizActivity.deviceUnknown")}${s.browser ? ` · ${s.browser}` : ""}`
+    : s.device;
   const isBuffering = s.state === "buffering";
   const stateLabel = isBuffering ? t("plexActivity.buffering") : isPlaying ? t("plexActivity.live") : t("plexActivity.paused");
   const stateColor = isBuffering ? "text-amber" : isPlaying ? "text-ok" : "text-ink-dim";
 
+  // Session Movviz : on précise CE qui est ré-encodé (audio, vidéo ou les deux) et pourquoi.
+  const kind = s.origin === "movviz" ? s.transcodeKind : null;
+  const reasonText = s.origin === "movviz"
+    ? s.transcodeReasons.map((code) => {
+        const key = `plexActivity.reason_${code}`;
+        const label = t(key);
+        return label === key ? code : label;
+      }).join(", ")
+    : "";
   const transcodePill = s.transcodeDecision === "unknown" ? null :
     s.transcodeDecision === "transcode"
-      ? { text: t("plexActivity.transcoding"), hint: t("plexActivity.transcodingHint"), cls: "border-amber/30 bg-amber/12 text-amber" }
+      ? kind
+        ? {
+            text: t(kind === "audio" ? "plexActivity.transcodingAudio" : kind === "video" ? "plexActivity.transcodingVideo" : "plexActivity.transcodingBoth"),
+            hint: `${t(kind === "audio" ? "plexActivity.transcodingAudioHint" : kind === "video" ? "plexActivity.transcodingVideoHint" : "plexActivity.transcodingHint")}${reasonText ? ` ${t("plexActivity.transcodingReasons", { reasons: reasonText })}` : ""}`,
+            cls: "border-amber/30 bg-amber/12 text-amber",
+          }
+        : { text: t("plexActivity.transcoding"), hint: t("plexActivity.transcodingHint"), cls: "border-amber/30 bg-amber/12 text-amber" }
       : s.transcodeDecision === "copy"
         ? { text: t("plexActivity.directStream"), hint: t("plexActivity.directStreamHint"), cls: "border-cyan/30 bg-cyan/12 text-cyan" }
         : { text: t("plexActivity.directPlay"), hint: t("plexActivity.directPlayHint"), cls: "border-ok/30 bg-ok/12 text-ok" };

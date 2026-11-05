@@ -1,3 +1,10 @@
+## v1.28.66 — 5 November 2026
+
+### Active sessions
+
+- The browser in use (Chrome, Firefox, Edge…) is shown next to the device, for playbacks started after this update.
+- Transcoding is now specified: “Audio transcoding”, “Video transcoding” or “audio + video”, with the reason on hover (for example audio codec not supported by the player).
+
 ## v1.28.65 — 5 November 2026
 
 ### Downloads

@@ -1,3 +1,10 @@
+## v1.28.66 — 5. November 2026
+
+### Aktive Sitzungen
+
+- Der verwendete Browser (Chrome, Firefox, Edge…) wird neben dem Gerät angezeigt, für Wiedergaben, die nach diesem Update gestartet werden.
+- Die Transkodierung wird jetzt genauer angegeben: „Audio-Transkodierung“, „Video-Transkodierung“ oder „Audio + Video“, mit dem Grund beim Überfahren (z. B. Audio-Codec vom Player nicht unterstützt).
+
 ## v1.28.65 — 5. November 2026
 
 ### Downloads
