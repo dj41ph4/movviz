@@ -1,3 +1,11 @@
+## v1.28.69 — 5 novembre 2026
+
+### Bibliothèque
+
+- Quand Plex désigne un autre fichier pour un épisode déjà présent (une autre version du même épisode), il ne remonte plus dans « Ajouts récents » : sa date d'ajout d'origine est conservée.
+- Une réparation unique, 3 minutes après le démarrage, rétablit les dates d'ajout faussées le 5 novembre (d'après la date du fichier sur le disque) : seuls les vrais téléchargements récents restent dans « Ajouts récents ».
+- La migration automatique vers « 720p minimum » est retirée : les séries gardent leur profil de qualité. Quand aucune release n'existe dans les résolutions du profil, la recherche prend la meilleure disponible (réglable dans Réglages > Qualité).
+
 ## v1.28.68 — 5 novembre 2026
 
 ### Application smartphone

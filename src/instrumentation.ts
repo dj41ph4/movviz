@@ -83,12 +83,6 @@ export async function register() {
       };
     }
 
-    try {
-      const { migrateLibraryTo720pOnce } = await import("@/lib/library/qualityMigration");
-      const moved = migrateLibraryTo720pOnce();
-      if (moved) logBootPhase("info", "migration.quality_720p", `Bibliothèque passée en 720p minimum : ${moved.series} série(s), ${moved.movies} film(s)`);
-    } catch { /* best-effort */ }
-
     const { reconcileStaleSearches } = await import("@/lib/library/reconcileStaleSearches");
     await phase("recherches interrompues", () => reconcileStaleSearches());
 
@@ -103,6 +97,13 @@ export async function register() {
             await refreshPlexLibraryFor("tv");
           }
         })
+        .catch(() => {});
+    }, 3 * 60_000).unref?.();
+
+    // Réparation unique des faux « Ajouts récents » du 5 novembre 2026, 3 minutes après le démarrage (hors du chemin critique).
+    setTimeout(() => {
+      void import("@/lib/library/repairRecentAdditions")
+        .then(({ repairFalseRecentAdditionsOnce }) => repairFalseRecentAdditionsOnce())
         .catch(() => {});
     }, 3 * 60_000).unref?.();
 

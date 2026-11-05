@@ -1,3 +1,11 @@
+## v1.28.69 — 5. November 2026
+
+### Bibliothek
+
+- Verweist Plex bei einer bereits vorhandenen Folge auf eine andere Datei (andere Version derselben Folge), erscheint sie nicht mehr unter „Kürzlich hinzugefügt“: ihr ursprüngliches Hinzufügedatum bleibt erhalten.
+- Eine einmalige Reparatur 3 Minuten nach dem Start stellt die am 5. November verfälschten Hinzufügedaten wieder her (anhand des Dateidatums auf der Festplatte): nur echte neue Downloads bleiben unter „Kürzlich hinzugefügt“.
+- Die automatische Migration auf „mindestens 720p“ entfällt: Serien behalten ihr Qualitätsprofil. Gibt es keine Veröffentlichung in den Auflösungen des Profils, nimmt die Suche die beste verfügbare (einstellbar unter Einstellungen > Qualität).
+
 ## v1.28.68 — 5. November 2026
 
 ### Smartphone-App

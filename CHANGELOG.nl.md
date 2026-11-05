@@ -1,3 +1,11 @@
+## v1.28.69 — 5 november 2026
+
+### Bibliotheek
+
+- Wijst Plex voor een aflevering die al in de bibliotheek staat een ander bestand aan (een andere versie van dezelfde aflevering), dan verschijnt die niet meer onder „Onlangs toegevoegd”: de oorspronkelijke toevoegdatum blijft behouden.
+- Een eenmalige reparatie, 3 minuten na het opstarten, herstelt de op 5 november vervalste toevoegdatums (op basis van de bestandsdatum op schijf): alleen echt recente downloads blijven onder „Onlangs toegevoegd”.
+- De automatische migratie naar „minimaal 720p” vervalt: series behouden hun kwaliteitsprofiel. Bestaat er geen release in de resoluties van het profiel, dan neemt de zoekopdracht de beste beschikbare (instelbaar onder Instellingen > Kwaliteit).
+
 ## v1.28.68 — 5 november 2026
 
 ### Smartphone-app

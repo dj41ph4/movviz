@@ -273,14 +273,21 @@ function fileNeedsProbe(movieId: string, before: LibraryFile | null | undefined,
   return !hasCachedMediaDescriptor(movieId);
 }
 
-export function toLibraryFileReconciled(plex: PlexLibraryItem, existingFile: LibraryFile | null | undefined): LibraryFile | null {
+/**
+ * `keepAddedAt` : pour un épisode qui avait déjà un fichier, un changement de chemin signalé par Plex (autre version
+ * du même épisode, par exemple un fichier « (2) » devenu le premier de la liste) n’est pas un nouvel ajout : la date
+ * d’ajout d’origine est conservée, sinon l’épisode remonte à tort dans « Ajouts récents ».
+ */
+export function toLibraryFileReconciled(plex: PlexLibraryItem, existingFile: LibraryFile | null | undefined, keepAddedAt = false): LibraryFile | null {
   const file = toLibraryFile(plex);
   if (!file) return null;
   file.path = reconcileFilePath(existingFile?.path, file.path);
   if (existingFile) {
     const sameFile = existingFile.size === file.size &&
       isSamePhysicalFileCached(existingFile.path, file.path, 2, loadPathMappings());
-    file.addedAt = sameFile ? (existingFile.addedAt > 0 ? existingFile.addedAt : file.addedAt) : Date.now();
+    file.addedAt = sameFile || (keepAddedAt && existingFile.addedAt > 0)
+      ? (existingFile.addedAt > 0 ? existingFile.addedAt : file.addedAt)
+      : Date.now();
   }
   return file;
 }
@@ -748,7 +755,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           episodes: season.episodes.map((ep) => {
             const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
             if (plexEp && ep.status !== "available") {
-              return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file) ?? ep.file, plexRatingKey: plexEp.ratingKey };
+              return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file, true) ?? ep.file, plexRatingKey: plexEp.ratingKey };
             }
             return ep;
           }),
@@ -868,7 +875,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
-              const nextFile = toLibraryFileReconciled(plexEp, ep.file) ?? ep.file;
+              const nextFile = toLibraryFileReconciled(plexEp, ep.file, true) ?? ep.file;
               const localPlayable = hasValidLocalFile(nextFile);
               // Only worth a fresh probe when the file actually changed (new
               // path, first time it exists) — same "only on real file change,
