@@ -16,6 +16,7 @@
 
 import { detectCodecs } from "@/lib/player/webcodecs";
 import { detectCapabilities } from "../capabilities";
+import { deepBufferSupported } from "../ffmpeg/deepBuffer";
 import type { AudioCapability, ClientPlaybackProfile, SubtitleCapability, VideoCapability } from "./clientProfile";
 import type { HdrType } from "./mediaDescriptor";
 
@@ -126,7 +127,10 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
       dash: true,
       mse: browserCaps.mseAvailable,
     },
-    containers: ["mp4"],
+    // Aucun conteneur déclaré quand le tampon profond est disponible : même un .mp4 passe par le
+    // flux du serveur (vidéo et audio copiés), seul chemin où l'on maîtrise l'avance. Un `<video>`
+    // en lecture directe reste à 3-15 s de tampon, sans réglage possible (mesuré en prod).
+    containers: deepBufferSupported() ? [] : ["mp4"],
     videoCapabilities,
     audioCapabilities,
     subtitleCapabilities,

@@ -1,3 +1,13 @@
+## v1.28.58 — 5 november 2026
+
+### Webspeler
+
+- De buffer is nu echt lang: naast het geheugen van de videospeler houdt de browser tot 10 minuten vooruit (maximaal 1 GB op pc, 256 MB op telefoon). Eerder bleef een bestand van 10 Mbps op ongeveer 40 s steken.
+- Een onderbreking van netwerk of server stopt het afspelen niet meer: alles wat al is ontvangen wordt afgespeeld, daarna gaat de stream verder op de juiste positie.
+- De voortgangsbalk toont alles wat vooruit is ontvangen, inclusief de reserve.
+- .mp4-bestanden krijgen deze lange buffer ook in browsers: ze gebruiken dezelfde stream, met video en audio verliesvrij gekopieerd. Safari op iPhone, dat dit mechanisme mist, blijft rechtstreeks afspelen.
+- „Actieve sessies” toont niet langer ten onrechte „Direct afspelen” voor een browser waarvan de sessie verloren ging bij het herstarten van de server.
+
 ## v1.28.57 — 5 november 2026
 
 ### Webspeler

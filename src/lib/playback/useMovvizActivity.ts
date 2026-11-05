@@ -27,7 +27,7 @@ export interface MovvizSession {
   audioCodec: string | null;
   resolution: string | null;
   thumb: string | null;
-  transcodeDecision: "transcode" | "copy" | "directplay";
+  transcodeDecision: "transcode" | "copy" | "directplay" | "unknown";
   location: null;
 }
 

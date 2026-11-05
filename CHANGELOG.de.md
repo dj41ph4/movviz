@@ -1,3 +1,13 @@
+## v1.28.58 — 5. November 2026
+
+### Web-Player
+
+- Der Puffer ist jetzt wirklich lang: Zusätzlich zum Speicher des Videoplayers hält der Browser bis zu 10 Minuten Vorlauf (höchstens 1 GB auf dem PC, 256 MB auf dem Handy). Vorher war eine Datei mit 10 Mbit/s auf etwa 40 s begrenzt.
+- Eine Unterbrechung von Netzwerk oder Server stoppt die Wiedergabe nicht mehr: Alles bereits Empfangene wird abgespielt, dann setzt der Stream an der richtigen Stelle wieder ein.
+- Die Fortschrittsleiste zeigt den gesamten empfangenen Vorlauf, einschließlich der Reserve.
+- .mp4-Dateien erhalten diesen langen Puffer in Browsern ebenfalls: Sie nutzen denselben Stream, Video und Ton werden verlustfrei kopiert. Safari auf dem iPhone, dem dieser Mechanismus fehlt, bleibt bei der Direktwiedergabe.
+- Die „Aktiven Sitzungen“ zeigen nicht mehr fälschlich „Direktwiedergabe“ für einen Browser, dessen Sitzung beim Serverneustart verloren ging.
+
 ## v1.28.57 — 5. November 2026
 
 ### Web-Player

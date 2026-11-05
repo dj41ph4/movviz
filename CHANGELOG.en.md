@@ -1,3 +1,13 @@
+## v1.28.58 — 5 November 2026
+
+### Web player
+
+- The buffer is now really long: on top of the video player's memory, the browser keeps up to 10 minutes ahead (1 GB at most on PC, 256 MB on phones). Before, a 10 Mbps file capped at about 40 s.
+- A network or server cut no longer interrupts playback: everything already received is played, then the stream resumes at the right position.
+- The progress bar shows everything received ahead, reserve included.
+- .mp4 files also get this long buffer in browsers: they use the same stream, video and audio copied without loss. Safari on iPhone, which lacks this mechanism, stays on direct play.
+- “Active sessions” no longer wrongly shows “Direct play” for a browser whose session was lost when the server restarted.
+
 ## v1.28.57 — 5 November 2026
 
 ### Web player

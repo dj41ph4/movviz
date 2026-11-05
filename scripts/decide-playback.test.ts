@@ -766,3 +766,19 @@ test("selected French AAC stays COPY when English DTS exists but is unselected, 
   assert.equal(plan.audioAction, "COPY");
   assert.ok(!plan.reasons.includes("AUDIO_CODEC_UNSUPPORTED"));
 });
+
+// ── navigateur avec tampon profond : aucun conteneur déclaré, le .mp4 passe aussi par le flux serveur ──
+test("profil sans conteneur : un .mp4 H.264/AAC est copié (REMUX), jamais ré-encodé ni en lecture directe", () => {
+  const plan = decidePlayback({
+    media: media({
+      container: "mov,mp4,m4a,3gp,3g2,mj2",
+      video: { index: 0, codec: "h264", profile: "High", level: "40", width: 1920, height: 1080, fps: 24, bitDepth: 8 },
+      audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+    }),
+    client: client({ containers: [], videoCapabilities: [{ codec: "h264", bitDepths: [8] }] }),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "REMUX");
+  assert.equal(plan.videoAction, "COPY");
+  assert.equal(plan.audioAction, "COPY");
+});

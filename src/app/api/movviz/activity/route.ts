@@ -46,7 +46,7 @@ function deviceCode(clientType: EnginePlaybackSession["clientType"] | null): str
  *  record briefly during fallback cascades (§43) — closest is "transcode"
  *  (something is being worked on, not a clean pass-through) rather than
  *  inventing a 4th UI state. */
-function toTranscodeDecision(mode: EnginePlaybackSession["mode"] | null): "transcode" | "copy" | "directplay" {
+function toTranscodeDecision(mode: EnginePlaybackSession["mode"] | null, webClient?: boolean): "transcode" | "copy" | "directplay" | "unknown" {
   switch (mode) {
     case "DIRECT_PLAY":
       return "directplay";
@@ -59,8 +59,9 @@ function toTranscodeDecision(mode: EnginePlaybackSession["mode"] | null): "trans
     default:
       // No sessionManager match at all (heartbeat-only, degraded case) —
       // assume the least alarming state rather than flagging a transcode
-      // that may not be happening.
-      return "directplay";
+      // that may not be happening. Un navigateur sans session moteur (serveur redémarré depuis
+      // le début de sa lecture) n'est jamais en lecture directe affirmée : on ne sait pas.
+      return webClient ? "unknown" : "directplay";
   }
 }
 
@@ -123,12 +124,12 @@ export async function GET(req: NextRequest) {
         duration: durationMs,
         bitrate: 0,
         bandwidth: 0,
-        device: deviceCode(engine?.clientType ?? null),
+        device: deviceCode(engine?.clientType ?? (hb.webClient ? "desktop-web" : null)),
         videoCodec,
         audioCodec,
         resolution: null,
         thumb,
-        transcodeDecision: toTranscodeDecision(engine?.mode ?? null),
+        transcodeDecision: toTranscodeDecision(engine?.mode ?? null, hb.webClient),
         location: null,
       } satisfies MovvizSession;
     })

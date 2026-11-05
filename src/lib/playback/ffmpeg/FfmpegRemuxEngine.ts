@@ -100,6 +100,11 @@ export class FfmpegRemuxEngine {
     return this.deep !== null;
   }
 
+  /** Secondes d'avance gardées en réserve, en plus de ce que `video.buffered` indique. */
+  get reserveSeconds(): number {
+    return this.deep?.reserveSeconds ?? 0;
+  }
+
   private stopDeep(): void {
     const deep = this.deep;
     this.deep = null;

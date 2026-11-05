@@ -4,16 +4,21 @@
  * Un `<video src>` sur ce flux (réponse 200 en morceaux, sans longueur) n'est
  * pas lu plus de ~2,5 s à l'avance par Chrome : la moindre pause du serveur ou
  * du réseau vide le tampon (mesuré en prod le 2026-11-05, reproduit avec un
- * serveur de test local). Ici le flux est lu par fetch et injecté dans un
- * SourceBuffer MSE, ce qui permet de garder plusieurs dizaines de secondes
- * d'avance. Tout cas non pris en charge (codec inconnu, MSE absent, erreur
- * d'ajout) rend la main au chemin natif `video.src` — voir FfmpegRemuxEngine.
+ * serveur de test local). Ici le flux est lu par fetch et passe par deux étages :
+ * une réserve en mémoire (plusieurs minutes, jusqu'à 1 Gio selon l'appareil) puis
+ * un SourceBuffer MSE, limité par le quota du navigateur (~150 Mo sur Chrome). Une
+ * coupure du réseau ou du serveur se joue donc sur la réserve. Tout cas non pris en
+ * charge (codec inconnu, MSE absent, erreur d'ajout) rend la main au chemin natif
+ * `video.src` — voir FfmpegRemuxEngine.
  */
 
 const FORWARD_MAX_SEC = 90;
 const FORWARD_MIN_SEC = 20;
-/** Budget mémoire visé pour le tampon avant, selon le débit réel du flux. */
-const FORWARD_BYTES = 48 * 1024 * 1024;
+/** Part du tampon confiée au SourceBuffer, sous le quota du navigateur. */
+const SOURCE_BUFFER_BYTES = 96 * 1024 * 1024;
+/** Avance visée dans la réserve en mémoire, en plus du SourceBuffer. */
+const RESERVE_MAX_SEC = 600;
+const MIB = 1024 * 1024;
 const BACK_KEEP_SEC = 20;
 const BACK_TRIM_AFTER_SEC = 30;
 const OPEN_TIMEOUT_MS = 6000;
@@ -185,6 +190,15 @@ function boxSizeAt(q: ChunkQueue, at: number): { size: number; type: string } | 
   return { size, type: FOURCC(h, 4) };
 }
 
+/** Taille de la réserve : un téléphone tuerait l'onglet bien avant 1 Gio. */
+function reserveMaxBytes(): number {
+  const mobile = typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (mobile) return 256 * MIB;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  if (memory === undefined) return 512 * MIB;
+  return memory >= 8 ? 1024 * MIB : memory >= 4 ? 512 * MIB : 256 * MIB;
+}
+
 export function deepBufferSupported(): boolean {
   try {
     if (localStorage.getItem("movviz.deepBuffer") === "0") return false;
@@ -202,6 +216,15 @@ export class DeepBufferFeed {
   private stopped = false;
   private appendedBytes = 0;
   private firstStart: number | null = null;
+  /** Fragments reçus, pas encore confiés au SourceBuffer. */
+  private reserve: Uint8Array[] = [];
+  private reserveBytes = 0;
+  private readonly reserveLimit = reserveMaxBytes();
+  private readerDone = false;
+  private readerError: unknown = null;
+  /** Plafond d'avance du SourceBuffer, abaissé si le navigateur refuse d'en stocker plus. */
+  private quotaLimitSec: number | null = null;
+  private wake: (() => void) | null = null;
   private onFailure: (reason: string, kind: DeepBufferFailure) => void = () => void 0;
 
   constructor(private video: HTMLVideoElement, private url: string) {}
@@ -233,7 +256,8 @@ export class DeepBufferFeed {
       sb.mode = "segments";
       this.sb = sb;
       await this.append(init);
-      void this.pump();
+      void this.download();
+      void this.feed();
       return true;
     } catch {
       if (this.stopped) return false;
@@ -254,9 +278,18 @@ export class DeepBufferFeed {
     return null;
   }
 
+  /** Secondes d'avance dans la réserve, en plus de ce que `video.buffered` indique. */
+  get reserveSeconds(): number {
+    const rate = this.bytesPerSec();
+    return rate ? this.reserveBytes / rate : 0;
+  }
+
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
+    this.reserve = [];
+    this.reserveBytes = 0;
+    this.notify();
     try { this.ctrl.abort(); } catch { /* déjà coupé */ }
     try { void this.reader?.cancel(); } catch { /* ignore */ }
     if (this.objectUrl) { try { URL.revokeObjectURL(this.objectUrl); } catch { /* ignore */ } this.objectUrl = null; }
@@ -315,13 +348,34 @@ export class DeepBufferFeed {
     return b.end(b.length - 1) - b.start(b.length - 1);
   }
 
-  private forwardLimit(): number {
+  /** Débit moyen du flux en octets par seconde de média, ou 0 tant qu'il n'est pas connu. */
+  private bytesPerSec(): number {
     const b = this.video.buffered;
-    if (this.firstStart === null || !b.length) return FORWARD_MAX_SEC;
+    if (this.firstStart === null || !b.length) return 0;
     const span = b.end(b.length - 1) - this.firstStart;
-    if (span < 5) return FORWARD_MAX_SEC;
-    const bytesPerSec = this.appendedBytes / span;
-    return Math.min(FORWARD_MAX_SEC, Math.max(FORWARD_MIN_SEC, FORWARD_BYTES / bytesPerSec));
+    return span < 5 ? 0 : this.appendedBytes / span;
+  }
+
+  private forwardLimit(): number {
+    const rate = this.bytesPerSec();
+    const limit = rate ? Math.min(FORWARD_MAX_SEC, Math.max(FORWARD_MIN_SEC, SOURCE_BUFFER_BYTES / rate)) : FORWARD_MAX_SEC;
+    return this.quotaLimitSec === null ? limit : Math.min(limit, this.quotaLimitSec);
+  }
+
+  private notify(): void {
+    const wake = this.wake;
+    this.wake = null;
+    wake?.();
+  }
+
+  /** Attend un événement de l'autre boucle, ou le délai (la lecture avance sans prévenir). */
+  private waitChange(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      const previous = this.wake;
+      const t = setTimeout(() => { if (this.wake === done) this.wake = null; resolve(); }, ms);
+      const done = () => { clearTimeout(t); previous?.(); resolve(); };
+      this.wake = done;
+    });
   }
 
   private idle(): Promise<void> {
@@ -344,16 +398,26 @@ export class DeepBufferFeed {
 
   private async append(data: Uint8Array): Promise<void> {
     const sb = this.sb!;
-    try {
-      await this.op(() => sb.appendBuffer(data as BufferSource));
-    } catch (e) {
-      if (!(e instanceof DOMException && e.name === "QuotaExceededError")) throw e;
-      // Plus de place : libérer ce qui est déjà lu, puis réessayer une fois.
-      const t = this.video.currentTime;
-      const b = sb.buffered;
-      if (!b.length || t - b.start(0) < 2) throw e;
-      await this.op(() => sb.remove(b.start(0), Math.max(b.start(0) + 1, t - 3)));
-      await this.op(() => sb.appendBuffer(data as BufferSource));
+    for (;;) {
+      try {
+        await this.op(() => sb.appendBuffer(data as BufferSource));
+        break;
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "QuotaExceededError")) throw e;
+        // Plus de place : libérer ce qui est déjà lu, sinon attendre que la lecture avance
+        // avec un plafond plus bas. Le fragment reste en main, rien n'est perdu.
+        const t = this.video.currentTime;
+        const b = sb.buffered;
+        if (b.length && t - b.start(0) > 5) {
+          await this.op(() => sb.remove(b.start(0), t - 3));
+          continue;
+        }
+        const ahead = this.ahead();
+        if (ahead < 1) throw e;
+        this.quotaLimitSec = Math.max(4, ahead * 0.7);
+        while (!this.stopped && this.ahead() > this.quotaLimitSec) await new Promise((r) => setTimeout(r, 400));
+        if (this.stopped) return;
+      }
     }
     this.appendedBytes += data.byteLength;
     const b = sb.buffered;
@@ -371,25 +435,55 @@ export class DeepBufferFeed {
     await this.op(() => sb.remove(b.start(0), t - BACK_KEEP_SEC));
   }
 
-  private async pump(): Promise<void> {
+  /** Reçoit le flux dans la réserve. Réserve pleine : on ne lit plus, ffmpeg se bloque sur son tube. */
+  private async download(): Promise<void> {
+    try {
+      while (!this.stopped) {
+        if (this.reserveBytes >= this.reserveLimit || this.reserveSeconds >= RESERVE_MAX_SEC) {
+          await this.waitChange(500);
+          continue;
+        }
+        const frag = await this.nextFragment();
+        if (this.stopped) return;
+        if (!frag) break;
+        this.reserve.push(frag);
+        this.reserveBytes += frag.byteLength;
+        this.notify();
+      }
+      this.readerDone = true;
+    } catch (e) {
+      // Coupure : la réserve se joue d'abord, l'échec n'est signalé qu'une fois vidée.
+      this.readerError = e;
+    }
+    this.notify();
+  }
+
+  /** Passe la réserve au SourceBuffer au rythme où le navigateur peut la stocker. */
+  private async feed(): Promise<void> {
     try {
       while (!this.stopped) {
         const limit = this.forwardLimit();
         if (this.ahead() > limit) {
-          // Ne plus lire : ffmpeg se bloque sur son tube jusqu'à ce que la lecture avance.
-          while (!this.stopped && this.ahead() > limit * 0.75) await new Promise((r) => setTimeout(r, 400));
+          while (!this.stopped && this.ahead() > limit * 0.85) await new Promise((r) => setTimeout(r, 400));
           continue;
         }
-        let frag: Uint8Array | null;
-        try {
-          frag = await this.nextFragment();
-        } catch (e) {
-          if (this.stopped) return;
-          return this.fail(e, "network");
+        const frag = this.reserve.shift();
+        if (!frag) {
+          if (this.readerError) {
+            // Tout ce qui est déjà reçu se joue avant de relancer le flux.
+            const range = this.bufferedRange();
+            if (!range || range[1] - this.video.currentTime < 1) return this.fail(this.readerError, "network");
+            await new Promise((r) => setTimeout(r, 500));
+            continue;
+          }
+          if (this.readerDone) break;
+          await this.waitChange(500);
+          continue;
         }
-        if (this.stopped) return;
-        if (!frag) break;
+        this.reserveBytes -= frag.byteLength;
+        this.notify();
         await this.append(frag);
+        if (this.stopped) return;
         await this.trimBack();
       }
       if (this.stopped) return;

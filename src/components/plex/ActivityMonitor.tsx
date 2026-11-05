@@ -53,7 +53,7 @@ function SessionRow({ s, t, onNavigate }: { s: AnySession; t: (k: string, params
   const stateLabel = isBuffering ? t("plexActivity.buffering") : isPlaying ? t("plexActivity.live") : t("plexActivity.paused");
   const stateColor = isBuffering ? "text-amber" : isPlaying ? "text-ok" : "text-ink-dim";
 
-  const transcodePill =
+  const transcodePill = s.transcodeDecision === "unknown" ? null :
     s.transcodeDecision === "transcode"
       ? { text: t("plexActivity.transcoding"), hint: t("plexActivity.transcodingHint"), cls: "border-amber/30 bg-amber/12 text-amber" }
       : s.transcodeDecision === "copy"
@@ -157,9 +157,11 @@ function SessionRow({ s, t, onNavigate }: { s: AnySession; t: (k: string, params
             alt={s.origin === "plex" ? "Plex" : "Movviz"}
             className="h-3 w-auto shrink-0 opacity-90"
           />
-          <span title={transcodePill.hint} className={cn("rounded-full border px-1.5 py-0.5 text-[10px] font-bold", transcodePill.cls)}>
-            {transcodePill.text}
-          </span>
+          {transcodePill && (
+            <span title={transcodePill.hint} className={cn("rounded-full border px-1.5 py-0.5 text-[10px] font-bold", transcodePill.cls)}>
+              {transcodePill.text}
+            </span>
+          )}
           {s.resolution && (
             <span className="rounded-full border border-white/8 bg-black/20 px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
               {s.resolution.startsWith("2160") ? "4K" : s.resolution}

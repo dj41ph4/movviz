@@ -1,3 +1,13 @@
+## v1.28.58 — 5 novembre 2026
+
+### Lettore web
+
+- Il buffer ora è davvero lungo: oltre alla memoria del lettore video, il browser tiene fino a 10 minuti di anticipo (al massimo 1 GB su PC, 256 MB su telefono). Prima un file a 10 Mbps si fermava a circa 40 s.
+- Un’interruzione della rete o del server non ferma più la riproduzione: tutto ciò che è già stato ricevuto viene riprodotto, poi il flusso riparte dalla posizione giusta.
+- La barra di avanzamento mostra tutto l’anticipo ricevuto, riserva compresa.
+- Anche i file .mp4 hanno questo buffer lungo nei browser: usano lo stesso flusso, con video e audio copiati senza perdita. Safari su iPhone, privo di questo meccanismo, resta in riproduzione diretta.
+- Le « Sessioni attive » non mostrano più per errore « Riproduzione diretta » per un browser la cui sessione è andata persa al riavvio del server.
+
 ## v1.28.57 — 5 novembre 2026
 
 ### Lettore web

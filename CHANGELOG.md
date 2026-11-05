@@ -1,3 +1,13 @@
+## v1.28.58 — 5 novembre 2026
+
+### Lecteur web
+
+- Le tampon devient vraiment long : en plus de la mémoire du lecteur vidéo, le navigateur garde jusqu’à 10 minutes d’avance (1 Go au maximum sur PC, 256 Mo sur téléphone). Avant, un fichier à 10 Mbps plafonnait à environ 40 s.
+- Une coupure du réseau ou du serveur n’interrompt plus la lecture : tout ce qui est déjà reçu est joué, puis le flux repart à la bonne position.
+- La barre de lecture affiche toute l’avance reçue, réserve comprise.
+- Les fichiers .mp4 profitent aussi de ce long tampon dans les navigateurs : ils passent par le même flux, vidéo et audio copiés sans perte. Safari sur iPhone, sans ce mécanisme, reste en lecture directe.
+- Les « Sessions actives » n’affichent plus « Lecture directe » par erreur pour un navigateur dont la session a été perdue au redémarrage du serveur.
+
 ## v1.28.57 — 5 novembre 2026
 
 ### Lecteur web

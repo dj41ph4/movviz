@@ -336,7 +336,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const telemetryModeRef = useRef<string>("DIRECT");
   // Suffixe « +tampon » : flux lu avec le tampon profond (MSE) plutôt qu'en natif.
   telemetryModeRef.current = (localEnginePlanInfo?.mode ?? (hlsRef.current ? "HLS" : ffmpegActiveRef.current ? "FFMPEG" : mseEngineRef.current ? "MSE" : "DIRECT")) + (ffmpegEngineRef.current?.deepBuffered ? "+tampon" : "");
-  usePlaybackTelemetry(videoRef, () => telemetryModeRef.current, () => playbackSessionRef.current);
+  usePlaybackTelemetry(videoRef, () => telemetryModeRef.current, () => playbackSessionRef.current, () => ffmpegEngineRef.current?.reserveSeconds ?? 0);
   /** Size of the picture really decoded — the quality shown on the progress bar. */
   const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
   /** Dynamic range of the source, known from the local engine's probe. */
@@ -2126,8 +2126,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         const isFfmpegStream = ffmpegEngineRef.current !== null;
         const total = isFfmpegStream && known ? known / 1000 : el.duration;
         if (total > 0) {
-          const bufferedEnd = isFfmpegStream ? base + end : end;
-          setBufferedPct((bufferedEnd / total) * 100);
+          const reserve = ffmpegEngineRef.current?.reserveSeconds ?? 0;
+          const bufferedEnd = isFfmpegStream ? base + end + reserve : end;
+          setBufferedPct(Math.min(100, (bufferedEnd / total) * 100));
         }
       }
     };
@@ -2153,6 +2154,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     el.addEventListener("timeupdate", onTimeUpdate);
     el.addEventListener("loadeddata", onLoadedData);
     el.addEventListener("progress", onProgress);
+    // La réserve du tampon profond grandit sans événement « progress » quand le SourceBuffer est plein.
+    el.addEventListener("timeupdate", onProgress);
     el.addEventListener("play", onPlay);
     el.addEventListener("pause", onPause);
     el.addEventListener("volumechange", onVolumeChange);
@@ -2172,6 +2175,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       el.removeEventListener("timeupdate", onTimeUpdate);
       el.removeEventListener("loadeddata", onLoadedData);
       el.removeEventListener("progress", onProgress);
+      el.removeEventListener("timeupdate", onProgress);
       el.removeEventListener("play", onPlay);
       el.removeEventListener("pause", onPause);
       el.removeEventListener("volumechange", onVolumeChange);

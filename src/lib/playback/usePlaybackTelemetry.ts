@@ -54,6 +54,7 @@ export function usePlaybackTelemetry(
   videoRef: RefObject<HTMLVideoElement | null>,
   getMode: () => string,
   getSessionId: () => string | null,
+  getReserveSeconds: () => number = () => 0,
 ) {
   useEffect(() => {
     const el = videoRef.current;
@@ -124,7 +125,8 @@ export function usePlaybackTelemetry(
 
     const sampleTimer = window.setInterval(() => {
       if (el.paused || el.ended || el.readyState < 2 || !el.currentSrc) return;
-      queue.push({ ...base(), type: "sample" });
+      const sample = base();
+      queue.push({ ...sample, type: "sample", bufAhead: sample.bufAhead + getReserveSeconds() });
     }, SAMPLE_EVERY_MS);
     const flushTimer = window.setInterval(flush, FLUSH_EVERY_MS);
 
