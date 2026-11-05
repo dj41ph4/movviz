@@ -24,6 +24,7 @@ import { LanguagePanel } from "@/components/profile/LanguagePanel";
 import { AccessibilityPanel } from "@/components/profile/AccessibilityPanel";
 import { WatchResetPanel } from "@/components/profile/WatchResetPanel";
 import { SignInMethodsPanel } from "@/components/profile/SignInMethodsPanel";
+import { watchlistLibraryKey } from "@/lib/watchlist/libraryKey";
 
 interface TokenRecord {
   id: string;
@@ -151,9 +152,19 @@ export default function ProfilePage() {
   const loadTokens = () => mutateTokens();
 
   const [watchlistBusy, setWatchlistBusy] = useState<string | null>(null);
+  const [watchlistFailed, setWatchlistFailed] = useState<string | null>(null);
+  const [watchlistAdded, setWatchlistAdded] = useState<Set<string>>(() => new Set());
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{ items: WatchlistItem[] }>("/api/watchlist");
   const { data: profileMedia } = useSWR<ProfileMediaResponse>("/api/profile/media");
   const watchlistItems = watchlistData?.items ?? [];
+  // Même source que la Bibliothèque et le tableau de bord (cache SWR partagé) : un titre déjà présent
+  // ne doit plus proposer « Ajouter à la bibliothèque ».
+  const { data: libraryMoviesData } = useSWR<{ movies: { tmdbId: number }[] }>("/api/library/movies");
+  const { data: librarySeriesData } = useSWR<{ series: { tmdbId: number }[] }>("/api/library/series");
+  const libraryKeys = new Set([
+    ...(libraryMoviesData?.movies ?? []).map((m) => `movie:${m.tmdbId}`),
+    ...(librarySeriesData?.series ?? []).map((s) => `series:${s.tmdbId}`),
+  ]);
   const removeFromWatchlist = async (item: WatchlistItem) => {
     const suffix = item.type === "episode" ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : item.seriesPart ? `?seriesPart=${item.seriesPart}` : "";
     await fetch(`/api/watchlist/${item.type}/${item.tmdbId}${suffix}`, { method: "DELETE" });
@@ -163,13 +174,21 @@ export default function ProfilePage() {
     if (item.type === "episode") return;
     const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}:${item.seriesPart ?? ""}`;
     setWatchlistBusy(key);
+    setWatchlistFailed(null);
     try {
-    const endpoint = item.type === "movie" ? "/api/library/movies" : "/api/library/series";
-      await fetch(endpoint, {
+      const endpoint = item.type === "movie" ? "/api/library/movies" : "/api/library/series";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tmdbId: item.tmdbId, seriesPart: item.seriesPart }),
-      });
+      }).catch(() => null);
+      if (res?.ok) {
+        // La carte passe tout de suite à « Dans la bibliothèque » ; la liste complète se rafraîchit ensuite.
+        setWatchlistAdded((prev) => new Set(prev).add(watchlistLibraryKey(item)));
+        mutateGlobal(endpoint);
+      } else {
+        setWatchlistFailed(key);
+      }
     } finally {
       setWatchlistBusy(null);
     }
@@ -340,6 +359,7 @@ export default function ProfilePage() {
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {watchlistItems.map((item) => {
             const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}:${item.seriesPart ?? ""}`;
+            const inLibrary = libraryKeys.has(watchlistLibraryKey(item)) || watchlistAdded.has(watchlistLibraryKey(item));
             const titleQuery = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null
               ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : item.seriesPart ? `?part=${item.seriesPart}` : "";
             return (
@@ -355,15 +375,33 @@ export default function ProfilePage() {
                   <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-bold backdrop-blur">
                     <Star className="h-3 w-3 fill-amber text-amber" /> {item.rating.toFixed(1)}
                   </div>
-                  <div className="absolute inset-0 flex flex-col justify-end gap-1.5 bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    <button
-                      onClick={(e) => { e.preventDefault(); addWatchlistToLibrary(item); }}
-                      disabled={watchlistBusy === key}
-                      className="flex h-9 items-center justify-center gap-1.5 rounded-xl brand-gradient text-xs font-bold text-white"
+                  {inLibrary && (
+                    <span
+                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-ok text-black"
+                      title={t("watchlist.inLibrary")}
+                      aria-label={t("watchlist.inLibrary")}
                     >
-                      {watchlistBusy === key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                      {t("watchlist.moveToLibrary")}
-                    </button>
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                  )}
+                  <div className="absolute inset-0 flex flex-col justify-end gap-1.5 bg-gradient-to-t from-black/90 via-black/10 to-transparent p-2.5 opacity-0 transition-opacity duration-200 group-focus-within:opacity-100 group-hover:opacity-100">
+                    {inLibrary ? (
+                      <span className="flex min-h-9 items-center justify-center gap-1.5 rounded-xl glass-strong px-2 py-1.5 text-center text-xs font-bold leading-4 text-ok">
+                        <Check className="h-3.5 w-3.5 shrink-0" /> {t("watchlist.inLibrary")}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.preventDefault(); addWatchlistToLibrary(item); }}
+                        disabled={watchlistBusy === key}
+                        className={cn(
+                          "flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl px-2 py-1.5 text-center text-xs font-bold leading-4 text-white disabled:opacity-70",
+                          watchlistFailed === key ? "bg-down/80" : "bg-brand hover:brightness-110"
+                        )}
+                      >
+                        {watchlistBusy === key ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : watchlistFailed === key ? <X className="h-3.5 w-3.5 shrink-0" /> : <Plus className="h-3.5 w-3.5 shrink-0" />}
+                        {watchlistFailed === key ? t("watchlist.addFailed") : t("watchlist.moveToLibrary")}
+                      </button>
+                    )}
                     <button
                       onClick={(e) => { e.preventDefault(); removeFromWatchlist(item); }}
                       className="flex h-8 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-semibold text-down"

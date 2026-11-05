@@ -932,6 +932,8 @@ export const fr = {
     add: "Ajouter à ma liste",
     added: "Dans ma liste",
     moveToLibrary: "Ajouter à la bibliothèque",
+    addFailed: "Échec de l'ajout",
+    inLibrary: "Dans la bibliothèque",
   },
 
   stats: {

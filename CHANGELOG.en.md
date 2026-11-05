@@ -1,3 +1,10 @@
+## v1.28.62 — 5 November 2026
+
+### Profile
+
+- My list: a title already in the library now shows “In library” with a green badge, instead of offering “Add to library”.
+- Card buttons no longer overflow; after an add, the card updates right away, and a failure is shown. The buttons also appear when the card has keyboard focus.
+
 ## v1.28.61 — 5 November 2026
 
 ### Profile

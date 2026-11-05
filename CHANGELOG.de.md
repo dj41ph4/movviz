@@ -1,3 +1,10 @@
+## v1.28.62 — 5. November 2026
+
+### Profil
+
+- Meine Liste: Ein Titel, der schon in der Bibliothek ist, zeigt jetzt „In der Bibliothek“ mit grünem Abzeichen, statt „Zur Bibliothek hinzufügen“ anzubieten.
+- Die Schaltflächen der Karten laufen nicht mehr über; nach dem Hinzufügen ändert sich die Karte sofort, und ein Fehler wird angezeigt. Die Schaltflächen erscheinen auch, wenn die Karte den Tastaturfokus hat.
+
 ## v1.28.61 — 5. November 2026
 
 ### Profil

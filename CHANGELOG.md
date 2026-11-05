@@ -1,3 +1,10 @@
+## v1.28.62 — 5 novembre 2026
+
+### Profil
+
+- Ma liste : un titre déjà dans la bibliothèque affiche « Dans la bibliothèque » avec une pastille verte, au lieu de proposer « Ajouter à la bibliothèque ».
+- Les boutons des cartes ne débordent plus ; après un ajout, la carte change aussitôt, et un échec est signalé. Les boutons apparaissent aussi quand la carte a le focus au clavier.
+
 ## v1.28.61 — 5 novembre 2026
 
 ### Profil

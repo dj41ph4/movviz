@@ -63,3 +63,11 @@ test("un compte déjà lié à Plex n'est pas relié en silence à un autre comp
 test("un compte Plex déjà utilisé par un autre profil Movviz est refusé", () => {
   assert.equal(checkPlexLink({ user: { id: "usr_local", plexId: null }, plexAccountId: "42", findByPlexId: () => ({ id: "usr_other" }) }), "plex_already_linked");
 });
+
+import { watchlistLibraryKey } from "@/lib/watchlist/libraryKey";
+
+test("la clé bibliothèque d'un titre de la liste : film, série, et épisode rattaché à sa série", () => {
+  assert.equal(watchlistLibraryKey({ type: "movie", tmdbId: 10 }), "movie:10");
+  assert.equal(watchlistLibraryKey({ type: "series", tmdbId: 20 }), "series:20");
+  assert.equal(watchlistLibraryKey({ type: "episode", tmdbId: 20 }), "series:20");
+});

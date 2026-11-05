@@ -1,3 +1,10 @@
+## v1.28.62 — 5 novembre 2026
+
+### Profilo
+
+- La mia lista: un titolo già in libreria mostra ora «In libreria» con un badge verde, invece di proporre «Aggiungi alla libreria».
+- I pulsanti delle schede non vanno più fuori misura; dopo un'aggiunta la scheda si aggiorna subito e un errore viene segnalato. I pulsanti compaiono anche quando la scheda ha il focus da tastiera.
+
 ## v1.28.61 — 5 novembre 2026
 
 ### Profilo

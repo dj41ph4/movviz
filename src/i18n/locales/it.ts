@@ -934,6 +934,8 @@ export const it: Dictionary = {
     add: "Aggiungi alla watchlist",
     added: "Nella watchlist",
     moveToLibrary: "Aggiungi alla libreria",
+    addFailed: "Aggiunta non riuscita",
+    inLibrary: "In libreria",
   },
 
   stats: {

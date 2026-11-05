@@ -1,3 +1,10 @@
+## v1.28.62 — 5 november 2026
+
+### Profiel
+
+- Mijn lijst: een titel die al in de bibliotheek staat, toont nu „In bibliotheek” met een groen label, in plaats van „Toevoegen aan bibliotheek” aan te bieden.
+- De knoppen op de kaarten lopen niet meer over; na het toevoegen verandert de kaart meteen en een mislukking wordt getoond. De knoppen verschijnen ook als de kaart toetsenbordfocus heeft.
+
 ## v1.28.61 — 5 november 2026
 
 ### Profiel

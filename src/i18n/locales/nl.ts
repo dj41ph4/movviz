@@ -934,6 +934,8 @@ export const nl: Dictionary = {
     add: "Toevoegen aan kijklijst",
     added: "Op kijklijst",
     moveToLibrary: "Toevoegen aan bibliotheek",
+    addFailed: "Toevoegen mislukt",
+    inLibrary: "In bibliotheek",
   },
 
   stats: {

@@ -934,6 +934,8 @@ export const de: Dictionary = {
     add: "Zur Merkliste hinzufügen",
     added: "Auf der Merkliste",
     moveToLibrary: "Zur Bibliothek hinzufügen",
+    addFailed: "Hinzufügen fehlgeschlagen",
+    inLibrary: "In der Bibliothek",
   },
 
   stats: {
