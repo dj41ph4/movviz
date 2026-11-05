@@ -1,3 +1,9 @@
+## v1.28.60 — 5 november 2026
+
+### Export
+
+- Movviz kan nu LifeHub voeden: de route GET /api/lifehub/export geeft de bekeken geschiedenis van de gebruiker (films, afgeronde of lopende series met de volgende aflevering) in hetzelfde formaat als de LifeHub-export. Ze authenticeert met een persoonlijke API-sleutel (Profiel › API-sleutels): iedereen synchroniseert alleen zijn eigen bekeken titels. Optionele parameter 'since' voor alleen de wijzigingen. Volledig contract in docs/LIFEHUB_API_CONTRAT.md.
+
 ## v1.28.59 — 5 november 2026
 
 ### Import
