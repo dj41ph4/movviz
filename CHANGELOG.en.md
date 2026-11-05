@@ -1,3 +1,14 @@
+## v1.28.71 — 5 November 2026
+
+### Settings
+
+- Smooth mode is now per device: turning it on for an old TV no longer forces it on your other devices, and the automatic offer is remembered per device.
+- The full reset now exists in a single place (Reset and deletions), with a typed-word confirmation.
+- The “Movviz player” switch lives only in Profile > Preferences; Settings > Player links to it and is now admin-only.
+- The special-episodes settings (server tracking, personal display) now point to each other to remove the confusion.
+- Disk space is no longer shown twice (it stays in Diagnostics).
+- Outdated help texts fixed (Home, Experience, Metadata, Notifications, Cache) and the HDR → SDR option translated in every language; unused translation keys and preferences removed.
+
 ## v1.28.70 — 5 November 2026
 
 ### Library

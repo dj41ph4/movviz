@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { mutate as mutateAll } from "swr";
+import { useRouter } from "next/navigation";
 import { useT } from "@/i18n/provider";
+import { toast } from "@/components/ui/Toast";
 import { AlertTriangle, Loader2, Trash2, RotateCcw, ShieldAlert } from "lucide-react";
 
 interface DangerAction {
@@ -19,10 +22,13 @@ const ACTIONS: DangerAction[] = [
   { action: "clearRequests", titleKey: "dangerZone.clearRequests", hintKey: "dangerZone.clearRequestsHint" },
   { action: "clearIssues", titleKey: "dangerZone.clearIssues", hintKey: "dangerZone.clearIssuesHint" },
   { action: "resetPlexSyncState", titleKey: "dangerZone.resetPlexSyncState", hintKey: "dangerZone.resetPlexSyncStateHint" },
+  // Seule action qui efface aussi les comptes et les réglages ; elle repart sur l'assistant de configuration.
+  { action: "factoryReset", titleKey: "settings.factoryReset", hintKey: "settings.factoryResetHint" },
 ];
 
 export function DangerZonePanel() {
   const t = useT();
+  const router = useRouter();
   const CONFIRM_WORD = t("dangerZone.confirmWord");
   const [confirming, setConfirming] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -33,11 +39,24 @@ export function DangerZonePanel() {
   const run = async (action: string) => {
     setBusy(action);
     try {
-      const res = await fetch("/api/danger-zone", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
+      const res = action === "factoryReset"
+        ? await fetch("/api/system/reset", { method: "POST" })
+        : await fetch("/api/danger-zone", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action }),
+          });
+      if (res.ok && action === "factoryReset") {
+        // Même correction que le logout : purge du SWR cache partagé avant la navigation,
+        // sans router.refresh() derrière (il annulerait la navigation en cours).
+        await mutateAll("/api/auth/me");
+        router.push("/setup");
+        return;
+      }
+      if (!res.ok && action === "factoryReset") {
+        const error = await res.json().catch(() => ({}));
+        toast("error", t(error.error === "reset_busy" || error.error === "reset_engine_unavailable" ? "settings.factoryResetBusy" : "settings.factoryResetFailed"));
+      }
       if (res.ok) {
         setDone(action);
         setTimeout(() => setDone((d) => (d === action ? null : d)), 3000);

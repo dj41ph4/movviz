@@ -39,34 +39,21 @@ test("Beta is the only design, whatever a profile stored before", async () => {
   assert.ok(!layout.includes("loadUserPrefs"), "the root layout no longer reads a per-user design choice");
 });
 
-test("Beta round-trips through the authenticated API; Stable restores it without changing another profile or preferences", async () => {
+test("Retired preferences (design choice, smooth mode) are no longer stored; the others keep round-tripping", async () => {
   assert.equal((await GET(request(null))).status, 401);
-  assert.equal((await PATCH(request(null, { designMode: "beta" }))).status, 401);
-  saveUserPrefs("design-a", { locale: "fr", reduceAnimations: true, specialEpisodesEnabled: true });
-  const saved = await PATCH(request(token, { designMode: "beta", userId: "design-b" }));
+  assert.equal((await PATCH(request(null, { locale: "en" }))).status, 401);
+  saveUserPrefs("design-a", { locale: "fr", specialEpisodesEnabled: true });
+  const saved = await PATCH(request(token, { designMode: "stable", reduceAnimations: true, smoothnessPromptUntil: Date.now() + 1000, locale: "en", userId: "design-b" }));
   assert.equal(saved.status, 200);
-  assert.equal((await saved.json()).prefs.designMode, "beta");
-  const secondClient = await (await GET(request(token))).json();
-  assert.equal(secondClient.prefs.designMode, "beta");
+  const prefs = (await saved.json()).prefs as Record<string, unknown>;
+  assert.equal(prefs.locale, "en");
+  assert.equal(prefs.specialEpisodesEnabled, true);
+  for (const retired of ["designMode", "reduceAnimations", "smoothnessPromptUntil"]) assert.equal(prefs[retired], undefined, retired);
+  assert.notEqual(loadUserPrefs("design-b").locale, "en", "another profile is untouched");
   flushPendingJsonWritesSync();
-  const persistedBeta = JSON.parse(readFileSync(path.join(process.env.MOVVIZ_CONFIG_DIR!, "user-preferences.json"), "utf8"));
-  assert.equal(persistedBeta["design-a"].designMode, "beta");
-  assert.equal(loadUserPrefs("design-b").designMode, undefined);
-  assert.equal(loadUserPrefs("design-a").reduceAnimations, true);
-  assert.equal(loadUserPrefs("design-a").specialEpisodesEnabled, true);
-  await PATCH(request(token, { locale: "en" }));
-  assert.equal(loadUserPrefs("design-a").designMode, "beta");
-  await PATCH(request(token, { designMode: "invalid" }));
-  assert.equal(loadUserPrefs("design-a").designMode, "beta");
-  await PATCH(request(token, { designMode: "stable" }));
-  const restored = await (await GET(request(token))).json();
-  assert.equal(restored.prefs.designMode, "stable");
-  assert.equal(restored.prefs.locale, "en");
-  assert.equal(restored.prefs.reduceAnimations, true);
-  assert.equal(restored.prefs.specialEpisodesEnabled, true);
-  flushPendingJsonWritesSync();
-  const persistedStable = JSON.parse(readFileSync(path.join(process.env.MOVVIZ_CONFIG_DIR!, "user-preferences.json"), "utf8"));
-  assert.equal(persistedStable["design-a"].designMode, "stable");
+  const persisted = JSON.parse(readFileSync(path.join(process.env.MOVVIZ_CONFIG_DIR!, "user-preferences.json"), "utf8"));
+  assert.equal(persisted["design-a"].designMode, undefined);
+  assert.equal(persisted["design-a"].reduceAnimations, undefined);
 });
 
 test("every design rule requires Beta and desktop, including motion and portal content", async () => {

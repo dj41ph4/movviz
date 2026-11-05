@@ -13,28 +13,10 @@ import {
   SMOOTHNESS_FIRST_DELAY_MS,
   SMOOTHNESS_GAP_MS,
   SMOOTHNESS_REQUIRED_WINDOWS,
-  SMOOTHNESS_SNOOZE_MS,
+  readSmoothnessSnooze,
+  writeSmoothnessSnooze,
   SMOOTHNESS_WINDOW_MS,
 } from "@/lib/motion/smoothness";
-
-const PREFS_URL = "/api/settings/preferences";
-
-async function readPrefs(): Promise<{ reduceAnimations?: boolean; smoothnessPromptUntil?: number } | null> {
-  try {
-    const response = await fetch(PREFS_URL, { cache: "no-store" });
-    return response.ok ? (await response.json()).prefs ?? null : null;
-  } catch {
-    return null;
-  }
-}
-
-function snooze() {
-  void fetch(PREFS_URL, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ smoothnessPromptUntil: Date.now() + SMOOTHNESS_SNOOZE_MS }),
-  }).catch(() => {});
-}
 
 /** Records one window of frame gaps, or null if it says nothing about this page. */
 function measureWindow(signal: AbortSignal): Promise<number[] | null> {
@@ -102,18 +84,13 @@ export function SmoothnessAdvisor() {
       }
       if (streak >= SMOOTHNESS_REQUIRED_WINDOWS && !document.querySelector('[aria-modal="true"]')) {
         // Re-read: the choice may have changed elsewhere since the measure began.
-        const prefs = await readPrefs();
-        if (cancelled) return;
-        if (prefs && !prefs.reduceAnimations && !(Number(prefs.smoothnessPromptUntil) > Date.now())) setVisible(true);
+        if (readSmoothnessSnooze() <= Date.now()) setVisible(true);
         return;
       }
       timer = setTimeout(measure, SMOOTHNESS_GAP_MS);
     };
 
-    void readPrefs().then((prefs) => {
-      if (cancelled || !prefs || Number(prefs.smoothnessPromptUntil) > Date.now()) return;
-      timer = setTimeout(measure, SMOOTHNESS_FIRST_DELAY_MS);
-    });
+    if (readSmoothnessSnooze() <= Date.now()) timer = setTimeout(measure, SMOOTHNESS_FIRST_DELAY_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -123,7 +100,7 @@ export function SmoothnessAdvisor() {
 
   const dismiss = useCallback(() => {
     setVisible(false);
-    snooze();
+    writeSmoothnessSnooze();
   }, []);
 
   useEffect(() => {

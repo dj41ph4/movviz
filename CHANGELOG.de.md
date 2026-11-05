@@ -1,3 +1,14 @@
+## v1.28.71 — 5. November 2026
+
+### Einstellungen
+
+- Der flüssige Modus gilt jetzt pro Gerät: Wer ihn auf einem alten Fernseher einschaltet, erzwingt ihn nicht mehr auf seinen anderen Geräten; auch der automatische Vorschlag wird pro Gerät gemerkt.
+- Das vollständige Zurücksetzen gibt es nur noch an einer Stelle (Zurücksetzen und Löschen), mit Bestätigung durch ein einzutippendes Wort.
+- Der Schalter „Movviz Player“ befindet sich nur noch unter Profil > Vorlieben; Einstellungen > Player verweist dorthin und ist jetzt Administratoren vorbehalten.
+- Die Einstellungen für Sonderfolgen (Verfolgung auf dem Server, persönliche Anzeige) verweisen nun aufeinander, um Verwechslungen zu vermeiden.
+- Der Speicherplatz wird nicht mehr doppelt angezeigt (er bleibt in der Diagnose).
+- Veraltete Hilfetexte korrigiert (Startseite, Erlebnis, Metadaten, Benachrichtigungen, Cache), die Option HDR → SDR in allen Sprachen übersetzt; ungenutzte Übersetzungsschlüssel und Einstellungen entfernt.
+
 ## v1.28.70 — 5. November 2026
 
 ### Bibliothek

@@ -3,7 +3,6 @@ import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/languages";
 import type { Locale } from "@/i18n/config";
-import { DESIGN_MODES, type DesignMode } from "@/lib/appearance/designMode";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -25,12 +24,7 @@ export type LibraryViewMode = "large" | "small" | "list";
  * there is no light mode and no theme choice anywhere.)
  */
 export interface UserPrefs {
-  /** Web design experiment; independent of dashboard content and playback. */
-  designMode?: DesignMode;
   locale?: Locale;
-  reduceAnimations?: boolean;
-  /** Date (ms) avant laquelle la proposition du mode fluide ne revient pas. */
-  smoothnessPromptUntil?: number;
   libraryViewMode?: LibraryViewMode;
   /** Movviz player is on by default; explicit false opens Plex instead.
    * The persisted key is retained for existing profiles. */
@@ -97,10 +91,7 @@ function write(data: Store) {
 function sanitize(prefs: unknown): UserPrefs {
   const p = (prefs ?? {}) as Partial<Record<keyof UserPrefs, unknown>>;
   const clean: UserPrefs = {};
-  if (typeof p.designMode === "string" && (DESIGN_MODES as readonly string[]).includes(p.designMode)) clean.designMode = p.designMode as DesignMode;
   if (typeof p.locale === "string" && (VALID_LOCALES as readonly string[]).includes(p.locale)) clean.locale = p.locale as Locale;
-  if (typeof p.reduceAnimations === "boolean") clean.reduceAnimations = p.reduceAnimations;
-  if (typeof p.smoothnessPromptUntil === "number" && Number.isFinite(p.smoothnessPromptUntil)) clean.smoothnessPromptUntil = p.smoothnessPromptUntil;
   if (typeof p.libraryViewMode === "string" && VALID_VIEW_MODES.includes(p.libraryViewMode as LibraryViewMode)) clean.libraryViewMode = p.libraryViewMode as LibraryViewMode;
   if (typeof p.betaPlayerEnabled === "boolean") clean.betaPlayerEnabled = p.betaPlayerEnabled;
   if (typeof p.preferredAudioLanguage === "string" && (PREFERRED_AUDIO_LANGUAGES as readonly string[]).includes(p.preferredAudioLanguage)) {

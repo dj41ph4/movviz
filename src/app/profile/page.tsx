@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { effectiveAvatar } from "@/lib/auth/types";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -114,6 +114,12 @@ export default function ProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<ProfileTab>("activity");
+
+  // Lien direct depuis les Réglages : /profile?tab=preferences
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested === "preferences" || requested === "account" || requested === "activity") setTab(requested);
+  }, []);
 
   const uploadPhoto = async (file: File) => {
     setUploadingPhoto(true);

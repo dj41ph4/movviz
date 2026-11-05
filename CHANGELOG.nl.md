@@ -1,3 +1,14 @@
+## v1.28.71 — 5 november 2026
+
+### Instellingen
+
+- De vloeiende modus geldt nu per apparaat: hem inschakelen op een oude tv dwingt hem niet meer af op je andere apparaten, en ook het automatische voorstel wordt per apparaat onthouden.
+- Het volledig resetten bestaat nu op één plek (Resetten en verwijderen), met bevestiging door een woord te typen.
+- De schakelaar „Movviz player” staat alleen nog in Profiel > Voorkeuren; Instellingen > Speler verwijst ernaar en is nu alleen voor beheerders.
+- De instellingen voor speciale afleveringen (bijhouden op de server, persoonlijke weergave) verwijzen nu naar elkaar om verwarring te voorkomen.
+- Schijfruimte wordt niet meer dubbel getoond (ze blijft in Diagnose).
+- Verouderde helpteksten gecorrigeerd (Start, Ervaring, Metadata, Meldingen, Cache) en de optie HDR → SDR in alle talen vertaald; ongebruikte vertaalsleutels en voorkeuren verwijderd.
+
 ## v1.28.70 — 5 november 2026
 
 ### Bibliotheek

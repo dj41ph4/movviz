@@ -1,3 +1,14 @@
+## v1.28.71 — 5 novembre 2026
+
+### Impostazioni
+
+- La modalità fluida è ora per dispositivo: attivarla su una vecchia TV non la impone più agli altri tuoi dispositivi, e anche la proposta automatica è ricordata per dispositivo.
+- Il ripristino completo esiste ora in un solo punto (Ripristino ed eliminazioni), con conferma digitando una parola.
+- L'interruttore «Movviz player» si trova solo in Profilo > Preferenze; Impostazioni > Lettore vi rimanda ed è ora riservato agli amministratori.
+- Le impostazioni degli episodi speciali (monitoraggio sul server, visualizzazione personale) si rimandano a vicenda per evitare confusione.
+- Lo spazio su disco non è più mostrato due volte (resta in Diagnostica).
+- Testi di aiuto obsoleti corretti (Home, Esperienza, Metadati, Notifiche, Cache) e opzione HDR → SDR tradotta in tutte le lingue; chiavi di traduzione e preferenze inutilizzate rimosse.
+
 ## v1.28.70 — 5 novembre 2026
 
 ### Libreria

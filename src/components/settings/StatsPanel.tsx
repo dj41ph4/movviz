@@ -11,7 +11,6 @@ interface Stats {
   requests: { pending: number; approved: number; declined: number };
   indexerCount: number;
   grabsByDay: { date: string; count: number }[];
-  disk: { total: number; free: number } | null;
 }
 
 function Tile({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
@@ -68,17 +67,6 @@ export function StatsPanel() {
         </div>
       </div>
 
-      {stats.disk && (
-        <div className="mt-6 rounded-2xl glass p-5">
-          <h3 className="mb-3 text-sm font-bold text-ink-soft">{t("stats.diskUsage")}</h3>
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full brand-gradient" style={{ width: `${Math.round(((stats.disk.total - stats.disk.free) / stats.disk.total) * 100)}%` }} />
-          </div>
-          <p className="mt-2 text-xs text-ink-dim">
-            {((stats.disk.total - stats.disk.free) / 1024 ** 3).toFixed(1)} GB {t("stats.used")} · {(stats.disk.free / 1024 ** 3).toFixed(1)} GB {t("stats.free")}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

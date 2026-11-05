@@ -1,16 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import useSWR, { mutate as mutateAll } from "swr";
+import useSWR from "swr";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { toast } from "@/components/ui/Toast";
-import { confirmDialog } from "@/components/ui/ConfirmDialog";
-import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink, Sparkles, RotateCcw, Trash2 } from "lucide-react";
+import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink, Sparkles, RotateCcw } from "lucide-react";
 import { useVersion } from "@/lib/version/VersionContext";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 import { installSystemUpdate } from "@/lib/updates/installSystemUpdate";
@@ -33,11 +31,9 @@ function fetcher(url: string) {
 export function AboutPanel() {
   const t = useT();
   const version = useVersion();
-  const router = useRouter();
   const { data, mutate, isLoading } = useSWR<UpdateCheck>("/api/system/update", fetcher);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const autoUpdate = useAutoUpdate();
 
   const checkNow = async () => {
@@ -57,30 +53,6 @@ export function AboutPanel() {
       toast("error", t("update.failed", { error: error instanceof Error ? error.message : "unknown" }));
     } finally {
       setInstalling(false);
-    }
-  };
-
-  const factoryReset = async () => {
-    if (!(await confirmDialog(t("settings.factoryResetConfirm"), { tone: "danger", confirmLabel: t("settings.factoryResetConfirmLabel") }))) return;
-    setResetting(true);
-    try {
-      const res = await fetch("/api/system/reset", { method: "POST" });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}));
-        toast("error", t(error.error === "reset_busy" || error.error === "reset_engine_unavailable" ? "settings.factoryResetBusy" : "settings.factoryResetFailed"));
-        return;
-      }
-      // Même correction que le logout : purge du SWR cache partagé avant la
-      // navigation, sinon AppShell garde le user en cache 30 s (deduping).
-      // Pas de router.refresh() après le push : un refresh émis juste après
-      // une navigation vers une autre page annule la navigation en cours
-      // (voir commentaire dans UserMenu.logout).
-      await mutateAll("/api/auth/me");
-      router.push("/setup");
-    } catch {
-      toast("error", t("settings.factoryResetFailed"));
-    } finally {
-      setResetting(false);
     }
   };
 
@@ -146,20 +118,6 @@ export function AboutPanel() {
           </Link>
         </div>
 
-        <div className="mt-6 rounded-xl border border-down/25 bg-down/5 p-4">
-          <h4 className="flex items-center gap-1.5 text-sm font-bold text-down">
-            <Trash2 className="h-4 w-4" /> {t("settings.factoryReset")}
-          </h4>
-          <p className="mt-1 mb-4 text-sm text-ink-dim">{t("settings.factoryResetHint")}</p>
-          <button
-            onClick={factoryReset}
-            disabled={resetting}
-            className="flex h-10 items-center gap-2 rounded-xl border border-down/30 px-4 text-sm font-bold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
-          >
-            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            {resetting ? t("settings.factoryResetInProgress") : t("settings.factoryReset")}
-          </button>
-        </div>
       </div>
 
       <div className="rounded-2xl glass p-5">

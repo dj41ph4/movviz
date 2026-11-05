@@ -1,6 +1,7 @@
 "use client";
 
-import { MonitorPlay, Bug, Gauge } from "lucide-react";
+import Link from "next/link";
+import { MonitorPlay, Bug, Gauge, UserRound } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
@@ -13,12 +14,10 @@ export function PlayerSettings() {
   const isAdmin = user?.role === "admin";
   const {
     adminEnabled,
-    userEnabled,
     streamCacheTtl,
     hdrDvToSdrEnabled,
     debug,
     setAdminEnabled,
-    setUserEnabled,
     setStreamCacheTtl,
     setHdrDvToSdrEnabled,
     setDebug,
@@ -37,13 +36,10 @@ export function PlayerSettings() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-ink">{t("player.useMovviz")}</p>
-            <p className="text-xs text-ink-dim">{t("player.useMovvizHint")}</p>
-          </div>
-          <Toggle label={t("player.useMovviz")} on={userEnabled} onChange={() => setUserEnabled(!userEnabled)} />
-        </div>
+        <Link href="/profile?tab=preferences" className="flex items-center justify-between gap-3 rounded-xl glass-strong px-4 py-3 text-sm text-ink-soft ring-focus transition-colors hover:text-ink">
+          <span>{t("player.personalChoiceHint")}</span>
+          <span className="flex shrink-0 items-center gap-1.5 font-semibold text-brand-glow"><UserRound className="h-4 w-4" />{t("player.personalChoiceLink")}</span>
+        </Link>
       </div>
 
       {isAdmin && (
@@ -58,12 +54,12 @@ export function PlayerSettings() {
           </div>
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
             <div>
-              <p className="text-sm font-semibold text-ink">Conversion HDR / Dolby Vision → SDR</p>
+              <p className="text-sm font-semibold text-ink">{t("player.hdrDvToSdr")}</p>
               <p className="max-w-2xl text-xs leading-relaxed text-ink-dim">
-                Couvre HDR10, HDR10+, HLG et Dolby Vision. Activé : le tonemapping reste autorisé uniquement si le benchmark réel atteint au moins 3×. Désactivé : aucune conversion vers SDR n'est permise, même avec un benchmark supérieur à 3×.
+                {t("player.hdrDvToSdrHint")}
               </p>
             </div>
-            <Toggle label="Conversion HDR / Dolby Vision → SDR" on={hdrDvToSdrEnabled} onChange={() => setHdrDvToSdrEnabled(!hdrDvToSdrEnabled)} />
+            <Toggle label={t("player.hdrDvToSdr")} on={hdrDvToSdrEnabled} onChange={() => setHdrDvToSdrEnabled(!hdrDvToSdrEnabled)} />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-4">
             <div><p className="text-sm font-semibold text-ink">{t("player.bufferTtl")}</p><p className="text-xs text-ink-dim">{t("player.bufferTtlHint")}</p></div>

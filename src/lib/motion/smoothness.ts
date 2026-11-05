@@ -33,3 +33,15 @@ export function nextStreak(streak: number, verdict: SmoothnessVerdict): number {
   if (verdict === "invalid") return streak;
   return verdict === "struggling" ? streak + 1 : 0;
 }
+
+/** La proposition est mémorisée par appareil, comme le mode fluide lui-même : un appareil
+ *  qui rame ne doit pas décider pour les autres, ni être décidé par eux. */
+const SNOOZE_STORAGE_KEY = "movviz-smoothness-snooze-until";
+
+export function readSmoothnessSnooze(): number {
+  try { return Number(window.localStorage.getItem(SNOOZE_STORAGE_KEY)) || 0; } catch { return 0; }
+}
+
+export function writeSmoothnessSnooze(until: number = Date.now() + SMOOTHNESS_SNOOZE_MS): void {
+  try { window.localStorage.setItem(SNOOZE_STORAGE_KEY, String(until)); } catch {}
+}

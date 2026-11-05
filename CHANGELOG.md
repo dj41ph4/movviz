@@ -1,3 +1,14 @@
+## v1.28.71 — 5 novembre 2026
+
+### Réglages
+
+- Le mode fluide est propre à chaque appareil : l'activer sur une vieille TV ne l'impose plus à tes autres appareils, et la proposition automatique est mémorisée par appareil.
+- La réinitialisation complète n'existe plus qu'à un endroit (Réinitialisation et suppressions), avec une confirmation par mot à taper.
+- L'interrupteur « Movviz player » est uniquement dans Profil > Préférences ; Réglages > Lecteur y renvoie et devient réservé aux administrateurs.
+- Les réglages d'épisodes spéciaux (suivi côté serveur, affichage personnel) se renvoient l'un à l'autre pour lever la confusion.
+- L'espace disque n'est plus affiché deux fois (il reste dans Diagnostic).
+- Textes d'aide corrigés (Accueil, Expérience, Métadonnées, Notifications, Cache) et option HDR → SDR traduite dans toutes les langues ; anciennes clés de traduction et préférences inutilisées supprimées.
+
 ## v1.28.70 — 5 novembre 2026
 
 ### Bibliothèque
