@@ -1,3 +1,9 @@
+## v1.28.63 — 5. November 2026
+
+### Veröffentlichung
+
+- Korrektur der Version 1.28.62: Eine Datei fehlte und verhinderte den Build. Diese Version ersetzt sie mit denselben Verbesserungen bei „Meine Liste“ (Titel, die schon in der Bibliothek sind, Schaltflächen der Karten).
+
 ## v1.28.62 — 5. November 2026
 
 ### Profil

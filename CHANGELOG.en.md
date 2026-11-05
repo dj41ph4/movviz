@@ -1,3 +1,9 @@
+## v1.28.63 — 5 November 2026
+
+### Release
+
+- Fix for version 1.28.62: a file was missing and prevented it from being built. This version replaces it with the same My list improvements (titles already in the library, card buttons).
+
 ## v1.28.62 — 5 November 2026
 
 ### Profile

@@ -1,3 +1,9 @@
+## v1.28.63 — 5 novembre 2026
+
+### Publication
+
+- Correctif de la version 1.28.62 : un fichier manquait et empêchait de la construire. Cette version la remplace avec les mêmes améliorations de Ma liste (titres déjà en bibliothèque, boutons des cartes).
+
 ## v1.28.62 — 5 novembre 2026
 
 ### Profil

@@ -1,3 +1,9 @@
+## v1.28.63 — 5 novembre 2026
+
+### Pubblicazione
+
+- Correzione della versione 1.28.62: mancava un file che ne impediva la compilazione. Questa versione la sostituisce con gli stessi miglioramenti della lista (titoli già in libreria, pulsanti delle schede).
+
 ## v1.28.62 — 5 novembre 2026
 
 ### Profilo

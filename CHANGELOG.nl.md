@@ -1,3 +1,9 @@
+## v1.28.63 — 5 november 2026
+
+### Publicatie
+
+- Herstel van versie 1.28.62: er ontbrak een bestand waardoor ze niet kon worden gebouwd. Deze versie vervangt haar met dezelfde verbeteringen aan Mijn lijst (titels die al in de bibliotheek staan, knoppen op de kaarten).
+
 ## v1.28.62 — 5 november 2026
 
 ### Profiel
