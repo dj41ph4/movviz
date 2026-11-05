@@ -192,6 +192,16 @@ fun ProfileScreen(
         if (profileData.continueWatching.isEmpty() && profileData.watchHistory.isEmpty() && profileData.ratings.isEmpty() && profileData.watchlist.isEmpty()) item {
             Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFAAA7BD), fontSize = 16.sp)
         }
+        // Accès rapides d'abord (Paramètres, Changer de profil…), puis les rangées de contenu ;
+        // les actions sensibles (Effacer la lecture, Se déconnecter) restent tout en bas.
+        item {
+            ProfileSettingsList(
+                onActivity = { onSelectTab(HomeTab.LIBRARY) },
+                onRecommendations = { onSelectTab(HomeTab.DISCOVER) },
+                onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
+                onSwitchProfile = onSwitchProfile,
+            )
+        }
         var entryAssigned = false
         profileRail("Continuer à regarder", profileData.continueWatching, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode, isResumeRail = true, heroLogos = heroLogos)
         if (profileData.continueWatching.isNotEmpty()) entryAssigned = true
@@ -203,11 +213,7 @@ fun ProfileScreen(
         profileRail("Mes évaluations", profileData.ratings, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
 
         item {
-            ProfileSettingsList(
-                onActivity = { onSelectTab(HomeTab.LIBRARY) },
-                onRecommendations = { onSelectTab(HomeTab.DISCOVER) },
-                onOpenSettings = { onSelectTab(HomeTab.SETTINGS) },
-                onSwitchProfile = onSwitchProfile,
+            ProfileDangerList(
                 onResetWatch = { watchResetStep = 1 },
                 onLogout = { viewModel.logout(); onLoggedOut() },
             )
@@ -224,8 +230,6 @@ private fun ProfileSettingsList(
     onRecommendations: () -> Unit,
     onOpenSettings: () -> Unit,
     onSwitchProfile: () -> Unit,
-    onResetWatch: () -> Unit,
-    onLogout: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -237,13 +241,24 @@ private fun ProfileSettingsList(
         ProfileSettingsDivider()
         ProfileSettingsRow(icon = MovvizIconStar, label = "Mes recommandations", onClick = onRecommendations)
         ProfileSettingsDivider()
-        ProfileSettingsRow(icon = MovvizIconSettings, label = "Paramètres", onClick = onOpenSettings)
+        ProfileSettingsRow(icon = com.movviz.nx.mobile.ui.theme.MovvizIconSliders, label = "Paramètres", onClick = onOpenSettings)
         ProfileSettingsDivider()
         ProfileSettingsRow(icon = MovvizIconSwap, label = "Changer de profil", onClick = onSwitchProfile)
-        ProfileSettingsDivider()
+    }
+}
+
+/** Actions rares et sensibles, tout en bas de la page, séparées du menu. */
+@Composable
+private fun ProfileDangerList(onResetWatch: () -> Unit, onLogout: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+    ) {
         ProfileSettingsRow(icon = com.movviz.nx.mobile.ui.theme.MovvizIconTrash, label = "Effacer la lecture", onClick = onResetWatch, danger = true)
         ProfileSettingsDivider()
-        ProfileSettingsRow(icon = MovvizIconBack, label = "Se déconnecter", onClick = onLogout, danger = true)
+        ProfileSettingsRow(icon = com.movviz.nx.mobile.ui.theme.MovvizIconLogout, label = "Se déconnecter", onClick = onLogout, danger = true)
     }
 }
 
@@ -367,10 +382,10 @@ private fun ProfileSettingsRow(
             imageVector = icon,
             contentDescription = null,
             tint = hintColor,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(14.dp))
-        Text(label, color = contentColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(label, color = contentColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         if (onClick != null) {
             androidx.tv.material3.Icon(
                 com.movviz.nx.mobile.ui.theme.MovvizIconChevronRight,
@@ -450,15 +465,7 @@ private fun ProfileSettingsRow(
                             .align(Alignment.BottomEnd)
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        com.movviz.nx.mobile.ui.theme.MovvizBrand,
-                                        com.movviz.nx.mobile.ui.theme.MovvizBrand2,
-                                    ),
-                                ),
-                                CircleShape,
-                            )
+                            .background(com.movviz.nx.mobile.ui.theme.MovvizBrandSolid, CircleShape)
                             .hapticClickable(onClick = onChangePhoto),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -488,19 +495,8 @@ private fun ProfileSettingsRow(
             Text(
                 text = if (isAdmin) "Compte admin" else "Compte utilisateur",
                 color = Color(0xFFAAA7BD),
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier.size(44.dp).hapticClickable(onClick = onOpenSettings),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = MovvizIconSettings,
-                contentDescription = "Paramètres",
-                tint = Color(0xFFAAA7BD),
-                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -526,7 +522,7 @@ private fun ProfileSettingsRow(
             .padding(horizontal = 17.dp, vertical = 13.dp),
     ) {
         Text(if (loading) "—" else value.toString(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = Color(0xFFAAA7BD), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+        Text(label, color = Color(0xFFAAA7BD), fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
@@ -591,7 +587,7 @@ internal fun LazyListScope.profileRail(
     onClick: () -> Unit,
 ) {
     Card(
-        onClick = onClick, modifier = modifier.width(184.dp).height(276.dp),
+        onClick = onClick, modifier = modifier.width(148.dp).height(222.dp),
         shape = CardDefaults.shape(shape = profileCardShape),
         colors = CardDefaults.colors(containerColor = com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong, focusedContainerColor = Color(0xFF302A3A), contentColor = Color.White, focusedContentColor = Color.White),
     ) {
@@ -631,7 +627,7 @@ internal fun LazyListScope.profileRail(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, Color(0xE9000000)))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x66000000), Color(0xEE000000)))))
             // Le logo est posé après le scrim : son contraste ne dépend donc
             // jamais de l'image de l'épisode sous-jacente.
             if (usesEpisodeResumeArtwork && seriesLogoPath != null) {
@@ -640,20 +636,20 @@ internal fun LazyListScope.profileRail(
                     contentDescription = card.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomStart,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 12.dp, bottom = 54.dp).heightIn(max = 42.dp).widthIn(max = 148.dp),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, end = 10.dp, bottom = 46.dp).heightIn(max = 34.dp).widthIn(max = 120.dp),
                 )
             }
-            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
+            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(10.dp)) {
                 if (seriesLogoPath == null || !usesEpisodeResumeArtwork) {
-                    Text(card.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(card.title, color = Color.White, fontSize = 14.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" }
                     ?: card.userRating?.let { "★ ${if (it % 1.0 == 0.0) it.toInt() else it} / 5" }
                     ?: card.subtitle
-                if (detail != null) Text(detail, color = Color(0xFFB7B5BF), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                if (detail != null) Text(detail, color = Color(0xFFD4D2DC), fontSize = 12.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 3.dp))
                 card.progress?.let { progress ->
                     Box(Modifier.fillMaxWidth().height(4.dp).padding(top = 9.dp).background(Color.White.copy(alpha = 0.35f), RoundedCornerShape(2.dp))) {
-                        Box(Modifier.fillMaxWidth(progress.ratio.toFloat().coerceIn(0f, 1f)).height(4.dp).background(Color(0xFFE84AD9), RoundedCornerShape(2.dp)))
+                        Box(Modifier.fillMaxWidth(progress.ratio.toFloat().coerceIn(0f, 1f)).height(4.dp).background(com.movviz.nx.mobile.ui.theme.MovvizBrand2, RoundedCornerShape(2.dp)))
                     }
                 }
             }

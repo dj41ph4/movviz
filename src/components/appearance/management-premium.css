@@ -11,6 +11,7 @@ html[data-movviz-appearance="beta"]:root:root {
   & .nx-manage-page[data-manage="blocked-torrents"] { --g1: 239, 68, 68; --g2: 245, 120, 60; }
   & .nx-manage-page[data-manage="users"] { --g1: 99, 102, 241; --g2: 139, 92, 246; }
   & .nx-manage-page[data-manage="trash"] { --g1: 120, 130, 160; --g2: 80, 90, 120; }
+  & .nx-manage-page[data-manage="profile"] { --g1: 124, 92, 255; --g2: 245, 185, 66; }
 
   /* Bandeau de page */
   & .nx-manage-page [data-nx-page-header] {

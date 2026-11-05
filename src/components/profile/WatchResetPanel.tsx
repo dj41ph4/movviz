@@ -85,8 +85,8 @@ export function WatchResetPanel() {
 
   return (
     <section className="mb-6 rounded-2xl glass p-5" aria-labelledby="watch-reset-heading">
-      <h3 id="watch-reset-heading" className="mb-1 text-sm font-bold text-ink-soft">{t("profile.watchReset.title")}</h3>
-      <p className="mb-4 text-xs text-ink-dim">{t("profile.watchReset.hint")}</p>
+      <h3 id="watch-reset-heading" className="mb-1 text-base font-bold text-ink">{t("profile.watchReset.title")}</h3>
+      <p className="mb-4 text-[13px] leading-5 text-ink-dim">{t("profile.watchReset.hint")}</p>
       {step === "idle" ? (
         <button
           type="button"
@@ -133,7 +133,7 @@ export function WatchResetPanel() {
         </div>
       )}
       {plexMessage && (
-        <p className="mt-3 flex items-center gap-2 text-xs text-ink-dim">
+        <p className="mt-3 flex items-center gap-2 text-[13px] leading-5 text-ink-dim">
           {plexRunning && <Loader2 className="h-3 w-3 animate-spin" />}
           {plexMessage}
         </p>

@@ -1,3 +1,19 @@
+## v1.28.61 — 5 November 2026
+
+### Profile
+
+- The profile is now split into three tabs: Activity (resume, list, history, ratings), Preferences and Account. A colored banner, your statistics and larger text make it easier to read, like the Management pages.
+- On Android, the profile puts the menu (Settings, Switch profile…) right after your statistics and keeps Clear watch data and Sign out at the very bottom; the Settings and Sign out icons are fixed and the cards are smaller.
+
+### Sign-in
+
+- New local username: an account, even one created with Plex, can pick a username and a password to sign in without Plex. It is the same profile, with the same resume points, list, ratings and settings, and the Plex link stays active.
+- A local account can now be linked to a Plex account, without creating a new profile. A Plex account already used by another profile is refused.
+
+### Settings
+
+- The Settings search index is up to date again.
+
 ## v1.28.60 — 5 November 2026
 
 ### Export

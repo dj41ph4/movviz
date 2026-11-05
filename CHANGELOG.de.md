@@ -1,3 +1,19 @@
+## v1.28.61 — 5. November 2026
+
+### Profil
+
+- Das Profil ist jetzt in drei Tabs gegliedert: Aktivität (Fortsetzen, Liste, Verlauf, Bewertungen), Vorlieben und Konto. Ein farbiges Banner, deine Statistiken und größere Texte machen es lesbarer, wie die Verwaltungsseiten.
+- Unter Android steht das Menü (Einstellungen, Profil wechseln …) direkt nach deinen Statistiken; „Wiedergabe löschen“ und „Abmelden“ bleiben ganz unten. Die Symbole für Einstellungen und Abmelden sind korrigiert, die Karten kleiner.
+
+### Anmeldung
+
+- Neuer lokaler Benutzername: Ein Konto, auch wenn es mit Plex erstellt wurde, kann einen Benutzernamen und ein Passwort wählen, um sich ohne Plex anzumelden. Es ist dasselbe Profil mit denselben Fortsetzungen, derselben Liste, denselben Bewertungen und Einstellungen; die Plex-Verknüpfung bleibt aktiv.
+- Ein lokales Konto kann jetzt mit einem Plex-Konto verknüpft werden, ohne ein neues Profil anzulegen. Ein Plex-Konto, das schon ein anderes Profil nutzt, wird abgelehnt.
+
+### Einstellungen
+
+- Der Suchindex der Einstellungen ist wieder aktuell.
+
 ## v1.28.60 — 5. November 2026
 
 ### Export

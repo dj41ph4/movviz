@@ -1,3 +1,19 @@
+## v1.28.61 — 5 novembre 2026
+
+### Profilo
+
+- Il profilo è ora diviso in tre schede: Attività (riprese, lista, cronologia, valutazioni), Preferenze e Account. Un banner colorato, le tue statistiche e testi più grandi lo rendono più leggibile, come le pagine di Gestione.
+- Su Android il profilo mette il menu (Impostazioni, Cambia profilo…) subito dopo le statistiche e tiene Cancella la riproduzione ed Esci in fondo; le icone Impostazioni ed Esci sono corrette e le schede più piccole.
+
+### Accesso
+
+- Nuovo nome utente locale: un account, anche creato con Plex, può scegliere un nome utente e una password per accedere senza Plex. È lo stesso profilo, con le stesse riprese, la stessa lista, le stesse valutazioni e le stesse impostazioni; il collegamento a Plex resta attivo.
+- Un account locale può ora essere collegato a un account Plex, senza creare un nuovo profilo. Un account Plex già usato da un altro profilo viene rifiutato.
+
+### Impostazioni
+
+- L'indice di ricerca delle Impostazioni è di nuovo aggiornato.
+
 ## v1.28.60 — 5 novembre 2026
 
 ### Esportazione

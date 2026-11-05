@@ -1,3 +1,19 @@
+## v1.28.61 — 5 novembre 2026
+
+### Profil
+
+- Le profil est rangé en trois onglets : Activité (reprises, liste, historique, notes), Préférences et Compte. Un bandeau coloré, vos statistiques et des textes plus grands le rendent plus lisible, comme les pages de Gestion.
+- Sur Android, le profil place le menu (Paramètres, Changer de profil…) juste après vos statistiques et garde Effacer la lecture et Se déconnecter tout en bas ; les icônes Paramètres et Déconnexion sont corrigées et les cartes plus petites.
+
+### Connexion
+
+- Nouveau pseudo local : un compte, même créé avec Plex, peut choisir un pseudo et un mot de passe pour se connecter sans Plex. C'est le même profil, avec les mêmes reprises, la même liste, les mêmes notes et les mêmes réglages, et le lien Plex reste actif.
+- Un compte local peut maintenant se lier à un compte Plex, sans créer de nouveau profil. Un compte Plex déjà utilisé par un autre profil est refusé.
+
+### Réglages
+
+- L'index de la recherche des Réglages est de nouveau à jour.
+
 ## v1.28.60 — 5 novembre 2026
 
 ### Export

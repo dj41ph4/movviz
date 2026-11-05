@@ -28,7 +28,7 @@ export function LanguagePanel() {
         </span>
         <div>
           <h3 className="font-bold text-ink">{t("profile.playbackTitle")}</h3>
-          <p className="mt-0.5 text-xs text-ink-dim">{t("profile.languageHint")}</p>
+          <p className="mt-0.5 text-[13px] leading-5 text-ink-dim">{t("profile.languageHint")}</p>
         </div>
       </div>
 

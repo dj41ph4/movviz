@@ -86,9 +86,9 @@ export function effectiveAvatar(
 }
 
 /** Never send passwordHash or plexToken to the browser — but UI needs to know whether one exists. */
-export type PublicUser = Omit<User, "passwordHash" | "plexToken" | "plexServerToken"> & { hasPlexToken: boolean };
+export type PublicUser = Omit<User, "passwordHash" | "plexToken" | "plexServerToken"> & { hasPlexToken: boolean; hasPassword: boolean };
 
 export function toPublicUser(u: User): PublicUser {
   const { passwordHash: _passwordHash, plexToken, plexServerToken: _plexServerToken, ...rest } = u;
-  return { ...rest, plexAvatar: u.customAvatar ? u.plexAvatar : effectiveAvatar(u), hasPlexToken: !!plexToken };
+  return { ...rest, plexAvatar: u.customAvatar ? u.plexAvatar : effectiveAvatar(u), hasPlexToken: !!plexToken, hasPassword: !!u.passwordHash };
 }

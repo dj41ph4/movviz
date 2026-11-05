@@ -710,3 +710,31 @@ val MovvizIconVolumeOff: ImageVector by lazy {
         }
     }
 }
+
+/** Réglages du profil — trois curseurs, lisibles même à 20 dp (l'engrenage à dents se lisait comme une tache). */
+val MovvizIconSliders: ImageVector by lazy {
+    movvizIcon("MovvizIconSliders") {
+        stroke(width = 2f) {
+            moveTo(4f, 6.5f); lineTo(8f, 6.5f)
+            moveTo(13.4f, 6.5f); lineTo(20f, 6.5f)
+            moveTo(8f, 6.5f); arcToRelative(2.7f, 2.7f, 0f, true, true, 5.4f, 0f); arcToRelative(2.7f, 2.7f, 0f, true, true, -5.4f, 0f)
+            moveTo(4f, 12f); lineTo(14f, 12f)
+            moveTo(19.4f, 12f); lineTo(20f, 12f)
+            moveTo(14f, 12f); arcToRelative(2.7f, 2.7f, 0f, true, true, 5.4f, 0f); arcToRelative(2.7f, 2.7f, 0f, true, true, -5.4f, 0f)
+            moveTo(4f, 17.5f); lineTo(6f, 17.5f)
+            moveTo(11.4f, 17.5f); lineTo(20f, 17.5f)
+            moveTo(6f, 17.5f); arcToRelative(2.7f, 2.7f, 0f, true, true, 5.4f, 0f); arcToRelative(2.7f, 2.7f, 0f, true, true, -5.4f, 0f)
+        }
+    }
+}
+
+/** Se déconnecter — flèche qui sort d'un cadre ouvert. */
+val MovvizIconLogout: ImageVector by lazy {
+    movvizIcon("MovvizIconLogout") {
+        stroke(width = 2f) {
+            moveTo(10f, 4.5f); lineTo(5.5f, 4.5f); lineTo(5.5f, 19.5f); lineTo(10f, 19.5f)
+            moveTo(9.5f, 12f); lineTo(20f, 12f)
+            moveTo(16f, 8f); lineTo(20f, 12f); lineTo(16f, 16f)
+        }
+    }
+}

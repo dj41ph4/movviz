@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { relativeTime } from "@/lib/utils";
-import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv } from "lucide-react";
+import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv, Camera } from "lucide-react";
 import { ContinentPicker } from "@/components/discover/ContinentPicker";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { mutate as mutateGlobal } from "swr";
@@ -23,6 +23,7 @@ import { AiContextPanel } from "@/components/profile/AiContextPanel";
 import { LanguagePanel } from "@/components/profile/LanguagePanel";
 import { AccessibilityPanel } from "@/components/profile/AccessibilityPanel";
 import { WatchResetPanel } from "@/components/profile/WatchResetPanel";
+import { SignInMethodsPanel } from "@/components/profile/SignInMethodsPanel";
 
 interface TokenRecord {
   id: string;
@@ -50,13 +51,16 @@ interface ProfileMediaResponse {
   watchHistory: ProfileMediaCard[];
   ratings: ProfileMediaCard[];
   watchlist: ProfileMediaCard[];
+  counts?: { watchedMovies: number; watchedSeries: number; watchlist: number; ratings: number };
 }
+
+type ProfileTab = "activity" | "preferences" | "account";
 
 function MediaRail({ title, items }: { title: string; items: ProfileMediaCard[] }) {
   if (!items.length) return null;
   return (
     <section className="mb-6 rounded-2xl glass p-5">
-      <h3 className="mb-4 text-sm font-bold text-ink-soft">{title}</h3>
+      <h3 className="mb-4 text-base font-bold text-ink">{title}</h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
         {items.map((item, index) => {
           const type = item.type === "episode" ? "series" : item.type;
@@ -67,9 +71,9 @@ function MediaRail({ title, items }: { title: string; items: ProfileMediaCard[] 
               <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-surface">
                 {(item.posterPath || item.stillPath) ? <TmdbImage path={(item.posterPath || item.stillPath)!} size="w500" alt={item.title} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" /> : <div className="h-full w-full" />}
                 {item.progress && <div className="absolute inset-x-2 bottom-2 h-1 rounded-full bg-black/60"><div className="h-full rounded-full bg-brand-glow" style={{ width: `${Math.round(item.progress.ratio * 100)}%` }} /></div>}
-                {item.userRating != null && <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[10px] font-bold text-amber">★ {item.userRating}/5</span>}
+                {item.userRating != null && <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-bold text-amber">★ {item.userRating}/5</span>}
               </div>
-              <p className="mt-2 truncate text-xs font-semibold text-ink">{item.title}</p>
+              <p className="mt-2 truncate text-[13px] font-semibold text-ink">{item.title}</p>
             </Link>
           );
         })}
@@ -108,6 +112,7 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const [tab, setTab] = useState<ProfileTab>("activity");
 
   const uploadPhoto = async (file: File) => {
     setUploadingPhoto(true);
@@ -249,14 +254,190 @@ export default function ProfilePage() {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const counts = profileMedia?.counts;
+  const stats = [
+    { label: t("profile.statMovies"), value: counts?.watchedMovies },
+    { label: t("profile.statSeries"), value: counts?.watchedSeries },
+    { label: t("profile.statWatchlist"), value: counts?.watchlist ?? (watchlistData ? watchlistItems.length : undefined) },
+    { label: t("profile.statRatings"), value: counts?.ratings },
+  ];
+  const tabs: { id: ProfileTab; label: string }[] = [
+    { id: "activity", label: t("profile.tabActivity") },
+    { id: "preferences", label: t("profile.tabPreferences") },
+    { id: "account", label: t("profile.tabAccount") },
+  ];
+
   return (
-    <div className="mx-auto max-w-[800px]">
+    <div data-manage="profile" className="nx-manage-page mx-auto max-w-[960px]">
       {titlePanel}
-      <PageHeader eyebrow={user.username} title={t("profile.title")} description={t("profile.description")} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) uploadPhoto(f);
+        }}
+      />
+      <PageHeader eyebrow={user.username} title={t("profile.title")} description={t("profile.description")}>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploadingPhoto}
+          aria-label={t("profile.changePhoto")}
+          title={t("profile.changePhoto")}
+          className="group relative hidden h-16 w-16 items-center justify-center overflow-hidden rounded-[50%] p-0 disabled:opacity-60 sm:flex"
+        >
+          <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-[50%] bg-brand text-xl font-black text-white">
+            {effectiveAvatar(user) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={effectiveAvatar(user)!} alt="" className="h-full w-full object-cover" />
+            ) : (
+              user.username.slice(0, 2).toUpperCase()
+            )}
+          </span>
+          <span className="absolute inset-0 flex items-center justify-center bg-black/55 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+            {uploadingPhoto ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+          </span>
+        </button>
+      </PageHeader>
+
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded-2xl glass px-4 py-3">
+            <p className="text-2xl font-black tabular-nums text-ink">{s.value ?? "—"}</p>
+            <p className="mt-0.5 text-xs font-semibold text-ink-soft">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div role="tablist" aria-label={t("profile.tabsLabel")} className="mb-6 grid grid-cols-3 gap-0.5 rounded-2xl glass p-1 sm:inline-grid sm:w-auto">
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            id={`profile-tab-${item.id}`}
+            aria-selected={tab === item.id}
+            aria-controls={`profile-panel-${item.id}`}
+            onClick={() => setTab(item.id)}
+            className={cn(
+              "rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors",
+              tab === item.id ? "brand-gradient text-white shadow-sm" : "text-ink-soft hover:text-ink"
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "activity" && (
+        <div role="tabpanel" id="profile-panel-activity" aria-labelledby="profile-tab-activity">
+          {profileMedia && <MediaRail title={t("home.continueWatching")} items={profileMedia.continueWatching} />}
+      <div className="mb-6 rounded-2xl glass p-5">
+        <h3 className="mb-4 text-base font-bold text-ink">{t("watchlist.title")}</h3>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {watchlistItems.map((item) => {
+            const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}:${item.seriesPart ?? ""}`;
+            const titleQuery = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null
+              ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : item.seriesPart ? `?part=${item.seriesPart}` : "";
+            return (
+              <article key={key} className="group w-full">
+                <Link href={`/title/${item.type === "episode" ? "series" : item.type}/${item.tmdbId}${titleQuery}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
+                  {item.posterPath ? (
+                    <TmdbImage path={item.posterPath} size="w500" alt={item.title} loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      {item.type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}
+                    </div>
+                  )}
+                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-bold backdrop-blur">
+                    <Star className="h-3 w-3 fill-amber text-amber" /> {item.rating.toFixed(1)}
+                  </div>
+                  <div className="absolute inset-0 flex flex-col justify-end gap-1.5 bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    <button
+                      onClick={(e) => { e.preventDefault(); addWatchlistToLibrary(item); }}
+                      disabled={watchlistBusy === key}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-xl brand-gradient text-xs font-bold text-white"
+                    >
+                      {watchlistBusy === key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                      {t("watchlist.moveToLibrary")}
+                    </button>
+                    <button
+                      onClick={(e) => { e.preventDefault(); removeFromWatchlist(item); }}
+                      className="flex h-8 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-semibold text-down"
+                    >
+                      <X className="h-3.5 w-3.5" /> {t("common.remove")}
+                    </button>
+                  </div>
+                </Link>
+                <h3 className="mt-2.5 truncate px-0.5 text-sm font-semibold text-ink">{item.title}</h3>
+              </article>
+            );
+          })}
+        </div>
+        {watchlistItems.length === 0 && <p className="py-6 text-center text-sm text-ink-dim">{t("watchlist.empty")}</p>}
+      </div>
+          {profileMedia && (
+            <>
+              <MediaRail title={t("activity.history")} items={profileMedia.watchHistory} />
+              <MediaRail title={t("profile.aiContext.ratings")} items={profileMedia.ratings} />
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === "preferences" && (
+        <div role="tabpanel" id="profile-panel-preferences" aria-labelledby="profile-tab-preferences">
+      <LanguagePanel />
 
       <div className="mb-6 rounded-2xl glass p-5">
-        <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.photo")}</h3>
-        <p className="mb-4 text-xs text-ink-dim">{t("profile.photoHint")}</p>
+        <h3 className="mb-1 text-base font-bold text-ink">{t("profile.discover")}</h3>
+        <p className="mb-4 text-[13px] leading-5 text-ink-dim">{t("profile.discoverHint")}</p>
+        <ContinentPicker selected={activeContinents} onChange={saveDiscover} />
+        {(savingDiscover || discoverMessage) && (
+          <p className="mt-2 text-[13px] leading-5 text-ink-dim">
+            {savingDiscover ? <Loader2 className="inline h-3 w-3 animate-spin" /> : discoverMessage}
+          </p>
+        )}
+
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t("profile.watchRegion")}</p>
+            <p className="text-xs text-ink-dim">{t("profile.watchRegionHint")}</p>
+          </div>
+          <select
+            value={watchRegion}
+            onChange={(e) => setWatchRegion(e.target.value)}
+            className="h-9 shrink-0 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none focus:border-brand/40"
+          >
+            {WATCH_REGION_OPTIONS.map((code) => (
+              <option key={code} value={code}>{regionDisplayNames?.of(code) ?? code}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <AccessibilityPanel />
+
+      <AiContextPanel />
+
+      {betaPlayerLoaded && betaPlayerAvailable && (
+        <div className="mb-6 rounded-2xl glass p-5">
+          <h3 className="mb-1 text-base font-bold text-ink">{t("player.useMovviz")}</h3>
+          <p className="mb-4 text-[13px] leading-5 text-ink-dim">{t("player.useMovvizHint")}</p>
+          <Toggle label={t("player.useMovviz")} on={betaPlayerOn} onChange={() => setBetaPlayerOn(!betaPlayerOn)} />
+        </div>
+      )}
+        </div>
+      )}
+
+      {tab === "account" && (
+        <div role="tabpanel" id="profile-panel-account" aria-labelledby="profile-tab-account">
+      <div className="mb-6 rounded-2xl glass p-5">
+        <h3 className="mb-1 text-base font-bold text-ink">{t("profile.photo")}</h3>
+        <p className="mb-4 text-[13px] leading-5 text-ink-dim">{t("profile.photoHint")}</p>
         <div className="flex items-center gap-4">
           <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full brand-gradient text-xl font-black text-white">
             {effectiveAvatar(user) ? (
@@ -267,16 +448,6 @@ export default function ProfilePage() {
             )}
           </span>
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) uploadPhoto(f);
-              }}
-            />
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploadingPhoto}
@@ -295,31 +466,15 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
-        {photoMessage && <p className="mt-2 text-xs text-ink-dim">{photoMessage}</p>}
+        {photoMessage && <p className="mt-2 text-[13px] leading-5 text-ink-dim">{photoMessage}</p>}
       </div>
 
-      <LanguagePanel />
+      <SignInMethodsPanel />
 
-      <AiContextPanel />
-
-      {profileMedia && (
-        <>
-          <MediaRail title={t("home.continueWatching")} items={profileMedia.continueWatching} />
-          <MediaRail title={t("activity.history")} items={profileMedia.watchHistory} />
-          <MediaRail title={t("profile.aiContext.ratings")} items={profileMedia.ratings} />
-        </>
-      )}
-
-      {betaPlayerLoaded && betaPlayerAvailable && (
-        <div className="mb-6 rounded-2xl glass p-5">
-          <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("player.useMovviz")}</h3>
-          <p className="mb-4 text-xs text-ink-dim">{t("player.useMovvizHint")}</p>
-          <Toggle label={t("player.useMovviz")} on={betaPlayerOn} onChange={() => setBetaPlayerOn(!betaPlayerOn)} />
-        </div>
-      )}
-
+      {/* Compte sans mot de passe (Plex seul) : la création du pseudo local ci-dessus pose le premier mot de passe. */}
+      {user.hasPassword && (
       <div className="mb-6 rounded-2xl glass p-5">
-        <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("profile.changePassword")}</h3>
+        <h3 className="mb-4 text-base font-bold text-ink">{t("profile.changePassword")}</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {/* Chrome's password-manager heuristic pairs a type="password" +
              autoComplete="current-password" field with a "username" field —
@@ -367,88 +522,13 @@ export default function ProfilePage() {
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("profile.updatePassword")}
         </button>
-        {pwMessage && <p className="mt-2 text-xs text-ink-dim">{pwMessage}</p>}
+        {pwMessage && <p className="mt-2 text-[13px] leading-5 text-ink-dim">{pwMessage}</p>}
       </div>
-
-      <AccessibilityPanel />
+      )}
 
       <div className="mb-6 rounded-2xl glass p-5">
-        <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.discover")}</h3>
-        <p className="mb-4 text-xs text-ink-dim">{t("profile.discoverHint")}</p>
-        <ContinentPicker selected={activeContinents} onChange={saveDiscover} />
-        {(savingDiscover || discoverMessage) && (
-          <p className="mt-2 text-xs text-ink-dim">
-            {savingDiscover ? <Loader2 className="inline h-3 w-3 animate-spin" /> : discoverMessage}
-          </p>
-        )}
-
-        <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
-          <div>
-            <p className="text-sm font-semibold text-ink">{t("profile.watchRegion")}</p>
-            <p className="text-xs text-ink-dim">{t("profile.watchRegionHint")}</p>
-          </div>
-          <select
-            value={watchRegion}
-            onChange={(e) => setWatchRegion(e.target.value)}
-            className="h-9 shrink-0 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none focus:border-brand/40"
-          >
-            {WATCH_REGION_OPTIONS.map((code) => (
-              <option key={code} value={code}>{regionDisplayNames?.of(code) ?? code}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="mb-6 rounded-2xl glass p-5">
-        <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("watchlist.title")}</h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {watchlistItems.map((item) => {
-            const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}:${item.seriesPart ?? ""}`;
-            const titleQuery = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null
-              ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : item.seriesPart ? `?part=${item.seriesPart}` : "";
-            return (
-              <article key={key} className="group w-full">
-                <Link href={`/title/${item.type === "episode" ? "series" : item.type}/${item.tmdbId}${titleQuery}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
-                  {item.posterPath ? (
-                    <TmdbImage path={item.posterPath} size="w500" alt={item.title} loading="lazy" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      {item.type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}
-                    </div>
-                  )}
-                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold backdrop-blur">
-                    <Star className="h-3 w-3 fill-amber text-amber" /> {item.rating.toFixed(1)}
-                  </div>
-                  <div className="absolute inset-0 flex flex-col justify-end gap-1.5 bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    <button
-                      onClick={(e) => { e.preventDefault(); addWatchlistToLibrary(item); }}
-                      disabled={watchlistBusy === key}
-                      className="flex h-9 items-center justify-center gap-1.5 rounded-xl brand-gradient text-xs font-bold text-white"
-                    >
-                      {watchlistBusy === key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                      {t("watchlist.moveToLibrary")}
-                    </button>
-                    <button
-                      onClick={(e) => { e.preventDefault(); removeFromWatchlist(item); }}
-                      className="flex h-8 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-semibold text-down"
-                    >
-                      <X className="h-3.5 w-3.5" /> {t("common.remove")}
-                    </button>
-                  </div>
-                </Link>
-                <h3 className="mt-2.5 truncate px-0.5 text-sm font-semibold text-ink">{item.title}</h3>
-              </article>
-            );
-          })}
-        </div>
-        {watchlistItems.length === 0 && <p className="py-6 text-center text-sm text-ink-dim">{t("watchlist.empty")}</p>}
-      </div>
-
-      <WatchResetPanel />
-
-      <div className="rounded-2xl glass p-5">
-        <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("profile.apiTokens")}</h3>
-        <p className="mb-4 text-xs text-ink-dim">{t("profile.apiTokensHint")}</p>
+        <h3 className="mb-1 text-base font-bold text-ink">{t("profile.apiTokens")}</h3>
+        <p className="mb-4 text-[13px] leading-5 text-ink-dim">{t("profile.apiTokensHint")}</p>
 
         <div className="mb-4 flex gap-2">
           <input
@@ -469,7 +549,7 @@ export default function ProfilePage() {
 
         {freshToken && (
           <div className="mb-4 rounded-xl border border-brand/30 bg-brand/8 p-3">
-            <p className="mb-1.5 text-xs text-ink-dim">{t("profile.tokenCreatedHint")}</p>
+            <p className="mb-1.5 text-[13px] leading-5 text-ink-dim">{t("profile.tokenCreatedHint")}</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 truncate text-xs text-ink">{freshToken}</code>
               <button onClick={copyToken} className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft">
@@ -485,7 +565,7 @@ export default function ProfilePage() {
               <Key className="h-4 w-4 shrink-0 text-ink-dim" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink">{tk.name}</p>
-                <p className="text-[11px] text-ink-dim">
+                <p className="text-xs text-ink-dim">
                   {relativeTime(new Date(tk.createdAt).toISOString(), locale)}
                   {tk.lastUsedAt ? ` · ${relativeTime(new Date(tk.lastUsedAt).toISOString(), locale)}` : ""}
                 </p>
@@ -498,6 +578,10 @@ export default function ProfilePage() {
           {tokens.length === 0 && <p className="text-sm text-ink-dim">{t("profile.noTokens")}</p>}
         </div>
       </div>
+
+      <WatchResetPanel />
+        </div>
+      )}
     </div>
   );
 }

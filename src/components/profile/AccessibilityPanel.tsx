@@ -39,7 +39,7 @@ export function AccessibilityPanel() {
 
   return (
     <section data-desktop-accessibility className="mb-6 hidden rounded-2xl glass p-5 lg:block" aria-labelledby="desktop-accessibility-heading" aria-busy={saving}>
-      <h3 id="desktop-accessibility-heading" className="mb-1 text-sm font-bold text-ink-soft">{t("profile.accessibility.title")}</h3>
+      <h3 id="desktop-accessibility-heading" className="mb-1 text-base font-bold text-ink">{t("profile.accessibility.title")}</h3>
       <p className="mb-4 text-sm text-ink-dim">{t("profile.accessibility.hint")}</p>
       <fieldset>
         <legend className="mb-3 text-sm font-semibold text-ink">{t("profile.accessibility.textSize")}</legend>

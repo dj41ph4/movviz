@@ -117,7 +117,7 @@ export function AiContextPanel() {
       >
         <span className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-brand-glow" />
-          <h3 className="text-sm font-bold text-ink-soft">{t("profile.aiContext.title")}</h3>
+          <h3 className="text-base font-bold text-ink">{t("profile.aiContext.title")}</h3>
         </span>
         {open ? <ChevronUp className="h-4 w-4 text-ink-dim" /> : <ChevronDown className="h-4 w-4 text-ink-dim" />}
       </button>
@@ -159,7 +159,7 @@ export function AiContextPanel() {
                   <li key={idx} className="flex items-start gap-2 text-sm text-ink">
                     <span
                       className={cn(
-                        "mt-0.5 shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold",
+                        "mt-0.5 shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-bold",
                         i.confidence >= 0.6 ? "border-ok/30 bg-ok/12 text-ok" : "border-amber/30 bg-amber/12 text-amber"
                       )}
                       title={t(`profile.aiContext.trend.${i.trend}`)}
@@ -230,7 +230,7 @@ export function AiContextPanel() {
                         </span>
                         <span>
                           <span className="font-semibold text-ink">{r.title}</span>
-                          {r.source === "inferred" && <span className="ml-1 text-xs text-ink-dim">({t("profile.aiContext.ratingInferred")})</span>}
+                          {r.source === "inferred" && <span className="ml-1 text-[13px] leading-5 text-ink-dim">({t("profile.aiContext.ratingInferred")})</span>}
                           {r.opinion ? ` — ${r.opinion}` : ""}
                         </span>
                       </li>

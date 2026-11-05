@@ -1,3 +1,19 @@
+## v1.28.61 — 5 november 2026
+
+### Profiel
+
+- Het profiel is nu verdeeld in drie tabbladen: Activiteit (hervatten, lijst, geschiedenis, beoordelingen), Voorkeuren en Account. Een gekleurde banner, je statistieken en grotere teksten maken het leesbaarder, net als de beheerpagina's.
+- Op Android staat het menu (Instellingen, Van profiel wisselen…) direct na je statistieken en blijven Kijkgeschiedenis wissen en Uitloggen helemaal onderaan; de pictogrammen voor Instellingen en Uitloggen zijn hersteld en de kaarten kleiner.
+
+### Inloggen
+
+- Nieuwe lokale gebruikersnaam: een account, ook als het met Plex is gemaakt, kan een gebruikersnaam en wachtwoord kiezen om zonder Plex in te loggen. Het is hetzelfde profiel, met dezelfde hervattingen, lijst, beoordelingen en instellingen; de Plex-koppeling blijft actief.
+- Een lokaal account kan nu aan een Plex-account worden gekoppeld, zonder nieuw profiel aan te maken. Een Plex-account dat al door een ander profiel wordt gebruikt, wordt geweigerd.
+
+### Instellingen
+
+- De zoekindex van de Instellingen is weer actueel.
+
 ## v1.28.60 — 5 november 2026
 
 ### Export
