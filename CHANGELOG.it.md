@@ -1,4 +1,4 @@
-## v1.28.69 — 5 novembre 2026
+## v1.28.70 — 5 novembre 2026
 
 ### Libreria
 
