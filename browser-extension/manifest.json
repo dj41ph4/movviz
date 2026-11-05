@@ -65,7 +65,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/icon48.png"
+        "icons/mark48.png"
       ],
       "matches": [
         "https://www.themoviedb.org/*",

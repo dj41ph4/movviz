@@ -1,6 +1,6 @@
 # Movviz Companion
 
-Extension navigateur (Chrome, Edge, Brave) qui ajoute un bouton Movviz sur les
+Extension navigateur (Chrome, Edge, Brave, Firefox) qui ajoute un bouton Movviz sur les
 sites de cinéma : un clic pour demander un film ou une série, avec le statut en
 direct (en attente, en cours, disponible).
 
@@ -12,6 +12,17 @@ Rotten Tomatoes, JustWatch, Trakt, Taste.
 1. Ouvrir `chrome://extensions` et activer le **mode développeur**.
 2. **Charger l'extension non empaquetée** et choisir ce dossier `browser-extension`.
 3. La page d'options s'ouvre : renseigner l'adresse du serveur Movviz et un jeton.
+
+### Firefox
+
+```bash
+node browser-extension/scripts/build-firefox.mjs
+```
+
+Ouvrir `about:debugging#/runtime/this-firefox`, **Charger un module complémentaire
+temporaire** et choisir `browser-extension/dist-firefox/manifest.json`. Le zip de
+release `Movviz-Companion-firefox.zip` doit être signé par Mozilla (AMO, en
+liste non répertoriée) pour s'installer durablement sur Firefox stable.
 
 ## Jeton
 

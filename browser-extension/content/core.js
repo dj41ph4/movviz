@@ -10,10 +10,10 @@
       display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap;
       margin: 12px 0; padding: 10px 14px; border-radius: 18px;
       font-family: Inter, "Segoe UI", system-ui, sans-serif;
-      font-size: 14px; line-height: 1.2; color: #eef1ff;
-      background: linear-gradient(135deg, #1a1f3d, #0e1330);
-      border: 1px solid color-mix(in oklab, #a06bff 55%, #fff 10%);
-      box-shadow: 0 0 0 1px rgba(124, 58, 237, .25), 0 12px 32px -10px rgba(124, 58, 237, .75);
+      font-size: 14px; line-height: 1.2; color: #f5f2eb;
+      background: linear-gradient(135deg, #1b1e27, #0a0c15);
+      border: 1px solid color-mix(in oklab, #b892ff 40%, #fff 8%);
+      box-shadow: 0 0 0 1px rgba(116, 88, 232, .22), 0 12px 32px -10px rgba(116, 88, 232, .6);
     }
     .wrap.float { position: fixed; left: 16px; bottom: 16px; z-index: 2147483647; margin: 0; }
     .mark { width: 34px; height: 34px; flex: none; }
@@ -22,27 +22,27 @@
       font: inherit; font-weight: 700; white-space: nowrap; cursor: pointer;
     }
     .btn {
-      padding: 11px 20px; border-radius: 12px; border: 0; color: #fff; font-size: 14px;
-      background: linear-gradient(120deg, #ff4bd0, #c04bff, #7c3aed);
-      box-shadow: 0 8px 22px -8px rgba(192, 75, 255, .9);
+      padding: 11px 20px; border-radius: 12px; border: 0; color: #211830; font-size: 14px;
+      background: #e4d9ff;
+      box-shadow: 0 8px 22px -10px rgba(184, 146, 255, .7);
       transition: transform .15s ease, filter .15s ease;
     }
-    .btn:hover { transform: scale(1.05); filter: brightness(1.12); }
+    .btn:hover { transform: scale(1.05); background: #f0e9ff; }
     .btn:disabled { opacity: .6; cursor: default; transform: none; }
     .pill { padding: 7px 13px; border-radius: 999px; border: 1px solid; font-size: 12px; cursor: default; }
     a.pill { cursor: pointer; }
     .ok { color: #43e6a0; background: rgba(67, 230, 160, .15); border-color: rgba(67, 230, 160, .4); }
     .amber { color: #ffb84b; background: rgba(255, 184, 75, .15); border-color: rgba(255, 184, 75, .4); }
-    .cyan { color: #34e2ff; background: rgba(52, 226, 255, .15); border-color: rgba(52, 226, 255, .4); }
+    .cyan { color: #b892ff; background: rgba(167, 123, 255, .15); border-color: rgba(167, 123, 255, .4); }
     .down { color: #ff5b78; background: rgba(255, 91, 120, .15); border-color: rgba(255, 91, 120, .4); }
-    .dim { color: #aeb4d6; background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .2); }
+    .dim { color: #aaa7bd; background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .2); }
     svg { width: 16px; height: 16px; flex: none; }
     .spin { animation: spin .8s linear infinite; }
     .pulse { animation: pulse 1.6s ease-in-out infinite; }
     .pill.progress { position: relative; overflow: hidden; }
     .pill .bar {
       position: absolute; left: 0; bottom: 0; height: 3px; border-radius: 999px;
-      background: linear-gradient(120deg, #ff4bd0, #c04bff, #7c3aed); transition: width .6s ease;
+      background: linear-gradient(90deg, #7458e8, #b892ff); transition: width .6s ease;
     }
     .skeleton { width: 170px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, .08); animation: pulse 1.4s ease-in-out infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -113,7 +113,7 @@
 
   function mark() {
     const img = el("img", "mark");
-    img.src = chrome.runtime.getURL("icons/icon48.png");
+    img.src = chrome.runtime.getURL("icons/mark48.png");
     img.alt = "Movviz";
     return img;
   }

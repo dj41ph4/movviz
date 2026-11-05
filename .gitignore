@@ -62,3 +62,4 @@ mobile-nx-*.png
 portrait-*.png
 portrait-*.xml
 post-login.png
+/browser-extension/dist-firefox
