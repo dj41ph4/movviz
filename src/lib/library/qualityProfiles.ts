@@ -1,4 +1,5 @@
 import type { QualityProfile } from "./types";
+import { loadReleaseRules } from "./releaseRules";
 
 export const DEFAULT_QUALITY_PROFILES: QualityProfile[] = [
   {
@@ -7,6 +8,13 @@ export const DEFAULT_QUALITY_PROFILES: QualityProfile[] = [
     allowedResolutions: ["480p", "720p", "1080p", "2160p"],
     minScore: 1,
     cutoffResolution: "2160p",
+  },
+  {
+    id: "hd-720p",
+    name: "HD-720p",
+    allowedResolutions: ["720p", "1080p", "2160p"],
+    minScore: 1,
+    cutoffResolution: "1080p",
   },
   {
     id: "hd-1080p",
@@ -25,5 +33,7 @@ export const DEFAULT_QUALITY_PROFILES: QualityProfile[] = [
 ];
 
 export function defaultQualityProfile(): QualityProfile {
-  return DEFAULT_QUALITY_PROFILES[1]; // HD-1080p is a sane default
+  // Réglable dans Réglages > Qualité ; "any" tant que rien n'est choisi, pour ne jamais écarter une release à cause de sa seule résolution.
+  const id = loadReleaseRules().defaultQualityProfileId;
+  return DEFAULT_QUALITY_PROFILES.find((p) => p.id === id) ?? DEFAULT_QUALITY_PROFILES[0];
 }

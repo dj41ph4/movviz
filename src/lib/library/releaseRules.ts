@@ -70,6 +70,10 @@ export interface ReleaseRules {
    * the default, so nothing changes for anyone who doesn't touch this.
    */
   sizePreference: "smaller" | "balanced" | "quality";
+  /** Profil de qualité donné aux séries/films ajoutés ("any" = toutes résolutions, "hd-1080p", "ultra-hd"). */
+  defaultQualityProfileId: string;
+  /** Repli : si rien n'existe dans les résolutions du profil, la recherche prend la meilleure résolution disponible. */
+  resolutionFallbackEnabled: boolean;
 }
 
 const DEFAULT_RULES: ReleaseRules = {
@@ -88,6 +92,8 @@ const DEFAULT_RULES: ReleaseRules = {
   autoUpgradeEnabled: false,
   dashboardUpgradeScanEnabled: true,
   sizePreference: "balanced",
+  defaultQualityProfileId: "any",
+  resolutionFallbackEnabled: true,
 };
 
 /**

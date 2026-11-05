@@ -1,3 +1,12 @@
+## v1.28.65 — 5 novembre 2026
+
+### Téléchargements
+
+- Le profil de qualité par défaut est réglable (Réglages > Qualité) et vaut « Any » : une release en 720p n'est plus refusée parce qu'elle n'est pas en 1080p. Un bouton applique ce profil à toute la bibliothèque.
+- Si aucune release n'existe dans les résolutions du profil, la recherche directe prend la meilleure résolution disponible au lieu de bloquer.  Désactivable dans Réglages > Qualité (« Accepter une résolution inférieure si besoin »).
+- Une fois, au démarrage après cette mise à jour, toute la bibliothèque passe en « HD-720p » (720p minimum).
+- L'historique des échecs nomme maintenant la release écartée et la règle en cause.
+
 ## v1.28.64 — 5 novembre 2026
 
 ### Extension navigateur

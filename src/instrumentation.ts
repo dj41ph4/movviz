@@ -83,6 +83,12 @@ export async function register() {
       };
     }
 
+    try {
+      const { migrateLibraryTo720pOnce } = await import("@/lib/library/qualityMigration");
+      const moved = migrateLibraryTo720pOnce();
+      if (moved) logBootPhase("info", "migration.quality_720p", `Bibliothèque passée en 720p minimum : ${moved.series} série(s), ${moved.movies} film(s)`);
+    } catch { /* best-effort */ }
+
     const { reconcileStaleSearches } = await import("@/lib/library/reconcileStaleSearches");
     await phase("recherches interrompues", () => reconcileStaleSearches());
 

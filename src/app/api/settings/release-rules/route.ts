@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { loadReleaseRules, saveReleaseRules } from "@/lib/library/releaseRules";
+import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
 import { markWizardWritten, markManuallyEdited, type WizardTrackedField } from "@/lib/setup/wizardProvenance";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,12 @@ export async function PUT(req: NextRequest) {
   if ("sizePreference" in body) {
     const allowedSizePreference = ["smaller", "balanced", "quality"];
     patch.sizePreference = allowedSizePreference.includes(body.sizePreference) ? body.sizePreference : "balanced";
+  }
+  if ("defaultQualityProfileId" in body && DEFAULT_QUALITY_PROFILES.some((p) => p.id === body.defaultQualityProfileId)) {
+    patch.defaultQualityProfileId = body.defaultQualityProfileId;
+  }
+  if ("resolutionFallbackEnabled" in body) {
+    patch.resolutionFallbackEnabled = Boolean(body.resolutionFallbackEnabled);
   }
   const next = saveReleaseRules(patch);
 

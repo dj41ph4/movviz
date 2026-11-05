@@ -538,10 +538,23 @@ function describeGrabFailure(result: { error: "no_indexers" | "no_match"; totalR
   return `${result.totalReleases} résultat(s) examinés. ${result.diagnostic ?? "Aucun candidat ne satisfait tous les critères du profil."}`;
 }
 
-function grabRejectionDiagnostic(stages: Array<[label: string, count: number]>, rawCount: number): string {
+/** Noms des releases (3 au plus) écartées par une étape, pour que l'historique dise CE qui a été refusé. */
+function rejectedSample(titles: string[]): string {
+  const shown = titles.slice(0, 3).map((t) => `« ${t} »`).join(", ");
+  return titles.length > 3 ? `${shown} et ${titles.length - 3} autre(s)` : shown;
+}
+
+function grabRejectionDiagnostic(
+  stages: Array<[label: string, count: number]>,
+  rawCount: number,
+  explain: Record<string, string> = {}
+): string {
   let previous = rawCount;
   for (const [label, count] of stages) {
-    if (count === 0 && previous > 0) return `Blocage au filtre « ${label} » : ${previous} candidat(s) rejeté(s).`;
+    if (count === 0 && previous > 0) {
+      const baseLabel = label.replace(/ \(.*\)$/, "");
+      return `Blocage au filtre « ${label} » : ${previous} candidat(s) rejeté(s).${explain[baseLabel] ? ` ${explain[baseLabel]}` : ""}`;
+    }
     previous = count;
   }
   return `Aucune release retenue après les filtres (${stages.map(([label, count]) => `${label}: ${count}`).join(", ")}).`;
@@ -707,11 +720,35 @@ async function grabRelease(
     const year = target.filter(({ parsed, release }) => series.tmdbId === BLEACH_TMDB_ID ? bleachReleaseYearCompatible(release.title, seasonNumber) : seriesYearIsCompatible(parsed.year, series.year, requireYear));
     const blocked = year.map(({ release }) => isBlockedForAutoGrab(release.title, rules, series.title));
     const allowed = year.filter((_, index) => !blocked[index].blocked);
-    const resolutions = allowed.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
-    const scores = resolutions.filter(({ release }) => release.score >= profile.minScore);
+    const preferred = allowed.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+    // Repli : rien dans les résolutions du profil → on prend ce qui existe plutôt que de ne rien télécharger du tout.
+    const resolutionFallback = rules.resolutionFallbackEnabled && preferred.length === 0 && allowed.length > 0;
+    const resolutions = resolutionFallback ? allowed : preferred;
+    const scores = resolutions.filter(({ release }) => release.score >= (resolutionFallback ? 1 : profile.minScore));
     const sizes = scores.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
     const eligible = sizes.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
+    if (resolutionFallback && eligible.length > 0) {
+      recordSearchLog("info", "grab_release.resolution_fallback", `${label} — aucune release en ${profile.allowedResolutions.join("/")} : repli sur une résolution inférieure (${eligible[0].parsed.resolution ?? "inconnue"})`);
+    }
+    const explain: Record<string, string> = {};
+    const forbidden = year.filter((_, index) => blocked[index].blocked);
+    if (forbidden.length) {
+      explain["mots interdits"] = `Écarté : ${rejectedSample(forbidden.map(({ release }) => release.title))} — mot interdit dans les règles de release.`;
+    }
+    const badRes = allowed.filter(({ parsed }) => parsed.resolution && !profile.allowedResolutions.includes(parsed.resolution));
+    if (badRes.length) {
+      explain["résolution"] = `Écarté : ${rejectedSample(badRes.map(({ release, parsed }) => `${release.title} (${parsed.resolution})`))} — le profil de qualité « ${profile.name} » de cette série n'accepte que ${profile.allowedResolutions.join(", ")}.`;
+    }
+    const lowScore = resolutions.filter(({ release }) => release.score < (resolutionFallback ? 1 : profile.minScore));
+    if (lowScore.length) {
+      explain["score minimum"] = `Écarté : ${rejectedSample(lowScore.map(({ release }) => `${release.title} (score ${release.score})`))} — le profil « ${profile.name} » exige un score d'au moins ${profile.minScore}.`;
+    }
+    const tooBig = scores.filter(({ release }) => !withinSizeLimit(release.size, filterPack ? "season" : "episode"));
+    if (tooBig.length) {
+      explain["taille maximale"] = `Écarté : ${rejectedSample(tooBig.map(({ release }) => `${release.title} (${(release.size / 1e9).toFixed(1)} Go)`))} — hors des limites de taille.`;
+    }
     return {
+      explain,
       candidates: eligible.sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec })),
       stages: [
         ["titre", matched.titleCount], ["saison", matched.secondCount], ["épisode/pack", matched.packCount],
@@ -746,7 +783,7 @@ async function grabRelease(
     }
     return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length, diagnostic: newlyLimited > 0
       ? `${newlyLimited} indexeur(s) ont limité la recherche directe.`
-      : grabRejectionDiagnostic(directAnalysis.stages.map(([stage, count]) => [stage === "mots interdits" && directAnalysis.blockedTerms.length ? `${stage} (${directAnalysis.blockedTerms.join(", ")})` : stage, count]), directReleases.length) };
+      : grabRejectionDiagnostic(directAnalysis.stages.map(([stage, count]) => [stage === "mots interdits" && directAnalysis.blockedTerms.length ? `${stage} (${directAnalysis.blockedTerms.join(", ")})` : stage, count]), directReleases.length, directAnalysis.explain) };
   }
   recordSearchLog("info", "grab_release.fallback_match", `${label} — meilleur candidat via recherche directe: "${topDirect.release.title}" (score:${topDirect.release.score}, indexeur:${topDirect.release.indexerId})`);
   recordDecision({

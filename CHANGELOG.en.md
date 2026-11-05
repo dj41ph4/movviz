@@ -1,3 +1,12 @@
+## v1.28.65 — 5 November 2026
+
+### Downloads
+
+- The default quality profile is now adjustable (Settings > Quality) and defaults to “Any”: a 720p release is no longer refused for not being 1080p. A button applies the profile to the whole library.
+- When no release exists in the profile's resolutions, the direct search takes the best available resolution instead of blocking. Can be turned off in Settings > Quality (“Accept a lower resolution if needed”).
+- Once, at startup after this update, the whole library moves to “HD-720p” (720p minimum).
+- Failure history now names the rejected release and the rule responsible.
+
 ## v1.28.64 — 5 November 2026
 
 ### Browser extension

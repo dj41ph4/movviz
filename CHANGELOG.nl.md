@@ -1,3 +1,12 @@
+## v1.28.65 — 5 november 2026
+
+### Downloads
+
+- Het standaard kwaliteitsprofiel is nu instelbaar (Instellingen > Kwaliteit) en staat op „Any”: een 720p-release wordt niet meer geweigerd omdat ze geen 1080p is. Een knop past het profiel toe op de hele bibliotheek.
+- Bestaat er geen release in de resoluties van het profiel, dan neemt de directe zoekopdracht de beste beschikbare resolutie in plaats van te blokkeren. Uit te schakelen in Instellingen > Kwaliteit („Lagere resolutie accepteren indien nodig”).
+- Eenmalig bij het opstarten na deze update gaat de hele bibliotheek naar „HD-720p” (minimaal 720p).
+- De foutgeschiedenis noemt nu de geweigerde release en de verantwoordelijke regel.
+
 ## v1.28.64 — 5 november 2026
 
 ### Browserextensie

@@ -1,3 +1,12 @@
+## v1.28.65 — 5 novembre 2026
+
+### Download
+
+- Il profilo di qualità predefinito ora è modificabile (Impostazioni > Qualità) e vale «Any»: una release in 720p non viene più rifiutata perché non è in 1080p. Un pulsante applica il profilo a tutta la libreria.
+- Se non esiste nessuna release nelle risoluzioni del profilo, la ricerca diretta prende la migliore risoluzione disponibile invece di bloccarsi. Disattivabile in Impostazioni > Qualità («Accetta una risoluzione inferiore se necessario»).
+- Una sola volta, all'avvio dopo questo aggiornamento, tutta la libreria passa a «HD-720p» (almeno 720p).
+- La cronologia degli errori indica ora la release scartata e la regola responsabile.
+
 ## v1.28.64 — 5 novembre 2026
 
 ### Estensione del browser

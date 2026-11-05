@@ -1,3 +1,12 @@
+## v1.28.65 — 5. November 2026
+
+### Downloads
+
+- Das Standard-Qualitätsprofil ist jetzt einstellbar (Einstellungen > Qualität) und steht auf „Any“: Eine 720p-Veröffentlichung wird nicht mehr abgelehnt, nur weil sie nicht 1080p ist. Eine Schaltfläche wendet das Profil auf die gesamte Bibliothek an.
+- Gibt es keine Veröffentlichung in den Auflösungen des Profils, nimmt die direkte Suche die beste verfügbare Auflösung, statt zu blockieren. Abschaltbar unter Einstellungen > Qualität („Niedrigere Auflösung bei Bedarf akzeptieren“).
+- Einmalig beim Start nach diesem Update wechselt die gesamte Bibliothek zu „HD-720p“ (mindestens 720p).
+- Der Fehlerverlauf nennt jetzt die abgelehnte Veröffentlichung und die verantwortliche Regel.
+
 ## v1.28.64 — 5. November 2026
 
 ### Browser-Erweiterung

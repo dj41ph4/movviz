@@ -14,6 +14,8 @@ interface ReleaseRules {
   maxSeriesSizeMb: number | null;
   codecScores: { x264: number; x265: number; av1: number };
   sizePreference: "smaller" | "balanced" | "quality";
+  defaultQualityProfileId: string;
+  resolutionFallbackEnabled: boolean;
   preferredLanguageUpgrade: string | null;
   preferredVideoCodec: string | null;
   preferredAudioCodec: string | null;
@@ -47,6 +49,20 @@ export function ReleaseRulesPanel() {
   const [rules, setRules] = useState<ReleaseRules | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [applyResult, setApplyResult] = useState<string | null>(null);
+
+  const applyDefaultProfile = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/release-rules/apply-default-profile", { method: "POST" });
+      if (res.ok) {
+        const d = (await res.json()) as { series: number; movies: number };
+        setApplyResult(t("releaseRules.defaultProfileApplied", { series: d.series, movies: d.movies }));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const load = () =>
     fetch("/api/settings/release-rules", { cache: "no-store" })
@@ -172,6 +188,60 @@ export function ReleaseRulesPanel() {
             onCommit={(v) => save({ codecScores: { ...rules.codecScores, av1: v } })}
             className={field}
           />
+        </div>
+      </div>
+
+      {/* Profil de qualité donné aux nouveaux titres (et applicable d'un coup à ceux déjà présents). */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.defaultProfileTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.defaultProfileHint")}</p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          {([["any", "Any", "Any"], ["hd-1080p", "HD-1080p", "Hd1080p"], ["ultra-hd", "Ultra-HD", "UltraHd"]] as const).map(([id, name, key]) => (
+            <button
+              key={id}
+              onClick={() => { setApplyResult(null); save({ defaultQualityProfileId: id }); }}
+              className={cn(
+                "rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors",
+                rules.defaultQualityProfileId === id ? "border-brand/40 bg-brand/12 text-brand-glow" : "border-white/8 bg-black/20 text-ink-soft hover:text-ink"
+              )}
+            >
+              {name}
+              <p className="mt-0.5 text-xs font-normal text-ink-dim">{t(`releaseRules.defaultProfile${key}Hint`)}</p>
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            onClick={applyDefaultProfile}
+            disabled={saving}
+            className="rounded-xl glass-strong px-3 py-2 text-xs font-bold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+          >
+            {t("releaseRules.defaultProfileApply")}
+          </button>
+          {applyResult && <span className="text-xs text-ink-dim">{applyResult}</span>}
+        </div>
+        <div className="mt-5 border-t border-white/8 pt-4">
+          <h4 className="text-sm font-semibold text-ink">{t("releaseRules.resolutionFallbackTitle")}</h4>
+          <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.resolutionFallbackHint")}</p>
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <span className="text-xs text-ink-soft">{rules.resolutionFallbackEnabled ? t("common.enabled") : t("common.disabled")}</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={rules.resolutionFallbackEnabled}
+              aria-label={t("releaseRules.resolutionFallbackTitle")}
+              onClick={() => save({ resolutionFallbackEnabled: !rules.resolutionFallbackEnabled })}
+              className={cn(
+                "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+                rules.resolutionFallbackEnabled ? "brand-gradient" : "bg-white/10"
+              )}
+            >
+              <span className={cn(
+                "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                rules.resolutionFallbackEnabled && "translate-x-5"
+              )} />
+            </button>
+          </div>
         </div>
       </div>
 
