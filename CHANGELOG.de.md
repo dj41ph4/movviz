@@ -1,3 +1,10 @@
+## v1.28.59 — 5. November 2026
+
+### Import
+
+- Neuer LifeHub-Import unter Einstellungen › Netflix: Lege deinen LifeHub-.json-Export ab, und deine gesehenen Filme und Serien werden auf deinem Konto (und auf deinem Plex-Konto, falls verknüpft) als gesehen markiert. Jeder Nutzer importiert nur für sich, im Hintergrund, wie beim Netflix-Import.
+- Eine „abgeschlossene“ Serie wird komplett als gesehen markiert; bei einer Serie „in Arbeit“ werden die Folgen vor der aktuellen als gesehen markiert.
+
 ## v1.28.58 — 5. November 2026
 
 ### Web-Player

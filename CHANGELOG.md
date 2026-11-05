@@ -1,3 +1,10 @@
+## v1.28.59 — 5 novembre 2026
+
+### Import
+
+- Nouvel import LifeHub dans Réglages › Netflix : dépose ton export .json LifeHub et tes films et séries vus sont marqués vus sur ton compte (et sur ton compte Plex s’il est lié). Chaque utilisateur importe pour lui seul, en tâche de fond, comme l’import Netflix.
+- Une série « terminée » est marquée vue en entier ; pour une série « en cours », les épisodes avant celui où tu en es sont marqués vus.
+
 ## v1.28.58 — 5 novembre 2026
 
 ### Lecteur web

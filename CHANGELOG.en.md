@@ -1,3 +1,10 @@
+## v1.28.59 — 5 November 2026
+
+### Import
+
+- New LifeHub import in Settings › Netflix: drop your LifeHub .json export and your watched movies and shows are marked watched on your account (and on your Plex account if linked). Each user imports for themselves only, in the background, like the Netflix import.
+- A "finished" show is marked fully watched; for an "in progress" show, the episodes before the one you're on are marked watched.
+
 ## v1.28.58 — 5 November 2026
 
 ### Web player

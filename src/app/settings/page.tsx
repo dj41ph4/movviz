@@ -46,6 +46,7 @@ import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
 import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
 import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
+import { LifehubImportPanel } from "@/components/settings/LifehubImportPanel";
 import "@/components/settings/settings-premium.css";
 import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, settingsContentSnippet, type SettingsJourney } from "@/lib/settingsNav";
 import { SettingsHome } from "@/components/settings/SettingsHome";
@@ -338,7 +339,12 @@ function SettingsPageInner() {
 
           {tab === "dashboard" && <DashboardExperiencePanel />}
           {tab === "experience" && <ExperiencePanel />}
-          {tab === "netflix" && <NetflixImportPanel />}
+          {tab === "netflix" && (
+            <div className="space-y-10">
+              <NetflixImportPanel />
+              <LifehubImportPanel />
+            </div>
+          )}
 
           {tab === "clients" && user?.role === "admin" && <DownloadClients />}
 

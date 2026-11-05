@@ -1,3 +1,10 @@
+## v1.28.59 — 5 november 2026
+
+### Import
+
+- Nieuwe LifeHub-import in Instellingen › Netflix: sleep je LifeHub-.json-export erheen en je bekeken films en series worden als bekeken gemarkeerd op je account (en op je Plex-account als dat gekoppeld is). Elke gebruiker importeert alleen voor zichzelf, op de achtergrond, zoals de Netflix-import.
+- Een 'afgeronde' serie wordt volledig als bekeken gemarkeerd; bij een serie 'bezig' worden de afleveringen vóór de huidige als bekeken gemarkeerd.
+
 ## v1.28.58 — 5 november 2026
 
 ### Webspeler
