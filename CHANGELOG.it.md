@@ -1,3 +1,10 @@
+## v1.28.68 — 5 novembre 2026
+
+### App per smartphone
+
+- «Crea un account» esiste ora nella schermata di accesso, come sul sito: nome utente e password, poi un amministratore approva la richiesta prima del primo accesso. Sostituisce la frase «Non hai ancora un account?», che non faceva nulla.
+- Un aggiornamento dell'app può essere installato dalla schermata di accesso senza essere connessi: in alto compare una pillola «Aggiornamento disponibile».
+
 ## v1.28.67 — 5 novembre 2026
 
 ### Download

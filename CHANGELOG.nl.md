@@ -1,3 +1,10 @@
+## v1.28.68 — 5 november 2026
+
+### Smartphone-app
+
+- „Account aanmaken” bestaat nu op het inlogscherm, zoals op de website: gebruikersnaam en wachtwoord, waarna een beheerder het verzoek goedkeurt vóór de eerste aanmelding. Het vervangt de zin „Nog geen account?”, die niets deed.
+- Een app-update kan vanaf het inlogscherm worden geïnstalleerd zonder ingelogd te zijn: bovenaan verschijnt een label „Update beschikbaar”.
+
 ## v1.28.67 — 5 november 2026
 
 ### Downloads

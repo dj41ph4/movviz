@@ -288,6 +288,20 @@ data class AddToLibraryRequest(
     val seasonNumbers: List<Int>? = null,
 )
 
+/** Inscription (POST api/auth/register) : privacyConsent n'est envoyé que si le serveur l'exige. */
+@JsonClass(generateAdapter = true)
+data class RegisterRequest(
+    val username: String,
+    val password: String,
+    val privacyConsent: Boolean? = null,
+)
+
+/** GET api/privacy/consent (public) : `required` vaut true seulement sur le paquet UGREEN. */
+@JsonClass(generateAdapter = true)
+data class PrivacyConsentDto(
+    val required: Boolean = false,
+)
+
 @JsonClass(generateAdapter = true)
 data class LoginResponse(
     val user: MovvizUserDto? = null,

@@ -1149,6 +1149,29 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return result
     }
 
+    suspend fun privacyConsentRequired(): Boolean = repository?.privacyConsentRequired() ?: false
+
+    /**
+     * Demande de compte depuis l'écran de connexion. Un compte « pending » (cas normal : un admin doit
+     * l'approuver) ne peut pas utiliser l'appli : la session que le serveur vient d'ouvrir est refermée
+     * aussitôt. Un compte déjà approuvé (premier compte d'une installation) est connecté comme après login.
+     */
+    suspend fun register(username: String, password: String, privacyConsent: Boolean?): ApiResult<MovvizUserDto> {
+        val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
+        val result = repo.register(username, password, privacyConsent)
+        if (result is ApiResult.Success) {
+            if (result.data.accountStatus == "pending") {
+                repo.logoutServer()
+                com.movviz.nx.mobile.data.ApiClient.clearSession()
+            } else {
+                _currentUser.value = result.data
+                saveCurrentProfile(result.data)
+                if (result.data.role == "admin") loadProfilesFromServer()
+            }
+        }
+        return result
+    }
+
     /** Identité du compte actuellement connecté (session cookie locale),
      *  sans en passer par le ViewModel — décision d'écran de départ. */
     suspend fun refreshCurrentUser(): MovvizUserDto? {

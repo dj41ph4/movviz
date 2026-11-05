@@ -614,6 +614,8 @@ composable(ROUTE_PROFILES) {
             LoginScreen(
                 viewModel = viewModel,
                 addMode = addMode,
+                updateTag = viewModel.availableUpdateTag.collectAsState().value,
+                onUpdateClick = { viewModel.requestUpdateInstall() },
                 onLoggedIn = {
                     if (addMode) {
                         // L'ajout est local à cette installation : le compte

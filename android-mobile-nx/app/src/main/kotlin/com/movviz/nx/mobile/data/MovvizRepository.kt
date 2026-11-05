@@ -41,6 +41,21 @@ class MovvizRepository(private val baseUrl: String) {
         }
     }
 
+    /** Crée une demande de compte. Le serveur ouvre une session même pour un compte « pending » : l'appelant la referme. */
+    suspend fun register(username: String, password: String, privacyConsent: Boolean?): ApiResult<MovvizUserDto> =
+        safeCall { api.register(RegisterRequest(username, password, privacyConsent)) }.let { result ->
+            when (result) {
+                is ApiResult.Success -> result.data.user?.let { ApiResult.Success(it) }
+                    ?: ApiResult.Failure(result.data.error ?: "register_failed")
+                is ApiResult.Failure -> result
+                ApiResult.Unauthorized -> ApiResult.Failure("register_failed")
+            }
+        }
+
+    /** Faux en cas d'échec réseau : le serveur refusera de toute façon l'inscription sans consentement. */
+    suspend fun privacyConsentRequired(): Boolean =
+        (safeCall { api.privacyConsent() } as? ApiResult.Success)?.data?.required == true
+
     suspend fun createPlexPin(): ApiResult<PlexPinDto> =
         safeCall { api.createPlexPin() }
 

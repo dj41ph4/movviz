@@ -75,13 +75,28 @@ import kotlinx.coroutines.delay
  * seul le titre change.
  */
 @Composable
-fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer: () -> Unit = {}, addMode: Boolean = false) {
+fun LoginScreen(
+    viewModel: AppViewModel,
+    onLoggedIn: () -> Unit,
+    onChangeServer: () -> Unit = {},
+    addMode: Boolean = false,
+    updateTag: String? = null,
+    onUpdateClick: () -> Unit = {},
+) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var plexBusy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Inscription : « pending » côté serveur (un admin approuve), donc on confirme sans connecter.
+    var registering by remember { mutableStateOf(false) }
+    var consentRequired by remember { mutableStateOf(false) }
+    var consentChecked by remember { mutableStateOf(false) }
+    var info by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(registering) {
+        if (registering) consentRequired = viewModel.privacyConsentRequired()
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val usernameFocus = remember { FocusRequester() }
@@ -107,9 +122,20 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 // du scroll (qui clippe à sa position 0) tronquait le haut du
                 // halo puisque le logo était le tout premier élément.
                 Spacer(Modifier.height(14.dp))
+                // Une mise à jour doit pouvoir s'installer sans être connecté (appli bloquée sur une
+                // ancienne version qui n'arrive plus à se connecter, par exemple).
+                if (updateTag != null) {
+                    UpdateAvailablePill(tag = updateTag, onClick = onUpdateClick)
+                    Spacer(Modifier.height(14.dp))
+                }
                 OnboardingHeader()
                 Spacer(Modifier.height(16.dp))
-                if (addMode) {
+                if (registering) {
+                    OnboardingTitles(
+                        title = "Créer un compte",
+                        subtitle = "Un administrateur devra approuver\nvotre demande avant la première connexion.",
+                    )
+                } else if (addMode) {
                     OnboardingTitles(
                         title = "Ajouter un profil",
                         subtitle = "Connectez-vous avec le compte\nà ajouter sur cet appareil.",
@@ -143,27 +169,72 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     focusRequester = passwordFocus,
                 )
 
+                if (registering && consentRequired) {
+                    Spacer(Modifier.height(14.dp))
+                    ConsentRow(checked = consentChecked, onToggle = { consentChecked = !consentChecked; error = null })
+                }
                 OnboardingError(error)
+                if (info != null) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = info!!,
+                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF4ADE80), textAlign = TextAlign.Center),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 Spacer(Modifier.height(16.dp))
 
                 OnboardingPrimaryButton(
-                    text = if (busy) "Connexion..." else "Se connecter",
+                    text = when {
+                        registering -> if (busy) "Envoi..." else "Demander un compte"
+                        busy -> "Connexion..."
+                        else -> "Se connecter"
+                    },
                     enabled = !busy,
                     focusRequester = loginButtonFocus,
                     onClick = {
                         if (busy || username.isBlank() || password.isBlank()) return@OnboardingPrimaryButton
                         busy = true
                         error = null
+                        info = null
                         scope.launch {
-                            when (viewModel.login(username.trim(), password)) {
-                                is ApiResult.Success -> onLoggedIn()
-                                is ApiResult.Failure -> error = "Identifiants incorrects"
-                                ApiResult.Unauthorized -> error = "Identifiants incorrects"
+                            if (registering) {
+                                when {
+                                    username.trim().length < 3 -> error = "Nom d'utilisateur trop court (3 caractères minimum)"
+                                    password.length < 8 -> error = "Mot de passe trop court (8 caractères minimum)"
+                                    consentRequired && !consentChecked -> error = "Vous devez accepter la politique de confidentialité"
+                                    else -> when (val r = viewModel.register(username.trim(), password, if (consentRequired) true else null)) {
+                                        is ApiResult.Success -> {
+                                            if (r.data.accountStatus == "pending") {
+                                                info = "Demande envoyée. Vous pourrez vous connecter dès qu'un administrateur l'aura approuvée."
+                                                registering = false
+                                                password = ""
+                                            } else {
+                                                onLoggedIn()
+                                            }
+                                        }
+                                        is ApiResult.Failure -> error = when (r.message) {
+                                            "username_taken" -> "Ce nom d'utilisateur est déjà pris"
+                                            "username_too_short" -> "Nom d'utilisateur trop court (3 caractères minimum)"
+                                            "password_too_short" -> "Mot de passe trop court (8 caractères minimum)"
+                                            "privacy_consent_required" -> "Vous devez accepter la politique de confidentialité"
+                                            else -> "Inscription impossible, réessayez"
+                                        }
+                                        ApiResult.Unauthorized -> error = "Inscription impossible, réessayez"
+                                    }
+                                }
+                            } else {
+                                when (viewModel.login(username.trim(), password)) {
+                                    is ApiResult.Success -> onLoggedIn()
+                                    is ApiResult.Failure -> error = "Identifiants incorrects"
+                                    ApiResult.Unauthorized -> error = "Identifiants incorrects"
+                                }
                             }
                             busy = false
                         }
                     },
                 )
+                if (!registering) {
                 Spacer(Modifier.height(14.dp))
                 OnboardingOrDivider()
                 Spacer(Modifier.height(12.dp))
@@ -228,7 +299,29 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     },
                 )
 
-                OnboardingFootnote(if (addMode) "Le profil rejoint cet appareil" else "Pas encore de compte ?")
+                }
+
+                if (addMode) {
+                    OnboardingFootnote("Le profil rejoint cet appareil")
+                } else {
+                    // Ancien texte « Pas encore de compte ? » sans aucune action : remplacé par le vrai lien.
+                    Spacer(Modifier.height(14.dp))
+                    val switchToRegister = !registering
+                    val switchModeClick = {
+                        registering = switchToRegister
+                        error = null
+                        info = null
+                    }
+                    Text(
+                        text = if (switchToRegister) "Créer un compte" else "J'ai déjà un compte",
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizAmber, textAlign = TextAlign.Center),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .hapticClickable(onClick = switchModeClick)
+                            .tvPointerClick(switchModeClick)
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                    )
+                }
                 if (!addMode) {
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -344,5 +437,62 @@ private fun LoginField(
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }
+    }
+}
+
+/** Pastille « Mise à jour disponible » : visible avant toute connexion, un appui lance l'installation. */
+@Composable
+private fun UpdateAvailablePill(tag: String, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MovvizAmber.copy(alpha = 0.14f), RoundedCornerShape(14.dp))
+            .border(
+                width = if (focused) 2.dp else 1.dp,
+                color = if (focused) MovvizAmber else MovvizAmber.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(14.dp),
+            )
+            .onFocusChanged { focused = it.isFocused }
+            .hapticClickable(onClick = onClick)
+            .tvPointerClick(onClick)
+            .padding(vertical = 13.dp, horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Mise à jour ${tag.removePrefix("v")} disponible · Installer",
+            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizAmber, textAlign = TextAlign.Center),
+        )
+    }
+}
+
+/** Case de consentement à la politique de confidentialité (affichée seulement quand le serveur l'exige). */
+@Composable
+private fun ConsentRow(checked: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .hapticClickable(onClick = onToggle)
+            .tvPointerClick(onToggle)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(if (checked) MovvizBrand else Color.White.copy(alpha = 0.06f), RoundedCornerShape(6.dp))
+                .border(1.dp, if (checked) MovvizBrand else Color.White.copy(alpha = 0.3f), RoundedCornerShape(6.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) Text("✓", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = "J'accepte la politique de confidentialité de ce serveur",
+            style = TextStyle(fontSize = 13.sp, color = MovvizInk.copy(alpha = 0.85f)),
+        )
     }
 }

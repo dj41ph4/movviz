@@ -1,3 +1,10 @@
+## v1.28.68 — 5 November 2026
+
+### Smartphone app
+
+- “Create an account” now exists on the sign-in screen, like on the website: username and password, then an administrator approves the request before the first sign-in. It replaces the “No account yet?” sentence, which did nothing.
+- An app update can be installed from the sign-in screen without being signed in: an “Update available” pill appears at the top.
+
 ## v1.28.67 — 5 November 2026
 
 ### Downloads

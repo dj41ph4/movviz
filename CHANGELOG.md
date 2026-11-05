@@ -1,3 +1,10 @@
+## v1.28.68 — 5 novembre 2026
+
+### Application smartphone
+
+- « Créer un compte » existe maintenant sur l'écran de connexion, comme sur le site : nom d'utilisateur et mot de passe, puis un administrateur approuve la demande avant la première connexion. Il remplace la phrase « Pas encore de compte ? », qui ne faisait rien.
+- Une mise à jour de l'application peut s'installer depuis l'écran de connexion, sans être connecté : une pastille « Mise à jour disponible » s'affiche en haut.
+
 ## v1.28.67 — 5 novembre 2026
 
 ### Téléchargements

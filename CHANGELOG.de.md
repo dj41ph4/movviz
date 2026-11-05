@@ -1,3 +1,10 @@
+## v1.28.68 — 5. November 2026
+
+### Smartphone-App
+
+- „Konto erstellen“ gibt es jetzt auf dem Anmeldebildschirm, wie auf der Website: Benutzername und Passwort, danach genehmigt ein Administrator die Anfrage vor der ersten Anmeldung. Es ersetzt den Satz „Noch kein Konto?“, der nichts bewirkte.
+- Ein App-Update lässt sich vom Anmeldebildschirm aus installieren, ohne angemeldet zu sein: oben erscheint eine Anzeige „Update verfügbar“.
+
 ## v1.28.67 — 5. November 2026
 
 ### Downloads
