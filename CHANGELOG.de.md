@@ -1,3 +1,11 @@
+## v1.28.55 — 5. November 2026
+
+### Web-Player
+
+- Filme und Folgen, die live umgewandelt werden (Remux, Transkodierung), werden jetzt mit einem tiefen Puffer abgespielt: bis zu 90 s Vorlauf statt etwa 2,5 s. Eine kurze Pause von Server oder Netzwerk führt nicht mehr zu „Puffern“.
+- Ein Sprung innerhalb des bereits empfangenen Teils erfolgt sofort, ohne die Umwandlung neu zu starten.
+- Bei einem nicht unterstützten Codec oder einem Fehler fällt die Wiedergabe automatisch auf den bisherigen Modus zurück. Die Android- und Samsung-Apps sind nicht betroffen.
+
 ## v1.28.54 — 5. November 2026
 
 ### Diagnose

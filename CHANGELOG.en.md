@@ -1,3 +1,11 @@
+## v1.28.55 — 5 November 2026
+
+### Web player
+
+- Movies and episodes converted on the fly (remux, transcode) are now played with a deep buffer: up to 90 s ahead instead of about 2.5 s. A short server or network pause no longer causes “buffering”.
+- Jumping within the part already received is instant, without restarting the conversion.
+- On an unsupported codec or an error, playback automatically falls back to the previous mode. The Android and Samsung apps are not affected.
+
 ## v1.28.54 — 5 November 2026
 
 ### Diagnostics

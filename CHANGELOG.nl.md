@@ -1,3 +1,11 @@
+## v1.28.55 — 5 november 2026
+
+### Webspeler
+
+- Films en afleveringen die direct worden omgezet (remux, transcodering) worden nu met een diepe buffer afgespeeld: tot 90 s vooruit in plaats van ongeveer 2,5 s. Een korte pauze van server of netwerk veroorzaakt geen „bufferen” meer.
+- Springen binnen het al ontvangen deel gaat direct, zonder de omzetting opnieuw te starten.
+- Bij een niet-ondersteunde codec of een fout valt het afspelen automatisch terug op de vorige modus. De Android- en Samsung-apps zijn niet betroffen.
+
 ## v1.28.54 — 5 november 2026
 
 ### Diagnose

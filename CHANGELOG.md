@@ -1,3 +1,11 @@
+## v1.28.55 — 5 novembre 2026
+
+### Lecteur web
+
+- Les films et épisodes convertis à la volée (remux, transcodage) sont désormais lus avec un tampon profond : jusqu’à 90 s d’avance au lieu de 2,5 s environ. Une petite pause du serveur ou du réseau ne provoque plus un « chargement du tampon ».
+- Un saut dans la partie déjà reçue est instantané, sans relancer la conversion.
+- En cas de codec non pris en charge ou d’erreur, la lecture repasse automatiquement sur l’ancien mode. Les applications Android et Samsung ne sont pas concernées.
+
 ## v1.28.54 — 5 novembre 2026
 
 ### Diagnostic

@@ -334,7 +334,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   } | null>(null);
   // Télémétrie de tampon (coupures waiting/stalled, réserve de tampon) → /api/perf.
   const telemetryModeRef = useRef<string>("DIRECT");
-  telemetryModeRef.current = localEnginePlanInfo?.mode ?? (hlsRef.current ? "HLS" : ffmpegActiveRef.current ? "FFMPEG" : mseEngineRef.current ? "MSE" : "DIRECT");
+  // Suffixe « +tampon » : flux lu avec le tampon profond (MSE) plutôt qu'en natif.
+  telemetryModeRef.current = (localEnginePlanInfo?.mode ?? (hlsRef.current ? "HLS" : ffmpegActiveRef.current ? "FFMPEG" : mseEngineRef.current ? "MSE" : "DIRECT")) + (ffmpegEngineRef.current?.deepBuffered ? "+tampon" : "");
   usePlaybackTelemetry(videoRef, () => telemetryModeRef.current, () => playbackSessionRef.current);
   /** Size of the picture really decoded — the quality shown on the progress bar. */
   const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);

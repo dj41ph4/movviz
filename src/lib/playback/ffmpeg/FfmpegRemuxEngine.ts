@@ -14,6 +14,8 @@
  * must never dead-end.
  */
 
+import { DeepBufferFeed, deepBufferSupported } from "./deepBuffer";
+
 export interface FfmpegEngineOptions {
   audioStreamId?: number | null;
   seekTo?: number;
@@ -45,6 +47,11 @@ export class FfmpegRemuxEngine {
   private active = false;
   private debugTimer: ReturnType<typeof setInterval> | null = null;
   private _seekBase = 0;
+  /** Flux injecté dans un MediaSource (tampon profond) ; null = lecture native `video.src`. */
+  private deep: DeepBufferFeed | null = null;
+  /** Posé après un échec du tampon profond : on revient au chemin natif pour cette lecture. */
+  private deepDisabled = false;
+  private _loadSeq = 0;
   /** Monotonic counter guarding against overlapping seek() calls resolving
    *  out of order — see seek()'s own comment for the real bug this fixes. */
   private _seekSeq = 0;
@@ -86,6 +93,31 @@ export class FfmpegRemuxEngine {
 
   attach(video: HTMLVideoElement): void {
     this.video = video;
+  }
+
+  /** Vrai quand le flux est lu avec le tampon profond (MSE) plutôt qu'en natif. */
+  get deepBuffered(): boolean {
+    return this.deep !== null;
+  }
+
+  private stopDeep(): void {
+    const deep = this.deep;
+    this.deep = null;
+    deep?.stop();
+  }
+
+  /** Le tampon profond a lâché : repli sur la lecture native, à la même position. */
+  private onDeepFailure(deep: DeepBufferFeed, reason: string, kind: "network" | "append" | "codec"): void {
+    if (this.destroyed || this.deep !== deep) return;
+    this.deep = null;
+    // Une coupure réseau se retente en tampon profond ; toute autre cause repasse en natif.
+    if (kind !== "network") this.deepDisabled = true;
+    if (!this.hasPlayed) {
+      this.deepDisabled = true;
+      void this.load(this.ratingKey, { ...this.lastOptions, seekTo: this._seekBase > 0 ? this._seekBase : this.lastOptions.seekTo });
+      return;
+    }
+    this.recoverOrFail(`Deep buffer feed failed (${kind}): ${reason}`);
   }
 
   /** Last movie position really played, or null if nothing played yet. */
@@ -140,10 +172,31 @@ export class FfmpegRemuxEngine {
 
     this.attachVideoListeners();
 
+    const seq = ++this._loadSeq;
+    this.stopDeep();
     this.active = true;
-    video.src = this.src;
-    video.load();
-    void video.play().catch(() => void 0);
+    if (!this.deepDisabled && deepBufferSupported()) {
+      const deep = new DeepBufferFeed(video, this.src);
+      this.deep = deep;
+      const started = await deep.start((reason, kind) => this.onDeepFailure(deep, reason, kind));
+      if (this.destroyed || seq !== this._loadSeq) {
+        if (this.deep === deep) this.stopDeep();
+        return;
+      }
+      if (started) {
+        void video.play().catch(() => void 0);
+      } else {
+        // Codec non pris en charge, MSE indisponible, serveur refusé… : lecture native, comme avant.
+        if (this.deep === deep) this.deep = null;
+        video.src = this.src;
+        video.load();
+        void video.play().catch(() => void 0);
+      }
+    } else {
+      video.src = this.src;
+      video.load();
+      void video.play().catch(() => void 0);
+    }
 
     if (options.debug && this.cb.onDebug) {
       if (this.debugTimer) clearInterval(this.debugTimer);
@@ -183,6 +236,11 @@ export class FfmpegRemuxEngine {
     if (this.destroyed) return;
     const video = this.video;
     const mediaError = video?.error;
+    if (this.deep) {
+      // Erreur du décodeur sur le flux MSE : on réessaie en natif plutôt qu'en MSE.
+      this.stopDeep();
+      this.deepDisabled = true;
+    }
     const code = mediaError?.code ?? "unknown";
     const message = mediaError?.message || "no detail";
     this.recoverOrFail(`FFmpeg remux playback error (code ${code}): ${message}`);
@@ -264,6 +322,16 @@ export class FfmpegRemuxEngine {
     // GET, and stopAllForRatingKey would kill the just-created session —
     // the seek would always fall back to HLS.
     const mySeq = ++this._seekSeq;
+    // Saut dans la partie déjà reçue : on déplace la tête de lecture, sans relancer ffmpeg.
+    const video = this.video;
+    if (this.deep && video) {
+      const range = this.deep.bufferedRange();
+      const local = time - this._seekBase;
+      if (range && local >= range[0] + 0.5 && local <= range[1] - 2) {
+        video.currentTime = local;
+        return;
+      }
+    }
     if (this.ratingKey) {
       await fetch(`${this.urlPrefix}/${this.ratingKey}${this.urlSuffix}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
     }
@@ -289,6 +357,7 @@ export class FfmpegRemuxEngine {
   async destroy(): Promise<void> {
     this.destroyed = true;
     this.active = false;
+    this.stopDeep();
     if (this.debugTimer) {
       clearInterval(this.debugTimer);
       this.debugTimer = null;

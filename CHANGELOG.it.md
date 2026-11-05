@@ -1,3 +1,11 @@
+## v1.28.55 — 5 novembre 2026
+
+### Lettore web
+
+- Film ed episodi convertiti al volo (remux, transcodifica) ora vengono riprodotti con un buffer profondo: fino a 90 s di anticipo invece di circa 2,5 s. Una breve pausa del server o della rete non provoca più il « caricamento del buffer ».
+- Un salto nella parte già ricevuta è istantaneo, senza riavviare la conversione.
+- In caso di codec non supportato o di errore, la riproduzione torna automaticamente alla modalità precedente. Le app Android e Samsung non sono interessate.
+
 ## v1.28.54 — 5 novembre 2026
 
 ### Diagnostica
