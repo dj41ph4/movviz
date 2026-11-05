@@ -1,3 +1,11 @@
+## v1.28.64 — 5. November 2026
+
+### Browser-Erweiterung
+
+- Movviz Companion gibt es jetzt auch für Firefox, zusätzlich zu Chrome und Edge.
+- Neues Design: Farben, Symbole und Logo von Movviz.
+- Auf Netflix erscheint neben „Meine Liste“ ein kleiner runder Movviz-Button: Ein Klick öffnet den Titel in Movviz oder fragt ihn an, falls er noch nicht dort ist.
+
 ## v1.28.63 — 5. November 2026
 
 ### Veröffentlichung

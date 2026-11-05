@@ -1,3 +1,11 @@
+## v1.28.64 — 5 november 2026
+
+### Browserextensie
+
+- Movviz Companion is nu ook beschikbaar voor Firefox, naast Chrome en Edge.
+- Nieuw thema: kleuren, pictogrammen en logo van Movviz.
+- Op Netflix staat naast „Mijn lijst” een kleine ronde Movviz-knop: één klik opent de titel in Movviz, of vraagt hem aan als hij er nog niet is.
+
 ## v1.28.63 — 5 november 2026
 
 ### Publicatie
