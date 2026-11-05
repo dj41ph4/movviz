@@ -1,3 +1,11 @@
+## v1.28.56 — 5 novembre 2026
+
+### Lecteur web
+
+- Le tampon profond de la v1.28.55 ne s’activait pas sur les fichiers contenant des chapitres : une piste de données ajoutée par la conversion le faisait refuser. Il est maintenant actif sur ces flux.
+- Chrome et Edge lisent désormais directement les fichiers .mkv (H.264, H.265, AV1) quand leur audio est compatible, comme le font les applications Android : plus de conversion par le serveur, un tampon normal et des sauts instantanés. Si le navigateur échoue sur un fichier, la lecture repasse automatiquement par la conversion à la même position.
+- Les « Sessions actives » nomment mieux les modes : « Lecture directe », « Conversion serveur » et « Transcodage », avec une infobulle qui explique chacun.
+
 ## v1.28.55 — 5 novembre 2026
 
 ### Lecteur web

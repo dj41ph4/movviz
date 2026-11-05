@@ -55,10 +55,10 @@ function SessionRow({ s, t, onNavigate }: { s: AnySession; t: (k: string, params
 
   const transcodePill =
     s.transcodeDecision === "transcode"
-      ? { text: t("plexActivity.transcoding"), cls: "border-amber/30 bg-amber/12 text-amber" }
+      ? { text: t("plexActivity.transcoding"), hint: t("plexActivity.transcodingHint"), cls: "border-amber/30 bg-amber/12 text-amber" }
       : s.transcodeDecision === "copy"
-        ? { text: t("plexActivity.directStream"), cls: "border-cyan/30 bg-cyan/12 text-cyan" }
-        : { text: t("plexActivity.directPlay"), cls: "border-ok/30 bg-ok/12 text-ok" };
+        ? { text: t("plexActivity.directStream"), hint: t("plexActivity.directStreamHint"), cls: "border-cyan/30 bg-cyan/12 text-cyan" }
+        : { text: t("plexActivity.directPlay"), hint: t("plexActivity.directPlayHint"), cls: "border-ok/30 bg-ok/12 text-ok" };
 
   return (
     <div className="group flex gap-3 rounded-xl p-2.5 transition-colors hover:bg-white/5">
@@ -157,7 +157,7 @@ function SessionRow({ s, t, onNavigate }: { s: AnySession; t: (k: string, params
             alt={s.origin === "plex" ? "Plex" : "Movviz"}
             className="h-3 w-auto shrink-0 opacity-90"
           />
-          <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] font-bold", transcodePill.cls)}>
+          <span title={transcodePill.hint} className={cn("rounded-full border px-1.5 py-0.5 text-[10px] font-bold", transcodePill.cls)}>
             {transcodePill.text}
           </span>
           {s.resolution && (

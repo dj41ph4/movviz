@@ -1,3 +1,11 @@
+## v1.28.56 — 5 november 2026
+
+### Webspeler
+
+- De diepe buffer uit v1.28.55 werd niet actief bij bestanden met hoofdstukken: een door de omzetting toegevoegd gegevensspoor liet hem afhaken. Hij werkt nu ook op die streams.
+- Chrome en Edge spelen .mkv-bestanden (H.264, H.265, AV1) nu rechtstreeks af als de audio compatibel is, zoals de Android-apps: geen omzetting op de server, een normale buffer en direct springen. Faalt de browser op een bestand, dan valt het afspelen automatisch terug op de omzetting op dezelfde positie.
+- „Actieve sessies” benoemt de modi beter: „Direct afspelen”, „Serveromzetting” en „Transcoderen”, met een tooltip die elk uitlegt.
+
 ## v1.28.55 — 5 november 2026
 
 ### Webspeler

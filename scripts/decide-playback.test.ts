@@ -766,3 +766,51 @@ test("selected French AAC stays COPY when English DTS exists but is unselected, 
   assert.equal(plan.audioAction, "COPY");
   assert.ok(!plan.reasons.includes("AUDIO_CODEC_UNSUPPORTED"));
 });
+
+// ── navigateur qui lit le Matroska tel quel (Chrome/Edge) : lecture directe, sans ffmpeg ──
+const MKV_CLIENT = (codec: "h264" | "hevc" | "av1") =>
+  client({
+    containers: ["mp4", "mkv"],
+    videoCapabilities: [{ codec, bitDepths: [8, 10] }],
+    audioCapabilities: [{ codec: "aac", decode: true }],
+  });
+
+for (const codec of ["h264", "hevc", "av1"] as const) {
+  test(`mkv direct : ${codec} + AAC dans du Matroska, client qui déclare mkv → DIRECT_PLAY`, () => {
+    const plan = decidePlayback({
+      media: media({
+        video: { index: 0, codec, profile: "Main", level: "40", width: 1920, height: 1080, fps: 24, bitDepth: 8 },
+        audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+      }),
+      client: MKV_CLIENT(codec),
+      server: FFMPEG_OK,
+    });
+    assert.equal(plan.mode, "DIRECT_PLAY");
+  });
+}
+
+test("mkv direct : sans « mkv » dans le profil (Firefox, Safari, repli après erreur), le même fichier passe par ffmpeg (REMUX)", () => {
+  const plan = decidePlayback({
+    media: media({
+      video: { index: 0, codec: "h264", profile: "High", level: "40", width: 1920, height: 1080, fps: 24, bitDepth: 8 },
+      audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+    }),
+    client: { ...MKV_CLIENT("h264"), containers: ["mp4"] },
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "REMUX");
+});
+
+test("mkv direct : audio non décodable par le navigateur → jamais de lecture directe (ffmpeg convertit l'audio seulement)", () => {
+  const plan = decidePlayback({
+    media: media({
+      video: { index: 0, codec: "h264", profile: "High", level: "40", width: 1920, height: 1080, fps: 24, bitDepth: 8 },
+      audioTracks: [{ index: 1, codec: "ac3", channels: 6, default: true, forced: false }],
+    }),
+    client: MKV_CLIENT("h264"),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "DIRECT_STREAM");
+  assert.equal(plan.videoAction, "COPY");
+  assert.equal(plan.audioAction, "TRANSCODE");
+});

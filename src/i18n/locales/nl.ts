@@ -2681,8 +2681,11 @@ export const nl: Dictionary = {
     local: "Lokaal",
     remote: "Extern",
     directPlay: "Direct afspelen",
-    directStream: "Directe stream",
+    directStream: "Serveromzetting",
     transcoding: "Transcoderen",
+    directPlayHint: "De speler leest het bestand ongewijzigd: de server verstuurt het alleen.",
+    directStreamHint: "De server bouwt de container live opnieuw op (ffmpeg) zonder de video te hercoderen: bufferen hangt af van server en netwerk.",
+    transcodingHint: "De server hercodeert video of audio: het zwaarst voor de NAS.",
   },
 
   movvizActivity: {

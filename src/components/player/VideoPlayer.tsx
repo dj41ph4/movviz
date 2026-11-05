@@ -219,6 +219,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const dashHeightRef = useRef<number | null>(null);
   const prebufferClearRef = useRef<(() => void) | null>(null);
   const fallbackGuardRef = useRef(false);
+  /** Posé quand la lecture directe d'un .mkv a échoué : le profil n'annonce plus le mkv, ffmpeg reprend la main. */
+  const mkvDirectDisabledRef = useRef(false);
   const startHlsRef = useRef<((extraParams?: string, isCopyNetworkRetry?: boolean) => void) | null>(null);
   // True only while ffmpegEngineRef holds the NEW engine-v2 (local, session-
   // based) instance rather than the legacy ffmpeg-remux one — both share the
@@ -552,7 +554,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     const pos = (videoRef.current?.currentTime ?? 0) + engine.seekBase;
     try {
       setBuffering(true);
-      const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0");
+      // Changement de piste sur un flux ffmpeg déjà actif : on garde le profil mp4 seul, comme avant.
+      const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0", { allowMkv: false });
       const prepRes = await fetch("/api/playback/prepare", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -1698,7 +1701,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const engineSelected = b.playbackEngine === "beta" || b.playbackEngine === "auto" || b.playbackEngine === "stable";
       if (!b.enabled || !engineSelected || !playbackId) return false;
       try {
-        const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0");
+        const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0", { allowMkv: !mkvDirectDisabledRef.current });
         const prepRes = await fetch("/api/playback/prepare", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -1833,6 +1836,19 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
             video.addEventListener("loadedmetadata", () => {
               if (video.duration && seekTo < video.duration) video.currentTime = seekTo;
             }, { once: true });
+          }
+          // Filet de sécurité : si le navigateur ne sait pas lire ce fichier tel quel (surtout un
+          // .mkv), on relance une fois avec le profil mp4 seul, donc ffmpeg, à la même position.
+          if (!mkvDirectDisabledRef.current) {
+            const onDirectError = () => {
+              video.removeEventListener("error", onDirectError);
+              if (mkvDirectDisabledRef.current || ffmpegEngineRef.current || hlsRef.current || mseEngineRef.current) return;
+              mkvDirectDisabledRef.current = true;
+              const at = video.currentTime > 1 ? video.currentTime : seekTo;
+              setBuffering(true);
+              void tryStartLocalEngine(at, overrides);
+            };
+            video.addEventListener("error", onDirectError, { once: true });
           }
           video.src = prep.stream.url;
           video.load();

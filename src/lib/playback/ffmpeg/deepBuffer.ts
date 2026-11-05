@@ -108,6 +108,11 @@ export function mimeFromInit(init: Uint8Array): string | null {
   const codecs: string[] = [];
   for (const trak of boxes(init, moov.body, moov.end).filter((x) => x.type === "trak")) {
     const mdia = child(init, trak, "mdia");
+    // Seules les pistes vidéo et audio comptent : ffmpeg recopie les chapitres de la source
+    // en piste « text/data » dans le fMP4, que le type MIME MSE n'a pas à déclarer.
+    const hdlr = mdia && child(init, mdia, "hdlr");
+    const handler = hdlr && hdlr.body + 12 <= hdlr.end ? FOURCC(init, hdlr.body + 8) : "";
+    if (handler !== "vide" && handler !== "soun") continue;
     const minf = mdia && child(init, mdia, "minf");
     const stbl = minf && child(init, minf, "stbl");
     const stsd = stbl && child(init, stbl, "stsd");

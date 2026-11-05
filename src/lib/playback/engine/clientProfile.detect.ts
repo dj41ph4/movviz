@@ -40,7 +40,23 @@ function detectHdrSupport(): HdrType[] {
   return hasHdrVideo ? ["sdr", "hdr10", "hlg"] : ["sdr"];
 }
 
-export async function detectDesktopClientProfile(deviceId: string, appVersion: string): Promise<ClientPlaybackProfile> {
+/**
+ * Le navigateur sait-il lire le conteneur Matroska (.mkv) tel quel ? Chrome et Edge répondent
+ * « probably » pour H.264, HEVC et AV1 dans du Matroska ; Firefox et Safari répondent vide. Le
+ * navigateur est seul juge : le codec vidéo et l'audio restent vérifiés à part par decidePlayback.
+ */
+function browserPlaysMatroska(): boolean {
+  if (typeof document === "undefined") return false;
+  const v = document.createElement("video");
+  return ['video/x-matroska; codecs="avc1.640029"', 'video/x-matroska; codecs="hvc1.1.6.L93.B0"', 'video/x-matroska; codecs="av01.0.05M.08"']
+    .some((t) => v.canPlayType(t) !== "");
+}
+
+export async function detectDesktopClientProfile(
+  deviceId: string,
+  appVersion: string,
+  options: { allowMkv?: boolean } = {},
+): Promise<ClientPlaybackProfile> {
   const [codecs, browserCaps] = await Promise.all([detectCodecs(), detectCapabilities()]);
 
   // maxWidth/maxHeight left unset (unbounded) once the codec is confirmed
@@ -126,7 +142,9 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
       dash: true,
       mse: browserCaps.mseAvailable,
     },
-    containers: ["mp4"],
+    // « mkv » couvre aussi webm (même famille côté serveur) : lu directement par plages d'octets,
+    // sans ffmpeg, donc avec un vrai tampon et des sauts instantanés.
+    containers: options.allowMkv !== false && browserPlaysMatroska() ? ["mp4", "mkv"] : ["mp4"],
     videoCapabilities,
     audioCapabilities,
     subtitleCapabilities,

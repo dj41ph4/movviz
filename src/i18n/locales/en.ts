@@ -2680,9 +2680,12 @@ export const en: Dictionary = {
     buffering: "Buffering",
     local: "Local",
     remote: "Remote",
-    directPlay: "Direct Play",
-    directStream: "Direct Stream",
+    directPlay: "Direct play",
+    directStream: "Server conversion",
     transcoding: "Transcoding",
+    directPlayHint: "The player reads the file as is: the server only sends it.",
+    directStreamHint: "The server rebuilds the container live (ffmpeg) without re-encoding the video: buffering depends on the server and the network.",
+    transcodingHint: "The server re-encodes the video or audio: the heaviest for the NAS.",
   },
 
   movvizActivity: {

@@ -2680,8 +2680,11 @@ export const it: Dictionary = {
     local: "Locale",
     remote: "Remoto",
     directPlay: "Riproduzione diretta",
-    directStream: "Flusso diretto",
+    directStream: "Conversione server",
     transcoding: "Transcodifica",
+    directPlayHint: "Il lettore legge il file così com’è: il server si limita a inviarlo.",
+    directStreamHint: "Il server ricostruisce il contenitore al volo (ffmpeg) senza ricodificare il video: il buffer dipende da server e rete.",
+    transcodingHint: "Il server ricodifica il video o l’audio: il più pesante per il NAS.",
   },
 
   movvizActivity: {

@@ -1,3 +1,11 @@
+## v1.28.56 — 5 novembre 2026
+
+### Lettore web
+
+- Il buffer profondo della v1.28.55 non si attivava sui file con capitoli: una traccia di dati aggiunta dalla conversione lo faceva rinunciare. Ora funziona anche su questi flussi.
+- Chrome ed Edge ora riproducono direttamente i file .mkv (H.264, H.265, AV1) quando l’audio è compatibile, come le app Android: nessuna conversione sul server, buffer normale e salti istantanei. Se il browser fallisce su un file, la riproduzione torna automaticamente alla conversione nella stessa posizione.
+- Le « Sessioni attive » nominano meglio le modalità: « Riproduzione diretta », « Conversione server » e « Transcodifica », con un suggerimento che le spiega.
+
 ## v1.28.55 — 5 novembre 2026
 
 ### Lettore web

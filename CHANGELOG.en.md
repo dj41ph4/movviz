@@ -1,3 +1,11 @@
+## v1.28.56 — 5 November 2026
+
+### Web player
+
+- The deep buffer from v1.28.55 did not activate on files containing chapters: a data track added by the conversion made it back off. It now works on those streams.
+- Chrome and Edge now play .mkv files (H.264, H.265, AV1) directly when their audio is compatible, as the Android apps do: no server conversion, a normal buffer and instant seeking. If the browser fails on a file, playback automatically falls back to the conversion at the same position.
+- “Active sessions” now names the modes better: “Direct play”, “Server conversion” and “Transcoding”, with a tooltip explaining each.
+
 ## v1.28.55 — 5 November 2026
 
 ### Web player

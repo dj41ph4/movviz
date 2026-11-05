@@ -1,3 +1,11 @@
+## v1.28.56 — 5. November 2026
+
+### Web-Player
+
+- Der tiefe Puffer aus v1.28.55 wurde bei Dateien mit Kapiteln nicht aktiv: Eine von der Umwandlung hinzugefügte Datenspur ließ ihn aussteigen. Er funktioniert jetzt auch bei diesen Streams.
+- Chrome und Edge spielen .mkv-Dateien (H.264, H.265, AV1) jetzt direkt ab, wenn der Ton kompatibel ist, wie die Android-Apps: keine Umwandlung auf dem Server, normaler Puffer und sofortiges Springen. Scheitert der Browser an einer Datei, wechselt die Wiedergabe automatisch an derselben Position zur Umwandlung.
+- Die „Aktiven Sitzungen“ benennen die Modi besser: „Direktwiedergabe“, „Server-Umwandlung“ und „Transcodierung“, mit einem Tooltip zur Erklärung.
+
 ## v1.28.55 — 5. November 2026
 
 ### Web-Player

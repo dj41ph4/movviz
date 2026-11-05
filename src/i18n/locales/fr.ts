@@ -2678,8 +2678,11 @@ export const fr = {
     local: "Local",
     remote: "Distant",
     directPlay: "Lecture directe",
-    directStream: "Flux direct",
+    directStream: "Conversion serveur",
     transcoding: "Transcodage",
+    directPlayHint: "Le lecteur lit le fichier tel quel : le serveur ne fait que l’envoyer.",
+    directStreamHint: "Le serveur refabrique le conteneur en direct (ffmpeg) sans ré-encoder la vidéo : le tampon dépend du serveur et du réseau.",
+    transcodingHint: "Le serveur ré-encode la vidéo ou l’audio : le plus lourd pour le NAS.",
     noActivity: "Aucune activité",
   },
 
