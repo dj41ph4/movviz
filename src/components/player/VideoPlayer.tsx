@@ -31,6 +31,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { PROGRESS_STORAGE_KEY } from "@/lib/player/watchProgress";
 import { detectDesktopClientProfile } from "@/lib/playback/engine/clientProfile.detect";
 import { getOrCreateDeviceId } from "@/lib/playback/engine/deviceId";
+import { usePlaybackTelemetry } from "@/lib/playback/usePlaybackTelemetry";
 
 export interface VideoPlayerProps {
   ratingKey: string;
@@ -331,6 +332,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     audioAction: string;
     hardwareEncoder: boolean | null;
   } | null>(null);
+  // Télémétrie de tampon (coupures waiting/stalled, réserve de tampon) → /api/perf.
+  const telemetryModeRef = useRef<string>("DIRECT");
+  telemetryModeRef.current = localEnginePlanInfo?.mode ?? (hlsRef.current ? "HLS" : ffmpegActiveRef.current ? "FFMPEG" : mseEngineRef.current ? "MSE" : "DIRECT");
+  usePlaybackTelemetry(videoRef, () => telemetryModeRef.current, () => playbackSessionRef.current);
   /** Size of the picture really decoded — the quality shown on the progress bar. */
   const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
   /** Dynamic range of the source, known from the local engine's probe. */

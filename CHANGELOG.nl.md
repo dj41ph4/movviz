@@ -1,3 +1,11 @@
+## v1.28.54 — 5 november 2026
+
+### Diagnose
+
+- De speler meldt nu zijn onderbrekingen van het afspelen („bufferen”): duur, resterende buffer op het moment van de onderbreking, afspeelmodus (direct, remux, transcodering), apparaat en netwerktype.
+- De metingen verschijnen in de serverdiagnose, gegroepeerd per apparaat en modus, om te zien of bufferen op telefoon of tv van de server of het netwerk komt.
+- Geen gedragswijziging: de speler luistert alleen naar de gebeurtenissen van de video; voor tv en smartphone verandert er niets.
+
 ## v1.28.53 — 5 november 2026
 
 ### Android

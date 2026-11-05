@@ -1,3 +1,11 @@
+## v1.28.54 — 5 novembre 2026
+
+### Diagnostic
+
+- Le lecteur remonte désormais ses coupures de lecture (« chargement du tampon ») : durée, tampon restant au moment de la coupure, mode de lecture (direct, remux, transcodage), appareil et type de réseau.
+- Les mesures apparaissent dans les diagnostics du serveur, regroupées par appareil et par mode, pour savoir si un tampon sur téléphone ou TV vient du serveur ou du réseau.
+- Aucun changement de comportement : le lecteur écoute seulement les événements de la vidéo ; rien ne change pour la TV ni le smartphone.
+
 ## v1.28.53 — 5 novembre 2026
 
 ### Android

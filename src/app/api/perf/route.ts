@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { aggregatePerf, recordPerf, perfLabel, getPerfEntries } from "@/lib/perf";
 import { getEventLoopHistory, getEventLoopLive } from "@/lib/eventLoopMonitor";
+import { getPlaybackTelemetry } from "@/lib/playbackTelemetry";
 import { getBlockLog, getBlockTimeline, getActiveOps, getGcLog, getGcTotals } from "@/lib/blockProbe";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,8 @@ export async function GET(req: NextRequest) {
     // sortants en cours à l'instant de la lecture.
     gc: { recent: getGcLog(), totals: getGcTotals() },
     activeOps: getActiveOps(),
+    // Coupures de lecture (waiting/stalled) et réserve de tampon remontées par les lecteurs.
+    playback: getPlaybackTelemetry(),
     memory: {
       rssMb: mb(mem.rss),
       heapUsedMb: mb(mem.heapUsed),

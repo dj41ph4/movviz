@@ -1,3 +1,11 @@
+## v1.28.54 — 5 November 2026
+
+### Diagnostics
+
+- The player now reports its playback interruptions (“buffering”): duration, buffer left when it happened, playback mode (direct, remux, transcode), device and network type.
+- The measurements appear in the server diagnostics, grouped by device and mode, to tell whether buffering on a phone or TV comes from the server or the network.
+- No behavior change: the player only listens to the video's events; nothing changes for the TV or the smartphone.
+
 ## v1.28.53 — 5 November 2026
 
 ### Android

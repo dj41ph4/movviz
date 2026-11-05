@@ -1,3 +1,11 @@
+## v1.28.54 — 5 novembre 2026
+
+### Diagnostica
+
+- Il lettore ora segnala le interruzioni di riproduzione (« caricamento del buffer »): durata, buffer residuo al momento dell’interruzione, modalità di riproduzione (diretta, remux, transcodifica), dispositivo e tipo di rete.
+- Le misure compaiono nella diagnostica del server, raggruppate per dispositivo e modalità, per capire se il buffering su telefono o TV dipende dal server o dalla rete.
+- Nessun cambiamento di comportamento: il lettore ascolta solo gli eventi del video; nulla cambia per la TV né per lo smartphone.
+
 ## v1.28.53 — 5 novembre 2026
 
 ### Android

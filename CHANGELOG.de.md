@@ -1,3 +1,11 @@
+## v1.28.54 — 5. November 2026
+
+### Diagnose
+
+- Der Player meldet jetzt seine Wiedergabeunterbrechungen („Puffern“): Dauer, verbleibender Puffer zum Zeitpunkt der Unterbrechung, Wiedergabemodus (direkt, Remux, Transkodierung), Gerät und Netzwerktyp.
+- Die Messwerte erscheinen in der Server-Diagnose, nach Gerät und Modus gruppiert, um zu klären, ob Puffern auf Handy oder TV vom Server oder vom Netzwerk kommt.
+- Keine Verhaltensänderung: Der Player hört nur auf die Ereignisse des Videos; für TV und Smartphone ändert sich nichts.
+
 ## v1.28.53 — 5. November 2026
 
 ### Android
