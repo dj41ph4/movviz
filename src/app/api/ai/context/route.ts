@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { getFacts, getFeedback, getContextProfile, saveContextInsights, getAllRatings, resetContextProfile } from "@/lib/ai/tasteProfile";
 import { buildUsageProfile } from "@/lib/ai/profile";
 import { loadAiConfig } from "@/lib/ai/store";
-import { buildContext } from "@/lib/ai/contextBuilder";
+import { buildContextWithStatus } from "@/lib/ai/contextBuilder";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
   const config = loadAiConfig();
   if (!config.enabled) return NextResponse.json({ error: "ai_disabled" }, { status: 400 });
 
-  const insights = await buildContext(config, user.id);
-  if (!insights) return NextResponse.json({ error: "build_failed" }, { status: 502 });
+  const { insights, quota } = await buildContextWithStatus(config, user.id);
+  if (!insights) return NextResponse.json({ error: "build_failed", quota }, { status: 502 });
 
   saveContextInsights(user.id, insights, false);
   const context = getContextProfile(user.id)!;

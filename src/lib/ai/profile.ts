@@ -10,6 +10,7 @@ import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import { formatUserWatchHistory } from "@/lib/userContext/history";
 import { formatTasteEvidenceContext } from "@/lib/userContext/taste";
 import { formatExplicitPreferencesContext } from "@/lib/userContext/preferences";
+import { computeWatchPatterns, formatWatchPatterns } from "@/lib/ai/watchPatterns";
 
 export interface UsageProfile {
   /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
@@ -51,6 +52,19 @@ export interface UsageProfile {
   tasteEvidenceContext: string;
   /** Direct user statements/corrections. These outrank inferred insights. */
   explicitPreferencesContext: string;
+  /** Titres déjà vus puis revus (registre de visionnage) — un revisionnage est un goût durable. */
+  rewatchContext: string;
+}
+
+/** Le calcul lit tout le registre : mis en mémoire une minute par utilisateur (un message de chat le demande à chaque fois). */
+const rewatchMemo = new Map<string, { at: number; value: string }>();
+function rewatchContextFor(userId: string): string {
+  const hit = rewatchMemo.get(userId);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
+  let value = "";
+  try { value = formatWatchPatterns(computeWatchPatterns(userId)).join(" ; "); } catch { /* registre indisponible : pas de ligne, jamais une erreur de chat */ }
+  rewatchMemo.set(userId, { at: Date.now(), value });
+  return value;
 }
 
 /** Quantified usage profile derived from REAL Movviz data — the assistant's
@@ -88,6 +102,7 @@ export async function buildUsageProfile(userId: string): Promise<UsageProfile> {
   const verifiedWatchHistory = formatUserWatchHistory(userId, 30);
   const tasteEvidenceContext = await formatTasteEvidenceContext(userId, 5);
   const explicitPreferencesContext = formatExplicitPreferencesContext(userId, 12);
+  const rewatchContext = rewatchContextFor(userId);
 
   return {
     libraryMovies: loadMovies().length,
@@ -109,6 +124,7 @@ export async function buildUsageProfile(userId: string): Promise<UsageProfile> {
     verifiedWatchHistory,
     tasteEvidenceContext,
     explicitPreferencesContext,
+    rewatchContext,
   };
 }
 
@@ -134,6 +150,9 @@ export function formatUsageProfile(p: UsageProfile): string {
   }
   if (p.verifiedWatchHistory) {
     parts.push(`HISTORIQUE CHRONOLOGIQUE VÉRIFIÉ (ordre récent → ancien ; les genres entre crochets viennent de la bibliothèque, les dates après @ sont réelles) : ${p.verifiedWatchHistory}`);
+  }
+  if (p.rewatchContext) {
+    parts.push(`REVISIONNAGES VÉRIFIÉS (titres déjà vus PUIS REVUS d'après le registre de visionnage de Movviz : un titre revu est un goût durable, pas un simple visionnage ; Movviz ne voit que ce qui est passé par lui) : ${p.rewatchContext}`);
   }
   if (p.tasteEvidenceContext) {
     parts.push(`TENDANCES DE GOÛT ÉTAYÉES (personnalisation possible, mais ce ne sont PAS toutes des certitudes : respecte la confiance et la source, une préférence explicite prime toujours) : ${p.tasteEvidenceContext}`);

@@ -1,3 +1,10 @@
+## v1.28.76 — 6. November 2026
+
+### Movviz AI
+
+- Optimierung von Movviz AI: Der über dich gelernte Kontext berücksichtigt jetzt bereits gesehene und dann erneut gesehene Titel (wiederholt gesehene Filme, eine vollständig gesehene und dann erneut gesehene Serie), begonnene und dann abgebrochene Serien, die zu deinen Bewertungen geschriebenen Meinungen und die Daten der letzten Ansichten. Der Assistent kennt deine Wiederholungen auch beim Antworten.
+- „Meinen Kontext erstellen“ meldet überlastete Server, wenn das Kontingent des Anbieters erreicht ist, statt eines Erstellungsfehlers.
+
 ## v1.28.75 — 6. November 2026
 
 ### Movviz AI

@@ -1,3 +1,10 @@
+## v1.28.76 — 6 novembre 2026
+
+### Movviz AI
+
+- Optimisation de Movviz AI : le contexte appris sur toi tient compte des titres déjà vus puis revus (films revus, série vue en entier puis revue), des séries entamées puis laissées, des avis écrits laissés avec tes notes et des dates des derniers visionnages. L'assistant connaît aussi tes revisionnages quand il te répond.
+- « Créer mon contexte » annonce une saturation des serveurs quand le quota du fournisseur est atteint, au lieu d'un échec de construction.
+
 ## v1.28.75 — 6 novembre 2026
 
 ### Movviz AI

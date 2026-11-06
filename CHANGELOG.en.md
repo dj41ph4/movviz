@@ -1,3 +1,10 @@
+## v1.28.76 — 6 November 2026
+
+### Movviz AI
+
+- Movviz AI optimisation: the context learned about you now takes into account titles you already watched and then rewatched (rewatched films, a series seen in full then rewatched), series started then dropped, the written opinions left with your ratings and the dates of your latest viewings. The assistant also knows your rewatches when it answers you.
+- “Create my context” reports overloaded servers when the provider's quota is reached, instead of a build failure.
+
 ## v1.28.75 — 6 November 2026
 
 ### Movviz AI

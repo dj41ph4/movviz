@@ -1,3 +1,10 @@
+## v1.28.76 — 6 november 2026
+
+### Movviz AI
+
+- Optimalisatie van Movviz AI: de context die over jou geleerd is houdt rekening met titels die je al zag en daarna opnieuw bekeek (herbekeken films, een serie helemaal gezien en daarna herbekeken), series die je begon en liet vallen, de geschreven meningen bij je beoordelingen en de data van je laatste kijkbeurten. De assistent kent je herbekeken titels ook als hij antwoordt.
+- „Mijn context maken” meldt overbelaste servers wanneer het quotum van de aanbieder is bereikt, in plaats van een bouwfout.
+
 ## v1.28.75 — 6 november 2026
 
 ### Movviz AI

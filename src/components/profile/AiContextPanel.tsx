@@ -62,7 +62,9 @@ export function AiContextPanel() {
         mutate();
         toast("success", t("profile.aiContext.buildDone"));
       } else {
-        toast("error", t("profile.aiContext.buildFailed"));
+        // Quota du fournisseur épuisé : une saturation passagère, pas une panne du contexte.
+        const body = (await r.json().catch(() => null)) as { quota?: boolean } | null;
+        toast("error", body?.quota ? t("ai.quotaReached") : t("profile.aiContext.buildFailed"));
       }
     } catch {
       toast("error", t("profile.aiContext.buildFailed"));

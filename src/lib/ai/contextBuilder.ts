@@ -6,6 +6,7 @@ import { callAi } from "@/lib/ai/providers";
 import { loadAiConfig } from "@/lib/ai/store";
 import { extractJsonObject } from "@/lib/ai/intentParser";
 import type { AiConfig, AiContextInsight } from "./types";
+import { computeWatchPatterns, formatWatchPatterns, formatDroppedSeries } from "@/lib/ai/watchPatterns";
 
 /**
  * "Créer mon contexte" (demande explicite user, panneau profil) — a single
@@ -32,6 +33,8 @@ RÈGLES :
 - Cherche le POURQUOI un contenu semble fonctionner, pas juste le CONSTAT. Exemple : Scary Movie ne se résume jamais à "aime les comédies" — cherche plutôt "semble apprécier la parodie absurde, le détournement de codes connus, les gags visuels et les références à d'autres œuvres", ce qui permettrait ensuite de rapprocher des titres comme Naked Gun/Hot Shots!/Airplane!/Spaceballs même sans genre TMDb identique.
 - N'invente RIEN qui ne soit pas soutenu par les données ci-dessous. Si un axe n'a pas assez de matière, n'en parle simplement pas — un profil incomplet honnête vaut mieux qu'un profil complet halluciné.
 - Ne te contente jamais de reformuler un fait déjà donné tel quel (ex. ne redis pas juste "a regardé Le Seigneur des Anneaux") — dégage un vrai PATTERN qui ressort de PLUSIEURS éléments.
+- Un titre REVU (ligne « Revisionnages ») est un goût durable et fort : bien plus qu'un visionnage unique. Cherche ce que ces titres revus ont en commun (ton, univers, rythme, confort) plutôt que de les citer. Une série « vue en entier » puis revue n'est pas une série abandonnée.
+- Les titres « entamés puis non poursuivis » ne prouvent PAS un rejet : Movviz ne voit que ce qui passe par lui. Ne conclus un désintérêt que si d'autres signaux le confirment.
 - Si des "insights déjà établis" sont fournis, ne les recopie pas à l'identique : soit tu les retrouves avec un trend "stable"/"en_baisse" ajusté, soit tu n'en parles pas et tu te concentres sur ce qui est vraiment nouveau.`;
 
 async function buildAnalysisInput(userId: string, existingInsights: string[]): Promise<string> {
@@ -48,7 +51,7 @@ async function buildAnalysisInput(userId: string, existingInsights: string[]): P
   }
   const recent = (watch?.recent ?? []).slice(0, 30);
   if (recent.length) {
-    parts.push(`Derniers titres vus (avec date) : ${recent.map((r) => `${r.title} [${r.type === "movie" ? "film" : "série"}]`).join(", ")}`);
+    parts.push(`Derniers titres vus (avec date) : ${recent.map((r) => `${r.title} [${r.type === "movie" ? "film" : "série"}] @${new Date(r.at).toISOString().slice(0, 10)}`).join(", ")}`);
   }
   if (requests.length) {
     parts.push(`Demandes faites : ${requests.slice(-30).map((r) => `${r.title} (${r.status})`).join(", ")}`);
@@ -68,11 +71,21 @@ async function buildAnalysisInput(userId: string, existingInsights: string[]): P
   // ce que le moteur de contexte sait, pas un sous-ensemble.
   const ratings = getAllRatings(userId);
   if (ratings.length) {
-    const loved = ratings.filter((r) => r.rating >= 4).map((r) => `${r.title} (${r.rating}/5)`);
-    const disliked = ratings.filter((r) => r.rating <= 2).map((r) => `${r.title} (${r.rating}/5)`);
+    // L'avis écrit (le POURQUOI de la note) et le caractère déduit de la note accompagnent le titre.
+    const label = (r: (typeof ratings)[number]) => `${r.title} (${r.rating}/5${r.source === "inferred" ? ", déduite" : ""}${r.opinion ? ` — « ${r.opinion.slice(0, 120)} »` : ""})`;
+    const loved = ratings.filter((r) => r.rating >= 4).map(label);
+    const disliked = ratings.filter((r) => r.rating <= 2).map(label);
     if (loved.length) parts.push(`Notes hautes (1-5 étoiles) : ${loved.join(", ")}`);
     if (disliked.length) parts.push(`Notes basses (1-5 étoiles) : ${disliked.join(", ")}`);
   }
+  // Titres revus et séries entamées puis laissées (registre de visionnage, calcul déterministe).
+  try {
+    const patterns = computeWatchPatterns(userId);
+    const rewatch = formatWatchPatterns(patterns);
+    if (rewatch.length) parts.push(`Revisionnages (titres déjà vus puis revus) : ${rewatch.join(" ; ")}`);
+    const dropped = formatDroppedSeries(patterns);
+    if (dropped.length) parts.push(`Séries entamées puis non poursuivies (d'après Movviz seulement) : ${dropped.join(" ; ")}`);
+  } catch { /* registre indisponible : la synthèse se fait sans */ }
   // Affinité de genre calculée (userContext/taste.ts) — inclut désormais les
   // vues (fiches ouvertes) en plus des vues/notes/votes/demandes, le seul
   // endroit qui agrège TOUT le signal en une phrase déjà pondérée plutôt que
@@ -110,17 +123,23 @@ function validateInsights(raw: unknown, source: "bootstrap" | "incremental"): Ai
 /** Runs the analysis once and returns validated insights — never throws,
  *  returns null on any failure (no key, quota, malformed JSON, disabled). */
 async function synthesize(config: AiConfig, userId: string, source: "bootstrap" | "incremental"): Promise<AiContextInsight[] | null> {
-  if (!config.enabled) return null;
+  return (await synthesizeWithStatus(config, userId, source)).insights;
+}
+
+/** Comme synthesize, mais dit aussi si l'échec vient d'un quota épuisé (pour l'annoncer autrement qu'une panne). */
+async function synthesizeWithStatus(config: AiConfig, userId: string, source: "bootstrap" | "incremental"): Promise<{ insights: AiContextInsight[] | null; quota: boolean }> {
+  if (!config.enabled) return { insights: null, quota: false };
   try {
     const existing = source === "incremental" ? (getContextProfile(userId)?.insights.map((i) => i.text) ?? []) : [];
     const input = await buildAnalysisInput(userId, existing);
-    if (!input.trim()) return null; // nothing real to analyze yet
+    if (!input.trim()) return { insights: null, quota: false }; // nothing real to analyze yet
     const { text } = await callAi(config, CONTEXT_SYSTEM_PROMPT, [{ role: "user", content: input }]);
     const json = extractJsonObject(text);
     const insights = validateInsights(json, source);
-    return insights.length > 0 ? insights : null;
-  } catch {
-    return null;
+    return { insights: insights.length > 0 ? insights : null, quota: false };
+  } catch (e) {
+    const err = e as { quota?: boolean; message?: string };
+    return { insights: null, quota: !!err.quota && /quota|rate limit|exceeded/i.test(err.message ?? "") };
   }
 }
 
@@ -128,6 +147,11 @@ async function synthesize(config: AiConfig, userId: string, source: "bootstrap" 
  *  wholesale (the user explicitly asked to (re)build it). */
 export function buildContext(config: AiConfig, userId: string): Promise<AiContextInsight[] | null> {
   return synthesize(config, userId, "bootstrap");
+}
+
+/** Même passe, avec la cause de l'échec (quota épuisé ou non) — pour le bouton du profil. */
+export function buildContextWithStatus(config: AiConfig, userId: string): Promise<{ insights: AiContextInsight[] | null; quota: boolean }> {
+  return synthesizeWithStatus(config, userId, "bootstrap");
 }
 
 /** Incremental pass — tops up an EXISTING context with what's new since the
