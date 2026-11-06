@@ -1,3 +1,9 @@
+## v1.28.74 — 6. November 2026
+
+### Einstellungen
+
+- Die Bildlaufleiste des linken Menüs entspricht jetzt der des Hauptmenüs und ist eingerückt, damit sie die abgerundeten Ecken nicht berührt (die vorige Version zeigte die native Browserleiste am Rand).
+
 ## v1.28.73 — 6. November 2026
 
 ### Plex

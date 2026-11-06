@@ -147,18 +147,20 @@ html[data-movviz-appearance="beta"]:root:root {
       /* En-tête au-dessus + marge sous la page : un pixel de plus ferait apparaître la barre de la page. */
       max-height: calc(100vh - 280px);
       overflow-y: auto;
-      /* Barre fine, visible seulement quand le menu dépasse vraiment : quand tout tient, rien ne défile.
-         (Un dégradé collant en bas ajoutait ~24 px de défilement même quand tout était visible.) */
-      scrollbar-width: thin;
-      scrollbar-color: #ffffff26 transparent;
+      /* Quand tout tient, rien ne défile (un dégradé collant en bas ajoutait ~24 px de défilement). Quand le menu
+         dépasse, la barre est celle du menu principal (règles globales ::-webkit-scrollbar), mais rentrée pour
+         ne pas toucher les coins arrondis. */
       padding: 14px 10px;
       border: 1px solid #ffffff14;
       border-radius: 22px;
       background: linear-gradient(180deg, #171a24, #101219);
       box-shadow: inset 0 1px 0 #ffffff14;
     }
-    & .nx-settings-nav::-webkit-scrollbar { width: 6px; }
-    & .nx-settings-nav::-webkit-scrollbar-thumb { background: #ffffff26; border-radius: 3px; }
+    & .nx-settings-nav::-webkit-scrollbar-track { margin: 18px 0; }
+    /* Firefox n'a pas ::-webkit-scrollbar : barre fine discrète. */
+    @supports not selector(::-webkit-scrollbar) {
+      & .nx-settings-nav { scrollbar-width: thin; scrollbar-color: #ffffff29 transparent; }
+    }
     & .nx-settings-nav p { font-size: 10.5px; letter-spacing: .17em; color: #8a879f; }
     & .nx-settings-nav button.group { padding-top: 8px; padding-bottom: 8px; font-size: 13px; }
     & .nx-settings-nav > .flex.flex-col.gap-6 { gap: 18px; }

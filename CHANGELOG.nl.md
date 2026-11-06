@@ -1,3 +1,9 @@
+## v1.28.74 — 6 november 2026
+
+### Instellingen
+
+- De schuifbalk van het linkermenu komt nu overeen met die van het hoofdmenu en staat naar binnen zodat ze de afgeronde hoeken niet raakt (de vorige versie toonde de standaardbalk van de browser tegen de rand).
+
 ## v1.28.73 — 6 november 2026
 
 ### Plex

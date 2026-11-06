@@ -1,3 +1,9 @@
+## v1.28.74 — 6 November 2026
+
+### Settings
+
+- The left menu's scrollbar now matches the main menu's, inset so it no longer touches the rounded corners (the previous version showed the browser's native bar against the edge).
+
 ## v1.28.73 — 6 November 2026
 
 ### Plex

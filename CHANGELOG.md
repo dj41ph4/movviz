@@ -1,3 +1,9 @@
+## v1.28.74 — 6 novembre 2026
+
+### Réglages
+
+- La barre de défilement du menu de gauche reprend le style de celle du menu principal, rentrée pour ne pas toucher les coins arrondis (la version précédente affichait la barre native du navigateur, collée au bord).
+
 ## v1.28.73 — 6 novembre 2026
 
 ### Plex

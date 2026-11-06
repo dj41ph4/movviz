@@ -1,3 +1,9 @@
+## v1.28.74 — 6 novembre 2026
+
+### Impostazioni
+
+- La barra di scorrimento del menu a sinistra ora è identica a quella del menu principale, rientrata per non toccare gli angoli arrotondati (la versione precedente mostrava la barra nativa del browser sul bordo).
+
 ## v1.28.73 — 6 novembre 2026
 
 ### Plex
