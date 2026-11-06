@@ -1,3 +1,17 @@
+## v1.28.73 — 6 novembre 2026
+
+### Plex
+
+- Repères d'intro et de générique : la synchronisation complète ne pouvait jamais se terminer (« Dernière complète » restait vide) à cause d'un bug de comptage. Elle se termine maintenant, même si quelques médias échouent (l'incrémentale les reprend), et reprend où elle s'était arrêtée après un redémarrage au lieu de repartir de zéro. Ensuite tout est incrémental : la complète n'est plus relancée que sur demande.
+
+### Tâches de fond
+
+- Le délai de garde de la file ne déclare plus « échouée » une tâche longue qui avance : seule une tâche sans aucun avancement depuis 10 minutes est libérée.
+
+### Réglages
+
+- Le menu de gauche ne défile plus de quelques millimètres quand tout est visible ; une barre fine n'apparaît que s'il dépasse vraiment.
+
 ## v1.28.72 — 6 novembre 2026
 
 ### Réglages

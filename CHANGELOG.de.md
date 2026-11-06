@@ -1,3 +1,17 @@
+## v1.28.73 — 6. November 2026
+
+### Plex
+
+- Intro- und Abspann-Marker: Die vollständige Synchronisierung konnte wegen eines Zählfehlers nie abgeschlossen werden („Letzte vollständige“ blieb leer). Sie wird jetzt auch bei einigen fehlgeschlagenen Medien abgeschlossen (die inkrementelle Synchronisierung wiederholt sie) und setzt nach einem Neustart dort fort, wo sie stand, statt neu zu beginnen. Danach ist alles inkrementell: Die vollständige Prüfung läuft nur noch auf Anforderung.
+
+### Hintergrundaufgaben
+
+- Der Warteschlangen-Wächter stuft eine lange Aufgabe, die vorankommt, nicht mehr als fehlgeschlagen ein: Nur eine Aufgabe ohne Fortschritt seit 10 Minuten wird freigegeben.
+
+### Einstellungen
+
+- Das linke Menü scrollt nicht mehr um wenige Millimeter, wenn alles sichtbar ist; eine dünne Bildlaufleiste erscheint nur, wenn es wirklich überläuft.
+
 ## v1.28.72 — 6. November 2026
 
 ### Einstellungen

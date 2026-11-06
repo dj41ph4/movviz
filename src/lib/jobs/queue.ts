@@ -224,9 +224,12 @@ function pickNextQueued(immediate = false): { job: Job; runner: Runner } | null 
 }
 
 function runJob(job: Job, runner: Runner) {
+  // Dernier signe de vie : une tâche qui avance (setProgress) n'est pas « restée bloquée », même après 10 min.
+  let lastActivityAt = Date.now();
   const setProgress: ProgressFn = (current, total) => {
     job.current = current;
     if (total) job.total = total;
+    lastActivityAt = Date.now();
   };
   const heavy = !!jobOptions.get(job.id)?.heavy;
   const immediate = !!jobOptions.get(job.id)?.immediate;
@@ -237,21 +240,29 @@ function runJob(job: Job, runner: Runner) {
   // Une tâche lourde n'est jamais « libérée » par le délai de garde : elle
   // garde sa place lourde jusqu'à sa vraie fin. Au plafond, on demande
   // seulement son arrêt.
-  const timeoutTimer = heavy || immediate
+  let timeoutTimer: ReturnType<typeof setTimeout>;
+  const armWatchdog = (delayMs: number): ReturnType<typeof setTimeout> => setTimeout(() => {
+    if (settled) return;
+    const idleMs = Date.now() - lastActivityAt;
+    if (idleMs < JOB_TIMEOUT_MS) {
+      // Elle a avancé depuis : on attend la fin de la fenêtre qui suit son dernier signe de vie.
+      timeoutTimer = armWatchdog(JOB_TIMEOUT_MS - idleMs);
+      return;
+    }
+    settled = true;
+    job.status = "failed";
+    job.error = `Délai dépassé (>${Math.round(JOB_TIMEOUT_MS / 60000)} min sans avancement) — la tâche est restée bloquée, libération de la file`;
+    job.completedAt = Date.now();
+    state.runningCount--;
+    void dispatch();
+  }, delayMs);
+  timeoutTimer = heavy || immediate
     ? setTimeout(() => {
         if (settled) return;
         cancelled.add(job.id);
         recordSearchLog("warn", "jobs.heavy_soft_limit", `${job.label} tourne depuis plus de ${Math.round(HEAVY_SOFT_LIMIT_MS / 3600000)} h — arrêt demandé`);
       }, HEAVY_SOFT_LIMIT_MS)
-    : setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        job.status = "failed";
-        job.error = `Délai dépassé (>${Math.round(JOB_TIMEOUT_MS / 60000)} min) — la tâche est restée bloquée, libération de la file`;
-        job.completedAt = Date.now();
-        state.runningCount--;
-        void dispatch();
-      }, JOB_TIMEOUT_MS);
+    : armWatchdog(JOB_TIMEOUT_MS);
 
   runInJobScope(job.id, () => runner(setProgress, { jobId: job.id }))
     .finally(() => {

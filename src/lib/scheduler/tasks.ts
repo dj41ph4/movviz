@@ -32,6 +32,7 @@ import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/lan
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { probeAllLibraryMovies, probeAllLibrarySeries } from "@/lib/playback/engine/probeLibrary";
 import { syncPlexMarkers } from "@/lib/plex/markerSync";
+import { loadMarkerSyncState } from "@/lib/plex/markerSyncState";
 import { syncIntroDbLibrary } from "@/lib/playback/markers/librarySync";
 import { externalMarkersEnabled, plexMarkersEnabled } from "@/lib/settings/markerSources";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
@@ -264,7 +265,12 @@ export const TASKS: ScheduledTask[] = [
     run: async () => {
       if (!plexConfigured()) return;
       if (!loadPlexConfig().markerSyncEnabled) return;
-      await syncPlexMarkers({ mode: "incremental", setProgress: reportJobProgress });
+      // Complète seulement tant qu'aucune n'a abouti ou si une est restée en cours (reprise après un arrêt) ;
+      // ensuite toujours incrémentale (nouveautés, échecs, audit tournant d'un septième de la bibliothèque).
+      // La purge des repères de médias disparus reste possible à la demande (bouton « complète »).
+      const markerState = loadMarkerSyncState();
+      const fullDue = !markerState.lastFullAt || !!markerState.fullRun;
+      await syncPlexMarkers({ mode: fullDue ? "full" : "incremental", setProgress: reportJobProgress });
     },
   },
   {

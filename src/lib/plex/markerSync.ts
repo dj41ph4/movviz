@@ -93,6 +93,14 @@ export function normalizePlexMarkers(raws: PlexMarker[]): PlaybackMarker[] {
 
 /** Hash STABLE d'un redémarrage à l'autre (pas Math.random, pas Date.now) —
  *  le bucket d'audit d'un ratingKey doit être identique chaque jour. */
+/** Ordre croissant des ratingKey (numériques chez Plex), repli alphabétique sinon. */
+function compareRatingKeys(a: string, b: string): number {
+  const na = Number(a);
+  const nb = Number(b);
+  if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export function stableHash(input: string): number {
   const h = createHash("sha256").update(input).digest();
   return h.readUInt32BE(0);
@@ -144,11 +152,10 @@ function collectIncrementalCandidates(state: ReturnType<typeof loadMarkerSyncSta
   return [...set];
 }
 
-function collectFullCandidates(): string[] {
+async function collectFullCandidates(): Promise<string[]> {
   // Source = bibliothèque Movviz (pas une re-liste des sections Plex).
   // Import tardif pour éviter tout cycle plex↔library au chargement.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- import tardif voulu : évite un cycle d'import au chargement
-  const { loadMovies, loadSeries } = require("@/lib/library/store") as typeof import("@/lib/library/store");
+  const { loadMovies, loadSeries } = await import("@/lib/library/store");
   const keys = new Set<string>();
   for (const m of loadMovies()) if (m.plexRatingKey) keys.add(m.plexRatingKey);
   for (const s of loadSeries())
@@ -265,30 +272,38 @@ async function runSync(
     errors: 0,
   };
 
-  // Full : suivi des clés traitées OK pour autoriser la GC uniquement si
-  // TOUT a été vu avec succès (PHASE 17).
-  const fullSeen = new Map<string, boolean>();
-  let gcAllowed = mode !== "full";
+  // Full : reprenable. Les médias sont traités par ratingKey croissant ; le dernier traité et les échecs
+  // sont mémorisés, pour qu'un redémarrage (chaque mise à jour en provoque un) reprenne au lieu de repartir
+  // de zéro. Un média en échec repart en « dirty » (reprise par l'incrémentale) : il n'empêche plus la passe
+  // de se terminer, seulement la purge globale (PHASE 17).
+  const fullRun = mode === "full" ? (state.fullRun ?? { lastKey: "", failed: [], startedAt: Date.now() }) : null;
+  const todo = mode === "full" ? [...candidates].sort(compareRatingKeys).filter((k) => !fullRun!.lastKey || compareRatingKeys(k, fullRun!.lastKey) > 0) : candidates;
+  const alreadyDone = candidates.length - todo.length;
+  if (fullRun && alreadyDone > 0) console.log(`[PlexMarkers] full : reprise après ${alreadyDone} médias déjà traités`);
+  let cancelled = false;
 
   const chunkSize = 50;
-  for (let i = 0; i < candidates.length; i += chunkSize) {
-    if (isCancelled?.()) break;
-    const chunk = candidates.slice(i, i + chunkSize);
+  for (let i = 0; i < todo.length; i += chunkSize) {
+    if (isCancelled?.()) { cancelled = true; break; }
+    const chunk = todo.slice(i, i + chunkSize);
     await processBatch(ctx, state, chunk, acc, {
-      trackRemovedForGc: mode === "full"
-        ? (rows) => { for (const r of rows) fullSeen.set(r.ratingKey, r.ok); }
+      trackRemovedForGc: fullRun
+        ? (rows) => { for (const r of rows) if (!r.ok && fullRun.failed.length < 5000) fullRun.failed.push(r.ratingKey); }
         : undefined,
     });
-    ctx.setProgress?.(Math.min(i + chunkSize, candidates.length), candidates.length);
+    if (fullRun) {
+      fullRun.lastKey = chunk[chunk.length - 1];
+      state.fullRun = fullRun;
+    }
+    ctx.setProgress?.(Math.min(alreadyDone + i + chunkSize, candidates.length), candidates.length);
     await yieldToUser("sync markers Plex");
-    if (i + chunkSize < candidates.length) await new Promise((r) => setTimeout(r, 150));
+    if (i + chunkSize < todo.length) await new Promise((r) => setTimeout(r, 150));
   }
 
-  if (mode === "full") {
-    // Garbage collection UNIQUEMENT si la full est allée au bout : chaque
-    // candidat a été traité avec succès. Une panne Plex en cours de full
-    // interdit toute purge globale (PHASE 17).
-    gcAllowed = candidates.every((k) => fullSeen.get(k) === true);
+  if (fullRun && !cancelled) {
+    // Garbage collection UNIQUEMENT si aucun média n'a échoué sur toute la passe : une panne Plex
+    // en cours de full interdit toute purge globale (PHASE 17).
+    const gcAllowed = fullRun.failed.length === 0;
     if (gcAllowed) {
       const liveSet = new Set(candidates);
       // GC limitée à la source Plex : un enregistrement porté par une autre
@@ -300,10 +315,13 @@ async function runSync(
           console.log(`[PlexMarkers] GC ratingKey=${key} (absent de Movviz)`);
         }
       }
-      state.lastFullAt = Date.now();
     }
+    // La passe est allée au bout : « dernière complète » (même si quelques médias seront repris par l'incrémentale).
+    state.lastFullAt = Date.now();
+    state.fullRun = null;
   }
-  state.lastIncrementalAt = mode === "incremental" ? Date.now() : state.lastIncrementalAt;
+  // Une passe complète couvre aussi tout ce que l'incrémentale aurait fait.
+  if (!cancelled) state.lastIncrementalAt = Date.now();
   saveMarkerSyncState(state);
 
   console.log(
@@ -329,7 +347,7 @@ export async function syncPlexMarkers(opts: {
     }
     const ctx: RunCtx = { cfg, token: cfg.adminToken, setProgress: opts.setProgress, isCancelled: opts.isCancelled };
     const state = loadMarkerSyncState();
-    const candidates = opts.mode === "full" ? collectFullCandidates() : collectIncrementalCandidates(state);
+    const candidates = opts.mode === "full" ? await collectFullCandidates() : collectIncrementalCandidates(state);
     console.log(`[PlexMarkers] ${opts.mode}: ${candidates.length} candidats`);
     return runSync(ctx, candidates, opts.mode, opts.isCancelled);
   });

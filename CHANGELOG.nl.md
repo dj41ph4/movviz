@@ -1,3 +1,17 @@
+## v1.28.73 — 6 november 2026
+
+### Plex
+
+- Intro- en aftitelmarkeringen: de volledige synchronisatie kon door een telfout nooit voltooid worden („Laatste volledige” bleef leeg). Ze voltooit nu ook als enkele items mislukken (de incrementele synchronisatie probeert ze opnieuw) en gaat na een herstart verder waar ze was gebleven in plaats van opnieuw te beginnen. Daarna is alles incrementeel: de volledige run start alleen op verzoek.
+
+### Achtergrondtaken
+
+- De wachtrijbewaker verklaart een lange taak niet meer mislukt zolang ze vooruitgang boekt: alleen een taak zonder voortgang gedurende 10 minuten wordt vrijgegeven.
+
+### Instellingen
+
+- Het linkermenu scrolt niet meer enkele millimeters als alles zichtbaar is; een dunne schuifbalk verschijnt alleen als het echt overloopt.
+
 ## v1.28.72 — 6 november 2026
 
 ### Instellingen

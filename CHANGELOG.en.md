@@ -1,3 +1,17 @@
+## v1.28.73 — 6 November 2026
+
+### Plex
+
+- Intro and credits markers: the full sync could never finish (“Last full” stayed empty) because of a counting bug. It now completes even if a few items fail (the incremental sync retries them), and resumes where it stopped after a restart instead of starting over. After that everything is incremental: the full pass only runs on demand.
+
+### Background tasks
+
+- The queue watchdog no longer marks a long task as failed while it is making progress: only a task with no progress for 10 minutes is released.
+
+### Settings
+
+- The left menu no longer scrolls by a few millimetres when everything is visible; a thin scrollbar only appears if it really overflows.
+
 ## v1.28.72 — 6 November 2026
 
 ### Settings

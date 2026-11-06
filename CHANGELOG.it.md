@@ -1,3 +1,17 @@
+## v1.28.73 — 6 novembre 2026
+
+### Plex
+
+- Indicatori di intro e titoli di coda: la sincronizzazione completa non poteva mai terminare («Ultima completa» restava vuota) per un errore di conteggio. Ora termina anche se qualche media fallisce (la sincronizzazione incrementale li riprova) e riprende da dove si era fermata dopo un riavvio invece di ricominciare. Poi tutto è incrementale: la passata completa parte solo su richiesta.
+
+### Attività in background
+
+- Il controllo della coda non dichiara più «fallita» un'attività lunga che sta avanzando: viene liberata solo un'attività senza alcun avanzamento da 10 minuti.
+
+### Impostazioni
+
+- Il menu a sinistra non scorre più di qualche millimetro quando tutto è visibile; una barra sottile compare solo se davvero eccede.
+
 ## v1.28.72 — 6 novembre 2026
 
 ### Impostazioni

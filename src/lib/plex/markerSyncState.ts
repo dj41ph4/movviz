@@ -28,12 +28,17 @@ export interface PlexMarkerSyncState {
   emptyRetry: Record<string, { attempts: number; nextRetryAt: number }>;
   /** Bucket d'audit courant (0..6) — avance d'un cran par jour. */
   auditBucket: number;
+  /**
+   * Synchronisation complète en cours : dernier ratingKey traité (ordre croissant) et ceux qui ont échoué.
+   * Survit aux redémarrages : chaque mise à jour interrompait la passe, qui repartait de zéro et ne finissait jamais.
+   */
+  fullRun: { lastKey: string; failed: string[]; startedAt: number } | null;
 }
 
 const g = globalThis as typeof globalThis & { __movvizMarkerSyncState?: PlexMarkerSyncState };
 
 function blank(): PlexMarkerSyncState {
-  return { lastIncrementalAt: null, lastFullAt: null, knownUpdatedAt: {}, dirty: {}, emptyRetry: {}, auditBucket: 0 };
+  return { lastIncrementalAt: null, lastFullAt: null, knownUpdatedAt: {}, dirty: {}, emptyRetry: {}, auditBucket: 0, fullRun: null };
 }
 
 export function loadMarkerSyncState(): PlexMarkerSyncState {
@@ -46,6 +51,7 @@ export function loadMarkerSyncState(): PlexMarkerSyncState {
       dirty: raw.dirty ?? {},
       emptyRetry: raw.emptyRetry ?? {},
       auditBucket: typeof raw.auditBucket === "number" ? raw.auditBucket : 0,
+      fullRun: raw.fullRun && typeof raw.fullRun.lastKey === "string" ? { lastKey: raw.fullRun.lastKey, failed: Array.isArray(raw.fullRun.failed) ? raw.fullRun.failed : [], startedAt: raw.fullRun.startedAt ?? Date.now() } : null,
     };
   }
   return g.__movvizMarkerSyncState;
