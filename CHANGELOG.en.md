@@ -1,3 +1,9 @@
+## v1.28.79 — 6 November 2026
+
+### Android
+
+- Android TV: the logo of the collapsed sidebar is 15% smaller and no longer touches the edges of the panel.
+
 ## v1.28.78 — 6 November 2026
 
 ### Skip markers

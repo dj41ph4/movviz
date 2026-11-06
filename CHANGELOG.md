@@ -1,3 +1,9 @@
+## v1.28.79 — 6 novembre 2026
+
+### Android
+
+- Android TV : le logo de la barre latérale repliée est 15 % plus petit et ne touche plus les bords du panneau.
+
 ## v1.28.78 — 6 novembre 2026
 
 ### Repères de saut

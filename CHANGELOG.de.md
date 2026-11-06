@@ -1,3 +1,9 @@
+## v1.28.79 — 6. November 2026
+
+### Android
+
+- Android TV: Das Logo der eingeklappten Seitenleiste ist 15 % kleiner und berührt die Ränder des Panels nicht mehr.
+
 ## v1.28.78 — 6. November 2026
 
 ### Überspringmarken

@@ -1,3 +1,9 @@
+## v1.28.79 — 6 novembre 2026
+
+### Android
+
+- Android TV: il logo della barra laterale chiusa è più piccolo del 15 % e non tocca più i bordi del pannello.
+
 ## v1.28.78 — 6 novembre 2026
 
 ### Marcatori di salto

@@ -251,7 +251,7 @@ fun NavRail(
                         animationSpec = if (reduceMotion) androidx.compose.animation.core.snap() else tween(180),
                         label = "navRailLogo",
                     ) { open ->
-                        if (open) MovvizFullLogo(height = 27.dp) else AnimatedLogo(size = 30.dp, symbolOnly = true)
+                        if (open) MovvizFullLogo(height = 27.dp) else AnimatedLogo(size = 25.5.dp, symbolOnly = true)
                     }
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(palette.navEdge))

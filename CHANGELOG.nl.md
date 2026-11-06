@@ -1,3 +1,9 @@
+## v1.28.79 — 6 november 2026
+
+### Android
+
+- Android TV: het logo van de ingeklapte zijbalk is 15 % kleiner en raakt de randen van het paneel niet meer.
+
 ## v1.28.78 — 6 november 2026
 
 ### Overslaanmarkeringen
