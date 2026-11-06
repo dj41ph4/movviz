@@ -2776,6 +2776,7 @@ export const fr = {
     busy: "L'IA réfléchit…",
     busyHint: "Assistant IA",
     error: "L'IA n'a pas pu répondre",
+    quotaReached: "Les serveurs de l'assistant sont saturés pour le moment. Réessaie un peu plus tard.",
     disabled: "L'IA est désactivée",
     viaProvider: "via {provider}",
     provider: {

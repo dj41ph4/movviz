@@ -2777,6 +2777,7 @@ diskScan: {
     busy: "Die KI denkt nach…",
     busyHint: "KI-Assistent",
     error: "Die KI konnte nicht antworten",
+    quotaReached: "Die Server des Assistenten sind im Moment überlastet. Bitte versuche es etwas später erneut.",
     disabled: "KI ist deaktiviert",
     viaProvider: "über {provider}",
     provider: {

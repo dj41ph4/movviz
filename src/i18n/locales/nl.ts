@@ -2778,6 +2778,7 @@ export const nl: Dictionary = {
     busy: "De AI denkt na…",
     busyHint: "AI-assistent",
     error: "De AI kon niet antwoorden",
+    quotaReached: "De servers van de assistent zijn op dit moment overbelast. Probeer het later nog eens.",
     disabled: "AI is uitgeschakeld",
     viaProvider: "via {provider}",
     provider: {

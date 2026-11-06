@@ -408,8 +408,11 @@ export function ChatWidget() {
     startListening();
   }, [startListening]);
 
+  // Dernier envoi échoué : l'échange (question + erreur) reste affiché tant qu'on n'écrit pas autre chose.
+  const localErrorRef = useRef(false);
   const sendText = useCallback(async (text: string) => {
     if (!text || busy) return;
+    localErrorRef.current = false;
     setMessages((m) => [...m, { role: "user", content: text }]);
     setBusy(true);
     try {
@@ -421,8 +424,14 @@ export function ChatWidget() {
       const data = await r.json().catch(() => null);
       if (!r.ok) {
         if (data?.error === "ai_disabled") mutateSession();
+        // Le serveur retire la question restée sans réponse : sans ce drapeau, la relecture qui suit effaçait
+        // aussi l'erreur affichée, et le chat avait l'air de ne rien faire.
+        localErrorRef.current = true;
         const detail = data?.detail && typeof data.detail === "string" ? ` — ${data.detail}` : "";
-        setMessages((m) => [...m, { role: "assistant", content: `${t("ai.error")}${detail}` }]);
+        const content = data?.quota
+          ? t("ai.quotaReached")
+          : `${t("ai.error")}${detail}`;
+        setMessages((m) => [...m, { role: "assistant", content }]);
       } else if (data?.message) {
         setMessages((m) => [...m, data.message]);
         setProvider(data.provider ?? null);
@@ -430,6 +439,7 @@ export function ChatWidget() {
         replyAloud(spokenReply(data.message));
       }
     } catch {
+      localErrorRef.current = true;
       setMessages((m) => [...m, { role: "assistant", content: t("ai.error") }]);
     } finally {
       setBusy(false);
@@ -445,7 +455,7 @@ export function ChatWidget() {
   useEffect(() => { busyRef.current = busy; }, [busy]);
   useEffect(() => {
     const onChanged = async () => {
-      if (busyRef.current) return;
+      if (busyRef.current || localErrorRef.current) return;
       const data = await fetch("/api/ai/session?sync=1").then((r) => (r.ok ? r.json() : null)).catch(() => null);
       if (!Array.isArray(data?.messages) || busyRef.current) return;
       setMessages(data.messages);

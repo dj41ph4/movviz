@@ -1,3 +1,9 @@
+## v1.28.75 — 6 November 2026
+
+### Movviz AI
+
+- Movviz AI optimisation.
+
 ## v1.28.74 — 6 November 2026
 
 ### Settings

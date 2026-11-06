@@ -2778,6 +2778,7 @@ export const en: Dictionary = {
     busy: "The AI is thinking…",
     busyHint: "AI assistant",
     error: "The AI couldn't respond",
+    quotaReached: "The assistant's servers are overloaded right now. Please try again a little later.",
     disabled: "AI is disabled",
     viaProvider: "via {provider}",
     provider: {

@@ -2777,6 +2777,7 @@ export const it: Dictionary = {
     busy: "L'IA sta pensando…",
     busyHint: "Assistente IA",
     error: "L'IA non ha potuto rispondere",
+    quotaReached: "I server dell'assistente sono sovraccarichi al momento. Riprova tra un po'.",
     disabled: "IA disattivata",
     viaProvider: "tramite {provider}",
     provider: {

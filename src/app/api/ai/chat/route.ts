@@ -760,7 +760,8 @@ export async function POST(req: NextRequest) {
       success: false, durationMs: Date.now() - t0, error: err.message ?? "?", message,
     });
     dropUnansweredUserMessage(user.id, message);
-    return NextResponse.json({ error: "ai_call_failed", detail: (err.message ?? null)?.slice(0, 200) ?? null }, { status: 502 });
+    const quotaSpent = !!err.quota && /quota|rate limit|exceeded/i.test(err.message ?? "");
+    return NextResponse.json({ error: "ai_call_failed", detail: (err.message ?? null)?.slice(0, 200) ?? null, quota: quotaSpent }, { status: 502 });
   }
   const latency = Date.now() - t0;
   const usedModel = (config.providers as Record<string, { model?: string }>)[providerName]?.model ?? "?";
