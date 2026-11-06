@@ -1,3 +1,9 @@
+## v1.28.78 — 6 novembre 2026
+
+### Repères de saut
+
+- TheIntroDB : la tâche de nuit affiche désormais l'avancement sur toute la bibliothèque (titres déjà à jour sur le total) au lieu de repartir de 0 sur le plafond de 3 000 du passage. Le travail reprenait déjà où il s'était arrêté ; seul le compteur était trompeur.
+
 ## v1.28.77 — 6 novembre 2026
 
 ### Android

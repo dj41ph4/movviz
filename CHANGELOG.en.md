@@ -1,3 +1,9 @@
+## v1.28.78 — 6 November 2026
+
+### Skip markers
+
+- TheIntroDB: the nightly task now shows progress across the whole library (titles already up to date out of the total) instead of restarting from 0 against the 3,000 cap of the pass. The work already resumed where it stopped; only the counter was misleading.
+
 ## v1.28.77 — 6 November 2026
 
 ### Android

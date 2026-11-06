@@ -78,21 +78,27 @@ export async function syncIntroDbLibrary(
   const state = loadIntroDbSyncState();
   if (mode === "new" && !state.firstPassDone) return { ...result, skipped: "waiting_first_pass" };
 
-  const candidates = (opts.targets ?? libraryExternalTargets())
+  const all = opts.targets ?? libraryExternalTargets();
+  const candidates = all
     .filter((target) => needsExternalSync(target.key, { onlyNew: mode === "new" }))
     .sort(byPriority);
   result.candidates = candidates.length;
   const limit = opts.limit ?? (mode === "full" ? FULL_PASS_LIMIT : NEW_PASS_LIMIT);
 
+  // Mode complet : avancement GLOBAL (titres déjà à jour / bibliothèque entière),
+  // pas « n sur le plafond du passage » — sinon il repart de 0 à chaque nuit.
   const planned = Math.min(candidates.length, limit);
-  reportJobProgress(0, planned || 1);
+  const upToDate = all.length - candidates.length;
+  const report = (attempted: number) =>
+    mode === "full" ? reportJobProgress(upToDate + attempted, Math.max(1, all.length)) : reportJobProgress(attempted, planned || 1);
+  report(0);
   for (const target of candidates.slice(0, limit)) {
     throwIfJobCancelled();
     if (externalCoolingDown()) { result.skipped = "rate_limited"; break; }
     await yieldToUser("sync TheIntroDB");
     await ensureExternalMarkers(target);
     result.attempted += 1;
-    reportJobProgress(result.attempted, planned);
+    report(result.attempted);
   }
   result.remaining = Math.max(0, candidates.length - result.attempted);
 

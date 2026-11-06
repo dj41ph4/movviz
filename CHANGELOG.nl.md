@@ -1,3 +1,9 @@
+## v1.28.78 — 6 november 2026
+
+### Overslaanmarkeringen
+
+- TheIntroDB: de nachtelijke taak toont nu de voortgang over de hele bibliotheek (titels die al actueel zijn op het totaal) in plaats van elke keer bij 0 te beginnen met het plafond van 3.000 per ronde. Het werk hervatte al waar het gebleven was; alleen de teller was misleidend.
+
 ## v1.28.77 — 6 november 2026
 
 ### Android

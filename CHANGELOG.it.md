@@ -1,3 +1,9 @@
+## v1.28.78 — 6 novembre 2026
+
+### Marcatori di salto
+
+- TheIntroDB: l'attività notturna mostra ora l'avanzamento sull'intera libreria (titoli già aggiornati sul totale) invece di ripartire da 0 sul tetto di 3.000 del passaggio. Il lavoro riprendeva già da dove si era fermato; solo il contatore era fuorviante.
+
 ## v1.28.77 — 6 novembre 2026
 
 ### Android

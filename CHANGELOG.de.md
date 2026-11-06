@@ -1,3 +1,9 @@
+## v1.28.78 — 6. November 2026
+
+### Überspringmarken
+
+- TheIntroDB: Die nächtliche Aufgabe zeigt jetzt den Fortschritt der gesamten Bibliothek (bereits aktuelle Titel von der Gesamtzahl) statt bei jedem Durchlauf mit der Obergrenze von 3.000 neu bei 0 zu beginnen. Die Arbeit setzte schon dort fort, wo sie aufgehört hatte; nur der Zähler war irreführend.
+
 ## v1.28.77 — 6. November 2026
 
 ### Android
