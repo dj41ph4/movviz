@@ -1,3 +1,13 @@
+## v1.28.77 — 6 November 2026
+
+### Android
+
+- Android TV: the sidebar becomes a rounded floating panel in the desktop colours (brand violet, active tab with a violet gradient and side bar, buttons and texts aligned on the values measured on desktop).
+- Android TV: the ★ rating shows at the top left of posters, as a pill like on desktop.
+- Android TV: loading a title page shows the large animated Movviz logo, as on smartphone; the focus ring of a tile without a poster goes from thick white to a soft lavender.
+- Android TV: the “Who is watching?” screen uses the full width: six profiles and “Add” fit without cropping, and the row scrolls beyond that.
+- Android TV: the loading animation no longer recomposes the screen on every frame, which reduces processor work.
+
 ## v1.28.76 — 6 November 2026
 
 ### Movviz AI

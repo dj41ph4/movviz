@@ -2982,7 +2982,9 @@ internal fun PosterCard(
                     focused = it.isFocused
                     onFocusedChange?.invoke(it.isFocused)
                 }
-                .movvizFocusRing(cardShape, enabled = beta)
+                // Tuile sans affiche (logo Movviz au centre) : anneau lavande doux, pas le
+                // contour blanc épais qui écrase le logo ; le focus reste visible.
+                .movvizFocusRing(cardShape, color = if (portraitUrl == null) palette.brandGlow else palette.focusRing, enabled = beta)
                 .tvPointerClick(onClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = cardShape),
             // La librairie tv-material3 zoome de 10% au focus par défaut
@@ -3005,6 +3007,16 @@ internal fun PosterCard(
                         contentDescription = card.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().then(imageZoomModifier),
+                    )
+                }
+                // PROTOTYPE : note ★ en haut-début, comme l'affiche desktop.
+                if (beta && card.rating > 0.0 && card.episodeSeasonNumber == null) {
+                    val ratingText = remember(card.rating) { "★ " + String.format(java.util.Locale.US, "%.1f", card.rating) }
+                    BetaCardBadge(
+                        text = ratingText,
+                        palette = palette,
+                        modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                        contentColor = Color(0xFFFFB84B),
                     )
                 }
                 // Pilule type FILM/SÉRIE pour les rangées mélangées — toujours
@@ -3310,12 +3322,18 @@ internal fun PosterCard(
 /** Pastille d'affiche Bêta (type, S/E, saison) : labelSmall sur
  *  `badgeContainer` cerclé de `badgeBorder`, lisible sur toute image. */
 @Composable
-private fun BetaCardBadge(text: String, palette: com.movviz.tv.ui.theme.MovvizPalette, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(6.dp)
+private fun BetaCardBadge(
+    text: String,
+    palette: com.movviz.tv.ui.theme.MovvizPalette,
+    modifier: Modifier = Modifier,
+    contentColor: Color = palette.ink,
+) {
+    // Pilule complète comme les badges desktop (mesuré : rayon maximal, 21 px).
+    val shape = RoundedCornerShape(50)
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
-        color = palette.ink,
+        color = contentColor,
         maxLines = 1,
         modifier = modifier
             .background(palette.badgeContainer, shape)

@@ -1,6 +1,7 @@
 package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
@@ -208,18 +209,32 @@ fun NavRail(
             .focusGroup()
             // Stable : MovvizSurface / MovvizBorder (valeurs de la palette
             // Stable, pixel-identique). Bêta : aplat #101116 + filet navEdge.
-            .background(palette.navBackground)
-            .drawBehind {
-                drawLine(
-                    color = palette.navEdge,
-                    start = androidx.compose.ui.geometry.Offset(size.width, 0f),
-                    end = androidx.compose.ui.geometry.Offset(size.width, size.height),
-                    strokeWidth = 1.dp.toPx(),
-                )
-            }
+            .then(
+                if (beta) {
+                    // PROTOTYPE : panneau flottant arrondi comme la barre latérale desktop.
+                    Modifier
+                        .padding(8.dp)
+                        .background(palette.surface, MovvizBetaShapes.Panel)
+                        .border(1.dp, palette.line, MovvizBetaShapes.Panel)
+                } else {
+                    Modifier
+                        .background(palette.navBackground)
+                        .drawBehind {
+                            drawLine(
+                                color = palette.navEdge,
+                                start = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                                end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                                strokeWidth = 1.dp.toPx(),
+                            )
+                        }
+                },
+            )
             // Bêta : (68 − 45) / 2 ≈ 11.5 dp replié, ce qui laisse aussi la
             // place de l'anneau extérieur (6 dp) sans le rogner.
-            .padding(horizontal = if (beta) { if (expanded) 15.dp else 11.dp } else { if (expanded) 15.dp else 11.dp }, vertical = 24.dp),
+            .padding(
+                horizontal = if (beta) { if (expanded) 7.dp else 3.dp } else { if (expanded) 15.dp else 11.dp },
+                vertical = if (beta) 16.dp else 24.dp,
+            ),
     ) {
         if (beta) {
             // En-tête Bêta : mot-symbole (style wordmark), filet navEdge
@@ -641,6 +656,11 @@ private fun BookmarkIcon(color: Color, modifier: Modifier = Modifier) {
     }
 }
 
+// Constantes partagées : aucune allocation de pinceau ou de couleur à chaque recomposition.
+private val NavActiveBrush = Brush.horizontalGradient(listOf(Color(0x527C5CFF), Color(0x0D7C5CFF)))
+private val NavActiveRing = Color(0x3DAA96FF)
+private val NavActiveBar = Color(0xFFB6A8FF)
+
 /**
  * Onglet du rail Bêta (plan §4.3). La SÉLECTION se lit à l'ivoire
  * (#F1EDE5, texte #17151E, icône #514177) ; le FOCUS à l'anneau blanc
@@ -658,8 +678,10 @@ private fun BetaNavItem(
     focusRequester: FocusRequester? = null,
 ) {
     val shape = MovvizBetaShapes.NavItem
-    val restContent = if (active) palette.navSelectedContent else palette.inkDim
-    val focusedContent = if (active) palette.navSelectedContent else palette.ink
+    // PROTOTYPE desktop : l'onglet actif est un dégradé violet translucide à filet clair
+    // et barre latérale (mesuré sur le rail desktop), plus un aplat ivoire.
+    val restContent = if (active) Color.White else palette.inkDim
+    val focusedContent = if (active) Color.White else palette.ink
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -671,22 +693,39 @@ private fun BetaNavItem(
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = movvizBetaSurfaceScale(),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) palette.navSelectedContainer else Color.Transparent,
+            containerColor = Color.Transparent,
             contentColor = restContent,
-            focusedContainerColor = if (active) palette.navSelectedContainer else palette.surfaceRaised,
+            focusedContainerColor = if (active) Color.Transparent else palette.surfaceRaised,
             focusedContentColor = focusedContent,
-            pressedContainerColor = if (active) palette.navSelectedContainer else palette.surfaceRaised,
+            pressedContainerColor = if (active) Color.Transparent else palette.surfaceRaised,
             pressedContentColor = focusedContent,
         ),
     ) {
         // LocalContentColor suit l'état de la Surface (repos / focus) ;
         // l'icône de l'onglet sélectionné garde son violet dédié.
         val content = androidx.tv.material3.LocalContentColor.current
-        val iconTint = if (active) palette.navSelectedIcon else content
+        val iconTint = if (active) Color.White else content
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start,
-            modifier = Modifier.fillMaxSize().padding(horizontal = 13.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .let {
+                    if (active) {
+                        it
+                            .background(NavActiveBrush)
+                            .border(1.dp, NavActiveRing, shape)
+                            .drawBehind {
+                                drawRoundRect(
+                                    color = NavActiveBar,
+                                    topLeft = androidx.compose.ui.geometry.Offset(0f, size.height / 2f - 10.dp.toPx()),
+                                    size = androidx.compose.ui.geometry.Size(3.dp.toPx(), 20.dp.toPx()),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+                                )
+                            }
+                    } else it
+                }
+                .padding(horizontal = 13.dp),
         ) {
             if (tab == HomeTab.LIBRARY) {
                 BookmarkIcon(color = iconTint, modifier = Modifier.size(18.dp))

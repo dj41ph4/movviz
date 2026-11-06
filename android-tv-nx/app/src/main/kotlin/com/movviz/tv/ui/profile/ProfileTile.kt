@@ -229,7 +229,10 @@ fun AvatarImage(
         )
     } else {
         Box(
-            modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))),
+            modifier.clip(shape).background(
+                if (com.movviz.tv.ui.theme.LocalMovvizBeta.current) Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand))
+                else Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2)),
+            ),
             contentAlignment = Alignment.Center,
         ) {
             Text(

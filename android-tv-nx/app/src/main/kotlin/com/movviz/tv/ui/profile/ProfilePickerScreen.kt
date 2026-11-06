@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -179,9 +180,12 @@ fun ProfilePickerScreen(
 
             TvLazyRow(
                 state = rememberTvLazyListState().withTvPrefetchDisabled(),
-                modifier = Modifier.widthIn(max = 780.dp),
+                // Toute la largeur de l'écran : jusqu'à 7 tuiles (6 profils + « Ajouter ») tiennent
+                // sans rien rogner et restent centrées ; au-delà, la rangée défile jusqu'au bord de
+                // l'écran au lieu de se couper net dans un cadre de 780 dp.
+                modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 21.dp, vertical = if (beta) 12.dp else 9.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.Top,
             ) {
                 items(visibleProfiles, key = { it.id }) { profile ->

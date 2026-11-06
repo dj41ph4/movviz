@@ -1,3 +1,13 @@
+## v1.28.77 — 6 novembre 2026
+
+### Android
+
+- Android TV : la barre latérale devient un panneau flottant arrondi, aux couleurs du desktop (violet de marque, onglet actif en dégradé violet avec barre latérale, boutons et textes alignés sur les valeurs mesurées du desktop).
+- Android TV : la note ★ s'affiche en haut à gauche des affiches, en pilule comme sur le desktop.
+- Android TV : le chargement d'une fiche affiche le logo Movviz animé en grand, comme sur smartphone ; l'anneau de focus d'une tuile sans affiche passe du blanc épais à un lavande doux.
+- Android TV : l'écran « Qui regarde ? » occupe toute la largeur : six profils et « Ajouter » tiennent sans rien rogner, la rangée défile au-delà.
+- Android TV : l'animation de chargement ne recompose plus l'écran à chaque image, ce qui réduit le travail du processeur.
+
 ## v1.28.76 — 6 novembre 2026
 
 ### Movviz AI

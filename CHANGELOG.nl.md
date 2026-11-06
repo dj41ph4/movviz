@@ -1,3 +1,13 @@
+## v1.28.77 — 6 november 2026
+
+### Android
+
+- Android TV: de zijbalk wordt een afgerond zwevend paneel in de kleuren van de desktop (merkviolet, actieve tab met violet verloop en zijbalk, knoppen en teksten afgestemd op de op desktop gemeten waarden).
+- Android TV: de ★-score staat linksboven op de posters, als pil zoals op de desktop.
+- Android TV: bij het laden van een titelpagina verschijnt het grote geanimeerde Movviz-logo, zoals op de smartphone; de focusring van een tegel zonder poster gaat van dik wit naar zacht lavendel.
+- Android TV: het scherm „Wie kijkt?” gebruikt de volle breedte: zes profielen en „Toevoegen” passen zonder bijsnijden, daarna scrolt de rij.
+- Android TV: de laadanimatie herberekent het scherm niet meer bij elk beeld, wat het werk van de processor vermindert.
+
 ## v1.28.76 — 6 november 2026
 
 ### Movviz AI

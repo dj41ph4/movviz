@@ -27,16 +27,18 @@ class MovvizPaletteTest {
         assertEquals(Color(0xFF1B1E27), p.surfaceRaised)
         assertEquals(Color(0xFF252935), p.surfaceHigh)
         assertEquals(Color(0xFFF5F2EB), p.ink)
-        assertEquals(Color(0xFFB7B5BF), p.inkSoft)
-        assertEquals(Color(0xFF94919F), p.inkDim)
+        // Valeurs desktop mesurées (styles calculés) : texte secondaire et discret.
+        assertEquals(Color(0xFFAAA7BD), p.inkSoft)
+        assertEquals(Color(0xFF8A879F), p.inkDim)
         assertEquals(Color(0xFFC4B6FF), p.accent)
         assertEquals(Color.White, p.focusRing)
         assertEquals(p.background, p.navBackground) // un seul aplat : le rail a le fond de la scène
         assertEquals(Color(0xFFF1EDE5), p.navSelectedContainer)
         assertEquals(Color(0xFF17151E), p.navSelectedContent)
         assertEquals(Color(0xFF514177), p.navSelectedIcon)
-        assertEquals(Color(0xFFE4D9FF), p.primaryContainer)
-        assertEquals(Color(0xFF211830), p.onPrimaryContainer)
+        assertEquals(Color(0xFFF4F1FB), p.primaryContainer)
+        assertEquals(Color(0xFF12101C), p.onPrimaryContainer)
+        assertEquals(Color(0xFF7458E8), p.chipActiveContainer)
         assertEquals(Color(0xFFD8CEF1), p.eyebrow)
         assertEquals(Color(0xFFE87C7C), p.danger)
         assertEquals(listOf(Color(0xFF7C3AED), Color(0xFFC084FC), Color(0xFF67E8F9)), p.progressFill)
@@ -49,11 +51,12 @@ class MovvizPaletteTest {
         assertEquals(MovvizBrandGlow, p.brandGlow)
     }
 
-    @Test fun betaBrandRolesAreTheBrandConstants() {
+    @Test fun betaBrandRolesAreTheDesktopViolet() {
+        // Violet-bleu du desktop (mesuré) — distinct des constantes historiques de la palette Stable.
         val p = MovvizBetaPalette
-        assertEquals(MovvizBrand, p.brand)
-        assertEquals(MovvizBrand2, p.brand2)
-        assertEquals(MovvizBrandGlow, p.brandGlow)
+        assertEquals(Color(0xFF7458E8), p.brand)
+        assertEquals(Color(0xFFA77BFF), p.brand2)
+        assertEquals(Color(0xFFB892FF), p.brandGlow)
     }
 
     @Test fun betaLinesAreTranslucentWhite() {

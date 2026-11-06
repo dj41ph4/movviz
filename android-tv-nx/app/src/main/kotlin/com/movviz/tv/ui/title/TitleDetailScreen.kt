@@ -1460,8 +1460,8 @@ fun TitleDetailScreen(
                 if (seasons.isEmpty()) {
                     item(key = "seasons-loading", contentType = "loading") {
                         com.movviz.tv.ui.theme.MovvizLoader(
-                            modifier = Modifier.fillMaxWidth().height(120.dp),
-                            size = 30.dp,
+                            modifier = Modifier.fillMaxWidth().height(230.dp),
+                            size = 72.dp,
                         )
                     }
                 } else if (visibleSeasons.isEmpty()) {
@@ -1936,39 +1936,9 @@ private fun TitleDetailSkeleton(focusTargetModifier: Modifier, logoPath: String?
             .focusable(),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier.width(380.dp).height(150.dp), contentAlignment = Alignment.Center) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = logoPath != null,
-                    enter = androidx.compose.animation.fadeIn(tween(250)),
-                ) {
-                    Image(
-                        painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$logoPath"),
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(22.dp))
-            val barWidth = 300.dp
-            val segment = 110.dp
-            Box(
-                modifier = Modifier
-                    .width(barWidth)
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.12f)),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .offset(x = (barWidth + segment) * sweep - segment)
-                        .width(segment)
-                        .height(3.dp)
-                        .background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(50)),
-                )
-            }
-        }
+        // Même chargement que sur smartphone : le mark Movviz respire au centre
+        // d'un halo aurora, un filet de marque balaye dessous. Grand format TV.
+        com.movviz.tv.ui.theme.MovvizLoader(modifier = Modifier.wrapContentSize(), size = 110.dp)
     }
 }
 

@@ -192,10 +192,12 @@ fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 21.sp) {
 @Composable
 fun MovvizLoader(modifier: Modifier = Modifier.fillMaxSize(), size: Dp = 64.dp) {
     val infinite = rememberInfiniteTransition(label = "movviz_loader")
-    val rotation by infinite.floatLoop(0f, 360f, 9000, LinearEasing, RepeatMode.Restart)
-    val breathe by infinite.floatLoop(0.94f, 1.06f, 1300, FastOutSlowInEasing, RepeatMode.Reverse)
-    val glow by infinite.floatLoop(0.55f, 1f, 1300, FastOutSlowInEasing, RepeatMode.Reverse)
-    val sweep by infinite.floatLoop(0f, 1f, 1500, FastOutSlowInEasing, RepeatMode.Restart)
+    // Les valeurs animées ne sont lues que dans les lambdas graphicsLayer / drawBehind
+    // (phase de dessin) : rien ne se recompose à chaque image, seul le rendu se met à jour.
+    val rotation = infinite.floatLoop(0f, 360f, 9000, LinearEasing, RepeatMode.Restart)
+    val breathe = infinite.floatLoop(0.94f, 1.06f, 1300, FastOutSlowInEasing, RepeatMode.Reverse)
+    val glow = infinite.floatLoop(0.55f, 1f, 1300, FastOutSlowInEasing, RepeatMode.Reverse)
+    val sweep = infinite.floatLoop(0f, 1f, 1500, FastOutSlowInEasing, RepeatMode.Restart)
     androidx.compose.foundation.layout.Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -204,10 +206,17 @@ fun MovvizLoader(modifier: Modifier = Modifier.fillMaxSize(), size: Dp = 64.dp) 
         Box(modifier = Modifier.size(size * 2), contentAlignment = Alignment.Center) {
             // Pas de couche alpha : elle rognerait le halo aux bords de son carré.
             // Il « respire » par son échelle seulement.
-            Box(modifier = Modifier.androidxGraphicsScale(0.9f + 0.2f * glow)) {
-                MulticolorBlurHalo(size = size * 2, rotation = rotation)
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    val s = 0.9f + 0.2f * glow.value
+                    scaleX = s
+                    scaleY = s
+                    rotationZ = rotation.value
+                },
+            ) {
+                MulticolorBlurHalo(size = size * 2, rotation = 0f)
             }
-            Box(modifier = Modifier.androidxGraphicsScale(breathe)) { StaticLogo(size = size) }
+            Box(modifier = Modifier.graphicsLayer { scaleX = breathe.value; scaleY = breathe.value }) { StaticLogo(size = size) }
         }
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.androidxHeight(size * 0.3f))
         Box(
@@ -218,7 +227,7 @@ fun MovvizLoader(modifier: Modifier = Modifier.fillMaxSize(), size: Dp = 64.dp) 
                 .background(Color.White.copy(alpha = 0.10f))
                 .drawBehind {
                     val segment = this.size.width * 0.42f
-                    val x = -segment + (this.size.width + segment) * sweep
+                    val x = -segment + (this.size.width + segment) * sweep.value
                     drawRect(
                         brush = Brush.horizontalGradient(
                             colors = listOf(Color.Transparent, MovvizBrand, MovvizBrand2, Color.Transparent),

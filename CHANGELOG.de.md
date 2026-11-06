@@ -1,3 +1,13 @@
+## v1.28.77 — 6. November 2026
+
+### Android
+
+- Android TV: Die Seitenleiste wird zu einem abgerundeten schwebenden Panel in den Farben des Desktops (Markenviolett, aktiver Tab mit violettem Verlauf und Seitenbalken, Schaltflächen und Texte an die auf dem Desktop gemessenen Werte angeglichen).
+- Android TV: Die ★-Bewertung erscheint oben links auf den Postern, als Pille wie auf dem Desktop.
+- Android TV: Beim Laden einer Titelseite erscheint das große animierte Movviz-Logo, wie auf dem Smartphone; der Fokusring einer Kachel ohne Poster wechselt von dickem Weiß zu einem sanften Lavendel.
+- Android TV: Der Bildschirm „Wer schaut?“ nutzt die volle Breite: sechs Profile und „Hinzufügen“ passen ohne Beschnitt, darüber hinaus scrollt die Reihe.
+- Android TV: Die Ladeanimation berechnet den Bildschirm nicht mehr bei jedem Bild neu, was die Prozessorlast senkt.
+
 ## v1.28.76 — 6. November 2026
 
 ### Movviz AI
