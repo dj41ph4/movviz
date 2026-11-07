@@ -1,3 +1,11 @@
+## v1.28.86 — 7 novembre 2026
+
+### Feste ed eventi
+
+- Le file di evento mostrano fino a 120 titoli (80 e più per Natale), e «Mostra tutto» riempie tutta la larghezza senza buco a destra né ultima riga incompleta.
+- I classici di ogni festa sono sempre in testa, e un film può comparire in più feste: Nightmare Before Christmas a Halloween e a Natale, Le 5 leggende a Natale, Pasqua e Halloween, Gremlins, Edward mani di forbice, Love Actually, Mamma ho perso l'aereo, ecc.
+- I titoli estranei alla festa (una serie catastrofica etichettata «Natale» per errore) sono esclusi, e Natale non mostra più produzioni asiatiche o africane.
+
 ## v1.28.85 — 7 novembre 2026
 
 ### Feste ed eventi

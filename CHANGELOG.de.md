@@ -1,3 +1,11 @@
+## v1.28.86 — 7 November 2026
+
+### Feste & Anlässe
+
+- Ereignisreihen zeigen bis zu 120 Titel (80+ für Weihnachten), und „Alle anzeigen“ füllt die ganze Breite ohne Lücke rechts oder unvollständige letzte Zeile.
+- Die Klassiker jedes Festes stehen immer vorn, und ein Film kann in mehreren Festen vorkommen: Nightmare Before Christmas bei Halloween und Weihnachten, Die Hüter des Lichts bei Weihnachten, Ostern und Halloween, Gremlins, Edward mit den Scherenhänden, Love Actually, Kevin – Allein zu Haus usw.
+- Titel ohne Bezug zum Fest (eine fälschlich mit „Weihnachten“ getaggte Katastrophenserie) fallen weg, und Weihnachten zeigt keine asiatischen oder afrikanischen Produktionen mehr.
+
 ## v1.28.85 — 7 November 2026
 
 ### Feste & Anlässe

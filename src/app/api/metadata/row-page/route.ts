@@ -11,7 +11,7 @@ import { getProviderNewPage, getProviderSuggestedPage } from "@/lib/recommender/
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { isSeasonId } from "@/lib/seasonal/calendar";
-import { seasonalPage } from "@/lib/seasonal/row";
+import { pinnedMovies, seasonalPage } from "@/lib/seasonal/row";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +71,9 @@ export async function GET(req: NextRequest) {
     const id = key.slice("seasonal:".length);
     if (!isSeasonId(id)) return NextResponse.json({ error: "unknown row" }, { status: 400 });
     const paged = await seasonalPage(id, type, page);
-    return NextResponse.json({ results: paged.results, page, totalPages: paged.totalPages });
+    const pinned = type === "movie" && page === 1 ? await pinnedMovies(id) : [];
+    const results = [...pinned, ...paged.results.filter((r) => !pinned.some((p) => p.tmdbId === r.tmdbId))];
+    return NextResponse.json({ results, page, totalPages: paged.totalPages });
   }
 
   const result = await (async () => {

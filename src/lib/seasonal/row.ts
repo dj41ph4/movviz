@@ -1,12 +1,12 @@
-import { discoverByFilters } from "@/lib/metadata/tmdb";
+import { discoverByFilters, getMovie } from "@/lib/metadata/tmdb";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { activeSeason, seasonDef, type SeasonId, type SeasonSettings } from "./calendar";
 
-const ROW_SIZE = 60;
+const ROW_SIZE = 120;
 /** Rien de plus ancien : une rangée d'événement doit sentir le récent. */
 const RELEASED_AFTER = "1980-01-01";
-const PAGES = 2;
+const PAGES = 4;
 const MEMO_TTL_MS = 6 * 60 * 60_000;
 const memo = new Map<string, { at: number; results: MetaSearchResult[] }>();
 
@@ -39,11 +39,22 @@ export async function seasonalPage(season: SeasonId, type: "movie" | "series", p
     discoverByFilters(type, { sort: "vote_average.desc", keywords, voteCountFloor: minVotes * 2, releasedAfter: RELEASED_AFTER }, page).catch(() => null),
     discoverByFilters(type, { sort: "popularity.desc", keywords, minVotes, releasedAfter: RELEASED_AFTER }, page).catch(() => null),
   ]);
-  const keep = (r: { results: MetaSearchResult[] } | null) => filterSuggestable((r?.results ?? []).filter((x) => !!x.posterPath));
+  const { theme, excludeLanguages } = seasonDef(season);
+  const excluded: readonly string[] = excludeLanguages ?? [];
+  const keep = (r: { results: MetaSearchResult[] } | null) => filterSuggestable((r?.results ?? []).filter((x) => !!x.posterPath && !excluded.includes(x.originalLanguage ?? "") && theme.test(`${x.title} ${x.overview}`)));
   return {
     results: roundRobin([keep(recent), keep(popular), keep(best)]),
     totalPages: Math.max(1, ...[recent, best, popular].map((r) => r?.totalPages ?? 1)),
   };
+}
+
+/** Classiques épinglés de la fête (un film peut figurer dans plusieurs fêtes). */
+export async function pinnedMovies(season: SeasonId): Promise<MetaSearchResult[]> {
+  const movies = await Promise.all(seasonDef(season).pinnedMovies.map((id) => getMovie(id).catch(() => null)));
+  return movies.flatMap((m) => m && m.posterPath ? [{
+    tmdbId: m.tmdbId, type: "movie" as const, title: m.title, year: m.year, releaseDate: m.releaseDate,
+    overview: m.overview, posterPath: m.posterPath, backdropPath: m.backdropPath, rating: m.rating,
+  }] : []);
 }
 
 /** Titres de la rangée pour un type (sans doublon). Les clients mêlent films et séries eux-mêmes. */
@@ -51,8 +62,12 @@ export async function seasonalTitles(season: SeasonId, type: "movie" | "series")
   const memoKey = `${season}:${type}`;
   const hit = memo.get(memoKey);
   if (hit && Date.now() - hit.at < MEMO_TTL_MS) return hit.results;
-  const pages = await Promise.all(Array.from({ length: PAGES }, (_, i) => seasonalPage(season, type, i + 1)));
-  const results = roundRobin(pages.map((p) => p.results)).slice(0, ROW_SIZE);
+  const [pinned, ...pages] = await Promise.all([
+    type === "movie" ? pinnedMovies(season) : Promise.resolve([] as MetaSearchResult[]),
+    ...Array.from({ length: PAGES }, (_, i) => seasonalPage(season, type, i + 1).then((p) => p.results)),
+  ]);
+  // Les classiques d'abord, puis le mélange récent / tendance / mieux noté.
+  const results = [...pinned, ...roundRobin(pages).filter((r) => !pinned.some((p) => p.tmdbId === r.tmdbId))].slice(0, ROW_SIZE);
   if (results.length > 0) memo.set(memoKey, { at: Date.now(), results });
   return results;
 }

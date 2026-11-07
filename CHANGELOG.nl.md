@@ -1,3 +1,11 @@
+## v1.28.86 — 7 november 2026
+
+### Feestdagen & evenementen
+
+- Evenementrijen tonen tot 120 titels (80+ voor Kerst), en “Alles tonen” vult de volledige breedte zonder gat rechts of onvolledige laatste rij.
+- De klassiekers van elk feest staan altijd vooraan, en één film kan in meerdere feesten staan: The Nightmare Before Christmas bij Halloween en Kerst, Rise of the Guardians bij Kerst, Pasen en Halloween, Gremlins, Edward Scissorhands, Love Actually, Home Alone, enz.
+- Titels zonder band met het feest (een rampenserie die ten onrechte als “Kerst” is getagd) vallen weg, en Kerst toont geen Aziatische of Afrikaanse producties meer.
+
 ## v1.28.85 — 7 november 2026
 
 ### Feestdagen & evenementen

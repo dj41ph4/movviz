@@ -10,15 +10,53 @@ export interface SeasonDef {
   id: SeasonId;
   /** TMDb with_keywords (OR) — les films/séries étiquetés par la communauté. */
   keywords: string;
+  /** Le titre ou le synopsis doit évoquer la fête : les mots-clés TMDb sont bruités (une série catastrophe étiquetée « Noël »). */
+  theme: RegExp;
+  /** Classiques de la fête (films TMDb), toujours proposés — un même film peut figurer dans plusieurs fêtes. */
+  pinnedMovies: number[];
+  /** Langues d'origine écartées (ISO 639-1) : Noël = ambiance occidentale, pas de production asiatique ou africaine. */
+  excludeLanguages?: readonly string[];
 }
 
+const ASIAN_AFRICAN_LANGUAGES = [
+  "ja", "ko", "zh", "cn", "th", "vi", "id", "ms", "tl", "hi", "ta", "te", "ml", "kn", "bn", "mr", "pa", "gu", "ur", "ne", "si", "km", "lo", "my", "mn",
+  "sw", "am", "yo", "ha", "zu", "xh", "ig", "so", "wo", "ln", "rw", "sn", "st", "tn", "af", "ar",
+] as const;
+
 const SEASONS: Record<SeasonId, SeasonDef> = {
-  halloween: { id: "halloween", keywords: "3335|9694|318653" },
-  christmas: { id: "christmas", keywords: "207317|5570|260365" },
-  newYear: { id: "newYear", keywords: "252123|336526" },
-  valentine: { id: "valentine", keywords: "251912|366924" },
-  easter: { id: "easter", keywords: "9921|9923|351806" },
-  summer: { id: "summer", keywords: "13088|14714|966" },
+  halloween: {
+    id: "halloween", keywords: "3335|9694|318653",
+    theme: /halloween|sorci[eè]r|witch|fant[ôo]me|ghost|monstre|monster|vampire|zombie|hant[ée]|haunt|citrouille|pumpkin|croque-mitaine|boogey/i,
+    // Jack, Hocus Pocus, Beetlejuice, Casper, Coraline, Noces funèbres, Hôtel Transylvanie, Gremlins, Scream, Edward, Cinq Légendes
+    pinnedMovies: [9479, 10439, 4011, 8839, 14836, 3933, 76492, 927, 4232, 162, 81188],
+  },
+  christmas: {
+    id: "christmas", keywords: "207317|5570|260365",
+    theme: /no[eë]l|christmas|xmas|santa|p[eè]re no|r[eé]veillon|lutin|elf|elves|rennes?|reindeer|sapin|gui|mistletoe|fêtes de fin|holiday season|neige|snow/i,
+    // Cinq Légendes, Jack, Maman j'ai raté l'avion, Elfe, Love Actually, Pôle Express, The Holiday, Piège de cristal, Klaus, Grinch, Gremlins, Edward, Krampus
+    pinnedMovies: [81188, 9479, 771, 10719, 508, 5255, 1581, 562, 508965, 8871, 927, 162, 287903],
+    excludeLanguages: ASIAN_AFRICAN_LANGUAGES,
+  },
+  newYear: {
+    id: "newYear", keywords: "252123|336526",
+    theme: /nouvel an|new year|nouvelle ann[ée]e|r[eé]veillon|saint-sylvestre|sylvester|r[eé]solution|resolution|minuit|midnight/i,
+    pinnedMovies: [639],
+  },
+  valentine: {
+    id: "valentine", keywords: "251912|366924",
+    theme: /valentin|amour|love|romance|romantique|romantic|couple|c[oœ]ur|heart/i,
+    pinnedMovies: [508, 11036, 597, 639, 88],
+  },
+  easter: {
+    id: "easter", keywords: "9921|9923|351806",
+    theme: /p[aâ]ques|easter|lapin|bunny|rabbit|[oœ]ufs?|eggs?|chocolat/i,
+    pinnedMovies: [81188, 50359],
+  },
+  summer: {
+    id: "summer", keywords: "13088|14714|966",
+    theme: /été|summer|vacances|vacation|plage|beach|soleil|sun|camp de vacances|surf/i,
+    pinnedMovies: [578, 621, 11544, 11631, 88],
+  },
 };
 
 export function seasonDef(id: SeasonId): SeasonDef {

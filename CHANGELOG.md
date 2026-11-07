@@ -1,3 +1,11 @@
+## v1.28.86 — 7 novembre 2026
+
+### Événements du moment
+
+- Les rangées d'événement affichent jusqu'à 120 titres (80 et plus pour Noël), et « Tout afficher » remplit toute la largeur sans trou à droite ni ligne incomplète.
+- Les classiques de chaque fête sont toujours proposés en tête, et un même film peut figurer dans plusieurs fêtes : L'Étrange Noël de monsieur Jack à Halloween et à Noël, Les Cinq Légendes à Noël, Pâques et Halloween, Gremlins, Edward aux mains d'argent, Love Actually, Maman j'ai raté l'avion, etc.
+- Les titres sans rapport avec la fête (une série catastrophe étiquetée « Noël » par erreur) sont écartés, et Noël n'affiche plus de productions asiatiques ou africaines.
+
 ## v1.28.85 — 7 novembre 2026
 
 ### Événements du moment

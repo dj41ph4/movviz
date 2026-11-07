@@ -1,3 +1,11 @@
+## v1.28.86 — 7 November 2026
+
+### Holidays & events
+
+- Event rows show up to 120 titles (80+ for Christmas), and “Show all” fills the full width with no gap on the right or incomplete last line.
+- Each holiday's classics are always shown first, and one film can appear in several holidays: The Nightmare Before Christmas at Halloween and Christmas, Rise of the Guardians at Christmas, Easter and Halloween, Gremlins, Edward Scissorhands, Love Actually, Home Alone, etc.
+- Titles unrelated to the holiday (a disaster series wrongly tagged “Christmas”) are dropped, and Christmas no longer shows Asian or African productions.
+
 ## v1.28.85 — 7 November 2026
 
 ### Holidays & events
