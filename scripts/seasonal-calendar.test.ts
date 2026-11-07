@@ -7,8 +7,8 @@ const at = (iso: string) => activeSeason(new Date(`${iso}T12:00:00Z`));
 test("saisons : fenêtres et anticipation", () => {
   assert.equal(at("2026-10-31"), "halloween");
   assert.equal(at("2026-11-02"), "halloween");
-  assert.equal(at("2026-11-07"), null);
-  assert.equal(at("2026-11-15"), "christmas");
+  assert.equal(at("2026-11-07"), "christmas");
+  assert.equal(at("2026-11-03"), "christmas");
   assert.equal(at("2026-12-26"), "christmas");
   assert.equal(at("2026-12-31"), "newYear");
   assert.equal(at("2027-01-06"), "newYear");

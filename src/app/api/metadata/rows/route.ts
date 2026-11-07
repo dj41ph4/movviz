@@ -159,8 +159,10 @@ export async function GET(req: NextRequest) {
   const simulated = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(`${dateParam}T12:00:00Z`) : null;
   const dashboardLayout = user ? loadDashboardLayout(user.id) : null;
   const seasonalEnabled = dashboardLayout?.sections.find((s) => s.id === "seasonal")?.visible !== false;
+  // Attendue directement (mémoïsée 6 h, 2 appels TMDb au premier calcul) : passer par `part`
+  // la renverrait vide à la première visite, le temps que le serveur la calcule.
   const seasonalRow = seasonalEnabled
-    ? part(`seasonal:${(simulated ?? new Date()).toISOString().slice(0, 10)}:${JSON.stringify(dashboardLayout?.seasonDates ?? null)}`, () => buildSeasonalRow(simulated ?? new Date(), dashboardLayout?.seasonDates), null)
+    ? buildSeasonalRow(simulated ?? new Date(), dashboardLayout?.seasonDates).catch(() => null)
     : Promise.resolve(null);
   const finish = async (baseRows: { key: string; results: MetaSearchResult[] }[]) => {
     const seasonal = await seasonalRow;

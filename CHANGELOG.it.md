@@ -8,7 +8,7 @@
 
 ### Feste ed eventi
 
-- Una fila compare automaticamente in base alla data, senza alcuna azione: Halloween (28 set → 2 nov), Natale (dal 15 nov → 26 dic), Capodanno, San Valentino, Pasqua (2 settimane prima) ed estate. Appare nella dashboard e in Scopri (compreso «Mostra tutto») e scompare a evento concluso.
+- Una fila compare automaticamente in base alla data, senza alcuna azione: Halloween (28 set → 2 nov), Natale (dal 3 nov → 26 dic), Capodanno, San Valentino, Pasqua (2 settimane prima) ed estate. Appare nella dashboard e in Scopri (compreso «Mostra tutto») e scompare a evento concluso.
 - La stessa fila su Android TV, Android mobile e Samsung Tizen. Impostazioni → Dashboard → «Feste ed eventi» la nasconde.
 
 ## v1.28.82 — 7 novembre 2026

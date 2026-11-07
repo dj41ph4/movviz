@@ -60,7 +60,7 @@ export interface SeasonSettings {
 
 export const DEFAULT_SEASON_WINDOWS: Record<Exclude<SeasonId, "easter">, SeasonWindow> = {
   halloween: { start: "09-28", end: "11-02" },
-  christmas: { start: "11-15", end: "12-26" },
+  christmas: { start: "11-03", end: "12-26" },
   newYear: { start: "12-27", end: "01-06" },
   valentine: { start: "01-31", end: "02-14" },
   summer: { start: "06-21", end: "08-31" },
