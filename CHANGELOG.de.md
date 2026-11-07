@@ -1,3 +1,10 @@
+## v1.28.81 — 7. November 2026
+
+### Android
+
+- Android TV: Die Versionskarte der Seitenleiste zeigt „Update v{version}“, wenn ein Update vorhanden ist, als gefüllte Schaltfläche mit Markenverlauf und Download-Symbol, wie auf dem Desktop.
+- Android TV: Ein kleines grünes „Aktuell“ erscheint unter der Versionskarte, wenn die App auf dem neuesten Stand ist, und ein lavendelfarbener Punkt am Eintrag Einstellungen, wenn ein Update verfügbar ist.
+
 ## v1.28.80 — 7. November 2026
 
 ### Android

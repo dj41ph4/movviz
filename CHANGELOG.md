@@ -1,3 +1,10 @@
+## v1.28.81 — 7 novembre 2026
+
+### Android
+
+- Android TV : la carte de version de la barre latérale affiche « Mise à jour v{version} » quand une mise à jour existe, sous la forme d'un bouton plein au dégradé de marque avec une icône de téléchargement, comme sur le desktop.
+- Android TV : un petit « À jour » vert apparaît sous la carte de version quand l'appli est à jour, et une pastille lavande s'ajoute à l'entrée Paramètres quand une mise à jour est disponible.
+
 ## v1.28.80 — 7 novembre 2026
 
 ### Android

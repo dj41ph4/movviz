@@ -1,3 +1,10 @@
+## v1.28.81 — 7 November 2026
+
+### Android
+
+- Android TV: the sidebar version card shows “Update v{version}” when an update exists, as a solid brand-gradient button with a download icon, like on desktop.
+- Android TV: a small green “Up to date” appears under the version card when the app is current, and a lavender dot is added to the Settings entry when an update is available.
+
 ## v1.28.80 — 7 November 2026
 
 ### Android

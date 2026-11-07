@@ -1,3 +1,10 @@
+## v1.28.81 — 7 november 2026
+
+### Android
+
+- Android TV: de versiekaart van de zijbalk toont „Update v{version}” wanneer er een update is, als gevulde knop met merkverloop en downloadpictogram, zoals op de desktop.
+- Android TV: een klein groen „Actueel” verschijnt onder de versiekaart wanneer de app up-to-date is en een lavendelkleurige stip komt bij het onderdeel Instellingen wanneer er een update beschikbaar is.
+
 ## v1.28.80 — 7 november 2026
 
 ### Android

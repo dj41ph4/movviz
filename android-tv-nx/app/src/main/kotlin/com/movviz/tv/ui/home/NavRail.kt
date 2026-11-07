@@ -288,6 +288,7 @@ fun NavRail(
                         palette = palette,
                         onClick = { onSelect(tabItem) },
                         focusRequester = if (tabItem == selectedNavTab) navRailFocusRequester else null,
+                        badge = tabItem == HomeTab.SETTINGS && updateAvailableTag != null,
                     )
                 } else {
                     TopNavItem(
@@ -322,7 +323,12 @@ fun NavRail(
                 if (beta) {
                     // Comme le desktop : une carte violette translucide « • Movviz vX » (c'est aussi le
                     // bouton de mise à jour), sans séparateur ni libellé à part.
-                    UpdateStatusPill(updateAvailable = updateAvailableTag != null, onClick = onUpdateClick)
+                    UpdateStatusPill(updateAvailable = updateAvailableTag != null, updateTag = updateAvailableTag, onClick = onUpdateClick)
+                    if (updateAvailableTag == null) {
+                        // Comme le desktop : petit « À jour » vert sous la carte de version.
+                        Spacer(Modifier.height(4.dp))
+                        Text("À jour", color = MovvizOk, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, fontSize = 9.sp))
+                    }
                 } else {
                     Box(Modifier.fillMaxWidth().height(1.dp).background(palette.navEdge))
                     Spacer(Modifier.height(9.dp))
@@ -336,7 +342,7 @@ fun NavRail(
 }
 
 @Composable
-private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
+private fun UpdateStatusPill(updateAvailable: Boolean, updateTag: String? = null, onClick: () -> Unit) {
     val beta = LocalMovvizBeta.current
     val reduceMotion = MovvizTheme.reduceMotion
     var focused by remember { mutableStateOf(false) }
@@ -374,11 +380,14 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
             modifier = (if (beta) {
                 // Carte desktop : dégradé violet translucide + filet clair, rayon 16.
                 Modifier.fillMaxSize()
-                    .background(Brush.horizontalGradient(listOf(Color(0x337C5CFF), Color(0x0F7C5CFF))))
-                    .border(1.dp, Color(0x33AA96FF), shape)
+                    // Mise à jour disponible : bouton plein au dégradé de marque (installation en un clic, comme le desktop).
+                    .background(if (updateAvailable) Brush.horizontalGradient(listOf(Color(0xFF7458E8), Color(0xFFA77BFF))) else Brush.horizontalGradient(listOf(Color(0x337C5CFF), Color(0x0F7C5CFF))))
+                    .border(1.dp, if (updateAvailable) Color(0x33FFFFFF) else Color(0x33AA96FF), shape)
             } else Modifier.align(Alignment.Center)).padding(horizontal = 8.dp, vertical = 3.dp),
         ) {
-            Box(
+            if (beta && updateAvailable) {
+                Icon(imageVector = com.movviz.tv.ui.theme.LucideDownload, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+            } else Box(
                 Modifier.size(if (beta) 7.dp else 5.dp).clip(androidx.compose.foundation.shape.CircleShape)
                     .then(
                         if (beta) Modifier.background(if (updateAvailable) MovvizTheme.palette.brandGlow else MovvizOk)
@@ -386,10 +395,10 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
                     ),
             )
             Spacer(Modifier.width(if (beta) 8.dp else 5.dp))
-            val label = if (updateAvailable) "Mettre à jour" else if (beta) "Movviz v${BuildConfig.VERSION_NAME}" else "À jour"
+            val label = if (updateAvailable) (if (updateTag != null) "Mise à jour v${updateTag.removePrefix("v")}" else "Mettre à jour") else if (beta) "Movviz v${BuildConfig.VERSION_NAME}" else "À jour"
             val labelColor = if (updateAvailable) Color.White else if (beta) MovvizTheme.palette.inkDim else MovvizOk
             if (beta) {
-                Text(text = label, color = labelColor, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, fontSize = 9.sp))
+                Text(text = label, color = labelColor, style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (updateAvailable) FontWeight.Bold else FontWeight.Medium, fontSize = 9.sp))
             } else {
                 Text(text = label, color = labelColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
@@ -712,6 +721,7 @@ private fun BetaNavItem(
     palette: com.movviz.tv.ui.theme.MovvizPalette,
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
+    badge: Boolean = false,
 ) {
     val shape = MovvizBetaShapes.NavItem
     // PROTOTYPE desktop : l'onglet actif est un dégradé violet translucide à filet clair
@@ -761,6 +771,8 @@ private fun BetaNavItem(
                             }
                     } else it
                 }
+                // Pastille lavande quand une mise à jour existe (entrée Paramètres), comme sur le desktop.
+                .drawBehind { if (badge) drawCircle(NavActiveBar, radius = 3.5.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width - 9.dp.toPx(), 9.dp.toPx())) }
                 .padding(horizontal = 13.dp),
         ) {
             Icon(imageVector = tab.betaIcon(), contentDescription = null, tint = iconTint, modifier = Modifier.size(17.dp))

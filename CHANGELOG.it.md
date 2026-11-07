@@ -1,3 +1,10 @@
+## v1.28.81 — 7 novembre 2026
+
+### Android
+
+- Android TV: la scheda versione della barra laterale mostra «Aggiornamento v{version}» quando esiste un aggiornamento, come pulsante pieno con sfumatura del marchio e icona di download, come sul desktop.
+- Android TV: un piccolo «Aggiornato» verde compare sotto la scheda versione quando l'app è aggiornata e un punto lavanda si aggiunge alla voce Impostazioni quando è disponibile un aggiornamento.
+
 ## v1.28.80 — 7 novembre 2026
 
 ### Android

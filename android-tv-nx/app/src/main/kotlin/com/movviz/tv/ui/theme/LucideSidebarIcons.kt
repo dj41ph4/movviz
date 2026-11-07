@@ -59,3 +59,11 @@ val LucideSettings: ImageVector by lazy {
         "M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0z",
     )
 }
+
+val LucideDownload: ImageVector by lazy {
+    lucide("LucideDownload",
+        "M12 15V3",
+        "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+        "m7 10 5 5 5-5",
+    )
+}
