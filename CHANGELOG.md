@@ -1,3 +1,10 @@
+## v1.28.82 — 7 novembre 2026
+
+### Tâches planifiées
+
+- Un bouton ⏻ sur chaque tâche planifiée (Réglages → Tâches planifiées) permet de la désactiver ou de la réactiver : désactivée, elle ne démarre plus toute seule et ne se lance plus à la main, avec un badge « Désactivée ».
+- Quand le remplacement automatique des versions est désactivé, la tâche « Repérage des remplacements possibles par une meilleure version » et la tâche « Remplacement automatique » sont mises en pause et ne font plus aucune recherche chez les indexeurs.
+
 ## v1.28.81 — 7 novembre 2026
 
 ### Android

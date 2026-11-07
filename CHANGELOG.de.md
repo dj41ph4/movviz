@@ -1,3 +1,10 @@
+## v1.28.82 — 7. November 2026
+
+### Geplante Aufgaben
+
+- Eine Schaltfläche ⏻ an jeder geplanten Aufgabe (Einstellungen → Geplante Aufgaben) deaktiviert oder reaktiviert sie: Eine deaktivierte Aufgabe startet weder von selbst noch von Hand und zeigt das Abzeichen „Deaktiviert“.
+- Ist das automatische Ersetzen durch bessere Versionen ausgeschaltet, werden die Aufgabe zum Aufspüren möglicher Ersetzungen und die Aufgabe „Automatisches Ersetzen“ pausiert und fragen die Indexer nicht mehr ab.
+
 ## v1.28.81 — 7. November 2026
 
 ### Android

@@ -1,3 +1,10 @@
+## v1.28.82 — 7 November 2026
+
+### Scheduled tasks
+
+- A ⏻ button on each scheduled task (Settings → Scheduled tasks) disables or re-enables it: a disabled task no longer starts on its own or by hand, and shows a “Disabled” badge.
+- When automatic version replacement is turned off, the “Spotting possible replacements with a better version” task and the “Automatic replacement” task are paused and no longer query the indexers.
+
 ## v1.28.81 — 7 November 2026
 
 ### Android

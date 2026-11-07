@@ -31,8 +31,19 @@ export interface TaskStatus {
   heavy: boolean;
   /** Mise en pause par un réglage (ex. Plex désactivé pour les repères de saut) : elle ne démarre pas. */
   disabled: boolean;
+  /** Désactivée par l'administrateur avec le bouton de la tâche (incluse dans `disabled`). */
+  userDisabled: boolean;
   /** État dans la file : en attente, en cours, arrêt demandé, ou rien. */
   state: "queued" | "running" | "stopping" | null;
+}
+
+/** Désactivée par l'administrateur (bouton) ; distincte de la pause par un réglage (isEnabled). */
+function isUserDisabled(id: string): boolean {
+  return getTaskConfig(id).enabled === false;
+}
+
+function isTaskPaused(task: (typeof TASKS)[number]): boolean {
+  return (task.isEnabled ? !task.isEnabled() : false) || isUserDisabled(task.id);
 }
 
 export function listTaskStatus(): TaskStatus[] {
@@ -50,7 +61,8 @@ export function listTaskStatus(): TaskStatus[] {
       lastMaxBlockMs: run.lastMaxBlockMs ?? null,
       nextRunAt: run.lastRunAt != null ? nextInTaskWindow(run.lastRunAt + intervalMs, window) : null,
       heavy: HEAVY_TASKS.has(t.id),
-      disabled: t.isEnabled ? !t.isEnabled() : false,
+      disabled: isTaskPaused(t),
+      userDisabled: isUserDisabled(t.id),
       state: taskQueueState(t.id),
     };
   });
@@ -206,7 +218,7 @@ function tick() {
   const quiet = now - bootAt < BOOT_QUIET_MS;
   for (const task of TASKS) {
     if (quiet && !BOOT_EXEMPT_TASKS.has(task.id)) continue;
-    if (task.isEnabled && !task.isEnabled()) continue;
+    if (isTaskPaused(task)) continue;
     if (isSourceActive(task.id)) continue;
     const run = getTaskRun(task.id);
     const intervalMs = getEffectiveInterval(task.id, task.intervalMs);
@@ -225,7 +237,7 @@ function tick() {
 export function queueTaskRun(id: string): { ok: true } | { ok: false; error: string } {
   const task = TASKS.find((t) => t.id === id);
   if (!task) return { ok: false, error: "not_found" };
-  if (task.isEnabled && !task.isEnabled()) return { ok: false, error: "disabled" };
+  if (isTaskPaused(task)) return { ok: false, error: "disabled" };
   if (isSourceActive(id)) return { ok: true };
   enqueueTask(task);
   return { ok: true };

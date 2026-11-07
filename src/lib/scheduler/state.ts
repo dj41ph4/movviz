@@ -20,6 +20,8 @@ export interface TaskConfig {
   intervalMs: number | null;
   /** Plage horaire de démarrage (voir window.ts). Absente/null = n'importe quand. */
   window?: { startHour: number; endHour: number } | null;
+  /** false = tâche désactivée par l'administrateur (bouton du tableau). Absent = active. */
+  enabled?: boolean;
 }
 
 interface SchedulerData {

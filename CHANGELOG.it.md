@@ -1,3 +1,10 @@
+## v1.28.82 — 7 novembre 2026
+
+### Attività pianificate
+
+- Un pulsante ⏻ su ogni attività pianificata (Impostazioni → Attività pianificate) la disattiva o la riattiva: un'attività disattivata non parte più né da sola né a mano e mostra il badge «Disattivata».
+- Quando la sostituzione automatica con versioni migliori è disattivata, l'attività di individuazione delle possibili sostituzioni e quella di «Sostituzione automatica» vengono messe in pausa e non interrogano più gli indexer.
+
 ## v1.28.81 — 7 novembre 2026
 
 ### Android

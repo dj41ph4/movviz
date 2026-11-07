@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json();
   const validIds = new Set(TASKS.map((t) => t.id));
-  const updates: { id: string; intervalMs?: number | null; window?: unknown }[] = Array.isArray(body) ? body : body.tasks ?? [];
+  const updates: { id: string; intervalMs?: number | null; window?: unknown; enabled?: unknown }[] = Array.isArray(body) ? body : body.tasks ?? [];
   for (const u of updates) {
     if (!validIds.has(u.id)) continue;
     // Chaque champ n'est modifié que s'il est présent : envoyer seulement la plage ne
@@ -29,6 +29,10 @@ export async function PUT(req: NextRequest) {
       const v = u.intervalMs;
       if (v != null && (!Number.isFinite(v) || v < 60000 || v > 365 * 24 * 60 * 60 * 1000)) continue;
       patch.intervalMs = v == null ? null : acquisitionInterval(u.id, v);
+    }
+    if ("enabled" in u) {
+      if (typeof u.enabled !== "boolean") continue;
+      patch.enabled = u.enabled;
     }
     if ("window" in u) {
       const w = parseTaskWindow(u.window);

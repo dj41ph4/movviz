@@ -125,13 +125,16 @@ export const TASKS: ScheduledTask[] = [
     // on its own — purely a heads-up notification, exactly like
     // library-reconcile above.
     intervalMs: 24 * 60 * 60 * 1000, // daily
+    // Remplacement automatique désactivé : l'administrateur ne veut aucune
+    // recherche de remplacements en arrière-plan (des centaines de requêtes
+    // aux indexeurs). La tâche est donc en pause ; l'analyse à la demande du
+    // panneau « Rechercher et remplacer » reste disponible.
+    isEnabled: () => loadReleaseRules().autoUpgradeEnabled,
     run: async () => {
       // Mise à niveau automatique activée : elle fait exactement la même
-      // recherche toutes les 6 h et télécharge chaque candidat trouvé, puis
+      // recherche toutes les 12 h et télécharge chaque candidat trouvé, puis
       // signale elle-même ceux qu'elle n'a pas pu télécharger. Refaire ce
-      // calcul ici (des centaines de requêtes aux indexeurs) n'apporterait
-      // aucune information de plus. Désactivée : cette tâche reste la seule
-      // à prévenir des remplacements possibles.
+      // calcul ici n'apporterait aucune information de plus.
       if (loadReleaseRules().autoUpgradeEnabled) return;
       // Sequential, not Promise.all — see the same comment on the API route:
       // each of these already runs its own sequential indexer fallback, so
@@ -179,6 +182,7 @@ export const TASKS: ScheduledTask[] = [
     // Toutes les 12 h (était 6 h) : jusqu'à ~300 requêtes aux indexeurs par
     // passage pour améliorer des fichiers déjà présents — jamais urgent.
     intervalMs: 12 * 60 * 60 * 1000,
+    isEnabled: () => loadReleaseRules().autoUpgradeEnabled,
     run: async () => {
       const result = await autoUpgradeAll();
       if (result.movies > 0 || result.episodes > 0) {

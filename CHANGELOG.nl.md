@@ -1,3 +1,10 @@
+## v1.28.82 — 7 november 2026
+
+### Geplande taken
+
+- Een ⏻-knop op elke geplande taak (Instellingen → Geplande taken) schakelt hem uit of weer in: een uitgeschakelde taak start niet meer vanzelf of met de hand en toont de badge „Uitgeschakeld”.
+- Wanneer automatisch vervangen door betere versies is uitgeschakeld, worden de taak die mogelijke vervangingen opspoort en de taak „Automatisch vervangen” gepauzeerd en vragen ze de indexers niet meer op.
+
 ## v1.28.81 — 7 november 2026
 
 ### Android

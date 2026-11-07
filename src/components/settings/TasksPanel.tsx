@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import { useJobRunning } from "@/lib/jobs/useJobRunning";
-import { RotateCw, Loader2, Pencil, Check, X, ListTodo, Square } from "lucide-react";
+import { RotateCw, Loader2, Pencil, Check, X, ListTodo, Square, Power } from "lucide-react";
 import type { TaskWindow } from "@/lib/scheduler/window";
 
 const DEFAULT_WINDOW: TaskWindow = { startHour: 4, endHour: 6 };
@@ -55,6 +55,8 @@ interface TaskStatus {
   heavy: boolean;
   /** Mise en pause par un réglage (ex. Plex désactivé pour les repères de saut). */
   disabled: boolean;
+  /** Désactivée avec le bouton de la tâche (incluse dans `disabled`). */
+  userDisabled: boolean;
   state: "queued" | "running" | "stopping" | null;
 }
 
@@ -143,6 +145,15 @@ export function TasksPanel() {
     }
   };
 
+  const toggle = async (id: string, enabled: boolean) => {
+    await fetch("/api/tasks", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tasks: [{ id, enabled }] }),
+    });
+    await load();
+  };
+
   const saveInterval = async (id: string, intervalMs: number | null, window: TaskWindow | null) => {
     // Une plage invalide (début = fin) n'est pas envoyée : on garde la précédente.
     if (window && window.startHour === window.endHour) return;
@@ -201,6 +212,7 @@ export function TasksPanel() {
                 localRunning={running === task.id}
                 onRun={() => run(task.id)}
                 onStop={() => stop(task.id)}
+                onToggle={() => toggle(task.id, task.userDisabled)}
                 onEdit={() => setEditing(task.id)}
               />
             )
@@ -226,6 +238,7 @@ export function TasksPanel() {
               localRunning={running === task.id}
               onRun={() => run(task.id)}
               onStop={() => stop(task.id)}
+                onToggle={() => toggle(task.id, task.userDisabled)}
               onEdit={() => setEditing(task.id)}
             />
           )
@@ -318,23 +331,30 @@ function TaskName({ task }: { task: TaskStatus }) {
         </span>
       )}
       {task.disabled && (
-        <span title={t("tasks.pausedHint")} className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warn">
-          {t("tasks.paused")}
-        </span>
-      )}
-      {task.disabled && (
-        <span title={t("tasks.pausedHint")} className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warn">
-          {t("tasks.paused")}
-        </span>
-      )}
-      {task.disabled && (
-        <span title={t("tasks.pausedHint")} className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warn">
-          {t("tasks.paused")}
+        <span title={task.userDisabled ? t("tasks.disabledHint") : t("tasks.pausedHint")} className="rounded-md bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warn">
+          {task.userDisabled ? t("tasks.disabled") : t("tasks.paused")}
         </span>
       )}
       {task.state === "queued" && <span className="text-[11px] font-normal text-ink-dim">· {t("tasks.queued")}</span>}
       {task.state === "stopping" && <span className="text-[11px] font-normal text-warn">· {t("tasks.stopping")}</span>}
     </span>
+  );
+}
+
+/** Désactiver / réactiver la tâche : désactivée, elle ne démarre plus toute seule. */
+function ToggleButton({ task, onToggle }: { task: TaskStatus; onToggle: () => void }) {
+  const t = useT();
+  const label = task.userDisabled ? t("tasks.enable") : t("tasks.disable");
+  return (
+    <button
+      onClick={onToggle}
+      title={label}
+      aria-label={label}
+      aria-pressed={!task.userDisabled}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-white/10 ${task.userDisabled ? "text-warn" : "text-ink-dim hover:text-ink"}`}
+    >
+      <Power className="h-3.5 w-3.5" />
+    </button>
   );
 }
 
@@ -375,7 +395,7 @@ function RunStopButton({ task, running, onRun, onStop }: { task: TaskStatus; run
   );
 }
 
-function TaskCard({ task, localRunning, onRun, onStop, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onStop: () => void; onEdit: () => void }) {
+function TaskCard({ task, localRunning, onRun, onStop, onEdit, onToggle }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onStop: () => void; onEdit: () => void; onToggle: () => void }) {
   const t = useT();
   const { locale } = useI18n();
   const jobRunning = useJobRunning(task.id);
@@ -396,6 +416,7 @@ function TaskCard({ task, localRunning, onRun, onStop, onEdit }: { task: TaskSta
           <button onClick={onEdit} aria-label={t("tasks.edit")} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:bg-white/10 hover:text-ink">
             <Pencil className="h-3.5 w-3.5" />
           </button>
+          <ToggleButton task={task} onToggle={onToggle} />
           <RunStopButton task={task} running={running} onRun={onRun} onStop={onStop} />
         </div>
       </div>
@@ -410,7 +431,7 @@ function TaskCard({ task, localRunning, onRun, onStop, onEdit }: { task: TaskSta
   );
 }
 
-function TaskRow({ task, localRunning, onRun, onStop, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onStop: () => void; onEdit: () => void }) {
+function TaskRow({ task, localRunning, onRun, onStop, onEdit, onToggle }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onStop: () => void; onEdit: () => void; onToggle: () => void }) {
   const t = useT();
   const { locale } = useI18n();
   const jobRunning = useJobRunning(task.id);
@@ -445,6 +466,7 @@ function TaskRow({ task, localRunning, onRun, onStop, onEdit }: { task: TaskStat
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
+          <ToggleButton task={task} onToggle={onToggle} />
           <RunStopButton task={task} running={running} onRun={onRun} onStop={onStop} />
         </div>
       </td>
