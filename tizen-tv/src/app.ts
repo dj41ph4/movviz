@@ -339,9 +339,9 @@ interface Window {
       void editorialRows(type, () => version === generation, rows => {
         for (const entry of rows) {
           if (shown.has(entry.key) || !entry.results?.length) continue;
-          if (!["recommendedTop", "trendingPopular", "trending", "shortFormat"].includes(entry.key)) continue;
+          if (!["recommendedTop", "trendingPopular", "trending", "shortFormat"].includes(entry.key) && !entry.key.startsWith("seasonal:")) continue;
           shown.add(entry.key);
-          row(t(entry.key === "recommendedTop" ? "tizen.recommended" : entry.key === "shortFormat" ? "tizen.shortFormat" : "tizen.trending"), entry.results, type, editorialSlot);
+          row(t(entry.key.startsWith("seasonal:") ? `discover.rowSeason_${entry.key.slice(9)}` : entry.key === "recommendedTop" ? "tizen.recommended" : entry.key === "shortFormat" ? "tizen.shortFormat" : "tizen.trending"), entry.results, type, editorialSlot);
         }
       }).catch(() => {});
     }
@@ -443,6 +443,8 @@ interface Window {
         const labels: Record<string, string> = { recommendedTop: "tizen.recommended", "for-you": "tizen.recommended", trendingPopular: "tizen.trending", trending: "tizen.trending", upcoming: "tizen.upcoming", upcomingVod: "tizen.upcoming", shortFormat: "tizen.shortFormat", onAir: "discover.rowOnAir", newSeriesRenewed: "discover.rowNewSeriesRenewed", nowPlayingBoxOffice: "discover.rowNowPlayingBoxOffice", acclaimed: "discover.rowAcclaimed", anime: "discover.rowAnime", teen: "discover.rowTeen", genreAction: "discover.rowGenreAction", genreComedy: "discover.rowGenreComedy", genreHorror: "discover.rowGenreHorror", genreSciFi: "discover.rowGenreSciFi", popular: "discover.rowPopular", topRated: "discover.rowTopRated", newVod: "discover.rowNewVod", kids: "discover.rowKids" };
         if (!item.results?.length) continue;
         let label = labels[item.key] ? t(labels[item.key]) : t("tizen.suggestions");
+                    if (item.key.startsWith("seasonal:"))
+                        label = t(`discover.rowSeason_${item.key.slice(9)}`);
         if (item.key.startsWith("becauseYouWatched:") && item.meta?.anchorTitle) label = t(item.meta.verb === "liked" ? "discover.rowBecauseYouLiked" : "discover.rowBecauseYouWatched").replace("{title}", item.meta.anchorTitle);
         if (item.meta?.providerName && item.key.startsWith("providerSuggested:")) label = t("discover.rowProviderSuggested").replace("{provider}", item.meta.providerName);
         if (item.meta?.providerName && item.key.startsWith("providerNew:")) label = t("discover.rowProviderNew").replace("{provider}", item.meta.providerName);

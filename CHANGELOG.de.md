@@ -1,3 +1,10 @@
+## v1.28.83 — 7 November 2026
+
+### Feste & Anlässe
+
+- Je nach Datum erscheint automatisch eine Reihe, ohne Zutun: Halloween (28. Sept. → 2. Nov.), Weihnachten (ab 15. Nov. → 26. Dez.), Neujahr, Valentinstag, Ostern (2 Wochen vorher) und Sommer. Sie erscheint im Dashboard und in Entdecken (inkl. „Alle anzeigen“) und verschwindet nach dem Ereignis.
+- Dieselbe Reihe auf Android TV, Android-Mobil und Samsung Tizen. Einstellungen → Dashboard → „Feste & Anlässe“ blendet sie aus.
+
 ## v1.28.82 — 7. November 2026
 
 ### Geplante Aufgaben

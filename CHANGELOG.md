@@ -1,3 +1,10 @@
+## v1.28.83 — 7 novembre 2026
+
+### Événements du moment
+
+- Une rangée s'ajoute automatiquement selon la date, sans aucune action : Halloween (28 sept. → 2 nov.), Noël (dès le 15 nov. → 26 déc.), Nouvel An, Saint-Valentin, Pâques (2 semaines avant) et été. Elle apparaît dans le tableau de bord et dans Découverte (« Voir tout » compris), et disparaît dès l'événement passé.
+- Même rangée sur Android TV, mobile Android et Samsung Tizen. Réglages → Tableau de bord → « Événements du moment » permet de la masquer.
+
 ## v1.28.82 — 7 novembre 2026
 
 ### Tâches planifiées

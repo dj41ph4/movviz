@@ -10,6 +10,7 @@ import { getBecauseYouWatchedPage } from "@/lib/recommender/becauseYouWatched";
 import { getProviderNewPage, getProviderSuggestedPage } from "@/lib/recommender/providerPersonalized";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
+import { isSeasonId, seasonDef } from "@/lib/seasonal/calendar";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,14 @@ export async function GET(req: NextRequest) {
     const paged = await getProviderSuggestedPage(user?.id ?? "", type, providerId, page, originCountries, providerSort);
     if (!paged) return NextResponse.json({ error: "unknown row" }, { status: 400 });
     return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
+  }
+
+  // Rangée d'événement (Halloween, Noël…) : mêmes mots-clés que la rangée d'accueil.
+  if (key.startsWith("seasonal:")) {
+    const id = key.slice("seasonal:".length);
+    if (!isSeasonId(id)) return NextResponse.json({ error: "unknown row" }, { status: 400 });
+    const paged = await discoverByFilters(type, { sort: "popularity.desc", keywords: seasonDef(id).keywords, minVotes: type === "movie" ? 30 : 15 }, page);
+    return NextResponse.json({ results: filterSuggestable(paged.results.filter((r) => !!r.posterPath)), page: paged.page, totalPages: paged.totalPages });
   }
 
   const result = await (async () => {

@@ -2061,6 +2061,17 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     DisposableEffect(Unit) { onDispose { TrailerWebViewPool.clearAll() } }
 }
 
+/** Titre d'une rangée d'événement du moment (clé serveur `seasonal:<id>`) — mêmes libellés que le site. */
+private fun seasonalRowLabel(id: String): String = when (id) {
+    "halloween" -> "Spécial Halloween : frissons de saison"
+    "christmas" -> "L'ambiance de Noël"
+    "newYear" -> "Pour bien commencer l'année"
+    "valentine" -> "Pour la Saint-Valentin"
+    "easter" -> "Spécial Pâques"
+    "summer" -> "Films et séries d'été"
+    else -> id
+}
+
 private fun homeEditorialLabel(
     key: String,
     movieRows: List<com.movviz.tv.data.MetadataRowDto>,
@@ -2068,6 +2079,7 @@ private fun homeEditorialLabel(
 ): String {
     val meta = movieRows.firstOrNull { it.key == key }?.meta
         ?: seriesRows.firstOrNull { it.key == key }?.meta
+    if (key.startsWith("seasonal:")) return seasonalRowLabel(key.removePrefix("seasonal:"))
     if (key.startsWith("providerSuggested:") && meta?.providerName != null) return "Suggestion ${meta.providerName} pour vous"
     if (key.startsWith("providerNew:") && meta?.providerName != null) return "Nouveautés ${meta.providerName} pour vous"
     if (key.startsWith("becauseYouWatched:") && meta?.anchorTitle != null) {

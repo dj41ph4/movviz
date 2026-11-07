@@ -17,6 +17,7 @@ export function rowLabel(t: ReturnType<typeof useT>, key: string, meta?: RowMeta
   }
   if (key.startsWith("providerNew:") && meta?.providerName) return t("discover.rowProviderNew", { provider: meta.providerName });
   if (key.startsWith("providerSuggested:") && meta?.providerName) return t("discover.rowProviderSuggested", { provider: meta.providerName });
+  if (key.startsWith("seasonal:")) return t(`discover.rowSeason_${key.slice("seasonal:".length)}` as never);
   switch (key) {
     case "recommendedTop": return t("discover.rowRecommendedTop");
     case "trendingPopular": return t("discover.rowTrendingPopular");

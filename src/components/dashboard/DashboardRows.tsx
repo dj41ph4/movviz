@@ -109,10 +109,10 @@ export function DashboardRows({
   const { data: watchlistData } = useSWR<{ items: WatchlistItem[] }>(visible.has("watchlist") ? "/api/watchlist" : null);
 
   const { data: rowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
-    visible.has("discover") ? "/api/metadata/rows?type=movie" : null
+    visible.has("discover") || visible.has("seasonal") ? "/api/metadata/rows?type=movie" : null
   );
   const { data: seriesRowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
-    visible.has("discover") ? "/api/metadata/rows?type=series" : null
+    visible.has("discover") || visible.has("seasonal") ? "/api/metadata/rows?type=series" : null
   );
   const { data: announcedData } = useSWR<{ results: MetaSearchResult[] }>(
     visible.has("announced") ? "/api/metadata/announced" : null
@@ -194,6 +194,20 @@ export function DashboardRows({
     (recData?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("movie", item.tmdbId)),
     (seriesRecData?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("series", item.tmdbId))
   );
+
+  // Rangée d'événement du moment (Halloween, Noël…) : la clé `seasonal:<id>` est
+  // fournie par /api/metadata/rows selon la date du jour, films et séries mêlés.
+  const seasonal = (() => {
+    const movieRow = rowsData?.rows.find((row) => row.key.startsWith("seasonal:"));
+    const seriesRow = seriesRowsData?.rows.find((row) => row.key.startsWith("seasonal:"));
+    const key = movieRow?.key ?? seriesRow?.key;
+    if (!key) return null;
+    const results = interleave(
+      (movieRow?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("movie", item.tmdbId)),
+      (seriesRow?.results ?? []).filter((item) => afterMinYear(item) && isNotExcluded("series", item.tmdbId)),
+    );
+    return results.length > 0 ? { key, results } : null;
+  })();
 
   const recentlyAdded = useMemo(
     () => {
@@ -303,6 +317,7 @@ export function DashboardRows({
     if (visible.has("availableNow")) recentlyAdded.forEach(({ type, item }) => add(type, item.tmdbId));
     if (visible.has("discover")) trending.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("becauseYouLike")) recommended.forEach((item) => add(item.type, item.tmdbId));
+    if (visible.has("seasonal")) seasonal?.results.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("rewatch")) rewatch.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("shortSessions")) shortSessions.forEach((item) => add("movie", item.tmdbId));
     if (visible.has("announced")) announced.forEach(({ m }) => add("movie", m.tmdbId));
@@ -310,7 +325,7 @@ export function DashboardRows({
     if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
 
     return [...refs.values()];
-  }, [visible, continueWatching, recommended, rewatch, shortSessions, trending, recentlyAdded, announced, upcoming, upgrades, localArtwork]);
+  }, [visible, continueWatching, recommended, seasonal, rewatch, shortSessions, trending, recentlyAdded, announced, upcoming, upgrades, localArtwork]);
   const artworkData = useTitleArtworkBatch(artworkRefs, locale);
 
   const resolveArtwork = (type: "movie" | "series", tmdbId: number, fallbackBackdrop?: string | null): ResolvedArtwork => {
@@ -326,7 +341,7 @@ export function DashboardRows({
     };
   };
 
-  const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "watchlist", "rewatch", "discover", "shortSessions", "announced", "comingSoon", "upgradesAvailable"];
+  const sectionOrder: DashboardSectionId[] = ["continueWatching", "availableNow", "becauseYouLike", "seasonal", "watchlist", "rewatch", "discover", "shortSessions", "announced", "comingSoon", "upgradesAvailable"];
 
   const renderSection = (id: DashboardSectionId) => {
         if (!visible.has(id)) return null;
@@ -449,6 +464,22 @@ export function DashboardRows({
           return (
             <PosterRow expandable key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
               {recommended.map((r) => {
+                const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
+                return (
+                  <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
+                  </CardErrorBoundary>
+                );
+              })}
+            </PosterRow>
+          );
+        }
+
+        if (id === "seasonal" && seasonal) {
+          const seasonId = seasonal.key.slice("seasonal:".length);
+          return (
+            <PosterRow expandable key={id} title={t(`discover.rowSeason_${seasonId}` as never)} onSeeAll={() => router.push(`/discover?type=movie&row=${encodeURIComponent(seasonal.key)}`)}>
+              {seasonal.results.map((r) => {
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
@@ -618,6 +649,7 @@ export function DashboardRows({
     becauseYouLike: t("dashboard.rowRecommended"),
     watchlist: t("watchlist.title"),
     rewatch: t("dashboard.rowRewatch"),
+    seasonal: seasonal ? t(`discover.rowSeason_${seasonal.key.slice("seasonal:".length)}` as never) : "",
     discover: t("dashboard.rowTrending"),
     shortSessions: t("dashboard.jumpShortSessions"),
     announced: t("dashboard.rowAnnounced"),

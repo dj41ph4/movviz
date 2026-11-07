@@ -382,7 +382,19 @@ private data class DiscoverRow(
     val seeAll: Boolean,
 )
 
+/** Titre d'une rangée d'événement du moment (clé serveur `seasonal:<id>`) — mêmes libellés que le site. */
+private fun seasonalRowLabel(id: String): String = when (id) {
+    "halloween" -> "Spécial Halloween : frissons de saison"
+    "christmas" -> "L'ambiance de Noël"
+    "newYear" -> "Pour bien commencer l'année"
+    "valentine" -> "Pour la Saint-Valentin"
+    "easter" -> "Spécial Pâques"
+    "summer" -> "Films et séries d'été"
+    else -> id
+}
+
 private fun discoverRowLabel(key: String, meta: RowMetaDto?): String {
+    if (key.startsWith("seasonal:")) return seasonalRowLabel(key.removePrefix("seasonal:"))
     if (key.startsWith("becauseYouWatched:") && meta != null) {
         return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
     }

@@ -19,6 +19,7 @@ const SECTION_LABEL_KEY: Record<DashboardSectionId, string> = {
   becauseYouLike: "dashboard.rowRecommended",
   watchlist: "watchlist.title",
   rewatch: "dashboard.rowRewatch",
+  seasonal: "dashboard.rowSeasonal",
   shortSessions: "dashboard.shortSessions",
   availableNow: "dashboard.recentlyAdded",
   announced: "dashboard.rowAnnounced",

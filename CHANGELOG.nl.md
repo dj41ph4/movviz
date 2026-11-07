@@ -1,3 +1,10 @@
+## v1.28.83 — 7 november 2026
+
+### Feestdagen & evenementen
+
+- Op basis van de datum verschijnt automatisch een rij, zonder actie: Halloween (28 sep → 2 nov), Kerst (vanaf 15 nov → 26 dec), Nieuwjaar, Valentijnsdag, Pasen (2 weken eerder) en zomer. Ze staat op het dashboard en in Ontdekken (incl. “Alles tonen”) en verdwijnt na afloop.
+- Dezelfde rij op Android TV, Android-mobiel en Samsung Tizen. Instellingen → Dashboard → “Feestdagen & evenementen” verbergt haar.
+
 ## v1.28.82 — 7 november 2026
 
 ### Geplande taken

@@ -20,6 +20,8 @@ import { loadRequests } from "@/lib/requests/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { User } from "@/lib/auth/types";
+import { buildSeasonalRow } from "@/lib/seasonal/row";
+import { loadDashboardLayout } from "@/lib/dashboard/store";
 
 /**
  * Confirmed live: a 👎 on a Discover card (DashboardPosterCard's dislike
@@ -151,7 +153,18 @@ export async function GET(req: NextRequest) {
   const empty = { results: [] as MetaSearchResult[], page: 1, totalPages: 1 };
   const part = <T,>(name: string, build: () => Promise<T>, fallback: T, personal = false) =>
     responsiveRows.read(scope + name, build, fallback, () => notifyRecommendationsChanged(userId), personal ? 30_000 : 300_000);
-  const finish = (rows: { key: string; results: MetaSearchResult[] }[]) => {
+  // Rangée saisonnière : automatique selon la date, désactivable par l'utilisateur
+  // (section « seasonal » du tableau de bord). `?date=AAAA-MM-JJ` simule un jour.
+  const dateParam = req.nextUrl.searchParams.get("date");
+  const simulated = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(`${dateParam}T12:00:00Z`) : null;
+  const seasonalEnabled = !user || loadDashboardLayout(user.id).sections.find((s) => s.id === "seasonal")?.visible !== false;
+  const seasonalRow = seasonalEnabled
+    ? part(`seasonal:${(simulated ?? new Date()).toISOString().slice(0, 10)}`, () => buildSeasonalRow(simulated ?? new Date()), null)
+    : Promise.resolve(null);
+  const finish = async (baseRows: { key: string; results: MetaSearchResult[] }[]) => {
+    const seasonal = await seasonalRow;
+    const at = baseRows.findIndex((r) => r.key === "recommendedTop") + 1;
+    const rows = seasonal ? [...baseRows.slice(0, at), { key: seasonal.key, results: seasonal.results }, ...baseRows.slice(at)] : baseRows;
     const watched = new Set(getWatchedTitles(userId, type).keys());
     const filtered = rows.map((row) => ({ ...row, results: excludeDisliked(row.results, type, disliked)
       .filter((item) => !((row.key === "recommendedTop" || row.key.startsWith("becauseYouWatched:") || row.key.startsWith("provider")) && watched.has(item.tmdbId))) }))

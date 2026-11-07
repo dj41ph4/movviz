@@ -1,3 +1,10 @@
+## v1.28.83 — 7 November 2026
+
+### Holidays & events
+
+- A row is added automatically based on the date, with no action needed: Halloween (Sep 28 → Nov 2), Christmas (from Nov 15 → Dec 26), New Year, Valentine's Day, Easter (2 weeks before) and summer. It shows on the dashboard and in Discover (including “See all”), and disappears once the event is over.
+- The same row appears on Android TV, Android mobile and Samsung Tizen. Settings → Dashboard → “Holidays & events” hides it.
+
 ## v1.28.82 — 7 November 2026
 
 ### Scheduled tasks

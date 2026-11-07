@@ -21,6 +21,9 @@ export const DASHBOARD_SECTION_IDS = [
   "continueWatching",
   "availableNow",
   "becauseYouLike",
+  // Suggestions saisonnières (Halloween, Noël…) : rangée automatique selon la
+  // date, aussi injectée dans Découverte et les clients TV/mobile.
+  "seasonal",
   "watchlist",
   "rewatch",
   "discover",
@@ -153,6 +156,10 @@ function sanitizeSections(raw: unknown): DashboardLayout["sections"] {
   for (const id of DASHBOARD_SECTION_IDS) {
     if (!seen.has(id)) {
       if (id === "watchlist") sections.splice(Math.min(3, sections.length), 0, { id, visible: true });
+      else if (id === "seasonal") {
+        const anchor = sections.findIndex((s) => s.id === "becauseYouLike");
+        sections.splice(anchor >= 0 ? anchor + 1 : Math.min(2, sections.length), 0, { id, visible: true });
+      }
       else if (id === "announced") {
         // Beside its sibling « Vos prochaines sorties », wherever the user put it.
         const sibling = sections.findIndex((s) => s.id === "comingSoon");
