@@ -3,6 +3,7 @@
 ### Événements du moment
 
 - Réglages → Expérience : on peut choisir les dates de chaque événement (Halloween, Noël, Nouvel An, Saint-Valentin, été, et les jours avant/après Pâques). Les dates par défaut restent celles de la v1.28.83, avec un bouton pour les rétablir. Le choix s'applique à l'accueil, à Découverte et aux apps Android TV, mobile et Samsung.
+- Chaque rangée d'événement mêle les sorties les plus récentes, les mieux notés et les tendances (« Voir tout » compris).
 
 ## v1.28.83 — 7 novembre 2026
 

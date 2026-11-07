@@ -10,7 +10,8 @@ import { getBecauseYouWatchedPage } from "@/lib/recommender/becauseYouWatched";
 import { getProviderNewPage, getProviderSuggestedPage } from "@/lib/recommender/providerPersonalized";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
-import { isSeasonId, seasonDef } from "@/lib/seasonal/calendar";
+import { isSeasonId } from "@/lib/seasonal/calendar";
+import { seasonalPage } from "@/lib/seasonal/row";
 
 export const dynamic = "force-dynamic";
 
@@ -69,8 +70,8 @@ export async function GET(req: NextRequest) {
   if (key.startsWith("seasonal:")) {
     const id = key.slice("seasonal:".length);
     if (!isSeasonId(id)) return NextResponse.json({ error: "unknown row" }, { status: 400 });
-    const paged = await discoverByFilters(type, { sort: "popularity.desc", keywords: seasonDef(id).keywords, minVotes: type === "movie" ? 30 : 15 }, page);
-    return NextResponse.json({ results: filterSuggestable(paged.results.filter((r) => !!r.posterPath)), page: paged.page, totalPages: paged.totalPages });
+    const paged = await seasonalPage(id, type, page);
+    return NextResponse.json({ results: paged.results, page, totalPages: paged.totalPages });
   }
 
   const result = await (async () => {

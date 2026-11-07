@@ -3,6 +3,7 @@
 ### Feste & Anlässe
 
 - Einstellungen → Erlebnis: Die Daten jedes Ereignisses (Halloween, Weihnachten, Neujahr, Valentinstag, Sommer sowie Tage vor/nach Ostern) sind wählbar. Standard bleiben die Daten aus v1.28.83, mit Button zum Zurücksetzen. Gilt für Startseite, Entdecken und die Apps für Android TV, Android-Mobil und Samsung.
+- Jede Ereignisreihe mischt die neuesten Titel, die bestbewerteten und die Trends (auch „Alle anzeigen“).
 
 ## v1.28.83 — 7 November 2026
 
