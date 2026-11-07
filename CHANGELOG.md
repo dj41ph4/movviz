@@ -1,3 +1,12 @@
+## v1.28.80 — 7 novembre 2026
+
+### Android
+
+- Android TV : la barre latérale reprend les icônes fines du desktop, une carte de profil avec le rôle, une carte de version et une police plus petite ; les logos de la barre sont nets à toutes les tailles.
+- Android TV : les plateformes se placent juste sous le hero, sans titre, les huit tuiles tiennent sur la largeur, et la touche Haut depuis elles ramène sur « Voir la fiche ».
+- Android TV : boutons plus arrondis et en gras, cartes plus fines (rayon et filet du desktop).
+- Android TV : le contour de focus est plus fin et lavande au lieu du blanc épais.
+
 ## v1.28.79 — 6 novembre 2026
 
 ### Android

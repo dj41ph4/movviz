@@ -1,3 +1,12 @@
+## v1.28.80 — 7. November 2026
+
+### Android
+
+- Android TV: Die Seitenleiste übernimmt die feinen Symbole des Desktops, eine Profilkarte mit Rolle, eine Versionskarte und eine kleinere Schrift; die Logos der Seitenleiste sind in jeder Größe scharf.
+- Android TV: Die Plattformen stehen direkt unter dem Hero, ohne Titel, alle acht Kacheln passen in die Breite, und „Hoch“ führt von ihnen zurück zu „Titel ansehen“.
+- Android TV: Rundere, fette Schaltflächen und feinere Karten (Radius und Rahmen des Desktops).
+- Android TV: Die Fokusumrandung ist dünner und lavendelfarben statt dick weiß.
+
 ## v1.28.79 — 6. November 2026
 
 ### Android

@@ -199,7 +199,7 @@ fun betaDp(stable: androidx.compose.ui.unit.Dp, beta: androidx.compose.ui.unit.D
     if (LocalMovvizBeta.current) beta else stable
 
 /** Couleur et épaisseur uniques de l'anneau de focus Bêta : blanc pur 3 dp. */
-val MovvizBetaFocusColor = Color.White
+val MovvizBetaFocusColor = Color(0xFFDDD3FF)
 val MovvizBetaFocusWidth = 3.dp
 
 /** Bordure de focus historique : en Bêta, un anneau blanc 3 dp dessiné à

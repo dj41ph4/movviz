@@ -1,3 +1,12 @@
+## v1.28.80 — 7 november 2026
+
+### Android
+
+- Android TV: de zijbalk neemt de fijne pictogrammen van de desktop over, een profielkaart met de rol, een versiekaart en een kleiner lettertype; de logo's in de zijbalk zijn op elke grootte scherp.
+- Android TV: de platforms staan direct onder de hero, zonder titel, alle acht de tegels passen in de breedte en Omhoog brengt je vanaf daar terug naar „Titel bekijken”.
+- Android TV: ronderde, vette knoppen en fijnere kaarten (radius en rand van de desktop).
+- Android TV: de focusrand is dunner en lavendel in plaats van dik wit.
+
 ## v1.28.79 — 6 november 2026
 
 ### Android

@@ -714,6 +714,9 @@ fun HomeScreen(
     // spatiale tant qu'elle n'a pas commencé à entrer dans le viewport : le
     // hero devient alors une île de focus jusqu'au premier scroll.
     val firstRowFocus = remember { FocusRequester() }
+    val platformsFirstFocus = remember { FocusRequester() }
+    // Bêta : les plateformes se placent juste sous le hero, comme sur le desktop.
+    val platformsUnderHero = showHero && watchProviderTiles.isNotEmpty()
     val topAnchor = remember { FocusRequester() }
     val listState = rememberTvLazyListState().withTvPrefetchDisabled()
     val homeFocusMemory = rememberTvHomeFocusMemory()
@@ -848,7 +851,7 @@ fun HomeScreen(
                         logoPath = activeHero?.let { heroLogos["${if (it.isMovie) "movie" else "series"}-${it.tmdbId}"] },
                         onSelectIndex = { heroIndex = it },
                         ctaFocusRequester = contentFocus,
-                        downFocusRequester = if (firstVisibleSection != null) firstRowFocus else null,
+                        downFocusRequester = if (platformsUnderHero) platformsFirstFocus else if (firstVisibleSection != null) firstRowFocus else null,
                         trailerAutoplay = dashboardLayout.hero.trailerAutoplay && activeCardPreviewKey == null,
                         onOpen = { card -> onOpenPartTitle(if (card.isMovie) "movie" else "series", card.tmdbId, card.seriesPart) },
                         navRailFocusRequester = navRailFocusRequester,
@@ -856,6 +859,18 @@ fun HomeScreen(
                             heroHasFocus = it
                             if (it) homeFocusMemory.select("hero")
                         },
+                    )
+                }
+            }
+
+            if (platformsUnderHero) {
+                item(key = "platforms", contentType = "platforms") {
+                    PlatformRow(
+                        tiles = watchProviderTiles,
+                        onSelect = { tile -> onSeeAllRow("movie", "watchProvider:${tile.id}", "Sur ${tile.name}") },
+                        navRailFocusRequester = navRailFocusRequester,
+                        firstItemFocusRequester = platformsFirstFocus,
+                        upFocusRequester = contentFocus,
                     )
                 }
             }
@@ -1026,7 +1041,7 @@ fun HomeScreen(
                 // de l'accueil (demande utilisateur) : accès direct sans
                 // descendre sous toutes les sections. Pas de focus initial ici,
                 // contentFocus reste sur le hero / la première rangée.
-                if (sectionId == firstVisibleSection && watchProviderTiles.isNotEmpty()) {
+                if (sectionId == firstVisibleSection && watchProviderTiles.isNotEmpty() && !platformsUnderHero) {
                     item(key = "platforms", contentType = "platforms") {
                         PlatformRow(
                             tiles = watchProviderTiles,
@@ -2500,24 +2515,41 @@ internal fun PlatformRow(
     tiles: List<com.movviz.tv.data.LogoTileDto>,
     onSelect: (com.movviz.tv.data.LogoTileDto) -> Unit,
     navRailFocusRequester: FocusRequester? = null,
+    firstItemFocusRequester: FocusRequester? = null,
+    // Cible HAUT : le bouton principal du hero (« Voir la fiche »), au lieu de la flèche la plus proche.
+    upFocusRequester: FocusRequester? = null,
 ) {
+    val beta = LocalMovvizBeta.current
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
     val keys = tiles.map { "platform-${it.id}" }
+    // Bêta : les tuiles se partagent la largeur du contenu (8 tiennent sans défiler), comme le desktop.
+    val gap = betaDp(11.dp, 12.dp)
+    val tileWidth = if (beta) {
+        val usable = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - 68.dp - movvizRowInset() * 2 - gap * (tiles.size - 1)
+        (usable / tiles.size).coerceAtLeast(84.dp)
+    } else null
     val rowFocus = rememberTvRowFocusMemory(
         rowKey = "platforms", keys = keys,
         isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
         scrollToItem = { rowState.scrollToItem(it) },
     )
     Column(modifier = Modifier.padding(rowPadding())) {
-        RowHeading("Plateformes")
         TvLazyRow(
             state = rowState,
             modifier = rowFocus.rowModifier(),
             contentPadding = PaddingValues(start = movvizRowInset(), end = movvizRowInset()),
-            horizontalArrangement = Arrangement.spacedBy(betaDp(11.dp, 12.dp)),
+            horizontalArrangement = Arrangement.spacedBy(gap),
         ) {
             tvItemsIndexed(tiles, key = { _, tile -> "platform-${tile.id}" }) { index, tile ->
-                PlatformTile(tile = tile, onClick = { onSelect(tile) }, modifier = rowFocus.itemModifier(keys[index], index), navRailFocusRequester = if (index == 0) navRailFocusRequester else null)
+                PlatformTile(
+                    tile = tile,
+                    onClick = { onSelect(tile) },
+                    modifier = rowFocus.itemModifier(keys[index], index)
+                        .let { if (index == 0 && firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it }
+                        .let { if (upFocusRequester != null) it.focusProperties { up = upFocusRequester } else it },
+                    navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
+                    tileWidth = tileWidth,
+                )
             }
         }
     }
@@ -2532,6 +2564,7 @@ private fun PlatformTile(
     onClick: () -> Unit,
     navRailFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
+    tileWidth: androidx.compose.ui.unit.Dp? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val beta = LocalMovvizBeta.current
@@ -2541,7 +2574,7 @@ private fun PlatformTile(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .width(betaDp(124.dp, 160.dp))
+            .width(tileWidth ?: betaDp(124.dp, 160.dp))
             .aspectRatio(16f / 9f)
             .tvCardFocusHalo(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }

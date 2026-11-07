@@ -487,6 +487,7 @@ private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeH
                 },
                 profiles = viewModel.profiles.collectAsState().value,
                 activeProfile = viewModel.activeProfile.collectAsState().value,
+                activeRole = viewModel.currentUser.collectAsState().value?.role,
                 onProfileSelected = { profile ->
                     scope.launch {
                         if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {

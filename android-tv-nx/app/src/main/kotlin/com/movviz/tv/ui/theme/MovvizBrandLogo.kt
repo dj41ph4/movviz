@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.movviz.tv.R
 
 // ────────────────────────────────────────────────────────────────
@@ -38,12 +39,16 @@ private val SweepColors = listOf(Color(0x00FFFFFF), Color(0x70FFFFFF), Color(0x0
 /** Logo horizontal (M + MOVVIZ) : barre latérale étendue, connexion, chargements. */
 @Composable
 fun MovvizFullLogo(height: Dp, modifier: Modifier = Modifier) =
-    BrandLogo(R.drawable.movviz_brand_logo, FULL_ASPECT, height, modifier)
+    // Petit format : image pré-réduite (Lanczos). Réduire l'originale de 960 px à ~250 px d'un
+    // coup, avec le filtre bilinéaire du GPU, donnait un contour dentelé.
+    BrandLogo(if (height <= 56.dp) R.drawable.movviz_brand_logo_small else R.drawable.movviz_brand_logo, FULL_ASPECT, height, modifier)
 
 /** M seul : barre de navigation repliée, splash. `size` est sa hauteur. */
 @Composable
 fun MovvizMarkO(size: Dp, modifier: Modifier = Modifier) =
-    BrandLogo(R.drawable.movviz_brand_m, CinemaSplashGeometry.MARK_ASPECT, size, modifier)
+    // Barre repliée : M pré-réduit (160 px) plutôt que l'original de 640 px écrasé ~9 fois, ce qui
+    // pixélisait son contour.
+    BrandLogo(if (size <= 56.dp) R.drawable.movviz_brand_m_small else R.drawable.movviz_brand_m, CinemaSplashGeometry.MARK_ASPECT, size, modifier)
 
 @Composable
 private fun BrandLogo(@DrawableRes resource: Int, aspect: Float, height: Dp, modifier: Modifier) {

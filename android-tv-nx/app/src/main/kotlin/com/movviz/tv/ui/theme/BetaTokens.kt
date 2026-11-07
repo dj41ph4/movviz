@@ -162,15 +162,15 @@ object MovvizBetaShapes {
     /** Chips : pilule complète. */
     val Chip: Shape = RoundedCornerShape(50)
     /** Cartes affiche / épisode / plateforme. */
-    val Card: Shape = RoundedCornerShape(14.dp)
+    val Card: Shape = RoundedCornerShape(8.dp)
     /** Panneaux (réglages, menu profil, overlays). */
     val Panel: Shape = RoundedCornerShape(18.dp)
     /** Cadre du hero. */
     val Hero: Shape = RoundedCornerShape(24.dp)
     /** Boutons d'action (Lire, bande-annonce…). */
-    val Button: Shape = RoundedCornerShape(10.dp)
+    val Button: Shape = RoundedCornerShape(18.dp)
     /** Boutons posés dans le hero. */
-    val HeroButton: Shape = RoundedCornerShape(9.dp)
+    val HeroButton: Shape = RoundedCornerShape(18.dp)
     /** Éléments du rail de navigation. */
     val NavItem: Shape = RoundedCornerShape(12.dp)
     /** Champ de recherche. */

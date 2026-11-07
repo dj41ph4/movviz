@@ -1,3 +1,12 @@
+## v1.28.80 — 7 November 2026
+
+### Android
+
+- Android TV: the sidebar takes the desktop thin icons, a profile card with the role, a version card and a smaller font; the sidebar logos are sharp at every size.
+- Android TV: the platforms sit right under the hero, without a title, all eight tiles fit the width, and pressing Up from them returns to “View title”.
+- Android TV: rounder, bold buttons and finer cards (desktop radius and outline).
+- Android TV: the focus outline is thinner and lavender instead of thick white.
+
 ## v1.28.79 — 6 November 2026
 
 ### Android

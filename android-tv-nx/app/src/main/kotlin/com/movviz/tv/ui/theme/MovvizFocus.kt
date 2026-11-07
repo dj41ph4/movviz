@@ -61,8 +61,8 @@ import java.util.Locale
 // ────────────────────────────────────────────────────────────────
 
 /** Épaisseur et écart par défaut de l'anneau extérieur. */
-val MovvizFocusRingWidth: Dp = 3.dp
-val MovvizFocusRingGap: Dp = 3.dp
+val MovvizFocusRingWidth: Dp = 2.dp
+val MovvizFocusRingGap: Dp = 2.dp
 
 /**
  * Anneau de focus extérieur (indicateur unique en Bêta).
@@ -205,7 +205,7 @@ private fun outsetOutline(outline: Outline, inset: Float): Outline = when (outli
 fun movvizCardBorder(shape: Shape, stableFocused: BorderStroke): ClickableSurfaceBorder =
     if (LocalMovvizBeta.current) {
         ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, LocalMovvizPalette.current.line), shape = shape),
+            border = Border(BorderStroke(1.dp, Color(0x1CFFFFFF)), shape = shape),
             focusedBorder = Border(BorderStroke(1.dp, MovvizBetaCardFocusedLine), shape = shape),
         )
     } else {
@@ -354,7 +354,7 @@ fun MovvizBetaButton(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (icon != null) Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

@@ -114,6 +114,15 @@ enum class HomeTab(val label: String) {
 /** Les 5 items réellement affichés dans la sidebar, dans l'ordre du design. */
 private val NAV_ITEMS = listOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.LIBRARY, HomeTab.SEARCH, HomeTab.SETTINGS)
 
+/** Icônes Lucide du desktop (mêmes tracés que la barre latérale web). */
+private fun HomeTab.betaIcon(): ImageVector = when (this) {
+    HomeTab.DISCOVER -> com.movviz.tv.ui.theme.LucideCompass
+    HomeTab.LIBRARY -> com.movviz.tv.ui.theme.LucideLibraryBig
+    HomeTab.SEARCH -> com.movviz.tv.ui.theme.LucideSearch
+    HomeTab.SETTINGS -> com.movviz.tv.ui.theme.LucideSettings
+    else -> com.movviz.tv.ui.theme.LucideLayoutDashboard
+}
+
 private fun HomeTab.icon(): ImageVector = when (this) {
     HomeTab.HOME -> MovvizIconHome
     HomeTab.DISCOVER -> MovvizIconCompass
@@ -137,6 +146,7 @@ fun NavRail(
     onSelect: (HomeTab) -> Unit,
     profiles: List<TvProfile> = emptyList(),
     activeProfile: TvProfile? = null,
+    activeRole: String? = null,
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
@@ -214,8 +224,8 @@ fun NavRail(
                     // PROTOTYPE : panneau flottant arrondi comme la barre latérale desktop.
                     Modifier
                         .padding(8.dp)
-                        .background(palette.surface, MovvizBetaShapes.Panel)
-                        .border(1.dp, palette.line, MovvizBetaShapes.Panel)
+                        .background(palette.surface, RoundedCornerShape(24.dp))
+                        .border(1.dp, palette.line, RoundedCornerShape(24.dp))
                 } else {
                     Modifier
                         .background(palette.navBackground)
@@ -298,6 +308,7 @@ fun NavRail(
         ProfileFooterRow(
             profiles = profiles,
             active = activeProfile,
+            role = activeRole,
             expanded = expanded,
             onSelect = onProfileSelected,
             onAdd = onAddProfile,
@@ -307,16 +318,18 @@ fun NavRail(
             focusRequester = if (selected == HomeTab.PROFILE) navRailFocusRequester else null,
         )
         AnimatedVisibility(visible = expanded, enter = fadeIn(tween(180)), exit = fadeOut(tween(120))) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 11.dp)) {
-                Box(Modifier.fillMaxWidth().height(1.dp).background(palette.navEdge))
-                Spacer(Modifier.height(9.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = if (beta) 8.dp else 11.dp)) {
                 if (beta) {
-                    Text("Movviz v${BuildConfig.VERSION_NAME}", color = palette.inkDim, style = MaterialTheme.typography.labelSmall)
+                    // Comme le desktop : une carte violette translucide « • Movviz vX » (c'est aussi le
+                    // bouton de mise à jour), sans séparateur ni libellé à part.
+                    UpdateStatusPill(updateAvailable = updateAvailableTag != null, onClick = onUpdateClick)
                 } else {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(palette.navEdge))
+                    Spacer(Modifier.height(9.dp))
                     Text("Movviz v${BuildConfig.VERSION_NAME}", color = MovvizInkDim, fontSize = 9.sp)
+                    Spacer(Modifier.height(5.dp))
+                    UpdateStatusPill(updateAvailable = updateAvailableTag != null, onClick = onUpdateClick)
                 }
-                Spacer(Modifier.height(5.dp))
-                UpdateStatusPill(updateAvailable = updateAvailableTag != null, onClick = onUpdateClick)
             }
         }
     }
@@ -334,36 +347,49 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
         animationSpec = infiniteRepeatable(tween(720), RepeatMode.Reverse),
         label = "updatePulseAlpha",
     )
-    val shape = RoundedCornerShape(15.dp)
+    val shape = RoundedCornerShape(if (beta) 16.dp else 15.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .heightIn(min = if (beta) 32.dp else 0.dp)
+            .let { if (beta) it.fillMaxWidth().height(40.dp) else it.heightIn(min = 0.dp) }
             .onFocusChanged { focused = it.isFocused }
             // Mouvement réduit (Bêta) : pas de pulsation infinie.
             .let { if (updateAvailable && !focused && !(beta && reduceMotion)) it.graphicsLayer { this.alpha = alpha } else it }
-            .movvizFocusRing(shape, enabled = beta)
+            .movvizFocusRing(shape, color = MovvizTheme.palette.accent, width = 2.dp, gap = 2.dp, enabled = beta)
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (updateAvailable) MovvizTheme.palette.brand.copy(alpha = 0.18f) else MovvizOk.copy(alpha = 0.08f),
-            focusedContainerColor = if (updateAvailable) MovvizTheme.palette.brand.copy(alpha = 0.32f) else MovvizOk.copy(alpha = 0.16f),
+            // Bêta : texte seul au repos (pas de capsule), léger voile au focus.
+            containerColor = if (beta) Color.Transparent else if (updateAvailable) MovvizTheme.palette.brand.copy(alpha = 0.18f) else MovvizOk.copy(alpha = 0.08f),
+            focusedContainerColor = if (beta) Color.White.copy(alpha = 0.06f) else if (updateAvailable) MovvizTheme.palette.brand.copy(alpha = 0.32f) else MovvizOk.copy(alpha = 0.16f),
         ),
         // Bêta : l'anneau extérieur porte le focus, aucune bordure interne.
         border = if (beta) ClickableSurfaceDefaults.border() else ClickableSurfaceDefaults.border(
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, if (updateAvailable) MovvizTheme.palette.brand2.copy(alpha = 0.65f) else MovvizOk.copy(alpha = 0.65f)), shape = shape),
         ),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (beta) Arrangement.Center else Arrangement.Start,
+            modifier = (if (beta) {
+                // Carte desktop : dégradé violet translucide + filet clair, rayon 16.
+                Modifier.fillMaxSize()
+                    .background(Brush.horizontalGradient(listOf(Color(0x337C5CFF), Color(0x0F7C5CFF))))
+                    .border(1.dp, Color(0x33AA96FF), shape)
+            } else Modifier.align(Alignment.Center)).padding(horizontal = 8.dp, vertical = 3.dp),
+        ) {
             Box(
-                Modifier.size(5.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(if (updateAvailable) Brush.linearGradient(listOf(MovvizBrand3, MovvizTheme.palette.brand2)) else Brush.linearGradient(listOf(MovvizOk, MovvizOk))),
+                Modifier.size(if (beta) 7.dp else 5.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                    .then(
+                        if (beta) Modifier.background(if (updateAvailable) MovvizTheme.palette.brandGlow else MovvizOk)
+                        else Modifier.background(if (updateAvailable) Brush.linearGradient(listOf(MovvizBrand3, MovvizTheme.palette.brand2)) else Brush.linearGradient(listOf(MovvizOk, MovvizOk))),
+                    ),
             )
-            Spacer(Modifier.width(5.dp))
-            val label = if (updateAvailable) "Mettre à jour" else "À jour"
-            val labelColor = if (updateAvailable) Color.White else MovvizOk
+            Spacer(Modifier.width(if (beta) 8.dp else 5.dp))
+            val label = if (updateAvailable) "Mettre à jour" else if (beta) "Movviz v${BuildConfig.VERSION_NAME}" else "À jour"
+            val labelColor = if (updateAvailable) Color.White else if (beta) MovvizTheme.palette.inkDim else MovvizOk
             if (beta) {
-                Text(text = label, color = labelColor, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
+                Text(text = label, color = labelColor, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, fontSize = 9.sp))
             } else {
                 Text(text = label, color = labelColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
@@ -376,6 +402,7 @@ private fun UpdateStatusPill(updateAvailable: Boolean, onClick: () -> Unit) {
 private fun ProfileFooterRow(
     profiles: List<TvProfile>,
     active: TvProfile?,
+    role: String?,
     expanded: Boolean,
     onSelect: (TvProfile) -> Unit,
     onAdd: () -> Unit,
@@ -409,12 +436,12 @@ private fun ProfileFooterRow(
     Box {
         // Cercle 38dp replié ; s'élargit (pleine largeur du rail) en mode
         // déployé pour laisser la place au nom, même logique que TopNavItem.
-        val avatarShape = if (expanded) { if (beta) MovvizBetaShapes.NavItem else RoundedCornerShape(14.dp) } else androidx.compose.foundation.shape.CircleShape
+        val avatarShape = if (expanded) { if (beta) RoundedCornerShape(18.dp) else RoundedCornerShape(14.dp) } else androidx.compose.foundation.shape.CircleShape
         val palette = MovvizTheme.palette
         Surface(
             onClick = { open = true; onMenuOpenChanged(true) },
             modifier = Modifier
-                .height(if (beta) 40.dp else 29.dp)
+                .height(if (beta) (if (expanded) 58.dp else 40.dp) else 29.dp)
                 .let { if (expanded) it.fillMaxWidth() else it.width(if (beta) 40.dp else 29.dp) }
                 .focusRequester(avatarFocus)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
@@ -424,19 +451,25 @@ private fun ProfileFooterRow(
                 .tvPointerClick { open = true; onMenuOpenChanged(true) },
             shape = ClickableSurfaceDefaults.shape(avatarShape),
             scale = if (beta) movvizBetaSurfaceScale() else ClickableSurfaceDefaults.scale(focusedScale = 1f),
-            colors = if (beta) ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = palette.surfaceRaised, pressedContainerColor = palette.surfaceRaised)
+            colors = if (beta) ClickableSurfaceDefaults.colors(containerColor = if (expanded) Color.White.copy(alpha = 0.04f) else Color.Transparent, focusedContainerColor = palette.surfaceRaised, pressedContainerColor = palette.surfaceRaised)
                 else ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .06f), focusedContainerColor = Color.White.copy(alpha = .14f)),
-            border = if (beta) ClickableSurfaceDefaults.border() else ClickableSurfaceDefaults.border(
+            border = if (beta) { if (expanded) ClickableSurfaceDefaults.border(border = Border(androidx.compose.foundation.BorderStroke(1.dp, palette.line), shape = avatarShape)) else ClickableSurfaceDefaults.border() } else ClickableSurfaceDefaults.border(
                 focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(1.dp, MovvizTheme.palette.brand2.copy(alpha = 0.55f)), shape = avatarShape),
             ),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxHeight().aspectRatio(1f).clip(androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxSize().padding(if (beta && expanded) 8.dp else 0.dp)) {
+                Box(
+                    Modifier.fillMaxHeight().aspectRatio(1f)
+                        // Bêta : anneau violet détaché de l'avatar, comme sur le desktop.
+                        .let { if (beta) it.border(1.5.dp, Color(0xFF7C5CFF), androidx.compose.foundation.shape.CircleShape).padding(3.dp) else it }
+                        .clip(androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
                     if (active != null) {
                         com.movviz.tv.ui.profile.AvatarImage(
                             profile = active,
                             modifier = Modifier.fillMaxSize(),
-                            shape = avatarShape,
+                            shape = androidx.compose.foundation.shape.CircleShape,
                             initialsFontSize = 10.sp,
                         )
                     } else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizTheme.palette.brand, MovvizTheme.palette.brand2))), contentAlignment = Alignment.Center) {
@@ -447,7 +480,10 @@ private fun ProfileFooterRow(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Spacer(Modifier.width(8.dp))
                         if (beta) {
-                            Text(active?.name ?: "—", color = palette.ink, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Column {
+                                Text(active?.name ?: "—", color = palette.ink, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 10.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (role != null) Text(if (role == "admin") "Administrateur" else "Utilisateur", color = palette.inkDim, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), maxLines = 1)
+                            }
                         } else {
                             Text(active?.name ?: "—", color = MovvizInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -680,7 +716,7 @@ private fun BetaNavItem(
     val shape = MovvizBetaShapes.NavItem
     // PROTOTYPE desktop : l'onglet actif est un dégradé violet translucide à filet clair
     // et barre latérale (mesuré sur le rail desktop), plus un aplat ivoire.
-    val restContent = if (active) Color.White else palette.inkDim
+    val restContent = if (active) Color.White else Color(0xFFA4A4B4)
     val focusedContent = if (active) Color.White else palette.ink
     Surface(
         onClick = onClick,
@@ -727,11 +763,7 @@ private fun BetaNavItem(
                 }
                 .padding(horizontal = 13.dp),
         ) {
-            if (tab == HomeTab.LIBRARY) {
-                BookmarkIcon(color = iconTint, modifier = Modifier.size(18.dp))
-            } else {
-                Icon(imageVector = tab.icon(), contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
-            }
+            Icon(imageVector = tab.betaIcon(), contentDescription = null, tint = iconTint, modifier = Modifier.size(17.dp))
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn(if (MovvizTheme.reduceMotion) androidx.compose.animation.core.snap() else tween(180)),
@@ -741,7 +773,7 @@ private fun BetaNavItem(
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = tab.label,
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 10.5.sp),
                         color = content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
