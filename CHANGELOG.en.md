@@ -1,3 +1,9 @@
+## v1.28.87 — 7 November 2026
+
+### Holidays & events
+
+- Platform pages (Netflix, Disney+, Prime Video…) now also have the event row at the top (“Christmas is coming”…), limited to that platform's titles, on the website, Android TV, Android mobile and Samsung.
+
 ## v1.28.86 — 7 November 2026
 
 ### Holidays & events

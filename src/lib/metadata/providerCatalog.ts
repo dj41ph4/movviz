@@ -1,6 +1,25 @@
 import { discoverByFilters, getAnimeRow, type DiscoverFilters, type PagedResults } from "@/lib/metadata/tmdb";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
+import { isSeasonId, seasonDef, type SeasonId } from "@/lib/seasonal/calendar";
+
+/** Titres français des rangées d'événement (mêmes que le site, voir discover.rowSeason_*). */
+const SEASON_ROW_LABEL: Record<SeasonId, string> = {
+  halloween: "Spécial Halloween : frissons de saison",
+  christmas: "L'ambiance de Noël",
+  newYear: "Pour bien commencer l'année",
+  valentine: "Pour la Saint-Valentin",
+  easter: "Spécial Pâques",
+  summer: "Films et séries d'été",
+};
+
+/** Rangée d'événement du moment, propre à la plateforme : `seasonal:<fête>`. */
+function seasonalRowDef(key: string): ProviderRowDef | undefined {
+  const id = key.startsWith("seasonal:") ? key.slice("seasonal:".length) : "";
+  if (!isSeasonId(id)) return undefined;
+  const { keywords } = seasonDef(id);
+  return { key, label: SEASON_ROW_LABEL[id], season: id, ...both({ sort: POPULAR, keywords, minVotes: 10, releasedAfter: "1980-01-01" }) };
+}
 
 /**
  * Catalogue d'une plateforme (Netflix, Disney+…) organisé en rangées par
@@ -38,6 +57,8 @@ interface ProviderRowDef {
   anime?: boolean;
   /** Rangée propre à certaines plateformes (ex. Marvel sur Disney+). */
   providers?: number[];
+  /** Rangée d'événement : le titre ou le synopsis doit évoquer la fête. */
+  season?: SeasonId;
 }
 
 const POPULAR = "popularity.desc";
@@ -113,10 +134,11 @@ function allRows(): ProviderRowDef[] {
 }
 
 /** Rangées affichées pour une plateforme (les rangées spécifiques en plus). */
-export function providerRowsFor(providerId: number | null): { key: string; label: string }[] {
-  return allRows()
+export function providerRowsFor(providerId: number | null, season: SeasonId | null = null): { key: string; label: string }[] {
+  const seasonal = season ? [{ key: `seasonal:${season}`, label: SEASON_ROW_LABEL[season] }] : [];
+  return [...seasonal, ...allRows()
     .filter((row) => !row.providers || (providerId != null && row.providers.includes(providerId)))
-    .map(({ key, label }) => ({ key, label }));
+    .map(({ key, label }) => ({ key, label }))];
 }
 
 const TMDB_MAX_PAGES = 500;
@@ -125,7 +147,7 @@ const TMDB_MAX_PAGES = 500;
 const TMDB_PAGES_PER_ROW_PAGE = 2;
 
 export function providerRowDef(key: string): ProviderRowDef | undefined {
-  return allRows().find((row) => row.key === key);
+  return seasonalRowDef(key) ?? allRows().find((row) => row.key === key);
 }
 
 async function fetchSidePage(
@@ -260,7 +282,10 @@ async function computeProviderRowPage(providerId: number, key: string, page: num
     ? results.filter((r) => r.rating > 0 || !!r.posterPath)
     : filterSuggestable(results);
   // Une affiche manquante casse une rangée TV : ces titres sont écartés.
-  const withArt = (results: MetaSearchResult[]) => clean(results).filter((r) => !!r.posterPath);
+  const seasonDefinition = def.season ? seasonDef(def.season) : null;
+  const onTheme = (r: MetaSearchResult) => !seasonDefinition
+    || (seasonDefinition.theme.test(`${r.title} ${r.overview}`) && !(seasonDefinition.excludeLanguages ?? []).includes(r.originalLanguage ?? ""));
+  const withArt = (results: MetaSearchResult[]) => clean(results).filter((r) => !!r.posterPath && onTheme(r));
   return {
     results: interleaveByMerit([withArt(movies.results), withArt(series.results)], def.rank),
     page,

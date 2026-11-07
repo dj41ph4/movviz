@@ -1,3 +1,9 @@
+## v1.28.87 — 7 novembre 2026
+
+### Événements du moment
+
+- Les pages de plateforme (Netflix, Disney+, Prime Video…) ont aussi leur rangée d'événement en tête (« L'ambiance de Noël »…), limitée aux titres de cette plateforme, sur le site, Android TV, mobile Android et Samsung.
+
 ## v1.28.86 — 7 novembre 2026
 
 ### Événements du moment

@@ -1,3 +1,9 @@
+## v1.28.87 — 7 November 2026
+
+### Feste & Anlässe
+
+- Auch die Plattformseiten (Netflix, Disney+, Prime Video…) haben nun die Ereignisreihe ganz oben („Weihnachtsstimmung“…), begrenzt auf die Titel dieser Plattform – auf der Website, Android TV, Android-Mobil und Samsung.
+
 ## v1.28.86 — 7 November 2026
 
 ### Feste & Anlässe

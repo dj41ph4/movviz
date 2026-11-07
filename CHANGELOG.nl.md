@@ -1,3 +1,9 @@
+## v1.28.87 — 7 november 2026
+
+### Feestdagen & evenementen
+
+- Ook de platformpagina's (Netflix, Disney+, Prime Video…) hebben nu de evenementrij bovenaan (“Kerstsfeer”…), beperkt tot de titels van dat platform, op de website, Android TV, Android-mobiel en Samsung.
+
 ## v1.28.86 — 7 november 2026
 
 ### Feestdagen & evenementen

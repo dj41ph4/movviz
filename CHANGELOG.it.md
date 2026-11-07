@@ -1,3 +1,9 @@
+## v1.28.87 — 7 novembre 2026
+
+### Feste ed eventi
+
+- Anche le pagine delle piattaforme (Netflix, Disney+, Prime Video…) hanno la fila di evento in cima («L'atmosfera del Natale»…), limitata ai titoli di quella piattaforma, su sito, Android TV, Android mobile e Samsung.
+
 ## v1.28.86 — 7 novembre 2026
 
 ### Feste ed eventi
