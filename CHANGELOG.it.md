@@ -1,3 +1,10 @@
+## v1.28.85 — 7 novembre 2026
+
+### Feste ed eventi
+
+- Le file di evento sono molto più ricche (fino a 60 film e altrettante serie), senza doppioni, solo titoli dal 1980 in poi, compresi i classici delle feste (Mamma, ho perso l'aereo, Nightmare Before Christmas, Silent Night…).
+- «Mostra tutto» non lascia più un'ultima riga a metà: la griglia si ferma a righe complete, fino a 48 schede.
+
 ## v1.28.84 — 7 novembre 2026
 
 ### Feste ed eventi

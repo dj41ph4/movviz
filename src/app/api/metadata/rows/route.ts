@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
   // Attendue directement (mémoïsée 6 h, 2 appels TMDb au premier calcul) : passer par `part`
   // la renverrait vide à la première visite, le temps que le serveur la calcule.
   const seasonalRow = seasonalEnabled
-    ? buildSeasonalRow(simulated ?? new Date(), dashboardLayout?.seasonDates).catch(() => null)
+    ? buildSeasonalRow(simulated ?? new Date(), type, dashboardLayout?.seasonDates).catch(() => null)
     : Promise.resolve(null);
   const finish = async (baseRows: { key: string; results: MetaSearchResult[] }[]) => {
     const seasonal = await seasonalRow;

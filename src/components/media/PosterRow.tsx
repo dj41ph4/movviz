@@ -33,7 +33,7 @@ export function PosterRow({
   title: string;
   onSeeAll?: () => void;
   onNearEnd?: () => void;
-  /** Adds a "show all" toggle that lays the row out as a wrapping grid (first 24 cards) instead of a swipe strip. */
+  /** Adds a "show all" toggle that lays the row out as a wrapping grid (up to 48 cards, full rows only) instead of a swipe strip. */
   expandable?: boolean;
   children: React.ReactNode;
 }) {
@@ -69,6 +69,30 @@ export function PosterRow({
     ro.observe(el);
     return () => ro.disconnect();
   }, [measure, children]);
+
+  // Grille dépliée : jusqu'à 48 cartes, tronquées à des lignes complètes pour ne jamais
+  // laisser une dernière ligne à moitié vide (le nombre de colonnes dépend de la largeur).
+  useEffect(() => {
+    const row = scrollRef.current;
+    if (!expanded || !row) return;
+    const trim = () => {
+      const cards = Array.from(row.children) as HTMLElement[];
+      cards.forEach((card) => { card.style.display = ""; });
+      if (cards.length === 0) return;
+      const top = cards[0].offsetTop;
+      const columns = Math.max(1, cards.filter((card) => card.offsetTop === top).length);
+      const shown = Math.min(cards.length, 48);
+      const keep = shown >= columns ? Math.floor(shown / columns) * columns : shown;
+      cards.forEach((card, index) => { if (index >= keep) card.style.display = "none"; });
+    };
+    trim();
+    const ro = new ResizeObserver(trim);
+    ro.observe(row);
+    return () => {
+      ro.disconnect();
+      Array.from(row.children).forEach((card) => { (card as HTMLElement).style.display = ""; });
+    };
+  }, [expanded, children]);
 
   useEffect(() => {
     const row = scrollRef.current;
@@ -125,7 +149,7 @@ export function PosterRow({
             <ChevronRight className="h-6 w-6" />
           </button>
         )}
-        <div ref={scrollRef} onScroll={measure} className={cn("flex gap-4 pb-2", expanded ? "flex-wrap [&>*:nth-child(n+25)]:hidden" : "overflow-x-auto overflow-y-hidden")}>
+        <div ref={scrollRef} onScroll={measure} className={cn("flex gap-4 pb-2", expanded ? "flex-wrap" : "overflow-x-auto overflow-y-hidden")}>
           <CarouselImageContext.Provider value={true}>{children}</CarouselImageContext.Provider>
         </div>
       </div>

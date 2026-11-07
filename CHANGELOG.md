@@ -1,3 +1,10 @@
+## v1.28.85 — 7 novembre 2026
+
+### Événements du moment
+
+- Les rangées d'événement sont bien plus fournies (jusqu'à 60 films et autant de séries), sans doublon, avec uniquement des titres de 1980 ou plus, classiques de fête compris (Maman, j'ai raté l'avion, L'Étrange Noël de monsieur Jack, Silent Night…).
+- « Tout afficher » ne laisse plus de dernière ligne à moitié vide : la grille se coupe à des lignes complètes, jusqu'à 48 cartes.
+
 ## v1.28.84 — 7 novembre 2026
 
 ### Événements du moment

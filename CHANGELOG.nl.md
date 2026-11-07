@@ -1,3 +1,10 @@
+## v1.28.85 — 7 november 2026
+
+### Feestdagen & evenementen
+
+- Evenementrijen zijn veel voller (tot 60 films en evenveel series), zonder dubbels, alleen titels vanaf 1980, inclusief feestklassiekers (Home Alone, The Nightmare Before Christmas, Silent Night…).
+- “Alles tonen” laat geen halfleeg laatste rijtje meer achter: het raster wordt tot volle rijen ingekort, tot 48 kaarten.
+
 ## v1.28.84 — 7 november 2026
 
 ### Feestdagen & evenementen

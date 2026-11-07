@@ -1,3 +1,10 @@
+## v1.28.85 — 7 November 2026
+
+### Holidays & events
+
+- Event rows are much fuller (up to 60 movies and as many series), without duplicates, with only titles from 1980 onwards, holiday classics included (Home Alone, The Nightmare Before Christmas, Silent Night…).
+- “Show all” no longer leaves a half-empty last line: the grid is cut to full rows, up to 48 cards.
+
 ## v1.28.84 — 7 November 2026
 
 ### Holidays & events

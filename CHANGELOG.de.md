@@ -1,3 +1,10 @@
+## v1.28.85 — 7 November 2026
+
+### Feste & Anlässe
+
+- Ereignisreihen sind deutlich voller (bis zu 60 Filme und ebenso viele Serien), ohne Duplikate, nur Titel ab 1980, inklusive Festtagsklassikern (Kevin – Allein zu Haus, Nightmare Before Christmas, Silent Night…).
+- „Alle anzeigen“ lässt keine halbleere letzte Zeile mehr: Das Raster wird auf volle Zeilen gekürzt, bis zu 48 Karten.
+
 ## v1.28.84 — 7 November 2026
 
 ### Feste & Anlässe
