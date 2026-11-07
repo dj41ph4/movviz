@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 import { toast } from "@/components/ui/Toast";
-import { useT } from "@/i18n/provider";
+import { useI18n, useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Toggle } from "@/components/ui/Toggle";
 import {
@@ -13,6 +13,31 @@ import {
   type DashboardLayout,
   type DashboardSectionId,
 } from "@/lib/dashboard/types";
+import { DEFAULT_EASTER_WINDOW, DEFAULT_SEASON_WINDOWS, type SeasonSettings } from "@/lib/seasonal/calendar";
+
+const FIXED_SEASONS = ["halloween", "christmas", "newYear", "valentine", "summer"] as const;
+const SELECT_CLASS = "rounded-xl border border-white/8 bg-black/20 px-2 py-2 text-sm font-semibold text-ink outline-none focus:border-brand/50";
+const SELECT_STYLE = { colorScheme: "dark", backgroundColor: "#0a0a12", color: "#f5f5f7" } as const;
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Sélecteur jour + mois (MM-JJ) — pas de champ date, qui imposerait une année. */
+function DayMonthPicker({ value, label, onChange, locale }: { value: string; label: string; onChange: (next: string) => void; locale: string }) {
+  const [month, day] = value.split("-").map(Number);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const monthName = (m: number) => new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2026, m - 1, 1));
+  return (
+    <span className="inline-flex items-center gap-1.5" role="group" aria-label={label}>
+      <select aria-label={label} value={day} className={SELECT_CLASS} style={SELECT_STYLE}
+        onChange={(e) => onChange(`${pad(month)}-${pad(Number(e.target.value))}`)}>
+        {Array.from({ length: DAYS_IN_MONTH[month - 1] }, (_, i) => i + 1).map((d) => <option key={d} value={d} style={{ backgroundColor: "#0a0a12" }}>{d}</option>)}
+      </select>
+      <select aria-label={label} value={month} className={SELECT_CLASS} style={SELECT_STYLE}
+        onChange={(e) => { const m = Number(e.target.value); onChange(`${pad(m)}-${pad(Math.min(day, DAYS_IN_MONTH[m - 1]))}`); }}>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m} style={{ backgroundColor: "#0a0a12" }}>{monthName(m)}</option>)}
+      </select>
+    </span>
+  );
+}
 
 const SECTION_LABEL_KEY: Record<DashboardSectionId, string> = {
   continueWatching: "dashboard.continueWatching",
@@ -37,6 +62,7 @@ function previewModeOf(hero: DashboardLayout["hero"]): PreviewMode {
 
 export function DashboardExperiencePanel() {
   const t = useT();
+  const { locale } = useI18n();
   const { mutate } = useSWRConfig();
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,6 +108,9 @@ export function DashboardExperiencePanel() {
     const sections = layout.sections.map((s) => (s.id === id ? { ...s, visible: !s.visible } : s));
     save({ sections });
   };
+
+  const seasonDates = layout?.seasonDates ?? { windows: {} };
+  const saveSeasons = (next: SeasonSettings) => save({ seasonDates: next });
 
   if (!layout) return <div className="h-40 animate-pulse rounded-2xl glass" />;
 
@@ -205,6 +234,50 @@ export function DashboardExperiencePanel() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="rounded-2xl glass p-5">
+        <h3 className="mb-1 font-bold text-ink">{t("settings.dashboardExperience.seasonDatesTitle")}</h3>
+        <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.seasonDatesHint")}</p>
+        <div className="space-y-4">
+          {FIXED_SEASONS.map((id) => {
+            const w = seasonDates.windows[id] ?? DEFAULT_SEASON_WINDOWS[id];
+            const set = (patch: Partial<typeof w>) => saveSeasons({ ...seasonDates, windows: { ...seasonDates.windows, [id]: { ...w, ...patch } } });
+            return (
+              <div key={id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm font-semibold text-ink">{t(`settings.dashboardExperience.seasonName.${id}`)}</span>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+                  <span>{t("settings.dashboardExperience.seasonFrom")}</span>
+                  <DayMonthPicker locale={locale} value={w.start} label={t("settings.dashboardExperience.seasonFrom")} onChange={(start) => set({ start })} />
+                  <span>{t("settings.dashboardExperience.seasonTo")}</span>
+                  <DayMonthPicker locale={locale} value={w.end} label={t("settings.dashboardExperience.seasonTo")} onChange={(end) => set({ end })} />
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm font-semibold text-ink">{t("settings.dashboardExperience.seasonName.easter")}</span>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+              {(["before", "after"] as const).map((side) => {
+                const easter = seasonDates.easter ?? DEFAULT_EASTER_WINDOW;
+                return (
+                  <label key={side} className="inline-flex items-center gap-1.5">
+                    <input type="number" min={0} max={60} value={easter[side]} aria-label={t(`settings.dashboardExperience.easter.${side}`)}
+                      onChange={(e) => saveSeasons({ ...seasonDates, easter: { ...easter, [side]: Math.min(60, Math.max(0, Number(e.target.value) || 0)) } })}
+                      className={cn(SELECT_CLASS, "w-16")} />
+                    <span>{t(`settings.dashboardExperience.easter.${side}`)}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <button
+            onClick={() => saveSeasons({ windows: {} })}
+            className="rounded-lg border border-white/8 bg-black/20 px-3 py-1.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-white/5"
+          >
+            {t("settings.dashboardExperience.seasonReset")}
+          </button>
         </div>
       </div>
 

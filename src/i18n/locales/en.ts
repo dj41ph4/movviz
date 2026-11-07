@@ -1745,6 +1745,13 @@ export const en: Dictionary = {
     tabDiagnostics: "Diagnostics and performance",
     dashboardExperience: {
       saveError: "Unable to save dashboard settings.",
+      seasonDatesTitle: "Event dates",
+      seasonDatesHint: "Each event shows up on its own on the home page and in Discover during these dates. The defaults suit most people; change them if you want a row earlier or later.",
+      seasonFrom: "From",
+      seasonTo: "to",
+      seasonReset: "Restore default dates",
+      seasonName: { halloween: "Halloween", christmas: "Christmas", newYear: "New Year", valentine: "Valentine's Day", easter: "Easter", summer: "Summer" },
+      easter: { before: "days before Easter", after: "days after" },
       trailerSearchTitle: "Trailers",
       trailerSearchHint: "When TMDb has no trailer in your language, search YouTube for one instead of falling back to English. Off by default — this isn't an official API, it depends on YouTube.",
       trailerSearchEnabled: "Search YouTube if needed",

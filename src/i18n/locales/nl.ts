@@ -1745,6 +1745,13 @@ export const nl: Dictionary = {
     tabDiagnostics: "Diagnose en prestaties",
     dashboardExperience: {
       saveError: "Dashboardinstellingen konden niet worden opgeslagen.",
+      seasonDatesTitle: "Data van de evenementen",
+      seasonDatesHint: "Elk evenement verschijnt in deze periode vanzelf op de startpagina en in Ontdekken. De standaarddata passen meestal; pas ze aan als je de rij eerder of later wilt.",
+      seasonFrom: "Van",
+      seasonTo: "tot",
+      seasonReset: "Standaarddata herstellen",
+      seasonName: { halloween: "Halloween", christmas: "Kerst", newYear: "Nieuwjaar", valentine: "Valentijnsdag", easter: "Pasen", summer: "Zomer" },
+      easter: { before: "dagen voor Pasen", after: "dagen erna" },
       trailerSearchTitle: "Trailers",
       trailerSearchHint: "Als TMDb geen trailer in jouw taal heeft, zoek er dan een op YouTube in plaats van terug te vallen op Engels. Standaard uit — dit is geen officiële API, het hangt af van YouTube.",
       trailerSearchEnabled: "Indien nodig op YouTube zoeken",

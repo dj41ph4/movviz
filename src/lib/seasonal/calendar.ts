@@ -48,31 +48,59 @@ export function easterSunday(year: number): Date {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-/** Jour de l'année sous forme MMJJ (ex. 15 novembre → 1115), comparable. */
-function mmdd(date: Date): number {
-  return (date.getUTCMonth() + 1) * 100 + date.getUTCDate();
+/** Fenêtre d'une fête à date fixe : "MM-JJ" inclus des deux côtés (peut enjamber le Nouvel An). */
+export interface SeasonWindow { start: string; end: string }
+/** Pâques bouge chaque année : fenêtre en jours avant / après le dimanche de Pâques. */
+export interface EasterWindow { before: number; after: number }
+export interface SeasonSettings {
+  /** Surcharges par fête ; une fête absente garde sa fenêtre par défaut. */
+  windows: Partial<Record<Exclude<SeasonId, "easter">, SeasonWindow>>;
+  easter?: EasterWindow;
+}
+
+export const DEFAULT_SEASON_WINDOWS: Record<Exclude<SeasonId, "easter">, SeasonWindow> = {
+  halloween: { start: "09-28", end: "11-02" },
+  christmas: { start: "11-15", end: "12-26" },
+  newYear: { start: "12-27", end: "01-06" },
+  valentine: { start: "01-31", end: "02-14" },
+  summer: { start: "06-21", end: "08-31" },
+};
+export const DEFAULT_EASTER_WINDOW: EasterWindow = { before: 14, after: 1 };
+
+const MM_DD = /^(0[1-9]|1[0-2])-(0[1-9]|[12]d|3[01])$/;
+
+/** Ne garde que des fenêtres valides — jamais de confiance dans un JSON stocké. */
+export function sanitizeSeasonSettings(input: unknown): SeasonSettings {
+  const obj = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  const windows: SeasonSettings["windows"] = {};
+  const raw = obj.windows && typeof obj.windows === "object" ? (obj.windows as Record<string, unknown>) : {};
+  for (const id of Object.keys(DEFAULT_SEASON_WINDOWS) as (keyof typeof DEFAULT_SEASON_WINDOWS)[]) {
+    const w = raw[id] as Partial<SeasonWindow> | undefined;
+    if (w && typeof w.start === "string" && typeof w.end === "string" && MM_DD.test(w.start) && MM_DD.test(w.end)) windows[id] = { start: w.start, end: w.end };
+  }
+  const e = obj.easter as Partial<EasterWindow> | undefined;
+  const days = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(60, Math.max(0, Math.round(v))) : fallback);
+  return { windows, ...(e && typeof e === "object" ? { easter: { before: days(e.before, DEFAULT_EASTER_WINDOW.before), after: days(e.after, DEFAULT_EASTER_WINDOW.after) } } : {}) };
+}
+
+function inWindow(day: string, w: SeasonWindow): boolean {
+  return w.start <= w.end ? day >= w.start && day <= w.end : day >= w.start || day <= w.end;
 }
 
 const DAY_MS = 86_400_000;
 
 /**
- * Saison active à une date (UTC, jour calendaire), ou null hors fenêtre.
- *  - Halloween : 28 sept → 2 nov
- *  - Noël : 15 nov → 26 déc
- *  - Nouvel An : 27 déc → 6 janv
- *  - Saint-Valentin : 31 janv → 14 fév
- *  - Pâques : 14 jours avant → lundi de Pâques
- *  - Été : 21 juin → 31 août
+ * Fête active à une date (UTC, jour calendaire), ou null hors fenêtre.
+ * Fenêtres par défaut dans DEFAULT_SEASON_WINDOWS, modifiables par l'utilisateur.
  */
-export function activeSeason(now: Date): SeasonId | null {
-  const day = mmdd(now);
-  if (day >= 928 && day <= 1102) return "halloween";
-  if (day >= 1115 && day <= 1226) return "christmas";
-  if (day >= 1227 || day <= 106) return "newYear";
-  if (day >= 131 && day <= 214) return "valentine";
+export function activeSeason(now: Date, settings?: SeasonSettings): SeasonId | null {
+  const day = `${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  const win = (id: keyof typeof DEFAULT_SEASON_WINDOWS) => settings?.windows[id] ?? DEFAULT_SEASON_WINDOWS[id];
+  const easter = settings?.easter ?? DEFAULT_EASTER_WINDOW;
+  for (const id of ["halloween", "christmas", "newYear", "valentine"] as const) if (inWindow(day, win(id))) return id;
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const easter = easterSunday(now.getUTCFullYear()).getTime();
-  if (today >= easter - 14 * DAY_MS && today <= easter + DAY_MS) return "easter";
-  if (day >= 621 && day <= 831) return "summer";
+  const sunday = easterSunday(now.getUTCFullYear()).getTime();
+  if (today >= sunday - easter.before * DAY_MS && today <= sunday + easter.after * DAY_MS) return "easter";
+  if (inWindow(day, win("summer"))) return "summer";
   return null;
 }

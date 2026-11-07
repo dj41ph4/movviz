@@ -1742,6 +1742,13 @@ export const fr = {
     tabDiagnostics: "Diagnostic et performance",
     dashboardExperience: {
       saveError: "Impossible d’enregistrer les réglages du tableau de bord.",
+      seasonDatesTitle: "Dates des événements",
+      seasonDatesHint: "Chaque événement apparaît seul sur l'accueil et dans Découverte pendant ces dates. Les dates par défaut conviennent à la plupart des cas ; modifiez-les si vous voulez une rangée plus tôt ou plus tard.",
+      seasonFrom: "Du",
+      seasonTo: "au",
+      seasonReset: "Rétablir les dates par défaut",
+      seasonName: { halloween: "Halloween", christmas: "Noël", newYear: "Nouvel An", valentine: "Saint-Valentin", easter: "Pâques", summer: "Été" },
+      easter: { before: "jours avant Pâques", after: "jours après" },
       trailerSearchTitle: "Bandes-annonces",
       trailerSearchHint: "Quand TMDb n'a pas de bande-annonce dans ta langue, cherche-en une sur YouTube au lieu de retomber sur l'anglais. Désactivé par défaut — ce n'est pas une API officielle, ça dépend de YouTube.",
       trailerSearchEnabled: "Chercher sur YouTube si besoin",

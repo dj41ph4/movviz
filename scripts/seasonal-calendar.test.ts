@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { activeSeason, easterSunday } from "../src/lib/seasonal/calendar.ts";
+import { activeSeason, easterSunday, sanitizeSeasonSettings } from "../src/lib/seasonal/calendar.ts";
 
 const at = (iso: string) => activeSeason(new Date(`${iso}T12:00:00Z`));
 
@@ -22,4 +22,12 @@ test("Pâques : calcul et fenêtre", () => {
   assert.equal(at("2027-03-20"), "easter");
   assert.equal(at("2027-03-29"), "easter");
   assert.equal(at("2027-03-31"), null);
+});
+
+test("dates personnalisées remplacent les dates par défaut", () => {
+  const settings = sanitizeSeasonSettings({ windows: { christmas: { start: "12-01", end: "12-31" }, halloween: { start: "13-99", end: "x" } }, easter: { before: 3, after: 0 } });
+  assert.equal(activeSeason(new Date("2026-11-20T12:00:00Z"), settings), null);
+  assert.equal(activeSeason(new Date("2026-12-10T12:00:00Z"), settings), "christmas");
+  assert.equal(activeSeason(new Date("2026-10-15T12:00:00Z"), settings), "halloween");
+  assert.equal(activeSeason(new Date("2027-03-20T12:00:00Z"), settings), null);
 });

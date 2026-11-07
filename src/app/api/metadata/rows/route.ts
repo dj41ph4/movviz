@@ -157,9 +157,10 @@ export async function GET(req: NextRequest) {
   // (section « seasonal » du tableau de bord). `?date=AAAA-MM-JJ` simule un jour.
   const dateParam = req.nextUrl.searchParams.get("date");
   const simulated = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(`${dateParam}T12:00:00Z`) : null;
-  const seasonalEnabled = !user || loadDashboardLayout(user.id).sections.find((s) => s.id === "seasonal")?.visible !== false;
+  const dashboardLayout = user ? loadDashboardLayout(user.id) : null;
+  const seasonalEnabled = dashboardLayout?.sections.find((s) => s.id === "seasonal")?.visible !== false;
   const seasonalRow = seasonalEnabled
-    ? part(`seasonal:${(simulated ?? new Date()).toISOString().slice(0, 10)}`, () => buildSeasonalRow(simulated ?? new Date()), null)
+    ? part(`seasonal:${(simulated ?? new Date()).toISOString().slice(0, 10)}:${JSON.stringify(dashboardLayout?.seasonDates ?? null)}`, () => buildSeasonalRow(simulated ?? new Date(), dashboardLayout?.seasonDates), null)
     : Promise.resolve(null);
   const finish = async (baseRows: { key: string; results: MetaSearchResult[] }[]) => {
     const seasonal = await seasonalRow;

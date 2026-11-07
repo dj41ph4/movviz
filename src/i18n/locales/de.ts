@@ -1763,6 +1763,13 @@ export const de: Dictionary = {
     tabDiagnostics: "Diagnose und Leistung",
     dashboardExperience: {
       saveError: "Dashboard-Einstellungen konnten nicht gespeichert werden.",
+      seasonDatesTitle: "Daten der Ereignisse",
+      seasonDatesHint: "Jedes Ereignis erscheint in diesem Zeitraum automatisch auf der Startseite und in Entdecken. Die Standarddaten passen meist; ändere sie, wenn die Reihe früher oder später erscheinen soll.",
+      seasonFrom: "Vom",
+      seasonTo: "bis",
+      seasonReset: "Standarddaten wiederherstellen",
+      seasonName: { halloween: "Halloween", christmas: "Weihnachten", newYear: "Neujahr", valentine: "Valentinstag", easter: "Ostern", summer: "Sommer" },
+      easter: { before: "Tage vor Ostern", after: "Tage danach" },
       trailerSearchTitle: "Trailer",
       trailerSearchHint: "Wenn TMDb keinen Trailer in deiner Sprache hat, wird stattdessen einer auf YouTube gesucht, statt auf Englisch zurückzufallen. Standardmäßig deaktiviert — das ist keine offizielle API, es hängt von YouTube ab.",
       trailerSearchEnabled: "Bei Bedarf auf YouTube suchen",

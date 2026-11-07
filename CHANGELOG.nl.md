@@ -1,3 +1,9 @@
+## v1.28.84 — 7 november 2026
+
+### Feestdagen & evenementen
+
+- Instellingen → Ervaring: je kunt de data van elk evenement kiezen (Halloween, Kerst, Nieuwjaar, Valentijnsdag, zomer en de dagen voor/na Pasen). De standaarddata blijven die van v1.28.83, met een knop om ze te herstellen. Geldt voor de startpagina, Ontdekken en de apps voor Android TV, Android-mobiel en Samsung.
+
 ## v1.28.83 — 7 november 2026
 
 ### Feestdagen & evenementen

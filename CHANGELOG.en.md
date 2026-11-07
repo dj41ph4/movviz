@@ -1,3 +1,9 @@
+## v1.28.84 — 7 November 2026
+
+### Holidays & events
+
+- Settings → Experience: you can choose the dates of each event (Halloween, Christmas, New Year, Valentine's Day, summer, and the days before/after Easter). Defaults stay those of v1.28.83, with a button to restore them. The choice applies to the home page, Discover and the Android TV, Android mobile and Samsung apps.
+
 ## v1.28.83 — 7 November 2026
 
 ### Holidays & events

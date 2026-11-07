@@ -1,3 +1,9 @@
+## v1.28.84 — 7 novembre 2026
+
+### Feste ed eventi
+
+- Impostazioni → Esperienza: si possono scegliere le date di ogni evento (Halloween, Natale, Capodanno, San Valentino, estate e i giorni prima/dopo Pasqua). Le date predefinite restano quelle della v1.28.83, con un pulsante per ripristinarle. Vale per home, Scopri e le app Android TV, Android mobile e Samsung.
+
 ## v1.28.83 — 7 novembre 2026
 
 ### Feste ed eventi

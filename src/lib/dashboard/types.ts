@@ -1,3 +1,5 @@
+import { sanitizeSeasonSettings, type SeasonSettings } from "@/lib/seasonal/calendar";
+
 export const DASHBOARD_WIDGET_IDS = [
   "movies",
   "series",
@@ -70,6 +72,8 @@ export interface DashboardLayout {
    * server's IP.
    */
   youtubeTrailerSearch: boolean;
+  /** Dates personnalisées des rangées d'événements (Halloween, Noël…) ; vide = dates par défaut. */
+  seasonDates: SeasonSettings;
 }
 
 const DEFAULT_HERO_SETTINGS: DashboardHeroSettings = {
@@ -99,6 +103,7 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   sections: DEFAULT_SECTIONS,
   widgets: [...DASHBOARD_WIDGET_IDS],
   youtubeTrailerSearch: false,
+  seasonDates: { windows: {} },
 };
 
 function isWidgetId(value: unknown): value is DashboardWidgetId {
@@ -191,5 +196,6 @@ export function sanitizeDashboardLayout(input: unknown): DashboardLayout {
     sections: sanitizeSections(obj.sections),
     widgets: sanitizeWidgets(obj.widgets),
     youtubeTrailerSearch: typeof obj.youtubeTrailerSearch === "boolean" ? obj.youtubeTrailerSearch : DEFAULT_DASHBOARD_LAYOUT.youtubeTrailerSearch,
+    seasonDates: sanitizeSeasonSettings(obj.seasonDates),
   };
 }

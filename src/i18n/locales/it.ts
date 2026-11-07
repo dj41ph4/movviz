@@ -1744,6 +1744,13 @@ export const it: Dictionary = {
     tabDiagnostics: "Diagnostica e prestazioni",
     dashboardExperience: {
       saveError: "Impossibile salvare le impostazioni della dashboard.",
+      seasonDatesTitle: "Date degli eventi",
+      seasonDatesHint: "Ogni evento compare da solo nella home e in Scopri durante queste date. Quelle predefinite vanno bene per la maggior parte; modificale se vuoi una fila prima o dopo.",
+      seasonFrom: "Dal",
+      seasonTo: "al",
+      seasonReset: "Ripristina le date predefinite",
+      seasonName: { halloween: "Halloween", christmas: "Natale", newYear: "Capodanno", valentine: "San Valentino", easter: "Pasqua", summer: "Estate" },
+      easter: { before: "giorni prima di Pasqua", after: "giorni dopo" },
       trailerSearchTitle: "Trailer",
       trailerSearchHint: "Quando TMDb non ha un trailer nella tua lingua, cercane uno su YouTube invece di ripiegare sull'inglese. Disattivato di default — non è un'API ufficiale, dipende da YouTube.",
       trailerSearchEnabled: "Cerca su YouTube se necessario",
