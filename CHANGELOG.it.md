@@ -1,3 +1,16 @@
+## v1.28.102 — 9 novembre 2026
+
+### Libreria
+
+- Una release scelta a mano ora sostituisce ciò che esiste già: per una stagione o una serie completa vengono presi di mira tutti gli episodi interessati (non solo quelli mancanti), il vecchio file viene eliminato e il nuovo prende il nome finale, senza “(2)” accanto. Causa trovata con la serie completa di Batman: la ricerca manuale puntava per impostazione predefinita alla stagione 0 (uno special mancante), il pacchetto da 24,7 GB è stato archiviato in quella sola stagione e un solo file è stato importato.
+- Una serie completa scelta da una stagione è trattata come l'intera serie (Attività mostra “Serie completa — N episodi”) e “Intégral” è riconosciuto come marcatore di serie completa. La ricerca manuale non punta più agli special per impostazione predefinita.
+- I pacchetti i cui file non riportano né stagione né episodio (“002 Le Chat et La Souris (2e partie).mkv”) vengono abbinati per titolo e non per numero, che non segue TMDb: nella serie completa di Batman tutti gli 85 episodi trovano il file giusto, parti 1 e 2 comprese.
+- “Mr Bean The Animated Series” non viene più scambiato per “Batman: The Animated Series”: due titoli che condividono un suffisso ma differiscono per una parola non corrispondono più.
+
+### Test
+
+- I 5 errori esistenti della suite sono corretti (indice di ricerca delle Impostazioni, ordine delle righe della dashboard, memoria della griglia Android TV, profilo qualità simulato, dati isolati delle righe consigliate).
+
 ## v1.28.101 — 8 novembre 2026
 
 ### Prestazioni

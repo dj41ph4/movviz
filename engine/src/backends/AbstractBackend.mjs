@@ -13,6 +13,7 @@ import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR } from "../config.mjs
 import { kaamelottLongEpisode } from "../kaamelottLongCut.mjs";
 import { ManualSeed, cacheMetainfo, retainMetainfo, torrentPath } from "../manualSeed.mjs";
 import { validateEpisodeTargets, resolveEpisodePlacement, ensurePresentationFolder } from "../episodePlacement.mjs";
+import { assignFilesByTitle } from "../episodeTitleMatch.mjs";
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
@@ -1013,10 +1014,11 @@ export class AbstractBackend {
     const matchedTargetByFile = new Map();
     const placementByFile = new Map();
     validateEpisodeTargets(targetList ?? []);
+    const titleMap = targetList ? this._titleAssignment(snap.files, targetList) : null;
     const availableFiles = snap.files.filter((f) => {
       if (f.selected === false) return false;
       if (!targetList) return true;
-      const matches = targetList.filter((t) => this._matchesEpisode(f, t, targetList));
+      const matches = targetList.filter((t) => this._matchesEpisode(f, t, targetList, titleMap));
       if (matches.length) {
         matchedTargetByFile.set(f, matches[0]);
         const placement = resolveEpisodePlacement(matches, parseRelease(f.name), f.name);
@@ -1520,10 +1522,28 @@ export class AbstractBackend {
     return m ? parseInt(m[1], 10) : null;
   }
 
-  _matchesEpisode(f, target, allTargets = []) {
+  /** Pack sans saison ni épisode dans ses noms de fichiers (« 002 Le Chat et La Souris.mkv ») dont les
+   *  cibles portent un titre : appariement par TITRE (voir episodeTitleMatch.mjs), jamais par numéro,
+   *  qui ne suit pas la numérotation TMDb. null quand le mode ne s'applique pas. */
+  _titleAssignment(files, targets) {
+    if (!Array.isArray(files) || !files.length || !Array.isArray(targets)) return null;
+    return assignFilesByTitle(files, targets, (f) => {
+      if (kaamelottLongEpisode(f.name) != null) return false;
+      const info = parseRelease(f.name);
+      return info.season == null && info.episode == null;
+    });
+  }
+
+  _matchesEpisode(f, target, allTargets = [], titleMap = null) {
     const kaamelottEpisode = kaamelottLongEpisode(f.name);
     if (kaamelottEpisode != null) return target.season === 5 && target.episode === kaamelottEpisode;
     const info = parseRelease(f.name);
+    // Fichier de pack « à titres » : seul son titre décide (un fichier non apparié reste non apparié,
+    // plutôt que rangé sous un autre épisode à cause de sa position dans le pack).
+    if (titleMap && info.season == null && info.episode == null && VIDEO_EXT_RE.test(f.name)) {
+      const assigned = titleMap.get(f.path ?? f.name);
+      return !!assigned && assigned.season === target.season && assigned.episode === target.episode;
+    }
     // Absolutely numbered packs (Bleach: 366 episodes, no season) are filed by
     // the target's absolute number — a local number would match one episode
     // in every season at once, or none past the first season's length.
@@ -1597,13 +1617,14 @@ export class AbstractBackend {
       }
     }
     const matches = [];
+    const titleMap = this._titleAssignment(handle.files, targets);
     handle.files.forEach((f, i) => {
       for (const target of targets) {
-        if (this._matchesEpisode(f, target, targets)) { matches.push(i); break; }
+        if (this._matchesEpisode(f, target, targets, titleMap)) { matches.push(i); break; }
       }
     });
 
-    if (matches.length === 0 && targets.length === 1) {
+    if (matches.length === 0 && targets.length === 1 && !titleMap) {
       const target = targets[0];
       let ctxSeason = parseRelease(handle.name).season;
       if (ctxSeason == null) {

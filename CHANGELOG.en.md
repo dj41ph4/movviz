@@ -1,3 +1,16 @@
+## v1.28.102 — November 9, 2026
+
+### Library
+
+- A manually chosen release now replaces what already exists: for a season or a complete series, every episode in scope is targeted (not only the missing ones), the old file is deleted and the new one takes the final name, with no "(2)" left beside it. Cause found with the Batman complete series: manual search defaulted to season 0 (one missing special), the 24.7 GB pack was filed into that single season and only one file was imported.
+- A complete series chosen from a season is treated as the whole series (Activity shows "Complete series — N episodes"), and "Intégral" is recognised as a complete-series marker. Manual search no longer targets specials by default.
+- Packs whose files carry neither season nor episode ("002 Le Chat et La Souris (2e partie).mkv") are matched by title rather than number, which does not follow TMDb: on the Batman complete series all 85 episodes get the right file, parts 1 and 2 included.
+- "Mr Bean The Animated Series" is no longer taken for "Batman: The Animated Series": two titles that share a suffix but differ by one word no longer match.
+
+### Tests
+
+- The 5 existing suite failures are fixed (Settings search index, dashboard row order, Android TV grid memory, simulated quality profile, isolated data for recommended rows).
+
 ## v1.28.101 — 8 November 2026
 
 ### Performance

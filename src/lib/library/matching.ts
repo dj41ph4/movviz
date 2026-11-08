@@ -141,7 +141,8 @@ function containsAsWords(haystack: string, needle: string): boolean {
 function hasWholesaleWordSubstitution(na: string, nb: string): boolean {
   const wa = na.split(" ").filter(Boolean);
   const wb = nb.split(" ").filter(Boolean);
-  if (wa.length !== wb.length || wa.length < 2) return false;
+  if (wa.length !== wb.length) return hasUnmatchedWordOfShorterTitle(wa, wb);
+  if (wa.length < 2) return false;
   for (let i = 0; i < wa.length; i++) {
     if (wa[i] === wb[i]) continue;
     const wDist = levenshtein(wa[i], wb[i]);
@@ -151,6 +152,31 @@ function hasWholesaleWordSubstitution(na: string, nb: string): boolean {
     // a genuinely different word standing in the same position, not a
     // variant of the same one.
     if (wMaxLen === 0 || wDist / wMaxLen > 0.25) return true;
+  }
+  return false;
+}
+
+/**
+ * Different word counts: "Mr Bean The Animated Series" against "Batman: The Animated
+ * Series" is 78% similar by characters because three of the words are shared, yet it is
+ * another show (confirmed live: it was downloaded as Batman's season 1). When the SHORTER
+ * title holds a word with no equivalent (exact or plausible spelling variant) among the
+ * longer one's remaining words, a word was substituted rather than merely added.
+ */
+function hasUnmatchedWordOfShorterTitle(wa: string[], wb: string[]): boolean {
+  const [shorter, longer] = wa.length < wb.length ? [wa, wb] : [wb, wa];
+  if (shorter.length < 2) return false;
+  const pool = [...longer];
+  const rest: string[] = [];
+  for (const word of shorter) {
+    const at = pool.indexOf(word);
+    if (at >= 0) pool.splice(at, 1);
+    else rest.push(word);
+  }
+  for (const word of rest) {
+    const at = pool.findIndex((other) => levenshtein(word, other) / Math.max(word.length, other.length) <= 0.25);
+    if (at < 0) return true;
+    pool.splice(at, 1);
   }
   return false;
 }

@@ -1,3 +1,16 @@
+## v1.28.102 — 9 november 2026
+
+### Bibliotheek
+
+- Een handmatig gekozen release vervangt nu wat al bestaat: bij een seizoen of complete serie worden alle betrokken afleveringen gericht (niet alleen de ontbrekende), het oude bestand wordt verwijderd en het nieuwe krijgt de definitieve naam, zonder “(2)” ernaast. Oorzaak bij de complete Batman-serie: handmatig zoeken richtte standaard op seizoen 0 (één ontbrekende special), het pakket van 24,7 GB werd in dat ene seizoen geplaatst en er werd maar één bestand geïmporteerd.
+- Een vanuit een seizoen gekozen complete serie wordt als de hele serie behandeld (Activiteit toont “Complete serie — N afleveringen”) en “Intégral” wordt herkend als marker voor een complete serie. Handmatig zoeken richt standaard niet meer op specials.
+- Pakketten waarvan de bestanden geen seizoen of aflevering dragen (“002 Le Chat et La Souris (2e partie).mkv”) worden op titel gekoppeld in plaats van op nummer, dat TMDb niet volgt: bij de complete Batman-serie vinden alle 85 afleveringen het juiste bestand, inclusief deel 1 en 2.
+- “Mr Bean The Animated Series” wordt niet meer aangezien voor “Batman: The Animated Series”: titels met een gedeeld achtervoegsel maar een afwijkend woord komen niet meer overeen.
+
+### Tests
+
+- De 5 bestaande fouten van de testsuite zijn opgelost (zoekindex van de Instellingen, volgorde van dashboardrijen, Android TV-rastergeheugen, gesimuleerd kwaliteitsprofiel, geïsoleerde gegevens van aanbevolen rijen).
+
 ## v1.28.101 — 8 november 2026
 
 ### Prestaties

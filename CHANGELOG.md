@@ -1,3 +1,16 @@
+## v1.28.102 — 9 novembre 2026
+
+### Bibliothèque
+
+- Une release choisie à la main remplace maintenant ce qui existe déjà : saison ou intégrale, tous les épisodes concernés sont visés (et plus seulement ceux qui manquent), l'ancien fichier est supprimé et le nouveau reprend le nom final, sans « (2) » à côté. Cause constatée avec l'intégrale de Batman : la recherche manuelle visait par défaut la saison 0 (un épisode spécial manquant), le pack de 24,7 Go a été rangé dans cette seule saison et un seul fichier a été importé.
+- Une intégrale choisie depuis une saison est traitée comme la série entière (Activité affiche « Intégrale — N épisodes »), et « Intégral » est reconnu comme marqueur d'intégrale. La recherche manuelle ne vise plus les épisodes spéciaux par défaut.
+- Les packs dont les fichiers n'ont ni saison ni épisode (« 002 Le Chat et La Souris (2e partie).mkv ») sont appariés par titre et non par numéro, qui ne suit pas TMDb : sur l'intégrale de Batman, les 85 épisodes retrouvent le bon fichier, parties 1 et 2 comprises.
+- « Mr Bean The Animated Series » n'est plus pris pour « Batman : La Série animée » : deux titres qui partagent un suffixe mais dont un mot diffère ne correspondent plus.
+
+### Tests
+
+- Les 5 échecs existants de la suite sont corrigés (index de recherche des Réglages, ordre des rangées du tableau de bord, mémoire de grille Android TV, profil de qualité simulé, données isolées des rangées recommandées).
+
 ## v1.28.101 — 8 novembre 2026
 
 ### Performances

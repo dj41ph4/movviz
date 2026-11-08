@@ -37,6 +37,7 @@ import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBacko
 import { BLEACH_TMDB_ID, needsBleachRepair, knownBleachEpisode, bleachCourForEpisode, BLEACH_TYBW_COURS } from "@/lib/metadata/bleachEpisodeOrder";
 import { bleachMatchingTitle, bleachReleaseSource, bleachReleaseTargets, bleachIndexerQueries, bleachReleaseYearCompatible, bleachCompletePackCovers } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
+import { withEpisodeTitles } from "@/lib/library/episodeTargetTitles";
 import { scopedBleachSeries, bleachEpisodeInScope, type BleachSeriesPart } from "@/lib/library/bleachScope";
 
 /**
@@ -818,7 +819,7 @@ async function sendToEngine(
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
       headers: engineHeaders({ "content-type": "application/json" }),
-      body: JSON.stringify({ ...payload, category, libraryRef, title, episodeTarget: planned.single, episodeTargets: planned.multiple, rejectMissingSeriesPack, autoPackReleaseTitle: rejectMissingSeriesPack ? release.title : undefined }),
+      body: JSON.stringify({ ...payload, category, libraryRef, title, episodeTarget: planned.single, episodeTargets: planned.targets ? planned.multiple : withEpisodeTitles(libraryRef, planned.multiple), rejectMissingSeriesPack, autoPackReleaseTitle: rejectMissingSeriesPack ? release.title : undefined }),
       signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
     });
     const torrent = await res.json();

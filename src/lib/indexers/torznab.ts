@@ -792,7 +792,7 @@ export const COMPLETE_SERIES_TERMS = [
   "Full Series", "Full Collection", "Entire Series", "All Seasons",
   "Series Complete", "Collection Complete", "The Complete",
   // French
-  "Intégrale", "Intégrale Complète", "Integrale", "Integral",
+  "Intégrale", "Intégral", "Intégrale Complète", "Integrale", "Integral",
   "Saisons complètes", "Saison complète", "Collection complète",
   "Série complète", "Coffret intégral", "Coffret complet",
   "Toutes les saisons", "La série complète", "Complet", "Complète",

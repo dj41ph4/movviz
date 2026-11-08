@@ -60,7 +60,7 @@ const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
 // truth). Complete-series pack markers, all languages scene releases
 // actually use: English, French, Italian, Spanish, Portuguese, Dutch,
 // German, Polish. Single line: regex literals cannot span lines.
-const PACK_DESC_RE = /\b(Complete[.\s]+(Series|Collection|Boxset|Box[.\s]Set|Seasons?|Edition|Set)|Complete|Full[.\s]+Series|Full[.\s]+Collection|Entire[.\s]+Series|All[.\s]+Seasons|Series[.\s]+Complete|Collection[.\s]+Complete|The[.\s]+Complete|Int[ée]grale|Int[ée]grale[.\s]+Compl[èe]te|Integral|Saisons?[.\s]+compl[èe]te?s?|Collection[.\s]+compl[èe]te|S[ée]rie[.\s]+compl[èe]te|Coffret[.\s]*(int[ée]gral|complet)|Toutes[.\s]+les[.\s]+saisons|La[.\s]+s[ée]rie[.\s]+compl[èe]te|Complet|Compl[èe]te|Serie[.\s]+Completa|Completa|Temporadas[.\s]+Completas|Colecci[oó]n[.\s]+Completa|Edici[oó]n[.\s]+Completa|(?:Todos?|Todas)[.\s]+(?:los|las)[.\s]+(?:episodios|temporadas)|S[ée]rie[.\s]+Compl[èe]te|S[ée]rie[.\s]+Completa|Cole[çc][ãa]o[.\s]+Completa|Temporadas[.\s]+Completas|Complete[.\s]+Serie|Compleet|Volledige[.\s]+(serie|collectie)|Alle[.\s]+seizoenen|Komplette[.\s]+Serie|Komplett|Komplettbox|Alle[.\s]+Staffeln|Komplette[.\s]+Sammlung|Wszystkie[.\s]+sezony|Pe[łl]na[.\s]+seria|Kompletna[.\s]+seria)\b/i;
+const PACK_DESC_RE = /\b(Complete[.\s]+(Series|Collection|Boxset|Box[.\s]Set|Seasons?|Edition|Set)|Complete|Full[.\s]+Series|Full[.\s]+Collection|Entire[.\s]+Series|All[.\s]+Seasons|Series[.\s]+Complete|Collection[.\s]+Complete|The[.\s]+Complete|Int[ée]grale|Int[ée]grale[.\s]+Compl[èe]te|Int[ée]gral|Saisons?[.\s]+compl[èe]te?s?|Collection[.\s]+compl[èe]te|S[ée]rie[.\s]+compl[èe]te|Coffret[.\s]*(int[ée]gral|complet)|Toutes[.\s]+les[.\s]+saisons|La[.\s]+s[ée]rie[.\s]+compl[èe]te|Complet|Compl[èe]te|Serie[.\s]+Completa|Completa|Temporadas[.\s]+Completas|Colecci[oó]n[.\s]+Completa|Edici[oó]n[.\s]+Completa|(?:Todos?|Todas)[.\s]+(?:los|las)[.\s]+(?:episodios|temporadas)|S[ée]rie[.\s]+Compl[èe]te|S[ée]rie[.\s]+Completa|Cole[çc][ãa]o[.\s]+Completa|Temporadas[.\s]+Completas|Complete[.\s]+Serie|Compleet|Volledige[.\s]+(serie|collectie)|Alle[.\s]+seizoenen|Komplette[.\s]+Serie|Komplett|Komplettbox|Alle[.\s]+Staffeln|Komplette[.\s]+Sammlung|Wszystkie[.\s]+sezony|Pe[łl]na[.\s]+seria|Kompletna[.\s]+seria)\b/i;
 
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -235,12 +235,38 @@ function containsAsWords(haystack, needle) {
 function hasWholesaleWordSubstitution(na, nb) {
   const wa = na.split(" ").filter(Boolean);
   const wb = nb.split(" ").filter(Boolean);
-  if (wa.length !== wb.length || wa.length < 2) return false;
+  if (wa.length !== wb.length) return hasUnmatchedWordOfShorterTitle(wa, wb);
+  if (wa.length < 2) return false;
   for (let i = 0; i < wa.length; i++) {
     if (wa[i] === wb[i]) continue;
     const wDist = levenshtein(wa[i], wb[i]);
     const wMaxLen = Math.max(wa[i].length, wb[i].length);
     if (wMaxLen === 0 || wDist / wMaxLen > 0.25) return true;
+  }
+  return false;
+}
+
+/**
+ * Different word counts: "Mr Bean The Animated Series" against "Batman: The Animated
+ * Series" is 78% similar by characters because three of the words are shared, yet it is
+ * another show (confirmed live: it was downloaded as Batman's season 1). When the SHORTER
+ * title holds a word with no equivalent (exact or plausible spelling variant) among the
+ * longer one's remaining words, a word was substituted rather than merely added.
+ */
+function hasUnmatchedWordOfShorterTitle(wa, wb) {
+  const [shorter, longer] = wa.length < wb.length ? [wa, wb] : [wb, wa];
+  if (shorter.length < 2) return false;
+  const pool = [...longer];
+  const rest = [];
+  for (const word of shorter) {
+    const at = pool.indexOf(word);
+    if (at >= 0) pool.splice(at, 1);
+    else rest.push(word);
+  }
+  for (const word of rest) {
+    const at = pool.findIndex((other) => levenshtein(word, other) / Math.max(word.length, other.length) <= 0.25);
+    if (at < 0) return true;
+    pool.splice(at, 1);
   }
   return false;
 }

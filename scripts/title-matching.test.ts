@@ -149,3 +149,20 @@ test("une release qui raccourcit le titre officiel reste acceptée (Tafiti)", ()
   const parsed = parseRelease("Tafiti.2026.MULTi.VFF.1080p.WEB.H264");
   assert.equal(releaseTitleMatches(parsed.title, "Tafiti - Ab durch die Wüste", [], { year: parsed.year, targetYear: 2026 }), true);
 });
+
+test("un titre qui partage un suffixe générique mais change un mot est rejeté (Mr Bean The Animated Series != Batman: The Animated Series)", () => {
+  // Confirmé en direct : « Mr Bean The Animated Series S01 » a été téléchargé comme saison 1 de
+  // « Batman : La Série animée » (78 % de similarité par les caractères, trois mots communs).
+  const aliases = ["Batman: The Animated Series"];
+  assert.equal(releaseTitleMatches("Mr Bean The Animated Series", "Batman : La Série animée", aliases), false);
+  assert.equal(titleSimilarity("Mr Bean The Animated Series", "Batman: The Animated Series") < 0.72, true);
+  // Les vrais titres, eux, restent acceptés.
+  assert.equal(releaseTitleMatches("Batman The Animated Series", "Batman : La Série animée", aliases), true);
+  assert.equal(releaseTitleMatches("Batman La Serie Animee", "Batman : La Série animée"), true);
+});
+
+test("un mot en plus ou une variante orthographique ne sont pas une substitution de mot", () => {
+  assert.equal(titleSimilarity("Dragon Ball Kai", "Dragon Ball Z Kai") >= 0.72, true);
+  assert.equal(titleSimilarity("Naruto Shippuden", "Naruto Shippuuden The Series") >= 0.5, true);
+  assert.equal(titleSimilarity("Spy Family", "Spy x Family") >= 0.72, true);
+});

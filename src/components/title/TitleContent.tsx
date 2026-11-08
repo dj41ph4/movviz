@@ -908,12 +908,15 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
       });
       return;
     }
+    // Les Spéciales (saison 0) ne passent qu'en dernier : un seul épisode spécial manquant ne doit pas
+    // devenir la cible par défaut d'une recherche manuelle (l'intégrale choisie y serait rangée).
+    const incomplete = libraryMatch.seasons?.filter(
+      (s) =>
+        s.episodes.some((e) => e.monitored) &&
+        !s.episodes.every((e) => !e.monitored || e.status === "available" || e.status === "upcoming"),
+    );
     const target =
-      libraryMatch.seasons?.find(
-        (s) =>
-          s.episodes.some((e) => e.monitored) &&
-          !s.episodes.every((e) => !e.monitored || e.status === "available" || e.status === "upcoming"),
-      )?.seasonNumber ?? detail?.seasons?.[0]?.seasonNumber ?? 1;
+      (incomplete?.find((s) => (s.seasonNumber ?? 0) > 0) ?? incomplete?.[0])?.seasonNumber ?? detail?.seasons?.find((s) => (s.seasonNumber ?? 0) > 0)?.seasonNumber ?? detail?.seasons?.[0]?.seasonNumber ?? 1;
     const firstMissing = libraryMatch.seasons?.find(s => s.seasonNumber === target)?.episodes.find(e => e.monitored && e.status !== "available" && e.status !== "upcoming");
     openManualSearchSeason(target, seriesPart === "tybw" ? bleachCour(firstMissing?.episodeNumber ?? 1)?.part ?? 1 : undefined);
   }, [libraryMatch, type, detail, openManualSearchSeason, seriesPart]);

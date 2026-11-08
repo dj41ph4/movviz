@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import { buildGrabPayload } from "@/lib/indexers/grabPayload";
-import { decodeLibraryRef } from "@/lib/library/types";
+import { decodeLibraryRef, encodeLibraryRef } from "@/lib/library/types";
 import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/store";
 import { logActivityV2, createReleaseRef, createDownloadRef } from "@/lib/activity/v2/store";
 import { requireUser } from "@/lib/auth/guard";
@@ -13,6 +13,8 @@ import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeO
 import { bleachReleaseSource, bleachReleaseTargets, isBleachSequelTitle } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
 import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
+import { withEpisodeTitles } from "@/lib/library/episodeTargetTitles";
+import { isCompleteSeriesPackTitle } from "@/lib/library/autoGrabSeries";
 
 export const dynamic = "force-dynamic";
 
@@ -69,8 +71,8 @@ function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replaci
 export async function POST(req: NextRequest) {
   if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json();
-  const libraryRef = typeof body.libraryRef === "string" ? body.libraryRef : null;
-  const decodedRef = libraryRef ? decodeLibraryRef(libraryRef) : null;
+  let libraryRef = typeof body.libraryRef === "string" ? body.libraryRef : null;
+  let decodedRef = libraryRef ? decodeLibraryRef(libraryRef) : null;
   const linkedSeries = decodedRef && decodedRef.kind !== "movie" ? getSeries(decodedRef.seriesId) : null;
   const seriesPart = parseBleachSeriesPart(body.seriesPart);
   const bleachPart = body.bleachPart == null ? undefined : Number(body.bleachPart);
@@ -96,6 +98,16 @@ export async function POST(req: NextRequest) {
   const bleachSource = linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" ? bleachReleaseSource(releaseTitle, decodedRef.season, decodedRef.episode) : null;
   if (linkedSeries?.tmdbId === BLEACH_TMDB_ID && decodedRef?.kind === "episode" && isBleachSequelTitle(releaseTitle)) {
     if (!bleachReleaseTargets([{ season: decodedRef.season, episode: decodedRef.episode }], releaseTitle).length) return NextResponse.json({ error: "season_mismatch" }, { status: 422 });
+  }
+  // Une intégrale choisie depuis une saison (l'écran de recherche cible par défaut la première saison
+  // qui manque, parfois les Spéciales) concerne la série entière : sinon elle est rangée dans cette
+  // seule saison et le reste du pack est ignoré (Batman : 1 fichier importé sur 85).
+  if (decodedRef?.kind === "season" && releaseTitle && linkedSeries && linkedSeries.tmdbId !== BLEACH_TMDB_ID) {
+    const parsed = parseRelease(releaseTitle);
+    if (isCompleteSeriesPackTitle(releaseTitle, linkedSeries.seasons.length, undefined, parsed.episode, parsed.season)) {
+      decodedRef = { kind: "series", seriesId: decodedRef.seriesId };
+      libraryRef = encodeLibraryRef(decodedRef);
+    }
   }
   if (decodedRef?.kind === "season" && releaseTitle) {
     const parsedSeason = parseRelease(releaseTitle).season;
@@ -154,7 +166,10 @@ export async function POST(req: NextRequest) {
         if (!s.monitored && series.tmdbId !== BLEACH_TMDB_ID) continue;
         for (const ep of s.episodes) {
           if (series.tmdbId === BLEACH_TMDB_ID && !bleachEpisodeInScope(s.seasonNumber, ep.episodeNumber, seriesPart, bleachPart)) continue;
-          if (series.tmdbId === BLEACH_TMDB_ID || (ep.monitored && (ep.status === "missing" || ep.status === "searching"))) {
+          // Choix manuel d'une release : elle REMPLACE ce qui existe déjà dans la portée choisie
+          // (saison ou série), pas seulement ce qui manque. Les fichiers déjà présents sont remplacés
+          // à l'import (prepareEpisodeReplacements), jamais doublonnés en « (2) ».
+          if (series.tmdbId === BLEACH_TMDB_ID || ep.monitored) {
             targets.push({ season: s.seasonNumber, episode: ep.episodeNumber });
           }
         }
@@ -175,7 +190,7 @@ export async function POST(req: NextRequest) {
         title: body.title ?? null,
         year: body.year ?? null,
         episodeTarget: planned.single,
-        episodeTargets: planned.multiple,
+        episodeTargets: planned.targets ? planned.multiple : withEpisodeTitles(libraryRef, planned.multiple),
       }),
     });
     const data = await res.json();
