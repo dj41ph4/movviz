@@ -3,6 +3,7 @@ import {
   PLAYBACK_MARKER_TYPES,
   type PlaybackMarker,
   type PlaybackMarkerSource,
+  type PlaybackMarkerType,
 } from "./types.ts";
 
 /**
@@ -20,10 +21,12 @@ import {
 export function mergeMarkers(
   markers: readonly PlaybackMarker[],
   priority: readonly PlaybackMarkerSource[] = PLAYBACK_MARKER_SOURCES,
+  /** Ordre propre à un type, quand il diffère de l'ordre général. */
+  typePriority: Partial<Record<PlaybackMarkerType, readonly PlaybackMarkerSource[]>> = {},
 ): PlaybackMarker[] {
   const out: PlaybackMarker[] = [];
   for (const type of PLAYBACK_MARKER_TYPES) {
-    for (const source of priority) {
+    for (const source of typePriority[type] ?? priority) {
       const picked = markers.filter((m) => m.type === type && m.source === source);
       if (picked.length > 0) {
         out.push(...picked);

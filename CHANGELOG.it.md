@@ -1,3 +1,9 @@
+## v1.28.100 — 8 novembre 2026
+
+### Lettore
+
+- I titoli di coda di TheIntroDB sostituiscono quelli di Plex quando esistono (impostazione Metadati su «Tutto»); Plex resta il ripiego se TheIntroDB non ne ha. Gli altri indicatori (intro, riassunto, anteprima) non cambiano.
+
 ## v1.28.99 — 8 novembre 2026
 
 ### Lettore

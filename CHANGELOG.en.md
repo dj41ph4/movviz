@@ -1,3 +1,9 @@
+## v1.28.100 — 8 November 2026
+
+### Player
+
+- The TheIntroDB credits marker now replaces Plex's when it exists (Metadata setting on "All"); Plex remains the fallback when TheIntroDB has none. Other markers (intro, recap, preview) are unchanged.
+
 ## v1.28.99 — 8 November 2026
 
 ### Player

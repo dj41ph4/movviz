@@ -1,3 +1,9 @@
+## v1.28.100 — 8 novembre 2026
+
+### Lecteur
+
+- Le générique de TheIntroDB remplace celui de Plex quand il existe (réglage Métadonnées sur « Tout ») ; Plex reste le repli quand TheIntroDB n'en a pas. Les autres repères (intro, récap, aperçu) ne changent pas.
+
 ## v1.28.99 — 8 novembre 2026
 
 ### Lecteur

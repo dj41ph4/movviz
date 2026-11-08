@@ -1,3 +1,9 @@
+## v1.28.100 — 8 november 2026
+
+### Speler
+
+- De generiek van TheIntroDB vervangt die van Plex wanneer die bestaat (instelling Metadata op „Alles”); Plex blijft de terugval als TheIntroDB er geen heeft. De andere markeringen (intro, terugblik, preview) blijven ongewijzigd.
+
 ## v1.28.99 — 8 november 2026
 
 ### Speler

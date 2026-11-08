@@ -1,3 +1,9 @@
+## v1.28.100 — 8 November 2026
+
+### Player
+
+- Der Abspann von TheIntroDB ersetzt den von Plex, wenn es einen gibt (Einstellung Metadaten auf „Alle“); Plex bleibt der Ersatz, wenn TheIntroDB keinen hat. Die übrigen Markierungen (Intro, Rückblick, Vorschau) bleiben unverändert.
+
 ## v1.28.99 — 8 November 2026
 
 ### Player

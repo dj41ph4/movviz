@@ -81,6 +81,18 @@ test("a type is never mixed between two sources and keeps every block of the win
   assert.deepEqual(merged.map((m) => m.id), ["plex-credits-1000", "plex-credits-5000"]);
 });
 
+test("a per-type priority lets theintrodb credits replace plex's, plex stays the fallback", () => {
+  const typePriority = { credits: ["theintrodb", "plex"] } as const;
+  const both = mergeMarkers([
+    marker("plex", "intro", 60_000, 90_000),
+    marker("plex", "credits", 2_400_000, 2_500_000),
+    marker("theintrodb", "credits", 2_380_000, 2_440_000),
+  ], ["plex", "theintrodb"], typePriority);
+  assert.deepEqual(both.map((m) => `${m.source}:${m.type}`), ["plex:intro", "theintrodb:credits"]);
+  const plexOnly = mergeMarkers([marker("plex", "credits", 2_400_000, 2_500_000)], ["plex", "theintrodb"], typePriority);
+  assert.deepEqual(plexOnly.map((m) => `${m.source}:${m.type}`), ["plex:credits"]);
+});
+
 test("priority can exclude a source (plex only)", () => {
   const merged = mergeMarkers(
     [marker("theintrodb", "recap", 0, 1_000), marker("plex", "intro", 2_000, 3_000)],

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { plexConfigured } from "@/lib/plex/store";
-import type { PlaybackMarkerSource } from "@/lib/playback/markers/types";
+import type { PlaybackMarkerSource, PlaybackMarkerType } from "@/lib/playback/markers/types";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -47,6 +47,12 @@ export function plexMarkersEnabled(): boolean {
 /** TheIntroDB fournit des repères (requêtes sortantes autorisées). */
 export function externalMarkersEnabled(): boolean {
   return effectiveMarkerSourceMode() !== "plex-only";
+}
+
+/** Le générique de TheIntroDB (communautaire, souvent avec la scène post-générique
+ *  correctement bornée) remplace celui de Plex quand il existe ; Plex reste le repli. */
+export function markerTypePriority(): Partial<Record<PlaybackMarkerType, readonly PlaybackMarkerSource[]>> {
+  return effectiveMarkerSourceMode() === "all" ? { credits: ["theintrodb", "plex"] } : {};
 }
 
 /** Sources lues à la lecture, de la plus prioritaire à la moins prioritaire. */

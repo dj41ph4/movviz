@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { markerSourcePriority } from "@/lib/settings/markerSources";
+import { markerSourcePriority, markerTypePriority } from "@/lib/settings/markerSources";
 import { mergeMarkers } from "./merge";
 import {
   emptyPlaybackMarkerStore,
@@ -50,7 +50,7 @@ export function getPlaybackMarkers(...keys: (string | null | undefined)[]): Play
   }
   // Réglage Paramètres → Métadonnées : « Plex uniquement » masque les autres
   // sources sans les effacer (le choix reste réversible).
-  return mergeMarkers(all, markerSourcePriority());
+  return mergeMarkers(all, markerSourcePriority(), markerTypePriority());
 }
 
 export function getMarkerRecord(key: string): MediaMarkerRecord | null {
