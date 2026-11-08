@@ -441,6 +441,49 @@ class NamedCache {
     this.saveToDisk();
   }
 
+  /**
+   * Poids du cache par type de réponse (clé normalisée : identifiants numériques → :id, clé API
+   * retirée, seul append_to_response gardé). Réservé au diagnostic : ne mesure que les entrées
+   * déjà mesurées plus un lot par appel (même budget que stats()), donc quelques appels
+   * successifs suffisent à tout couvrir sans geler le serveur.
+   */
+  breakdown(top = 40) {
+    let budget = MEASURE_BUDGET_PER_STATS_CALL;
+    let unmeasured = 0;
+    const groups = new Map<string, { entries: number; bytes: number; max: number }>();
+    for (const [k, entry] of this.store) {
+      if (entry.sizeBytes === undefined) {
+        if (budget <= 0) { unmeasured++; continue; }
+        budget--;
+        try { entry.sizeBytes = approxJsonSize(entry.value); } catch { entry.sizeBytes = 0; }
+      }
+      const size = entry.sizeBytes;
+      let label = k;
+      try {
+        const url = new URL(k);
+        const append = url.searchParams.get("append_to_response");
+        label = url.pathname.replace(/^\/3\//, "/").replace(/\d{2,}/g, ":id") + (append ? " +" + append : "");
+      } catch {
+        label = k.replace(/\d{2,}/g, ":id").slice(0, 80);
+      }
+      const g = groups.get(label) ?? { entries: 0, bytes: 0, max: 0 };
+      g.entries++;
+      g.bytes += size;
+      if (size > g.max) g.max = size;
+      groups.set(label, g);
+    }
+    const total = [...groups.values()].reduce((a, g) => a + g.bytes, 0);
+    return {
+      name: this.name,
+      unmeasuredEntries: unmeasured,
+      totalBytes: total,
+      groups: [...groups.entries()]
+        .map(([label, g]) => ({ label, entries: g.entries, bytes: g.bytes, avgBytes: Math.round(g.bytes / g.entries), maxBytes: g.max, percent: total ? Math.round((g.bytes / total) * 1000) / 10 : 0 }))
+        .sort((a, b) => b.bytes - a.bytes)
+        .slice(0, top),
+    };
+  }
+
   stats() {
     let keySize = 0;
     let measuredSize = 0;
@@ -521,4 +564,9 @@ export function clearCache(name: string): boolean {
   if (!cache) return false;
   cache.clear();
   return true;
+}
+
+
+export function cacheBreakdown(name: string) {
+  return registry.get(name)?.breakdown() ?? null;
 }

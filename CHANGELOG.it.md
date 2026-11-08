@@ -1,3 +1,9 @@
+## v1.28.96 — 8 novembre 2026
+
+### Diagnostica
+
+- `/api/cache?breakdown=<nome della cache>` (amministratore) fornisce il peso di una cache per tipo di risposta (numero di voci, dimensione totale, media, massimo, quota in %), ad esempio per capire quali risposte TMDb occupano i 700 MB della cache. La misura avviene a lotti: ripetere la chiamata finché `unmeasuredEntries` non arriva a 0.
+
 ## v1.28.95 — 8 novembre 2026
 
 ### Prestazioni

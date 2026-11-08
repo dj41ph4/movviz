@@ -1,3 +1,9 @@
+## v1.28.96 — 8 November 2026
+
+### Diagnostics
+
+- `/api/cache?breakdown=<cache name>` (admin) gives a cache's weight per response type (entry count, total size, average, maximum, share in %), for example to find which TMDb responses take up the 700 MB cache. Measuring is done in batches: repeat the call until `unmeasuredEntries` reaches 0.
+
 ## v1.28.95 — 8 November 2026
 
 ### Performance

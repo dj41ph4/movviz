@@ -1,3 +1,9 @@
+## v1.28.96 — 8 November 2026
+
+### Diagnose
+
+- `/api/cache?breakdown=<Cache-Name>` (Admin) liefert das Gewicht eines Caches pro Antworttyp (Anzahl Einträge, Gesamtgröße, Durchschnitt, Maximum, Anteil in %), zum Beispiel um herauszufinden, welche TMDb-Antworten den 700-MB-Cache füllen. Die Messung erfolgt in Stapeln: den Aufruf wiederholen, bis `unmeasuredEntries` 0 erreicht.
+
 ## v1.28.95 — 8 November 2026
 
 ### Leistung

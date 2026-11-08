@@ -1,3 +1,9 @@
+## v1.28.96 — 8 november 2026
+
+### Diagnose
+
+- `/api/cache?breakdown=<cachenaam>` (beheerder) geeft het gewicht van een cache per antwoordtype (aantal items, totale grootte, gemiddelde, maximum, aandeel in %), bijvoorbeeld om te zien welke TMDb-antwoorden de cache van 700 MB vullen. De meting gebeurt in batches: herhaal de aanroep tot `unmeasuredEntries` 0 bereikt.
+
 ## v1.28.95 — 8 november 2026
 
 ### Prestaties
