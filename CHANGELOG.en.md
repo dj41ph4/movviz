@@ -1,3 +1,9 @@
+## v1.28.89 — 8 November 2026
+
+### Holidays & events
+
+- Fix: the event row of a platform with very few series (Disney+) stopped after about ten titles as soon as its series ran out. It now shows all the holiday movies (Disney+: from 11 to 47 titles).
+
 ## v1.28.88 — 8 November 2026
 
 ### Holidays & events

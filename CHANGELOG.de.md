@@ -1,3 +1,9 @@
+## v1.28.89 — 8 November 2026
+
+### Feste & Anlässe
+
+- Korrektur: Die Ereignisreihe einer Plattform mit sehr wenigen Serien (Disney+) endete nach etwa zehn Titeln, sobald die Serien aufgebraucht waren. Jetzt werden alle Festtagsfilme gezeigt (Disney+: von 11 auf 47 Titel).
+
 ## v1.28.88 — 8 November 2026
 
 ### Feste & Anlässe

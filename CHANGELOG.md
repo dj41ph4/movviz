@@ -1,3 +1,9 @@
+## v1.28.89 — 8 novembre 2026
+
+### Événements du moment
+
+- Correction : la rangée d'événement d'une plateforme au catalogue de séries très réduit (Disney+) s'arrêtait après une dizaine de titres, dès que ses séries étaient épuisées. Elle affiche maintenant tous les films de la fête (Disney+ : de 11 à 47 titres).
+
 ## v1.28.88 — 8 novembre 2026
 
 ### Événements du moment

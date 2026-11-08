@@ -1,3 +1,9 @@
+## v1.28.89 — 8 november 2026
+
+### Feestdagen & evenementen
+
+- Fix: de evenementrij van een platform met zeer weinig series (Disney+) stopte na ongeveer tien titels zodra de series op waren. Nu worden alle feestfilms getoond (Disney+: van 11 naar 47 titels).
+
 ## v1.28.88 — 8 november 2026
 
 ### Feestdagen & evenementen

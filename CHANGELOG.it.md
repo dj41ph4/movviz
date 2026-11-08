@@ -1,3 +1,9 @@
+## v1.28.89 — 8 novembre 2026
+
+### Feste ed eventi
+
+- Correzione: la fila di evento di una piattaforma con pochissime serie (Disney+) si fermava dopo una decina di titoli, appena finite le serie. Ora mostra tutti i film della festa (Disney+: da 11 a 47 titoli).
+
 ## v1.28.88 — 8 novembre 2026
 
 ### Feste ed eventi

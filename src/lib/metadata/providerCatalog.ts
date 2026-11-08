@@ -213,7 +213,7 @@ function rankValue(item: MetaSearchResult, rank: ProviderRowDef["rank"]): number
   return item.popularity ?? item.rating ?? 0;
 }
 
-export function interleaveByMerit(lists: MetaSearchResult[][], rank?: ProviderRowDef["rank"]): MetaSearchResult[] {
+export function interleaveByMerit(lists: MetaSearchResult[][], rank?: ProviderRowDef["rank"], allowTail = false): MetaSearchResult[] {
   const pools = lists.filter((list) => list.length > 0);
   const taken = pools.map(() => 0);
   const total = pools.reduce((sum, list) => sum + list.length, 0);
@@ -227,11 +227,11 @@ export function interleaveByMerit(lists: MetaSearchResult[][], rank?: ProviderRo
     // Un type épuisé alors que l'autre reste : au plus MAX_RUN titres de plus,
     // puis la page s'arrête — la suivante reprend le mélange (pas de traîne
     // « que des films » en fin de rangée).
-    if (pools.length > 1 && open.length === 1 && open[0] === lastPool && run >= MAX_RUN) break;
+    if (!allowTail && pools.length > 1 && open.length === 1 && open[0] === lastPool && run >= MAX_RUN) break;
     const progress = (i: number) => (taken[i] + 1) / pools[i].length;
     const allowed = open.filter((i) => {
       if (open.length === 1) return true;
-      if (i === lastPool && run >= MAX_RUN) return false;
+      if (!allowTail && i === lastPool && run >= MAX_RUN) return false;
       const others = open.filter((j) => j !== i);
       return others.every((j) => progress(i) - progress(j) <= SHARE_SLACK + 1 / pools[i].length);
     });
@@ -290,7 +290,7 @@ async function computeProviderRowPage(providerId: number, key: string, page: num
     || (seasonDefinition.theme.test(`${r.title} ${r.overview}`) && !(seasonDefinition.excludeLanguages ?? []).includes(r.originalLanguage ?? ""));
   const withArt = (results: MetaSearchResult[]) => clean(results).filter((r) => !!r.posterPath && onTheme(r));
   return {
-    results: interleaveByMerit([withArt(movies.results), withArt(series.results)], def.rank),
+    results: interleaveByMerit([withArt(movies.results), withArt(series.results)], def.rank, !!def.season),
     page,
     totalPages: Math.max(movies.totalPages, series.totalPages),
   };
