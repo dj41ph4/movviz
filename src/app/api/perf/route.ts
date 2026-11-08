@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     gc: { recent: getGcLog(), totals: getGcTotals() },
     activeOps: getActiveOps(),
     // Coupures de lecture (waiting/stalled) et réserve de tampon remontées par les lecteurs.
-    playback: getPlaybackTelemetry(),
+    playback: getPlaybackTelemetry(searchParams.get("user") || undefined),
     memory: {
       rssMb: mb(mem.rss),
       heapUsedMb: mb(mem.heapUsed),

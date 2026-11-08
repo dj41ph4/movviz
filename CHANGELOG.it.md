@@ -1,3 +1,9 @@
+## v1.28.91 — 8 novembre 2026
+
+### Lettore
+
+- Le interruzioni di riproduzione e i campioni di buffer segnalati dai lettori sono ora conservati su disco per al massimo 72 ore (prima sparivano a ogni riavvio del server) e associati all'utente. `/api/perf?user=<nome>` mostra solo i dati di una persona.
+
 ## v1.28.90 — 8 novembre 2026
 
 ### Feste ed eventi

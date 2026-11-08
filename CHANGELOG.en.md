@@ -1,3 +1,9 @@
+## v1.28.91 — 8 November 2026
+
+### Player
+
+- Playback stalls and buffer samples reported by players are now kept on disk for 72 h at most (they used to vanish at every server restart) and tied to the user. `/api/perf?user=<name>` shows one person's data only.
+
 ## v1.28.90 — 8 November 2026
 
 ### Holidays & events

@@ -1,3 +1,9 @@
+## v1.28.91 — 8 novembre 2026
+
+### Lecteur
+
+- Les coupures de lecture et les réserves de tampon remontées par les lecteurs sont désormais conservées sur disque pendant 72 h maximum (elles disparaissaient à chaque redémarrage du serveur) et rattachées à l'utilisateur. `/api/perf?user=<nom>` affiche celles d'une seule personne.
+
 ## v1.28.90 — 8 novembre 2026
 
 ### Événements du moment

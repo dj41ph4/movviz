@@ -1,3 +1,9 @@
+## v1.28.91 — 8 november 2026
+
+### Speler
+
+- Door spelers gemelde haperingen en bufferwaarden worden nu maximaal 72 uur op schijf bewaard (ze verdwenen bij elke herstart van de server) en aan de gebruiker gekoppeld. `/api/perf?user=<naam>` toont alleen de gegevens van één persoon.
+
 ## v1.28.90 — 8 november 2026
 
 ### Feestdagen & evenementen

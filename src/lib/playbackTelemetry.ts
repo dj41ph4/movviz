@@ -5,8 +5,13 @@
  * savoir si une coupure vue à l'écran vient du serveur ou du réseau.
  */
 
+import fs from "node:fs";
+import path from "node:path";
+
 export interface PlaybackStall {
   t: number;
+  /** Utilisateur Movviz qui lisait (pour retrouver les coupures d'une personne). */
+  user?: string;
   /** DIRECT_PLAY, REMUX, TRANSCODE, HLS, MSE, FFMPEG, DIRECT… */
   mode: string;
   device: string;
@@ -24,6 +29,7 @@ export interface PlaybackStall {
 
 export interface PlaybackSample {
   t: number;
+  user?: string;
   mode: string;
   device: string;
   bufAhead: number;
@@ -32,23 +38,85 @@ export interface PlaybackSample {
   sid: string | null;
 }
 
-const MAX_STALLS = 300;
-const MAX_SAMPLES = 600;
+const MAX_STALLS = 5000;
+const MAX_SAMPLES = 15000;
+/** Durée de conservation sur disque : 72 h maximum. */
+const RETENTION_MS = 72 * 3600_000;
+/** Un échantillon par session et par 30 s suffit sur disque (le client en envoie un toutes les 10 s). */
+const SAMPLE_MIN_GAP_MS = 30_000;
+const FLUSH_EVERY_MS = 60_000;
+
+const CONFIG_DIR =
+  process.env.MOVVIZ_CONFIG_DIR ??
+  process.env.MOVVIZ_DATA_DIR ??
+  path.join(process.cwd(), ".movviz-data");
+const FILE = path.join(CONFIG_DIR, "playback-telemetry.json");
+
+type Store = { stalls: PlaybackStall[]; samples: PlaybackSample[] };
 
 // globalThis-anchored : mêmes bundles séparés que perf.ts.
 const g = globalThis as typeof globalThis & {
-  __movvizPlaybackTelemetry?: { stalls: PlaybackStall[]; samples: PlaybackSample[] };
+  __movvizPlaybackTelemetry?: Store;
+  __movvizPlaybackTelemetryTimer?: ReturnType<typeof setTimeout> | null;
 };
-const store = (g.__movvizPlaybackTelemetry ??= { stalls: [], samples: [] });
+
+function prune(st: Store) {
+  const min = Date.now() - RETENTION_MS;
+  st.stalls = st.stalls.filter((s) => s.t >= min).slice(-MAX_STALLS);
+  st.samples = st.samples.filter((s) => s.t >= min).slice(-MAX_SAMPLES);
+}
+
+function loadFromDisk(): Store {
+  try {
+    if (fs.existsSync(FILE)) {
+      const raw = JSON.parse(fs.readFileSync(FILE, "utf8")) as Partial<Store>;
+      const st = {
+        stalls: Array.isArray(raw.stalls) ? raw.stalls : [],
+        samples: Array.isArray(raw.samples) ? raw.samples : [],
+      };
+      prune(st);
+      return st;
+    }
+  } catch {
+    // fichier absent ou corrompu : on repart à vide
+  }
+  return { stalls: [], samples: [] };
+}
+
+const store = (g.__movvizPlaybackTelemetry ??= loadFromDisk());
+
+function flushToDisk() {
+  try {
+    prune(store);
+    if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    const tmp = `${FILE}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(store), "utf8");
+    fs.renameSync(tmp, FILE);
+  } catch (err) {
+    console.error("[playbackTelemetry] failed to persist:", err);
+  }
+}
+
+function scheduleFlush() {
+  if (g.__movvizPlaybackTelemetryTimer) return;
+  g.__movvizPlaybackTelemetryTimer = setTimeout(() => {
+    g.__movvizPlaybackTelemetryTimer = null;
+    flushToDisk();
+  }, FLUSH_EVERY_MS);
+}
 
 export function recordStall(s: PlaybackStall) {
   store.stalls.push(s);
-  while (store.stalls.length > MAX_STALLS) store.stalls.shift();
+  if (store.stalls.length > MAX_STALLS) store.stalls.shift();
+  scheduleFlush();
 }
 
 export function recordSample(s: PlaybackSample) {
+  const last = store.samples.findLast((x) => x.sid === s.sid && x.user === s.user);
+  if (last && s.t - last.t < SAMPLE_MIN_GAP_MS) return;
   store.samples.push(s);
-  while (store.samples.length > MAX_SAMPLES) store.samples.shift();
+  if (store.samples.length > MAX_SAMPLES) store.samples.shift();
+  scheduleFlush();
 }
 
 export interface PlaybackTelemetrySummary {
@@ -70,7 +138,9 @@ export interface PlaybackTelemetrySummary {
   samples: PlaybackSample[];
 }
 
-export function getPlaybackTelemetry(): PlaybackTelemetrySummary {
+export function getPlaybackTelemetry(user?: string): PlaybackTelemetrySummary {
+  const stalls = user ? store.stalls.filter((s) => s.user === user) : store.stalls;
+  const samples = user ? store.samples.filter((s) => s.user === user) : store.samples;
   const map = new Map<string, PlaybackTelemetrySummary["groups"][number] & { bufSum: number; stallBufSum: number }>();
   const group = (device: string, mode: string) => {
     const key = `${device}\u0000${mode}`;
@@ -81,7 +151,7 @@ export function getPlaybackTelemetry(): PlaybackTelemetrySummary {
     }
     return gr;
   };
-  for (const s of store.stalls) {
+  for (const s of stalls) {
     if (s.cause === "seek") continue;
     const gr = group(s.device, s.mode);
     if (s.cause === "stalled") { gr.stalledEvents++; continue; }
@@ -92,7 +162,7 @@ export function getPlaybackTelemetry(): PlaybackTelemetrySummary {
       if (s.ms > gr.stallMsMax) gr.stallMsMax = s.ms;
     }
   }
-  for (const s of store.samples) {
+  for (const s of samples) {
     const gr = group(s.device, s.mode);
     gr.samples++;
     gr.bufSum += s.bufAhead;
@@ -104,5 +174,5 @@ export function getPlaybackTelemetry(): PlaybackTelemetrySummary {
     avgBufAhead: gr.samples ? Math.round((bufSum / gr.samples) * 10) / 10 : 0,
     minBufAhead: Number.isFinite(gr.minBufAhead) ? gr.minBufAhead : 0,
   }));
-  return { groups, stalls: store.stalls.slice(-100), samples: store.samples.slice(-120) };
+  return { groups, stalls: stalls.slice(-100), samples: samples.slice(-120) };
 }

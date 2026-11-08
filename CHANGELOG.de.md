@@ -1,3 +1,9 @@
+## v1.28.91 — 8 November 2026
+
+### Player
+
+- Von den Playern gemeldete Wiedergabe-Aussetzer und Pufferwerte werden jetzt höchstens 72 Std. auf der Festplatte gespeichert (sie gingen bei jedem Serverneustart verloren) und dem Benutzer zugeordnet. `/api/perf?user=<Name>` zeigt nur die Daten einer Person.
+
 ## v1.28.90 — 8 November 2026
 
 ### Feste & Anlässe

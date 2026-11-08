@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       pos: Math.round(num(e.pos, 0, 1_000_000)),
       net: str(e.net, 16) || null,
       sid: str(e.sid, 40) || null,
+      user: user.username,
     };
     if (e.type === "stall") {
       const cause = e.cause === "stalled" || e.cause === "seek" ? e.cause : "waiting";
