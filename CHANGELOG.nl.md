@@ -1,3 +1,9 @@
+## v1.28.92 — 8 november 2026
+
+### Speler
+
+- Actieve sessies: als de server de afspeelsessie van een browser kwijt is (herstart midden in een film), toont de kaart toch de door de speler gemelde resolutie en afspeelmodus (directe stream, transcodering…) in plaats van niets.
+
 ## v1.28.91 — 8 november 2026
 
 ### Speler

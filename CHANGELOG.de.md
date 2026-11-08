@@ -1,3 +1,9 @@
+## v1.28.92 — 8 November 2026
+
+### Player
+
+- Aktive Sitzungen: Hat der Server die Wiedergabesitzung eines Browsers verloren (Neustart mitten im Film), zeigt die Karte trotzdem die vom Player gemeldete Auflösung und den Wiedergabemodus (Direktstream, Transkodierung…) statt nichts an.
+
 ## v1.28.91 — 8 November 2026
 
 ### Player

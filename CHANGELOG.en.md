@@ -1,3 +1,9 @@
+## v1.28.92 — 8 November 2026
+
+### Player
+
+- Active sessions: when the server has lost a browser's playback session (restart mid-movie), the card still shows the resolution and playback mode (direct stream, transcode…) reported by the player instead of nothing.
+
 ## v1.28.91 — 8 November 2026
 
 ### Player

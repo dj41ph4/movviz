@@ -1,3 +1,9 @@
+## v1.28.92 — 8 novembre 2026
+
+### Lecteur
+
+- Sessions actives : quand le serveur a perdu la session de lecture d'un navigateur (redémarrage en cours de film), la carte affiche quand même la résolution et le mode de lecture (flux direct, transcodage…) déclarés par le lecteur, au lieu de ne rien montrer.
+
 ## v1.28.91 — 8 novembre 2026
 
 ### Lecteur

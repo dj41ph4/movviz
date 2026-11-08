@@ -51,6 +51,10 @@ export interface PlaybackSession {
   webClient?: boolean;
   /** Navigateur d’après le user-agent (« Chrome 130 ») ; absent hors navigateur. */
   browser?: string;
+  /** Mode de lecture déclaré par le lecteur au dernier battement (« REMUX+tampon », « DIRECT »…) : renseigne la carte des sessions actives quand le moteur serveur n'a plus la session (redémarrage). */
+  clientMode?: string;
+  /** Hauteur vidéo décodée par le lecteur au dernier battement (pixels). */
+  clientHeight?: number;
   userId: string;
   ratingKey: string;
   mediaId?: string;
@@ -381,8 +385,10 @@ export function updatePlaybackDuration(sessionId: string, durationMs: number): P
   return progress;
 }
 
-export function applyHeartbeat(sessionId: string, input: { sequence: number; positionMs: number; isPlaying: boolean; playbackRate?: number; nowMs?: number }): PlaybackProgress {
+export function applyHeartbeat(sessionId: string, input: { sequence: number; positionMs: number; isPlaying: boolean; playbackRate?: number; nowMs?: number; clientMode?: string; clientHeight?: number }): PlaybackProgress {
   const session = getPlaybackSession(sessionId); if (!session) throw new Error("session_not_found");
+  if (input.clientMode) session.clientMode = input.clientMode;
+  if (input.clientHeight) session.clientHeight = input.clientHeight;
   if (input.sequence <= session.lastSequence) return get(session.userId, session.ratingKey, session.mediaId)!;
   const now = input.nowMs ?? Date.now(); const elapsed = Math.max(0, now - session.lastHeartbeatAt);
   const plausible = isPlausiblePlaybackAdvance(session.lastPositionMs, input.positionMs, elapsed, input.playbackRate ?? 1);

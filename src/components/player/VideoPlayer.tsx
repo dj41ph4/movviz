@@ -1957,7 +1957,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         void fetch(`/api/playback/sessions/${sessionId}/heartbeat`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ sequence: ++playbackSequenceRef.current, positionMs: Math.round(displayTime * 1000), isPlaying: !ve.paused, playbackRate: ve.playbackRate }),
+          body: JSON.stringify({ sequence: ++playbackSequenceRef.current, positionMs: Math.round(displayTime * 1000), isPlaying: !ve.paused, playbackRate: ve.playbackRate, mode: telemetryModeRef.current, height: ve.videoHeight || undefined }),
           keepalive: true,
         }).then((r) => {
           // The server lost this session (a restart before sessions were

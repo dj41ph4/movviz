@@ -1,3 +1,9 @@
+## v1.28.92 — 8 novembre 2026
+
+### Lettore
+
+- Sessioni attive: quando il server ha perso la sessione di riproduzione di un browser (riavvio a metà film), la scheda mostra comunque la risoluzione e la modalità di riproduzione (flusso diretto, transcodifica…) dichiarate dal lettore invece di niente.
+
 ## v1.28.91 — 8 novembre 2026
 
 ### Lettore

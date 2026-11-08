@@ -65,6 +65,12 @@ function toTranscodeDecision(mode: EnginePlaybackSession["mode"] | null, webClie
   }
 }
 
+/** Mode de plan déclaré par le lecteur (« REMUX+tampon » → REMUX) ; les modes purement navigateur (HLS, MSE, FFMPEG, DIRECT) ne disent rien de fiable. */
+function clientPlanMode(mode: string | undefined): EnginePlaybackSession["mode"] | null {
+  const m = mode?.split("+")[0];
+  return m === "DIRECT_PLAY" || m === "REMUX" || m === "DIRECT_STREAM" || m === "TRANSCODE" ? m : null;
+}
+
 export async function GET(req: NextRequest) {
   const admin = requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -127,9 +133,9 @@ export async function GET(req: NextRequest) {
         device: deviceCode(engine?.clientType ?? (hb.webClient ? "desktop-web" : null)),
         videoCodec,
         audioCodec,
-        resolution: null,
+        resolution: hb.clientHeight ? (hb.clientHeight >= 2000 ? "4K" : `${hb.clientHeight}p`) : null,
         thumb,
-        transcodeDecision: toTranscodeDecision(engine?.mode ?? null, hb.webClient),
+        transcodeDecision: toTranscodeDecision(engine?.mode ?? clientPlanMode(hb.clientMode), hb.webClient),
         location: null,
         browser: hb.browser ?? null,
         transcodeKind: plan && (plan.videoAction === "TRANSCODE" || plan.audioAction === "TRANSCODE")
