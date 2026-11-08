@@ -1,3 +1,9 @@
+## v1.28.88 — 8 november 2026
+
+### Feestdagen & evenementen
+
+- De evenementrijen van de platforms zijn veel voller (Netflix: 80+ titels al op de eerste pagina, meer onder “Alles tonen”): meer feesttrefwoorden herkend en meer pagina's gelezen vóór het themafilter.
+
 ## v1.28.87 — 7 november 2026
 
 ### Feestdagen & evenementen

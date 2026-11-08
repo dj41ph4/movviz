@@ -1,3 +1,9 @@
+## v1.28.88 — 8 November 2026
+
+### Feste & Anlässe
+
+- Die Ereignisreihen der Plattformen sind deutlich voller (Netflix: über 80 Titel schon auf der ersten Seite, mehr unter „Alle anzeigen“): mehr erkannte Fest-Schlagwörter und mehr gelesene Seiten vor dem Themenfilter.
+
 ## v1.28.87 — 7 November 2026
 
 ### Feste & Anlässe

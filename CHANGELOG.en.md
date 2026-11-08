@@ -1,3 +1,9 @@
+## v1.28.88 — 8 November 2026
+
+### Holidays & events
+
+- Platform event rows are much fuller (Netflix: 80+ titles on the first page, then more in “See all”): more holiday keywords recognised and more pages read before the theme filter.
+
 ## v1.28.87 — 7 November 2026
 
 ### Holidays & events

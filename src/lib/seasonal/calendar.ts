@@ -25,13 +25,13 @@ const ASIAN_AFRICAN_LANGUAGES = [
 
 const SEASONS: Record<SeasonId, SeasonDef> = {
   halloween: {
-    id: "halloween", keywords: "3335|9694|318653",
+    id: "halloween", keywords: "3335|9694|318653|182794|232795|9694",
     theme: /halloween|sorci[eè]r|witch|fant[ôo]me|ghost|monstre|monster|vampire|zombie|hant[ée]|haunt|citrouille|pumpkin|croque-mitaine|boogey/i,
     // Jack, Hocus Pocus, Beetlejuice, Casper, Coraline, Noces funèbres, Hôtel Transylvanie, Gremlins, Scream, Edward, Cinq Légendes
     pinnedMovies: [9479, 10439, 4011, 8839, 14836, 3933, 76492, 927, 4232, 162, 81188],
   },
   christmas: {
-    id: "christmas", keywords: "207317|5570|260365",
+    id: "christmas", keywords: "207317|5570|260365|386830|255088|363215|1441|193048|189966|272698|172742|299335|240515|386817|308983|344102|299268|364506|1991",
     theme: /no[eë]l|christmas|xmas|santa|p[eè]re no|r[eé]veillon|lutin|elf|elves|rennes?|reindeer|sapin|gui|mistletoe|fêtes de fin|holiday season|neige|snow/i,
     // Cinq Légendes, Jack, Maman j'ai raté l'avion, Elfe, Love Actually, Pôle Express, The Holiday, Piège de cristal, Klaus, Grinch, Gremlins, Edward, Krampus
     pinnedMovies: [81188, 9479, 771, 10719, 508, 5255, 1581, 562, 508965, 8871, 927, 162, 287903],

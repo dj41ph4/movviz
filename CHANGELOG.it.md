@@ -1,3 +1,9 @@
+## v1.28.88 — 8 novembre 2026
+
+### Feste ed eventi
+
+- Le file di evento delle piattaforme sono molto più ricche (Netflix: oltre 80 titoli già nella prima pagina, il resto in «Mostra tutto»): più parole chiave di festa riconosciute e più pagine lette prima del filtro tematico.
+
 ## v1.28.87 — 7 novembre 2026
 
 ### Feste ed eventi

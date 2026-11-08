@@ -1,3 +1,9 @@
+## v1.28.88 — 8 novembre 2026
+
+### Événements du moment
+
+- Les rangées d'événement des plateformes sont bien plus fournies (Netflix : plus de 80 titres dès la première page, puis la suite en « Voir tout ») : davantage de mots-clés de fête reconnus et plus de pages lues avant le tri thématique.
+
 ## v1.28.87 — 7 novembre 2026
 
 ### Événements du moment

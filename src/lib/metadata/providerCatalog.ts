@@ -145,6 +145,8 @@ const TMDB_MAX_PAGES = 500;
 /** Pages TMDb (20 titres) lues par côté pour UNE page de rangée : rangées
  *  plus fournies dès l'arrivée (jusqu'à ~80 titres films + séries). */
 const TMDB_PAGES_PER_ROW_PAGE = 2;
+/** Rangée d'événement : le filtre thématique écarte beaucoup de résultats, on lit donc plus de pages. */
+const TMDB_PAGES_PER_SEASONAL_PAGE = 5;
 
 export function providerRowDef(key: string): ProviderRowDef | undefined {
   return seasonalRowDef(key) ?? allRows().find((row) => row.key === key);
@@ -175,9 +177,10 @@ async function fetchSide(
 ): Promise<PagedResults> {
   const empty = { results: [], page, totalPages: 0 };
   if (!side) return empty;
-  const first = (page - 1) * TMDB_PAGES_PER_ROW_PAGE + 1;
+  const perPage = def.season ? TMDB_PAGES_PER_SEASONAL_PAGE : TMDB_PAGES_PER_ROW_PAGE;
+  const first = (page - 1) * perPage + 1;
   const pages = await Promise.all(
-    Array.from({ length: TMDB_PAGES_PER_ROW_PAGE }, (_, i) => fetchSidePage(type, def, side, providerId, region, first + i).catch(() => null)),
+    Array.from({ length: perPage }, (_, i) => fetchSidePage(type, def, side, providerId, region, first + i).catch(() => null)),
   );
   const ok = pages.filter((p): p is PagedResults => !!p);
   if (ok.length === 0) return empty;
@@ -185,7 +188,7 @@ async function fetchSide(
   return {
     results: ok.flatMap((p) => (p.page <= tmdbTotal ? p.results : [])),
     page,
-    totalPages: Math.ceil(Math.min(TMDB_MAX_PAGES, tmdbTotal) / TMDB_PAGES_PER_ROW_PAGE),
+    totalPages: Math.ceil(Math.min(TMDB_MAX_PAGES, tmdbTotal) / perPage),
   };
 }
 
