@@ -2689,6 +2689,7 @@ export const de: Dictionary = {
     betaResumeFrom: "Fortsetzen ab",
     betaStartOver: "Von vorne beginnen",
     betaNextEpisode: "Nächste Folge",
+    betaNextEpisodeFailed: "Die nächste Folge konnte nicht gestartet werden.",
     skipRecap: "Rückblick überspringen",
     skipIntro: "Intro überspringen",
     skipCredits: "Abspann überspringen",

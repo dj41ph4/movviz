@@ -1,3 +1,10 @@
+## v1.28.99 — 8 november 2026
+
+### Speler
+
+- De knop „Volgende aflevering” reageert niet meer stilzwijgend niet: het zoeken naar de volgende aflevering is beperkt tot 10 s en er verschijnt een melding als de volgende aflevering niet wordt gevonden of de server niet antwoordt (eerder werd de klik stil genegeerd).
+- „Generiek overslaan” en „Volgende aflevering” overlappen niet meer: tijdens een generiek gevolgd door een scène erna verschijnt alleen „Generiek overslaan”; „Volgende aflevering” keert daarna terug tijdens de scène. Loopt de generiek door tot het einde van het bestand, dan valt er niets over te slaan en verschijnt alleen „Volgende aflevering”, vanaf het begin van de generiek.
+
 ## v1.28.98 — 8 november 2026
 
 ### Prestaties

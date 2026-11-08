@@ -1,3 +1,10 @@
+## v1.28.99 — 8 novembre 2026
+
+### Lettore
+
+- Il pulsante «Episodio successivo» non resta più senza reazione: la ricerca dell'episodio successivo è limitata a 10 s e compare un messaggio se l'episodio successivo non viene trovato o il server non risponde (prima il clic veniva ignorato in silenzio).
+- «Salta i titoli di coda» ed «Episodio successivo» non si sovrappongono più: durante i titoli di coda seguiti da una scena post-titoli compare solo «Salta i titoli di coda»; «Episodio successivo» ricompare durante la scena post-titoli. Quando i titoli arrivano fino alla fine del file non c'è nulla da saltare e compare solo «Episodio successivo», dall'inizio dei titoli.
+
 ## v1.28.98 — 8 novembre 2026
 
 ### Prestazioni

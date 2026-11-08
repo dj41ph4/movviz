@@ -2690,6 +2690,7 @@ export const en: Dictionary = {
     betaResumeFrom: "Resume from",
     betaStartOver: "Start from beginning",
     betaNextEpisode: "Next episode",
+    betaNextEpisodeFailed: "The next episode could not be started.",
     skipRecap: "Skip recap",
     skipIntro: "Skip intro",
     skipCredits: "Skip credits",

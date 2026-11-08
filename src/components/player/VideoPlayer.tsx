@@ -2557,6 +2557,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     void beginRef.current?.(0);
   };
 
+  // Un générique qui court jusqu'à la fin du fichier (cas courant avec Plex et
+  // TheIntroDB) n'a rien à sauter : « Passer le générique » demandait un saut
+  // à la toute fin du flux et se posait sur le même emplacement que « Épisode
+  // suivant », qui paraissait alors ne rien faire. Un seul bouton : l'épisode suivant.
+  const creditsRunToEnd = !!onNextEpisode && mediaType === "episode" && duration > 0
+    && (activeMarker?.type === "credits" || activeMarker?.type === "preview") && activeMarker.endMs >= duration * 1000 - 3000;
+  // Générique qui laisse une scène après lui : « Passer le générique » y mène et
+  // exclut « Épisode suivant », qui ne revient qu'une fois ce générique passé.
+  const skipButtonShown = !!activeMarker && !showResume && !creditsRunToEnd;
+  const postCredits = mediaType === "episode" && duration > 0 && markers.some((m) => m.type === "credits"
+    && m.endMs <= currentTime * 1000 && m.endMs < duration * 1000 - 3000);
+
   const handleSkipMarker = () => {
     const marker = activeMarker;
     if (!marker) return;
@@ -2987,7 +2999,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                  line on a narrowed window, growing the controls block taller
                  than this fixed offset assumed — confirmed live, the button
                  was overlapping the controls bar at narrow widths. */}
-              {activeMarker && !showResume && (
+              {skipButtonShown && (
                 <button
                   onClick={handleSkipMarker}
                   className="pointer-events-auto absolute bottom-52 sm:bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
@@ -2996,7 +3008,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                 </button>
               )}
 
-              {onNextEpisode && mediaType === "episode" && duration > 0 && currentTime >= Math.max(0, duration - 30) && !showResume && (
+              {onNextEpisode && mediaType === "episode" && duration > 0 && (currentTime >= Math.max(0, duration - 30) || creditsRunToEnd || postCredits) && !showResume && !skipButtonShown && (
                 <button
                   onClick={onNextEpisode}
                   className="pointer-events-auto absolute bottom-52 sm:bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"

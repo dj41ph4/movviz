@@ -1,3 +1,10 @@
+## v1.28.99 — 8 November 2026
+
+### Player
+
+- Die Schaltfläche „Nächste Folge“ reagiert nicht mehr lautlos nicht: Die Suche nach der nächsten Folge ist auf 10 s begrenzt, und es erscheint eine Meldung, wenn die nächste Folge nicht gefunden wird oder der Server nicht antwortet (vorher wurde der Klick stillschweigend ignoriert).
+- „Abspann überspringen“ und „Nächste Folge“ überlagern sich nicht mehr: Während eines Abspanns mit anschließender Szene wird nur „Abspann überspringen“ angezeigt; „Nächste Folge“ erscheint danach während der Szene nach dem Abspann wieder. Reicht der Abspann bis zum Dateiende, gibt es nichts zu überspringen, und nur „Nächste Folge“ wird angezeigt, schon ab Beginn des Abspanns.
+
 ## v1.28.98 — 8 November 2026
 
 ### Leistung

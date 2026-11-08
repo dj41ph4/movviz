@@ -2690,6 +2690,7 @@ export const nl: Dictionary = {
     betaResumeFrom: "Hervatten vanaf",
     betaStartOver: "Vanaf begin",
     betaNextEpisode: "Volgende aflevering",
+    betaNextEpisodeFailed: "De volgende aflevering kon niet worden gestart.",
     skipRecap: "Samenvatting overslaan",
     skipIntro: "Intro overslaan",
     skipCredits: "Aftiteling overslaan",

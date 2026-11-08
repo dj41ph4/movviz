@@ -7,6 +7,8 @@ import { TheaterModePlayer } from "@/components/player/TheaterModePlayer";
 import { stopAllAmbientVideo } from "./ambientVideoRegistry";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { playerDestination } from "@/lib/settings/playerPreference";
+import { useI18n } from "@/i18n/provider";
+import { toast } from "@/components/ui/Toast";
 
 export interface OriginRect {
   top: number;
@@ -75,6 +77,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [request, setRequest] = useState<PlayNowRequest | null>(null);
   const advancingEpisodeRef = useRef(false);
   const { enabled, loaded, userEnabled } = useBetaPlayer();
+  const { t } = useI18n();
 
   const play = useCallback((req: PlayNowRequest) => {
     const destination = playerDestination(enabled || (!loaded && userEnabled) || (!!req.movvizId && !req.plexUrl), req.plexUrl);
@@ -89,16 +92,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const close = useCallback(() => setRequest(null), []);
 
-  const playNextEpisode = useCallback(async (current: PlayNowRequest) => {
-    if (current.type !== "series" || !current.seriesId || current.seasonNumber == null || current.episodeNumber == null) return;
+  const playNextEpisode = useCallback(async (current: PlayNowRequest, manual = false) => {
+    if (current.type !== "series" || !current.seriesId || current.seasonNumber == null || current.episodeNumber == null) {
+      // Lancé depuis un écran qui ne transmet pas la saison/l'épisode : impossible de trouver le suivant.
+      if (manual) toast("error", t("player.betaNextEpisodeFailed"));
+      return;
+    }
     if (advancingEpisodeRef.current) return;
     advancingEpisodeRef.current = true;
     try {
+      // Délai borné : une réponse qui n'arrive jamais laissait le verrou
+      // « en cours » posé et tous les clics suivants étaient ignorés en silence.
       const response = await fetch(
         `/api/library/series/${encodeURIComponent(current.seriesId)}/next?season=${encodeURIComponent(String(current.seasonNumber))}&episode=${encodeURIComponent(String(current.episodeNumber))}`,
-        { cache: "no-store" },
+        { cache: "no-store", signal: AbortSignal.timeout(10_000) },
       );
-      if (!response.ok) return;
+      if (!response.ok) { toast("error", t("player.betaNextEpisodeFailed")); return; }
       const data = await response.json() as {
         next?: {
           seriesId: string; seriesTitle: string; seasonNumber: number; episodeNumber: number;
@@ -106,7 +115,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         } | null;
       };
       const next = data.next;
-      if (!next) return;
+      if (!next) {
+        // Fin de la série (ou épisode suivant absent) : on le dit, sauf quand
+        // l'épisode vient de se terminer seul — le lecteur reste alors sur le générique.
+        if (manual) toast("info", t("player.betaNextEpisodeFailed"));
+        return;
+      }
       stopAllAmbientVideo();
       setRequest({
         ...current,
@@ -124,10 +138,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // End-of-episode must still complete normally if the next-item lookup
       // cannot reach the server.
+      if (manual) toast("error", t("player.betaNextEpisodeFailed"));
     } finally {
       advancingEpisodeRef.current = false;
     }
-  }, []);
+  }, [t]);
 
   return (
     <PlayerCtx.Provider value={{ request, play, close }}>
@@ -153,7 +168,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             posterUrl={request.posterUrl}
             startFromBeginning={request.startFromBeginning}
             resumeFromSeconds={request.resumeFromSeconds}
-            onNextEpisode={request.type === "series" && request.seriesId ? () => void playNextEpisode(request) : undefined}
+            onNextEpisode={request.type === "series" && request.seriesId ? (clicked?: unknown) => void playNextEpisode(request, !!clicked) : undefined}
           />
         )}
       </AnimatePresence>

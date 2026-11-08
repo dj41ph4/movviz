@@ -1,3 +1,10 @@
+## v1.28.99 — 8 novembre 2026
+
+### Lecteur
+
+- Le bouton « Épisode suivant » ne reste plus sans réaction : la recherche de l'épisode suivant est limitée à 10 s, et un message s'affiche si l'épisode suivant est introuvable ou si le serveur ne répond pas (avant, le clic était ignoré en silence).
+- « Passer le générique » et « Épisode suivant » ne se superposent plus : pendant un générique suivi d'une scène post-générique, seul « Passer le générique » s'affiche ; « Épisode suivant » réapparaît ensuite pendant la scène post-générique. Quand le générique va jusqu'à la fin du fichier, il n'y a rien à sauter et seul « Épisode suivant » s'affiche, dès le début du générique.
+
 ## v1.28.98 — 8 novembre 2026
 
 ### Performances

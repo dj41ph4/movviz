@@ -1,3 +1,10 @@
+## v1.28.99 — 8 November 2026
+
+### Player
+
+- The "Next episode" button no longer fails silently: the next-episode lookup is limited to 10 s, and a message is shown if the next episode cannot be found or the server does not answer (before, the click was silently ignored).
+- "Skip credits" and "Next episode" no longer overlap: during credits followed by a post-credits scene, only "Skip credits" is shown; "Next episode" comes back during the post-credits scene. When the credits run to the end of the file there is nothing to skip, so only "Next episode" is shown, from the start of the credits.
+
 ## v1.28.98 — 8 November 2026
 
 ### Performance

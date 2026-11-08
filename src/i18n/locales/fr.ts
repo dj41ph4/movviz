@@ -2688,6 +2688,7 @@ export const fr = {
     betaResumeFrom: "Reprendre à",
     betaStartOver: "Depuis le début",
     betaNextEpisode: "Épisode suivant",
+    betaNextEpisodeFailed: "L'épisode suivant n'a pas pu être lancé.",
     skipRecap: "Passer le récap",
     skipIntro: "Passer l’intro",
     skipCredits: "Passer le générique",
