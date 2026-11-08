@@ -1,3 +1,9 @@
+## v1.28.94 — 8 November 2026
+
+### Downloads
+
+- Korrektur: Ein manuell gestarteter Download konnte nachträglich trotzdem wegen eines „verbotenen Begriffs“ (z. B. VOSTFR) gelöscht werden. Die Engine ruft den Import desselben Torrents manchmal ein zweites Mal auf; die Markierung „von Hand gestartet“ war beim ersten erfolgreichen Import gelöscht worden, sodass der zweite Aufruf ihn als automatisch behandelte und die Dateien löschte. Die Markierung bleibt jetzt 30 Minuten nach dem Import gültig und wird auf der Festplatte gespeichert (sie übersteht einen Serverneustart).
+
 ## v1.28.93 — 8 November 2026
 
 ### Player

@@ -1,3 +1,9 @@
+## v1.28.94 — 8 November 2026
+
+### Downloads
+
+- Fix: a manually started download could still be deleted afterwards for a "blocked term" (e.g. VOSTFR). The engine sometimes calls the import back a second time for the same torrent; the "started by hand" mark had been erased at the first successful import, so the second call treated it as automatic and deleted the files. The mark now stays valid for 30 minutes after the import and is kept on disk (it survives a server restart).
+
 ## v1.28.93 — 8 November 2026
 
 ### Player

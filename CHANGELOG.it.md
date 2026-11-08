@@ -1,3 +1,9 @@
+## v1.28.94 — 8 novembre 2026
+
+### Download
+
+- Correzione: un download avviato manualmente poteva comunque essere eliminato a posteriori per un « termine vietato » (es. VOSTFR). Il motore a volte richiama l'importazione dello stesso torrent una seconda volta; il segno « avviato a mano » era stato cancellato alla prima importazione riuscita, quindi la seconda chiamata lo trattava come automatico ed eliminava i file. Il segno ora resta valido per 30 minuti dopo l'importazione ed è conservato su disco (sopravvive a un riavvio del server).
+
 ## v1.28.93 — 8 novembre 2026
 
 ### Lettore

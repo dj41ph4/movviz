@@ -1,3 +1,9 @@
+## v1.28.94 — 8 november 2026
+
+### Downloads
+
+- Oplossing: een handmatig gestarte download kon achteraf toch worden verwijderd wegens een „verboden term” (bijv. VOSTFR). De engine roept de import van dezelfde torrent soms een tweede keer aan; de markering „met de hand gestart” was bij de eerste geslaagde import gewist, waardoor de tweede aanroep hem als automatisch behandelde en de bestanden verwijderde. De markering blijft nu 30 minuten na de import geldig en wordt op schijf bewaard (ze overleeft een herstart van de server).
+
 ## v1.28.93 — 8 november 2026
 
 ### Speler

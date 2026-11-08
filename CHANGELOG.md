@@ -1,3 +1,9 @@
+## v1.28.94 — 8 novembre 2026
+
+### Téléchargements
+
+- Correction : un téléchargement lancé à la main pouvait quand même être supprimé après coup pour « terme interdit » (ex. VOSTFR). Le moteur rappelle parfois l'import d'un même torrent une seconde fois ; la marque « lancé à la main » avait été effacée au premier import réussi, donc le second le traitait comme automatique et supprimait les fichiers. La marque reste maintenant valable 30 minutes après l'import et est conservée sur disque (elle survit à un redémarrage du serveur).
+
 ## v1.28.93 — 8 novembre 2026
 
 ### Lecteur
