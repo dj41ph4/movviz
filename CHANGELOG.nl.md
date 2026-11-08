@@ -1,3 +1,9 @@
+## v1.28.95 — 8 november 2026
+
+### Prestaties
+
+- Oplossing: de volledige afstemming van de Plex-bibliotheek (dagelijkse taak) kon de hele server tot 50 s bevriezen (op 8 november 51 bevriezingen van samen 127 s geregistreerd). Als niemand de app gebruikte, liep de lus over films en daarna series in één keer door zonder de server iets anders te laten afhandelen. Ze geeft nu na elke 20 ms werk de controle terug.
+
 ## v1.28.94 — 8 november 2026
 
 ### Downloads

@@ -1,3 +1,9 @@
+## v1.28.95 — 8 November 2026
+
+### Leistung
+
+- Korrektur: Der vollständige Abgleich der Plex-Bibliothek (tägliche Aufgabe) konnte den gesamten Server bis zu 50 s lang einfrieren (am 8. November 51 Aussetzer mit zusammen 127 s gemessen). Wenn niemand die App nutzte, lief die Schleife über Filme und dann Serien in einem Zug durch, ohne den Server etwas anderes bearbeiten zu lassen. Sie gibt jetzt nach jeweils 20 ms Arbeit die Kontrolle ab.
+
 ## v1.28.94 — 8 November 2026
 
 ### Downloads

@@ -268,3 +268,17 @@ export async function yieldToUser(context?: string): Promise<void> {
     `Arrière-plan bridé${context ? ` [${context}]` : ""} pendant ${formatDuration(waited)} par l'utilisateur actif ${who}`
   );
 }
+
+
+/**
+ * Rend la main à la boucle d'événements (timers, réseau) si le travail en cours dure depuis
+ * plus de 20 ms. yieldToUser() ne cède rien quand personne n'est actif : une boucle dont
+ * chaque tour n'attend que des résultats déjà en mémoire (réconciliation Plex de toute la
+ * bibliothèque) s'exécutait alors d'une traite et figeait le serveur jusqu'à 50 s.
+ */
+let lastEventLoopYieldAt = Date.now();
+export async function yieldToEventLoop(sliceMs = 20): Promise<void> {
+  if (Date.now() - lastEventLoopYieldAt < sliceMs) return;
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  lastEventLoopYieldAt = Date.now();
+}

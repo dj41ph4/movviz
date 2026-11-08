@@ -22,7 +22,7 @@ import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, pruneContradictedMappings, type PathMapping } from "./pathMappingStore";
-import { yieldToUser } from "@/lib/priority/userActivity";
+import { yieldToUser, yieldToEventLoop } from "@/lib/priority/userActivity";
 import { runBackground } from "@/lib/priority/lane";
 import { registerMarkerCandidate } from "./markerSync";
 import { loadTrash } from "@/lib/library/trashStore";
@@ -563,6 +563,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     // centaines d'items, chaque item = fetch Plex/TMDb séquentiel) cède la
     // main dès que l'utilisateur interagit, puis reprend 4 s après.
     await yieldToUser("sync Plex films");
+    await yieldToEventLoop();
     setSyncStatus({ moviesProcessed: getPlexSyncStatus().moviesProcessed + 1 });
     if (item.tmdbId == null) continue;
     seenTmdbIds.add(item.tmdbId);
@@ -724,6 +725,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
   for (const show of shows) {
     // Priorité absolue au clic/navigation — même règle que les films.
     await yieldToUser("sync Plex séries");
+    await yieldToEventLoop();
     setSyncStatus({ seriesProcessed: getPlexSyncStatus().seriesProcessed + 1 });
     if (show.tmdbId == null) continue;
     const isRemoved = (season: number, episode: number) => removedEpisodeKeys.has(`${show.tmdbId}:${season}:${episode}`);

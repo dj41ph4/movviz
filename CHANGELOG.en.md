@@ -1,3 +1,9 @@
+## v1.28.95 — 8 November 2026
+
+### Performance
+
+- Fix: the full Plex library reconcile (daily task) could freeze the whole server for up to 50 s (51 freezes totalling 127 s recorded on 8 November). When nobody was using the app, the loop over movies then series ran in one go without ever letting the server handle anything else. It now yields every 20 ms of work.
+
 ## v1.28.94 — 8 November 2026
 
 ### Downloads

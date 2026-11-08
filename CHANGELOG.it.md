@@ -1,3 +1,9 @@
+## v1.28.95 — 8 novembre 2026
+
+### Prestazioni
+
+- Correzione: la riconciliazione completa della libreria Plex (attività giornaliera) poteva bloccare l'intero server fino a 50 s (51 blocchi per 127 s totali registrati l'8 novembre). Quando nessuno usava l'app, il ciclo su film e poi serie girava tutto d'un fiato senza mai lasciare il server gestire altro. Ora cede il controllo ogni 20 ms di lavoro.
+
 ## v1.28.94 — 8 novembre 2026
 
 ### Download

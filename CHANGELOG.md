@@ -1,3 +1,9 @@
+## v1.28.95 — 8 novembre 2026
+
+### Performances
+
+- Correction : le rapprochement complet de la bibliothèque Plex (tâche quotidienne) pouvait figer tout le serveur jusqu'à 50 s (51 gels pour 127 s cumulées relevés le 8 novembre). Quand personne n'utilisait l'application, la boucle sur les films puis sur les séries s'exécutait d'une traite sans jamais laisser le serveur traiter autre chose. Elle rend maintenant la main toutes les 20 ms de travail.
+
 ## v1.28.94 — 8 novembre 2026
 
 ### Téléchargements
