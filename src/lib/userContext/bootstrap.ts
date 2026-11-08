@@ -1,4 +1,4 @@
-import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
+import { loadMovies, loadSeries } from "@/lib/library/store";
 import { listAllPlaybackProgress } from "@/lib/playback/progressStore";
 import { getWatchStatus, syncLegacyWatchProjection } from "@/lib/plex/watchStore";
 import { getFeedback, getAllRatings } from "@/lib/ai/tasteProfile";
@@ -88,13 +88,23 @@ function syncLegacyWatchedState(userId: string): void {
         watched_at = COALESCE(user_media_state.watched_at, excluded.watched_at),
         updated_at = MAX(user_media_state.updated_at, excluded.updated_at)
     `);
+    // Titres résolus UNE fois : getMovieByTmdbId()/getSeriesByTmdbId() relisent l'état
+    // du fichier de bibliothèque à chaque appel, soit des milliers de lectures
+    // par passage pour un compte à 7 500 titres vus (le gros du gel mesuré).
+    const movieTitles = new Map(loadMovies().map((m) => [m.tmdbId, m.title] as const));
+    const seriesTitles = new Map(loadSeries().map((x) => [x.tmdbId, x.title] as const));
+    // Une seule transaction pour tout le rattrapage : sans elle, chacun des
+    // milliers d'upserts était validé séparément sur le disque (≈1 s de gel du
+    // serveur pour un compte à 7 500 titres vus, mesuré), à chaque synchro Plex.
+    db.exec("BEGIN IMMEDIATE");
+    try {
     for (const tmdbId of watch.movies) {
       const watchedAt = movieRecentAt.get(tmdbId) ?? null;
       upsertMovie.run(
         `${userId}:movie:${tmdbId}`,
         userId,
         tmdbId,
-        getMovieByTmdbId(tmdbId)?.title ?? null,
+        movieTitles.get(tmdbId) ?? null,
         watchedAt,
         watchedAt ?? watch.updatedAt,
       );
@@ -118,11 +128,16 @@ function syncLegacyWatchedState(userId: string): void {
         `${userId}:episode:${episode.tmdbId}:${episode.season}:${episode.episode}`,
         userId,
         episode.tmdbId,
-        getSeriesByTmdbId(episode.tmdbId)?.title ?? null,
+        seriesTitles.get(episode.tmdbId) ?? null,
         episode.season,
         episode.episode,
         watch.updatedAt,
       );
+    }
+      db.exec("COMMIT");
+    } catch (error) {
+      try { db.exec("ROLLBACK"); } catch { /* connexion déjà dans un état incertain — best-effort */ }
+      throw error;
     }
     return true;
   }, false);

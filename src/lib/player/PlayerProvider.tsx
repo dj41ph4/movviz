@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import { PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
 import { TheaterModePlayer } from "@/components/player/TheaterModePlayer";
@@ -64,6 +64,28 @@ export function usePlayer(): PlayerContextValue {
   return ctx;
 }
 
+interface NextEpisodeInfo {
+  seriesId: string; seriesTitle: string; seasonNumber: number; episodeNumber: number;
+  title: string; plexRatingKey: string; plexUrl: string | null;
+}
+
+/** Épisode suivant lisible, null s'il n'y en a pas (dernier épisode ou suivant absent de la bibliothèque), undefined si la requête a échoué. */
+async function fetchNextEpisode(current: PlayNowRequest): Promise<NextEpisodeInfo | null | undefined> {
+  if (current.type !== "series" || !current.seriesId || current.seasonNumber == null || current.episodeNumber == null) return null;
+  try {
+    // Délai borné : une réponse qui n'arrive jamais ne doit pas rester en attente.
+    const response = await fetch(
+      `/api/library/series/${encodeURIComponent(current.seriesId)}/next?season=${encodeURIComponent(String(current.seasonNumber))}&episode=${encodeURIComponent(String(current.episodeNumber))}`,
+      { cache: "no-store", signal: AbortSignal.timeout(30_000) },
+    );
+    if (!response.ok) return undefined;
+    const data = await response.json() as { next?: NextEpisodeInfo | null };
+    return data.next ?? null;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Single mount point for the video player, replacing three previously
  * duplicated local-state + inline-mount implementations (TitleContent,
@@ -78,6 +100,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const advancingEpisodeRef = useRef(false);
   const { enabled, loaded, userEnabled } = useBetaPlayer();
   const { t } = useI18n();
+  // Épisode suivant résolu dès l'ouverture de l'épisode en cours : le bouton
+  // n'apparaît que s'il y en a un, et son clic ne dépend plus d'un aller-retour
+  // serveur (qui pouvait traîner ou échouer pendant un gel du serveur).
+  const [nextLookup, setNextLookup] = useState<{ key: string; next: NextEpisodeInfo | null | undefined } | null>(null);
+  const requestKey = request ? `${request.ratingKey}|${request.seriesId ?? ""}|${request.seasonNumber ?? ""}|${request.episodeNumber ?? ""}` : null;
+  useEffect(() => {
+    if (!request || !requestKey || request.type !== "series" || !request.seriesId) { setNextLookup(null); return; }
+    let cancelled = false;
+    void (async () => {
+      let next = await fetchNextEpisode(request);
+      // Échec serveur : un second essai, sans masquer le bouton (le clic réessaiera).
+      if (next === undefined && !cancelled) {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        if (!cancelled) next = await fetchNextEpisode(request);
+      }
+      if (!cancelled) setNextLookup({ key: requestKey, next });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestKey]);
 
   const play = useCallback((req: PlayNowRequest) => {
     const destination = playerDestination(enabled || (!loaded && userEnabled) || (!!req.movvizId && !req.plexUrl), req.plexUrl);
@@ -92,33 +134,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const close = useCallback(() => setRequest(null), []);
 
-  const playNextEpisode = useCallback(async (current: PlayNowRequest, manual = false) => {
-    if (current.type !== "series" || !current.seriesId || current.seasonNumber == null || current.episodeNumber == null) {
-      // Lancé depuis un écran qui ne transmet pas la saison/l'épisode : impossible de trouver le suivant.
-      if (manual) toast("error", t("player.betaNextEpisodeFailed"));
-      return;
-    }
+  const playNextEpisode = useCallback(async (current: PlayNowRequest, prefetched: NextEpisodeInfo | null | undefined, manual = false) => {
     if (advancingEpisodeRef.current) return;
     advancingEpisodeRef.current = true;
     try {
-      // Délai borné : une réponse qui n'arrive jamais laissait le verrou
-      // « en cours » posé et tous les clics suivants étaient ignorés en silence.
-      const response = await fetch(
-        `/api/library/series/${encodeURIComponent(current.seriesId)}/next?season=${encodeURIComponent(String(current.seasonNumber))}&episode=${encodeURIComponent(String(current.episodeNumber))}`,
-        { cache: "no-store", signal: AbortSignal.timeout(10_000) },
-      );
-      if (!response.ok) { toast("error", t("player.betaNextEpisodeFailed")); return; }
-      const data = await response.json() as {
-        next?: {
-          seriesId: string; seriesTitle: string; seasonNumber: number; episodeNumber: number;
-          title: string; plexRatingKey: string; plexUrl: string | null;
-        } | null;
-      };
-      const next = data.next;
+      // Résolu à l'ouverture de l'épisode ; sinon (échec de la recherche) on la refait ici.
+      const next = prefetched !== undefined ? prefetched : await fetchNextEpisode(current);
       if (!next) {
-        // Fin de la série (ou épisode suivant absent) : on le dit, sauf quand
-        // l'épisode vient de se terminer seul — le lecteur reste alors sur le générique.
-        if (manual) toast("info", t("player.betaNextEpisodeFailed"));
+        // Fin de la série (ou suivant absent de la bibliothèque) : on le dit si c'est un clic ;
+        // quand l'épisode se termine seul, le lecteur reste sur le générique.
+        if (manual) toast(next === undefined ? "error" : "info", t("player.betaNextEpisodeFailed"));
         return;
       }
       stopAllAmbientVideo();
@@ -135,14 +160,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         originRect: undefined,
         startFromBeginning: true,
       });
-    } catch {
-      // End-of-episode must still complete normally if the next-item lookup
-      // cannot reach the server.
-      if (manual) toast("error", t("player.betaNextEpisodeFailed"));
     } finally {
       advancingEpisodeRef.current = false;
     }
   }, [t]);
+
+  // Le bouton n'existe que si un épisode suivant lisible a été trouvé (ou si la
+  // recherche a échoué : le clic la refera).
+  const nextForThisRequest = request && nextLookup && nextLookup.key === requestKey && nextLookup.next !== null ? nextLookup : null;
 
   return (
     <PlayerCtx.Provider value={{ request, play, close }}>
@@ -168,7 +193,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             posterUrl={request.posterUrl}
             startFromBeginning={request.startFromBeginning}
             resumeFromSeconds={request.resumeFromSeconds}
-            onNextEpisode={request.type === "series" && request.seriesId ? (clicked?: unknown) => void playNextEpisode(request, !!clicked) : undefined}
+            onNextEpisode={nextForThisRequest ? (clicked?: unknown) => void playNextEpisode(request, nextForThisRequest.next, !!clicked) : undefined}
           />
         )}
       </AnimatePresence>

@@ -1,3 +1,13 @@
+## v1.28.101 — 8 November 2026
+
+### Leistung
+
+- Ursache der langsamen Seiten: Nach jeder Plex-Synchronisierung eines Kontos las der Verlaufsabgleich die Bibliotheksdatei erneut und bestätigte jeden gesehenen Titel einzeln (7 500 Titel ≈ 1,2 s Serverstillstand, für den Besitzer etwa alle 30 s). Titel werden jetzt einmal aufgelöst, der Abgleich läuft in einer einzigen Transaktion und der kanonische Zustand wird mit einer Abfrage gelesen: ≈ 0,13 s bei gleichem Volumen gemessen, identisches Ergebnis.
+
+### Player
+
+- „Nächste Folge“ erscheint nicht mehr, wenn nichts abzuspielen ist (letzte verfügbare Folge oder nächste Folge fehlt in der Bibliothek, etwa Cyberpunk: Edgerunners 2x1, dessen 2x2 fehlt): Die nächste Folge wird beim Öffnen der Folge gesucht, die Schaltfläche existiert nur, wenn es eine gibt, und der Klick ist sofort, ohne vom Server abzuhängen. Antwortet der Server nicht, wird die Suche einmal wiederholt und beim Klick erneut.
+
 ## v1.28.100 — 8 November 2026
 
 ### Player

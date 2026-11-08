@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
-import { applyWatchDecision, getCanonicalWatchStatus, getCurrentWatchState, getCurrentWatchStateAt, type WatchSource } from "@/lib/userContext/watchBridge";
+import { applyWatchDecision, getCanonicalWatchStatus, getCurrentWatchState, getCurrentWatchStateAt, getWatchStateAtIndex, type WatchSource } from "@/lib/userContext/watchBridge";
 import { markPlexWatchedOutboxPending, shouldPropagateWatchedToPlex } from "./watchWrite";
 import { emitWatchChanged } from "@/lib/events/watchEvents";
 import { isBeforeWatchReset } from "@/lib/watch/resetFloor";
@@ -272,12 +272,14 @@ export function syncLegacyWatchProjection(userId: string): boolean {
   const list = read();
   const status = findOrCreate(list, userId);
   const before = JSON.stringify([status.movies, status.episodes, status.movieWatchedAt]);
-  status.movies = status.movies.filter((tmdbId) => getCurrentWatchState({ userId, tmdbId, mediaType: "movie" }) !== "unwatched");
-  status.episodes = status.episodes.filter((e) => getCurrentWatchState({ userId, tmdbId: e.tmdbId, mediaType: "episode", seasonNumber: e.season, episodeNumber: e.episode }) !== "unwatched");
+  // Un seul chargement de l'état canonique du compte, pas une requête par titre.
+  const stateAt = getWatchStateAtIndex(userId);
+  status.movies = status.movies.filter((tmdbId) => stateAt({ userId, tmdbId, mediaType: "movie" }).state !== "unwatched");
+  status.episodes = status.episodes.filter((e) => stateAt({ userId, tmdbId: e.tmdbId, mediaType: "episode", seasonNumber: e.season, episodeNumber: e.episode }).state !== "unwatched");
   const movies = new Set(status.movies);
   const episodes = new Map(status.episodes.map((e) => [episodeKey(e), e]));
   for (const tmdbId of canonical.movies) {
-    const at = getCurrentWatchStateAt({ userId, tmdbId, mediaType: "movie" }).updatedAt ?? 0;
+    const at = stateAt({ userId, tmdbId, mediaType: "movie" }).updatedAt ?? 0;
     if (!movies.has(tmdbId)) { status.movies.push(tmdbId); movies.add(tmdbId); }
     status.movieWatchedAt ??= {};
     status.movieWatchedAt[String(tmdbId)] = Math.max(status.movieWatchedAt[String(tmdbId)] ?? 0, at);

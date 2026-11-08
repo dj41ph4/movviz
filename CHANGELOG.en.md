@@ -1,3 +1,13 @@
+## v1.28.101 — 8 November 2026
+
+### Performance
+
+- Cause of the slow pages: after each Plex sync of an account, the history catch-up re-read the library file and committed every watched title separately (7,500 titles ≈ 1.2 s server freeze, roughly every 30 s for the owner). Titles are now resolved once, the catch-up runs in a single transaction and the canonical state is read in one query: ≈ 0.13 s measured on the same volume, identical result.
+
+### Player
+
+- "Next episode" no longer appears when there is nothing to play (last available episode, or the next one missing from the library, like Cyberpunk: Edgerunners 2x1 whose 2x2 is missing): the next episode is looked up as soon as the episode opens, the button only exists when there is one and clicking it is instant, with no dependency on the server. If the server does not answer, the lookup is retried once and again on click.
+
 ## v1.28.100 — 8 November 2026
 
 ### Player

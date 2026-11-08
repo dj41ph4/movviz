@@ -1,3 +1,13 @@
+## v1.28.101 — 8 novembre 2026
+
+### Prestazioni
+
+- Causa del rallentamento delle pagine: dopo ogni sincronizzazione Plex di un account, il recupero della cronologia rileggeva il file della libreria e confermava ogni titolo visto separatamente (7 500 titoli ≈ 1,2 s di blocco del server, circa ogni 30 s per il proprietario). Ora i titoli vengono risolti una sola volta, il recupero avviene in un'unica transazione e lo stato canonico viene letto con una sola query: ≈ 0,13 s misurati sullo stesso volume, risultato identico.
+
+### Lettore
+
+- «Episodio successivo» non compare più quando non c'è nulla da avviare (ultimo episodio disponibile, o successivo assente dalla libreria, come Cyberpunk: Edgerunners 2x1 il cui 2x2 manca): l'episodio successivo viene cercato all'apertura dell'episodio, il pulsante esiste solo se ce n'è uno e il clic è istantaneo, senza dipendere dal server. Se il server non risponde, la ricerca viene ripetuta una volta e poi al clic.
+
 ## v1.28.100 — 8 novembre 2026
 
 ### Lettore

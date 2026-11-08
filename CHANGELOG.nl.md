@@ -1,3 +1,13 @@
+## v1.28.101 — 8 november 2026
+
+### Prestaties
+
+- Oorzaak van de trage pagina's: na elke Plex-synchronisatie van een account las de geschiedenis-inhaalslag het bibliotheekbestand opnieuw en bevestigde elke bekeken titel afzonderlijk (7 500 titels ≈ 1,2 s serverstilstand, voor de eigenaar ongeveer elke 30 s). Titels worden nu één keer opgezocht, de inhaalslag loopt in één transactie en de canonieke status wordt met één query gelezen: ≈ 0,13 s gemeten op hetzelfde volume, identiek resultaat.
+
+### Speler
+
+- „Volgende aflevering” verschijnt niet meer als er niets af te spelen is (laatste beschikbare aflevering, of de volgende ontbreekt in de bibliotheek, zoals Cyberpunk: Edgerunners 2x1 waarvan 2x2 ontbreekt): de volgende aflevering wordt opgezocht zodra de aflevering opent, de knop bestaat alleen als die er is en de klik is direct, zonder van de server af te hangen. Antwoordt de server niet, dan wordt de zoekopdracht één keer herhaald en opnieuw bij de klik.
+
 ## v1.28.100 — 8 november 2026
 
 ### Speler

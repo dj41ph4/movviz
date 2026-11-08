@@ -149,6 +149,27 @@ export function getCurrentWatchStateAt(input: Pick<WatchDecisionInput, "userId" 
   }, { state: "unknown" as const, updatedAt: null });
 }
 
+/**
+ * Mêmes réponses que getCurrentWatchStateAt(), pour TOUS les médias d'un compte
+ * en une seule requête : une boucle sur des milliers de titres vus ne prépare
+ * plus une requête SQLite par titre (gel de ≈0,3 s par passage, mesuré).
+ */
+export function getWatchStateAtIndex(userId: string): (input: Pick<WatchDecisionInput, "userId" | "tmdbId" | "mediaType" | "seasonNumber" | "episodeNumber">) => { state: WatchCurrentState; updatedAt: number | null } {
+  const rows = withUserContextDb((db) => {
+    const found = new Map<string, CurrentWatchRow>();
+    for (const row of db.prepare("SELECT state_key, watched, watched_updated_at FROM user_media_state WHERE user_id = ?").all(userId) as unknown as (CurrentWatchRow & { state_key: string })[]) {
+      found.set(row.state_key, row);
+    }
+    return found;
+  }, null);
+  return (input) => {
+    if (!rows) return getCurrentWatchStateAt(input);
+    const row = rows.get(stateKeyFor(input));
+    if (!row || row.watched_updated_at == null) return { state: "unknown", updatedAt: null };
+    return { state: row.watched ? "watched" : "unwatched", updatedAt: row.watched_updated_at };
+  };
+}
+
 export interface CanonicalWatchStatus {
   movies: number[];
   episodes: { tmdbId: number; season: number; episode: number; at: number | null }[];

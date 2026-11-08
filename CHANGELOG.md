@@ -1,3 +1,13 @@
+## v1.28.101 — 8 novembre 2026
+
+### Performances
+
+- Cause du ralentissement des pages : après chaque synchronisation Plex d'un compte, le rattrapage de l'historique relisait le fichier bibliothèque et validait chaque titre vu séparément (7 500 titres ≈ 1,2 s de gel du serveur, toutes les ~30 s pour le propriétaire). Les titres sont maintenant résolus une seule fois, le rattrapage tient dans une seule transaction et l'état canonique est lu en une requête : ≈ 0,13 s mesuré sur le même volume, résultat identique.
+
+### Lecteur
+
+- « Épisode suivant » n'apparaît plus quand il n'y a rien à lancer (dernier épisode disponible, ou suivant absent de la bibliothèque, comme Cyberpunk: Edgerunners 2x1 dont le 2x2 manque) : l'épisode suivant est recherché dès l'ouverture de l'épisode, le bouton n'existe que s'il y en a un et son clic est instantané, sans dépendre du serveur. Si le serveur ne répond pas, la recherche est refaite une fois puis au clic.
+
 ## v1.28.100 — 8 novembre 2026
 
 ### Lecteur
