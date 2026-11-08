@@ -118,6 +118,7 @@ test("Gintama: season packs take priority over an available integral", () => {
       enqueueJob: (_type, _label, _total, runner) => { const job = { id: 'acquire', runner }; jobs.push(job); return job; },
       addRequest: r => { requests.push(r); return r; }, loadRequests: () => requests,
       isBlocked: () => false, loadTrash: () => [], restoreFromTrash: () => {},
+      configuredQualityProfile: () => ({ id: 'default' }),
     };
     // Keep the real orchestration, locks, parsing, release matching and date/profile
     // rules. Replace I/O boundaries only; fixtures never touch user data/indexers.

@@ -35,8 +35,10 @@ test("a user who had saved Stable gets Beta and keeps their other settings", () 
   assert.equal(loadDashboardLayout("friend").mode, "beta");
 });
 
-test("Ma liste is fourth by default and appears in old layouts without losing hidden sections", () => {
-  assert.equal(DEFAULT_DASHBOARD_LAYOUT.sections[3].id, "watchlist");
+test("Ma liste follows the seasonal row by default and appears in old layouts without losing hidden sections", () => {
+  // La rangée saisonnière (vide hors saison) occupe la 4e place depuis la v1.28.83.
+  assert.equal(DEFAULT_DASHBOARD_LAYOUT.sections[3].id, "seasonal");
+  assert.equal(DEFAULT_DASHBOARD_LAYOUT.sections[4].id, "watchlist");
   const old = DEFAULT_DASHBOARD_LAYOUT.sections.filter((section) => section.id !== "watchlist").map((section) => ({ ...section, visible: section.id !== "rewatch" }));
   const migrated = sanitizeDashboardLayout({ sections: old });
   assert.equal(migrated.sections[3].id, "watchlist");

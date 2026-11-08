@@ -14,11 +14,14 @@ test("TV input invalidates the search screen, not the whole navigation host", ()
 
 test("TV search return restores one card target after lazy composition", () => {
   const screen = source("ui/search/SearchScreen.kt");
-  assert.ok(screen.includes("rememberSaveable(query) { mutableStateOf<String?>(null) }"));
-  assert.ok(screen.includes("if (!returningFromTitle) return@LaunchedEffect"));
-  assert.ok(screen.includes("gridState.scrollToItem(index)"));
-  assert.ok(screen.includes("if (index == 0) firstResultFocusRequester else returnResultFocusRequester"));
-  assert.ok(screen.includes("if (returnResultKey != null) return@LaunchedEffect"));
+  // Mémoire de grille par identité (rememberTvGridFocusMemory) : le retour de fiche
+  // défile jusqu'au résultat mémorisé puis le focalise, sans nœud de focus sauvegardé.
+  assert.ok(screen.includes("rememberTvGridFocusMemory("));
+  assert.ok(screen.includes('gridKey = "search:${typeFilter.name}:$query"'));
+  assert.ok(screen.includes("var restorePending by remember { mutableStateOf(gridMemory.hasSelection()) }"));
+  assert.ok(screen.includes("if (!restorePending) return@LaunchedEffect"));
+  assert.ok(screen.includes("gridMemory.restoreFocus(resultKeys, isResultVisible) { gridState.scrollToItem(it) }"));
+  assert.ok(screen.includes("focusRequester = if (index == 0) firstResultFocusRequester else null"));
 });
 
 test("TV season initially focuses header while retaining episode-return priority", () => {

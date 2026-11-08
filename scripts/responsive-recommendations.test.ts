@@ -1,11 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ResponsiveCache } from "@/lib/recommender/responsiveCache";
-import { ProgressiveCache } from "@/lib/recommender/progressiveCache";
-import { currentLane } from "@/lib/priority/lane";
-import { getTasteMetadata } from "@/lib/metadata/tmdb";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { NextRequest } from "next/server";
-import { GET as getRows } from "@/app/api/metadata/rows/route";
+
+// Données isolées : sur une machine de dev, le dossier .movviz-data est volumineux
+// et sa première lecture dépasse le budget de 150 ms des rangées (faux échec).
+// Les modules lisent MOVVIZ_DATA_DIR à l'import, d'où les imports dynamiques.
+const dataDir = mkdtempSync(path.join(tmpdir(), "movviz-responsive-"));
+process.env.MOVVIZ_DATA_DIR = dataDir;
+process.on("exit", () => { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* dossier temporaire : sans importance */ } });
+const { ResponsiveCache } = await import("@/lib/recommender/responsiveCache");
+const { ProgressiveCache } = await import("@/lib/recommender/progressiveCache");
+const { currentLane } = await import("@/lib/priority/lane");
+const { getTasteMetadata } = await import("@/lib/metadata/tmdb");
+const { GET: getRows } = await import("@/app/api/metadata/rows/route");
 
 test("a slow source cannot delay another shelf and runs in the background lane", async () => {
   const cache = new ResponsiveCache();
