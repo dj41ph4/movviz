@@ -1,3 +1,9 @@
+## v1.28.98 — 8 November 2026
+
+### Leistung
+
+- Vorschläge ("Vorschläge für dich") frieren den Server nicht mehr ein: Die Neuberechnung verarbeitete Zehntausende Kandidaten am Stück und blockierte die ganze App jedes Mal länger als eine Sekunde, was das Laden der Seiten verlangsamte. Die Berechnung ist jetzt in 20-ms-Abschnitte unterteilt; die Rangfolge bleibt identisch.
+
 ## v1.28.97 — 8 November 2026
 
 ### Player

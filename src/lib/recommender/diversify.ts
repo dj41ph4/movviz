@@ -1,4 +1,5 @@
 import { RELATION_KIND_WEIGHT, rankDecay, type CandidateEvidence } from "@/lib/recommender/evidence";
+import { yieldToEventLoop } from "@/lib/priority/userActivity";
 
 /**
  * « Sélection pour vous » doit refléter TOUT ce qui a été vu, pas le titre
@@ -51,6 +52,36 @@ export function diversifyBySeed<T extends { score: number; evidence: CandidateEv
     const seed = seeds.get(chosen)!;
     perSeed.set(seed, (perSeed.get(seed) ?? 0) + 1);
     picked.push(chosen);
+  }
+  return [...picked, ...remaining];
+}
+
+/** Même classement que diversifyBySeed, en rendant la main à la boucle d'événements entre deux choix. */
+export async function diversifyBySeedYielding<T extends { score: number; evidence: CandidateEvidence }>(sorted: T[]): Promise<T[]> {
+  const remaining = [...sorted];
+  const picked: T[] = [];
+  const perSeed = new Map<number, number>();
+  const seeds = new Map<T, number>();
+  let n = 0;
+  for (const candidate of sorted) {
+    seeds.set(candidate, dominantSeed(candidate.evidence));
+    if (++n % 2000 === 0) await yieldToEventLoop();
+  }
+  const depth = Math.min(DIVERSIFY_DEPTH, remaining.length);
+  while (picked.length < depth) {
+    let bestIndex = 0;
+    let bestAdjusted = -Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const seed = seeds.get(remaining[i])!;
+      const already = perSeed.get(seed) ?? 0;
+      const adjusted = remaining[i].score * Math.pow(DECAY, already);
+      if (adjusted > bestAdjusted) { bestAdjusted = adjusted; bestIndex = i; }
+    }
+    const [chosen] = remaining.splice(bestIndex, 1);
+    const seed = seeds.get(chosen)!;
+    perSeed.set(seed, (perSeed.get(seed) ?? 0) + 1);
+    picked.push(chosen);
+    await yieldToEventLoop();
   }
   return [...picked, ...remaining];
 }

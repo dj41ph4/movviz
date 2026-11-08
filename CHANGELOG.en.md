@@ -1,3 +1,9 @@
+## v1.28.98 — 8 November 2026
+
+### Performance
+
+- Suggestions ("Suggestions for you") no longer freeze the server: recomputing them processed tens of thousands of candidates in one go and blocked the whole app for over a second each time, slowing page loads. The computation is now split into 20 ms slices; the resulting ranking is identical.
+
 ## v1.28.97 — 8 November 2026
 
 ### Player

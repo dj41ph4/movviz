@@ -1,3 +1,9 @@
+## v1.28.98 — 8 novembre 2026
+
+### Performances
+
+- Les suggestions (« Suggestions pour vous ») ne figent plus le serveur : leur recalcul traitait des dizaines de milliers de candidats d'une traite et bloquait toute l'application plus d'une seconde à chaque fois, ce qui ralentissait le chargement des pages. Le calcul est maintenant découpé en tranches de 20 ms ; le classement obtenu est identique.
+
 ## v1.28.97 — 8 novembre 2026
 
 ### Lecteur

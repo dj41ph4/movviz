@@ -1,5 +1,6 @@
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { Seed } from "@/lib/recommender/seedBuilder";
+import { yieldToEventLoop } from "@/lib/priority/userActivity";
 
 export type RelationKind = "tmdb_recommendation" | "tmdb_similar" | "cross_type_genre";
 
@@ -58,6 +59,34 @@ export function aggregateCandidateEvidence(
   }
   for (const evidence of byId.values()) {
     evidence.distinctSeedCount = new Set(evidence.sources.map((s) => s.seedTmdbId)).size;
+  }
+  return byId;
+}
+
+/**
+ * Même résultat que aggregateCandidateEvidence, mais rend la main à la boucle
+ * d'événements toutes les ~20 ms : avec des centaines de titres vus, les
+ * dizaines de milliers de preuves s'agrégeaient d'une traite et figeaient le
+ * serveur plus d'une seconde à chaque recalcul des suggestions.
+ */
+export async function aggregateCandidateEvidenceYielding(
+  hits: Array<{ item: MetaSearchResult; source: RelationSource }>
+): Promise<Map<number, CandidateEvidence>> {
+  const byId = new Map<number, CandidateEvidence>();
+  let n = 0;
+  for (const { item, source } of hits) {
+    const existing = byId.get(item.tmdbId);
+    if (existing) {
+      existing.sources.push(source);
+    } else {
+      byId.set(item.tmdbId, { item, sources: [source], distinctSeedCount: 0 });
+    }
+    if (++n % 2000 === 0) await yieldToEventLoop();
+  }
+  n = 0;
+  for (const evidence of byId.values()) {
+    evidence.distinctSeedCount = new Set(evidence.sources.map((s) => s.seedTmdbId)).size;
+    if (++n % 500 === 0) await yieldToEventLoop();
   }
   return byId;
 }

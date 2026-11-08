@@ -1,6 +1,6 @@
 import { getGenres, getPerson, getTasteMetadata as getDetail } from "@/lib/metadata/tmdb";
 import { getWatchedTitles } from "@/lib/recommender/watchedTitles";
-import { diversifyBySeed } from "@/lib/recommender/diversify";
+import { diversifyBySeedYielding } from "@/lib/recommender/diversify";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
@@ -10,7 +10,8 @@ import { getComputedGenreTraits, getFavoriteKeywords, matchGenreAffinity, matchK
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { audienceSignal } from "@/lib/recommender/audienceSignal";
 import { buildSeeds } from "@/lib/recommender/seedBuilder";
-import { aggregateCandidateEvidence, type CandidateEvidence, type RelationSource } from "@/lib/recommender/evidence";
+import { aggregateCandidateEvidenceYielding, type CandidateEvidence, type RelationSource } from "@/lib/recommender/evidence";
+import { yieldToEventLoop } from "@/lib/priority/userActivity";
 import { scoreCandidate } from "@/lib/recommender/scorer";
 import { readHistoryRelations, historyRelations } from "./historyRelations";
 
@@ -98,7 +99,7 @@ async function buildRecommendations(
     });
   }
 
-  const evidenceById = aggregateCandidateEvidence(hits);
+  const evidenceById = await aggregateCandidateEvidenceYielding(hits);
 
   // Favorite people refine the history-related pool, without injecting an
   // independent filmography into personalized suggestions.
@@ -163,8 +164,7 @@ async function buildRecommendations(
     if (detail) keywordDetails.set(item.tmdbId, detail.keywords);
   }), []);
 
-  const ranked = entries
-    .map((evidence: CandidateEvidence) => {
+  const scoreOne = (evidence: CandidateEvidence) => {
       let taste = 0;
       if (tasteVector) {
         const candidateMood = getCachedMoodProfile(type, evidence.item.tmdbId)?.categories;
@@ -188,14 +188,21 @@ async function buildRecommendations(
       });
 
       return { item: evidence.item, score, evidence };
-    })
-    // No single broad signal can force the first place: relation to seeds,
-    // multi-seed consensus, people, genres, themes, behavior, rating and
-    // public traction all contribute (see scorer.ts for exact weights).
-    .sort((a, b) => b.score - a.score);
+  };
+  // Scored in slices: tens of thousands of candidates in one go froze the
+  // server for over a second on every refresh of the suggestions.
+  const scored: Array<ReturnType<typeof scoreOne>> = [];
+  for (const evidence of entries) {
+    scored.push(scoreOne(evidence));
+    if (scored.length % 500 === 0) await yieldToEventLoop();
+  }
+  // No single broad signal can force the first place: relation to seeds,
+  // multi-seed consensus, people, genres, themes, behavior, rating and
+  // public traction all contribute (see scorer.ts for exact weights).
+  const ranked = scored.sort((a, b) => b.score - a.score);
 
   // Then no single watched title may fill the row on its own (diversify.ts).
-  return filterSuggestable(diversifyBySeed(ranked).map((s) => s.item));
+  return filterSuggestable((await diversifyBySeedYielding(ranked)).map((s) => s.item));
 }
 
 const globals = globalThis as typeof globalThis & {

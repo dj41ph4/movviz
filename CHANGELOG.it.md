@@ -1,3 +1,9 @@
+## v1.28.98 — 8 novembre 2026
+
+### Prestazioni
+
+- I suggerimenti ("Suggerimenti per te") non bloccano più il server: il ricalcolo elaborava decine di migliaia di candidati in un colpo solo e bloccava l'intera app per oltre un secondo ogni volta, rallentando il caricamento delle pagine. Il calcolo è ora suddiviso in fette da 20 ms; la classifica ottenuta è identica.
+
 ## v1.28.97 — 8 novembre 2026
 
 ### Lettore

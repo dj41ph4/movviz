@@ -1,3 +1,9 @@
+## v1.28.98 — 8 november 2026
+
+### Prestaties
+
+- Suggesties ("Suggesties voor jou") bevriezen de server niet meer: de herberekening verwerkte tienduizenden kandidaten in één keer en blokkeerde de hele app telkens langer dan een seconde, waardoor pagina's traag laadden. De berekening is nu in stukken van 20 ms verdeeld; de rangschikking blijft identiek.
+
 ## v1.28.97 — 8 november 2026
 
 ### Speler
