@@ -3,10 +3,10 @@ import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { activeSeason, seasonDef, type SeasonId, type SeasonSettings } from "./calendar";
 
-const ROW_SIZE = 120;
+const ROW_SIZE = 160;
 /** Rien de plus ancien : une rangée d'événement doit sentir le récent. */
 const RELEASED_AFTER = "1980-01-01";
-const PAGES = 4;
+const PAGES = 6;
 const MEMO_TTL_MS = 6 * 60 * 60_000;
 const memo = new Map<string, { at: number; results: MetaSearchResult[] }>();
 
@@ -33,7 +33,7 @@ function roundRobin<T extends { tmdbId: number; type: string }>(lists: T[][]): T
  */
 export async function seasonalPage(season: SeasonId, type: "movie" | "series", page: number): Promise<{ results: MetaSearchResult[]; totalPages: number }> {
   const keywords = seasonDef(season).keywords;
-  const minVotes = type === "movie" ? 30 : 15;
+  const minVotes = type === "movie" ? 15 : 3;
   const [recent, best, popular] = await Promise.all([
     discoverByFilters(type, { sort: "primary_release_date.desc", keywords, minVotes, releasedAfter: RELEASED_AFTER }, page).catch(() => null),
     discoverByFilters(type, { sort: "vote_average.desc", keywords, voteCountFloor: minVotes * 2, releasedAfter: RELEASED_AFTER }, page).catch(() => null),

@@ -1,3 +1,10 @@
+## v1.28.90 — 8 November 2026
+
+### Feste & Anlässe
+
+- Weihnachts-Schlagwörter nach Analyse von 664 Weihnachtsfilmen und -serien erweitert: 16 neue Schlagwörter (Elfen, Rentiere, Nordpol, Schneemann, Adventskalender, „Weihnachten retten“, Weihnachtshorror, Feiertagsspecial…) und „Silvester“ für Neujahr. Der gefundene TMDb-Katalog wächst von 3.693 auf 4.466 Filme und von 154 auf 264 Serien.
+- Startseiten-Reihe: bis zu 160 Filme und mehr Serien (niedrigere Stimmenschwellen bei Serien), ohne Duplikate.
+
 ## v1.28.89 — 8 November 2026
 
 ### Feste & Anlässe

@@ -1,3 +1,10 @@
+## v1.28.90 — 8 novembre 2026
+
+### Feste ed eventi
+
+- Parole chiave di Natale ampliate dopo l'analisi di 664 film e serie natalizi: 16 nuove parole chiave (elfi, renne, Polo Nord, pupazzo di neve, calendario dell'Avvento, «salvare il Natale», horror natalizio, speciale festivo…) e «notte di Capodanno» per il Capodanno. Il catalogo TMDb trovato passa da 3.693 a 4.466 film e da 154 a 264 serie.
+- Fila della home: fino a 160 film e più serie (soglie di voti abbassate per le serie), senza doppioni.
+
 ## v1.28.89 — 8 novembre 2026
 
 ### Feste ed eventi

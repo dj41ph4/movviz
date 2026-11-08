@@ -1,3 +1,10 @@
+## v1.28.90 — 8 novembre 2026
+
+### Événements du moment
+
+- Mots-clés de Noël élargis après analyse de 664 films et séries de Noël : 16 nouveaux mots-clés (elfes, rennes, pôle Nord, bonhomme de neige, calendrier de l'Avent, « sauver Noël », horreur de Noël, spécial fêtes…) et « réveillon du Nouvel An » pour le Nouvel An. Le catalogue TMDb retrouvé passe de 3 693 à 4 466 films et de 154 à 264 séries.
+- Rangée d'accueil : jusqu'à 160 films et plus de séries (seuils de votes abaissés pour les séries), sans doublon.
+
 ## v1.28.89 — 8 novembre 2026
 
 ### Événements du moment

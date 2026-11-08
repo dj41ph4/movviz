@@ -1,3 +1,10 @@
+## v1.28.90 — 8 november 2026
+
+### Feestdagen & evenementen
+
+- Kersttrefwoorden uitgebreid na analyse van 664 kerstfilms en -series: 16 nieuwe trefwoorden (elfen, rendieren, Noordpool, sneeuwpop, adventskalender, “Kerst redden”, kersthorror, feestspecial…) en “oudejaarsavond” voor Nieuwjaar. De gevonden TMDb-catalogus groeit van 3.693 naar 4.466 films en van 154 naar 264 series.
+- Startpaginarij: tot 160 films en meer series (lagere stemdrempels voor series), zonder dubbels.
+
 ## v1.28.89 — 8 november 2026
 
 ### Feestdagen & evenementen

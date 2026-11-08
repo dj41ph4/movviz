@@ -33,7 +33,7 @@ export function PosterRow({
   title: string;
   onSeeAll?: () => void;
   onNearEnd?: () => void;
-  /** Adds a "show all" toggle that lays the row out as a wrapping grid (up to 120 cards, full rows only) instead of a swipe strip. */
+  /** Adds a "show all" toggle that lays the row out as a wrapping grid (up to 160 cards, full rows only) instead of a swipe strip. */
   expandable?: boolean;
   children: React.ReactNode;
 }) {
@@ -70,7 +70,7 @@ export function PosterRow({
     return () => ro.disconnect();
   }, [measure, children]);
 
-  // Grille dépliée : jusqu'à 120 cartes, tronquées à des lignes complètes pour ne jamais
+  // Grille dépliée : jusqu'à 160 cartes, tronquées à des lignes complètes pour ne jamais
   // laisser une dernière ligne à moitié vide (le nombre de colonnes dépend de la largeur).
   useEffect(() => {
     const row = scrollRef.current;
@@ -81,7 +81,7 @@ export function PosterRow({
       if (cards.length === 0) return;
       const top = cards[0].offsetTop;
       const columns = Math.max(1, cards.filter((card) => card.offsetTop === top).length);
-      const shown = Math.min(cards.length, 120);
+      const shown = Math.min(cards.length, 160);
       const keep = shown >= columns ? Math.floor(shown / columns) * columns : shown;
       cards.forEach((card, index) => { if (index >= keep) card.style.display = "none"; });
     };

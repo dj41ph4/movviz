@@ -1,3 +1,10 @@
+## v1.28.90 — 8 November 2026
+
+### Holidays & events
+
+- Christmas keywords widened after analysing 664 Christmas movies and series: 16 new keywords (elves, reindeer, North Pole, snowman, advent calendar, “saving Christmas”, Christmas horror, holiday special…) and “New Year's Eve” for New Year. The TMDb catalogue found goes from 3,693 to 4,466 movies and from 154 to 264 series.
+- Home row: up to 160 movies and more series (lower vote thresholds for series), without duplicates.
+
 ## v1.28.89 — 8 November 2026
 
 ### Holidays & events
