@@ -1,3 +1,10 @@
+## v1.28.97 — 8 novembre 2026
+
+### Lecteur
+
+- La lecture ne démarre plus à 0 s de tampon : le lecteur web attend 12 s de film chargées (20 s au plus) avant de lancer la lecture, avec le rond de chargement affiché. Les coupures des premières secondes disparaissent. Le même délai s'applique après un saut qui relance le flux.
+- Un saut vers une partie déjà reçue ne relance plus tout : au-delà des ~90 s confiées au navigateur, le film reçu reste en réserve en mémoire (jusqu'à 10 min) et le lecteur coupait ffmpeg pour repartir de zéro. Il réutilise maintenant cette réserve ; si la position ne s'y retrouve pas, il relance le flux comme avant.
+
 ## v1.28.96 — 8 novembre 2026
 
 ### Diagnostic

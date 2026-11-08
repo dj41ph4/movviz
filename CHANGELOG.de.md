@@ -1,3 +1,10 @@
+## v1.28.97 — 8 November 2026
+
+### Player
+
+- Die Wiedergabe startet nicht mehr mit 0 s Puffer: Der Web-Player wartet, bis 12 s Film geladen sind (höchstens 20 s), und zeigt dabei den Ladekreis. Die Aussetzer in den ersten Sekunden verschwinden. Dieselbe Wartezeit gilt nach einem Sprung, der den Stream neu startet.
+- Ein Sprung zu einem bereits empfangenen Teil startet nicht mehr alles neu: Jenseits der ~90 s, die dem Browser übergeben werden, bleibt der empfangene Film in einer Reserve im Speicher (bis zu 10 Min.), und der Player beendete ffmpeg und fing von vorn an. Er nutzt diese Reserve jetzt; findet sich die Position darin nicht, startet er den Stream wie zuvor neu.
+
 ## v1.28.96 — 8 November 2026
 
 ### Diagnose

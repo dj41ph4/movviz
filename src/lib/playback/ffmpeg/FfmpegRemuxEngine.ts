@@ -16,6 +16,11 @@
 
 import { DeepBufferFeed, deepBufferSupported } from "./deepBuffer";
 
+/** Secondes de tampon à réunir avant de lancer la lecture (chemin tampon profond). */
+const START_BUFFER_SEC = 12;
+/** Attente maximale de ce tampon de départ. */
+const START_BUFFER_MAX_WAIT_MS = 20_000;
+
 export interface FfmpegEngineOptions {
   audioStreamId?: number | null;
   seekTo?: number;
@@ -189,6 +194,10 @@ export class FfmpegRemuxEngine {
         return;
       }
       if (started) {
+        // Attendre un vrai tampon avant de lancer la lecture : sans lui, elle démarre à
+        // 0 s d'avance et chaque à-coup du serveur devient une coupure visible.
+        await this.waitForStartBuffer(video, seq);
+        if (this.destroyed || seq !== this._loadSeq) return;
         void video.play().catch(() => void 0);
       } else {
         // Codec non pris en charge, MSE indisponible, serveur refusé… : lecture native, comme avant.
@@ -209,6 +218,37 @@ export class FfmpegRemuxEngine {
     }
   }
 
+  /** Vrai pendant l'attente du tampon de départ : le rond de chargement reste affiché. */
+  private startGate = false;
+
+  /**
+   * Retient le lancement de la lecture jusqu'à START_BUFFER_SEC secondes de tampon devant la
+   * tête de lecture (ou la fin du flux, ou START_BUFFER_MAX_WAIT_MS au plus : un serveur lent
+   * ne doit jamais bloquer le film). Vaut aussi après un saut dans le film, qui relance ffmpeg.
+   */
+  private async waitForStartBuffer(video: HTMLVideoElement, seq: number): Promise<void> {
+    const startedAt = Date.now();
+    this.startGate = true;
+    this.cb.onBuffering(true);
+    try {
+      while (!this.destroyed && seq === this._loadSeq && Date.now() - startedAt < START_BUFFER_MAX_WAIT_MS) {
+        const t = video.currentTime;
+        let ahead = 0;
+        let reachesEnd = false;
+        for (let r = 0; r < video.buffered.length; r++) {
+          if (t >= video.buffered.start(r) - 0.25 && t <= video.buffered.end(r)) {
+            ahead = video.buffered.end(r) - t;
+            reachesEnd = Number.isFinite(video.duration) && video.buffered.end(r) >= video.duration - 0.5;
+          }
+        }
+        if (ahead >= START_BUFFER_SEC || (reachesEnd && ahead > 0)) break;
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+      }
+    } finally {
+      if (seq === this._loadSeq) this.startGate = false;
+    }
+  }
+
   private onWaiting = (): void => {
     if (this.destroyed) return;
     this.cb.onBuffering(true);
@@ -220,12 +260,12 @@ export class FfmpegRemuxEngine {
   };
 
   private onCanPlay = (): void => {
-    if (this.destroyed) return;
+    if (this.destroyed || this.startGate) return;
     this.cb.onBuffering(false);
   };
 
   private onCanPlayThrough = (): void => {
-    if (this.destroyed) return;
+    if (this.destroyed || this.startGate) return;
     this.cb.onBuffering(false);
   };
 
@@ -336,6 +376,13 @@ export class FfmpegRemuxEngine {
         video.currentTime = local;
         return;
       }
+      // Saut en avant dans la réserve (reçue, pas encore confiée au navigateur) : on la réutilise.
+      if (range && local > range[1] - 2 && (await this.deep.jumpInReserve(local))) {
+        if (mySeq !== this._seekSeq || this.destroyed) return;
+        video.currentTime = local;
+        return;
+      }
+      if (mySeq !== this._seekSeq || this.destroyed) return;
     }
     if (this.ratingKey) {
       await fetch(`${this.urlPrefix}/${this.ratingKey}${this.urlSuffix}`, { method: "DELETE", keepalive: true }).catch(() => void 0);

@@ -1,3 +1,10 @@
+## v1.28.97 — 8 November 2026
+
+### Player
+
+- Playback no longer starts with 0 s of buffer: the web player waits for 12 s of movie to be loaded (20 s at most) before playing, with the loading spinner shown. The stalls in the first seconds go away. The same wait applies after a jump that restarts the stream.
+- Jumping to a part that was already received no longer restarts everything: beyond the ~90 s handed to the browser, the received movie stays in an in-memory reserve (up to 10 min) and the player used to kill ffmpeg and start over. It now reuses that reserve; if the position is not found in it, it restarts the stream as before.
+
 ## v1.28.96 — 8 November 2026
 
 ### Diagnostics

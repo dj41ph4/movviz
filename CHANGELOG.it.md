@@ -1,3 +1,10 @@
+## v1.28.97 — 8 novembre 2026
+
+### Lettore
+
+- La riproduzione non parte più con 0 s di buffer: il lettore web attende 12 s di film caricati (20 s al massimo) prima di avviarla, con il cerchio di caricamento visibile. Le interruzioni dei primi secondi spariscono. La stessa attesa vale dopo un salto che riavvia il flusso.
+- Un salto verso una parte già ricevuta non riavvia più tutto: oltre i ~90 s affidati al browser, il film ricevuto resta in una riserva in memoria (fino a 10 min) e il lettore interrompeva ffmpeg per ripartire da zero. Ora riutilizza quella riserva; se la posizione non vi si trova, riavvia il flusso come prima.
+
 ## v1.28.96 — 8 novembre 2026
 
 ### Diagnostica

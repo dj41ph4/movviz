@@ -226,6 +226,9 @@ export class DeepBufferFeed {
   private quotaLimitSec: number | null = null;
   private wake: (() => void) | null = null;
   private onFailure: (reason: string, kind: DeepBufferFailure) => void = () => void 0;
+  /** Saut demandé vers une partie déjà reçue mais pas encore confiée au SourceBuffer, traité par feed(). */
+  private jump: { target: number; resolve: (ok: boolean) => void } | null = null;
+  private feedEnded = false;
 
   constructor(private video: HTMLVideoElement, private url: string) {}
 
@@ -268,6 +271,63 @@ export class DeepBufferFeed {
   private giveUp(): false {
     this.stop();
     return false;
+  }
+
+  /**
+   * Saut vers `localSec` (secondes de l'élément) quand cette partie est déjà dans la réserve
+   * (reçue, pas encore confiée au SourceBuffer, au-delà de l'avance de lecture) : on écarte la
+   * réserve jusqu'un peu avant la cible puis on confie le reste au SourceBuffer, au lieu de
+   * relancer ffmpeg et de repartir de zéro. Faux (rien n'est supposé) si la cible n'est pas
+   * dans la réserve ou si la position ne se retrouve pas dans ce qui a été confié : l'appelant
+   * relance alors le flux comme avant.
+   */
+  jumpInReserve(localSec: number): Promise<boolean> {
+    if (this.stopped || this.feedEnded || this.jump) return Promise.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      this.jump = { target: localSec, resolve };
+      this.notify();
+      setTimeout(() => { if (this.jump && this.jump.resolve === resolve) { this.jump = null; resolve(false); } }, 8000);
+    });
+  }
+
+  private rangeContaining(t: number): [number, number] | null {
+    const b = this.video.buffered;
+    for (let k = 0; k < b.length; k++) if (t >= b.start(k) - 0.05 && t <= b.end(k)) return [b.start(k), b.end(k)];
+    return null;
+  }
+
+  private async doJump(target: number): Promise<boolean> {
+    const rate = this.bytesPerSec();
+    const b = this.video.buffered;
+    if (!rate || !b.length) return false;
+    const bufEnd = b.end(b.length - 1);
+    // La cible doit tomber dans ce que la réserve contient (marge de 3 s pour l'estimation par débit moyen).
+    if (target <= bufEnd || target > bufEnd + this.reserveSeconds - 3) return false;
+    const margin = 12;
+    const skipBytes = Math.max(0, (target - bufEnd - margin) * rate);
+    let skipped = 0;
+    while (this.reserve.length > 1 && skipped + this.reserve[0].byteLength <= skipBytes) {
+      const f = this.reserve.shift()!;
+      skipped += f.byteLength;
+      this.reserveBytes -= f.byteLength;
+    }
+    // Les octets écartés comptent dans le débit moyen (secondes de film réellement parcourues).
+    this.appendedBytes += skipped;
+    this.notify();
+    // Au plus ~margin + 20 s de film confiés d'un coup : même ordre de grandeur que l'avance normale.
+    let appended = 0;
+    const appendCap = (margin + 20) * rate;
+    for (;;) {
+      const range = this.rangeContaining(target);
+      if (range && range[1] - target >= 4) return true;
+      if (appended > appendCap || this.stopped) return false;
+      const frag = this.reserve.shift();
+      if (!frag) return false;
+      this.reserveBytes -= frag.byteLength;
+      appended += frag.byteLength;
+      this.notify();
+      await this.append(frag);
+    }
   }
 
   /** Plage lue [début, fin] en secondes de l'élément, ou null. */
@@ -462,9 +522,16 @@ export class DeepBufferFeed {
   private async feed(): Promise<void> {
     try {
       while (!this.stopped) {
+        if (this.jump) {
+          const j = this.jump;
+          this.jump = null;
+          j.resolve(await this.doJump(j.target).catch(() => false));
+          if (this.stopped) return;
+          continue;
+        }
         const limit = this.forwardLimit();
         if (this.ahead() > limit) {
-          while (!this.stopped && this.ahead() > limit * 0.85) await new Promise((r) => setTimeout(r, 400));
+          while (!this.stopped && !this.jump && this.ahead() > limit * 0.85) await new Promise((r) => setTimeout(r, 400));
           continue;
         }
         const frag = this.reserve.shift();
@@ -486,6 +553,7 @@ export class DeepBufferFeed {
         if (this.stopped) return;
         await this.trimBack();
       }
+      this.feedEnded = true;
       if (this.stopped) return;
       await this.idle();
       if (this.ms && this.ms.readyState === "open") this.ms.endOfStream();

@@ -1,3 +1,10 @@
+## v1.28.97 — 8 november 2026
+
+### Speler
+
+- Het afspelen begint niet meer met 0 s buffer: de webspeler wacht tot 12 s film geladen is (hoogstens 20 s) voordat hij start, met de laadcirkel zichtbaar. De haperingen in de eerste seconden verdwijnen. Dezelfde wachttijd geldt na een sprong die de stream herstart.
+- Een sprong naar een al ontvangen deel start niet meer alles opnieuw: voorbij de ~90 s die aan de browser zijn doorgegeven blijft de ontvangen film in een reserve in het geheugen (tot 10 min) en de speler stopte ffmpeg om van nul te beginnen. Hij hergebruikt nu die reserve; vindt hij de positie daar niet, dan herstart hij de stream zoals voorheen.
+
 ## v1.28.96 — 8 november 2026
 
 ### Diagnose
