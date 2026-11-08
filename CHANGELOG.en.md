@@ -1,3 +1,9 @@
+## v1.28.93 — 8 November 2026
+
+### Player
+
+- Diagnostics: every ffmpeg stream the server starts now measures the file analysis time, the delay before the first data and the read throughput over the first 3 minutes (speed, MB produced). Measurements are kept for 72 h with the user name and shown in `/api/perf` (`playback.startups` field), to understand start-up waits when a movie begins.
+
 ## v1.28.92 — 8 November 2026
 
 ### Player

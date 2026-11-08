@@ -36,12 +36,14 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (!session || session.userId !== user.id) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (session.mode === "DIRECT_PLAY") return NextResponse.json({ error: "wrong_route_for_direct_play" }, { status: 400 });
 
+  const probeStart = Date.now();
   const input = session.source.type === "local"
     ? { uri: session.source.uri, localPath: session.source.localPath, sourceKey: session.source.sourceKey }
     : { uri: session.source.uri, headers: session.source.headers, sourceKey: session.source.sourceKey };
   const media = session.source.type === "local"
     ? await getOrProbeMediaDescriptor(session.mediaId, session.source.localPath)
     : await getOrProbeRemoteMediaDescriptor(session.mediaId, session.source.uri, session.source.headers);
+  const probeMs = Date.now() - probeStart;
   if (!media) return NextResponse.json({ error: "source_unavailable" }, { status: 404 });
 
   const sp = req.nextUrl.searchParams;
@@ -74,6 +76,8 @@ export async function GET(req: NextRequest, context: Ctx) {
       subtitleIndex: session.selectedSubtitle,
       seekToSec,
       subtitleCharenc,
+      telemetryUser: user.username,
+      probeMs,
     });
   } catch (e) {
     if (e instanceof RemoteSubtitleBurnUnsupportedError) {

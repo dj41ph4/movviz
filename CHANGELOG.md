@@ -1,3 +1,9 @@
+## v1.28.93 — 8 novembre 2026
+
+### Lecteur
+
+- Diagnostic : chaque flux ffmpeg lancé par le serveur mesure désormais la durée d'analyse du fichier, le délai avant la première donnée et le débit de lecture des 3 premières minutes (vitesse, Mo produits). Les mesures sont conservées 72 h avec le nom de l'utilisateur et visibles dans `/api/perf` (champ `playback.startups`), pour comprendre les attentes au démarrage d'un film.
+
 ## v1.28.92 — 8 novembre 2026
 
 ### Lecteur

@@ -38,6 +38,26 @@ export interface PlaybackSample {
   sid: string | null;
 }
 
+/** Démarrage d'un flux ffmpeg côté serveur : délais avant la première donnée et débit de lecture du fichier. */
+export interface StartupTrace {
+  t: number;
+  user?: string;
+  mediaId: string;
+  mode: string;
+  /** Vidéo copiée ou transcodée, audio copié ou transcodé. */
+  actions: string;
+  seekSec: number;
+  /** Durée de l'analyse (ffprobe) du fichier avant le lancement de ffmpeg. */
+  probeMs: number | null;
+  /** Du lancement de ffmpeg à sa première donnée de sortie. */
+  firstOutputMs: number | null;
+  /** Points de mesure : secondes écoulées, secondes de film produites, Mo écrits, vitesse ffmpeg (1 = temps réel). */
+  points: { s: number; media: number; mb: number; speed: number | null }[];
+  /** ffmpeg s'est terminé avant la fin de la fenêtre de mesure. */
+  exited: boolean;
+}
+
+const MAX_STARTUPS = 100;
 const MAX_STALLS = 5000;
 const MAX_SAMPLES = 15000;
 /** Durée de conservation sur disque : 72 h maximum. */
@@ -52,7 +72,7 @@ const CONFIG_DIR =
   path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "playback-telemetry.json");
 
-type Store = { stalls: PlaybackStall[]; samples: PlaybackSample[] };
+type Store = { stalls: PlaybackStall[]; samples: PlaybackSample[]; startups: StartupTrace[] };
 
 // globalThis-anchored : mêmes bundles séparés que perf.ts.
 const g = globalThis as typeof globalThis & {
@@ -64,6 +84,7 @@ function prune(st: Store) {
   const min = Date.now() - RETENTION_MS;
   st.stalls = st.stalls.filter((s) => s.t >= min).slice(-MAX_STALLS);
   st.samples = st.samples.filter((s) => s.t >= min).slice(-MAX_SAMPLES);
+  st.startups = st.startups.filter((s) => s.t >= min).slice(-MAX_STARTUPS);
 }
 
 function loadFromDisk(): Store {
@@ -73,6 +94,7 @@ function loadFromDisk(): Store {
       const st = {
         stalls: Array.isArray(raw.stalls) ? raw.stalls : [],
         samples: Array.isArray(raw.samples) ? raw.samples : [],
+        startups: Array.isArray(raw.startups) ? raw.startups : [],
       };
       prune(st);
       return st;
@@ -80,10 +102,11 @@ function loadFromDisk(): Store {
   } catch {
     // fichier absent ou corrompu : on repart à vide
   }
-  return { stalls: [], samples: [] };
+  return { stalls: [], samples: [], startups: [] };
 }
 
 const store = (g.__movvizPlaybackTelemetry ??= loadFromDisk());
+store.startups ??= [];
 
 function flushToDisk() {
   try {
@@ -108,6 +131,12 @@ function scheduleFlush() {
 export function recordStall(s: PlaybackStall) {
   store.stalls.push(s);
   if (store.stalls.length > MAX_STALLS) store.stalls.shift();
+  scheduleFlush();
+}
+
+export function recordStartup(s: StartupTrace) {
+  store.startups.push(s);
+  if (store.startups.length > MAX_STARTUPS) store.startups.shift();
   scheduleFlush();
 }
 
@@ -136,6 +165,7 @@ export interface PlaybackTelemetrySummary {
   }[];
   stalls: PlaybackStall[];
   samples: PlaybackSample[];
+  startups: StartupTrace[];
 }
 
 export function getPlaybackTelemetry(user?: string): PlaybackTelemetrySummary {
@@ -174,5 +204,5 @@ export function getPlaybackTelemetry(user?: string): PlaybackTelemetrySummary {
     avgBufAhead: gr.samples ? Math.round((bufSum / gr.samples) * 10) / 10 : 0,
     minBufAhead: Number.isFinite(gr.minBufAhead) ? gr.minBufAhead : 0,
   }));
-  return { groups, stalls: stalls.slice(-100), samples: samples.slice(-120) };
+  return { groups, stalls: stalls.slice(-100), samples: samples.slice(-120), startups: (user ? store.startups.filter((s) => s.user === user) : store.startups).slice(-20) };
 }

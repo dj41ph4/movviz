@@ -15,6 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import type { MediaDescriptor } from "./mediaDescriptor";
 import type { PlaybackPlan } from "./playbackPlan";
+import { recordStartup, type StartupTrace } from "@/lib/playbackTelemetry";
 import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "./sharedTranscodeLimit";
 
 export const MAX_CONCURRENT = 3;
@@ -70,6 +71,9 @@ export interface StartTranscoderSessionOptions {
    *  onto genuinely valid UTF-8 text corrupts it into "cafÃ©"-style
    *  mojibake, it does not no-op). */
   subtitleCharenc?: string | null;
+  /** Mesures de démarrage (télémétrie) : utilisateur et durée de l'analyse du fichier. */
+  telemetryUser?: string;
+  probeMs?: number | null;
 }
 
 interface TranscoderSession {
@@ -333,7 +337,7 @@ export function startTranscoderSession(
   // remuxSession.ts).
   const outputSeek = burning;
 
-  const args: string[] = ["-v", "error"];
+  const args: string[] = ["-v", "error", "-nostats", "-progress", "pipe:2"];
   // Global INPUT option, must precede -i — only meaningful for EXTRACT/
   // CONVERT (a real, separate `-map`+`-c:s webvtt` output read through this
   // same -i's subtitle decoder). BURN does NOT use this: the `subtitles`
@@ -463,9 +467,68 @@ export function startTranscoderSession(
 
   const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
 
-  proc.stderr?.on("data", (d) => console.error(`[transcoder] ${key} stderr: ${String(d).trim()}`));
+  // -progress pipe:2 : ffmpeg écrit toutes les 0,5 s ses compteurs (octets, secondes produites,
+  // vitesse) sur stderr, sans toucher à la sortie vidéo. On en tire les mesures de démarrage ;
+  // le reste de stderr (vraies erreurs) est journalisé comme avant.
+  const startedAt = Date.now();
+  const trace: StartupTrace = {
+    t: startedAt,
+    user: opts.telemetryUser,
+    mediaId,
+    mode: plan.mode,
+    actions: `video=${plan.videoAction} audio=${plan.audioAction}`,
+    seekSec,
+    probeMs: opts.probeMs ?? null,
+    firstOutputMs: null,
+    points: [],
+    exited: false,
+  };
+  const TRACE_WINDOW_MS = 180_000;
+  let traceDone = false;
+  let lastPointAt = 0;
+  let progress: Record<string, string> = {};
+  const finishTrace = (exited: boolean) => {
+    if (traceDone) return;
+    traceDone = true;
+    trace.exited = exited;
+    recordStartup(trace);
+  };
+  const traceTimer = setTimeout(() => finishTrace(false), TRACE_WINDOW_MS);
+  if (typeof traceTimer.unref === "function") traceTimer.unref();
+  let stderrTail = "";
+  proc.stderr?.on("data", (d) => {
+    stderrTail += String(d);
+    const lines = stderrTail.split(/\r?\n/);
+    stderrTail = lines.pop() ?? "";
+    for (const line of lines) {
+      const m = /^(frame|fps|stream_\d+_\d+_q|bitrate|total_size|out_time_us|out_time_ms|out_time|dup_frames|drop_frames|speed|progress)=(.*)$/.exec(line.trim());
+      if (!m) {
+        if (line.trim()) console.error(`[transcoder] ${key} stderr: ${line.trim()}`);
+        continue;
+      }
+      progress[m[1]] = m[2];
+      if (m[1] !== "progress" || traceDone) continue;
+      const now = Date.now();
+      const bytes = Number(progress.total_size);
+      if (trace.firstOutputMs === null && Number.isFinite(bytes) && bytes > 0) trace.firstOutputMs = now - startedAt;
+      if (now - lastPointAt >= 5000 && now - startedAt <= TRACE_WINDOW_MS) {
+        lastPointAt = now;
+        const mediaSec = Number(progress.out_time_us) / 1e6;
+        const speed = parseFloat(progress.speed ?? "");
+        trace.points.push({
+          s: Math.round((now - startedAt) / 100) / 10,
+          media: Number.isFinite(mediaSec) ? Math.round(mediaSec * 10) / 10 : 0,
+          mb: Number.isFinite(bytes) ? Math.round((bytes / 1048576) * 10) / 10 : 0,
+          speed: Number.isFinite(speed) ? speed : null,
+        });
+      }
+      progress = {};
+    }
+  });
   proc.on("error", (err) => console.error(`[transcoder] ${key} spawn error: ${err.message}`));
   proc.on("exit", (code, signal) => {
+    clearTimeout(traceTimer);
+    finishTrace(true);
     if (code !== 0 && code !== null) console.error(`[transcoder] ${key} exit anormal code=${code} signal=${signal}`);
     else console.log(`[transcoder] ${key} exit code=${code} signal=${signal}`);
     // A replaced process exits after its successor registered under the

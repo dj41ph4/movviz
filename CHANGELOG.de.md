@@ -1,3 +1,9 @@
+## v1.28.93 — 8 November 2026
+
+### Player
+
+- Diagnose: Jeder vom Server gestartete ffmpeg-Stream misst jetzt die Analysedauer der Datei, die Wartezeit bis zu den ersten Daten und den Lesedurchsatz der ersten 3 Minuten (Geschwindigkeit, erzeugte MB). Die Messwerte werden 72 Std. mit dem Benutzernamen gespeichert und in `/api/perf` (Feld `playback.startups`) angezeigt, um Wartezeiten beim Filmstart zu verstehen.
+
 ## v1.28.92 — 8 November 2026
 
 ### Player

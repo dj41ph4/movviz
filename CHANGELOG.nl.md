@@ -1,3 +1,9 @@
+## v1.28.93 — 8 november 2026
+
+### Speler
+
+- Diagnose: elke door de server gestarte ffmpeg-stream meet nu de analysetijd van het bestand, de wachttijd tot de eerste data en de leessnelheid van de eerste 3 minuten (snelheid, geproduceerde MB). De metingen worden 72 uur bewaard met de gebruikersnaam en staan in `/api/perf` (veld `playback.startups`), om wachttijden bij het starten van een film te begrijpen.
+
 ## v1.28.92 — 8 november 2026
 
 ### Speler
