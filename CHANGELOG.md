@@ -1,3 +1,10 @@
+## v1.28.104 — 9 novembre 2026
+
+### Lecteur
+
+- Trois réglages de profil, désactivés par défaut et communs à toutes les plateformes (bureau, Android TV, Android mobile, Samsung) : « Passer l'intro automatiquement », « Passer le générique automatiquement » (s'il dure jusqu'à la fin, l'épisode suivant démarre, comme le bouton) et « Épisode suivant automatiquement ». Chaque marqueur n'est sauté qu'une fois, un retour arrière à la main ne le fait pas resauter.
+- Changement de comportement : l'épisode suivant ne démarre plus seul à la fin d'un épisode tant que le réglage n'est pas activé. Le lecteur reste sur la fin avec le bouton « Épisode suivant » (bureau, Android) ; sur Samsung il se ferme comme après le dernier épisode.
+
 ## v1.28.103 — 9 novembre 2026
 
 ### Bibliothèque

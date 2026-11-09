@@ -2644,6 +2644,12 @@ export const fr = {
     preferredAudioLanguageHint: "Piste audio choisie par défaut à la lecture — sur « Automatique », suit la langue de l'interface.",
     autoSubtitles: "Sous-titres automatiques",
     autoSubtitlesHint: "Désactivé par défaut. Activé, les sous-titres démarrent dans la langue de ton profil (celle de l'interface, choisie avec les drapeaux) quand l'audio lu n'est pas dans cette langue. Réglage commun à toutes tes plateformes.",
+    autoSkipIntro: "Passer l'intro automatiquement",
+    autoSkipIntroHint: "Désactivé par défaut. Activé, l'intro des épisodes est sautée dès qu'elle commence.",
+    autoSkipCredits: "Passer le générique automatiquement",
+    autoSkipCreditsHint: "Désactivé par défaut. Activé, le générique de fin est sauté ; s'il dure jusqu'à la fin, l'épisode suivant démarre.",
+    autoNextEpisode: "Épisode suivant automatiquement",
+    autoNextEpisodeHint: "Désactivé par défaut. Activé, l'épisode suivant démarre seul à la fin de celui-ci. Réglage commun à toutes tes plateformes.",
     audioLang: {
       auto: "Automatique (langue de l'interface)",
       fr: "Français",

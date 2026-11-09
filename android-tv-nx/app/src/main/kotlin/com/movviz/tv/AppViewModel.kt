@@ -2104,6 +2104,29 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         }
     }
 
+    /** « Passer l'intro », « Passer le générique », « Épisode suivant » automatiques — [key] est le nom du champ serveur. */
+    fun setAutoPlayback(key: String, enabled: Boolean) {
+        val repo = repository ?: return
+        val patch = when (key) {
+            "autoSkipIntro" -> UserPrefsDto(autoSkipIntro = enabled)
+            "autoSkipCredits" -> UserPrefsDto(autoSkipCredits = enabled)
+            "autoNextEpisode" -> UserPrefsDto(autoNextEpisode = enabled)
+            else -> return
+        }
+        val current = _userPrefs.value ?: UserPrefsDto()
+        _userPrefs.value = when (key) {
+            "autoSkipIntro" -> current.copy(autoSkipIntro = enabled)
+            "autoSkipCredits" -> current.copy(autoSkipCredits = enabled)
+            else -> current.copy(autoNextEpisode = enabled)
+        }
+        viewModelScope.launch {
+            when (val r = repo.saveAutoPlayback(patch)) {
+                is ApiResult.Success -> _userPrefs.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
     fun logout() {
         val repo = repository
         // Best-effort côté serveur (voir MovvizRepository.logoutServer) puis

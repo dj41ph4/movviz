@@ -6,6 +6,7 @@ import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { Toggle } from "@/components/ui/Toggle";
 import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
 import { useAutoSubtitles } from "@/lib/settings/useAutoSubtitles";
+import { useAutoPlayback } from "@/lib/settings/useAutoPlayback";
 import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/languages";
 
 /**
@@ -19,6 +20,7 @@ export function LanguagePanel() {
   const { locale } = useI18n();
   const { value: audioLanguage, set: setAudioLanguage } = usePreferredAudioLanguage();
   const { enabled: autoSubtitles, set: setAutoSubtitles } = useAutoSubtitles();
+  const autoPlayback = useAutoPlayback();
 
   return (
     <div className="mb-6 rounded-2xl glass p-5">
@@ -56,6 +58,16 @@ export function LanguagePanel() {
         </div>
         <Toggle label={t("player.autoSubtitles")} on={autoSubtitles} onChange={() => setAutoSubtitles(!autoSubtitles)} />
       </div>
+
+      {(["autoSkipIntro", "autoSkipCredits", "autoNextEpisode"] as const).map((key) => (
+        <div key={key} className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t(`player.${key}`)}</p>
+            <p className="text-xs text-ink-dim">{t(`player.${key}Hint`)}</p>
+          </div>
+          <Toggle label={t(`player.${key}`)} on={autoPlayback[key]} onChange={() => autoPlayback.set(key, !autoPlayback[key])} />
+        </div>
+      ))}
     </div>
   );
 }

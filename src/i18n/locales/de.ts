@@ -2645,6 +2645,12 @@ export const de: Dictionary = {
     preferredAudioLanguageHint: "Standardmäßig gewählte Audiospur beim Wiedergabestart — bei „Automatisch\" wird die Oberflächensprache verwendet.",
     autoSubtitles: "Automatische Untertitel",
     autoSubtitlesHint: "Standardmäßig aus. Wenn aktiviert, starten Untertitel in der Sprache deines Profils (der mit den Flaggen gewählten Oberflächensprache), sobald die abgespielte Audiospur eine andere Sprache hat. Gilt für alle deine Plattformen.",
+    autoSkipIntro: "Intro automatisch überspringen",
+    autoSkipIntroHint: "Standardmäßig aus. Wenn aktiviert, wird das Intro einer Folge übersprungen, sobald es beginnt.",
+    autoSkipCredits: "Abspann automatisch überspringen",
+    autoSkipCreditsHint: "Standardmäßig aus. Wenn aktiviert, wird der Abspann übersprungen; reicht er bis zum Ende, startet die nächste Folge.",
+    autoNextEpisode: "Nächste Folge automatisch",
+    autoNextEpisodeHint: "Standardmäßig aus. Wenn aktiviert, startet die nächste Folge von selbst, sobald diese endet. Gilt für alle deine Plattformen.",
     audioLang: {
       auto: "Automatisch (Oberflächensprache)",
       fr: "Französisch",

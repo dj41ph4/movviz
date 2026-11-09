@@ -43,6 +43,16 @@ export interface UserPrefs {
    *  lecteur démarre les sous-titres dans cette langue. Stocké côté compte :
    *  le réglage suit l'utilisateur sur toutes les plateformes. */
   autoSubtitles?: boolean;
+  /** Enchaînements automatiques du lecteur — tous trois absents/false par
+   *  défaut, réglages de compte comme `autoSubtitles` (donc identiques sur le
+   *  bureau, Android mobile, Android TV et Samsung).
+   *  `autoSkipIntro` : saute seul l'intro (marqueur « intro ») dès qu'elle commence.
+   *  `autoSkipCredits` : saute seul le générique de fin ; s'il court jusqu'à la
+   *  fin du fichier, passe à l'épisode suivant comme le bouton.
+   *  `autoNextEpisode` : à la fin d'un épisode, lance le suivant sans clic. */
+  autoSkipIntro?: boolean;
+  autoSkipCredits?: boolean;
+  autoNextEpisode?: boolean;
   /** Ambient trailer video on movie/series detail pages — absent/true keeps
    *  today's behavior (video plays immediately), false falls back to the
    *  static backdrop image. Independent of the dashboard hero's own
@@ -98,6 +108,9 @@ function sanitize(prefs: unknown): UserPrefs {
     clean.preferredAudioLanguage = p.preferredAudioLanguage as PreferredAudioLanguage;
   }
   if (typeof p.autoSubtitles === "boolean") clean.autoSubtitles = p.autoSubtitles;
+  if (typeof p.autoSkipIntro === "boolean") clean.autoSkipIntro = p.autoSkipIntro;
+  if (typeof p.autoSkipCredits === "boolean") clean.autoSkipCredits = p.autoSkipCredits;
+  if (typeof p.autoNextEpisode === "boolean") clean.autoNextEpisode = p.autoNextEpisode;
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
   if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;
   if (typeof p.watchRegion === "string" && ISO_3166_1_ALPHA_2.test(p.watchRegion)) clean.watchRegion = p.watchRegion;

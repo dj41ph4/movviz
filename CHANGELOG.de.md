@@ -1,3 +1,10 @@
+## v1.28.104 — 9. November 2026
+
+### Player
+
+- Drei Profileinstellungen, standardmäßig aus und für alle Plattformen gemeinsam (Desktop, Android TV, Android Mobil, Samsung): „Intro automatisch überspringen“, „Abspann automatisch überspringen“ (reicht er bis zum Ende, startet die nächste Folge, wie beim Button) und „Nächste Folge automatisch“. Jede Markierung wird nur einmal übersprungen; manuelles Zurückspringen löst sie nicht erneut aus.
+- Verhaltensänderung: Die nächste Folge startet am Ende einer Folge nicht mehr von selbst, solange die Einstellung aus ist. Der Player bleibt am Ende mit dem Button „Nächste Folge“ (Desktop, Android); auf Samsung schließt er sich wie nach der letzten Folge.
+
 ## v1.28.103 — 9. November 2026
 
 ### Bibliothek

@@ -1,3 +1,10 @@
+## v1.28.104 — November 9, 2026
+
+### Player
+
+- Three profile settings, off by default and shared across every platform (desktop, Android TV, Android mobile, Samsung): "Skip intro automatically", "Skip credits automatically" (if they run to the end, the next episode starts, like the button) and "Next episode automatically". Each marker is skipped only once, so going back by hand does not skip it again.
+- Behaviour change: the next episode no longer starts by itself when an episode ends unless the setting is on. The player stays on the end with the "Next episode" button (desktop, Android); on Samsung it closes as after the last episode.
+
 ## v1.28.103 — November 9, 2026
 
 ### Library

@@ -2646,6 +2646,12 @@ export const nl: Dictionary = {
     preferredAudioLanguageHint: "Standaard audiotrack bij het starten van afspelen — bij \"Automatisch\" volgt dit de interfacetaal.",
     autoSubtitles: "Automatische ondertitels",
     autoSubtitlesHint: "Standaard uit. Indien aan starten ondertitels in de taal van je profiel (de interfacetaal gekozen met de vlaggen) zodra de afgespeelde audio in een andere taal is. Geldt voor al je platformen.",
+    autoSkipIntro: "Intro automatisch overslaan",
+    autoSkipIntroHint: "Standaard uit. Indien aan wordt de intro van een aflevering overgeslagen zodra die begint.",
+    autoSkipCredits: "Aftiteling automatisch overslaan",
+    autoSkipCreditsHint: "Standaard uit. Indien aan wordt de aftiteling overgeslagen; loopt die tot het einde, dan start de volgende aflevering.",
+    autoNextEpisode: "Volgende aflevering automatisch",
+    autoNextEpisodeHint: "Standaard uit. Indien aan start de volgende aflevering vanzelf als deze afloopt. Geldt voor al je platformen.",
     audioLang: {
       auto: "Automatisch (interfacetaal)",
       fr: "Frans",

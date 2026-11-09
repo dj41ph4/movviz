@@ -469,6 +469,10 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun saveAutoSubtitles(enabled: Boolean): ApiResult<UserPrefsDto> =
         safeCall { api.savePreferences(UserPrefsDto(autoSubtitles = enabled)) }.map { it.prefs }
 
+    /** Enchaînements automatiques du lecteur : `patch` ne porte que le champ modifié (le serveur fusionne). */
+    suspend fun saveAutoPlayback(patch: UserPrefsDto): ApiResult<UserPrefsDto> =
+        safeCall { api.savePreferences(patch) }.map { it.prefs }
+
     /** Détruit la session côté serveur — best-effort, une erreur réseau ne
      *  doit jamais empêcher la déconnexion locale (le cookie jar est de
      *  toute façon vidé juste après par AppViewModel.logout, voir

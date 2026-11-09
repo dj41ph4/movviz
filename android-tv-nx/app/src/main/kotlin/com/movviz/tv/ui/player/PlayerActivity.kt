@@ -969,7 +969,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     // dernier épisode terminé naturellement (bug confirmé en
                     // lisant le code : `hasNext` figé à true incrémentait
                     // currentIndex au-delà de queue.size - 1).
-                    if (currentIndex < queue.size - 1) {
+                    if (currentIndex < queue.size - 1 && accountPrefs?.autoNextEpisode != true) {
+                        // Réglage de profil « Épisode suivant automatiquement » (désactivé par
+                        // défaut) : on reste sur la fin de l'épisode, contrôles visibles, le
+                        // bouton « Épisode suivant » reste à portée.
+                        showControls = true
+                    } else if (currentIndex < queue.size - 1) {
                         autoAdvancesWithoutInput++
                         if (autoAdvancesWithoutInput >= STILL_WATCHING_AFTER_EPISODES) stillWatchingPrompt = true
                         advanceTo(currentIndex + 1, markOutgoingWatched = true)
@@ -1293,6 +1298,31 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         if (m.type == "credits" && currentIndex < queue.size - 1) {
             nextEpisodeAction()
             return
+        }
+        playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
+        seekAbs(m.endMs)
+    }
+
+    // Réglages de profil « Passer l'intro / le générique automatiquement » (désactivés par
+    // défaut) — même règle que le bouton, sans geste. Un marqueur n'est sauté qu'une fois, pour
+    // qu'un retour arrière à la main dans l'intro ne reboucle pas ; `poke()` n'est pas appelé,
+    // l'enchaînement automatique compte comme sans intervention (invite « Vous regardez
+    // toujours ? »).
+    var autoSkippedMarker by remember(current.ratingKey) { mutableStateOf<String?>(null) }
+    LaunchedEffect(activeMarker?.type, activeMarker?.startMs, activeMarker?.endMs, accountPrefs) {
+        val m = activeMarker ?: return@LaunchedEffect
+        val prefs = accountPrefs ?: return@LaunchedEffect
+        if (stillWatchingPrompt || errorMessage != null) return@LaunchedEffect
+        val wants = (m.type == "intro" && prefs.autoSkipIntro == true) ||
+            ((m.type == "credits" || m.type == "preview") && prefs.autoSkipCredits == true)
+        val key = "${m.type}:${m.startMs}"
+        if (!wants || autoSkippedMarker == key) return@LaunchedEffect
+        autoSkippedMarker = key
+        if (m.type == "credits" && currentIndex < queue.size - 1) {
+            autoAdvancesWithoutInput++
+            if (autoAdvancesWithoutInput >= STILL_WATCHING_AFTER_EPISODES) stillWatchingPrompt = true
+            advanceTo(currentIndex + 1, markOutgoingWatched = false)
+            return@LaunchedEffect
         }
         playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
         seekAbs(m.endMs)

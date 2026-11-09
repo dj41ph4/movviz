@@ -2645,6 +2645,12 @@ export const it: Dictionary = {
     preferredAudioLanguageHint: "Traccia audio scelta di default all'avvio della riproduzione — su \"Automatica\", segue la lingua dell'interfaccia.",
     autoSubtitles: "Sottotitoli automatici",
     autoSubtitlesHint: "Disattivati di default. Se attivi, i sottotitoli partono nella lingua del tuo profilo (quella dell'interfaccia, scelta con le bandiere) quando l'audio riprodotto è in un'altra lingua. Impostazione comune a tutte le tue piattaforme.",
+    autoSkipIntro: "Salta la sigla iniziale automaticamente",
+    autoSkipIntroHint: "Disattivato di default. Se attivo, la sigla iniziale di un episodio viene saltata appena inizia.",
+    autoSkipCredits: "Salta i titoli di coda automaticamente",
+    autoSkipCreditsHint: "Disattivato di default. Se attivo, i titoli di coda vengono saltati; se durano fino alla fine, parte l'episodio successivo.",
+    autoNextEpisode: "Episodio successivo automatico",
+    autoNextEpisodeHint: "Disattivato di default. Se attivo, l'episodio successivo parte da solo alla fine di questo. Impostazione comune a tutte le tue piattaforme.",
     audioLang: {
       auto: "Automatica (lingua dell'interfaccia)",
       fr: "Francese",

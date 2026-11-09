@@ -14,6 +14,7 @@ import { findTrackForLocale } from "@/lib/library/detectLanguage";
 import { audioTrackLabel, subtitleTrackLabel } from "@/lib/playback/trackLabels";
 import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
 import { useAutoSubtitles } from "@/lib/settings/useAutoSubtitles";
+import { useAutoPlayback } from "@/lib/settings/useAutoPlayback";
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2, Check, RotateCcw,
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
@@ -183,6 +184,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   localeUiRef.current = locale;
   const autoSubtitlesRef = useRef(false);
   autoSubtitlesRef.current = autoSubtitles;
+  const autoPlayback = useAutoPlayback();
+  const autoPlaybackRef = useRef(autoPlayback);
+  autoPlaybackRef.current = autoPlayback;
   const beta = useBetaPlayer();
   const betaRef = useRef(beta);
   betaRef.current = beta;
@@ -2148,7 +2152,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const sessionId = playbackSessionRef.current;
       if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/ended`, { method: "POST", keepalive: true }).catch(() => void 0);
       localStorage.removeItem(PROGRESS_KEY(ratingKey));
-      onNextEpisodeRef.current?.();
+      // Réglage de profil « Épisode suivant automatiquement » (désactivé par défaut) :
+      // sinon le lecteur reste sur le générique et le bouton « Épisode suivant » reste proposé.
+      if (autoPlaybackRef.current.autoNextEpisode) onNextEpisodeRef.current?.();
     };
 
     el.addEventListener("timeupdate", onTimeUpdate);
@@ -2576,6 +2582,25 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/seek`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fromMs: Math.round(currentTime * 1000), toMs: marker.endMs, reason: "skip_marker", markerType: marker.type }), keepalive: true }).catch(() => void 0);
     seekTo(marker.endMs / 1000);
   };
+
+  // Réglages de profil « Passer l'intro / le générique automatiquement » (désactivés
+  // par défaut). Un marqueur n'est sauté qu'une fois : revenir en arrière dans l'intro
+  // à la main ne le fait pas resauter en boucle.
+  const autoSkippedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const marker = activeMarker;
+    const auto = autoPlaybackRef.current;
+    if (!marker || !auto.loaded || showResume || duration <= 0) return;
+    const wantsIntro = marker.type === "intro" && auto.autoSkipIntro;
+    const wantsCredits = (marker.type === "credits" || marker.type === "preview") && auto.autoSkipCredits;
+    if (!wantsIntro && !wantsCredits) return;
+    const id = `${ratingKey}:${marker.type}:${marker.startMs}`;
+    if (autoSkippedRef.current === id) return;
+    autoSkippedRef.current = id;
+    if (wantsCredits && creditsRunToEnd) onNextEpisodeRef.current?.();
+    else handleSkipMarker();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMarker, showResume, duration, autoPlayback.loaded, autoPlayback.autoSkipIntro, autoPlayback.autoSkipCredits]);
 
   const currentPlaybackPosition = () => {
     const el = videoRef.current;

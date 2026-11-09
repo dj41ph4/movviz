@@ -63,7 +63,9 @@ interface Window {
   let content: HTMLElement, heading: HTMLElement;
   let generation = 0, focusCounter = 0, toastTimer = 0;
   const history: Page[] = [];
-  let activePlayer: { position: number; duration: number; progressId: string; engineId: string; sequence: number; timer: number; closing: boolean; page: Page; frame: Node[]; prepared: Prepared; base: number; media: Media; type: MediaType; episode?: Episode; audio?: number; subtitle: number | null; changing: boolean; markers: SkipMarker[]; hasNext: boolean } | null = null;
+  let activePlayer: { position: number; duration: number; progressId: string; engineId: string; sequence: number; timer: number; closing: boolean; page: Page; frame: Node[]; prepared: Prepared; base: number; media: Media; type: MediaType; episode?: Episode; audio?: number; subtitle: number | null; changing: boolean; markers: SkipMarker[]; hasNext: boolean; autoSkipped?: string } | null = null;
+  // Enchaînements automatiques du profil (désactivés par défaut) : lus au lancement du lecteur.
+  let autoPlayback = { autoSkipIntro: false, autoSkipCredits: false, autoNextEpisode: false };
   let startingPlayer = false;
   let libraryType: MediaType = "movie";
   const libraryFilters = { movie: { query: "", sort: "title" }, series: { query: "", sort: "title" } };
@@ -745,6 +747,16 @@ interface Window {
       finally { autoBusy = false; autoToggle.disabled = false; autoToggle.focus(); }
     }); playback.append(autoToggle);
     function renderAuto() { autoToggle.textContent = autoSubtitles ? t("tizen.on") : t("tizen.off"); autoToggle.classList.toggle("selected", autoSubtitles); autoToggle.setAttribute("aria-pressed", String(autoSubtitles)); } renderAuto();
+    for (const key of ["autoSkipIntro", "autoSkipCredits", "autoNextEpisode"] as const) {
+      playback.append(el("p", t(`player.${key}`), "muted")); playback.append(el("p", t(`player.${key}Hint`), "muted"));
+      let on = (response.prefs as Record<string, unknown>)[key] === true, toggleBusy = false;
+      const toggle = button("", async () => {
+        if (toggleBusy) return; toggleBusy = true; toggle.disabled = true;
+        try { const result = await call<{ prefs: Record<string, unknown> }>("/api/settings/preferences", { [key]: !on }, "PATCH"); on = result.prefs[key] === true; render(); autoPlayback = { ...autoPlayback, [key]: on }; }
+        finally { toggleBusy = false; toggle.disabled = false; toggle.focus(); }
+      }); playback.append(toggle);
+      function render() { toggle.textContent = on ? t("tizen.on") : t("tizen.off"); toggle.classList.toggle("selected", on); toggle.setAttribute("aria-pressed", String(on)); } render();
+    }
     function renderSelection() { chips.forEach(chip => { const chosen = chip.dataset.language === selected; chip.classList.toggle("selected", chosen); chip.setAttribute("aria-pressed", String(chosen)); }); } renderSelection();
     const about = section(t("tizen.about")); info(about, t("tizen.application"), "Movviz NX · Samsung Tizen"); info(about, t("settings.aboutVersion").replace("{version}", "").trim(), window.MOVVIZ_VERSION);
     const links = el("div", "", "settings-links"); links.append(button(t("nav.downloads"), downloads), button(t("tizen.profile"), profile), button(t("tizen.whoWatching"), profilesScreen)); content.append(links);
@@ -872,6 +884,14 @@ interface Window {
     }
     // À l'entrée dans un marqueur le bouton prend le focus : OK saute aussitôt.
     node.style.display = "block"; if (!closeModal) node.focus();
+    // Réglages « Passer l'intro / le générique automatiquement » : même saut que le bouton, une seule
+    // fois par marqueur, sans toucher au compteur « Vous regardez toujours ? » des fins d'épisode.
+    const wants = (marker.type === "intro" && autoPlayback.autoSkipIntro) || ((marker.type === "credits" || marker.type === "preview") && autoPlayback.autoSkipCredits);
+    if (wants && player.autoSkipped !== id) {
+      player.autoSkipped = id;
+      if (marker.type === "credits" && player.episode && player.hasNext) autoAdvancesWithoutInput++;
+      void skipMarker().catch(report);
+    }
   }
   async function skipMarker() {
     const player = activePlayer; if (!player || player.closing || player.changing) return;
@@ -884,6 +904,10 @@ interface Window {
     await progressCall(`/api/playback/sessions/${player.progressId}/seek`, { fromMs: from, toMs: target, reason: "skip_marker", markerType: marker.type });
   }
   async function loadMarkers(player: NonNullable<typeof activePlayer>) {
+    try {
+      const response = await call<{ prefs?: Partial<typeof autoPlayback> }>("/api/settings/preferences");
+      autoPlayback = { autoSkipIntro: response.prefs?.autoSkipIntro === true, autoSkipCredits: response.prefs?.autoSkipCredits === true, autoNextEpisode: response.prefs?.autoNextEpisode === true };
+    } catch { /* réglages illisibles : tout reste désactivé */ }
     try {
       const path = player.episode
         ? `/api/stream/local/episode/${encodeURIComponent(player.media.id!)}/${player.episode.seasonNumber}/${player.episode.episodeNumber}/info`
@@ -968,9 +992,12 @@ interface Window {
     // « Vous regardez toujours ? » (comme Netflix et l'app Android TV) : au
     // 2e épisode enchaîné seul sans aucune touche, le suivant attend la
     // réponse. Sans réponse rien ne joue : la veille de la TV reprend.
-    if (ended && next) autoAdvancesWithoutInput++;
+    // Réglage « Épisode suivant automatiquement » (désactivé par défaut) : sans lui, la fin d'un
+    // épisode ferme le lecteur comme après le dernier épisode.
+    const advance = !ended || autoPlayback.autoNextEpisode;
+    if (ended && next && advance) autoAdvancesWithoutInput++;
     await stopPlayer(ended);
-    if (!next) return;
+    if (!next || !advance) return;
     if (ended && autoAdvancesWithoutInput >= STILL_WATCHING_AFTER_EPISODES) { stillWatchingPrompt(player.media, next); return; }
     await play(player.media, "series", next);
   }

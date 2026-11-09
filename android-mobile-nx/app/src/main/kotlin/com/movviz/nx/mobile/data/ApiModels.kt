@@ -993,6 +993,10 @@ data class UserPrefsDto(
     val locale: String? = null,
     /** Sous-titres automatiques du profil — réglage de compte partagé avec le web et les autres clients. */
     val autoSubtitles: Boolean? = null,
+    /** Enchaînements automatiques du lecteur — absents = désactivés, réglages de compte partagés. */
+    val autoSkipIntro: Boolean? = null,
+    val autoSkipCredits: Boolean? = null,
+    val autoNextEpisode: Boolean? = null,
 )
 
 @JsonClass(generateAdapter = true)

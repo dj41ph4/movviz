@@ -241,6 +241,24 @@ fun SettingsScreen(
                     focusRequester = null,
                 )
             }
+            Spacer(modifier = Modifier.height(18.dp))
+            Text(
+                text = "Enchaînements automatiques : désactivés par défaut. Réglages communs à toutes vos plateformes.",
+                style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+            )
+            listOf(
+                Triple("autoSkipIntro", "Passer l'intro automatiquement", userPrefs?.autoSkipIntro == true),
+                Triple("autoSkipCredits", "Passer le générique automatiquement", userPrefs?.autoSkipCredits == true),
+                Triple("autoNextEpisode", "Épisode suivant automatiquement", userPrefs?.autoNextEpisode == true),
+            ).forEach { (key, label, on) ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(text = label, style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft))
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LanguageChip(label = "Désactivé", selected = !on, onClick = { viewModel.setAutoPlayback(key, false) }, focusRequester = null)
+                    LanguageChip(label = "Activé", selected = on, onClick = { viewModel.setAutoPlayback(key, true) }, focusRequester = null)
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(28.dp))

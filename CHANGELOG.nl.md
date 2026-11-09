@@ -1,3 +1,10 @@
+## v1.28.104 — 9 november 2026
+
+### Speler
+
+- Drie profielinstellingen, standaard uit en gedeeld door alle platformen (desktop, Android TV, Android mobiel, Samsung): “Intro automatisch overslaan”, “Aftiteling automatisch overslaan” (loopt die tot het einde, dan start de volgende aflevering, zoals de knop) en “Volgende aflevering automatisch”. Elke markering wordt maar één keer overgeslagen; handmatig teruggaan slaat haar niet opnieuw over.
+- Gedragswijziging: de volgende aflevering start aan het einde van een aflevering niet meer vanzelf zolang de instelling uit staat. De speler blijft op het einde met de knop “Volgende aflevering” (desktop, Android); op Samsung sluit hij zoals na de laatste aflevering.
+
 ## v1.28.103 — 9 november 2026
 
 ### Bibliotheek

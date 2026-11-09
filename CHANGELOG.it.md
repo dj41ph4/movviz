@@ -1,3 +1,10 @@
+## v1.28.104 — 9 novembre 2026
+
+### Lettore
+
+- Tre impostazioni del profilo, disattivate di default e comuni a tutte le piattaforme (desktop, Android TV, Android mobile, Samsung): “Salta la sigla iniziale automaticamente”, “Salta i titoli di coda automaticamente” (se durano fino alla fine, parte l'episodio successivo, come il pulsante) e “Episodio successivo automatico”. Ogni marcatore viene saltato una sola volta, tornare indietro a mano non lo fa saltare di nuovo.
+- Cambio di comportamento: l'episodio successivo non parte più da solo alla fine di un episodio finché l'impostazione non è attiva. Il lettore resta sulla fine con il pulsante “Episodio successivo” (desktop, Android); su Samsung si chiude come dopo l'ultimo episodio.
+
 ## v1.28.103 — 9 novembre 2026
 
 ### Libreria

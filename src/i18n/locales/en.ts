@@ -2646,6 +2646,12 @@ export const en: Dictionary = {
     preferredAudioLanguageHint: "Default audio track picked at playback start — on \"Automatic\", follows the interface language.",
     autoSubtitles: "Automatic subtitles",
     autoSubtitlesHint: "Off by default. When on, subtitles start in your profile language (the interface language picked with the flags) whenever the audio being played is in another language. Shared across all your platforms.",
+    autoSkipIntro: "Skip intro automatically",
+    autoSkipIntroHint: "Off by default. When on, an episode's intro is skipped as soon as it starts.",
+    autoSkipCredits: "Skip credits automatically",
+    autoSkipCreditsHint: "Off by default. When on, the end credits are skipped; if they run to the end, the next episode starts.",
+    autoNextEpisode: "Next episode automatically",
+    autoNextEpisodeHint: "Off by default. When on, the next episode starts by itself when this one ends. Shared across all your platforms.",
     audioLang: {
       auto: "Automatic (interface language)",
       fr: "French",

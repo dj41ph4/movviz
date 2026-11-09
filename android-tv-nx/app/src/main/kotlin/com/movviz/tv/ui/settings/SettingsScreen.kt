@@ -201,6 +201,23 @@ fun SettingsScreen(
                     enabled = userPrefs?.autoSubtitles == true,
                     onToggle = { viewModel.setAutoSubtitles(userPrefs?.autoSubtitles != true) },
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Enchaînements automatiques : désactivés par défaut. Réglages communs à toutes vos plateformes.",
+                    style = TextStyle(fontSize = if (beta) 13.sp else 10.sp, color = if (beta) MovvizTheme.palette.inkSoft else MovvizInkSoft),
+                )
+                listOf(
+                    Triple("autoSkipIntro", "Passer l'intro automatiquement", userPrefs?.autoSkipIntro == true),
+                    Triple("autoSkipCredits", "Passer le générique automatiquement", userPrefs?.autoSkipCredits == true),
+                    Triple("autoNextEpisode", "Épisode suivant automatiquement", userPrefs?.autoNextEpisode == true),
+                ).forEach { (key, label, on) ->
+                    Spacer(modifier = Modifier.height(9.dp))
+                    SettingsToggle(
+                        label = "$label : ${if (on) "activé" else "désactivé"}",
+                        enabled = on,
+                        onToggle = { viewModel.setAutoPlayback(key, !on) },
+                    )
+                }
             }
         }
 
