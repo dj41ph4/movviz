@@ -1,3 +1,9 @@
+## v1.28.109 — November 10, 2026
+
+### Player
+
+- Android mobile: leaving the app during playback (Home button) now keeps the video in a floating window above the launcher, with a Play/Pause button. Tapping the window reopens the player at the same second; closing it pauses and saves the position.
+
 ## v1.28.108 — November 9, 2026
 
 ### Performance

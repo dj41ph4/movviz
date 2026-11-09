@@ -1,3 +1,9 @@
+## v1.28.109 — 10 november 2026
+
+### Speler
+
+- Android mobiel: de app verlaten tijdens het afspelen (Home-knop) laat de video nu in een zwevend venster boven de launcher staan, met een Afspelen/Pauze-knop. Op het venster tikken opent de speler op dezelfde seconde; sluiten pauzeert en bewaart de positie.
+
 ## v1.28.108 — 9 november 2026
 
 ### Prestaties

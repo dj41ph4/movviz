@@ -70,6 +70,9 @@
             android:name=".ui.player.PlayerActivity"
             android:exported="false"
             android:screenOrientation="sensorLandscape"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|density"
             android:theme="@style/Theme.MovvizTv.Player" />
 
         <!-- Partage de l'APK téléchargé (cache/update) avec l'installeur

@@ -1,3 +1,9 @@
+## v1.28.109 — 10. November 2026
+
+### Player
+
+- Android Mobil: Verlässt man die App während der Wiedergabe (Home-Taste), bleibt das Video nun in einem schwebenden Fenster über dem Launcher, mit Wiedergabe-/Pause-Taste. Ein Tippen auf das Fenster öffnet den Player in derselben Sekunde; Schließen pausiert und speichert die Position.
+
 ## v1.28.108 — 9. November 2026
 
 ### Leistung

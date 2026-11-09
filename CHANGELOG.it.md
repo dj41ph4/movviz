@@ -1,3 +1,9 @@
+## v1.28.109 — 10 novembre 2026
+
+### Lettore
+
+- Android mobile: uscire dall'app durante la riproduzione (tasto Home) lascia ora il video in una finestra mobile sopra il launcher, con un pulsante Play/Pausa. Toccare la finestra riapre il lettore allo stesso secondo; chiuderla mette in pausa e salva la posizione.
+
 ## v1.28.108 — 9 novembre 2026
 
 ### Prestazioni

@@ -152,6 +152,7 @@ private const val EXTRA_PROFILE_ID = "extra_profile_id"
 // arrière-plan ou un écran recréé repart de là, jamais de l'épisode du lancement.
 private const val STATE_INDEX = "state_index"
 private const val STATE_POSITION_MS = "state_position_ms"
+private const val ACTION_PIP_PLAY_PAUSE = "com.movviz.nx.mobile.PIP_PLAY_PAUSE"
 
 /**
  * Une seule Activity dédiée à la lecture, quel que soit le contenu (film ou
@@ -176,6 +177,14 @@ class PlayerActivity : ComponentActivity() {
     private var lifecyclePauseHandler: (() -> Unit)? = null
     // Épisode courant de la file et sa position, lus à l'instant de la sauvegarde.
     private var playbackSnapshot: (() -> Pair<Int, Long>)? = null
+
+    // Fenêtre flottante (Picture-in-Picture) : la vidéo continue au-dessus de
+    // l'Accueil Android quand on quitte l'app en pleine lecture.
+    private var inPip by mutableStateOf(false)
+    private var pipPlaying = false
+    private var pipVideoWidth = 0
+    private var pipVideoHeight = 0
+    private var pipReceiver: android.content.BroadcastReceiver? = null
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -230,10 +239,23 @@ val mainTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
             )
         }
 
+        addOnPictureInPictureModeChangedListener { inPip = it.isInPictureInPictureMode }
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == ACTION_PIP_PLAY_PAUSE) mediaKeyHandler?.invoke(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+            }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            this, receiver, android.content.IntentFilter(ACTION_PIP_PLAY_PAUSE), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        pipReceiver = receiver
+
         setContent {
             MovvizTvTheme {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 PlayerScreen(
+                        inPip = inPip,
+                        onPipState = { playing, w, h -> updatePipState(playing, w, h) },
                         baseUrl = baseUrl,
                         mainTitle = mainTitle,
                         type = type,
@@ -255,11 +277,79 @@ PlayerScreen(
     }
 
     override fun onStop() {
+        // Arrêté alors que la fenêtre flottante était affichée : elle a été
+        // fermée (croix) ou l'écran s'est éteint. La lecture se met en pause
+        // comme pour un départ en arrière-plan, puis le lecteur se ferme pour
+        // enregistrer la position — jamais un film muet qui reste empilé.
+        val wasFloating = inPip || (pipSupported() && isInPictureInPictureMode)
         lifecyclePauseHandler?.invoke()
         super.onStop()
+        if (wasFloating) finish()
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Android 12+ entre tout seul en fenêtre flottante (auto-enter, voir
+        // buildPipParams) ; avant, c'est ce signal "Accueil" qui la déclenche.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S && pipPlaying) enterPip()
+    }
+
+    /** Le lecteur annonce son état : lecture en cours et ratio réel de la vidéo. */
+    private fun updatePipState(playing: Boolean, videoWidth: Int, videoHeight: Int) {
+        pipPlaying = playing
+        pipVideoWidth = videoWidth
+        pipVideoHeight = videoHeight
+        if (pipSupported()) runCatching { setPictureInPictureParams(buildPipParams()) }
+    }
+
+    private fun pipSupported(): Boolean =
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
+            packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+    private fun enterPip() {
+        if (!pipSupported()) return
+        runCatching { enterPictureInPictureMode(buildPipParams()) }
+    }
+
+    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.O)
+    private fun buildPipParams(): android.app.PictureInPictureParams {
+        // Android refuse les ratios hors de 1:2,39 – 2,39:1 : on borne.
+        val ratio = if (pipVideoWidth > 0 && pipVideoHeight > 0) {
+            val r = pipVideoWidth.toDouble() / pipVideoHeight
+            val bounded = r.coerceIn(1.0 / 2.39, 2.39)
+            android.util.Rational((bounded * 10_000).toInt(), 10_000)
+        } else android.util.Rational(16, 9)
+        val toggle = android.app.RemoteAction(
+            android.graphics.drawable.Icon.createWithResource(
+                this,
+                if (pipPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+            ),
+            if (pipPlaying) "Pause" else "Lecture",
+            if (pipPlaying) "Mettre en pause" else "Reprendre la lecture",
+            PendingIntent.getBroadcast(
+                this,
+                0,
+                Intent(ACTION_PIP_PLAY_PAUSE).setPackage(packageName),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            ),
+        )
+        return android.app.PictureInPictureParams.Builder()
+            .setAspectRatio(ratio)
+            .setActions(listOf(toggle))
+            .apply {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    // Retour à l'Accueil en cours de lecture = fenêtre flottante,
+                    // sans à-coup ; en pause, l'app se met simplement de côté.
+                    setAutoEnterEnabled(pipPlaying)
+                    setSeamlessResizeEnabled(false)
+                }
+            }
+            .build()
     }
 
     override fun onDestroy() {
+        pipReceiver?.let { runCatching { unregisterReceiver(it) } }
+        pipReceiver = null
         mediaKeyHandler = null
         lifecyclePauseHandler = null
         super.onDestroy()
@@ -465,6 +555,8 @@ private fun PlayerScreen(
     restoredResumeMs: Long? = null,
     posterPath: String? = null,
     onExit: () -> Unit,
+    inPip: Boolean = false,
+    onPipState: ((playing: Boolean, videoWidth: Int, videoHeight: Int) -> Unit)? = null,
     onRegisterMediaKeyHandler: (((Int) -> Boolean) -> Unit)? = null,
     onRegisterLifecyclePauseHandler: (((() -> Unit) -> Unit))? = null,
     onRegisterPlaybackSnapshot: (((() -> Pair<Int, Long>) -> Unit))? = null,
@@ -1324,6 +1416,34 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         }
     }
 
+    // Fenêtre flottante : l'Activity reçoit le ratio réel de la vidéo et l'état
+    // lecture/pause (bouton de la fenêtre, entrée automatique à l'Accueil).
+    var videoWidth by remember { mutableStateOf(0) }
+    var videoHeight by remember { mutableStateOf(0) }
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onVideoSizeChanged(size: androidx.media3.common.VideoSize) {
+                videoWidth = (size.width * size.pixelWidthHeightRatio).toInt()
+                videoHeight = size.height
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose { exoPlayer.removeListener(listener) }
+    }
+    LaunchedEffect(isPlaying, videoWidth, videoHeight) { onPipState?.invoke(isPlaying, videoWidth, videoHeight) }
+    // Dans la fenêtre flottante, la vidéo seule : ni dialogue ni contrôles.
+    // De retour en plein écran, les contrôles réapparaissent.
+    var wasInPip by remember { mutableStateOf(false) }
+    LaunchedEffect(inPip) {
+        if (inPip) {
+            showAudioDialog = false
+            showSubtitleDialog = false
+        } else if (wasInPip) {
+            poke()
+        }
+        wasInPip = inPip
+    }
+
     val latestPauseForBackground by rememberUpdatedState(::pauseForBackground)
     val latestPlaybackSnapshot by rememberUpdatedState({ currentIndex to timelinePos() })
     LaunchedEffect(Unit) {
@@ -1438,7 +1558,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // Zone invisible plein écran qui capte tout appui D-pad pour
         // réafficher les contrôles quand ils sont masqués, sans rien faire
         // d'autre (évite qu'une pression perdue dans le vide ne fasse rien).
-        if (!showControls) {
+        if (!showControls && !inPip) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1508,7 +1628,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // — discrète, pas alarmante, disparaît d'elle-même (voir
         // LaunchedEffect(fallbackNotice) plus haut).
         AnimatedVisibility(
-            visible = fallbackNotice != null,
+            visible = fallbackNotice != null && !inPip,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 28.dp),
@@ -1604,7 +1724,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // fade pur, sans slide : un déplacement est perçu comme un saut,
         // Netflix ne fait que des fondus (alpha GPU, zéro layout).
         AnimatedVisibility(
-            visible = showControls && errorMessage == null,
+            visible = showControls && errorMessage == null && !inPip,
             enter = fadeIn(tween(220)),
             exit = fadeOut(tween(220)),
             modifier = Modifier.fillMaxSize(),
@@ -1658,7 +1778,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // Indicateur centré "+10s"/"-10s" — feedback visuel quand on
         // avance/recule, fondu rapide pour ne pas gêner la lecture.
         AnimatedVisibility(
-            visible = seekIndicator != null,
+            visible = seekIndicator != null && !inPip,
             enter = fadeIn(tween(100)),
             exit = fadeOut(tween(300)),
             modifier = Modifier.fillMaxSize(),
@@ -1693,7 +1813,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // panneau "Épisode suivant" s'il existe. Toutes les actions s'effacent
         // avec les contrôles pour laisser la vidéo seule en lecture.
         AnimatedVisibility(
-            visible = showControls && hasSkip && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
+            visible = showControls && !inPip && hasSkip && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
             enter = fadeIn(tween(200)) + slideInVertically(tween(220)) { it / 2 },
             exit = fadeOut(tween(160)),
             modifier = Modifier
@@ -1713,7 +1833,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         // carte avec le libellé du prochain épisode, compte à rebours et
         // bouton "⏭". Suit l'auto-masquage des contrôles.
         AnimatedVisibility(
-            visible = showControls && showNextEpisodeTeaser && hasNext && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
+            visible = showControls && !inPip && showNextEpisodeTeaser && hasNext && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
             enter = fadeIn(tween(300)),
             exit = fadeOut(tween(200)),
             modifier = Modifier

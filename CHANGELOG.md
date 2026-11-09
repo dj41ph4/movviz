@@ -1,3 +1,9 @@
+## v1.28.109 — 10 novembre 2026
+
+### Lecteur
+
+- Android mobile : quitter l'application en pleine lecture (bouton Accueil) laisse désormais la vidéo dans une fenêtre flottante au-dessus du launcher, avec un bouton Pause/Lecture. Toucher la fenêtre rouvre le lecteur à la même seconde ; la fermer met en pause et enregistre la position.
+
 ## v1.28.108 — 9 novembre 2026
 
 ### Performances
