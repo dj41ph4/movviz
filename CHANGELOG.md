@@ -1,3 +1,9 @@
+## v1.28.106 — 9 novembre 2026
+
+### Téléchargements
+
+- Un pack (saison, intégrale) n'est plus bloqué en « Import en attente · fichier incomplet » à cause d'un seul fichier : si l'un d'eux a été remplacé depuis son import (autre release choisie à la main), il est écarté et les autres épisodes du pack sont importés. Le message exact de chaque refus de remplacement est désormais conservé pour le diagnostic.
+
 ## v1.28.105 — 9 novembre 2026
 
 ### Lecteur

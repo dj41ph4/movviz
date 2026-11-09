@@ -1,3 +1,9 @@
+## v1.28.106 — 9 november 2026
+
+### Downloads
+
+- Een pack (seizoen, complete serie) blijft niet meer hangen op “Import in afwachting · onvolledig bestand” door één enkel bestand: is er één vervangen sinds de import (andere handmatig gekozen release), dan wordt het overgeslagen en worden de overige afleveringen van het pack geïmporteerd. De exacte melding van elke geweigerde vervanging wordt nu bewaard voor diagnose.
+
 ## v1.28.105 — 9 november 2026
 
 ### Speler

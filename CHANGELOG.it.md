@@ -1,3 +1,9 @@
+## v1.28.106 — 9 novembre 2026
+
+### Download
+
+- Un pack (stagione, serie completa) non resta più bloccato su “Importazione in attesa · file incompleto” a causa di un solo file: se uno è stato sostituito dopo l'importazione (altra release scelta a mano), viene scartato e gli altri episodi del pack vengono importati. Il messaggio esatto di ogni rifiuto di sostituzione viene ora conservato per la diagnosi.
+
 ## v1.28.105 — 9 novembre 2026
 
 ### Lettore

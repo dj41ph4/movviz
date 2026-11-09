@@ -1,3 +1,9 @@
+## v1.28.106 — 9. November 2026
+
+### Downloads
+
+- Ein Pack (Staffel, Gesamtserie) hängt nicht mehr wegen einer einzigen Datei bei „Import ausstehend · unvollständige Datei“: Wurde eine Datei seit dem Import ersetzt (andere, von Hand gewählte Version), wird sie übersprungen und die übrigen Folgen des Packs werden importiert. Die genaue Meldung jeder abgelehnten Ersetzung wird jetzt für die Diagnose gespeichert.
+
 ## v1.28.105 — 9. November 2026
 
 ### Player

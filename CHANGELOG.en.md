@@ -1,3 +1,9 @@
+## v1.28.106 — November 9, 2026
+
+### Downloads
+
+- A pack (season, complete series) is no longer stuck on "Import pending · incomplete file" because of a single file: if one was replaced since its import (another release picked by hand), it is skipped and the pack's other episodes are imported. The exact message of each replacement refusal is now kept for diagnosis.
+
 ## v1.28.105 — November 9, 2026
 
 ### Player

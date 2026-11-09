@@ -677,6 +677,29 @@ export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedF
   });
 }
 
+/**
+ * Un pack (saison, intégrale) importe plusieurs fichiers d'un coup. Entre
+ * l'import du moteur et l'application côté bibliothèque, l'un d'eux peut avoir
+ * été remplacé par une autre release choisie à la main, ou déjà renommé par
+ * une tentative précédente : sa taille sur le disque n'est alors plus celle du
+ * torrent. Un seul fichier dans ce cas bloquait tout le pack (« fichier
+ * incomplet », 4 tentatives, puis abandon) alors que les autres étaient sains.
+ * Ce fichier est écarté, jamais le pack. Un fichier seul reste vérifié tel quel.
+ */
+async function dropSupersededPackFiles(files: ImportedFile[]): Promise<ImportedFile[]> {
+  if (files.length < 2) return files;
+  const kept: ImportedFile[] = [];
+  for (const file of files) {
+    const stat = file.path && file.size > 0 ? await fsp.lstat(pathFor(file.path).resolve(file.path)).catch(() => null) : null;
+    if (stat?.isFile() && stat.size !== file.size) {
+      console.warn(`[import] fichier écarté du pack, remplacé depuis son import (${path.basename(file.path)} : ${stat.size} octets sur le disque, ${file.size} attendus)`);
+      continue;
+    }
+    kept.push(file);
+  }
+  return kept;
+}
+
 async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
   // A MANUAL grab (user picked the release themselves — search page, film
   // card, add-version panel) is exempt from the post-import blocklist: the
@@ -768,7 +791,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
 
   // Season-part normalization (single-season series only) — see
   // normalizePartFiles. Every branch below works on the normalized list.
-  const normalizedFiles = normalizePartFiles(series, validateBleachImportedFiles(series, files, infoHash));
+  const normalizedFiles = normalizePartFiles(series, validateBleachImportedFiles(series, await dropSupersededPackFiles(files), infoHash));
 
   // The association picked at grab time is normally authoritative, but it is
   // still client state: a stale modal or a manually selected S02 result from

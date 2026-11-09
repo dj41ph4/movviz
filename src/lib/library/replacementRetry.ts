@@ -6,6 +6,8 @@ export interface ReplacementFailure {
   attempts: number;
   retryAt: number | null;
   discarded: boolean;
+  /** Message exact du dernier refus, pour diagnostiquer sans accès aux journaux. */
+  detail?: string;
 }
 const FILE = path.join(process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"), "replacement-retries.json");
 const INTERVAL = 10 * 60 * 1000;
@@ -51,7 +53,9 @@ export async function runReplacementAttempt<T>(infoHash: string, attempt: () => 
       attempts: Math.min(4, (previous?.attempts ?? 0) + 1),
       retryAt: Date.now() + INTERVAL,
       discarded: false,
+      detail: message.slice(0, 300),
     };
+    console.warn(`[import] remplacement refusé (${infoHash.slice(0, 8)}, tentative ${failure.attempts}/4) : ${message}`);
     if (failure.attempts >= 4) {
       failure.retryAt = null;
       try { await discard(); failure.discarded = true; }
