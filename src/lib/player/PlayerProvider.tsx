@@ -159,6 +159,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         // This is an automatic progression, not a user click from the page.
         originRect: undefined,
         startFromBeginning: true,
+        // Le point de reprise du bouton « Reprendre » appartenait à l'épisode précédent :
+        // l'hériter (via `...current`) faisait démarrer l'épisode suivant à 4:25.
+        resumeFromSeconds: undefined,
       });
     } finally {
       advancingEpisodeRef.current = false;

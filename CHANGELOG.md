@@ -1,3 +1,9 @@
+## v1.28.105 — 9 novembre 2026
+
+### Lecteur
+
+- L'épisode suivant démarre au début : lancé après « Reprendre », il héritait du point de reprise de l'épisode précédent (4:25 devenait 4:31 sur l'épisode suivant) et sautait donc son intro. La demande de lecture de l'épisode suivant ne reprend plus ce point, et le lecteur ignore un point de reprise explicite quand on lui demande de commencer au début.
+
 ## v1.28.104 — 9 novembre 2026
 
 ### Lecteur

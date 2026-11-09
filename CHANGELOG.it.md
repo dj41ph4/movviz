@@ -1,3 +1,9 @@
+## v1.28.105 — 9 novembre 2026
+
+### Lettore
+
+- L'episodio successivo parte dall'inizio: avviato dopo “Riprendi”, ereditava il punto di ripresa dell'episodio precedente (4:25 diventava 4:31 sull'episodio successivo) e ne saltava quindi la sigla. La richiesta di riproduzione dell'episodio successivo non porta più quel punto e il lettore ignora un punto di ripresa esplicito quando gli si chiede di partire dall'inizio.
+
 ## v1.28.104 — 9 novembre 2026
 
 ### Lettore

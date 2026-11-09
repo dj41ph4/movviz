@@ -1,3 +1,9 @@
+## v1.28.105 — November 9, 2026
+
+### Player
+
+- The next episode starts from the beginning: launched after "Resume", it inherited the previous episode's resume point (4:25 became 4:31 on the next episode) and so skipped its intro. The next episode's play request no longer carries that point, and the player ignores an explicit resume point when asked to start from the beginning.
+
 ## v1.28.104 — November 9, 2026
 
 ### Player

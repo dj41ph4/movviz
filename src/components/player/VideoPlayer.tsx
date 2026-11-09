@@ -1901,7 +1901,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       playbackSessionRef.current = data.sessionId;
       const saved = Number(data.resumeOffsetMs);
       const explicitResume = Number(resumeFromSeconds);
-      if (Number.isFinite(explicitResume) && explicitResume > 0) {
+      if (!startFromBeginning && Number.isFinite(explicitResume) && explicitResume > 0) {
         // The page CTA already explicitly chose this resume point. Session
         // offsets are milliseconds; begin() accepts seconds.
         void begin(explicitResume);

@@ -1,3 +1,9 @@
+## v1.28.105 — 9. November 2026
+
+### Player
+
+- Die nächste Folge startet am Anfang: Nach „Fortsetzen“ übernahm sie den Fortsetzungspunkt der vorherigen Folge (aus 4:25 wurde 4:31 in der nächsten Folge) und übersprang so ihr Intro. Die Wiedergabeanfrage der nächsten Folge übernimmt diesen Punkt nicht mehr, und der Player ignoriert einen expliziten Fortsetzungspunkt, wenn er am Anfang starten soll.
+
 ## v1.28.104 — 9. November 2026
 
 ### Player

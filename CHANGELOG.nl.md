@@ -1,3 +1,9 @@
+## v1.28.105 — 9 november 2026
+
+### Speler
+
+- De volgende aflevering start vanaf het begin: na “Hervatten” erfde ze het hervatpunt van de vorige aflevering (4:25 werd 4:31 in de volgende aflevering) en sloeg zo de intro over. Het afspeelverzoek van de volgende aflevering neemt dat punt niet meer over, en de speler negeert een expliciet hervatpunt wanneer hij vanaf het begin moet starten.
+
 ## v1.28.104 — 9 november 2026
 
 ### Speler
