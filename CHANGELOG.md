@@ -1,3 +1,9 @@
+## v1.28.110 — 10 novembre 2026
+
+### Lecteur
+
+- Android mobile : dans la fenêtre flottante, l'image n'est plus zoomée, et en revenant en plein écran elle ne reste plus toute petite au centre. La vidéo reprend sa taille dès que la fenêtre change.
+
 ## v1.28.109 — 10 novembre 2026
 
 ### Lecteur

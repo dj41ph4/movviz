@@ -1,3 +1,9 @@
+## v1.28.110 — November 10, 2026
+
+### Player
+
+- Android mobile: in the floating window the picture is no longer zoomed, and when returning to full screen it no longer stays tiny in the middle. The video resizes as soon as the window changes.
+
 ## v1.28.109 — November 10, 2026
 
 ### Player

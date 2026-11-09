@@ -1,3 +1,9 @@
+## v1.28.110 — 10. November 2026
+
+### Player
+
+- Android Mobil: Im schwebenden Fenster ist das Bild nicht mehr gezoomt, und beim Zurück in den Vollbildmodus bleibt es nicht mehr winzig in der Mitte. Das Video passt sich an, sobald sich das Fenster ändert.
+
 ## v1.28.109 — 10. November 2026
 
 ### Player

@@ -341,7 +341,6 @@ PlayerScreen(
                     // Retour à l'Accueil en cours de lecture = fenêtre flottante,
                     // sans à-coup ; en pause, l'app se met simplement de côté.
                     setAutoEnterEnabled(pipPlaying)
-                    setSeamlessResizeEnabled(false)
                 }
             }
             .build()
@@ -715,7 +714,7 @@ ExoPlayer.Builder(context)
     // et permettre le contrôle par la télécommande système. L'activité de
     // session (sessionActivity) fait que cliquer sur la carte du launcher
     // rouvre l'app. Relâchée quand l'Activity se ferme.
-    PlayerImmersion(exoPlayer, nativePlayerView, "${current.ratingKey}|${current.localKey}", hasRenderedFrame, fillScreen)
+    PlayerImmersion(exoPlayer, nativePlayerView, "${current.ratingKey}|${current.localKey}", hasRenderedFrame, fillScreen, inPip)
 
     val mediaSession = remember(exoPlayer) {
         val sessionActivity = PendingIntent.getActivity(

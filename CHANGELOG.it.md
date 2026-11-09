@@ -1,3 +1,9 @@
+## v1.28.110 — 10 novembre 2026
+
+### Lettore
+
+- Android mobile: nella finestra mobile l'immagine non è più zoomata e, tornando a schermo intero, non resta più minuscola al centro. Il video si ridimensiona appena la finestra cambia.
+
 ## v1.28.109 — 10 novembre 2026
 
 ### Lettore

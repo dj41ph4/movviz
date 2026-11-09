@@ -33,7 +33,7 @@ import kotlin.coroutines.suspendCoroutine
 /** Small frame samples, never file transcoding. Only the video surface is
  * transformed: subtitles, controls and branding retain their normal geometry. */
 @Composable
-internal fun PlayerImmersion(player: ExoPlayer, view: PlayerView?, mediaKey: String, hasFrame: Boolean, fillScreen: Boolean) {
+internal fun PlayerImmersion(player: ExoPlayer, view: PlayerView?, mediaKey: String, hasFrame: Boolean, fillScreen: Boolean, inPip: Boolean = false) {
     var crop by remember(player, view, mediaKey) { mutableStateOf<VideoLetterbox?>(null) }
     // Observe during composition: reading crop only in a SideEffect/callback
     // does not recompose when the detector confirms new bars.
@@ -45,6 +45,18 @@ internal fun PlayerImmersion(player: ExoPlayer, view: PlayerView?, mediaKey: Str
     fun applyTransform(animate: Boolean) {
         if (view == null) return
         val surface = view.videoSurfaceView ?: return
+        if (inPip) {
+            // Fenêtre flottante : elle a déjà le ratio de la vidéo. La surface
+            // reprend sa mise en page d'origine (remplit le parent) au lieu de
+            // garder la taille en pixels calculée pour le plein écran — sinon
+            // l'image y apparaissait zoomée, puis minuscule au retour.
+            layouts.remove(surface)
+            animations.remove(surface)?.cancel()
+            val original = surfaces[surface]
+            if (original != null && surface.layoutParams !== original) surface.layoutParams = original
+            surface.translationY = 0f
+            return
+        }
         if (surface.width <= 0 || surface.height <= 0 || view.width <= 0 || view.height <= 0) return
         val size = player.videoSize
         val aspect = if (size.height > 0) size.width * size.pixelWidthHeightRatio / size.height else 0f
@@ -63,6 +75,11 @@ internal fun PlayerImmersion(player: ExoPlayer, view: PlayerView?, mediaKey: Str
                     this.height = height
                     gravity = Gravity.CENTER
                 }
+            } else if (surface.width != width || surface.height != height) {
+                // Les paramètres sont déjà bons mais la vue n'a pas été remesurée
+                // (changement de fenêtre en cours, demande de mise en page perdue) :
+                // on la redemande, sinon l'image reste à son ancienne taille.
+                surface.requestLayout()
             }
             surface.translationY = shift
         }
@@ -114,7 +131,19 @@ internal fun PlayerImmersion(player: ExoPlayer, view: PlayerView?, mediaKey: Str
             }
         }
     }
-    SideEffect { applyTransform(true) }
+    SideEffect { applyTransform(!inPip) }
+
+    // La fenêtre met quelques images à atteindre sa taille finale (entrée ou
+    // sortie de la fenêtre flottante) : on recalcule jusqu'à ce qu'elle soit
+    // stable, sans dépendre d'un seul événement de mise en page.
+    LaunchedEffect(inPip, view) {
+        if (view == null) return@LaunchedEffect
+        repeat(8) {
+            delay(80)
+            view.videoSurfaceView?.let { layouts.remove(it) }
+            currentApply(false)
+        }
+    }
 
     LaunchedEffect(player, view, mediaKey, hasFrame) {
         if (view == null || !hasFrame) return@LaunchedEffect

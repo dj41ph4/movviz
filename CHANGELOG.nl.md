@@ -1,3 +1,9 @@
+## v1.28.110 — 10 november 2026
+
+### Speler
+
+- Android mobiel: in het zwevende venster is het beeld niet meer ingezoomd en bij terugkeer naar volledig scherm blijft het niet meer piepklein in het midden. De video past zich aan zodra het venster verandert.
+
 ## v1.28.109 — 10 november 2026
 
 ### Speler
