@@ -26,7 +26,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const part = parseBleachSeriesPart(partParam);
   if (partParam != null && (!part || series.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
   const scoped = scopedBleachSeries(series, part);
-  const found = await searchCompleteSeriesCandidates(scoped, profileFor(scoped.qualityProfileId));
+  const replaceExisting = req.nextUrl.searchParams.get("replace") === "1";
+  const found = await searchCompleteSeriesCandidates(scoped, profileFor(scoped.qualityProfileId), undefined, replaceExisting);
   const candidates = found?.candidates ?? [];
 
   return NextResponse.json({

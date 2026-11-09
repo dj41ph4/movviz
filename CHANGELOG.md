@@ -1,3 +1,10 @@
+## v1.28.103 — 9 novembre 2026
+
+### Bibliothèque
+
+- Fenêtre « Intégrale » de la fiche série, sans bouton de plus : « Télécharger la meilleure » en haut (la première release de la liste, triée par score), la liste complète dessous pour choisir à la main, et une case « Remplacer aussi les épisodes déjà présents », cochée par défaut. Décochée, seuls les épisodes manquants sont visés.
+- Une série déjà complète (par exemple remplie de mauvais fichiers) propose maintenant des intégrales : en mode remplacement, la couverture est jugée sur tous les épisodes suivis, spéciales exclues, et non plus seulement sur ceux qui manquent.
+
 ## v1.28.102 — 9 novembre 2026
 
 ### Bibliothèque

@@ -1,3 +1,10 @@
+## v1.28.103 — 9. November 2026
+
+### Bibliothek
+
+- Fenster „Gesamtserie“ auf der Serienseite, ohne zusätzlichen Button: oben „Beste herunterladen“ (die erste Release der nach Score sortierten Liste), darunter die vollständige Liste zur manuellen Auswahl und ein Kontrollkästchen „Bereits vorhandene Folgen ebenfalls ersetzen“, standardmäßig aktiviert. Deaktiviert werden nur die fehlenden Folgen anvisiert.
+- Eine bereits vollständige Serie (z. B. mit falschen Dateien gefüllt) bietet jetzt Gesamtserien-Pakete an: Im Ersetzen-Modus wird die Abdeckung an allen überwachten Folgen gemessen, Specials ausgenommen, nicht mehr nur an den fehlenden.
+
 ## v1.28.102 — 9. November 2026
 
 ### Bibliothek

@@ -1,3 +1,10 @@
+## v1.28.103 — November 9, 2026
+
+### Library
+
+- "Complete series" window on the series page, with no extra button: "Download the best" at the top (the first release in the list, sorted by score), the full list below to pick by hand, and an "Also replace episodes already present" checkbox, ticked by default. Unticked, only the missing episodes are targeted.
+- A series that is already complete (for example filled with wrong files) now offers complete-series packs: in replace mode, coverage is judged on every monitored episode, specials excluded, and no longer only on the missing ones.
+
 ## v1.28.102 — November 9, 2026
 
 ### Library

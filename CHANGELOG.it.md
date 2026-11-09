@@ -1,3 +1,10 @@
+## v1.28.103 — 9 novembre 2026
+
+### Libreria
+
+- Finestra “Serie completa” nella scheda della serie, senza pulsanti in più: in alto “Scarica la migliore” (la prima release dell'elenco, ordinato per punteggio), sotto l'elenco completo per scegliere a mano e una casella “Sostituisci anche gli episodi già presenti”, selezionata per impostazione predefinita. Deselezionata, vengono presi di mira solo gli episodi mancanti.
+- Una serie già completa (ad esempio riempita di file sbagliati) ora propone pacchetti di serie completa: in modalità sostituzione la copertura viene valutata su tutti gli episodi monitorati, special esclusi, e non più solo su quelli mancanti.
+
 ## v1.28.102 — 9 novembre 2026
 
 ### Libreria

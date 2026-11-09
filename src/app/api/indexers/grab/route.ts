@@ -153,6 +153,8 @@ export async function POST(req: NextRequest) {
   // into a single "Noblesse - S01E.mkv", 11 episodes never imported). A
   // manual grab from a library card must behave exactly like an automatic
   // one for the same season/series.
+  // `replaceExisting: false` (case décochée dans la fenêtre d'intégrale) ne vise que les manquants.
+  const replaceExisting = body.replaceExisting !== false;
   let episodeTarget: { season: number; episode: number } | undefined;
   let episodeTargets: { season: number; episode: number }[] | undefined;
   if (decodedRef?.kind === "episode") {
@@ -169,7 +171,7 @@ export async function POST(req: NextRequest) {
           // Choix manuel d'une release : elle REMPLACE ce qui existe déjà dans la portée choisie
           // (saison ou série), pas seulement ce qui manque. Les fichiers déjà présents sont remplacés
           // à l'import (prepareEpisodeReplacements), jamais doublonnés en « (2) ».
-          if (series.tmdbId === BLEACH_TMDB_ID || ep.monitored) {
+          if (series.tmdbId === BLEACH_TMDB_ID || (ep.monitored && (replaceExisting || ep.status === "missing" || ep.status === "searching"))) {
             targets.push({ season: s.seasonNumber, episode: ep.episodeNumber });
           }
         }

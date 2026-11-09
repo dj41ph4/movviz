@@ -1,3 +1,10 @@
+## v1.28.103 — 9 november 2026
+
+### Bibliotheek
+
+- Venster “Complete serie” op de seriepagina, zonder extra knop: bovenaan “Beste downloaden” (de eerste release van de lijst, gesorteerd op score), daaronder de volledige lijst om handmatig te kiezen en een selectievakje “Ook reeds aanwezige afleveringen vervangen”, standaard aangevinkt. Uitgevinkt worden alleen de ontbrekende afleveringen gericht.
+- Een reeds complete serie (bijvoorbeeld gevuld met verkeerde bestanden) biedt nu complete-seriepakketten aan: in vervangmodus wordt de dekking beoordeeld op alle gevolgde afleveringen, specials uitgezonderd, en niet meer alleen op de ontbrekende.
+
 ## v1.28.102 — 9 november 2026
 
 ### Bibliotheek

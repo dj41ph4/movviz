@@ -46,6 +46,8 @@ export function IntegralSearchModal({
   const [grabbing, setGrabbing] = useState<string | null>(null);
   const [grabbed, setGrabbed] = useState<Set<string>>(new Set());
   const [resultCount, setResultCount] = useState(0);
+  // Cochée par défaut : ce que l'on télécharge remplace l'existant. Décochée, seuls les manquants sont visés.
+  const [replaceExisting, setReplaceExisting] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -56,7 +58,10 @@ export function IntegralSearchModal({
     const run = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/library/series/${seriesId}/integral-candidates${seriesPart ? `?seriesPart=${seriesPart}` : ""}`, { cache: "no-store" });
+        const query = new URLSearchParams();
+        if (seriesPart) query.set("seriesPart", seriesPart);
+        if (replaceExisting) query.set("replace", "1");
+        const res = await fetch(`/api/library/series/${seriesId}/integral-candidates${query.size ? `?${query}` : ""}`, { cache: "no-store" });
         const data = await res.json();
         setReleases(data.candidates ?? []);
         setResultCount(data.episodeCount ?? 0);
@@ -68,7 +73,7 @@ export function IntegralSearchModal({
     };
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, replaceExisting]);
 
   const grab = async (r: IndexerRelease) => {
     setGrabbing(r.guid);
@@ -83,6 +88,7 @@ export function IntegralSearchModal({
           category: "series",
           libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
           seriesPart,
+          replaceExisting,
           releaseTitle: r.title,
           title,
           tmdbId,
@@ -124,7 +130,7 @@ export function IntegralSearchModal({
             </h2>
             {seasonCount != null && seasonCount > 0 && (
               <p className="mt-0.5 text-xs text-ink-dim">
-                {t("activity.integralSearchHint", { count: resultCount, seasons: seasonCount })}
+                {t(replaceExisting ? "activity.integralSearchHintReplace" : "activity.integralSearchHint", { count: resultCount, seasons: seasonCount })}
               </p>
             )}
           </div>
@@ -143,10 +149,29 @@ export function IntegralSearchModal({
 
           {!loading && releases.length > 0 && (
             <>
-              <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-ink-dim">
-                <Check className="h-3.5 w-3.5 text-ok" />
-                <span>{t("activity.integralCovers", { count: resultCount })}</span>
+              <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-ink-dim">
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-ok" />
+                  {t(replaceExisting ? "activity.integralCoversAll" : "activity.integralCovers", { count: resultCount })}
+                </span>
+                <button
+                  onClick={() => void grab(releases[0])}
+                  disabled={grabbing !== null || grabbed.has(releases[0].guid)}
+                  className="ml-auto flex h-9 items-center gap-2 rounded-xl brand-gradient px-3.5 text-xs font-bold text-white transition-transform hover:scale-105 disabled:opacity-50"
+                >
+                  {grabbing === releases[0].guid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                  {t("activity.integralBest")}
+                </button>
               </div>
+              <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+                <input
+                  type="checkbox"
+                  checked={replaceExisting}
+                  onChange={(e) => setReplaceExisting(e.target.checked)}
+                  className="h-4 w-4 accent-brand"
+                />
+                {t("activity.integralReplaceLabel")}
+              </label>
               <div className="space-y-1">
                 {releases.map((r) => (
                   <ManualSearchReleaseRow
@@ -165,6 +190,15 @@ export function IntegralSearchModal({
           {!loading && releases.length === 0 && (
             <div className="flex flex-col items-center gap-4 py-12">
               <p className="text-center text-sm text-ink-dim">{t("activity.integralNoResults")}</p>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+                <input
+                  type="checkbox"
+                  checked={replaceExisting}
+                  onChange={(e) => setReplaceExisting(e.target.checked)}
+                  className="h-4 w-4 accent-brand"
+                />
+                {t("activity.integralReplaceLabel")}
+              </label>
               {onAutoSearch && (
                 <button
                   onClick={onAutoSearch}

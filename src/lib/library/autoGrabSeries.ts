@@ -1379,6 +1379,16 @@ function collectMissingTargets(series: LibrarySeries): { season: number; episode
   return targets;
 }
 
+/** Tous les épisodes suivis et sortis, spéciales exclues : la portée d'une intégrale qui remplace l'existant. */
+function collectReplaceTargets(series: LibrarySeries): { season: number; episode: number }[] {
+  const targets: { season: number; episode: number }[] = [];
+  for (const season of series.seasons) {
+    if (!season.monitored || season.seasonNumber <= 0) continue;
+    for (const ep of season.episodes) if (ep.monitored && ep.status !== "upcoming") targets.push({ season: season.seasonNumber, episode: ep.episodeNumber });
+  }
+  return targets;
+}
+
 const COMPLETE_SERIES_TERMS_RE = new RegExp(
   `\\b(${COMPLETE_SERIES_TERMS.map((t) => t.replace(/\s+/g, "[.\\s]+")).join("|")})\\b`,
   "i"
@@ -1520,11 +1530,15 @@ function compareCompletePackCandidates(
 export async function searchCompleteSeriesCandidates(
   series: LibrarySeries,
   profile: ReturnType<typeof profileFor>,
-  seasonFilter?: Set<number>
+  seasonFilter?: Set<number>,
+  replaceExisting = false
 ): Promise<{ candidates: CompleteSeriesCandidate[]; targets: { season: number; episode: number }[]; seasonCount: number; targetSeasons: number[] } | null> {
   if (needsBleachRepair(series)) return null;
   const seasonCount = series.seasons.filter((s) => s.seasonNumber > 0 && s.monitored).length;
-  const targets = collectMissingTargets(series).filter((t) => !seasonFilter || seasonFilter.has(t.season));
+  // Mode « remplacer » : la couverture se juge sur tous les épisodes suivis (hors Spéciales), pas
+  // seulement sur ceux qui manquent. Sans cela, une série déjà complète n'offrait aucune intégrale.
+  const targets = (replaceExisting && series.tmdbId !== BLEACH_TMDB_ID ? collectReplaceTargets(series) : collectMissingTargets(series))
+    .filter((t) => !seasonFilter || seasonFilter.has(t.season));
   if (targets.length === 0) return null;
   const targetSeasons = [...new Set(targets.map((t) => t.season))];
   // Same original-title preference (and non-Latin-script guard) as
