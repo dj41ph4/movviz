@@ -119,13 +119,19 @@ async function buildLocalStreamInfo(plexRatingKey: string | null, userId: string
   if (!plexRatingKey) {
     const localMedia = mediaId && filePath ? await getOrProbeMediaDescriptor(mediaId, filePath).catch(() => null) : null;
     const local = localMedia ? streamsFromDescriptor(localMedia) : { audioStreams: [], subtitleStreams: [] };
+    // Titre purement local : la sonde donne les codecs et la durée, et le remux ffmpeg lit
+    // le fichier directement (route playback-ffmpeg) — sans cela un client sans décodeur DTS lisait
+    // un film muet. `localRemuxAvailable` est distinct de `ffmpegAvailable` (chemin Plex du lecteur
+    // web), pour ne rien changer au comportement du bureau.
+    const localRemuxAvailable = localMedia ? await isFfmpegAvailable().catch(() => false) : false;
     return {
-      videoCodec: null,
-      audioCodec: null,
-      container: null,
+      videoCodec: localMedia?.video?.codec?.toLowerCase() ?? null,
+      audioCodec: (local.audioStreams.find((stream) => stream.selected) ?? local.audioStreams[0])?.codec?.toLowerCase() ?? null,
+      container: localMedia?.container ?? null,
       ...local,
       ffmpegAvailable: false,
-      durationMs: null,
+      localRemuxAvailable,
+      durationMs: localMedia?.durationMs ?? null,
       markers,
     };
   }

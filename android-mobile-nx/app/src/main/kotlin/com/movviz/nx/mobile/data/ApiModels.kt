@@ -775,6 +775,11 @@ data class LocalPlaybackInfoDto(
     val markers: List<PlaybackMarkerDto> = emptyList(),
     val audioStreams: List<StreamAudioTrackDto> = emptyList(),
     val ffmpegAvailable: Boolean = false,
+    // Titre sans liaison Plex : codecs vus par la sonde du serveur, et remux ffmpeg local possible
+    // (route playback-ffmpeg avec l'id Movviz) — sans eux, un film DTS restait muet sur un boîtier sans décodeur.
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val localRemuxAvailable: Boolean = false,
     val durationMs: Long? = null,
 )
 

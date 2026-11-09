@@ -1,3 +1,10 @@
+## v1.28.107 — 9 novembre 2026
+
+### Lettore
+
+- Android mobile: quando il telefono non può decodificare l'audio (DTS…), il salto di 10 s non riporta più all'inizio del film. Posizione, durata, ripresa e barra di avanzamento seguono ora il flusso ffmpeg, come su Android TV.
+- Android mobile e TV: un film non collegato a Plex non viene più riprodotto senza audio. L'analisi ffprobe del server fornisce codec e durata, e il remux ffmpeg legge il file locale, ricodificando l'audio quando il telefono non lo decodifica.
+
 ## v1.28.106 — 9 novembre 2026
 
 ### Download

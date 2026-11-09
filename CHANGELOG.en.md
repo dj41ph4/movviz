@@ -1,3 +1,10 @@
+## v1.28.107 — November 9, 2026
+
+### Player
+
+- Android mobile: when the phone cannot decode the audio (DTS…), the 10 s skip no longer sends you back to the start of the film. Position, duration, resume and the progress bar now follow the ffmpeg stream, as on Android TV.
+- Android mobile and TV: a film that is not linked to Plex is no longer played without sound. The server's ffprobe analysis provides the codecs and duration, and the ffmpeg remux reads the local file, re-encoding the audio when the phone cannot decode it.
+
 ## v1.28.106 — November 9, 2026
 
 ### Downloads

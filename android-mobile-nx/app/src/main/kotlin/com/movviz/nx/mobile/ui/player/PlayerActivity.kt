@@ -562,6 +562,16 @@ private fun PlayerScreen(
     // sélectionnée pour que le remux ré-encode la bonne piste audio.
     var level1FfmpegAvailable by remember { mutableStateOf(false) }
     var level1AudioStreamId by remember { mutableStateOf<String?>(null) }
+    // Titre sans liaison Plex : la route ffmpeg se demande avec l'id Movviz (film, ou « série:s1e2 »).
+    var level1RemuxKey by remember { mutableStateOf<String?>(null) }
+    // Timeline virtuelle du flux ffmpeg (niveau 1) : c'est un MP4 fragmenté en
+    // tuyau, sans durée ni index. ExoPlayer ne peut pas y avancer ni reculer (il
+    // repart du début), et sa position repart de zéro à chaque démarrage décalé.
+    // Position affichée = décalage de départ + position ExoPlayer, durée donnée
+    // par streamInfo, et se déplacer = redemander le flux au serveur plus loin.
+    var remuxActive by remember { mutableStateOf(false) }
+    var remuxBaseMs by remember { mutableStateOf(0L) }
+    var remuxDurationMs by remember { mutableStateOf(0L) }
     // Pistes audio du titre selon le serveur, comme le menu du desktop : un flux
     // remuxé ou transcodé ne contient qu'une seule piste, le lecteur ne peut donc
     // pas être la source de la liste.
@@ -667,10 +677,22 @@ ExoPlayer.Builder(context)
     // ".mpd"/".m3u8" (query string sur /transcode), DefaultMediaSourceFactory
     // ne peut donc pas l'inférer de l'extension et choisirait à tort
     // ProgressiveMediaSource au lieu de DashMediaSource/HlsMediaSource.
+    fun timelinePos(): Long =
+        exoPlayer.currentPosition.coerceAtLeast(0) + if (remuxActive) remuxBaseMs else 0L
+    fun timelineDur(): Long {
+        val d = exoPlayer.duration
+        return when {
+            remuxActive -> remuxDurationMs.takeIf { it > 0L } ?: if (d > 0) d + remuxBaseMs else 0L
+            else -> d.coerceAtLeast(0)
+        }
+    }
+
     fun load(item: QueueItem, resumeMs: Long, level: Int = 0, autoplay: Boolean = true) {
         pendingSeekTarget = null
         pendingSeekOrigin = null
         loading = true
+        remuxActive = level == 1 && level1FfmpegAvailable
+        remuxBaseMs = if (remuxActive) resumeMs.coerceAtLeast(0) else 0L
         // Toujours couper le texte AVANT de préparer un nouveau MediaItem :
         // cela supprime le flash de sous-titre forcé/default qu'ExoPlayer peut
         // sélectionner seul. Une préférence explicitement activée sera
@@ -697,7 +719,7 @@ ExoPlayer.Builder(context)
                 // progressif simple (video/mp4) : pas de manifeste, le
                 // ProgressiveMediaSource par défaut suffit, inférence MIME
                 // normale suffisante ici (contrairement à DASH/HLS ci-dessous).
-                val url = repository.ffmpegRemuxUrl(item.ratingKey, activeAudioStreamId())
+                val url = repository.ffmpegRemuxUrl(level1RemuxKey ?: item.ratingKey, activeAudioStreamId(), seekToSec = resumeMs / 1000L)
                 Log.i(TAG, "load() remux ffmpeg local (audio-seul): $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
@@ -740,8 +762,18 @@ ExoPlayer.Builder(context)
         }
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
-        if (resumeMs > 0) exoPlayer.seekTo(resumeMs)
+        // Flux ffmpeg : la position de départ est déjà dans l'URL (seekTo).
+        if (resumeMs > 0 && !remuxActive) exoPlayer.seekTo(resumeMs)
         exoPlayer.playWhenReady = autoplay
+    }
+
+    /** Déplacement absolu : ExoPlayer sur un flux normal, nouveau flux serveur
+     *  décalé sur le flux ffmpeg (qui n'est pas navigable). */
+    fun seekAbs(targetMs: Long) {
+        val dur = timelineDur()
+        val target = targetMs.coerceAtLeast(0L).let { if (dur > 0L) it.coerceAtMost((dur - 1_000L).coerceAtLeast(0L)) else it }
+        if (remuxActive) load(queue[currentIndex], target, level = 1, autoplay = exoPlayer.playWhenReady)
+        else exoPlayer.seekTo(target)
     }
 
     /**
@@ -757,7 +789,7 @@ ExoPlayer.Builder(context)
         pendingSeekOrigin = null
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
-        val outgoingPosition = exoPlayer.currentPosition.coerceAtLeast(0)
+        val outgoingPosition = timelinePos()
         // Manual transitions use the server's shared completion policy.
         playbackSessionId = null
         completeCurrentOnDispose = false
@@ -788,7 +820,7 @@ ExoPlayer.Builder(context)
         exoPlayer.pause()
         isPlaying = false
         val id = playbackSessionId
-        val position = exoPlayer.currentPosition.coerceAtLeast(0)
+        val position = timelinePos()
         val item = queue[currentIndex]
         // A paused heartbeat persists an ordinary resume without ending the
         // session. This is intentionally NOT playbackEnded, even in credits:
@@ -809,10 +841,15 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         fallbackLevel = 0
         fallbackNotice = null
         val localEpisode = current.localKey != null && current.seasonNumber > 0 && current.episodeNumber > 0
-        val localInfo = if (localEpisode) {
+        val localEpisodeData = if (localEpisode) {
             (repository.localEpisodeInfo(current.localKey!!, current.seasonNumber, current.episodeNumber) as? ApiResult.Success)?.data
         } else null
         val plexInfo = if (!localEpisode) (repository.streamInfo(current.ratingKey) as? ApiResult.Success)?.data else null
+        // Film sans liaison Plex : streamInfo ne sait rien de lui, la sonde du serveur prend le relais.
+        val localMovieData = if (!localEpisode && plexInfo == null && current.localKey != null && type != "series") {
+            (repository.localMovieInfo(current.localKey!!) as? ApiResult.Success)?.data
+        } else null
+        val localInfo = localEpisodeData ?: localMovieData
         chosenAudioStreamId = null
         serverAudioStreams = localInfo?.audioStreams?.takeIf { it.isNotEmpty() } ?: plexInfo?.audioStreams.orEmpty()
         // Markers du média — store local Movviz. Absence = [] = player
@@ -852,17 +889,27 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         //  - tout décodable par CE boîtier → direct-play, l'ancien chemin
         //    d'erreur reste la sécurité pour les cas non détectés (profil
         //    10-bit, HDR, conteneur exotique…).
-        val videoMime = videoMimeType(info?.videoCodec)
-        val selectedAudio = info?.audioStreams?.firstOrNull { it.selected }
-            ?: info?.audioStreams?.firstOrNull()
-        val audioMime = audioMimeType(selectedAudio?.codec ?: info?.audioCodec)
+        // Sans liaison Plex, la sonde ffprobe du serveur (codecs réels du fichier) remplace streamInfo :
+        // sans elle un film DTS partait en lecture directe et restait muet sur un téléphone.
+        val localPlan = localInfo?.takeIf { plexInfo == null && it.localRemuxAvailable }
+        val planned = info != null || localPlan != null
+        val videoMime = videoMimeType(info?.videoCodec ?: localPlan?.videoCodec)
+        val planAudioStreams = info?.audioStreams ?: localPlan?.audioStreams
+        val selectedAudio = planAudioStreams?.firstOrNull { it.selected }
+            ?: planAudioStreams?.firstOrNull()
+        val audioMime = audioMimeType(selectedAudio?.codec ?: info?.audioCodec ?: localPlan?.audioCodec)
         val videoDecodable = videoMime == null || hasPlatformVideoDecoder(videoMime)
         val audioDecodable = audioMime == null || hasPlatformAudioDecoder(audioMime)
-        level1FfmpegAvailable = info?.ffmpegAvailable == true
+        // La route ffmpeg passe par la clé Plex : un épisode local n'y a droit que s'il en a une.
+        level1FfmpegAvailable = info?.ffmpegAvailable == true || (localInfo?.ffmpegAvailable == true && localInfo.plexRatingKey != null) || localPlan != null
+        level1RemuxKey = if (localPlan == null) null
+            else if (localEpisode) "${current.localKey}:s${current.seasonNumber}e${current.episodeNumber}"
+            else current.localKey
+        remuxDurationMs = knownDuration ?: localInfo?.durationMs ?: 0L
         level1AudioStreamId = selectedAudio?.id ?: serverAudioStreams.firstOrNull { it.selected }?.id
         val startLevel = when {
-            info != null && !videoDecodable -> 2
-            info != null && !audioDecodable -> 1
+            planned && !videoDecodable -> 2
+            planned && !audioDecodable -> 1
             else -> 0
         }
         // Sonde visible : la décision (et la raison) est dans le logcat pour
@@ -940,7 +987,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 Log.w(TAG, "onPlayerError code=${error.errorCode} kind=$kind fallbackLevel=$fallbackLevel", error)
                 if (kind == PlayerErrorKind.NETWORK && networkRetryCount < MAX_NETWORK_AUTO_RETRIES) {
                     networkRetryCount += 1
-                    val resumePos = exoPlayer.currentPosition.coerceAtLeast(0)
+                    val resumePos = timelinePos()
                     loading = true
                     val item = queue[currentIndex]
                     scope.launch {
@@ -967,7 +1014,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 // item, le transcodage peut échouer lui aussi.
                 if (kind == PlayerErrorKind.UNSUPPORTED && fallbackLevel < 2) {
                     fallbackLevel += 1
-                    val resumePos = exoPlayer.currentPosition.coerceAtLeast(0)
+                    val resumePos = timelinePos()
                     val item = queue[currentIndex]
                     Log.i(TAG, "Repli transcodage niveau $fallbackLevel pour ${item.ratingKey} à ${resumePos}ms (direct-play non décodable)")
                     fallbackNotice = "Compatibilité optimisée…"
@@ -1068,7 +1115,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     val shouldComplete = completeCurrentOnDispose
                     if (id != null) {
                         if (shouldComplete) repository.playbackEnded(id)
-                        else repository.playbackStop(id, exoPlayer.currentPosition)
+                        else repository.playbackStop(id, timelinePos())
                     }
                     if (!shouldComplete) repository.reportStop(queue[currentIndex].ratingKey)
                 }
@@ -1092,7 +1139,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             // session a posteriori avec cette durée plutôt que de dépendre
             // de Plex.
             if (playbackSessionId == null) {
-                val dur = exoPlayer.duration
+                val dur = timelineDur()
                 if (dur > 0) {
                     val opened = repository.openPlaybackSession(
                         ratingKey = current.ratingKey,
@@ -1107,8 +1154,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 }
             }
             val id = playbackSessionId
-            if (id != null) repository.playbackHeartbeat(id, ++heartbeatSequence, exoPlayer.currentPosition, isPlaying)
-            repository.reportProgress(current.ratingKey, exoPlayer.currentPosition, if (isPlaying) "playing" else "paused")
+            if (id != null) repository.playbackHeartbeat(id, ++heartbeatSequence, timelinePos(), isPlaying)
+            repository.reportProgress(current.ratingKey, timelinePos(), if (isPlaying) "playing" else "paused")
         }
     }
 
@@ -1136,7 +1183,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         if (pendingSeekTarget != target) return@LaunchedEffect
         pendingSeekTarget = null
         pendingSeekOrigin = null
-        exoPlayer.seekTo(target)
+        seekAbs(target)
     }
 
     // Surveillance de la position pour afficher le panneau "Épisode suivant"
@@ -1147,8 +1194,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         while (true) {
             delay(1_000L)
             if (!hasNext) { showNextEpisodeTeaser = false; continue }
-            val pos = exoPlayer.currentPosition
-            val dur = exoPlayer.duration.coerceAtLeast(0)
+            val pos = timelinePos()
+            val dur = timelineDur()
             if (dur > 0 && pos > dur - 45_000L) {
                 showNextEpisodeTeaser = true
                 nextEpisodeCountdown = ((dur - pos) / 1000L).coerceAtLeast(0)
@@ -1169,7 +1216,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     LaunchedEffect(current, markers) {
         while (true) {
             delay(500L)
-            val pos = exoPlayer.currentPosition
+            val pos = timelinePos()
             activeMarker = pickActiveMarker(markers, pos)
         }
     }
@@ -1198,9 +1245,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         if (exoPlayer.playWhenReady) exoPlayer.pause() else exoPlayer.play()
     }
     fun queueSeekBy(deltaMs: Long) {
-        val base = pendingSeekTarget ?: exoPlayer.currentPosition
-        val max = exoPlayer.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
-        if (pendingSeekOrigin == null) pendingSeekOrigin = exoPlayer.currentPosition
+        val base = pendingSeekTarget ?: timelinePos()
+        val max = timelineDur().takeIf { it > 0 } ?: Long.MAX_VALUE
+        if (pendingSeekOrigin == null) pendingSeekOrigin = timelinePos()
         val target = (base + deltaMs).coerceIn(0L, max)
         pendingSeekTarget = target
         pendingSeekToken++
@@ -1236,7 +1283,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             return
         }
         playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
-        exoPlayer.seekTo(m.endMs)
+        seekAbs(m.endMs)
     }
 
     // Réglages de profil « Passer l'intro / le générique automatiquement » (désactivés par
@@ -1257,7 +1304,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             return@LaunchedEffect
         }
         playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
-        exoPlayer.seekTo(m.endMs)
+        seekAbs(m.endMs)
     }
 
     // Les marqueurs ne sont pas de simples décorations : à l'entrée dans une
@@ -1278,7 +1325,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
 
     val latestPauseForBackground by rememberUpdatedState(::pauseForBackground)
-    val latestPlaybackSnapshot by rememberUpdatedState({ currentIndex to exoPlayer.currentPosition.coerceAtLeast(0) })
+    val latestPlaybackSnapshot by rememberUpdatedState({ currentIndex to timelinePos() })
     LaunchedEffect(Unit) {
         onRegisterMediaKeyHandler?.invoke { keyCode ->
             when (keyCode) {
@@ -1538,7 +1585,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                                     // échec du repli transcodage reviendrait au
                                     // direct-play et reproduirait la même
                                     // erreur non supportée à coup sûr.
-                                    load(current, exoPlayer.currentPosition.coerceAtLeast(0), level = fallbackLevel)
+                                    load(current, timelinePos(), level = fallbackLevel)
                                 },
                             )
                         }
@@ -1569,6 +1616,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 onLogoError = { pauseLogoPath = null },
                 isPlaying = isPlaying,
                 player = exoPlayer,
+                positionProvider = { timelinePos() },
+                durationProvider = { timelineDur() },
+                onSeekTo = { seekAbs(it) },
                 hasNext = hasNext,
                 hasPrev = hasPrev,
                 fallbackLevel = fallbackLevel,
@@ -1586,7 +1636,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     poke()
                 },
                 onSeekCommit = { target ->
-                    exoPlayer.seekTo(target)
+                    seekAbs(target)
                     playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, target, "scrub") } }
                 },
                 onPlayPause = { playPauseAction() },
@@ -1694,7 +1744,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         applyTrackOverride(exoPlayer, C.TRACK_TYPE_AUDIO, group)
                     } else if (stream != null && canReload && !(group == null && alreadyActive)) {
                         fallbackLevel = maxOf(fallbackLevel, 1)
-                        load(queue[currentIndex], exoPlayer.currentPosition, level = fallbackLevel, autoplay = exoPlayer.playWhenReady)
+                        load(queue[currentIndex], timelinePos(), level = fallbackLevel, autoplay = exoPlayer.playWhenReady)
                     }
                     showAudioDialog = false
                 },
@@ -1916,6 +1966,9 @@ private fun BufferingSpinner(size: Dp, modifier: Modifier = Modifier) {
 @Composable
 private fun PlayerProgressBar(
     player: ExoPlayer,
+    positionProvider: () -> Long,
+    durationProvider: () -> Long,
+    onSeekTo: (Long) -> Unit,
     onScrubbingChange: (Boolean) -> Unit,
     onSeekCommit: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -1935,8 +1988,8 @@ private fun PlayerProgressBar(
     LaunchedEffect(player) {
         while (true) {
             delay(250)
-            positionMs = player.currentPosition.coerceAtLeast(0)
-            durationMs = player.duration.coerceAtLeast(0)
+            positionMs = positionProvider()
+            durationMs = durationProvider()
             bufferedPercent = player.bufferedPercentage
         }
     }
@@ -1958,13 +2011,12 @@ private fun PlayerProgressBar(
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
                     Key.DirectionLeft -> {
-                        player.seekTo((player.currentPosition - SEEK_STEP_MS).coerceAtLeast(0))
+                        onSeekTo(positionProvider() - SEEK_STEP_MS)
                         onInteraction?.invoke()
                         true
                     }
                     Key.DirectionRight -> {
-                        val max = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
-                        player.seekTo((player.currentPosition + SEEK_STEP_MS).coerceAtMost(max))
+                        onSeekTo(positionProvider() + SEEK_STEP_MS)
                         onInteraction?.invoke()
                         true
                     }
@@ -1984,7 +2036,7 @@ private fun PlayerProgressBar(
                 down.consume()
                 latestScrubbingChange(true)
                 latestInteraction?.invoke()
-                val gestureDuration = player.duration
+                val gestureDuration = durationProvider().takeIf { it > 0 } ?: C.TIME_UNSET
                 var target = timelineSeekPosition(down.position.x, size.width, gestureDuration)
                 var released = false
                 try {
@@ -2108,6 +2160,9 @@ private fun ControlsOverlay(
     onLogoError: () -> Unit,
     isPlaying: Boolean,
     player: ExoPlayer,
+    positionProvider: () -> Long,
+    durationProvider: () -> Long,
+    onSeekTo: (Long) -> Unit,
     hasNext: Boolean,
     hasPrev: Boolean,
     fallbackLevel: Int,
@@ -2209,6 +2264,9 @@ private fun ControlsOverlay(
         ) {
             PlayerProgressBar(
                 player = player,
+                positionProvider = positionProvider,
+                durationProvider = durationProvider,
+                onSeekTo = onSeekTo,
                 onScrubbingChange = onScrubbingChange,
                 onSeekCommit = onSeekCommit,
                 focusRequester = progressFocus,

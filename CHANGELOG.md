@@ -1,3 +1,10 @@
+## v1.28.107 — 9 novembre 2026
+
+### Lecteur
+
+- Android mobile : quand le son n'est pas décodable par le téléphone (DTS…), le déplacement de 10 s ne ramène plus au début du film. Position, durée, reprise et barre de progression suivent désormais le flux ffmpeg, comme sur Android TV.
+- Android mobile et TV : un film non lié à Plex n'est plus lu sans son. La sonde ffprobe du serveur fournit les codecs et la durée, et le remux ffmpeg lit le fichier local, avec le son ré-encodé quand le téléphone ne le décode pas.
+
 ## v1.28.106 — 9 novembre 2026
 
 ### Téléchargements

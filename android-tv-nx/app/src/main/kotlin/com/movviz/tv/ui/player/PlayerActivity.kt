@@ -573,6 +573,8 @@ private fun PlayerScreen(
     // sélectionnée pour que le remux ré-encode la bonne piste audio.
     var level1FfmpegAvailable by remember { mutableStateOf(false) }
     var level1AudioStreamId by remember { mutableStateOf<String?>(null) }
+    // Titre sans liaison Plex : la route ffmpeg se demande avec l'id Movviz (film, ou « série:s1e2 »).
+    var level1RemuxKey by remember { mutableStateOf<String?>(null) }
     // Pistes audio du titre selon le serveur, comme le menu du desktop : un flux
     // remuxé ou transcodé ne contient qu'une seule piste, le lecteur ne peut donc
     // pas être la source de la liste.
@@ -727,7 +729,7 @@ ExoPlayer.Builder(context)
                 // progressif simple (video/mp4) : pas de manifeste, le
                 // ProgressiveMediaSource par défaut suffit, inférence MIME
                 // normale suffisante ici (contrairement à DASH/HLS ci-dessous).
-                val url = repository.ffmpegRemuxUrl(item.ratingKey, activeAudioStreamId(), seekToSec = resumeMs / 1000L)
+                val url = repository.ffmpegRemuxUrl(level1RemuxKey ?: item.ratingKey, activeAudioStreamId(), seekToSec = resumeMs / 1000L)
                 Log.i(TAG, "load() remux ffmpeg local (audio-seul): $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
@@ -848,10 +850,15 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         resumeDirectRetryUsed = false
         fallbackNotice = null
         val localEpisode = current.localKey != null && current.seasonNumber > 0 && current.episodeNumber > 0
-        val localInfo = if (localEpisode) {
+        val localEpisodeData = if (localEpisode) {
             (repository.localEpisodeInfo(current.localKey!!, current.seasonNumber, current.episodeNumber) as? ApiResult.Success)?.data
         } else null
         val plexInfo = if (!localEpisode) (repository.streamInfo(current.ratingKey) as? ApiResult.Success)?.data else null
+        // Film sans liaison Plex : streamInfo ne sait rien de lui, la sonde du serveur prend le relais.
+        val localMovieData = if (!localEpisode && plexInfo == null && current.localKey != null && type != "series") {
+            (repository.localMovieInfo(current.localKey!!) as? ApiResult.Success)?.data
+        } else null
+        val localInfo = localEpisodeData ?: localMovieData
         chosenAudioStreamId = null
         serverAudioStreams = localInfo?.audioStreams?.takeIf { it.isNotEmpty() } ?: plexInfo?.audioStreams.orEmpty()
         // Markers du média — store local Movviz. Absence = [] = player
@@ -891,19 +898,27 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         //  - tout décodable par CE boîtier → direct-play, l'ancien chemin
         //    d'erreur reste la sécurité pour les cas non détectés (profil
         //    10-bit, HDR, conteneur exotique…).
-        val videoMime = videoMimeType(info?.videoCodec)
-        val selectedAudio = info?.audioStreams?.firstOrNull { it.selected }
-            ?: info?.audioStreams?.firstOrNull()
-        val audioMime = audioMimeType(selectedAudio?.codec ?: info?.audioCodec)
+        // Sans liaison Plex, la sonde ffprobe du serveur (codecs réels du fichier) remplace streamInfo :
+        // sans elle un film DTS partait en lecture directe et restait muet sur un téléphone.
+        val localPlan = localInfo?.takeIf { plexInfo == null && it.localRemuxAvailable }
+        val planned = info != null || localPlan != null
+        val videoMime = videoMimeType(info?.videoCodec ?: localPlan?.videoCodec)
+        val planAudioStreams = info?.audioStreams ?: localPlan?.audioStreams
+        val selectedAudio = planAudioStreams?.firstOrNull { it.selected }
+            ?: planAudioStreams?.firstOrNull()
+        val audioMime = audioMimeType(selectedAudio?.codec ?: info?.audioCodec ?: localPlan?.audioCodec)
         val videoDecodable = videoMime == null || hasPlatformVideoDecoder(videoMime)
         val audioDecodable = audioMime == null || hasPlatformAudioDecoder(audioMime)
         // La route ffmpeg passe par la clé Plex : un épisode local n'y a droit que s'il en a une.
-        level1FfmpegAvailable = info?.ffmpegAvailable == true || (localInfo?.ffmpegAvailable == true && localInfo.plexRatingKey != null)
+        level1FfmpegAvailable = info?.ffmpegAvailable == true || (localInfo?.ffmpegAvailable == true && localInfo.plexRatingKey != null) || localPlan != null
+        level1RemuxKey = if (localPlan == null) null
+            else if (localEpisode) "${current.localKey}:s${current.seasonNumber}e${current.episodeNumber}"
+            else current.localKey
         remuxDurationMs = knownDuration ?: localInfo?.durationMs ?: 0L
         level1AudioStreamId = selectedAudio?.id ?: serverAudioStreams.firstOrNull { it.selected }?.id
         val startLevel = when {
-            info != null && !videoDecodable -> 2
-            info != null && !audioDecodable -> 1
+            planned && !videoDecodable -> 2
+            planned && !audioDecodable -> 1
             else -> 0
         }
         // Sonde visible : la décision (et la raison) est dans le logcat pour

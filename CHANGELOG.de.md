@@ -1,3 +1,10 @@
+## v1.28.107 — 9. November 2026
+
+### Player
+
+- Android Mobil: Kann das Handy den Ton nicht dekodieren (DTS…), führt der 10-s-Sprung nicht mehr an den Filmanfang zurück. Position, Dauer, Fortsetzen und Fortschrittsbalken folgen jetzt dem ffmpeg-Stream, wie auf Android TV.
+- Android Mobil und TV: Ein nicht mit Plex verknüpfter Film wird nicht mehr ohne Ton abgespielt. Die ffprobe-Analyse des Servers liefert Codecs und Dauer, und der ffmpeg-Remux liest die lokale Datei und kodiert den Ton neu, wenn das Handy ihn nicht dekodiert.
+
 ## v1.28.106 — 9. November 2026
 
 ### Downloads

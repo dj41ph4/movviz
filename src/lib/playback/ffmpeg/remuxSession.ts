@@ -271,8 +271,11 @@ export function startRemux(
     return null;
   }
 
+  // Source Plex (URL http) : le jeton est indispensable. Fichier local d'un titre
+  // sans liaison Plex : ffmpeg lit le chemin directement, aucun en-tête.
+  const remoteSource = /^https?:\/\//i.test(ref.sourceUrl);
   const token = findPlexToken(ref.headers);
-  if (!token) {
+  if (remoteSource && !token) {
     console.error(`[remux] token Plex introuvable dans ref.headers pour ${key}`);
     return null;
   }
@@ -284,7 +287,7 @@ export function startRemux(
     audioCodec !== "ec-3" &&
     COPY_SAFE_AUDIO.some((c) => audioCodec.includes(c));
 
-  const args: string[] = ["-v", "error", "-headers", `X-Plex-Token: ${token}\r\n`];
+  const args: string[] = ["-v", "error", ...(remoteSource ? ["-headers", `X-Plex-Token: ${token}\r\n`] : [])];
   if (seekSec > 0) args.push("-ss", String(seekSec));
   args.push("-i", ref.sourceUrl);
   args.push("-map", "0:v:0", "-map", `0:a:${audioIndex}`);

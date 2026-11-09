@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { resolvePlexPartUrl } from "@/lib/playback/plexSource";
+import { resolvePlexPartUrl, type PlexPartRef } from "@/lib/playback/plexSource";
+import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
+import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import {
   FFMPEG_QUALITY_PRESETS,
   isFfmpegAvailable,
@@ -31,6 +33,29 @@ function resolveAudioIndex(
   return 0;
 }
 
+/** Titre purement local (aucune liaison Plex) : la « clé » est l'id Movviz du film, ou
+ *  serieId:s1e2 pour un épisode. ffmpeg lit le fichier du disque, les pistes viennent de la sonde. */
+async function resolveLocalPartRef(mediaId: string): Promise<PlexPartRef | null> {
+  const local = resolveLocalFilePath(mediaId);
+  if (!local.ok) return null;
+  const media = await getOrProbeMediaDescriptor(mediaId, local.path).catch(() => null);
+  if (!media) return null;
+  return {
+    sourceUrl: local.path,
+    headers: {},
+    container: media.container ?? null,
+    videoCodec: media.video?.codec ?? null,
+    audioStreams: media.audioTracks.map((track, index) => ({
+      index, id: track.index, codec: track.codec ?? null, language: track.language ?? null,
+      channels: track.channels ?? null, title: track.title ?? null, selected: !!track.default,
+    })),
+    subtitleStreams: [],
+    partId: null,
+    base: "",
+    durationMs: media.durationMs ?? null,
+  };
+}
+
 export async function GET(req: NextRequest, context: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -42,7 +67,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     return NextResponse.json({ error: "ffmpeg_unavailable" }, { status: 502 });
   }
 
-  const ref = await resolvePlexPartUrl(ratingKey, user.id);
+  const ref = (await resolvePlexPartUrl(ratingKey, user.id)) ?? (await resolveLocalPartRef(ratingKey));
   if (!ref) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }

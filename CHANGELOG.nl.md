@@ -1,3 +1,10 @@
+## v1.28.107 — 9 november 2026
+
+### Speler
+
+- Android mobiel: kan de telefoon het geluid niet decoderen (DTS…), dan brengt de sprong van 10 s je niet meer terug naar het begin van de film. Positie, duur, hervatten en voortgangsbalk volgen nu de ffmpeg-stream, zoals op Android TV.
+- Android mobiel en TV: een film zonder Plex-koppeling wordt niet meer zonder geluid afgespeeld. De ffprobe-analyse van de server levert codecs en duur, en de ffmpeg-remux leest het lokale bestand en codeert het geluid opnieuw als de telefoon het niet decodeert.
+
 ## v1.28.106 — 9 november 2026
 
 ### Downloads

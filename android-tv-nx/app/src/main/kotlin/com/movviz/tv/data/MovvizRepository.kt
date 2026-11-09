@@ -316,6 +316,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun streamInfo(plexRatingKey: String): ApiResult<StreamInfoDto> =
         safeCall { api.streamInfo(plexRatingKey) }
 
+    suspend fun localMovieInfo(movvizId: String): ApiResult<LocalPlaybackInfoDto> =
+        safeCall { api.localMovieInfo(movvizId) }
+
     suspend fun localEpisodeInfo(seriesId: String, seasonNumber: Int, episodeNumber: Int): ApiResult<LocalPlaybackInfoDto> =
         safeCall { api.localEpisodeInfo(seriesId, seasonNumber, episodeNumber) }
 
