@@ -1,3 +1,9 @@
+## v1.28.108 — 9 novembre 2026
+
+### Prestazioni
+
+- Il server non si blocca più circa ogni 30 minuti: la sincronizzazione Plex non ricarica più a ogni passaggio la cache TMDb da 700 MB (da 13 a 28 s di CPU e altrettanta memoria sul NAS), che bloccava l'app fino a decine di secondi.
+
 ## v1.28.107 — 9 novembre 2026
 
 ### Lettore

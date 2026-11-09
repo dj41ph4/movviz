@@ -12,7 +12,7 @@
 
 ### Dein Katalog. Dein Server. Deine Regeln.
 
-<p><strong>Aktuelle Version: v1.28.107</strong></p>
+<p><strong>Aktuelle Version: v1.28.108</strong></p>
 
 **Eine vollständige selbst gehostete Medienplattform — von der Entdeckung bis zur Wiedergabe.**
 

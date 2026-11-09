@@ -1,3 +1,9 @@
+## v1.28.108 — 9 november 2026
+
+### Prestaties
+
+- De server loopt niet meer ongeveer elke 30 minuten vast: de Plex-synchronisatie laadt de TMDb-cache van 700 MB niet meer bij elke run opnieuw (13 tot 28 s CPU en evenveel geheugen op de NAS), wat de app tot tientallen seconden blokkeerde.
+
 ## v1.28.107 — 9 november 2026
 
 ### Speler

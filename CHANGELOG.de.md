@@ -1,3 +1,9 @@
+## v1.28.108 — 9. November 2026
+
+### Leistung
+
+- Der Server friert nicht mehr etwa alle 30 Minuten ein: Die Plex-Synchronisierung lädt den 700 MB großen TMDb-Cache nicht mehr bei jedem Durchlauf neu (13 bis 28 s CPU und ebensoviel Speicher auf dem NAS), was die App bis zu mehrere Dutzend Sekunden blockierte.
+
 ## v1.28.107 — 9. November 2026
 
 ### Player

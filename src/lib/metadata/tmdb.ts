@@ -55,7 +55,13 @@ const TMDB_CACHE_FILE = path.join(
 );
 
 function tmdbCache() {
-  return getCache(TMDB_CACHE_NAME, TMDB_CACHE_TTL_MS, TMDB_CACHE_FILE, TMDB_CACHE_MAX_ENTRIES);
+  // Le worker du snapshot Plex a son propre processus mémoire : relire le cache
+  // persisté (700 Mo, 13 à 28 s de CPU et autant de mémoire) à chaque synchro
+  // pour quelques recherches par identifiant externe saturait le NAS et
+  // figeait tout le serveur. Il utilise donc un cache en mémoire seule, sans
+  // jamais lire ni écrire le fichier du processus principal.
+  const inSnapshotWorker = process.env.MOVVIZ_SNAPSHOT_WORKER === "1";
+  return getCache(TMDB_CACHE_NAME, TMDB_CACHE_TTL_MS, inSnapshotWorker ? undefined : TMDB_CACHE_FILE, TMDB_CACHE_MAX_ENTRIES);
 }
 
 /** Longest a request waits for the persisted TMDb cache to stream back in after a start. */

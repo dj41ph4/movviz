@@ -1,3 +1,9 @@
+## v1.28.108 — 9 novembre 2026
+
+### Performances
+
+- Le serveur ne se fige plus toutes les 30 minutes environ : la synchronisation Plex ne relit plus à chaque passage le cache TMDb de 700 Mo (13 à 28 s de calcul et autant de mémoire sur le NAS), ce qui bloquait l'application jusqu'à plusieurs dizaines de secondes.
+
 ## v1.28.107 — 9 novembre 2026
 
 ### Lecteur
