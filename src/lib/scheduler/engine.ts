@@ -162,6 +162,8 @@ export const HEAVY_TASKS = new Set<string>([
   "server-benchmark",
   // Boucle sur toute la bibliothèque : jamais en même temps que les autres tâches lourdes.
   "media-probe-library",
+  // Génération ffmpeg d'aperçus : lourde en lectures disque, à l'abri des autres tâches lourdes.
+  "scrub-sprites-library",
   // 3 000 appels espacés, plus de 10 minutes : sans délai de garde, et à l'abri d'une lecture en cours.
   "introdb-marker-sync",
 ]);

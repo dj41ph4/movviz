@@ -1,3 +1,9 @@
+## v1.28.113 — 10. November 2026
+
+### Player
+
+- Vorschau beim Überfahren der Zeitleiste für Filme und Episoden ohne Plex-Verknüpfung (oder ohne von Plex erstellte Vorschau): Movviz erzeugt jetzt selbst Vorschaubild-Blätter mit ffmpeg, eine Datei nach der anderen, ein einziger Thread, niedrigste Priorität, Pause während der Wiedergabe. Neue geplante Aufgabe „Vorschaubilder der Zeitleiste“ und ein Schalter unter Einstellungen > Technische Analyse.
+
 ## v1.28.112 — 10. November 2026
 
 ### Oberfläche

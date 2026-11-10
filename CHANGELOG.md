@@ -1,3 +1,9 @@
+## v1.28.113 — 10 novembre 2026
+
+### Lecteur
+
+- Aperçu au survol de la barre de progression pour les films et épisodes sans lien Plex (ou pour lesquels Plex n'a pas préparé d'aperçu) : Movviz génère lui-même des planches de vignettes avec ffmpeg, un fichier à la fois, un seul thread, priorité minimale, en pause pendant une lecture. Tâche planifiée « Aperçus de la barre de progression » et interrupteur dans Réglages > Analyse technique.
+
 ## v1.28.112 — 10 novembre 2026
 
 ### Interface

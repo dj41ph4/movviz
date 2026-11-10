@@ -2103,6 +2103,8 @@ export const de: Dictionary = {
 
   mediaProbe: {
     title: "Technische Bibliotheksanalyse",
+    scrubSprites: "Vorschaubilder der Zeitleiste",
+    scrubSpritesHint: "Erzeugt Vorschaubilder für Filme und Episoden ohne Plex-Verknüpfung, damit die Zeitleiste beim Überfahren eine Vorschau zeigt. Eine Datei nach der anderen, niedrigste Priorität, Pause während der Wiedergabe.",
     intro: "Analysiert jeden Film per ffprobe (Codec, HDR/Dolby Vision, genaue Audio- und Untertitelspuren) und speichert das Ergebnis im Cache — künftige Wiedergabeentscheidungen müssen die Datei nicht erneut analysieren. Kann bei einer großen Bibliothek mehrere Minuten dauern.",
     introSeries: "Dieselbe ffprobe-Analyse, Episode für Episode, für alle Serien. Kann bei gleicher Dateimenge länger dauern als eine Filmbibliothek (deutlich mehr Dateien zu durchlaufen).",
     scan: "Analyse starten",
@@ -2638,6 +2640,7 @@ export const de: Dictionary = {
       "language-detection": "Audiosprache jeder Datei erkennen (Plex und Dateiname)",
       "auto-upgrade-all": "Dateien automatisch durch bessere Versionen ersetzen",
       "media-probe-library": "Dateien analysieren (ffprobe): Audiospuren, Untertitel, Codecs",
+      "scrub-sprites-library": "Vorschaubilder der Zeitleiste (Dateien ohne Plex-Vorschau)",
       "introdb-marker-sync": "TheIntroDB: Überspring-Marker für die ganze Bibliothek (Rückblick, Intro, Abspann, Vorschau)",
       "introdb-new-items": "TheIntroDB: Überspring-Marker für neu hinzugefügte Titel",
     },

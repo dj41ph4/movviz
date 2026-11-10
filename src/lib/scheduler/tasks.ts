@@ -37,6 +37,9 @@ import { syncIntroDbLibrary } from "@/lib/playback/markers/librarySync";
 import { externalMarkersEnabled, plexMarkersEnabled } from "@/lib/settings/markerSources";
 import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
 import { JobCancelledError, reportJobProgress, trackJobProgress } from "@/lib/jobs/cancelScope";
+import { isScrubSpritesEnabled } from "@/lib/settings/scrubSprites";
+import { ensureSprites, listUnlinkedLocalSources, readManifest } from "@/lib/playback/scrubSprites";
+import { hasActivePlayback } from "@/lib/priority/userActivity";
 import { refreshPendingEpisodeMeta } from "@/lib/library/episodeMeta";
 import { engineGet } from "@/lib/engine/server";
 import { readState, writeState } from "@/lib/library/taskMemory";
@@ -174,6 +177,27 @@ export const TASKS: ScheduledTask[] = [
       // Avancement n/total : films puis épisodes (deux étapes, chacune son total).
       await probeAllLibraryMovies(reportJobProgress);
       await probeAllLibrarySeries(reportJobProgress);
+    },
+  },
+  {
+    id: "scrub-sprites-library",
+    name: "Aperçus de la barre de progression (fichiers sans aperçu Plex)",
+    // Seuls les fichiers que Plex n'a pas liés sont concernés (Plex fournit déjà
+    // les siens). Un fichier à la fois, un thread, priorité minimale ; s'arrête
+    // dès qu'une lecture démarre et reprend au passage suivant (les fichiers
+    // déjà faits sont sautés), donc jamais de gêne pour le streaming.
+    intervalMs: 6 * 60 * 60 * 1000,
+    run: async () => {
+      if (!isScrubSpritesEnabled()) return;
+      const sources = listUnlinkedLocalSources();
+      const deadline = Date.now() + 40 * 60 * 1000;
+      for (let i = 0; i < sources.length; i++) {
+        if (hasActivePlayback() || Date.now() > deadline) break;
+        reportJobProgress(i, sources.length);
+        if (await readManifest(sources[i])) continue;
+        await ensureSprites(sources[i], { shouldCancel: hasActivePlayback });
+      }
+      reportJobProgress(sources.length, sources.length);
     },
   },
   {

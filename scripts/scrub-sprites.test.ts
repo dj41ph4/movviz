@@ -1,0 +1,61 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-sprites-"));
+process.env.MOVVIZ_CONFIG_DIR = dir;
+// Importé après la variable d'environnement : le dossier de cache est lu au chargement.
+const sprites = await import("../src/lib/playback/scrubSprites.ts");
+
+const ffmpegOk = spawnSync("ffmpeg", ["-version"]).status === 0;
+const video = path.join(dir, "film.mkv");
+if (ffmpegOk) {
+  // 45 s, une image clé toutes les 2 s : 5 vignettes à 10 s d'intervalle.
+  spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24:duration=45",
+    "-c:v", "libx264", "-preset", "ultrafast", "-g", "48", "-pix_fmt", "yuv420p", video]);
+}
+const source = { cacheId: "film-test", filePath: video };
+
+test("génère des planches valides et un manifeste à jour", { skip: !ffmpegOk }, async () => {
+  assert.equal(await sprites.readManifest(source), null);
+  assert.equal(await sprites.ensureSprites(source), true);
+  const manifest = await sprites.readManifest(source);
+  assert.ok(manifest);
+  assert.equal(manifest.intervalSec, 10);
+  assert.equal(manifest.count, 5); // 45 s → 0,10,20,30,40
+  assert.equal(manifest.sheets, 1);
+  const sheet = sprites.sheetPath("film-test", 1)!;
+  const head = fs.readFileSync(sheet).subarray(0, 3);
+  assert.deepEqual([...head], [0xff, 0xd8, 0xff]); // JPEG
+  assert.ok(fs.statSync(sheet).size > 5_000);
+});
+
+test("un second appel ne régénère rien", { skip: !ffmpegOk }, async () => {
+  const before = fs.statSync(sprites.sheetPath("film-test", 1)!).mtimeMs;
+  assert.equal(await sprites.ensureSprites(source), true);
+  assert.equal(fs.statSync(sprites.sheetPath("film-test", 1)!).mtimeMs, before);
+});
+
+test("un fichier remplacé invalide les planches", { skip: !ffmpegOk }, async () => {
+  fs.appendFileSync(video, Buffer.alloc(16));
+  assert.equal(await sprites.readManifest(source), null);
+});
+
+test("un fichier illisible ne publie aucune planche", { skip: !ffmpegOk }, async () => {
+  const bad = { cacheId: "film-bad", filePath: path.join(dir, "bad.mkv") };
+  fs.writeFileSync(bad.filePath, "pas une vidéo");
+  assert.equal(await sprites.ensureSprites(bad), false);
+  assert.equal(await sprites.readManifest(bad), null);
+  assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-bad")), false);
+});
+
+test("l'annulation arrête la génération sans rien publier", { skip: !ffmpegOk }, async () => {
+  const cancelled = { cacheId: "film-cancel", filePath: video };
+  assert.equal(await sprites.ensureSprites(cancelled, { shouldCancel: () => true }), false);
+  assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-cancel")), false);
+});
+
+test("nettoyage", () => { fs.rmSync(dir, { recursive: true, force: true }); });

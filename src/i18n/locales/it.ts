@@ -2084,6 +2084,8 @@ export const it: Dictionary = {
 
   mediaProbe: {
     title: "Analisi tecnica della libreria",
+    scrubSprites: "Anteprime della barra di avanzamento",
+    scrubSpritesHint: "Genera miniature per film ed episodi senza collegamento Plex, così la barra mostra un'anteprima al passaggio del mouse. Un file alla volta, priorità minima, in pausa durante la riproduzione.",
     intro: "Analizza ogni film tramite ffprobe (codec, HDR/Dolby Vision, tracce audio e sottotitoli esatte) e mette in cache il risultato — le future decisioni di riproduzione non dovranno più ri-analizzare il file. Può richiedere diversi minuti su una libreria grande.",
     introSeries: "Stessa analisi ffprobe, episodio per episodio, per tutte le serie. Può richiedere più tempo di una libreria di film a parità di file (molti più file da percorrere).",
     scan: "Avvia analisi",
@@ -2619,6 +2621,7 @@ export const it: Dictionary = {
       "language-detection": "Rileva la lingua audio di ogni file (Plex e nome del file)",
       "auto-upgrade-all": "Sostituisce automaticamente i file con versioni migliori",
       "media-probe-library": "Analizza i file (ffprobe): tracce audio, sottotitoli, codec",
+      "scrub-sprites-library": "Anteprime della barra di avanzamento (file senza anteprima Plex)",
       "introdb-marker-sync": "TheIntroDB: indicatori di salto per tutta la libreria (riepilogo, intro, titoli di coda, anteprima)",
       "introdb-new-items": "TheIntroDB: indicatori di salto dei titoli appena aggiunti",
     },

@@ -1,3 +1,9 @@
+## v1.28.113 — November 10, 2026
+
+### Player
+
+- Seek bar hover previews for movies and episodes without a Plex link (or for which Plex has not prepared previews): Movviz now generates thumbnail sheets itself with ffmpeg, one file at a time, a single thread, lowest priority, paused during playback. New scheduled task "Seek bar previews" and a switch in Settings > Technical analysis.
+
 ## v1.28.112 — November 10, 2026
 
 ### Interface

@@ -2083,6 +2083,8 @@ export const fr = {
 
   mediaProbe: {
     title: "Analyse technique de la bibliothèque",
+    scrubSprites: "Aperçus de la barre de progression",
+    scrubSpritesHint: "Génère des vignettes pour les films et épisodes sans lien Plex, afin d'avoir un aperçu au survol de la barre de lecture. Un fichier à la fois, priorité minimale, arrêt pendant une lecture.",
     intro: "Analyse chaque film via ffprobe (codec, HDR/Dolby Vision, pistes audio et sous-titres exactes) et met le résultat en cache — les futures décisions de lecture n'auront plus besoin de ré-analyser le fichier. Peut prendre plusieurs minutes sur une grande bibliothèque.",
     introSeries: "Même analyse ffprobe, épisode par épisode, pour toutes les séries. Peut prendre plus longtemps qu'une bibliothèque de films à volume de fichiers égal (beaucoup plus de fichiers à parcourir).",
     scan: "Lancer l'analyse",
@@ -2618,6 +2620,7 @@ export const fr = {
       "language-detection": "Détection de la langue audio de chaque fichier (Plex et nom du fichier)",
       "auto-upgrade-all": "Remplacement automatique des fichiers par de meilleures versions",
       "media-probe-library": "Analyse des fichiers (ffprobe) : pistes audio, sous-titres, codecs",
+      "scrub-sprites-library": "Aperçus de la barre de progression (fichiers sans aperçu Plex)",
       "introdb-marker-sync": "TheIntroDB : repères de saut de toute la bibliothèque (récap, intro, générique, aperçu)",
       "introdb-new-items": "TheIntroDB : repères de saut des titres tout juste ajoutés",
     },

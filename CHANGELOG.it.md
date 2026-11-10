@@ -1,3 +1,9 @@
+## v1.28.113 — 10 novembre 2026
+
+### Lettore
+
+- Anteprima al passaggio sulla barra di avanzamento per film ed episodi senza collegamento Plex (o per cui Plex non ha preparato anteprime): Movviz genera ora da solo fogli di miniature con ffmpeg, un file alla volta, un solo thread, priorità minima, in pausa durante la riproduzione. Nuova attività pianificata «Anteprime della barra di avanzamento» e un interruttore in Impostazioni > Analisi tecnica.
+
 ## v1.28.112 — 10 novembre 2026
 
 ### Interfaccia

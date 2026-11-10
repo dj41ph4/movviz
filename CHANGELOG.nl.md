@@ -1,3 +1,9 @@
+## v1.28.113 — 10 november 2026
+
+### Speler
+
+- Voorbeeld bij het hoveren over de voortgangsbalk voor films en afleveringen zonder Plex-koppeling (of waarvoor Plex geen voorbeelden heeft gemaakt): Movviz maakt nu zelf miniatuurbladen met ffmpeg, één bestand tegelijk, één thread, laagste prioriteit, gepauzeerd tijdens het afspelen. Nieuwe geplande taak „Voorbeeldbeelden van de voortgangsbalk” en een schakelaar in Instellingen > Technische analyse.
+
 ## v1.28.112 — 10 november 2026
 
 ### Interface

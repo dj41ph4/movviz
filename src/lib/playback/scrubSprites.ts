@@ -1,0 +1,281 @@
+import fs from "node:fs";
+import fsp from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { spawn } from "node:child_process";
+import { resolveFfmpegBinary, resolveFfprobeBinary } from "@/lib/playback/engine/mediaRuntime";
+import { getMovie, getMovieByPlexRatingKey, loadMovies, loadSeries } from "@/lib/library/store";
+
+/**
+ * Planches de vignettes (sprites) pour l'aperçu au survol de la barre de
+ * progression, pour les fichiers que Plex n'a pas préparés.
+ *
+ * Choix de conception, mesurés sur un fichier de test (1080p, 20 min) :
+ * - UN SAUT PAR VIGNETTE (`-ss` avant `-i`, `-noaccurate_seek`) plutôt qu'une
+ *   passe sur tout le fichier : une passe lit le fichier en entier (très
+ *   coûteux sur un disque de NAS avec un remux de 40 Go), alors que les sauts
+ *   ne lisent qu'une petite fraction de chaque fichier.
+ * - une vignette toutes les 10 s, regroupées en planches de 10×10 : un seul
+ *   téléchargement charge 100 aperçus d'un coup, le survol est instantané.
+ * - un processus à la fois, un thread, priorité la plus basse.
+ */
+
+export const SPRITE_INTERVAL_SEC = 10;
+export const SPRITE_THUMB_W = 240;
+// Hauteur paire : le filtre `pad` arrondit aux dimensions de chroma (4:2:0) et refuse 135.
+export const SPRITE_THUMB_H = 136;
+export const SPRITE_COLS = 10;
+export const SPRITE_ROWS = 10;
+const SPRITE_PER_SHEET = SPRITE_COLS * SPRITE_ROWS;
+/** 2 000 vignettes = 5 h 30 : au-delà, l'intervalle serait de toute façon trop fin pour servir. */
+const MAX_THUMBS = 2000;
+const THUMB_TIMEOUT_MS = 25_000;
+const PAUSE_BETWEEN_THUMBS_MS = 25;
+/** Plus de 25 % de vignettes impossibles à extraire : le fichier est illisible, on ne publie rien. */
+const MAX_FAILED_RATIO = 0.25;
+
+export interface SpriteManifest {
+  /** Taille + date du fichier source : un fichier remplacé invalide les planches. */
+  version: string;
+  intervalSec: number;
+  thumbW: number;
+  thumbH: number;
+  cols: number;
+  rows: number;
+  count: number;
+  sheets: number;
+  durationSec: number;
+}
+
+const CONFIG_DIR =
+  process.env.MOVVIZ_CONFIG_DIR ??
+  process.env.MOVVIZ_DATA_DIR ??
+  path.join(process.cwd(), ".movviz-data");
+const ROOT = path.join(CONFIG_DIR, "scrub-sprites");
+
+type Registry = { inflight: Map<string, Promise<boolean>> };
+const g = globalThis as typeof globalThis & { __movvizScrubSprites?: Registry };
+const registry: Registry = (g.__movvizScrubSprites ??= { inflight: new Map() });
+
+function safeKey(id: string): string {
+  return id.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+}
+function dirFor(id: string): string {
+  return path.join(ROOT, safeKey(id));
+}
+
+// ─── Résolution du fichier source ───────────────────────────────────────────
+
+export interface LocalSource {
+  /** Identifiant de cache stable (id de film, ou `<série>:s<S>e<E>`). */
+  cacheId: string;
+  filePath: string;
+}
+
+function pathOf(file: { diskPath?: string; path?: string } | null | undefined): string | null {
+  return file?.diskPath ?? file?.path ?? null;
+}
+
+/** `ratingKey` du lecteur : id Movviz d'un film, `<série>:s<S>e<E>`, ou clé Plex. */
+export function resolveLocalSource(ratingKey: string): LocalSource | null {
+  const movie = getMovie(ratingKey) ?? getMovieByPlexRatingKey(ratingKey);
+  if (movie) {
+    const p = pathOf(movie.file);
+    return p ? { cacheId: movie.id, filePath: p } : null;
+  }
+  const m = /^(.+):s(\d+)e(\d+)$/.exec(ratingKey);
+  const wanted = m ? { seriesId: m[1], season: Number(m[2]), episode: Number(m[3]) } : null;
+  for (const series of loadSeries()) {
+    for (const season of series.seasons) {
+      for (const ep of season.episodes) {
+        const matches = wanted
+          ? series.id === wanted.seriesId && season.seasonNumber === wanted.season && ep.episodeNumber === wanted.episode
+          : ep.plexRatingKey === ratingKey;
+        if (!matches) continue;
+        const p = pathOf(ep.file);
+        return p ? { cacheId: `${series.id}:s${season.seasonNumber}e${ep.episodeNumber}`, filePath: p } : null;
+      }
+    }
+  }
+  return null;
+}
+
+/** Tous les fichiers que Plex n'a pas liés : seuls ceux-là ont besoin de nos planches. */
+export function listUnlinkedLocalSources(): LocalSource[] {
+  const out: LocalSource[] = [];
+  for (const movie of loadMovies()) {
+    const p = pathOf(movie.file);
+    if (p && !movie.plexRatingKey) out.push({ cacheId: movie.id, filePath: p });
+  }
+  for (const series of loadSeries()) {
+    for (const season of series.seasons) {
+      if (season.seasonNumber <= 0) continue;
+      for (const ep of season.episodes) {
+        const p = pathOf(ep.file);
+        if (p && !ep.plexRatingKey) out.push({ cacheId: `${series.id}:s${season.seasonNumber}e${ep.episodeNumber}`, filePath: p });
+      }
+    }
+  }
+  return out;
+}
+
+// ─── Lecture ────────────────────────────────────────────────────────────────
+
+async function versionOf(filePath: string): Promise<string | null> {
+  try {
+    const st = await fsp.stat(filePath);
+    return `${st.size}-${Math.floor(st.mtimeMs)}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Manifeste à jour pour ce fichier, ou null (absent, périmé ou fichier introuvable). */
+export async function readManifest(source: LocalSource): Promise<SpriteManifest | null> {
+  const version = await versionOf(source.filePath);
+  if (!version) return null;
+  try {
+    const manifest = JSON.parse(await fsp.readFile(path.join(dirFor(source.cacheId), "manifest.json"), "utf8")) as SpriteManifest;
+    return manifest.version === version ? manifest : null;
+  } catch {
+    return null;
+  }
+}
+
+export function sheetPath(cacheId: string, sheet: number): string | null {
+  if (!Number.isInteger(sheet) || sheet < 1 || sheet > 100) return null;
+  return path.join(dirFor(cacheId), `sheet${String(sheet).padStart(2, "0")}.jpg`);
+}
+
+// ─── Génération ─────────────────────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Lance un binaire à priorité minimale et attend sa fin ; `stdout` renvoyé en texte. */
+function run(bin: string, args: string[], timeoutMs: number): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    let out = "";
+    let err = "";
+    let settled = false;
+    const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    try { if (child.pid) os.setPriority(child.pid, 19); } catch { /* priorité non modifiable : sans importance */ }
+    const timer = setTimeout(() => { child.kill("SIGKILL"); }, timeoutMs);
+    child.stdout.on("data", (d) => { if (out.length < 4096) out += String(d); });
+    child.stderr.on("data", (d) => { err = (err + String(d)).slice(-400); });
+    const done = (code: number | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ code, stdout: out, stderr: err });
+    };
+    child.on("error", () => done(null));
+    child.on("close", (code) => done(code));
+  });
+}
+
+async function probeDuration(filePath: string): Promise<number | null> {
+  const { code, stdout } = await run(resolveFfprobeBinary(), ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", filePath], 30_000);
+  const duration = Number.parseFloat(stdout.trim());
+  return code === 0 && Number.isFinite(duration) && duration > 0 ? duration : null;
+}
+
+export interface GenerateOptions {
+  /** Interrompt proprement la génération (lecture démarrée, arrêt demandé…). */
+  shouldCancel?: () => boolean;
+}
+
+/**
+ * Génère (ou régénère) les planches d'un fichier. Idempotent : si le manifeste
+ * est déjà à jour, ne fait rien. Un appel concurrent pour le même fichier
+ * partage la même génération. Résout à `true` si des planches valides existent.
+ */
+export function ensureSprites(source: LocalSource, opts: GenerateOptions = {}): Promise<boolean> {
+  const running = registry.inflight.get(source.cacheId);
+  if (running) return running;
+  const promise = generate(source, opts).finally(() => registry.inflight.delete(source.cacheId));
+  registry.inflight.set(source.cacheId, promise);
+  return promise;
+}
+
+export function isGenerating(cacheId: string): boolean {
+  return registry.inflight.has(cacheId);
+}
+
+async function generate(source: LocalSource, opts: GenerateOptions): Promise<boolean> {
+  const version = await versionOf(source.filePath);
+  if (!version) return false;
+  if (await readManifest(source)) return true;
+
+  const duration = await probeDuration(source.filePath);
+  if (!duration) return false;
+
+  const count = Math.min(MAX_THUMBS, Math.floor(duration / SPRITE_INTERVAL_SEC) + 1);
+  const finalDir = dirFor(source.cacheId);
+  const tmpDir = `${finalDir}.tmp-${process.pid}`;
+  await fsp.rm(tmpDir, { recursive: true, force: true });
+  await fsp.mkdir(tmpDir, { recursive: true });
+  const ffmpeg = resolveFfmpegBinary();
+  const scale = `scale=${SPRITE_THUMB_W}:${SPRITE_THUMB_H}:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1,pad=${SPRITE_THUMB_W}:${SPRITE_THUMB_H}:(ow-iw)/2:(oh-ih)/2:black`;
+
+  try {
+    let failed = 0;
+    let lastGood: string | null = null;
+    for (let i = 0; i < count; i++) {
+      if (opts.shouldCancel?.()) return false;
+      const out = path.join(tmpDir, `t${i}.jpg`);
+      // Milieu de l'intervalle : le tout début d'un film est souvent noir.
+      const at = Math.min(duration - 0.5, (i + 0.5) * SPRITE_INTERVAL_SEC);
+      const { code } = await run(
+        ffmpeg,
+        ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-ss", at.toFixed(2), "-noaccurate_seek", "-i", source.filePath, "-an", "-sn", "-frames:v", "1", "-vf", scale, "-q:v", "5", out],
+        THUMB_TIMEOUT_MS,
+      );
+      if (code === 0 && fs.existsSync(out)) {
+        lastGood = out;
+      } else {
+        failed++;
+        if (failed / count > MAX_FAILED_RATIO) return false;
+        // Une vignette manquante reprend la précédente (ou, tout au début du
+        // fichier, la première valide : voir plus bas) pour garder la grille continue.
+        if (lastGood) await fsp.copyFile(lastGood, out);
+      }
+      await sleep(PAUSE_BETWEEN_THUMBS_MS);
+    }
+    // Les vignettes initiales manquantes (avant la première réussie) prennent la première valide.
+    const first = Array.from({ length: count }, (_, i) => path.join(tmpDir, `t${i}.jpg`)).find((p) => fs.existsSync(p));
+    if (!first) return false;
+    for (let i = 0; i < count; i++) {
+      const p = path.join(tmpDir, `t${i}.jpg`);
+      if (!fs.existsSync(p)) await fsp.copyFile(first, p);
+    }
+
+    const sheets = Math.ceil(count / SPRITE_PER_SHEET);
+    // `tile` sort UNE image par groupe de 100 vignettes : `-frames:v 1` = une planche (la dernière,
+    // incomplète, est émise à la fin des entrées).
+    for (let s = 0; s < sheets; s++) {
+      const { code, stderr } = await run(
+        ffmpeg,
+        ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-framerate", "1", "-start_number", String(s * SPRITE_PER_SHEET), "-i", path.join(tmpDir, "t%d.jpg"), "-frames:v", "1", "-vf", `tile=${SPRITE_COLS}x${SPRITE_ROWS}`, "-q:v", "5", path.join(tmpDir, `sheet${String(s + 1).padStart(2, "0")}.jpg`)],
+        60_000,
+      );
+      if (code !== 0) {
+        console.error(`[scrub-sprites] assemblage de la planche ${s + 1} impossible pour ${source.cacheId}: ${stderr.trim().split(/\r?\n/).pop()}`);
+        return false;
+      }
+    }
+    for (let i = 0; i < count; i++) await fsp.rm(path.join(tmpDir, `t${i}.jpg`), { force: true });
+
+    const manifest: SpriteManifest = { version, intervalSec: SPRITE_INTERVAL_SEC, thumbW: SPRITE_THUMB_W, thumbH: SPRITE_THUMB_H, cols: SPRITE_COLS, rows: SPRITE_ROWS, count, sheets, durationSec: duration };
+    await fsp.writeFile(path.join(tmpDir, "manifest.json"), JSON.stringify(manifest));
+    await fsp.rm(finalDir, { recursive: true, force: true });
+    await fsp.rename(tmpDir, finalDir);
+    return true;
+  } catch (e) {
+    console.error(`[scrub-sprites] échec pour ${source.cacheId}:`, e instanceof Error ? e.message : e);
+    return false;
+  } finally {
+    await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}

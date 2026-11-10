@@ -2085,6 +2085,8 @@ export const nl: Dictionary = {
 
   mediaProbe: {
     title: "Technische analyse van de bibliotheek",
+    scrubSprites: "Voorbeeldbeelden van de voortgangsbalk",
+    scrubSpritesHint: "Maakt miniaturen voor films en afleveringen zonder Plex-koppeling, zodat de voortgangsbalk bij hoveren een voorbeeld toont. Eén bestand tegelijk, laagste prioriteit, gepauzeerd tijdens het afspelen.",
     intro: "Analyseert elke film via ffprobe (codec, HDR/Dolby Vision, exacte audio- en ondertitelsporen) en cachet het resultaat — toekomstige afspeelbeslissingen hoeven het bestand niet opnieuw te analyseren. Kan bij een grote bibliotheek meerdere minuten duren.",
     introSeries: "Dezelfde ffprobe-analyse, aflevering voor aflevering, voor alle series. Kan langer duren dan een filmbibliotheek met evenveel bestanden (veel meer bestanden om te doorlopen).",
     scan: "Analyse starten",
@@ -2620,6 +2622,7 @@ export const nl: Dictionary = {
       "language-detection": "De audiotaal van elk bestand detecteren (Plex en bestandsnaam)",
       "auto-upgrade-all": "Bestanden automatisch vervangen door betere versies",
       "media-probe-library": "Bestanden analyseren (ffprobe): audiosporen, ondertitels, codecs",
+      "scrub-sprites-library": "Voorbeeldbeelden van de voortgangsbalk (bestanden zonder Plex-voorbeeld)",
       "introdb-marker-sync": "TheIntroDB: overslaanmarkeringen voor de hele bibliotheek (samenvatting, intro, aftiteling, voorvertoning)",
       "introdb-new-items": "TheIntroDB: overslaanmarkeringen voor net toegevoegde titels",
     },

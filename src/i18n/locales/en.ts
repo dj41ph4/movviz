@@ -2085,6 +2085,8 @@ export const en: Dictionary = {
 
   mediaProbe: {
     title: "Technical library analysis",
+    scrubSprites: "Seek bar previews",
+    scrubSpritesHint: "Generates thumbnails for movies and episodes without a Plex link, so the seek bar shows a preview on hover. One file at a time, lowest priority, paused during playback.",
     intro: "Analyzes every movie via ffprobe (codec, HDR/Dolby Vision, exact audio and subtitle tracks) and caches the result — future playback decisions won't need to re-analyze the file. Can take several minutes on a large library.",
     introSeries: "Same ffprobe analysis, episode by episode, for every series. Can take longer than a movie library of equal file volume (many more files to walk).",
     scan: "Run analysis",
@@ -2620,6 +2622,7 @@ export const en: Dictionary = {
       "language-detection": "Detect each file's audio language (Plex and file name)",
       "auto-upgrade-all": "Automatically replace files with better versions",
       "media-probe-library": "Analyze files (ffprobe): audio tracks, subtitles, codecs",
+      "scrub-sprites-library": "Seek bar previews (files without Plex previews)",
       "introdb-marker-sync": "TheIntroDB: skip markers for the whole library (recap, intro, credits, preview)",
       "introdb-new-items": "TheIntroDB: skip markers for newly added titles",
     },

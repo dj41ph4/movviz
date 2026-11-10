@@ -2444,7 +2444,16 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const scrubCacheRef = useRef<Map<number, string>>(new Map());
   const scrubAbortRef = useRef<AbortController | null>(null);
   const scrubDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [scrubPreview, setScrubPreview] = useState<{ time: number; ratio: number; url: string | null } | null>(null);
+  type SpriteFrame = { sheetUrl: string; col: number; row: number; cols: number; rows: number };
+  const [scrubPreview, setScrubPreview] = useState<{ time: number; ratio: number; url: string | null; sprite?: SpriteFrame } | null>(null);
+  // Source des aperçus : les index Plex quand le fichier est lié à Plex, sinon
+  // (ou si Plex n'en a pas préparé pour ce fichier) les planches générées par
+  // Movviz — voir /api/stream/[ratingKey]/scrub-sprite. "none" = désactivé.
+  type SpriteManifest = { version: string; intervalSec: number; cols: number; rows: number; count: number };
+  const scrubSourceRef = useRef<"plex" | "sprite" | "none">(hasRealPlexLink ? "plex" : "sprite");
+  const plexMissesRef = useRef(0);
+  const spriteManifestRef = useRef<SpriteManifest | null>(null);
+  const spriteFetchRef = useRef<{ at: number; inflight: boolean }>({ at: 0, inflight: false });
 
   useEffect(() => () => {
     scrubCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -2452,6 +2461,37 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   }, []);
 
   const requestScrubThumb = useCallback((time: number, ratio: number) => {
+    if (scrubSourceRef.current === "none") return;
+    if (scrubSourceRef.current === "sprite") {
+      const manifest = spriteManifestRef.current;
+      if (manifest) {
+        const index = Math.min(manifest.count - 1, Math.max(0, Math.floor(time / manifest.intervalSec)));
+        const perSheet = manifest.cols * manifest.rows;
+        const position = index % perSheet;
+        setScrubPreview({
+          time, ratio, url: null,
+          sprite: {
+            sheetUrl: `/api/stream/${ratingKey}/scrub-sprite?sheet=${Math.floor(index / perSheet) + 1}&v=${encodeURIComponent(manifest.version)}`,
+            col: position % manifest.cols, row: Math.floor(position / manifest.cols), cols: manifest.cols, rows: manifest.rows,
+          },
+        });
+        return;
+      }
+      setScrubPreview({ time, ratio, url: null });
+      const state = spriteFetchRef.current;
+      // 202 = planches en préparation côté serveur : on redemande au plus toutes les 8 s.
+      if (state.inflight || Date.now() - state.at < 8_000) return;
+      state.inflight = true;
+      state.at = Date.now();
+      fetch(`/api/stream/${ratingKey}/scrub-sprite?m=1`)
+        .then(async (res) => {
+          if (res.status === 200) spriteManifestRef.current = await res.json() as SpriteManifest;
+          else if (res.status === 404) { scrubSourceRef.current = "none"; setScrubPreview(null); }
+        })
+        .catch(() => void 0)
+        .finally(() => { state.inflight = false; });
+      return;
+    }
     const key = Math.floor(time);
     const cached = scrubCacheRef.current.get(key);
     setScrubPreview({ time, ratio, url: cached ?? null });
@@ -2462,7 +2502,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const ac = new AbortController();
       scrubAbortRef.current = ac;
       fetch(`/api/stream/${ratingKey}/scrub-thumb?t=${key * 1000}`, { signal: ac.signal })
-        .then((res) => (res.ok ? res.blob() : null))
+        .then((res) => {
+          if (res.ok) { plexMissesRef.current = 0; return res.blob(); }
+          // Plex n'a pas préparé d'aperçu pour ce fichier : on bascule sur nos planches.
+          if (res.status === 404 && ++plexMissesRef.current >= 2) {
+            scrubSourceRef.current = "sprite";
+            requestScrubThumb(time, ratio);
+          }
+          return null;
+        })
         .then((blob) => {
           if (!blob) return;
           const url = URL.createObjectURL(blob);
@@ -3104,7 +3152,16 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                         style={{ left: `${Math.min(94, Math.max(6, scrubPreview.ratio * 100))}%` }}
                       >
                         <div className="flex h-[90px] w-[160px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/80 shadow-2xl ring-1 ring-black/40 scale-90 transition-transform duration-200 ease-out group-hover:scale-100">
-                          {scrubPreview.url ? (
+                          {scrubPreview.sprite ? (
+                            <div
+                              className="h-full w-full"
+                              style={{
+                                backgroundImage: `url(${scrubPreview.sprite.sheetUrl})`,
+                                backgroundSize: `${scrubPreview.sprite.cols * 100}% ${scrubPreview.sprite.rows * 100}%`,
+                                backgroundPosition: `${scrubPreview.sprite.cols > 1 ? (scrubPreview.sprite.col / (scrubPreview.sprite.cols - 1)) * 100 : 0}% ${scrubPreview.sprite.rows > 1 ? (scrubPreview.sprite.row / (scrubPreview.sprite.rows - 1)) * 100 : 0}%`,
+                              }}
+                            />
+                          ) : scrubPreview.url ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={scrubPreview.url} alt="" className="h-full w-full object-cover" />
                           ) : (

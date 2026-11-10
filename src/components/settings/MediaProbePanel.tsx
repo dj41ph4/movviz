@@ -109,6 +109,21 @@ export function MediaProbePanel() {
   const { data: jobsData, mutate } = useSWR<{ jobs: Job[] }>("/api/jobs", { refreshInterval: 2000 });
   const { data: ffprobe, mutate: mutateFfprobe } = useSWR<{ enabled: boolean }>("/api/settings/ffprobe");
   const enabled = ffprobe?.enabled ?? false;
+  const { data: sprites, mutate: mutateSprites } = useSWR<{ enabled: boolean }>("/api/settings/scrub-sprites");
+  const spritesEnabled = sprites?.enabled ?? true;
+
+  const setSpritesEnabled = async (next: boolean) => {
+    mutateSprites({ enabled: next }, { revalidate: false });
+    try {
+      await fetch("/api/settings/scrub-sprites", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+    } finally {
+      mutateSprites();
+    }
+  };
 
   const setEnabled = async (next: boolean) => {
     mutateFfprobe({ enabled: next }, { revalidate: false });
@@ -142,6 +157,14 @@ export function MediaProbePanel() {
           <p className="text-xs leading-relaxed text-ink-dim">{t("mediaProbe.enableHint")}</p>
         </div>
         <Toggle label={t("mediaProbe.enable")} on={enabled} onChange={() => setEnabled(!enabled)} />
+      </div>
+
+      <div className="flex items-center justify-between gap-3 rounded-xl glass-strong p-4">
+        <div>
+          <p className="text-sm font-semibold text-ink">{t("mediaProbe.scrubSprites")}</p>
+          <p className="text-xs leading-relaxed text-ink-dim">{t("mediaProbe.scrubSpritesHint")}</p>
+        </div>
+        <Toggle label={t("mediaProbe.scrubSprites")} on={spritesEnabled} onChange={() => setSpritesEnabled(!spritesEnabled)} />
       </div>
 
       {!enabled && (
