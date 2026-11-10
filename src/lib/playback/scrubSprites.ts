@@ -19,8 +19,8 @@ import { listSessions } from "@/lib/playback/engine/sessionManager";
  *   passe sur tout le fichier : une passe lit le fichier en entier (très
  *   coûteux sur un disque de NAS avec un remux de 40 Go), alors que les sauts
  *   ne lisent qu'une petite fraction de chaque fichier.
- * - une vignette toutes les 10 s, regroupées en planches de 10×10 : un seul
- *   téléchargement charge 100 aperçus d'un coup, le survol est instantané.
+ * - une vignette toutes les 10 s, regroupées en planches de 5×5 : un seul
+ *   téléchargement charge 25 aperçus d'un coup, le survol est instantané.
  * - un processus à la fois, un thread, priorité la plus basse.
  */
 
@@ -28,8 +28,15 @@ export const SPRITE_INTERVAL_SEC = 10;
 export const SPRITE_THUMB_W = 240;
 // Hauteur paire : le filtre `pad` arrondit aux dimensions de chroma (4:2:0) et refuse 135.
 export const SPRITE_THUMB_H = 136;
-export const SPRITE_COLS = 10;
-export const SPRITE_ROWS = 10;
+/**
+ * Planches de 5×5 = 25 vignettes (4 min de film). Plus petites que les 10×10 d'origine : la première planche est
+ * prête rapidement (quelques dizaines de secondes plutôt que plusieurs minutes sur un NAS chargé) et la zone
+ * regardée est reprise toutes les 25 vignettes, pas toutes les 100.
+ */
+export const SPRITE_COLS = 5;
+export const SPRITE_ROWS = 5;
+/** À incrémenter si le rendu des planches change (instants, taille, filtre) : change leur adresse, donc invalide le cache des navigateurs. */
+const SPRITE_FORMAT = 1;
 /** Grille d'une planche. Modifiable pour les tests uniquement (le manifeste mémorise la grille réellement utilisée). */
 let grid = { cols: SPRITE_COLS, rows: SPRITE_ROWS };
 export function setSpriteGridForTests(cols: number, rows: number): void {
@@ -60,6 +67,14 @@ export interface SpriteManifest {
   ready: number[];
   /** Toutes les planches sont prêtes. */
   complete: boolean;
+  /** Diagnostic : durée moyenne d'extraction d'une vignette (ms) lors de la dernière génération. */
+  msPerThumb?: number;
+  /**
+   * Révision du rendu (grille + format) : le lecteur l'ajoute à l'adresse des planches. Une planche refaite avec une
+   * autre grille garde sinon la même adresse (même version de fichier) et le navigateur, qui garde les planches 24 h,
+   * en afficherait l'ancienne. Absente des anciens manifestes (planches inchangées : même adresse qu'avant).
+   */
+  rev?: string;
 }
 
 const CONFIG_DIR =
@@ -204,9 +219,10 @@ function run(bin: string, args: string[], timeoutMs: number, cancelled?: () => b
     let settled = false;
     const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     try { if (child.pid) os.setPriority(child.pid, 19); } catch { /* priorité non modifiable : sans importance */ }
-    // Priorité disque « inactif » quand l'outil existe (Linux) : le processus ne lit que si personne d'autre n'a besoin du disque.
+    // Priorité disque la plus basse de la classe « au mieux » (Linux, quand l'outil existe) : cède le pas aux autres,
+    // mais n'est pas affamée par un flux de lecture continu comme le serait la classe « inactif ».
     if (child.pid && process.platform === "linux") {
-      try { spawn("ionice", ["-c", "3", "-p", String(child.pid)], { stdio: "ignore" }).on("error", () => {}); } catch { /* absent : sans importance */ }
+      try { spawn("ionice", ["-c", "2", "-n", "7", "-p", String(child.pid)], { stdio: "ignore" }).on("error", () => {}); } catch { /* absent : sans importance */ }
     }
     const timer = setTimeout(() => { child.kill("SIGKILL"); }, timeoutMs);
     // Une lecture démarre : on tue ffmpeg tout de suite, sans attendre la fin de la vignette en cours.
@@ -322,8 +338,11 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
 
   // Reprise : des planches déjà publiées pour CE fichier (même version) sont conservées, seules les
   // manquantes sont générées. Un fichier remplacé repart de zéro (readManifest → null).
-  const existing = await readManifest(source);
-  if (existing?.complete) return true;
+  const found = await readManifest(source);
+  if (found?.complete) return true;
+  // Une préparation PARTIELLE faite avec une autre taille de planche (anciennes 10×10) repart de zéro : ses grosses planches
+  // retardent la zone regardée de plusieurs minutes.
+  const existing = found && found.cols * found.rows === grid.cols * grid.rows ? found : null;
 
   const duration = existing?.durationSec ?? (await probeDuration(source.filePath, cancelled));
   if (cancelled()) return "cancelled";
@@ -343,12 +362,16 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
   }
   const work = path.join(dir, `.work-${process.pid}`);
   const ready = new Set<number>(existing?.ready ?? []);
+  let thumbMs = 0; // diagnostic : temps total passé à extraire des vignettes
+  let thumbRuns = 0;
 
   /** Écriture atomique (fichier temporaire puis renommage) : un lecteur ne voit jamais un manifeste à moitié écrit. */
   const publish = async (): Promise<void> => {
     const manifest: SpriteManifest = {
       version, intervalSec: SPRITE_INTERVAL_SEC, thumbW: SPRITE_THUMB_W, thumbH: SPRITE_THUMB_H, cols, rows, count, sheets,
       durationSec: duration, ready: [...ready].sort((a, b) => a - b), complete: ready.size >= sheets,
+      ...(thumbRuns > 0 ? { msPerThumb: Math.round(thumbMs / thumbRuns) } : {}),
+      rev: `${cols}x${rows}.${SPRITE_FORMAT}`,
     };
     const tmp = path.join(dir, "manifest.json.tmp");
     await fsp.writeFile(tmp, JSON.stringify(manifest));
@@ -384,6 +407,7 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
       for (let i = from; i < to; i++) {
         if (cancelled()) return "cancelled";
         const out = path.join(work, `t${i - from}.jpg`);
+        const thumbStarted = Date.now();
         // Milieu de l'intervalle : le tout début d'un film est souvent noir.
         const at = Math.min(duration - 0.5, (i + 0.5) * SPRITE_INTERVAL_SEC);
         const { code, stderr: thumbErr } = await run(
@@ -393,6 +417,8 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
           cancelled,
         );
         if (cancelled()) return "cancelled";
+        thumbMs += Date.now() - thumbStarted;
+        thumbRuns++;
         attempted++;
         if (code === 0 && fs.existsSync(out)) {
           lastGood = out;

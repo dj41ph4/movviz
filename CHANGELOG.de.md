@@ -1,3 +1,12 @@
+## v1.28.121 — 10. November 2026
+
+### Player
+
+- Zeitleisten-Vorschau: Blätter mit 5×5 Vorschaubildern (4 Min. Film) statt 10×10. Das erste Blatt ist viel früher fertig und der überfahrene Bereich wird alle 25 statt alle 100 Vorschaubilder aufgegriffen, was mehrminütiges Warten auf einem ausgelasteten Server vermeidet.
+- Festplattenpriorität der Vorbereitung: „bestmöglich, niedrigste“ statt „Leerlauf“, den ein durchgehender Wiedergabestrom auf derselben Festplatte komplett aushungern würde.
+- Die Adresse der Blätter enthält jetzt ihr Raster (Revision): Ein mit anderer Größe neu erstelltes Blatt wird im Browser-Cache nicht mehr mit dem alten verwechselt. Teilweise 10×10-Vorbereitungen beginnen von vorn, vollständige bleiben gültig.
+- Die durchschnittliche Extraktionszeit eines Vorschaubilds wird gemessen und bei den Blättern gespeichert, um einen langsamen Server diagnostizieren zu können.
+
 ## v1.28.120 — 10. November 2026
 
 ### Player

@@ -1,3 +1,12 @@
+## v1.28.121 — 10 novembre 2026
+
+### Lecteur
+
+- Aperçus de la barre de progression : planches de 5×5 vignettes (4 min de film) au lieu de 10×10. La première planche est prête beaucoup plus vite et la zone survolée est reprise toutes les 25 vignettes au lieu de 100, ce qui évitait d'attendre plusieurs minutes sur un serveur chargé.
+- Priorité disque de la préparation : « au mieux, le plus bas » au lieu de « inactif », qu'un flux de lecture continu sur le même disque affamait complètement.
+- L'adresse des planches porte désormais leur grille (révision) : une planche refaite avec une autre taille n'est plus confondue avec l'ancienne dans le cache du navigateur. Les préparations partielles en 10×10 repartent de zéro, les complètes restent valables.
+- La durée moyenne d'extraction d'une vignette est mesurée et conservée avec les planches, pour pouvoir diagnostiquer un serveur lent.
+
 ## v1.28.120 — 10 novembre 2026
 
 ### Lecteur

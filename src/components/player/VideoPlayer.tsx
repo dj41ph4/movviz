@@ -2450,7 +2450,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // /api/stream/[ratingKey]/scrub-sprite) passent en premier : elles existent
   // même si Plex est arrêté. Les index Plex ne servent que d'appoint tant que
   // nos planches ne sont pas prêtes, et seulement si le fichier est lié à Plex.
-  type SpriteManifest = { version: string; intervalSec: number; cols: number; rows: number; count: number; ready?: number[]; complete?: boolean };
+  type SpriteManifest = { version: string; intervalSec: number; cols: number; rows: number; count: number; ready?: number[]; complete?: boolean; rev?: string };
   const spriteRef = useRef<{ manifest: SpriteManifest | null; off: boolean; at: number; inflight: boolean }>({ manifest: null, off: false, at: 0, inflight: false });
   const plexMissesRef = useRef(0);
   // Plex injoignable (arrêté, erreur serveur) ou sans index : au bout de 2 échecs on n'insiste plus.
@@ -2511,7 +2511,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         setScrubPreview({
           time, ratio, url: null,
           sprite: {
-            sheetUrl: `/api/stream/${ratingKey}/scrub-sprite?sheet=${sheetNumber}&v=${encodeURIComponent(manifest.version)}`,
+            sheetUrl: `/api/stream/${ratingKey}/scrub-sprite?sheet=${sheetNumber}&v=${encodeURIComponent(manifest.version)}${manifest.rev ? `&r=${encodeURIComponent(manifest.rev)}` : ""}`,
             col: position % manifest.cols, row: Math.floor(position / manifest.cols), cols: manifest.cols, rows: manifest.rows,
           },
         });

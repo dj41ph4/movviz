@@ -16,7 +16,7 @@ type Ctx = { params: Promise<{ ratingKey: string }> };
  *                       planches déjà prêtes (`ready`) : elles servent sans attendre la fin
  *                       (`complete`). `at` = seconde regardée, préparée en premier.
  *   GET ?m=1&probe=1  → manifeste (200) ou 204 : ne lance jamais de génération
- *   GET ?sheet=N&v=…  → planche JPEG de 10×10 vignettes
+ *   GET ?sheet=N&v=…  → planche JPEG (grille indiquée par le manifeste : colonnes × lignes de vignettes)
  *
  * Premier survol d'un fichier sans planches : la génération démarre en
  * arrière-plan (priorité basse) et le lecteur redemande plus tard.

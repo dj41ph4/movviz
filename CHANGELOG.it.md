@@ -1,3 +1,12 @@
+## v1.28.121 — 10 novembre 2026
+
+### Lettore
+
+- Anteprime della barra di avanzamento: fogli da 5×5 miniature (4 min di film) invece di 10×10. Il primo foglio è pronto molto prima e l'area sorvolata viene ripresa ogni 25 miniature invece di 100, evitando di aspettare diversi minuti su un server carico.
+- Priorità del disco della preparazione: «al meglio, la più bassa» invece di «inattivo», che un flusso di riproduzione continuo sullo stesso disco affamerebbe del tutto.
+- L'indirizzo dei fogli riporta ora la loro griglia (revisione): un foglio rifatto con un'altra dimensione non viene più confuso con il vecchio nella cache del browser. Le preparazioni parziali 10×10 ripartono da zero, quelle complete restano valide.
+- Il tempo medio di estrazione di una miniatura viene misurato e conservato con i fogli, per poter diagnosticare un server lento.
+
 ## v1.28.120 — 10 novembre 2026
 
 ### Lettore

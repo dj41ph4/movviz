@@ -1,3 +1,12 @@
+## v1.28.121 — 10 november 2026
+
+### Speler
+
+- Voorbeelden van de voortgangsbalk: bladen van 5×5 miniaturen (4 min film) in plaats van 10×10. Het eerste blad is veel eerder klaar en het aangewezen gedeelte wordt om de 25 miniaturen opgepikt in plaats van om de 100, wat minutenlang wachten op een drukke server voorkomt.
+- Schijfprioriteit van de voorbereiding: „best effort, laagste” in plaats van „inactief”, dat een doorlopende afspeelstroom op dezelfde schijf volledig zou uithongeren.
+- Het adres van de bladen bevat nu hun raster (revisie): een met een andere grootte opnieuw gemaakt blad wordt in de browsercache niet meer verward met het oude. Gedeeltelijke 10×10-voorbereidingen beginnen opnieuw, volledige blijven geldig.
+- De gemiddelde extractietijd van een miniatuur wordt gemeten en bij de bladen bewaard, om een trage server te kunnen diagnosticeren.
+
 ## v1.28.120 — 10 november 2026
 
 ### Speler

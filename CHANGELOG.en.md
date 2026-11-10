@@ -1,3 +1,12 @@
+## v1.28.121 — November 10, 2026
+
+### Player
+
+- Seek bar previews: sheets of 5×5 thumbnails (4 min of film) instead of 10×10. The first sheet is ready much sooner and the hovered area is picked up every 25 thumbnails instead of 100, which avoided waiting several minutes on a busy server.
+- Disk priority of the preparation: "best effort, lowest" instead of "idle", which a continuous playback stream on the same disk would starve completely.
+- The address of the sheets now carries their grid (revision): a sheet redone with another size is no longer confused with the old one in the browser cache. Partial 10×10 preparations start over, complete ones stay valid.
+- The average extraction time of a thumbnail is measured and kept with the sheets, to be able to diagnose a slow server.
+
 ## v1.28.120 — November 10, 2026
 
 ### Player

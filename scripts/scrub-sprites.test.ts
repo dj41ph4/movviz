@@ -42,6 +42,9 @@ test("génère des planches valides et un manifeste à jour", { skip: !ffmpegOk 
   assert.equal(manifest.sheets, 1);
   assert.equal(manifest.complete, true);
   assert.deepEqual(manifest.ready, [1]);
+  assert.equal(manifest.cols * manifest.rows, 25, "planches de 5×5 par défaut");
+  assert.match((manifest as { rev?: string }).rev ?? "", /^5x5\.\d+$/, "la révision (grille + format) change l'adresse des planches côté navigateur");
+  assert.ok(typeof (manifest as { msPerThumb?: number }).msPerThumb === "number", "le rythme d'extraction est mesuré pour le diagnostic");
   const sheet = sprites.sheetPath("film-test", 1)!;
   const head = fs.readFileSync(sheet).subarray(0, 3);
   assert.deepEqual([...head], [0xff, 0xd8, 0xff]); // JPEG
@@ -161,7 +164,7 @@ test("un transcodage vidéo bloque la génération ; une lecture en copie de la 
 
 // ─── Publication progressive, reprise, priorité à la zone regardée ───────────────
 // Grille de 2 vignettes par planche : la vidéo de test (45 s → 5 vignettes) donne 3 planches.
-const manifestOf = (cacheId: string) => JSON.parse(fs.readFileSync(path.join(dir, "scrub-sprites", cacheId, "manifest.json"), "utf8")) as { complete: boolean; ready: number[]; sheets: number; version: string; count: number };
+const manifestOf = (cacheId: string) => JSON.parse(fs.readFileSync(path.join(dir, "scrub-sprites", cacheId, "manifest.json"), "utf8")) as { complete: boolean; ready: number[]; sheets: number; version: string; count: number; cols: number; rows: number };
 const sheetFile = (cacheId: string, n: number) => path.join(dir, "scrub-sprites", cacheId, `sheet${String(n).padStart(2, "0")}.jpg`);
 const isJpeg = (file: string) => { const head = fs.readFileSync(file).subarray(0, 3); return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff; };
 /** Annule dès qu'au moins `n` planches sont publiées : simule un transcodage qui démarre en cours de route. */
@@ -199,7 +202,7 @@ test("les planches prêtes sont publiées une à une, utilisables avant la fin",
     assert.equal(fs.statSync(sheetFile("film-progressive", 1)).mtimeMs, before, "la planche déjà prête ne doit pas être refaite");
     for (const n of [1, 2, 3]) assert.ok(isJpeg(sheetFile("film-progressive", n)));
   } finally {
-    sprites.setSpriteGridForTests(10, 10);
+    sprites.setSpriteGridForTests(sprites.SPRITE_COLS, sprites.SPRITE_ROWS);
   }
 });
 
@@ -216,7 +219,7 @@ test("la zone regardée est préparée en premier", { skip: !ffmpegOk }, async (
     assert.equal(done.complete, true);
     assert.deepEqual(done.ready, [1, 2, 3]);
   } finally {
-    sprites.setSpriteGridForTests(10, 10);
+    sprites.setSpriteGridForTests(sprites.SPRITE_COLS, sprites.SPRITE_ROWS);
   }
 });
 
@@ -234,7 +237,7 @@ test("la zone regardée peut changer en cours de génération (le spectateur sau
     assert.equal(await sprites.ensureSprites(src, { startAtSec: 0, shouldCancel: cancel }), false);
     assert.deepEqual(manifestOf("film-jump").ready, [1, 3]);
   } finally {
-    sprites.setSpriteGridForTests(10, 10);
+    sprites.setSpriteGridForTests(sprites.SPRITE_COLS, sprites.SPRITE_ROWS);
   }
 });
 
@@ -270,7 +273,7 @@ test("un fichier remplacé efface les planches partielles de l'ancienne version 
     assert.equal(fresh.complete, true);
     assert.deepEqual(fresh.ready, [1, 2, 3]);
   } finally {
-    sprites.setSpriteGridForTests(10, 10);
+    sprites.setSpriteGridForTests(sprites.SPRITE_COLS, sprites.SPRITE_ROWS);
   }
 });
 
@@ -294,7 +297,29 @@ test("un échec en cours de route conserve les planches déjà prêtes", { skip:
     assert.ok(isJpeg(sheetFile("film-broken", 1)));
     assert.equal(fs.readdirSync(path.join(dir, "scrub-sprites", "film-broken")).some((name) => name.startsWith(".work-")), false);
   } finally {
-    sprites.setSpriteGridForTests(10, 10);
+    sprites.setSpriteGridForTests(sprites.SPRITE_COLS, sprites.SPRITE_ROWS);
+  }
+});
+
+test("une préparation partielle faite avec une autre taille de planche repart de zéro", { skip: !ffmpegOk }, async () => {
+  const copy = path.join(dir, "film-grille.mkv");
+  fs.copyFileSync(video, copy);
+  try {
+    const src = { cacheId: "film-grid", filePath: copy };
+    sprites.setSpriteGridForTests(1, 2);
+    assert.equal(await sprites.ensureSprites(src, { shouldCancel: cancelAfterSheets("film-grid", 1) }), false);
+    assert.equal(manifestOf("film-grid").ready.length, 1);
+    // La taille de planche par défaut change (comme entre les 10×10 d'origine et les 5×5 actuelles) : on repart de zéro.
+    sprites.setSpriteGridForTests(1, 3);
+    assert.equal(await sprites.ensureSprites(src), true);
+    const done = manifestOf("film-grid");
+    assert.equal(done.complete, true);
+    assert.equal(done.cols * done.rows, 3);
+    assert.equal(done.sheets, 2); // 5 vignettes / 3 par planche
+    assert.deepEqual(done.ready, [1, 2]);
+    for (const n of [1, 2]) assert.ok(isJpeg(sheetFile("film-grid", n)));
+  } finally {
+    sprites.setSpriteGridForTests(sprites.SPRITE_COLS, sprites.SPRITE_ROWS);
   }
 });
 
