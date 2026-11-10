@@ -1,3 +1,10 @@
+## v1.28.117 — 10. November 2026
+
+### Plex
+
+- Einstellungen: Der Plex-Status zeigt „Nicht erreichbar“, wenn der Server nicht antwortet, statt „Verbunden“ (das nur bedeutete, dass eine Verknüpfung besteht); der Verbindungstest blockiert nicht länger als 6 Sekunden.
+- Weiterschauen: Ein Film, den Plex nie gesehen hat (ohne Plex-Schlüssel), erscheint nach der Wiedergabe in der Reihe „Weiterschauen“, wie Episoden.
+
 ## v1.28.116 — 10. November 2026
 
 ### Player

@@ -2329,6 +2329,7 @@ export const fr = {
     intro: "Connecte ton serveur Plex pour autoriser la connexion via un compte Plex, importer tes utilisateurs et synchroniser leur liste de suivi.",
     connected: "Connecté",
     notLinked: "Non connecté",
+    serverDown: "Injoignable",
     link: "Connecter Plex",
     relink: "Reconnecter",
     hostname: "Hôte ou adresse IP",

@@ -2330,6 +2330,7 @@ export const it: Dictionary = {
     intro: "Collega il tuo server Plex per consentire l'accesso con un account Plex, importare i tuoi utenti e sincronizzare la loro watchlist.",
     connected: "Connesso",
     notLinked: "Non connesso",
+    serverDown: "Non raggiungibile",
     link: "Collega Plex",
     relink: "Riconnetti",
     hostname: "Nome host o indirizzo IP",

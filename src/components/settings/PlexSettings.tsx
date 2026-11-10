@@ -11,6 +11,8 @@ interface PlexConfig {
   port: number;
   useSsl: boolean;
   connected: boolean;
+  /** Le serveur répond vraiment (null = pas de liaison). */
+  reachable?: boolean | null;
   syncLibrary: boolean;
   watchlistSyncEnabled: boolean;
   markerSyncEnabled: boolean;
@@ -185,9 +187,9 @@ export function PlexSettings() {
       </div>
 
       <div className="mb-4 flex items-center gap-2">
-        <span className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", cfg.connected ? "border-ok/25 bg-ok/12 text-ok" : "border-amber/25 bg-amber/12 text-amber")}>
-          {cfg.connected ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-          {cfg.connected ? t("plex.connected") : t("plex.notLinked")}
+        <span className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", cfg.connected && cfg.reachable !== false ? "border-ok/25 bg-ok/12 text-ok" : "border-amber/25 bg-amber/12 text-amber")}>
+          {cfg.connected && cfg.reachable !== false ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+          {cfg.connected ? (cfg.reachable === false ? t("plex.serverDown") : t("plex.connected")) : t("plex.notLinked")}
         </span>
         <button
           onClick={link}

@@ -595,6 +595,7 @@ export const SETTINGS_SEARCH_KEYS: Record<string, string[]> = {
     "plex.profiles",
     "plex.profilesHint",
     "plex.relink",
+    "plex.serverDown",
     "plex.syncLibrary",
     "plex.syncLibraryHint",
     "plex.syncNow",

@@ -1,3 +1,10 @@
+## v1.28.117 — 10 novembre 2026
+
+### Plex
+
+- Réglages : l'état de Plex affiche « Injoignable » quand le serveur ne répond pas, au lieu de « Connecté » (qui voulait seulement dire qu'une liaison existe) ; le test de connexion ne bloque plus au-delà de 6 secondes.
+- Reprendre : un film jamais vu par Plex (sans clé Plex) apparaît bien dans la rangée « Reprendre » après une lecture, comme les épisodes.
+
 ## v1.28.116 — 10 novembre 2026
 
 ### Lecteur

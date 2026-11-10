@@ -2349,6 +2349,7 @@ export const de: Dictionary = {
     intro: "Verbinde deinen Plex-Server, um die Anmeldung mit einem Plex-Konto zu ermöglichen, deine Benutzer zu importieren und ihre Merkliste zu synchronisieren.",
     connected: "Verbunden",
     notLinked: "Nicht verbunden",
+    serverDown: "Nicht erreichbar",
     link: "Plex verbinden",
     relink: "Erneut verbinden",
     hostname: "Hostname oder IP-Adresse",

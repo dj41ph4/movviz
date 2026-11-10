@@ -1,3 +1,10 @@
+## v1.28.117 — November 10, 2026
+
+### Plex
+
+- Settings: the Plex status shows "Unreachable" when the server does not answer, instead of "Connected" (which only meant a link exists); the connection test no longer blocks for more than 6 seconds.
+- Continue watching: a movie never seen by Plex (no Plex key) now appears in the "Continue watching" row after playback, like episodes do.
+
 ## v1.28.116 — November 10, 2026
 
 ### Player

@@ -1,3 +1,10 @@
+## v1.28.117 — 10 november 2026
+
+### Plex
+
+- Instellingen: de Plex-status toont "Niet bereikbaar" als de server niet antwoordt, in plaats van "Verbonden" (wat alleen betekende dat er een koppeling bestaat); de verbindingstest blokkeert niet langer dan 6 seconden.
+- Verder kijken: een film die Plex nooit heeft gezien (zonder Plex-sleutel) verschijnt na het afspelen in de rij "Verder kijken", net als afleveringen.
+
 ## v1.28.116 — 10 november 2026
 
 ### Speler

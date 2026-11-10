@@ -1,3 +1,10 @@
+## v1.28.117 — 10 novembre 2026
+
+### Plex
+
+- Impostazioni: lo stato di Plex mostra «Non raggiungibile» quando il server non risponde, invece di «Connesso» (che significava solo che esiste un collegamento); il test di connessione non blocca più oltre 6 secondi.
+- Riprendi: un film mai visto da Plex (senza chiave Plex) compare nella riga «Riprendi» dopo la riproduzione, come gli episodi.
+
 ## v1.28.116 — 10 novembre 2026
 
 ### Lettore

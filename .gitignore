@@ -63,3 +63,4 @@ portrait-*.png
 portrait-*.xml
 post-login.png
 /browser-extension/dist-firefox
+.tmp-plex-audit/

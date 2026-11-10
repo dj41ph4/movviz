@@ -2331,6 +2331,7 @@ export const nl: Dictionary = {
     intro: "Koppel je Plex-server om inloggen met een Plex-account mogelijk te maken, je gebruikers te importeren en hun kijklijst te synchroniseren.",
     connected: "Verbonden",
     notLinked: "Niet verbonden",
+    serverDown: "Niet bereikbaar",
     link: "Plex koppelen",
     relink: "Opnieuw koppelen",
     hostname: "Hostnaam of IP-adres",

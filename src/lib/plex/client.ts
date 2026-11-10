@@ -355,10 +355,10 @@ export async function getPlexServerAccessToken(clientId: string, accountToken: s
 export async function testPlexServer(cfg: PlexServerConfig): Promise<boolean> {
   if (!cfg.hostname) return false;
   try {
-    const res = await fetch(`${serverBase(cfg)}/identity`, {
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/identity`, {
       headers: cfg.adminToken ? { "x-plex-token": cfg.adminToken } : {},
       cache: "no-store",
-    });
+    }, 6000);
     return res.ok;
   } catch {
     return false;

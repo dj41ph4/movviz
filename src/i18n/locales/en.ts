@@ -2331,6 +2331,7 @@ export const en: Dictionary = {
     intro: "Connect your Plex server to allow signing in with a Plex account, import your users, and sync their watchlist.",
     connected: "Connected",
     notLinked: "Not connected",
+    serverDown: "Unreachable",
     link: "Connect Plex",
     relink: "Reconnect",
     hostname: "Hostname or IP address",
