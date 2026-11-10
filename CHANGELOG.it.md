@@ -1,3 +1,9 @@
+## v1.28.115 — 10 novembre 2026
+
+### Lettore
+
+- Anteprime della barra di avanzamento: per un file collegato a Plex il cui percorso registrato è quello visto da Plex (non visibile dal container), la generazione falliva subito e l'anteprima restava «in preparazione». Ora usa la stessa risoluzione dei file della riproduzione (corrispondenze di percorso Plex → Movviz, versione principale del film).
+
 ## v1.28.114 — 10 novembre 2026
 
 ### Lettore

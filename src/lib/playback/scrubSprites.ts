@@ -5,6 +5,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { resolveFfmpegBinary, resolveFfprobeBinary } from "@/lib/playback/engine/mediaRuntime";
 import { getMovie, getMovieByPlexRatingKey, loadMovies, loadSeries } from "@/lib/library/store";
+import { getPrimaryFile } from "@/lib/library/versions";
+import { readableLocalPath } from "@/lib/playback/sourceResolver";
 
 /**
  * Planches de vignettes (sprites) pour l'aperçu au survol de la barre de
@@ -89,15 +91,22 @@ export interface LocalSource {
   filePath: string;
 }
 
+/**
+ * Chemin que CE serveur peut réellement lire. Le chemin enregistré est parfois
+ * celui que Plex voit (ex. /volume1/... côté NAS), invisible depuis le
+ * conteneur : le lecteur le traduit avec les correspondances de chemins déjà
+ * apprises, et les planches doivent faire exactement pareil — sinon la
+ * génération échoue aussitôt (« fichier introuvable ») pour tout fichier lié à Plex.
+ */
 function pathOf(file: { diskPath?: string; path?: string } | null | undefined): string | null {
-  return file?.diskPath ?? file?.path ?? null;
+  return readableLocalPath(file?.diskPath ?? file?.path);
 }
 
 /** `ratingKey` du lecteur : id Movviz d'un film, `<série>:s<S>e<E>`, ou clé Plex. */
 export function resolveLocalSource(ratingKey: string): LocalSource | null {
   const movie = getMovie(ratingKey) ?? getMovieByPlexRatingKey(ratingKey);
   if (movie) {
-    const p = pathOf(movie.file);
+    const p = pathOf(getPrimaryFile(movie));
     return p ? { cacheId: movie.id, filePath: p } : null;
   }
   const m = /^(.+):s(\d+)e(\d+)$/.exec(ratingKey);
@@ -121,7 +130,7 @@ export function resolveLocalSource(ratingKey: string): LocalSource | null {
 export function listUnlinkedLocalSources(): LocalSource[] {
   const out: LocalSource[] = [];
   for (const movie of loadMovies()) {
-    const p = pathOf(movie.file);
+    const p = pathOf(getPrimaryFile(movie));
     if (p && !movie.plexRatingKey) out.push({ cacheId: movie.id, filePath: p });
   }
   for (const series of loadSeries()) {

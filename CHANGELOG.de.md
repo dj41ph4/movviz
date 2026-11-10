@@ -1,3 +1,9 @@
+## v1.28.115 — 10. November 2026
+
+### Player
+
+- Zeitleisten-Vorschau: Bei einer mit Plex verknüpften Datei, deren gespeicherter Pfad der von Plex gesehene ist (aus dem Container nicht sichtbar), schlug die Erzeugung sofort fehl und die Vorschau blieb „in Vorbereitung“. Sie nutzt jetzt dieselbe Dateiauflösung wie die Wiedergabe (Pfadzuordnungen Plex → Movviz, Hauptversion des Films).
+
 ## v1.28.114 — 10. November 2026
 
 ### Player

@@ -1,3 +1,9 @@
+## v1.28.115 — November 10, 2026
+
+### Player
+
+- Seek bar previews: for a Plex-linked file whose recorded path is the one Plex sees (not visible from the container), generation failed immediately and the preview stayed "being prepared". It now uses the same file resolution as playback (Plex → Movviz path mappings, the movie's primary version).
+
 ## v1.28.114 — November 10, 2026
 
 ### Player

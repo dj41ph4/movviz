@@ -7,6 +7,19 @@ import { spawnSync } from "node:child_process";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-sprites-"));
 process.env.MOVVIZ_CONFIG_DIR = dir;
+// Bibliothèque de test : un film dont le chemin enregistré est celui que Plex voit (illisible ici),
+// un autre dans le dossier de la bibliothèque. Écrits AVANT l'import : les modules lisent ces fichiers au chargement.
+const library = path.join(dir, "library");
+fs.mkdirSync(library, { recursive: true });
+fs.writeFileSync(path.join(dir, "engine-state.json"), JSON.stringify({ instances: { movies: { completedPath: library }, series: { completedPath: library } } }));
+const movieOf = (id: string, plexRatingKey: string | null, file: string) => ({
+  id, tmdbId: 1, title: id, monitored: true, status: "available", plexRatingKey,
+  file: { path: file, quality: "", resolution: null, videoCodec: null, audioCodec: null, hdr: null, source: null, size: 1, addedAt: 1 },
+});
+fs.writeFileSync(path.join(dir, "library-movies.json"), JSON.stringify([
+  movieOf("mv_plexpath", "111", "/volume1/plex/Films/Introuvable.mkv"),
+  movieOf("mv_local", null, path.join(library, "local.mkv")),
+]));
 // Importé après la variable d'environnement : le dossier de cache est lu au chargement.
 const sprites = await import("../src/lib/playback/scrubSprites.ts");
 
@@ -85,6 +98,23 @@ test("une rafale de fichiers illisibles se termine sans rester bloquée dans la 
     return sprites.ensureSprites({ cacheId: `junk-${i}`, filePath: file });
   }));
   assert.ok(results.every((r) => r === false));
+});
+
+test("un chemin enregistré tel que Plex le voit (illisible ici) n'est pas pris pour un fichier", () => {
+  assert.equal(sprites.resolveLocalSource("mv_plexpath"), null);
+  assert.equal(sprites.resolveLocalSource("111"), null);
+  assert.equal(sprites.resolveLocalSource("mv_inconnu"), null);
+});
+
+test("un fichier dans le dossier de la bibliothèque est résolu, par id Movviz", { skip: !ffmpegOk }, () => {
+  fs.copyFileSync(video, path.join(library, "local.mkv"));
+  const source = sprites.resolveLocalSource("mv_local");
+  assert.ok(source);
+  assert.equal(source.cacheId, "mv_local");
+  assert.equal(path.resolve(source.filePath), path.resolve(path.join(library, "local.mkv")));
+  // Sans lien Plex : à préparer en tâche de fond ; le film lié à Plex n'y figure pas.
+  const unlinked = sprites.listUnlinkedLocalSources().map((x) => x.cacheId);
+  assert.deepEqual(unlinked, ["mv_local"]);
 });
 
 test("nettoyage", () => { fs.rmSync(dir, { recursive: true, force: true }); });

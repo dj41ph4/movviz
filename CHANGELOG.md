@@ -1,3 +1,9 @@
+## v1.28.115 — 10 novembre 2026
+
+### Lecteur
+
+- Aperçus de la barre de progression : pour un fichier lié à Plex dont le chemin enregistré est celui que Plex voit (invisible depuis le conteneur), la génération échouait aussitôt et l'aperçu restait « en préparation ». Elle utilise maintenant la même résolution de fichier que la lecture (correspondances de chemins Plex → Movviz, version principale du film).
+
 ## v1.28.114 — 10 novembre 2026
 
 ### Lecteur

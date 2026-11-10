@@ -1,3 +1,9 @@
+## v1.28.115 — 10 november 2026
+
+### Speler
+
+- Voorbeelden van de voortgangsbalk: bij een met Plex gekoppeld bestand waarvan het opgeslagen pad dat van Plex is (niet zichtbaar vanuit de container), mislukte het genereren meteen en bleef het voorbeeld „in voorbereiding”. Nu gebruikt het dezelfde bestandsresolutie als het afspelen (padkoppelingen Plex → Movviz, hoofdversie van de film).
+
 ## v1.28.114 — 10 november 2026
 
 ### Speler

@@ -41,7 +41,7 @@ function validLocalFile(file: string | null | undefined): file is string {
 /** Chemin lisible par CE conteneur : le chemin enregistré, sinon sa
  *  traduction par les correspondances Plex → Movviz déjà apprises (un chemin
  *  stocké tel que Plex le voit, ex. /volume1/... côté hôte NAS). */
-function readableLocalPath(recorded: string | null | undefined): string | null {
+export function readableLocalPath(recorded: string | null | undefined): string | null {
   if (validLocalFile(recorded)) return recorded;
   if (!recorded) return null;
   const mapped = applyLearnedPathMapping(recorded);
