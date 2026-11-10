@@ -1,3 +1,9 @@
+## v1.28.114 — 10 november 2026
+
+### Speler
+
+- Voorbeelden van de voortgangsbalk: geen eindeloze laadcirkel meer wanneer Plex is gestopt. De bladen van Movviz gaan voor en Plex is alleen nog een aanvulling; na 2 Plex-fouten (404 of serverfout) maakt de speler de bladen zelf klaar met „Voorbeeld wordt voorbereid…”. Maximaal 2 gelijktijdige generaties, een fout wordt 30 min onthouden met de reden.
+
 ## v1.28.113 — 10 november 2026
 
 ### Speler

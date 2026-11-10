@@ -1,3 +1,9 @@
+## v1.28.114 — November 10, 2026
+
+### Player
+
+- Seek bar previews: no more endless spinner when Plex is stopped. Movviz's own sheets now come first and Plex is only a fallback; after 2 Plex failures (404 or server error) the player prepares the sheets itself, showing "Preview being prepared…". At most 2 generations at once, and a failure is remembered for 30 min along with its reason.
+
 ## v1.28.113 — November 10, 2026
 
 ### Player

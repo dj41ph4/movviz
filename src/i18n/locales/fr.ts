@@ -2700,6 +2700,7 @@ export const fr = {
     betaExitFullscreen: "Quitter le plein écran",
     betaClose: "Fermer",
     betaProgress: "Barre de progression",
+    previewPreparing: "Aperçu en préparation…",
     betaResume: "Reprendre",
     betaResumeFrom: "Reprendre à",
     betaStartOver: "Depuis le début",

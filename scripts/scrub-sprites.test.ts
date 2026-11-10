@@ -58,4 +58,33 @@ test("l'annulation arrête la génération sans rien publier", { skip: !ffmpegOk
   assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-cancel")), false);
 });
 
+test("un échec est mémorisé avec sa raison : pas de relance à chaque survol", { skip: !ffmpegOk }, async () => {
+  const bad = { cacheId: "film-bad", filePath: path.join(dir, "bad.mkv") };
+  assert.equal(sprites.hasRecentlyFailed("film-bad"), true); // échec du test précédent
+  assert.match(sprites.failureReason("film-bad") ?? "", /durée illisible/);
+  assert.equal(sprites.hasRecentlyFailed("film-test"), false);
+  sprites.resetFailureMemory();
+  assert.equal(sprites.hasRecentlyFailed(bad.cacheId), false);
+});
+
+test("des demandes simultanées pour un même fichier partagent une seule génération", { skip: !ffmpegOk }, async () => {
+  const twin = { cacheId: "film-twin", filePath: video };
+  fs.writeFileSync(video, fs.readFileSync(video).subarray(0, fs.statSync(video).size - 16)); // retire le suffixe ajouté plus haut
+  const first = sprites.ensureSprites(twin);
+  const second = sprites.ensureSprites(twin);
+  assert.equal(sprites.isGenerating("film-twin"), true);
+  assert.equal(first, second);
+  assert.equal(await first, true);
+  assert.equal(sprites.isGenerating("film-twin"), false);
+});
+
+test("une rafale de fichiers illisibles se termine sans rester bloquée dans la file", { skip: !ffmpegOk }, async () => {
+  const results = await Promise.all(Array.from({ length: 30 }, (_, i) => {
+    const file = path.join(dir, `junk${i}.mkv`);
+    fs.writeFileSync(file, "x");
+    return sprites.ensureSprites({ cacheId: `junk-${i}`, filePath: file });
+  }));
+  assert.ok(results.every((r) => r === false));
+});
+
 test("nettoyage", () => { fs.rmSync(dir, { recursive: true, force: true }); });

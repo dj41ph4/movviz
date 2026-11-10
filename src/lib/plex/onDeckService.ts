@@ -2,7 +2,7 @@ import { loadPlexConfig } from "./store";
 import { batchTmdbIds, buildPlexWebUrl } from "./client";
 import { getVerifiedOnDeck, resolvePlexServerAuth } from "./watchWrite";
 import { isEarlierEpisode, hasEpisodeSource, nextAvailableEpisode, availableEpisode } from "./onDeckPolicy";
-import { getMovieByPlexRatingKey, findEpisodeByPlexLocator, getSeriesByTmdbId } from "@/lib/library/store";
+import { getMovie as getLibraryMovie, getMovieByPlexRatingKey, findEpisodeByPlexLocator, getSeriesByTmdbId } from "@/lib/library/store";
 import { resolvePlaybackEpisode } from "@/lib/playback/episodeIdentity";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
 import { resumeDismissals, resumeIdentity } from "@/lib/playback/resumeDismissals";
@@ -90,7 +90,8 @@ export async function listOnDeckEntries(user: User, options?: {
   const plexUrlFor = (key: string | null) => key && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, key) : null;
   for (const p of local) {
     if (!p.resumeOffsetMs || !p.durationMs) continue;
-    const movie = getMovieByPlexRatingKey(p.ratingKey);
+    // Un film jamais vu par Plex est suivi sous son id Movviz (mv_…) : sans ce repli il disparaissait de « Reprendre ».
+    const movie = getMovieByPlexRatingKey(p.ratingKey) ?? (p.mediaId ? getLibraryMovie(p.mediaId) : null) ?? getLibraryMovie(p.ratingKey);
     if (movie) {
       if (isNearEnd(p.resumeOffsetMs, p.durationMs, "movie")) continue;
       const key = movie.plexRatingKey ?? p.ratingKey;

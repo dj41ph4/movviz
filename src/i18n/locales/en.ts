@@ -2702,6 +2702,7 @@ export const en: Dictionary = {
     betaExitFullscreen: "Exit fullscreen",
     betaClose: "Close",
     betaProgress: "Seek",
+    previewPreparing: "Preview being prepared…",
     betaResume: "Resume",
     betaResumeFrom: "Resume from",
     betaStartOver: "Start from beginning",

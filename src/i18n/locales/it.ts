@@ -2701,6 +2701,7 @@ export const it: Dictionary = {
     betaExitFullscreen: "Esci da schermo intero",
     betaClose: "Chiudi",
     betaProgress: "Barra di avanzamento",
+    previewPreparing: "Anteprima in preparazione…",
     betaResume: "Riprendi",
     betaResumeFrom: "Riprendi da",
     betaStartOver: "Dall'inizio",

@@ -2702,6 +2702,7 @@ export const nl: Dictionary = {
     betaExitFullscreen: "Volledig scherm verlaten",
     betaClose: "Sluiten",
     betaProgress: "Voortgangsbalk",
+    previewPreparing: "Voorbeeld wordt voorbereid…",
     betaResume: "Hervatten",
     betaResumeFrom: "Hervatten vanaf",
     betaStartOver: "Vanaf begin",

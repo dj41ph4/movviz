@@ -53,9 +53,26 @@ const CONFIG_DIR =
   path.join(process.cwd(), ".movviz-data");
 const ROOT = path.join(CONFIG_DIR, "scrub-sprites");
 
-type Registry = { inflight: Map<string, Promise<boolean>> };
+/** Générations simultanées au plus : chaque survol d'un épisode non préparé en lance une, et parcourir une saison ne doit jamais saturer le disque du serveur. */
+const MAX_CONCURRENT = 2;
+/** File d'attente bornée : au-delà, la demande est refusée (le lecteur réessaiera) plutôt que de s'empiler sans fin. */
+const MAX_QUEUED = 12;
+/** Un échec est mémorisé : sans ça, chaque survol relancerait aussitôt la même génération vouée à l'échec. */
+const FAILURE_MEMORY_MS = 30 * 60 * 1000;
+
+type Registry = { inflight: Map<string, Promise<boolean>>; running: number; waiters: Array<() => void>; failedAt: Map<string, number>; reasons: Map<string, string> };
 const g = globalThis as typeof globalThis & { __movvizScrubSprites?: Registry };
-const registry: Registry = (g.__movvizScrubSprites ??= { inflight: new Map() });
+const registry: Registry = (g.__movvizScrubSprites ??= { inflight: new Map(), running: 0, waiters: [], failedAt: new Map(), reasons: new Map() });
+
+async function acquireSlot(): Promise<void> {
+  if (registry.running < MAX_CONCURRENT) { registry.running++; return; }
+  await new Promise<void>((resolve) => registry.waiters.push(resolve));
+}
+function releaseSlot(): void {
+  const next = registry.waiters.shift();
+  if (next) next(); // le créneau passe directement au suivant
+  else registry.running--;
+}
 
 function safeKey(id: string): string {
   return id.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
@@ -194,7 +211,19 @@ export interface GenerateOptions {
 export function ensureSprites(source: LocalSource, opts: GenerateOptions = {}): Promise<boolean> {
   const running = registry.inflight.get(source.cacheId);
   if (running) return running;
-  const promise = generate(source, opts).finally(() => registry.inflight.delete(source.cacheId));
+  if (registry.waiters.length >= MAX_QUEUED) return Promise.resolve(false);
+  const promise = (async () => {
+    await acquireSlot();
+    try {
+      const ok = await generate(source, opts);
+      // Une annulation volontaire (lecture démarrée) n'est pas un échec du fichier.
+      if (ok) { registry.failedAt.delete(source.cacheId); registry.reasons.delete(source.cacheId); }
+      else if (!opts.shouldCancel?.()) registry.failedAt.set(source.cacheId, Date.now());
+      return ok;
+    } finally {
+      releaseSlot();
+    }
+  })().finally(() => registry.inflight.delete(source.cacheId));
   registry.inflight.set(source.cacheId, promise);
   return promise;
 }
@@ -203,13 +232,35 @@ export function isGenerating(cacheId: string): boolean {
   return registry.inflight.has(cacheId);
 }
 
+/** La dernière génération de ce fichier a échoué il y a peu : inutile de réessayer tout de suite. */
+export function hasRecentlyFailed(cacheId: string): boolean {
+  const at = registry.failedAt.get(cacheId);
+  return at != null && Date.now() - at < FAILURE_MEMORY_MS;
+}
+
+/** Raison du dernier échec de ce fichier (diagnostic : renvoyée par la route, aucun journal du serveur web n'étant accessible sur un NAS). */
+export function failureReason(cacheId: string): string | null {
+  return registry.reasons.get(cacheId) ?? null;
+}
+
+/** Pour les tests : vide la mémoire des échecs. */
+export function resetFailureMemory(): void {
+  registry.failedAt.clear();
+  registry.reasons.clear();
+}
+
 async function generate(source: LocalSource, opts: GenerateOptions): Promise<boolean> {
+  const fail = (reason: string): false => {
+    registry.reasons.set(source.cacheId, reason);
+    console.error(`[scrub-sprites] ${source.cacheId}: ${reason}`);
+    return false;
+  };
   const version = await versionOf(source.filePath);
-  if (!version) return false;
+  if (!version) return fail("fichier source introuvable depuis le serveur");
   if (await readManifest(source)) return true;
 
   const duration = await probeDuration(source.filePath);
-  if (!duration) return false;
+  if (!duration) return fail("durée illisible (ffprobe indisponible ou fichier non analysable)");
 
   const count = Math.min(MAX_THUMBS, Math.floor(duration / SPRITE_INTERVAL_SEC) + 1);
   const finalDir = dirFor(source.cacheId);
@@ -221,13 +272,14 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
 
   try {
     let failed = 0;
+    let lastStderr = "";
     let lastGood: string | null = null;
     for (let i = 0; i < count; i++) {
       if (opts.shouldCancel?.()) return false;
       const out = path.join(tmpDir, `t${i}.jpg`);
       // Milieu de l'intervalle : le tout début d'un film est souvent noir.
       const at = Math.min(duration - 0.5, (i + 0.5) * SPRITE_INTERVAL_SEC);
-      const { code } = await run(
+      const { code, stderr: thumbErr } = await run(
         ffmpeg,
         ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-ss", at.toFixed(2), "-noaccurate_seek", "-i", source.filePath, "-an", "-sn", "-frames:v", "1", "-vf", scale, "-q:v", "5", out],
         THUMB_TIMEOUT_MS,
@@ -236,7 +288,8 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
         lastGood = out;
       } else {
         failed++;
-        if (failed / count > MAX_FAILED_RATIO) return false;
+        lastStderr = thumbErr.trim().split("\n").pop() || (code == null ? "ffmpeg n'a pas démarré ou a dépassé le délai" : `code ${code}`);
+        if (failed / count > MAX_FAILED_RATIO) return fail(`plus d'une vignette sur 4 impossible à extraire (${lastStderr})`);
         // Une vignette manquante reprend la précédente (ou, tout au début du
         // fichier, la première valide : voir plus bas) pour garder la grille continue.
         if (lastGood) await fsp.copyFile(lastGood, out);
@@ -245,7 +298,7 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
     }
     // Les vignettes initiales manquantes (avant la première réussie) prennent la première valide.
     const first = Array.from({ length: count }, (_, i) => path.join(tmpDir, `t${i}.jpg`)).find((p) => fs.existsSync(p));
-    if (!first) return false;
+    if (!first) return fail("aucune vignette extraite");
     for (let i = 0; i < count; i++) {
       const p = path.join(tmpDir, `t${i}.jpg`);
       if (!fs.existsSync(p)) await fsp.copyFile(first, p);
@@ -261,8 +314,7 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
         60_000,
       );
       if (code !== 0) {
-        console.error(`[scrub-sprites] assemblage de la planche ${s + 1} impossible pour ${source.cacheId}: ${stderr.trim().split(/\r?\n/).pop()}`);
-        return false;
+        return fail(`assemblage de la planche ${s + 1} impossible (${stderr.trim().split("\n").pop() || "ffmpeg sans message"})`);
       }
     }
     for (let i = 0; i < count; i++) await fsp.rm(path.join(tmpDir, `t${i}.jpg`), { force: true });
@@ -273,8 +325,7 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
     await fsp.rename(tmpDir, finalDir);
     return true;
   } catch (e) {
-    console.error(`[scrub-sprites] échec pour ${source.cacheId}:`, e instanceof Error ? e.message : e);
-    return false;
+    return fail(`erreur inattendue : ${e instanceof Error ? e.message : String(e)}`);
   } finally {
     await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }

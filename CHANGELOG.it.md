@@ -1,3 +1,9 @@
+## v1.28.114 — 10 novembre 2026
+
+### Lettore
+
+- Anteprime della barra di avanzamento: niente più cerchio infinito quando Plex è fermo. I fogli di Movviz hanno la precedenza e Plex è solo un ripiego; dopo 2 errori di Plex (404 o errore del server) il lettore prepara i fogli da solo, mostrando «Anteprima in preparazione…». Al massimo 2 generazioni contemporanee, un errore viene ricordato per 30 min con il motivo.
+
 ## v1.28.113 — 10 novembre 2026
 
 ### Lettore

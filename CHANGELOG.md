@@ -1,3 +1,9 @@
+## v1.28.114 — 10 novembre 2026
+
+### Lecteur
+
+- Aperçus de la barre de progression : plus de rond qui tourne sans fin quand Plex est arrêté. Les planches de Movviz passent en premier et Plex n'est plus qu'un appoint ; après 2 échecs de Plex (404 ou erreur serveur) le lecteur prépare les planches lui-même, avec le message « Aperçu en préparation… ». Au plus 2 générations en même temps, un échec est mémorisé 30 min avec sa raison.
+
 ## v1.28.113 — 10 novembre 2026
 
 ### Lecteur

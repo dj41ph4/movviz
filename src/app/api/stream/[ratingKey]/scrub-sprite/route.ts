@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { isScrubSpritesEnabled } from "@/lib/settings/scrubSprites";
-import { ensureSprites, isGenerating, readManifest, resolveLocalSource, sheetPath } from "@/lib/playback/scrubSprites";
+import { ensureSprites, failureReason, hasRecentlyFailed, isGenerating, readManifest, resolveLocalSource, sheetPath } from "@/lib/playback/scrubSprites";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +13,7 @@ type Ctx = { params: Promise<{ ratingKey: string }> };
  * fichiers que Plex n'a pas préparés — voir lib/playback/scrubSprites.ts.
  *
  *   GET ?m=1          → manifeste JSON (200), ou 202 « en préparation »
+ *   GET ?m=1&probe=1  → manifeste (200) ou 204 : ne lance jamais de génération
  *   GET ?sheet=N&v=…  → planche JPEG de 10×10 vignettes
  *
  * Premier survol d'un fichier sans planches : la génération démarre en
@@ -42,6 +43,13 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const manifest = await readManifest(source);
   if (manifest) return NextResponse.json(manifest, { headers: { "cache-control": "private, no-store" } });
+
+  // Sonde : « existe-t-il déjà des planches ? » sans jamais en déclencher la génération
+  // (fichier lié à Plex dont Plex fournit encore les aperçus).
+  if (req.nextUrl.searchParams.get("probe") === "1") return new NextResponse(null, { status: 204 });
+
+  // Génération déjà tentée sans succès : le lecteur cesse de demander (404) au lieu de relancer à chaque survol.
+  if (hasRecentlyFailed(source.cacheId)) return NextResponse.json({ error: "unavailable", reason: failureReason(source.cacheId) }, { status: 404 });
 
   if (!isGenerating(source.cacheId)) {
     // Génération en arrière-plan : échec ou succès sont consignés, jamais remontés au lecteur.

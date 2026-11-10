@@ -1,3 +1,9 @@
+## v1.28.114 — 10. November 2026
+
+### Player
+
+- Zeitleisten-Vorschau: kein endloser Ladekreis mehr, wenn Plex gestoppt ist. Die Blätter von Movviz haben Vorrang, Plex dient nur noch als Ergänzung; nach 2 Plex-Fehlern (404 oder Serverfehler) bereitet der Player die Blätter selbst vor und zeigt „Vorschau wird vorbereitet…“. Höchstens 2 gleichzeitige Erzeugungen, ein Fehler wird 30 Min. mit Grund gemerkt.
+
 ## v1.28.113 — 10. November 2026
 
 ### Player

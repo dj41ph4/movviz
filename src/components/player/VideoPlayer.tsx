@@ -2445,15 +2445,35 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const scrubAbortRef = useRef<AbortController | null>(null);
   const scrubDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   type SpriteFrame = { sheetUrl: string; col: number; row: number; cols: number; rows: number };
-  const [scrubPreview, setScrubPreview] = useState<{ time: number; ratio: number; url: string | null; sprite?: SpriteFrame } | null>(null);
-  // Source des aperçus : les index Plex quand le fichier est lié à Plex, sinon
-  // (ou si Plex n'en a pas préparé pour ce fichier) les planches générées par
-  // Movviz — voir /api/stream/[ratingKey]/scrub-sprite. "none" = désactivé.
+  const [scrubPreview, setScrubPreview] = useState<{ time: number; ratio: number; url: string | null; sprite?: SpriteFrame; preparing?: boolean } | null>(null);
+  // Aperçus de la barre de progression. Nos planches (générées par Movviz, voir
+  // /api/stream/[ratingKey]/scrub-sprite) passent en premier : elles existent
+  // même si Plex est arrêté. Les index Plex ne servent que d'appoint tant que
+  // nos planches ne sont pas prêtes, et seulement si le fichier est lié à Plex.
   type SpriteManifest = { version: string; intervalSec: number; cols: number; rows: number; count: number };
-  const scrubSourceRef = useRef<"plex" | "sprite" | "none">(hasRealPlexLink ? "plex" : "sprite");
+  const spriteRef = useRef<{ manifest: SpriteManifest | null; off: boolean; at: number; inflight: boolean }>({ manifest: null, off: false, at: 0, inflight: false });
   const plexMissesRef = useRef(0);
-  const spriteManifestRef = useRef<SpriteManifest | null>(null);
-  const spriteFetchRef = useRef<{ at: number; inflight: boolean }>({ at: 0, inflight: false });
+  // Plex injoignable (arrêté, erreur serveur) ou sans index : au bout de 2 échecs on n'insiste plus.
+  const plexDeadRef = useRef(!hasRealPlexLink);
+
+  /** Demande le manifeste de nos planches, au plus toutes les 8 s. `start` = autorise le serveur à les générer. */
+  const refreshSprites = useCallback((start: boolean) => {
+    const state = spriteRef.current;
+    if (state.manifest || state.off || state.inflight || Date.now() - state.at < 8_000) return;
+    state.inflight = true;
+    state.at = Date.now();
+    fetch(`/api/stream/${ratingKey}/scrub-sprite?m=1${start ? "" : "&probe=1"}`)
+      .then(async (res) => {
+        if (res.status === 200) state.manifest = await res.json() as SpriteManifest;
+        else if (res.status === 404) state.off = true; // désactivé, introuvable ou échec récent
+      })
+      .catch(() => void 0)
+      .finally(() => { state.inflight = false; });
+  }, [ratingKey]);
+
+  // Fichier sans lien Plex : on lance la préparation dès l'ouverture du lecteur,
+  // elle est souvent finie avant le premier survol.
+  useEffect(() => { if (!hasRealPlexLink) refreshSprites(true); }, [hasRealPlexLink, refreshSprites]);
 
   useEffect(() => () => {
     scrubCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -2461,35 +2481,26 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   }, []);
 
   const requestScrubThumb = useCallback((time: number, ratio: number) => {
-    if (scrubSourceRef.current === "none") return;
-    if (scrubSourceRef.current === "sprite") {
-      const manifest = spriteManifestRef.current;
-      if (manifest) {
-        const index = Math.min(manifest.count - 1, Math.max(0, Math.floor(time / manifest.intervalSec)));
-        const perSheet = manifest.cols * manifest.rows;
-        const position = index % perSheet;
-        setScrubPreview({
-          time, ratio, url: null,
-          sprite: {
-            sheetUrl: `/api/stream/${ratingKey}/scrub-sprite?sheet=${Math.floor(index / perSheet) + 1}&v=${encodeURIComponent(manifest.version)}`,
-            col: position % manifest.cols, row: Math.floor(position / manifest.cols), cols: manifest.cols, rows: manifest.rows,
-          },
-        });
-        return;
-      }
-      setScrubPreview({ time, ratio, url: null });
-      const state = spriteFetchRef.current;
-      // 202 = planches en préparation côté serveur : on redemande au plus toutes les 8 s.
-      if (state.inflight || Date.now() - state.at < 8_000) return;
-      state.inflight = true;
-      state.at = Date.now();
-      fetch(`/api/stream/${ratingKey}/scrub-sprite?m=1`)
-        .then(async (res) => {
-          if (res.status === 200) spriteManifestRef.current = await res.json() as SpriteManifest;
-          else if (res.status === 404) { scrubSourceRef.current = "none"; setScrubPreview(null); }
-        })
-        .catch(() => void 0)
-        .finally(() => { state.inflight = false; });
+    const sprites = spriteRef.current;
+    // Plex hors service : c'est à nous de préparer les planches (démarre la génération côté serveur).
+    refreshSprites(plexDeadRef.current);
+    if (sprites.manifest) {
+      const manifest = sprites.manifest;
+      const index = Math.min(manifest.count - 1, Math.max(0, Math.floor(time / manifest.intervalSec)));
+      const perSheet = manifest.cols * manifest.rows;
+      const position = index % perSheet;
+      setScrubPreview({
+        time, ratio, url: null,
+        sprite: {
+          sheetUrl: `/api/stream/${ratingKey}/scrub-sprite?sheet=${Math.floor(index / perSheet) + 1}&v=${encodeURIComponent(manifest.version)}`,
+          col: position % manifest.cols, row: Math.floor(position / manifest.cols), cols: manifest.cols, rows: manifest.rows,
+        },
+      });
+      return;
+    }
+    if (plexDeadRef.current) {
+      // Ni planches prêtes ni Plex : en préparation, ou définitivement indisponible (réglage coupé, échec).
+      setScrubPreview(sprites.off ? null : { time, ratio, url: null, preparing: true });
       return;
     }
     const key = Math.floor(time);
@@ -2501,14 +2512,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       scrubAbortRef.current?.abort();
       const ac = new AbortController();
       scrubAbortRef.current = ac;
+      const plexFailed = () => {
+        if (ac.signal.aborted) return;
+        if (++plexMissesRef.current >= 2) {
+          plexDeadRef.current = true;
+          requestScrubThumb(time, ratio);
+        }
+      };
       fetch(`/api/stream/${ratingKey}/scrub-thumb?t=${key * 1000}`, { signal: ac.signal })
         .then((res) => {
           if (res.ok) { plexMissesRef.current = 0; return res.blob(); }
-          // Plex n'a pas préparé d'aperçu pour ce fichier : on bascule sur nos planches.
-          if (res.status === 404 && ++plexMissesRef.current >= 2) {
-            scrubSourceRef.current = "sprite";
-            requestScrubThumb(time, ratio);
-          }
+          // 404 (pas d'index) comme 5xx (Plex arrêté ou injoignable) : même conséquence.
+          plexFailed();
           return null;
         })
         .then((blob) => {
@@ -2517,9 +2532,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           scrubCacheRef.current.set(key, url);
           setScrubPreview((cur) => (cur && Math.floor(cur.time) === key ? { ...cur, url } : cur));
         })
-        .catch(() => void 0);
+        .catch(() => plexFailed());
     }, 150);
-  }, [ratingKey]);
+  }, [ratingKey, refreshSprites]);
 
   const handleProgressDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!duration) return;
@@ -3165,7 +3180,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={scrubPreview.url} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+                            <div className="flex flex-col items-center gap-1.5 px-2 text-center">
+                              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+                              {scrubPreview.preparing && <span className="text-[10px] leading-tight text-white/55">{t("player.previewPreparing")}</span>}
+                            </div>
                           )}
                         </div>
                         <span className="mt-1.5 rounded-full border border-white/10 bg-black/70 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-white/90 backdrop-blur-md">
