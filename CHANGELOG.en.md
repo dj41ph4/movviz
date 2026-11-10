@@ -1,3 +1,9 @@
+## v1.28.116 — November 10, 2026
+
+### Player
+
+- Playback now always comes before seek bar preview preparation: no generation while a playback is running (even when requested by hovering), ffmpeg is stopped immediately when a playback starts, lowest disk priority on Linux. The preview is prepared when the server is idle.
+
 ## v1.28.115 — November 10, 2026
 
 ### Player

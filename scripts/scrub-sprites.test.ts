@@ -117,4 +117,27 @@ test("un fichier dans le dossier de la bibliothèque est résolu, par id Movviz"
   assert.deepEqual(unlinked, ["mv_local"]);
 });
 
+test("aucune génération tant qu'une lecture est en cours, et elle est interrompue dès qu'une lecture démarre", { skip: !ffmpegOk }, async () => {
+  const playback = globalThis as typeof globalThis & { __movvizPlaybackSessions?: Map<string, { lastHeartbeatAt: number; lastIsPlaying: boolean }> };
+  const target = { cacheId: "film-playback", filePath: video };
+  playback.__movvizPlaybackSessions = new Map([["s1", { lastHeartbeatAt: Date.now(), lastIsPlaying: true }]]);
+  try {
+    // Lecture en cours : refus immédiat, sans dossier ni échec mémorisé.
+    assert.equal(await sprites.ensureSprites(target), false);
+    assert.equal(sprites.hasRecentlyFailed("film-playback"), false);
+    assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-playback")), false);
+  } finally {
+    playback.__movvizPlaybackSessions = undefined;
+  }
+  // Lecture démarrée EN COURS de génération : arrêt rapide, aucun échec, aucune planche publiée.
+  const running = sprites.ensureSprites({ cacheId: "film-midway", filePath: video });
+  setTimeout(() => { playback.__movvizPlaybackSessions = new Map([["s2", { lastHeartbeatAt: Date.now(), lastIsPlaying: true }]]); }, 150);
+  const started = Date.now();
+  assert.equal(await running, false);
+  playback.__movvizPlaybackSessions = undefined;
+  assert.ok(Date.now() - started < 3_000, "doit s'interrompre sans attendre la fin");
+  assert.equal(sprites.hasRecentlyFailed("film-midway"), false);
+  assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-midway")), false);
+});
+
 test("nettoyage", () => { fs.rmSync(dir, { recursive: true, force: true }); });

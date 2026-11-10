@@ -1,3 +1,9 @@
+## v1.28.116 — 10 novembre 2026
+
+### Lettore
+
+- La riproduzione ha ora sempre la precedenza sulla preparazione delle anteprime della barra di avanzamento: nessuna generazione mentre è in corso una riproduzione (anche se richiesta passando il mouse), ffmpeg viene fermato subito all'avvio di una riproduzione, priorità disco minima su Linux. L'anteprima viene preparata quando il server è inattivo.
+
 ## v1.28.115 — 10 novembre 2026
 
 ### Lettore

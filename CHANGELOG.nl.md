@@ -1,3 +1,9 @@
+## v1.28.116 — 10 november 2026
+
+### Speler
+
+- Afspelen gaat nu altijd voor het voorbereiden van de voorbeelden van de voortgangsbalk: geen generatie zolang er wordt afgespeeld (ook niet bij hoveren), ffmpeg wordt direct gestopt zodra er een weergave start, laagste schijfprioriteit onder Linux. Het voorbeeld wordt voorbereid wanneer de server inactief is.
+
 ## v1.28.115 — 10 november 2026
 
 ### Speler

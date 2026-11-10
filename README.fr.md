@@ -12,7 +12,7 @@
 
 ### Ton catalogue. Ton serveur. Tes règles.
 
-<p><strong>Version actuelle : v1.28.115</strong></p>
+<p><strong>Version actuelle : v1.28.116</strong></p>
 
 **Une plateforme média auto-hébergée complète — de la découverte jusqu'à la lecture.**
 

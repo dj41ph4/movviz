@@ -1,3 +1,9 @@
+## v1.28.116 — 10 novembre 2026
+
+### Lecteur
+
+- La lecture passe toujours avant la préparation des aperçus de la barre de progression : plus aucune génération tant qu'une lecture est en cours (même demandée par un survol), arrêt immédiat de ffmpeg dès qu'une lecture démarre, priorité disque minimale sous Linux. L'aperçu se prépare quand le serveur est au repos.
+
 ## v1.28.115 — 10 novembre 2026
 
 ### Lecteur

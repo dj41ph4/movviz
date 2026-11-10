@@ -7,6 +7,7 @@ import { resolveFfmpegBinary, resolveFfprobeBinary } from "@/lib/playback/engine
 import { getMovie, getMovieByPlexRatingKey, loadMovies, loadSeries } from "@/lib/library/store";
 import { getPrimaryFile } from "@/lib/library/versions";
 import { readableLocalPath } from "@/lib/playback/sourceResolver";
+import { hasActivePlayback } from "@/lib/priority/userActivity";
 
 /**
  * Planches de vignettes (sprites) pour l'aperçu au survol de la barre de
@@ -180,20 +181,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** Lance un binaire à priorité minimale et attend sa fin ; `stdout` renvoyé en texte. */
-function run(bin: string, args: string[], timeoutMs: number): Promise<{ code: number | null; stdout: string; stderr: string }> {
+function run(bin: string, args: string[], timeoutMs: number, cancelled?: () => boolean): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     let out = "";
     let err = "";
     let settled = false;
     const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     try { if (child.pid) os.setPriority(child.pid, 19); } catch { /* priorité non modifiable : sans importance */ }
+    // Priorité disque « inactif » quand l'outil existe (Linux) : le processus ne lit que si personne d'autre n'a besoin du disque.
+    if (child.pid && process.platform === "linux") {
+      try { spawn("ionice", ["-c", "3", "-p", String(child.pid)], { stdio: "ignore" }).on("error", () => {}); } catch { /* absent : sans importance */ }
+    }
     const timer = setTimeout(() => { child.kill("SIGKILL"); }, timeoutMs);
+    // Une lecture démarre : on tue ffmpeg tout de suite, sans attendre la fin de la vignette en cours.
+    const watcher = cancelled ? setInterval(() => { if (cancelled()) child.kill("SIGKILL"); }, 300) : null;
     child.stdout.on("data", (d) => { if (out.length < 4096) out += String(d); });
     child.stderr.on("data", (d) => { err = (err + String(d)).slice(-400); });
     const done = (code: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (watcher) clearInterval(watcher);
       resolve({ code, stdout: out, stderr: err });
     };
     child.on("error", () => done(null));
@@ -201,8 +209,8 @@ function run(bin: string, args: string[], timeoutMs: number): Promise<{ code: nu
   });
 }
 
-async function probeDuration(filePath: string): Promise<number | null> {
-  const { code, stdout } = await run(resolveFfprobeBinary(), ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", filePath], 30_000);
+async function probeDuration(filePath: string, cancelled?: () => boolean): Promise<number | null> {
+  const { code, stdout } = await run(resolveFfprobeBinary(), ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", filePath], 30_000, cancelled);
   const duration = Number.parseFloat(stdout.trim());
   return code === 0 && Number.isFinite(duration) && duration > 0 ? duration : null;
 }
@@ -224,11 +232,11 @@ export function ensureSprites(source: LocalSource, opts: GenerateOptions = {}): 
   const promise = (async () => {
     await acquireSlot();
     try {
-      const ok = await generate(source, opts);
+      const outcome = await generate(source, opts);
       // Une annulation volontaire (lecture démarrée) n'est pas un échec du fichier.
-      if (ok) { registry.failedAt.delete(source.cacheId); registry.reasons.delete(source.cacheId); }
-      else if (!opts.shouldCancel?.()) registry.failedAt.set(source.cacheId, Date.now());
-      return ok;
+      if (outcome === true) { registry.failedAt.delete(source.cacheId); registry.reasons.delete(source.cacheId); }
+      else if (outcome === false) registry.failedAt.set(source.cacheId, Date.now());
+      return outcome === true;
     } finally {
       releaseSlot();
     }
@@ -258,7 +266,12 @@ export function resetFailureMemory(): void {
   registry.reasons.clear();
 }
 
-async function generate(source: LocalSource, opts: GenerateOptions): Promise<boolean> {
+/** true = planches prêtes · false = échec du fichier · "cancelled" = interrompu pour laisser la place à une lecture. */
+async function generate(source: LocalSource, opts: GenerateOptions): Promise<boolean | "cancelled"> {
+  // La lecture passe TOUJOURS avant : aucune génération tant qu'une lecture est en cours, même demandée
+  // par un survol, et toute génération en cours s'arrête dès qu'une lecture démarre.
+  const cancelled = () => hasActivePlayback() || !!opts.shouldCancel?.();
+  if (cancelled()) return "cancelled";
   const fail = (reason: string): false => {
     registry.reasons.set(source.cacheId, reason);
     console.error(`[scrub-sprites] ${source.cacheId}: ${reason}`);
@@ -268,7 +281,8 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
   if (!version) return fail("fichier source introuvable depuis le serveur");
   if (await readManifest(source)) return true;
 
-  const duration = await probeDuration(source.filePath);
+  const duration = await probeDuration(source.filePath, cancelled);
+  if (cancelled()) return "cancelled";
   if (!duration) return fail("durée illisible (ffprobe indisponible ou fichier non analysable)");
 
   const count = Math.min(MAX_THUMBS, Math.floor(duration / SPRITE_INTERVAL_SEC) + 1);
@@ -284,7 +298,7 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
     let lastStderr = "";
     let lastGood: string | null = null;
     for (let i = 0; i < count; i++) {
-      if (opts.shouldCancel?.()) return false;
+      if (cancelled()) return "cancelled";
       const out = path.join(tmpDir, `t${i}.jpg`);
       // Milieu de l'intervalle : le tout début d'un film est souvent noir.
       const at = Math.min(duration - 0.5, (i + 0.5) * SPRITE_INTERVAL_SEC);
@@ -292,7 +306,9 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
         ffmpeg,
         ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-ss", at.toFixed(2), "-noaccurate_seek", "-i", source.filePath, "-an", "-sn", "-frames:v", "1", "-vf", scale, "-q:v", "5", out],
         THUMB_TIMEOUT_MS,
+        cancelled,
       );
+      if (cancelled()) return "cancelled";
       if (code === 0 && fs.existsSync(out)) {
         lastGood = out;
       } else {
@@ -321,7 +337,9 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
         ffmpeg,
         ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-framerate", "1", "-start_number", String(s * SPRITE_PER_SHEET), "-i", path.join(tmpDir, "t%d.jpg"), "-frames:v", "1", "-vf", `tile=${SPRITE_COLS}x${SPRITE_ROWS}`, "-q:v", "5", path.join(tmpDir, `sheet${String(s + 1).padStart(2, "0")}.jpg`)],
         60_000,
+        cancelled,
       );
+      if (cancelled()) return "cancelled";
       if (code !== 0) {
         return fail(`assemblage de la planche ${s + 1} impossible (${stderr.trim().split("\n").pop() || "ffmpeg sans message"})`);
       }

@@ -1,3 +1,9 @@
+## v1.28.116 — 10. November 2026
+
+### Player
+
+- Die Wiedergabe hat jetzt immer Vorrang vor der Vorbereitung der Zeitleisten-Vorschau: keine Erzeugung, solange eine Wiedergabe läuft (auch nicht durch Überfahren ausgelöst), ffmpeg wird sofort beendet, sobald eine Wiedergabe startet, niedrigste Festplattenpriorität unter Linux. Die Vorschau wird vorbereitet, wenn der Server im Leerlauf ist.
+
 ## v1.28.115 — 10. November 2026
 
 ### Player
