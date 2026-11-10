@@ -1,3 +1,11 @@
+## v1.28.118 — 10 novembre 2026
+
+### Lettore
+
+- Anteprime della barra di avanzamento: la preparazione non è più bloccata da qualsiasi riproduzione ma solo da una transcodifica video (il carico che interrompe davvero la riproduzione). Durante una riproduzione con video copiato gira a priorità minima con lunghe pause, così si può costruire l'anteprima del film guardato; si ferma appena parte una transcodifica.
+- La preparazione parte all'apertura del lettore quando Plex non ha un'anteprima per il file (invece che al primo passaggio del mouse).
+- Attività «Anteprime della barra di avanzamento»: ogni 30 min, per impostazione predefinita dalle 2 alle 7 (modificabile in Impostazioni → Attività pianificate).
+
 ## v1.28.117 — 10 novembre 2026
 
 ### Plex

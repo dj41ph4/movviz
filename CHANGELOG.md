@@ -1,3 +1,11 @@
+## v1.28.118 — 10 novembre 2026
+
+### Lecteur
+
+- Aperçus de la barre de progression : la préparation n'est plus bloquée par n'importe quelle lecture mais seulement par un transcodage vidéo (la charge qui coupe la lecture). Pendant une lecture en copie de la vidéo elle tourne en priorité minimale avec de longues pauses, ce qui permet d'avoir l'aperçu du film regardé ; elle s'arrête dès qu'un transcodage démarre.
+- La préparation démarre dès l'ouverture du lecteur quand Plex n'a pas d'aperçu pour le fichier (au lieu du premier survol).
+- Tâche « Aperçus de la barre de progression » : toutes les 30 min, de 2 h à 7 h par défaut (modifiable dans Réglages → Tâches planifiées).
+
 ## v1.28.117 — 10 novembre 2026
 
 ### Plex

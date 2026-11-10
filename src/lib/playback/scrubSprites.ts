@@ -8,6 +8,7 @@ import { getMovie, getMovieByPlexRatingKey, loadMovies, loadSeries } from "@/lib
 import { getPrimaryFile } from "@/lib/library/versions";
 import { readableLocalPath } from "@/lib/playback/sourceResolver";
 import { hasActivePlayback } from "@/lib/priority/userActivity";
+import { listSessions } from "@/lib/playback/engine/sessionManager";
 
 /**
  * Planches de vignettes (sprites) pour l'aperçu au survol de la barre de
@@ -34,6 +35,8 @@ const SPRITE_PER_SHEET = SPRITE_COLS * SPRITE_ROWS;
 const MAX_THUMBS = 2000;
 const THUMB_TIMEOUT_MS = 25_000;
 const PAUSE_BETWEEN_THUMBS_MS = 25;
+/** Pendant une lecture (en copie de la vidéo) : pauses longues entre deux vignettes, pour que le disque reste disponible. */
+const PAUSE_DURING_PLAYBACK_MS = 400;
 /** Plus de 25 % de vignettes impossibles à extraire : le fichier est illisible, on ne publie rien. */
 const MAX_FAILED_RATIO = 0.25;
 
@@ -215,6 +218,22 @@ async function probeDuration(filePath: string, cancelled?: () => boolean): Promi
   return code === 0 && Number.isFinite(duration) && duration > 0 ? duration : null;
 }
 
+/**
+ * La génération doit-elle céder la place ? Oui dès qu'un TRANSCODAGE VIDÉO est en cours : c'est la seule
+ * charge qui peut faire manquer le temps réel à une lecture (CPU saturé). Une lecture en copie de la vidéo
+ * (DIRECT_STREAM, REMUX : seul l'audio est converti) ne coûte presque rien : ffmpeg d'aperçu, à priorité
+ * minimale et avec de longues pauses, peut alors travailler — c'est ce qui permet d'avoir l'aperçu du film
+ * que l'on regarde sans attendre un moment de repos du serveur.
+ */
+export function shouldYieldToPlayback(): boolean {
+  if (!hasActivePlayback()) return false;
+  try {
+    return listSessions().some((session) => session.videoAction === "TRANSCODE");
+  } catch {
+    return true; // dans le doute, la lecture passe avant
+  }
+}
+
 export interface GenerateOptions {
   /** Interrompt proprement la génération (lecture démarrée, arrêt demandé…). */
   shouldCancel?: () => boolean;
@@ -268,9 +287,9 @@ export function resetFailureMemory(): void {
 
 /** true = planches prêtes · false = échec du fichier · "cancelled" = interrompu pour laisser la place à une lecture. */
 async function generate(source: LocalSource, opts: GenerateOptions): Promise<boolean | "cancelled"> {
-  // La lecture passe TOUJOURS avant : aucune génération tant qu'une lecture est en cours, même demandée
-  // par un survol, et toute génération en cours s'arrête dès qu'une lecture démarre.
-  const cancelled = () => hasActivePlayback() || !!opts.shouldCancel?.();
+  // La lecture passe TOUJOURS avant : aucune génération tant qu'un transcodage vidéo est en cours, et
+  // toute génération en cours s'arrête dès qu'un transcodage démarre.
+  const cancelled = () => shouldYieldToPlayback() || !!opts.shouldCancel?.();
   if (cancelled()) return "cancelled";
   const fail = (reason: string): false => {
     registry.reasons.set(source.cacheId, reason);
@@ -319,7 +338,7 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
         // fichier, la première valide : voir plus bas) pour garder la grille continue.
         if (lastGood) await fsp.copyFile(lastGood, out);
       }
-      await sleep(PAUSE_BETWEEN_THUMBS_MS);
+      await sleep(hasActivePlayback() ? PAUSE_DURING_PLAYBACK_MS : PAUSE_BETWEEN_THUMBS_MS);
     }
     // Les vignettes initiales manquantes (avant la première réussie) prennent la première valide.
     const first = Array.from({ length: count }, (_, i) => path.join(tmpDir, `t${i}.jpg`)).find((p) => fs.existsSync(p));

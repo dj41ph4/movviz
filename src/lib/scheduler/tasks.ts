@@ -185,12 +185,16 @@ export const TASKS: ScheduledTask[] = [
     // Seuls les fichiers que Plex n'a pas liés sont concernés (Plex fournit déjà
     // les siens). Un fichier à la fois, un thread, priorité minimale ; s'arrête
     // dès qu'une lecture démarre et reprend au passage suivant (les fichiers
-    // déjà faits sont sautés), donc jamais de gêne pour le streaming.
-    intervalMs: 6 * 60 * 60 * 1000,
+    // déjà faits sont sautés), donc jamais de gêne pour le streaming. Toutes les 30 min : un seul
+    // passage de 40 min toutes les 6 h ne suffisait pas à préparer des dizaines de films.
+    intervalMs: 30 * 60 * 1000,
+    // La nuit seulement (modifiable dans Réglages → Tâches planifiées) : le film regardé, lui, est préparé à la
+    // demande par le lecteur ; cette tâche ne sert qu'à rattraper les autres fichiers sans aperçu Plex.
+    defaultWindow: { startHour: 2, endHour: 7 },
     run: async () => {
       if (!isScrubSpritesEnabled()) return;
       const sources = listUnlinkedLocalSources();
-      const deadline = Date.now() + 40 * 60 * 1000;
+      const deadline = Date.now() + 25 * 60 * 1000;
       for (let i = 0; i < sources.length; i++) {
         if (hasActivePlayback() || Date.now() > deadline) break;
         reportJobProgress(i, sources.length);

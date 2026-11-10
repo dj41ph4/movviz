@@ -1,3 +1,11 @@
+## v1.28.118 — 10 november 2026
+
+### Speler
+
+- Voorbeelden van de voortgangsbalk: de voorbereiding wordt niet meer door elke weergave geblokkeerd, maar alleen door een videotranscodering (de belasting die het afspelen echt onderbreekt). Tijdens afspelen met gekopieerde video draait ze met laagste prioriteit en lange pauzes, zodat het voorbeeld van de bekeken film kan ontstaan; ze stopt zodra een transcodering start.
+- De voorbereiding start zodra de speler opent wanneer Plex geen voorbeeld voor het bestand heeft (in plaats van bij de eerste hover).
+- Taak „Voorbeeldbeelden van de voortgangsbalk”: elke 30 min, standaard van 2 tot 7 uur (aanpasbaar in Instellingen → Geplande taken).
+
 ## v1.28.117 — 10 november 2026
 
 ### Plex

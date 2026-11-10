@@ -2475,6 +2475,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // elle est souvent finie avant le premier survol.
   useEffect(() => { if (!hasRealPlexLink) refreshSprites(true); }, [hasRealPlexLink, refreshSprites]);
 
+  // Fichier lié à Plex : un seul essai discret à l'ouverture. Si Plex n'a pas d'aperçu pour ce fichier
+  // (arrêté, erreur serveur, index absent), la préparation de nos planches démarre tout de suite au lieu
+  // d'attendre le premier survol ; si Plex en fournit, rien n'est généré.
+  useEffect(() => {
+    if (!hasRealPlexLink) return;
+    const ac = new AbortController();
+    fetch(`/api/stream/${ratingKey}/scrub-thumb?t=60000`, { signal: ac.signal })
+      .then((res) => { if (!res.ok && !ac.signal.aborted) { plexDeadRef.current = true; refreshSprites(true); } })
+      .catch(() => { if (!ac.signal.aborted) { plexDeadRef.current = true; refreshSprites(true); } });
+    return () => ac.abort();
+  }, [hasRealPlexLink, ratingKey, refreshSprites]);
+
   useEffect(() => () => {
     scrubCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
     scrubCacheRef.current.clear();

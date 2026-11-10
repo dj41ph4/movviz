@@ -1,3 +1,11 @@
+## v1.28.118 — 10. November 2026
+
+### Player
+
+- Zeitleisten-Vorschau: Die Vorbereitung wird nicht mehr von jeder Wiedergabe blockiert, sondern nur noch von einer Video-Transkodierung (die Last, die die Wiedergabe tatsächlich unterbricht). Während einer Wiedergabe mit kopiertem Video läuft sie mit niedrigster Priorität und langen Pausen, sodass die Vorschau des gerade angesehenen Films entstehen kann; sie stoppt, sobald eine Transkodierung startet.
+- Die Vorbereitung startet beim Öffnen des Players, wenn Plex keine Vorschau für die Datei hat (statt beim ersten Überfahren).
+- Aufgabe „Vorschaubilder der Zeitleiste“: alle 30 Min., standardmäßig von 2 bis 7 Uhr (änderbar unter Einstellungen → Geplante Aufgaben).
+
 ## v1.28.117 — 10. November 2026
 
 ### Plex

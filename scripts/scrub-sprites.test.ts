@@ -117,27 +117,44 @@ test("un fichier dans le dossier de la bibliothèque est résolu, par id Movviz"
   assert.deepEqual(unlinked, ["mv_local"]);
 });
 
-test("aucune génération tant qu'une lecture est en cours, et elle est interrompue dès qu'une lecture démarre", { skip: !ffmpegOk }, async () => {
+test("un transcodage vidéo bloque la génération ; une lecture en copie de la vidéo ne la bloque pas", { skip: !ffmpegOk }, async () => {
+  const engine = await import("../src/lib/playback/engine/sessionManager.ts");
   const playback = globalThis as typeof globalThis & { __movvizPlaybackSessions?: Map<string, { lastHeartbeatAt: number; lastIsPlaying: boolean }> };
-  const target = { cacheId: "film-playback", filePath: video };
-  playback.__movvizPlaybackSessions = new Map([["s1", { lastHeartbeatAt: Date.now(), lastIsPlaying: true }]]);
+  const startPlayback = (id: string) => { playback.__movvizPlaybackSessions = new Map([[id, { lastHeartbeatAt: Date.now(), lastIsPlaying: true }]]); };
+  const session = (videoAction: "COPY" | "TRANSCODE") => engine.createSession({
+    userId: "u", deviceId: "d", clientType: "desktop-web", mediaId: "m", mode: videoAction === "COPY" ? "DIRECT_STREAM" : "TRANSCODE",
+    videoAction, audioAction: "TRANSCODE", subtitleAction: "NONE", plan: {} as never,
+  });
   try {
-    // Lecture en cours : refus immédiat, sans dossier ni échec mémorisé.
-    assert.equal(await sprites.ensureSprites(target), false);
-    assert.equal(sprites.hasRecentlyFailed("film-playback"), false);
-    assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-playback")), false);
+    // Lecture en copie de la vidéo : l'aperçu se prépare (c'est ce qui donne l'aperçu du film regardé).
+    startPlayback("copy");
+    const copy = session("COPY");
+    assert.equal(sprites.shouldYieldToPlayback(), false);
+    assert.equal(await sprites.ensureSprites({ cacheId: "film-copy", filePath: video }), true);
+    engine.endSession(copy.sessionId);
+
+    // Transcodage vidéo en cours : refus immédiat, sans dossier ni échec mémorisé.
+    const heavy = session("TRANSCODE");
+    assert.equal(sprites.shouldYieldToPlayback(), true);
+    assert.equal(await sprites.ensureSprites({ cacheId: "film-heavy", filePath: video }), false);
+    assert.equal(sprites.hasRecentlyFailed("film-heavy"), false);
+    assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-heavy")), false);
+    engine.endSession(heavy.sessionId);
+
+    // Transcodage démarré EN COURS de génération : arrêt rapide, aucun échec, aucune planche publiée.
+    startPlayback("late");
+    const running = sprites.ensureSprites({ cacheId: "film-midway", filePath: video });
+    let heavy2: { sessionId: string } | null = null;
+    setTimeout(() => { heavy2 = session("TRANSCODE"); }, 150);
+    const started = Date.now();
+    assert.equal(await running, false);
+    assert.ok(Date.now() - started < 3_000, "doit s'interrompre sans attendre la fin");
+    assert.equal(sprites.hasRecentlyFailed("film-midway"), false);
+    assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-midway")), false);
+    if (heavy2) engine.endSession((heavy2 as { sessionId: string }).sessionId);
   } finally {
     playback.__movvizPlaybackSessions = undefined;
   }
-  // Lecture démarrée EN COURS de génération : arrêt rapide, aucun échec, aucune planche publiée.
-  const running = sprites.ensureSprites({ cacheId: "film-midway", filePath: video });
-  setTimeout(() => { playback.__movvizPlaybackSessions = new Map([["s2", { lastHeartbeatAt: Date.now(), lastIsPlaying: true }]]); }, 150);
-  const started = Date.now();
-  assert.equal(await running, false);
-  playback.__movvizPlaybackSessions = undefined;
-  assert.ok(Date.now() - started < 3_000, "doit s'interrompre sans attendre la fin");
-  assert.equal(sprites.hasRecentlyFailed("film-midway"), false);
-  assert.equal(fs.existsSync(path.join(dir, "scrub-sprites", "film-midway")), false);
 });
 
 test("nettoyage", () => { fs.rmSync(dir, { recursive: true, force: true }); });

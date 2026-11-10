@@ -1,3 +1,11 @@
+## v1.28.118 — November 10, 2026
+
+### Player
+
+- Seek bar previews: preparation is no longer blocked by any playback, only by a video transcode (the load that actually interrupts playback). During a video-copy playback it runs at lowest priority with long pauses, so the preview of the film being watched can be built; it stops as soon as a transcode starts.
+- Preparation starts as soon as the player opens when Plex has no preview for the file (instead of on the first hover).
+- "Seek bar previews" task: every 30 min, from 2 am to 7 am by default (editable in Settings → Scheduled tasks).
+
 ## v1.28.117 — November 10, 2026
 
 ### Plex

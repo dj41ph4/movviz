@@ -2,8 +2,7 @@ import fs from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { isScrubSpritesEnabled } from "@/lib/settings/scrubSprites";
-import { hasActivePlayback } from "@/lib/priority/userActivity";
-import { ensureSprites, failureReason, hasRecentlyFailed, isGenerating, readManifest, resolveLocalSource, sheetPath } from "@/lib/playback/scrubSprites";
+import { ensureSprites, failureReason, hasRecentlyFailed, isGenerating, readManifest, resolveLocalSource, sheetPath, shouldYieldToPlayback } from "@/lib/playback/scrubSprites";
 
 export const dynamic = "force-dynamic";
 
@@ -52,9 +51,9 @@ export async function GET(req: NextRequest, context: Ctx) {
   // Génération déjà tentée sans succès : le lecteur cesse de demander (404) au lieu de relancer à chaque survol.
   if (hasRecentlyFailed(source.cacheId)) return NextResponse.json({ error: "unavailable", reason: failureReason(source.cacheId) }, { status: 404 });
 
-  // La lecture passe avant tout : pendant qu'une lecture est en cours (la vôtre comprise), rien n'est lancé.
-  // L'aperçu sera préparé quand le serveur sera au repos.
-  if (hasActivePlayback()) return NextResponse.json({ state: "waiting" }, { status: 202, headers: { "cache-control": "private, no-store" } });
+  // La lecture passe avant tout : pendant un transcodage vidéo (le plus lourd), rien n'est lancé.
+  // Une lecture en copie de la vidéo ne bloque pas la préparation (priorité minimale, longues pauses).
+  if (shouldYieldToPlayback()) return NextResponse.json({ state: "waiting" }, { status: 202, headers: { "cache-control": "private, no-store" } });
 
   if (!isGenerating(source.cacheId)) {
     // Génération en arrière-plan : échec ou succès sont consignés, jamais remontés au lecteur.
