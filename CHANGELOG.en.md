@@ -1,3 +1,11 @@
+## v1.28.123 — November 11, 2026
+
+### Performance
+
+- First load after a long pause: the home page no longer stalls while the artwork comes in. Recently displayed images are kept in memory (96 MB at most) instead of being read from disk every time, and an image already on disk now costs a single read.
+- The home page and the rows are only recompressed when their content has changed; otherwise the same bytes are sent as they are.
+- Disk reads, compression and name resolution now have 16 worker threads instead of 4 (Docker, Linux, native Synology), so a burst of images no longer delays other calls.
+
 ## v1.28.122 — November 10, 2026
 
 ### Security

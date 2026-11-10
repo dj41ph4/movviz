@@ -1,3 +1,11 @@
+## v1.28.123 — 11 novembre 2026
+
+### Performances
+
+- Premier chargement après une longue pause : l'accueil ne reste plus bloqué pendant que les affiches arrivent. Les images récemment affichées sont gardées en mémoire (96 Mo au plus) au lieu d'être relues sur le disque à chaque fois, et une image déjà présente ne coûte plus qu'une seule lecture.
+- L'accueil et les rangées ne sont recompressés que lorsque leur contenu a changé ; sinon les mêmes octets sont renvoyés tels quels.
+- Les lectures disque, la compression et la résolution de noms disposent de 16 fils d'exécution au lieu de 4 (Docker, Linux, Synology natif), pour qu'une rafale d'images ne retarde plus les autres appels.
+
 ## v1.28.122 — 10 novembre 2026
 
 ### Sécurité

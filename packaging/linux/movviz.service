@@ -10,6 +10,7 @@ User=movviz
 Group=movviz
 WorkingDirectory=/opt/movviz/.next/standalone
 Environment=NODE_ENV=production
+Environment=UV_THREADPOOL_SIZE=16
 Environment=MOVVIZ_WEB_PORT=9810
 Environment=MOVVIZ_ENGINE_PORT=9820
 Environment=MOVVIZ_TORRENT_PORT=55000

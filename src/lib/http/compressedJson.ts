@@ -22,7 +22,7 @@ const MIN_BYTES = 8 * 1024;
  * every load kept the libuv thread pool busy exactly when a page load needs it for everything
  * else. The JSON text itself is compared, so a changed answer can never be served stale.
  */
-const MEMO_MAX = 24;
+const MEMO_MAX = 16;
 const gMemo = globalThis as typeof globalThis & {
   __movvizCompressedJsonMemo?: Map<string, { body: string; bytes: Uint8Array }>;
 };

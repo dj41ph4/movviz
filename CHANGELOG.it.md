@@ -1,3 +1,11 @@
+## v1.28.123 — 11 novembre 2026
+
+### Prestazioni
+
+- Primo caricamento dopo una lunga pausa: la home non resta più bloccata mentre arrivano le locandine. Le immagini mostrate di recente restano in memoria (96 MB al massimo) invece di essere rilette dal disco ogni volta, e un'immagine già presente costa ormai una sola lettura.
+- La home e le righe vengono ricompresse solo quando il loro contenuto è cambiato; altrimenti vengono inviati gli stessi byte così come sono.
+- Letture su disco, compressione e risoluzione dei nomi dispongono di 16 thread invece di 4 (Docker, Linux, Synology nativo), così una raffica di immagini non ritarda più le altre chiamate.
+
 ## v1.28.122 — 10 novembre 2026
 
 ### Sicurezza

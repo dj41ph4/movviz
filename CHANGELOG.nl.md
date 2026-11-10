@@ -1,3 +1,11 @@
+## v1.28.123 — 11 november 2026
+
+### Prestaties
+
+- Eerste keer laden na een lange pauze: de startpagina blijft niet meer hangen terwijl de afbeeldingen binnenkomen. Recent getoonde afbeeldingen blijven in het geheugen (hooguit 96 MB) in plaats van telkens van schijf te worden gelezen, en een afbeelding die er al staat kost nog maar één leesactie.
+- De startpagina en de rijen worden alleen opnieuw gecomprimeerd wanneer hun inhoud is gewijzigd; anders worden dezelfde bytes ongewijzigd verstuurd.
+- Schijfleesacties, compressie en naamomzetting beschikken nu over 16 threads in plaats van 4 (Docker, Linux, Synology native), zodat een golf afbeeldingen andere aanroepen niet meer vertraagt.
+
 ## v1.28.122 — 10 november 2026
 
 ### Beveiliging

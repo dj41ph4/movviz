@@ -1,3 +1,11 @@
+## v1.28.123 — 11. November 2026
+
+### Leistung
+
+- Erster Aufruf nach einer langen Pause: Die Startseite bleibt nicht mehr hängen, während die Bilder geladen werden. Zuletzt angezeigte Bilder bleiben im Arbeitsspeicher (höchstens 96 MB), statt jedes Mal von der Festplatte gelesen zu werden, und ein bereits vorhandenes Bild kostet nur noch einen einzigen Lesevorgang.
+- Die Startseite und die Reihen werden nur neu komprimiert, wenn sich ihr Inhalt geändert hat; sonst werden dieselben Bytes unverändert gesendet.
+- Festplattenzugriffe, Komprimierung und Namensauflösung nutzen jetzt 16 Threads statt 4 (Docker, Linux, Synology nativ), damit eine Bilderflut andere Aufrufe nicht mehr verzögert.
+
 ## v1.28.122 — 10. November 2026
 
 ### Sicherheit

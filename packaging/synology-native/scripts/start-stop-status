@@ -32,7 +32,7 @@ case "${1:-}" in
     running && exit 0
     [ -x "$NODE" ] || { echo "Node.js v22 package is required: $NODE" >&2; exit 1; }
     mkdir -p "$VAR/log"
-    export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+    export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 UV_THREADPOOL_SIZE=16
     export PORT=9810 HOSTNAME=0.0.0.0 MOVVIZ_WEB_PORT=9810
     export MOVVIZ_ENGINE_PORT=9820 MOVVIZ_RESOLVER_PORT=9830
     export MOVVIZ_CONFIG_DIR="$VAR" MOVVIZ_DATA_DIR="$VAR"

@@ -32,7 +32,8 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     MOVVIZ_CONFIG_DIR=/config \
     MOVVIZ_DATA_DIR=/data \
-    MOVVIZ_CONTAINER=1
+    MOVVIZ_CONTAINER=1 \
+    UV_THREADPOOL_SIZE=16
 
 # Non-root runtime user — default uid/gid, remapped at container start to
 # whatever PUID/PGID the NAS admin sets (see docker-entrypoint.sh) so writes
