@@ -9,6 +9,7 @@ import { Check, HardDriveDownload, Loader2, Sparkles } from "lucide-react";
 import { aggregateBadges } from "./MediaBadges";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
 import type { BleachPart } from "@/lib/metadata/bleachPresentation";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 
 export function LibrarySeriesCard({
   series, index = 0, onChange, backdropPath, logoPath, titleEmbedded,
@@ -24,6 +25,8 @@ export function LibrarySeriesCard({
   const { t } = useI18n();
   const reduceMotion = useShouldReduceMotion();
   const [busy, setBusy] = useState(false);
+  // « Optimiser » remplace des fichiers : outil de gestion réservé aux admins (le serveur le refuse aussi).
+  const isAdmin = useCurrentUser()?.role === "admin";
 
   const episodes = series.seasons.flatMap((s) => s.episodes);
   const aggregateFile = aggregateBadges(episodes);
@@ -73,7 +76,7 @@ export function LibrarySeriesCard({
         inLibrary={!series.seriesPart || episodes.length > 0}
         technical={aggregateFile ? { resolution: aggregateFile.resolution, videoCodec: aggregateFile.videoCodec, audioCodec: aggregateFile.audioCodec, hdr: aggregateFile.hdr } : undefined}
         popoverActions={
-          hasAvailableEpisodes ? (
+          isAdmin && hasAvailableEpisodes ? (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); void handleOptimize(); }}

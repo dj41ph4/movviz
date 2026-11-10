@@ -37,6 +37,7 @@ import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { canCompleteMissing } from "@/lib/auth/permissions";
 import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
@@ -241,6 +242,10 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
   const { locale, t } = useI18n();
   const router = useRouter();
   const user = useCurrentUser();
+  // Un utilisateur demande un titre ; rechercher, choisir une release ou gérer les versions reste réservé aux admins (le serveur le refuse aussi).
+  const isAdmin = user?.role === "admin";
+  // Admin, ou utilisateur en acceptation automatique : peut relancer la recherche de ce qui MANQUE (jamais remplacer).
+  const canComplete = canCompleteMissing(user);
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play, request: playerRequest } = usePlayer();
 
@@ -570,7 +575,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
 
   const inLibrary = added || libraryStatus !== null;
   const canSearch =
-    !partActionBlocked && inLibrary && libraryMatch?.id && libraryStatus !== "downloading" && libraryStatus !== "searching";
+    (isAdmin || (canComplete && (type === "series" || !libraryMatch?.file))) && !partActionBlocked && inLibrary && libraryMatch?.id && libraryStatus !== "downloading" && libraryStatus !== "searching";
 
   /* ── job state (shared via job queue) ───────────────────────────────── */
 
@@ -1667,7 +1672,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                       {libraryStatus === "available" ? "" : t("activity.searchNow")}
                     </button>
                   )}
-                  {libraryMatch?.id && (
+                  {isAdmin && libraryMatch?.id && (
                     <button
                       onClick={openManualSearch}
                       title={t("library.manualSearch")}
@@ -1676,7 +1681,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                       <ListFilter className="h-4 w-4" />
                     </button>
                   )}
-                  {type === "movie" && libraryStatus === "available" && libraryMatch?.file && libraryMatch?.id && (
+                  {isAdmin && type === "movie" && libraryStatus === "available" && libraryMatch?.file && libraryMatch?.id && (
                     <button
                       onClick={() => setVersionsOpen(true)}
                       title={
@@ -1881,7 +1886,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 <h2 className="text-lg font-bold text-ink">
                   {t("title.seasons")}
                 </h2>
-                {libraryMatch?.id && (
+                {canComplete && libraryMatch?.id && (
                   <div className="flex flex-wrap gap-2">
                     {detail.isAnime && user?.role === "admin" && (
                       <button
@@ -1900,7 +1905,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                         </span>
                       </button>
                     )}
-                    <button
+                    {isAdmin && <button
                       onClick={searchCompleteSeries}
                       disabled={isSearchingCompleteSeries}
                       title={t("library.searchCompleteSeries")}
@@ -1914,7 +1919,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                       <span className="hidden sm:inline">
                         {t("library.searchCompleteSeries")}
                       </span>
-                    </button>
+                    </button>}
                     <button
                       onClick={triggerSearch}
                       disabled={isSearching || partActionBlocked}
@@ -1944,6 +1949,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 tmdbId={detail.tmdbId}
                 seriesPart={seriesPart}
                 readOnly={partActionBlocked}
+                searchMissingOnly={!isAdmin}
                 searchingBleachPart={effectiveSearchingBleachPart}
                 seasons={detail.seasons}
                 librarySeasons={libraryMatch?.seasons}
@@ -1951,16 +1957,16 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 onWatchedChanged={mutateWatch}
                 onFollowChanged={user?.role === "admin" ? () => { void mutateLibrary(); } : undefined}
                 onSearchSeason={
-                  libraryMatch?.id && !partActionBlocked ? searchSeason : undefined
+                  canComplete && libraryMatch?.id && !partActionBlocked ? searchSeason : undefined
                 }
                 onManualSearchSeason={
-                  libraryMatch?.id && !partActionBlocked ? openManualSearchSeason : undefined
+                  isAdmin && libraryMatch?.id && !partActionBlocked ? openManualSearchSeason : undefined
                 }
                 onSearchEpisode={
-                  libraryMatch?.id && !partActionBlocked ? searchEpisode : undefined
+                  canComplete && libraryMatch?.id && !partActionBlocked ? searchEpisode : undefined
                 }
                 onManualSearchEpisode={
-                  libraryMatch?.id
+                  isAdmin && libraryMatch?.id
                     ? openManualSearchEpisode
                     : undefined
                 }

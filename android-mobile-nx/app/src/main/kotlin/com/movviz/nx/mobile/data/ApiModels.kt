@@ -320,7 +320,13 @@ data class MovvizUserDto(
     val plexAvatar: String? = null,
     // Photo perso (serveur ≥ 1.24.120, tolérée absente comme accountStatus).
     val customAvatar: String? = null,
+    // Demandes acceptées automatiquement (absent sur un ancien serveur : traité comme non).
+    val autoApproveRequests: Boolean? = null,
 ) {
+    /** Admin, ou utilisateur en acceptation automatique : peut relancer la recherche de ce qui MANQUE
+     *  (saison, épisode). Les autres n'ont que la demande ; le serveur refuse de toute façon. */
+    fun canCompleteMissing(): Boolean = role == "admin" || autoApproveRequests == true
+
     /** Photo effective : choix Movviz d'abord, Plex ensuite. */
     fun effectiveAvatar(): String? = customAvatar ?: plexAvatar
 }

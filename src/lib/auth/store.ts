@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomBytes, createHmac } from "node:crypto";
 import type { User } from "./types";
 import { getRawSigningKey } from "./signing";
+import { safeEqual } from "./rateLimit";
 import { eventBus } from "@/lib/events/EventBus";
 import { avatarFileFor, publicAvatarUrl } from "@/lib/avatars";
 
@@ -164,7 +165,7 @@ export function resolveSession(cookie: string | undefined | null): User | null {
   const sessions = loadSessions();
   const session = sessions.find((s) => s.token === raw);
   if (!session || session.expiresAt < Date.now()) return null;
-  if (sig && sig !== hmacSign(raw)) return null;
+  if (sig && !safeEqual(sig, hmacSign(raw))) return null;
   return getUserById(session.userId);
 }
 

@@ -174,9 +174,9 @@ export async function GET(req: NextRequest) {
       libraryFilePaths(),
       () => selectDashboardHomeHead(loadPayload()),
     );
-    return compressedJson(req, head, { headers: { "Cache-Control": "private, no-cache" } });
+    return compressedJson(req, head, { headers: { "Cache-Control": "private, no-cache" }, cacheKey: "interface-head" });
   }
   // « À revoir » dépend de l'utilisateur : calculé à chaque requête, hors
   // du cache partagé ci-dessus (données locales seulement, aucun appel TMDb).
-  return compressedJson(req, { ...loadPayload(), rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" } });
+  return compressedJson(req, { ...loadPayload(), rewatch: buildRewatchRow(user.id) }, { headers: { "Cache-Control": "private, no-cache" }, cacheKey: `interface-dashboard:${user.id}` });
 }

@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { canCompleteMissing } from "@/lib/auth/permissions";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
 import { encodeLibraryRef } from "@/lib/library/types";
@@ -153,13 +154,13 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
               onClick={toggleWatched}
               busy={togglingWatched}
             />
-            {movie.status === "available" && movie.file && (
+            {user?.role === "admin" && movie.status === "available" && movie.file && (
               <MenuItem icon={Sparkles} label={t("library.optimize")} onClick={handleOptimize} busy={busy} />
             )}
-            {canGrab && (
+            {(user?.role === "admin" || (canCompleteMissing(user) && !movie.file)) && canGrab && (
               <MenuItem icon={RotateCw} label={t("library.autoSearch")} onClick={search} busy={busy} />
             )}
-            {canGrab && (
+            {user?.role === "admin" && canGrab && (
               <MenuItem icon={ListFilter} label={t("library.manualSearch")} onClick={() => setShowManualSearch(true)} />
             )}
             {user?.role === "admin" && !confirmDelete && (

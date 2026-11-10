@@ -1573,6 +1573,7 @@ fun TitleDetailScreen(
                 railEntryFocusRequester = if (episodePageOpen) null else entryFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
                 onBack = { openSeasonNumber = null },
+                canComplete = currentUser?.canCompleteMissing() == true,
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, openSeason.seasonNumber, part, openSeason.bleachPart) },
                 onToggleEpisodesWatched = { episodes, watched ->
                     viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = if (part != null) null else "season", season = if (part != null) null else openSeason.seasonNumber)
@@ -1639,6 +1640,7 @@ fun TitleDetailScreen(
                         watched,
                     )
                 },
+                canComplete = currentUser?.canCompleteMissing() == true,
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber, part, selection.season.bleachPart) },
                 onDownloadEpisode = {
                 viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber, part)
@@ -2280,6 +2282,7 @@ private fun SeasonPageOverlay(
     railEntryFocusRequester: FocusRequester? = null,
     navRailFocusRequester: FocusRequester? = null,
     onBack: () -> Unit,
+    canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
     onPlayEpisode: (SeriesEpisodeDto) -> Unit,
@@ -2414,6 +2417,7 @@ private fun SeasonPageOverlay(
                         backFocus = backFocus,
                         onBack = onBack,
                         navRailFocusRequester = navRailFocusRequester,
+                        canComplete = canComplete,
                         onDownloadSeason = onDownloadSeason,
                         onToggleEpisodesWatched = onToggleEpisodesWatched,
                         onPlayEpisode = onPlayEpisode,
@@ -2459,6 +2463,7 @@ private fun SeasonPageHeader(
     backFocus: FocusRequester,
     onBack: () -> Unit,
     navRailFocusRequester: FocusRequester?,
+    canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
     onPlayEpisode: (SeriesEpisodeDto) -> Unit,
@@ -2553,7 +2558,10 @@ private fun SeasonPageHeader(
                     // entamée : « Compléter la saison ». Dans les deux cas, l'état
                     // vivant (recherche, file, % en direct) remplace le bouton.
                     val seasonSearching = downloading || season.episodes.any { it.status == "searching" }
-                    if (missingCount > 0 || seasonLive != null || seasonSearching) {
+                    // Compte sans droit de complétion : pas de bouton d'action, mais l'état vivant d'un
+                    // téléchargement déjà en cours reste affiché.
+                    val showSeasonDownload = (canComplete && missingCount > 0) || seasonLive != null || seasonSearching
+                    if (showSeasonDownload) {
                         DownloadAction(
                             label = if (season.episodes.none { episodeIsPlayable(it) }) "Télécharger la saison" else "Compléter la saison",
                             live = seasonLive,
@@ -2570,7 +2578,9 @@ private fun SeasonPageHeader(
                             onClick = { onToggleEpisodesWatched(targets, !allWatched) },
                         )
                     }
-                    PrimaryPill(text = "Retour", brush = null, focusRequester = backFocus, onClick = onBack)
+                    // Aucune action principale rendue : « Retour » porte l'ancre de focus principale, sinon
+                    // l'écran s'ouvrirait sans cible (piège requestFocus refusé).
+                    PrimaryPill(text = "Retour", brush = null, focusRequester = if (landingEpisode == null && !showSeasonDownload) primaryActionFocus else backFocus, onClick = onBack)
                 }
             }
         }
@@ -2873,6 +2883,7 @@ private fun EpisodeDetailOverlay(
     onPlay: () -> Unit,
     onPlayFromStart: () -> Unit,
     onToggleWatched: (Boolean) -> Unit,
+    canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onDownloadEpisode: () -> Unit,
 ) {
@@ -2886,6 +2897,10 @@ private fun EpisodeDetailOverlay(
     val primaryActionFocus = remember { FocusRequester() }
     // Repli : « Retour » existe dans tous les états de l'épisode.
     val backFocus = remember { FocusRequester() }
+    // Le bouton « Télécharger l'épisode » n'est proposé qu'à un compte autorisé à compléter un manquant ;
+    // dès qu'un téléchargement existe déjà (recherche, file, import), son état vivant reste affiché à tous.
+    val showEpisodeDownload = canComplete || episode.status != "missing" ||
+        episodeDownloads["${selection.season.seasonNumber}.${episode.episodeNumber}"] != null
     suspend fun landFocus() {
         repeat(30) { attempt ->
             if (listOf(primaryActionFocus, backFocus).any { runCatching { it.requestFocus() }.getOrDefault(false) }) return
@@ -3082,7 +3097,7 @@ private fun EpisodeDetailOverlay(
                         // L'épisode manquant se télécharge SEUL, avec son état
                         // vivant : en file, recherche, % en direct, import.
                         val episodeItem = episodeDownloads["${selection.season.seasonNumber}.${episode.episodeNumber}"]
-                        DownloadAction(
+                        if (showEpisodeDownload) DownloadAction(
                             label = "Télécharger l'épisode",
                             live = liveDownloadOf(listOfNotNull(episodeItem)),
                             searching = episode.status == "searching",
@@ -3101,7 +3116,7 @@ private fun EpisodeDetailOverlay(
                         val season = selection.season
                         val seasonItems = seasonQueueItems(episodeDownloads, season.seasonNumber)
                         val samePack = seasonItems.size == 1 && seasonItems.first().id == episodeItem?.id
-                        if (season.episodes.size > 1 && season.episodes.none { episodeIsPlayable(it) } && !samePack) {
+                        if ((canComplete || seasonItems.isNotEmpty()) && season.episodes.size > 1 && season.episodes.none { episodeIsPlayable(it) } && !samePack) {
                             DownloadAction(
                                 label = "Télécharger la saison",
                                 live = liveDownloadOf(seasonItems),
@@ -3120,7 +3135,9 @@ private fun EpisodeDetailOverlay(
                     PrimaryPill(
                         text = "Retour",
                         brush = null,
-                        focusRequester = if (!available && episode.status == "upcoming") primaryActionFocus else backFocus,
+                        // Aucune action principale rendue (à venir, ou compte sans droit de complétion) :
+                        // « Retour » porte l'ancre de focus principale.
+                        focusRequester = if (!available && (episode.status == "upcoming" || !showEpisodeDownload)) primaryActionFocus else backFocus,
                         onClick = onDismiss,
                     )
                 }

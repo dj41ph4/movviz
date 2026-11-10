@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { trending, tmdbConfigured } from "@/lib/metadata/tmdb";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!tmdbConfigured()) {
     return NextResponse.json({ configured: false, results: [], page: 1, totalPages: 0 });
   }

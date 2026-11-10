@@ -13,6 +13,7 @@ import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { decodeLibraryRef } from "@/lib/library/types";
 import type { Collection } from "@/lib/collections/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { canCompleteMissing } from "@/lib/auth/permissions";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import {
   Film, Tv, ListChecks, Library as LibraryIcon, LibraryBig, RotateCw, Calendar, Download,
@@ -527,6 +528,8 @@ interface WantedEpisode {
 
 function WantedTab() {
   const { t, locale } = useI18n();
+  // Relancer la recherche d'un manquant : admins et utilisateurs en acceptation automatique (le serveur le refuse aux autres).
+  const canComplete = canCompleteMissing(useCurrentUser());
   const [busy, setBusy] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [allProgress, setAllProgress] = useState<{ current: number; total: number } | null>(null);
@@ -672,7 +675,7 @@ function WantedTab() {
           <span className="shrink-0 whitespace-nowrap px-1.5 text-sm font-semibold text-ink-dim">
             <b className="text-ink">{total}</b>{filtering ? ` ${t("wanted.shownOf")} ${grandTotal}` : ` ${t("common.titles")}`}
           </span>
-          <div className="ml-auto flex items-center gap-2">
+          {canComplete && <div className="ml-auto flex items-center gap-2">
             {confirming ? (
               <>
                 <span className="text-sm font-semibold text-ink">{t("wanted.confirmRetry", { n: total })}</span>
@@ -694,7 +697,7 @@ function WantedTab() {
                 {downloadingAll && allProgress ? `${allProgress.current} / ${allProgress.total}` : filtering ? t("wanted.retrySelection") : t("wanted.downloadAll")}
               </button>
             )}
-          </div>
+          </div>}
         </div>
       )}
       <div className="space-y-2">
@@ -710,7 +713,7 @@ function WantedTab() {
             </span>
           )}
           <span className="hidden shrink-0 text-xs text-ink-dim md:inline">{relativeTime(new Date(movie.addedAt).toISOString(), locale)}</span>
-          <button
+          {canComplete && <button
             onClick={() => searchMovie(movie.id)}
             disabled={busy === `m${movie.id}`}
             title={t("calendar.quickSearch")}
@@ -718,7 +721,7 @@ function WantedTab() {
             className={retryBtn}
           >
             {busy === `m${movie.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-          </button>
+          </button>}
         </div>
       ))}
       {visibleEpisodes.map((e) => (
@@ -732,7 +735,7 @@ function WantedTab() {
               <Calendar className="h-3 w-3" /> {formatDate(e.airDate, locale)}
             </span>
           )}
-          <button
+          {canComplete && <button
             onClick={() => searchEpisode(e.series.id, e.season, e.episode)}
             disabled={busy === `e${e.series.id}.${e.season}.${e.episode}`}
             title={t("calendar.quickSearch")}
@@ -740,7 +743,7 @@ function WantedTab() {
             className={retryBtn}
           >
             {busy === `e${e.series.id}.${e.season}.${e.episode}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-          </button>
+          </button>}
         </div>
       ))}
       </div>

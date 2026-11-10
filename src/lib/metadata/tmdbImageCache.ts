@@ -13,8 +13,62 @@ const CACHE_DIR = path.join(CONFIG_DIR, "tmdb-artwork");
 const IMAGE_SIZES = new Set(["w45", "w92", "w154", "w185", "w200", "w300", "w342", "w500", "w780", "w1280", "original"]);
 const IMAGE_FILE = /^[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|svg)$/i;
 
-const g = globalThis as typeof globalThis & { __movvizTmdbImageInFlight?: Map<string, Promise<string | null>> };
+const g = globalThis as typeof globalThis & {
+  __movvizTmdbImageInFlight?: Map<string, Promise<string | null>>;
+  __movvizTmdbImageMemory?: { entries: Map<string, Buffer>; bytes: number };
+  __movvizTmdbLegacyChecked?: Set<string>;
+};
 const inFlight: Map<string, Promise<string | null>> = (g.__movvizTmdbImageInFlight ??= new Map());
+
+/**
+ * Recently served images, kept in memory. A page load asks for 100+ images at once; each one
+ * used to cost several disk calls on libuv's small thread pool, which the JSON compression and
+ * every other async file call share. After hours without a visit the OS no longer holds those
+ * files in its page cache, so the first load queued everything behind slow disk reads
+ * (measured: trivial API calls 15 ms alone, 600 ms during an image burst, event loop free).
+ * Files are immutable, so a cached buffer never goes stale; only "clear cache" empties it.
+ */
+const MEMORY_MAX_BYTES = 96 * 1024 * 1024;
+const MEMORY_MAX_FILE_BYTES = 2 * 1024 * 1024;
+const memory = (g.__movvizTmdbImageMemory ??= { entries: new Map<string, Buffer>(), bytes: 0 });
+/** Legacy w780 duplicates already looked for by this process: one unlink per file, not per request. */
+const legacyChecked: Set<string> = (g.__movvizTmdbLegacyChecked ??= new Set());
+
+function memoryGet(file: string): Buffer | undefined {
+  const hit = memory.entries.get(file);
+  if (!hit) return undefined;
+  // Map order is the eviction order: move the hit to the most-recent end.
+  memory.entries.delete(file);
+  memory.entries.set(file, hit);
+  return hit;
+}
+
+function memorySet(file: string, body: Buffer) {
+  if (body.byteLength === 0 || body.byteLength > MEMORY_MAX_FILE_BYTES) return;
+  const previous = memory.entries.get(file);
+  if (previous) {
+    memory.bytes -= previous.byteLength;
+    memory.entries.delete(file);
+  }
+  memory.entries.set(file, body);
+  memory.bytes += body.byteLength;
+  for (const [oldFile, old] of memory.entries) {
+    if (memory.bytes <= MEMORY_MAX_BYTES) break;
+    memory.entries.delete(oldFile);
+    memory.bytes -= old.byteLength;
+  }
+}
+
+function memoryClear() {
+  memory.entries.clear();
+  memory.bytes = 0;
+  legacyChecked.clear();
+}
+
+/** Diagnostics and tests: how much artwork the process currently holds in memory. */
+export function tmdbImageMemoryStats(): { files: number; bytes: number } {
+  return { files: memory.entries.size, bytes: memory.bytes };
+}
 
 export type TmdbImageSize = "w45" | "w92" | "w154" | "w185" | "w200" | "w300" | "w342" | "w500" | "w780" | "w1280" | "original";
 export type TmdbArtworkCachePart = "all" | "logos" | "backdrops";
@@ -62,11 +116,25 @@ async function removeImage(size: TmdbImageSize, rawPath: string | null): Promise
   if (!target || !safeCacheTarget(target)) return 0;
   try {
     await fs.unlink(target);
+    const cached = memory.entries.get(target);
+    if (cached) {
+      memory.entries.delete(target);
+      memory.bytes -= cached.byteLength;
+    }
     return 1;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
     throw error;
   }
+}
+
+/** Deletes the old w780 duplicate of a w1280 file, at most once per file and per process. */
+async function removeLegacyOnce(size: string, rawPath: string, target: string): Promise<void> {
+  const legacy = canonicalSize(size) === "w1280" ? legacyW780File(rawPath) : null;
+  if (!legacy || !safeCacheTarget(legacy) || legacy === target || legacyChecked.has(legacy)) return;
+  if (legacyChecked.size > 50_000) legacyChecked.clear();
+  legacyChecked.add(legacy);
+  await fs.unlink(legacy).catch(() => {});
 }
 
 /**
@@ -80,11 +148,7 @@ async function ensureTmdbImage(size: string, rawPath: string): Promise<string | 
   const filename = fileNameOf(rawPath);
   if (!target || !filename) return null;
   const sourceSize = canonicalSize(size);
-  const legacy = sourceSize === "w1280" ? legacyW780File(rawPath) : null;
-  const removeLegacy = async () => {
-    if (!legacy || !safeCacheTarget(legacy) || legacy === target) return;
-    await fs.unlink(legacy).catch(() => {});
-  };
+  const removeLegacy = () => removeLegacyOnce(size, rawPath, target);
   if (await exists(target)) {
     await removeLegacy();
     return target;
@@ -148,6 +212,7 @@ export async function clearTmdbArtworkCache(
     if (path.basename(resolvedCache) !== "tmdb-artwork" || path.dirname(resolvedCache) !== resolvedConfig) {
       throw new Error("unsafe_tmdb_artwork_cache_path");
     }
+    memoryClear();
     try {
       await fs.rm(resolvedCache, { recursive: true, force: true });
     } catch (error) {
@@ -164,9 +229,9 @@ export async function clearTmdbArtworkCache(
 }
 
 export async function readTmdbImage(size: string, rawPath: string): Promise<{ body: Buffer; contentType: string } | null> {
-  const file = await ensureTmdbImage(size, rawPath);
-  if (!file) return null;
-  const extension = path.extname(file).toLowerCase();
+  const target = imageFile(size, rawPath);
+  if (!target) return null;
+  const extension = path.extname(target).toLowerCase();
   const contentType = extension === ".png"
     ? "image/png"
     : extension === ".webp"
@@ -174,9 +239,18 @@ export async function readTmdbImage(size: string, rawPath: string): Promise<{ bo
       : extension === ".svg"
         ? "image/svg+xml"
         : "image/jpeg";
-  try {
-    return { body: await fs.readFile(file), contentType };
-  } catch {
-    return null;
+  const cached = memoryGet(target);
+  if (cached) return { body: cached, contentType };
+  // Already on disk: one read, no stat first. Only a missing file goes through the download.
+  let body = await fs.readFile(target).catch(() => null);
+  if (body && body.byteLength > 0) {
+    void removeLegacyOnce(size, rawPath, target);
+  } else {
+    const file = await ensureTmdbImage(size, rawPath);
+    if (!file) return null;
+    body = await fs.readFile(file).catch(() => null);
+    if (!body || body.byteLength === 0) return null;
   }
+  memorySet(target, body);
+  return { body, contentType };
 }

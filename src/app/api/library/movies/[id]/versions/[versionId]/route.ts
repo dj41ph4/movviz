@@ -10,6 +10,7 @@ type Ctx = { params: Promise<{ id: string; versionId: string }> };
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id, versionId } = await params;
   const movie = getMovie(id);
   if (!movie) return NextResponse.json({ error: "movie not found" }, { status: 404 });
@@ -26,6 +27,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id, versionId } = await params;
   const movie = getMovie(id);
   if (!movie) return NextResponse.json({ error: "movie not found" }, { status: 404 });

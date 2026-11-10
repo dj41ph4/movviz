@@ -1,3 +1,15 @@
+## v1.28.122 — 10 november 2026
+
+### Beveiliging
+
+- Aanmelden: na meerdere herhaalde mislukte pogingen worden nieuwe pogingen enkele minuten geblokkeerd (per gebruikersnaam en per adres). Een aanmelding die de eerste keer lukt, wordt nooit vertraagd.
+- De sessiecookie wordt alleen nog via HTTPS verzonden wanneer Movviz via HTTPS wordt bereikt.
+- Accountrechten: een gebruiker kan een titel aanvragen; een gebruiker van wie de aanvragen automatisch worden goedgekeurd, kan daarnaast de zoekopdracht naar een ontbrekende film, seizoen of aflevering opnieuw starten. Een bestaand bestand vervangen, handmatig een release kiezen, optimaliseren of versies beheren is voorbehouden aan beheerders. De bijbehorende knoppen worden niet meer getoond aan accounts die er geen recht op hebben, op het web, Android TV, Android mobiel en Samsung.
+- De inloggegevens van een indexer worden bij een handmatige download alleen nog naar de site van die indexer gestuurd.
+- Persoons-, collectie- en seizoenspagina's, genres, trends en de indexercatalogus vereisen nu een geldige sessie.
+- De Cloudflare-resolver luistert alleen nog op de machine zelf (`MOVVIZ_RESOLVER_HOST` opent hem opnieuw).
+- Registraties beperkt tot 20 per uur en per adres.
+
 ## v1.28.121 — 10 november 2026
 
 ### Speler

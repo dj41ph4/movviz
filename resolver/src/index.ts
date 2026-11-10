@@ -2,7 +2,9 @@ import Fastify from "fastify";
 import { registerRoutes, shutdown } from "./routes.js";
 
 const PORT = parseInt(process.env.MOVVIZ_RESOLVER_PORT ?? "9830", 10);
-const HOST = process.env.MOVVIZ_RESOLVER_HOST ?? "0.0.0.0";
+// Écoute locale par défaut, comme le moteur : le résolveur n'a pas d'authentification et charge n'importe quelle
+// adresse dans un navigateur — il ne doit être joignable que par Movviz. MOVVIZ_RESOLVER_HOST rouvre l'écoute si besoin.
+const HOST = process.env.MOVVIZ_RESOLVER_HOST ?? "127.0.0.1";
 
 const app = Fastify({ logger: true });
 

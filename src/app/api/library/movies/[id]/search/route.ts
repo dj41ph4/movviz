@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
+import { canCompleteMissing } from "@/lib/auth/permissions";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { getMovie } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
@@ -18,9 +19,14 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function POST(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Complétion d'un manquant : admins et utilisateurs en acceptation automatique uniquement.
+  if (!canCompleteMissing(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id } = await params;
   const movie = getMovie(id);
   if (!movie) return NextResponse.json({ error: "movie not found" }, { status: 404 });
+  // Un utilisateur peut demander la complétion d'un film manquant ; relancer la recherche d'un film déjà
+  // présent revient à le remplacer par une meilleure version, ce qui reste réservé aux admins.
+  if (user.role !== "admin" && movie.file) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   enqueueJob("qualityUpgrade", `Recherche : ${movie.title}`, 1, async (setProgress) => {
     await searchAndGrabMovie(id);

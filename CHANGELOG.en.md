@@ -1,3 +1,15 @@
+## v1.28.122 — November 10, 2026
+
+### Security
+
+- Sign-in: after several repeated failures, new attempts are blocked for a few minutes (per username and per address). A sign-in that succeeds on the first try is never slowed down.
+- The session cookie is now sent over HTTPS only when Movviz is reached over HTTPS.
+- Account rights: a user can request a title; a user whose requests are approved automatically can also restart the search for a missing movie, season or episode. Replacing an existing file, picking a release by hand, optimizing or managing versions is reserved for administrators. The matching buttons are no longer shown to accounts that are not allowed to use them, on the web, Android TV, Android mobile and Samsung.
+- An indexer's credentials are now sent only to that indexer's own site during a manual download.
+- Person, collection and season pages, genres, trending titles and the indexer catalogue now require a valid session.
+- The Cloudflare resolver now listens on the machine itself only (`MOVVIZ_RESOLVER_HOST` reopens it).
+- Registrations limited to 20 per hour and per address.
+
 ## v1.28.121 — November 10, 2026
 
 ### Player

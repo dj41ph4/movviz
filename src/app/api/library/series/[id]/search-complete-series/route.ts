@@ -12,6 +12,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function POST(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id } = await params;
   const series = getSeries(id);
   if (!series) return NextResponse.json({ error: "series not found" }, { status: 404 });

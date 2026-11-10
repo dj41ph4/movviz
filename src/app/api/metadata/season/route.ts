@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { getSeason, tmdbConfigured } from "@/lib/metadata/tmdb";
 import { getSeriesByTmdbId } from "@/lib/library/store";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
@@ -6,6 +7,7 @@ import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeO
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!tmdbConfigured()) return NextResponse.json({ error: "not configured" }, { status: 400 });
   const tmdbId = Number(req.nextUrl.searchParams.get("tmdbId"));
   const seasonNumber = Number(req.nextUrl.searchParams.get("season"));

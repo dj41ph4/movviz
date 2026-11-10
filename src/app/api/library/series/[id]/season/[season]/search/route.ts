@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
+import { canCompleteMissing } from "@/lib/auth/permissions";
 import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
 import { getSeries } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
@@ -14,9 +15,15 @@ type Ctx = { params: Promise<{ id: string; season: string }> };
 export async function POST(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Complétion d'un manquant : admins et utilisateurs en acceptation automatique uniquement.
+  if (!canCompleteMissing(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id, season } = await params;
   const series = getSeries(id);
   if (!series) return NextResponse.json({ error: "series not found" }, { status: 404 });
+  // Un utilisateur ne complète qu'une saison où il manque réellement quelque chose ; le reste est réservé aux admins.
+  if (user.role !== "admin" && !series.seasons.find((s) => s.seasonNumber === Number(season))?.episodes.some((e) => e.monitored && e.status === "missing")) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
   if (needsBleachRepair(series)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
   const body = await req.json().catch(() => ({}));
   const bleachPart = body.bleachPart == null ? undefined : Number(body.bleachPart);

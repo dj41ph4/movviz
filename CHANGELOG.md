@@ -1,3 +1,15 @@
+## v1.28.122 — 10 novembre 2026
+
+### Sécurité
+
+- Connexion : après plusieurs échecs répétés, les nouvelles tentatives sont bloquées quelques minutes (par pseudo et par adresse). Une connexion réussie du premier coup n'est jamais ralentie.
+- Le cookie de session n'est plus envoyé qu'en HTTPS quand Movviz est joint en HTTPS.
+- Droits des comptes : un utilisateur peut demander un titre ; un utilisateur dont les demandes sont acceptées automatiquement peut en plus relancer la recherche d'un film, d'une saison ou d'un épisode manquant. Remplacer un fichier existant, choisir une release à la main, optimiser ou gérer les versions est réservé aux administrateurs. Les boutons correspondants ne s'affichent plus pour les comptes qui n'y ont pas droit, sur le web, Android TV, Android mobile et Samsung.
+- Les identifiants d'un indexeur ne sont plus envoyés que vers le site de cet indexeur lors d'un téléchargement manuel.
+- Les fiches personne, collection, saison, les genres, les tendances et le catalogue d'indexeurs exigent désormais une session valide.
+- Le résolveur Cloudflare n'écoute plus que sur la machine elle-même (`MOVVIZ_RESOLVER_HOST` permet de rouvrir l'écoute).
+- Inscriptions limitées à 20 par heure et par adresse.
+
 ## v1.28.121 — 10 novembre 2026
 
 ### Lecteur

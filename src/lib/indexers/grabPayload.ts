@@ -7,20 +7,46 @@ import { throttleIndexerRequest } from "./rateLimit";
  * the download engine's /torrents endpoint accepts. Shared by manual grabs
  * from Search and automatic grabs triggered when a library title is added.
  */
+/** Dernier couple de labels d'un hôte (« api.c411.org » → « c411.org ») ; une adresse IP ou un nom simple reste entier. */
+function siteOf(hostname: string): string {
+  const host = hostname.toLowerCase();
+  if (/^[\d.]+$/.test(host) || host.includes(":") || !host.includes(".")) return host;
+  return host.split(".").slice(-2).join(".");
+}
+
+/**
+ * Vrai si l'adresse de téléchargement appartient au même site que l'indexeur. Sert à ne jamais envoyer les
+ * identifiants d'un indexeur vers un hôte choisi par l'appelant (adresse fournie par le navigateur).
+ */
+export function sameIndexerSite(downloadUrl: string, baseUrl: string | null | undefined): boolean {
+  if (!baseUrl) return true; // Indexeur sans adresse connue : aucun point de comparaison, comportement historique.
+  try {
+    return siteOf(new URL(downloadUrl).hostname) === siteOf(new URL(baseUrl).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export async function buildGrabPayload({
   magnetUrl,
   downloadUrl,
   indexerId,
+  clientSupplied = false,
 }: {
   magnetUrl?: string | null;
   downloadUrl?: string | null;
   indexerId?: string | null;
+  /** L'adresse vient d'une requête du navigateur (grab manuel), pas directement d'une réponse d'indexeur. */
+  clientSupplied?: boolean;
 }): Promise<{ torrentId: string } | { torrentFile: string } | { error: string }> {
   if (magnetUrl) return { torrentId: magnetUrl };
   if (!downloadUrl) return { error: "no magnet or download url" };
 
   try {
-    const source = indexerId ? getIndexer(indexerId) : null;
+    const indexer = indexerId ? getIndexer(indexerId) : null;
+    // Adresse fournie par le navigateur vers un autre site que l'indexeur : on télécharge sans ses identifiants,
+    // sinon n'importe quel compte connecté pourrait se les faire envoyer sur un serveur à lui.
+    const source = indexer && clientSupplied && !sameIndexerSite(downloadUrl, indexer.baseUrl) ? null : indexer;
     const headers: Record<string, string> = {};
     if (source?.authType === "credentials" && source.username) {
       headers.authorization = `Basic ${Buffer.from(`${source.username}:${source.password}`).toString("base64")}`;

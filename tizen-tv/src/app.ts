@@ -49,8 +49,11 @@ interface Window {
   interface Prepared { sessionId: string; media: { durationMs?: number }; plan: { mode: string }; stream: { url: string; protocol: string }; tracks: { audio: Track[]; subtitle: Track[] }; selection?: { subtitle: number | null } }
   interface Session { sessionId: string; resumeOffsetMs: number | null }
   interface SkipMarker { type: string; startMs: number; endMs: number }
-  interface PublicUser { id: string; username: string; role: string }
+  interface PublicUser { id: string; username: string; role: string; autoApproveRequests?: boolean }
   interface Saved { server: string; session: string; cookieName: string; user: PublicUser; locale: string }
+  // Admin, ou utilisateur en acceptation automatique : peut relancer la recherche de ce qui MANQUE (film, saison,
+  // épisode). Les autres n'ont que la demande ; le serveur refuse de toute façon.
+  const canCompleteMissing = (): boolean => !!saved && (saved.user.role === "admin" || saved.user.autoApproveRequests === true);
   interface Page { title: string; content: HTMLElement; focusId: string; scroll: number }
   interface DeckEntry extends Omit<Media, "type"> { type: "movie" | "episode"; progressPercent: number; offsetMs: number; episodeStillPath?: string; movvizId?: string }
   function normalizeDeck(entries: DeckEntry[]): Media[] { return entries.map(e => ({ ...e, type: e.type === "episode" ? "series" : "movie", id: e.movvizId, backdropPath: e.episodeStillPath || e.backdropPath, progress: e.progressPercent, positionMs: e.offsetMs })); }
@@ -502,7 +505,7 @@ interface Window {
       }, "primary");
       actions.prepend(addButton);
     }
-    else if ((type === "series" || !(local.file || local.plexRatingKey)) && local.id && !local.bleachRepairRequired) actions.append(button(t("library.autoSearch"), async () => { await call(`/api/library/${type === "movie" ? "movies" : "series"}/${encodeURIComponent(local.id!)}/search`, { seriesPart }); toast(t("discover.searchingRelease")); }));
+    else if (canCompleteMissing() && (type === "series" || !(local.file || local.plexRatingKey)) && local.id && !local.bleachRepairRequired) actions.append(button(t("library.autoSearch"), async () => { await call(`/api/library/${type === "movie" ? "movies" : "series"}/${encodeURIComponent(local.id!)}/search`, { seriesPart }); toast(t("discover.searchingRelease")); }));
     if (local?.bleachRepairRequired) content.append(el("p", t("bleach.repairHint"), "muted"));
     actions.append(button(t("tizen.watchlist"), async () => { await call("/api/watchlist", { tmdbId: item.tmdbId, type, title: detail.title, posterPath: detail.posterPath }); toast(t("tizen.watchlist")); }));
     if (local?.id && type === "movie" && (local.file || local.plexRatingKey)) actions.prepend(button(t("tizen.play"), () => play(local, "movie")));
@@ -562,7 +565,7 @@ interface Window {
     const states = new Map<string, { tile: HTMLButtonElement; badge: HTMLElement }>();
     const counts = el("p", "", "season-meta muted");
     const hero = el("div", "", "season-hero"), poster = el("img"); poster.src = imageUrl(metadata.posterPath || detail.posterPath); poster.alt = "";
-    const text = el("div"); const actions = el("div", "", "actions"); actions.append(button(t("tizen.back"), back), button(t("library.searchSeason"), async () => { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, { seriesPart: detail.seriesPart, bleachPart: season.bleachPart }); toast(t("discover.searchingRelease")); })); text.append(el("p", detail.title, "season-series muted"), el("h1", season.name || `${t("tizen.season")} ${season.seasonNumber}`), counts, actions); hero.append(poster, text); content.append(hero);
+    const text = el("div"); const actions = el("div", "", "actions"); actions.append(button(t("tizen.back"), back)); if (canCompleteMissing()) actions.append(button(t("library.searchSeason"), async () => { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, { seriesPart: detail.seriesPart, bleachPart: season.bleachPart }); toast(t("discover.searchingRelease")); })); text.append(el("p", detail.title, "season-series muted"), el("h1", season.name || `${t("tizen.season")} ${season.seasonNumber}`), counts, actions); hero.append(poster, text); content.append(hero);
     const available = [...season.episodes].filter(episodePlayable).sort((a, b) => a.episodeNumber - b.episodeNumber);
     const resume = deck.items.find(e => e.tmdbId === detail.tmdbId && e.type === "episode" && e.seasonNumber === season.seasonNumber && season.episodes.some(ep => ep.episodeNumber === e.episodeNumber));
     let next = available.find(e => e.episodeNumber === resume?.episodeNumber && !watchedKeys.has(episodeKey(e))) || available.find(e => !watchedKeys.has(episodeKey(e))) || available[0];
@@ -621,7 +624,7 @@ interface Window {
     if (episodePlayable(episode)) {
       actions.append(button(progress?.offsetMs && !watchedKeys.has(key) ? t("tizen.resumeAt").replace("{time}", timeLabel(progress.offsetMs)) : t("tizen.play"), () => { cancel(); return play(local, "series", episode); }, "primary"));
       if (progress?.offsetMs && !watchedKeys.has(key)) actions.append(button(t("tizen.fromStart"), () => { cancel(); return play(local, "series", episode, true); }));
-    } else {
+    } else if (canCompleteMissing()) {
       const search = button(t("library.searchSeason"), async () => { search.disabled = true; try { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, { seriesPart: detail.seriesPart, bleachPart: season.bleachPart }); toast(t("discover.searchingRelease")); } finally { search.disabled = false; } }, "primary");
       search.disabled = ["searching", "downloading", "upcoming"].includes(episode.status); actions.append(search);
     }

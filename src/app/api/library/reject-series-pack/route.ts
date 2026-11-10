@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { getEngineToken } from "@/lib/engine/token";
+import { safeEqual } from "@/lib/auth/rateLimit";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { getSeries, updateSeries } from "@/lib/library/store";
 import { withKeyLock } from "@/lib/library/locks";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 /** Called only for an automatically grabbed pack (intégrale, saison ou épisode) whose
  * metadata proves that none of the requested episodes exists. Replays are safe after a restart. */
 export async function POST(req: NextRequest) {
-  if (req.headers.get("x-movviz-token") !== getEngineToken()) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!safeEqual(req.headers.get("x-movviz-token"), getEngineToken())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null);
   const ref = decodeLibraryRef(String(body?.libraryRef ?? ""));
   const hash = String(body?.infoHash ?? "").toLowerCase();

@@ -101,6 +101,7 @@ function seasonStatus(librarySeason: LibrarySeasonInfo | undefined): SeasonDispl
 function SeasonRow({
   season,
   readOnly = false,
+  searchMissingOnly = false,
   searchingBleachPart,
   libSeason,
   seriesId,
@@ -128,6 +129,8 @@ function SeasonRow({
   seriesId?: string;
   tmdbId?: number;
   seriesTitle?: string;
+  /** Compte non admin en acceptation automatique : la recherche ne s'offre que sur ce qui manque. */
+  searchMissingOnly?: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   onSearchSeason?: (n: number, bleachPart?: number) => void;
@@ -290,7 +293,7 @@ function SeasonRow({
               {togglingWatched === `s${season.seasonNumber}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", seasonAllWatched && "fill-ok/30")} />}
             </button>
           )}
-          {!readOnly && onSearchSeason && (
+          {!readOnly && onSearchSeason && (!searchMissingOnly || monitored.some((e) => e.status === "missing")) && (
             <button
               onClick={(e) => { e.stopPropagation(); onSearchSeason(season.seasonNumber, season.bleachPart); }}
               disabled={(searchingSeason === season.seasonNumber && (!season.bleachPart || searchingBleachPart == null || searchingBleachPart === season.bleachPart))}
@@ -455,7 +458,7 @@ function SeasonRow({
                                 <Info className="h-3.5 w-3.5" />
                               </Link>
                             )}
-                            {!readOnly && onSearchEpisode && (
+                            {!readOnly && onSearchEpisode && (!searchMissingOnly || (!ep.file && ep.status !== "available")) && (
                               <button
                                 onClick={() => onSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
                                 disabled={searchingEpisodeKey === epKey}
@@ -566,6 +569,7 @@ export function SeasonAccordion({
   tmdbId,
   seriesPart,
   readOnly,
+  searchMissingOnly,
   searchingBleachPart,
   seasons,
   librarySeasons,
@@ -587,6 +591,8 @@ export function SeasonAccordion({
   tmdbId?: number;
   seriesPart?: BleachPart;
   readOnly?: boolean;
+  /** Compte non admin en acceptation automatique : la recherche ne s'offre que sur ce qui manque. */
+  searchMissingOnly?: boolean;
   searchingBleachPart?: number | null;
   seasons: SeasonInfo[];
   librarySeasons?: LibrarySeasonInfo[];
@@ -662,6 +668,7 @@ export function SeasonAccordion({
             season={bleachAiredOrder && season.seasonNumber > 0 && season.seasonNumber < 17 ? { ...season, name: `${t("title.season")} ${season.seasonNumber}` } : season}
             libSeason={libSeason}
             readOnly={readOnly}
+            searchMissingOnly={searchMissingOnly}
             searchingBleachPart={searchingBleachPart}
             seriesId={seriesId}
             tmdbId={tmdbId}

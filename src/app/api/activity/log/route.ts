@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEngineToken } from "@/lib/engine/token";
+import { safeEqual } from "@/lib/auth/rateLimit";
 import { logActivityV2 } from "@/lib/activity/v2/store";
 import { recordFailedRelease } from "@/lib/library/failedReleases";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (req.headers.get("x-movviz-token") !== getEngineToken()) {
+  if (!safeEqual(req.headers.get("x-movviz-token"), getEngineToken())) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   try {

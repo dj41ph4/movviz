@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { getCollection, getMovie } from "@/lib/metadata/tmdb";
 import { getPlexCollections, getPlexCollectionDetail } from "@/lib/plex/client";
 import { loadPlexConfig, plexConfigured } from "@/lib/plex/store";
@@ -116,6 +117,7 @@ async function listMergedCollections(): Promise<MergedCollection[]> {
 }
 
 export async function GET(req: NextRequest) {
+  if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   const plexId = searchParams.get("plexId");

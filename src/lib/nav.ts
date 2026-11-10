@@ -31,7 +31,7 @@ export const NAV: NavItem[] = [
 export const GESTION_NAV: NavItem[] = [
   { href: "/requests", labelKey: "nav.requests", hintKey: "nav.requestsHint", icon: Inbox, liveBadge: "pendingRequests" },
   { href: "/history", labelKey: "nav.history", hintKey: "nav.historyHint", icon: Clock },
-  { href: "/search", labelKey: "nav.torrentSearch", hintKey: "nav.torrentHint", icon: Search },
+  { href: "/search", labelKey: "nav.torrentSearch", hintKey: "nav.torrentHint", icon: Search, adminOnly: true },
   { href: "/issues", labelKey: "nav.issues", hintKey: "nav.issuesHint", icon: AlertTriangle },
   { href: "/exclusions", labelKey: "nav.exclusions", hintKey: "nav.exclusionsHint", icon: CircleOff },
   { href: "/blocked-torrents", labelKey: "nav.blockedTorrents", hintKey: "nav.blockedTorrentsHint", icon: Ban, adminOnly: true },

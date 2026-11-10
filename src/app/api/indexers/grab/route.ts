@@ -69,7 +69,9 @@ function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replaci
  * is tied back to that movie/season/episode exactly like an automatic grab.
  */
 export async function POST(req: NextRequest) {
-  if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json();
   let libraryRef = typeof body.libraryRef === "string" ? body.libraryRef : null;
   let decodedRef = libraryRef ? decodeLibraryRef(libraryRef) : null;
@@ -140,6 +142,7 @@ export async function POST(req: NextRequest) {
     magnetUrl: body.magnetUrl,
     downloadUrl: body.downloadUrl,
     indexerId: body.indexerId,
+    clientSupplied: true,
   });
   if ("error" in resolved) {
     return NextResponse.json({ error: "download_failed", detail: resolved.error }, { status: 502 });

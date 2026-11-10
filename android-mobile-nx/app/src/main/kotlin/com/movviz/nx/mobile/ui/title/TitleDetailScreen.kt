@@ -1204,6 +1204,7 @@ fun TitleDetailScreen(
                             onPlay(d.title, playableEpisodes, index, d.posterPath)
                         }
                     },
+                    canComplete = viewModel.currentUser.collectAsState().value?.canCompleteMissing() == true,
                     onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber, part, selection.season.bleachPart) },
                     onDownloadEpisode = {
                         viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber, part)
@@ -1274,6 +1275,7 @@ fun TitleDetailScreen(
                 downloading = searchingSeason == openSeason.seasonNumber,
                 episodeDownloads = episodeDownloads,
                 onBack = { openSeasonNumber = null },
+                canComplete = viewModel.currentUser.collectAsState().value?.canCompleteMissing() == true,
                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, openSeason.seasonNumber, part, openSeason.bleachPart) },
                 onToggleEpisodesWatched = { episodes, watched ->
                     viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched, scope = if (part != null) null else "season", season = if (part != null) null else openSeason.seasonNumber)
@@ -1491,6 +1493,7 @@ private fun SeasonPageOverlay(
     downloading: Boolean,
     episodeDownloads: Map<String, QueueItemDto>,
     onBack: () -> Unit,
+    canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.nx.mobile.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
     onToggleEpisodeWatched: (Int, Boolean) -> Unit,
@@ -1549,6 +1552,7 @@ private fun SeasonPageOverlay(
                 watchedEpisodeKeys = watchedEpisodeKeys,
                 downloading = downloading,
                 seasonLive = liveDownloadOf(seasonQueueItems(episodeDownloads, season.seasonNumber)),
+                canComplete = canComplete,
                 onDownloadSeason = onDownloadSeason,
                 onToggleEpisodesWatched = onToggleEpisodesWatched,
             )
@@ -1585,6 +1589,7 @@ private fun SeasonEpisodeList(
     // MainActivity.kt qItem/epStatus, ici poussé un cran plus loin puisque
     // la donnée est déjà disponible côté TV).
     episodeDownloads: Map<String, QueueItemDto> = emptyMap(),
+    canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.nx.mobile.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
@@ -1598,6 +1603,7 @@ private fun SeasonEpisodeList(
             liveDownloadOf(seasonQueueItems(episodeDownloads, season.seasonNumber)),
             onDownloadSeason,
             onToggleEpisodesWatched,
+            canComplete = canComplete,
         )
         Spacer(modifier = Modifier.height(14.dp))
         season.episodes.forEach { ep ->
@@ -1936,6 +1942,7 @@ private fun SeasonEpisodeHeader(
     seasonLive: LiveDownload?,
     onDownloadSeason: () -> Unit,
     onToggleEpisodesWatched: (List<com.movviz.nx.mobile.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
+    canComplete: Boolean,
 ) {
     val hasReadyEpisode = season.episodes.any { (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available" }
     val missingCount = season.episodes.count { it.status == "missing" }
@@ -1954,7 +1961,8 @@ private fun SeasonEpisodeHeader(
         // part de la lecture : « Télécharger la saison » quand aucun épisode
         // n'est là, « Compléter la saison » quand il en manque. Son état
         // vivant (recherche, file, % en direct) remplace le bouton.
-        if (missingCount > 0 || seasonLive != null || seasonSearching) {
+        // Compte sans droit de complétion : pas de bouton, mais l'état vivant d'un téléchargement en cours reste affiché.
+        if ((canComplete && missingCount > 0) || seasonLive != null || seasonSearching) {
             Spacer(modifier = Modifier.height(12.dp))
             DownloadAction(
                 label = if (hasReadyEpisode) "Compléter la saison" else "Télécharger la saison",
@@ -2019,6 +2027,7 @@ private fun EpisodeDetailOverlay(
     episodeDownloads: Map<String, QueueItemDto>,
     onDismiss: () -> Unit,
     onPlay: () -> Unit,
+    canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onDownloadEpisode: () -> Unit,
 ) {
@@ -2102,7 +2111,9 @@ private fun EpisodeDetailOverlay(
                         // L'épisode manquant se télécharge SEUL, avec son état
                         // vivant : en file, recherche, % en direct, import.
                         val episodeItem = episodeDownloads["${selection.season.seasonNumber}.${episode.episodeNumber}"]
-                        DownloadAction(
+                        // Proposé seulement à un compte autorisé à compléter un manquant ; l'état vivant d'un
+                        // téléchargement déjà lancé (recherche, file, import) reste affiché à tous.
+                        if (canComplete || episode.status != "missing" || episodeItem != null) DownloadAction(
                             label = "Télécharger l'épisode",
                             live = liveDownloadOf(listOfNotNull(episodeItem)),
                             searching = episode.status == "searching",
@@ -2125,7 +2136,7 @@ private fun EpisodeDetailOverlay(
                         val noneReady = season.episodes.none {
                             (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available"
                         }
-                        if (season.episodes.size > 1 && noneReady && !samePack) {
+                        if ((canComplete || seasonItems.isNotEmpty()) && season.episodes.size > 1 && noneReady && !samePack) {
                             DownloadAction(
                                 label = "Télécharger la saison",
                                 live = liveDownloadOf(seasonItems),

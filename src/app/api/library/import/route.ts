@@ -2,6 +2,7 @@ import { getMovie, getSeries } from "@/lib/library/store";
 import { ReplacementRefused } from "@/lib/library/replacementRetry";
 import { NextRequest, NextResponse } from "next/server";
 import { getEngineToken } from "@/lib/engine/token";
+import { safeEqual } from "@/lib/auth/rateLimit";
 import fsp from "node:fs/promises";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
@@ -38,7 +39,7 @@ async function missingDestinationFiles(files: ImportedFile[]): Promise<string[]>
 }
 
 export async function POST(req: NextRequest) {
-  if (req.headers.get("x-movviz-token") !== getEngineToken()) {
+  if (!safeEqual(req.headers.get("x-movviz-token"), getEngineToken())) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const body = await req.json();

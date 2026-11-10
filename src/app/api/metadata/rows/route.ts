@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
     const filtered = rows.map((row) => ({ ...row, results: excludeDisliked(row.results, type, disliked)
       .filter((item) => !((row.key === "recommendedTop" || row.key.startsWith("becauseYouWatched:") || row.key.startsWith("provider")) && watched.has(item.tmdbId))) }))
       .filter((row) => row.results.length > 0);
-    return compressedJson(req, { configured: true, layout, rows: filtered, pending: responsiveRows.pending(scope) });
+    return compressedJson(req, { configured: true, layout, rows: filtered, pending: responsiveRows.pending(scope) }, { cacheKey: `metadata-rows:${userId}:${type}` });
   };
 
   const recommended = part("recommended", () => getRecommendations(userId, type), [] as MetaSearchResult[], true);

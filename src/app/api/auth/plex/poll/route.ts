@@ -112,6 +112,6 @@ export async function POST(req: NextRequest) {
 
   const { token: sessionToken, expiresAt } = createSession(user.id);
   const res = NextResponse.json({ done: true, user: toPublicUser(user as User) });
-  setSessionCookie(res, sessionToken, expiresAt);
+  setSessionCookie(res, sessionToken, expiresAt, req);
   return res;
 }

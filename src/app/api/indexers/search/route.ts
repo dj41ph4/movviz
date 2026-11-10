@@ -93,6 +93,7 @@ const MANUAL_SEARCH_PAGES = 3;
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const qRaw = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   // When search is launched from a specific title (its own card/detail page,
   // not the free-text /search box), refTitle is the clean title alone —

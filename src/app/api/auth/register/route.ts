@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { hasAnyUser, getUserByUsername, addUser, createSession } from "@/lib/auth/store";
 import { hashPassword } from "@/lib/auth/password";
+import { allowRegistration, clientIp } from "@/lib/auth/rateLimit";
 import { setSessionCookie } from "@/lib/auth/session";
 import { toPublicUser, type User } from "@/lib/auth/types";
 import { emitNotification } from "@/lib/notifications/store";
@@ -16,6 +17,8 @@ export const dynamic = "force-dynamic";
  * else to ask). Every account after that is a regular user by default.
  */
 export async function POST(req: NextRequest) {
+  // Plafond large par adresse (20/h) : empêche de noyer la liste « en attente » de l'admin.
+  if (!allowRegistration(clientIp(req))) return NextResponse.json({ error: "too_many_attempts" }, { status: 429 });
   const body = await req.json();
   const username = String(body.username ?? "").trim();
   const password = String(body.password ?? "");
@@ -67,6 +70,6 @@ export async function POST(req: NextRequest) {
 
   const { token, expiresAt } = createSession(user.id);
   const res = NextResponse.json({ user: toPublicUser(user) }, { status: 201 });
-  setSessionCookie(res, token, expiresAt);
+  setSessionCookie(res, token, expiresAt, req);
   return res;
 }
