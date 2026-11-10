@@ -7,7 +7,7 @@ import { tryPushAvatarToPlex } from "@/lib/plex/avatarSync";
 export const dynamic = "force-dynamic";
 
 /** Upload de la photo de profil (soi-même uniquement) — multipart `file`.
- *  JPEG/PNG/WebP/GIF ≤ 2 Mo (magic bytes vérifiés, pas l'extension).
+ *  JPEG/PNG/WebP/GIF ≤ 6 Mo (magic bytes vérifiés, pas l'extension).
  *  Répond `{ avatar: "/api/avatars/{id}?v=…" }` à répercuter côté client. */
 export async function POST(req: NextRequest) {
   const user = requireUser(req);

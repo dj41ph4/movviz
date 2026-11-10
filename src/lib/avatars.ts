@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { AVATAR_MAX_BYTES as SHARED_AVATAR_MAX_BYTES } from "./avatarCrop";
 
 /**
  * Photos de profil choisies par les utilisateurs (Réglages → Profil).
@@ -20,7 +21,8 @@ const CONFIG_DIR =
 
 export const AVATARS_DIR = path.join(CONFIG_DIR, "avatars");
 
-export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+// 6 Mo, partagé avec la fenêtre de recadrage (src/lib/avatarCrop.ts).
+export const AVATAR_MAX_BYTES = SHARED_AVATAR_MAX_BYTES;
 
 type AvatarKind = { ext: "png" | "jpg" | "webp" | "gif"; mime: string };
 

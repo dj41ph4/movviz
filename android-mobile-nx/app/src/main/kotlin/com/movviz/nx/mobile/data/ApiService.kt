@@ -352,7 +352,7 @@ interface MovvizApiService {
     suspend fun logout(): Response<Map<String, Any?>>
 
     // Photo de profil perso (voir src/app/api/profile/avatar/route.ts) —
-    // multipart `file` (JPEG/PNG/WebP/GIF ≤ 2 Mo). Répond { avatar }.
+    // multipart `file` (JPEG/PNG/WebP/GIF ≤ 6 Mo). Répond { avatar }.
     @Multipart
     @POST("api/profile/avatar")
     suspend fun uploadAvatar(@Part file: okhttp3.MultipartBody.Part): Response<Map<String, String?>>

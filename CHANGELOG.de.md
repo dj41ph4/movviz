@@ -1,3 +1,9 @@
+## v1.28.119 — 10. November 2026
+
+### Profil
+
+- Profilfoto: Die maximale Größe steigt von 2 auf 6 MB, und vor dem Hochladen öffnet sich ein rundes Zuschneidefenster (ziehen, zusammenziehen, Mausrad oder Zoom-Regler), im Web und in der Android-Mobile-App. Hochgeladen wird ein leichtes 512×512-Quadrat; ein animiertes GIF wird unverändert hochgeladen.
+
 ## v1.28.118 — 10. November 2026
 
 ### Player

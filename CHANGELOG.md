@@ -1,3 +1,9 @@
+## v1.28.119 — 10 novembre 2026
+
+### Profil
+
+- Photo de profil : la taille maximale passe de 2 à 6 Mo, et une fenêtre de recadrage rond (glisser, pincer, molette ou curseur de zoom) s'ouvre avant l'envoi, sur le web et dans l'application Android mobile. L'image envoyée est un carré 512×512 léger ; un GIF animé est envoyé tel quel.
+
 ## v1.28.118 — 10 novembre 2026
 
 ### Lecteur

@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { AvatarCropDialog } from "@/components/profile/AvatarCropDialog";
+import { AVATAR_MAX_BYTES } from "@/lib/avatarCrop";
 import { useWatchRegion, WATCH_REGION_OPTIONS } from "@/lib/settings/useWatchRegion";
 import { Toggle } from "@/components/ui/Toggle";
 import { AiContextPanel } from "@/components/profile/AiContextPanel";
@@ -125,6 +127,8 @@ export default function ProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  // Image choisie, en attente de recadrage.
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [tab, setTab] = useState<ProfileTab>("activity");
   const [prefView, setPrefView] = useState("general");
 
@@ -318,9 +322,29 @@ export default function ProfilePage() {
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) uploadPhoto(f);
+          if (!f) return;
+          if (f.size > AVATAR_MAX_BYTES) {
+            setPhotoMessage(t("profile.photoTooBig"));
+            e.target.value = "";
+            return;
+          }
+          setPhotoMessage(null);
+          // Un GIF animé garde son animation : envoyé tel quel, sans recadrage.
+          if (f.type === "image/gif") uploadPhoto(f);
+          else setCropFile(f);
+          e.target.value = "";
         }}
       />
+      {cropFile && (
+        <AvatarCropDialog
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onConfirm={(blob) => {
+            setCropFile(null);
+            uploadPhoto(new File([blob], blob.type === "image/webp" ? "avatar.webp" : "avatar.jpg", { type: blob.type }));
+          }}
+        />
+      )}
       <PageHeader eyebrow={user.username} title={t("profile.title")} description={t("profile.description")}>
         <button
           type="button"

@@ -110,18 +110,12 @@ fun ProfileScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val photoScope = rememberCoroutineScope()
     var uploadingPhoto by remember { mutableStateOf(false) }
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    // Image choisie en attente de recadrage (null = aucune fenêtre ouverte).
+    var cropUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    fun sendPhoto(bytes: ByteArray, mime: String) {
         photoScope.launch {
             uploadingPhoto = true
             try {
-                val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
-                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: return@launch
-                if (bytes.size > 2 * 1024 * 1024) {
-                    android.widget.Toast.makeText(context, "Image trop lourde (2 Mo max)", android.widget.Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
                 val ok = viewModel.uploadAvatar(bytes, mime, "avatar")
                 android.widget.Toast.makeText(
                     context,
@@ -132,6 +126,35 @@ fun ProfileScreen(
                 uploadingPhoto = false
             }
         }
+    }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        photoScope.launch {
+            val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+            val size = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+            if (size > com.movviz.nx.mobile.ui.profile.AvatarCropMath.MAX_BYTES) {
+                android.widget.Toast.makeText(context, "Image trop lourde (6 Mo max)", android.widget.Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            if (mime == "image/gif") {
+                // Un GIF animé garde son animation : envoyé tel quel, sans recadrage.
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@launch
+                if (bytes.size > com.movviz.nx.mobile.ui.profile.AvatarCropMath.MAX_BYTES) {
+                    android.widget.Toast.makeText(context, "Image trop lourde (6 Mo max)", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    sendPhoto(bytes, mime)
+                }
+            } else {
+                cropUri = uri
+            }
+        }
+    }
+    cropUri?.let { picked ->
+        com.movviz.nx.mobile.ui.profile.AvatarCropDialog(
+            uri = picked,
+            onDismiss = { cropUri = null },
+            onConfirm = { bytes, mime -> cropUri = null; sendPhoto(bytes, mime) },
+        )
     }
     // « Effacer la lecture » : 1er avertissement, puis 2e où il faut
     // retaper le mot (revérifié par le serveur). Toujours le profil connecté.

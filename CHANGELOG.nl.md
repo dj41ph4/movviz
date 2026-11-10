@@ -1,3 +1,9 @@
+## v1.28.119 — 10 november 2026
+
+### Profiel
+
+- Profielfoto: de maximale grootte gaat van 2 naar 6 MB en vóór het uploaden opent een rond bijsnijvenster (slepen, knijpen, scrollwiel of zoomschuif), op het web en in de Android-mobiele app. De geüploade afbeelding is een licht vierkant van 512×512; een geanimeerde GIF wordt ongewijzigd geüpload.
+
 ## v1.28.118 — 10 november 2026
 
 ### Speler

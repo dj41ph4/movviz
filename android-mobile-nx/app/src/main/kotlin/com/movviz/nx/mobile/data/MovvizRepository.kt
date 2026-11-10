@@ -492,7 +492,7 @@ class MovvizRepository(private val baseUrl: String) {
     }
 
     /** Upload de la photo de profil perso (multipart `file`, validé côté
-     *  serveur : JPEG/PNG/WebP/GIF ≤ 2 Mo). Retourne l'URL publique. */
+     *  serveur : JPEG/PNG/WebP/GIF ≤ 6 Mo). Retourne l'URL publique. */
     suspend fun uploadAvatar(bytes: ByteArray, mime: String, filename: String): ApiResult<String?> =
         safeCall {
             val mediaType = mime.toMediaTypeOrNull()

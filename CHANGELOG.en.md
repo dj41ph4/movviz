@@ -1,3 +1,9 @@
+## v1.28.119 — November 10, 2026
+
+### Profile
+
+- Profile photo: the maximum size goes from 2 to 6 MB, and a round crop window (drag, pinch, wheel or zoom slider) opens before upload, on the web and in the Android mobile app. The uploaded image is a light 512×512 square; an animated GIF is uploaded as is.
+
 ## v1.28.118 — November 10, 2026
 
 ### Player
