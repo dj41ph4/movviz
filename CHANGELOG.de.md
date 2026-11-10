@@ -1,3 +1,11 @@
+## v1.28.120 — 10. November 2026
+
+### Player
+
+- Zeitleisten-Vorschau: kein Warten mehr auf das Ende der gesamten Vorbereitung. Jedes Blatt mit 100 Vorschaubildern wird veröffentlicht, sobald es fertig ist, und beim Überfahren sofort genutzt; der Rest kommt nach und nach hinzu.
+- Die Vorbereitung beginnt mit dem Bereich, der gerade angesehen wird (Fortsetzungsstelle oder überfahrene Stelle), und geht dann mit dem Rest des Films weiter; sie folgt den Sprüngen des Zuschauers.
+- Eine unterbrochene Vorbereitung (Transkodierung startet, Serverneustart) wird dort fortgesetzt, wo sie stehen geblieben ist: bereits fertige Blätter werden nicht neu erstellt. Eine ersetzte Datei beginnt von vorn.
+
 ## v1.28.119 — 10. November 2026
 
 ### Profil

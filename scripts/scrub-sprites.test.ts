@@ -40,6 +40,8 @@ test("génère des planches valides et un manifeste à jour", { skip: !ffmpegOk 
   assert.equal(manifest.intervalSec, 10);
   assert.equal(manifest.count, 5); // 45 s → 0,10,20,30,40
   assert.equal(manifest.sheets, 1);
+  assert.equal(manifest.complete, true);
+  assert.deepEqual(manifest.ready, [1]);
   const sheet = sprites.sheetPath("film-test", 1)!;
   const head = fs.readFileSync(sheet).subarray(0, 3);
   assert.deepEqual([...head], [0xff, 0xd8, 0xff]); // JPEG
@@ -154,6 +156,145 @@ test("un transcodage vidéo bloque la génération ; une lecture en copie de la 
     if (heavy2) engine.endSession((heavy2 as { sessionId: string }).sessionId);
   } finally {
     playback.__movvizPlaybackSessions = undefined;
+  }
+});
+
+// ─── Publication progressive, reprise, priorité à la zone regardée ───────────────
+// Grille de 2 vignettes par planche : la vidéo de test (45 s → 5 vignettes) donne 3 planches.
+const manifestOf = (cacheId: string) => JSON.parse(fs.readFileSync(path.join(dir, "scrub-sprites", cacheId, "manifest.json"), "utf8")) as { complete: boolean; ready: number[]; sheets: number; version: string; count: number };
+const sheetFile = (cacheId: string, n: number) => path.join(dir, "scrub-sprites", cacheId, `sheet${String(n).padStart(2, "0")}.jpg`);
+const isJpeg = (file: string) => { const head = fs.readFileSync(file).subarray(0, 3); return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff; };
+/** Annule dès qu'au moins `n` planches sont publiées : simule un transcodage qui démarre en cours de route. */
+const cancelAfterSheets = (cacheId: string, n: number) => () => {
+  try { return manifestOf(cacheId).ready.length >= n; } catch { return false; }
+};
+
+test("les planches prêtes sont publiées une à une, utilisables avant la fin", { skip: !ffmpegOk }, async () => {
+  sprites.setSpriteGridForTests(1, 2);
+  try {
+    const src = { cacheId: "film-progressive", filePath: video };
+    assert.equal(await sprites.ensureSprites(src, { shouldCancel: cancelAfterSheets("film-progressive", 1) }), false);
+    // Interrompu : rien d'un échec, mais la première planche existe et est annoncée.
+    assert.equal(sprites.hasRecentlyFailed("film-progressive"), false);
+    const partial = manifestOf("film-progressive");
+    assert.equal(partial.complete, false);
+    assert.equal(partial.sheets, 3);
+    assert.deepEqual(partial.ready, [1]);
+    assert.ok(isJpeg(sheetFile("film-progressive", 1)));
+    // readManifest le renvoie tel quel (version à jour) : le lecteur peut s'en servir.
+    const read = await sprites.readManifest(src);
+    assert.ok(read);
+    assert.equal(read.complete, false);
+    assert.deepEqual(read.ready, [1]);
+    // Aucun reste de travail ni de fichier temporaire visible.
+    const names = fs.readdirSync(path.join(dir, "scrub-sprites", "film-progressive"));
+    assert.deepEqual(names.sort(), ["manifest.json", "sheet01.jpg"]);
+
+    // Reprise : on ne refait PAS la planche 1 (même fichier, date inchangée), on termine les autres.
+    const before = fs.statSync(sheetFile("film-progressive", 1)).mtimeMs;
+    assert.equal(await sprites.ensureSprites(src), true);
+    const done = manifestOf("film-progressive");
+    assert.equal(done.complete, true);
+    assert.deepEqual(done.ready, [1, 2, 3]);
+    assert.equal(fs.statSync(sheetFile("film-progressive", 1)).mtimeMs, before, "la planche déjà prête ne doit pas être refaite");
+    for (const n of [1, 2, 3]) assert.ok(isJpeg(sheetFile("film-progressive", n)));
+  } finally {
+    sprites.setSpriteGridForTests(10, 10);
+  }
+});
+
+test("la zone regardée est préparée en premier", { skip: !ffmpegOk }, async () => {
+  sprites.setSpriteGridForTests(1, 2);
+  try {
+    // 40 s → vignette 4 → planche 3 (2 vignettes par planche) : c'est elle qui doit sortir d'abord.
+    const src = { cacheId: "film-hint", filePath: video };
+    assert.equal(await sprites.ensureSprites(src, { startAtSec: 40, shouldCancel: cancelAfterSheets("film-hint", 1) }), false);
+    assert.deepEqual(manifestOf("film-hint").ready, [3]);
+    // Puis le reste, en repartant du début : la planche 3 déjà faite n'est pas refaite.
+    assert.equal(await sprites.ensureSprites(src), true);
+    const done = manifestOf("film-hint");
+    assert.equal(done.complete, true);
+    assert.deepEqual(done.ready, [1, 2, 3]);
+  } finally {
+    sprites.setSpriteGridForTests(10, 10);
+  }
+});
+
+test("la zone regardée peut changer en cours de génération (le spectateur saute ailleurs)", { skip: !ffmpegOk }, async () => {
+  sprites.setSpriteGridForTests(1, 2);
+  try {
+    const src = { cacheId: "film-jump", filePath: video };
+    // Démarre au début (planche 1) ; dès qu'elle est publiée, le spectateur saute à 40 s : la suite doit être la planche 3.
+    let jumped = false;
+    const cancel = () => {
+      const m = (() => { try { return manifestOf("film-jump"); } catch { return null; } })();
+      if (m && m.ready.length >= 1 && !jumped) { jumped = true; sprites.setSpriteHint("film-jump", 40); }
+      return !!m && m.ready.length >= 2;
+    };
+    assert.equal(await sprites.ensureSprites(src, { startAtSec: 0, shouldCancel: cancel }), false);
+    assert.deepEqual(manifestOf("film-jump").ready, [1, 3]);
+  } finally {
+    sprites.setSpriteGridForTests(10, 10);
+  }
+});
+
+test("un manifeste écrit avant la publication progressive reste lu comme complet", { skip: !ffmpegOk }, async () => {
+  const legacy = { cacheId: "film-legacy", filePath: video };
+  const stat = fs.statSync(video);
+  const folder = path.join(dir, "scrub-sprites", "film-legacy");
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(path.join(folder, "manifest.json"), JSON.stringify({
+    version: `${stat.size}-${Math.floor(stat.mtimeMs)}`, intervalSec: 10, thumbW: 240, thumbH: 136, cols: 10, rows: 10, count: 150, sheets: 2, durationSec: 1500,
+  }));
+  const read = await sprites.readManifest(legacy);
+  assert.ok(read);
+  assert.equal(read.complete, true);
+  assert.deepEqual(read.ready, [1, 2]);
+  // Rien à régénérer.
+  assert.equal(await sprites.ensureSprites(legacy), true);
+});
+
+test("un fichier remplacé efface les planches partielles de l'ancienne version et repart de zéro", { skip: !ffmpegOk }, async () => {
+  sprites.setSpriteGridForTests(1, 2);
+  const replaced = path.join(dir, "film-remplace.mkv");
+  fs.copyFileSync(video, replaced);
+  try {
+    const src = { cacheId: "film-replaced", filePath: replaced };
+    assert.equal(await sprites.ensureSprites(src, { shouldCancel: cancelAfterSheets("film-replaced", 1) }), false);
+    const oldVersion = manifestOf("film-replaced").version;
+    fs.appendFileSync(replaced, Buffer.alloc(32)); // autre taille = autre version
+    assert.equal(await sprites.readManifest(src), null, "l'ancienne version ne doit plus être servie");
+    assert.equal(await sprites.ensureSprites(src), true);
+    const fresh = manifestOf("film-replaced");
+    assert.notEqual(fresh.version, oldVersion);
+    assert.equal(fresh.complete, true);
+    assert.deepEqual(fresh.ready, [1, 2, 3]);
+  } finally {
+    sprites.setSpriteGridForTests(10, 10);
+  }
+});
+
+test("un échec en cours de route conserve les planches déjà prêtes", { skip: !ffmpegOk }, async () => {
+  sprites.setSpriteGridForTests(1, 2);
+  const brokenFile = path.join(dir, "film-coupe.mkv");
+  fs.copyFileSync(video, brokenFile);
+  try {
+    const src = { cacheId: "film-broken", filePath: brokenFile };
+    assert.equal(await sprites.ensureSprites(src, { shouldCancel: cancelAfterSheets("film-broken", 1) }), false);
+    // Le fichier devient illisible en cours de route (disque démonté, fichier tronqué...) : même version (taille et date
+    // conservées) mais plus aucun contenu exploitable pour la suite → échec ; la planche 1 reste utilisable.
+    const stat = fs.statSync(brokenFile);
+    fs.writeFileSync(brokenFile, Buffer.alloc(stat.size)); // des zéros : ni ffprobe ni ffmpeg ne trouvent de vidéo
+    fs.utimesSync(brokenFile, stat.atime, stat.mtime);
+    assert.equal(await sprites.ensureSprites(src), false);
+    assert.equal(sprites.hasRecentlyFailed("film-broken"), true);
+    const kept = manifestOf("film-broken");
+    assert.equal(kept.complete, false);
+    assert.deepEqual(kept.ready, [1]);
+    assert.ok(isJpeg(sheetFile("film-broken", 1)));
+    assert.equal(fs.readdirSync(path.join(dir, "scrub-sprites", "film-broken")).some((name) => name.startsWith(".work-")), false);
+  } finally {
+    sprites.setSpriteGridForTests(10, 10);
   }
 });
 

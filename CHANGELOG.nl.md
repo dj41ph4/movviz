@@ -1,3 +1,11 @@
+## v1.28.120 — 10 november 2026
+
+### Speler
+
+- Voorbeelden van de voortgangsbalk: niet meer wachten tot de hele voorbereiding klaar is. Elk blad van 100 miniaturen wordt gepubliceerd zodra het klaar is en meteen gebruikt bij hoveren; de rest komt er gaandeweg bij.
+- De voorbereiding begint bij het bekeken gedeelte (hervatpunt of aangewezen plek) en gaat daarna verder met de rest van de film; ze volgt de sprongen van de kijker.
+- Een onderbroken voorbereiding (transcodering die start, serverherstart) gaat verder waar ze gebleven was: bladen die al klaar zijn worden niet opnieuw gemaakt. Een vervangen bestand begint opnieuw.
+
 ## v1.28.119 — 10 november 2026
 
 ### Profiel

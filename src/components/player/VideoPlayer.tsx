@@ -2450,19 +2450,23 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // /api/stream/[ratingKey]/scrub-sprite) passent en premier : elles existent
   // même si Plex est arrêté. Les index Plex ne servent que d'appoint tant que
   // nos planches ne sont pas prêtes, et seulement si le fichier est lié à Plex.
-  type SpriteManifest = { version: string; intervalSec: number; cols: number; rows: number; count: number };
+  type SpriteManifest = { version: string; intervalSec: number; cols: number; rows: number; count: number; ready?: number[]; complete?: boolean };
   const spriteRef = useRef<{ manifest: SpriteManifest | null; off: boolean; at: number; inflight: boolean }>({ manifest: null, off: false, at: 0, inflight: false });
   const plexMissesRef = useRef(0);
   // Plex injoignable (arrêté, erreur serveur) ou sans index : au bout de 2 échecs on n'insiste plus.
   const plexDeadRef = useRef(!hasRealPlexLink);
 
-  /** Demande le manifeste de nos planches, au plus toutes les 8 s. `start` = autorise le serveur à les générer. */
-  const refreshSprites = useCallback((start: boolean) => {
+  /**
+   * Demande le manifeste de nos planches, au plus toutes les 8 s, tant que la préparation n'est pas terminée
+   * (les planches déjà prêtes servent tout de suite, les suivantes arrivent au fil des relevés). `start` =
+   * autorise le serveur à les générer ; `atSec` = zone regardée, préparée en premier.
+   */
+  const refreshSprites = useCallback((start: boolean, atSec = 0) => {
     const state = spriteRef.current;
-    if (state.manifest || state.off || state.inflight || Date.now() - state.at < 8_000) return;
+    if ((state.manifest && state.manifest.complete !== false) || state.off || state.inflight || Date.now() - state.at < 8_000) return;
     state.inflight = true;
     state.at = Date.now();
-    fetch(`/api/stream/${ratingKey}/scrub-sprite?m=1${start ? "" : "&probe=1"}`)
+    fetch(`/api/stream/${ratingKey}/scrub-sprite?m=1&at=${Math.max(0, Math.floor(atSec))}${start ? "" : "&probe=1"}`)
       .then(async (res) => {
         if (res.status === 200) state.manifest = await res.json() as SpriteManifest;
         else if (res.status === 404) state.off = true; // désactivé, introuvable ou échec récent
@@ -2473,7 +2477,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
   // Fichier sans lien Plex : on lance la préparation dès l'ouverture du lecteur,
   // elle est souvent finie avant le premier survol.
-  useEffect(() => { if (!hasRealPlexLink) refreshSprites(true); }, [hasRealPlexLink, refreshSprites]);
+  useEffect(() => { if (!hasRealPlexLink) refreshSprites(true, resumeFromSeconds ?? 0); }, [hasRealPlexLink, refreshSprites, resumeFromSeconds]);
 
   // Fichier lié à Plex : un seul essai discret à l'ouverture. Si Plex n'a pas d'aperçu pour ce fichier
   // (arrêté, erreur serveur, index absent), la préparation de nos planches démarre tout de suite au lieu
@@ -2482,10 +2486,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     if (!hasRealPlexLink) return;
     const ac = new AbortController();
     fetch(`/api/stream/${ratingKey}/scrub-thumb?t=60000`, { signal: ac.signal })
-      .then((res) => { if (!res.ok && !ac.signal.aborted) { plexDeadRef.current = true; refreshSprites(true); } })
-      .catch(() => { if (!ac.signal.aborted) { plexDeadRef.current = true; refreshSprites(true); } });
+      .then((res) => { if (!res.ok && !ac.signal.aborted) { plexDeadRef.current = true; refreshSprites(true, resumeFromSeconds ?? 0); } })
+      .catch(() => { if (!ac.signal.aborted) { plexDeadRef.current = true; refreshSprites(true, resumeFromSeconds ?? 0); } });
     return () => ac.abort();
-  }, [hasRealPlexLink, ratingKey, refreshSprites]);
+  }, [hasRealPlexLink, ratingKey, refreshSprites, resumeFromSeconds]);
 
   useEffect(() => () => {
     scrubCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -2495,20 +2499,25 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const requestScrubThumb = useCallback((time: number, ratio: number) => {
     const sprites = spriteRef.current;
     // Plex hors service : c'est à nous de préparer les planches (démarre la génération côté serveur).
-    refreshSprites(plexDeadRef.current);
-    if (sprites.manifest) {
-      const manifest = sprites.manifest;
+    refreshSprites(plexDeadRef.current, time);
+    const manifest = sprites.manifest;
+    if (manifest) {
       const index = Math.min(manifest.count - 1, Math.max(0, Math.floor(time / manifest.intervalSec)));
       const perSheet = manifest.cols * manifest.rows;
-      const position = index % perSheet;
-      setScrubPreview({
-        time, ratio, url: null,
-        sprite: {
-          sheetUrl: `/api/stream/${ratingKey}/scrub-sprite?sheet=${Math.floor(index / perSheet) + 1}&v=${encodeURIComponent(manifest.version)}`,
-          col: position % manifest.cols, row: Math.floor(position / manifest.cols), cols: manifest.cols, rows: manifest.rows,
-        },
-      });
-      return;
+      const sheetNumber = Math.floor(index / perSheet) + 1;
+      // Planche déjà publiée (manifeste ancien sans liste : toutes le sont) → on s'en sert tout de suite.
+      if (!manifest.ready || manifest.ready.includes(sheetNumber)) {
+        const position = index % perSheet;
+        setScrubPreview({
+          time, ratio, url: null,
+          sprite: {
+            sheetUrl: `/api/stream/${ratingKey}/scrub-sprite?sheet=${sheetNumber}&v=${encodeURIComponent(manifest.version)}`,
+            col: position % manifest.cols, row: Math.floor(position / manifest.cols), cols: manifest.cols, rows: manifest.rows,
+          },
+        });
+        return;
+      }
+      // Cette zone n'est pas encore prête : Plex en appoint s'il répond, sinon « en préparation » (ci-dessous).
     }
     if (plexDeadRef.current) {
       // Ni planches prêtes ni Plex : en préparation, ou définitivement indisponible (réglage coupé, échec).

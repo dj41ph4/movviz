@@ -1,3 +1,11 @@
+## v1.28.120 — 10 novembre 2026
+
+### Lettore
+
+- Anteprime della barra di avanzamento: non occorre più aspettare la fine della preparazione. Ogni foglio da 100 miniature viene pubblicato appena pronto e usato subito al passaggio del mouse; il resto si aggiunge man mano.
+- La preparazione parte dall'area guardata (punto di ripresa o punto sorvolato) e prosegue con il resto del film, seguendo i salti dello spettatore.
+- Una preparazione interrotta (transcodifica che parte, riavvio del server) riprende da dove si era fermata: i fogli già pronti non vengono rifatti. Un file sostituito riparte da zero.
+
 ## v1.28.119 — 10 novembre 2026
 
 ### Profilo

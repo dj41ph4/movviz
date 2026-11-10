@@ -198,7 +198,7 @@ export const TASKS: ScheduledTask[] = [
       for (let i = 0; i < sources.length; i++) {
         if (hasActivePlayback() || Date.now() > deadline) break;
         reportJobProgress(i, sources.length);
-        if (await readManifest(sources[i])) continue;
+        if ((await readManifest(sources[i]))?.complete) continue;
         await ensureSprites(sources[i], { shouldCancel: hasActivePlayback });
       }
       reportJobProgress(sources.length, sources.length);

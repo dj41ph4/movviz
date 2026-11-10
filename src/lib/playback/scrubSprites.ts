@@ -30,7 +30,11 @@ export const SPRITE_THUMB_W = 240;
 export const SPRITE_THUMB_H = 136;
 export const SPRITE_COLS = 10;
 export const SPRITE_ROWS = 10;
-const SPRITE_PER_SHEET = SPRITE_COLS * SPRITE_ROWS;
+/** Grille d'une planche. Modifiable pour les tests uniquement (le manifeste mémorise la grille réellement utilisée). */
+let grid = { cols: SPRITE_COLS, rows: SPRITE_ROWS };
+export function setSpriteGridForTests(cols: number, rows: number): void {
+  grid = { cols, rows };
+}
 /** 2 000 vignettes = 5 h 30 : au-delà, l'intervalle serait de toute façon trop fin pour servir. */
 const MAX_THUMBS = 2000;
 const THUMB_TIMEOUT_MS = 25_000;
@@ -49,8 +53,13 @@ export interface SpriteManifest {
   cols: number;
   rows: number;
   count: number;
+  /** Nombre total de planches une fois la génération terminée. */
   sheets: number;
   durationSec: number;
+  /** Numéros (à partir de 1) des planches DÉJÀ publiées : le lecteur s'en sert dès qu'elles existent, sans attendre la fin. */
+  ready: number[];
+  /** Toutes les planches sont prêtes. */
+  complete: boolean;
 }
 
 const CONFIG_DIR =
@@ -66,9 +75,9 @@ const MAX_QUEUED = 12;
 /** Un échec est mémorisé : sans ça, chaque survol relancerait aussitôt la même génération vouée à l'échec. */
 const FAILURE_MEMORY_MS = 30 * 60 * 1000;
 
-type Registry = { inflight: Map<string, Promise<boolean>>; running: number; waiters: Array<() => void>; failedAt: Map<string, number>; reasons: Map<string, string> };
+type Registry = { inflight: Map<string, Promise<boolean>>; running: number; waiters: Array<() => void>; failedAt: Map<string, number>; reasons: Map<string, string>; hints: Map<string, number> };
 const g = globalThis as typeof globalThis & { __movvizScrubSprites?: Registry };
-const registry: Registry = (g.__movvizScrubSprites ??= { inflight: new Map(), running: 0, waiters: [], failedAt: new Map(), reasons: new Map() });
+const registry: Registry = (g.__movvizScrubSprites ??= { inflight: new Map(), running: 0, waiters: [], failedAt: new Map(), reasons: new Map(), hints: new Map() });
 
 async function acquireSlot(): Promise<void> {
   if (registry.running < MAX_CONCURRENT) { registry.running++; return; }
@@ -165,8 +174,12 @@ export async function readManifest(source: LocalSource): Promise<SpriteManifest 
   const version = await versionOf(source.filePath);
   if (!version) return null;
   try {
-    const manifest = JSON.parse(await fsp.readFile(path.join(dirFor(source.cacheId), "manifest.json"), "utf8")) as SpriteManifest;
-    return manifest.version === version ? manifest : null;
+    const raw = JSON.parse(await fsp.readFile(path.join(dirFor(source.cacheId), "manifest.json"), "utf8")) as Partial<SpriteManifest> & { version: string; sheets: number };
+    if (raw.version !== version) return null;
+    // Manifestes écrits avant la publication progressive : toujours complets, toutes planches prêtes.
+    const complete = raw.complete ?? true;
+    const ready = Array.isArray(raw.ready) ? raw.ready : Array.from({ length: raw.sheets }, (_, i) => i + 1);
+    return { ...(raw as SpriteManifest), ready, complete };
   } catch {
     return null;
   }
@@ -237,6 +250,13 @@ export function shouldYieldToPlayback(): boolean {
 export interface GenerateOptions {
   /** Interrompt proprement la génération (lecture démarrée, arrêt demandé…). */
   shouldCancel?: () => boolean;
+  /** Position (secondes) à préparer en premier : la zone regardée. Les planches suivent, puis le reste. */
+  startAtSec?: number;
+}
+
+/** Met à jour la zone à préparer en priorité d'une génération en cours (le spectateur a sauté ailleurs). */
+export function setSpriteHint(cacheId: string, seconds: number): void {
+  if (Number.isFinite(seconds) && seconds >= 0) registry.hints.set(cacheId, seconds);
 }
 
 /**
@@ -245,6 +265,7 @@ export interface GenerateOptions {
  * partage la même génération. Résout à `true` si des planches valides existent.
  */
 export function ensureSprites(source: LocalSource, opts: GenerateOptions = {}): Promise<boolean> {
+  if (opts.startAtSec != null) setSpriteHint(source.cacheId, opts.startAtSec);
   const running = registry.inflight.get(source.cacheId);
   if (running) return running;
   if (registry.waiters.length >= MAX_QUEUED) return Promise.resolve(false);
@@ -259,7 +280,7 @@ export function ensureSprites(source: LocalSource, opts: GenerateOptions = {}): 
     } finally {
       releaseSlot();
     }
-  })().finally(() => registry.inflight.delete(source.cacheId));
+  })().finally(() => { registry.inflight.delete(source.cacheId); registry.hints.delete(source.cacheId); });
   registry.inflight.set(source.cacheId, promise);
   return promise;
 }
@@ -285,7 +306,7 @@ export function resetFailureMemory(): void {
   registry.reasons.clear();
 }
 
-/** true = planches prêtes · false = échec du fichier · "cancelled" = interrompu pour laisser la place à une lecture. */
+/** true = planches complètes · false = échec du fichier · "cancelled" = interrompu pour laisser la place à une lecture. */
 async function generate(source: LocalSource, opts: GenerateOptions): Promise<boolean | "cancelled"> {
   // La lecture passe TOUJOURS avant : aucune génération tant qu'un transcodage vidéo est en cours, et
   // toute génération en cours s'arrête dès qu'un transcodage démarre.
@@ -298,81 +319,125 @@ async function generate(source: LocalSource, opts: GenerateOptions): Promise<boo
   };
   const version = await versionOf(source.filePath);
   if (!version) return fail("fichier source introuvable depuis le serveur");
-  if (await readManifest(source)) return true;
 
-  const duration = await probeDuration(source.filePath, cancelled);
+  // Reprise : des planches déjà publiées pour CE fichier (même version) sont conservées, seules les
+  // manquantes sont générées. Un fichier remplacé repart de zéro (readManifest → null).
+  const existing = await readManifest(source);
+  if (existing?.complete) return true;
+
+  const duration = existing?.durationSec ?? (await probeDuration(source.filePath, cancelled));
   if (cancelled()) return "cancelled";
   if (!duration) return fail("durée illisible (ffprobe indisponible ou fichier non analysable)");
 
-  const count = Math.min(MAX_THUMBS, Math.floor(duration / SPRITE_INTERVAL_SEC) + 1);
-  const finalDir = dirFor(source.cacheId);
-  const tmpDir = `${finalDir}.tmp-${process.pid}`;
-  await fsp.rm(tmpDir, { recursive: true, force: true });
-  await fsp.mkdir(tmpDir, { recursive: true });
+  const cols = existing?.cols ?? grid.cols;
+  const rows = existing?.rows ?? grid.rows;
+  const perSheet = cols * rows;
+  const count = existing?.count ?? Math.min(MAX_THUMBS, Math.floor(duration / SPRITE_INTERVAL_SEC) + 1);
+  const sheets = Math.ceil(count / perSheet);
+  const dir = dirFor(source.cacheId);
+  if (!existing) await fsp.rm(dir, { recursive: true, force: true });
+  await fsp.mkdir(dir, { recursive: true });
+  // Reste d'une génération interrompue brutalement (redémarrage du serveur en plein travail).
+  for (const entry of await fsp.readdir(dir).catch(() => [] as string[])) {
+    if (entry.startsWith(".work-")) await fsp.rm(path.join(dir, entry), { recursive: true, force: true });
+  }
+  const work = path.join(dir, `.work-${process.pid}`);
+  const ready = new Set<number>(existing?.ready ?? []);
+
+  /** Écriture atomique (fichier temporaire puis renommage) : un lecteur ne voit jamais un manifeste à moitié écrit. */
+  const publish = async (): Promise<void> => {
+    const manifest: SpriteManifest = {
+      version, intervalSec: SPRITE_INTERVAL_SEC, thumbW: SPRITE_THUMB_W, thumbH: SPRITE_THUMB_H, cols, rows, count, sheets,
+      durationSec: duration, ready: [...ready].sort((a, b) => a - b), complete: ready.size >= sheets,
+    };
+    const tmp = path.join(dir, "manifest.json.tmp");
+    await fsp.writeFile(tmp, JSON.stringify(manifest));
+    await fsp.rename(tmp, path.join(dir, "manifest.json"));
+  };
+
+  /** Prochaine planche à faire : la première manquante à partir de la zone regardée, puis le reste. */
+  const nextSheet = (): number => {
+    const missing: number[] = [];
+    for (let s = 1; s <= sheets; s++) if (!ready.has(s)) missing.push(s);
+    const hint = registry.hints.get(source.cacheId) ?? opts.startAtSec ?? 0;
+    const hintSheet = Math.floor(Math.max(0, hint) / SPRITE_INTERVAL_SEC / perSheet) + 1;
+    return missing.find((s) => s >= hintSheet) ?? missing[0];
+  };
+
   const ffmpeg = resolveFfmpegBinary();
   const scale = `scale=${SPRITE_THUMB_W}:${SPRITE_THUMB_H}:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1,pad=${SPRITE_THUMB_W}:${SPRITE_THUMB_H}:(ow-iw)/2:(oh-ih)/2:black`;
 
   try {
+    let attempted = 0;
     let failed = 0;
-    let lastStderr = "";
-    let lastGood: string | null = null;
-    for (let i = 0; i < count; i++) {
+    let lastGood: string | null = null; // dernière vignette valide (peut venir de la planche précédente)
+    while (ready.size < sheets) {
       if (cancelled()) return "cancelled";
-      const out = path.join(tmpDir, `t${i}.jpg`);
-      // Milieu de l'intervalle : le tout début d'un film est souvent noir.
-      const at = Math.min(duration - 0.5, (i + 0.5) * SPRITE_INTERVAL_SEC);
-      const { code, stderr: thumbErr } = await run(
-        ffmpeg,
-        ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-ss", at.toFixed(2), "-noaccurate_seek", "-i", source.filePath, "-an", "-sn", "-frames:v", "1", "-vf", scale, "-q:v", "5", out],
-        THUMB_TIMEOUT_MS,
-        cancelled,
-      );
-      if (cancelled()) return "cancelled";
-      if (code === 0 && fs.existsSync(out)) {
-        lastGood = out;
-      } else {
-        failed++;
-        lastStderr = thumbErr.trim().split("\n").pop() || (code == null ? "ffmpeg n'a pas démarré ou a dépassé le délai" : `code ${code}`);
-        if (failed / count > MAX_FAILED_RATIO) return fail(`plus d'une vignette sur 4 impossible à extraire (${lastStderr})`);
-        // Une vignette manquante reprend la précédente (ou, tout au début du
-        // fichier, la première valide : voir plus bas) pour garder la grille continue.
-        if (lastGood) await fsp.copyFile(lastGood, out);
-      }
-      await sleep(hasActivePlayback() ? PAUSE_DURING_PLAYBACK_MS : PAUSE_BETWEEN_THUMBS_MS);
-    }
-    // Les vignettes initiales manquantes (avant la première réussie) prennent la première valide.
-    const first = Array.from({ length: count }, (_, i) => path.join(tmpDir, `t${i}.jpg`)).find((p) => fs.existsSync(p));
-    if (!first) return fail("aucune vignette extraite");
-    for (let i = 0; i < count; i++) {
-      const p = path.join(tmpDir, `t${i}.jpg`);
-      if (!fs.existsSync(p)) await fsp.copyFile(first, p);
-    }
+      const sheet = nextSheet();
+      const from = (sheet - 1) * perSheet;
+      const to = Math.min(count, sheet * perSheet);
+      await fsp.rm(work, { recursive: true, force: true });
+      await fsp.mkdir(work, { recursive: true });
 
-    const sheets = Math.ceil(count / SPRITE_PER_SHEET);
-    // `tile` sort UNE image par groupe de 100 vignettes : `-frames:v 1` = une planche (la dernière,
-    // incomplète, est émise à la fin des entrées).
-    for (let s = 0; s < sheets; s++) {
+      let lastStderr = "";
+      let firstValid: string | null = null;
+      for (let i = from; i < to; i++) {
+        if (cancelled()) return "cancelled";
+        const out = path.join(work, `t${i - from}.jpg`);
+        // Milieu de l'intervalle : le tout début d'un film est souvent noir.
+        const at = Math.min(duration - 0.5, (i + 0.5) * SPRITE_INTERVAL_SEC);
+        const { code, stderr: thumbErr } = await run(
+          ffmpeg,
+          ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-ss", at.toFixed(2), "-noaccurate_seek", "-i", source.filePath, "-an", "-sn", "-frames:v", "1", "-vf", scale, "-q:v", "5", out],
+          THUMB_TIMEOUT_MS,
+          cancelled,
+        );
+        if (cancelled()) return "cancelled";
+        attempted++;
+        if (code === 0 && fs.existsSync(out)) {
+          lastGood = out;
+          firstValid ??= out;
+        } else {
+          failed++;
+          lastStderr = thumbErr.trim().split("\n").pop() || (code == null ? "ffmpeg n'a pas démarré ou a dépassé le délai" : `code ${code}`);
+          // Seuil mesuré sur ce qui a été tenté (au moins 8 essais) : une planche publiée n'est jamais « à moitié fausse ».
+          if (attempted >= 8 && failed / attempted > MAX_FAILED_RATIO) return fail(`plus d'une vignette sur 4 impossible à extraire (${lastStderr})`);
+          // Une vignette manquante reprend la précédente pour garder la grille continue.
+          if (lastGood) await fsp.copyFile(lastGood, out);
+        }
+        await sleep(hasActivePlayback() ? PAUSE_DURING_PLAYBACK_MS : PAUSE_BETWEEN_THUMBS_MS);
+      }
+      // Les vignettes du début de planche manquantes (avant la première réussie) prennent la première valide.
+      const fallback = firstValid ?? lastGood;
+      if (!fallback) return fail(`aucune vignette extraite pour la planche ${sheet}${lastStderr ? ` (${lastStderr})` : ""}`);
+      for (let i = 0; i < to - from; i++) {
+        const p = path.join(work, `t${i}.jpg`);
+        if (!fs.existsSync(p)) await fsp.copyFile(fallback, p);
+      }
+
+      // `tile` sort UNE image par groupe de vignettes : `-frames:v 1` = une planche (la dernière,
+      // incomplète, est émise à la fin des entrées).
+      const sheetTmp = path.join(work, "sheet.jpg");
       const { code, stderr } = await run(
         ffmpeg,
-        ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-framerate", "1", "-start_number", String(s * SPRITE_PER_SHEET), "-i", path.join(tmpDir, "t%d.jpg"), "-frames:v", "1", "-vf", `tile=${SPRITE_COLS}x${SPRITE_ROWS}`, "-q:v", "5", path.join(tmpDir, `sheet${String(s + 1).padStart(2, "0")}.jpg`)],
+        ["-hide_banner", "-loglevel", "error", "-y", "-threads", "1", "-framerate", "1", "-start_number", "0", "-i", path.join(work, "t%d.jpg"), "-frames:v", "1", "-vf", `tile=${cols}x${rows}`, "-q:v", "5", sheetTmp],
         60_000,
         cancelled,
       );
       if (cancelled()) return "cancelled";
-      if (code !== 0) {
-        return fail(`assemblage de la planche ${s + 1} impossible (${stderr.trim().split("\n").pop() || "ffmpeg sans message"})`);
-      }
-    }
-    for (let i = 0; i < count; i++) await fsp.rm(path.join(tmpDir, `t${i}.jpg`), { force: true });
+      if (code !== 0) return fail(`assemblage de la planche ${sheet} impossible (${stderr.trim().split("\n").pop() || "ffmpeg sans message"})`);
 
-    const manifest: SpriteManifest = { version, intervalSec: SPRITE_INTERVAL_SEC, thumbW: SPRITE_THUMB_W, thumbH: SPRITE_THUMB_H, cols: SPRITE_COLS, rows: SPRITE_ROWS, count, sheets, durationSec: duration };
-    await fsp.writeFile(path.join(tmpDir, "manifest.json"), JSON.stringify(manifest));
-    await fsp.rm(finalDir, { recursive: true, force: true });
-    await fsp.rename(tmpDir, finalDir);
+      // Publication : planche d'abord, manifeste ensuite — une planche annoncée existe toujours.
+      await fsp.rename(sheetTmp, path.join(dir, `sheet${String(sheet).padStart(2, "0")}.jpg`));
+      ready.add(sheet);
+      await publish();
+    }
     return true;
   } catch (e) {
     return fail(`erreur inattendue : ${e instanceof Error ? e.message : String(e)}`);
   } finally {
-    await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
+    // Rien n'a été publié (interruption ou échec dès la première planche) : on ne laisse pas de dossier vide.
+    if (!existing && ready.size === 0) await fsp.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }

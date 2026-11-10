@@ -1,3 +1,11 @@
+## v1.28.120 — 10 novembre 2026
+
+### Lecteur
+
+- Aperçus de la barre de progression : plus besoin d'attendre la fin de la préparation. Chaque planche de 100 vignettes est publiée dès qu'elle est prête et sert tout de suite au survol ; le reste s'ajoute au fil de l'eau.
+- La préparation commence par la zone regardée (reprise de lecture, ou endroit survolé) puis continue avec le reste du film, et suit les sauts du spectateur.
+- Une préparation interrompue (transcodage qui démarre, redémarrage du serveur) reprend là où elle s'est arrêtée : les planches déjà prêtes ne sont pas refaites. Un fichier remplacé repart de zéro.
+
 ## v1.28.119 — 10 novembre 2026
 
 ### Profil

@@ -1,3 +1,11 @@
+## v1.28.120 — November 10, 2026
+
+### Player
+
+- Seek bar previews: no more waiting for the whole preparation to finish. Each sheet of 100 thumbnails is published as soon as it is ready and is used right away on hover; the rest is added as it goes.
+- Preparation starts with the area being watched (resume point, or hovered spot), then continues with the rest of the film, and follows the viewer's jumps.
+- An interrupted preparation (a transcode starting, a server restart) resumes where it stopped: sheets already ready are not redone. A replaced file starts over.
+
 ## v1.28.119 — November 10, 2026
 
 ### Profile
