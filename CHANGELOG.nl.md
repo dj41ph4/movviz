@@ -1,3 +1,15 @@
+## v1.28.112 — 10 november 2026
+
+### Interface
+
+- Kleine logo's op de kaarten worden nu vergroot zoals bedoeld (de meting werd geblokkeerd door de TMDb-CDN), zonder dat grote logo's meer ruimte innemen: de hoogte is beperkt tot ongeveer 36 % van de kaart.
+- Logo's die bij het eerste laden ontbraken (bijv. de rij „Kerstsfeer”) worden niet meer onthouden als „geen logo” wanneer TMDb niet antwoordt: ze verschijnen zonder te vernieuwen.
+
+### Downloads
+
+- „Torrent opnieuw starten” laat een lopende download niet meer verdwijnen: hij komt terug in de wachtrij met zijn serie of film, prioriteit en doelaflevering.
+- De engine logt nu trackerfouten en „geen peers” (eenmaal per torrent per 30 min) om torrents met 0 peers te diagnosticeren.
+
 ## v1.28.111 — 10 november 2026
 
 ### Bibliotheek

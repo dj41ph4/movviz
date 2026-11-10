@@ -110,6 +110,7 @@ export class WebTorrentBackend extends AbstractBackend {
         paused: !!opts.paused,
       });
       this._installPauseGuard(t);
+      this._installTrackerDiagnostics(t);
       t.on("error", reject);
       t.once("metadata", () => {
         const removed = removeDanglingSymlinks(this.cfg.downloadPath, (t.files ?? []).map((f) => f.path));
@@ -193,6 +194,26 @@ export class WebTorrentBackend extends AbstractBackend {
     const t = this.client?.torrents?.find((t2) => t2.infoHash.toLowerCase() === lower);
     if (t) { t.resume(); return true; }
     return false;
+  }
+
+  /**
+   * Makes "0 peers" diagnosable: WebTorrent swallows tracker errors (refused
+   * announce, unregistered torrent, rate limit…) unless someone listens. Each
+   * kind is logged at most once per 30 min per torrent to keep the 500-line
+   * ring buffer readable with hundreds of torrents.
+   */
+  _installTrackerDiagnostics(t) {
+    if (t.__movvizTrackerDiag) return;
+    t.__movvizTrackerDiag = true;
+    const lastLogged = new Map();
+    const log = (kind, detail) => {
+      const now = Date.now();
+      if (now - (lastLogged.get(kind) ?? 0) < 30 * 60_000) return;
+      lastLogged.set(kind, now);
+      console.warn(`[engine:${this.cfg.id}][${this.cfg.logTag}] [tracker] ${t.name ?? t.infoHash}: ${kind}${detail ? " — " + detail : ""} (pairs: ${t.numPeers ?? 0})`);
+    };
+    t.on("warning", (e) => log("avertissement", String(e?.message ?? e).slice(0, 200)));
+    t.on("noPeers", (type) => log(`aucun pair via ${type}`));
   }
 
   _installPauseGuard(t) {

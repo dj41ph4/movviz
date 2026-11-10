@@ -1,3 +1,15 @@
+## v1.28.112 — 10 novembre 2026
+
+### Interface
+
+- Les petits logos sur les cartes sont maintenant agrandis comme prévu (la mesure était bloquée par le CDN TMDb), sans que les grands logos ne prennent plus de place : la hauteur est plafonnée à environ 36 % de la carte.
+- Les logos qui manquaient au premier chargement (ex. rangée « L'ambiance de Noël ») ne sont plus mémorisés comme « sans logo » quand TMDb ne répond pas : ils réapparaissent sans devoir actualiser.
+
+### Téléchargements
+
+- « Relancer le torrent » ne fait plus disparaître un téléchargement en cours : il est remis en file avec sa série ou son film, sa priorité et son épisode visé.
+- Le moteur journalise désormais les erreurs de tracker et les « aucun pair » (une fois par torrent et par 30 min) pour diagnostiquer les torrents bloqués à 0 pair.
+
 ## v1.28.111 — 10 novembre 2026
 
 ### Bibliothèque

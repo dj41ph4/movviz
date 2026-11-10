@@ -1,3 +1,15 @@
+## v1.28.112 — November 10, 2026
+
+### Interface
+
+- Small logos on cards are now enlarged as intended (the measurement was blocked by the TMDb CDN), without large logos taking more room: height is capped at about 36% of the card.
+- Logos missing on first load (e.g. the "Christmas mood" row) are no longer remembered as "no logo" when TMDb fails to answer: they show up without refreshing.
+
+### Downloads
+
+- "Restart torrent" no longer makes an in-progress download disappear: it is put back in the queue with its series or movie, priority and target episode.
+- The engine now logs tracker errors and "no peers" events (once per torrent every 30 min) to diagnose torrents stuck at 0 peers.
+
 ## v1.28.111 — November 10, 2026
 
 ### Library

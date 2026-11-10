@@ -1,3 +1,15 @@
+## v1.28.112 — 10 novembre 2026
+
+### Interfaccia
+
+- I loghi piccoli sulle schede vengono ora ingranditi come previsto (la misura era bloccata dal CDN TMDb), senza che i loghi grandi occupino più spazio: l'altezza è limitata a circa il 36 % della scheda.
+- I loghi mancanti al primo caricamento (es. la riga «Atmosfera natalizia») non vengono più memorizzati come «senza logo» quando TMDb non risponde: compaiono senza ricaricare.
+
+### Download
+
+- «Riavvia torrent» non fa più sparire un download in corso: torna in coda con la sua serie o il suo film, la priorità e l'episodio mirato.
+- Il motore registra ora gli errori del tracker e i «nessun peer» (una volta per torrent ogni 30 min) per diagnosticare i torrent fermi a 0 peer.
+
 ## v1.28.111 — 10 novembre 2026
 
 ### Libreria

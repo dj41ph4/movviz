@@ -1,3 +1,15 @@
+## v1.28.112 — 10. November 2026
+
+### Oberfläche
+
+- Kleine Logos auf den Karten werden jetzt wie vorgesehen vergrößert (die Messung wurde vom TMDb-CDN blockiert), ohne dass große Logos mehr Platz einnehmen: Die Höhe ist auf etwa 36 % der Karte begrenzt.
+- Beim ersten Laden fehlende Logos (z. B. die Reihe „Weihnachtsstimmung“) werden nicht mehr als „ohne Logo“ gemerkt, wenn TMDb nicht antwortet: Sie erscheinen ohne Aktualisieren.
+
+### Downloads
+
+- „Torrent neu starten“ lässt einen laufenden Download nicht mehr verschwinden: Er kommt mit Serie oder Film, Priorität und Zielepisode zurück in die Warteschlange.
+- Die Engine protokolliert jetzt Tracker-Fehler und „keine Peers“ (einmal pro Torrent alle 30 Min.), um Torrents mit 0 Peers zu diagnostizieren.
+
 ## v1.28.111 — 10. November 2026
 
 ### Bibliothek

@@ -71,12 +71,16 @@ export function AdaptiveTitleLogo({ path, size, className, loading }: { path: st
         return;
       }
       const visibleWidthRatio = (right - left + 1) / width;
+      const visibleHeightRatio = (bottom - top + 1) / height;
       // `offsetWidth` deliberately ignores CSS transforms, so this is the
       // intrinsic, unscaled canvas width even when a recycled card briefly
       // still carries the preceding logo's transform. The direct parent is
       // the bottom-left logo rail and its parent is the actual 16:9 card.
-      const cardWidth = image.parentElement?.parentElement?.getBoundingClientRect().width ?? 0;
+      const cardRect = image.parentElement?.parentElement?.getBoundingClientRect();
+      const cardWidth = cardRect?.width ?? 0;
+      const cardHeight = cardRect?.height ?? 0;
       const visibleWidth = image.offsetWidth * visibleWidthRatio;
+      const visibleHeight = image.offsetHeight * visibleHeightRatio;
       if (!cardWidth || !visibleWidth) {
         setLayout({ scale: 1, ready: true });
         return;
@@ -84,7 +88,13 @@ export function AdaptiveTitleLogo({ path, size, className, loading }: { path: st
       // Never shrink a logo that already occupies more than 40% of the
       // card (The International), but make smaller transparent/franchise
       // marks reach that exact visual width while preserving their ratio.
-      const nextScale = Math.max(1, (cardWidth * 0.4) / visibleWidth);
+      // Two caps keep sizes even: a compact/square mark would otherwise grow
+      // as tall as the card to reach 40% of its width, and a tiny mark scaled
+      // many times over turns blurry. Wide logos are limited by width, tall
+      // ones by height (about 36% of the card), never beyond 3x.
+      const byWidth = (cardWidth * 0.4) / visibleWidth;
+      const byHeight = cardHeight && visibleHeight ? (cardHeight * 0.36) / visibleHeight : byWidth;
+      const nextScale = Math.min(3, Math.max(1, Math.min(byWidth, byHeight)));
       logoScaleCache.set(path, nextScale);
       setLayout({ scale: nextScale, ready: true });
     } catch {
@@ -116,6 +126,9 @@ export function AdaptiveTitleLogo({ path, size, className, loading }: { path: st
       alt=""
       loading={loading ?? (inCarousel ? "lazy" : "eager")}
       decoding="async"
+      // The TMDb CDN allows CORS; without this the canvas is tainted and the
+      // alpha measurement above always fails, leaving small logos unscaled.
+      crossOrigin={useCdn && !fellBack ? "anonymous" : undefined}
       onLoad={(event) => inspectAlphaBounds(event.currentTarget)}
       onError={onError}
       className={cn("origin-bottom-left object-contain object-left", !layout.ready && "opacity-0", className)}

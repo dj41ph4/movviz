@@ -55,7 +55,11 @@ export async function GET(req: NextRequest) {
   // TMDb artwork is shared by provider ID; only the final cosmetic choices
   // are per fiche. Resolve that provider once even when both parts are shown.
   const providerRefs = [...new Map(refs.map(ref => [`${ref.type}:${ref.tmdbId}`, { type: ref.type, tmdbId: ref.tmdbId }])).values()];
-  const cached = loadCachedTitleArtwork(providerRefs, locale);
+  // An entry with neither backdrop nor logo is a failed TMDb lookup (a hiccup
+  // is served as an empty image list). It must never be replayed from the
+  // durable cache, or the card keeps its text stand-in until the entry expires.
+  const hasArtwork = (e: { backdropPath: string | null; logoPath: string | null }) => e.backdropPath != null || e.logoPath != null;
+  const cached = Object.fromEntries(Object.entries(loadCachedTitleArtwork(providerRefs, locale)).filter(([, e]) => hasArtwork(e)));
   const missing = providerRefs.filter((ref) => !cached[`${ref.type}:${ref.tmdbId}`]);
   const freshEntries = await mapWithConcurrency(missing, TMDB_ARTWORK_CONCURRENCY, async (ref) => {
     const images = await getTitleImages(ref.tmdbId, ref.type, locale);
@@ -68,7 +72,7 @@ export async function GET(req: NextRequest) {
       ...artwork,
     };
   });
-  cacheTitleArtwork(freshEntries, locale);
+  cacheTitleArtwork(freshEntries.filter(hasArtwork), locale);
   const automatic: Record<string, { backdropPath: string | null; logoPath: string | null; titleEmbedded: boolean }> = {};
   for (const [key, entry] of Object.entries(cached)) {
     automatic[key] = {

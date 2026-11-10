@@ -217,12 +217,41 @@ export class MovvizEngine {
     if (!inst) return false;
     const t = inst._get(infoHash);
     if (!t) return false;
-    await inst.remove(infoHash, true);
-    const rec = inst.importedHistory.get(infoHash);
-    if (!rec) return false;
-    await inst.add(rec.magnetURI ?? rec.infoHash, {
-      infoHash, libraryRef: rec.libraryRef, title: rec.title, year: rec.year,
-    });
+    const key = infoHash.toLowerCase();
+    const m = inst.meta.get(key) ?? inst.meta.get(infoHash);
+    if (!m) return false;
+    // Everything needed to put the torrent back must be captured BEFORE the
+    // removal: remove() wipes the in-memory record and the cached .torrent
+    // file (the only copy of a private-tracker torrent, which has no usable
+    // magnet). Looking it up afterwards only worked for already-imported
+    // torrents, so restarting an in-progress one removed it for good.
+    let torrentId = null;
+    try {
+      torrentId = await fsp.readFile(path.join(TORRENT_CACHE_DIR, `${key}.torrent`));
+    } catch {
+      torrentId = m.magnetURI ?? null;
+    }
+    if (!torrentId) return false; // nothing to restore from: leave it untouched
+    const opts = {
+      infoHash: key,
+      addedAt: m.addedAt,
+      sequential: m.sequential,
+      priority: m.priority,
+      libraryRef: m.libraryRef,
+      title: m.title,
+      year: m.year,
+      episodeTarget: m.episodeTarget,
+      episodeTargets: m.episodeTargets,
+      rejectMissingSeriesPack: m.rejectMissingSeriesPack === true,
+      autoPackReleaseTitle: m.autoPackReleaseTitle,
+    };
+    if (!(await inst.remove(infoHash, true))) return false;
+    try {
+      await inst.add(torrentId, opts);
+    } catch (e) {
+      console.error(`[engine] restart: could not re-add ${key}: ${e?.message ?? e}`);
+      return false;
+    }
     return true;
   }
   async startSeeding(infoHash) { return (await this.findByInfoHash(infoHash)?.startSeeding(infoHash)) ?? false; }
