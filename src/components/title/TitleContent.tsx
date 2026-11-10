@@ -1949,6 +1949,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 librarySeasons={libraryMatch?.seasons}
                 seriesTitle={detail?.title ?? ""}
                 onWatchedChanged={mutateWatch}
+                onFollowChanged={user?.role === "admin" ? () => { void mutateLibrary(); } : undefined}
                 onSearchSeason={
                   libraryMatch?.id && !partActionBlocked ? searchSeason : undefined
                 }

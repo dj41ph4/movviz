@@ -1,3 +1,9 @@
+## v1.28.111 — 10 novembre 2026
+
+### Libreria
+
+- Serie: un 4º pulsante (campana barrata) su ogni stagione permette a un admin di non seguirla più, così non viene più scaricata automaticamente. La stagione appare come «Non seguita» (nome attenuato, pulsante ambra) e la campana piena la riattiva. Gli episodi già scaricati restano intatti.
+
 ## v1.28.110 — 10 novembre 2026
 
 ### Lettore

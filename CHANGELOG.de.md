@@ -1,3 +1,9 @@
+## v1.28.111 — 10. November 2026
+
+### Bibliothek
+
+- Serien: Ein 4. Button (durchgestrichene Glocke) bei jeder Staffel lässt Admins sie nicht mehr verfolgen, sodass sie nicht mehr automatisch heruntergeladen wird. Die Staffel erscheint als „Nicht verfolgt“ (abgedunkelter Name, bernsteinfarbener Button), die gefüllte Glocke aktiviert sie wieder. Bereits heruntergeladene Episoden bleiben unberührt.
+
 ## v1.28.110 — 10. November 2026
 
 ### Player

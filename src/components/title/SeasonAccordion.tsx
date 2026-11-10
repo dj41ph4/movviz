@@ -7,7 +7,7 @@ import useSWR from "swr";
 import { useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
 import { TmdbImage } from "@/components/media/TmdbImage";
-import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar, Info, Heart } from "lucide-react";
+import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar, Info, Heart, Bell, BellOff } from "lucide-react";
 import type { LibraryStatus, LibraryFile } from "@/lib/library/types";
 import { MediaBadges } from "@/components/library/MediaBadges";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
@@ -17,7 +17,10 @@ import { BLEACH_COURS, type BleachPart } from "@/lib/metadata/bleachPresentation
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
+type SeasonDisplayStatus = LibraryStatus | "unfollowed";
+
+const STATUS_ICON: Record<SeasonDisplayStatus, React.ElementType> = {
+  unfollowed: BellOff,
   available: Check,
   downloading: HardDriveDownload,
   searching: Search,
@@ -66,7 +69,8 @@ interface TmdbSeasonData {
   episodes: TmdbEpisode[];
 }
 
-const STATUS_TONE: Record<LibraryStatus, string> = {
+const STATUS_TONE: Record<SeasonDisplayStatus, string> = {
+  unfollowed: "text-ink-dim bg-white/6 border-white/10",
   available: "text-ok bg-ok/12 border-ok/25",
   downloading: "text-cyan bg-cyan/12 border-cyan/25",
   searching: "text-brand-glow bg-brand/12 border-brand/25",
@@ -74,7 +78,8 @@ const STATUS_TONE: Record<LibraryStatus, string> = {
   upcoming: "text-ink-dim bg-white/6 border-white/10",
 };
 
-const STATUS_LABEL: Record<LibraryStatus, string> = {
+const STATUS_LABEL: Record<SeasonDisplayStatus, string> = {
+  unfollowed: "unfollowed",
   available: "available",
   downloading: "downloading",
   searching: "searching",
@@ -82,8 +87,9 @@ const STATUS_LABEL: Record<LibraryStatus, string> = {
   upcoming: "upcoming",
 };
 
-function seasonStatus(librarySeason: LibrarySeasonInfo | undefined): LibraryStatus {
+function seasonStatus(librarySeason: LibrarySeasonInfo | undefined): SeasonDisplayStatus {
   if (!librarySeason || !librarySeason.episodes) return "missing";
+  if (librarySeason.monitored === false) return "unfollowed";
   const monitored = librarySeason.episodes.filter((e) => e.monitored);
   if (monitored.length === 0) return "missing";
   if (monitored.every((e) => e.status === "upcoming")) return "upcoming";
@@ -111,6 +117,7 @@ function SeasonRow({
   searchingEpisodeKey,
   watchedEpisodes,
   onWatchedChanged,
+  onFollowChanged,
   watchlistedEpisodes,
   onToggleWatchlistEpisode,
 }: {
@@ -137,10 +144,12 @@ function SeasonRow({
   searchingEpisodeKey?: string | null;
   watchedEpisodes?: Set<string>;
   onWatchedChanged?: () => void;
+  onFollowChanged?: () => void;
   watchlistedEpisodes?: Set<string>;
   onToggleWatchlistEpisode?: (seasonNumber: number, episodeNumber: number, title: string, stillPath?: string | null) => void;
 }) {
   const { t, locale } = useI18n();
+  const [togglingFollow, setTogglingFollow] = useState(false);
   const [togglingWatched, setTogglingWatched] = useState<string | null>(null);
   const status = seasonStatus(libSeason);
   const StatusIcon = STATUS_ICON[status];
@@ -187,6 +196,22 @@ function SeasonRow({
   const seasonAllWatched =
     knownEpisodes.length > 0 &&
     knownEpisodes.every((k) => watchedEpisodes?.has(`${k.season}.${k.episode}`));
+
+  const seasonFollowed = libSeason?.monitored !== false;
+  const toggleFollow = async () => {
+    if (!seriesId) return;
+    setTogglingFollow(true);
+    try {
+      await fetch(`/api/library/series/${seriesId}/season/${season.seasonNumber}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ monitored: !seasonFollowed }),
+      });
+      onFollowChanged?.();
+    } finally {
+      setTogglingFollow(false);
+    }
+  };
 
   const toggleWatched = async (
     episodes: { season: number; episode: number }[],
@@ -237,7 +262,7 @@ function SeasonRow({
         <div className="flex min-w-0 items-center gap-3 sm:contents">
           <ChevronDown className={cn("h-5 w-5 shrink-0 text-ink-dim transition-transform", isExpanded && "rotate-180")} />
           {season.posterUrl && <img src={season.posterUrl} alt={season.name} loading="lazy" className="h-20 w-14 shrink-0 rounded-lg object-cover" />}
-          <span className="min-w-0 flex-1 font-bold text-ink sm:flex-initial">{season.name}</span>
+          <span className={cn("min-w-0 flex-1 font-bold sm:flex-initial", seasonFollowed ? "text-ink" : "text-ink-dim line-through decoration-ink-dim/50")}>{season.name}</span>
           <span className={cn(
             "ml-auto shrink-0 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[10px] font-bold sm:ml-auto sm:order-last",
             STATUS_TONE[status]
@@ -282,6 +307,20 @@ function SeasonRow({
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-ink-soft hover:text-ink"
             >
               <ListFilter className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {!readOnly && seriesId && libSeason && !season.bleachPart && onFollowChanged && (
+            <button
+              onClick={(e) => { e.stopPropagation(); void toggleFollow(); }}
+              disabled={togglingFollow}
+              aria-pressed={!seasonFollowed}
+              title={seasonFollowed ? t("library.seasonUnfollow") : t("library.seasonFollow")}
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong transition-colors disabled:opacity-40",
+                seasonFollowed ? "text-ink-soft hover:text-ink" : "border border-amber/50 bg-amber/20 text-amber"
+              )}
+            >
+              {togglingFollow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : seasonFollowed ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5 fill-current" />}
             </button>
           )}
         </div>
@@ -532,6 +571,7 @@ export function SeasonAccordion({
   librarySeasons,
   seriesTitle,
   onWatchedChanged,
+  onFollowChanged,
   onSearchSeason,
   onManualSearchSeason,
   onSearchEpisode,
@@ -552,6 +592,7 @@ export function SeasonAccordion({
   librarySeasons?: LibrarySeasonInfo[];
   seriesTitle?: string;
   onWatchedChanged?: () => void;
+  onFollowChanged?: () => void;
   onSearchSeason?: (seasonNumber: number, bleachPart?: number) => void;
   onManualSearchSeason?: (seasonNumber: number, bleachPart?: number) => void;
   onSearchEpisode?: (seasonNumber: number, episodeNumber: number) => void;
@@ -636,6 +677,7 @@ export function SeasonAccordion({
             searchingEpisodeKey={searchingEpisodeKey}
             watchedEpisodes={watchedEpisodes}
             onWatchedChanged={onWatchedChanged}
+            onFollowChanged={onFollowChanged}
             watchlistedEpisodes={watchlistedEpisodes}
             onToggleWatchlistEpisode={onToggleWatchlistEpisode}
           />

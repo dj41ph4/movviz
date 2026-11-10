@@ -1,3 +1,9 @@
+## v1.28.111 — November 10, 2026
+
+### Library
+
+- Series: a 4th button (crossed-out bell) on each season lets an admin stop following it so it no longer downloads automatically. The season shows as "Not followed" (dimmed name, amber button) and the filled bell follows it again. Episodes already downloaded are untouched.
+
 ## v1.28.110 — November 10, 2026
 
 ### Player

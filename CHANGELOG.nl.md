@@ -1,3 +1,9 @@
+## v1.28.111 — 10 november 2026
+
+### Bibliotheek
+
+- Series: een 4e knop (doorgestreepte bel) bij elk seizoen laat een admin het niet meer volgen, zodat het niet meer automatisch wordt gedownload. Het seizoen verschijnt als „Niet gevolgd” (gedimde naam, amberkleurige knop) en de gevulde bel volgt het weer. Reeds gedownloade afleveringen blijven onaangetast.
+
 ## v1.28.110 — 10 november 2026
 
 ### Speler

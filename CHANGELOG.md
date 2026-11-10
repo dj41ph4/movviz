@@ -1,3 +1,9 @@
+## v1.28.111 — 10 novembre 2026
+
+### Bibliothèque
+
+- Séries : un 4e bouton (cloche barrée) sur chaque saison permet à un admin de ne plus la suivre, pour qu'elle ne se télécharge plus automatiquement. La saison passe en « Non suivie » (nom grisé, bouton ambre) et la cloche pleine la ré-active. Les épisodes déjà téléchargés restent intacts.
+
 ## v1.28.110 — 10 novembre 2026
 
 ### Lecteur
