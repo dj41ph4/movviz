@@ -1,5 +1,4 @@
 import { matchesBlockedWord, type ReleaseRules } from "@/lib/library/releaseRules";
-import { isUnrestricted } from "@/lib/library/unrestricted";
 import { recordDecision } from "@/lib/library/decisionLog";
 
 /**
@@ -25,7 +24,6 @@ export function isBlockedForAutoGrab(
   rules: ReleaseRules,
   refTitle?: string
 ): { blocked: boolean; matchedTerm: string | null } {
-  if (isUnrestricted()) return { blocked: false, matchedTerm: null };
   const matchedTerm = matchesBlockedWord(releaseTitle, rules);
   if (matchedTerm && refTitle) {
     recordDecision({

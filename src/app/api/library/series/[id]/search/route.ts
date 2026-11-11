@@ -4,7 +4,6 @@ import { canCompleteMissing } from "@/lib/auth/permissions";
 import { searchAndGrabSeries } from "@/lib/library/autoGrabSeries";
 import { getSeries } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
-import { runUnrestricted } from "@/lib/library/unrestricted";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
 
@@ -27,14 +26,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const seriesPart = parseBleachSeriesPart(body.seriesPart);
   if (body.seriesPart != null && (!seriesPart || series.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
 
-  // Téléchargement sans restriction : ignore les mots interdits. Admins uniquement.
-  const unrestricted = body.unrestricted === true;
-  if (unrestricted && user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
-
-  enqueueJob("qualityUpgrade", `Recherche${unrestricted ? " sans restriction" : ""} : ${series.title}`, 1, async (setProgress) => {
-    const run = () => searchAndGrabSeries(id, { seriesPart: seriesPart ?? undefined });
-    await (unrestricted ? runUnrestricted(run) : run());
+  enqueueJob("qualityUpgrade", `Recherche : ${series.title}`, 1, async (setProgress) => {
+    await searchAndGrabSeries(id, { seriesPart: seriesPart ?? undefined });
     setProgress(1, 1);
-  }, `series-search-${id}-${seriesPart ?? "all"}${unrestricted ? "-free" : ""}`);
+  }, `series-search-${id}-${seriesPart ?? "all"}`);
   return NextResponse.json({ queued: true });
 }

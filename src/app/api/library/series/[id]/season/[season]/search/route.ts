@@ -4,7 +4,6 @@ import { canCompleteMissing } from "@/lib/auth/permissions";
 import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
 import { getSeries } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
-import { runUnrestricted } from "@/lib/library/unrestricted";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
@@ -30,14 +29,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const bleachPart = body.bleachPart == null ? undefined : Number(body.bleachPart);
   if (bleachPart != null && (series.tmdbId !== BLEACH_TMDB_ID || Number(season) !== 17 || !Number.isInteger(bleachPart) || bleachPart < 1 || bleachPart > 4)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });
 
-  // Téléchargement sans restriction : ignore les mots interdits. Admins uniquement.
-  const unrestricted = body.unrestricted === true;
-  if (unrestricted && user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
-
-  enqueueJob("qualityUpgrade", `Recherche${unrestricted ? " sans restriction" : ""} : ${series.title} — S${season}`, 1, async (setProgress) => {
-    const run = () => withSearchLock(`series:${id}`, () => searchAndGrabSeason(id, Number(season), { bleachPart }));
-    await (unrestricted ? runUnrestricted(run) : run());
+  enqueueJob("qualityUpgrade", `Recherche : ${series.title} — S${season}`, 1, async (setProgress) => {
+    await withSearchLock(`series:${id}`, () => searchAndGrabSeason(id, Number(season), { bleachPart }));
     setProgress(1, 1);
-  }, `season-search-${id}-${season}-${bleachPart ?? "all"}${unrestricted ? "-free" : ""}`);
+  }, `season-search-${id}-${season}-${bleachPart ?? "all"}`);
   return NextResponse.json({ queued: true });
 }

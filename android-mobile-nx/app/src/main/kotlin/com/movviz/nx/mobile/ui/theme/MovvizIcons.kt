@@ -264,31 +264,6 @@ val MovvizIconDownload: ImageVector by lazy {
     }
 }
 
-/** ↓🔓 Télécharger sans restriction — flèche vers le bas au-dessus d'un cadenas ouvert. */
-val MovvizIconDownloadUnrestricted: ImageVector by lazy {
-    movvizIcon("MovvizIconDownloadUnrestricted") {
-        stroke(width = 2f) {
-            moveTo(12f, 2.6f)
-            lineTo(12f, 9f)
-            moveTo(9f, 6.4f)
-            lineTo(12f, 9.4f)
-            lineTo(15f, 6.4f)
-            moveTo(6.8f, 14f)
-            lineTo(17.2f, 14f)
-            lineTo(17.2f, 20.6f)
-            lineTo(6.8f, 20.6f)
-            close()
-            moveTo(9.2f, 14f)
-            lineTo(9.2f, 12.6f)
-            quadTo(9.2f, 11.2f, 10.6f, 11.2f)
-            lineTo(13.4f, 11.2f)
-            quadTo(14.8f, 11.2f, 14.8f, 12.6f)
-            moveTo(12f, 16.9f)
-            lineTo(12f, 17.6f)
-        }
-    }
-}
-
 /** ⇄ Changer d'utilisateur — deux flèches opposées, traits ronds. */
 val MovvizIconSwap: ImageVector by lazy {
     movvizIcon("MovvizIconSwap") {

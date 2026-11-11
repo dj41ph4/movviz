@@ -1,8 +1,8 @@
-## v1.28.125 — November 11, 2026
+## v1.28.126 — November 11, 2026
 
-### Download
+### Fix
 
-- New “Unrestricted” button (Android TV and Android mobile, administrator accounts only) on movie, series and episode pages: it runs the usual search while ignoring blocked words, for example to get a VOSTFR release despite the rule. The post-download import check no longer rejects that file either. The movie, series, season and episode search routes accept “unrestricted” and refuse it for non-administrator accounts.
+- Back to the 1.28.124 code (more reliable “Watched” status), republished as 1.28.126; the “Unrestricted” button added by 1.28.125 is removed.
 
 ## v1.28.124 — November 11, 2026
 

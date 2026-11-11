@@ -931,40 +931,6 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         if (keys.isNotEmpty()) _requestedEpisodes.value = _requestedEpisodes.value - keys
     }
 
-    /** Téléchargement SANS RESTRICTION (admins uniquement, le serveur refuse
-     *  sinon) : lance la recherche habituelle du titre mais ignore les mots
-     *  interdits — pour obtenir par exemple une release VOSTFR malgré la règle.
-     *  Film : fiche de la bibliothèque ; série : toutes les saisons manquantes ;
-     *  épisode : seulement celui demandé. */
-    suspend fun downloadUnrestricted(
-        type: String,
-        tmdbId: Int,
-        seriesPart: String? = null,
-        seasonNumber: Int? = null,
-        episodeNumber: Int? = null,
-    ): ApiResult<Unit> {
-        val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
-        if (currentUser.value?.role != "admin") return ApiResult.Failure("Réservé aux administrateurs")
-        val result = if (type == "movie") {
-            val movieId = _movies.value.firstOrNull { it.tmdbId == tmdbId }?.id
-                ?: return ApiResult.Failure("Titre absent de la bibliothèque")
-            repo.searchMovieNow(movieId, unrestricted = true)
-        } else {
-            val seriesId = seriesLibraryId(tmdbId) ?: return ApiResult.Failure("Série absente de la bibliothèque")
-            if (seasonNumber != null && episodeNumber != null) repo.searchSeriesEpisodeNow(seriesId, seasonNumber, episodeNumber, unrestricted = true)
-            else repo.searchSeriesNow(seriesId, seriesPart, unrestricted = true)
-        }
-        when (result) {
-            is ApiResult.Success -> {
-                if (type != "movie") loadSeriesSeasons(tmdbId, seriesPart)
-                loadQueue()
-            }
-            ApiResult.Unauthorized -> _sessionExpired.value = true
-            is ApiResult.Failure -> Unit
-        }
-        return result
-    }
-
     fun downloadEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int, seriesPart: String? = null) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return

@@ -4,7 +4,6 @@ import { canCompleteMissing } from "@/lib/auth/permissions";
 import { searchAndGrabEpisode, withSearchLock } from "@/lib/library/autoGrabSeries";
 import { getSeries } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
-import { runUnrestricted } from "@/lib/library/unrestricted";
 import { needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 
 export const dynamic = "force-dynamic";
@@ -27,15 +26,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   if (needsBleachRepair(series)) return NextResponse.json({ error: "bleach_repair_required" }, { status: 409 });
 
-  // Téléchargement sans restriction : ignore les mots interdits. Admins uniquement.
-  const body = await req.json().catch(() => ({}));
-  const unrestricted = body?.unrestricted === true;
-  if (unrestricted && user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
-
-  enqueueJob("qualityUpgrade", `Recherche${unrestricted ? " sans restriction" : ""} : ${series.title} — S${season}E${episode}`, 1, async (setProgress) => {
-    const run = () => withSearchLock(`series:${id}`, () => searchAndGrabEpisode(id, Number(season), Number(episode)));
-    await (unrestricted ? runUnrestricted(run) : run());
+  enqueueJob("qualityUpgrade", `Recherche : ${series.title} — S${season}E${episode}`, 1, async (setProgress) => {
+    await withSearchLock(`series:${id}`, () => searchAndGrabEpisode(id, Number(season), Number(episode)));
     setProgress(1, 1);
-  }, `episode-search-${id}-${season}-${episode}${unrestricted ? "-free" : ""}`);
+  }, `episode-search-${id}-${season}-${episode}`);
   return NextResponse.json({ queued: true });
 }

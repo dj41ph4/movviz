@@ -14,8 +14,6 @@ import { releaseTitleMatches, seriesNeedsReleaseYear, seriesYearIsCompatible, pa
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
-import { isUnrestricted } from "@/lib/library/unrestricted";
-import { markManualGrab } from "@/lib/library/manualGrab";
 import { recordDecision } from "@/lib/library/decisionLog";
 import { trackOp } from "@/lib/blockProbe";
 import { buildGrabPayload } from "@/lib/indexers/grabPayload";
@@ -826,8 +824,6 @@ async function sendToEngine(
     });
     const torrent = await res.json();
     if (!res.ok) return { error: "engine_rejected" as const, detail: torrent };
-    // Téléchargement sans restriction : l'import ne doit pas rejeter le fichier sur un mot interdit.
-    if (isUnrestricted() && typeof torrent.infoHash === "string") markManualGrab(torrent.infoHash);
     const ref = decodeLibraryRef(libraryRef);
     if (planned.targets && ref && ref.kind !== "movie") markBleachGrabTargets(ref.seriesId, torrent.infoHash, planned.targets);
     return { ok: true as const, torrent, coverage: planned.targets?.map(t => t.library!) };

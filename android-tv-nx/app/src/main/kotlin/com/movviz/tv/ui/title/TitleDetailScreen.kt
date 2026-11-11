@@ -122,7 +122,6 @@ import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizIconCheck
 import com.movviz.tv.ui.theme.MovvizIconDownload
-import com.movviz.tv.ui.theme.MovvizIconDownloadUnrestricted
 import com.movviz.tv.ui.theme.MovvizIconFilm
 import com.movviz.tv.ui.theme.MovvizIconInfo
 import com.movviz.tv.ui.theme.MovvizIconPlay
@@ -1212,28 +1211,6 @@ fun TitleDetailScreen(
                     ) { trailerOpen = true }
                 }
             }
-            // Admins uniquement : télécharge ce titre en ignorant les mots interdits
-            // (ex. obtenir une VOSTFR malgré la règle). Absent pour les autres comptes.
-            var unrestrictedBusy by remember { mutableStateOf(false) }
-            val unrestrictedAction: @Composable () -> Unit = {
-                if (currentUser?.role == "admin" && inLibrary && libraryResolved && !bleachRepairRequired) {
-                    PrimaryPill(
-                        text = if (unrestrictedBusy) "Recherche…" else "Sans restriction",
-                        brush = null,
-                        icon = MovvizIconDownloadUnrestricted,
-                        enabled = !unrestrictedBusy,
-                    ) {
-                        scope.launch {
-                            unrestrictedBusy = true
-                            addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part)) {
-                                is ApiResult.Failure -> result.message
-                                else -> null
-                            }
-                            unrestrictedBusy = false
-                        }
-                    }
-                }
-            }
             val seriesWatchAction: @Composable () -> Unit = {
                 if (type == "series" && seriesWatchTargets.isNotEmpty()) {
                     WatchedToggle(
@@ -1330,7 +1307,6 @@ fun TitleDetailScreen(
                             PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, enabled = false) {}
                         }
                         trailerAction()
-                        unrestrictedAction()
                         WatchedToggle(
                             watched = movieWatched,
                             label = if (movieWatched) "Vu — marquer comme non vu" else "Marquer comme vu",
@@ -1458,7 +1434,6 @@ fun TitleDetailScreen(
                             playEpisode(ctaSeason, ctaEpisode, ctaResume, fromStart = ctaWatched)
                         }
                         trailerAction()
-                        unrestrictedAction()
                         seriesWatchAction()
                     }
                 }
@@ -1467,7 +1442,6 @@ fun TitleDetailScreen(
                 // la bande-annonce et « vu » restent sur leur propre ligne.
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("seriesNoCta").detailActionEntry()) {
                     trailerAction()
-                    unrestrictedAction()
                     seriesWatchAction()
                 }
             }
@@ -1671,14 +1645,6 @@ fun TitleDetailScreen(
                 onDownloadEpisode = {
                 viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber, part)
                 },
-                onDownloadEpisodeUnrestricted = if (currentUser?.role == "admin") ({
-                    scope.launch {
-                        addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part, selection.season.seasonNumber, selection.episode.episodeNumber)) {
-                            is ApiResult.Failure -> result.message
-                            else -> null
-                        }
-                    }
-                }) else null,
             )
         }
 
@@ -2920,8 +2886,6 @@ private fun EpisodeDetailOverlay(
     canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onDownloadEpisode: () -> Unit,
-    /** Non nul pour un admin seulement : télécharge l'épisode en ignorant les mots interdits. */
-    onDownloadEpisodeUnrestricted: (() -> Unit)? = null,
 ) {
     BackHandler(onBack = onDismiss)
     val episode = selection.episode
@@ -3160,9 +3124,6 @@ private fun EpisodeDetailOverlay(
                                 onClick = onDownloadSeason,
                             )
                         }
-                    }
-                    if (onDownloadEpisodeUnrestricted != null && episode.status != "upcoming") {
-                        PrimaryPill(text = "Sans restriction", brush = null, icon = MovvizIconDownloadUnrestricted, onClick = onDownloadEpisodeUnrestricted)
                     }
                     if (episode.status != "upcoming") {
                         WatchedToggle(

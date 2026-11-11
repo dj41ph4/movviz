@@ -389,20 +389,17 @@ class MovvizRepository(private val baseUrl: String) {
      *  immédiate côté serveur, le vrai grab tourne en tâche de fond — voir
      *  SearchTriggerResponseDto. Pas encore branché à l'UI, pour l'agent
      *  découverte/téléchargement. */
-    suspend fun searchMovieNow(libraryId: String, unrestricted: Boolean = false): ApiResult<Unit> =
-        safeCall { api.searchMovieNow(libraryId, unrestrictedScope(unrestricted)) }.map { }
+    suspend fun searchMovieNow(libraryId: String): ApiResult<Unit> =
+        safeCall { api.searchMovieNow(libraryId) }.map { }
 
-    suspend fun searchSeriesNow(libraryId: String, seriesPart: String? = null, unrestricted: Boolean = false): ApiResult<Unit> =
-        safeCall { api.searchSeriesNow(libraryId, BleachPresentation.scope(seriesPart) + unrestrictedScope(unrestricted)) }.map { }
+    suspend fun searchSeriesNow(libraryId: String, seriesPart: String? = null): ApiResult<Unit> =
+        safeCall { api.searchSeriesNow(libraryId, BleachPresentation.scope(seriesPart)) }.map { }
 
-    suspend fun searchSeriesSeasonNow(libraryId: String, seasonNumber: Int, seriesPart: String? = null, bleachPart: Int? = null, unrestricted: Boolean = false): ApiResult<Unit> =
-        safeCall { api.searchSeriesSeasonNow(libraryId, seasonNumber, BleachPresentation.scope(seriesPart, bleachPart) + unrestrictedScope(unrestricted)) }.map { }
+    suspend fun searchSeriesSeasonNow(libraryId: String, seasonNumber: Int, seriesPart: String? = null, bleachPart: Int? = null): ApiResult<Unit> =
+        safeCall { api.searchSeriesSeasonNow(libraryId, seasonNumber, BleachPresentation.scope(seriesPart, bleachPart)) }.map { }
 
-    suspend fun searchSeriesEpisodeNow(libraryId: String, seasonNumber: Int, episodeNumber: Int, unrestricted: Boolean = false): ApiResult<Unit> =
-        safeCall { api.searchSeriesEpisodeNow(libraryId, seasonNumber, episodeNumber, unrestrictedScope(unrestricted)) }.map { }
-
-    /** Admins uniquement (le serveur refuse sinon) : ignore les mots interdits pour cette recherche. */
-    private fun unrestrictedScope(unrestricted: Boolean): Map<String, Any> = if (unrestricted) mapOf("unrestricted" to true) else emptyMap()
+    suspend fun searchSeriesEpisodeNow(libraryId: String, seasonNumber: Int, episodeNumber: Int): ApiResult<Unit> =
+        safeCall { api.searchSeriesEpisodeNow(libraryId, seasonNumber, episodeNumber) }.map { }
 
     /** Statut "vu" manuel de l'utilisateur courant — voir WatchStatusDto. */
     suspend fun watchStatus(type: String? = null, tmdbId: Int? = null): ApiResult<WatchStatusDto> =

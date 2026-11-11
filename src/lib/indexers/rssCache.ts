@@ -24,7 +24,6 @@ import { withoutRateLimited, clearRateLimit } from "./rateLimit";
 import { readJsonCached } from "@/lib/fsJsonCache";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { runBackground } from "@/lib/priority/lane";
-import { isUnrestricted } from "@/lib/library/unrestricted";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -45,24 +44,6 @@ export function readRssCache(): IndexerRelease[] {
 }
 
 /**
- * Mode « sans restriction » : le score mis en cache contient déjà la pénalité
- * « Mot interdit » (-70) calculée au scan RSS. On la retire, sinon le score
- * minimum du profil écarterait quand même la release.
- */
-function withoutBlockedWordPenalty(releases: IndexerRelease[]): IndexerRelease[] {
-  if (!isUnrestricted()) return releases;
-  return releases.map((r) => {
-    const penalty = r.scoreBreakdown?.find((b) => b.label.startsWith("Mot interdit"));
-    if (!penalty) return r;
-    return {
-      ...r,
-      score: Math.max(1, r.score - penalty.delta),
-      scoreBreakdown: r.scoreBreakdown?.filter((b) => b !== penalty),
-    };
-  });
-}
-
-/**
  * Search the RSS cache for releases matching the given title + year,
  * optionally scoped to a set of Torznab category IDs. Returns every
  * cached release that overlaps the requested categories — the caller
@@ -74,7 +55,7 @@ function withoutBlockedWordPenalty(releases: IndexerRelease[]): IndexerRelease[]
 export function searchFromCache(
   scopeCategories?: number[]
 ): IndexerRelease[] {
-  const releases = withoutBlockedWordPenalty(readRssCache());
+  const releases = readRssCache();
   if (!scopeCategories?.length) return releases;
   const filtered = releases.filter((r) => r.categories.some((c) => scopeCategories.includes(c)));
   if (filtered.length === 0 && releases.length > 0) {
