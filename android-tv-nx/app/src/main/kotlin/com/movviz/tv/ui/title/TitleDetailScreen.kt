@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
@@ -122,6 +123,7 @@ import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizIconCheck
 import com.movviz.tv.ui.theme.MovvizIconDownload
+import com.movviz.tv.ui.theme.MovvizIconDownloadUnrestricted
 import com.movviz.tv.ui.theme.MovvizIconFilm
 import com.movviz.tv.ui.theme.MovvizIconInfo
 import com.movviz.tv.ui.theme.MovvizIconPlay
@@ -1211,6 +1213,31 @@ fun TitleDetailScreen(
                     ) { trailerOpen = true }
                 }
             }
+            // Admins uniquement : télécharge ce titre en ignorant les mots interdits
+            // (ex. obtenir une VOSTFR malgré la règle). Absent pour les autres comptes.
+            var unrestrictedBusy by remember { mutableStateOf(false) }
+            val unrestrictedAction: @Composable () -> Unit = {
+                if (currentUser?.role == "admin" && inLibrary && libraryResolved && !bleachRepairRequired) {
+                    // Icône seule, sans libellé. Reste focalisable pendant la recherche (un bouton
+                    // désactivé perdrait le focus) : le clic est simplement ignoré.
+                    WatchedToggle(
+                        watched = false,
+                        label = "Télécharger sans restriction",
+                        icon = MovvizIconDownloadUnrestricted,
+                        showLabel = false,
+                        dimmed = unrestrictedBusy,
+                    ) {
+                        if (!unrestrictedBusy) scope.launch {
+                            unrestrictedBusy = true
+                            addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part)) {
+                                is ApiResult.Failure -> result.message
+                                else -> null
+                            }
+                            unrestrictedBusy = false
+                        }
+                    }
+                }
+            }
             val seriesWatchAction: @Composable () -> Unit = {
                 if (type == "series" && seriesWatchTargets.isNotEmpty()) {
                     WatchedToggle(
@@ -1307,6 +1334,7 @@ fun TitleDetailScreen(
                             PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, enabled = false) {}
                         }
                         trailerAction()
+                        unrestrictedAction()
                         WatchedToggle(
                             watched = movieWatched,
                             label = if (movieWatched) "Vu — marquer comme non vu" else "Marquer comme vu",
@@ -1434,6 +1462,7 @@ fun TitleDetailScreen(
                             playEpisode(ctaSeason, ctaEpisode, ctaResume, fromStart = ctaWatched)
                         }
                         trailerAction()
+                        unrestrictedAction()
                         seriesWatchAction()
                     }
                 }
@@ -1442,6 +1471,7 @@ fun TitleDetailScreen(
                 // la bande-annonce et « vu » restent sur leur propre ligne.
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.keepsHeaderAtTop("seriesNoCta").detailActionEntry()) {
                     trailerAction()
+                    unrestrictedAction()
                     seriesWatchAction()
                 }
             }
@@ -1645,6 +1675,14 @@ fun TitleDetailScreen(
                 onDownloadEpisode = {
                 viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber, part)
                 },
+                onDownloadEpisodeUnrestricted = if (currentUser?.role == "admin") ({
+                    scope.launch {
+                        addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part, selection.season.seasonNumber, selection.episode.episodeNumber)) {
+                            is ApiResult.Failure -> result.message
+                            else -> null
+                        }
+                    }
+                }) else null,
             )
         }
 
@@ -2886,6 +2924,8 @@ private fun EpisodeDetailOverlay(
     canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onDownloadEpisode: () -> Unit,
+    /** Non nul pour un admin seulement : télécharge l'épisode en ignorant les mots interdits. */
+    onDownloadEpisodeUnrestricted: (() -> Unit)? = null,
 ) {
     BackHandler(onBack = onDismiss)
     val episode = selection.episode
@@ -3125,6 +3165,9 @@ private fun EpisodeDetailOverlay(
                             )
                         }
                     }
+                    if (onDownloadEpisodeUnrestricted != null && episode.status != "upcoming") {
+                        WatchedToggle(watched = false, label = "Télécharger sans restriction", icon = MovvizIconDownloadUnrestricted, showLabel = false, onClick = onDownloadEpisodeUnrestricted)
+                    }
                     if (episode.status != "upcoming") {
                         WatchedToggle(
                             watched = watched,
@@ -3206,6 +3249,12 @@ private fun WatchedToggle(
     watched: Boolean,
     label: String,
     focusRequester: FocusRequester? = null,
+    /** Même bouton à icône seule pour une autre action (téléchargement sans restriction). */
+    icon: ImageVector = MovvizIconCheck,
+    /** Libellé flottant au focus ; false = icône seule (le libellé reste lu par l'accessibilité). */
+    showLabel: Boolean = true,
+    /** Action en cours : icône atténuée, le bouton garde le focus. */
+    dimmed: Boolean = false,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -3255,10 +3304,10 @@ private fun WatchedToggle(
             ),
         ) {
             Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
-                Icon(imageVector = MovvizIconCheck, contentDescription = label, modifier = Modifier.size(13.dp))
+                Icon(imageVector = icon, contentDescription = label, modifier = Modifier.size(if (icon === MovvizIconCheck) 13.dp else 15.dp).alpha(if (dimmed) 0.4f else 1f))
             }
         }
-        if (focused) {
+        if (focused && showLabel) {
             Text(
                 text = label,
                 style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),

@@ -8,6 +8,8 @@ import { MOVIE_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
+import { isUnrestricted } from "@/lib/library/unrestricted";
+import { markManualGrab } from "@/lib/library/manualGrab";
 import { recordDecision } from "@/lib/library/decisionLog";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { buildGrabPayload } from "@/lib/indexers/grabPayload";
@@ -405,6 +407,8 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
       logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("download_failed", `Le moteur de téléchargement a refusé la release "${best.title}".`) });
       return { error: "engine_rejected" as const, detail: torrent };
     }
+    // Téléchargement sans restriction : l'import ne doit pas rejeter le fichier sur un mot interdit.
+    if (isUnrestricted() && typeof torrent.infoHash === "string") markManualGrab(torrent.infoHash);
     updateMovie(movie.id, { status: movie.file ? "available" : "downloading", activeInfoHash: torrent.infoHash });
     void notifySeerrProcessingOnce("movie", movie.tmdbId).catch(() => {});
     recordSearchLog("info", "search_movie.grabbed", `${movie.title} — ${best.title} (score:${best.score}, indexeur:${best.indexerId}, infoHash:${torrent.infoHash})`);

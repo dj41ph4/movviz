@@ -22,10 +22,10 @@ test("a seek-sized jump is not plausible playback", () => {
   assert.equal(isPlausiblePlaybackAdvance(10_000, 20_000, 10_000, 1), true);
 });
 
-test("completion requires 85 % of the content really played", () => {
+test("completion requires 40 % of the content really played", () => {
   assert.equal(canComplete(MIN_REAL_PLAYBACK_MS, 7_110_000, 7_110_000, 7_200_000, "fallback"), false);
-  assert.equal(canComplete(6_120_000 - 1, 7_110_000, 7_110_000, 7_200_000, "fallback"), false);
-  assert.equal(canComplete(6_120_000, 7_110_000, 7_110_000, 7_200_000, "fallback"), true);
+  assert.equal(canComplete(2_880_000 - 1, 7_110_000, 7_110_000, 7_200_000, "fallback"), false);
+  assert.equal(canComplete(2_880_000, 7_110_000, 7_110_000, 7_200_000, "fallback"), true);
 });
 
 test("episodes follow their end-credits marker, no longer a fixed 80 %", () => {

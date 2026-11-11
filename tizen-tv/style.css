@@ -4,7 +4,7 @@
 *{box-sizing:border-box}body{margin:0;background:#05070f}button,input,select{font:inherit}
 [hidden]{display:none!important}.episode-dialog-art>progress{display:block;width:100%;height:8px;border:0;margin:0}
 button{color:inherit;background:#ffffff0f;border:2px solid transparent;border-radius:18px;padding:16px 30px;cursor:pointer;min-height:52px;font-size:22px;font-weight:700}
-button:focus{outline:none;border-color:#eef1ff;box-shadow:0 0 24px #a06bff55}button:disabled{opacity:.4}
+button:focus{outline:none;border-color:#eef1ff;box-shadow:0 0 24px #a06bff55}button:disabled{opacity:.4}button.icon-only{padding:11px 16px;display:inline-flex;align-items:center;justify-content:center}
 .primary{background:linear-gradient(90deg,#8b2fff,#bc3fff)}.secondary{background:#ffffff1f}
 input,select{color:#eef1ff;background:#0005;padding:22px 24px;border:2px solid #eef1ff1f;border-radius:18px;outline:none;font-size:24px}
 input:focus,select:focus{border-color:#8b2fff;box-shadow:0 0 0 2px #8b2fff}

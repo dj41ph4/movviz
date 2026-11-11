@@ -1,3 +1,14 @@
+## v1.28.127 — 11 november 2026
+
+### Downloads
+
+- Knop „downloaden zonder beperking” alleen voor admins, als los pictogram (pijl en open hangslot), op de film-, serie- en afleveringspagina's van Android TV, Android mobiel en Samsung: hij start de zoekopdracht opnieuw en negeert de verboden woorden (bijvoorbeeld een VOSTFR-versie).
+- Een zo gedownload bestand wordt bij het importeren niet meer geweigerd vanwege een verboden woord, en automatische zoekopdrachten blijven de regel toepassen.
+
+### Afspelen
+
+- Status „Gezien”: het deel van de inhoud dat echt afgespeeld moet zijn, gaat van 85 % naar 40 %. Een aflevering waarvan de terugblik en de intro waren overgeslagen en die tot de aftiteling was bekeken, bleef „niet gezien”. Afleveringen die al in dat geval zijn, worden bij het opstarten eenmalig opnieuw beoordeeld.
+
 ## v1.28.126 — 11 november 2026
 
 ### Correctie

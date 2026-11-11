@@ -116,6 +116,13 @@ interface Window {
     const node = el("button", label, className); node.type = "button"; node.dataset.focusId = String(++focusCounter);
     node.onclick = () => { Promise.resolve().then(action).catch(report); }; return node;
   }
+  /** Admins uniquement : relance la recherche en ignorant les mots interdits (VOSTFR…). Icône seule, sans libellé. */
+  function unrestrictedButton(path: string, body: Record<string, unknown> = {}) {
+    const node = button("", async () => { node.disabled = true; try { await call(path, { ...body, unrestricted: true }); toast(t("discover.searchingRelease")); } finally { node.disabled = false; if (node.isConnected && document.activeElement === document.body) node.focus(); } }, "icon-only");
+    node.setAttribute("aria-label", "Télécharger sans restriction");
+    node.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6V9M9 6.4l3 3 3-3M6.8 14h10.4v6.6H6.8zM9.2 14v-1.4q0-1.4 1.4-1.4h2.8q1.4 0 1.4 1.4M12 16.9v.7"/></svg>';
+    return node;
+  }
   function field(label: string, type: string, initial = "") {
     const wrapper = el("label", label); const input = el("input"); input.type = type; input.value = initial;
     input.dataset.focusId = String(++focusCounter); wrapper.append(input); return { wrapper, input };
@@ -506,6 +513,7 @@ interface Window {
       actions.prepend(addButton);
     }
     else if (canCompleteMissing() && (type === "series" || !(local.file || local.plexRatingKey)) && local.id && !local.bleachRepairRequired) actions.append(button(t("library.autoSearch"), async () => { await call(`/api/library/${type === "movie" ? "movies" : "series"}/${encodeURIComponent(local.id!)}/search`, { seriesPart }); toast(t("discover.searchingRelease")); }));
+    if (saved?.user.role === "admin" && local?.id && !local.bleachRepairRequired) actions.append(unrestrictedButton(`/api/library/${type === "movie" ? "movies" : "series"}/${encodeURIComponent(local.id)}/search`, { seriesPart }));
     if (local?.bleachRepairRequired) content.append(el("p", t("bleach.repairHint"), "muted"));
     actions.append(button(t("tizen.watchlist"), async () => { await call("/api/watchlist", { tmdbId: item.tmdbId, type, title: detail.title, posterPath: detail.posterPath }); toast(t("tizen.watchlist")); }));
     if (local?.id && type === "movie" && (local.file || local.plexRatingKey)) actions.prepend(button(t("tizen.play"), () => play(local, "movie")));
@@ -628,6 +636,7 @@ interface Window {
       const search = button(t("library.searchSeason"), async () => { search.disabled = true; try { await call(`/api/library/series/${encodeURIComponent(local.id!)}/season/${season.seasonNumber}/search`, { seriesPart: detail.seriesPart, bleachPart: season.bleachPart }); toast(t("discover.searchingRelease")); } finally { search.disabled = false; } }, "primary");
       search.disabled = ["searching", "downloading", "upcoming"].includes(episode.status); actions.append(search);
     }
+    if (saved?.user.role === "admin" && local.id && episode.status !== "upcoming") actions.append(unrestrictedButton(`/api/library/series/${encodeURIComponent(local.id)}/episode/${episode.seasonNumber}/${episode.episodeNumber}/search`));
     const toggle = button("", async () => {
       const seen = watchedKeys.has(key); toggle.disabled = true;
       try { await call("/api/watch/toggle", { tmdbId: detail.tmdbId, type: "series", title: detail.title, watched: !seen, episodes: [{ season: episode.seasonNumber, episode: episode.episodeNumber }] }); if (seen) watchedKeys.delete(key); else watchedKeys.add(key); refreshState(); updateSeason(); }

@@ -25,6 +25,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -84,6 +85,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizCyan
 import com.movviz.nx.mobile.ui.theme.MovvizDown
 import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
+import com.movviz.nx.mobile.ui.theme.MovvizIconDownloadUnrestricted
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlay
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlus
 import com.movviz.nx.mobile.ui.theme.MovvizIconReplay
@@ -1175,6 +1177,23 @@ fun TitleDetailScreen(
                 }
             }
 
+            // Admins uniquement : télécharge ce titre en ignorant les mots interdits
+            // (ex. obtenir une VOSTFR malgré la règle). Absent pour les autres comptes.
+            if (viewModel.currentUser.collectAsState().value?.role == "admin" && inLibrary && libraryResolved && !bleachRepairRequired) {
+                var unrestrictedBusy by remember { mutableStateOf(false) }
+                Spacer(modifier = Modifier.height(12.dp))
+                UnrestrictedIconButton(busy = unrestrictedBusy) {
+                    if (!unrestrictedBusy) scope.launch {
+                        unrestrictedBusy = true
+                        addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part)) {
+                            is ApiResult.Failure -> result.message
+                            else -> null
+                        }
+                        unrestrictedBusy = false
+                    }
+                }
+            }
+
             addError?.let {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizDown))
@@ -1209,6 +1228,14 @@ fun TitleDetailScreen(
                     onDownloadEpisode = {
                         viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber, part)
                     },
+                    onDownloadEpisodeUnrestricted = if (viewModel.currentUser.collectAsState().value?.role == "admin") ({
+                        scope.launch {
+                            addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part, selection.season.seasonNumber, selection.episode.episodeNumber)) {
+                                is ApiResult.Failure -> result.message
+                                else -> null
+                            }
+                        }
+                    }) else null,
                 )
             }
             } // item
@@ -2030,6 +2057,8 @@ private fun EpisodeDetailOverlay(
     canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onDownloadEpisode: () -> Unit,
+    /** Non nul pour un admin seulement : télécharge l'épisode en ignorant les mots interdits. */
+    onDownloadEpisodeUnrestricted: (() -> Unit)? = null,
 ) {
     val episode = selection.episode
     val available = (selection.episode.plexRatingKey != null || selection.episode.playbackSource == "movviz") &&
@@ -2145,6 +2174,9 @@ private fun EpisodeDetailOverlay(
                                 onClick = onDownloadSeason,
                             )
                         }
+                    }
+                    if (onDownloadEpisodeUnrestricted != null && episode.status != "upcoming") {
+                        UnrestrictedIconButton(onClick = onDownloadEpisodeUnrestricted)
                     }
                 }
                 if (compactPortrait) {
@@ -2276,6 +2308,36 @@ private fun PrimaryPill(
                     .background(Brush.horizontalGradient(com.movviz.nx.mobile.ui.theme.MovvizBrandGradientColors)),
             )
         }
+        }
+    }
+}
+
+/** « Télécharger sans restriction » (admins) : icône seule, sans libellé, cible de 48 dp.
+ *  Reste focalisable pendant la recherche — le clic est ignoré par l'appelant. */
+@Composable
+private fun UnrestrictedIconButton(busy: Boolean = false, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(14.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .size(48.dp)
+            .tvFocusLift(focused, shape = shape, maxScale = 1.06f, maxElevation = 16.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = MovvizInk.copy(alpha = 0.1f), contentColor = MovvizInk),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = shape),
+        ),
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = MovvizIconDownloadUnrestricted,
+                contentDescription = "Télécharger sans restriction",
+                modifier = Modifier.size(20.dp).alpha(if (busy) 0.4f else 1f),
+            )
         }
     }
 }

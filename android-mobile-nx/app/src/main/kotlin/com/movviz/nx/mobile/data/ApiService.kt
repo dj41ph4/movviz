@@ -190,7 +190,7 @@ interface MovvizApiService {
     // voir SearchTriggerResponseDto. Pas encore branché à l'UI TV, disponible
     // pour l'écran de découverte/téléchargement.
     @POST("api/library/movies/{id}/search")
-    suspend fun searchMovieNow(@Path("id") libraryId: String): Response<SearchTriggerResponseDto>
+    suspend fun searchMovieNow(@Path("id") libraryId: String, @Body scope: Map<String, @JvmSuppressWildcards Any> = emptyMap()): Response<SearchTriggerResponseDto>
 
     @POST("api/library/series/{id}/search")
     suspend fun searchSeriesNow(@Path("id") libraryId: String, @Body scope: Map<String, @JvmSuppressWildcards Any> = emptyMap()): Response<SearchTriggerResponseDto>
@@ -209,6 +209,7 @@ interface MovvizApiService {
         @Path("id") libraryId: String,
         @Path("season") seasonNumber: Int,
         @Path("episode") episodeNumber: Int,
+        @Body scope: Map<String, @JvmSuppressWildcards Any> = emptyMap(),
     ): Response<SearchTriggerResponseDto>
 
     // File de téléchargement en cours (moteur BitTorrent intégré) — même

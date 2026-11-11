@@ -5,8 +5,12 @@ export const MAX_HEARTBEAT_INTERVAL_MS = 30_000;
 export const FALLBACK_REMAINING_RATIO = 0.03;
 export const FALLBACK_MIN_REMAINING_MS = 30_000;
 export const FALLBACK_MAX_REMAINING_MS = 90_000;
-/** Share of the content that must really have been played (not sought past). */
-export const REAL_WATCH_RATIO = 0.85;
+/** Share of the content that must really have been played (not sought past).
+ *  40 %, not 85 %: a skipped recap + intro, a few ±10 s jumps and the beats
+ *  lost around each seek easily cost 15 % of an anime episode, and episodes
+ *  watched to their credits stayed « not watched » (2026-11-11). The share
+ *  only has to rule out « jumped straight to the end ». */
+export const REAL_WATCH_RATIO = 0.4;
 /** A « credits » marker in the first half is an opening sequence, not the end. */
 const CREDITS_MIN_START_RATIO = 0.5;
 /** Sibling-episode estimate: enough samples, tightly grouped, never a large slice. */
@@ -91,7 +95,7 @@ export function isPlausiblePlaybackAdvance(
   return delta <= allowed;
 }
 
-/** Real playback required before a position-based completion: 85 % of the
+/** Real playback required before a position-based completion: 40 % of the
  *  content — the whole runtime without a marker, what precedes the credits
  *  with one. */
 export function requiredWatchedMs(durationMs: number, boundaryMs: number | null, source: CompletionBoundarySource): number {

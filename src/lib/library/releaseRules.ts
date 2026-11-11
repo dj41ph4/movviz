@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
+import { isUnrestricted } from "@/lib/library/unrestricted";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -141,7 +142,9 @@ export function compareBySizePreference(
 }
 
 function read(): ReleaseRules {
-  return { ...DEFAULT_RULES, ...readJsonCached<Partial<ReleaseRules>>(FILE, {}) };
+  const rules = { ...DEFAULT_RULES, ...readJsonCached<Partial<ReleaseRules>>(FILE, {}) };
+  // Mode « sans restriction » (action manuelle d'un admin) : aucun mot interdit.
+  return isUnrestricted() ? { ...rules, blockedWords: [] } : rules;
 }
 
 function write(rules: ReleaseRules) {

@@ -1,3 +1,14 @@
+## v1.28.127 — 11 novembre 2026
+
+### Download
+
+- Pulsante «scarica senza restrizioni» riservato agli admin, come sola icona (freccia e lucchetto aperto), nelle schede di film, serie ed episodi di Android TV, Android mobile e Samsung: rilancia la ricerca ignorando le parole vietate (ad esempio una VOSTFR).
+- Il file scaricato in questo modo non viene più rifiutato all'importazione per una parola vietata, e le ricerche automatiche continuano ad applicare la regola.
+
+### Riproduzione
+
+- Stato «Visto»: la parte del contenuto realmente riprodotta richiesta passa dall'85 % al 40 %. Un episodio con riassunto e sigla saltati, guardato fino ai titoli di coda, restava «non visto». Gli episodi già in questo caso vengono rivalutati una volta all'avvio.
+
 ## v1.28.126 — 11 novembre 2026
 
 ### Correzione

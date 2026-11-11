@@ -1,3 +1,14 @@
+## v1.28.127 — 11. November 2026
+
+### Downloads
+
+- Schaltfläche „Ohne Einschränkung herunterladen“ nur für Admins, als reines Symbol (Pfeil und offenes Schloss), auf den Film-, Serien- und Episodenseiten von Android TV, Android mobil und Samsung: Sie startet die Suche erneut und ignoriert dabei die verbotenen Wörter (zum Beispiel eine VOSTFR-Fassung).
+- Eine so heruntergeladene Datei wird beim Import nicht mehr wegen eines verbotenen Worts abgelehnt, und automatische Suchen wenden die Regel weiterhin an.
+
+### Wiedergabe
+
+- Status „Gesehen“: Der Anteil des Inhalts, der tatsächlich abgespielt worden sein muss, sinkt von 85 % auf 40 %. Eine Episode, deren Rückblick und Intro übersprungen wurden und die bis zum Abspann lief, blieb „ungesehen“. Bereits betroffene Episoden werden beim Start einmalig neu bewertet.
+
 ## v1.28.126 — 11. November 2026
 
 ### Korrektur

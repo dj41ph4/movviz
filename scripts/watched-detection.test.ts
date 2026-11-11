@@ -105,9 +105,9 @@ test("revenir en arrière après un saut puis tout regarder : vu normalement", (
 
 test("fin naturelle : reprise au milieu puis lecture jusqu'au bout", () => {
   const { session } = open("movie", 100 * MIN);
-  applySeek(session.id, 50 * MIN);
-  const p = play(session, 50 * MIN, 100 * MIN - 10_000);
-  assert.equal(p.watched, false, "50 % réellement vus : le seuil automatique ne suffit pas");
+  applySeek(session.id, 70 * MIN);
+  const p = play(session, 70 * MIN, 100 * MIN - 10_000);
+  assert.equal(p.watched, false, "30 % réellement vus : le seuil automatique ne suffit pas");
   assert.equal(completePlayback(session.id).watched, true, "mais la lecture est arrivée à la fin");
 });
 
@@ -176,11 +176,28 @@ test("seule une action explicite retire « Vu » : aucune source automatique", (
   assert.equal(getWatchStatus("guard")?.movies.includes(603), false, "« Marquer comme non vu » le retire");
 });
 
-test("canComplete : position ET 85 % réellement vus", () => {
+test("canComplete : position ET 40 % réellement vus", () => {
   const d = 100 * MIN, b = d - 90_000;
-  assert.equal(canComplete(84 * MIN, b, b, d, "fallback"), false);
-  assert.equal(canComplete(85 * MIN, b, b, d, "fallback"), true);
-  assert.equal(canComplete(85 * MIN, b - 1, b, d, "fallback"), false);
+  assert.equal(canComplete(39 * MIN, b, b, d, "fallback"), false);
+  assert.equal(canComplete(40 * MIN, b, b, d, "fallback"), true);
+  assert.equal(canComplete(40 * MIN, b - 1, b, d, "fallback"), false);
+});
+
+test("épisode d'anime : récap et intro passés, quitté pendant le générique → vu", () => {
+  // 24 min, générique de fin à 22 min. Récap (2 min) et intro (1 min 30) passés,
+  // deux sauts de 10 s : moins de 85 % du contenu lu, bien plus de 40 %.
+  const { session, mediaId } = open("episode", 24 * MIN);
+  replaceSourceMarkers(mediaId, "theintrodb", [{ id: "c", source: "theintrodb", sourceMarkerId: null, type: "credits", startMs: 22 * MIN, endMs: 23 * MIN + 30_000, final: true }], { signature: "a", sourceUpdatedAt: null, lastSyncedAt: Date.now() });
+  assert.equal(updatePlaybackDuration(session.id, 24 * MIN)?.completionBoundaryMs, 22 * MIN);
+  applySeek(session.id, 2 * MIN);
+  play(session, 2 * MIN, 3 * MIN);
+  applySeek(session.id, 4 * MIN + 30_000);
+  play(session, 4 * MIN + 30_000, 12 * MIN);
+  applySeek(session.id, 12 * MIN + 10_000);
+  play(session, 12 * MIN + 10_000, 18 * MIN);
+  applySeek(session.id, 18 * MIN + 10_000);
+  const p = play(session, 18 * MIN + 10_000, 22 * MIN + 10_000);
+  assert.equal(p.watched, true);
 });
 
 test.after(async () => {

@@ -28,7 +28,7 @@ export interface PlaybackProgress {
   resumeOffsetMs: number | null;
   actualPlayedMs: number;
   /** Content time really played (position advance while playing, never a
-   *  seek) — what the « 85 % really watched » rule reads. Absent on records
+   *  seek) — what the « really watched » share (REAL_WATCH_RATIO) reads. Absent on records
    *  written before it existed: actualPlayedMs stands in. */
   watchedContentMs?: number;
   eligibleForResume: boolean;
@@ -86,6 +86,7 @@ interface PlaybackProgressStore {
   /** Une seule fois par installation : voir backfillMostlyWatchedOnFirstLoad. */
   backfilledQuitWatchedV1?: boolean;
   backfilledEpisodeWatchedV2?: boolean;
+  backfilledRealWatchRatioV3?: boolean;
   /** Open player sessions, kept on disk so they survive a server restart. */
   sessions?: Record<string, PlaybackSession>;
 }
@@ -180,6 +181,16 @@ function store(): PlaybackProgressStore {
     writeJsonCached(FILE, loaded);
   }
   backfillMostlyWatchedOnFirstLoad(loaded);
+  if (!loaded.backfilledRealWatchRatioV3) {
+    // The 85 % real-playback share (v1.28.124) left episodes stopped in their
+    // end credits « not watched ». Re-judge them once with the current share:
+    // last known position past the boundary, content really played.
+    loaded.backfilledRealWatchRatioV3 = true;
+    for (const bucket of Object.values(loaded.byUser)) for (const p of Object.values(bucket)) {
+      if (!p.watched && p.tmdbId != null && reachedCompletion(p, p.lastPositionMs)) markPlaybackWatched(p, p.boundarySource);
+    }
+    writeJsonCached(FILE, loaded);
+  }
   return (g.__movvizPlaybackProgress = loaded);
 }
 function persist() { writeJsonCached(FILE, store()); }

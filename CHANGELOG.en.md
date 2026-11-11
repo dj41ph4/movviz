@@ -1,3 +1,14 @@
+## v1.28.127 — November 11, 2026
+
+### Downloads
+
+- Admin-only “unrestricted download” button, shown as an icon alone (arrow and open padlock), on film, series and episode pages of Android TV, Android mobile and Samsung: it runs the search again while ignoring forbidden words (a VOSTFR release for instance).
+- A file downloaded this way is no longer rejected at import for a forbidden word, and automatic searches keep applying the rule.
+
+### Playback
+
+- “Watched” status: the share of the content that must really have been played goes from 85% to 40%. An episode whose recap and intro were skipped, watched up to its credits, stayed “unwatched”. Episodes already in that case are re-evaluated once at startup.
+
 ## v1.28.126 — November 11, 2026
 
 ### Fix

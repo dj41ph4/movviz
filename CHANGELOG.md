@@ -1,3 +1,14 @@
+## v1.28.127 — 11 novembre 2026
+
+### Téléchargements
+
+- Bouton « télécharger sans restriction » réservé aux admins, sous forme d'icône seule (flèche et cadenas ouvert), sur les fiches film, série et épisode d'Android TV, Android mobile et Samsung : il relance la recherche en ignorant les mots interdits (une VOSTFR par exemple).
+- Le fichier ainsi téléchargé n'est plus rejeté à l'import pour un mot interdit, et les recherches automatiques continuent d'appliquer la règle.
+
+### Lecture
+
+- Statut « Vu » : la part du contenu réellement lue exigée passe de 85 % à 40 %. Un épisode dont le récap et l'intro sont passés, regardé jusqu'à son générique, restait « non vu ». Les épisodes déjà dans ce cas sont repris une fois au démarrage.
+
 ## v1.28.126 — 11 novembre 2026
 
 ### Correctif
