@@ -1,3 +1,10 @@
+## v1.28.129 — 11 novembre 2026
+
+### Riproduzione
+
+- Tornare indietro molto tempo dopo l'inizio della riproduzione non mostra più «Il tuo browser non sa decodificare il codec video»: la sessione di riproduzione scadeva dopo 5 minuti quando ffmpeg aveva già finito il file e il salto riceveva un 404. Ora resta aperta e, se è comunque sparita, la riproduzione riparte dove hai cliccato.
+- Questo messaggio compare solo se il file non è mai stato riprodotto a schermo.
+
 ## v1.28.128 — 11 novembre 2026
 
 ### Riproduzione

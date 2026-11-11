@@ -1,3 +1,10 @@
+## v1.28.129 — 11. November 2026
+
+### Wiedergabe
+
+- Ein Rücksprung lange nach Wiedergabebeginn zeigt nicht mehr „Dein Browser kann den Video-Codec nicht dekodieren“: Die Wiedergabesitzung lief nach 5 Minuten ab, sobald ffmpeg die Datei schon fertig hatte, und der Sprung erhielt ein 404. Sie bleibt jetzt offen, und ist sie trotzdem weg, startet die Wiedergabe dort neu, wo du geklickt hast.
+- Diese Meldung erscheint nur noch, wenn die Datei nie auf dem Bildschirm abgespielt wurde.
+
 ## v1.28.128 — 11. November 2026
 
 ### Wiedergabe

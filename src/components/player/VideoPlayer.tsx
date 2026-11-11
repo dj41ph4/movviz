@@ -1784,10 +1784,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         // échec honnête que ça. (hasRealPlexLink is computed once at
         // component scope — see its own comment there.)
         const onLocalEngineFailure = () => {
-          const playedPosition = ffmpegEngineRef.current?.playedPosition ?? lastGoodPositionRef.current;
+          // Un clic sur la barre en cours est ce que l'utilisateur veut voir : on reprend là, pas à l'ancienne position.
+          const playedPosition = pendingSeekRef.current.target ?? ffmpegEngineRef.current?.playedPosition ?? lastGoodPositionRef.current;
           destroyFfmpeg();
           ffmpegSkippedRef.current = true;
-          const isCodecFailure = lastMediaErrorCodeRef.current !== null && CODEC_MEDIA_ERROR_CODES.has(lastMediaErrorCodeRef.current);
+          // Un fichier déjà lu à l'écran n'a pas de problème de codec : son navigateur sait le décoder.
+          // Une erreur 3/4 survenue après coup (flux coupé par un saut, session perdue) est une coupure
+          // de flux, qui se rattrape par une nouvelle préparation à la position atteinte — jamais par
+          // « ton navigateur ne sait pas décoder le codec ».
+          const isCodecFailure = playedPosition === null && lastMediaErrorCodeRef.current !== null && CODEC_MEDIA_ERROR_CODES.has(lastMediaErrorCodeRef.current);
           // The engine already restarted this stream once in place; failing
           // again usually means its server session is gone (a restart after
           // a push, a purge) and answers 404. A fresh prepare at the position

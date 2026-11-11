@@ -1,3 +1,10 @@
+## v1.28.129 — November 11, 2026
+
+### Playback
+
+- Jumping back long after playback started no longer shows “Your browser cannot decode this video codec”: the playback session expired after 5 minutes once ffmpeg had already finished the file, and the jump got a 404. It now stays open, and if it is gone anyway, playback restarts where you clicked.
+- That message now only appears when the file has never played on screen.
+
 ## v1.28.128 — November 11, 2026
 
 ### Playback

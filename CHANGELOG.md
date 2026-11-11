@@ -1,3 +1,10 @@
+## v1.28.129 — 11 novembre 2026
+
+### Lecture
+
+- Revenir en arrière longtemps après le début de la lecture n'affiche plus « Ton navigateur ne sait pas décoder le codec » : la session de lecture expirait au bout de 5 minutes quand ffmpeg avait déjà fini le fichier, et le saut recevait un 404. Elle reste maintenant ouverte, et si elle a malgré tout disparu, la lecture est relancée à l'endroit cliqué.
+- Ce message ne s'affiche plus que si le fichier n'a jamais pu être lu à l'écran.
+
 ## v1.28.128 — 11 novembre 2026
 
 ### Lecture

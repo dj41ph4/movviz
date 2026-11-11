@@ -103,9 +103,16 @@ export async function GET(req: NextRequest, context: Ctx) {
   // and the next request on it — a seek, the browser reopening the stream —
   // got 404 and ended on « Impossible de lire ». Keep both alive together.
   touchTranscoderSession(key);
+  // ffmpeg remuxe bien plus vite que la lecture : il peut finir le fichier entier pendant que le
+  // client en est encore au début (tout est dans son tampon). La session de lecture doit alors
+  // survivre à la fin du processus, sinon un retour en arrière fait plus de 5 minutes après
+  // tombait sur un 404 « session introuvable » alors que la lecture se passait très bien.
+  let procExited = false;
+  let ticksAfterExit = 0;
   const activityTimer = setInterval(() => {
-    touchTranscoderSession(key);
+    if (!procExited) touchTranscoderSession(key);
     touchSession(sessionId);
+    if (procExited && ++ticksAfterExit > 240) clearInterval(activityTimer); // 4 h après la fin du flux
   }, 60_000);
   if (typeof activityTimer.unref === "function") activityTimer.unref();
 
@@ -120,7 +127,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   };
   req.signal.addEventListener("abort", onAbort);
   proc.once("exit", () => {
-    clearInterval(activityTimer);
+    procExited = true; // la minuterie continue de garder la session de lecture (voir plus haut)
     req.signal.removeEventListener("abort", onAbort);
   });
 

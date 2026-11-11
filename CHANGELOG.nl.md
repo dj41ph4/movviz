@@ -1,3 +1,10 @@
+## v1.28.129 — 11 november 2026
+
+### Afspelen
+
+- Lang na de start terugspringen toont niet meer «Je browser kan de videocodec niet decoderen»: de afspeelsessie verliep na 5 minuten als ffmpeg het bestand al klaar had, en de sprong kreeg een 404. Ze blijft nu open, en is ze toch weg, dan herstart het afspelen waar je klikte.
+- Deze melding verschijnt alleen nog als het bestand nooit op het scherm is afgespeeld.
+
 ## v1.28.128 — 11 november 2026
 
 ### Afspelen
