@@ -4,6 +4,7 @@ import { canCompleteMissing } from "@/lib/auth/permissions";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { getMovie } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
+import { runUnrestricted } from "@/lib/library/unrestricted";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -28,9 +29,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // présent revient à le remplacer par une meilleure version, ce qui reste réservé aux admins.
   if (user.role !== "admin" && movie.file) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-  enqueueJob("qualityUpgrade", `Recherche : ${movie.title}`, 1, async (setProgress) => {
-    await searchAndGrabMovie(id);
+  // Téléchargement sans restriction : ignore les mots interdits. Admins uniquement.
+  const body = await req.json().catch(() => ({}));
+  const unrestricted = body?.unrestricted === true;
+  if (unrestricted && user.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  enqueueJob("qualityUpgrade", `Recherche${unrestricted ? " sans restriction" : ""} : ${movie.title}`, 1, async (setProgress) => {
+    await (unrestricted ? runUnrestricted(() => searchAndGrabMovie(id)) : searchAndGrabMovie(id));
     setProgress(1, 1);
-  }, `movie-search-${id}`);
+  }, `movie-search-${id}${unrestricted ? "-free" : ""}`);
   return NextResponse.json({ queued: true });
 }

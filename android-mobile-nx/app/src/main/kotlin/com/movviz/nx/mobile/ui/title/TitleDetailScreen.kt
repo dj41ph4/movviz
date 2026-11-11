@@ -84,6 +84,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizCyan
 import com.movviz.nx.mobile.ui.theme.MovvizDown
 import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
+import com.movviz.nx.mobile.ui.theme.MovvizIconDownloadUnrestricted
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlay
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlus
 import com.movviz.nx.mobile.ui.theme.MovvizIconReplay
@@ -1175,6 +1176,30 @@ fun TitleDetailScreen(
                 }
             }
 
+            // Admins uniquement : télécharge ce titre en ignorant les mots interdits
+            // (ex. obtenir une VOSTFR malgré la règle). Absent pour les autres comptes.
+            if (viewModel.currentUser.collectAsState().value?.role == "admin" && inLibrary && libraryResolved && !bleachRepairRequired) {
+                var unrestrictedBusy by remember { mutableStateOf(false) }
+                Spacer(modifier = Modifier.height(12.dp))
+                PrimaryPill(
+                    text = if (unrestrictedBusy) "Recherche…" else "Sans restriction",
+                    brush = null,
+                    solidWhite = false,
+                    enabled = !unrestrictedBusy,
+                    icon = MovvizIconDownloadUnrestricted,
+                    fillWidth = compactPortrait,
+                ) {
+                    scope.launch {
+                        unrestrictedBusy = true
+                        addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part)) {
+                            is ApiResult.Failure -> result.message
+                            else -> null
+                        }
+                        unrestrictedBusy = false
+                    }
+                }
+            }
+
             addError?.let {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizDown))
@@ -1209,6 +1234,14 @@ fun TitleDetailScreen(
                     onDownloadEpisode = {
                         viewModel.downloadEpisode(tmdbId, selection.season.seasonNumber, selection.episode.episodeNumber, part)
                     },
+                    onDownloadEpisodeUnrestricted = if (viewModel.currentUser.collectAsState().value?.role == "admin") ({
+                        scope.launch {
+                            addError = when (val result = viewModel.downloadUnrestricted(type, tmdbId, part, selection.season.seasonNumber, selection.episode.episodeNumber)) {
+                                is ApiResult.Failure -> result.message
+                                else -> null
+                            }
+                        }
+                    }) else null,
                 )
             }
             } // item
@@ -2030,6 +2063,8 @@ private fun EpisodeDetailOverlay(
     canComplete: Boolean,
     onDownloadSeason: () -> Unit,
     onDownloadEpisode: () -> Unit,
+    /** Non nul pour un admin seulement : télécharge l'épisode en ignorant les mots interdits. */
+    onDownloadEpisodeUnrestricted: (() -> Unit)? = null,
 ) {
     val episode = selection.episode
     val available = (selection.episode.plexRatingKey != null || selection.episode.playbackSource == "movviz") &&
@@ -2145,6 +2180,9 @@ private fun EpisodeDetailOverlay(
                                 onClick = onDownloadSeason,
                             )
                         }
+                    }
+                    if (onDownloadEpisodeUnrestricted != null && episode.status != "upcoming") {
+                        PrimaryPill(text = "Sans restriction", brush = null, solidWhite = false, icon = MovvizIconDownloadUnrestricted, fillWidth = compactPortrait, onClick = onDownloadEpisodeUnrestricted)
                     }
                 }
                 if (compactPortrait) {

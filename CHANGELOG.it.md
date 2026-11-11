@@ -1,3 +1,9 @@
+## v1.28.125 — 11 novembre 2026
+
+### Download
+
+- Nuovo pulsante «Senza restrizioni» (Android TV e Android mobile, solo account amministratore) nelle schede film, serie ed episodio: avvia la ricerca abituale ignorando le parole vietate, ad esempio per ottenere una release VOSTFR nonostante la regola. Anche il controllo di importazione dopo il download non rifiuta questo file. Le route di ricerca di film, serie, stagione ed episodio accettano «unrestricted» e lo rifiutano agli account non amministratori.
+
 ## v1.28.124 — 11 novembre 2026
 
 ### Riproduzione

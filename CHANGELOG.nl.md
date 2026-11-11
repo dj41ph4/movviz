@@ -1,3 +1,9 @@
+## v1.28.125 — 11 november 2026
+
+### Download
+
+- Nieuwe knop „Zonder beperking” (Android TV en Android mobiel, alleen beheerdersaccounts) op de pagina's van film, serie en aflevering: de gebruikelijke zoekopdracht wordt gestart terwijl verboden woorden worden genegeerd, bijvoorbeeld om ondanks de regel een VOSTFR-release te krijgen. Ook de importcontrole na de download wijst dit bestand niet af. De zoekroutes voor film, serie, seizoen en aflevering accepteren „unrestricted” en weigeren het voor niet-beheerders.
+
 ## v1.28.124 — 11 november 2026
 
 ### Afspelen

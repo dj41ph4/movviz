@@ -1,3 +1,9 @@
+## v1.28.125 — November 11, 2026
+
+### Download
+
+- New “Unrestricted” button (Android TV and Android mobile, administrator accounts only) on movie, series and episode pages: it runs the usual search while ignoring blocked words, for example to get a VOSTFR release despite the rule. The post-download import check no longer rejects that file either. The movie, series, season and episode search routes accept “unrestricted” and refuse it for non-administrator accounts.
+
 ## v1.28.124 — November 11, 2026
 
 ### Playback

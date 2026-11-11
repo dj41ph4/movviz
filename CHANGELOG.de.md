@@ -1,3 +1,9 @@
+## v1.28.125 — 11. November 2026
+
+### Download
+
+- Neue Schaltfläche „Ohne Einschränkung“ (Android TV und Android mobil, nur Administratorkonten) auf den Seiten für Film, Serie und Episode: Sie startet die übliche Suche und ignoriert dabei verbotene Wörter, etwa um trotz der Regel ein VOSTFR-Release zu erhalten. Auch die Importprüfung nach dem Download weist diese Datei nicht ab. Die Suchrouten für Film, Serie, Staffel und Episode akzeptieren „unrestricted“ und lehnen es für Nicht-Administratoren ab.
+
 ## v1.28.124 — 11. November 2026
 
 ### Wiedergabe

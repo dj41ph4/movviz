@@ -1,3 +1,9 @@
+## v1.28.125 — 11 novembre 2026
+
+### Téléchargement
+
+- Nouveau bouton « Sans restriction » (Android TV et Android mobile, comptes administrateurs uniquement) sur les fiches film, série et épisode : il lance la recherche habituelle en ignorant les mots interdits, par exemple pour obtenir une release VOSTFR malgré la règle. Le contrôle d'import après téléchargement ne rejette pas non plus ce fichier. Les routes de recherche film, série, saison et épisode acceptent « unrestricted » et le refusent aux comptes non administrateurs.
+
 ## v1.28.124 — 11 novembre 2026
 
 ### Lecture
