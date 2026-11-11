@@ -356,6 +356,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // décalés (start - base).
   const subtitleCuesRef = useRef<SubtitleCue[]>([]);
   const subtitleTrackRef = useRef<{ track: TextTrack; base: number } | null>(null);
+  // Contrôles affichés : les sous-titres natifs (tout en bas du <video>) passeraient sous la barre.
+  // On les remonte de 4 lignes tant que les contrôles sont visibles, comme Netflix ou Plex.
+  const subtitleLiftRef = useRef(false);
+  const SUBTITLE_LIFT_LINE = -4;
   // Annulation du streaming WebVTT en cours (changement de piste, off,
   // unmount) — sans ça un abort serait pris pour une erreur d'extraction
   // et déclencherait un repli HLS non voulu.
@@ -629,7 +633,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         if (cue.end <= base) continue;
         const start = Math.max(0, cue.start - base);
         try {
-          track.addCue(new CueCtor(start, Math.max(start + 0.05, cue.end - base), cue.text));
+          const vtt = new CueCtor(start, Math.max(start + 0.05, cue.end - base), cue.text);
+          if (subtitleLiftRef.current) vtt.line = SUBTITLE_LIFT_LINE;
+          track.addCue(vtt);
         } catch { /* cue invalide — ignoré */ }
       }
       track.mode = "showing";
@@ -704,7 +710,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         if (end <= ts.base) return;
         const cueStart = Math.max(0, start - ts.base);
         try {
-          ts.track.addCue(new CueCtor(cueStart, Math.max(cueStart + 0.05, end - ts.base), text));
+          const vtt = new CueCtor(cueStart, Math.max(cueStart + 0.05, end - ts.base), text);
+          if (subtitleLiftRef.current) vtt.line = SUBTITLE_LIFT_LINE;
+          ts.track.addCue(vtt);
         } catch { /* cue invalide — ignoré */ }
       };
       const flushCue = () => {
@@ -2077,6 +2085,23 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       setCurrentTime(time);
     }
   }, []);
+
+  // Sous-titres remontés au-dessus de la barre tant que les contrôles sont affichés (même condition
+  // que l'opacité du bloc de contrôles plus bas).
+  const controlsShown = controlsVisible || !playing || buffering || menuOpen !== null || showResume;
+  useEffect(() => {
+    subtitleLiftRef.current = controlsShown;
+    const el = videoRef.current;
+    if (!el) return;
+    for (let i = 0; i < el.textTracks.length; i++) {
+      const cues = el.textTracks[i].cues;
+      if (!cues) continue;
+      for (let c = 0; c < cues.length; c++) {
+        const cue = cues[c] as VTTCue;
+        if ("line" in cue) cue.line = controlsShown ? SUBTITLE_LIFT_LINE : "auto";
+      }
+    }
+  }, [controlsShown]);
 
   const skip = useCallback((seconds: number) => {
     const el = videoRef.current;

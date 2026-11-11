@@ -1,3 +1,9 @@
+## v1.28.130 — 11. November 2026
+
+### Wiedergabe
+
+- Untertitel: Solange die Player-Steuerung sichtbar ist (Maus, Pause, offenes Menü), rücken die Untertitel über die Leiste, statt darunter zu verschwinden, und gehen zurück, wenn die Steuerung ausgeblendet wird.
+
 ## v1.28.129 — 11. November 2026
 
 ### Wiedergabe

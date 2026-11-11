@@ -1,3 +1,9 @@
+## v1.28.130 — November 11, 2026
+
+### Playback
+
+- Subtitles: while the player controls are shown (mouse, pause, open menu), subtitles move up above the bar instead of sitting under it, then drop back when the controls hide.
+
 ## v1.28.129 — November 11, 2026
 
 ### Playback

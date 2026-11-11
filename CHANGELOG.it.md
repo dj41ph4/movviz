@@ -1,3 +1,9 @@
+## v1.28.130 — 11 novembre 2026
+
+### Riproduzione
+
+- Sottotitoli: finché i controlli del lettore sono visibili (mouse, pausa, menu aperto), i sottotitoli salgono sopra la barra invece di restare sotto, poi tornano giù quando i controlli si nascondono.
+
 ## v1.28.129 — 11 novembre 2026
 
 ### Riproduzione

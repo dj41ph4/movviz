@@ -1,3 +1,9 @@
+## v1.28.130 — 11 november 2026
+
+### Afspelen
+
+- Ondertitels: zolang de spelerbediening zichtbaar is (muis, pauze, open menu) schuiven de ondertitels boven de balk in plaats van eronder te verdwijnen, en zakken terug als de bediening verdwijnt.
+
 ## v1.28.129 — 11 november 2026
 
 ### Afspelen

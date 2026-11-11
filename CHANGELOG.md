@@ -1,3 +1,9 @@
+## v1.28.130 — 11 novembre 2026
+
+### Lecture
+
+- Sous-titres : quand les contrôles du lecteur sont affichés (souris, pause, menu ouvert), les sous-titres remontent au-dessus de la barre au lieu de passer dessous, puis redescendent quand les contrôles disparaissent.
+
 ## v1.28.129 — 11 novembre 2026
 
 ### Lecture
