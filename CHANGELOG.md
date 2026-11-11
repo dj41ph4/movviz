@@ -1,3 +1,9 @@
+## v1.28.131 — 11 novembre 2026
+
+### Diagnostic
+
+- Nouvelle route admin `/api/diagnostic/cpu-profile?seconds=20` : profil du processeur du serveur web sur 5 à 60 secondes, avec les fonctions qui occupent le plus de temps. Sert à trouver ce qui sature le serveur, sans le redémarrer.
+
 ## v1.28.130 — 11 novembre 2026
 
 ### Lecture

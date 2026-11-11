@@ -1,3 +1,9 @@
+## v1.28.131 — 11 november 2026
+
+### Diagnose
+
+- Nieuwe beheerdersroute `/api/diagnostic/cpu-profile?seconds=20`: CPU-profiel van de webserver over 5 tot 60 seconden, met de functies die het meeste tijd kosten. Om te vinden wat de server belast, zonder herstart.
+
 ## v1.28.130 — 11 november 2026
 
 ### Afspelen

@@ -1,3 +1,9 @@
+## v1.28.131 — November 11, 2026
+
+### Diagnostics
+
+- New admin route `/api/diagnostic/cpu-profile?seconds=20`: CPU profile of the web server over 5 to 60 seconds, listing the functions that take the most time. Used to find what saturates the server, without restarting it.
+
 ## v1.28.130 — November 11, 2026
 
 ### Playback

@@ -1,3 +1,9 @@
+## v1.28.131 — 11. November 2026
+
+### Diagnose
+
+- Neue Admin-Route `/api/diagnostic/cpu-profile?seconds=20`: CPU-Profil des Webservers über 5 bis 60 Sekunden mit den Funktionen, die am meisten Zeit brauchen. Dient dazu, die Ursache der Serverauslastung ohne Neustart zu finden.
+
 ## v1.28.130 — 11. November 2026
 
 ### Wiedergabe
