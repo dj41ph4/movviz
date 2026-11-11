@@ -19,8 +19,8 @@ const SOURCE_BUFFER_BYTES = 96 * 1024 * 1024;
 /** Avance visée dans la réserve en mémoire, en plus du SourceBuffer. */
 const RESERVE_MAX_SEC = 600;
 const MIB = 1024 * 1024;
-const BACK_KEEP_SEC = 20;
-const BACK_TRIM_AFTER_SEC = 30;
+const BACK_KEEP_SEC = 60;
+const BACK_TRIM_AFTER_SEC = 90;
 const OPEN_TIMEOUT_MS = 6000;
 
 export type DeepBufferFailure = "network" | "append" | "codec";

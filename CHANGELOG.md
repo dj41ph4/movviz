@@ -1,3 +1,11 @@
+## v1.28.128 — 11 novembre 2026
+
+### Lecture
+
+- Barre de progression : après un clic, le curseur reste sur l'endroit cliqué pendant le rechargement au lieu de revenir à l'ancienne position, et la barre grise du tampon ne saute plus.
+- Une coupure de l'ancien flux provoquée par un clic ne relance plus la lecture à l'ancienne position : le dernier clic gagne toujours.
+- Tampon : 60 secondes gardées derrière la lecture au lieu de 20, pour que les petits retours en arrière soient instantanés.
+
 ## v1.28.127 — 11 novembre 2026
 
 ### Téléchargements

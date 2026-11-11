@@ -1,3 +1,11 @@
+## v1.28.128 — 11 november 2026
+
+### Afspelen
+
+- Voortgangsbalk: na een klik blijft de cursor staan waar je klikte tijdens het herladen, in plaats van terug te springen naar de oude positie, en de grijze bufferbalk springt niet meer.
+- Een onderbreking van de oude stream door een klik herstart het afspelen niet meer op de oude positie: de laatste klik wint altijd.
+- Buffer: 60 seconden achter de afspeelpositie bewaard in plaats van 20, zodat korte sprongen terug direct zijn.
+
 ## v1.28.127 — 11 november 2026
 
 ### Downloads

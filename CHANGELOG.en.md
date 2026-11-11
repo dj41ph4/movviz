@@ -1,3 +1,11 @@
+## v1.28.128 — November 11, 2026
+
+### Playback
+
+- Progress bar: after a click, the cursor stays where you clicked while the stream reloads instead of snapping back to the old position, and the grey buffer bar no longer jumps.
+- A cut of the old stream caused by a click no longer restarts playback at the old position: the last click always wins.
+- Buffer: 60 seconds kept behind the playhead instead of 20, so short jumps back are instant.
+
 ## v1.28.127 — November 11, 2026
 
 ### Downloads

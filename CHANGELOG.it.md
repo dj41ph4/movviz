@@ -1,3 +1,11 @@
+## v1.28.128 — 11 novembre 2026
+
+### Riproduzione
+
+- Barra di avanzamento: dopo un clic il cursore resta dove hai cliccato durante il ricaricamento invece di tornare alla vecchia posizione, e la barra grigia del buffer non salta più.
+- L'interruzione del vecchio flusso causata da un clic non riavvia più la riproduzione alla vecchia posizione: vince sempre l'ultimo clic.
+- Buffer: 60 secondi conservati dietro la riproduzione invece di 20, così i brevi ritorni indietro sono istantanei.
+
 ## v1.28.127 — 11 novembre 2026
 
 ### Download

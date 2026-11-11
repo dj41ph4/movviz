@@ -307,6 +307,9 @@ export class FfmpegRemuxEngine {
    * reported as fatal.
    */
   private recoverOrFail(reason: string): void {
+    // Un saut demandé par l'utilisateur tue lui-même l'ancien flux : la coupure qui en découle ne doit
+    // pas déclencher une « récupération » à l'ancienne position, qui écraserait le clic.
+    if (this._seekPending > 0 && this.hasPlayed) return;
     if (this.hasPlayed && this.recoveryFrom === null) {
       this.recoveryFrom = this.lastPosition;
       this.cb.onError(`${reason} — restarting at ${Math.round(this.lastPosition)}s`, false);
@@ -358,8 +361,20 @@ export class FfmpegRemuxEngine {
     this.video?.pause();
   }
 
+  /** Sauts demandés par l'utilisateur et pas encore terminés (un clic sur la barre peut en cacher plusieurs). */
+  private _seekPending = 0;
+
   async seek(time: number): Promise<void> {
     if (this.destroyed) return;
+    this._seekPending++;
+    try {
+      await this.seekInner(time);
+    } finally {
+      this._seekPending--;
+    }
+  }
+
+  private async seekInner(time: number): Promise<void> {
     // ffmpeg piped stdout can't seek in place — kill the current session
     // (DELETE) and restart with a new seekTo, which produces a different
     // session key server-side. The DELETE MUST be awaited before load():

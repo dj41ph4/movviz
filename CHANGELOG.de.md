@@ -1,3 +1,11 @@
+## v1.28.128 — 11. November 2026
+
+### Wiedergabe
+
+- Fortschrittsleiste: Nach einem Klick bleibt der Cursor während des Neuladens an der angeklickten Stelle, statt auf die alte Position zurückzuspringen; die graue Pufferleiste springt nicht mehr.
+- Ein durch einen Klick ausgelöster Abbruch des alten Streams startet die Wiedergabe nicht mehr an der alten Position neu: der letzte Klick gewinnt immer.
+- Puffer: 60 Sekunden hinter der Wiedergabeposition statt 20, damit kurze Rücksprünge sofort erfolgen.
+
 ## v1.28.127 — 11. November 2026
 
 ### Downloads

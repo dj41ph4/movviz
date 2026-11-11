@@ -260,6 +260,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeTrackRef = useRef<HTMLDivElement>(null);
   const seekingRef = useRef(false);
+  const pendingSeekRef = useRef<{ token: number; target: number | null }>({ token: 0, target: null });
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const beginRef = useRef<((seekTo?: number) => Promise<void>) | null>(null);
   const startDirectRef = useRef<((seekTo?: number, expectAudio?: boolean) => void) | null>(null);
@@ -2057,7 +2058,14 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     const el = videoRef.current;
     if (!el) return;
     if (ffmpegActiveRef.current && ffmpegEngineRef.current) {
-      void ffmpegEngineRef.current.seek(time);
+      // La barre reste sur la cible du clic jusqu'à ce que le nouveau flux joue réellement :
+      // pendant le rechargement le <video> porte encore l'ancienne position, et son timeupdate
+      // ramenait le curseur en arrière juste après le clic.
+      const token = ++pendingSeekRef.current.token;
+      pendingSeekRef.current.target = time;
+      void ffmpegEngineRef.current.seek(time).finally(() => {
+        if (pendingSeekRef.current.token === token) pendingSeekRef.current.target = null;
+      });
       setCurrentTime(time);
     } else {
       el.currentTime = time;
@@ -2072,7 +2080,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     // pas de 0) — la position réelle est seekBase + el.currentTime, sinon
     // un skip(10) après un seek à 45min repartirait à 10s du film.
     const base = ffmpegEngineRef.current?.seekBase ?? 0;
-    const cur = ffmpegActiveRef.current ? base + el.currentTime : el.currentTime;
+    const cur = ffmpegActiveRef.current ? (pendingSeekRef.current.target ?? base + el.currentTime) : el.currentTime;
     const target = Math.max(0, Math.min(duration || el.duration || 0, cur + seconds));
     seekTo(target);
     setSkipToast((prev) => ({ n: (prev?.n ?? 0) + 1, delta: seconds }));
@@ -2089,6 +2097,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
     const onTimeUpdate = () => {
       if (seekingRef.current) return;
+      if (pendingSeekRef.current.target !== null) return; // saut en cours : le curseur reste sur la cible
       // Leg ffmpeg : le `<video>` repart de 0 à chaque reload/seek (fMP4
       // fragmenté sans index) — la position réelle est
       // seekBase + el.currentTime, pas el.currentTime brut.
@@ -2119,6 +2128,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       setMuted(el.muted);
     };
     const onProgress = () => {
+      if (pendingSeekRef.current.target !== null) return; // l'ancien tampon ne correspond plus à la nouvelle base
       if (el.buffered.length > 0) {
         // Leg ffmpeg : el.buffered est relatif au flux (qui part de seekBase,
         // pas de 0) et el.duration est figée sur la portion reçue — la barre
