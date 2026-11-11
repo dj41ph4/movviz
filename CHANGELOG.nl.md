@@ -1,3 +1,13 @@
+## v1.28.124 — 11 november 2026
+
+### Afspelen
+
+- Betrouwbaardere status „Gezien”: de vaste drempel (80 % voor een aflevering, 5 minuten voor het einde voor een film) is vervangen. Een titel wordt gezien bij het begin van de aftiteling wanneer er een markering bestaat (Plex of TheIntroDB), ook voor afleveringen; anders zodra er hoogstens 3 % van de speelduur resteert (tussen 30 en 90 seconden) en minstens 85 % van de inhoud echt is afgespeeld.
+- „Volgende aflevering” en „Aftiteling overslaan” markeren de titel meteen als gezien, ook films (web, Android TV, Android mobiel, Samsung).
+- Zonder markering kan een aflevering de aftitelingsduur gebruiken waarover de andere afleveringen van het seizoen het eens zijn.
+- Naar het einde springen op de voortgangsbalk markeert een titel niet langer als gezien.
+- Een geziene titel blijft gezien: opnieuw afspelen, de voortgang terugzetten of laat binnenkomende markeringen verwijderen de status niet meer. Alleen „Markeren als niet gezien” in Movviz, of dezelfde actie in Plex, verwijdert hem; een loutere afwijking met Plex wist hem niet meer.
+
 ## v1.28.123 — 11 november 2026
 
 ### Prestaties

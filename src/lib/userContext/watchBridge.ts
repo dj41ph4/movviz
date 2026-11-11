@@ -62,6 +62,10 @@ const SOURCE_PRIORITY: Record<WatchSource, number> = {
   ai: 200,
   legacy_migration: 100,
 };
+/** Seules les sources qui portent une demande explicite de l'utilisateur. */
+export function canRemoveWatched(source: WatchSource): boolean {
+  return source === "movviz_manual" || source === "ai";
+}
 function sourcePriority(source: string): number {
   return SOURCE_PRIORITY[source as WatchSource] ?? 0;
 }
@@ -81,6 +85,10 @@ export interface WatchDecisionInput {
    *  viewedAt) doit le fournir ; sinon un identifiant déterministe est
    *  synthétisé à partir des autres champs. */
   sourceEventId?: string;
+  /** L'événement traduit un geste de l'utilisateur fait ailleurs (il a
+   *  démarqué le titre dans Plex : transition vu → non vu observée). Seul
+   *  cas où une source non manuelle peut retirer « Vu ». */
+  explicitUserAction?: boolean;
 }
 
 export type WatchDecisionReason = "newer_event" | "older_event" | "tie_break" | "duplicate";
@@ -220,6 +228,23 @@ export function getCanonicalWatchStatus(userId: string): CanonicalWatchStatus | 
  */
 export function applyWatchDecision(input: WatchDecisionInput): WatchDecisionResult {
   const sourceEventId = input.sourceEventId ?? defaultSourceEventId(input);
+
+  // « Vu » ne se retire que par une action explicite de l'utilisateur :
+  // « Marquer comme non vu » dans Movviz, sa demande à l'assistant, ou le
+  // même geste fait dans Plex (Plex et Movviz sont bidirectionnels — la
+  // transition vu → non vu observée côté Plex porte explicitUserAction).
+  // Aucun mécanisme automatique — réparation d'état Plex, lecteur, import,
+  // migration — ne peut repasser un contenu vu en non vu. Vérifié avant le
+  // journal et avant le repli sans moteur SQL.
+  if (input.state === "unwatched" && !canRemoveWatched(input.source) && !input.explicitUserAction) {
+    return {
+      changed: false, accepted: false,
+      previousState: "unknown", effectiveState: "unknown",
+      previousUpdatedAt: null, effectiveUpdatedAt: null,
+      reason: "older_event",
+      revision: null,
+    };
+  }
 
   // « Effacer la lecture » : une vue datée d'avant la remise à zéro du
   // profil (historique Plex resynchronisé, rattrapage legacy) ne revient

@@ -999,7 +999,7 @@ interface Window {
     // épisode ferme le lecteur comme après le dernier épisode.
     const advance = !ended || autoPlayback.autoNextEpisode;
     if (ended && next && advance) autoAdvancesWithoutInput++;
-    await stopPlayer(ended);
+    await stopPlayer(ended, !ended && !!next);
     if (!next || !advance) return;
     if (ended && autoAdvancesWithoutInput >= STILL_WATCHING_AFTER_EPISODES) { stillWatchingPrompt(player.media, next); return; }
     await play(player.media, "series", next);
@@ -1017,14 +1017,15 @@ interface Window {
     actions.append(keep, button(t("tizen.stopWatching"), () => closeModal?.()));
     box.append(actions); overlay.append(box); app.append(overlay); keep.focus();
   }
-  async function stopPlayer(ended: boolean) {
+  /** `explicitNext` : « Épisode suivant » demandé — l'épisode quitté est marqué vu. */
+  async function stopPlayer(ended: boolean, explicitNext = false) {
     const player = activePlayer; if (!player || player.closing) return; player.closing = true; window.clearInterval(player.timer);
     if (closeModal) closeModal();
     const av = window.webapis?.avplay;
     try { if (av && !ended) player.position = player.base + av.getCurrentTime(); av?.stop(); } catch { /* already stopped */ }
     try { av?.close(); } catch { /* already closed */ }
     try {
-      await progressCall(`/api/playback/sessions/${player.progressId}/${ended ? "ended" : "stop"}`, ended ? {} : { positionMs: player.position });
+      await progressCall(`/api/playback/sessions/${player.progressId}/${ended ? "ended" : "stop"}`, ended ? {} : explicitNext ? { positionMs: player.position, reason: "next_episode" } : { positionMs: player.position });
     } finally {
       await call(`/api/tv/engine/${player.engineId}/stop`, {}).catch(report);
       activePlayer = null; document.body.classList.remove("playing"); document.documentElement.classList.remove("playing"); app.replaceChildren(...player.frame);

@@ -1,3 +1,13 @@
+## v1.28.124 — 11 novembre 2026
+
+### Riproduzione
+
+- Stato «Visto» più affidabile: la soglia fissa (80 % per un episodio, 5 minuti prima della fine per un film) è stata sostituita. Un contenuto diventa visto all'inizio dei titoli di coda quando esiste un marcatore (Plex o TheIntroDB), episodi compresi; altrimenti quando resta al massimo il 3 % della durata (tra 30 e 90 secondi) e almeno l'85 % del contenuto è stato realmente riprodotto.
+- «Episodio successivo» e «Salta i titoli di coda» segnano subito il contenuto come visto, film compresi (web, Android TV, Android mobile, Samsung).
+- Senza marcatore, un episodio può usare la durata dei titoli di coda su cui concordano gli altri episodi della stagione.
+- Spostarsi sulla barra di avanzamento fino alla fine non segna più un contenuto come visto.
+- Un contenuto visto resta visto: rivederlo, azzerarne l'avanzamento o l'arrivo tardivo dei marcatori non rimuovono più lo stato. Solo «Segna come non visto» in Movviz, o la stessa azione in Plex, lo rimuove; una semplice differenza con Plex non lo cancella più.
+
 ## v1.28.123 — 11 novembre 2026
 
 ### Prestazioni

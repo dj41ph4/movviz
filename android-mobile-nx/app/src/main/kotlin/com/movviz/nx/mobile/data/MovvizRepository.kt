@@ -352,8 +352,10 @@ class MovvizRepository(private val baseUrl: String) {
         runCatching { api.playbackStop(sessionId, mapOf("positionMs" to positionMs.coerceAtLeast(0))) }
     }
 
-    suspend fun playbackEnded(sessionId: String) {
-        runCatching { api.playbackEnded(sessionId) }
+    /** [explicitNext] : « Épisode suivant » demandé — le serveur marque vu
+     *  sans condition ; sinon c'est une fin naturelle, qu'il vérifie. */
+    suspend fun playbackEnded(sessionId: String, explicitNext: Boolean = false) {
+        runCatching { api.playbackEnded(sessionId, if (explicitNext) mapOf("reason" to "next_episode") else emptyMap()) }
     }
 
     /** Position de reprise (ms) — l'entrée on-deck expose désormais offsetMs

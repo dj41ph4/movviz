@@ -120,7 +120,7 @@ export function recordWatched(userId: string, entry: RecentWatch) {
  *  de centralisation watched).
  *  `watchedAt` lets a caller that already knows the real historical watch
  *  date (e.g. a Netflix export) record it instead of defaulting to "now". */
-export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boolean, title = "", watchedAt?: number | null, source: WatchSource = "movviz_manual") {
+export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boolean, title = "", watchedAt?: number | null, source: WatchSource = "movviz_manual", explicitUserAction = false) {
   const list = read();
   const status = findOrCreate(list, userId);
   const at = watchedAt ?? Date.now();
@@ -134,7 +134,7 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
   for (const tmdbId of tmdbIds) {
     const result = applyWatchDecision({
       userId, tmdbId, mediaType: "movie", title: title || null,
-      state: watched ? "watched" : "unwatched", occurredAt: at, source,
+      state: watched ? "watched" : "unwatched", occurredAt: at, source, explicitUserAction,
     });
     if (!result.accepted) continue;
     accepted.push(tmdbId);
@@ -182,7 +182,8 @@ export function setWatchedEpisodes(
   entries: { tmdbId: number; season: number; episode: number; watchedAt?: number | null }[],
   watched: boolean,
   title = "",
-  source: WatchSource = "movviz_manual"
+  source: WatchSource = "movviz_manual",
+  explicitUserAction = false,
 ) {
   const list = read();
   const status = findOrCreate(list, userId);
@@ -221,7 +222,7 @@ export function setWatchedEpisodes(
       const at = entry.watchedAt ?? now;
       const result = applyWatchDecision({
         userId, tmdbId: entry.tmdbId, mediaType: "episode", seasonNumber: entry.season, episodeNumber: entry.episode,
-        title: title || null, state: "unwatched", occurredAt: at, source,
+        title: title || null, state: "unwatched", occurredAt: at, source, explicitUserAction,
       });
       if (!result.accepted) continue;
       if (shouldPropagateWatchedToPlex(source)) markPlexWatchedOutboxPending(userId, "episode", entry.tmdbId, entry.season, entry.episode, result.revision, result.effectiveState as "watched" | "unwatched");

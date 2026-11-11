@@ -182,11 +182,10 @@ test("égalité stricte de timestamp : la priorité de source départage (manuel
   const T = 5_000_000;
   const plex = applyWatchDecision({ userId, tmdbId, mediaType: "movie", state: "watched", occurredAt: T, source: "plex_history" });
   assert.equal(plex.accepted, true);
-  // Même timestamp exact, mais un import externe a une priorité plus basse
-  // que Plex -> ne doit PAS gagner à égalité de temps.
+  // Un import externe ne retire jamais « Vu » : seule une action explicite
+  // de l'utilisateur le peut, quel que soit l'horodatage.
   const importAtSameTime = applyWatchDecision({ userId, tmdbId, mediaType: "movie", state: "unwatched", occurredAt: T, source: "external_import", sourceEventId: `import:${userId}:${tmdbId}:${T}` });
   assert.equal(importAtSameTime.accepted, false);
-  assert.equal(importAtSameTime.reason, "tie_break");
   // Un toggle manuel au MÊME timestamp exact a une priorité plus haute que
   // Plex -> doit gagner même sans avantage temporel.
   const manualAtSameTime = applyWatchDecision({ userId, tmdbId, mediaType: "movie", state: "unwatched", occurredAt: T, source: "movviz_manual", sourceEventId: `manual:${userId}:${tmdbId}:${T}` });

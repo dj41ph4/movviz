@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { completionBoundaryMs, canComplete, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition, MIN_REAL_PLAYBACK_MS, type CompletionBoundarySource } from "./progressPolicy";
+import { completionBoundaryMs, canComplete, endCreditsLengthMs, estimateCreditsLengthMs, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition, requiredWatchedMs, ENDED_BOUNDARY_TOLERANCE_MS, MIN_REAL_PLAYBACK_MS, type CompletionBoundarySource } from "./progressPolicy";
 import { getPlaybackMarkers } from "./markers/store";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, syncPlaybackContext } from "@/lib/userContext/ingest";
@@ -27,6 +27,10 @@ export interface PlaybackProgress {
   durationMs: number;
   resumeOffsetMs: number | null;
   actualPlayedMs: number;
+  /** Content time really played (position advance while playing, never a
+   *  seek) — what the « 85 % really watched » rule reads. Absent on records
+   *  written before it existed: actualPlayedMs stands in. */
+  watchedContentMs?: number;
   eligibleForResume: boolean;
   watched: boolean;
   watchedAt: number | null;
@@ -64,6 +68,9 @@ export interface PlaybackSession {
   lastSequence: number;
   actualPlayedMs: number;
   seekPending: boolean;
+  /** The timeline was moved into the end zone: reaching the end from there
+   *  is not « watched to the end ». Cleared by a seek back out of it. */
+  soughtIntoEndZone?: boolean;
   durationMs: number;
   mediaType: "movie" | "episode";
   /** Play/pause state from the most recent heartbeat — set by applyHeartbeat().
@@ -162,10 +169,11 @@ function store(): PlaybackProgressStore {
       }
       const boundary = completionBoundaryMs(p.durationMs, [], "episode");
       p.completionBoundaryMs = boundary.boundaryMs;
+      p.boundarySource = boundary.source;
       if (missingIdentity && p.watched && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) {
         // Keep the original date: a later manual "unwatched" must win.
         setWatchedEpisodes(p.userId, [{ tmdbId: p.tmdbId, season: p.seasonNumber, episode: p.episodeNumber, watchedAt: p.watchedAt ?? p.updatedAt }], true, p.title ?? "", "movviz_playback");
-      } else if (!p.watched && p.resumeOffsetMs != null && canComplete(p.actualPlayedMs, p.resumeOffsetMs, boundary.boundaryMs)) {
+      } else if (!p.watched && p.resumeOffsetMs != null && reachedCompletion(p, p.resumeOffsetMs)) {
         markPlaybackWatched(p, boundary.source);
       }
     }
@@ -181,6 +189,40 @@ function get(userId: string, ratingKey: string, mediaId?: string): PlaybackProgr
   return (mediaId ? bucket[mediaId] : undefined) ?? bucket[ratingKey] ?? null;
 }
 
+/** Credits length the other episodes of the same season agree on. A special
+ *  (season 0) only learns from other specials. */
+function siblingCreditsEstimateMs(tmdbId: number | undefined, seasonNumber: number | undefined, episodeNumber: number | undefined): number | null {
+  if (tmdbId == null || seasonNumber == null || episodeNumber == null) return null;
+  const series = getSeriesByTmdbId(tmdbId);
+  const season = series?.seasons.find((s) => s.seasonNumber === seasonNumber);
+  if (!series || !season) return null;
+  const samples: number[] = [];
+  for (const e of season.episodes) {
+    if (e.episodeNumber === episodeNumber) continue;
+    const length = endCreditsLengthMs(getPlaybackMarkers(e.plexRatingKey, `${series.id}:s${e.seasonNumber}e${e.episodeNumber}`));
+    if (length != null) samples.push(length);
+  }
+  return estimateCreditsLengthMs(samples);
+}
+
+/** THE completion boundary of a media, for every player and every path. */
+function boundaryFor(ratingKey: string, mediaId: string | undefined, durationMs: number, mediaType: "movie" | "episode", ref: { tmdbId?: number; seasonNumber?: number; episodeNumber?: number }) {
+  const markers = getPlaybackMarkers(ratingKey, mediaId);
+  const estimate = mediaType === "episode" ? siblingCreditsEstimateMs(ref.tmdbId, ref.seasonNumber, ref.episodeNumber) : null;
+  return completionBoundaryMs(durationMs, markers, mediaType, estimate);
+}
+
+function watchedContent(p: PlaybackProgress): number { return p.watchedContentMs ?? p.actualPlayedMs; }
+function reachedCompletion(p: PlaybackProgress, positionMs: number): boolean {
+  return canComplete(watchedContent(p), positionMs, p.completionBoundaryMs, p.durationMs, p.boundarySource);
+}
+/** A manual jump into the end zone, by someone who has not really watched the content. */
+function isEndZoneJump(p: PlaybackProgress, positionMs: number): boolean {
+  if (p.completionBoundaryMs == null) return false;
+  return positionMs >= p.completionBoundaryMs - ENDED_BOUNDARY_TOLERANCE_MS
+    && watchedContent(p) < requiredWatchedMs(p.durationMs, p.completionBoundaryMs, p.boundarySource);
+}
+
 function ensure(userId: string, ratingKey: string, input: { mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string }): PlaybackProgress {
   if (input.mediaType === "episode" && (input.tmdbId == null || input.seasonNumber == null || input.episodeNumber == null)) {
     const found = resolvePlaybackEpisode(ratingKey, input.mediaId);
@@ -188,8 +230,7 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
   }
   const key = input.mediaId ?? ratingKey;
   const prior = get(userId, ratingKey, input.mediaId);
-  const markers = getPlaybackMarkers(ratingKey, input.mediaId);
-  const boundary = completionBoundaryMs(input.durationMs, markers, input.mediaType);
+  const boundary = boundaryFor(ratingKey, input.mediaId, input.durationMs, input.mediaType, input);
   if (prior) {
     // Promote legacy Plex-keyed progress to the canonical Movviz identity as
     // soon as the player provides it. This keeps old resume data usable while
@@ -214,7 +255,7 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
     return prior;
   }
   const now = Date.now();
-  const next: PlaybackProgress = { userId, ratingKey, mediaId: input.mediaId, mediaType: input.mediaType, durationMs: input.durationMs, tmdbId: input.tmdbId, seasonNumber: input.seasonNumber, episodeNumber: input.episodeNumber, title: input.title, resumeOffsetMs: null, actualPlayedMs: 0, eligibleForResume: false, watched: false, watchedAt: null, completionBoundaryMs: boundary.boundaryMs, boundarySource: boundary.source, lastPositionMs: 0, lastPlayedAt: null, updatedAt: now, revision: 1 };
+  const next: PlaybackProgress = { userId, ratingKey, mediaId: input.mediaId, mediaType: input.mediaType, durationMs: input.durationMs, tmdbId: input.tmdbId, seasonNumber: input.seasonNumber, episodeNumber: input.episodeNumber, title: input.title, resumeOffsetMs: null, actualPlayedMs: 0, watchedContentMs: 0, eligibleForResume: false, watched: false, watchedAt: null, completionBoundaryMs: boundary.boundaryMs, boundarySource: boundary.source, lastPositionMs: 0, lastPlayedAt: null, updatedAt: now, revision: 1 };
   (store().byUser[userId] ??= {})[key] = next;
   return next;
 }
@@ -264,6 +305,7 @@ export function syncProgressWatched(
       p.resumeOffsetMs = null;
       p.eligibleForResume = false;
       p.actualPlayedMs = 0;
+      p.watchedContentMs = 0;
       p.updatedAt = Date.now();
       p.revision++;
       changed = true;
@@ -373,7 +415,7 @@ export function updatePlaybackDuration(sessionId: string, durationMs: number): P
   const progress = get(session.userId, session.ratingKey, session.mediaId);
   if (!progress) return null;
   const normalized = Math.round(durationMs);
-  const boundary = completionBoundaryMs(normalized, getPlaybackMarkers(session.ratingKey, session.mediaId), progress.mediaType);
+  const boundary = boundaryFor(session.ratingKey, session.mediaId, normalized, progress.mediaType, progress);
   session.durationMs = normalized;
   progress.durationMs = normalized;
   progress.completionBoundaryMs = boundary.boundaryMs;
@@ -400,9 +442,14 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
     session.lastSequence = input.sequence; session.lastHeartbeatAt = now;
     return p0;
   }
-  if (input.isPlaying && !session.seekPending && plausible) session.actualPlayedMs += Math.min(elapsed, 30_000);
+  const realPlayback = input.isPlaying && !session.seekPending && plausible;
+  // Content really played since the last beat: the position advance, never a jump.
+  const advancedMs = realPlayback ? Math.max(0, input.positionMs - session.lastPositionMs) : 0;
+  if (realPlayback) session.actualPlayedMs += Math.min(elapsed, 30_000);
+  // A player that does not report its seeks still shows them as a jump.
+  if (!plausible && !p0.watched) session.soughtIntoEndZone = isEndZoneJump(p0, input.positionMs);
   session.seekPending = false; session.lastSequence = input.sequence; session.lastHeartbeatAt = now; session.lastPositionMs = Math.max(0, input.positionMs); session.lastIsPlaying = input.isPlaying;
-   const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
+   const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.watchedContentMs = watchedContent(p) + advancedMs; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
    if (!p.watched && p.actualPlayedMs >= MIN_REAL_PLAYBACK_MS) {
       p.eligibleForResume = true;
       if (p.lastPositionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) {
@@ -412,7 +459,7 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
         }
       }
    }
-  if (!p.watched && canComplete(p.actualPlayedMs, p.lastPositionMs, p.completionBoundaryMs)) markPlaybackWatched(p, p.boundarySource);
+  if (!p.watched && reachedCompletion(p, p.lastPositionMs)) markPlaybackWatched(p, p.boundarySource);
   persist();
   syncPlaybackContext(p);
   // Reprendre on the other devices follows the playing position.
@@ -423,14 +470,16 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
 export function applySeek(sessionId: string, positionMs: number): PlaybackProgress {
   const session = getPlaybackSession(sessionId); if (!session) throw new Error("session_not_found");
   session.seekPending = true; session.lastPositionMs = Math.max(0, positionMs); session.lastHeartbeatAt = Date.now();
-  const p = get(session.userId, session.ratingKey, session.mediaId)!; p.lastPositionMs = session.lastPositionMs; p.updatedAt = Date.now(); p.revision++; persist(); syncPlaybackContext(p); return p;
+  const p = get(session.userId, session.ratingKey, session.mediaId)!;
+  session.soughtIntoEndZone = !p.watched && isEndZoneJump(p, session.lastPositionMs);
+  p.lastPositionMs = session.lastPositionMs; p.updatedAt = Date.now(); p.revision++; persist(); syncPlaybackContext(p); return p;
 }
 
 export function applyMarkerSkip(sessionId: string, positionMs: number, markerType: string): PlaybackProgress {
   const session = getPlaybackSession(sessionId); if (!session) throw new Error("session_not_found");
-  const fromPosition = session.lastPositionMs;
   const p = applySeek(sessionId, positionMs);
-  if (!p.watched && markerType === "credits" && p.actualPlayedMs >= MIN_REAL_PLAYBACK_MS && p.completionBoundaryMs != null && fromPosition >= p.completionBoundaryMs) markPlaybackWatched(p, p.boundarySource);
+  // « Passer le générique » is an explicit « I am done »: film or episode.
+  if (markerType === "credits") { session.soughtIntoEndZone = false; if (!p.watched) markPlaybackWatched(p, "explicit"); }
   persist(); return p;
 }
 
@@ -459,19 +508,29 @@ export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBound
   recordPlaybackCompleted(p);
   return p;
 }
-export function completePlayback(sessionId: string): PlaybackProgress {
+/** Explicit player actions that mean « this one is finished ». */
+export type PlaybackExplicitReason = "next_episode";
+export function isExplicitReason(value: unknown): value is PlaybackExplicitReason { return value === "next_episode"; }
+
+export function completePlayback(sessionId: string, reason?: PlaybackExplicitReason): PlaybackProgress {
   const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found");
   const p = get(s.userId, s.ratingKey, s.mediaId)!;
+  if (reason === "next_episode") { markPlaybackWatched(p, "explicit"); persist(); return p; }
+  if (!p.watched && s.soughtIntoEndZone) {
+    console.log("[playback] fin atteinte après un saut manuel vers la fin — non marqué vu");
+    return p;
+  }
   if (!p.watched && !isCredibleEnd(s.lastPositionMs, p.completionBoundaryMs)) {
     console.log(`[playback] fin reçue à ${Math.round(s.lastPositionMs / 1000)}s, loin de la fin (${Math.round((p.completionBoundaryMs ?? 0) / 1000)}s) — non marqué vu`);
     return p;
   }
   markPlaybackWatched(p); persist(); return p;
 }
-export function stopPlayback(sessionId: string, positionMs?: number): PlaybackProgress {
+export function stopPlayback(sessionId: string, positionMs?: number, reason?: PlaybackExplicitReason): PlaybackProgress {
   const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found");
   const p = get(s.userId, s.ratingKey, s.mediaId)!;
   let completedHere = false;
+  if (reason === "next_episode" && !p.watched) { markPlaybackWatched(p, "explicit"); completedHere = true; }
   const position = positionMs != null && Number.isFinite(positionMs) ? Math.max(0, positionMs) : null;
   if (!p.watched && position != null && isSpuriousRestartPosition({ positionMs: position, resumeOffsetMs: p.resumeOffsetMs, sessionPlayedMs: s.actualPlayedMs, previousSessionPositionMs: s.lastPositionMs })) {
     console.log(`[playback] arrêt à ${Math.round(position / 1000)}s ignoré — la reprise reste à ${Math.round((p.resumeOffsetMs ?? 0) / 1000)}s`);
@@ -480,7 +539,7 @@ export function stopPlayback(sessionId: string, positionMs?: number): PlaybackPr
     // Closing the player does not necessarily leave time for the next
     // 10-second heartbeat. Apply the same completion rule here, so stopping
     // in end credits cannot leave a stale resume entry behind.
-    if (canComplete(p.actualPlayedMs, position, p.completionBoundaryMs)) {
+    if (reachedCompletion(p, position)) {
       markPlaybackWatched(p, p.boundarySource);
       completedHere = true;
     } else if (p.eligibleForResume && position < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) {

@@ -226,6 +226,13 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
  */
 export function applyReconcileDecision(input: ReconcileInput, result: ReconcileResult, title?: string | null): boolean {
   if (!result.shouldApply || !result.newCanonicalState) return false;
+  // Bidirectionnel : un titre démarqué DANS Plex (transition vu → non vu
+  // observée) est le geste de l'utilisateur et retire « Vu » dans Movviz.
+  // Une simple divergence stable (Plex « non vu », Movviz « vu » : vu dans
+  // Movviz et jamais arrivé jusqu'à Plex) n'est pas un geste : elle ne
+  // retire rien, l'export Movviz → Plex la résorbe.
+  const userUnwatchedInPlex = result.newCanonicalState === "unwatched" && result.reason !== "state_repair_observed_unwatched";
+  if (result.newCanonicalState === "unwatched" && !userUnwatchedInPlex) return false;
   const canon = input.canonicalIdentity;
   const at = input.currentPlexObserved?.lastViewedAt ?? input.currentPlexObserved?.observedAt ?? Date.now();
   const source: WatchSource = "plex_history"; // observer-sourced, but represents watch state – use plex_history for compatibility with existing LWW
@@ -243,6 +250,7 @@ export function applyReconcileDecision(input: ReconcileInput, result: ReconcileR
     occurredAt: at,
     source,
     sourceEventId,
+    explicitUserAction: userUnwatchedInPlex,
   });
   if (!res.accepted) return false;
 
@@ -255,7 +263,7 @@ export function applyReconcileDecision(input: ReconcileInput, result: ReconcileR
   if (!getUserContextDb()) {
     const watched = result.newCanonicalState === "watched";
     if (canon.type === "movie") {
-      return setWatchedMovies(input.userId, [canon.tmdbId], watched, title ?? "", at, source);
+      return setWatchedMovies(input.userId, [canon.tmdbId], watched, title ?? "", at, source, userUnwatchedInPlex);
     }
     if (canon.type === "episode") {
       return setWatchedEpisodes(
@@ -264,6 +272,7 @@ export function applyReconcileDecision(input: ReconcileInput, result: ReconcileR
         watched,
         title ?? "",
         source,
+        userUnwatchedInPlex,
       );
     }
   }

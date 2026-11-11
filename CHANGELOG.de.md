@@ -1,3 +1,13 @@
+## v1.28.124 — 11. November 2026
+
+### Wiedergabe
+
+- Zuverlässigerer Status „Gesehen“: Der feste Schwellenwert (80 % bei einer Episode, 5 Minuten vor Ende bei einem Film) wurde ersetzt. Ein Inhalt gilt als gesehen, sobald sein Abspann beginnt, wenn eine Markierung vorhanden ist (Plex oder TheIntroDB), auch bei Episoden; andernfalls, sobald höchstens 3 % der Laufzeit verbleiben (zwischen 30 und 90 Sekunden) und mindestens 85 % des Inhalts tatsächlich abgespielt wurden.
+- „Nächste Episode“ und „Abspann überspringen“ markieren den Inhalt sofort als gesehen, auch Filme (Web, Android TV, Android mobil, Samsung).
+- Ohne Markierung kann eine Episode die Abspannlänge übernehmen, in der die anderen Episoden ihrer Staffel übereinstimmen.
+- Ein Sprung in der Fortschrittsleiste bis zum Ende markiert einen Inhalt nicht mehr als gesehen.
+- Ein gesehener Inhalt bleibt gesehen: erneutes Abspielen, Zurücksetzen des Fortschritts oder spät eintreffende Markierungen entfernen den Status nicht mehr. Nur „Als ungesehen markieren“ in Movviz oder dieselbe Aktion in Plex entfernt ihn; eine bloße Abweichung von Plex löscht ihn nicht mehr.
+
 ## v1.28.123 — 11. November 2026
 
 ### Leistung

@@ -1,36 +1,80 @@
 export const MIN_REAL_PLAYBACK_MS = 60_000;
-export const EPISODE_WATCHED_RATIO = 0.80;
 export const MAX_HEARTBEAT_INTERVAL_MS = 30_000;
-export const MOVIE_FALLBACK_REMAINING_MS = 5 * 60_000;
-export const EPISODE_FALLBACK_REMAINING_MS = 2 * 60_000;
-export const SHORT_MEDIA_MIN_REMAINING_MS = 30_000;
+/** Without a marker: watched once at most T seconds remain, T = 3 % of the
+ *  runtime kept between 30 s and 90 s. */
+export const FALLBACK_REMAINING_RATIO = 0.03;
+export const FALLBACK_MIN_REMAINING_MS = 30_000;
+export const FALLBACK_MAX_REMAINING_MS = 90_000;
+/** Share of the content that must really have been played (not sought past). */
+export const REAL_WATCH_RATIO = 0.85;
+/** A « credits » marker in the first half is an opening sequence, not the end. */
+const CREDITS_MIN_START_RATIO = 0.5;
+/** Sibling-episode estimate: enough samples, tightly grouped, never a large slice. */
+export const ESTIMATE_MIN_SAMPLES = 3;
+export const ESTIMATE_MAX_SPREAD_MS = 15_000;
+const ESTIMATE_MAX_REMAINING_RATIO = 0.1;
 
-export type CompletionBoundarySource = "plex_final_credits" | "plex_credits" | "fallback" | "ended";
+/** Names kept from the Plex-only era: stored in every progress record. */
+export type CompletionBoundarySource = "plex_final_credits" | "plex_credits" | "estimated" | "fallback" | "ended" | "explicit";
 
-export function completionBoundaryMs(
-  durationMs: number,
-  markers: readonly { type: string; startMs: number; endMs: number; final?: boolean }[],
-  mediaType: "movie" | "episode",
-): { boundaryMs: number | null; source: CompletionBoundarySource } {
-  if (!Number.isFinite(durationMs) || durationMs <= 0) return { boundaryMs: null, source: "fallback" };
-  // Episodes become watched at 80%, independently of credit indexing.
-  if (mediaType === "episode") return { boundaryMs: Math.ceil(durationMs * EPISODE_WATCHED_RATIO), source: "fallback" };
+export function fallbackRemainingMs(durationMs: number): number {
+  return Math.min(FALLBACK_MAX_REMAINING_MS, Math.max(FALLBACK_MIN_REMAINING_MS, Math.round(durationMs * FALLBACK_REMAINING_RATIO)));
+}
+
+type BoundaryMarker = { type: string; startMs: number; endMs: number; final?: boolean };
+
+/** Last end-credits marker of a media, whatever its source (Plex, IntroDB…). */
+function endCredits(durationMs: number, markers: readonly BoundaryMarker[]): { marker: BoundaryMarker; final: boolean } | null {
   const credits = markers
     .filter((m) => m.type === "credits" && Number.isFinite(m.startMs) && Number.isFinite(m.endMs))
-    .filter((m) => m.startMs >= 0 && m.endMs > m.startMs && m.startMs < durationMs)
+    .filter((m) => m.endMs > m.startMs && m.startMs < durationMs && m.startMs >= durationMs * CREDITS_MIN_START_RATIO)
     .sort((a, b) => a.startMs - b.startMs);
   const final = credits.filter((m) => m.final);
-  const selected = final.at(-1) ?? credits.at(-1);
-  if (selected) {
-    return {
-      boundaryMs: Math.min(Math.max(0, selected.startMs), Math.max(0, durationMs - 1_000)),
-      source: final.length ? "plex_final_credits" : "plex_credits",
-    };
+  const marker = final.at(-1) ?? credits.at(-1);
+  return marker ? { marker, final: final.length > 0 } : null;
+}
+
+/** Length (ms) of a sibling's end credits, for the estimate. Its runtime is
+ *  not known here, so the last credits marker is taken as is. */
+export function endCreditsLengthMs(markers: readonly BoundaryMarker[]): number | null {
+  const credits = markers.filter((m) => m.type === "credits" && Number.isFinite(m.startMs) && Number.isFinite(m.endMs) && m.endMs > m.startMs)
+    .sort((a, b) => a.startMs - b.startMs);
+  const last = credits.filter((m) => m.final).at(-1) ?? credits.at(-1);
+  return last ? last.endMs - last.startMs : null;
+}
+
+/**
+ * Credits length the other episodes of a season agree on, or null when the
+ * data is too thin or inconsistent.
+ */
+export function estimateCreditsLengthMs(samples: readonly number[]): number | null {
+  const valid = samples.filter((v) => Number.isFinite(v) && v > 0).sort((a, b) => a - b);
+  if (valid.length < ESTIMATE_MIN_SAMPLES) return null;
+  if (valid[valid.length - 1] - valid[0] > ESTIMATE_MAX_SPREAD_MS) return null;
+  return valid[Math.floor(valid.length / 2)];
+}
+
+/**
+ * The single position past which a media counts as finished, by priority:
+ * its own end-credits marker, then the credits length its sibling episodes
+ * agree on, then the runtime-based fallback.
+ */
+export function completionBoundaryMs(
+  durationMs: number,
+  markers: readonly BoundaryMarker[],
+  mediaType: "movie" | "episode",
+  estimatedCreditsLengthMs: number | null = null,
+): { boundaryMs: number | null; source: CompletionBoundarySource } {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return { boundaryMs: null, source: "fallback" };
+  const cap = Math.max(0, durationMs - 1_000);
+  const own = endCredits(durationMs, markers);
+  if (own) return { boundaryMs: Math.min(Math.max(0, own.marker.startMs), cap), source: own.final ? "plex_final_credits" : "plex_credits" };
+  const fallback = fallbackRemainingMs(durationMs);
+  if (mediaType === "episode" && estimatedCreditsLengthMs != null) {
+    const remaining = Math.min(estimatedCreditsLengthMs, Math.round(durationMs * ESTIMATE_MAX_REMAINING_RATIO));
+    if (remaining > fallback) return { boundaryMs: Math.max(1_000, durationMs - remaining), source: "estimated" };
   }
-  const remaining = durationMs <= 10 * 60_000
-    ? Math.max(SHORT_MEDIA_MIN_REMAINING_MS, Math.round(durationMs * 0.1))
-    : MOVIE_FALLBACK_REMAINING_MS;
-  return { boundaryMs: Math.max(1_000, durationMs - Math.min(remaining, durationMs - 1_000)), source: "fallback" };
+  return { boundaryMs: Math.max(1_000, durationMs - Math.min(fallback, cap)), source: "fallback" };
 }
 
 export function isPlausiblePlaybackAdvance(
@@ -47,8 +91,21 @@ export function isPlausiblePlaybackAdvance(
   return delta <= allowed;
 }
 
-export function canComplete(actualPlayedMs: number, positionMs: number, boundaryMs: number | null): boolean {
-  return actualPlayedMs >= MIN_REAL_PLAYBACK_MS && boundaryMs != null && positionMs >= boundaryMs;
+/** Real playback required before a position-based completion: 85 % of the
+ *  content — the whole runtime without a marker, what precedes the credits
+ *  with one. */
+export function requiredWatchedMs(durationMs: number, boundaryMs: number | null, source: CompletionBoundarySource): number {
+  const content = source === "plex_final_credits" || source === "plex_credits" ? (boundaryMs ?? durationMs) : durationMs;
+  return Math.max(Math.min(MIN_REAL_PLAYBACK_MS, content), Math.round(content * REAL_WATCH_RATIO));
+}
+
+/**
+ * Automatic completion: the position passed the boundary AND the content was
+ * really played. Jumping into the end zone on the timeline never satisfies it.
+ */
+export function canComplete(watchedMs: number, positionMs: number, boundaryMs: number | null, durationMs: number, source: CompletionBoundarySource): boolean {
+  if (boundaryMs == null || positionMs < boundaryMs) return false;
+  return watchedMs >= requiredWatchedMs(durationMs, boundaryMs, source);
 }
 
 export const NEAR_START_MS = 10_000;

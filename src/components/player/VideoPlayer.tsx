@@ -2659,6 +2659,14 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const postCredits = mediaType === "episode" && duration > 0 && markers.some((m) => m.type === "credits"
     && m.endMs <= currentTime * 1000 && m.endMs < duration * 1000 - 3000);
 
+  // « Épisode suivant » demandé (bouton, ou générique passé automatiquement) :
+  // l'épisode quitté est terminé pour l'utilisateur, le serveur le marque vu.
+  const goNextEpisode = () => {
+    const sessionId = playbackSessionRef.current;
+    if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/ended`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: "next_episode" }), keepalive: true }).catch(() => void 0);
+    onNextEpisodeRef.current?.();
+  };
+
   const handleSkipMarker = () => {
     const marker = activeMarker;
     if (!marker) return;
@@ -2681,7 +2689,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     const id = `${ratingKey}:${marker.type}:${marker.startMs}`;
     if (autoSkippedRef.current === id) return;
     autoSkippedRef.current = id;
-    if (wantsCredits && creditsRunToEnd) onNextEpisodeRef.current?.();
+    if (wantsCredits && creditsRunToEnd) goNextEpisode();
     else handleSkipMarker();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMarker, showResume, duration, autoPlayback.loaded, autoPlayback.autoSkipIntro, autoPlayback.autoSkipCredits]);
@@ -3119,7 +3127,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
               {onNextEpisode && mediaType === "episode" && duration > 0 && (currentTime >= Math.max(0, duration - 30) || creditsRunToEnd || postCredits) && !showResume && !skipButtonShown && (
                 <button
-                  onClick={onNextEpisode}
+                  onClick={goNextEpisode}
                   className="pointer-events-auto absolute bottom-52 sm:bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
                 >
                   <SkipForward className="h-4 w-4" />

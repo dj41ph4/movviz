@@ -790,7 +790,7 @@ ExoPlayer.Builder(context)
 
     /** Clear ExoPlayer before changing the Compose queue index: otherwise
      * only the overlay title changes while the previous media keeps playing. */
-    fun advanceTo(nextIndex: Int, markOutgoingWatched: Boolean) {
+    fun advanceTo(nextIndex: Int, markOutgoingWatched: Boolean, explicitNext: Boolean = false) {
         if (nextIndex !in queue.indices || nextIndex == currentIndex) return
         // Une rafale ⏩ en attente visait l'épisode quitté, jamais le suivant.
         pendingSeekTarget = null
@@ -804,7 +804,7 @@ ExoPlayer.Builder(context)
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         scope.launch {
-            if (markOutgoingWatched) outgoingSession?.let { repository.playbackEnded(it) }
+            if (markOutgoingWatched) outgoingSession?.let { repository.playbackEnded(it, explicitNext) }
             else {
                 outgoingSession?.let { repository.playbackStop(it, outgoingPosition) }
                 repository.reportStop(outgoing.ratingKey)
@@ -1299,8 +1299,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
     fun nextEpisodeAction() {
         poke()
-        // The server decides whether the outgoing episode is complete.
-        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = false)
+        // « Épisode suivant » : l'épisode quitté est marqué vu, sans condition.
+        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = true, explicitNext = true)
     }
     fun skipMarkerAction() {
         val m = activeMarker ?: return
@@ -1336,7 +1336,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         if (m.type == "credits" && currentIndex < queue.size - 1) {
             autoAdvancesWithoutInput++
             if (autoAdvancesWithoutInput >= STILL_WATCHING_AFTER_EPISODES) stillWatchingPrompt = true
-            advanceTo(currentIndex + 1, markOutgoingWatched = false)
+            advanceTo(currentIndex + 1, markOutgoingWatched = true, explicitNext = true)
             return@LaunchedEffect
         }
         playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }

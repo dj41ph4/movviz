@@ -11,6 +11,14 @@ process.env.MOVVIZ_CONFIG_DIR = tempDir;
 const { openPlaybackSession, getPlaybackSession, getPlaybackProgress, updatePlaybackDuration, applyHeartbeat, applySeek, stopPlayback } =
   await import("../src/lib/playback/progressStore.ts");
 
+/** Real playback, one heartbeat every 10 s, from one position to another. */
+let beat = 100;
+function playThrough(session: { id: string; startedAt: number }, fromMs: number, toMs: number) {
+  let last = null;
+  for (let pos = fromMs + 10_000; pos <= toMs; pos += 10_000) last = applyHeartbeat(session.id, { sequence: ++beat, positionMs: pos, isPlaying: true, nowMs: session.startedAt + pos });
+  return last!;
+}
+
 test("FFmpeg metadata replaces the provisional playback duration before progress is saved", () => {
   const { session, progress } = openPlaybackSession("test-user", {
     ratingKey: "plex-499264",
@@ -26,9 +34,9 @@ test("FFmpeg metadata replaces the provisional playback duration before progress
   assert.equal(updated.durationMs, 6_780_000);
   assert.equal(getPlaybackSession(session.id)?.durationMs, 6_780_000);
   assert.equal(getPlaybackProgress("test-user", "plex-499264", "movviz-rip")?.durationMs, 6_780_000);
-  // Feature-film fallback is five minutes before the end, not five minutes
-  // before the previous provisional 16:40 duration.
-  assert.equal(updated.completionBoundaryMs, 6_480_000);
+  // The fallback (90 s before the end of a feature film) follows the real
+  // duration, not the previous provisional 16:40 one.
+  assert.equal(updated.completionBoundaryMs, 6_690_000);
 });
 
 test("stopping in end credits completes playback without waiting for another heartbeat", () => {
@@ -42,12 +50,13 @@ test("stopping in end credits completes playback without waiting for another hea
   applyHeartbeat(session.id, { sequence: 1, positionMs: 30_000, isPlaying: true, nowMs: session.startedAt + 30_000 });
   const afterMinute = applyHeartbeat(session.id, { sequence: 2, positionMs: 60_000, isPlaying: true, nowMs: session.startedAt + 60_000 });
   assert.equal(afterMinute.actualPlayedMs, 60_000);
-  assert.equal(afterMinute.completionBoundaryMs, 6_900_000);
+  assert.equal(afterMinute.completionBoundaryMs, 7_110_000);
 
-  // The UI sends this position as it unmounts. Previously stopPlayback
+  // The film is really played up to 10 s before the boundary; the UI then
+  // sends the final position as it unmounts. Previously stopPlayback
   // ignored the boundary and left the old resume card behind.
-  applySeek(session.id, 6_900_000);
-  const stopped = stopPlayback(session.id, 6_900_000);
+  assert.equal(playThrough(session, 60_000, 7_100_000).watched, false);
+  const stopped = stopPlayback(session.id, 7_110_000);
   assert.equal(stopped.watched, true);
   assert.equal(stopped.resumeOffsetMs, null);
   assert.equal(getPlaybackProgress("test-user", "plex-credits", "movviz-credits")?.watched, true);
@@ -75,19 +84,19 @@ test.after(async () => {
 
 test("manual exit and Next share the server boundary and cannot bypass actual viewing", () => {
   for (const [type, duration, position, expected] of [
-    ["episode", 2_400_000, 1_919_999, false],
-    ["episode", 2_400_000, 1_920_000, true],
-    ["movie", 7_200_000, 5_760_000, false],
-    ["movie", 7_200_000, 6_900_000, true],
+    // 40 min episode: 72 s before the end. 2 h film: 90 s before the end.
+    ["episode", 2_400_000, 2_327_999, false],
+    ["episode", 2_400_000, 2_328_000, true],
+    ["movie", 7_200_000, 6_900_000, false],
+    ["movie", 7_200_000, 7_110_000, true],
   ] as const) {
     const { session } = openPlaybackSession(`policy-${type}-${position}`, { ratingKey: `key-${position}`, mediaType: type, durationMs: duration });
-    applyHeartbeat(session.id, { sequence: 1, positionMs: 30_000, isPlaying: true, nowMs: session.startedAt + 30_000 });
-    applyHeartbeat(session.id, { sequence: 2, positionMs: 60_000, isPlaying: true, nowMs: session.startedAt + 60_000 });
+    playThrough(session, 0, position - 10_000);
     assert.equal(stopPlayback(session.id, position).watched, expected);
   }
   const { session } = openPlaybackSession("seek-only", { ratingKey: "seek-only", mediaType: "episode", durationMs: 2_400_000 });
-  applySeek(session.id, 1_920_000);
-  assert.equal(stopPlayback(session.id, 1_920_000).watched, false, "seeking alone is not real viewing");
+  applySeek(session.id, 2_330_000);
+  assert.equal(stopPlayback(session.id, 2_330_000).watched, false, "seeking alone is not real viewing");
 });
 
 test("a player session survives a server restart: progress and « terminé » are still recorded", async () => {

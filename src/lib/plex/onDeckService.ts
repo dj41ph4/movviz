@@ -19,7 +19,7 @@ import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
  *  compter comme « terminé » — même règle pour toute source de progression
  *  (Movviz local ou Plex on-deck), jamais deux seuils différents. Sans repère
  *  « générique » par item (coûterait un appel Plex par entrée de la liste),
- *  retombe sur le même seuil que le lecteur : 80 % pour un épisode. */
+ *  retombe sur le même seuil que le lecteur (3 % de la durée, entre 30 et 90 s). */
 function isNearEnd(offsetMs: number, durationMs: number, type: "movie" | "episode"): boolean {
   const { boundaryMs } = completionBoundaryMs(durationMs, [], type);
   return boundaryMs != null && offsetMs >= boundaryMs;

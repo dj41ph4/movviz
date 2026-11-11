@@ -21,7 +21,7 @@ const { getCanonicalWatchStatus } = await import("../src/lib/userContext/watchBr
 const { getWatchStatus, setWatchedEpisodes } = await import("../src/lib/plex/watchStore.ts");
 const { listOnDeckEntries } = await import("../src/lib/plex/onDeckService.ts");
 
-test("Slime S01E01: resume below 80%, watched at 80%, then S01E02, then S02E01", async () => {
+test("Slime S01E01: resume before the end zone, watched near the end, then S01E02, then S02E01", async () => {
   const user = { id: "episode-user" } as User;
   // Legacy Android did not send season/episode. Resolve them from the key.
   const { session, progress } = openPlaybackSession(user.id, { ratingKey: "slime-1", mediaType: "episode", durationMs: 1_440_000, tmdbId: 82684 });
@@ -29,12 +29,15 @@ test("Slime S01E01: resume below 80%, watched at 80%, then S01E02, then S02E01",
   assert.equal(progress.episodeNumber, 1);
   applyHeartbeat(session.id, { sequence: 1, positionMs: 30_000, isPlaying: true, nowMs: session.startedAt + 30_000 });
   applyHeartbeat(session.id, { sequence: 2, positionMs: 60_000, isPlaying: true, nowMs: session.startedAt + 60_000 });
-  applySeek(session.id, 1_140_000);
-  applyHeartbeat(session.id, { sequence: 3, positionMs: 1_140_000, isPlaying: false });
+  // Really played, one heartbeat every 10 s.
+  let sequence = 2;
+  for (let pos = 70_000; pos <= 1_140_000; pos += 10_000) applyHeartbeat(session.id, { sequence: ++sequence, positionMs: pos, isPlaying: true, nowMs: session.startedAt + pos });
   let items = await listOnDeckEntries(user);
   assert.equal(items[0]?.episodeNumber, 1);
   assert.equal(items[0]?.offsetMs, 1_140_000);
-  const stopped = stopPlayback(session.id, 1_152_000);
+  // 24 min: watched once 43.2 s or less remain.
+  for (let pos = 1_150_000; pos <= 1_390_000; pos += 10_000) applyHeartbeat(session.id, { sequence: ++sequence, positionMs: pos, isPlaying: true, nowMs: session.startedAt + pos });
+  const stopped = stopPlayback(session.id, 1_397_000);
   assert.equal(stopped.watched, true);
   assert.equal(stopped.resumeOffsetMs, null);
   assert.ok((getCanonicalWatchStatus(user.id) ?? getWatchStatus(user.id))?.episodes.some((e) => e.tmdbId === 82684 && e.season === 1 && e.episode === 1));

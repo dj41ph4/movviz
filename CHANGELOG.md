@@ -1,3 +1,13 @@
+## v1.28.124 — 11 novembre 2026
+
+### Lecture
+
+- Statut « Vu » plus fiable : le seuil fixe (80 % pour un épisode, 5 minutes avant la fin pour un film) est remplacé. Un contenu passe vu au début de son générique de fin quand un marqueur existe (Plex ou TheIntroDB), y compris pour les épisodes ; sinon lorsqu'il reste au plus 3 % de la durée (entre 30 et 90 secondes) et qu'au moins 85 % du contenu a réellement été lu.
+- « Épisode suivant » et « Passer le générique » marquent immédiatement le contenu comme vu, films compris (web, Android TV, Android mobile, Samsung).
+- Sans marqueur, un épisode peut reprendre la durée de générique sur laquelle les autres épisodes de sa saison s'accordent.
+- Se déplacer dans la barre de progression jusqu'à la fin ne marque plus un contenu comme vu.
+- Un contenu vu reste vu : relecture, remise à zéro de la progression ou arrivée tardive de marqueurs ne retirent plus le statut. Seuls « Marquer comme non vu » dans Movviz ou le même geste dans Plex le retirent ; une simple divergence avec Plex ne l'efface plus.
+
 ## v1.28.123 — 11 novembre 2026
 
 ### Performances

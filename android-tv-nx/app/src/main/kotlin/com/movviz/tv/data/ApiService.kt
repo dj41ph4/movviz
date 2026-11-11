@@ -173,7 +173,7 @@ interface MovvizApiService {
     suspend fun playbackStop(@Path("sessionId") sessionId: String, @Body body: Map<String, Any?> = emptyMap()): Response<Map<String, Any?>>
 
     @POST("api/playback/sessions/{sessionId}/ended")
-    suspend fun playbackEnded(@Path("sessionId") sessionId: String): Response<Map<String, Any?>>
+    suspend fun playbackEnded(@Path("sessionId") sessionId: String, @Body body: Map<String, Any?> = emptyMap()): Response<Map<String, Any?>>
 
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>

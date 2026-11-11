@@ -1,3 +1,13 @@
+## v1.28.124 — November 11, 2026
+
+### Playback
+
+- More reliable “Watched” status: the fixed threshold (80% for an episode, 5 minutes before the end for a film) is replaced. A title becomes watched at the start of its end credits when a marker exists (Plex or TheIntroDB), episodes included; otherwise once at most 3% of the runtime remains (between 30 and 90 seconds) and at least 85% of the content has really been played.
+- “Next episode” and “Skip credits” immediately mark the title as watched, films included (web, Android TV, Android mobile, Samsung).
+- Without a marker, an episode can use the credits length the other episodes of its season agree on.
+- Moving along the progress bar to the end no longer marks a title as watched.
+- A watched title stays watched: replaying it, resetting its progress or markers arriving late no longer remove the status. Only “Mark as unwatched” in Movviz, or the same action in Plex, removes it; a mere mismatch with Plex no longer clears it.
+
 ## v1.28.123 — November 11, 2026
 
 ### Performance
