@@ -1,3 +1,9 @@
+## v1.28.140 — 12 novembre 2026
+
+### Gestione
+
+- Statistiche: le visualizzazioni Plex provengono ora dalla cronologia dell'intero server Plex, come Tautulli. Gli account Plex non collegati a nessun utente Movviz (ospiti, profili) compaiono ora con il loro nome nei totali, nella classifica utenti e nel filtro. Se Plex non è raggiungibile, la pagina usa il registro locale.
+
 ## v1.28.139 — 12 novembre 2026
 
 ### Gestione

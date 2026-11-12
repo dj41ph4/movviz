@@ -1,3 +1,9 @@
+## v1.28.140 — November 12, 2026
+
+### Management
+
+- Statistics: Plex views now come from the whole Plex server history, like Tautulli. Plex accounts not linked to any Movviz user (guests, profiles) now appear by name in the totals, the user ranking and the filter. If Plex is unreachable, the page falls back to the local log.
+
 ## v1.28.139 — November 12, 2026
 
 ### Management

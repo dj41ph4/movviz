@@ -1,3 +1,9 @@
+## v1.28.140 — 12 november 2026
+
+### Beheer
+
+- Statistieken: Plex-weergaven komen nu uit de geschiedenis van de hele Plex-server, zoals bij Tautulli. Plex-accounts zonder gekoppelde Movviz-gebruiker (gasten, profielen) verschijnen nu met naam in de totalen, de gebruikersranglijst en het filter. Is Plex onbereikbaar, dan valt de pagina terug op het lokale logboek.
+
 ## v1.28.139 — 12 november 2026
 
 ### Beheer

@@ -1,3 +1,9 @@
+## v1.28.140 — 12. November 2026
+
+### Verwaltung
+
+- Statistiken: Plex-Wiedergaben stammen jetzt aus dem Verlauf des gesamten Plex-Servers, wie bei Tautulli. Plex-Konten ohne verknüpften Movviz-Benutzer (Gäste, Profile) erscheinen nun mit Namen in den Summen, der Benutzerrangliste und im Filter. Ist Plex nicht erreichbar, nutzt die Seite das lokale Protokoll.
+
 ## v1.28.139 — 12. November 2026
 
 ### Verwaltung

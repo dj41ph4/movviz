@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { computeStats, type PlaySource, type StatsPeriod } from "@/lib/stats/playStats";
+import { computeStats, statsLoadFrom, type PlaySource, type StatsPeriod } from "@/lib/stats/playStats";
+import { loadPlexServerPlays } from "@/lib/stats/plexServerPlays";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +16,15 @@ export async function GET(req: NextRequest) {
   const period = (PERIODS.has(periodRaw) ? periodRaw : 30) as StatsPeriod;
   const sourceRaw = params.get("source");
   const source: PlaySource | null = sourceRaw === "movviz" || sourceRaw === "plex" ? sourceRaw : null;
+  // Historique Plex de tout le serveur (tous les comptes) ; null = Plex absent/injoignable,
+  // on retombe alors sur les vus du journal local.
+  const external = source === "movviz" ? null : await loadPlexServerPlays(statsLoadFrom(period)).catch(() => null);
   const stats = computeStats({
     period,
     source,
     userId: params.get("user") || null,
     offset: Number(params.get("offset")) || 0,
     limit: Number(params.get("limit")) || 50,
-  });
+  }, external);
   return NextResponse.json(stats);
 }

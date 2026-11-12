@@ -70,7 +70,7 @@ function itemKey(r: Pick<PlayRecord, "userId" | "tmdbId" | "mediaType" | "season
 }
 
 /** Toutes les lectures (Movviz + Plex) depuis `since`, dédupliquées, plus récentes d'abord. */
-export function loadPlays(since: number): PlayRecord[] {
+export function loadPlays(since: number, externalPlex?: PlayRecord[] | null): PlayRecord[] {
   const rows = withUserContextDb((db) => db.prepare(`
     SELECT user_id, event_type, source, tmdb_id, media_type, season_number, episode_number,
            title_snapshot, position_ms, duration_ms, occurred_at, payload_json
@@ -128,7 +128,10 @@ export function loadPlays(since: number): PlayRecord[] {
     if (list) list.push(play.at);
     else mirrors.set(key, [play.at]);
   }
-  const plexOnly = plex.filter((play) => !(mirrors.get(itemKey(play)) ?? []).some((at) => Math.abs(at - play.at) <= MIRROR_WINDOW_MS));
+  // Historique du serveur Plex disponible : il couvre tous les comptes et remplace
+  // les vus du journal (sinon on les compterait deux fois).
+  const plexSource = externalPlex ? externalPlex.filter((p) => p.at >= since) : plex;
+  const plexOnly = plexSource.filter((play) => !(mirrors.get(itemKey(play)) ?? []).some((at) => Math.abs(at - play.at) <= MIRROR_WINDOW_MS));
 
   // Deux lignes Plex quasi identiques (même vue relue par deux chemins) : une seule.
   const seen = new Map<string, number>();
@@ -203,20 +206,28 @@ function dayKey(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function computeStats(options: { period: StatsPeriod; source?: PlaySource | null; userId?: string | null; offset?: number; limit?: number }): StatsResult {
+/** Période → début du chargement (inclut la période précédente pour l'évolution). */
+export function statsLoadFrom(period: StatsPeriod): number {
+  return period === 0 ? 0 : Date.now() - 2 * period * 86_400_000;
+}
+
+export function computeStats(
+  options: { period: StatsPeriod; source?: PlaySource | null; userId?: string | null; offset?: number; limit?: number },
+  external?: { plays: PlayRecord[]; names: Map<string, string> } | null,
+): StatsResult {
   const now = Date.now();
   const period = options.period;
   const since = period === 0 ? 0 : now - period * 86_400_000;
   // On charge aussi la période précédente (même durée) pour afficher l'évolution.
   const loadFrom = period === 0 ? 0 : since - period * 86_400_000;
-  const everything = loadPlays(loadFrom).filter((play) =>
+  const everything = loadPlays(loadFrom, external?.plays ?? null).filter((play) =>
     (!options.source || play.source === options.source) && (!options.userId || play.userId === options.userId));
 
   const plays = everything.filter((play) => play.at >= since);
   const previousPlays = period === 0 ? 0 : everything.length - plays.length;
 
   const allUsers = loadUsers();
-  const nameOf = (id: string) => allUsers.find((u) => u.id === id)?.username ?? "—";
+  const nameOf = (id: string) => allUsers.find((u) => u.id === id)?.username ?? external?.names.get(id) ?? "—";
 
   const byDayMap = new Map<string, SourceSplit>();
   if (period !== 0) {
@@ -296,7 +307,10 @@ export function computeStats(options: { period: StatsPeriod; source?: PlaySource
     topMovies: rank([...movies.entries()].map(([tmdbId, v]) => ({ tmdbId, title: v.title, plays: v.plays, users: v.users.size, lastAt: v.lastAt }))),
     topSeries: rank([...series.entries()].map(([tmdbId, v]) => ({ tmdbId, title: v.title, plays: v.plays, users: v.users.size, lastAt: v.lastAt }))),
     topUsers: rank([...users.entries()].map(([userId, v]) => ({ userId, username: nameOf(userId), ...v })), 20),
-    users: allUsers.map((u) => ({ id: u.id, username: u.username })),
+    users: [
+      ...allUsers.map((u) => ({ id: u.id, username: u.username })),
+      ...[...(external?.names ?? [])].map(([id, username]) => ({ id, username })),
+    ],
     recent: plays.slice(offset, offset + limit).map((play) => {
       const duration = play.durationMs;
       return {

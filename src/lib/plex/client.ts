@@ -1673,6 +1673,67 @@ export async function getLocalAccounts(cfg: PlexServerConfig, adminToken: string
   }
 }
 
+export interface PlexServerHistoryItem {
+  accountId: number;
+  type: "movie" | "episode";
+  ratingKey: string | null;
+  title: string;
+  grandparentTitle: string | null;
+  season: number | null;
+  episode: number | null;
+  viewedAt: number;
+  deviceId: number | null;
+}
+
+/**
+ * Historique de lecture de TOUT le serveur (tous les comptes Plex, liés à un
+ * utilisateur Movviz ou non), du plus récent au plus ancien, jusqu'à `sinceMs`.
+ * Sert aux statistiques ; ne touche jamais aux vus d'un utilisateur.
+ * Renvoie null si Plex est injoignable (l'appelant retombe sur le journal local).
+ */
+export async function getServerHistorySince(cfg: PlexServerConfig, adminToken: string, sinceMs: number, maxEntries = 20000): Promise<PlexServerHistoryItem[] | null> {
+  const out: PlexServerHistoryItem[] = [];
+  const size = 500;
+  try {
+    for (let start = 0; out.length < maxEntries; start += size) {
+      const url = new URL(`${serverBase(cfg)}/status/sessions/history/all`);
+      url.searchParams.set("sort", "viewedAt:desc");
+      const res = await fetchWithRetry(url.toString(), {
+        headers: { ...serverHeaders(cfg, adminToken), "X-Plex-Container-Start": String(start), "X-Plex-Container-Size": String(size) },
+        cache: "no-store",
+      });
+      if (!res.ok) return out.length ? out : null;
+      const data = await res.json();
+      const raw: RawHistoryItem[] = data?.MediaContainer?.Metadata ?? [];
+      const list = Array.isArray(raw) ? raw : [raw];
+      let reachedOlder = false;
+      for (const item of list) {
+        const viewedAt = plexTimeToMs(item.viewedAt);
+        const accountId = Number(item.accountID);
+        if (!viewedAt || !Number.isSafeInteger(accountId) || accountId <= 0) continue;
+        if (viewedAt < sinceMs) { reachedOlder = true; continue; }
+        if (item.type !== "movie" && item.type !== "episode") continue;
+        const deviceId = Number((item as { deviceID?: number | string }).deviceID);
+        out.push({
+          accountId,
+          type: item.type,
+          ratingKey: item.ratingKey ?? null,
+          title: item.title ?? "",
+          grandparentTitle: item.grandparentTitle ?? null,
+          season: item.parentIndex ?? null,
+          episode: item.index ?? null,
+          viewedAt,
+          deviceId: Number.isFinite(deviceId) && deviceId > 0 ? deviceId : null,
+        });
+      }
+      if (reachedOlder || list.length < size) break;
+    }
+  } catch {
+    return out.length ? out : null;
+  }
+  return out;
+}
+
 // ─── Plex native collections ──────────────────────────────────────────────────
 
 interface RawCollectionItem {

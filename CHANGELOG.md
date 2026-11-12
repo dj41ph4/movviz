@@ -1,3 +1,9 @@
+## v1.28.140 — 12 novembre 2026
+
+### Gestion
+
+- Statistiques : les vues Plex viennent maintenant de l'historique de tout le serveur Plex, comme Tautulli. Les comptes Plex qui ne sont liés à aucun utilisateur Movviz (invités, profils) apparaissent désormais avec leur nom, dans les totaux, le classement des utilisateurs et le filtre. Si Plex est injoignable, la page retombe sur le journal local.
+
 ## v1.28.139 — 12 novembre 2026
 
 ### Gestion

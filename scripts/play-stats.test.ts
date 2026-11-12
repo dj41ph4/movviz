@@ -69,3 +69,17 @@ test("playStats unifie Movviz et Plex, compte une fois le miroir Plex d'une lect
   });
   assert.equal(computeStats({ period: 7, userId }).totals.plays, 3);
 });
+
+test("playStats : l'historique du serveur Plex couvre aussi les comptes sans utilisateur Movviz", () => {
+  const now = Date.now();
+  const ext = {
+    plays: [
+      { at: now - HOUR, userId: "plex:77", source: "plex" as const, tmdbId: -5, mediaType: "episode" as const, title: "Série invitée", season: 1, episode: 2, playedMs: null, durationMs: null, platform: null, browser: null, mode: null },
+    ],
+    names: new Map([["plex:77", "Cassy"]]),
+  };
+  const res = computeStats({ period: 7, userId: "plex:77" }, ext);
+  assert.equal(res.totals.plays, 1);
+  assert.equal(res.topUsers[0].username, "Cassy");
+  assert.ok(res.users.some((u) => u.id === "plex:77" && u.username === "Cassy"));
+});
