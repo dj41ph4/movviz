@@ -128,3 +128,11 @@ test("un fichier déjà disparu sort du rapport sans erreur", async () => {
   assert.equal(r.done.length, 1);
   assert.equal(r.freedBytes, 0);
 });
+
+test("une année « (2026) » n'est pas un compteur de doublon, « (2025) (2) » en est un", async () => {
+  const { stripCollisionSuffix } = await import("@/lib/library/applyImportedFiles");
+  assert.equal(stripCollisionSuffix("Film (2026).mkv", path.posix), "Film (2026).mkv");
+  assert.equal(stripCollisionSuffix("Film (1998).mkv", path.posix), "Film (1998).mkv");
+  assert.equal(stripCollisionSuffix("Film (2025) (2).mkv", path.posix), "Film (2025).mkv");
+  assert.equal(stripCollisionSuffix("Série - S01E01 (12).mkv", path.posix), "Série - S01E01.mkv");
+});

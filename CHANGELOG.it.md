@@ -1,3 +1,7 @@
+## v1.28.133 — 12 novembre 2026
+
+- Pulizia dei duplicati: un anno di film come «(2026)» non viene più scambiato per un contatore «(2)» — solo i suffissi di 1–3 cifre sono duplicati.
+
 ## v1.28.132 — 12 novembre 2026
 
 ### Download

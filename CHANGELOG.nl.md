@@ -1,3 +1,7 @@
+## v1.28.133 — 12 november 2026
+
+- Duplicaten opruimen: een filmjaar zoals "(2026)" wordt niet meer aangezien voor een "(2)"-teller — alleen suffixen van 1 tot 3 cijfers tellen als duplicaat.
+
 ## v1.28.132 — 12 november 2026
 
 ### Downloads

@@ -1,3 +1,7 @@
+## v1.28.133 — November 12, 2026
+
+- Duplicate cleanup: a movie year such as "(2026)" is no longer mistaken for a "(2)" counter — only 1–3 digit suffixes count as duplicates.
+
 ## v1.28.132 — November 12, 2026
 
 ### Downloads

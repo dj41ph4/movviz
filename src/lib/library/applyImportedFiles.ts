@@ -274,7 +274,7 @@ export async function deleteLibraryFile(filePath: string, roots: string[]): Prom
 export function stripCollisionSuffix(fileName: string, p: typeof path.posix): string {
   const ext = p.extname(fileName);
   const stem = ext ? fileName.slice(0, fileName.length - ext.length) : fileName;
-  const canonical = stem.replace(/ \((\d+)\)$/, "");
+  const canonical = stem.replace(/ \((\d{1,3})\)$/, "");
   return canonical === stem ? fileName : canonical + ext;
 }
 

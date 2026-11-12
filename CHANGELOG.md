@@ -1,3 +1,7 @@
+## v1.28.133 — 12 novembre 2026
+
+- Nettoyage des doublons : une année de film « (2026) » n'est plus prise pour un compteur « (2) » — seuls les suffixes de 1 à 3 chiffres sont des doublons.
+
 ## v1.28.132 — 12 novembre 2026
 
 ### Téléchargements

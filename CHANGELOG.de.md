@@ -1,3 +1,7 @@
+## v1.28.133 — 12. November 2026
+
+- Duplikat-Bereinigung: Eine Filmjahreszahl wie „(2026)“ wird nicht mehr mit einem „(2)“-Zähler verwechselt – nur Suffixe mit 1 bis 3 Ziffern gelten als Duplikate.
+
 ## v1.28.132 — 12. November 2026
 
 ### Downloads
