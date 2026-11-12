@@ -57,14 +57,11 @@ fs.writeFileSync(
 const later = Date.now() + 2 * 60 * 60 * 1000;
 const byName = (items: { name: string; state: string }[]) => Object.fromEntries(items.map((i) => [i.name, i.state]));
 
-test("un fichier fraîchement écrit est « récent » : jamais proposé à la suppression", async () => {
+test("un fichier fraîchement écrit n'est pas bloqué : il est classé comme les autres", async () => {
   const report = await scanDuplicateFiles([media]);
   assert.ok(report.items.length > 0);
-  assert.ok(report.items.every((i) => i.state === "recent" || i.state === "in_use"));
-  const r = await resolveDuplicateFiles([e1dup], [media], "admin");
-  assert.equal(r.done.length, 0);
-  assert.equal(r.failed[0].error, "recent");
-  assert.ok(fs.existsSync(e1dup));
+  assert.ok(report.items.every((i) => i.state !== "recent"));
+  assert.equal(report.items.find((i) => i.name === "Serie - S01E01 (2).mkv")!.state, "duplicate");
 });
 
 test("le balayage classe doublon, sans original, utilisé — et ignore sous-titres et dossiers NAS", async () => {
@@ -142,15 +139,13 @@ test("fusion : le « (n) » utilisé prend le nom de l'original, l'ancien part, 
   const { loadSeries } = await import("../src/lib/library/store.ts");
   await scanDuplicateFiles([media], undefined, { now: later });
   // Un fichier non utilisé ne se fusionne pas (il se supprime).
-  const refused = await mergeDuplicateFiles([e1dup2], [media], "admin", later);
+  const refused = await mergeDuplicateFiles([e1dup2], [media], "admin");
   assert.equal(refused.done.length, 0);
   assert.ok(["not_mergeable", "not_in_report", "already_gone"].includes(refused.failed[0].error));
-  // Hors fenêtre « récent » seulement.
-  const tooSoon = await mergeDuplicateFiles([e3used], [media], "admin");
-  assert.equal(tooSoon.failed[0]?.error, "recent");
-  assert.ok(fs.existsSync(e3) && fs.existsSync(e3used));
-
-  const r = await mergeDuplicateFiles([e3used], [media], "admin", later);
+  // L'original est plus ancien que le « (n) » (écrit après) : un fichier récent ne bloque pas.
+  fs.utimesSync(e3, new Date(Date.now() - 3600_000), new Date(Date.now() - 3600_000));
+  await scanDuplicateFiles([media], undefined, { now: later });
+  const r = await mergeDuplicateFiles([e3used], [media], "admin");
   assert.equal(r.failed.length, 0);
   assert.equal(r.done.length, 1);
   assert.ok(fs.existsSync(e3), "le nom propre existe");
@@ -160,4 +155,86 @@ test("fusion : le « (n) » utilisé prend le nom de l'original, l'ancien part, 
   assert.equal(ep.file!.path, e3);
   assert.equal(ep.file!.diskPath, e3);
   assert.ok(!loadDuplicateReport().items.some((i) => i.path === e3used));
+});
+
+test("fusion : l'original plus récent reste, le « (n) » moins récent est supprimé, la bibliothèque suit", async () => {
+  const { mergeDuplicateFiles } = await import("../src/lib/library/duplicateFiles.ts");
+  const { loadSeries, updateSeriesList } = await import("../src/lib/library/store.ts");
+  const orig = put("Serie - S01E05.mkv", 3000);
+  const dup = put("Serie - S01E05 (2).mkv", 2000);
+  fs.utimesSync(dup, new Date(Date.now() - 7200_000), new Date(Date.now() - 7200_000)); // le « (n) » est le plus ancien
+  const s = loadSeries()[0];
+  updateSeriesList(new Map([[s.id, { seasons: s.seasons.map((x) => ({ ...x, episodes: [...x.episodes, episode(5, dup)] })) } as never]]));
+  await scanDuplicateFiles([media], undefined, { now: later });
+  const r = await mergeDuplicateFiles([dup], [media], "admin");
+  assert.deepEqual(r.failed, []);
+  assert.ok(fs.existsSync(orig) && !fs.existsSync(dup));
+  assert.equal(fs.statSync(orig).size, 3000);
+  const ep = loadSeries()[0].seasons[0].episodes.find((e) => e.episodeNumber === 5)!;
+  assert.equal(ep.file!.path, orig);
+  assert.equal(ep.file!.size, 3000);
+});
+
+test("liaison : un « (n) » seul, non utilisé, prend le nom propre et se lie à l'épisode sans fichier", async () => {
+  const { linkDuplicateFiles } = await import("../src/lib/library/duplicateFiles.ts");
+  const { loadSeries, updateSeriesList } = await import("../src/lib/library/store.ts");
+  const lonely = put("Serie - S01E07 (2).mkv", 1500);
+  const s = loadSeries()[0];
+  const missing = { ...episode(7, path.join(season, "absent.mkv")), file: null, status: "missing" };
+  updateSeriesList(new Map([[s.id, { seasons: s.seasons.map((x) => ({ ...x, episodes: [...x.episodes, missing] })) } as never]]));
+  await scanDuplicateFiles([media], undefined, { now: later });
+  const r = await linkDuplicateFiles([lonely], [media], "admin");
+  assert.deepEqual(r.failed, []);
+  const clean = path.join(season, "Serie - S01E07.mkv");
+  assert.ok(fs.existsSync(clean) && !fs.existsSync(lonely));
+  const ep = loadSeries()[0].seasons[0].episodes.find((e) => e.episodeNumber === 7)!;
+  assert.equal(ep.status, "available");
+  assert.equal(ep.file!.path, clean);
+  assert.equal(ep.file!.size, 1500);
+});
+
+test("liaison : sans cible, le fichier reprend quand même son nom propre (plus de « (n) »)", async () => {
+  const { linkDuplicateFiles } = await import("../src/lib/library/duplicateFiles.ts");
+  const stray = put("Inconnu - S09E09 (2).mkv", 900);
+  await scanDuplicateFiles([media], undefined, { now: later });
+  const r = await linkDuplicateFiles([stray], [media], "admin");
+  assert.deepEqual(r.failed, []);
+  assert.ok(!fs.existsSync(stray) && fs.existsSync(path.join(season, "Inconnu - S09E09.mkv")));
+});
+
+test("un « (n) » utilisé sans original reprend le nom propre et la bibliothèque suit", async () => {
+  const { linkDuplicateFiles } = await import("../src/lib/library/duplicateFiles.ts");
+  const { loadSeries, updateSeriesList } = await import("../src/lib/library/store.ts");
+  const used = put("Serie - S01E08 (2).mkv", 1700);
+  const s = loadSeries()[0];
+  updateSeriesList(new Map([[s.id, { seasons: s.seasons.map((x) => ({ ...x, episodes: [...x.episodes, episode(8, used)] })) }]]) as never);
+  await scanDuplicateFiles([media], undefined, { now: later });
+  const r = await linkDuplicateFiles([used], [media], "admin");
+  assert.deepEqual(r.failed, []);
+  const clean = path.join(season, "Serie - S01E08.mkv");
+  assert.ok(fs.existsSync(clean) && !fs.existsSync(used));
+  assert.equal(loadSeries()[0].seasons[0].episodes.find((e) => e.episodeNumber === 8)!.file!.path, clean);
+});
+
+test("deux fichiers non utilisés : le plus récent garde le nom propre, l'autre part", async () => {
+  const { mergeDuplicateFiles } = await import("../src/lib/library/duplicateFiles.ts");
+  const orig = put("Libre - S01E01.mkv", 800);
+  const dup = put("Libre - S01E01 (2).mkv", 1200);
+  fs.utimesSync(orig, new Date(Date.now() - 7200_000), new Date(Date.now() - 7200_000));
+  await scanDuplicateFiles([media], undefined, { now: later });
+  const r = await mergeDuplicateFiles([dup], [media], "admin");
+  assert.deepEqual(r.failed, []);
+  assert.ok(fs.existsSync(orig) && !fs.existsSync(dup));
+  assert.equal(fs.statSync(orig).size, 1200, "le plus récent (le « (2) ») a pris le nom propre");
+});
+
+test("à la fin, plus aucun « (n) » dans le dossier", async () => {
+  await scanDuplicateFiles([media], undefined, { now: later });
+  const left = loadDuplicateReport().items.map((i) => i.name);
+  const { linkDuplicateFiles, mergeDuplicateFiles } = await import("../src/lib/library/duplicateFiles.ts");
+  const items = loadDuplicateReport().items;
+  await mergeDuplicateFiles(items.filter((i) => i.originalSize !== null).map((i) => i.path), [media], "admin");
+  await linkDuplicateFiles(items.filter((i) => i.originalSize === null).map((i) => i.path), [media], "admin");
+  const after = await scanDuplicateFiles([media], undefined, { now: later });
+  assert.deepEqual(after.items.map((i) => i.name), [], `restait : ${left.join(", ")}`);
 });

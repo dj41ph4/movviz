@@ -1,3 +1,11 @@
+## v1.28.136 — 12. November 2026
+
+### Downloads
+
+- Duplikat-Bereinigung: Beim Zusammenführen bleibt jetzt die neueste Datei unter dem sauberen Namen, die ältere wird gelöscht, danach zeigt die Bibliothek auf das Verbliebene. Eine kürzlich geänderte Datei blockiert Löschen und Zusammenführen nicht mehr.
+- Duplikat-Bereinigung: neue Schaltfläche „Verknüpfen“ – eine einzelne „(n)“-Datei, die niemand verwendet, erhält ihren sauberen Namen und wird dem passenden Film oder der passenden Episode ohne Datei zugeordnet (keine sichere Übereinstimmung: die Datei bleibt unberührt).
+- Duplikat-Bereinigung: neue Schaltfläche „Alle lösen“ – am Ende bleibt kein „(n)“ übrig. Eine verwendete „(n)“-Datei ohne Original erhält den sauberen Namen und die Bibliothek folgt; eine einzelne Datei ohne passenden Film oder Episode erhält zumindest ihren sauberen Namen.
+
 ## v1.28.135 — 12. November 2026
 
 ### Downloads

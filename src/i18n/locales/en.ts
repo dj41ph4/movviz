@@ -2163,7 +2163,7 @@ export const en: Dictionary = {
 
   duplicateFiles: {
     title: "Duplicates (2), (3)…",
-    intro: "Finds library files whose name ends in “(2)”, “(3)”…: copies left behind by a failed or abandoned import. The scan is read-only; deleting only happens after a confirmed click on the ticked rows. A file the library uses, or one changed less than 30 minutes ago, has no checkbox and is never deleted.",
+    intro: "Finds files in the library whose name ends with “(2)”, “(3)”…: copies left by a failed or abandoned import. The scan is read-only; every action starts from a confirmed click on the checked rows. Delete removes an unused duplicate. Merge keeps the newest file under the clean name, deletes the other and updates the library. Link attaches a lone file to the movie or episode that has no file. A file in use is never simply deleted.",
     scan: "Find duplicates",
     scanning: "Scanning…",
     summary: "{checked} video files scanned, {count} with “(n)” — {date}",
@@ -2193,13 +2193,23 @@ export const en: Dictionary = {
     err_no_roots: "library folders not found (engine unreachable)",
     err_unknown: "unknown error",
     merge: "Merge",
-    confirmMerge: "Merge {count} file(s)? The used “(n)” file takes the original’s name, the old file is deleted from disk and the library is updated.",
+    confirmMerge: "Merge {count} file(s)? The newest file is kept under the clean name, the older one is deleted from disk and the library is updated.",
     merged: "{count} file(s) merged, {size} freed",
     mergePartial: "{count} merged, {failed} failed — {reason}",
     mergeError: "Could not merge the files",
     err_original_newer: "the original is newer than the “(n)” file: merge refused",
     err_original_missing: "original not found",
     err_not_mergeable: "this file cannot be merged",
+    link: "Link",
+    confirmLink: "Link {count} file(s)? Each file takes its clean name and is attached to the matching movie or episode that has no file.",
+    linked: "{count} file(s) linked",
+    linkPartial: "{count} linked, {failed} failed — {reason}",
+    linkError: "Could not link the files",
+    err_no_target: "no movie or episode without a file matches",
+    err_original_exists: "an original already exists",
+    resolveAll: "Resolve all",
+    confirmResolveAll: "Resolve {count} “(n)” file(s)? For each one: the newest is kept under the clean name and the other deleted from disk; a lone file takes its clean name and is linked to the matching movie or episode. At the end, no “(n)” remains.",
+    resolved: "{count} file(s) resolved, {failed} failed",
   },
 
   customFormats: {

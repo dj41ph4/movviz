@@ -2163,7 +2163,7 @@ export const nl: Dictionary = {
 
   duplicateFiles: {
     title: "Dubbele bestanden (2), (3)…",
-    intro: "Zoekt bestanden in de bibliotheek waarvan de naam eindigt op “(2)”, “(3)”…: kopieën die zijn achtergebleven na een mislukte of afgebroken import. De scan is alleen-lezen; verwijderen gebeurt pas na een bevestigde klik op de aangevinkte rijen. Een bestand dat de bibliotheek gebruikt, of dat minder dan 30 minuten geleden is gewijzigd, heeft geen selectievakje en wordt nooit verwijderd.",
+    intro: "Zoekt in de bibliotheek bestanden waarvan de naam eindigt op “(2)”, “(3)”…: kopieën van een mislukte of afgebroken import. De scan is alleen-lezen; elke actie start met een bevestigde klik op de aangevinkte rijen. Verwijderen wist een ongebruikt duplicaat. Samenvoegen houdt het nieuwste bestand onder de schone naam, verwijdert het andere en werkt de bibliotheek bij. Koppelen koppelt een los bestand aan de film of aflevering zonder bestand. Een gebruikt bestand wordt nooit zomaar verwijderd.",
     scan: "Dubbele bestanden zoeken",
     scanning: "Analyse bezig…",
     summary: "{checked} videobestanden doorzocht, {count} met “(n)” — {date}",
@@ -2193,13 +2193,23 @@ export const nl: Dictionary = {
     err_no_roots: "bibliotheekmappen niet gevonden (engine onbereikbaar)",
     err_unknown: "onbekende fout",
     merge: "Samenvoegen",
-    confirmMerge: "{count} bestand(en) samenvoegen? Het gebruikte “(n)”-bestand krijgt de naam van het origineel, het oude bestand wordt van schijf verwijderd en de bibliotheek wordt bijgewerkt.",
+    confirmMerge: "{count} bestand(en) samenvoegen? Het nieuwste bestand blijft onder de schone naam, het oudere wordt van schijf verwijderd en de bibliotheek wordt bijgewerkt.",
     merged: "{count} bestand(en) samengevoegd, {size} vrijgemaakt",
     mergePartial: "{count} samengevoegd, {failed} mislukt — {reason}",
     mergeError: "Bestanden konden niet worden samengevoegd",
     err_original_newer: "het origineel is nieuwer dan het “(n)”-bestand: samenvoegen geweigerd",
     err_original_missing: "origineel niet gevonden",
     err_not_mergeable: "dit bestand kan niet worden samengevoegd",
+    link: "Koppelen",
+    confirmLink: "{count} bestand(en) koppelen? Elk bestand krijgt zijn schone naam en wordt gekoppeld aan de bijpassende film of aflevering zonder bestand.",
+    linked: "{count} bestand(en) gekoppeld",
+    linkPartial: "{count} gekoppeld, {failed} mislukt — {reason}",
+    linkError: "Bestanden konden niet worden gekoppeld",
+    err_no_target: "geen film of aflevering zonder bestand komt overeen",
+    err_original_exists: "er bestaat al een origineel",
+    resolveAll: "Alles oplossen",
+    confirmResolveAll: "{count} “(n)”-bestand(en) oplossen? Per bestand: het nieuwste blijft onder de schone naam en het andere wordt van schijf verwijderd; een los bestand krijgt zijn schone naam en wordt gekoppeld aan de bijpassende film of aflevering. Aan het einde blijft geen “(n)” over.",
+    resolved: "{count} bestand(en) opgelost, {failed} mislukt",
   },
 
   customFormats: {

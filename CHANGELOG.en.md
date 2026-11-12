@@ -1,3 +1,11 @@
+## v1.28.136 — November 12, 2026
+
+### Downloads
+
+- Duplicate cleanup: merging now keeps the newest file under the clean name and deletes the older one, then repoints the library to what remains. A recent file no longer blocks deleting or merging.
+- Duplicate cleanup: new "Link" button — a lone "(n)" file that nobody uses takes its clean name and is attached to the matching movie or episode that has no file (no safe match: the file is left untouched).
+- Duplicate cleanup: new "Resolve all" button — at the end no "(n)" remains. A used "(n)" with no original takes the clean name and the library follows; a lone file with no matching movie or episode at least takes its clean name.
+
 ## v1.28.135 — November 12, 2026
 
 ### Downloads

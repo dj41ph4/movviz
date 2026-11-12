@@ -3,6 +3,8 @@ import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { loadMovies, loadSeries, updateMovies, updateSeriesList } from "@/lib/library/store";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+import { parseRelease } from "@/lib/naming/parser";
+import { titleSimilarity } from "@/lib/library/matching";
 import { deleteLibraryFile, stripCollisionSuffix } from "@/lib/library/applyImportedFiles";
 import { logActivity } from "@/lib/activity/store";
 
@@ -36,7 +38,7 @@ export type DuplicateState =
   | "no_original"
   /** Utilisé par la bibliothèque : jamais supprimé d'ici. */
   | "in_use"
-  /** Modifié il y a moins de 30 minutes : import peut-être en cours. */
+  /** Ancien rapport uniquement : un fichier récent ne bloque plus. */
   | "recent";
 
 export interface DuplicateItem {
@@ -48,6 +50,8 @@ export interface DuplicateItem {
   state: DuplicateState;
   originalPath: string;
   originalSize: number | null;
+  /** L'original (nom sans « (n) ») est lui aussi utilisé par la bibliothèque. */
+  originalInUse?: boolean;
 }
 
 export interface DuplicateReport {
@@ -107,15 +111,16 @@ function classify(
     const original = fs.lstatSync(originalPath);
     if (original.isFile()) originalSize = original.size;
   } catch { /* pas d'original */ }
-  const last = Math.max(st.mtimeMs, st.ctimeMs);
+  void now;
   const state: DuplicateState = referenced.has(norm(filePath))
     ? "in_use"
-    : now - last < RECENT_WINDOW_MS
-      ? "recent"
-      : originalSize !== null
-        ? "duplicate"
-        : "no_original";
-  return { path: filePath, name, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, state, originalPath, originalSize };
+    : originalSize !== null
+      ? "duplicate"
+      : "no_original";
+  return {
+    path: filePath, name, size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, state, originalPath, originalSize,
+    originalInUse: referenced.has(norm(originalPath)),
+  };
 }
 
 /** Dossiers jamais explorés : métadonnées NAS, corbeilles, dossiers cachés. */
@@ -198,12 +203,11 @@ export async function resolveDuplicateFiles(
     const item = report.items.find((i) => i.path === p);
     if (!item) { result.failed.push({ path: p, error: "not_in_report" }); continue; }
     try {
-      if (item.state === "in_use" || item.state === "recent") throw new Error(item.state);
+      if (item.state === "in_use") throw new Error(item.state);
       const st = await fs.promises.lstat(item.path).catch(() => null);
       if (!st) throw new Error("already_gone");
       if (!st.isFile() || st.size !== item.size || st.mtimeMs !== item.mtimeMs) throw new Error("file_changed");
       if (referenced.has(norm(item.path))) throw new Error("in_use");
-      if (now - Math.max(st.mtimeMs, st.ctimeMs) < RECENT_WINDOW_MS) throw new Error("recent");
       await deleteLibraryFile(item.path, roots);
       result.done.push(item.path);
       result.freedBytes += item.size;
@@ -221,15 +225,17 @@ export async function resolveDuplicateFiles(
   return result;
 }
 
-/** Un fichier « (n) » utilisé par la bibliothèque dont l'original existe aussi peut être fusionné. */
-export const isMergeable = (item: Pick<DuplicateItem, "state" | "originalSize">): boolean =>
-  item.state === "in_use" && item.originalSize !== null;
+/** Un « (n) » dont l'original existe aussi : le plus récent est gardé sous le nom propre, l'autre est supprimé. */
+export const isMergeable = (item: Pick<DuplicateItem, "originalSize">): boolean => item.originalSize !== null;
+
+/** Un « (n) » seul (pas d'original) : il reprend le nom propre et se rattache à la bibliothèque. */
+export const isLinkable = (item: Pick<DuplicateItem, "originalSize">): boolean => item.originalSize === null;
 
 const lastSegment = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 /**
- * Nouveau chemin d'une référence bibliothèque après la fusion : le fichier « (n) »
- * prend le nom de l'original. Le chemin vu par Plex peut différer du disque : on ne
+ * Nouveau chemin d'une référence bibliothèque après la fusion : le fichier retenu
+ * porte le nom de l'original. Le chemin vu par Plex peut différer du disque : on ne
  * remplace que le dernier segment quand il porte le nom du fichier « (n) ».
  */
 function repointedPath(p: string | undefined, fromPath: string, fromName: string, toPath: string, toName: string): string | undefined {
@@ -239,27 +245,30 @@ function repointedPath(p: string | undefined, fromPath: string, fromName: string
   return p;
 }
 
-function repointFile<T extends { path: string; diskPath?: string }>(file: T, fromPath: string, fromName: string, toPath: string, toName: string): T {
-  const newPath = repointedPath(file.path, fromPath, fromName, toPath, toName) ?? file.path;
-  const diskPath = repointedPath(file.diskPath, fromPath, fromName, toPath, toName);
-  return { ...file, path: newPath, ...(file.diskPath !== undefined ? { diskPath } : {}) };
-}
-
 const refersTo = (file: { path?: string; diskPath?: string } | null | undefined, p: string) =>
   !!file && [file.path, file.diskPath].some((x) => x && norm(x) === norm(p));
 
-/** Met à jour toutes les références bibliothèque de `fromPath` vers `toPath`. */
-function repointLibrary(fromPath: string, toPath: string): number {
+/**
+ * Repointe toutes les références bibliothèque vers `toPath` (le fichier qui reste) :
+ * celles qui visaient `fromPath` (le « (n) ») ou `toPath` lui-même. La taille suit le
+ * fichier réellement conservé.
+ */
+function repointLibrary(fromPath: string, toPath: string, size: number): number {
   const fromName = path.basename(fromPath);
   const toName = path.basename(toPath);
+  const hits = (f: { path?: string; diskPath?: string } | null | undefined) => refersTo(f, fromPath) || refersTo(f, toPath);
+  const fix = <T extends { path: string; diskPath?: string; size: number }>(file: T): T => ({
+    ...file,
+    path: repointedPath(file.path, fromPath, fromName, toPath, toName) ?? file.path,
+    ...(file.diskPath !== undefined ? { diskPath: repointedPath(file.diskPath, fromPath, fromName, toPath, toName) } : {}),
+    size,
+  });
   let touched = 0;
   const moviePatches = new Map<string, Partial<LibraryMovie>>();
   for (const movie of loadMovies()) {
-    const hit = refersTo(movie.file, fromPath) || refersTo(movie.file, toPath) ||
-      (movie.versions ?? []).some((v) => refersTo(v, fromPath) || refersTo(v, toPath));
-    if (!hit) continue;
-    const file = movie.file ? repointFile(movie.file, fromPath, fromName, toPath, toName) : movie.file;
-    let versions = movie.versions?.map((v) => repointFile(v, fromPath, fromName, toPath, toName));
+    if (!hits(movie.file) && !(movie.versions ?? []).some(hits)) continue;
+    const file = movie.file && hits(movie.file) ? fix(movie.file) : movie.file;
+    let versions = movie.versions?.map((v) => (hits(v) ? fix(v) : v));
     if (versions) {
       // Deux versions sur le même fichier après la fusion : on garde la principale (ou la première).
       const seen = new Map<string, number>();
@@ -283,10 +292,10 @@ function repointLibrary(fromPath: string, toPath: string): number {
     const seasons = series.seasons.map((season) => ({
       ...season,
       episodes: season.episodes.map((ep) => {
-        if (!refersTo(ep.file, fromPath)) return ep;
+        if (!hits(ep.file)) return ep;
         changed = true;
         touched++;
-        return { ...ep, file: repointFile(ep.file!, fromPath, fromName, toPath, toName) };
+        return { ...ep, file: fix(ep.file!) };
       }),
     }));
     if (changed) seriesPatches.set(series.id, { seasons });
@@ -296,16 +305,16 @@ function repointLibrary(fromPath: string, toPath: string): number {
 }
 
 /**
- * Fusionne un fichier « (n) » utilisé avec son original : le fichier « (n) » (le plus
- * récent, celui du remplacement) prend le nom de l'original, l'ancien est supprimé et
- * la bibliothèque est repointée. L'original est d'abord mis de côté puis effacé
- * seulement une fois le renommage réussi ; en cas d'échec il est remis en place.
+ * Fusionne un « (n) » avec son original : le fichier le plus RÉCENT reste sous le nom
+ * propre, le moins récent est supprimé, la bibliothèque est repointée sur ce qui reste.
+ * Un fichier récent ne bloque pas. Quand le « (n) » est retenu, l'original est d'abord
+ * mis de côté puis effacé seulement une fois le renommage réussi (remis en place en
+ * cas d'échec). Seul un fichier modifié depuis le balayage est refusé.
  */
 export async function mergeDuplicateFiles(
   paths: string[],
   roots: string[],
-  username: string,
-  now = Date.now()
+  username: string
 ): Promise<DuplicateResolveResult> {
   const report = loadDuplicateReport();
   const result: DuplicateResolveResult = { done: [], failed: [], freedBytes: 0 };
@@ -320,33 +329,140 @@ export async function mergeDuplicateFiles(
     const backup = `${item.originalPath}.movviz-merge-bak`;
     let backedUp = false;
     try {
-      if (!isMergeable(item)) throw new Error("not_mergeable");
       const st = await fs.promises.lstat(item.path).catch(() => null);
       if (!st) throw new Error("already_gone");
       if (!st.isFile() || st.size !== item.size || st.mtimeMs !== item.mtimeMs) throw new Error("file_changed");
-      if (!referenced.has(norm(item.path))) throw new Error("not_mergeable");
       const orig = await fs.promises.lstat(item.originalPath).catch(() => null);
       if (!orig?.isFile()) throw new Error("original_missing");
-      if (now - Math.max(st.mtimeMs, st.ctimeMs, orig.mtimeMs, orig.ctimeMs) < RECENT_WINDOW_MS) throw new Error("recent");
-      if (orig.mtimeMs > st.mtimeMs) throw new Error("original_newer");
-      // Mettre l'original de côté d'abord : rien n'est effacé avant que le renommage ait réussi.
-      await fs.promises.rename(item.originalPath, backup);
-      backedUp = true;
-      await fs.promises.rename(item.path, item.originalPath);
-      repointLibrary(item.path, item.originalPath);
-      await deleteLibraryFile(backup, roots);
-      backedUp = false;
+      const keepNew = st.mtimeMs >= orig.mtimeMs;
+      if (keepNew) {
+        // Mettre l'original de côté d'abord : rien n'est effacé avant que le renommage ait réussi.
+        await fs.promises.rename(item.originalPath, backup);
+        backedUp = true;
+        await fs.promises.rename(item.path, item.originalPath);
+        repointLibrary(item.path, item.originalPath, st.size);
+        await deleteLibraryFile(backup, roots);
+        backedUp = false;
+        result.freedBytes += orig.size;
+      } else {
+        // L'original est le plus récent : le « (n) » moins récent est supprimé.
+        await deleteLibraryFile(item.path, roots);
+        repointLibrary(item.path, item.originalPath, orig.size);
+        result.freedBytes += st.size;
+      }
       result.done.push(item.path);
-      result.freedBytes += orig.size;
       logActivity("removed", username, path.basename(item.originalPath), null);
     } catch (err) {
       if (backedUp) {
-        // Échec après la mise de côté : on remet l'original en place s'il manque.
         const missing = !(await fs.promises.lstat(item.originalPath).catch(() => null));
         if (missing) await fs.promises.rename(backup, item.originalPath).catch(() => {});
       }
       const message = err instanceof Error ? err.message : String(err);
       result.failed.push({ path: p, error: message.startsWith("Remplacement refusé") ? "outside_library" : message });
+    }
+  }
+  if (result.done.length > 0) {
+    saveDuplicateReport({ ...report, items: report.items.filter((i) => !result.done.includes(i.path)) });
+  }
+  return result;
+}
+
+const SIMILARITY = 0.8;
+
+/** Un film ou un épisode de la bibliothèque qui n'a pas (ou plus) de fichier sur le disque. */
+const missingOnDisk = (file: { path?: string; diskPath?: string } | null | undefined): boolean => {
+  if (!file) return true;
+  const target = file.diskPath || file.path;
+  return !target || !fs.existsSync(target);
+};
+
+type LinkTarget =
+  | { kind: "movie"; id: string }
+  | { kind: "episode"; id: string; season: number; episode: number };
+
+function findLinkTarget(fileName: string, canonicalName: string, folderName: string): LinkTarget | null {
+  const parsed = parseRelease(canonicalName);
+  const season = parsed.season;
+  const episode = parsed.episode;
+  const titleOk = (title: string) =>
+    titleSimilarity(parsed.title ?? "", title) >= SIMILARITY || titleSimilarity(folderName, title) >= SIMILARITY;
+  if (season != null && episode != null) {
+    for (const s of loadSeries()) {
+      if (!titleOk(s.title)) continue;
+      const ep = s.seasons.find((x) => x.seasonNumber === season)?.episodes.find((e) => e.episodeNumber === episode);
+      if (ep && missingOnDisk(ep.file)) return { kind: "episode", id: s.id, season, episode };
+    }
+    return null;
+  }
+  void fileName;
+  for (const m of loadMovies()) {
+    if (!titleOk(m.title)) continue;
+    if (parsed.year && m.year && Number(parsed.year) !== m.year) continue;
+    if (missingOnDisk(m.file)) return { kind: "movie", id: m.id };
+  }
+  return null;
+}
+
+/**
+ * Rattache un « (n) » seul (aucun original, utilisé par personne) : il prend le nom propre
+ * et la bibliothèque le lie au film ou à l'épisode correspondant qui n'a pas de fichier.
+ * Aucune cible sûre → le fichier n'est pas touché.
+ */
+export async function linkDuplicateFiles(
+  paths: string[],
+  roots: string[],
+  username: string
+): Promise<DuplicateResolveResult> {
+  const report = loadDuplicateReport();
+  const result: DuplicateResolveResult = { done: [], failed: [], freedBytes: 0 };
+  if (roots.length === 0) {
+    for (const p of paths) result.failed.push({ path: p, error: "no_roots" });
+    return result;
+  }
+  const referenced = libraryReferencedPaths();
+  for (const p of paths) {
+    const item = report.items.find((i) => i.path === p);
+    if (!item) { result.failed.push({ path: p, error: "not_in_report" }); continue; }
+    try {
+      const st = await fs.promises.lstat(item.path).catch(() => null);
+      if (!st) throw new Error("already_gone");
+      if (!st.isFile() || st.size !== item.size || st.mtimeMs !== item.mtimeMs) throw new Error("file_changed");
+      const inUse = referenced.has(norm(item.path));
+      if (await fs.promises.lstat(item.originalPath).catch(() => null)) throw new Error("original_exists");
+      const target = inUse ? null : findLinkTarget(item.name, path.basename(item.originalPath), path.basename(path.dirname(item.path)));
+      const parsed = parseRelease(path.basename(item.originalPath));
+      const file = {
+        path: item.originalPath,
+        diskPath: item.originalPath,
+        quality: [parsed.source, parsed.resolution].filter(Boolean).join(" ") || "—",
+        resolution: parsed.resolution,
+        videoCodec: parsed.videoCodec,
+        audioCodec: parsed.audioCodec,
+        hdr: parsed.hdr,
+        source: parsed.source,
+        size: st.size,
+        addedAt: Date.now(),
+      };
+      // Le nom propre est libre (pas d'original) : on renomme sans écraser.
+      await fs.promises.rename(item.path, item.originalPath);
+      // Utilisé par la bibliothèque : on la repointe. Sans cible : le fichier garde au moins son nom propre.
+      if (inUse) repointLibrary(item.path, item.originalPath, st.size);
+      else if (!target) { /* nom propre seulement */ }
+      else if (target.kind === "movie") {
+        updateMovies(new Map([[target.id, { status: "available", activeInfoHash: null, file }]]));
+      } else {
+        const series = loadSeries().find((s) => s.id === target.id)!;
+        const seasons = series.seasons.map((season) => season.seasonNumber !== target.season ? season : {
+          ...season,
+          episodes: season.episodes.map((ep) => ep.episodeNumber !== target.episode ? ep : { ...ep, status: "available" as const, activeInfoHash: null, file }),
+        });
+        updateSeriesList(new Map([[series.id, { seasons }]]));
+      }
+      result.done.push(item.path);
+      logActivity("imported", username, path.basename(item.originalPath), null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      result.failed.push({ path: p, error: message });
     }
   }
   if (result.done.length > 0) {

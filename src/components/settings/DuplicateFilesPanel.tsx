@@ -6,7 +6,7 @@ import { useT } from "@/i18n/provider";
 import { formatBytes } from "@/lib/utils";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
-import { Copy, Loader2, Check, Search, Trash2, Merge } from "lucide-react";
+import { Copy, Loader2, Check, Search, Trash2, Merge, Link2 } from "lucide-react";
 
 interface Job {
   id: string;
@@ -24,6 +24,7 @@ interface Item {
   size: number;
   state: State;
   originalSize: number | null;
+  originalInUse?: boolean;
 }
 
 interface Report {
@@ -36,8 +37,10 @@ const SOURCE_ID = "duplicate-files-scan";
 /** Seuls ces états peuvent être supprimés : un fichier utilisé ou récent n'a pas de case. */
 const deletable = (i: Item) => i.state === "duplicate" || i.state === "no_original";
 /** Un « (n) » utilisé dont l'original existe aussi : fusionnable (le « (n) » prend le nom propre). */
-const mergeable = (i: Item) => i.state === "in_use" && i.originalSize !== null;
-const selectable = (i: Item) => deletable(i) || mergeable(i);
+const mergeable = (i: Item) => i.originalSize !== null;
+/** Un « (n) » seul que personne n'utilise : on peut le rattacher au film ou à l'épisode sans fichier. */
+const linkable = (i: Item) => i.originalSize === null;
+const selectable = (i: Item) => deletable(i) || mergeable(i) || linkable(i);
 const badgeClass: Record<State, string> = {
   duplicate: "bg-down/12 text-down",
   no_original: "bg-amber/15 text-amber-100",
@@ -85,6 +88,7 @@ export function DuplicateFilesPanel() {
   );
   const shownSelectable = items.filter(selectable);
   const chosen = useMemo(() => all.filter((i) => selected.has(i.path) && deletable(i)), [all, selected]);
+  const chosenLink = useMemo(() => all.filter((i) => selected.has(i.path) && linkable(i)), [all, selected]);
   const chosenMerge = useMemo(() => all.filter((i) => selected.has(i.path) && mergeable(i)), [all, selected]);
   const chosenBytes = chosen.reduce((sum, i) => sum + i.size, 0);
   const withoutOriginal = chosen.filter((i) => i.state === "no_original").length;
@@ -107,30 +111,32 @@ export function DuplicateFilesPanel() {
       return next;
     });
 
-  const merge = async () => {
-    if (chosenMerge.length === 0 || working) return;
-    const ok = await confirmDialog(t("duplicateFiles.confirmMerge", { count: chosenMerge.length }), { tone: "danger" });
+  const act = async (kind: "merge" | "link", list: Item[]) => {
+    if (list.length === 0 || working) return;
+    const ok = await confirmDialog(t(kind === "merge" ? "duplicateFiles.confirmMerge" : "duplicateFiles.confirmLink", { count: list.length }), { tone: "danger" });
     if (!ok) return;
     setWorking(true);
-    const paths = chosenMerge.map((i) => i.path);
+    const paths = list.map((i) => i.path);
     setPending((prev) => new Set([...prev, ...paths]));
     setSelected(new Set());
     try {
-      const res = await fetch("/api/library/duplicate-files/merge", {
+      const res = await fetch(`/api/library/duplicate-files/${kind}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ paths }),
       });
       const data = (await res.json().catch(() => null)) as { done?: number; failed?: { error?: string }[]; freedBytes?: number } | null;
       if (!res.ok || !data) {
-        toast("error", t("duplicateFiles.mergeError"));
+        toast("error", t(kind === "merge" ? "duplicateFiles.mergeError" : "duplicateFiles.linkError"));
       } else {
         void globalMutate((key) => typeof key === "string" && key.startsWith("/api/library/"));
         const failures = data.failed ?? [];
         const top = failures[0]?.error;
         const reasonKey = top ? `duplicateFiles.err_${top}` : "";
         const reason = reasonKey && t(reasonKey) !== reasonKey ? t(reasonKey) : top ?? "";
-        toast(failures.length > 0 ? "error" : "success", t(failures.length > 0 ? "duplicateFiles.mergePartial" : "duplicateFiles.merged", {
+        const okKey = kind === "merge" ? "duplicateFiles.merged" : "duplicateFiles.linked";
+        const partialKey = kind === "merge" ? "duplicateFiles.mergePartial" : "duplicateFiles.linkPartial";
+        toast(failures.length > 0 ? "error" : "success", t(failures.length > 0 ? partialKey : okKey, {
           count: data.done ?? 0,
           failed: failures.length,
           reason,
@@ -143,6 +149,44 @@ export function DuplicateFilesPanel() {
       setPending((prev) => {
         const next = new Set(prev);
         for (const p of paths) next.delete(p);
+        return next;
+      });
+    }
+  };
+
+  /** Un seul clic : plus aucun « (n) » à la fin — fusionne ceux qui ont un original, lie ou renomme les autres. */
+  const resolveAll = async () => {
+    if (all.length === 0 || working) return;
+    const ok = await confirmDialog(t("duplicateFiles.confirmResolveAll", { count: all.length }), { tone: "danger" });
+    if (!ok) return;
+    setWorking(true);
+    const toMerge = all.filter(mergeable).map((i) => i.path);
+    const toLink = all.filter(linkable).map((i) => i.path);
+    const everything = [...toMerge, ...toLink];
+    setPending((prev) => new Set([...prev, ...everything]));
+    setSelected(new Set());
+    let done = 0;
+    let failed = 0;
+    try {
+      for (const [kind, paths] of [["merge", toMerge], ["link", toLink]] as const) {
+        if (paths.length === 0) continue;
+        const res = await fetch(`/api/library/duplicate-files/${kind}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ paths }),
+        });
+        const data = (await res.json().catch(() => null)) as { done?: number; failed?: unknown[] } | null;
+        if (!res.ok || !data) failed += paths.length;
+        else { done += data.done ?? 0; failed += data.failed?.length ?? 0; }
+      }
+      void globalMutate((key) => typeof key === "string" && key.startsWith("/api/library/"));
+      toast(failed > 0 ? "error" : "success", t("duplicateFiles.resolved", { count: done, failed }));
+    } finally {
+      setWorking(false);
+      await Promise.all([mutateReport(), mutateJobs()]);
+      setPending((prev) => {
+        const next = new Set(prev);
+        for (const p of everything) next.delete(p);
         return next;
       });
     }
@@ -248,19 +292,35 @@ export function DuplicateFilesPanel() {
               <input type="checkbox" checked={allShownSelected} onChange={toggleAll} disabled={shownSelectable.length === 0} className="h-4 w-4 accent-[var(--brand,#8b5cf6)]" />
               {t("duplicateFiles.selectAll")}
             </label>
-            <span className="text-xs text-ink-dim">{t("duplicateFiles.selected", { count: chosen.length + chosenMerge.length })}</span>
+            <span className="text-xs text-ink-dim">{t("duplicateFiles.selected", { count: new Set([...chosen, ...chosenMerge, ...chosenLink].map((i) => i.path)).size })}</span>
             <button
-              onClick={merge}
+              onClick={resolveAll}
+              disabled={working}
+              className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {t("duplicateFiles.resolveAll")}
+            </button>
+            <button
+              onClick={() => act("merge", chosenMerge)}
               disabled={chosenMerge.length === 0 || working}
-              className="ml-auto flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-ink transition-colors hover:bg-white/10 disabled:opacity-50"
+              className="flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-ink transition-colors hover:bg-white/10 disabled:opacity-50"
             >
               {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
               {t("duplicateFiles.merge")}
             </button>
             <button
+              onClick={() => act("link", chosenLink)}
+              disabled={chosenLink.length === 0 || working}
+              className="flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-ink transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              {t("duplicateFiles.link")}
+            </button>
+            <button
               onClick={run}
               disabled={chosen.length === 0 || working}
-              className="flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
+              className="ml-auto flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
             >
               {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               {t("duplicateFiles.delete")}

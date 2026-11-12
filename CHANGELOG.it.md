@@ -1,3 +1,11 @@
+## v1.28.136 — 12 novembre 2026
+
+### Download
+
+- Pulizia dei duplicati: l'unione ora tiene il file più recente con il nome pulito ed elimina quello meno recente, poi la libreria punta a ciò che resta. Un file recente non blocca più l'eliminazione né l'unione.
+- Pulizia dei duplicati: nuovo pulsante «Collega» — un file «(n)» isolato che nessuno usa prende il nome pulito ed è associato al film o all'episodio corrispondente senza file (nessuna corrispondenza sicura: il file non viene toccato).
+- Pulizia dei duplicati: nuovo pulsante «Risolvi tutto» — alla fine non resta nessun «(n)». Un «(n)» in uso senza originale prende il nome pulito e la libreria lo segue; un file isolato senza film o episodio corrispondente prende almeno il nome pulito.
+
 ## v1.28.135 — 12 novembre 2026
 
 ### Download

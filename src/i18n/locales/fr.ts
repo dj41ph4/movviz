@@ -2161,7 +2161,7 @@ export const fr = {
 
   duplicateFiles: {
     title: "Doublons (2), (3)…",
-    intro: "Retrouve dans la bibliothèque les fichiers dont le nom se termine par « (2) », « (3) »… : des copies laissées par un import échoué ou abandonné. Le balayage est en lecture seule ; la suppression ne part que d’un clic confirmé sur les lignes cochées. Un fichier utilisé par la bibliothèque, ou modifié il y a moins de 30 minutes, n’a pas de case et n’est jamais supprimé.",
+    intro: "Retrouve dans la bibliothèque les fichiers dont le nom se termine par « (2) », « (3) »… : des copies laissées par un import échoué ou abandonné. Le balayage est en lecture seule ; chaque action part d’un clic confirmé sur les lignes cochées. Supprimer efface un doublon non utilisé. Fusionner garde le fichier le plus récent sous le nom propre, supprime l’autre et met la bibliothèque à jour. Lier rattache un fichier seul au film ou à l’épisode qui n’a pas de fichier. Un fichier utilisé n’est jamais simplement supprimé.",
     scan: "Rechercher les doublons",
     scanning: "Analyse en cours…",
     summary: "{checked} fichiers vidéo parcourus, {count} avec « (n) » — {date}",
@@ -2191,13 +2191,23 @@ export const fr = {
     err_no_roots: "dossiers de la bibliothèque introuvables (moteur injoignable)",
     err_unknown: "erreur inconnue",
     merge: "Fusionner",
-    confirmMerge: "Fusionner {count} fichier(s) ? Le fichier « (n) » utilisé prend le nom de l’original, l’ancien fichier est supprimé du disque et la bibliothèque est mise à jour.",
+    confirmMerge: "Fusionner {count} fichier(s) ? Le fichier le plus récent est gardé sous le nom propre, le moins récent est supprimé du disque et la bibliothèque est mise à jour.",
     merged: "{count} fichier(s) fusionné(s), {size} récupérés",
     mergePartial: "{count} fusionné(s), {failed} en échec — {reason}",
     mergeError: "Impossible de fusionner les fichiers",
     err_original_newer: "l’original est plus récent que le « (n) » : fusion refusée",
     err_original_missing: "original introuvable",
     err_not_mergeable: "fusion impossible pour ce fichier",
+    link: "Lier",
+    confirmLink: "Lier {count} fichier(s) ? Chaque fichier prend son nom propre et est rattaché au film ou à l’épisode correspondant qui n’a pas de fichier.",
+    linked: "{count} fichier(s) lié(s)",
+    linkPartial: "{count} lié(s), {failed} en échec — {reason}",
+    linkError: "Impossible de lier les fichiers",
+    err_no_target: "aucun film ni épisode sans fichier ne correspond",
+    err_original_exists: "un original existe déjà",
+    resolveAll: "Tout résoudre",
+    confirmResolveAll: "Résoudre {count} fichier(s) « (n) » ? Pour chacun : le plus récent est gardé sous le nom propre et l’autre supprimé du disque ; un fichier seul reprend son nom propre et est lié au film ou à l’épisode correspondant. À la fin, il ne reste plus aucun « (n) ».",
+    resolved: "{count} fichier(s) résolu(s), {failed} en échec",
   },
 
   customFormats: {

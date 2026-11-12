@@ -1,3 +1,11 @@
+## v1.28.136 — 12 november 2026
+
+### Downloads
+
+- Duplicaten opruimen: samenvoegen houdt nu het nieuwste bestand onder de schone naam en verwijdert het oudere; daarna verwijst de bibliotheek naar wat overblijft. Een recent bestand blokkeert verwijderen of samenvoegen niet meer.
+- Duplicaten opruimen: nieuwe knop "Koppelen" — een los "(n)"-bestand dat niemand gebruikt krijgt zijn schone naam en wordt gekoppeld aan de bijpassende film of aflevering zonder bestand (geen zekere match: het bestand blijft onaangeroerd).
+- Duplicaten opruimen: nieuwe knop "Alles oplossen" — aan het einde blijft geen "(n)" over. Een gebruikt "(n)"-bestand zonder origineel krijgt de schone naam en de bibliotheek volgt; een los bestand zonder passende film of aflevering krijgt minstens zijn schone naam.
+
 ## v1.28.135 — 12 november 2026
 
 ### Downloads

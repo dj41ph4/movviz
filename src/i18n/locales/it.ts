@@ -2162,7 +2162,7 @@ export const it: Dictionary = {
 
   duplicateFiles: {
     title: "Duplicati (2), (3)…",
-    intro: "Trova nella libreria i file il cui nome termina con «(2)», «(3)»…: copie lasciate da un’importazione fallita o abbandonata. La scansione è in sola lettura; l’eliminazione parte solo da un clic confermato sulle righe selezionate. Un file usato dalla libreria, o modificato meno di 30 minuti fa, non ha la casella e non viene mai eliminato.",
+    intro: "Trova nella libreria i file il cui nome termina con «(2)», «(3)»…: copie lasciate da un’importazione fallita o abbandonata. La scansione è in sola lettura; ogni azione parte da un clic confermato sulle righe selezionate. Elimina rimuove un duplicato non usato. Unisci tiene il file più recente con il nome pulito, elimina l’altro e aggiorna la libreria. Collega associa un file isolato al film o all’episodio senza file. Un file in uso non viene mai semplicemente eliminato.",
     scan: "Cerca duplicati",
     scanning: "Analisi in corso…",
     summary: "{checked} file video analizzati, {count} con «(n)» — {date}",
@@ -2192,13 +2192,23 @@ export const it: Dictionary = {
     err_no_roots: "cartelle della libreria non trovate (motore non raggiungibile)",
     err_unknown: "errore sconosciuto",
     merge: "Unisci",
-    confirmMerge: "Unire {count} file? Il file «(n)» in uso prende il nome dell’originale, il vecchio file viene eliminato dal disco e la libreria viene aggiornata.",
+    confirmMerge: "Unire {count} file? Il file più recente viene tenuto con il nome pulito, quello meno recente viene eliminato dal disco e la libreria viene aggiornata.",
     merged: "{count} file uniti, {size} recuperati",
     mergePartial: "{count} uniti, {failed} falliti — {reason}",
     mergeError: "Impossibile unire i file",
     err_original_newer: "l’originale è più recente del file «(n)»: unione rifiutata",
     err_original_missing: "originale non trovato",
     err_not_mergeable: "questo file non può essere unito",
+    link: "Collega",
+    confirmLink: "Collegare {count} file? Ogni file prende il nome pulito ed è associato al film o all’episodio corrispondente senza file.",
+    linked: "{count} file collegati",
+    linkPartial: "{count} collegati, {failed} falliti — {reason}",
+    linkError: "Impossibile collegare i file",
+    err_no_target: "nessun film o episodio senza file corrisponde",
+    err_original_exists: "esiste già un originale",
+    resolveAll: "Risolvi tutto",
+    confirmResolveAll: "Risolvere {count} file «(n)»? Per ciascuno: il più recente viene tenuto con il nome pulito e l’altro eliminato dal disco; un file isolato riprende il nome pulito ed è collegato al film o all’episodio corrispondente. Alla fine non resta nessun «(n)».",
+    resolved: "{count} file risolti, {failed} falliti",
   },
 
   customFormats: {

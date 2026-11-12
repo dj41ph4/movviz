@@ -1,3 +1,11 @@
+## v1.28.136 — 12 novembre 2026
+
+### Téléchargements
+
+- Nettoyage des doublons : la fusion garde désormais le fichier le plus récent sous le nom propre et supprime le moins récent, puis la bibliothèque est repointée sur ce qui reste. Un fichier récent ne bloque plus ni la suppression ni la fusion.
+- Nettoyage des doublons : nouveau bouton « Lier » — un fichier « (n) » seul, que personne n'utilise, prend son nom propre et est rattaché au film ou à l'épisode correspondant qui n'a pas de fichier (aucune correspondance sûre : le fichier n'est pas touché).
+- Nettoyage des doublons : nouveau bouton « Tout résoudre » — à la fin il ne reste plus aucun « (n) ». Un « (n) » utilisé sans original reprend le nom propre et la bibliothèque suit ; un fichier seul sans film ni épisode correspondant reprend au moins son nom propre.
+
 ## v1.28.135 — 12 novembre 2026
 
 ### Téléchargements

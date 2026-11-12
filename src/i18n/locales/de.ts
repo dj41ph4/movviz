@@ -2181,7 +2181,7 @@ export const de: Dictionary = {
 
   duplicateFiles: {
     title: "Duplikate (2), (3)…",
-    intro: "Findet Dateien der Bibliothek, deren Name auf „(2)“, „(3)“… endet: Kopien eines fehlgeschlagenen oder abgebrochenen Imports. Die Suche ist schreibgeschützt; gelöscht wird nur nach bestätigtem Klick auf die angehakten Zeilen. Eine Datei, die die Bibliothek verwendet oder die vor weniger als 30 Minuten geändert wurde, hat kein Kontrollkästchen und wird nie gelöscht.",
+    intro: "Findet Dateien in der Bibliothek, deren Name auf „(2)“, „(3)“… endet: Kopien eines fehlgeschlagenen oder abgebrochenen Imports. Der Scan ist schreibgeschützt; jede Aktion startet mit einem bestätigten Klick auf die markierten Zeilen. Löschen entfernt ein unbenutztes Duplikat. Zusammenführen behält die neueste Datei unter dem sauberen Namen, löscht die andere und aktualisiert die Bibliothek. Verknüpfen ordnet eine einzelne Datei dem Film oder der Episode ohne Datei zu. Eine verwendete Datei wird nie einfach gelöscht.",
     scan: "Duplikate suchen",
     scanning: "Analyse läuft…",
     summary: "{checked} Videodateien geprüft, {count} mit „(n)“ — {date}",
@@ -2211,13 +2211,23 @@ export const de: Dictionary = {
     err_no_roots: "Bibliotheksordner nicht gefunden (Engine nicht erreichbar)",
     err_unknown: "unbekannter Fehler",
     merge: "Zusammenführen",
-    confirmMerge: "{count} Datei(en) zusammenführen? Die verwendete „(n)“-Datei übernimmt den Namen des Originals, die alte Datei wird von der Festplatte gelöscht und die Bibliothek aktualisiert.",
+    confirmMerge: "{count} Datei(en) zusammenführen? Die neueste Datei bleibt unter dem sauberen Namen, die ältere wird von der Festplatte gelöscht und die Bibliothek aktualisiert.",
     merged: "{count} Datei(en) zusammengeführt, {size} freigegeben",
     mergePartial: "{count} zusammengeführt, {failed} fehlgeschlagen — {reason}",
     mergeError: "Dateien konnten nicht zusammengeführt werden",
     err_original_newer: "das Original ist neuer als die „(n)“-Datei: Zusammenführung abgelehnt",
     err_original_missing: "Original nicht gefunden",
     err_not_mergeable: "diese Datei kann nicht zusammengeführt werden",
+    link: "Verknüpfen",
+    confirmLink: "{count} Datei(en) verknüpfen? Jede Datei erhält ihren sauberen Namen und wird dem passenden Film oder der passenden Episode ohne Datei zugeordnet.",
+    linked: "{count} Datei(en) verknüpft",
+    linkPartial: "{count} verknüpft, {failed} fehlgeschlagen — {reason}",
+    linkError: "Dateien konnten nicht verknüpft werden",
+    err_no_target: "kein Film und keine Episode ohne Datei passt",
+    err_original_exists: "ein Original existiert bereits",
+    resolveAll: "Alle lösen",
+    confirmResolveAll: "{count} „(n)“-Datei(en) lösen? Jeweils: die neueste bleibt unter dem sauberen Namen, die andere wird von der Festplatte gelöscht; eine einzelne Datei erhält ihren sauberen Namen und wird dem passenden Film oder der Episode zugeordnet. Am Ende bleibt kein „(n)“ übrig.",
+    resolved: "{count} Datei(en) gelöst, {failed} fehlgeschlagen",
   },
 
   customFormats: {
