@@ -41,7 +41,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
@@ -177,7 +179,13 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (isMediaKey(keyCode) && mediaKeyHandler?.invoke(keyCode) == true) return true
+        if (isMediaKey(keyCode)) {
+            // Touche maintenue : Lecture/Pause basculait en boucle, et Suivant
+            // enchaînait les épisodes en marquant chacun « vu ». Seuls
+            // l'avance et le recul se répètent.
+            if ((event?.repeatCount ?: 0) > 0 && !isRepeatableMediaKey(keyCode)) return true
+            if (mediaKeyHandler?.invoke(keyCode) == true) return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 
@@ -323,6 +331,23 @@ private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
     KeyEvent.KEYCODE_MEDIA_REWIND,
     KeyEvent.KEYCODE_MEDIA_NEXT,
     KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+    // Télécommandes qui portent ces touches dédiées (Sony, Philips, Fire TV…).
+    KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD,
+    KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD,
+    KeyEvent.KEYCODE_MEDIA_STEP_FORWARD,
+    KeyEvent.KEYCODE_MEDIA_STEP_BACKWARD,
+    KeyEvent.KEYCODE_CAPTIONS,
+    KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK,
+    KeyEvent.KEYCODE_INFO,
+)
+
+private fun isRepeatableMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
+    KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+    KeyEvent.KEYCODE_MEDIA_REWIND,
+    KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD,
+    KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD,
+    KeyEvent.KEYCODE_MEDIA_STEP_FORWARD,
+    KeyEvent.KEYCODE_MEDIA_STEP_BACKWARD,
 )
 
 private const val TAG = "MovvizPlayer"
@@ -386,6 +411,16 @@ private fun classifyError(error: PlaybackException): PlayerErrorKind {
     if (error.errorCode in NETWORK_ERROR_CODES) return PlayerErrorKind.NETWORK
     if (error.errorCode in UNSUPPORTED_ERROR_CODES) return PlayerErrorKind.UNSUPPORTED
     return PlayerErrorKind.UNKNOWN
+}
+
+/** Code HTTP d'une erreur de source (502, 404…), ou null si l'erreur n'en porte pas. */
+private fun httpStatusOf(error: PlaybackException?): Int? {
+    var cause: Throwable? = error
+    repeat(6) {
+        (cause as? HttpDataSource.InvalidResponseCodeException)?.let { return it.responseCode }
+        cause = cause?.cause ?: return null
+    }
+    return null
 }
 
 private fun messageFor(kind: PlayerErrorKind): String = when (kind) {
@@ -1053,7 +1088,12 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     return
                 }
                 errorKind = kind
-                errorMessage = messageFor(kind)
+                // Niveau 2 = l'appareil ne décode pas la vidéo et a demandé une
+                // conversion. Si le serveur la refuse (réponse HTTP d'erreur),
+                // ce n'est pas une « connexion perdue » : le dire tel quel.
+                errorMessage = if (fallbackLevel == 2 && kind == PlayerErrorKind.NETWORK && httpStatusOf(error) != null) {
+                    "Cet appareil ne décode pas cette vidéo et le serveur n'a pas pu la convertir."
+                } else messageFor(kind)
             }
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 tracksVersion++
@@ -1241,10 +1281,13 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
 
     // Auto-hide des contrôles — toute interaction relance le minuteur.
     var lastInteraction by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, stillWatchingPrompt) {
+    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, stillWatchingPrompt, isPlaying) {
         if (stillWatchingPrompt) { showControls = false; return@LaunchedEffect }
         if (showAudioDialog || showSubtitleDialog) return@LaunchedEffect
         showControls = true
+        // En pause, la barre reste affichée : une image figée sans aucun
+        // repère ressemblait à un plantage. Retour la replie toujours.
+        if (!isPlaying) return@LaunchedEffect
         delay(CONTROLS_TIMEOUT_MS)
         showControls = false
     }
@@ -1369,8 +1412,24 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 KeyEvent.KEYCODE_MEDIA_PLAY -> { poke(); exoPlayer.play(); true }
                 KeyEvent.KEYCODE_MEDIA_PAUSE -> { poke(); exoPlayer.pause(); true }
                 KeyEvent.KEYCODE_MEDIA_STOP -> { poke(); exoPlayer.pause(); true }
-                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekForwardAction(); true }
-                KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBackAction(); true }
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+                KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD,
+                KeyEvent.KEYCODE_MEDIA_STEP_FORWARD -> { seekForwardAction(); true }
+                KeyEvent.KEYCODE_MEDIA_REWIND,
+                KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD,
+                KeyEvent.KEYCODE_MEDIA_STEP_BACKWARD -> { seekBackAction(); true }
+                // Touches « sous-titres », « langue audio » et « info » : même
+                // effet que les boutons CC / ♪, ou simple réveil de la barre.
+                // Rien pendant une erreur ou l'invite « Vous regardez toujours ? ».
+                KeyEvent.KEYCODE_CAPTIONS -> {
+                    if (errorMessage == null && !stillWatchingPrompt && !showAudioDialog) { poke(); showSubtitleDialog = true }
+                    true
+                }
+                KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK -> {
+                    if (errorMessage == null && !stillWatchingPrompt && !showSubtitleDialog) { poke(); showAudioDialog = true }
+                    true
+                }
+                KeyEvent.KEYCODE_INFO -> { poke(); true }
                 KeyEvent.KEYCODE_MEDIA_NEXT -> { nextEpisodeAction(); true }
                 KeyEvent.KEYCODE_MEDIA_PREVIOUS -> { prevEpisodeAction(); true }
                 else -> false
@@ -1381,12 +1440,25 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
 
     val playPauseFocus = remember { FocusRequester() }
+    val audioButtonFocus = remember { FocusRequester() }
+    val subtitleButtonFocus = remember { FocusRequester() }
     var trackDialogWasOpen by remember { mutableStateOf(false) }
+    var lastTrackDialogWasAudio by remember { mutableStateOf(false) }
     LaunchedEffect(showAudioDialog, showSubtitleDialog) {
         val isOpen = showAudioDialog || showSubtitleDialog
+        if (isOpen) lastTrackDialogWasAudio = showAudioDialog
         if (!isOpen && trackDialogWasOpen && showControls && errorMessage == null && !stillWatchingPrompt) {
-            withFrameNanos { }
-            runCatching { playPauseFocus.requestFocus() }
+            // Le focus revient sur le bouton qui a ouvert le menu (♪ ou CC),
+            // pas sur Pause à l'autre bout de la barre. Le nœud peut n'être
+            // rattaché qu'une frame ou deux plus tard : on respecte le booléen.
+            val opener = if (lastTrackDialogWasAudio) audioButtonFocus else subtitleButtonFocus
+            var done = false
+            for (attempt in 0 until 20) {
+                done = runCatching { opener.requestFocus() }.getOrDefault(false)
+                if (done) break
+                withFrameNanos { }
+            }
+            if (!done) runCatching { playPauseFocus.requestFocus() }
         }
         trackDialogWasOpen = isOpen
     }
@@ -1394,14 +1466,21 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     // pas du choix spatial implicite de Compose, qui varie selon les TV.
     val progressFocus = remember { FocusRequester() }
     val hiddenCatcherFocus = remember { FocusRequester() }
+    // Vrai quand la barre a été réveillée par GAUCHE/DROITE : elle s'ouvre sur
+    // le curseur, pour que les flèches suivantes continuent le même saut au
+    // lieu de se promener entre les boutons.
+    var revealOnProgress by remember { mutableStateOf(false) }
     // Une seule règle décide du focus quand la barre apparaît/disparaît :
     // tant que « Passer l'intro / le générique » est affiché, c'est lui qui
     // le garde — sinon le masquage auto de la barre (5 s) l'envoyait sur le
     // capteur invisible et OK ne sautait plus rien.
     LaunchedEffect(showControls) {
         if (menuOpen) return@LaunchedEffect
+        val toProgress = showControls && revealOnProgress
+        revealOnProgress = false
         val target = when {
             skipVisible -> skipMarkerFocus
+            toProgress -> progressFocus
             showControls -> playPauseFocus
             else -> hiddenCatcherFocus
         }
@@ -1438,6 +1517,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         when {
             showAudioDialog -> showAudioDialog = false
             showSubtitleDialog -> showSubtitleDialog = false
+            // Écran d'erreur : la barre est déjà masquée par l'erreur, le
+            // premier Retour ne doit pas être dépensé à la « replier ».
+            errorMessage != null -> exitPlayerAction()
             // La barre visible absorbe d'abord un Retour — elle redescend
             // au lieu de quitter directement le lecteur. Un second Retour,
             // barre déjà masquée, quitte réellement.
@@ -1526,6 +1608,16 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                         // minuteur d'affichage ici entrait en course avec lui
                         // et pouvait laisser Retour sans aucun effet visible.
                         if (event.type == KeyEventType.KeyDown && event.key != Key.Back) poke()
+                        // GAUCHE/DROITE barre masquée = reculer/avancer de 10 s
+                        // tout de suite, comme sur les lecteurs de salon : avant,
+                        // le premier appui ne faisait qu'afficher la barre et il
+                        // fallait ensuite aller chercher ⏪/⏩. La barre s'ouvre
+                        // sur le curseur, les appuis suivants prolongent le saut.
+                        if (event.type == KeyEventType.KeyDown && (event.key == Key.DirectionLeft || event.key == Key.DirectionRight)) {
+                            revealOnProgress = true
+                            if (event.key == Key.DirectionLeft) seekBackAction() else seekForwardAction()
+                            return@onPreviewKeyEvent true
+                        }
                         // OK/Entrée est explicitement AVALÉ ici : sans ça, le
                         // focus passe à playPauseFocus (LaunchedEffect(showControls)
                         // ci-dessus) avant que le KEY_UP de cette même pression
@@ -1732,6 +1824,8 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 fallbackLevel = fallbackLevel,
                 playPauseFocus = playPauseFocus,
                 progressFocus = progressFocus,
+                audioButtonFocus = audioButtonFocus,
+                subtitleButtonFocus = subtitleButtonFocus,
                 onInteraction = { poke() },
                 onPlayPause = { playPauseAction() },
                 onSeekBack = { seekBackAction() },
@@ -2304,6 +2398,25 @@ private fun currentClockLabel(): String {
     return label
 }
 
+/** « Fin à HH:mm » d'après la position et la durée courantes, ou null tant
+ *  que la durée n'est pas connue. Rafraîchi toutes les 5 s : la minute
+ *  affichée ne bouge que lors d'une pause ou d'un saut. */
+@Composable
+private fun endsAtLabel(positionProvider: () -> Long, durationProvider: () -> Long): String? {
+    val formatter = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+    var label by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val remaining = durationProvider() - positionProvider()
+            label = if (durationProvider() > 0L && remaining > 0L) {
+                "Fin à " + formatter.format(java.util.Date(System.currentTimeMillis() + remaining))
+            } else null
+            delay(5_000L)
+        }
+    }
+    return label
+}
+
 /** Overlay premium : un titre calme en haut, les gestes de lecture au centre
  * et un vrai dock en verre au bas. La hiérarchie reste Netflix (lecture
  * immédiate), la finition adopte le volume/les séparations d'Apple TV et
@@ -2325,6 +2438,8 @@ private fun ControlsOverlay(
     audioChannelCount: Int,
     playPauseFocus: FocusRequester,
     progressFocus: FocusRequester,
+    audioButtonFocus: FocusRequester,
+    subtitleButtonFocus: FocusRequester,
     onInteraction: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekBack: () -> Unit,
@@ -2376,12 +2491,26 @@ private fun ControlsOverlay(
                 }
             }
             Spacer(modifier = Modifier.width(21.dp))
-            Text(
-                text = currentClockLabel(),
-                style = MaterialTheme.typography.headlineMedium.copy(shadow = titleShadow),
-                color = MovvizInk,
-                maxLines = 1,
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = currentClockLabel(),
+                    style = MaterialTheme.typography.headlineMedium.copy(shadow = titleShadow),
+                    color = MovvizInk,
+                    maxLines = 1,
+                )
+                // « Fin à 21:47 » : l'heure à laquelle le titre se termine si on
+                // continue maintenant — le repère qu'on cherche depuis le canapé.
+                val endsAt = endsAtLabel(positionProvider, durationProvider)
+                if (endsAt != null) {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = endsAt,
+                        style = MaterialTheme.typography.bodyMedium.copy(shadow = titleShadow),
+                        color = MovvizInkSoft,
+                        maxLines = 1,
+                    )
+                }
+            }
         }
 
         // Toutes les interactions sont volontairement dans le dock : aucune
@@ -2438,8 +2567,8 @@ private fun ControlsOverlay(
                 ResolutionBadge(resolutionLabel)
                 AudioCodecBadge(audioCodecMime, audioChannelCount)
                 PlaybackModeBadge(fallbackLevel)
-                ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true, onMoveToProgress = { progressFocus.requestFocus() })
-                ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true, onMoveToProgress = { progressFocus.requestFocus() })
+                ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true, focusRequester = audioButtonFocus, onMoveToProgress = { progressFocus.requestFocus() })
+                ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true, focusRequester = subtitleButtonFocus, onMoveToProgress = { progressFocus.requestFocus() })
             }
         }
     }
@@ -2482,18 +2611,26 @@ private fun ControlButton(
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.12f),
-            contentColor = if (primary) Color.Black else Color.White,
+            // Règle de l'app : gris + icône blanche au repos, blanc + icône
+            // noire uniquement au focus. Sans couleurs de focus explicites,
+            // tv-material passait le fond en clair sous une icône restée
+            // blanche : le bouton focalisé (⏪ ⏩ ⏭ ♪ CC) n'était plus lisible.
+            containerColor = Color.White.copy(alpha = if (primary) 0.22f else 0.12f),
+            contentColor = Color.White,
+            focusedContainerColor = Color.White,
+            focusedContentColor = Color.Black,
+            pressedContainerColor = Color.White,
+            pressedContentColor = Color.Black,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, if (primary) MovvizTheme.palette.brand else Color.White),
+                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizTheme.palette.brand),
                 shape = CircleShape,
             ),
         ),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            val tint = if (primary) Color.Black else Color.White
+            val tint = if (focused) Color.Black else Color.White
             if (icon != null) {
                 Icon(
                     imageVector = icon,
@@ -2662,6 +2799,12 @@ private fun ErrorActionButton(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
             containerColor = if (primary) MovvizTheme.palette.brand else Color.White.copy(alpha = 0.14f),
             contentColor = Color.White,
+            // Focus : blanc + texte noir. Avant, le fond clair par défaut de
+            // tv-material gardait un texte blanc — « Réessayer » illisible.
+            focusedContainerColor = Color.White,
+            focusedContentColor = Color.Black,
+            pressedContainerColor = Color.White,
+            pressedContentColor = Color.Black,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
@@ -2673,7 +2816,7 @@ private fun ErrorActionButton(
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = Color.White,
+            color = if (focused) Color.Black else Color.White,
             modifier = Modifier.padding(horizontal = 21.dp, vertical = 9.dp),
         )
     }
@@ -2742,6 +2885,7 @@ private fun SkipMarkerButton(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun TrackDialog(
     title: String,
@@ -2772,11 +2916,18 @@ private fun TrackDialog(
             .tvPointerClick { onDismiss() },
         contentAlignment = Alignment.Center,
     ) {
-        Surface(
-            onClick = {},
-            modifier = Modifier.widthIn(min = 240.dp, max = 315.dp),
-            shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface),
+        // Simple panneau, jamais focusable : en Surface cliquable, HAUT depuis
+        // la première ligne donnait le focus au panneau entier (fond blanc,
+        // textes illisibles). Le focus reste enfermé dans la liste : aucune
+        // flèche ne peut atteindre la barre de lecture derrière le voile.
+        Box(
+            modifier = Modifier
+                .widthIn(min = 240.dp, max = 315.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MovvizSurface)
+                .tvPointerClick { }
+                .focusProperties { exit = { FocusRequester.Cancel } }
+                .focusGroup(),
         ) {
             Column(modifier = Modifier.padding(15.dp)) {
                 Text(
@@ -2875,6 +3026,7 @@ private fun buildTechDetails(player: ExoPlayer, error: PlaybackException?): Stri
             }
         }
     }
+    httpStatusOf(error)?.let { parts += "HTTP $it" }
     if (error != null) parts += "Erreur ExoPlayer #${error.errorCode}"
     return parts.joinToString(" · ")
 }

@@ -2540,6 +2540,7 @@ internal fun PlatformRow(
         val usable = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - 68.dp - movvizRowInset() * 2 - gap * (tiles.size - 1)
         (usable / tiles.size).coerceAtLeast(84.dp)
     } else null
+    val homeFocusMemory = LocalTvHomeFocusMemory.current
     val rowFocus = rememberTvRowFocusMemory(
         rowKey = "platforms", keys = keys,
         isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
@@ -2555,7 +2556,11 @@ internal fun PlatformRow(
             tvItemsIndexed(tiles, key = { _, tile -> "platform-${tile.id}" }) { index, tile ->
                 PlatformTile(
                     tile = tile,
-                    onClick = { onSelect(tile) },
+                    onClick = {
+                        // Même marque que les autres rangées : retour du hub → cette tuile.
+                        homeFocusMemory?.markDetailOrigin("platforms")
+                        onSelect(tile)
+                    },
                     modifier = rowFocus.itemModifier(keys[index], index)
                         .let { if (index == 0 && firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it }
                         .let { if (upFocusRequester != null) it.focusProperties { up = upFocusRequester } else it },
@@ -2662,7 +2667,8 @@ private fun ResumeRemovalDialog(title: String, onCancel: () -> Unit, onConfirm: 
     val cancelFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         repeat(20) { attempt ->
-            if (runCatching { cancelFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+            // Un focus refusé renvoie false sans lever : on respecte le booléen.
+            if (runCatching { cancelFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
             if (attempt < 19) withFrameNanos { }
         }
     }
@@ -2671,12 +2677,32 @@ private fun ResumeRemovalDialog(title: String, onCancel: () -> Unit, onConfirm: 
         properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = false),
     ) {
         val shape = RoundedCornerShape(14.dp)
+        // Le dialogue s'ouvre par un appui LONG sur OK : le doigt est encore sur
+        // la touche quand « Annuler » prend le focus. Les répétitions de cet
+        // appui puis son relâchement arrivaient donc ici et valaient un clic sur
+        // « Annuler » — le menu se refermait dès qu'on lâchait OK. Un clic
+        // n'est accepté que si l'appui a COMMENCÉ dans le dialogue.
+        val okPressStartedHere = remember { booleanArrayOf(false) }
         Column(
             modifier = Modifier
                 .widthIn(max = 460.dp)
                 .background(MovvizTheme.palette.surface, shape)
                 .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
                 .padding(horizontal = 24.dp, vertical = 22.dp)
+                .onPreviewKeyEvent { event ->
+                    val isOk = event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
+                    when {
+                        !isOk -> false
+                        event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0 -> { okPressStartedHere[0] = true; false }
+                        event.type == KeyEventType.KeyDown -> !okPressStartedHere[0]
+                        event.type == KeyEventType.KeyUp -> {
+                            val orphan = !okPressStartedHere[0]
+                            okPressStartedHere[0] = false
+                            orphan
+                        }
+                        else -> false
+                    }
+                }
                 .focusProperties { exit = { FocusRequester.Cancel } }
                 .focusGroup(),
         ) {
@@ -2692,13 +2718,23 @@ private fun ResumeRemovalDialog(title: String, onCancel: () -> Unit, onConfirm: 
                     onClick = onCancel,
                     modifier = Modifier.focusRequester(cancelFocus),
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.08f), focusedContainerColor = Color.White.copy(alpha = 0.22f)),
-                ) { Text("Annuler", modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizTheme.palette.ink)) }
+                    // Règle de l'app : gris + texte blanc au repos, blanc + texte noir au
+                    // focus (LocalContentColor suit la couleur de contenu de la Surface).
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = Color.White.copy(alpha = 0.10f), contentColor = Color.White,
+                        focusedContainerColor = Color.White, focusedContentColor = Color.Black,
+                        pressedContainerColor = Color.White, pressedContentColor = Color.Black,
+                    ),
+                ) { Text("Annuler", modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = androidx.tv.material3.LocalContentColor.current) }
                 Surface(
                     onClick = onConfirm,
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = MovvizTheme.palette.brand, focusedContainerColor = MovvizTheme.palette.brandGlow),
-                ) { Text("Retirer", modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)) }
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = Color.White.copy(alpha = 0.10f), contentColor = Color.White,
+                        focusedContainerColor = Color.White, focusedContentColor = Color.Black,
+                        pressedContainerColor = Color.White, pressedContentColor = Color.Black,
+                    ),
+                ) { Text("Retirer", modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp), style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold), color = androidx.tv.material3.LocalContentColor.current) }
             }
         }
     }
@@ -2725,6 +2761,11 @@ internal fun ContinueWatchingRow(
     val rowItems = remember(items) { uniqueTvRowCards(items) }
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
     val keys = rowItems.map { it.focusIdentity() }
+    // Comme TitleRow : la rangée d'origine est marquée avant d'ouvrir la fiche.
+    // Sans cette marque, au retour, le focus par défaut passe d'abord par le
+    // hero, qui écrase la rangée mémorisée : on retombait sur « Voir la fiche »
+    // au lieu de la carte de reprise quittée.
+    val homeFocusMemory = LocalTvHomeFocusMemory.current
     val rowFocus = rememberTvRowFocusMemory(
         rowKey = "continueWatching", keys = keys,
         isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
@@ -2745,7 +2786,10 @@ internal fun ContinueWatchingRow(
                 ResumeCard(
                     card = card,
                     modifier = rowFocus.itemModifier(card.focusIdentity(), index),
-                    onClick = { onClick(card) },
+                    onClick = {
+                        homeFocusMemory?.markDetailOrigin("continueWatching")
+                        onClick(card)
+                    },
                     navRailFocusRequester = if (index == 0) navRailFocusRequester else null,
                     titleLogoPath = if (card.seriesPart == "tybw") null else titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                     onMenuKey = onMenuKey?.let { menu -> { menu(card) } },
@@ -2809,6 +2853,10 @@ private fun ResumeCard(
                         val isOk = event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
                         when {
                             event.type == KeyEventType.KeyDown && (event.key == Key.Menu || event.key == Key.Info) -> { onMenuKey(); true }
+                            // Nouvel appui : l'appui long précédent est terminé. Son relâchement
+                            // part dans le dialogue (qui a pris le focus), jamais ici — sans
+                            // cette remise à zéro, le premier OK court après « Annuler » était avalé.
+                            isOk && event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0 -> { longFired[0] = false; false }
                             isOk && event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount > 0 -> {
                                 if (!longFired[0]) { longFired[0] = true; onMenuKey() }
                                 true
@@ -3401,6 +3449,7 @@ private fun BetaCardBadge(
 private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: String, tmdbId: Int) -> Unit) {
     val rowState = rememberTvLazyListState().withTvPrefetchDisabled()
     val keys = items.map { it.id }
+    val homeFocusMemory = LocalTvHomeFocusMemory.current
     val rowFocus = rememberTvRowFocusMemory(
         rowKey = "queue", keys = keys,
         isVisible = { index -> rowState.layoutInfo.visibleItemsInfo.any { it.index == index } },
@@ -3430,7 +3479,10 @@ private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: Stri
                     modifier = rowFocus.itemModifier(item.id, index),
                     onClick = {
                         val tmdbId = item.media.tmdbId
-                        if (tmdbId != null) onOpenTitle(if (item.media.type == "movie") "movie" else "series", tmdbId)
+                        if (tmdbId != null) {
+                            homeFocusMemory?.markDetailOrigin("queue")
+                            onOpenTitle(if (item.media.type == "movie") "movie" else "series", tmdbId)
+                        }
                     },
                 )
             }
@@ -3462,7 +3514,20 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit, modifier: Modi
             .let { if (clickable) it.tvPointerClick(onClick) else it },
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = shape),
         scale = if (beta) movvizBetaSurfaceScale() else androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = if (beta) palette.surface else MovvizSurfaceStrong),
+        // Sans couleur de focus explicite, tv-material bascule le fond sur
+        // inverseSurface (quasi blanc) : titre, pourcentage et barre, tous
+        // clairs, devenaient illisibles sur la carte focalisée. Le focus se
+        // lit par l'anneau et l'ombre, le fond reste sombre.
+        colors = (if (beta) palette.surface else MovvizSurfaceStrong).let { container ->
+            androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = container,
+                focusedContainerColor = container,
+                pressedContainerColor = container,
+                contentColor = Color.White,
+                focusedContentColor = Color.White,
+                pressedContentColor = Color.White,
+            )
+        },
         border = movvizCardBorder(shape, androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f))),
     ) {
         Row(modifier = Modifier.fillMaxSize()) {

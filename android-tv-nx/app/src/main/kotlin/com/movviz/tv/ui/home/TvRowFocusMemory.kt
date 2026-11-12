@@ -102,12 +102,23 @@ internal class TvHomeFocusMemory(
     var holdBringIntoView by mutableStateOf(false)
     fun attach(key: String, requester: FocusRequester) { rows[key] = requester }
     fun detach(key: String, requester: FocusRequester) { if (rows[key] === requester) rows.remove(key) }
+    // Vrai dès qu'une fiche est ouverte depuis CETTE composition de l'accueil
+    // (non sauvegardé : l'accueil recréé au retour repart à faux).
+    private var originMarkedHere = false
     fun select(key: String) {
         if (detailOrigin.value != null && key == "hero") return
         selectedRow.value = key
-        if (detailOrigin.value == key) detailOrigin.value = null
+        // L'origine ne se libère qu'au RETOUR, quand sa rangée a repris le
+        // focus. Au moment du clic, le focus rebondit sur la rangée avant que
+        // l'accueil ne quitte l'écran (vérifié aux traces) : la marque était
+        // effacée aussitôt posée, et au retour le hero pouvait reprendre le
+        // focus — on retombait sur « Voir la fiche » au lieu de la carte quittée.
+        if (detailOrigin.value == key && !originMarkedHere) detailOrigin.value = null
     }
-    fun markDetailOrigin(key: String) { detailOrigin.value = key }
+    fun markDetailOrigin(key: String) {
+        originMarkedHere = true
+        detailOrigin.value = key
+    }
     fun isDetailOrigin(key: String): Boolean = detailOrigin.value == key
     fun destination(): FocusRequester = destinationOrNull() ?: FocusRequester.Default
     /** Rangée mémorisée encore attachée, ou null (laisser la recherche par défaut). */

@@ -225,6 +225,8 @@ private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeH
     // Focus réel de la barre / du contenu : RETOUR en deux temps sur
     // l'accueil (voir le BackHandler plus bas).
     var railHasFocus by remember { mutableStateOf(false) }
+    // Focus réel dans la zone de contenu (à droite de la barre).
+    var contentHasFocus by remember { mutableStateOf(false) }
     // Après un « retour en haut » de l'accueil, DROITE depuis la barre doit
     // viser le haut de la page (hero), pas la carte profonde mémorisée que
     // l'on vient justement de quitter. Levé dès que le contenu reprend le focus.
@@ -293,7 +295,22 @@ private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeH
     suspend fun enterContent(restoreMemory: Boolean = true) {
         repeat(30) { attempt ->
             val home = currentRoute?.startsWith("home") == true
-            if (home && restoreMemory && runCatching { homeRestoreFocus.requestFocus() }.getOrDefault(false)) return
+            if (home && restoreMemory && tab != HomeTab.HOME) {
+                // Bibliothèque, Découverte, Recherche : la zone de contenu de
+                // MainScreen porte un focusRestorer dont le repli est l'entrée
+                // de l'onglet. Demandée depuis la barre, la carte mémorisée
+                // était donc détournée vers le premier chip (vérifié aux
+                // traces : demande « réussie », règle d'entrée de la grille
+                // jamais appelée). On entre d'abord dans le contenu, puis on
+                // vise la carte : le focus étant alors dans la zone, plus rien
+                // ne détourne la demande.
+                val entered = runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)
+                if (entered) {
+                    withFrameNanos { }
+                    runCatching { homeRestoreFocus.requestFocus() }
+                    return
+                }
+            } else if (home && restoreMemory && runCatching { homeRestoreFocus.requestFocus() }.getOrDefault(false)) return
             if (runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)) return
             if (attempt < 29) withFrameNanos { }
         }
@@ -319,7 +336,13 @@ private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeH
             previousRoute?.startsWith("home") != true
         ) {
             delay(300)
-            enterContent()
+            // L'accueil rend lui-même la carte quittée dès sa recomposition
+            // (HomeScreen, rangée mémorisée). La redemander ici, alors que le
+            // focus est déjà dans la liste, ne repasse pas par la règle
+            // d'entrée mémorisée : le focus retombait sur la première rangée
+            // visible — on ne revenait jamais sur la carte d'où l'on venait.
+            // Ce repli ne sert donc que si le focus est resté hors du contenu.
+            if (!(tab == HomeTab.HOME && contentHasFocus)) enterContent()
         }
         previousRoute = currentRoute
     }
@@ -518,7 +541,10 @@ private fun MovvizNavHost(viewModel: AppViewModel, wakePending: Boolean, onWakeH
         }
         Box(
             modifier = Modifier.fillMaxSize().weight(1f)
-                .onFocusChanged { if (it.hasFocus) homeReentryAtTop = false },
+                .onFocusChanged {
+                    contentHasFocus = it.hasFocus
+                    if (it.hasFocus) homeReentryAtTop = false
+                },
         ) {
         NavHost(navController = navController, startDestination = resolvedStart) {
 composable(ROUTE_WIZARD) {

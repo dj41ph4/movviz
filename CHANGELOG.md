@@ -1,3 +1,14 @@
+## v1.28.141 — 12 novembre 2026
+
+### Android TV
+
+- Retour d'une fiche : on revient sur la carte d'où l'on venait — accueil (toutes les rangées, « Continuer à regarder » comprise), Bibliothèque, Découverte et page d'une plateforme. Le focus retombait sur une autre rangée ou sur le premier bouton de l'écran.
+- Une série ne disparaît plus un instant de « Récemment ajouté dans Séries TV » quand on ouvre sa fiche.
+- « Continuer à regarder » : le menu « Retirer de la reprise » (appui long sur OK) reste ouvert quand on relâche la touche, et le premier OK après « Annuler » ouvre de nouveau la fiche.
+- Lecteur : Gauche/Droite reculent/avancent de 10 s même barre masquée ; la barre reste affichée en pause ; l'heure de fin s'affiche sous l'horloge ; les boutons sont lisibles au focus (blanc, icône noire) ; le menu audio/sous-titres garde le focus et le rend au bouton qui l'a ouvert ; les touches Sous-titres, Langue audio et Saut de la télécommande sont prises en charge ; une touche Suivant ou Lecture maintenue n'agit plus en boucle.
+- Lecteur, écran d'erreur : bouton lisible, Retour quitte au premier appui, et message exact quand le serveur ne peut pas convertir une vidéo que l'appareil ne décode pas.
+- Carte « Téléchargements en cours » lisible au focus ; champ d'adresse du serveur visible au-dessus du clavier à la première connexion.
+
 ## v1.28.140 — 12 novembre 2026
 
 ### Gestion

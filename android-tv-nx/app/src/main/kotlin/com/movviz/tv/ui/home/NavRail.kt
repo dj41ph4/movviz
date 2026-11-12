@@ -509,8 +509,13 @@ private fun ProfileFooterRow(
             ) {
                 val firstItemFocus = remember { FocusRequester() }
                 LaunchedEffect(Unit) {
-                    withFrameNanos { }
-                    firstItemFocus.requestFocus()
+                    // requestFocus() lève si la ligne n'est pas encore attachée
+                    // (première ouverture du menu sur un boîtier lent) : on
+                    // réessaie quelques frames au lieu de planter l'app.
+                    for (attempt in 0 until 20) {
+                        withFrameNanos { }
+                        if (runCatching { firstItemFocus.requestFocus() }.getOrDefault(false)) break
+                    }
                 }
                 val menuMaxHeight = (LocalConfiguration.current.screenHeightDp * 0.8f).dp
                 Surface(

@@ -35,7 +35,11 @@ import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.ProviderRowDescDto
+import com.movviz.tv.ui.home.LocalTvHomeFocusMemory
 import com.movviz.tv.ui.home.TitleRow
+import com.movviz.tv.ui.home.rememberTvHomeFocusMemory
+import com.movviz.tv.ui.home.tvRememberedEntry
+import androidx.compose.foundation.focusGroup
 import com.movviz.tv.ui.home.TvTitleCard
 import com.movviz.tv.ui.home.requestFocusSafely
 import com.movviz.tv.ui.home.withWatchedMovies
@@ -48,6 +52,27 @@ import com.movviz.tv.ui.theme.withTvPrefetchDisabled
 import kotlinx.coroutines.launch
 
 /** État d'une rangée de la page plateforme — chargée à la demande. */
+/**
+ * Contenu d'un hub gardé le temps d'un aller-retour vers une fiche. L'écran est
+ * détruit quand on ouvre un titre ; sans ce cache il rechargeait toutes ses
+ * rangées au retour et reposait le focus sur la première carte, loin de celle
+ * qu'on venait de quitter. Court (10 min) : les pastilles « vu » sont calculées
+ * au chargement.
+ */
+private object ProviderHubCache {
+    private const val TTL_MS = 10 * 60_000L
+    class Entry(val savedAtMs: Long) {
+        var rows: List<ProviderRowDescDto>? = null
+        val states = mutableStateMapOf<String, ProviderRowState>()
+    }
+    private val entries = mutableMapOf<String, Entry>()
+    fun entry(key: String): Entry {
+        val now = android.os.SystemClock.elapsedRealtime()
+        entries.entries.removeAll { now - it.value.savedAtMs > TTL_MS }
+        return entries.getOrPut(key) { Entry(now) }
+    }
+}
+
 private class ProviderRowState {
     var cards by mutableStateOf<List<TvTitleCard>>(emptyList())
     var page by mutableStateOf(0)
@@ -83,9 +108,15 @@ fun ProviderHubScreen(
     val scope = rememberCoroutineScope()
     val beta = LocalMovvizBeta.current
 
-    var rows by remember(providerId) { mutableStateOf<List<ProviderRowDescDto>?>(null) }
-    var rowsFailed by remember(providerId) { mutableStateOf(false) }
-    val states = remember(providerId) { mutableStateMapOf<String, ProviderRowState>() }
+    val currentUser by viewModel.currentUser.collectAsState()
+    val cache = remember(providerId, baseUrl, currentUser?.id) { ProviderHubCache.entry("$baseUrl|${currentUser?.id}|$providerId") }
+    var rows by remember(cache) { mutableStateOf(cache.rows) }
+    var rowsFailed by remember(cache) { mutableStateOf(false) }
+    val states = cache.states
+    // Rangée d'où l'on a ouvert une fiche (sauvegardée) : au retour, le focus
+    // y revient au lieu de repartir de la première carte du hub.
+    val hubFocusMemory = rememberTvHomeFocusMemory()
+    val hubListFocus = remember { FocusRequester() }
     val firstCardFocus = remember { FocusRequester() }
     val statusFocus = remember { FocusRequester() }
     val entryFocus = rememberTvScreenEntryFocus()
@@ -94,7 +125,7 @@ fun ProviderHubScreen(
         val repo = repository ?: return
         rowsFailed = false
         when (val r = repo.providerRows(providerId)) {
-            is ApiResult.Success -> rows = r.data
+            is ApiResult.Success -> { rows = r.data; cache.rows = r.data }
             else -> rowsFailed = true
         }
     }
@@ -124,7 +155,8 @@ fun ProviderHubScreen(
 
     LaunchedEffect(providerId, repository) {
         if (providerTiles.isEmpty()) viewModel.loadDiscoverLogos()
-        loadRows()
+        // Retour de fiche : les rangées sont déjà là, rien à recharger.
+        if (rows == null) loadRows()
     }
     // Premier écran : charge les rangées dans l'ordre jusqu'à la première
     // qui contient des titres (une plateforme peut n'avoir aucun titre dans
@@ -143,7 +175,13 @@ fun ProviderHubScreen(
     // première rangée remplie — jamais repris si l'utilisateur est parti.
     LaunchedEffect(firstRowKey, rows, rowsFailed) {
         when {
-            firstRowKey != null -> entryFocus.requestFinal { firstCardFocus.requestFocusSafely() }
+            firstRowKey != null -> {
+                var restored = false
+                if (hubFocusMemory.selectedRowKey() != null) entryFocus.requestFinal {
+                    (hubFocusMemory.destinationOrNull()?.requestFocusSafely() == true).also { restored = it }
+                }
+                if (!restored) entryFocus.requestFinal { firstCardFocus.requestFocusSafely() }
+            }
             rowsFailed -> entryFocus.requestFinal { statusFocus.requestFocusSafely() }
             else -> entryFocus.requestPending { statusFocus.requestFocusSafely() }
         }
@@ -201,10 +239,16 @@ fun ProviderHubScreen(
                     )
                 }
             }
-            else -> TvLazyColumn(
+            else -> androidx.compose.runtime.CompositionLocalProvider(LocalTvHomeFocusMemory provides hubFocusMemory) { TvLazyColumn(
                 state = listState,
+                // Entrée de la liste par la rangée mémorisée, comme l'accueil. Le
+                // conteneur de la route (focusRestorer) se rabat sur
+                // entryFocusRequester : sans cette règle, toute demande venue de
+                // l'extérieur finissait sur la première carte du hub.
                 modifier = Modifier.fillMaxSize()
-                    .then(if (entryFocusRequester != null) Modifier.focusRequester(entryFocusRequester) else Modifier),
+                    .then(if (entryFocusRequester != null) Modifier.focusRequester(entryFocusRequester) else Modifier)
+                    .tvRememberedEntry(hubListFocus) { hubFocusMemory.destinationOrNull() }
+                    .focusGroup(),
                 contentPadding = PaddingValues(start = 18.dp, bottom = 40.dp),
             ) {
                 items(visibleRows, key = { it.key }, contentType = { "provider-row" }) { row ->
@@ -236,7 +280,7 @@ fun ProviderHubScreen(
                         )
                     }
                 }
-            }
+            } }
         }
     }
 }

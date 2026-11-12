@@ -224,7 +224,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 // de la fiche ouverte.
                 if (isOpen) resolveTitleLibraryEntry(type, tmdbId, _detail.value?.seriesPart)
                 else if (type == "movie") (repo.movieByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { m -> _movies.value = _movies.value.replaceOrAppend(m) { it.tmdbId } }
-                else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppend(s, ::seriesViewKey) }
+                else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppendSeries(s) }
             }
             if (recentChanged) (repo.interfaceRecentEpisodes() as? ApiResult.Success)?.data?.let { page ->
                 _recentEpisodes.value = page.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
@@ -1605,7 +1605,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         viewModelScope.launch {
             try {
                 when (val result = repo.seriesByTmdbId(BleachPresentation.TMDB_ID)) {
-                    is ApiResult.Success -> if (_currentUser.value?.id == profileId) result.data?.let { updated -> _series.value = _series.value.replaceOrAppend(updated, ::seriesViewKey) }
+                    is ApiResult.Success -> if (_currentUser.value?.id == profileId) result.data?.let { updated -> _series.value = _series.value.replaceOrAppendSeries(updated) }
                     ApiResult.Unauthorized -> _sessionExpired.value = true
                     is ApiResult.Failure -> Unit
                 }
@@ -1722,7 +1722,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             is ApiResult.Failure -> Unit
         } else when (val result = repo.seriesByTmdbId(tmdbId, seriesPart)) {
             is ApiResult.Success -> result.data?.let { updated ->
-                _series.value = _series.value.replaceOrAppend(updated, ::seriesViewKey)
+                _series.value = _series.value.replaceOrAppendSeries(updated)
                 loadSeriesSeasons(tmdbId, seriesPart)
             }
             ApiResult.Unauthorized -> _sessionExpired.value = true
@@ -2177,6 +2177,31 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
 
 private fun seriesViewKey(series: LibrarySeriesDto): Pair<Int, String?> =
     series.tmdbId to series.seriesPart.takeIf { series.tmdbId == BleachPresentation.TMDB_ID }
+
+/**
+ * Remplace une série par sa relecture ciblée (/api/library/series) sans perdre
+ * les champs que seule la route compacte du tableau de bord calcule. Vérifié
+ * sur le JSON réel : la route bibliothèque ne renvoie ni hasAvailableEpisode,
+ * ni latestAvailableAt, ni availableBySeason. Les laisser à leur défaut faisait
+ * disparaître la série de « Récemment ajouté dans Séries TV » dès l'ouverture
+ * de sa fiche — et, au retour, la carte quittée n'existait plus dans la rangée.
+ */
+private fun List<LibrarySeriesDto>.replaceOrAppendSeries(item: LibrarySeriesDto): List<LibrarySeriesDto> {
+    val previous = firstOrNull { seriesViewKey(it) == seriesViewKey(item) }
+    val availableBySeasonNow = item.seasons.associate { season ->
+        season.seasonNumber.toString() to season.episodes.count { it.status == "available" }
+    }.filterValues { it > 0 }
+    val merged = item.copy(
+        // Saisons présentes : la vérité vient d'elles. Absentes : on garde l'acquis.
+        hasAvailableEpisode = item.hasAvailableEpisode ||
+            if (item.seasons.isNotEmpty()) availableBySeasonNow.isNotEmpty() else previous?.hasAvailableEpisode == true,
+        latestAvailableAt = item.latestAvailableAt.takeIf { it > 0L } ?: previous?.latestAvailableAt ?: 0L,
+        availableBySeason = item.availableBySeason.ifEmpty {
+            if (item.seasons.isNotEmpty()) availableBySeasonNow else previous?.availableBySeason.orEmpty()
+        },
+    )
+    return replaceOrAppend(merged, ::seriesViewKey)
+}
 
 private fun <T, K> List<T>.replaceOrAppend(item: T, key: (T) -> K): List<T> {
     val index = indexOfFirst { key(it) == key(item) }

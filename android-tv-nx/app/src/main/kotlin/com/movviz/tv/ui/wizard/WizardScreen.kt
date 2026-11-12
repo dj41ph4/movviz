@@ -73,10 +73,14 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center,
+        // Carte ancrée en haut : le clavier TV s'ouvre dès l'arrivée (le champ
+        // a le focus) et occupe la moitié basse. Centrée, la carte laissait le
+        // champ d'adresse à moitié recouvert — on tapait sans voir sa saisie.
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             modifier = Modifier
+                .padding(top = 48.dp)
                 .width(390.dp)
                 .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(18.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))

@@ -1,3 +1,14 @@
+## v1.28.141 — 12 november 2026
+
+### Android TV
+
+- Terug vanaf een titelpagina: de focus komt weer op de kaart waar je vandaan kwam — startpagina (alle rijen, ook “Verder kijken”), Bibliotheek, Ontdekken en de pagina van een platform. Voorheen belandde de focus op een andere rij of op de eerste knop van het scherm.
+- Een serie verdwijnt niet meer even uit “Recent toegevoegd in Series” wanneer de pagina ervan wordt geopend.
+- “Verder kijken”: het menu “Uit hervatten verwijderen” (lang op OK drukken) blijft open bij het loslaten van de toets, en de eerste OK na “Annuleren” opent weer de titelpagina.
+- Speler: Links/Rechts spoelen 10 s terug/vooruit, ook met verborgen balk; de balk blijft zichtbaar tijdens pauze; de eindtijd staat onder de klok; knoppen met focus zijn leesbaar (wit, zwart pictogram); het audio-/ondertitelmenu houdt de focus vast en geeft die terug aan de knop die het opende; de afstandsbedieningstoetsen Ondertitels, Audiotaal en Overslaan worden ondersteund; Volgende of Afspelen ingedrukt houden werkt niet meer herhaald.
+- Speler, foutscherm: leesbare knop, Terug sluit bij de eerste druk, en een juiste melding wanneer de server een video die het apparaat niet kan decoderen niet kan omzetten.
+- Kaart “Downloads bezig” leesbaar bij focus; veld voor het serveradres zichtbaar boven het toetsenbord bij de eerste verbinding.
+
 ## v1.28.140 — 12 november 2026
 
 ### Beheer

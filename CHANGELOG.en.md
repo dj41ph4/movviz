@@ -1,3 +1,14 @@
+## v1.28.141 — November 12, 2026
+
+### Android TV
+
+- Back from a title page: focus returns to the card you came from — home (every row, including "Continue watching"), Library, Discover and a platform page. Focus used to land on another row or on the first button of the screen.
+- A series no longer vanishes for a moment from "Recently added in TV Shows" when its page is opened.
+- "Continue watching": the "Remove from resume" menu (long press on OK) stays open when the key is released, and the first OK after "Cancel" opens the title page again.
+- Player: Left/Right rewind/skip 10 s even with the bar hidden; the bar stays visible while paused; the end time is shown under the clock; focused buttons are readable (white, black icon); the audio/subtitle menu keeps the focus and gives it back to the button that opened it; the remote's Subtitles, Audio language and Skip keys are supported; holding Next or Play no longer fires repeatedly.
+- Player, error screen: readable button, Back exits on the first press, and an accurate message when the server cannot convert a video the device cannot decode.
+- "Downloads in progress" card readable when focused; server address field visible above the keyboard on first connection.
+
 ## v1.28.140 — November 12, 2026
 
 ### Management

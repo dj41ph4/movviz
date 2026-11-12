@@ -1,3 +1,14 @@
+## v1.28.141 — 12. November 2026
+
+### Android TV
+
+- Zurück von einer Titelseite: Der Fokus landet wieder auf der Karte, von der man kam — Startseite (alle Reihen, auch „Weiterschauen“), Bibliothek, Entdecken und Seite einer Plattform. Bisher landete er auf einer anderen Reihe oder auf der ersten Schaltfläche des Bildschirms.
+- Eine Serie verschwindet nicht mehr kurz aus „Kürzlich hinzugefügt in Serien“, wenn ihre Seite geöffnet wird.
+- „Weiterschauen“: Das Menü „Aus Fortsetzen entfernen“ (langer Druck auf OK) bleibt beim Loslassen der Taste geöffnet, und das erste OK nach „Abbrechen“ öffnet wieder die Titelseite.
+- Player: Links/Rechts springen auch bei ausgeblendeter Leiste 10 s zurück/vor; die Leiste bleibt in der Pause sichtbar; die Endzeit steht unter der Uhr; fokussierte Schaltflächen sind lesbar (weiß, schwarzes Symbol); das Audio-/Untertitelmenü behält den Fokus und gibt ihn an die auslösende Schaltfläche zurück; die Fernbedienungstasten Untertitel, Audiosprache und Springen werden unterstützt; gedrücktes Weiter oder Wiedergabe löst nicht mehr wiederholt aus.
+- Player, Fehlerbildschirm: lesbare Schaltfläche, Zurück beendet beim ersten Druck, und eine zutreffende Meldung, wenn der Server ein Video nicht umwandeln kann, das das Gerät nicht dekodiert.
+- Karte „Laufende Downloads“ im Fokus lesbar; Feld für die Serveradresse bei der ersten Verbindung über der Tastatur sichtbar.
+
 ## v1.28.140 — 12. November 2026
 
 ### Verwaltung

@@ -1,3 +1,14 @@
+## v1.28.141 — 12 novembre 2026
+
+### Android TV
+
+- Ritorno da una scheda: il focus torna sulla scheda da cui si è partiti — home (tutte le righe, compresa «Continua a guardare»), Libreria, Scopri e pagina di una piattaforma. Prima finiva su un'altra riga o sul primo pulsante della schermata.
+- Una serie non scompare più per un istante da «Aggiunti di recente in Serie TV» quando se ne apre la scheda.
+- «Continua a guardare»: il menu «Rimuovi dalla ripresa» (pressione lunga su OK) resta aperto al rilascio del tasto, e il primo OK dopo «Annulla» riapre la scheda.
+- Player: Sinistra/Destra tornano indietro/avanzano di 10 s anche con la barra nascosta; la barra resta visibile in pausa; l'ora di fine appare sotto l'orologio; i pulsanti sono leggibili al focus (bianco, icona nera); il menu audio/sottotitoli mantiene il focus e lo restituisce al pulsante che l'ha aperto; i tasti Sottotitoli, Lingua audio e Salto del telecomando sono supportati; tenere premuto Successivo o Riproduci non agisce più a ripetizione.
+- Player, schermata di errore: pulsante leggibile, Indietro esce alla prima pressione, e messaggio corretto quando il server non può convertire un video che il dispositivo non decodifica.
+- Scheda «Download in corso» leggibile al focus; campo dell'indirizzo del server visibile sopra la tastiera alla prima connessione.
+
 ## v1.28.140 — 12 novembre 2026
 
 ### Gestione
