@@ -20,6 +20,20 @@ import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames 
 export const RENDER_BATCH_INITIAL = 200;
 export const RENDER_BATCH_STEP = 200;
 
+/** Les premières rangées s'affichent en priorité ; le reste du premier lot se monte ensuite, hors du chemin critique. */
+const PRIORITY_ROWS = 10;
+/** Cartes montées à chaque passage d'arrière-plan une fois les rangées prioritaires peintes. */
+const IDLE_GROW_STEP = 60;
+const IDLE_GROW_DELAY_MS = 250;
+
+/** Colonnes de la grille (mêmes seuils que les classes grid-cols-* ci-dessous). */
+function gridColumns(): number {
+  if (typeof window === "undefined") return 6;
+  const w = window.innerWidth;
+  return w >= 1536 ? 6 : w >= 1280 ? 5 : w >= 1024 ? 4 : w >= 640 ? 3 : 2;
+}
+const priorityCount = () => PRIORITY_ROWS * gridColumns();
+
 interface RescanIssue {
   kind: "missing" | "untracked" | "duplicate";
   path: string;
@@ -346,9 +360,11 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   // rest only as the viewport approaches it (checkpoints below). Mounting the
   // whole library in the background kept the page at about 10 fps: 40 000 nodes,
   // and every artwork batch response re-rendered all of them.
-  const [visibleCount, setVisibleCount] = useState(RENDER_BATCH_INITIAL);
+  const [visibleCount, setVisibleCount] = useState(priorityCount);
   const totalRef = useRef(total);
   totalRef.current = total;
+  const visibleCountRef = useRef(visibleCount);
+  visibleCountRef.current = visibleCount;
 
   // A single sentinel right after the last rendered card only ever grows the
   // list from wherever it already stopped — perfectly fine for a normal
@@ -403,8 +419,31 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   };
   useEffect(() => {
     rampTargetRef.current = 0;
-    setVisibleCount(RENDER_BATCH_INITIAL);
+    setVisibleCount(priorityCount());
   }, [filter, type, sort]);
+
+  // Rangées prioritaires d'abord (déjà peintes), puis le reste du premier lot par
+  // petits paliers espacés : l'utilisateur voit la page tout de suite et le
+  // complément arrive pendant qu'il regarde, sans bloquer l'affichage.
+  const hasItems = total > 0;
+  useEffect(() => {
+    if (!hasItems) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = () => {
+      if (cancelled) return;
+      const target = Math.min(RENDER_BATCH_INITIAL, totalRef.current);
+      const current = visibleCountRef.current;
+      if (current >= target) return;
+      setVisibleCount((c) => Math.max(c, Math.min(c + IDLE_GROW_STEP, target)));
+      timer = setTimeout(tick, IDLE_GROW_DELAY_MS);
+    };
+    timer = setTimeout(tick, IDLE_GROW_DELAY_MS);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [hasItems, filter, type, sort]);
 
   useEffect(() => {
     if (checkpointIndices.length === 0) return;
@@ -412,7 +451,9 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
       (entries) => {
         const reached = entries.filter((e) => e.isIntersecting).map((e) => Number((e.target as HTMLElement).dataset.checkpointIndex));
         if (!reached.length) return;
-        const target = Math.min(...reached) + RENDER_BATCH_STEP;
+        // Sous le premier lot (200), on se contente de le compléter : le reste vient par paliers d'arrière-plan.
+        const first = Math.min(...reached);
+        const target = first < RENDER_BATCH_INITIAL ? RENDER_BATCH_INITIAL : first + RENDER_BATCH_STEP;
         rampVisibleCountTo(Math.min(totalRef.current, target));
       },
       { rootMargin: "1000px" }

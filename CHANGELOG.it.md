@@ -1,3 +1,9 @@
+## v1.28.137 — 12 novembre 2026
+
+### Interface
+
+- Libreria: all'apertura della pagina vengono mostrate per prime le prime 10 righe, il resto del primo lotto si carica poi a piccoli passi in background — niente più attesa prima di vedere le locandine.
+
 ## v1.28.136 — 12 novembre 2026
 
 ### Download

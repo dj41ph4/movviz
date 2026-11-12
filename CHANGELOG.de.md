@@ -1,3 +1,9 @@
+## v1.28.137 — 12. November 2026
+
+### Interface
+
+- Bibliothek: Beim Öffnen der Seite werden zuerst die ersten 10 Reihen angezeigt, der Rest des ersten Stapels lädt danach in kleinen Schritten im Hintergrund – keine Wartezeit mehr, bis die Poster erscheinen.
+
 ## v1.28.136 — 12. November 2026
 
 ### Downloads

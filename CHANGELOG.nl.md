@@ -1,3 +1,9 @@
+## v1.28.137 — 12 november 2026
+
+### Interface
+
+- Bibliotheek: bij het openen van de pagina worden eerst de eerste 10 rijen getoond, de rest van de eerste reeks laadt daarna in kleine stappen op de achtergrond — geen wachttijd meer voordat de posters verschijnen.
+
 ## v1.28.136 — 12 november 2026
 
 ### Downloads

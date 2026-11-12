@@ -1,3 +1,9 @@
+## v1.28.137 — 12 novembre 2026
+
+### Interface
+
+- Bibliothèque : les 10 premières rangées s'affichent en priorité à l'ouverture de la page, le reste du premier lot se charge ensuite par petits paliers en arrière-plan — plus d'attente avant de voir les affiches.
+
 ## v1.28.136 — 12 novembre 2026
 
 ### Téléchargements

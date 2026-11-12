@@ -1,3 +1,9 @@
+## v1.28.137 — November 12, 2026
+
+### Interface
+
+- Library: the first 10 rows are displayed first when the page opens, and the rest of the first batch then loads in small background steps — no more waiting before the posters appear.
+
 ## v1.28.136 — November 12, 2026
 
 ### Downloads
