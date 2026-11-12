@@ -1,3 +1,13 @@
+## v1.28.132 — 12 november 2026
+
+### Downloads
+
+- Een gedownload bestand waarvan de definitieve naam al bezet is, komt niet langer als "Naam (2).mkv" naast het oude in de seriemap te staan: het wacht in een verborgen wachtmap (`.movviz-incoming`), buiten het zicht van Plex, en de bibliotheek installeert het onder de juiste naam zodra het oude is vervangen. Extra versies en Bleach-plaatsing blijven ongewijzigd.
+- Geen "onvolledig bestand" meer bij 100%: de integriteit van de download is al gegarandeerd door de stukhashes van de torrent, de aangekondigde grootte is geen reden meer om te weigeren. De werkelijk op schijf aanwezige grootte is doorslaggevend.
+- Geplande opschoning van de wachtmap (bij het opstarten, daarna elke 6 uur): bestanden zonder bestemming, verlaten of verweesd, worden na 24 uur verwijderd; een nog verwachte import blijft tot 30 dagen bewaard. Buiten die map wordt nooit iets verwijderd.
+- Een aflevering waarvan het nieuwe bestand wordt verworpen, gaat terug naar "ontbrekend" in plaats van vast te blijven zitten in downloaden, en de kaart van de verworpen torrent verdwijnt. De weigeringsmelding toont nu beide groottes (op schijf en verwacht).
+- Nieuwe duplicatenopschoning in Instellingen > Bestanden > Onderhoud: vindt achtergebleven "(2)", "(3)"-bestanden op schijf, met veilig verwijderen (nooit een bestand in gebruik of recent).
+
 ## v1.28.131 — 11 november 2026
 
 ### Diagnose

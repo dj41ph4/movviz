@@ -52,6 +52,49 @@ async function avoidCollision(dest) {
   return candidate;
 }
 
+/** Dossier d'attente : `<completedPath>/.movviz-incoming/<infoHash>/…` (même volume que la bibliothèque). */
+export const INCOMING_DIR_NAME = ".movviz-incoming";
+/** Un fichier d'attente jamais réclamé est purgé après ce délai (marge très large devant les 30 min de réessais). */
+export const INCOMING_GRACE_MS = 24 * 3600_000;
+/** Plafond absolu, même si le moteur croit encore l'import en attente. */
+export const INCOMING_MAX_AGE_MS = 30 * 24 * 3600_000;
+
+/**
+ * Emplacement d'arrivée d'un fichier importé. Nom final libre → il y va
+ * directement. Nom final occupé (remplacement, nouveau téléchargement d'un
+ * épisode déjà présent) → le fichier attend dans le dossier d'attente, hors de
+ * la bibliothèque, et `stagedFor` donne le nom final que la bibliothèque lui
+ * rendra une fois le remplacement validé. Plus de « Nom (2).mkv » à côté de
+ * l'ancien : s'il n'est jamais validé, il ne pollue pas les dossiers de Plex.
+ * `stage: false` garde l'ancien comportement (suffixe « (n) »).
+ */
+export async function placeOrStage(canonical, { completedPath, infoHash, stage }) {
+  if (!stage) return { dest: await avoidCollision(canonical) };
+  const taken = await fsp.access(canonical).then(() => true).catch(() => false);
+  if (!taken) return { dest: canonical };
+  const rel = path.relative(completedPath, canonical);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel) || !infoHash) return { dest: await avoidCollision(canonical) };
+  const staged = await avoidCollision(path.join(completedPath, INCOMING_DIR_NAME, infoHash, rel));
+  return { dest: staged, stagedFor: canonical };
+}
+
+async function listFiles(dir) {
+  const out = [];
+  const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...(await listFiles(full)));
+    else out.push(full);
+  }
+  return out;
+}
+
+async function pruneEmptyDirs(dir, stopAt) {
+  const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const e of entries) if (e.isDirectory()) await pruneEmptyDirs(path.join(dir, e.name), stopAt);
+  if (dir !== stopAt) await fsp.rmdir(dir).catch(() => {});
+}
+
 /**
  * Shared WebTorrent download/import/queue/naming logic. Subclasses implement the
  * `_client*` abstract methods for transport-specific operations.
@@ -158,11 +201,19 @@ export class AbstractBackend {
     if (pi > 0) {
       this._pollTimer = setInterval(() => this._clientPoll().catch(() => {}), pi);
     }
+    // Purge planifiée du dossier d'attente : 2 min après le démarrage (l'état est alors rechargé), puis toutes les 6 h.
+    const sweep = () => { if (!this._shuttingDown) this.sweepIncoming().catch((e) => console.error(`[engine:${this.cfg.id}] purge du dossier d'attente : ${e.message}`)); };
+    this._sweepFirst = setTimeout(sweep, 120_000);
+    this._sweepTimer = setInterval(sweep, 6 * 3600_000);
+    this._sweepFirst.unref?.();
+    this._sweepTimer.unref?.();
   }
 
   async destroy() {
     this._shuttingDown = true;
     clearInterval(this._pollTimer);
+    clearTimeout(this._sweepFirst);
+    clearInterval(this._sweepTimer);
     await this.manualSeed.destroy();
     await this._seedClientPromise?.catch(() => {});
     if (this._seedClient && !this._seedClient.destroyed) await new Promise((resolve) => this._seedClient.destroy(resolve));
@@ -1165,6 +1216,7 @@ export class AbstractBackend {
         const ctx = buildContext(info);
         const ext = path.extname(file.name);
         let dest;
+        let stagedFor;
         if (this.cfg.category === "series") {
           const seriesFolder = explicit?.presentation?.folder ?? renderSegment(naming.seriesFolder, ctx, naming.useDotsInsteadOfSpaces);
           // Specials always land in a literal "Specials" folder regardless of
@@ -1193,11 +1245,12 @@ export class AbstractBackend {
               fileName = renderSegment("{title} - S{season:00}E{episode:00}", ctx, naming.useDotsInsteadOfSpaces) + range + ext;
             }
           }
-          dest = await avoidCollision(path.join(this.cfg.completedPath, seriesFolder, seasonFolder, fileName));
+          // Placement explicite (Bleach) : le chemin choisi par le moteur reste celui de la bibliothèque, on garde « (n) ».
+          ({ dest, stagedFor } = await placeOrStage(path.join(this.cfg.completedPath, seriesFolder, seasonFolder, fileName), { completedPath: this.cfg.completedPath, infoHash: snap.infoHash, stage: !explicit }));
         } else {
           const movieFolder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
           const fileName = renderSegment(naming.movieFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
-          dest = await avoidCollision(path.join(this.cfg.completedPath, movieFolder, fileName));
+          ({ dest, stagedFor } = await placeOrStage(path.join(this.cfg.completedPath, movieFolder, fileName), { completedPath: this.cfg.completedPath, infoHash: snap.infoHash, stage: true }));
         }
         const src = path.isAbsolute(file.path) ? file.path : path.join(this.cfg.downloadPath, file.path);
         await transfer(src, dest);
@@ -1205,10 +1258,17 @@ export class AbstractBackend {
           if (!(await this._swapForSymlink(src, dest))) m.symlinkVerificationFailed = true;
         }
         firstDest ??= dest;
+        // Taille réellement posée sur le disque : le torrent est déjà validé morceau par morceau (SHA-1),
+        // la longueur annoncée n'est qu'une indication — elle ne doit pas faire refuser l'import.
+        const placedSize = (await fsp.stat(dest).catch(() => null))?.size || file.length;
+        if (placedSize !== file.length) {
+          console.warn(`[engine:${this.cfg.id}][${this.cfg.logTag}]   taille sur le disque ≠ longueur du torrent pour ${path.basename(dest)} : ${placedSize} octets sur le disque, ${file.length} annoncés`);
+        }
         movedFiles.push({
           path: dest, quality: ctx.quality || null, resolution: ctx.resolution || null,
           videoCodec: ctx.videoCodec || null, audioCodec: ctx.audioCodec || null,
-          hdr: ctx.hdr || null, source: ctx.source || null, size: file.length,
+          hdr: ctx.hdr || null, source: ctx.source || null, size: placedSize,
+          ...(stagedFor ? { stagedFor } : {}),
           season: explicit?.library.season ?? info.season ?? null, episode: explicit?.library.episode ?? info.episode ?? null,
           episodeEnd: explicit?.library.episodeEnd ?? info.episodeEnd ?? null,
           ...(explicit ? { episodePlacement: explicit } : {}),
@@ -1296,6 +1356,54 @@ export class AbstractBackend {
       console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] symlink swap failed after removing ${src} — seeding source for this file is now missing (library copy at ${dest} is unaffected)`);
     }
     return linked;
+  }
+
+  /** Ce torrent attend-il encore que la bibliothèque installe ses fichiers du dossier d'attente ? */
+  _incomingStillNeeded(infoHash) {
+    for (const rec of [this.meta.get(infoHash), this.importedHistory.get(infoHash)]) {
+      if (!rec) continue;
+      if (rec.replacementFailure && !rec.replacementFailure.discarded) return true;
+      const staged = (rec.movedFiles ?? []).some((f) => f?.stagedFor && String(f.path).includes(INCOMING_DIR_NAME));
+      if (staged && rec.notifiedLibrary !== true && !rec.replacementFailure?.discarded) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Purge du dossier d'attente : supprime les fichiers qui ont perdu leur
+   * destination — import réussi sans que le fichier ait été repris, remplacement
+   * abandonné, torrent inconnu du moteur, reste d'un essai interrompu. Un fichier
+   * dont l'import est encore en cours (rappel bibliothèque à refaire, réessais de
+   * remplacement) n'est jamais touché avant INCOMING_MAX_AGE_MS. Aucun fichier
+   * récent (< INCOMING_GRACE_MS) n'est supprimé. Ne sort jamais du dossier d'attente.
+   */
+  async sweepIncoming({ now = Date.now(), graceMs = INCOMING_GRACE_MS, maxAgeMs = INCOMING_MAX_AGE_MS } = {}) {
+    const result = { removed: 0, kept: 0, freedBytes: 0 };
+    const root = path.resolve(this.cfg.completedPath, INCOMING_DIR_NAME);
+    const groups = await fsp.readdir(root, { withFileTypes: true }).catch(() => null);
+    if (!groups) return result;
+    for (const group of groups) {
+      const dir = path.join(root, group.name);
+      if (!group.isDirectory()) continue;
+      const needed = this._incomingStillNeeded(group.name);
+      for (const file of await listFiles(dir)) {
+        const resolved = path.resolve(file);
+        if (!resolved.startsWith(root + path.sep)) continue;
+        const st = await fsp.lstat(resolved).catch(() => null);
+        if (!st) continue;
+        const age = now - Math.max(st.mtimeMs, st.ctimeMs);
+        if (age < graceMs || (needed && age < maxAgeMs)) { result.kept++; continue; }
+        if (await fsp.unlink(resolved).then(() => true).catch(() => false)) {
+          result.removed++;
+          result.freedBytes += st.size;
+        } else result.kept++;
+      }
+      if (!needed) await pruneEmptyDirs(dir, root);
+    }
+    if (result.removed > 0) {
+      console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}] dossier d'attente purgé : ${result.removed} fichier(s) orphelin(s), ${fmtSize(result.freedBytes)} libérés`);
+    }
+    return result;
   }
 
   /** Stop sharing, then delete only this download's uninstalled source files (never the library's file). */

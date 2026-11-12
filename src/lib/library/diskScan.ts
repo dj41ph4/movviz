@@ -8,6 +8,7 @@ import { pathFor } from "./renamePath";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import type { LibraryMovie, LibrarySeries } from "./types";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { isInIncomingDir } from "@/lib/library/incomingDir";
 import { yieldToEventLoop, trackJobProgress } from "@/lib/jobs/cancelScope";
 
 const CONFIG_DIR =
@@ -97,7 +98,7 @@ async function walkVideoFiles(root: string): Promise<VideoFile[]> {
     const p = pathFor(root);
     const entries = (await fs.promises.readdir(root, { recursive: true })) as string[];
     const videos = entries
-      .filter((rel) => VIDEO_EXT.test(String(rel)))
+      .filter((rel) => VIDEO_EXT.test(String(rel)) && !isInIncomingDir(String(rel)))
       .map((rel) => p.normalize(p.join(root, String(rel))));
     // Un seul stat par fichier : sert à la fois à vérifier que c'est un
     // fichier et à lire sa date de modification.

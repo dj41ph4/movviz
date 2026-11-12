@@ -42,6 +42,8 @@ export interface ImportedFile {
   /** Set when one file covers a combined range of episodes (e.g. S04E01E02) — see src/lib/naming/parser.ts. */
   episodeEnd?: number | null;
   episodePlacement?: EpisodePlacement;
+  /** Le fichier attend dans le dossier d'attente du moteur (`.movviz-incoming`) : nom final que la bibliothèque doit lui rendre. */
+  stagedFor?: string;
 }
 
 /** No post-import renaming: the engine must install the physical coordinates
@@ -209,7 +211,7 @@ function refreshLoose(kind: "movie" | "tv") {
 
 /** Racines bibliothèque du moteur (completedPath de chaque instance) —
  *  tout chemin supprimé/renommé doit vivre sous l'une d'elles. */
-async function engineLibraryRoots(): Promise<string[]> {
+export async function engineLibraryRoots(): Promise<string[]> {
   try {
     const res = await fetch(`${ENGINE_BASE}/instances`, {
       headers: engineHeaders(),
@@ -244,7 +246,7 @@ function isUnderLibraryRoot(resolved: string, sep: string, roots: string[], case
 /** Suppression d'un fichier bibliothèque — JAMAIS récursive (unlink simple),
  *  uniquement sous une racine completedPath du moteur, profondeur ≥ 2 et nom
  *  de base assaini (AGENTS.md — gardes de suppression obligatoires). */
-async function deleteLibraryFile(filePath: string, roots: string[]): Promise<void> {
+export async function deleteLibraryFile(filePath: string, roots: string[]): Promise<void> {
   const p = pathFor(filePath);
   const resolved = p.resolve(filePath);
   // Un ancien fichier déjà absent ne bloque pas un callback rejoué.
@@ -290,16 +292,20 @@ function samePath(a: string, b: string): boolean {
 
 /** Installe et valide les nouveaux fichiers avant de retirer les anciens.
  * Une sauvegarde permet de restaurer l'ancien si le renommage échoue. */
-export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string[], roots: string[], expectedSizes = new Map<string, number>(), preserveIncomingPath = false): Promise<Map<string, string>> {
+export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string[], roots: string[], expectedSizes = new Map<string, number>(), preserveIncomingPath = false, stagedDestinations = new Map<string, string>()): Promise<Map<string, string>> {
   const validate = (file: string) => {
     if (!isUnderLibraryRoot(file, pathFor(file).sep, roots, process.platform !== "win32")) throw new Error(`Remplacement refusé : hors bibliothèque du moteur (${file})`);
   };
   const incoming = await Promise.all(newPaths.filter(Boolean).map(async original => {
     const p = pathFor(original), source = p.resolve(original);
     validate(source);
+    const staged = stagedDestinations.get(original);
+    if (staged) validate(p.resolve(staged));
     const stat = await fsp.lstat(source), expected = expectedSizes.get(original);
-    if (!stat.isFile() || !stat.size || (expected != null && expected > 0 && expected !== stat.size)) throw new Error(`Remplacement refusé : fichier incomplet (${source})`);
-    return { original, source, destination: preserveIncomingPath ? source : p.join(p.dirname(source), stripCollisionSuffix(p.basename(source), p)), size: stat.size };
+    if (!stat.isFile() || !stat.size || (expected != null && expected > 0 && expected !== stat.size)) throw new Error(`Remplacement refusé : fichier incomplet (${source} : ${stat.size} octets sur le disque, ${expected ?? "?"} attendus)`);
+    // Fichier du dossier d'attente : son nom final est celui annoncé par le moteur, jamais son emplacement d'attente.
+    const destination = staged ? p.resolve(staged) : preserveIncomingPath ? source : p.join(p.dirname(source), stripCollisionSuffix(p.basename(source), p));
+    return { original, source, destination, size: stat.size };
   }));
   if (!incoming.length) throw new Error("Remplacement refusé : aucun fichier importé");
   const oldFiles: string[] = [];
@@ -341,6 +347,7 @@ export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string
     }
     for (const file of incoming) {
       if (!samePath(file.source, file.destination)) {
+        await fsp.mkdir(pathFor(file.destination).dirname(file.destination), { recursive: true });
         await fsp.rename(file.source, file.destination);
         installed.push(file);
         renamed.set(file.original, file.destination);
@@ -373,10 +380,25 @@ export async function finalizeReplacedFiles(oldPaths: string[], newPaths: string
   return renamed;
 }
 
+/** Sort un fichier du dossier d'attente pour en faire une version supplémentaire : nom final libre, « (n) » si occupé. */
+export async function settleStagedAsExtraVersion(staged: string, stagedFor: string, roots: string[]): Promise<string> {
+  const p = pathFor(staged);
+  const source = p.resolve(staged), canonical = p.resolve(stagedFor);
+  for (const file of [source, canonical]) {
+    if (!isUnderLibraryRoot(file, p.sep, roots, process.platform !== "win32")) throw new Error(`Import refusé : hors bibliothèque du moteur (${file})`);
+  }
+  const ext = p.extname(canonical), base = canonical.slice(0, canonical.length - ext.length);
+  let candidate = canonical;
+  for (let n = 2; await fsp.lstat(candidate).then(() => true, () => false); n++) candidate = `${base} (${n})${ext}`;
+  await fsp.mkdir(p.dirname(candidate), { recursive: true });
+  await fsp.rename(source, candidate);
+  return candidate;
+}
+
 /** Variante film : un seul ancien fichier, un seul nouveau. */
-async function finalizeReplacePath<T extends { path: string; size?: number }>(movie: { file: LibraryFile | null }, newFile: T, roots: string[]): Promise<T> {
+async function finalizeReplacePath<T extends { path: string; size?: number }>(movie: { file: LibraryFile | null }, newFile: T, roots: string[], stagedFor?: string): Promise<T> {
   const oldPath = diskPathOf(movie.file);
-  const renamed = await finalizeReplacedFiles(oldPath ? [oldPath] : [], [newFile.path], roots, new Map([[newFile.path, newFile.size ?? 0]]));
+  const renamed = await finalizeReplacedFiles(oldPath ? [oldPath] : [], [newFile.path], roots, new Map([[newFile.path, newFile.size ?? 0]]), false, new Map(stagedFor ? [[newFile.path, stagedFor]] : []));
   const finalPath = renamed.get(newFile.path);
   return finalPath ? { ...newFile, path: finalPath, diskPath: finalPath } : newFile;
 }
@@ -398,8 +420,9 @@ async function finalizeEpisodeReplacements(oldPaths: string[], files: ImportedFi
     return stripCollisionSuffix(base, np) !== base;
   });
   const explicit = files.some(f => f.episodePlacement);
-  if (oldPaths.length === 0 && !hasCollisionSuffix && !explicit) return new Map();
-  return finalizeReplacedFiles(oldPaths, newPaths, await engineLibraryRoots(), new Map(files.map(f => [f.path, f.size])), explicit);
+  const stagedDestinations = new Map(files.filter(f => f.stagedFor).map(f => [f.path, f.stagedFor as string]));
+  if (oldPaths.length === 0 && !hasCollisionSuffix && !explicit && stagedDestinations.size === 0) return new Map();
+  return finalizeReplacedFiles(oldPaths, newPaths, await engineLibraryRoots(), new Map(files.map(f => [f.path, f.size])), explicit, stagedDestinations);
 }
 
 /** Un épisode connu garde son nom canonique même si le moteur a interprété
@@ -407,19 +430,21 @@ async function finalizeEpisodeReplacements(oldPaths: string[], files: ImportedFi
  *  L'ancien reste récupérable jusqu'à ce que le nouveau soit installé.
  *  Aucun fichier tiers n'est écrasé et les deux chemins restent sous les
  *  racines de bibliothèque validées. */
-async function replaceOneEpisodeFile(oldPath: string, newPath: string, expectedSize: number, roots: string[]): Promise<string> {
+async function replaceOneEpisodeFile(oldPath: string, newPath: string, expectedSize: number, roots: string[], stagedFor?: string): Promise<string> {
   const incomingPath = pathFor(newPath);
   const incoming = incomingPath.resolve(newPath);
   const valid = (candidate: string) => isUnderLibraryRoot(candidate, pathFor(candidate).sep, roots, process.platform !== "win32");
   if (!valid(incoming)) throw new Error(`Remplacement refusé : nouveau fichier hors bibliothèque du moteur (${incoming})`);
   const incomingStat = await fsp.lstat(incoming);
   if (!incomingStat.isFile() || incomingStat.size === 0) throw new Error(`Remplacement refusé : nouveau fichier invalide (${incoming})`);
-  if (expectedSize > 0 && incomingStat.size !== expectedSize) throw new Error(`Remplacement refusé : nouveau fichier incomplet (${incoming})`);
+  if (expectedSize > 0 && incomingStat.size !== expectedSize) throw new Error(`Remplacement refusé : nouveau fichier incomplet (${incoming} : ${incomingStat.size} octets sur le disque, ${expectedSize} attendus)`);
   const storedOld = pathFor(oldPath).resolve(oldPath);
   // Plex peut enregistrer le même fichier sous un autre mount. Dans ce cas,
   // le nom d'épisode demeure fiable, mais son chemin Plex n'est pas celui
   // du moteur : le chercher dans le dossier où le moteur vient d'importer.
-  const old = valid(storedOld) ? storedOld : incomingPath.join(incomingPath.dirname(incoming), pathFor(oldPath).basename(storedOld));
+  // Un fichier du dossier d'attente vit hors du dossier de l'épisode : c'est le nom final annoncé qui donne le dossier.
+  const home = stagedFor ? incomingPath.resolve(stagedFor) : incoming;
+  const old = valid(storedOld) ? storedOld : incomingPath.join(incomingPath.dirname(home), pathFor(oldPath).basename(storedOld));
   if (!valid(old)) throw new Error(`Remplacement refusé : ancien chemin hors bibliothèque du moteur (${storedOld})`);
   if (!valid(storedOld)) {
     const external = await fsp.lstat(storedOld).catch((err: NodeJS.ErrnoException) => {
@@ -533,7 +558,7 @@ async function prepareEpisodeReplacements(
     if (oldPaths.some(old => series.seasons.some(s => s.episodes.some(ep => diskPathOf(ep.file) === old && matchFor(s.seasonNumber, ep.episodeNumber) !== file)))) throw new Error("shared_episode_file_replacement_unverified");
     if (oldPaths.length === 1 && !file.episodePlacement) {
       const roots = await engineLibraryRoots();
-      const finalPath = await replaceOneEpisodeFile(oldPaths[0], file.path, file.size, roots);
+      const finalPath = await replaceOneEpisodeFile(oldPaths[0], file.path, file.size, roots, file.stagedFor);
       if (!samePath(finalPath, file.path)) renamed.set(file.path, finalPath);
     } else {
       const fallback = await finalizeEpisodeReplacements(oldPaths, [file]);
@@ -649,6 +674,11 @@ export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedF
           if (ref.kind === "movie") {
             const current = getMovie(ref.movieId);
             if (current && current.activeInfoHash === infoHash) updateMovie(current.id, { status: current.file ? "available" : "missing", activeInfoHash: null });
+          } else {
+            // Épisodes : le nouveau fichier est écarté, donc l'épisode ne doit plus se croire en
+            // téléchargement de ce torrent. Sans cela il restait « en téléchargement » à vie, sans
+            // fichier, et la carte du torrent écarté restait affichée comme bloquée à 100 %.
+            revertBlockedImport(ref, infoHash);
           }
     };
     let result;
@@ -753,7 +783,11 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     const pendingMode = peekPendingVersionIntent(infoHash);
     let finalFile = newFile;
     if (pendingMode !== "add") {
-      finalFile = await finalizeReplacePath(movie, newFile, await engineLibraryRoots());
+      finalFile = await finalizeReplacePath(movie, newFile, await engineLibraryRoots(), best.stagedFor);
+    } else if (best.stagedFor) {
+      // Version supplémentaire : le fichier ne remplace rien, il sort du dossier d'attente sous un nom libre « (n) ».
+      const settled = await settleStagedAsExtraVersion(best.path, best.stagedFor, await engineLibraryRoots());
+      finalFile = { ...newFile, path: settled, diskPath: settled };
     }
     const versioned = pendingMode === "add"
       ? addVersion(movie, finalFile, { versionSource: "indexer", reason: "Version supplémentaire" })

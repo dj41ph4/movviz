@@ -1,3 +1,13 @@
+## v1.28.132 — November 12, 2026
+
+### Downloads
+
+- A downloaded file whose final name is already taken is no longer dropped as "Name (2).mkv" next to the old one in the series folder: it waits in a hidden holding folder (`.movviz-incoming`), out of Plex's view, and the library installs it under the right name once the old one is replaced. Extra versions and Bleach placement are unchanged.
+- No more "incomplete file" at 100%: download integrity is already guaranteed by the torrent's piece hashes, so the announced size is no longer a reason to refuse. The size actually on disk is authoritative.
+- Scheduled purge of the holding folder (at startup, then every 6 h): files without a destination, abandoned or orphaned, are deleted after 24 h; an import still expected is kept for up to 30 days. Nothing outside that folder is ever deleted.
+- An episode whose new file is abandoned goes back to "missing" instead of staying stuck downloading, and the discarded torrent's card disappears. The refusal message now shows both sizes (on disk and expected).
+- New duplicate cleanup in Settings > Files > Maintenance: finds "(2)", "(3)"… files left on disk, with safe deletion (never a file in use or recent).
+
 ## v1.28.131 — November 11, 2026
 
 ### Diagnostics

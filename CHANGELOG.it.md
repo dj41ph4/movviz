@@ -1,3 +1,13 @@
+## v1.28.132 — 12 novembre 2026
+
+### Download
+
+- Un file scaricato il cui nome finale è già occupato non viene più messo come "Nome (2).mkv" accanto al vecchio nella cartella della serie: attende in una cartella di attesa nascosta (`.movviz-incoming`), fuori dalla vista di Plex, e la libreria lo installa con il nome giusto dopo aver sostituito il vecchio. Versioni extra e posizionamento Bleach invariati.
+- Niente più "file incompleto" al 100%: l'integrità del download è già garantita dagli hash dei pezzi del torrent, la dimensione annunciata non è più un motivo di rifiuto. Fa fede la dimensione realmente presente sul disco.
+- Pulizia pianificata della cartella di attesa (all'avvio, poi ogni 6 h): i file senza destinazione, abbandonati o orfani vengono eliminati dopo 24 h; un'importazione ancora attesa viene conservata fino a 30 giorni. Nulla fuori da questa cartella viene mai eliminato.
+- Un episodio il cui nuovo file viene scartato torna a "mancante" invece di restare bloccato in download, e la scheda del torrent scartato scompare. Il messaggio di rifiuto indica ora entrambe le dimensioni (su disco e attesa).
+- Nuova pulizia dei duplicati in Impostazioni > File > Manutenzione: trova i file "(2)", "(3)"… rimasti sul disco, con eliminazione sicura (mai un file in uso o recente).
+
 ## v1.28.131 — 11 novembre 2026
 
 ### Diagnostica

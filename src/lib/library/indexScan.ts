@@ -7,6 +7,7 @@ import { mapWithConcurrency } from "@/lib/concurrency";
 import { enqueueJob, getJobsByType, isSourceActive } from "@/lib/jobs/queue";
 import { trashRoots } from "@/lib/library/trashStore";
 import { pathFor } from "@/lib/library/renamePath";
+import { INCOMING_DIR_NAME } from "@/lib/library/incomingDir";
 import type { Job } from "@/lib/jobs/types";
 
 export const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts|m4v)$/i;
@@ -100,7 +101,7 @@ async function findMovieCandidates(): Promise<{ folderPath: string; folderName: 
     }
     for (const entry of entries) {
       const full = pathFor(root).join(root, entry.name);
-      if (isInTrash(full)) continue;
+      if (isInTrash(full) || entry.name === INCOMING_DIR_NAME) continue;
       if (entry.isDirectory()) {
         const videos = walkVideoFiles(full);
         if (videos.length === 0) continue;
@@ -132,7 +133,7 @@ async function findSeriesCandidates(): Promise<{ folderPath: string; folderName:
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const full = pathFor(root).join(root, entry.name);
-      if (isInTrash(full)) continue;
+      if (isInTrash(full) || entry.name === INCOMING_DIR_NAME) continue;
       const videos = walkVideoFiles(full);
       const untracked = videos.filter((v) => !tracked.has(v));
       if (untracked.length === 0) continue;

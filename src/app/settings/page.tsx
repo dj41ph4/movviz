@@ -38,6 +38,7 @@ import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
 import { RecoverDownloadsPanel } from "@/components/settings/RecoverDownloadsPanel";
 import { MediaProbePanel } from "@/components/settings/MediaProbePanel";
 import { CorruptFilesPanel } from "@/components/settings/CorruptFilesPanel";
+import { DuplicateFilesPanel } from "@/components/settings/DuplicateFilesPanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { ChevronDown, X, Search, LayoutGrid, SlidersHorizontal } from "lucide-react";
 import { AboutPanel } from "@/components/settings/AboutPanel";
@@ -395,6 +396,7 @@ function SettingsPageInner() {
                   <CleanDirsPanel />
                   <MediaProbePanel />
                   <CorruptFilesPanel />
+                  <DuplicateFilesPanel />
                   <TrashPanel />
                 </div>
               )}

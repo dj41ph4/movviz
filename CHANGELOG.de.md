@@ -1,3 +1,13 @@
+## v1.28.132 — 12. November 2026
+
+### Downloads
+
+- Eine heruntergeladene Datei, deren endgültiger Name schon vergeben ist, wird nicht mehr als „Name (2).mkv" neben der alten im Serienordner abgelegt: Sie wartet in einem versteckten Warteordner (`.movviz-incoming`) außerhalb der Plex-Ansicht, und die Bibliothek installiert sie unter dem richtigen Namen, sobald die alte ersetzt ist. Zusätzliche Versionen und Bleach-Platzierung bleiben unverändert.
+- Kein „unvollständige Datei" bei 100 % mehr: Die Integrität des Downloads ist durch die Stückhashes des Torrents bereits gesichert, die angekündigte Größe ist kein Ablehnungsgrund mehr. Maßgeblich ist die tatsächlich auf dem Datenträger liegende Größe.
+- Geplante Bereinigung des Wartefolders (beim Start, dann alle 6 Std.): Dateien ohne Ziel, abgebrochene oder verwaiste, werden nach 24 Std. gelöscht; ein noch erwarteter Import bleibt bis zu 30 Tage erhalten. Außerhalb dieses Ordners wird nie etwas gelöscht.
+- Eine Folge, deren neue Datei verworfen wird, steht wieder auf „fehlend", statt im Download festzuhängen, und die Karte des verworfenen Torrents verschwindet. Die Ablehnungsmeldung nennt jetzt beide Größen (auf dem Datenträger und erwartet).
+- Neue Duplikat-Bereinigung unter Einstellungen > Dateien > Wartung: findet übrig gebliebene „(2)", „(3)"-Dateien auf dem Datenträger, mit sicherem Löschen (nie eine verwendete oder neue Datei).
+
 ## v1.28.131 — 11. November 2026
 
 ### Diagnose

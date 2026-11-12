@@ -8,6 +8,7 @@ import { pathFor } from "@/lib/library/renamePath";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { loadPathMappings, isUsablePathMapping, type PathMapping } from "@/lib/plex/pathMappingStore";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { isInIncomingDir } from "@/lib/library/incomingDir";
 
 const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts)$/i;
 
@@ -240,7 +241,7 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
     const candidates = (await walk(base))
       .map((rel) => pathFor(base).join(base, String(rel)))
       // a trashed file isn't "untracked" — it's deliberately awaiting purge, not a stray
-      .filter((full) => VIDEO_EXT.test(full) && !isInTrash(full));
+      .filter((full) => VIDEO_EXT.test(full) && !isInTrash(full) && !isInIncomingDir(full));
     const tickFiles = trackJobProgress(candidates.length);
     const files = await mapWithConcurrency(candidates, DISK_CONCURRENCY, async (full) => { const found = await isFile(full); tickFiles(); return found; });
     candidates.forEach((full, i) => { if (files[i]) onDisk.add(full); });
