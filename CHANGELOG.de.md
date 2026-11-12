@@ -1,3 +1,9 @@
+## v1.28.138 — 12. November 2026
+
+### Interface
+
+- Entdecken › Alle: Filme und Serien erscheinen gleichzeitig und wechseln sich in den Karussells und in „Alle anzeigen“ Karte für Karte ab (Serien landen nicht mehr am Ende der Reihe). Keine zusätzliche Wartezeit: Die Seite wartet nur auf die erste Antwort beider Typen, die der Server bereits im Hintergrund vorbereitet.
+
 ## v1.28.137 — 12. November 2026
 
 ### Interface

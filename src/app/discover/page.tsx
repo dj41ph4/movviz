@@ -23,6 +23,7 @@ import { TmdbImage } from "@/components/media/TmdbImage";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 import type { MetaSearchResult, MetaPersonSearchResult, MetaDetail } from "@/lib/metadata/types";
+import { interleaveMoviesAndSeries } from "@/lib/discover/interleave";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
@@ -465,15 +466,28 @@ function DiscoverPageInner() {
   );
   const rows = rowsData?.rows ?? [];
   const otherMediaType = mediaType === "movie" ? "series" : "movie";
-  const { data: otherRowsData } = useSWR<{ pending?: boolean; rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
+  const { data: otherRowsData, error: otherRowsError, isLoading: otherRowsLoading } = useSWR<{ pending?: boolean; rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
     configured && forYou && !isBrowsing ? `/api/metadata/rows?type=${otherMediaType}` : null,
     { refreshInterval: (data) => data?.pending ? 2_000 : 0 }
   );
+  // « Tout » : films et séries arrivent ENSEMBLE (jamais les films d'abord, les séries
+  // ensuite) et alternent une carte sur deux. Le serveur prépare déjà chaque type en
+  // arrière-plan (cache qui se rafraîchit seul) : on attend seulement la PREMIÈRE réponse
+  // des deux, pas la fin de leurs calculs, donc aucune latence de plus — la suite se
+  // complète toute seule. Si l'une échoue, l'autre s'affiche seule plutôt que de bloquer.
+  const otherRowsReady = !forYou || !!otherRowsError || !!otherRowsData;
   const editorialRows = useMemo(() => {
     if (!forYou) return rows;
+    if (!otherRowsReady) return [];
     const otherByKey = new Map((otherRowsData?.rows ?? []).map((row) => [row.key, row]));
-    return rows.map((row) => ({ ...row, results: [...row.results, ...(otherByKey.get(row.key)?.results ?? [])] }));
-  }, [rows, otherRowsData, forYou]);
+    return rows.map((row) => {
+      const all = [...row.results, ...(otherByKey.get(row.key)?.results ?? [])];
+      return {
+        ...row,
+        results: interleaveMoviesAndSeries(all.filter((r) => r.type === "movie"), all.filter((r) => r.type === "series")),
+      };
+    });
+  }, [rows, otherRowsData, otherRowsReady, forYou]);
 
   // C411 front-page lists (populaire / uploads récents / sorties du jour) —
   // only present when the C411 indexer has lists enabled with site credentials.
@@ -575,6 +589,29 @@ function DiscoverPageInner() {
         url = `/api/metadata/search?partViews=1&q=${encodeURIComponent(q)}&page=${targetPage}${exactSearch ? "&exact=1" : ""}`;
       } else if (rowCategory) {
         url = `/api/metadata/row-page?type=${mediaType}&key=${encodeURIComponent(rowCategory)}&page=${targetPage}`;
+        if (forYou) {
+          // « Tout » : on demande aussi l'autre type et on alterne film / série.
+          const otherUrl = `/api/metadata/row-page?type=${otherMediaType}&key=${encodeURIComponent(rowCategory)}&page=${targetPage}`;
+          const [mainRes, otherRes] = await Promise.all([
+            fetch(url, { cache: "no-store", signal }),
+            fetch(otherUrl, { cache: "no-store", signal }).catch(() => null),
+          ]);
+          const main = mainRes.ok ? await mainRes.json() : { results: [] };
+          const other = otherRes?.ok ? await otherRes.json().catch(() => ({ results: [] })) : { results: [] };
+          if (signal?.aborted || requestId !== browseRequestId.current) return;
+          const tag = (list: unknown, type: "movie" | "series"): MetaSearchResult[] =>
+            (Array.isArray(list) ? (list as MetaSearchResult[]) : []).filter(afterMinYear).map((r) => ({ ...r, type }));
+          const mainTyped = tag(main.results, mediaType);
+          const otherTyped = tag(other.results, otherMediaType);
+          const mixed = mediaType === "movie"
+            ? interleaveMoviesAndSeries(mainTyped, otherTyped)
+            : interleaveMoviesAndSeries(otherTyped, mainTyped);
+          setResults((prev) => (targetPage === 1 ? mixed : [...prev, ...mixed]));
+          setPage(Math.max(main.page ?? targetPage, other.page ?? targetPage));
+          setTotalPages(Math.max(main.totalPages ?? 0, other.totalPages ?? 0));
+          if (targetPage === 1 && main.meta) setRowCategoryMeta(main.meta);
+          return;
+        }
       } else {
         const params = new URLSearchParams({ type: mediaType, page: String(targetPage) });
         if (genre) params.set("genre", genre);
@@ -1080,7 +1117,7 @@ function DiscoverPageInner() {
               rows={homeRowsArranged}
               layout={rowLayout}
               artwork={titleArtwork}
-              loading={rowsLoading || !!rowsData?.pending}
+              loading={rowsLoading || !!rowsData?.pending || (forYou && !otherRowsReady) || (forYou && otherRowsLoading)}
               companyTiles={companyTiles}
               watchProviderTiles={watchProviderTiles}
               libStatus={libStatus}

@@ -1,3 +1,9 @@
+## v1.28.138 — 12 novembre 2026
+
+### Interface
+
+- Découverte › Tout : films et séries s'affichent en même temps et alternent une carte sur deux dans les carrousels et dans « Voir tout » (les séries ne finissent plus au fond de la rangée). Aucune attente de plus : la page n'attend que la première réponse des deux types, déjà préparés en arrière-plan par le serveur.
+
 ## v1.28.137 — 12 novembre 2026
 
 ### Interface

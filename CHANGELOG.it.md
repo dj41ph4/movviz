@@ -1,3 +1,9 @@
+## v1.28.138 — 12 novembre 2026
+
+### Interface
+
+- Scopri › Tutto: film e serie compaiono contemporaneamente e si alternano una carta su due nei caroselli e in «Vedi tutto» (le serie non finiscono più in fondo alla riga). Nessuna attesa in più: la pagina attende solo la prima risposta dei due tipi, già preparati in background dal server.
+
 ## v1.28.137 — 12 novembre 2026
 
 ### Interface

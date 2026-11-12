@@ -1,3 +1,9 @@
+## v1.28.138 — 12 november 2026
+
+### Interface
+
+- Ontdekken › Alles: films en series verschijnen tegelijk en wisselen elkaar af, één kaart om de andere, in de carrousels en in "Alles bekijken" (series eindigen niet meer onderaan de rij). Geen extra wachttijd: de pagina wacht alleen op het eerste antwoord van beide typen, die de server al op de achtergrond voorbereidt.
+
 ## v1.28.137 — 12 november 2026
 
 ### Interface

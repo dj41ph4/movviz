@@ -1,3 +1,9 @@
+## v1.28.138 — November 12, 2026
+
+### Interface
+
+- Discover › All: movies and series now appear at the same time and alternate one card out of two in the carousels and in "See all" (series no longer end up at the bottom of the row). No extra wait: the page only waits for the first response of both types, which the server already prepares in the background.
+
 ## v1.28.137 — November 12, 2026
 
 ### Interface
