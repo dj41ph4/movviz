@@ -1,9 +1,8 @@
-## v1.28.134 — November 12, 2026
+## v1.28.135 — November 12, 2026
+
+### Downloads
 
 - Duplicate cleanup: new "Merge" button for a "(n)" file used by the library whose original also exists — the "(n)" file takes the clean name, the old file is deleted and the library is updated (the original is set aside first and restored on failure; refused if the original is newer or an import may be in progress).
-
-## v1.28.133 — November 12, 2026
-
 - Duplicate cleanup: a movie year such as "(2026)" is no longer mistaken for a "(2)" counter — only 1–3 digit suffixes count as duplicates.
 
 ## v1.28.132 — November 12, 2026
