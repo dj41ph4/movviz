@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Compass, LibraryBig, Search, Inbox, Download,
   Settings, AlertTriangle, Users, Clock, CalendarDays, Trash2, ClipboardList,
-  Ban, CircleOff, type LucideIcon,
+  Ban, CircleOff, BarChart3, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -31,6 +31,7 @@ export const NAV: NavItem[] = [
 export const GESTION_NAV: NavItem[] = [
   { href: "/requests", labelKey: "nav.requests", hintKey: "nav.requestsHint", icon: Inbox, liveBadge: "pendingRequests" },
   { href: "/history", labelKey: "nav.history", hintKey: "nav.historyHint", icon: Clock },
+  { href: "/stats", labelKey: "nav.stats", hintKey: "nav.statsHint", icon: BarChart3, adminOnly: true },
   { href: "/search", labelKey: "nav.torrentSearch", hintKey: "nav.torrentHint", icon: Search, adminOnly: true },
   { href: "/issues", labelKey: "nav.issues", hintKey: "nav.issuesHint", icon: AlertTriangle },
   { href: "/exclusions", labelKey: "nav.exclusions", hintKey: "nav.exclusionsHint", icon: CircleOff },

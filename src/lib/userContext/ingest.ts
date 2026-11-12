@@ -221,7 +221,17 @@ export function recordPlaybackStarted(sessionId: string, snapshot: PlaybackConte
   });
 }
 
-export function recordPlaybackStopped(sessionId: string, snapshot: PlaybackContextSnapshot, occurredAt = Date.now()): void {
+/** Détails d'une lecture Movviz gardés dans le journal pour la page Statistiques (plateforme, mode, durée réellement vue). */
+export interface PlaybackStopExtra {
+  playedMs: number;
+  startedAt: number;
+  web: boolean | null;
+  browser: string | null;
+  mode: string | null;
+  height: number | null;
+}
+
+export function recordPlaybackStopped(sessionId: string, snapshot: PlaybackContextSnapshot, occurredAt = Date.now(), extra?: PlaybackStopExtra): void {
   syncPlaybackContext(snapshot, { force: true });
   recordUserContextEvent({
     userId: snapshot.userId,
@@ -238,6 +248,7 @@ export function recordPlaybackStopped(sessionId: string, snapshot: PlaybackConte
     positionMs: snapshot.lastPositionMs,
     durationMs: snapshot.durationMs,
     occurredAt,
+    payload: extra ? { ...extra } : null,
   });
 }
 

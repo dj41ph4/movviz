@@ -1,3 +1,9 @@
+## v1.28.139 — 12 novembre 2026
+
+### Gestion
+
+- Nouvelle page « Statistiques » dans Gestion (administrateurs) : sessions en direct Plex et Movviz côte à côte, puis lectures par jour, jour de semaine et heure, temps de visionnage, films, séries et utilisateurs les plus actifs, plateformes, modes de lecture et dernières lectures — filtrables par période, source et utilisateur. Une vue Plex qui reprend une lecture Movviz n'est comptée qu'une fois. Les lectures Movviz enregistrent désormais l'appareil, le mode de lecture et la durée réellement vue (l'historique Plex ne fournit pas ces détails).
+
 ## v1.28.138 — 12 novembre 2026
 
 ### Interface

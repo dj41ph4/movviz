@@ -1,3 +1,9 @@
+## v1.28.139 — 12 novembre 2026
+
+### Gestione
+
+- Nuova pagina «Statistiche» in Gestione (amministratori): sessioni Plex e Movviz in diretta affiancate, poi riproduzioni per giorno, giorno della settimana e ora, tempo di visione, film e serie più visti, utenti più attivi, piattaforme, modalità di riproduzione e ultime riproduzioni — filtrabili per periodo, fonte e utente. Una visione Plex che rispecchia una riproduzione Movviz viene contata una sola volta. Le riproduzioni Movviz registrano ora dispositivo, modalità di riproduzione e tempo realmente visto (la cronologia Plex non fornisce questi dettagli).
+
 ## v1.28.138 — 12 novembre 2026
 
 ### Interface

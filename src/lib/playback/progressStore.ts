@@ -561,5 +561,13 @@ export function stopPlayback(sessionId: string, positionMs?: number, reason?: Pl
     }
   }
   if (!completedHere) { p.updatedAt = Date.now(); p.revision++; }
-  recordPlaybackStopped(sessionId, p); sessions().delete(sessionId); delete store().sessions?.[sessionId]; persist(); emitWatchChanged(p.userId); return p;
+  recordPlaybackStopped(sessionId, p, Date.now(), {
+    playedMs: Math.max(0, Math.round(s.actualPlayedMs)),
+    startedAt: s.startedAt,
+    web: s.webClient ?? null,
+    browser: s.browser ?? null,
+    mode: s.clientMode?.split("+")[0] ?? null,
+    height: s.clientHeight ?? null,
+  });
+  sessions().delete(sessionId); delete store().sessions?.[sessionId]; persist(); emitWatchChanged(p.userId); return p;
 }

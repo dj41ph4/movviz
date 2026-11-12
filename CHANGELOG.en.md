@@ -1,3 +1,9 @@
+## v1.28.139 — November 12, 2026
+
+### Management
+
+- New "Statistics" page under Management (administrators): live Plex and Movviz sessions side by side, then plays per day, weekday and hour, watch time, most watched movies, series and most active users, platforms, playback modes and recent plays — filterable by period, source and user. A Plex view that mirrors a Movviz play is counted once. Movviz plays now record the device, playback mode and the time actually watched (Plex history does not provide these details).
+
 ## v1.28.138 — November 12, 2026
 
 ### Interface

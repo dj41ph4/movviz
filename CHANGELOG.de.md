@@ -1,3 +1,9 @@
+## v1.28.139 — 12. November 2026
+
+### Verwaltung
+
+- Neue Seite „Statistiken“ unter Verwaltung (Administratoren): laufende Plex- und Movviz-Sitzungen nebeneinander, dann Wiedergaben pro Tag, Wochentag und Stunde, Wiedergabezeit, meistgesehene Filme und Serien, aktivste Benutzer, Plattformen, Wiedergabemodi und letzte Wiedergaben — filterbar nach Zeitraum, Quelle und Benutzer. Eine Plex-Ansicht, die eine Movviz-Wiedergabe spiegelt, wird nur einmal gezählt. Movviz-Wiedergaben speichern jetzt Gerät, Wiedergabemodus und die tatsächlich gesehene Zeit (der Plex-Verlauf liefert diese Details nicht).
+
 ## v1.28.138 — 12. November 2026
 
 ### Interface

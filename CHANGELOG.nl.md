@@ -1,3 +1,9 @@
+## v1.28.139 — 12 november 2026
+
+### Beheer
+
+- Nieuwe pagina "Statistieken" onder Beheer (beheerders): live Plex- en Movviz-sessies naast elkaar, daarna weergaven per dag, weekdag en uur, kijktijd, meest bekeken films en series, actiefste gebruikers, platforms, afspeelmodi en recente weergaven — te filteren op periode, bron en gebruiker. Een Plex-weergave die een Movviz-weergave spiegelt wordt maar één keer geteld. Movviz-weergaven slaan nu het apparaat, de afspeelmodus en de echt bekeken tijd op (de Plex-geschiedenis levert deze details niet).
+
 ## v1.28.138 — 12 november 2026
 
 ### Interface
