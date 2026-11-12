@@ -2192,6 +2192,14 @@ export const en: Dictionary = {
     err_outside_library: "file outside the library folders",
     err_no_roots: "library folders not found (engine unreachable)",
     err_unknown: "unknown error",
+    merge: "Merge",
+    confirmMerge: "Merge {count} file(s)? The used “(n)” file takes the original’s name, the old file is deleted from disk and the library is updated.",
+    merged: "{count} file(s) merged, {size} freed",
+    mergePartial: "{count} merged, {failed} failed — {reason}",
+    mergeError: "Could not merge the files",
+    err_original_newer: "the original is newer than the “(n)” file: merge refused",
+    err_original_missing: "original not found",
+    err_not_mergeable: "this file cannot be merged",
   },
 
   customFormats: {

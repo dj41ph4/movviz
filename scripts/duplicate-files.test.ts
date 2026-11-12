@@ -136,3 +136,28 @@ test("une année « (2026) » n'est pas un compteur de doublon, « (2025) (2) »
   assert.equal(stripCollisionSuffix("Film (2025) (2).mkv", path.posix), "Film (2025).mkv");
   assert.equal(stripCollisionSuffix("Série - S01E01 (12).mkv", path.posix), "Série - S01E01.mkv");
 });
+
+test("fusion : le « (n) » utilisé prend le nom de l'original, l'ancien part, la bibliothèque suit", async () => {
+  const { mergeDuplicateFiles } = await import("../src/lib/library/duplicateFiles.ts");
+  const { loadSeries } = await import("../src/lib/library/store.ts");
+  await scanDuplicateFiles([media], undefined, { now: later });
+  // Un fichier non utilisé ne se fusionne pas (il se supprime).
+  const refused = await mergeDuplicateFiles([e1dup2], [media], "admin", later);
+  assert.equal(refused.done.length, 0);
+  assert.ok(["not_mergeable", "not_in_report", "already_gone"].includes(refused.failed[0].error));
+  // Hors fenêtre « récent » seulement.
+  const tooSoon = await mergeDuplicateFiles([e3used], [media], "admin");
+  assert.equal(tooSoon.failed[0]?.error, "recent");
+  assert.ok(fs.existsSync(e3) && fs.existsSync(e3used));
+
+  const r = await mergeDuplicateFiles([e3used], [media], "admin", later);
+  assert.equal(r.failed.length, 0);
+  assert.equal(r.done.length, 1);
+  assert.ok(fs.existsSync(e3), "le nom propre existe");
+  assert.ok(!fs.existsSync(e3used), "le « (2) » a disparu");
+  assert.ok(!fs.existsSync(`${e3}.movviz-merge-bak`), "plus de sauvegarde");
+  const ep = loadSeries()[0].seasons[0].episodes.find((e) => e.episodeNumber === 3)!;
+  assert.equal(ep.file!.path, e3);
+  assert.equal(ep.file!.diskPath, e3);
+  assert.ok(!loadDuplicateReport().items.some((i) => i.path === e3used));
+});

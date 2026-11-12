@@ -2191,6 +2191,14 @@ export const it: Dictionary = {
     err_outside_library: "file fuori dalle cartelle della libreria",
     err_no_roots: "cartelle della libreria non trovate (motore non raggiungibile)",
     err_unknown: "errore sconosciuto",
+    merge: "Unisci",
+    confirmMerge: "Unire {count} file? Il file «(n)» in uso prende il nome dell’originale, il vecchio file viene eliminato dal disco e la libreria viene aggiornata.",
+    merged: "{count} file uniti, {size} recuperati",
+    mergePartial: "{count} uniti, {failed} falliti — {reason}",
+    mergeError: "Impossibile unire i file",
+    err_original_newer: "l’originale è più recente del file «(n)»: unione rifiutata",
+    err_original_missing: "originale non trovato",
+    err_not_mergeable: "questo file non può essere unito",
   },
 
   customFormats: {

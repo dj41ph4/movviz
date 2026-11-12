@@ -1,3 +1,7 @@
+## v1.28.134 — 12 novembre 2026
+
+- Pulizia dei duplicati: nuovo pulsante «Unisci» per un file «(n)» usato dalla libreria il cui originale esiste anch'esso — il file «(n)» prende il nome pulito, il vecchio file viene eliminato e la libreria aggiornata (l'originale viene prima messo da parte e ripristinato in caso di errore; rifiutato se l'originale è più recente o se un'importazione è forse in corso).
+
 ## v1.28.133 — 12 novembre 2026
 
 - Pulizia dei duplicati: un anno di film come «(2026)» non viene più scambiato per un contatore «(2)» — solo i suffissi di 1–3 cifre sono duplicati.

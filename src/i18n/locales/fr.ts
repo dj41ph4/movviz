@@ -2190,6 +2190,14 @@ export const fr = {
     err_outside_library: "fichier hors des dossiers de la bibliothèque",
     err_no_roots: "dossiers de la bibliothèque introuvables (moteur injoignable)",
     err_unknown: "erreur inconnue",
+    merge: "Fusionner",
+    confirmMerge: "Fusionner {count} fichier(s) ? Le fichier « (n) » utilisé prend le nom de l’original, l’ancien fichier est supprimé du disque et la bibliothèque est mise à jour.",
+    merged: "{count} fichier(s) fusionné(s), {size} récupérés",
+    mergePartial: "{count} fusionné(s), {failed} en échec — {reason}",
+    mergeError: "Impossible de fusionner les fichiers",
+    err_original_newer: "l’original est plus récent que le « (n) » : fusion refusée",
+    err_original_missing: "original introuvable",
+    err_not_mergeable: "fusion impossible pour ce fichier",
   },
 
   customFormats: {

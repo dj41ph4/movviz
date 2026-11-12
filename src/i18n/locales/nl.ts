@@ -2192,6 +2192,14 @@ export const nl: Dictionary = {
     err_outside_library: "bestand buiten de bibliotheekmappen",
     err_no_roots: "bibliotheekmappen niet gevonden (engine onbereikbaar)",
     err_unknown: "onbekende fout",
+    merge: "Samenvoegen",
+    confirmMerge: "{count} bestand(en) samenvoegen? Het gebruikte “(n)”-bestand krijgt de naam van het origineel, het oude bestand wordt van schijf verwijderd en de bibliotheek wordt bijgewerkt.",
+    merged: "{count} bestand(en) samengevoegd, {size} vrijgemaakt",
+    mergePartial: "{count} samengevoegd, {failed} mislukt — {reason}",
+    mergeError: "Bestanden konden niet worden samengevoegd",
+    err_original_newer: "het origineel is nieuwer dan het “(n)”-bestand: samenvoegen geweigerd",
+    err_original_missing: "origineel niet gevonden",
+    err_not_mergeable: "dit bestand kan niet worden samengevoegd",
   },
 
   customFormats: {

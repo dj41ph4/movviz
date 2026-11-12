@@ -2210,6 +2210,14 @@ export const de: Dictionary = {
     err_outside_library: "Datei außerhalb der Bibliotheksordner",
     err_no_roots: "Bibliotheksordner nicht gefunden (Engine nicht erreichbar)",
     err_unknown: "unbekannter Fehler",
+    merge: "Zusammenführen",
+    confirmMerge: "{count} Datei(en) zusammenführen? Die verwendete „(n)“-Datei übernimmt den Namen des Originals, die alte Datei wird von der Festplatte gelöscht und die Bibliothek aktualisiert.",
+    merged: "{count} Datei(en) zusammengeführt, {size} freigegeben",
+    mergePartial: "{count} zusammengeführt, {failed} fehlgeschlagen — {reason}",
+    mergeError: "Dateien konnten nicht zusammengeführt werden",
+    err_original_newer: "das Original ist neuer als die „(n)“-Datei: Zusammenführung abgelehnt",
+    err_original_missing: "Original nicht gefunden",
+    err_not_mergeable: "diese Datei kann nicht zusammengeführt werden",
   },
 
   customFormats: {

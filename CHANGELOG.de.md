@@ -1,3 +1,7 @@
+## v1.28.134 — 12. November 2026
+
+- Duplikat-Bereinigung: neue Schaltfläche „Zusammenführen“ für eine von der Bibliothek verwendete „(n)“-Datei, deren Original ebenfalls existiert – die „(n)“-Datei übernimmt den sauberen Namen, die alte Datei wird gelöscht und die Bibliothek aktualisiert (das Original wird zuerst beiseitegelegt und bei einem Fehler wiederhergestellt; abgelehnt, wenn das Original neuer ist oder ein Import läuft).
+
 ## v1.28.133 — 12. November 2026
 
 - Duplikat-Bereinigung: Eine Filmjahreszahl wie „(2026)“ wird nicht mehr mit einem „(2)“-Zähler verwechselt – nur Suffixe mit 1 bis 3 Ziffern gelten als Duplikate.

@@ -1,3 +1,7 @@
+## v1.28.134 — 12 november 2026
+
+- Duplicaten opruimen: nieuwe knop "Samenvoegen" voor een door de bibliotheek gebruikt "(n)"-bestand waarvan het origineel ook bestaat — het "(n)"-bestand krijgt de schone naam, het oude bestand wordt verwijderd en de bibliotheek bijgewerkt (het origineel wordt eerst opzijgezet en bij een fout hersteld; geweigerd als het origineel nieuwer is of een import mogelijk bezig is).
+
 ## v1.28.133 — 12 november 2026
 
 - Duplicaten opruimen: een filmjaar zoals "(2026)" wordt niet meer aangezien voor een "(2)"-teller — alleen suffixen van 1 tot 3 cijfers tellen als duplicaat.

@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { loadMovies, loadSeries } from "@/lib/library/store";
+import { loadMovies, loadSeries, updateMovies, updateSeriesList } from "@/lib/library/store";
+import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { deleteLibraryFile, stripCollisionSuffix } from "@/lib/library/applyImportedFiles";
 import { logActivity } from "@/lib/activity/store";
 
@@ -212,6 +213,140 @@ export async function resolveDuplicateFiles(
       // Déjà disparu : le résultat voulu est atteint, la ligne sort simplement du rapport.
       if (message === "already_gone") result.done.push(item.path);
       else result.failed.push({ path: p, error: message.startsWith("Remplacement refusé") ? "outside_library" : message });
+    }
+  }
+  if (result.done.length > 0) {
+    saveDuplicateReport({ ...report, items: report.items.filter((i) => !result.done.includes(i.path)) });
+  }
+  return result;
+}
+
+/** Un fichier « (n) » utilisé par la bibliothèque dont l'original existe aussi peut être fusionné. */
+export const isMergeable = (item: Pick<DuplicateItem, "state" | "originalSize">): boolean =>
+  item.state === "in_use" && item.originalSize !== null;
+
+const lastSegment = (p: string) => p.split(/[\\/]/).pop() ?? p;
+
+/**
+ * Nouveau chemin d'une référence bibliothèque après la fusion : le fichier « (n) »
+ * prend le nom de l'original. Le chemin vu par Plex peut différer du disque : on ne
+ * remplace que le dernier segment quand il porte le nom du fichier « (n) ».
+ */
+function repointedPath(p: string | undefined, fromPath: string, fromName: string, toPath: string, toName: string): string | undefined {
+  if (!p) return p;
+  if (norm(p) === norm(fromPath)) return toPath;
+  if (lastSegment(p) === fromName) return p.slice(0, p.length - fromName.length) + toName;
+  return p;
+}
+
+function repointFile<T extends { path: string; diskPath?: string }>(file: T, fromPath: string, fromName: string, toPath: string, toName: string): T {
+  const newPath = repointedPath(file.path, fromPath, fromName, toPath, toName) ?? file.path;
+  const diskPath = repointedPath(file.diskPath, fromPath, fromName, toPath, toName);
+  return { ...file, path: newPath, ...(file.diskPath !== undefined ? { diskPath } : {}) };
+}
+
+const refersTo = (file: { path?: string; diskPath?: string } | null | undefined, p: string) =>
+  !!file && [file.path, file.diskPath].some((x) => x && norm(x) === norm(p));
+
+/** Met à jour toutes les références bibliothèque de `fromPath` vers `toPath`. */
+function repointLibrary(fromPath: string, toPath: string): number {
+  const fromName = path.basename(fromPath);
+  const toName = path.basename(toPath);
+  let touched = 0;
+  const moviePatches = new Map<string, Partial<LibraryMovie>>();
+  for (const movie of loadMovies()) {
+    const hit = refersTo(movie.file, fromPath) || refersTo(movie.file, toPath) ||
+      (movie.versions ?? []).some((v) => refersTo(v, fromPath) || refersTo(v, toPath));
+    if (!hit) continue;
+    const file = movie.file ? repointFile(movie.file, fromPath, fromName, toPath, toName) : movie.file;
+    let versions = movie.versions?.map((v) => repointFile(v, fromPath, fromName, toPath, toName));
+    if (versions) {
+      // Deux versions sur le même fichier après la fusion : on garde la principale (ou la première).
+      const seen = new Map<string, number>();
+      const kept: typeof versions = [];
+      for (const v of versions) {
+        const key = norm(v.diskPath || v.path);
+        const at = seen.get(key);
+        if (at === undefined) { seen.set(key, kept.length); kept.push(v); }
+        else if (v.primary && !kept[at].primary) kept[at] = v;
+      }
+      versions = kept;
+    }
+    moviePatches.set(movie.id, { file, ...(versions ? { versions } : {}) });
+    touched++;
+  }
+  if (moviePatches.size > 0) updateMovies(moviePatches);
+
+  const seriesPatches = new Map<string, Partial<LibrarySeries>>();
+  for (const series of loadSeries()) {
+    let changed = false;
+    const seasons = series.seasons.map((season) => ({
+      ...season,
+      episodes: season.episodes.map((ep) => {
+        if (!refersTo(ep.file, fromPath)) return ep;
+        changed = true;
+        touched++;
+        return { ...ep, file: repointFile(ep.file!, fromPath, fromName, toPath, toName) };
+      }),
+    }));
+    if (changed) seriesPatches.set(series.id, { seasons });
+  }
+  if (seriesPatches.size > 0) updateSeriesList(seriesPatches);
+  return touched;
+}
+
+/**
+ * Fusionne un fichier « (n) » utilisé avec son original : le fichier « (n) » (le plus
+ * récent, celui du remplacement) prend le nom de l'original, l'ancien est supprimé et
+ * la bibliothèque est repointée. L'original est d'abord mis de côté puis effacé
+ * seulement une fois le renommage réussi ; en cas d'échec il est remis en place.
+ */
+export async function mergeDuplicateFiles(
+  paths: string[],
+  roots: string[],
+  username: string,
+  now = Date.now()
+): Promise<DuplicateResolveResult> {
+  const report = loadDuplicateReport();
+  const result: DuplicateResolveResult = { done: [], failed: [], freedBytes: 0 };
+  if (roots.length === 0) {
+    for (const p of paths) result.failed.push({ path: p, error: "no_roots" });
+    return result;
+  }
+  const referenced = libraryReferencedPaths();
+  for (const p of paths) {
+    const item = report.items.find((i) => i.path === p);
+    if (!item) { result.failed.push({ path: p, error: "not_in_report" }); continue; }
+    const backup = `${item.originalPath}.movviz-merge-bak`;
+    let backedUp = false;
+    try {
+      if (!isMergeable(item)) throw new Error("not_mergeable");
+      const st = await fs.promises.lstat(item.path).catch(() => null);
+      if (!st) throw new Error("already_gone");
+      if (!st.isFile() || st.size !== item.size || st.mtimeMs !== item.mtimeMs) throw new Error("file_changed");
+      if (!referenced.has(norm(item.path))) throw new Error("not_mergeable");
+      const orig = await fs.promises.lstat(item.originalPath).catch(() => null);
+      if (!orig?.isFile()) throw new Error("original_missing");
+      if (now - Math.max(st.mtimeMs, st.ctimeMs, orig.mtimeMs, orig.ctimeMs) < RECENT_WINDOW_MS) throw new Error("recent");
+      if (orig.mtimeMs > st.mtimeMs) throw new Error("original_newer");
+      // Mettre l'original de côté d'abord : rien n'est effacé avant que le renommage ait réussi.
+      await fs.promises.rename(item.originalPath, backup);
+      backedUp = true;
+      await fs.promises.rename(item.path, item.originalPath);
+      repointLibrary(item.path, item.originalPath);
+      await deleteLibraryFile(backup, roots);
+      backedUp = false;
+      result.done.push(item.path);
+      result.freedBytes += orig.size;
+      logActivity("removed", username, path.basename(item.originalPath), null);
+    } catch (err) {
+      if (backedUp) {
+        // Échec après la mise de côté : on remet l'original en place s'il manque.
+        const missing = !(await fs.promises.lstat(item.originalPath).catch(() => null));
+        if (missing) await fs.promises.rename(backup, item.originalPath).catch(() => {});
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      result.failed.push({ path: p, error: message.startsWith("Remplacement refusé") ? "outside_library" : message });
     }
   }
   if (result.done.length > 0) {

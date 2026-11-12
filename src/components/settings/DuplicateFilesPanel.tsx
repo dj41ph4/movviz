@@ -6,7 +6,7 @@ import { useT } from "@/i18n/provider";
 import { formatBytes } from "@/lib/utils";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toast";
-import { Copy, Loader2, Check, Search, Trash2 } from "lucide-react";
+import { Copy, Loader2, Check, Search, Trash2, Merge } from "lucide-react";
 
 interface Job {
   id: string;
@@ -34,7 +34,10 @@ interface Report {
 
 const SOURCE_ID = "duplicate-files-scan";
 /** Seuls ces états peuvent être supprimés : un fichier utilisé ou récent n'a pas de case. */
-const selectable = (i: Item) => i.state === "duplicate" || i.state === "no_original";
+const deletable = (i: Item) => i.state === "duplicate" || i.state === "no_original";
+/** Un « (n) » utilisé dont l'original existe aussi : fusionnable (le « (n) » prend le nom propre). */
+const mergeable = (i: Item) => i.state === "in_use" && i.originalSize !== null;
+const selectable = (i: Item) => deletable(i) || mergeable(i);
 const badgeClass: Record<State, string> = {
   duplicate: "bg-down/12 text-down",
   no_original: "bg-amber/15 text-amber-100",
@@ -81,7 +84,8 @@ export function DuplicateFilesPanel() {
     [all, filter]
   );
   const shownSelectable = items.filter(selectable);
-  const chosen = useMemo(() => all.filter((i) => selected.has(i.path) && selectable(i)), [all, selected]);
+  const chosen = useMemo(() => all.filter((i) => selected.has(i.path) && deletable(i)), [all, selected]);
+  const chosenMerge = useMemo(() => all.filter((i) => selected.has(i.path) && mergeable(i)), [all, selected]);
   const chosenBytes = chosen.reduce((sum, i) => sum + i.size, 0);
   const withoutOriginal = chosen.filter((i) => i.state === "no_original").length;
   const allShownSelected = shownSelectable.length > 0 && shownSelectable.every((i) => selected.has(i.path));
@@ -102,6 +106,47 @@ export function DuplicateFilesPanel() {
       }
       return next;
     });
+
+  const merge = async () => {
+    if (chosenMerge.length === 0 || working) return;
+    const ok = await confirmDialog(t("duplicateFiles.confirmMerge", { count: chosenMerge.length }), { tone: "danger" });
+    if (!ok) return;
+    setWorking(true);
+    const paths = chosenMerge.map((i) => i.path);
+    setPending((prev) => new Set([...prev, ...paths]));
+    setSelected(new Set());
+    try {
+      const res = await fetch("/api/library/duplicate-files/merge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ paths }),
+      });
+      const data = (await res.json().catch(() => null)) as { done?: number; failed?: { error?: string }[]; freedBytes?: number } | null;
+      if (!res.ok || !data) {
+        toast("error", t("duplicateFiles.mergeError"));
+      } else {
+        void globalMutate((key) => typeof key === "string" && key.startsWith("/api/library/"));
+        const failures = data.failed ?? [];
+        const top = failures[0]?.error;
+        const reasonKey = top ? `duplicateFiles.err_${top}` : "";
+        const reason = reasonKey && t(reasonKey) !== reasonKey ? t(reasonKey) : top ?? "";
+        toast(failures.length > 0 ? "error" : "success", t(failures.length > 0 ? "duplicateFiles.mergePartial" : "duplicateFiles.merged", {
+          count: data.done ?? 0,
+          failed: failures.length,
+          reason,
+          size: formatBytes(data.freedBytes ?? 0),
+        }));
+      }
+    } finally {
+      setWorking(false);
+      await Promise.all([mutateReport(), mutateJobs()]);
+      setPending((prev) => {
+        const next = new Set(prev);
+        for (const p of paths) next.delete(p);
+        return next;
+      });
+    }
+  };
 
   const run = async () => {
     if (chosen.length === 0 || working) return;
@@ -203,11 +248,19 @@ export function DuplicateFilesPanel() {
               <input type="checkbox" checked={allShownSelected} onChange={toggleAll} disabled={shownSelectable.length === 0} className="h-4 w-4 accent-[var(--brand,#8b5cf6)]" />
               {t("duplicateFiles.selectAll")}
             </label>
-            <span className="text-xs text-ink-dim">{t("duplicateFiles.selected", { count: chosen.length })}</span>
+            <span className="text-xs text-ink-dim">{t("duplicateFiles.selected", { count: chosen.length + chosenMerge.length })}</span>
+            <button
+              onClick={merge}
+              disabled={chosenMerge.length === 0 || working}
+              className="ml-auto flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-ink transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
+              {t("duplicateFiles.merge")}
+            </button>
             <button
               onClick={run}
               disabled={chosen.length === 0 || working}
-              className="ml-auto flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
+              className="flex h-10 items-center gap-2 rounded-xl glass px-4 text-sm font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
             >
               {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               {t("duplicateFiles.delete")}

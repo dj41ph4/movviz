@@ -1,3 +1,7 @@
+## v1.28.134 — 12 novembre 2026
+
+- Nettoyage des doublons : nouveau bouton « Fusionner » pour un fichier « (n) » utilisé par la bibliothèque dont l'original existe aussi — le « (n) » prend le nom propre, l'ancien fichier est supprimé et la bibliothèque est mise à jour (l'original est d'abord mis de côté, remis en place en cas d'échec ; refusé si l'original est plus récent ou si un import est peut-être en cours).
+
 ## v1.28.133 — 12 novembre 2026
 
 - Nettoyage des doublons : une année de film « (2026) » n'est plus prise pour un compteur « (2) » — seuls les suffixes de 1 à 3 chiffres sont des doublons.
