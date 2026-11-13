@@ -1,3 +1,11 @@
+## v1.28.143 — 13 novembre 2026
+
+### Bibliothèque
+
+- Le saut à une lettre de l'index A-Z est immédiat, même vers la fin de l'alphabet : la page ne crée plus que les cartes proches de l'écran, au lieu de toutes celles qui précèdent la lettre visée.
+- Page beaucoup plus légère sur les grandes bibliothèques (environ cinq fois moins d'éléments), et qui ne s'alourdit plus à mesure qu'on défile.
+- Index A-Z avec loupe : les lettres proches du pointeur se soulèvent et une goutte affiche en grand la lettre visée. Le clic valide cette lettre où que soit la souris dans la zone — barre, lettre soulevée ou goutte.
+
 ## v1.28.142 — 13 novembre 2026
 
 ### Android TV

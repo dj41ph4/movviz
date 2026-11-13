@@ -1,3 +1,11 @@
+## v1.28.143 — November 13, 2026
+
+### Library
+
+- Jumping to a letter of the A-Z index is immediate, even near the end of the alphabet: the page now only creates the cards close to the screen, instead of every card before the target letter.
+- Much lighter page on large libraries (about five times fewer elements), and it no longer gets heavier as you scroll.
+- A-Z index with a magnifier: letters near the pointer lift up and a drop shows the targeted letter in large. A click selects that letter wherever the mouse is in the area — bar, lifted letter or drop.
+
 ## v1.28.142 — November 13, 2026
 
 ### Android TV

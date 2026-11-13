@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
@@ -11,7 +11,7 @@ import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard"
 import type { BleachPart } from "@/lib/metadata/bleachPresentation";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 
-export function LibrarySeriesCard({
+export const LibrarySeriesCard = memo(function LibrarySeriesCard({
   series, index = 0, onChange, backdropPath, logoPath, titleEmbedded,
 }: {
   series: LibrarySeries & { seriesPart?: BleachPart };
@@ -92,4 +92,4 @@ export function LibrarySeriesCard({
       />
     </div>
   );
-}
+});

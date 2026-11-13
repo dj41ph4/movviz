@@ -1,3 +1,11 @@
+## v1.28.143 — 13 november 2026
+
+### Bibliotheek
+
+- Springen naar een letter van de A-Z-index gaat direct, ook naar het einde van het alfabet: de pagina maakt alleen nog de kaarten dicht bij het scherm aan, in plaats van alle kaarten vóór de gekozen letter.
+- Veel lichtere pagina bij grote bibliotheken (ongeveer vijf keer minder elementen), die niet meer zwaarder wordt tijdens het scrollen.
+- A-Z-index met vergrootglas: letters dicht bij de aanwijzer komen omhoog en een druppel toont de gekozen letter groot. Een klik kiest die letter, waar de muis zich ook in het gebied bevindt — balk, opgetilde letter of druppel.
+
 ## v1.28.142 — 13 november 2026
 
 ### Android TV

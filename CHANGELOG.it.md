@@ -1,3 +1,11 @@
+## v1.28.143 — 13 novembre 2026
+
+### Libreria
+
+- Il salto a una lettera dell'indice A-Z è immediato, anche verso la fine dell'alfabeto: la pagina crea solo le schede vicine allo schermo, invece di tutte quelle che precedono la lettera scelta.
+- Pagina molto più leggera sulle librerie grandi (circa cinque volte meno elementi), e che non si appesantisce più scorrendo.
+- Indice A-Z con lente: le lettere vicine al puntatore si sollevano e una goccia mostra in grande la lettera puntata. Il clic conferma quella lettera ovunque sia il mouse nella zona — barra, lettera sollevata o goccia.
+
 ## v1.28.142 — 13 novembre 2026
 
 ### Android TV

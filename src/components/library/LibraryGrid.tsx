@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -11,6 +11,7 @@ import { SearchAndReplacePanel } from "@/components/library/SearchAndReplacePane
 import { useT, useI18n } from "@/i18n/provider";
 import { useTitleArtworkBatch, type TitleArtworkRef } from "@/components/media/useTitleArtworkBatch";
 import { cn } from "@/lib/utils";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -22,9 +23,31 @@ export const RENDER_BATCH_STEP = 200;
 
 /** Les premières rangées s'affichent en priorité ; le reste du premier lot se monte ensuite, hors du chemin critique. */
 const PRIORITY_ROWS = 10;
-/** Cartes montées à chaque passage d'arrière-plan une fois les rangées prioritaires peintes. */
-const IDLE_GROW_STEP = 60;
-const IDLE_GROW_DELAY_MS = 250;
+/** Fenêtre de rendu : seules les cartes proches de l'écran sont montées, les
+ *  autres cases gardent leur emplacement d'attente (même taille). NEAR est la
+ *  marge qui doit toujours être couverte ; FAR est la marge complétée ensuite
+ *  par petits paliers (quelques rangées à la fois), pour que le défilement ne
+ *  soit jamais bloqué par un gros lot de cartes. */
+const WINDOW_NEAR_PX = 500;
+const WINDOW_FAR_PX = 1300;
+const WINDOW_GROW_ROWS = 1;
+const WINDOW_GROW_DELAY_MS = 30;
+/** Pendant un glissement rapide (ascenseur), la zone d'arrivée n'est montée
+ *  qu'une fois le défilement posé : monter chaque zone traversée le saccadait. */
+const WINDOW_SETTLE_MS = 80;
+/** Les illustrations sont demandées par blocs de titres alignés, plus larges que
+ *  la fenêtre : la demande ne change pas à chaque rangée montée (chaque
+ *  changement relit tout le cache navigateur), et les rangées suivantes
+ *  trouvent leurs images déjà résolues. */
+const ARTWORK_BLOCK = 120;
+/** Espace entre les cases (classe gap-4 de la grille). */
+const GRID_GAP_PX = 16;
+/** Dessin d'une case d'attente (même teinte et même arrondi que rounded-2xl
+ *  bg-white/6), répété en fond des zones d'espacement. */
+const SKELETON_TILE = `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><rect style="width:calc(100% - ${GRID_GAP_PX}px);height:calc(100% - ${GRID_GAP_PX}px)" rx="16" fill="#fff" fill-opacity="0.06"/></svg>`
+)}")`;
+type RenderRange = { start: number; end: number };
 
 /** Colonnes de la grille (mêmes seuils que les classes grid-cols-* ci-dessous). */
 function gridColumns(): number {
@@ -64,17 +87,6 @@ const SORTS: { id: "title" | "recent" | "rating"; key: string }[] = [
 ];
 
 type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries & { seriesPart?: BleachPart } };
-/** Une seule surveillance pour toutes les cases d'attente : seules celles à l'écran
- *  pulsent. Une bibliothèque en compte des milliers, presque toutes invisibles. */
-let skeletonPulseObserver: IntersectionObserver | null = null;
-function pulseWhileVisible(el: HTMLDivElement) {
-  skeletonPulseObserver ??= new IntersectionObserver((entries) => {
-    for (const entry of entries) entry.target.classList.toggle("animate-pulse", entry.isIntersecting);
-  });
-  skeletonPulseObserver.observe(el);
-  return () => skeletonPulseObserver?.unobserve(el);
-}
-
 function titleOf(c: CombinedItem): string {
   return c.kind === "movie" ? c.movie.title : c.series.title;
 }
@@ -90,6 +102,368 @@ function alphabetKeyOf(title: string): string {
   return /[A-Z]/.test(first) ? first : "#";
 }
 const ALPHABET_KEYS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
+
+/** Rayon (px) dans lequel les lettres voisines du pointeur se soulèvent. */
+const INDEX_WAVE_RADIUS = 58;
+const INDEX_WAVE_SHIFT = 16;
+const INDEX_WAVE_SCALE = 0.6;
+
+/**
+ * Index A-Z (Plex-style) avec loupe : les lettres proches du pointeur se
+ * soulèvent vers la gauche en vague, et une goutte affiche en grand la lettre
+ * visée. Tout passe par des transformations posées directement sur les
+ * éléments (aucun rendu React pendant le mouvement, aucune mise en page).
+ */
+const AlphabetIndex = memo(function AlphabetIndex({ available, onJump, label }: {
+  available: Set<string>;
+  onJump: (letter: string) => void;
+  label: string;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const dropLetterRef = useRef<HTMLSpanElement>(null);
+  const reduceMotion = useShouldReduceMotion();
+
+  /** Lettre dont la case (position de mise en page, insensible aux
+   *  transformations en cours) est la plus proche de la hauteur du pointeur. */
+  const nearestTo = (clientY: number): HTMLButtonElement | null => {
+    const bar = barRef.current;
+    if (!bar) return null;
+    const y = clientY - bar.getBoundingClientRect().top;
+    let nearest: HTMLButtonElement | null = null;
+    let nearestDistance = Infinity;
+    bar.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+      const distance = Math.abs(y - (button.offsetTop + button.offsetHeight / 2));
+      if (distance < nearestDistance) { nearestDistance = distance; nearest = button; }
+    });
+    return nearest;
+  };
+  const reset = () => {
+    const bar = barRef.current;
+    if (bar) {
+      delete bar.dataset.open;
+      bar.querySelectorAll<HTMLElement>("button").forEach((button) => { button.style.transform = ""; delete button.dataset.active; });
+    }
+    if (dropRef.current) { dropRef.current.style.opacity = "0"; dropRef.current.style.scale = "0.5"; }
+  };
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const bar = barRef.current;
+    const drop = dropRef.current;
+    if (!bar || !drop || event.pointerType === "touch") return;
+    const target = nearestTo(event.clientY);
+    const y = event.clientY - bar.getBoundingClientRect().top;
+    // Zone de survol élargie jusqu'à la goutte tant que la loupe est ouverte.
+    bar.dataset.open = "true";
+    bar.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+      if (button === target && !button.disabled) button.dataset.active = "true";
+      else delete button.dataset.active;
+      if (reduceMotion) return;
+      const t = Math.max(0, 1 - Math.abs(y - (button.offsetTop + button.offsetHeight / 2)) / INDEX_WAVE_RADIUS);
+      const lift = t * t * (3 - 2 * t);
+      button.style.transform = lift > 0.001 ? `translateX(${(-lift * INDEX_WAVE_SHIFT).toFixed(2)}px) scale(${(1 + lift * INDEX_WAVE_SCALE).toFixed(3)})` : "";
+    });
+    if (!target || target.disabled) {
+      drop.style.opacity = "0";
+      drop.style.scale = "0.5";
+      return;
+    }
+    drop.style.top = `${target.offsetTop + target.offsetHeight / 2}px`;
+    drop.style.opacity = "1";
+    drop.style.scale = "1";
+    if (dropLetterRef.current) dropLetterRef.current.textContent = target.dataset.letter ?? "";
+  };
+  // Le clic valide la lettre affichée dans la goutte, où que soit le pointeur
+  // dans la zone (barre, lettre soulevée ou goutte) : les lettres se déplacent
+  // sous le pointeur, viser leur dessin exact serait impossible. Les boutons ne
+  // reçoivent donc pas la souris ; au clavier (detail 0), c'est le bouton actif.
+  const onClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const button = event.detail === 0
+      ? (event.target as HTMLElement).closest<HTMLButtonElement>("button")
+      : nearestTo(event.clientY);
+    const letter = button?.dataset.letter;
+    if (button && !button.disabled && letter) onJump(letter);
+  };
+
+  return (
+    <div
+      ref={barRef}
+      className="fixed right-1.5 top-1/2 z-30 hidden -translate-y-1/2 cursor-pointer flex-col items-center gap-0.5 rounded-full glass px-1 py-2 before:absolute before:-inset-y-2 before:right-0 before:hidden before:w-28 before:content-[''] data-[open=true]:before:block sm:flex"
+      aria-label={label}
+      onPointerMove={onPointerMove}
+      onPointerLeave={reset}
+      onClick={onClick}
+    >
+      {ALPHABET_KEYS.map((letter) => {
+        const has = available.has(letter);
+        return (
+          <button
+            key={letter}
+            type="button"
+            disabled={!has}
+            data-letter={letter}
+            aria-label={letter}
+            className={cn(
+              "pointer-events-none relative flex h-4 w-4 origin-right items-center justify-center rounded-full text-[9px] font-bold leading-none transition-[transform,color,background-color] duration-100 ease-out",
+              has ? "text-ink-dim focus-visible:bg-brand/20 focus-visible:text-brand-glow data-[active=true]:bg-brand/20 data-[active=true]:text-brand-glow" : "text-ink-dim/25"
+            )}
+          >
+            {letter}
+          </button>
+        );
+      })}
+      {/* Goutte : un carré arrondi dont le coin vif pointe vers la barre. */}
+      <div
+        ref={dropRef}
+        aria-hidden
+        className="pointer-events-none absolute right-full mr-7 h-12 w-12 origin-right transition-[opacity,scale,top] duration-150 ease-out"
+        style={{ top: 0, translate: "0 -50%", opacity: 0, scale: 0.5 }}
+      >
+        <div className="absolute inset-0 -rotate-45 rounded-[50%_50%_0_50%] bg-gradient-to-br from-brand-2 to-brand shadow-[0_10px_28px_-6px_rgba(124,58,237,0.85)] ring-1 ring-inset ring-white/25" />
+        <span ref={dropLetterRef} className="relative flex h-full w-full items-center justify-center text-xl font-black text-white drop-shadow" />
+      </div>
+    </div>
+  );
+});
+
+/**
+ * Zone d'espacement : tient la place de `rows` rangées non montées, sur toute
+ * la largeur de la grille. Une grille de plusieurs milliers de cases coûtait
+ * ~50 ms de mise en page à chaque case modifiée ; deux zones et les seules
+ * cartes proches de l'écran la ramènent à quelques centaines d'éléments.
+ * Hauteur et fond calculés en CSS depuis la largeur réelle (unités cqw) : rien
+ * à mesurer, et le dessin des cases d'attente reste aligné sur la grille.
+ */
+function GridSpacer({ rows, columns }: { rows: number; columns: number }) {
+  if (rows <= 0) return null;
+  const cellWidth = `((100cqw - ${(columns - 1) * GRID_GAP_PX}px) / ${columns})`;
+  const rowHeight = `(${cellWidth} * 9 / 16 + ${GRID_GAP_PX}px)`;
+  return (
+    <div data-grid-spacer aria-hidden className="col-span-full [container-type:inline-size]">
+      <div
+        style={{
+          height: `calc(${rows} * ${rowHeight} - ${GRID_GAP_PX}px)`,
+          backgroundImage: SKELETON_TILE,
+          backgroundSize: `calc(${cellWidth} + ${GRID_GAP_PX}px) calc(${rowHeight})`,
+        }}
+      />
+    </div>
+  );
+}
+
+type LibraryCellsHandle = { scrollToIndex: (index: number) => void };
+
+/**
+ * Grille fenêtrée : seules les cartes proches de l'écran sont montées ; le
+ * reste est tenu par une zone d'espacement au-dessus et une au-dessous, de la
+ * hauteur exacte des rangées qu'elles remplacent — la hauteur de défilement
+ * est juste dès le premier affichage et la position d'un titre se calcule.
+ * L'ancien rendu montait tout depuis le début jusqu'au point atteint : un saut
+ * à une lettre lointaine créait des milliers de cartes avant d'arriver, et la
+ * page les gardait toutes ensuite.
+ */
+function LibraryCells({ ref, items, locale, progressFor, watchedMovies, onChange }: {
+  ref?: Ref<LibraryCellsHandle>;
+  items: CombinedItem[];
+  locale: string;
+  progressFor: (movie: LibraryMovie) => EngineTorrent | null | undefined;
+  watchedMovies: Set<number>;
+  onChange: () => void;
+}) {
+  const total = items.length;
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [initialRange] = useState<RenderRange>(() => ({ start: 0, end: priorityCount() }));
+  const [range, setRange] = useState(initialRange);
+  const [columns, setColumns] = useState(gridColumns);
+  const rangeRef = useRef(initialRange);
+  const totalRef = useRef(total);
+  const syncRef = useRef<(immediate: boolean) => void>(() => {});
+  const scrollToRef = useRef<(index: number) => void>(() => {});
+
+  // Tout le pilotage de la fenêtre vit dans cet effet : il ne lit que des refs
+  // et la mise en page réelle, et ne provoque un rendu que quand la fenêtre change.
+  useEffect(() => {
+    let growTimer: ReturnType<typeof setTimeout> | undefined;
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
+    let frame = 0;
+    let currentColumns = gridColumns();
+
+    function measure() {
+      const grid = gridRef.current;
+      if (!grid) return null;
+      // Géométrie déduite de la grille elle-même, avec la même formule que les
+      // zones d'espacement : une carte en cours d'animation (échelle, survol)
+      // fausserait la mesure, et l'écart se multiplierait par des centaines de rangées.
+      const rect = grid.getBoundingClientRect();
+      const columns = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length);
+      const cellWidth = (rect.width - (columns - 1) * GRID_GAP_PX) / columns;
+      if (cellWidth <= 0) return null;
+      return { rowHeight: (cellWidth * 9) / 16 + GRID_GAP_PX, columns, top: rect.top };
+    }
+    type Metrics = NonNullable<ReturnType<typeof measure>>;
+    /** Rangées entières couvrant l'écran plus `margin` px au-dessus et au-dessous. */
+    function rangeAround(m: Metrics, margin: number): RenderRange {
+      const firstRow = Math.max(0, Math.floor((-m.top - margin) / m.rowHeight));
+      const lastRow = Math.max(firstRow, Math.floor((window.innerHeight - m.top + margin) / m.rowHeight));
+      const count = totalRef.current;
+      return { start: Math.min(count, firstRow * m.columns), end: Math.min(count, (lastRow + 1) * m.columns) };
+    }
+    function apply(next: RenderRange) {
+      const current = rangeRef.current;
+      if (next.start === current.start && next.end === current.end) return false;
+      rangeRef.current = next;
+      setRange(next);
+      return true;
+    }
+    function scheduleGrow() {
+      if (growTimer === undefined) growTimer = setTimeout(growStep, WINDOW_GROW_DELAY_MS);
+    }
+    /** Complète la fenêtre jusqu'à la marge FAR, quelques rangées à la fois, et
+     *  démonte ce qui en est sorti. */
+    function growStep() {
+      growTimer = undefined;
+      const m = measure();
+      if (!m) return;
+      const far = rangeAround(m, WINDOW_FAR_PX);
+      const step = m.columns * WINDOW_GROW_ROWS;
+      const current = rangeRef.current;
+      // L'écran a quitté la zone montée (défilement très rapide) : rien à
+      // compléter ici, la zone d'arrivée sera montée quand le défilement se pose.
+      if (far.start >= current.end || far.end <= current.start) return;
+      const start = current.start > far.start
+        ? Math.max(far.start, current.start - step)
+        : current.start < far.start - 4 * step ? far.start : current.start;
+      const end = current.end < far.end
+        ? Math.min(far.end, current.end + step)
+        : current.end > far.end + 4 * step ? far.end : current.end;
+      if (apply({ start, end })) scheduleGrow();
+    }
+    /** Recale la fenêtre sur l'écran. `immediate` : monter la zone d'arrivée tout
+     *  de suite (saut A-Z, premier affichage) ; sinon attendre que le défilement
+     *  se pose si l'écran est sorti de la zone montée. */
+    function syncRange(immediate: boolean) {
+      const m = measure();
+      if (!m) return;
+      const near = rangeAround(m, WINDOW_NEAR_PX);
+      if (m.columns !== currentColumns) {
+        // Nouveau nombre de colonnes : les rangées ne tombent plus aux mêmes
+        // titres, on repart de la zone visible.
+        currentColumns = m.columns;
+        setColumns(m.columns);
+        apply(near);
+        scheduleGrow();
+        return;
+      }
+      const current = rangeRef.current;
+      if (near.start < current.start || near.end > current.end) {
+        if (!immediate) {
+          if (settleTimer !== undefined) clearTimeout(settleTimer);
+          settleTimer = setTimeout(() => { settleTimer = undefined; syncRange(true); }, WINDOW_SETTLE_MS);
+          return;
+        }
+        // Fenêtres disjointes (saut lointain) : on repart de la zone d'arrivée seule.
+        const disjoint = near.start >= current.end || near.end <= current.start;
+        apply(disjoint ? near : { start: Math.min(near.start, current.start), end: Math.max(near.end, current.end) });
+      }
+      scheduleGrow();
+    }
+    function scrollToIndex(index: number) {
+      // La position du titre se calcule (rangée × hauteur de rangée) : on y va
+      // directement, puis la fenêtre monte les cartes de la zone d'arrivée.
+      // Défilement animé seulement si la cible est déjà montée ; un trajet animé
+      // à travers des milliers de rangées monterait chaque zone traversée.
+      const m = measure();
+      if (!m) return;
+      const padding = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      const top = window.scrollY + m.top + Math.floor(index / m.columns) * m.rowHeight - padding;
+      const mounted = index >= rangeRef.current.start && index < rangeRef.current.end;
+      window.scrollTo({ top, behavior: mounted ? "smooth" : "auto" });
+      syncRange(true);
+    }
+    const onMove = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; syncRange(false); });
+    };
+
+    syncRef.current = syncRange;
+    scrollToRef.current = scrollToIndex;
+    // capture : le défilement peut venir de la page comme d'un conteneur parent.
+    window.addEventListener("scroll", onMove, { passive: true, capture: true });
+    window.addEventListener("resize", onMove, { passive: true });
+    return () => {
+      syncRef.current = () => {};
+      scrollToRef.current = () => {};
+      window.removeEventListener("scroll", onMove, { capture: true });
+      window.removeEventListener("resize", onMove);
+      if (frame) cancelAnimationFrame(frame);
+      if (growTimer !== undefined) clearTimeout(growTimer);
+      if (settleTimer !== undefined) clearTimeout(settleTimer);
+    };
+  }, []);
+
+  // Premier affichage, ou liste de longueur différente (rafraîchissement, filtre
+  // de genre…) : caler la fenêtre sur la position de défilement réelle.
+  useEffect(() => {
+    totalRef.current = total;
+    const frame = requestAnimationFrame(() => syncRef.current(true));
+    return () => cancelAnimationFrame(frame);
+  }, [total]);
+
+  useImperativeHandle(ref, () => ({ scrollToIndex: (index: number) => scrollToRef.current(index) }), []);
+
+  // Toujours des rangées entières, sinon les zones d'espacement décaleraient les cartes.
+  const rangeStart = Math.min(total, Math.floor(range.start / columns) * columns);
+  const rangeEnd = Math.min(total, Math.ceil(range.end / columns) * columns);
+
+  // One batch call for every card currently rendered — never per-card (see
+  // useTitleArtworkBatch's own docs) — same 16:9 backdrop + logo resolution
+  // Découverte/Tableau de bord use, so library cards share their exact look.
+  const artworkStart = Math.floor(rangeStart / ARTWORK_BLOCK) * ARTWORK_BLOCK;
+  const artworkEnd = Math.min(total, Math.ceil(rangeEnd / ARTWORK_BLOCK) * ARTWORK_BLOCK);
+  const artworkRefs = useMemo<TitleArtworkRef[]>(
+    () => items.slice(artworkStart, artworkEnd).map((entry) => entry.kind === "movie"
+      ? { type: "movie" as const, tmdbId: entry.movie.tmdbId }
+      : { type: "series" as const, tmdbId: entry.series.tmdbId, seriesPart: entry.series.seriesPart }),
+    [items, artworkStart, artworkEnd]
+  );
+  const artworkByKey = useTitleArtworkBatch(artworkRefs, locale);
+
+  const cells: React.ReactNode[] = [];
+  for (let i = rangeStart; i < rangeEnd; i++) {
+    const entry = items[i];
+    const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[bleachPresentationKey({ tmdbId: entry.series.tmdbId, seriesPart: entry.series.seriesPart })];
+    cells.push(entry.kind === "movie" ? (
+      <LibraryMovieCard
+        key={entry.movie.id}
+        index={i}
+        movie={entry.movie}
+        torrent={progressFor(entry.movie)}
+        watched={watchedMovies.has(entry.movie.tmdbId)}
+        onChange={onChange}
+        backdropPath={art?.backdropPath}
+        logoPath={art?.logoPath}
+        titleEmbedded={art?.titleEmbedded}
+      />
+    ) : (
+      <LibrarySeriesCard
+        key={bleachPresentationKey(entry.series)}
+        index={i}
+        series={entry.series}
+        onChange={onChange}
+        backdropPath={art?.backdropPath}
+        logoPath={art?.logoPath}
+        titleEmbedded={art?.titleEmbedded}
+      />
+    ));
+  }
+
+  return (
+    <div ref={gridRef} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+      <GridSpacer rows={rangeStart / columns} columns={columns} />
+      {cells}
+      <GridSpacer rows={Math.ceil(total / columns) - Math.ceil(rangeEnd / columns)} columns={columns} />
+    </div>
+  );
+}
 
 /** Pastille de sélection native (genre, tri) : même rendu que les segments de la capsule. */
 function PillSelect({
@@ -356,149 +730,17 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
   const total = combinedItems.length;
 
-  // Progressive rendering: paint the first batch immediately, then mount the
-  // rest only as the viewport approaches it (checkpoints below). Mounting the
-  // whole library in the background kept the page at about 10 fps: 40 000 nodes,
-  // and every artwork batch response re-rendered all of them.
-  const [visibleCount, setVisibleCount] = useState(priorityCount);
-  const totalRef = useRef(total);
-  totalRef.current = total;
-  const visibleCountRef = useRef(visibleCount);
-  visibleCountRef.current = visibleCount;
-
-  // A single sentinel right after the last rendered card only ever grows the
-  // list from wherever it already stopped — perfectly fine for a normal
-  // scroll down, but confirmed live: jumping straight to a distant point
-  // (dragging the scrollbar, End key) lands the viewport deep inside the
-  // skeleton region while the sentinel — still sitting right where rendering
-  // left off — never enters it, so nothing loads until a SECOND scroll
-  // nudges it. Checkpoint markers spaced every RENDER_BATCH_STEP items across
-  // the ENTIRE remaining list (not just the next one) fix this: wherever the
-  // viewport lands, the nearest checkpoint is always close by and loads
-  // exactly that neighborhood immediately, not a slow catch-up from the top.
-  const checkpointElsRef = useRef(new Map<number, HTMLDivElement>());
-  const checkpointIndices = useMemo(() => {
-    const indices: number[] = [];
-    for (let i = visibleCount; i < total; i += RENDER_BATCH_STEP) indices.push(i);
-    return indices;
-  }, [visibleCount, total]);
-  // No separate cleanup effect needed: the callback ref below already
-  // adds/removes its own entry (React calls it with `null` on unmount before
-  // this effect's dependency-driven re-run), so the map is always correct by
-  // the time this effect reads it.
-  const checkpointIndexSet = useMemo(() => new Set(checkpointIndices), [checkpointIndices]);
-
-  // Confirmed live: jumping straight from a low visibleCount to a distant
-  // target (checkpoint far ahead, or a late letter in the A-Z index) mounted
-  // every real card in between SYNCHRONOUSLY — each is a real DOM node with
-  // an image, hover state, motion — froze the tab for several seconds.
-  // Ramping the same target across several animation frames (RENDER_BATCH_STEP
-  // per frame, same batch size as every other growth path) reaches it in well
-  // under 200ms while still letting the browser paint/breathe between each
-  // chunk instead of blocking on one huge commit.
-  // A request made during a running ramp raises its target: dropping it would
-  // leave an A-Z jump waiting for cards that nothing mounts any more.
-  const rampingRef = useRef(false);
-  const rampTargetRef = useRef(0);
-  const rampVisibleCountTo = (target: number) => {
-    rampTargetRef.current = Math.max(rampTargetRef.current, target);
-    if (rampingRef.current) return;
-    rampingRef.current = true;
-    const step = () => {
-      setVisibleCount((c) => {
-        const next = Math.min(rampTargetRef.current, totalRef.current, c + RENDER_BATCH_STEP);
-        if (next < rampTargetRef.current && next < totalRef.current) requestAnimationFrame(step);
-        else {
-          rampingRef.current = false;
-          rampTargetRef.current = 0;
-        }
-        return Math.max(c, next);
-      });
-    };
-    requestAnimationFrame(step);
-  };
-  useEffect(() => {
-    rampTargetRef.current = 0;
-    setVisibleCount(priorityCount());
-  }, [filter, type, sort]);
-
-  // Rangées prioritaires d'abord (déjà peintes), puis le reste du premier lot par
-  // petits paliers espacés : l'utilisateur voit la page tout de suite et le
-  // complément arrive pendant qu'il regarde, sans bloquer l'affichage.
-  const hasItems = total > 0;
-  useEffect(() => {
-    if (!hasItems) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const tick = () => {
-      if (cancelled) return;
-      const target = Math.min(RENDER_BATCH_INITIAL, totalRef.current);
-      const current = visibleCountRef.current;
-      if (current >= target) return;
-      setVisibleCount((c) => Math.max(c, Math.min(c + IDLE_GROW_STEP, target)));
-      timer = setTimeout(tick, IDLE_GROW_DELAY_MS);
-    };
-    timer = setTimeout(tick, IDLE_GROW_DELAY_MS);
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [hasItems, filter, type, sort]);
-
-  useEffect(() => {
-    if (checkpointIndices.length === 0) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const reached = entries.filter((e) => e.isIntersecting).map((e) => Number((e.target as HTMLElement).dataset.checkpointIndex));
-        if (!reached.length) return;
-        // Sous le premier lot (200), on se contente de le compléter : le reste vient par paliers d'arrière-plan.
-        const first = Math.min(...reached);
-        const target = first < RENDER_BATCH_INITIAL ? RENDER_BATCH_INITIAL : first + RENDER_BATCH_STEP;
-        rampVisibleCountTo(Math.min(totalRef.current, target));
-      },
-      { rootMargin: "1000px" }
-    );
-    for (const el of checkpointElsRef.current.values()) io.observe(el);
-    return () => io.disconnect();
-  }, [checkpointIndices]);
-
   // A-Z jump index (Plex-style) — only meaningful in alphabetical sort;
   // "recent"/"rating" order doesn't group titles by letter at all.
-  const gridRef = useRef<HTMLDivElement>(null);
-  const pendingScrollIndexRef = useRef<number | null>(null);
+  const cellsRef = useRef<LibraryCellsHandle>(null);
   const availableLetters = useMemo(() => {
     if (sort !== "title") return new Set<string>();
     return new Set(combinedItems.map((c) => alphabetKeyOf(titleOf(c))));
   }, [combinedItems, sort]);
-  const jumpToLetter = (letter: string) => {
+  const jumpToLetter = useCallback((letter: string) => {
     const index = combinedItems.findIndex((c) => alphabetKeyOf(titleOf(c)) === letter);
-    if (index < 0) return;
-    pendingScrollIndexRef.current = index;
-    rampVisibleCountTo(Math.min(totalRef.current, index + RENDER_BATCH_STEP));
-  };
-  // Fires once the target index has actually been promoted from skeleton to
-  // a real rendered card (visibleCount just grew past it) — scrolling any
-  // earlier would land on an empty skeleton slot instead of the real title.
-  useEffect(() => {
-    const target = pendingScrollIndexRef.current;
-    if (target === null || target >= visibleCount) return;
-    pendingScrollIndexRef.current = null;
-    const node = gridRef.current?.children[target] as HTMLElement | undefined;
-    node?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [visibleCount]);
-
-  const visibleItems = combinedItems.slice(0, visibleCount);
-
-  // One batch call for every card currently rendered — never per-card (see
-  // useTitleArtworkBatch's own docs) — same 16:9 backdrop + logo resolution
-  // Découverte/Tableau de bord use, so library cards share their exact look.
-  const artworkRefs = useMemo<TitleArtworkRef[]>(
-    () => visibleItems.map((entry) => entry.kind === "movie"
-      ? { type: "movie" as const, tmdbId: entry.movie.tmdbId }
-        : { type: "series" as const, tmdbId: entry.series.tmdbId, seriesPart: entry.series.seriesPart }),
-    [visibleItems]
-  );
-  const artworkByKey = useTitleArtworkBatch(artworkRefs, locale);
+    if (index >= 0) cellsRef.current?.scrollToIndex(index);
+  }, [combinedItems]);
 
   const progressFor = (movie: LibraryMovie) =>
     movie.activeInfoHash ? torrents.find((t) => t.infoHash === movie.activeInfoHash) : null;
@@ -692,85 +934,19 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
       {issuesPanel}
 
       {sort === "title" && total > RENDER_BATCH_INITIAL && (
-        <div
-          className="fixed right-1.5 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-0.5 rounded-full glass px-1 py-2 sm:flex"
-          aria-label={t("library.jumpToLetter")}
-        >
-          {ALPHABET_KEYS.map((letter) => {
-            const has = availableLetters.has(letter);
-            return (
-              <button
-                key={letter}
-                type="button"
-                disabled={!has}
-                onClick={() => jumpToLetter(letter)}
-                title={letter}
-                className={cn(
-                  "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold leading-none transition-colors",
-                  has ? "text-ink-dim hover:bg-brand/20 hover:text-brand-glow" : "text-ink-dim/25"
-                )}
-              >
-                {letter}
-              </button>
-            );
-          })}
-        </div>
+        <AlphabetIndex available={availableLetters} onJump={jumpToLetter} label={t("library.jumpToLetter")} />
       )}
 
-        <div ref={gridRef} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {visibleItems.map((entry, i) => {
-            const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[bleachPresentationKey({ tmdbId: entry.series.tmdbId, seriesPart: entry.series.seriesPart })];
-            return entry.kind === "movie" ? (
-              <LibraryMovieCard
-                key={entry.movie.id}
-                index={i}
-                movie={entry.movie}
-                torrent={progressFor(entry.movie)}
-                watched={watchedMovies.has(entry.movie.tmdbId)}
-                onChange={refresh}
-                backdropPath={art?.backdropPath}
-                logoPath={art?.logoPath}
-                titleEmbedded={art?.titleEmbedded}
-              />
-            ) : (
-              <LibrarySeriesCard
-                key={bleachPresentationKey(entry.series)}
-                index={i}
-                series={entry.series}
-                onChange={refresh}
-                backdropPath={art?.backdropPath}
-                logoPath={art?.logoPath}
-                titleEmbedded={art?.titleEmbedded}
-              />
-            );
-          })}
-          {/* Space-reserving skeletons for everything not rendered yet —
-              without these the grid was only ever as tall as what's already
-              painted, so dragging the scrollbar (or any fast scroll) straight
-              to the bottom hit a hard "wall" and the page kept growing/
-              jumping under the cursor as more batches mounted. Filling every
-              remaining slot up front keeps the real scroll height accurate
-              from the very first paint — same discipline for /movies,
-              /series and /library. Every RENDER_BATCH_STEP-th one doubles as
-              a checkpoint marker (see checkpointIndices above) so a distant
-              jump loads exactly the neighborhood landed on. */}
-          {visibleCount < total && checkpointIndexSet && Array.from({ length: total - visibleCount }).map((_, i) => {
-            const absoluteIndex = visibleCount + i;
-            const isCheckpoint = checkpointIndexSet.has(absoluteIndex);
-            return (
-              <div
-                key={`skeleton-${i}`}
-                data-checkpoint-index={isCheckpoint ? absoluteIndex : undefined}
-                ref={isCheckpoint ? (el) => {
-                  if (el) checkpointElsRef.current.set(absoluteIndex, el);
-                  else checkpointElsRef.current.delete(absoluteIndex);
-                } : undefined}
-              >
-                <div ref={pulseWhileVisible} className="aspect-video rounded-2xl bg-white/6" />
-              </div>
-            );
-          })}
-        </div>
+        <LibraryCells
+          ref={cellsRef}
+          items={combinedItems}
+          // Nouveau filtre ou tri : grille remontée, la fenêtre repart des rangées prioritaires.
+          key={`${filter}|${type}|${sort}`}
+          locale={locale}
+          progressFor={progressFor}
+          watchedMovies={watchedMovies}
+          onChange={refresh}
+        />
 
       {loading && total === 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">

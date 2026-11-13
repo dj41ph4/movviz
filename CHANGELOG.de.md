@@ -1,3 +1,11 @@
+## v1.28.143 — 13. November 2026
+
+### Bibliothek
+
+- Der Sprung zu einem Buchstaben des A-Z-Index erfolgt sofort, auch gegen Ende des Alphabets: Die Seite erzeugt nur noch die Karten in Bildschirmnähe statt aller Karten vor dem Zielbuchstaben.
+- Deutlich leichtere Seite bei großen Bibliotheken (etwa fünfmal weniger Elemente), die beim Scrollen nicht mehr schwerer wird.
+- A-Z-Index mit Lupe: Buchstaben in der Nähe des Zeigers heben sich an, und ein Tropfen zeigt den anvisierten Buchstaben groß an. Ein Klick wählt diesen Buchstaben, egal wo sich die Maus im Bereich befindet — Leiste, angehobener Buchstabe oder Tropfen.
+
 ## v1.28.142 — 13. November 2026
 
 ### Android TV
