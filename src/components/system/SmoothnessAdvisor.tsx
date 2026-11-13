@@ -47,7 +47,8 @@ function measureWindow(signal: AbortSignal): Promise<number[] | null> {
 }
 
 /**
- * Offers the smooth mode, once, when this device visibly struggles. Never during
+ * Offers a lighter effects level when this device visibly struggles: Balanced
+ * first, then Smooth if the device still struggles once Balanced is on. Never during
  * playback (a film decoding is not what the offer can lighten), and a page change
  * discards the window it interrupts, since a transition is not a sign of weakness.
  */
@@ -55,7 +56,9 @@ export function SmoothnessAdvisor() {
   const t = useT();
   const pathname = usePathname();
   const { request } = usePlayer();
-  const { reduceAnimations, setReduceAnimations } = useGpu();
+  const { effectsLevel, setEffectsLevel } = useGpu();
+  // Rien de plus léger à proposer une fois au niveau Fluide.
+  const nothingLighter = effectsLevel === "smooth";
   const [visible, setVisible] = useState(false);
   const measurable = useRef(true);
   const pageChange = useRef<AbortController | null>(null);
@@ -66,7 +69,7 @@ export function SmoothnessAdvisor() {
   }, [pathname, request]);
 
   useEffect(() => {
-    if (reduceAnimations) return;
+    if (nothingLighter) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let streak = 0;
@@ -96,7 +99,7 @@ export function SmoothnessAdvisor() {
       clearTimeout(timer);
       pageChange.current?.abort();
     };
-  }, [reduceAnimations]);
+  }, [nothingLighter, effectsLevel]);
 
   const dismiss = useCallback(() => {
     setVisible(false);
@@ -110,12 +113,14 @@ export function SmoothnessAdvisor() {
     return () => window.removeEventListener("keydown", onKey);
   }, [visible, dismiss]);
 
-  if (!visible || reduceAnimations) return null;
+  if (!visible || nothingLighter) return null;
 
+  // Deuxième proposition : l'appareil peine encore alors qu'il est déjà en Équilibré.
+  const second = effectsLevel === "balanced";
   const accept = () => {
     setVisible(false);
-    setReduceAnimations(true);
-    toast("success", t("smoothness.enabledToast"));
+    setEffectsLevel(second ? "smooth" : "balanced");
+    toast("success", t(second ? "smoothness.enabledToastMore" : "smoothness.enabledToast"));
   };
 
   // Opaque on purpose: no blur on a card shown to a device short of power.
@@ -131,16 +136,16 @@ export function SmoothnessAdvisor() {
           <Gauge className="h-5 w-5" aria-hidden />
         </span>
         <div className="min-w-0">
-          <h2 id="mv-smoothness-title" className="text-base font-bold text-ink">{t("smoothness.title")}</h2>
-          <p id="mv-smoothness-body" className="mt-1 text-sm leading-relaxed text-ink-soft">{t("smoothness.body")}</p>
+          <h2 id="mv-smoothness-title" className="text-base font-bold text-ink">{t(second ? "smoothness.titleMore" : "smoothness.title")}</h2>
+          <p id="mv-smoothness-body" className="mt-1 text-sm leading-relaxed text-ink-soft">{t(second ? "smoothness.bodyMore" : "smoothness.body")}</p>
         </div>
       </div>
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <button onClick={accept} className="brand-gradient ring-focus min-h-11 flex-1 rounded-xl px-4 text-sm font-bold text-white">
-          {t("smoothness.accept")}
+          {t(second ? "smoothness.acceptMore" : "smoothness.accept")}
         </button>
         <button onClick={dismiss} className="glass ring-focus min-h-11 flex-1 rounded-xl px-4 text-sm font-bold text-ink-soft transition hover:bg-white/10">
-          {t("smoothness.decline")}
+          {t(second ? "smoothness.declineMore" : "smoothness.decline")}
         </button>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-ink-dim">{t("smoothness.note")}</p>

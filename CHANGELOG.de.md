@@ -1,3 +1,11 @@
+## v1.28.145 — 14. November 2026
+
+### Anzeige
+
+- Der „Flüssige Modus“ wird zu „Visuelle Effekte“ mit drei Stufen pro Gerät: Vollständig, Ausgewogen und Flüssig. Ausgewogen behält die Trailer (Hero, Titelseite, Karten beim Überfahren) und die Rotation des Hero, schaltet aber Animationen und den Lichtschein ab.
+- Wenn ein Gerät nicht mitkommt, schlägt Movviz zuerst die Stufe Ausgewogen vor und die Stufe Flüssig erst, wenn das nicht genügt.
+- Das Fenster „Was ist neu“ schließt sich mit der Escape-Taste.
+
 ## v1.28.144 — 13. November 2026
 
 ### Ersteinrichtung

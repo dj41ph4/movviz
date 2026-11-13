@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useAutoRotationOff, useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 
@@ -27,16 +27,17 @@ export interface HeroSlideshowProps {
 export function HeroSlideshow({ count, index, onIndexChange, intervalMs, paused = false, children, className }: HeroSlideshowProps) {
   const t = useT();
   const reduceMotion = useShouldReduceMotion();
+  const rotationOff = useAutoRotationOff();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovering, setHovering] = useState(false);
 
   useEffect(() => {
-    if (count <= 1 || paused || hovering || reduceMotion) return;
+    if (count <= 1 || paused || hovering || rotationOff) return;
     timer.current = setTimeout(() => onIndexChange((index + 1) % count), intervalMs);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [count, index, intervalMs, paused, hovering, reduceMotion, onIndexChange]);
+  }, [count, index, intervalMs, paused, hovering, rotationOff, onIndexChange]);
 
   if (count === 0) return null;
 

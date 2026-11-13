@@ -1,3 +1,11 @@
+## v1.28.145 — 14 novembre 2026
+
+### Affichage
+
+- Le « Mode fluide » devient « Effets visuels », avec trois niveaux par appareil : Complet, Équilibré et Fluide. Équilibré garde les bandes-annonces (Hero, fiche, survol des cartes) et la rotation du Hero, mais coupe les animations et le halo lumineux.
+- Quand un appareil peine, Movviz propose d'abord le niveau Équilibré, puis le niveau Fluide seulement si cela ne suffit pas.
+- La fenêtre « Quoi de neuf » se ferme avec la touche Échap.
+
 ## v1.28.144 — 13 novembre 2026
 
 ### Première installation

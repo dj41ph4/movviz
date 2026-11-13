@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
@@ -90,9 +90,25 @@ export function WhatsNewModal() {
     setVisible(false);
   };
 
+  // Échap ferme la fenêtre, comme sa croix et le clic à côté. L'écouteur n'existe
+  // que pendant qu'elle est réellement affichée.
+  const shown = visible && entriesFor === `${locale}:${version}` && entries.length > 0 && !splashActive;
+  const closeRef = useRef(close);
+  useEffect(() => { closeRef.current = close; });
+  useEffect(() => {
+    if (!shown) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      closeRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shown]);
+
   return (
     <AnimatePresence>
-      {visible && entriesFor === `${locale}:${version}` && entries.length > 0 && !splashActive && (
+      {shown && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

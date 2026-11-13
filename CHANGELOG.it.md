@@ -1,3 +1,11 @@
+## v1.28.145 — 14 novembre 2026
+
+### Visualizzazione
+
+- La «Modalità fluida» diventa «Effetti visivi», con tre livelli per dispositivo: Completo, Equilibrato e Fluido. Equilibrato mantiene i trailer (Hero, scheda, passaggio sulle schede) e la rotazione dell'Hero, ma disattiva le animazioni e l'alone luminoso.
+- Quando un dispositivo fatica, Movviz propone prima il livello Equilibrato, poi il livello Fluido solo se non basta.
+- La finestra «Novità» si chiude con il tasto Esc.
+
 ## v1.28.144 — 13 novembre 2026
 
 ### Prima installazione

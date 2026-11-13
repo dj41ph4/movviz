@@ -1,3 +1,11 @@
+## v1.28.145 — 14 november 2026
+
+### Weergave
+
+- De “Vloeiende modus” wordt “Visuele effecten”, met drie niveaus per apparaat: Volledig, Gebalanceerd en Vloeiend. Gebalanceerd behoudt de trailers (Hero, titelpagina, kaarten bij aanwijzen) en de rotatie van de Hero, maar schakelt animaties en de gloed uit.
+- Wanneer een apparaat het moeilijk heeft, stelt Movviz eerst het niveau Gebalanceerd voor en het niveau Vloeiend alleen als dat niet volstaat.
+- Het venster “Wat is er nieuw” sluit met de Escape-toets.
+
 ## v1.28.144 — 13 november 2026
 
 ### Eerste installatie

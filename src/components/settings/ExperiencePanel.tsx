@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
@@ -32,9 +33,26 @@ export function ExperiencePanel() {
       <div className="rounded-2xl glass p-5">
         <h3 className="mb-1 font-bold text-ink">{t("settings.experience.smoothModeTitle")}</h3>
         <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.smoothModeHint")}</p>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-ink">{t("settings.experience.smoothModeEnabled")}</span>
-          <Toggle label={t("settings.experience.smoothModeEnabled")} on={gpu.reduceAnimations} onChange={() => gpu.setReduceAnimations(!gpu.reduceAnimations)} />
+        <div role="radiogroup" aria-label={t("settings.experience.smoothModeTitle")} className="grid gap-2 sm:grid-cols-3">
+          {(["full", "balanced", "smooth"] as const).map((level) => {
+            const active = gpu.effectsLevel === level;
+            return (
+              <button
+                key={level}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => gpu.setEffectsLevel(level)}
+                className={cn(
+                  "rounded-xl border px-4 py-3 text-left transition-colors ring-focus",
+                  active ? "border-brand/40 bg-brand/12" : "border-white/8 bg-black/20 hover:border-white/20"
+                )}
+              >
+                <span className={cn("block text-sm font-bold", active ? "text-brand-glow" : "text-ink")}>{t(`settings.experience.effects.${level}`)}</span>
+                <span className="mt-1 block text-xs leading-relaxed text-ink-dim">{t(`settings.experience.effects.${level}Hint`)}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

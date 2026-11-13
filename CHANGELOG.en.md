@@ -1,3 +1,11 @@
+## v1.28.145 — November 14, 2026
+
+### Display
+
+- "Smooth mode" becomes "Visual effects", with three levels per device: Full, Balanced and Smooth. Balanced keeps the trailers (Hero, title page, card hover) and the Hero rotation, but turns off animations and the glow.
+- When a device struggles, Movviz first offers the Balanced level, then the Smooth level only if that is not enough.
+- The "What's new" window closes with the Escape key.
+
 ## v1.28.144 — November 13, 2026
 
 ### First setup
