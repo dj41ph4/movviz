@@ -2356,8 +2356,16 @@ private fun SeasonPageOverlay(
         }
     }
     fun playable(ep: SeriesEpisodeDto) = episodeIsPlayable(ep)
-    val landingEpisode = remember(season, watchedEpisodeKeys) {
-        season.episodes.firstOrNull { playable(it) && !watchedEpisodeKeys.contains("${season.seasonNumber}.${it.episodeNumber}") }
+    val landingEpisode = remember(season, watchedEpisodeKeys, episodeProgress) {
+        // Un épisode entamé passe avant « le premier non vu » : avec l'épisode 5
+        // en cours et les quatre premiers jamais lus, la saison proposait
+        // « Lire l'épisode 1 » alors que la fiche disait « Reprendre l'épisode 5 ».
+        // Plusieurs entamés : le plus avancé dans la saison.
+        season.episodes.lastOrNull {
+            val key = "${season.seasonNumber}.${it.episodeNumber}"
+            playable(it) && !watchedEpisodeKeys.contains(key) && (episodeProgress[key]?.resumeOffsetMs ?: 0L) > 5_000L
+        }
+            ?: season.episodes.firstOrNull { playable(it) && !watchedEpisodeKeys.contains("${season.seasonNumber}.${it.episodeNumber}") }
             ?: season.episodes.firstOrNull { playable(it) }
     }
     // Atterrissage UNE fois à l'ouverture de la saison : relancé à chaque

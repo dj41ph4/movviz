@@ -1,3 +1,23 @@
+## v1.28.142 — 13 november 2026
+
+### Android TV
+
+- Bij het starten heeft de startpagina altijd een geselecteerd element (“Details bekijken”): de focus bleef verborgen op een rij verder naar beneden en de eerste toetsdruk begon daar.
+- Een titel zonder Plex-koppeling die het apparaat niet kan decoderen, wordt nu door de server omgezet (H.264 1080p) in plaats van te eindigen met een fout.
+- Seizoenspagina: een begonnen aflevering wordt als eerste aangeboden (“Aflevering 5 hervatten”), vóór de eerste niet-bekeken aflevering.
+- Na “Uit hervatten verwijderen” gaat de focus naar de kaart die de plaats van de verwijderde inneemt.
+- Google TV-rij “Play Next”: geen dubbele kaarten meer, en de kaart van een aflevering opent de pagina van de serie.
+- Plex-aanmelding: Terug sluit het codevenster in plaats van de app te verlaten; “Annuleren” stopt het wachten echt (de knop bleef tot 2 minuten zonder werking); een fout blijft niet meer verborgen achter het venster; knoppen zijn leesbaar bij focus.
+- Profielpagina: de focus komt terug na “Opnieuw proberen”, en een profiel zonder activiteit blijft bereikbaar vanuit de zijbalk.
+
+### Afspelen
+
+- “Verder kijken”: dezelfde aflevering die vanuit twee apps is afgespeeld, verschijnt nog maar één keer, met de meest recente positie — de titelpagina en de seizoenspagina gaven twee verschillende hervattijden.
+
+### Android mobiel
+
+- Een serie verdwijnt niet meer even uit “Recent toegevoegd” wanneer de pagina ervan wordt geopend.
+
 ## v1.28.141 — 12 november 2026
 
 ### Android TV

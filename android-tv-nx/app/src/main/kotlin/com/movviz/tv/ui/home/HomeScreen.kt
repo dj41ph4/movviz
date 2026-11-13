@@ -736,6 +736,11 @@ fun HomeScreen(
     }
     var initialFocusAssigned by rememberSaveable { mutableStateOf(false) }
     var startupUserInput by remember { mutableStateOf(false) }
+    // Focus initial posé par CETTE composition (lancement, changement de
+    // profil) — faux quand l'accueil est recréé au retour d'une fiche.
+    var initialFocusAssignedHere by remember { mutableStateOf(false) }
+    // Une touche a été pressée depuis que cet accueil est affiché.
+    var keyPressedSinceShown by remember { mutableStateOf(false) }
     var homeHasFocus by remember { mutableStateOf(false) }
     val hasScrolled by remember {
         derivedStateOf {
@@ -761,6 +766,25 @@ fun HomeScreen(
         }
     }
     LaunchedEffect(showHero, firstVisibleSection) {
+        if (initialFocusAssigned && initialFocusAssignedHere && !keyPressedSinceShown) {
+            // Lancement : l'accueil se remplit par morceaux. Le focus initial
+            // se posait sur la première rangée arrivée (souvent « Ma liste »),
+            // puis la sélection et « Continuer à regarder » se chargeaient
+            // au-dessus : la page restait en haut, le focus caché plus bas —
+            // rien de sélectionné à l'écran, et le premier appui partait de
+            // cette rangée invisible. Tant que personne n'a touché la
+            // télécommande, le focus suit la vraie cible d'entrée du haut de page.
+            repeat(30) {
+                withFrameNanos { }
+                if (keyPressedSinceShown) return@LaunchedEffect
+                val focused = try { contentFocus.requestFocus() } catch (_: IllegalStateException) { false }
+                if (focused) {
+                    if (!showHero) listState.scrollToItem(0)
+                    return@LaunchedEffect
+                }
+            }
+            return@LaunchedEffect
+        }
         if (initialFocusAssigned) {
             // La navigation Compose peut recréer Home après une fiche. Le
             // FocusRestorer du conteneur externe n'a alors plus son ancien
@@ -790,7 +814,7 @@ fun HomeScreen(
                 false // The lazy target may still be attaching during this frame.
             }
             if (focused) {
-                if (hasLoadedTarget) initialFocusAssigned = true
+                if (hasLoadedTarget) { initialFocusAssigned = true; initialFocusAssignedHere = true }
                 return@LaunchedEffect
             }
         }
@@ -799,6 +823,7 @@ fun HomeScreen(
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .onPreviewKeyEvent {
+                if (it.type == KeyEventType.KeyDown) keyPressedSinceShown = true
                 if (!initialFocusAssigned && it.type == KeyEventType.KeyDown) startupUserInput = true
                 false
             }

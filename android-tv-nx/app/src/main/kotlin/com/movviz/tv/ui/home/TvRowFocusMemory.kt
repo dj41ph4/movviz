@@ -200,6 +200,35 @@ internal class TvRowFocusMemory(
      *  suivante ajoutée à la grille) : il n'y a rien à restaurer. */
     fun focusSurvives(keys: List<String>): Boolean = focusedKey?.let(keys::contains) == true
     fun rememberedKey(): String? = selectedKey.value
+    fun rememberedIndex(): Int = selectedIndex.value
+
+    /**
+     * La carte mémorisée vient de disparaître de la liste (retirée de la
+     * reprise, par exemple) : la mémoire passe à la carte qui prend sa place
+     * (même position, sinon la dernière) et le focus la suit — seulement si la
+     * rangée avait le focus. Sans cela, Compose choisissait seul une carte voisine — pas
+     * forcément la plus proche de celle qu'on venait de retirer.
+     */
+    suspend fun adoptNeighbour(
+        keys: List<String>,
+        formerIndex: Int,
+        isVisible: (Int) -> Boolean,
+        scrollToItem: suspend (Int) -> Unit,
+    ) {
+        if (keys.isEmpty()) return
+        val index = formerIndex.coerceIn(0, keys.lastIndex)
+        val key = keys[index]
+        // Rangée sans focus : rien à déplacer, la mémoire garde sa position
+        // (la prochaine entrée retombe déjà sur cette même place).
+        if (!rowHasFocus) return
+        selectedKey.value = key
+        selectedIndex.value = index
+        if (!isVisible(index)) scrollToItem(index)
+        repeat(RESTORE_FRAME_ATTEMPTS) {
+            withFrameNanos { }
+            if (focusedKey == key || attached[key]?.requestFocusSafely() == true) return
+        }
+    }
 
     /**
      * Enregistre la tête courante. Vrai si la rangée doit revenir sur sa
@@ -331,7 +360,17 @@ private fun rememberTvItemFocusMemory(
     val headKey = rememberSaveable(key) { mutableStateOf<String?>(null) }
     val memory = remember(host, key) { TvRowFocusMemory(selectedKey, selectedIndex, host, key, headKey) }
     DisposableEffect(memory) { onDispose { memory.detach() } }
+    // Lu pendant la composition, AVANT que la liste ne retire la carte : à cet
+    // instant la mémoire désigne encore la carte disparue et sa position.
+    val vanishedIndex = remember(memory, keys) {
+        memory.rememberedKey()?.takeIf { keys.isNotEmpty() && it !in keys }?.let { memory.rememberedIndex() }
+    }
     LaunchedEffect(memory, keys) {
+        if (vanishedIndex != null) {
+            if (followHead) memory.followHead(keys)
+            memory.adoptNeighbour(keys, vanishedIndex, isVisible, scrollToItem)
+            return@LaunchedEffect
+        }
         // La liste garde en tête d'écran la carte qui y était, même déplacée :
         // sans ce retour, la nouvelle première carte restait cachée à gauche.
         // Défilement sans condition : à cet instant, l'état visible est celui

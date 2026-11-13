@@ -290,13 +290,17 @@ class MovvizRepository(private val baseUrl: String) {
      *  desktop utilise cette route EN PREMIER, avant tout transcode Plex —
      *  Android doit faire pareil dès que le serveur l'expose
      *  (StreamInfoDto.ffmpegAvailable). */
-    fun ffmpegRemuxUrl(plexRatingKey: String, audioStreamID: String? = null, seekToSec: Long = 0L): String {
+    fun ffmpegRemuxUrl(plexRatingKey: String, audioStreamID: String? = null, seekToSec: Long = 0L, quality: String? = null): String {
         // `seekTo` (secondes) : le flux ffmpeg est un MP4 fragmenté en tuyau, sans
         // index — la seule façon de démarrer plus loin est de le demander au
         // serveur (même paramètre que le desktop).
         val params = buildList {
             if (audioStreamID != null) add("audioStreamID=$audioStreamID")
             if (seekToSec > 0L) add("seekTo=$seekToSec")
+            // `quality` (ex. "fhd") : le même moteur ré-encode AUSSI la vidéo en
+            // H.264 8 bits — dernier recours quand l'appareil ne décode pas la
+            // vidéo d'origine. Absent : vidéo copiée telle quelle.
+            if (quality != null) add("quality=$quality")
         }
         val qs = if (params.isEmpty()) "" else "?" + params.joinToString("&")
         return "$baseUrl/api/playback-ffmpeg/$plexRatingKey$qs"

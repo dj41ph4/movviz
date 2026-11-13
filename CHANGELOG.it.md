@@ -1,3 +1,23 @@
+## v1.28.142 — 13 novembre 2026
+
+### Android TV
+
+- All'avvio, la home ha sempre un elemento selezionato («Vedi la scheda»): il focus restava nascosto su una riga più in basso e la prima pressione partiva da lì.
+- Un titolo senza collegamento Plex che il dispositivo non sa decodificare viene ora convertito dal server (H.264 1080p) invece di finire con un errore.
+- Pagina di una stagione: un episodio iniziato viene proposto per primo («Riprendi l'episodio 5»), prima del primo episodio non visto.
+- Dopo «Rimuovi dalla ripresa», il focus passa alla scheda che prende il posto di quella rimossa.
+- Riga «Play Next» di Google TV: niente più schede doppie, e la scheda di un episodio apre la scheda della sua serie.
+- Accesso Plex: Indietro chiude il pannello del codice invece di uscire dall'app; «Annulla» interrompe davvero l'attesa (il pulsante restava inerte fino a 2 minuti); un errore non resta più nascosto dietro il pannello; pulsanti leggibili al focus.
+- Pagina del profilo: il focus torna dopo «Riprova», e un profilo senza attività resta raggiungibile dalla barra laterale.
+
+### Riproduzione
+
+- «Continua a guardare»: lo stesso episodio riprodotto da due app compare una sola volta, con la posizione più recente — la scheda e la pagina della stagione indicavano due tempi di ripresa diversi.
+
+### Android mobile
+
+- Una serie non scompare più per un istante da «Aggiunti di recente» quando se ne apre la scheda.
+
 ## v1.28.141 — 12 novembre 2026
 
 ### Android TV

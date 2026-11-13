@@ -736,7 +736,7 @@ ExoPlayer.Builder(context)
         pendingSeekTarget = null
         pendingSeekOrigin = null
         loading = true
-        remuxActive = level == 1 && level1FfmpegAvailable
+        remuxActive = (level == 1 || level == 3) && level1FfmpegAvailable
         remuxBaseMs = if (remuxActive) resumeMs.coerceAtLeast(0) else 0L
         // Toujours couper le texte AVANT de préparer un nouveau MediaItem :
         // cela supprime le flash de sous-titre forcé/default qu'ExoPlayer peut
@@ -788,6 +788,19 @@ ExoPlayer.Builder(context)
                     .setMediaMetadata(metadata)
                     .build()
             }
+            3 -> {
+                // Conversion complète par le moteur ffmpeg LOCAL du serveur (H.264
+                // 1080p, audio AAC) : la seule conversion possible pour un titre
+                // sans liaison Plex — /transcode ci-dessous dépend de Plex et
+                // répondait 502. Même flux MP4 en tuyau que le niveau 1 : la
+                // reprise et les sauts passent par `seekTo`.
+                val url = repository.ffmpegRemuxUrl(level1RemuxKey ?: item.ratingKey, activeAudioStreamId(), seekToSec = resumeMs / 1000L, quality = "fhd")
+                Log.i(TAG, "load() conversion ffmpeg locale (H.264): $url (resumeMs=$resumeMs)")
+                MediaItem.Builder()
+                    .setUri(url)
+                    .setMediaMetadata(metadata)
+                    .build()
+            }
             2 -> {
                 val url = repository.transcodeFullUrl(item.ratingKey, activeAudioStreamId())
                 Log.i(TAG, "load() transcode complet HLS: $url (resumeMs=$resumeMs)")
@@ -819,7 +832,7 @@ ExoPlayer.Builder(context)
         pendingSeekOrigin = null
         val dur = timelineDur()
         val target = targetMs.coerceAtLeast(0L).let { if (dur > 0L) it.coerceAtMost((dur - 1_000L).coerceAtLeast(0L)) else it }
-        if (remuxActive) load(queue[currentIndex], target, level = 1, autoplay = exoPlayer.playWhenReady)
+        if (remuxActive) load(queue[currentIndex], target, level = if (fallbackLevel == 3) 3 else 1, autoplay = exoPlayer.playWhenReady)
         else exoPlayer.seekTo(target)
     }
 
@@ -952,7 +965,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         remuxDurationMs = knownDuration ?: localInfo?.durationMs ?: 0L
         level1AudioStreamId = selectedAudio?.id ?: serverAudioStreams.firstOrNull { it.selected }?.id
         val startLevel = when {
-            planned && !videoDecodable -> 2
+            // Vidéo non décodable : transcodage Plex, ou conversion ffmpeg locale
+            // pour un titre sans liaison Plex (le seul chemin qui le serve).
+            planned && !videoDecodable -> if (!current.ratingKey.all { it.isDigit() } && level1FfmpegAvailable) 3 else 2
             planned && !audioDecodable -> 1
             else -> 0
         }
@@ -1078,8 +1093,27 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 // (boîtier qui ne décode même pas la vidéo copiée, ex. AV1).
                 // Jamais de boucle : une seule tentative par niveau et par
                 // item, le transcodage peut échouer lui aussi.
+                // Dernier recours : conversion H.264 par le moteur ffmpeg du
+                // serveur. Atteinte quand le transcodage Plex (niveau 2) échoue
+                // — erreur de décodage, ou refus HTTP une fois les réessais
+                // réseau épuisés — et jamais deux fois pour un même titre.
+                val plexTranscodeRefused = fallbackLevel == 2 &&
+                    (kind == PlayerErrorKind.UNSUPPORTED || (kind == PlayerErrorKind.NETWORK && httpStatusOf(error) != null))
+                if (plexTranscodeRefused && level1FfmpegAvailable) {
+                    fallbackLevel = 3
+                    networkRetryCount = 0
+                    val resumePos = timelinePos()
+                    val item = queue[currentIndex]
+                    Log.i(TAG, "Repli conversion ffmpeg locale pour ${item.ratingKey} à ${resumePos}ms (transcodage Plex refusé)")
+                    fallbackNotice = "Compatibilité optimisée…"
+                    load(item, resumePos, level = 3, autoplay = wasPlayWhenReady)
+                    return
+                }
                 if (kind == PlayerErrorKind.UNSUPPORTED && fallbackLevel < 2) {
-                    fallbackLevel += 1
+                    // Titre sans liaison Plex : /transcode (niveau 2) ne peut pas le
+                    // servir. On passe directement à la conversion ffmpeg locale.
+                    val localOnly = !queue[currentIndex].ratingKey.all { it.isDigit() }
+                    fallbackLevel = if (fallbackLevel == 1 && localOnly && level1FfmpegAvailable) 3 else fallbackLevel + 1
                     val resumePos = timelinePos()
                     val item = queue[currentIndex]
                     Log.i(TAG, "Repli transcodage niveau $fallbackLevel pour ${item.ratingKey} à ${resumePos}ms (direct-play non décodable)")
@@ -1091,7 +1125,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 // Niveau 2 = l'appareil ne décode pas la vidéo et a demandé une
                 // conversion. Si le serveur la refuse (réponse HTTP d'erreur),
                 // ce n'est pas une « connexion perdue » : le dire tel quel.
-                errorMessage = if (fallbackLevel == 2 && kind == PlayerErrorKind.NETWORK && httpStatusOf(error) != null) {
+                errorMessage = if (fallbackLevel >= 2 && kind == PlayerErrorKind.NETWORK && httpStatusOf(error) != null) {
                     "Cet appareil ne décode pas cette vidéo et le serveur n'a pas pu la convertir."
                 } else messageFor(kind)
             }

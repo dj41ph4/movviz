@@ -221,7 +221,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 // de la fiche ouverte.
                 if (isOpen) resolveTitleLibraryEntry(type, tmdbId)
                 else if (type == "movie") (repo.movieByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { m -> _movies.value = _movies.value.replaceOrAppend(m) { it.tmdbId } }
-                else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppend(s) { it.tmdbId } }
+                else (repo.seriesByTmdbId(tmdbId) as? ApiResult.Success)?.data?.let { s -> _series.value = _series.value.replaceOrAppendSeries(s) }
             }
             if (recentChanged) (repo.interfaceRecentEpisodes() as? ApiResult.Success)?.data?.let { page ->
                 _recentEpisodes.value = page.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
@@ -1824,7 +1824,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         viewModelScope.launch {
             try {
                 when (val result = repo.seriesByTmdbId(BleachPresentation.TMDB_ID)) {
-                    is ApiResult.Success -> if (_currentUser.value?.id == profileId) result.data?.let { updated -> _series.value = _series.value.replaceOrAppend(updated) { it.tmdbId } }
+                    is ApiResult.Success -> if (_currentUser.value?.id == profileId) result.data?.let { updated -> _series.value = _series.value.replaceOrAppendSeries(updated) }
                     ApiResult.Unauthorized -> _sessionExpired.value = true
                     is ApiResult.Failure -> Unit
                 }
@@ -1935,7 +1935,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             is ApiResult.Failure -> Unit
         } else when (val result = repo.seriesByTmdbId(tmdbId)) {
             is ApiResult.Success -> result.data?.let { updated ->
-                _series.value = _series.value.replaceOrAppend(updated) { series -> series.tmdbId }
+                _series.value = _series.value.replaceOrAppendSeries(updated)
                 loadSeriesSeasons(tmdbId, seriesPart)
             }
             ApiResult.Unauthorized -> _sessionExpired.value = true
@@ -2390,6 +2390,26 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             clearProfileScopedState()
         }
     }
+}
+
+/**
+ * Remplace une série par sa relecture ciblée (/api/library/series) sans perdre
+ * les champs que seule la route compacte du tableau de bord calcule. Vérifié
+ * sur le JSON réel : la route bibliothèque ne renvoie ni hasAvailableEpisode
+ * ni latestAvailableAt. Les laisser à leur défaut faisait disparaître la série
+ * de « Récemment ajouté » dès l'ouverture de sa fiche (même correctif que
+ * l'app Android TV).
+ */
+private fun List<LibrarySeriesDto>.replaceOrAppendSeries(item: LibrarySeriesDto): List<LibrarySeriesDto> {
+    val previous = firstOrNull { it.tmdbId == item.tmdbId }
+    val availableNow = item.seasons.any { season -> season.episodes.any { it.status == "available" } }
+    val merged = item.copy(
+        // Saisons présentes : la vérité vient d'elles. Absentes : on garde l'acquis.
+        hasAvailableEpisode = item.hasAvailableEpisode ||
+            if (item.seasons.isNotEmpty()) availableNow else previous?.hasAvailableEpisode == true,
+        latestAvailableAt = item.latestAvailableAt.takeIf { it > 0L } ?: previous?.latestAvailableAt ?: 0L,
+    )
+    return replaceOrAppend(merged) { it.tmdbId }
 }
 
 private fun <T> List<T>.replaceOrAppend(item: T, key: (T) -> Int): List<T> {

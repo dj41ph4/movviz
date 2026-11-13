@@ -1,3 +1,23 @@
+## v1.28.142 — 13. November 2026
+
+### Android TV
+
+- Beim Start hat die Startseite immer ein ausgewähltes Element („Details ansehen“): Der Fokus blieb bisher verborgen auf einer Reihe weiter unten, und der erste Tastendruck ging von dort aus.
+- Ein Titel ohne Plex-Verknüpfung, den das Gerät nicht dekodieren kann, wird jetzt vom Server umgewandelt (H.264 1080p), statt mit einem Fehler zu enden.
+- Staffelseite: Eine angefangene Folge wird zuerst angeboten („Folge 5 fortsetzen“), vor der ersten ungesehenen Folge.
+- Nach „Aus Fortsetzen entfernen“ wechselt der Fokus auf die Karte, die den Platz der entfernten einnimmt.
+- Google-TV-Reihe „Play Next“: keine doppelten Karten mehr, und die Karte einer Folge öffnet die Seite ihrer Serie.
+- Plex-Anmeldung: Zurück schließt das Code-Fenster, statt die App zu verlassen; „Abbrechen“ beendet das Warten wirklich (die Schaltfläche blieb bis zu 2 Minuten ohne Funktion); ein Fehler bleibt nicht mehr hinter dem Fenster verborgen; Schaltflächen sind im Fokus lesbar.
+- Profilseite: Der Fokus kehrt nach „Erneut versuchen“ zurück, und ein Profil ohne Aktivität bleibt über die Seitenleiste erreichbar.
+
+### Wiedergabe
+
+- „Weiterschauen“: Dieselbe Folge, die in zwei Apps abgespielt wurde, erscheint nur noch einmal, mit ihrer neuesten Position — Titelseite und Staffelseite nannten zwei verschiedene Fortsetzungszeiten.
+
+### Android Mobil
+
+- Eine Serie verschwindet nicht mehr kurz aus „Kürzlich hinzugefügt“, wenn ihre Seite geöffnet wird.
+
 ## v1.28.141 — 12. November 2026
 
 ### Android TV

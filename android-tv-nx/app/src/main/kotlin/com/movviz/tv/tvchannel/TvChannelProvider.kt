@@ -51,8 +51,12 @@ object TvChannelProvider {
     /** Remplace la chaîne "Movviz" et met à jour la rangée Watch Next à
      *  partir des mêmes titres "à reprendre". Idempotent et sûr : à appeler
      *  à chaque chargement réussi du on-deck. */
+    @Synchronized // deux synchronisations lancées ensemble au démarrage inséraient chacune leur carte
     fun sync(context: Context, items: List<OnDeckEntryDto>) {
-        val trimmed = items.take(MAX_PROGRAMS)
+        // Une carte par titre (ou par épisode) : la liste de reprise peut porter
+        // deux fois le même épisode, et deux insertions du même identifiant
+        // donnaient deux cartes identiques dans « Play Next ».
+        val trimmed = items.distinctBy { watchNextInternalId(it) }.take(MAX_PROGRAMS)
         try {
             syncChannel(context, trimmed)
         } catch (e: Exception) {
@@ -195,7 +199,12 @@ object TvChannelProvider {
             while (cursor.moveToNext()) {
                 val program = WatchNextProgram.fromCursor(cursor)
                 val internalId = program.internalProviderId ?: continue
-                if (internalId.startsWith(WATCH_NEXT_ID_PREFIX)) map[internalId] = program
+                if (!internalId.startsWith(WATCH_NEXT_ID_PREFIX)) continue
+                // Doublon déjà présent dans la rangée (posé par une ancienne
+                // version) : on n'en garde qu'un, sinon il restait à jamais.
+                if (internalId in map) {
+                    runCatching { resolver.delete(TvContractCompat.buildWatchNextProgramUri(program.id), null, null) }
+                } else map[internalId] = program
             }
         }
         return map
@@ -206,7 +215,8 @@ object TvChannelProvider {
     // -------------------------------------------------------------------
 
     private fun isEpisode(item: OnDeckEntryDto): Boolean =
-        item.type == "series" && item.seasonNumber != null && item.episodeNumber != null
+        // La reprise Movviz envoie le type « episode », le on-deck Plex « series ».
+        item.type != "movie" && item.seasonNumber != null && item.episodeNumber != null
 
     private fun programType(item: OnDeckEntryDto): Int =
         if (isEpisode(item)) TvContractCompat.PreviewPrograms.TYPE_TV_EPISODE else TvContractCompat.PreviewPrograms.TYPE_MOVIE
@@ -226,7 +236,7 @@ object TvChannelProvider {
      *  jour plutôt que doublon à chaque sync) et de clé de tri interne. */
     private fun watchNextInternalId(item: OnDeckEntryDto): String =
         if (isEpisode(item)) {
-            "$WATCH_NEXT_ID_PREFIX${item.type}:${item.tmdbId}:${item.seasonNumber}:${item.episodeNumber}"
+            "${WATCH_NEXT_ID_PREFIX}series:${item.tmdbId}:${item.seasonNumber}:${item.episodeNumber}"
         } else {
             "$WATCH_NEXT_ID_PREFIX${item.type}:${item.tmdbId}"
         }
@@ -235,7 +245,9 @@ object TvChannelProvider {
      *  dans `MainActivity.kt` (navDeepLink uriPattern). Une carte de la
      *  chaîne ou de Watch Next ouvre donc directement la fiche du titre, pas
      *  seulement l'app. */
-    private fun titleDeepLink(item: OnDeckEntryDto): Uri = Uri.parse("movviz://title/${item.type}/${item.tmdbId}")
+    private fun titleDeepLink(item: OnDeckEntryDto): Uri =
+        // La fiche ne connaît que « movie » et « series » : un épisode ouvre sa série.
+        Uri.parse("movviz://title/${if (item.type == "movie") "movie" else "series"}/${item.tmdbId}")
 
     /** L'icône de lancement de l'app, rendue en Bitmap — `setLogo()` n'accepte
      *  qu'un Bitmap, jamais une ressource drawable/mipmap directement (icône

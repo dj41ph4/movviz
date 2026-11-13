@@ -1,3 +1,23 @@
+## v1.28.142 — November 13, 2026
+
+### Android TV
+
+- On launch, the home page always has a selected item ("View details"): focus used to stay hidden on a row further down and the first key press started from there.
+- A title with no Plex link that the device cannot decode is now converted by the server (H.264 1080p) instead of ending on an error.
+- Season page: an episode in progress is offered first ("Resume episode 5"), before the first unwatched episode.
+- After "Remove from resume", focus moves to the card that takes the removed one's place.
+- Google TV "Play Next" row: no more duplicate cards, and an episode card opens its series page.
+- Plex sign-in: Back closes the code panel instead of leaving the app; "Cancel" really stops the wait (the button stayed inert for up to 2 minutes); a failure no longer stays hidden behind the panel; buttons are readable when focused.
+- Profile page: focus comes back after "Retry", and a profile with no activity stays reachable from the side bar.
+
+### Playback
+
+- "Continue watching": the same episode played from two apps now appears once, with its most recent position — the title page and the season page announced two different resume times.
+
+### Android mobile
+
+- A series no longer vanishes for a moment from "Recently added" when its page is opened.
+
 ## v1.28.141 — November 12, 2026
 
 ### Android TV

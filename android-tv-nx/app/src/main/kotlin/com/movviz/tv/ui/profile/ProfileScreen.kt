@@ -81,6 +81,18 @@ fun ProfileScreen(
             ?.forEach { viewModel.requestHeroLogo("series", it.tmdbId) }
     }
     val profileData = data
+    // « Réessayer » remplace son propre bouton par le squelette de chargement :
+    // le focus disparaissait avec lui et rien ne le rendait à l'arrivée des
+    // données (ni à un nouvel échec). On le repose sur l'entrée de la page.
+    var refocusAfterRetry by remember { mutableStateOf(false) }
+    LaunchedEffect(profileData != null, failed) {
+        if (!refocusAfterRetry || (profileData == null && !failed)) return@LaunchedEffect
+        refocusAfterRetry = false
+        for (attempt in 0 until 30) {
+            androidx.compose.runtime.withFrameNanos { }
+            if (runCatching { entryFocusRequester.requestFocus() }.getOrDefault(false)) break
+        }
+    }
     val listState = rememberLazyListState()
     val hasScrolled by remember {
         derivedStateOf {
@@ -104,12 +116,17 @@ fun ProfileScreen(
         if (profileData == null) {
             // Échec : bouton « Réessayer » focalisable (entrée D-pad de la page)
             // au lieu d'un squelette de chargement éternel.
-            item { if (failed) ProfileErrorDashboard(activeProfile, entryFocusRequester) { viewModel.loadProfileMedia() } else ProfileLoadingDashboard(activeProfile) }
+            item { if (failed) ProfileErrorDashboard(activeProfile, entryFocusRequester) { refocusAfterRetry = true; viewModel.loadProfileMedia() } else ProfileLoadingDashboard(activeProfile) }
             return@LazyColumn
         }
         item { ProfileDashboardHeader(profileData, activeProfile, isAdmin = currentUser?.role == "admin") }
         if (profileData.continueWatching.isEmpty() && profileData.watchHistory.isEmpty() && profileData.ratings.isEmpty() && profileData.watchlist.isEmpty()) item {
-            Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 12.sp)
+            // Profil neuf : aucune rangée, donc aucune cible. Le message porte
+            // l'entrée de la page (focus visible) pour que DROITE depuis la
+            // barre latérale arrive quelque part.
+            com.movviz.tv.ui.theme.MovvizFocusTarget(focusRequester = entryFocusRequester) {
+                Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+            }
         }
         // Ordre du profil web : reprises, liste, historique, notes.
         var entryAssigned = false
@@ -172,7 +189,7 @@ fun ProfileScreen(
         shape = CardDefaults.shape(shape = shape),
         // Bouton gris au repos, blanc seulement au focus (règle Movviz).
         colors = CardDefaults.colors(containerColor = Color(0xFF2A2A31), focusedContainerColor = Color.White, contentColor = Color.White, focusedContentColor = Color.Black),
-        scale = CardDefaults.scale(focusedScale = 1.03f),
+        scale = CardDefaults.scale(focusedScale = 1f), // aucun élément ne change de taille au focus
     ) {
         Box(Modifier.fillMaxHeight().padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
             Text("Réessayer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)

@@ -1,3 +1,23 @@
+## v1.28.142 — 13 novembre 2026
+
+### Android TV
+
+- Au lancement, la page d'accueil a toujours un élément sélectionné (« Voir la fiche ») : le focus restait caché sur une rangée plus bas et le premier appui partait de là.
+- Un titre sans liaison Plex que l'appareil ne sait pas décoder est maintenant converti par le serveur (H.264 1080p) au lieu de finir sur une erreur.
+- Page d'une saison : un épisode entamé est proposé en premier (« Reprendre l'épisode 5 »), avant le premier épisode non vu.
+- Après « Retirer de la reprise », le focus passe à la carte qui prend la place de celle retirée.
+- Rangée « Play Next » de Google TV : plus de carte en double, et la carte d'un épisode ouvre bien la fiche de sa série.
+- Connexion Plex : Retour ferme le panneau du code au lieu de quitter l'application ; « Annuler » arrête vraiment l'attente (le bouton restait inerte jusqu'à 2 minutes) ; un échec ne reste plus caché derrière le panneau ; boutons lisibles au focus.
+- Page de profil : le focus revient après « Réessayer », et un profil sans activité reste accessible depuis la barre latérale.
+
+### Lecture
+
+- « Continuer à regarder » : un même épisode lu depuis deux applications n'apparaît plus qu'une fois, avec sa position la plus récente — la fiche et la page de saison annonçaient deux temps de reprise différents.
+
+### Android mobile
+
+- Une série ne disparaît plus un instant de « Récemment ajouté » quand on ouvre sa fiche.
+
 ## v1.28.141 — 12 novembre 2026
 
 ### Android TV

@@ -55,6 +55,7 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.focusGroup
 import kotlinx.coroutines.delay
 
 /** Même composition carte que WizardScreen — logo animé, titre, champs
@@ -66,6 +67,8 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var plexBusy by remember { mutableStateOf(false) }
+    // Attente de validation du code Plex en cours : « Annuler » et Retour l'arrêtent.
+    var plexJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var plexCode by remember { mutableStateOf<String?>(null) }
     var plexAuthUrl by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -178,7 +181,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     if (plexBusy || busy) return@Surface
                     plexBusy = true
                     error = null
-                    scope.launch {
+                    plexJob = scope.launch {
                         try {
                             when (val pin = viewModel.createPlexPin()) {
                                 is ApiResult.Success -> {
@@ -223,7 +226,12 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                                 is ApiResult.Failure -> error = "Plex est inaccessible"
                             }
                         } finally {
+                            // Fin de l'attente, quelle qu'en soit la raison (validé,
+                            // refusé, expiré, annulé) : le panneau du code se ferme.
+                            // Il restait affiché par-dessus le message d'erreur.
                             plexBusy = false
+                            plexCode = null
+                            plexAuthUrl = null
                         }
                     }
                 },
@@ -232,6 +240,12 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color.Transparent,
                     contentColor = MovvizAmber,
+                    // Focus : blanc + contenu noir (règle de l'app). Le fond clair par
+                    // défaut gardait le texte jaune, presque illisible.
+                    focusedContainerColor = Color.White,
+                    focusedContentColor = Color.Black,
+                    pressedContainerColor = Color.White,
+                    pressedContentColor = Color.Black,
                 ),
                 border = ClickableSurfaceDefaults.border(
                     border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = RoundedCornerShape(11.dp)),
@@ -246,13 +260,13 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     Icon(
                         imageVector = MovvizIconPlay,
                         contentDescription = null,
-                        tint = MovvizAmber,
+                        tint = androidx.tv.material3.LocalContentColor.current,
                         modifier = Modifier.size(11.dp),
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = if (plexBusy) "Connexion à Plex…" else "Se connecter avec Plex",
-                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizAmber),
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = androidx.tv.material3.LocalContentColor.current),
                     )
                 }
             }
@@ -271,6 +285,19 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                 Text("Changer de serveur", fontSize = 8.sp, color = MovvizInkDim, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
             }
         }
+        // Panneau refermé : le focus revient sur « Se connecter avec Plex ». La
+        // demande part APRÈS la disparition du panneau — tant qu'il est là, son
+        // focus enfermé la refuse et le focus retombait sur le champ du haut.
+        var plexOverlayWasOpen by remember { mutableStateOf(false) }
+        LaunchedEffect(plexCode != null) {
+            if (plexCode != null) { plexOverlayWasOpen = true; return@LaunchedEffect }
+            if (!plexOverlayWasOpen) return@LaunchedEffect
+            plexOverlayWasOpen = false
+            for (attempt in 0 until 10) {
+                withFrameNanos { }
+                if (runCatching { plexLoginFocus.requestFocus() }.getOrDefault(false)) break
+            }
+        }
         if (plexCode != null) {
             PlexCodeOverlay(
                 code = plexCode!!,
@@ -282,8 +309,13 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
                     }
                 },
-                onClose = { plexCode = null; plexAuthUrl = null; runCatching { plexLoginFocus.requestFocus() } },
+                // Annuler arrête aussi l'attente : sinon elle continuait jusqu'à
+                // 2 minutes, le bouton Plex restait inerte, et un code validé
+                // entre-temps connectait quand même le compte.
+                onClose = { plexJob?.cancel(); plexCode = null; plexAuthUrl = null; runCatching { plexLoginFocus.requestFocus() } },
             )
+            // Retour ferme le panneau (avant : il quittait l'application).
+            androidx.activity.compose.BackHandler { plexJob?.cancel(); plexCode = null; plexAuthUrl = null; runCatching { plexLoginFocus.requestFocus() } }
         }
     }
 }
@@ -294,9 +326,17 @@ private fun extractPlexCode(authUrl: String): String? {
     return Uri.parse("https://plex.local/?$query").getQueryParameter("code")
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Unit) {
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .78f)), contentAlignment = Alignment.Center) {
+    Box(
+        // Focus enfermé dans le panneau : la carte de connexion derrière le
+        // voile restait atteignable avec HAUT/BAS.
+        Modifier.fillMaxSize().background(Color.Black.copy(alpha = .78f))
+            .focusProperties { exit = { FocusRequester.Cancel } }
+            .focusGroup(),
+        contentAlignment = Alignment.Center,
+    ) {
         // Focus D-pad initial : l'overlay est un simple Box posé PAR-DESSUS
         // la carte de login (pas un Dialog ni un Popup) — sans demande
         // explicite, le focus reste sur la carte derrière le voile et le
@@ -335,8 +375,8 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
             Text("La TV attend automatiquement la validation…", fontSize = 10.sp, color = MovvizInkDim)
             Spacer(Modifier.height(17.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Surface(onClick = onOpen, modifier = Modifier.focusRequester(openPlexFocus), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
-                Surface(onClick = onClose, scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
+                Surface(onClick = onOpen, modifier = Modifier.focusRequester(openPlexFocus), scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber, focusedContainerColor = Color.White, pressedContainerColor = Color.White), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
+                Surface(onClick = onClose, scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f), contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black, pressedContainerColor = Color.White, pressedContentColor = Color.Black), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp))) { Text("Annuler", color = androidx.tv.material3.LocalContentColor.current, modifier = Modifier.padding(horizontal = 15.dp, vertical = 9.dp)) }
             }
         }
     }
