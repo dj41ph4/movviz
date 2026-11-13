@@ -1,3 +1,9 @@
+## v1.28.146 — 14 november 2026
+
+### Weergave
+
+- Het voorstel om de effecten te verlichten weigeren stelt het nu nog maar 24 uur uit, in plaats van 30 dagen. Al opgeslagen weigeringen volgen dezelfde regel.
+
 ## v1.28.145 — 14 november 2026
 
 ### Weergave

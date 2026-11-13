@@ -1,3 +1,9 @@
+## v1.28.146 — 14 novembre 2026
+
+### Affichage
+
+- Refuser la proposition d'alléger les effets ne la reporte plus que de 24 heures, au lieu de 30 jours. Les refus déjà enregistrés suivent la même règle.
+
 ## v1.28.145 — 14 novembre 2026
 
 ### Affichage

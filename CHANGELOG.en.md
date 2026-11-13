@@ -1,3 +1,9 @@
+## v1.28.146 — November 14, 2026
+
+### Display
+
+- Declining the offer to lighten the effects now postpones it by 24 hours only, instead of 30 days. Refusals already recorded follow the same rule.
+
 ## v1.28.145 — November 14, 2026
 
 ### Display

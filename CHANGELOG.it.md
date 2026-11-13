@@ -1,3 +1,9 @@
+## v1.28.146 — 14 novembre 2026
+
+### Visualizzazione
+
+- Rifiutare la proposta di alleggerire gli effetti la rinvia ora di sole 24 ore, invece di 30 giorni. I rifiuti già registrati seguono la stessa regola.
+
 ## v1.28.145 — 14 novembre 2026
 
 ### Visualizzazione

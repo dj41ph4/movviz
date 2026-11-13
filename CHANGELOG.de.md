@@ -1,3 +1,9 @@
+## v1.28.146 — 14. November 2026
+
+### Anzeige
+
+- Wer den Vorschlag ablehnt, die Effekte zu reduzieren, verschiebt ihn nur noch um 24 Stunden statt um 30 Tage. Bereits gespeicherte Ablehnungen folgen derselben Regel.
+
 ## v1.28.145 — 14. November 2026
 
 ### Anzeige

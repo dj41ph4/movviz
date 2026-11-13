@@ -5,7 +5,10 @@ export const SMOOTHNESS_FIRST_DELAY_MS = 20_000;
 export const SMOOTHNESS_WINDOW_MS = 8_000;
 export const SMOOTHNESS_GAP_MS = 20_000;
 export const SMOOTHNESS_REQUIRED_WINDOWS = 3;
-export const SMOOTHNESS_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
+/** Un refus ne vaut que pour la journée : la proposition peut revenir le lendemain. */
+export const SMOOTHNESS_SNOOZE_MS = 24 * 60 * 60 * 1000;
+/** Ancien délai (30 jours), pour convertir les refus déjà enregistrés. */
+const LEGACY_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Sous 30 images/s : un 30 images/s bien régulier est un cas normal (mode économie
  *  d'énergie, navigateur intégré) et ne doit jamais déclencher la proposition. */
@@ -39,7 +42,12 @@ export function nextStreak(streak: number, verdict: SmoothnessVerdict): number {
 const SNOOZE_STORAGE_KEY = "movviz-smoothness-snooze-until";
 
 export function readSmoothnessSnooze(): number {
-  try { return Number(window.localStorage.getItem(SNOOZE_STORAGE_KEY)) || 0; } catch { return 0; }
+  try {
+    const until = Number(window.localStorage.getItem(SNOOZE_STORAGE_KEY)) || 0;
+    // Une échéance à plus de 24 h date de l'ancien délai de 30 jours : on la
+    // ramène à ce qu'elle aurait été avec le délai actuel (refus + 24 h).
+    return until > Date.now() + SMOOTHNESS_SNOOZE_MS ? until - (LEGACY_SNOOZE_MS - SMOOTHNESS_SNOOZE_MS) : until;
+  } catch { return 0; }
 }
 
 export function writeSmoothnessSnooze(until: number = Date.now() + SMOOTHNESS_SNOOZE_MS): void {
